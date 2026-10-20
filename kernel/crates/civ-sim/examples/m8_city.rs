@@ -57,13 +57,30 @@ fn main() -> ExitCode {
     let people: u32 = args.next().and_then(|s| s.parse().ok()).unwrap_or(PEOPLE);
     let days: i64 = args.next().and_then(|s| s.parse().ok()).unwrap_or(DAYS);
     match make(&saves, seed, people, days) {
-        Ok(text) => {
-            println!("{text}");
-            ExitCode::SUCCESS
-        }
+        // Each line was printed as it came, so a run cut short still says how far it got.
+        Ok(_) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("the demo failed: {e}");
             ExitCode::FAILURE
+        }
+    }
+}
+
+/// The demo's record: each line printed as it comes, and kept.
+#[derive(Default)]
+struct Log(Vec<String>);
+
+impl Log {
+    fn push(&mut self, line: String) {
+        use std::io::Write;
+        println!("{line}");
+        let _ = std::io::stdout().flush();
+        self.0.push(line);
+    }
+
+    fn extend(&mut self, lines: impl IntoIterator<Item = String>) {
+        for line in lines {
+            self.push(line);
         }
     }
 }
@@ -124,8 +141,21 @@ fn teach(
     words: &str,
 ) -> Result<Vec<String>, String> {
     let today = sim.now().day_index();
+    let t = sim
+        .rules()
+        .catalog
+        .technique_index(technique)
+        .ok_or_else(|| format!("{technique} is not in the content"))?;
     let mut out = Vec::new();
     for (p, h) in grown_of_largest(sim, settlement, n) {
+        // Someone who already knows it is not taught it again.
+        if sim.people().person(p).is_some_and(|x| x.knows(t)) {
+            out.push(format!(
+                "day {today}: {} of household {h} already knows {words}",
+                sim.people().name_of(p)
+            ));
+            continue;
+        }
         sim.introduce_technique(p, technique, false)?;
         out.push(format!(
             "day {today}: INTRODUCED (observer): {words} to {} of household {h}",
@@ -332,10 +362,11 @@ fn make(saves: &Path, seed: u64, people: u32, days: i64) -> Result<String, Strin
     }
     sim.set_speed(SPEED_MAX).map_err(|e| e.to_string())?;
     sim.advance_to_midnight().map_err(|e| e.to_string())?;
-    let mut log = vec![format!(
+    let mut log = Log::default();
+    log.push(format!(
         "world (seed {seed}): two groups of {people} founded in {:.1} s",
         made.elapsed().as_secs_f64()
-    )];
+    ));
     // The port is the settlement whose hearth lies nearer the river.
     let mut settlements: Vec<(PermanentId, String, f32)> = sim
         .land()
@@ -371,7 +402,7 @@ fn make(saves: &Path, seed: u64, people: u32, days: i64) -> Result<String, Strin
         day += 1;
         let today = sim.now().day_index();
         let living = sim.people().people.len();
-        if day % 90 == 0 {
+        if day % 30 == 0 {
             let frames = sim
                 .land()
                 .buildings
@@ -385,7 +416,7 @@ fn make(saves: &Path, seed: u64, people: u32, days: i64) -> Result<String, Strin
                 .map(|b| b.spec.storeys)
                 .max()
                 .unwrap_or(0);
-            let recent = &walls[walls.len().saturating_sub(90)..];
+            let recent = &walls[walls.len().saturating_sub(30)..];
             log.push(format!(
                 "day {today}: {living} people, {} buildings, {frames} frames, the tallest of \
                  {tallest} storeys; {:.2} s a day lately",
@@ -473,5 +504,5 @@ fn make(saves: &Path, seed: u64, people: u32, days: i64) -> Result<String, Strin
     let saved = persist::save(&mut sim, &dir, SaveKind::Manual, "After the years")
         .map_err(|e| e.to_string())?;
     log.push(format!("saved: {}", saved.path.display()));
-    Ok(log.join("\n"))
+    Ok(log.0.join("\n"))
 }

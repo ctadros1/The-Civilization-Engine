@@ -12404,12 +12404,13 @@ fn decode_quakes(
                 .iter()
                 .any(|i| i.id == id && i.kind == InfluenceKind::Earthquake)
         };
-        let strength = f64::from(q.strength());
+        // Kept to single precision: 0.6 reads back a hair above the tool's 0.6.
+        let range = STRENGTH_RANGE.0 as f32..=STRENGTH_RANGE.1 as f32;
         if q.id() as usize != index + 1
             || q.at() < 0
             || at > now
             || out.list.last().is_some_and(|p| p.at > at)
-            || !(STRENGTH_RANGE.0..=STRENGTH_RANGE.1).contains(&strength)
+            || !range.contains(&q.strength())
             || !sent(q.influence())
         {
             return Err(bad("its event"));

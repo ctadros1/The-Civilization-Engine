@@ -38,6 +38,7 @@ fn paired(sim: &mut Sim) -> Sim {
         persist::save(sim, &saves, commons_persist::SaveKind::Manual, "hazard").expect("save");
     persist::load(&saved.path, content()).expect("load")
 }
+#[track_caller]
 fn same(a: &Sim, b: &Sim) {
     for (a, b) in persist::encode_sections(a)
         .iter()
@@ -641,15 +642,65 @@ fn shaking_checks_each_standing_building_once_and_its_record_resumes_exactly() {
     use civ_agents::influence::InfluenceKind;
     use civ_agents::quake::{Outcome, RESPONSE_SPREAD};
     let mut sim = world();
-    let (_, hut) = weak_covering(&mut sim);
+    let (owner, hut) = weak_covering(&mut sim);
+    // And a longhouse of two storeys of rubble beside it, its walls untied: they stand their whole
+    // height, some 5 m on 30 cm.
+    let rubble = {
+        use civ_agents::build::{self, FireDesign, Shape};
+        let home = sim
+            .people()
+            .households
+            .iter()
+            .map(|(_, h)| h.home)
+            .next()
+            .expect("home");
+        let catalog = &content().catalog;
+        let def = &catalog.buildings[catalog
+            .building_index("core:building/longhouse")
+            .expect("longhouse")];
+        let spec = build::design_cautious(
+            def,
+            &catalog.goods,
+            Shape::Bays {
+                bays: 2,
+                storeys: 2,
+                lofts: 0,
+            },
+            (home.0 + 25.0, home.1),
+            None,
+            1.0,
+            None,
+            Some(FireDesign {
+                caution_thatch: 1.0,
+                caution_wattle: 2.0,
+                knows_rubble: true,
+                knows_mud_brick: false,
+                knows_firing: false,
+                knows_lime: false,
+                knows_systems: [false; 3],
+            }),
+        )
+        .expect("design");
+        assert_eq!(
+            spec.params[civ_grammar::frame_params::WALL_KIND],
+            1,
+            "rubble"
+        );
+        sim.place_building_for_tests(owner, spec, civ_grammar::Stage::ALL.len() as u8)
+            .expect("place")
+    };
+    // A hut placed by hand leaves state a load derives otherwise; start from the world as loaded.
+    let mut sim = paired(&mut sim);
     // Out of the tool's range, or a settlement that is not, nothing changes.
-    let before = paired(&mut sim);
+    let before = persist::encode_sections(&sim);
     for strength in [0.01, 0.7, f64::NAN] {
         assert!(sim.shake(strength, None).is_err(), "{strength}");
     }
     let nowhere = civ_core::PermanentId::from_raw(999_999).expect("id");
     assert!(sim.shake(0.2, Some(nowhere)).is_err());
-    same(&sim, &before);
+    for (a, b) in before.iter().zip(persist::encode_sections(&sim)) {
+        assert_eq!(a.bytes, b.bytes, "section {}", a.tag);
+    }
     let standing: Vec<_> = sim
         .land()
         .buildings
@@ -715,6 +766,8 @@ fn shaking_checks_each_standing_building_once_and_its_record_resumes_exactly() {
     );
     let dead: u32 = fell.iter().map(|s| u32::from(s.deaths)).sum();
     assert_eq!(dead, told.iter().map(|e| e.number as u32).sum::<u32>());
+    // Untied rubble that stands five metres on thirty centimetres overturns at the strongest.
+    assert!(fell.iter().any(|s| s.building == rubble), "{q:?}");
     for s in &fell {
         let b = sim
             .land()

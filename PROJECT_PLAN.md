@@ -5537,6 +5537,28 @@ and M6a gives rivers a daily flow.
     - **DH**: every other behaviour resolved as a block or listed as not taken (ADR-0032 §2),
       incidents at a block's end, a settlement held Detailed while a fire, band, siege or called
       gathering holds.
+      - *As built (2026-10-20):* every behaviour is now shared, never taken, or lived apart,
+        and a unit test fails if one is added without saying which. **Shared** besides DG's: paid
+        work, crossings, wells, banks, ditches, palisades, ways, raising, boats and carts made,
+        the watch, tending, taking, and coming to a gathering, poll or petition (counted as an
+        arrival there is: `attend`, `cast`, `join_petition`); paid work, taking, a round of the
+        watch and each gathering at most once a day. **Never taken** (`NOT_TAKEN`): visits,
+        fetching, carrying dues, bands and the four fire behaviours; options moved by boat or cart
+        wait for slice DJ's journeys. **Lived apart:** the night, meals and water. Each step of a
+        block is dated by its own length (a walk's route, work's minutes), so time use, practice
+        and everything reading a step's duration count as an event-driven day does. **Held
+        Detailed** (`held_detailed`, worked out at each reconcile from saved state): a
+        settlement where a fire burns, or which a band was called from, set off for, camps by or
+        holds, until it is home or dispersed. No fire in use is tended, so none escapes, in a
+        settlement household-resolved. A Detailed visitor at a household-resolved hearth meets its
+        parked residents. A called gathering does not hold a settlement (ADR-0032, amendment).
+        **Exact:** with no settlement household-resolved, every section's digest equals the build
+        before. **Tested:** the classification; a fire set ten minutes before midnight holds its
+        settlement Detailed, its people about their day, and when it is out the settlement is
+        household-resolved again; with both settlements household-resolved fifteen days, no
+        minute goes to a behaviour never taken, and the fields are worked. **Measured** (2×500,
+        Max, 40 days, one household-resolved): 769 ms a day, 288 fields and 212 buildings
+        (wholly Detailed: 1,204 ms, 293 and 212).
     - **DI**: Gate C (`consistency --resolution household`), planning in parallel and exact at
       1–8 workers, measured.
   - **M9b, many settlements** (ADR-0032 §6, §8).

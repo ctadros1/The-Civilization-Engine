@@ -125,7 +125,16 @@ impl Population {
                 .get(h)
                 .is_some_and(|q| q.act.target == hearth && present(q))
         });
-        there.iter().map(|&(q, _)| q).filter(|&q| q != me).collect()
+        let mut out: Vec<PermanentId> =
+            there.iter().map(|&(q, _)| q).filter(|&q| q != me).collect();
+        // At a household-resolved settlement's hearth its people are met as they stand parked
+        // (ADR-0032 §4).
+        if self.resolved_settlement(s) {
+            out.extend(self.parked_residents(s).into_iter().filter(|&q| q != me));
+            out.sort_unstable();
+            out.dedup();
+        }
+        out
     }
 
     /// `me` keeps company at the hearth for `minutes` with `present` there: a few of them, drawn

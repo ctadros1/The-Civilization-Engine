@@ -29,7 +29,7 @@ pub(super) struct Planned {
 
 /// Behaviours a household-resolved day shares hours among (slice DG): the rest wait for slice DH
 /// or are not taken while household-resolved (ADR-0032 §2).
-const SHARED: [Behavior; 11] = [
+const SHARED: [Behavior; 27] = [
     Behavior::Gather,
     Behavior::Farm,
     Behavior::Build,
@@ -41,10 +41,51 @@ const SHARED: [Behavior; 11] = [
     Behavior::Socialize,
     Behavior::Ask,
     Behavior::Trade,
+    // Slice DH: work for others and the polity, the watch, care, taking, and the gatherings.
+    Behavior::Hire,
+    Behavior::Bridge,
+    Behavior::Well,
+    Behavior::Levee,
+    Behavior::Ditch,
+    Behavior::Palisade,
+    Behavior::Way,
+    Behavior::Raise,
+    Behavior::Boat,
+    Behavior::Cart,
+    Behavior::Watch,
+    Behavior::Tend,
+    Behavior::Take,
+    Behavior::Attend,
+    Behavior::Poll,
+    Behavior::Petition,
 ];
 
-/// Behaviours taken at most once a day: each is a claim on someone else's goods.
-const ONCE: [Behavior; 2] = [Behavior::Ask, Behavior::Trade];
+/// Behaviours never taken while household-resolved (ADR-0032 §2): journeys to another place
+/// (a visit, a fetch, carrying dues, a band) and the fire behaviours, as no fire starts there and
+/// a burning settlement is held Detailed. Sleep, meals and water are lived apart from the shares.
+pub const NOT_TAKEN: [Behavior; 8] = [
+    Behavior::Visit,
+    Behavior::Fetch,
+    Behavior::Carry,
+    Behavior::Band,
+    Behavior::Douse,
+    Behavior::Strip,
+    Behavior::Salvage,
+    Behavior::Pull,
+];
+
+/// Behaviours taken at most once a day: a claim on someone else's goods or work, a round of the
+/// watch, or coming to a gathering, poll or petition.
+const ONCE: [Behavior; 8] = [
+    Behavior::Ask,
+    Behavior::Trade,
+    Behavior::Hire,
+    Behavior::Take,
+    Behavior::Watch,
+    Behavior::Attend,
+    Behavior::Poll,
+    Behavior::Petition,
+];
 
 fn behavior_of(ctx: &Ctx, c: &decide::Candidate) -> Option<Behavior> {
     ctx.catalog
@@ -70,8 +111,21 @@ fn work_minutes(c: &decide::Candidate) -> u32 {
 /// count, [`ONCE`] at most once, and an option that lays claim to new ground, a home or a
 /// workshop once. Counts are rounded by largest remainder, ties to the earlier option.
 fn shares(ctx: &Ctx, plan: &Planned, waking: f64, home: (f32, f32)) -> Vec<(usize, u32)> {
+    // Options moved by a boat or a cart wait for the journeys they make (slice DH lists them).
+    let moved = |c: &decide::Candidate| {
+        c.steps.iter().any(|s| {
+            matches!(
+                s,
+                Step::Paddle { .. } | Step::Haul { .. } | Step::Handle { .. }
+            )
+        })
+    };
     let idx: Vec<usize> = (0..plan.cands.len())
-        .filter(|&i| behavior_of(ctx, &plan.cands[i]).is_some_and(|b| SHARED.contains(&b)))
+        .filter(|&i| {
+            behavior_of(ctx, &plan.cands[i])
+                .is_some_and(|b| SHARED.contains(&b) && !NOT_TAKEN.contains(&b))
+                && !moved(&plan.cands[i])
+        })
         .collect();
     if idx.is_empty() || waking <= 0.0 {
         return Vec::new();
@@ -163,7 +217,17 @@ impl Population {
         self.resolved = settlements;
     }
 
-    /// Whether person `h` lives in a household-resolved settlement.
+    /// The household-resolved settlements held Detailed for now (ADR-0032 §1).
+    pub fn held_detailed(&self) -> &BTreeSet<PermanentId> {
+        &self.held
+    }
+
+    /// Whether settlement `s` lives household-resolved now: set so, and not held.
+    pub(super) fn resolved_settlement(&self, s: PermanentId) -> bool {
+        self.resolved.contains(&s) && !self.held.contains(&s)
+    }
+
+    /// Whether person `h` lives in a settlement household-resolved now.
     pub(super) fn resolved_person(&self, h: Handle<Person>) -> bool {
         if self.resolved.is_empty() {
             return false;
@@ -172,7 +236,55 @@ impl Population {
             .get(h)
             .and_then(|p| self.household(p.household))
             .and_then(|x| x.settlement)
-            .is_some_and(|s| self.resolved.contains(&s))
+            .is_some_and(|s| self.resolved_settlement(s))
+    }
+
+    /// Works out which household-resolved settlements are held Detailed (ADR-0032 §1): any where
+    /// a fire burns, and any a band was called from, or set off for, and is not yet home or
+    /// dispersed; a band camped by a line or holding a place keeps both held.
+    fn refresh_holds(&mut self) {
+        self.held.clear();
+        if self.resolved.is_empty() {
+            return;
+        }
+        for f in &self.fires.list {
+            if f.burning()
+                && let Some(s) = f.settlement
+            {
+                self.held.insert(s);
+            }
+        }
+        let mut bands = Vec::new();
+        for b in &self.order.bands {
+            if matches!(
+                b.stage,
+                crate::war::BandStage::Called
+                    | crate::war::BandStage::Out
+                    | crate::war::BandStage::Camped
+                    | crate::war::BandStage::Holding
+            ) {
+                bands.push((b.settlement, b.target));
+            }
+        }
+        for (from, target) in bands {
+            self.held.insert(from);
+            if let Some(s) = self.household(target).and_then(|x| x.settlement) {
+                self.held.insert(s);
+            }
+        }
+        self.held.retain(|s| self.resolved.contains(s));
+    }
+
+    /// The parked residents of settlement `s`, in id order: whom a Detailed visitor to its hearth
+    /// meets while it is household-resolved (ADR-0032 §4).
+    pub(super) fn parked_residents(&self, s: PermanentId) -> Vec<PermanentId> {
+        let mut out: Vec<PermanentId> = self
+            .households_in(s)
+            .flat_map(|x| x.members.iter().copied())
+            .filter(|&m| self.index.get(&m).is_some_and(|&h| self.parked(h)))
+            .collect();
+        out.sort_unstable();
+        out
     }
 
     /// Whether person `h` is parked: their activity has no steps and stands at
@@ -234,6 +346,7 @@ impl Population {
     /// Parks everyone of a household-resolved settlement not yet parked, in person-table order.
     /// It changes nobody, no holding and no good the books do not account for.
     pub fn park_resolved(&mut self, ctx: &mut Ctx) {
+        self.refresh_holds();
         if self.resolved.is_empty() {
             return;
         }
@@ -286,7 +399,12 @@ impl Population {
         // Waking minutes a day, less the meals (a design prior: the content's sleep range's
         // middle; slice DI measures the day against Detailed).
         let sleep_min = 30.0 * (params.sleep.min_hours + params.sleep.max_hours);
-        let settlements: Vec<PermanentId> = self.resolved.iter().copied().collect();
+        let settlements: Vec<PermanentId> = self
+            .resolved
+            .iter()
+            .copied()
+            .filter(|s| !self.held.contains(s))
+            .collect();
         for s in settlements {
             let mut company: Vec<(PermanentId, u32, u32)> = Vec::new();
             let households: Vec<PermanentId> = self.households_in(s).map(|x| x.id).collect();
@@ -418,9 +536,28 @@ impl Population {
                     if !self.start_walk(ctx, h, to) {
                         break;
                     }
+                    // The walk took what it was planned to: its step is dated so.
+                    if let Some(p) = self.people.get_mut(h) {
+                        let took = (p.act.step_ends.minutes() - ctx.now.minutes()).max(0);
+                        p.act.step_started = ctx.now.plus_minutes(-took);
+                    }
                     self.end_step(ctx, h);
                 }
-                Step::Work { .. } => self.end_step(ctx, h),
+                Step::Work { minutes } => {
+                    // The work took its minutes: its step is dated so, as time use and practice
+                    // read it.
+                    p.act.step_started = ctx.now.plus_minutes(-i64::from(minutes));
+                    // Coming to a gathering, a poll or a petition is counted as an arrival there
+                    // is (ADR-0032 §2).
+                    let me = p.id;
+                    match behavior_of(ctx, cand) {
+                        Some(Behavior::Attend) => self.attend(ctx, me),
+                        Some(Behavior::Poll) => self.cast(ctx, me),
+                        Some(Behavior::Petition) => self.join_petition(ctx, me),
+                        _ => {}
+                    }
+                    self.end_step(ctx, h);
+                }
                 Step::Deposit => self.deposit(ctx, h),
                 Step::Wait { .. }
                 | Step::Paddle { .. }
@@ -480,5 +617,28 @@ impl Population {
                 _ => None,
             })
             .collect()
+    }
+}
+
+/// Behaviours a household-resolved day lives apart from the shares: the night, meals and water.
+#[cfg(test)]
+const APART: [Behavior; 3] = [Behavior::Sleep, Behavior::Eat, Behavior::FetchWater];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_behaviour_is_shared_not_taken_or_lived_apart_and_only_one_of_them() {
+        // ADR-0032 §2: each behaviour added names how a household-resolved day takes it.
+        for b in Behavior::ALL {
+            let n = usize::from(SHARED.contains(&b))
+                + usize::from(NOT_TAKEN.contains(&b))
+                + usize::from(APART.contains(&b));
+            assert_eq!(n, 1, "{b:?} is in {n} of shared, not taken and lived apart");
+        }
+        for b in ONCE {
+            assert!(SHARED.contains(&b), "{b:?} is once a day but not shared");
+        }
     }
 }

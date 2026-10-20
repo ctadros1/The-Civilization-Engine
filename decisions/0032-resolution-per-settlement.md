@@ -203,3 +203,15 @@ compose by sum (offsets) and product (factors).
   to a household-resolved hearth meet nobody parked there (§4's pool for visitors is slice DH's).
 - **Eating** is once a day, what the night and the day before used; **water** is fetched by the
   trip a member would make, until a day's use is in.
+
+## Amendment (2026-10-20, M9a slice DH): what holds a settlement, and what waits
+
+- **A called gathering does not hold a settlement Detailed** (§1 listed it). Coming to a
+  gathering, a poll or a petition is now a block counted as an arrival there is, so a
+  household-resolved settlement takes part in its polity's decisions; holding it for every
+  gathering would have kept settlements Detailed most of the time. Fires and bands still hold.
+- **Options moved by a boat or a cart** (paddling, hauling, handling a load) are left out of a
+  household-resolved day until slice DJ gives such journeys their block; making a boat or a cart
+  is shared.
+- **No fire in use is tended in a household-resolved settlement**, so none escapes there: §2's
+  "ignitions are planned only for Detailed settlements", as built.

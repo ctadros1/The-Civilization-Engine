@@ -383,3 +383,85 @@ fn household_resolved_days_are_the_same_however_the_time_is_cut() {
     }
     assert_same("eight days cut every 433 minutes", &whole, &cut);
 }
+
+#[test]
+fn a_burning_settlement_is_held_detailed_until_its_fire_is_out() {
+    // ADR-0032 §1: nobody fights a fire in a household-resolved settlement, so one where a fire
+    // burns lives Detailed until it is out.
+    let mut sim = two_settlements();
+    // Lived on until a home is roofed; the settlement it stands in is the one resolved.
+    let mut found = None;
+    for _ in 0..60 {
+        found = sim.land().buildings.iter().find(|b| b.roofed()).map(|b| {
+            let s = sim
+                .people()
+                .household(b.household)
+                .and_then(|x| x.settlement)
+                .expect("a settlement");
+            (b.id, s)
+        });
+        if found.is_some() {
+            break;
+        }
+        sim.advance_minutes(MINUTES_PER_DAY).expect("advances");
+    }
+    let (building, s) = found.expect("a home is roofed within two months");
+    sim.set_household_resolved([s]);
+    sim.advance_minutes(MINUTES_PER_DAY).expect("advances");
+    // Set alight ten minutes before midnight: it still burns when the day turns.
+    sim.advance_minutes(MINUTES_PER_DAY - 10).expect("advances");
+    sim.set_fire(building).expect("set alight");
+    sim.advance_to_midnight().expect("advances");
+    assert!(
+        sim.people().fires.list.iter().any(|f| f.burning()),
+        "it still burns"
+    );
+    assert!(
+        sim.people().held_detailed().contains(&s),
+        "held while it burns"
+    );
+    assert!(
+        residents(&sim, s).iter().all(|id| !sim
+            .people()
+            .person(*id)
+            .expect("lives")
+            .act
+            .steps
+            .is_empty()),
+        "its people are about their day, and may fight it"
+    );
+    // Fires burn out within hours; by the midnight after, it is household-resolved again.
+    sim.advance_minutes(2 * MINUTES_PER_DAY).expect("advances");
+    assert!(!sim.people().fires.list.iter().any(|f| f.burning()));
+    assert!(sim.people().held_detailed().is_empty());
+    assert!(sim.people().resolution_problems().is_empty());
+}
+
+#[test]
+fn nothing_not_taken_is_ever_lived_while_household_resolved() {
+    // ADR-0032 §2: visits, fetches, carrying dues, bands and fighting fires are never taken while
+    // household-resolved; work, care and the rest are.
+    let mut sim = two_settlements();
+    let both: Vec<_> = sim.land().settlements.iter().map(|x| x.id).collect();
+    sim.set_household_resolved(both);
+    sim.advance_minutes(MINUTES_PER_DAY).expect("advances");
+    let before = sim.people().time_use.work;
+    sim.advance_minutes(15 * MINUTES_PER_DAY).expect("advances");
+    let after = sim.people().time_use.work;
+    let minutes = |b: civ_agents::params::Behavior| {
+        let i = civ_agents::params::Behavior::ALL
+            .iter()
+            .position(|&x| x == b)
+            .expect("listed");
+        after[i] - before[i]
+    };
+    for b in civ_agents::population::NOT_TAKEN {
+        assert_eq!(minutes(b), 0.0, "{b:?} was lived");
+    }
+    assert!(
+        minutes(civ_agents::params::Behavior::Farm) > 0.0
+            || minutes(civ_agents::params::Behavior::Gather) > 0.0
+    );
+    assert!(sim.people().resolution_problems().is_empty());
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+}

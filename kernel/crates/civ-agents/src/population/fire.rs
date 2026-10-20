@@ -384,6 +384,14 @@ impl Population {
             if !home || members == 0 {
                 continue;
             }
+            // No fire in use is tended in a household-resolved settlement (ADR-0032 §2).
+            if self
+                .household(b.household)
+                .and_then(|x| x.settlement)
+                .is_some_and(|s| self.resolved_settlement(s))
+            {
+                continue;
+            }
             let mean = ignition_bound(p, members) * scale * 24.0;
             let mut rng = Rng64::from_key(&[ctx.seed, PURPOSE_IGNITE, b.id.get(), day as u64]);
             let count = civ_land::poisson_quantile(mean, rng.next_f64());

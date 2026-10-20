@@ -75,7 +75,7 @@ mod war;
 mod way_works;
 pub use crime::TakeProbe;
 pub use payments::Burden;
-pub use resolution::SwitchInvariants;
+pub use resolution::{NOT_TAKEN, SwitchInvariants};
 mod credit;
 mod patronage;
 mod places;
@@ -520,6 +520,9 @@ pub struct Population {
     /// The settlements household-resolved (M9a slice DF, ADR-0032 §1): a run setting, never
     /// saved; their people are parked ([`Self::reconcile_resolutions`]).
     resolved: BTreeSet<PermanentId>,
+    /// Of those, the ones held Detailed for now (ADR-0032 §1): a fire burns there, or a band is
+    /// called from it, out from it, or come to it. Derived from saved state at each reconcile.
+    held: BTreeSet<PermanentId>,
     /// Whether a decision is a household-resolved day's planning, and what it found
     /// (ADR-0032 §2): set and taken within [`Self::live_household_days`] only.
     planning: bool,

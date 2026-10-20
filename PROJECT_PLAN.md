@@ -5167,6 +5167,16 @@ and M6a gives rivers a daily flow.
         settlement, and answers what fell; the Shaking row sums its worlds; the web builds the
         command, and end to end the button shakes a sixty-day village and the chronicle records
         it as the observer's. **Boundary:** wire 1.90.
+      - *Fourth part, as built (2026-10-20): joints by their masonry, and the four-way sweep*
+        (ADR-0031 §3; research 11-05 §2.5: calibrate by interface type). A mass wall's cohesion
+        is a share of its masonry's strength in compression (a design prior, §9), so fired
+        brick in lime binds best and mud brick least; a sound wall's joints also hold it out of
+        its plane beyond rocking about its foot (`t/h + c·t²·L / 3Nh`), which a crack takes
+        away with its cohesion. **Test:** the four-way sweep: two storeys of 30 cm walls of
+        each masonry, tied and untied, and a frame of twelve oak posts a storey: ties raise
+        every wall's share of its weight it meets sideways before giving way, fired brick holds
+        more than rubble and rubble more than mud brick, and the light frame more than any of
+        them; a cracked wall only rocks (`t/h` exactly).
     - **DB, after the shaking:** `MostStoreys` and `TiedWalls`, forecasts of floor lost and of
       losses avoided, lessons from what was seen to fall. *Tests:* a shaken village proposes a
       rule only where someone knows the remedy; a household planning height opposes it.
@@ -6470,9 +6480,23 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Design priors for masonry under shaking (2026-10-20, M8d slice DA, ADR-0031 §3):** NUDGE:
   a mass wall's bed joints resist sliding with friction 0.55 and cohesion 0.08 MPa
   (`MASONRY_FRICTION`, `MASONRY_COHESION_PA`; research 11-05 §2.5 reports one air-lime rubble
-  calibration of μ = 0.558 and c = 0.0815 MPa), the same for rubble, mud brick and fired brick,
-  and a cracked wall keeps its friction but loses its cohesion. Design priors, to be revisited
-  if the four-way sweep orders construction against what the reports say.
+  calibration of μ = 0.558 and c = 0.0815 MPa), and a cracked wall keeps its friction but loses
+  its cohesion. Revised in slice DA's fourth part: the research asks joints to be calibrated by
+  kind, so cohesion is a share of the masonry's strength in compression from content
+  (`MASONRY_COHESION_SHARE` 0.054, which gives the calibration's 0.08 MPa for the core's 1.5 MPa
+  rubble, 0.054 MPa for mud brick and 0.16 MPa for fired brick in lime), and the same cohesion
+  stands for the joints' bond in bending, which holds a sound wall out of its plane beyond rocking
+  (`c·t²·L / 3Nh`; EN 1996's flexural strengths are of the same order). Design priors, to be
+  revisited if the four-way sweep or the demo orders construction against what the reports say.
+- **What the four-way sweep found (2026-10-20, M8d slice DA's fourth part, ADR-0031 §3):**
+  NUDGE: two storeys of 30 cm walls meet, before one gives way, about 0.15 (mud brick), 0.15
+  (rubble) and 0.19 (fired brick) of their weight sideways tied at each floor, and half of that
+  untied, which sits in the range at which unreinforced masonry is damaged; but a frame of twelve
+  20 cm oak posts a storey meets about 10 of its weight, so a timber frame never falls by
+  shaking. Posts are checked only as cantilevers in bending; the frame's joints, which ADR-0031
+  §3 names and research 11-05 says fail first, are not yet checked. Recorded, not tuned: the
+  joints wait for the storeyed frame's check, and the demo should not read frames' survival as a
+  finding.
 - **Why no frame is built, probed (2026-10-19, M8d slice CY's first step, ADR-0031 §6):** read
   from the code, so it holds for every world. **Nobody can come to know framing:** founders bring
   the roundhouse, wood shaping, rubble walling and mud brick, but not `jointed_frame`, and its

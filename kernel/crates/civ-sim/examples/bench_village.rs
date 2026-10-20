@@ -48,6 +48,7 @@ struct Args {
     exact: bool,
     only: String,
     groups: u32,
+    household: usize,
     known: bool,
     stop_trade: bool,
     no_sights: bool,
@@ -70,6 +71,7 @@ fn args() -> Args {
         exact: false,
         only: String::new(),
         groups: 1,
+        household: 0,
         known: false,
         stop_trade: false,
         no_sights: false,
@@ -115,6 +117,8 @@ fn args() -> Args {
             "--families" => a.families = value.parse().expect("--families N"),
             "--only" => a.only = value,
             "--groups" => a.groups = value.parse().expect("--groups N"),
+            // The last N settlements household-resolved (M9a slice DF, ADR-0032 §1).
+            "--household" => a.household = value.parse().expect("--household N"),
             other => panic!("unknown flag {other}"),
         }
     }
@@ -202,6 +206,16 @@ fn main() {
             .count(),
         started.elapsed().as_secs_f64()
     );
+    if a.household > 0 {
+        let all: Vec<_> = sim.land().settlements.iter().map(|s| s.id).collect();
+        let resolved = all[all.len().saturating_sub(a.household)..].to_vec();
+        println!(
+            "household-resolved from the next midnight: {} of {} settlements",
+            resolved.len(),
+            all.len()
+        );
+        sim.set_household_resolved(resolved);
+    }
     let lived = Instant::now();
     let mut window = Instant::now();
     let (mut slowest, mut slowest_day) = (0.0f64, 0);

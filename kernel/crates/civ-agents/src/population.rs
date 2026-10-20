@@ -75,6 +75,7 @@ mod war;
 mod way_works;
 pub use crime::TakeProbe;
 pub use payments::Burden;
+pub use resolution::SwitchInvariants;
 mod credit;
 mod patronage;
 mod places;
@@ -82,6 +83,7 @@ mod polity;
 mod privileges;
 mod relations;
 mod residence;
+mod resolution;
 mod rules;
 mod sickness;
 mod stewardship;
@@ -515,6 +517,9 @@ pub struct Population {
     /// People in a leisure block that ends by their choosing something else, with the version of
     /// that activity and its activity (ADR-0011 §4). Kept only until the next midnight.
     switched: FastMap<PermanentId, (u32, u16)>,
+    /// The settlements household-resolved (M9a slice DF, ADR-0032 §1): a run setting, never
+    /// saved; their people are parked ([`Self::reconcile_resolutions`]).
+    resolved: BTreeSet<PermanentId>,
     /// Per settlement, who has set to keeping company at its hearth since it was last looked at,
     /// and who was there then, in id order: everyone there now, and some who have left
     /// ([`Self::hearth_company`]). Derived: built at the first look after a load.
@@ -1477,7 +1482,9 @@ impl Population {
             if usize::from(p.act.def) >= catalog_len.max(1) {
                 out.push(format!("person {} does an unknown activity", p.id));
             }
-            if usize::from(p.act.step) > p.act.steps.len() {
+            // A parked activity (ADR-0032 §3) has no steps and stands at its own mark.
+            let parked = p.act.steps.is_empty() && p.act.step == resolution::PARKED_STEP;
+            if usize::from(p.act.step) > p.act.steps.len() && !parked {
                 out.push(format!(
                     "person {} is past the last step of their activity",
                     p.id
@@ -3254,6 +3261,12 @@ impl Population {
     }
 
     fn decide(&mut self, ctx: &mut Ctx, h: Handle<Person>, depth: u32) {
+        // Someone of a household-resolved settlement decides nothing: their day is lived at
+        // midnight (ADR-0032 §2).
+        if self.resolved_person(h) {
+            self.park(ctx, h);
+            return;
+        }
         let now = ctx.now;
         let params = ctx.params;
         let Some(p) = self.people.get_mut(h) else {

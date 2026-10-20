@@ -5476,6 +5476,32 @@ and M6a gives rivers a daily flow.
       to midnight, demotion and promotion, the invariants function, Gate A's switch tests, a
       household-resolved settlement living only its needs (sleep, meals, water) in tests, and the
       bench founding many settlements with some household-resolved.
+      - *As built (2026-10-20):* `Sim::set_household_resolved` names the household-resolved
+        settlements, a run setting never saved: set between midnights it is held for the next,
+        set at a midnight it takes effect before the next event. At each midnight, after the
+        day's work, `Population::park_resolved` parks everyone of a household-resolved settlement
+        (what they carry banked, standing at home, their activity replaced by one of no steps
+        standing at `PARKED_STEP`, so no event of the old one does anything), then
+        `resume_unresolved` gives anyone parked elsewhere a first decision, and
+        `live_household_days` lives the household-resolved settlements' needs: each parked
+        member's needs brought up to the hour at a day's mean activity (1.6 times basal, a
+        design prior), a meal from the household's stores as one at home is eaten, rested, and
+        the household's water at a day's use. `decide` parks anyone of a household-resolved
+        settlement who reaches it. Parking is idempotent and the parked form is saved as it
+        stands, so a save of a household-resolved world loaded and set again lives on byte for
+        byte as if never saved, and one loaded and not set again takes up its day at the first
+        advance. With debug checks on, every switch at a midnight asserts that nobody, no
+        household's membership or settlement, and no holder of a field, building or workshop
+        changed, and that the books balance (`switch_invariants`, `unaccounted`). **Tested**
+        (`tests/resolution.rs`): a switch undone before it takes effect leaves every section's
+        bytes as they were; a settlement held for midnight is parked then, eats from its stores
+        and the other settlement lives as ever; parking mid-morning changes no record and leaves
+        the books balanced with loads banked; the save and load continuations above; a
+        settlement brought back is about its day again; six switches back and forth lose nobody.
+        `bench_village --household N` makes the last N settlements household-resolved.
+        **Measured:** two settlements of 500 at Max, six days: 1,093 ms a day wholly Detailed,
+        822 ms with one household-resolved; the parked half eats but does not yet farm (169
+        fields against 123), so this is no measure of the household day, which slice DG builds.
     - **DG**: the household day for the core behaviours: pure planning by `decide::candidates`,
       hours shared by the softmax's probabilities, blocks applied through each behaviour's own
       effect function in household id order (gather, farm, build, make, dig, leisure, ask, trade

@@ -17,6 +17,7 @@ pub mod labels;
 pub mod persist;
 pub mod relations;
 
+use std::collections::BTreeSet;
 use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -317,6 +318,37 @@ impl fmt::Display for SimError {
 
 impl std::error::Error for SimError {}
 
+/// What a switch of resolution is checked against (ADR-0032 §3): the invariants, what is held
+/// and the books.
+type SwitchCheck = (
+    civ_agents::population::SwitchInvariants,
+    Vec<f64>,
+    civ_agents::person::Flows,
+);
+
+fn switch_check(people: &Population, land: &Land) -> SwitchCheck {
+    (
+        people.switch_invariants(land),
+        people.goods_held(),
+        people.flows(),
+    )
+}
+
+/// With debug checks on (the suite's profile), a switch of resolution changes nobody, no holding
+/// and no good beyond what the books account for (ADR-0032 §3).
+fn check_switch(before: &SwitchCheck, after: &SwitchCheck) {
+    debug_assert_eq!(before.0, after.0, "a switch of resolution changed a record");
+    debug_assert!(
+        civ_agents::population::unaccounted(
+            before.1.len().max(after.1.len()),
+            (&before.1, &before.2),
+            (&after.1, &after.2),
+        )
+        .is_empty(),
+        "a switch of resolution left goods unaccounted"
+    );
+}
+
 /// One world and everything the kernel knows about it.
 #[derive(Debug)]
 pub struct Sim {
@@ -330,6 +362,11 @@ pub struct Sim {
     /// How the kernel advances now, and a change of mode held for the next midnight.
     mode: Mode,
     mode_next: Option<Mode>,
+    /// The settlements to be household-resolved from the next midnight (ADR-0032 §1), and
+    /// whether people's execution is to be brought in line before the next event (after a load,
+    /// or a change made while the clock stands at a midnight). A setting, never saved.
+    resolution_next: Option<BTreeSet<civ_core::PermanentId>>,
+    reconcile_due: bool,
     /// The approximations Accelerated mode makes (ADR-0011 §4): all it declares, unless a test
     /// has switched some off. Detailed mode makes none. A setting, never saved.
     approximations: Approximations,
@@ -1055,6 +1092,8 @@ impl Sim {
             speed: SPEED_1X,
             mode: Mode::Detailed,
             mode_next: None,
+            resolution_next: None,
+            reconcile_due: true,
             approximations: Approximations::ACCELERATED,
             carry_seconds: 0.0,
             content,
@@ -1165,6 +1204,58 @@ impl Sim {
             seed,
             0x6761_7465_6221,
         ]));
+    }
+
+    /// The settlements household-resolved now (ADR-0032 §1).
+    pub fn household_resolved(&self) -> &BTreeSet<civ_core::PermanentId> {
+        self.people.household_resolved()
+    }
+
+    /// Makes `settlements` the household-resolved ones (ADR-0032 §1, §3), the rest Detailed: at
+    /// the next midnight, after the day's work there, their people parked and their day lived
+    /// then; or, if the clock stands at a midnight, before the next event, the day there already
+    /// lived. A setting, never saved: a world loaded is wholly Detailed until it is set again.
+    pub fn set_household_resolved(
+        &mut self,
+        settlements: impl IntoIterator<Item = civ_core::PermanentId>,
+    ) {
+        let set: BTreeSet<_> = settlements.into_iter().collect();
+        if self.now().minute_of_day() == 0 {
+            self.people.set_household_resolved(set);
+            self.resolution_next = None;
+            self.reconcile_due = true;
+        } else {
+            self.resolution_next = Some(set);
+        }
+    }
+
+    /// Brings people's execution in line with the resolutions in force, now.
+    fn reconcile_now(&mut self) {
+        let now = self.now();
+        let approx = self.approximations_now();
+        let mut pending = Vec::new();
+        {
+            let mut ctx = Ctx {
+                now,
+                seed: self.meta.seed,
+                map: &self.map,
+                nav: &self.nav,
+                land: &mut self.land,
+                land_params: &self.rules.land,
+                params: &self.rules.people,
+                catalog: &self.rules.catalog,
+                regime: &self.regime,
+                ids: &mut self.ids,
+                schedule: &mut pending,
+                approx,
+            };
+            self.people.reconcile_resolutions(&mut ctx);
+        }
+        for (at, event) in pending {
+            let _ = self
+                .scheduler
+                .schedule(at, PHASE_AGENT, SimEvent::Agent(event));
+        }
     }
 
     /// The approximations made now, in the mode in force.
@@ -1553,6 +1644,9 @@ impl Sim {
         }
         // Households changed by hand in a test are indexed again before anyone looks.
         self.people.refresh_settled();
+        if std::mem::take(&mut self.reconcile_due) {
+            self.reconcile_now();
+        }
         let target = self.now().plus_minutes(minutes);
         let mut advance = Advance {
             minutes,
@@ -1570,6 +1664,7 @@ impl Sim {
             people,
             mode,
             mode_next,
+            resolution_next,
             approximations,
             ..
         } = self;
@@ -1607,6 +1702,20 @@ impl Sim {
                             approx: in_mode(*approximations, *mode),
                         };
                         people.on_day(&mut ctx);
+                        // Resolutions per settlement (ADR-0032 §1–§3): a change held for this
+                        // midnight takes effect, people's execution is brought in line, and the
+                        // household-resolved settlements live the day now beginning.
+                        let switched = resolution_next.take().map(|next| {
+                            let before = switch_check(people, ctx.land);
+                            people.set_household_resolved(next);
+                            before
+                        });
+                        people.park_resolved(&mut ctx);
+                        if let Some(before) = switched {
+                            check_switch(&before, &switch_check(people, ctx.land));
+                        }
+                        people.resume_unresolved(&mut ctx);
+                        people.live_household_days(&mut ctx);
                         // Newborns decide what to do first.
                         for (t, e) in pending.drain(..) {
                             let _ = followups.schedule(t, PHASE_AGENT, SimEvent::Agent(e));

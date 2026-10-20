@@ -637,58 +637,65 @@ fn water_carried_back_is_delivered_at_the_households_flood_refuge() {
         0.0
     );
 }
+/// A longhouse of two storeys of rubble beside the first home. Untied, its walls stand their whole
+/// height, some 5 m on 30 cm; tied, a storey.
+fn rubble_longhouse(
+    sim: &mut Sim,
+    owner: civ_core::PermanentId,
+    tied: bool,
+) -> civ_core::PermanentId {
+    use civ_agents::build::{self, FireDesign, Shape};
+    let home = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h.home)
+        .next()
+        .expect("home");
+    let catalog = &content().catalog;
+    let def = &catalog.buildings[catalog
+        .building_index("core:building/longhouse")
+        .expect("longhouse")];
+    let spec = build::design_cautious(
+        def,
+        &catalog.goods,
+        Shape::Bays {
+            bays: 2,
+            storeys: 2,
+            lofts: 0,
+        },
+        (home.0 + 25.0, home.1),
+        None,
+        1.0,
+        None,
+        Some(FireDesign {
+            caution_thatch: 1.0,
+            caution_wattle: 2.0,
+            knows_rubble: true,
+            knows_mud_brick: false,
+            knows_firing: false,
+            knows_lime: false,
+            knows_systems: [false, false, tied],
+        }),
+    )
+    .expect("design");
+    assert_eq!(
+        spec.params[civ_grammar::frame_params::WALL_KIND],
+        1,
+        "rubble"
+    );
+    sim.place_building_for_tests(owner, spec, civ_grammar::Stage::ALL.len() as u8)
+        .expect("place")
+}
+
 #[test]
 fn shaking_checks_each_standing_building_once_and_its_record_resumes_exactly() {
     use civ_agents::influence::InfluenceKind;
     use civ_agents::quake::{Outcome, RESPONSE_SPREAD};
     let mut sim = world();
     let (owner, hut) = weak_covering(&mut sim);
-    // And a longhouse of two storeys of rubble beside it, its walls untied: they stand their whole
-    // height, some 5 m on 30 cm.
-    let rubble = {
-        use civ_agents::build::{self, FireDesign, Shape};
-        let home = sim
-            .people()
-            .households
-            .iter()
-            .map(|(_, h)| h.home)
-            .next()
-            .expect("home");
-        let catalog = &content().catalog;
-        let def = &catalog.buildings[catalog
-            .building_index("core:building/longhouse")
-            .expect("longhouse")];
-        let spec = build::design_cautious(
-            def,
-            &catalog.goods,
-            Shape::Bays {
-                bays: 2,
-                storeys: 2,
-                lofts: 0,
-            },
-            (home.0 + 25.0, home.1),
-            None,
-            1.0,
-            None,
-            Some(FireDesign {
-                caution_thatch: 1.0,
-                caution_wattle: 2.0,
-                knows_rubble: true,
-                knows_mud_brick: false,
-                knows_firing: false,
-                knows_lime: false,
-                knows_systems: [false; 3],
-            }),
-        )
-        .expect("design");
-        assert_eq!(
-            spec.params[civ_grammar::frame_params::WALL_KIND],
-            1,
-            "rubble"
-        );
-        sim.place_building_for_tests(owner, spec, civ_grammar::Stage::ALL.len() as u8)
-            .expect("place")
-    };
+    // And a longhouse of two storeys of rubble beside it, its walls untied.
+    let rubble = rubble_longhouse(&mut sim, owner, false);
     // A hut placed by hand leaves state a load derives otherwise; start from the world as loaded.
     let mut sim = paired(&mut sim);
     // Out of the tool's range, or a settlement that is not, nothing changes.
@@ -796,4 +803,142 @@ fn shaking_checks_each_standing_building_once_and_its_record_resumes_exactly() {
     );
     let loaded = paired(&mut sim);
     same(&sim, &loaded);
+}
+
+#[test]
+fn a_shaking_cracks_rubble_and_the_crack_holds_until_the_wall_is_mended() {
+    use civ_agents::quake::Outcome;
+    let mut sim = world();
+    let (owner, _) = weak_covering(&mut sim);
+    let rubble = rubble_longhouse(&mut sim, owner, false);
+    let mut base = paired(&mut sim);
+    // A day after it was finished, so the shaking comes after its last repair.
+    base.advance_minutes(DAY).expect("day");
+    // Each copy is shaken as the first event, so the rubble's draw is the same in every one and
+    // its response grows with the strength: some strength between standing and falling cracks it.
+    let mut strength = 0.02_f64;
+    let (mut sim, shaken) = loop {
+        assert!(strength <= 0.6, "no strength cracks the rubble");
+        let mut copy = paired(&mut base);
+        copy.shake(strength, None).expect("shake");
+        let s = copy
+            .people()
+            .quakes
+            .list
+            .last()
+            .expect("a record")
+            .shaken
+            .iter()
+            .find(|s| s.building == rubble)
+            .expect("the rubble is reached")
+            .clone();
+        match s.outcome {
+            Outcome::Cracked => break (copy, s),
+            Outcome::Fell => panic!("fell at {strength} before it cracked"),
+            Outcome::Stood => strength *= 1.1,
+        }
+    };
+    assert!(!shaken.cracked.is_empty());
+    let walls = |sim: &Sim| {
+        let b = sim
+            .land()
+            .buildings
+            .iter()
+            .find(|b| b.id == rubble)
+            .expect("building");
+        shaken
+            .cracked
+            .iter()
+            .map(|g| {
+                *b.condition
+                    .iter()
+                    .find(|c| c.group == *g)
+                    .expect("its group")
+            })
+            .collect::<Vec<_>>()
+    };
+    let before: Vec<_> = walls(&base);
+    for (c, was) in walls(&sim).iter().zip(&before) {
+        // The crack shows, and is told by the record against the wall's last repair.
+        assert!(
+            c.loss >= was.loss + 0.2 - 1e-6 || c.loss == 1.0,
+            "{} from {}",
+            c.loss,
+            was.loss
+        );
+        assert!(sim.people().quakes.cracked(rubble, c.group, c.repaired));
+    }
+    // It holds through a save, and the cracked world and its loaded twin go on alike.
+    let mut loaded = paired(&mut sim);
+    for c in walls(&loaded) {
+        assert!(loaded.people().quakes.cracked(rubble, c.group, c.repaired));
+    }
+    sim.advance_minutes(DAY).expect("day");
+    loaded.advance_minutes(DAY).expect("day");
+    same(&sim, &loaded);
+    // Mended after it shook, the wall is whole again.
+    let now = sim.now();
+    let b = sim
+        .land_mut_for_tests()
+        .buildings
+        .iter_mut()
+        .find(|b| b.id == rubble)
+        .expect("building");
+    for c in b
+        .condition
+        .iter_mut()
+        .filter(|c| shaken.cracked.contains(&c.group))
+    {
+        c.repaired = now;
+    }
+    for c in walls(&sim) {
+        assert!(!sim.people().quakes.cracked(rubble, c.group, c.repaired));
+    }
+}
+
+#[test]
+fn twin_villages_shaken_alike_lose_more_where_the_walls_are_untied() {
+    use civ_agents::quake::Outcome;
+    // The same village twice, the one longhouse tied at its floor in one and untied in the other:
+    // the same ids, so each shaking draws the same response for it in both.
+    let twin = |tied: bool| {
+        let mut sim = world();
+        let (owner, _) = weak_covering(&mut sim);
+        let house = rubble_longhouse(&mut sim, owner, tied);
+        let mut sim = paired(&mut sim);
+        sim.advance_minutes(DAY).expect("day");
+        (sim, house)
+    };
+    let (mut tied, a) = twin(true);
+    let (mut untied, b) = twin(false);
+    assert_eq!(a, b);
+    let rank = |o: Outcome| match o {
+        Outcome::Stood => 0,
+        Outcome::Cracked => 1,
+        Outcome::Fell => 2,
+    };
+    let outcome = |sim: &mut Sim, strength: f64| {
+        let mut copy = paired(sim);
+        copy.shake(strength, None).expect("shake");
+        let q = copy.people().quakes.list.last().expect("a record");
+        let s = q.shaken.iter().find(|s| s.building == a).expect("reached");
+        (s.cs, s.outcome)
+    };
+    let mut apart = 0;
+    let mut strength = 0.02_f64;
+    while strength <= 0.6 {
+        let (cs_t, t) = outcome(&mut tied, strength);
+        let (cs_u, u) = outcome(&mut untied, strength);
+        assert_eq!(cs_t, cs_u, "shaken alike at {strength}");
+        assert!(
+            rank(u) >= rank(t),
+            "at {strength}: tied {t:?}, untied {u:?}"
+        );
+        apart += usize::from(rank(u) > rank(t));
+        strength *= 1.25;
+    }
+    assert!(
+        apart > 0,
+        "some shaking the tied walls bear brings the untied down or cracks them"
+    );
 }

@@ -5194,6 +5194,21 @@ and M6a gives rivers a daily flow.
         recorded, its page with the same, and one kind 11 row for each building that fell or
         cracked, linked to it; the chronicle's entries link to it; the web decodes the list, the
         page and the link, and builds the query. **Boundary:** wire 1.91.
+      - *Sixth part, as built (2026-10-20): the slice's remaining tests, and DA closed.* The
+        dashboard's tally of structural failures is its own function (`count_failures`), so a
+        test can read it on a shaken world. A crack is counted against the wall's last repair
+        strictly after it, so a wall shaken the minute it was finished or mended is sound, a
+        convention the tests keep by letting a day pass. The damage layer on the map is deferred:
+        the Incidents panel already names and links every building that fell or cracked, and a
+        layer would need each building's group states on the wire; it is the first observer work
+        should the demo (DE) want the damage seen at a glance. **Test:** what the observer's
+        strongest shaking brings down is told in the chronicle and left out of the failures row;
+        a strength between standing and falling cracks the rubble longhouse, whose walls take the
+        loss and are told cracked by the record, through a save, while the cracked world and its
+        loaded twin go on alike a day, and whole again once mended after it; twin villages, the
+        one longhouse tied in one and untied in the other, meet the same response at every
+        strength, the untied never faring better and at some strength worse. **Slice DA is
+        closed.**
     - **DB, after the shaking:** `MostStoreys` and `TiedWalls`, forecasts of floor lost and of
       losses avoided, lessons from what was seen to fall. *Tests:* a shaken village proposes a
       rule only where someone knows the remedy; a household planning height opposes it.

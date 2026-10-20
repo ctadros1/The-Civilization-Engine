@@ -1428,6 +1428,32 @@ fn run_one(
     world
 }
 
+/// Counts the structural failures for the failures row. What the observer's shaking brought down
+/// is its row's, not this one's (ADR-0031 §4): its entries are told at the minute it shook.
+pub(crate) fn count_failures(sim: &Sim, world: &mut WorldRun) {
+    let shaken_at: Vec<civ_core::SimTime> = sim
+        .people()
+        .quakes
+        .list
+        .iter()
+        .filter(|q| !q.origin.natural())
+        .map(|q| q.at)
+        .collect();
+    for e in &sim.people().chronicle {
+        if e.kind == civ_agents::ChronicleKind::BuildingFailed && !shaken_at.contains(&e.at) {
+            // An entry names its household's first member, when it had anyone living.
+            if e.people.is_empty() {
+                world.empty_failures += 1;
+            } else {
+                world.lived_failures += 1;
+                world
+                    .lived_failed
+                    .push((e.at.date().year, format!("{}, {} killed", e.name, e.number)));
+            }
+        }
+    }
+}
+
 /// Lives the world its years a day at a time at Max, from the first midnight after its first
 /// month, checking each year's end.
 fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
@@ -1481,29 +1507,7 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
         }
     }
     world.lived_building_months = run.lived_building_months;
-    // What the observer's shaking brought down is its row's, not the failures row's (ADR-0031
-    // §4): its entries are told at the minute it shook.
-    let shaken_at: Vec<civ_core::SimTime> = sim
-        .people()
-        .quakes
-        .list
-        .iter()
-        .filter(|q| !q.origin.natural())
-        .map(|q| q.at)
-        .collect();
-    for e in &sim.people().chronicle {
-        if e.kind == civ_agents::ChronicleKind::BuildingFailed && !shaken_at.contains(&e.at) {
-            // An entry names its household's first member, when it had anyone living.
-            if e.people.is_empty() {
-                world.empty_failures += 1;
-            } else {
-                world.lived_failures += 1;
-                world
-                    .lived_failed
-                    .push((e.at.date().year, format!("{}, {} killed", e.name, e.number)));
-            }
-        }
-    }
+    count_failures(sim, world);
     // The largest settlement's Gini of goods at each year's end.
     let mut by_year: BTreeMap<i64, (f64, u32)> = BTreeMap::new();
     for w in &sim.people().wealth_years {

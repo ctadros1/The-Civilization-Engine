@@ -3166,6 +3166,82 @@ mod tests {
     }
 
     #[test]
+    fn what_the_shaking_brings_down_is_kept_out_of_the_failures_row() {
+        let mut h = Harness::new(None, None);
+        h.create("Shaken failures");
+        let failed = |sim: &civ_sim::Sim| {
+            sim.people()
+                .chronicle
+                .iter()
+                .filter(|e| e.kind == civ_agents::ChronicleKind::BuildingFailed)
+                .count()
+        };
+        let counted = |sim: &civ_sim::Sim| {
+            let mut world = crate::dashboard::WorldRun::default();
+            crate::dashboard::count_failures(sim, &mut world);
+            world.lived_failures + world.empty_failures
+        };
+        // A longhouse of two storeys of untied rubble beside the first home, which the strongest
+        // shaking overturns.
+        {
+            use civ_agents::build::{self, FireDesign, Shape};
+            let sim = &mut h.engine.world.as_mut().expect("a world").sim;
+            let (household, home) = sim
+                .people()
+                .households
+                .iter()
+                .map(|(_, x)| (x.id, x.home))
+                .min_by_key(|x| x.0)
+                .expect("a household");
+            let catalog = &sim.rules().catalog;
+            let def = &catalog.buildings[catalog
+                .building_index("core:building/longhouse")
+                .expect("longhouse")];
+            let spec = build::design_cautious(
+                def,
+                &catalog.goods,
+                Shape::Bays {
+                    bays: 2,
+                    storeys: 2,
+                    lofts: 0,
+                },
+                (home.0 + 25.0, home.1),
+                None,
+                1.0,
+                None,
+                Some(FireDesign {
+                    caution_thatch: 1.0,
+                    caution_wattle: 2.0,
+                    knows_rubble: true,
+                    knows_mud_brick: false,
+                    knows_firing: false,
+                    knows_lime: false,
+                    knows_systems: [false; 3],
+                }),
+            )
+            .expect("design");
+            sim.place_building_for_tests(household, spec, 5)
+                .expect("placed");
+        }
+        let (told, before) = {
+            let sim = &h.engine.world.as_ref().expect("a world").sim;
+            (failed(sim), counted(sim))
+        };
+        let reply = h.ask(Request::Shake {
+            strength: 0.6,
+            settlement: 0,
+        });
+        assert!(matches!(reply, Reply::Response(_)), "{reply:?}");
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        assert!(failed(sim) > told, "the longhouse fell and is told");
+        assert_eq!(
+            counted(sim),
+            before,
+            "but it is the shaking's, not a failure"
+        );
+    }
+
+    #[test]
     fn the_shaking_is_listed_with_its_page_and_what_fell_or_cracked() {
         let mut h = Harness::new(None, None);
         assert_eq!(

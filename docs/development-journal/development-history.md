@@ -3236,3 +3236,16 @@ fails comes down as a collapse does (so a night shake kills more than a noon one
 saying so), and a stone wall that holds but strains is left cracked, weaker until someone mends
 it. Every shaking and what each building did is kept and saved. The button in the observer and
 the earthquake panel come next.
+
+**Built:** the rest of the earthquake. The observer has a "Shake…" choice from felt-by-all to
+violent, and the dashboard reports what shakings did on a row of their own, so the observer's
+own shaking never counts as the buildings' failing. Stone walls now hold by their mortar as well
+as their weight, so fired brick in lime outlasts rubble and rubble outlasts mud brick, while a
+light timber frame rides out far more than any of them. Every building that fell or cracked is
+an incident with its own page, each shaking has a page listing them, and the chronicle links to
+it. Tests now show that two copies of one village, the same house tied in one and untied in the
+other, meet the same shaking alike and the untied one never fares better; that a crack survives
+a save until the wall is mended; and that the observer's collapses stay out of the failures row.
+
+**Deferred:** a map layer for the damage (the Incidents panel already lists and links it), and
+a check of the frame's joints, so a timber frame now looks stronger than it would be.

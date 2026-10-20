@@ -520,6 +520,10 @@ pub struct Population {
     /// The settlements household-resolved (M9a slice DF, ADR-0032 §1): a run setting, never
     /// saved; their people are parked ([`Self::reconcile_resolutions`]).
     resolved: BTreeSet<PermanentId>,
+    /// Whether a decision is a household-resolved day's planning, and what it found
+    /// (ADR-0032 §2): set and taken within [`Self::live_household_days`] only.
+    planning: bool,
+    planned: Option<resolution::Planned>,
     /// Per settlement, who has set to keeping company at its hearth since it was last looked at,
     /// and who was there then, in id order: everyone there now, and some who have left
     /// ([`Self::hearth_company`]). Derived: built at the first look after a load.
@@ -3263,7 +3267,7 @@ impl Population {
     fn decide(&mut self, ctx: &mut Ctx, h: Handle<Person>, depth: u32) {
         // Someone of a household-resolved settlement decides nothing: their day is lived at
         // midnight (ADR-0032 §2).
-        if self.resolved_person(h) {
+        if self.resolved_person(h) && !self.planning {
             self.park(ctx, h);
             return;
         }
@@ -4506,6 +4510,16 @@ impl Population {
                 }
             }
         }
+        // A household-resolved day's planning takes the options as scored and stops here
+        // (ADR-0032 §2): nothing is chosen, drawn or begun.
+        if self.planning {
+            self.planned = Some(resolution::Planned {
+                cands,
+                site,
+                meal_min: limits.meal_min,
+            });
+            return;
+        }
         let Some(p) = self.people.get_mut(h) else {
             return;
         };
@@ -4574,7 +4588,7 @@ impl Population {
         }
         let mut order: Vec<usize> = (0..cands.len()).filter(|&i| i != choice).collect();
         order.sort_by(|&a, &b| cands[b].scored.total.total_cmp(&cands[a].scored.total));
-        let mut receipt = Receipt {
+        let receipt = Receipt {
             at: now,
             chosen: cands[choice].scored.clone(),
             runner_up: order.first().map(|&i| cands[i].scored.clone()),
@@ -4606,7 +4620,25 @@ impl Population {
                 law.compliance.broken_unaware += 1;
             }
         }
-        let chosen = &cands[choice];
+        self.take_up(ctx, h, &cands[choice], site, &hh, block, Some(receipt));
+        self.run_steps(ctx, h, depth + 1);
+    }
+
+    /// Takes up `chosen` (shared by a decision and a household-resolved day, ADR-0032 §2): new
+    /// ground marked out, a workshop set up, paid work held, a home begun, the activity set with
+    /// its receipt, a round of the watch counted and the crews joined.
+    #[allow(clippy::too_many_arguments)]
+    fn take_up(
+        &mut self,
+        ctx: &mut Ctx,
+        h: Handle<Person>,
+        chosen: &decide::Candidate,
+        site: Option<Site>,
+        hh: &Household,
+        block: Option<(u32, bool)>,
+        mut receipt: Option<Receipt>,
+    ) {
+        let (now, params, catalog, hh_id) = (ctx.now, ctx.params, ctx.catalog, hh.id);
         let mut target = chosen.scored.target;
         if target == Target::NewField {
             // New ground is marked out when someone sets off to break it.
@@ -4652,7 +4684,9 @@ impl Population {
                 }
                 None => target = Target::None,
             }
-            receipt.chosen.target = target;
+            if let Some(r) = receipt.as_mut() {
+                r.chosen.target = target;
+            }
         }
         if target == Target::NewFirm {
             // A workshop is set up when someone sets to work making what it sells.
@@ -4670,7 +4704,9 @@ impl Population {
                     .map_or(Target::Home, Target::Firm),
                 _ => Target::Home,
             };
-            receipt.chosen.target = target;
+            if let Some(r) = receipt.as_mut() {
+                r.chosen.target = target;
+            }
         }
         // Paid work taken is held for the person (slice J).
         if let (Target::Firm(firm), Some(Behavior::Hire)) = (
@@ -4705,7 +4741,9 @@ impl Population {
             target = self
                 .begin_home(ctx, hh_id)
                 .map_or(Target::None, Target::Building);
-            receipt.chosen.target = target;
+            if let Some(r) = receipt.as_mut() {
+                r.chosen.target = target;
+            }
             if let Some(new_home) = self.household(hh_id).map(|x| x.home) {
                 for s in &mut steps {
                     if let Step::Walk { to } = s
@@ -4729,7 +4767,9 @@ impl Population {
             step_ends: now,
             version: p.act.version.wrapping_add(1),
         };
-        p.push_receipt(receipt);
+        if let Some(r) = receipt {
+            p.push_receipt(r);
+        }
         if let Some((_, true)) = block {
             let (id, version, def) = (p.id, p.act.version, p.act.def);
             self.switched.insert(id, (version, def));
@@ -4768,7 +4808,6 @@ impl Population {
         {
             Self::joined_well_crew(ctx, w);
         }
-        self.run_steps(ctx, h, depth + 1);
     }
 
     /// Replaces the activity with waiting where the person stands.

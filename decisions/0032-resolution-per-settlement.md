@@ -189,3 +189,17 @@ compose by sum (offsets) and product (factors).
   household day).
 - The gate misses by more than the household day's measured share explains.
 - A behaviour's effect cannot be applied as a block without a model change.
+
+## Amendment (2026-10-20, M9a slice DG): the household day as built
+
+- **Effects land at midnight**, not at the minute the plan puts a block (§2's last point): the
+  clock stands at midnight while a household-resolved day is lived, and records dated later in
+  a day not yet lived would come before the Detailed settlements' events of that day. Scoring is
+  as at sunrise (the night is lived asleep first); what follows is dated midnight.
+- **Hours are shared by expected repetitions**: an option chosen with probability `p` and lasting
+  `T` minutes is lived `waking · p / Σ p·T` times, so its share of hours is `p·T / Σ p·T`, as a
+  run of decisions would give it.
+- **Company's pool** is the settlement's residents who kept company that day; Detailed visitors
+  to a household-resolved hearth meet nobody parked there (§4's pool for visitors is slice DH's).
+- **Eating** is once a day, what the night and the day before used; **water** is fetched by the
+  trip a member would make, until a day's use is in.

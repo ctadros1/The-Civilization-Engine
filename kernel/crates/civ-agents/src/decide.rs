@@ -2340,6 +2340,36 @@ pub fn candidates(
     (out, excluded)
 }
 
+/// The probability [`choose`] gives each option, in the order of `totals`: the same pool,
+/// temperature and weights (a household-resolved day shares its hours by them, ADR-0032 §2).
+pub fn probabilities(totals: &[f32], w: &DecisionParams) -> Vec<f64> {
+    let mut out = vec![0.0; totals.len()];
+    if totals.is_empty() {
+        return out;
+    }
+    let acceptable: Vec<usize> = (0..totals.len()).filter(|&i| totals[i] > 0.0).collect();
+    let pool: Vec<usize> = if acceptable.is_empty() {
+        (0..totals.len()).collect()
+    } else {
+        acceptable
+    };
+    let values: Vec<f64> = pool.iter().map(|&i| f64::from(totals[i])).collect();
+    let n = values.len() as f64;
+    let mean = values.iter().sum::<f64>() / n;
+    let var = values.iter().map(|t| (t - mean).powi(2)).sum::<f64>() / n;
+    let temperature = (w.temperature_sd_fraction * var.sqrt()).max(w.min_temperature);
+    let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let weights: Vec<f64> = values
+        .iter()
+        .map(|t| ((t - max) / temperature).exp())
+        .collect();
+    let sum: f64 = weights.iter().sum();
+    for (k, &i) in pool.iter().enumerate() {
+        out[i] = weights[k] / sum;
+    }
+    out
+}
+
 /// Softmax choice among the acceptable options (research 01-09 §4.3): those worth more than doing
 /// nothing (a positive total), or every option when none is. The temperature is proportional to
 /// the spread of the acceptable totals. `u` is a uniform draw in [0, 1). Returns the chosen index,

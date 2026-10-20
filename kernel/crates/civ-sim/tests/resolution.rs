@@ -294,3 +294,92 @@ fn switching_back_and_forth_keeps_everyone_and_their_holdings() {
     );
     assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
 }
+
+/// Hours of work done on the fields of settlement `s`'s households, and how many they hold.
+fn field_work(sim: &Sim, s: PermanentId) -> (f64, usize) {
+    let people = sim.people();
+    let ours = |h: PermanentId| {
+        people
+            .household(h)
+            .and_then(|x| x.settlement)
+            .is_some_and(|x| x == s)
+    };
+    let fields: Vec<_> = sim
+        .land()
+        .fields
+        .iter()
+        .filter(|f| ours(f.household))
+        .collect();
+    (
+        fields
+            .iter()
+            .map(|f| f64::from(f.work_h) + f64::from(f.tended_h))
+            .sum(),
+        fields.len(),
+    )
+}
+
+/// Ties held by residents of settlement `s`.
+fn ties_of(sim: &Sim, s: PermanentId) -> usize {
+    residents(sim, s)
+        .iter()
+        .map(|id| sim.people().ties.of(*id).len())
+        .sum()
+}
+
+#[test]
+fn a_household_resolved_settlement_works_and_keeps_company_through_its_days() {
+    // Slice DG (ADR-0032 §2): each household's day is scored once at midnight and its members'
+    // hours shared among what they would choose, each lived through its own effects.
+    let mut sim = two_settlements();
+    let s = second(&sim);
+    sim.set_household_resolved([s]);
+    sim.advance_minutes(MINUTES_PER_DAY).expect("advances");
+    let (work_before, fields_before) = field_work(&sim, s);
+    let ties_before = ties_of(&sim, s);
+    let held_before = (sim.people().goods_held(), sim.people().flows());
+    sim.advance_minutes(20 * MINUTES_PER_DAY).expect("advances");
+    let (work_after, fields_after) = field_work(&sim, s);
+    assert!(
+        work_after > work_before || fields_after > fields_before,
+        "their fields are worked: {work_before:.1} h on {fields_before} fields, then \
+         {work_after:.1} h on {fields_after}"
+    );
+    assert!(
+        ties_of(&sim, s) > ties_before,
+        "they keep company at the hearth and come to know one another"
+    );
+    assert!(sim.people().resolution_problems().is_empty());
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+    let gaps = civ_agents::population::unaccounted(
+        held_before.0.len().max(sim.people().goods_held().len()),
+        (&held_before.0, &held_before.1),
+        (&sim.people().goods_held(), &sim.people().flows()),
+    );
+    assert!(gaps.is_empty(), "the books balance: {gaps:?}");
+    // Everyone is fed: nobody of the settlement died of hunger in three weeks.
+    assert!(residents(&sim, s).len() * 10 >= 9 * residents(&two_settlements(), s).len());
+}
+
+#[test]
+fn household_resolved_days_are_the_same_however_the_time_is_cut() {
+    let mut sim = two_settlements();
+    let s = second(&sim);
+    sim.set_household_resolved([s]);
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let start = save(&mut sim, dir.path(), "start");
+    let mut whole = load(&start);
+    whole.set_household_resolved([s]);
+    whole
+        .advance_minutes(8 * MINUTES_PER_DAY)
+        .expect("advances");
+    let mut cut = load(&start);
+    cut.set_household_resolved([s]);
+    let (total, mut done) = (8 * MINUTES_PER_DAY, 0);
+    while done < total {
+        let step = 433.min(total - done);
+        cut.advance_minutes(step).expect("advances");
+        done += step;
+    }
+    assert_same("eight days cut every 433 minutes", &whole, &cut);
+}

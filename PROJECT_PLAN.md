@@ -5506,6 +5506,34 @@ and M6a gives rivers a daily flow.
       hours shared by the softmax's probabilities, blocks applied through each behaviour's own
       effect function in household id order (gather, farm, build, make, dig, leisure, ask, trade
       within the settlement), company from the hearth pool, path wear along cached routes.
+      - *As built (2026-10-20):* `Population::live_household_days` lives each parked member's
+        night asleep to sunrise and scores them there once: `decide` in a planning mode stops
+        after the technique gate and a curfew's cost and hands over the options it scored,
+        drawing and beginning nothing. Each option's expected number of repetitions over the
+        waking minutes (the day less the middle of the content's sleep range and three meals) is
+        `waking · p / Σ p·T`, `p` the probability `decide::choose` would give it
+        (`decide::probabilities`, the same softmax) and `T` its work and walks; counts are rounded
+        by largest remainder. Gathering, farming, building, making, digging, trying, rest, play,
+        company, asking and buying within the settlement are shared; asking, buying and a claim on
+        new ground, a home or a workshop at most once a day; the rest wait for slice DH. Each
+        repetition is taken up by `take_up`, the code a decision runs after its choice (moved out
+        of `decide` unchanged: new ground marked out, a workshop set up, a home begun, crews
+        joined), and lived at once through its steps (`enact`): a walk is planned and walked as
+        an event-driven one is (route, wear, ways, deposits looked for, the trip counted), work
+        has its effect through `end_step`, loads are banked. They eat once, what the night and the
+        day before used; the household's water is fetched by the trip a member would make until a
+        day's use is in (at most 8). Company is drawn once a member-day: each who kept company
+        meets the pool of all who did, through `keep_company`. Effects land at midnight
+        (ADR-0032, amendment). **Exact:** with no settlement household-resolved, every section's
+        digest equals the build before over 12 days by the minute and 20 at Max (2×200 people).
+        **Tested:** a household-resolved settlement works its fields, comes to know one another at
+        the hearth and stays fed, with the books balanced and no problem found; eight days cut
+        every 433 minutes end in the bytes of eight lived whole. **Measured** (2×500, Max, 40
+        days): wholly Detailed 1,204 ms a day, 293 fields and 212 buildings at the end; one
+        settlement household-resolved 788 ms a day, 291 fields and 212 buildings; the
+        household-resolved half costs about a fifth of its Detailed cost (roughly 0.2 ms a
+        person-day against 1.2 ms). Its plots' bounding box ended 39.5 ha against 6.5 ha (one
+        plot laid far off; 105 plots in both), for Gate C (DI) to weigh.
     - **DH**: every other behaviour resolved as a block or listed as not taken (ADR-0032 §2),
       incidents at a block's end, a settlement held Detailed while a fire, band, siege or called
       gathering holds.
@@ -6863,6 +6891,13 @@ One line each. Don't re-litigate without a reason written next to the entry.
   centre; a watch round begins there. These are kernel constants (`LATE_NOTICE_MIN`,
   `TOWER_SIGHT_M`, `AT_TOWER_M`), revisited if the demo (DE) shows no tower ever proposed where
   fires burn unseen, or one that never helps.
+- **Design priors for the household day (2026-10-20, M9a slice DG, ADR-0032 §2):** NUDGE: the
+  day is scored once at sunrise; waking minutes are the day less the middle of the content's
+  sleep range and three meals; a walk's length in the day's sharing is reckoned straight off trail
+  (its time when walked is the route's); asking and buying are taken at most once a day, and a
+  claim on new ground, a home or a workshop once; at most 8 trips for water a household-day;
+  company is one draw a member-day against the pool of the settlement's residents who kept it
+  that day. Each is revisited by Gate C (slice DI).
 - **M9 design (2026-10-20, plan §7):** from the brief (`docs/briefs/m9-lod.md`), which reads
   01-04, 01-03 and 03-03, one ADR, [ADR-0032](decisions/0032-resolution-per-settlement.md).
   **Plan §4.5 amended:** the aggregate model keeps every person, household, tie, debt, office and

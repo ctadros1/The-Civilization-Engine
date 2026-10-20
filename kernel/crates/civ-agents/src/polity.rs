@@ -343,11 +343,15 @@ pub enum IssueKind {
     /// years its polity measures, and no hall of the polity's stands or is being raised (M8d
     /// slice DC): what raising one answers.
     RainedOff,
+    /// A fire burned awhile before anyone saw it, within the years its polity measures, while
+    /// its watch keeps watch and no tower of the polity's stands or is being raised (M8d slice
+    /// DC): what raising one answers.
+    FiresUnseen,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 30] = [
+    pub const ALL: [IssueKind; 31] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -378,6 +382,7 @@ impl IssueKind {
         IssueKind::NewGround,
         IssueKind::StoreSpoils,
         IssueKind::RainedOff,
+        IssueKind::FiresUnseen,
     ];
 
     /// The authored name.
@@ -413,6 +418,7 @@ impl IssueKind {
             IssueKind::NewGround => "new_ground",
             IssueKind::StoreSpoils => "store_spoils",
             IssueKind::RainedOff => "rained_off",
+            IssueKind::FiresUnseen => "fires_unseen",
         }
     }
 
@@ -466,6 +472,9 @@ impl IssueKind {
             IssueKind::StoreSpoils => "the common store spoiled with no storehouse to keep it",
             IssueKind::RainedOff => {
                 "a gathering in the open came to nothing in the rain, with no hall to meet in"
+            }
+            IssueKind::FiresUnseen => {
+                "a fire burned awhile before anyone saw it, with no tower to watch from"
             }
         }
     }
@@ -2173,6 +2182,9 @@ pub struct Polity {
     /// The hall it raised that stands finished, if any (M8d slice DC): its gatherings meet under
     /// its roof, whatever the weather. Looked over monthly.
     pub hall: Option<PermanentId>,
+    /// The watch tower it raised that stands finished, if any (M8d slice DC): its watch looks out
+    /// from it. Looked over monthly.
+    pub tower: Option<PermanentId>,
     /// The plan each law of a plan lays, by law (M8c slice CT, second part): in force, it
     /// reserves.
     pub plans: Vec<(PermanentId, PlanLaid)>,
@@ -2224,6 +2236,9 @@ pub struct Measured {
     /// Hours those who came gave to gatherings in the open that a wet day left without a quorum
     /// (schema 166): what a hall would have spared them.
     pub wet_lost_h: f64,
+    /// Hours of work putting right the buildings of fires nobody saw for a while after their
+    /// covering caught, but spread from a neighbour (schema 167): what a watch tower answers.
+    pub late_fire_h: f64,
 }
 
 /// How a polity came to hold a settlement besides its seat (M6c slice BM, ADR-0023 §9). Codes are
@@ -2625,6 +2640,7 @@ impl Polity {
             raise_given: Vec::new(),
             storehouse: None,
             hall: None,
+            tower: None,
             plans: Vec::new(),
             ground_seen: Vec::new(),
             encroachments: Vec::new(),

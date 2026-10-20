@@ -53,10 +53,25 @@ impl Population {
         if stops.is_empty() {
             return None;
         }
+        // A round starts at the polity's watch tower, if one stands, looking out over the roofs
+        // (M8d slice DC).
+        let tower = self.tower_at(ctx, self.polity_of(settlement)?);
         Some(WatchFacts {
-            stops: stops.into_iter().map(|(_, at)| at).collect(),
+            stops: tower
+                .into_iter()
+                .chain(stops.into_iter().map(|(_, at)| at))
+                .collect(),
             points: cp.w_watch * (1.0 - f64::from(tonight) / f64::from(rounds)),
         })
+    }
+
+    /// Where the round `person` could walk tonight stops, first to last, in the dark: for tests.
+    #[doc(hidden)]
+    pub fn watch_stops_for_tests(&self, ctx: &Ctx, person: PermanentId) -> Vec<(f32, f32)> {
+        self.person(person)
+            .and_then(|p| self.household(p.household))
+            .and_then(|hh| self.watch_facts(ctx, person, hh, true))
+            .map_or_else(Vec::new, |f| f.stops)
     }
 
     /// The homes of settlement `settlement` a round starting at `next` passes, but for the

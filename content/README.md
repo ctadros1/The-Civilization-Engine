@@ -293,7 +293,7 @@ building skill and `[upkeep]`.
 | Table | Fields | Meaning |
 |---|---|---|
 | (top) | `grammar` | The grammar that expands it: `hut` or `frame`. |
-| | `use` | What its buildings are for: `dwelling`, `store`, `work` or, from content API 154, `hall` (a polity's gatherings meet in it; only a polity raises one) (the use of the plot it stands on). |
+| | `use` | What its buildings are for: `dwelling`, `store`, `work` or, from content API 154, `hall` (a polity's gatherings meet in it), and from 155 `tower` (a polity's watch looks out from it); only a polity raises a hall or a tower (the use of the plot it stands on). |
 | | `eave_cm`, `pitch_deg` | The wall height (a frame's: each storey's) and roof pitch people build to, within the rules' ranges. |
 | | `roof_by_day` | The day of the year (from 0) a household wants to be under its roof by; the pressure to build grows as it nears. |
 | | `technique` | The technique building it needs (ADR-0008). |
@@ -1574,3 +1574,10 @@ profile's `polity.wet_attend`, the points a gathering held in the open is worth 
 day. A gathering rained off for want of a quorum is measured, and the issue `rained_off` opens
 while it is; a hall raised under `raise_building` answers it, and the polity's gatherings then
 meet under its roof. The core authors the program `hall` and the template `yourselves_roof_a_hall`.
+
+Content API 155 (M8d slice DC, third part) brings the building use `tower`. A fire nobody saw for
+ten minutes after its covering caught, not caught from a neighbour already burning, is measured by
+the work its building takes to put right, and the issue `fires_unseen` opens while it is and a
+watch keeps watch; a tower raised under `raise_building` answers it. A watch round then begins at
+the tower, and whoever stands at it sees a burning roof 500 m off. The core authors the program
+`watch_tower` and the template `yourselves_watch_from_a_tower`.

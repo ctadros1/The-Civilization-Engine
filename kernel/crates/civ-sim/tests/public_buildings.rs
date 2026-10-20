@@ -543,3 +543,257 @@ fn rain_keeps_people_from_a_gathering_in_the_open_until_a_hall_raised_together_s
         sim.people().polities[pi].measured
     );
 }
+
+#[test]
+fn a_fire_nobody_sees_in_time_is_answered_by_a_watch_tower_whose_watch_sees_further() {
+    use civ_agents::polity::{IssueKind, LawStatus, Outcome, PolicyKind};
+    use civ_core::PermanentId;
+    let mut sim = village(5);
+    sim.advance_minutes(DAY).expect("advances");
+    let (owner, settlement) = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| !x.members.is_empty())
+        .filter_map(|(_, x)| Some((x.id, x.settlement?)))
+        .min_by_key(|x| x.0)
+        .expect("a settled household");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.settlement == settlement)
+        .expect("a polity");
+    let people: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(settlement))
+        .flat_map(|(_, x)| x.members.clone())
+        .collect();
+    let template = |id: &str| {
+        content()
+            .catalog
+            .policies
+            .iter()
+            .position(|d| d.id == id)
+            .expect("the template") as u16
+    };
+    let tower_template = template("core:policy/yourselves_watch_from_a_tower");
+    // A hut `east` metres east of the hearth, finished.
+    let hut_at = |sim: &mut Sim, east: f32| {
+        let catalog = &content().catalog;
+        let def = &catalog.buildings[catalog.building_index("core:building/hut").expect("hut")];
+        let hearth = sim
+            .land()
+            .settlements
+            .iter()
+            .find(|s| s.id == settlement)
+            .expect("it")
+            .hearth_m;
+        let spec = civ_agents::build::design_shape(
+            def,
+            &catalog.goods,
+            civ_agents::build::Shape::Round { radius: 310 },
+            (hearth.0 + east, hearth.1),
+            None,
+        )
+        .expect("a hut");
+        sim.place_building_for_tests(owner, spec, civ_grammar::Stage::ALL.len() as u8)
+            .expect("placed")
+    };
+    let year = sim.now().date().year;
+    let late_h = |sim: &Sim| {
+        sim.people().polities[pi]
+            .measured
+            .iter()
+            .find(|m| m.year == year)
+            .map_or(0.0, |m| m.late_fire_h)
+    };
+    // In the small hours, with everyone asleep, a hut catches and burns out unseen: the work it
+    // takes to put right is measured.
+    let to_one = (25 * 60 - sim.now().minutes().rem_euclid(DAY)) % DAY;
+    sim.advance_minutes(to_one.max(1)).expect("advances");
+    let first = hut_at(&mut sim, 60.0);
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        p.asleep = true;
+    }
+    assert_eq!(late_h(&sim), 0.0);
+    sim.set_fire(first).expect("set alight");
+    sim.advance_minutes(3 * 60).expect("advances");
+    let fire = sim
+        .people()
+        .fires
+        .list
+        .iter()
+        .find(|f| f.building == first)
+        .cloned()
+        .expect("its fire");
+    assert!(fire.ended.is_some(), "{fire:?}");
+    assert!(late_h(&sim) > 0.0);
+    // With no watch to look out from it, a tower would bring nobody anything.
+    let gains = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.rule_gains_for_tests(ctx, settlement, tower_template))
+    };
+    let g = gains(&mut sim);
+    assert!(g.iter().all(|g| g.1 == 0.0), "{g:?}");
+    // Someone is named to keep watch.
+    let watcher = people[0];
+    let watch_law = sim
+        .with_ctx_for_tests(|pop, ctx| {
+            pop.propose_for_tests(
+                ctx,
+                settlement,
+                watcher,
+                template("core:policy/keep_watch"),
+                IssueKind::Takings,
+            )
+        })
+        .expect("put forward");
+    {
+        let p = &mut sim.people_mut_for_tests().polities[pi];
+        p.gathering = None;
+        let l = p
+            .laws
+            .iter_mut()
+            .find(|l| l.id == watch_law)
+            .expect("the law");
+        l.status = LawStatus::InForce;
+        l.outcome = Some(Outcome::Passed);
+        l.holder = Some(watcher);
+    }
+    assert!(sim.people().polities[pi].watchers().next().is_some());
+    // A year of such fires repays a tower; once its people know framing, one puts it forward.
+    sim.people_mut_for_tests().polities[pi]
+        .measured_mut(year)
+        .late_fire_h = 3000.0;
+    let g = gains(&mut sim);
+    assert!(g.iter().any(|g| g.1 > 0.0), "{g:?}");
+    for &m in &people {
+        sim.introduce_technique(m, "core:technique/jointed_frame", false)
+            .expect("taught");
+    }
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    let mut proposed = None;
+    for _ in 0..30 {
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[pi].gathering = None;
+            for l in &mut pop.polities[pi].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        if let Some(l) = sim.people().polities[pi].agenda().cloned()
+            && l.policy == tower_template
+        {
+            proposed = Some(l);
+            break;
+        }
+        sim.advance_minutes(DAY).expect("advances");
+    }
+    sim.people_mut_for_tests().every_adult_deliberates = false;
+    let law = proposed.expect("a tower proposed");
+    assert_eq!(law.issue, IssueKind::FiresUnseen);
+    assert_eq!(law.kind, PolicyKind::RaiseBuilding);
+    {
+        let today = sim.now().day_index();
+        let p = &mut sim.people_mut_for_tests().polities[pi];
+        p.gathering = None;
+        let l = p.laws.iter_mut().find(|l| l.id == law.id).expect("the law");
+        l.status = LawStatus::InForce;
+        l.outcome = Some(Outcome::Passed);
+        l.known = people.iter().map(|&a| (a, today)).collect();
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_public_raise_for_tests(ctx, pi, law.id));
+    let tower = sim.people().polities[pi]
+        .raise_site_of(law.id)
+        .and_then(|s| s.building)
+        .expect("laid out");
+    for _ in 0..4000 {
+        if sim.people().polities[pi].tower.is_some() {
+            break;
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.raise_work_for_tests(ctx, owner, tower, 4.0));
+    }
+    assert_eq!(sim.people().polities[pi].tower, Some(tower));
+    // A watch round now begins at the tower.
+    let stops = sim.with_ctx_for_tests(|pop, ctx| pop.watch_stops_for_tests(ctx, watcher));
+    let tower_at = {
+        let b = sim
+            .land()
+            .buildings
+            .iter()
+            .find(|b| b.id == tower)
+            .expect("the tower");
+        civ_agents::build::centre_m(&b.spec)
+    };
+    assert_eq!(stops.first().copied(), Some(tower_at), "{stops:?}");
+    // The watcher, awake at the tower, sees a roof catch far beyond the sight of anyone on the
+    // ground.
+    let top = {
+        let b = sim
+            .land()
+            .buildings
+            .iter()
+            .find(|b| b.id == tower)
+            .expect("the tower");
+        civ_agents::build::centre_m(&b.spec)
+    };
+    let far = hut_at(&mut sim, 300.0);
+    let far_at = {
+        let b = sim
+            .land()
+            .buildings
+            .iter()
+            .find(|b| b.id == far)
+            .expect("the hut");
+        civ_agents::build::centre_m(&b.spec)
+    };
+    let sight = sim.with_ctx_for_tests(|_, ctx| ctx.params.fire.sight_m);
+    let gap = f64::from(far_at.0 - top.0).hypot(f64::from(far_at.1 - top.1));
+    assert!(
+        gap > sight + 20.0 && gap < civ_agents::population::TOWER_SIGHT_M - 20.0,
+        "{gap}"
+    );
+    {
+        let pop = sim.people_mut_for_tests();
+        for (_, p) in pop.people.iter_mut() {
+            p.asleep = true;
+        }
+        let w = pop
+            .people
+            .iter_mut()
+            .find(|(_, p)| p.id == watcher)
+            .map(|(_, p)| p)
+            .expect("the watcher");
+        w.asleep = false;
+        w.trip = None;
+        w.pos = top;
+    }
+    sim.set_fire(far).expect("set alight");
+    let fire = sim
+        .people()
+        .fires
+        .list
+        .iter()
+        .find(|f| f.building == far)
+        .map(|f| f.id)
+        .expect("its fire");
+    let saw = sim
+        .people()
+        .fires
+        .knew
+        .iter()
+        .any(|k| k.fire == fire && k.person == watcher);
+    assert!(saw, "the watcher at the tower saw it ({gap:.0} m off)");
+    // The tower and what was measured survive a save.
+    let loaded = reloaded(&mut sim);
+    assert_eq!(loaded.people().polities[pi].tower, Some(tower));
+    assert_eq!(
+        loaded.people().polities[pi].measured,
+        sim.people().polities[pi].measured
+    );
+}

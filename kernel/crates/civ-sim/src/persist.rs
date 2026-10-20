@@ -464,6 +464,8 @@ pub const SCHEMA_V164: u32 = 164;
 /// Buildings a polity raised and its storehouse, before rain kept people from gatherings in the
 /// open and halls were raised.
 pub const SCHEMA_V165: u32 = 165;
+/// Halls and rain's toll on gatherings in the open, before watch towers and fires seen late.
+pub const SCHEMA_V166: u32 = 166;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

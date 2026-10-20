@@ -125,8 +125,8 @@ use super::{
     SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, SCHEMA_V143, SCHEMA_V144, SCHEMA_V145,
     SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, SCHEMA_V152,
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
-    SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, finish, section,
-    section_root, single_chunk, unreadable,
+    SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
+    finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -676,6 +676,7 @@ enum Schema {
     V164,
     V165,
     V166,
+    V167,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -856,7 +857,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V163 => Schema::V163,
         SCHEMA_V164 => Schema::V164,
         SCHEMA_V165 => Schema::V165,
-        SAVE_SCHEMA_VERSION => Schema::V166,
+        SCHEMA_V166 => Schema::V166,
+        SAVE_SCHEMA_VERSION => Schema::V167,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2075,6 +2077,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                         &save::MeasuredLossSaveArgs {
                             year: m.year,
                             wet_lost_h: m.wet_lost_h,
+                            late_fire_h: m.late_fire_h,
                         },
                     )
                 })
@@ -2169,6 +2172,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     raise_given,
                     storehouse: p.storehouse.map_or(0, PermanentId::get),
                     hall: p.hall.map_or(0, PermanentId::get),
+                    tower: p.tower.map_or(0, PermanentId::get),
                     measured_losses,
                 },
             )
@@ -2277,6 +2281,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::NewGround => 27,
         IssueKind::StoreSpoils => 28,
         IssueKind::RainedOff => 29,
+        IssueKind::FiresUnseen => 30,
     }
 }
 
@@ -2413,6 +2418,7 @@ fn decode_polities(
                 27 => IssueKind::NewGround,
                 28 => IssueKind::StoreSpoils,
                 29 => IssueKind::RainedOff,
+                30 => IssueKind::FiresUnseen,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -3050,6 +3056,7 @@ fn decode_polities(
                 wet_gatherings: m.wet_gatherings(),
                 roof_fires: m.roof_fires(),
                 wet_lost_h: 0.0,
+                late_fire_h: 0.0,
             });
         }
         // The losses measured beside them (schema 166); before, none.
@@ -3062,13 +3069,18 @@ fn decode_polities(
                 )));
             }
             for (m, l) in measured.iter_mut().zip(losses.iter()) {
-                let ok = l.year() == m.year && l.wet_lost_h().is_finite() && l.wet_lost_h() >= 0.0;
+                let ok = l.year() == m.year
+                    && l.wet_lost_h().is_finite()
+                    && l.wet_lost_h() >= 0.0
+                    && l.late_fire_h().is_finite()
+                    && l.late_fire_h() >= 0.0;
                 if !ok {
                     return Err(bad(format!(
                         "polity {id} measures its losses out of order, or out of range"
                     )));
                 }
                 m.wet_lost_h = l.wet_lost_h();
+                m.late_fire_h = l.late_fire_h();
             }
         }
         if measured.len() > civ_agents::polity::MEASURED_YEARS {
@@ -3111,6 +3123,7 @@ fn decode_polities(
         let raise_given = bank_shares(p.raise_given(), "hours given to a building raised")?;
         let storehouse = PermanentId::from_raw(p.storehouse());
         let hall = PermanentId::from_raw(p.hall());
+        let tower = PermanentId::from_raw(p.tower());
         // Patron gifts (schema 131, M7c slice BY).
         let mut patron_gifts = Vec::new();
         for g in p.patron_gifts().iter().flatten() {
@@ -3285,6 +3298,7 @@ fn decode_polities(
             raise_given,
             storehouse,
             hall,
+            tower,
         });
     }
     Ok(out)
@@ -5143,7 +5157,8 @@ fn carried(
         | Schema::V163
         | Schema::V164
         | Schema::V165
-        | Schema::V166 => {
+        | Schema::V166
+        | Schema::V167 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5484,7 +5499,8 @@ fn decode_households(
             | Schema::V163
             | Schema::V164
             | Schema::V165
-            | Schema::V166 => {
+            | Schema::V166
+            | Schema::V167 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -7453,6 +7469,7 @@ fn encode_plots(plots: &[Plot]) -> Vec<u8> {
                         PlotUse::Store => save::PlotUse::Store,
                         PlotUse::Work => save::PlotUse::Work,
                         PlotUse::Hall => save::PlotUse::Hall,
+                        PlotUse::Tower => save::PlotUse::Tower,
                     },
                     since: p.since.minutes(),
                     receipt_weighed: p.receipt.map_or(0, |r| r.weighed),
@@ -7480,6 +7497,7 @@ fn decode_plots(bytes: &[u8]) -> Result<Vec<Plot>, LoadError> {
             save::PlotUse::Store => PlotUse::Store,
             save::PlotUse::Work => PlotUse::Work,
             save::PlotUse::Hall => PlotUse::Hall,
+            save::PlotUse::Tower => PlotUse::Tower,
             other => {
                 return Err(LoadError::Malformed(format!(
                     "plot {id} has use {}",

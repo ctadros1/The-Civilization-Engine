@@ -1,13 +1,14 @@
 //! Buildings a polity raises together (M8d slice DC; ADR-0031 §6), on the shape of a passing
 //! place cleared together (M8b slice CQ, third part). A program answers a loss the polity
 //! measured (a storehouse its common store's spoiling, a hall its gatherings in the open rained
-//! off): where one is measured and no building of
+//! off, a watch tower its fires seen late): where one is measured and no building of
 //! the program is raised or being raised, each household weighs its share of the loss averted
 //! against its equal share of the work over the years it weighs, and someone who knows the
 //! program's technique may propose it. Passed, it is laid out near the hearth, held in the
 //! polity's name rather than a household's; its work is each household's to give by choice, as for a
 //! passing place, the hours including making and carrying its materials. A storehouse finished
-//! keeps the common store under its roof; a hall finished keeps the rain off its gatherings.
+//! keeps the common store under its roof; a hall finished keeps the rain off its gatherings; a
+//! watch tower finished is where its watch looks out from, seeing fires further.
 
 use super::*;
 use crate::decide::RaiseFacts;
@@ -55,6 +56,16 @@ impl Population {
         m.iter().map(|y| y.wet_lost_h).sum::<f64>() / m.len() as f64
     }
 
+    /// The hours of work a year the fires that burned unseen awhile cost polity `pi`, over the
+    /// years it measured (M8d slice DC).
+    fn fires_unseen_a_year(&self, pi: usize) -> f64 {
+        let m = &self.polities[pi].measured;
+        if m.is_empty() {
+            return 0.0;
+        }
+        m.iter().map(|y| y.late_fire_h).sum::<f64>() / m.len() as f64
+    }
+
     /// What an hour of work brings the households of polity `pi`'s settlements, kcal, on the
     /// mean: the worth of an hour given for nothing.
     fn polity_hour_kcal(&self, ctx: &Ctx, pi: usize) -> f64 {
@@ -70,13 +81,22 @@ impl Population {
 
     /// The loss a year a building of program `program` would answer for polity `pi`, kcal: a
     /// storehouse its common store's spoiling, a hall the hours its gatherings in the open were
-    /// rained off; nothing measured for any other yet.
+    /// rained off, a watch tower the work its fires seen late cost, while a watch keeps watch to
+    /// look out from it; nothing measured for any other.
     fn loss_answered(&self, ctx: &Ctx, pi: usize, program: usize) -> f64 {
         match ctx.catalog.buildings.get(program).map(|d| d.use_) {
             Some(civ_land::PlotUse::Store) => self.spoiled_a_year(pi),
             Some(civ_land::PlotUse::Hall) => {
                 let hours = self.rained_off_a_year(pi);
                 if hours > 0.0 {
+                    hours * self.polity_hour_kcal(ctx, pi)
+                } else {
+                    0.0
+                }
+            }
+            Some(civ_land::PlotUse::Tower) => {
+                let hours = self.fires_unseen_a_year(pi);
+                if hours > 0.0 && self.polities[pi].watchers().next().is_some() {
                     hours * self.polity_hour_kcal(ctx, pi)
                 } else {
                     0.0
@@ -123,6 +143,53 @@ impl Population {
     /// and no hall of its raised or being raised.
     pub(super) fn rained_off(&self, ctx: &Ctx, pi: usize) -> bool {
         self.rained_off_a_year(pi) > 0.0 && !self.raised_for(ctx, pi, civ_land::PlotUse::Hall)
+    }
+
+    /// Whether its fires seen late are an issue for polity `pi` (M8d slice DC): measured, a watch
+    /// keeping watch that could look out from a tower, and no tower of its raised or being
+    /// raised.
+    pub(super) fn fires_unseen(&self, ctx: &Ctx, pi: usize) -> bool {
+        self.fires_unseen_a_year(pi) > 0.0
+            && self.polities[pi].watchers().next().is_some()
+            && !self.raised_for(ctx, pi, civ_land::PlotUse::Tower)
+    }
+
+    /// Fire `fire` has burnt out (M8d slice DC): if nobody saw it for [`LATE_NOTICE_MIN`] after
+    /// its covering caught, and it did not catch from a neighbour already burning, the work its
+    /// building takes to put right is measured against its settlement's polity: what a watch
+    /// tower answers.
+    pub(super) fn measure_late_fire(&mut self, fire: u32, hours: f64) {
+        let Some(f) = self.fires.get(fire) else {
+            return;
+        };
+        if matches!(f.kindled, crate::fire::Kindled::Neighbour { .. }) || hours <= 0.0 {
+            return;
+        }
+        let began = f.began.minutes();
+        let first = self
+            .fires
+            .knew
+            .iter()
+            .filter(|k| k.fire == fire)
+            .map(|k| k.at.minutes())
+            .min();
+        let late = first.is_none_or(|t| (t - began) as f64 > LATE_NOTICE_MIN);
+        let (Some(settlement), year) = (f.settlement, f.began.date().year) else {
+            return;
+        };
+        if let (true, Some(pi)) = (late, self.polity_of(settlement)) {
+            self.polities[pi].measured_mut(year).late_fire_h += hours;
+        }
+    }
+
+    /// Where polity `pi`'s watch tower stands, finished, if one does: its centre, metres.
+    pub(super) fn tower_at(&self, ctx: &Ctx, pi: usize) -> Option<(f32, f32)> {
+        let id = self.polities[pi].tower?;
+        ctx.land
+            .buildings
+            .iter()
+            .find(|b| b.id == id && b.finished() && b.standing())
+            .map(|b| build::centre_m(&b.spec))
     }
 
     /// What raising each building its templates name would bring polity `pi`'s households
@@ -400,6 +467,7 @@ impl Population {
             match def.use_ {
                 civ_land::PlotUse::Store => self.polities[pi].storehouse = Some(building),
                 civ_land::PlotUse::Hall => self.polities[pi].hall = Some(building),
+                civ_land::PlotUse::Tower => self.polities[pi].tower = Some(building),
                 _ => {}
             }
         }
@@ -418,8 +486,9 @@ impl Population {
         self.raise_work(ctx, household, building, hours);
     }
 
-    /// Each polity's storehouse and hall are looked over (monthly): one no longer standing
-    /// finished keeps the store, or shelters a gathering, no more (M8d slice DC).
+    /// Each polity's storehouse, hall and watch tower are looked over (monthly): one no longer
+    /// standing finished keeps the store, shelters a gathering or is watched from no more (M8d
+    /// slice DC).
     pub(super) fn look_over_storehouses(&mut self, ctx: &Ctx) {
         let stands = |id: PermanentId| {
             ctx.land
@@ -434,9 +503,25 @@ impl Population {
             if p.hall.is_some_and(|id| !stands(id)) {
                 p.hall = None;
             }
+            if p.tower.is_some_and(|id| !stands(id)) {
+                p.tower = None;
+            }
         }
     }
 }
 
 /// How far from the hearth a polity looks for clear ground for a building it raises, metres.
 pub const RAISE_WITHIN_M: f64 = 80.0;
+
+/// Minutes after its covering caught within which a fire seen was seen in time (M8d slice DC; a
+/// design prior: an escape grows into a roof in 2-15 minutes, and a roof burns through in about
+/// an hour).
+pub const LATE_NOTICE_MIN: f64 = 10.0;
+
+/// How far someone at a watch tower sees a burning roof, metres (M8d slice DC; a design prior:
+/// from a look-out two storeys up, over the roofs about, against the flat 150 m of someone on
+/// the ground).
+pub const TOWER_SIGHT_M: f64 = 500.0;
+
+/// How near a watch tower's centre someone stands to look out from it, metres.
+pub const AT_TOWER_M: f64 = 4.0;

@@ -2666,6 +2666,11 @@ impl Population {
         if self.rained_off(ctx, pi) {
             issues.push(IssueKind::RainedOff);
         }
+        // A fire seen late, measured, a watch keeping watch, and no tower of its stands or is
+        // being raised (M8d slice DC).
+        if self.fires_unseen(ctx, pi) {
+            issues.push(IssueKind::FiresUnseen);
+        }
         // A household of it paid or was paid in weighed metal lately (M7d slice CE2b).
         if self.weighed_lately(ctx, &households) {
             issues.push(IssueKind::Weighed);

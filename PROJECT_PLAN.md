@@ -5308,6 +5308,21 @@ and M6a gives rivers a daily flow.
         the rain, laid out, raised, and then rain takes nothing and its gatherings are not
         counted open; the hall and the measures survive a save. **Boundary:** saves 166, content
         API 154. The watch tower is the third part's second half.
+      - *Third part, second half, as built (2026-10-20): a watch tower against fires seen late.*
+        A fire nobody saw for ten minutes after its covering caught, but one caught from a
+        neighbour already burning, is measured at burn-out by the work its building takes to put
+        right (saves 167). While any is measured and a watch keeps watch, the issue
+        `fires_unseen` opens, and the core's `yourselves_watch_from_a_tower` raises a
+        `watch_tower` (a new building use `tower`: one 3 m bay of two storeys) as the storehouse
+        is raised (content API 155). With no watch to look out from it a tower is worth nothing.
+        Finished, a watch round begins at the tower, and anyone awake at it sees a burning roof
+        within 500 m against the 150 m of someone on the ground. **Test:** a hut burning out
+        while everyone sleeps is measured; with no watch a tower brings nobody anything, with one
+        a year of such fires repays it; once framing is known a tower is put forward for the
+        fires, laid out and raised; a watch round then starts at it, and the watcher there sees a
+        roof catch some 300 m off; the tower and the measures survive a save. **Boundary:** saves
+        167, content API 155. Slice DC's third part is done; four dates, evidence, pay and
+        patrons are the fourth.
     - **DD, style over seven traits:** opening share, ornament, finish and symmetry; taste over
       seven traits; sighting scaled by height; copying only what one could build; the clocks
       over all seven. *Tests:* a one-settlement world drifts as before in the three old traits;
@@ -6651,6 +6666,15 @@ One line each. Don't re-litigate without a reason written next to the entry.
   mean hour; delay to what it would have decided is not weighed. The hall's size (four 3 m bays,
   6 m wide) is a design prior. Its gathering still meets at the hearth, the hall standing within
   80 m of it: the walk there is not changed.
+- **Design priors for a watch tower (2026-10-20, M8d slice DC's third part, ADR-0031 §6):**
+  NUDGE: a fire is seen late when nobody knew of it within 10 minutes of its covering catching
+  (an escape grows into a roof in 2-15 minutes and a roof burns through in about an hour); a
+  fire caught from a neighbour is left out, its conflagration's first fire carrying the loss. The
+  loss is the whole work of putting its building right, not the part a sooner sighting would have
+  saved. From the tower one sees 500 m against 150 m on the ground, standing within 4 m of its
+  centre; a watch round begins there. These are kernel constants (`LATE_NOTICE_MIN`,
+  `TOWER_SIGHT_M`, `AT_TOWER_M`), revisited if the demo (DE) shows no tower ever proposed where
+  fires burn unseen, or one that never helps.
 - **A test helper leaves state a load derives otherwise (2026-10-20, M8d slice DA):**
   `Sim::place_building_for_tests` leaves state a load derives otherwise: a save taken right after
   it does not resume exactly (the shaking test reloads once after placing). To be fixed.

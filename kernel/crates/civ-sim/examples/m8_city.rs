@@ -50,9 +50,19 @@ const NUDGES: [&str; 0] = [];
 fn main() -> ExitCode {
     let mut args = std::env::args().skip(1);
     let Some(saves) = args.next().map(PathBuf::from) else {
-        eprintln!("usage: m8_city <saves folder> [seed] [people] [days]");
+        eprintln!("usage: m8_city <saves folder> [seed] [people] [days] | m8_city <save>");
         return ExitCode::FAILURE;
     };
+    // Given a save, says again what its world came to.
+    if saves.is_file() {
+        return match reread(&saves) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("the save could not be read: {e}");
+                ExitCode::FAILURE
+            }
+        };
+    }
     let seed: u64 = args.next().and_then(|s| s.parse().ok()).unwrap_or(1);
     let people: u32 = args.next().and_then(|s| s.parse().ok()).unwrap_or(PEOPLE);
     let days: i64 = args.next().and_then(|s| s.parse().ok()).unwrap_or(DAYS);
@@ -265,11 +275,17 @@ fn framing_words(sim: &Sim, s: PermanentId) -> String {
 }
 
 /// Every law of the kinds the demo asks about, in words, those proposed from `since` marked.
-fn laws_words(sim: &Sim, since: Option<i64>) -> Vec<String> {
+fn laws_words(sim: &Sim, since: Option<i64>, names: &BTreeMap<PermanentId, String>) -> Vec<String> {
     let pop = sim.people();
     let policies = &sim.rules().catalog.policies;
     let mut out = Vec::new();
     for p in &pop.polities {
+        out.push(format!(
+            "  at {}:",
+            names
+                .get(&p.settlement)
+                .map_or("a settlement", String::as_str)
+        ));
         for l in p.laws.iter().filter(|l| {
             matches!(
                 l.kind,
@@ -283,7 +299,7 @@ fn laws_words(sim: &Sim, since: Option<i64>) -> Vec<String> {
             let (present, support, oppose) = l.counts();
             let after = since.is_some_and(|d| l.proposed.day_index() >= d);
             out.push(format!(
-                "  {}{} proposed on day {} by {}: {:?} ({support} for, {oppose} against, \
+                "    {}{} proposed on day {} by {}: {:?} ({support} for, {oppose} against, \
                  {present} came)",
                 if after { "[after the shaking] " } else { "" },
                 policies[usize::from(l.policy)].name,
@@ -329,6 +345,85 @@ fn shaking_words(sim: &Sim, names: &BTreeMap<PermanentId, String>) -> Vec<String
     out
 }
 
+/// What the world came to, in words: each settlement's residents, buildings, framing and style;
+/// the buildings raised together; the laws on building; and what each shaking did.
+fn report(
+    sim: &Sim,
+    settlements: &[(PermanentId, String, f32)],
+    shaken_on: Option<i64>,
+) -> Vec<String> {
+    let names: BTreeMap<PermanentId, String> = settlements
+        .iter()
+        .map(|(id, n, _)| (*id, n.clone()))
+        .collect();
+    let mut out = Vec::new();
+    for (id, name, _) in settlements {
+        let residents = sim
+            .people()
+            .households
+            .iter()
+            .filter(|(_, h)| h.settlement == Some(*id))
+            .map(|(_, h)| h.members.len())
+            .sum::<usize>();
+        out.push(format!("{name}: {residents} residents"));
+        out.extend(buildings_words(sim, *id));
+        out.push(framing_words(sim, *id));
+        out.push(format!(
+            "  style: {}",
+            civ_sim::frames::people::style_clock_words(sim, *id)
+        ));
+    }
+    out.push("public buildings:".to_owned());
+    for p in &sim.people().polities {
+        out.push(format!(
+            "  at {}:",
+            names
+                .get(&p.settlement)
+                .map_or("a settlement", String::as_str)
+        ));
+        for w in civ_sim::frames::government::project_words(sim, p) {
+            out.push(format!("    {w}"));
+        }
+    }
+    out.push("laws on building, raising, plans, ways and the watch:".to_owned());
+    out.extend(laws_words(sim, shaken_on, &names));
+    out.push("the shaking:".to_owned());
+    out.extend(shaking_words(sim, &names));
+    out
+}
+
+/// The world's two settlements, the port (nearer the river) first.
+fn port_first(sim: &Sim) -> Vec<(PermanentId, String, f32)> {
+    let mut settlements: Vec<(PermanentId, String, f32)> = sim
+        .land()
+        .settlements
+        .iter()
+        .map(|s| (s.id, s.name.clone(), to_river_m(sim, s.hearth_m)))
+        .collect();
+    settlements.sort_by(|a, b| a.2.total_cmp(&b.2));
+    settlements
+}
+
+/// Reads the save at `path` and says what its world came to.
+fn reread(path: &Path) -> Result<(), String> {
+    let root = civ_content::find_content_root(Path::new(env!("CARGO_MANIFEST_DIR")))
+        .ok_or("content/ is not above the crate")?;
+    let content = civ_content::load(&root)
+        .registry
+        .ok_or("the content does not load: run `civ-host content validate`")?;
+    let sim = persist::load(path, &content).map_err(|e| e.to_string())?;
+    let shaken_on = sim.people().quakes.list.first().map(|q| q.at.day_index());
+    let mut log = Log::default();
+    log.push(format!(
+        "{} on day {}: {} people",
+        sim.meta().name,
+        sim.now().day_index(),
+        sim.people().people.len()
+    ));
+    log.extend(report(&sim, &port_first(&sim), shaken_on));
+    Ok(())
+}
+
 /// Lives the demo's world: what happened, in words.
 fn make(saves: &Path, seed: u64, people: u32, days: i64) -> Result<String, String> {
     let root = civ_content::find_content_root(Path::new(env!("CARGO_MANIFEST_DIR")))
@@ -368,21 +463,11 @@ fn make(saves: &Path, seed: u64, people: u32, days: i64) -> Result<String, Strin
         made.elapsed().as_secs_f64()
     ));
     // The port is the settlement whose hearth lies nearer the river.
-    let mut settlements: Vec<(PermanentId, String, f32)> = sim
-        .land()
-        .settlements
-        .iter()
-        .map(|s| (s.id, s.name.clone(), to_river_m(&sim, s.hearth_m)))
-        .collect();
-    settlements.sort_by(|a, b| a.2.total_cmp(&b.2));
+    let settlements = port_first(&sim);
     if settlements.len() < 2 {
         return Err("fewer than two settlements were founded".to_owned());
     }
     let (port, inland) = (settlements[0].0, settlements[1].0);
-    let names: BTreeMap<PermanentId, String> = settlements
-        .iter()
-        .map(|(id, n, _)| (*id, n.clone()))
-        .collect();
     for (i, (_, n, d)) in settlements.iter().enumerate() {
         log.push(format!(
             "{n}: the {} ({d:.0} m from the river)",
@@ -463,32 +548,7 @@ fn make(saves: &Path, seed: u64, people: u32, days: i64) -> Result<String, Strin
         sim.now().day_index(),
         sim.people().people.len()
     ));
-    for (id, name, _) in &settlements {
-        let residents = sim
-            .people()
-            .households
-            .iter()
-            .filter(|(_, h)| h.settlement == Some(*id))
-            .map(|(_, h)| h.members.len())
-            .sum::<usize>();
-        log.push(format!("{name}: {residents} residents"));
-        log.extend(buildings_words(&sim, *id));
-        log.push(framing_words(&sim, *id));
-        log.push(format!(
-            "  style: {}",
-            civ_sim::frames::people::style_clock_words(&sim, *id)
-        ));
-    }
-    log.push("public buildings:".to_owned());
-    for p in &sim.people().polities {
-        for w in civ_sim::frames::government::project_words(&sim, p) {
-            log.push(format!("  {w}"));
-        }
-    }
-    log.push("laws on building, raising, plans, ways and the watch:".to_owned());
-    log.extend(laws_words(&sim, shaken_on));
-    log.push("the shaking:".to_owned());
-    log.extend(shaking_words(&sim, &names));
+    log.extend(report(&sim, &settlements, shaken_on));
     // The scale gate (ADR-0028 §1): wall time a simulated day at Max at the size reached.
     let mut sorted = walls.clone();
     sorted.sort_by(f64::total_cmp);

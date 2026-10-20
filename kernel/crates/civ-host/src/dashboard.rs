@@ -3090,7 +3090,7 @@ mod tests {
         // Only population and the accounts are graded, both worlds keep their bands and no
         // settlement's accounts failed: a pass, but no grey row counts as one.
         assert!(dashboard.passed());
-        assert_eq!(dashboard.summary(), "2 passed, 18 not yet applicable");
+        assert_eq!(dashboard.summary(), "2 passed, 19 not yet applicable");
     }
 
     #[test]

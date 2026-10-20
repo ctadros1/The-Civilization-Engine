@@ -1276,6 +1276,12 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
             .map(|w| fbb.create_string(w))
             .collect();
         let capture = fbb.create_vector(&capture);
+        // The buildings its laws raise together (M8d slice DC).
+        let projects: Vec<_> = project_words(sim, polity)
+            .iter()
+            .map(|w| fbb.create_string(w))
+            .collect();
+        let projects = fbb.create_vector(&projects);
         list.push(wire::PolityLine::create(
             &mut fbb,
             &wire::PolityLineArgs {
@@ -1309,6 +1315,7 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                 ended: Some(ended),
                 elections: Some(elections),
                 capture: Some(capture),
+                projects: Some(projects),
             },
         ));
     }
@@ -1347,6 +1354,86 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
         },
     );
     response(fbb, wire::ResponseBody::Government, body)
+}
+
+/// Each building polity `polity`'s laws raise together, newest first, in a sentence (M8d slice
+/// DC, ADR-0031 §6: proposal, start, first use and completion kept as four dates, and a stall
+/// visible): what is raised and the issue it answered, who proposed it and when, when it was laid
+/// out, the hours given against the hours it takes and by how many households, when it was first
+/// used and finished, or since when it stalls.
+pub fn project_words(sim: &Sim, polity: &Polity) -> Vec<String> {
+    let pop = &sim.people;
+    let catalog = &sim.rules.catalog;
+    let mut out = Vec::new();
+    for (law_id, site) in polity.raises.iter().rev() {
+        let Some(law) = polity.laws.iter().find(|l| l.id == *law_id) else {
+            continue;
+        };
+        let what = catalog
+            .buildings
+            .get(usize::from(site.program))
+            .map_or_else(|| "building".to_owned(), |b| b.name.to_lowercase());
+        let article = if what.starts_with(['a', 'e', 'i', 'o', 'u']) {
+            "An"
+        } else {
+            "A"
+        };
+        let mut s = format!(
+            "{article} {what} raised together because {}: proposed by {} on {}",
+            law.issue.words(),
+            pop.name_of(law.sponsor),
+            day_words(law.proposed)
+        );
+        match law.status {
+            LawStatus::Proposed => s.push_str("; before the gathering"),
+            LawStatus::InForce => {}
+            _ => s.push_str("; its law is no longer in force"),
+        }
+        if let Some(t) = site.begun {
+            s.push_str(&format!("; laid out on {}", day_words(t)));
+        }
+        if site.building.is_some() {
+            let mut givers: Vec<PermanentId> = polity
+                .raise_given
+                .iter()
+                .filter(|g| g.0 == *law_id && g.2 > 0.0)
+                .map(|g| g.1)
+                .collect();
+            givers.sort_unstable();
+            givers.dedup();
+            let given: f64 = polity
+                .raise_given
+                .iter()
+                .filter(|g| g.0 == *law_id)
+                .map(|g| f64::from(g.2))
+                .sum();
+            s.push_str(&format!(
+                "; {:.0} of {:.0} hours given by {} household{}",
+                given.min(site.labour_h),
+                site.labour_h,
+                givers.len(),
+                if givers.len() == 1 { "" } else { "s" }
+            ));
+        }
+        if let Some(t) = site.first_use {
+            s.push_str(&format!("; first used on {}", day_words(t)));
+        }
+        if let Some(t) = site.finished {
+            s.push_str(&format!("; finished on {}", day_words(t)));
+        } else if let Some(t) = site.stalled {
+            let last = site.last_work.or(site.begun);
+            s.push_str(&format!("; stalled since {}", day_words(t)));
+            if let Some(l) = last {
+                s.push_str(&format!(
+                    ", nobody having worked on it since {}",
+                    day_words(l)
+                ));
+            }
+        }
+        s.push('.');
+        out.push(s);
+    }
+    out
 }
 
 /// Who an organization by stake has come to hold in polity `polity`, in sentences (M7c slice BZ,

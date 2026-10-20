@@ -5343,6 +5343,19 @@ and M6a gives rivers a daily flow.
         no goods (its materials are made among its hours), so a patron's share would be hired
         hands, and hiring for common work waits for the demo (DE) to show a raising short of
         hands; the observer's project panel is the fifth part.
+      - *Fifth part, as built (2026-10-20): the project panel.* The government panel lists, under
+        "Buildings raised together", each building its polity has raised or begun by law, newest
+        first, as one sentence: what it is and the loss it answers, who put it forward and when,
+        whether it was laid out or is still before the gathering (or its law no longer stands),
+        the hours given of those it takes and by how many households, and when it was first
+        used, finished, or stalled with the day it was last worked on (`PolityLine.projects`,
+        wire 1.92). **Test:** the stalled hall and finished granary of the fourth part read as
+        such, newest first, with their givers' counts; the web parses and shows the sentences.
+        **Boundary:** wire 1.92. **Slice DC is closed.** Of its planned tests, with no loss measured a
+        storehouse or tower brings no household anything, so none is put forward, and a stalled hall
+        costs its sponsor counsel; the ledger is untouched by a raising, which takes no goods.
+        Deferred: patrons' shares (above), and siting a public building on a plan's square, which
+        waits until a plan's square is something a polity raises on (DE shows whether it is).
     - **DD, style over seven traits:** opening share, ornament, finish and symmetry; taste over
       seven traits; sighting scaled by height; copying only what one could build; the clocks
       over all seven. *Tests:* a one-settlement world drifts as before in the three old traits;

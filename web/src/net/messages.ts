@@ -1180,6 +1180,12 @@ export interface PolityLine {
    * kernel's sentences.
    */
   capture: string[];
+  /**
+   * Wire 1.92 (M8d slice DC, ADR-0031 §6): each building its laws raise together, newest first, in
+   * the kernel's sentences: its dates, the hours given, and a stall kept visible ([] from an older
+   * host).
+   */
+  projects: string[];
 }
 
 /** One election of a council (wire 1.77), in the kernel's words. */
@@ -4761,6 +4767,7 @@ function governmentInfo(w: W.Government): GovernmentInfo {
         };
       }),
       capture: Array.from({ length: p.captureLength() }, (_, k) => p.capture(k) ?? ""),
+      projects: Array.from({ length: p.projectsLength() }, (_, k) => p.projects(k) ?? ""),
     });
   }
   const sieges: SiegeLine[] = [];

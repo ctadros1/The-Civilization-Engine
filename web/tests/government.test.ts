@@ -306,6 +306,11 @@ describe("the government on the wire", () => {
           "Talia's organization: 2 of the 3 laws passed since it was founded were proposed by its members; 5 stood for them, 2 of them its members",
         ),
       ]),
+      W.PolityLine.createProjectsVector(b, [
+        b.createString(
+          "A granary raised together because the common store spoiled with no storehouse to keep it: proposed by Ada on 3 May of year 2; laid out on 9 May of year 2; 212 of 533 hours given by 4 households; stalled since 2 October of year 2, nobody having worked on it since 30 May of year 2.",
+        ),
+      ]),
     );
     const polities = W.Government.createPolitiesVector(b, [polity]);
     const siege = W.SiegeLine.createSiegeLine(
@@ -384,6 +389,8 @@ describe("the government on the wire", () => {
     expect(p.capture).toEqual([
       "Talia's organization: 2 of the 3 laws passed since it was founded were proposed by its members; 5 stood for them, 2 of them its members",
     ]);
+    expect(p.projects).toHaveLength(1);
+    expect(p.projects[0]).toContain("stalled since 2 October of year 2");
     expect(p.elections).toEqual([
       {
         id: 2,

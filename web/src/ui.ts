@@ -2494,6 +2494,17 @@ export function bindUi(store: Store, actions: Actions): void {
           ),
         );
       }
+      // The buildings its laws raise together (wire 1.92, M8d slice DC).
+      if (p.projects.length > 0) {
+        const projects = el(
+          "details",
+          { className: "projects" },
+          el("summary", { text: "Buildings raised together" }),
+          el("ul", {}, ...p.projects.map((v) => el("li", { text: v }))),
+        );
+        projects.open = true;
+        block.append(projects);
+      }
       // Its custom's versions, once it has been amended (wire 1.35, ADR-0017 §1).
       if (p.customHistory.length > 1) {
         block.append(

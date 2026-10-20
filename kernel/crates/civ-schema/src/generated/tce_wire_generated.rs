@@ -31422,6 +31422,7 @@ impl<'a> PolityLine<'a> {
   pub const VT_ENDED: ::flatbuffers::VOffsetT = 58;
   pub const VT_ELECTIONS: ::flatbuffers::VOffsetT = 60;
   pub const VT_CAPTURE: ::flatbuffers::VOffsetT = 62;
+  pub const VT_PROJECTS: ::flatbuffers::VOffsetT = 64;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -31438,6 +31439,7 @@ impl<'a> PolityLine<'a> {
     builder.add_founded_minute(args.founded_minute);
     builder.add_settlement(args.settlement);
     builder.add_polity(args.polity);
+    if let Some(x) = args.projects { builder.add_projects(x); }
     if let Some(x) = args.capture { builder.add_capture(x); }
     if let Some(x) = args.elections { builder.add_elections(x); }
     if let Some(x) = args.ended { builder.add_ended(x); }
@@ -31677,6 +31679,13 @@ impl<'a> PolityLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PolityLine::VT_CAPTURE, None)}
   }
+  #[inline]
+  pub fn projects(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PolityLine::VT_PROJECTS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolityLine<'_> {
@@ -31715,6 +31724,7 @@ impl ::flatbuffers::Verifiable for PolityLine<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("ended", Self::VT_ENDED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ElectionLine>>>>("elections", Self::VT_ELECTIONS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("capture", Self::VT_CAPTURE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("projects", Self::VT_PROJECTS, false)?
      .finish();
     Ok(())
   }
@@ -31750,6 +31760,7 @@ pub struct PolityLineArgs<'a> {
     pub ended: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub elections: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ElectionLine<'a>>>>>,
     pub capture: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub projects: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for PolityLineArgs<'a> {
   #[inline]
@@ -31785,6 +31796,7 @@ impl<'a> Default for PolityLineArgs<'a> {
       ended: None,
       elections: None,
       capture: None,
+      projects: None,
     }
   }
 }
@@ -31915,6 +31927,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolityLineBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_CAPTURE, capture);
   }
   #[inline]
+  pub fn add_projects(&mut self, projects: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_PROJECTS, projects);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolityLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolityLineBuilder {
@@ -31962,6 +31978,7 @@ impl ::core::fmt::Debug for PolityLine<'_> {
       ds.field("ended", &self.ended());
       ds.field("elections", &self.elections());
       ds.field("capture", &self.capture());
+      ds.field("projects", &self.projects());
       ds.finish()
   }
 }

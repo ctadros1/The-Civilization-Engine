@@ -2222,6 +2222,14 @@ table PolityLine {
   // people has come to hold, in sentences rendered by the kernel, never a percentage ("Mira's
   // organization: 3 of the 4 laws passed since it was founded were proposed by its members; ...").
   capture: [string] (id: 29);
+  // Wire 1.92 (M8d slice DC, ADR-0031 §6): each building its laws raise together, newest first,
+  // in a sentence rendered by the kernel: what and why, its dates (proposed, laid out, first used,
+  // finished), the hours given against the hours it takes and by how many households, and a stall
+  // kept visible ("A granary raised together because the common store spoiled with no
+  // storehouse to keep it: proposed by Pirra on 3 May of year 2; laid out on 9 May of year 2; 212
+  // of 533 hours given by 4 households; stalled since 2 October of year 2, nobody having worked
+  // on it since 30 May of year 2").
+  projects: [string] (id: 30);
 }
 
 // One election of a council (wire 1.77, ADR-0024 §3), in words rendered by the kernel: which, when

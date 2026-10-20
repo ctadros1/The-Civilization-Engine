@@ -286,8 +286,20 @@ captureLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+projects(index: number):string
+projects(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+projects(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 64);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+projectsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 64);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startPolityLine(builder:flatbuffers.Builder) {
-  builder.startObject(30);
+  builder.startObject(31);
 }
 
 static addPolity(builder:flatbuffers.Builder, polity:bigint) {
@@ -590,12 +602,28 @@ static startCaptureVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addProjects(builder:flatbuffers.Builder, projectsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(30, projectsOffset, 0);
+}
+
+static createProjectsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startProjectsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endPolityLine(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createPolityLine(builder:flatbuffers.Builder, polity:bigint, settlement:bigint, nameOffset:flatbuffers.Offset, foundedMinute:bigint, customOffset:flatbuffers.Offset, members:number, storeOffset:flatbuffers.Offset, storeKg:number, lawsOffset:flatbuffers.Offset, gatheringLaw:bigint, gatheringMinute:bigint, gatheringPresent:number, officesOffset:flatbuffers.Offset, labelOffset:flatbuffers.Offset, labelModifiersOffset:flatbuffers.Offset, labelWhyOffset:flatbuffers.Offset, labelConfidence:number, gatheringCasesOffset:flatbuffers.Offset, customHistoryOffset:flatbuffers.Offset, bodyMembers:number, factionsOffset:flatbuffers.Offset, petitionsOffset:flatbuffers.Offset, refusalsOffset:flatbuffers.Offset, revoltsOffset:flatbuffers.Offset, coupsOffset:flatbuffers.Offset, relationsOffset:flatbuffers.Offset, settlementsOffset:flatbuffers.Offset, endedOffset:flatbuffers.Offset, electionsOffset:flatbuffers.Offset, captureOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createPolityLine(builder:flatbuffers.Builder, polity:bigint, settlement:bigint, nameOffset:flatbuffers.Offset, foundedMinute:bigint, customOffset:flatbuffers.Offset, members:number, storeOffset:flatbuffers.Offset, storeKg:number, lawsOffset:flatbuffers.Offset, gatheringLaw:bigint, gatheringMinute:bigint, gatheringPresent:number, officesOffset:flatbuffers.Offset, labelOffset:flatbuffers.Offset, labelModifiersOffset:flatbuffers.Offset, labelWhyOffset:flatbuffers.Offset, labelConfidence:number, gatheringCasesOffset:flatbuffers.Offset, customHistoryOffset:flatbuffers.Offset, bodyMembers:number, factionsOffset:flatbuffers.Offset, petitionsOffset:flatbuffers.Offset, refusalsOffset:flatbuffers.Offset, revoltsOffset:flatbuffers.Offset, coupsOffset:flatbuffers.Offset, relationsOffset:flatbuffers.Offset, settlementsOffset:flatbuffers.Offset, endedOffset:flatbuffers.Offset, electionsOffset:flatbuffers.Offset, captureOffset:flatbuffers.Offset, projectsOffset:flatbuffers.Offset):flatbuffers.Offset {
   PolityLine.startPolityLine(builder);
   PolityLine.addPolity(builder, polity);
   PolityLine.addSettlement(builder, settlement);
@@ -627,6 +655,7 @@ static createPolityLine(builder:flatbuffers.Builder, polity:bigint, settlement:b
   PolityLine.addEnded(builder, endedOffset);
   PolityLine.addElections(builder, electionsOffset);
   PolityLine.addCapture(builder, captureOffset);
+  PolityLine.addProjects(builder, projectsOffset);
   return PolityLine.endPolityLine(builder);
 }
 }

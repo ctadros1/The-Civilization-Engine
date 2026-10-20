@@ -19605,7 +19605,8 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_SETTLEMENTS = 56,
     VT_ENDED = 58,
     VT_ELECTIONS = 60,
-    VT_CAPTURE = 62
+    VT_CAPTURE = 62,
+    VT_PROJECTS = 64
   };
   uint64_t polity() const {
     return GetField<uint64_t>(VT_POLITY, 0);
@@ -19697,6 +19698,9 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *capture() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_CAPTURE);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *projects() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_PROJECTS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -19765,6 +19769,9 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_CAPTURE) &&
            verifier.VerifyVector(capture()) &&
            verifier.VerifyVectorOfStrings(capture()) &&
+           VerifyOffset(verifier, VT_PROJECTS) &&
+           verifier.VerifyVector(projects()) &&
+           verifier.VerifyVectorOfStrings(projects()) &&
            verifier.EndTable();
   }
 };
@@ -19863,6 +19870,9 @@ struct PolityLineBuilder {
   void add_capture(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> capture) {
     fbb_.AddOffset(PolityLine::VT_CAPTURE, capture);
   }
+  void add_projects(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> projects) {
+    fbb_.AddOffset(PolityLine::VT_PROJECTS, projects);
+  }
   explicit PolityLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -19905,13 +19915,15 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLine(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> settlements = 0,
     ::flatbuffers::Offset<::flatbuffers::String> ended = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::ElectionLine>>> elections = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> capture = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> capture = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> projects = 0) {
   PolityLineBuilder builder_(_fbb);
   builder_.add_gathering_minute(gathering_minute);
   builder_.add_gathering_law(gathering_law);
   builder_.add_founded_minute(founded_minute);
   builder_.add_settlement(settlement);
   builder_.add_polity(polity);
+  builder_.add_projects(projects);
   builder_.add_capture(capture);
   builder_.add_elections(elections);
   builder_.add_ended(ended);
@@ -19976,7 +19988,8 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *settlements = nullptr,
     const char *ended = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::ElectionLine>> *elections = nullptr,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *capture = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *capture = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *projects = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto custom__ = custom ? _fbb.CreateString(custom) : 0;
   auto store__ = store ? _fbb.CreateString(store) : 0;
@@ -19997,6 +20010,7 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
   auto ended__ = ended ? _fbb.CreateString(ended) : 0;
   auto elections__ = elections ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::ElectionLine>>(*elections) : 0;
   auto capture__ = capture ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*capture) : 0;
+  auto projects__ = projects ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*projects) : 0;
   return tce::wire::CreatePolityLine(
       _fbb,
       polity,
@@ -20028,7 +20042,8 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
       settlements__,
       ended__,
       elections__,
-      capture__);
+      capture__,
+      projects__);
 }
 
 struct ElectionLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

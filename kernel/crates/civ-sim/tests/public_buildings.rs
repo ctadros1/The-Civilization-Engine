@@ -952,6 +952,30 @@ fn a_building_raised_together_keeps_its_dates_and_its_users_see_who_raised_it_or
     );
     let stalled = seen(&sim, user, sponsor, Domain::Counsel);
     assert!(stalled.1 > counsel.1, "{counsel:?} {stalled:?}");
+    // The observer reads each raising as a sentence, newest first: why it was raised, who put it
+    // forward, the hours given and by how many households, and how it ended.
+    let projects = civ_sim::frames::government::project_words(&sim, &sim.people().polities[pi]);
+    assert_eq!(projects.len(), 2, "{projects:?}");
+    assert!(
+        projects[0].starts_with("A hall raised together because"),
+        "{projects:?}"
+    );
+    assert!(projects[0].contains("stalled since"), "{projects:?}");
+    assert!(projects[0].contains("given by 1 household"), "{projects:?}");
+    assert!(
+        projects[1].starts_with("A granary raised together because"),
+        "{projects:?}"
+    );
+    assert!(
+        projects[1].contains("given by 2 households"),
+        "{projects:?}"
+    );
+    assert!(projects[1].contains("; finished on "), "{projects:?}");
+    assert!(
+        projects
+            .iter()
+            .all(|w| w.contains("proposed by ") && w.ends_with('.'))
+    );
     // The dates survive a save.
     let loaded = reloaded(&mut sim);
     assert_eq!(

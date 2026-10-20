@@ -35,6 +35,13 @@ pub(super) struct TakeTarget {
     regard: f64,
 }
 
+impl TakeTarget {
+    /// The household taken from.
+    pub(super) fn household(&self) -> PermanentId {
+        self.household
+    }
+}
+
 /// One hungry household's best store at home and among the homes of settlements it has seen
 /// (M6c slice BI's probe): kcal a load would carry and the ranking cost, walk minutes plus the
 /// asking weight of regard. Measurement only.
@@ -128,12 +135,11 @@ impl Population {
         // within the same reach.
         let seen = self.homes_seen_elsewhere(hh.id, settlement);
         let mut found: Vec<TakeTarget> = Vec::new();
-        for (_, x) in self.households.iter() {
-            if x.id == hh.id
-                || x.members.is_empty()
-                || x.settlement
-                    .is_none_or(|s| s != settlement && !seen.contains(&s))
-            {
+        let places: Vec<PermanentId> = std::iter::once(settlement)
+            .chain(seen.iter().copied())
+            .collect();
+        for x in self.households_in_any(&places) {
+            if x.id == hh.id || x.members.is_empty() {
                 continue;
             }
             let stores = stores_now(x, now, params, goods);
@@ -376,8 +382,8 @@ impl Population {
             return (own as f32, f32::NAN);
         };
         let (mut more, mut others) = (0.0, 0u32);
-        for (_, y) in self.households.iter() {
-            if y.id == hh || y.settlement != Some(settlement) || y.members.is_empty() {
+        for y in self.households_in(settlement) {
+            if y.id == hh || y.members.is_empty() {
                 continue;
             }
             let d = days(y);
@@ -781,7 +787,20 @@ impl Population {
     /// members know; a household that has learnt who took from it chooses to let it go or demand
     /// the food back; and what is owed is answered, paid, or falls due.
     pub(super) fn crime_day(&mut self, ctx: &mut Ctx) {
+        // Ground rent falls due whether or not anything was ever taken (M8c slice CU), and what is
+        // owed is answered.
+        self.levy_ground_rent(ctx);
+        // What findings under plans ordered is carried out on its day (M8c slice CV).
+        self.carry_out_removals(ctx);
         if self.order.incidents.is_empty() {
+            if self
+                .order
+                .obligations
+                .iter()
+                .any(|o| o.standing == Standing::Open)
+            {
+                self.answer_obligations(ctx);
+            }
             return;
         }
         let (now, params) = (ctx.now, ctx.params);
@@ -1168,11 +1187,20 @@ impl Population {
             if ob.standing != Standing::Open {
                 continue;
             }
-            let Some(taker) = self.order.incident(ob.incident).map(|i| i.actor) else {
+            // A debt imposed by a finding (M7d slice CB) names a loan, not an incident, and ground
+            // rent (M8c slice CU) or a breach's finding (M7c slice BX) none: the one who answers
+            // for it is the debtor household's elder.
+            let taker = if ob.of_incident() {
+                self.order.incident(ob.incident).map(|i| i.actor)
+            } else {
+                self.elder_of(ob.debtor, ctx.now, ctx.params)
+            };
+            let Some(taker) = taker else {
                 continue;
             };
-            // The one owed: a household, or for a fine the polity.
-            let owed_here = if ob.kind == Owed::Fine {
+            // The one owed: a household, or for a fine or ground rent the polity.
+            let to_store = matches!(ob.kind, Owed::Fine | Owed::GroundRent);
+            let owed_here = if to_store {
                 self.polities.iter().any(|p| p.id == ob.beneficiary)
             } else {
                 self.household(ob.beneficiary).is_some()
@@ -1183,7 +1211,7 @@ impl Population {
             };
             let settlement = debtor.settlement;
             let need = debtor.members.len().max(1) as f64 * params.household.daily_kcal_per_person;
-            let owed_members = if ob.kind == Owed::Fine {
+            let owed_members = if to_store {
                 Vec::new()
             } else {
                 self.household(ob.beneficiary)
@@ -1220,7 +1248,13 @@ impl Population {
                                     .any(|&m| self.order.believes_took(m, taker, since, &|_| true))
                             })
                             .count();
-                        let known = knowing as f64 / households.len().max(1) as f64;
+                        // A debt was found before everyone, and its loan witnessed; ground rent is
+                        // a plan's, and a breach was found before everyone: known to all.
+                        let known = if !ob.of_incident() {
+                            1.0
+                        } else {
+                            knowing as f64 / households.len().max(1) as f64
+                        };
                         // Regard for the household owed: for a finding, the one taken from.
                         let owed_household = match ob.case.and_then(|c| self.order.case(c)) {
                             Some(c) => c.accuser,
@@ -1240,7 +1274,11 @@ impl Population {
                         // Only a finding of its own settlement's gathering binds it (M6c slice
                         // BI, ADR-0023 §2).
                         let case = ob.case.and_then(|c| self.order.case(c));
-                        let found = if case.is_some_and(|c| Some(c.settlement) != settlement) {
+                        let found = if ob.kind == Owed::GroundRent {
+                            // Ground rent is owed under a law of its gathering, which binds as a
+                            // finding does (M8c slice CU, third part).
+                            cp.w_comply_found
+                        } else if case.is_some_and(|c| Some(c.settlement) != settlement) {
                             0.0
                         } else if case.is_some_and(|c| c.forum.is_some()) {
                             // A forum's finding, by the norm that findings bind (M7b slice BU).
@@ -1261,12 +1299,12 @@ impl Population {
                     self.order.obligations[k].standing = Standing::Refused;
                     // A finding refused is held against the household that refused it (M4c
                     // slice AE).
-                    if ob.kind != Owed::Fine
+                    if !to_store
                         && let Some(law) = ob.case.and_then(|c| self.order.case(c)).map(|c| c.law)
                     {
                         self.grieve_refusal(ctx, law, ob.debtor, ob.beneficiary, ob.left_kcal());
                     }
-                    if ob.kind != Owed::Fine {
+                    if !to_store {
                         for &m in &owed_members {
                             self.note_tie(ctx, m, taker, Act::RefusedRestitution, 1.0, 0.0);
                         }
@@ -1303,9 +1341,15 @@ impl Population {
                     Owed::Demanded | Owed::Restitution => Channel::Restitution,
                     Owed::Compensation => Channel::Compensation,
                     Owed::Fine => Channel::Fine,
+                    Owed::Debt => Channel::Repaid,
+                    Owed::GroundRent => Channel::GroundRent,
                 };
                 if !legs.is_empty() && self.transfer(now, params, goods, &legs, channel) {
                     self.order.obligations[k].paid_kcal += kcal as f32;
+                    // What is paid on a debt is paid on its loan, in the loan's good.
+                    if ob.kind == Owed::Debt {
+                        self.paid_on_loan(ctx, ob.incident, kcal);
+                    }
                 }
             }
             if self.order.obligations[k].left_kcal() <= 1.0 {
@@ -1333,7 +1377,14 @@ impl Population {
     /// The chronicle's note of how obligation `k` ended.
     fn restitution_note(&mut self, ctx: &Ctx, k: usize, place: (f32, f32)) {
         let ob = self.order.obligations[k];
-        let Some(taker) = self.order.incident(ob.incident).map(|i| i.actor) else {
+        // A debt names a loan, not an incident (M7d slice CB); ground rent and a breach's finding
+        // name none.
+        let taker = if ob.of_incident() {
+            self.order.incident(ob.incident).map(|i| i.actor)
+        } else {
+            self.elder_of(ob.debtor, ctx.now, ctx.params)
+        };
+        let Some(taker) = taker else {
             return;
         };
         let (now, params) = (ctx.now, ctx.params);
@@ -1369,11 +1420,20 @@ impl Population {
                     ),
                 }
             }
-            Owed::Compensation | Owed::Fine => {
-                let what = if ob.kind == Owed::Fine {
-                    "the fine to the common store".to_owned()
-                } else {
-                    format!("what it owed {} for {who}'s taking", of(ob.beneficiary))
+            Owed::Compensation | Owed::Fine | Owed::Debt | Owed::GroundRent => {
+                let what = match ob.kind {
+                    Owed::Fine => "the fine to the common store".to_owned(),
+                    Owed::GroundRent => {
+                        "the year's ground rent for its parcel to the common store".to_owned()
+                    }
+                    Owed::Debt => format!(
+                        "what the finding imposed of a loan from {}",
+                        of(ob.beneficiary)
+                    ),
+                    _ if !ob.of_incident() => {
+                        format!("what the finding imposed for {}", of(ob.beneficiary))
+                    }
+                    _ => format!("what it owed {} for {who}'s taking", of(ob.beneficiary)),
                 };
                 match ob.standing {
                     Standing::Met => format!("{debtor} paid {what}."),
@@ -1497,6 +1557,7 @@ mod tests {
 
     fn good(name: &str, kcal_per_kg: f64, kept_back: bool) -> GoodDef {
         GoodDef {
+            money: None,
             id: name.into(),
             name: name.into(),
             purpose: GoodUse::Food,

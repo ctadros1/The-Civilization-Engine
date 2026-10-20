@@ -389,6 +389,69 @@ pub const SCHEMA_V128: u32 = 128;
 pub const SCHEMA_V129: u32 = 129;
 /// Privileges, before the keeper's diversion.
 pub const SCHEMA_V130: u32 = 130;
+/// The keeper's diversion, the collector and patron gifts, before closed bodies.
+pub const SCHEMA_V131: u32 = 131;
+/// Closed bodies, before loans.
+pub const SCHEMA_V132: u32 = 132;
+/// Loans, before pledges and answers at the due day.
+pub const SCHEMA_V133: u32 = 133;
+/// Pledges and answers at the due day, before debts heard.
+pub const SCHEMA_V134: u32 = 134;
+/// Debts heard, before coin.
+pub const SCHEMA_V135: u32 = 135;
+/// Coin, before the mint.
+pub const SCHEMA_V136: u32 = 136;
+/// The mint, before pay for common work.
+pub const SCHEMA_V137: u32 = 137;
+/// Pay for common work, before the chronicle of coin struck.
+pub const SCHEMA_V138: u32 = 138;
+/// The chronicle of coin struck, before ways.
+pub const SCHEMA_V139: u32 = 139;
+/// Ways, before bottlenecks for walkers.
+pub const SCHEMA_V140: u32 = 140;
+/// Bottlenecks for walkers, before boats.
+pub const SCHEMA_V141: u32 = 141;
+/// Boats, before goods in transit by boat.
+pub const SCHEMA_V142: u32 = 142;
+/// Goods in transit by boat, before boats being made.
+pub const SCHEMA_V143: u32 = 143;
+/// Boats being made, before carts.
+pub const SCHEMA_V144: u32 = 144;
+/// Carts, before carts being made.
+pub const SCHEMA_V145: u32 = 145;
+/// Carts being made, before carts meeting by clearance.
+pub const SCHEMA_V146: u32 = 146;
+/// Carts meeting by clearance, before households' losses on ways.
+pub const SCHEMA_V147: u32 = 147;
+/// Losses on ways, before passing places.
+pub const SCHEMA_V148: u32 = 148;
+/// Passing places a household makes, before a polity's.
+pub const SCHEMA_V149: u32 = 149;
+/// A polity's passing places, before losses to worn trail.
+pub const SCHEMA_V150: u32 = 150;
+/// Losses to worn trail, before travel measured.
+pub const SCHEMA_V151: u32 = 151;
+/// Travel measured, before households held their days of travel.
+pub const SCHEMA_V152: u32 = 152;
+/// Households' days of travel, before where people go from home.
+pub const SCHEMA_V153: u32 = 153;
+/// Where people go from home, before plots kept why they were chosen.
+pub const SCHEMA_V154: u32 = 154;
+/// Plots' receipts, before polities kept their plans and what they saw of their ground.
+pub const SCHEMA_V155: u32 = 155;
+/// Polities' plans, before they kept the buildings begun on ground a plan reserves.
+pub const SCHEMA_V156: u32 = 156;
+/// Polities' encroachments, before plots kept the parcels of plans they were given.
+pub const SCHEMA_V157: u32 = 157;
+/// Plots' parcels, before fields kept the plan that reserved them and plans the fields whose
+/// holders refused their pay.
+pub const SCHEMA_V158: u32 = 158;
+/// Fields' reservations, before encroachments kept who saw them and cases the buildings plans
+/// are brought for.
+pub const SCHEMA_V159: u32 = 159;
+/// Encroachments' witnesses and cases' buildings, before plans' bundles took buildings down or let
+/// them stand for a yearly payment.
+pub const SCHEMA_V160: u32 = 160;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");
@@ -569,8 +632,7 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
     let info = reader.info().clone();
 
     let meta_bytes = single_chunk(&mut reader, SECTION_META)?;
-    let meta =
-        flatbuffers::root::<save::Meta>(&meta_bytes).map_err(|e| unreadable(SECTION_META, &e))?;
+    let meta = section_root::<save::Meta>(&meta_bytes).map_err(|e| unreadable(SECTION_META, &e))?;
     let (width, height) = (meta.width(), meta.height());
     if !(1..=MAX_SIDE).contains(&width) || !(1..=MAX_SIDE).contains(&height) {
         return Err(LoadError::Malformed(format!(
@@ -603,8 +665,8 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
     let (cell_size_m, sea_level_m) = (meta.cell_size_m(), meta.sea_level_m());
 
     let clock_bytes = single_chunk(&mut reader, SECTION_CLOCK)?;
-    let clock = flatbuffers::root::<save::Clock>(&clock_bytes)
-        .map_err(|e| unreadable(SECTION_CLOCK, &e))?;
+    let clock =
+        section_root::<save::Clock>(&clock_bytes).map_err(|e| unreadable(SECTION_CLOCK, &e))?;
     if clock.minute() != info.sim_time {
         return Err(LoadError::Malformed(
             "the header's time disagrees with the clock section".to_owned(),
@@ -632,7 +694,7 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
     };
 
     let content_bytes = single_chunk(&mut reader, SECTION_CONTENT)?;
-    let saved_content = flatbuffers::root::<save::Content>(&content_bytes)
+    let saved_content = section_root::<save::Content>(&content_bytes)
         .map_err(|e| unreadable(SECTION_CONTENT, &e))?;
     let saved_fingerprint: [u8; 32] = saved_content
         .fingerprint()
@@ -780,7 +842,7 @@ pub fn describe(path: &Path, content: &ContentRegistry) -> SaveSummary {
         return summary;
     }
     let name = single_chunk(&mut reader, SECTION_META).and_then(|bytes| {
-        flatbuffers::root::<save::Meta>(&bytes)
+        section_root::<save::Meta>(&bytes)
             .map(|meta| meta.world_name().unwrap_or_default().to_owned())
             .map_err(|e| unreadable(SECTION_META, &e))
     });
@@ -1043,6 +1105,22 @@ fn encode_tile(map: &WorldMap, layer: save::Layer, tile: Tile) -> Vec<u8> {
     finish(fbb, root)
 }
 
+/// A section's root, verified with a limit on its tables scaled to its size: one section of a
+/// world of thousands holds more than the verifier's default million tables (M8a slice CF: a
+/// 3×3,334 world's receipts), and a table takes at least four bytes, so `len / 4` bounds them
+/// without trusting the file.
+pub(crate) fn section_root<'a, T>(bytes: &'a [u8]) -> Result<T::Inner, InvalidFlatbuffer>
+where
+    T: 'a + flatbuffers::Follow<'a> + flatbuffers::Verifiable,
+{
+    let defaults = flatbuffers::VerifierOptions::default();
+    let opts = flatbuffers::VerifierOptions {
+        max_tables: defaults.max_tables.max(bytes.len() / 4),
+        ..defaults
+    };
+    flatbuffers::root_with_opts::<T>(&opts, bytes)
+}
+
 fn unreadable(tag: SectionTag, e: &InvalidFlatbuffer) -> LoadError {
     LoadError::Malformed(format!("section `{tag}` does not decode: {e}"))
 }
@@ -1109,7 +1187,7 @@ fn read_raster<R: Read + Seek>(
     for (chunk, tile) in chunks.iter().zip(&expected) {
         check_version(tag, chunk.version)?;
         let decoded =
-            flatbuffers::root::<save::RasterTile>(&chunk.bytes).map_err(|e| unreadable(tag, &e))?;
+            section_root::<save::RasterTile>(&chunk.bytes).map_err(|e| unreadable(tag, &e))?;
         let found = Tile {
             x0: decoded.x0(),
             y0: decoded.y0(),
@@ -1143,8 +1221,7 @@ fn read_raster<R: Read + Seek>(
 type Hydro = (Vec<Lake>, Vec<RiverReach>, Vec<Inflow>);
 
 fn decode_hydro(bytes: &[u8]) -> Result<Hydro, LoadError> {
-    let hydro =
-        flatbuffers::root::<save::Hydro>(bytes).map_err(|e| unreadable(SECTION_HYDRO, &e))?;
+    let hydro = section_root::<save::Hydro>(bytes).map_err(|e| unreadable(SECTION_HYDRO, &e))?;
     let bad = |what: String| LoadError::Malformed(format!("section `hydro`: {what}"));
 
     let mut lakes = Vec::new();
@@ -1214,6 +1291,39 @@ fn decode_hydro(bytes: &[u8]) -> Result<Hydro, LoadError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_section_of_more_than_a_million_tables_is_read() {
+        // A 3×3,334 world's receipts held more tables than the verifier allows by default
+        // (M8a slice CF); a section is verified with a limit scaled to its size instead.
+        let mut fbb = FlatBufferBuilder::new();
+        let people: Vec<_> = (0..1_100_000u64)
+            .map(|person| {
+                save::PersonReceipts::create(
+                    &mut fbb,
+                    &save::PersonReceiptsArgs {
+                        person,
+                        receipts: None,
+                    },
+                )
+            })
+            .collect();
+        let people = fbb.create_vector(&people);
+        let root = save::Receipts::create(
+            &mut fbb,
+            &save::ReceiptsArgs {
+                activities: None,
+                people: Some(people),
+            },
+        );
+        fbb.finish(root, None);
+        let bytes = fbb.finished_data();
+        assert!(flatbuffers::root::<save::Receipts>(bytes).is_err());
+        let read = section_root::<save::Receipts>(bytes).expect("read");
+        assert_eq!(read.people().map(|p| p.len()), Some(1_100_000));
+        // A file claiming more tables than its bytes could hold is still refused.
+        assert!(section_root::<save::Receipts>(&bytes[..bytes.len() / 2]).is_err());
+    }
 
     #[test]
     fn tiles_cover_a_map_exactly_once() {

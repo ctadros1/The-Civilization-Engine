@@ -1,0 +1,23 @@
+# Debts heard, with time (M7d slice CB, ADR-0027 §3; research 08-20 §1.6: Hammurabi §48 relieves
+# grain repayment in a failed harvest, and relief can be a standstill rather than a release).
+# As `debts_heard`, but a finding gives the debtor time instead: the loan is open again, due
+# `extend_days` after the finding, and its debtor answers it then as at any due day. The share
+# households expect a finding to move is less, a tuning value. Whether anyone proposes it and
+# whether a gathering passes it is people's.
+kind = "policy"
+id = "core:policy/debts_heard_time"
+name = "Debts heard, with time"
+description = "A loan refused or left unpaid may be brought; a finding gives the debtor time to pay."
+does = "debts_heard"
+answers = ["debts_unpaid"]
+question = "whether the gathering hears unpaid debts and gives a debtor time"
+
+[debts]
+remedy = "time"
+share = 0.5
+extend_days = 180
+
+# An authoring judgement, not a measurement.
+[bears]
+"core:value/reciprocity" = 0.5
+"core:value/security" = 0.5

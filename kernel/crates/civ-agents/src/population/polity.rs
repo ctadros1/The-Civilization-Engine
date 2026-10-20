@@ -57,6 +57,11 @@ pub(super) struct Forecasts {
     pub(super) bank: Option<super::levees::PublicBank>,
     /// A bank the polity built that wants mending and that no law keeps, if any (M6b slice BG).
     pub(super) worn: Option<super::levees::WornBank>,
+    /// Where the settlement's people could clear a passing place together, if anywhere (M8b
+    /// slice CQ, third part).
+    pub(super) way: Option<super::way_works::PublicWay>,
+    /// The plans a sponsor could put forward, if it weighs one (M8c slice CT, second part).
+    pub(super) plans: Vec<super::plans::PublicPlan>,
     /// The palisade the settlement's people could raise round their hearth together, if any
     /// (M6c slice BK).
     pub(super) enclosure: Option<super::enclosures::PublicEnclosure>,
@@ -75,6 +80,29 @@ pub(super) struct Forecasts {
     forum_cases: Vec<ForumCase>,
     /// What a duty or an embargo would bring each household (M7c slice BV).
     trade: TradeForecast,
+    /// What each household is owed on loans refused or left unpaid and not yet heard, and what
+    /// it owes on such loans, kcal (M7d slice CB), by household id.
+    debts: Vec<(PermanentId, f64, f64)>,
+    /// The food the common store holds, kcal, and the households it serves (M7d slice CC):
+    /// what lending from it could lend each.
+    store_food: (f64, usize),
+    /// Kilograms of metal paid by weight each household paid or was paid a year (M7d slice
+    /// CE2b), by household id: the weighing a mint would save it.
+    weighed: Vec<(PermanentId, f64)>,
+    /// For each mint template, by index: the hours of weighing a kilogram paid in its coin saves,
+    /// the hours striking a kilogram takes its keeper, and the pieces a household gets back for a
+    /// kilogram it brings (M7d slice CE4b).
+    mints: Vec<(u16, f64, f64, f64)>,
+    /// What a piece is worth to each household that counts pieces rather than assaying them,
+    /// hours, by household id (M7d slice CE4b): what it bought; 0 for one that assays.
+    count_piece_h: Vec<(PermanentId, f64)>,
+    /// The settlement's adults and their households, by person id: whose household a keeper
+    /// named would work for the office.
+    adults: Vec<(PermanentId, PermanentId)>,
+    /// What each household would be paid a year under a law of pay for common work, kcal, by
+    /// template index and then household id (M7d slice CE3a): its share of the money the store
+    /// holds, at what a unit is worth to it in hours, at what its hours bring in food.
+    pay: Vec<(u16, Vec<(PermanentId, f64)>)>,
 }
 
 /// What a household weighs a trade law by (M7c slice BV, ADR-0026 §1): its settlement's
@@ -410,6 +438,42 @@ impl Forecasts {
                 let owed = p.share_h() / p.life.max(1e-9) * kcal;
                 crate::polity::kept_gain(o, saved, pp) - crate::polity::levy_cost(o, owed, pp)
             }
+            // A passing place cleared together (M8b slice CQ, third part), as a bank: the food a
+            // year the waiting it would spare the household could bring, less what its share of
+            // the work, spread over the place's life, could.
+            Some(PolicyKind::BuildWay) => {
+                let Some(p) = self.way.as_ref() else {
+                    return 0.0;
+                };
+                let kcal = self
+                    .hour_kcal
+                    .binary_search_by_key(&h, |k| k.0)
+                    .map_or(0.0, |i| self.hour_kcal[i].1);
+                let saved = p.saves_of(h) * kcal;
+                let owed = p.share_h() / p.life.max(1e-9) * kcal;
+                crate::polity::kept_gain(o, saved, pp) - crate::polity::levy_cost(o, owed, pp)
+            }
+            // A plan (M8c slice CT, second part): the food a year the walking its best parcel
+            // would save the household could bring, against the ground it would take now if it
+            // means to build, less what its share of staking the parcels out, over a home's
+            // years, could. Named by its code; a household that means to build nothing gains
+            // nothing and still owes its share.
+            Some(PolicyKind::Plan) => {
+                let Some(p) = self
+                    .plans
+                    .iter()
+                    .find(|p| p.policy == m.policy && Some(p.code) == m.site)
+                else {
+                    return 0.0;
+                };
+                let kcal = self
+                    .hour_kcal
+                    .binary_search_by_key(&h, |k| k.0)
+                    .map_or(0.0, |i| self.hour_kcal[i].1);
+                let (saved, owed) = p.gain_of(h);
+                crate::polity::kept_gain(o, saved.max(0.0) * kcal, pp)
+                    - crate::polity::levy_cost(o, (owed + (-saved).max(0.0)) * kcal, pp)
+            }
             // A bank kept (M6b slice BG), as a bank built: the food a year the losses the
             // household reckoned the bank keeps out could bring, less what its share of mending
             // it now, spread over a bank's life, could (design prior: a mended bank is reckoned
@@ -575,6 +639,79 @@ impl Forecasts {
                 let (gain, cost) = self.trade.recognize(h, org);
                 crate::polity::kept_gain(o, gain, pp) - crate::polity::levy_cost(o, cost, pp)
             }
+            // Debts heard (M7d slice CB): what it is owed and owes on failed loans, at the share
+            // a finding is expected to move.
+            Some(PolicyKind::DebtsHeard) => {
+                let Some(def) = policies.get(usize::from(m.policy)).and_then(|d| d.debts) else {
+                    return 0.0;
+                };
+                let share = f64::from(def.share);
+                let (to, from) = self
+                    .debts
+                    .binary_search_by_key(&h, |d| d.0)
+                    .map_or((0.0, 0.0), |i| (self.debts[i].1, self.debts[i].2));
+                crate::polity::against_gain(o, to * share, from * share, pp)
+            }
+            // A mint (M7d slice CE2b): the hours of weighing its coin would save the household on
+            // the metal it pays and is paid a year, worth what its hours bring in food; less, for
+            // the household of the keeper it names, the hours of striking as much metal as
+            // changes hands in the settlement a year.
+            Some(PolicyKind::Mint) => {
+                let Some(&(_, saved_h, strike_h, pieces)) =
+                    self.mints.iter().find(|x| x.0 == m.policy)
+                else {
+                    return 0.0;
+                };
+                let kcal = self
+                    .hour_kcal
+                    .binary_search_by_key(&h, |k| k.0)
+                    .map_or(0.0, |i| self.hour_kcal[i].1);
+                let kg = self
+                    .weighed
+                    .binary_search_by_key(&h, |k| k.0)
+                    .map_or(0.0, |i| self.weighed[i].1);
+                let keeper = m
+                    .nominee
+                    .and_then(|n| self.adults.binary_search_by_key(&n, |a| a.0).ok())
+                    .map(|i| self.adults[i].1);
+                let work = if keeper == Some(h) {
+                    self.weighed.iter().map(|w| w.1).sum::<f64>() / 2.0 * strike_h * kcal
+                } else {
+                    0.0
+                };
+                // One that counts pieces expects what the pieces it would get back for its metal
+                // have bought it (M7d slice CE4b): a lighter coin gives it more of them.
+                let piece_h = self
+                    .count_piece_h
+                    .binary_search_by_key(&h, |k| k.0)
+                    .map_or(0.0, |i| self.count_piece_h[i].1);
+                let counted = kg / 2.0 * pieces * piece_h;
+                crate::polity::kept_gain(o, (kg * saved_h + counted) * kcal, pp)
+                    - crate::polity::levy_cost(o, work, pp)
+            }
+            // Pay for common work (M7d slice CE3a): the household's share of the money the store
+            // holds, as it values it.
+            Some(PolicyKind::PayWork) => {
+                let kcal = self
+                    .pay
+                    .iter()
+                    .find(|p| p.0 == m.policy)
+                    .and_then(|p| p.1.iter().find(|x| x.0 == h))
+                    .map_or(0.0, |x| x.1);
+                crate::polity::kept_gain(o, kcal, pp)
+            }
+            // Lending from the store (M7d slice CC): what its short year would borrow, up to its
+            // share of what the store lends, less the increment it would owe.
+            Some(PolicyKind::LendFromStore) => {
+                let Some(def) = policies.get(usize::from(m.policy)).and_then(|d| d.lending) else {
+                    return 0.0;
+                };
+                let (food, n) = self.store_food;
+                let each = food * f64::from(def.share) / n.max(1) as f64;
+                let short = (o.year_need - o.held - o.harvest).max(0.0);
+                let borrow = short.min(each);
+                crate::polity::against_gain(o, borrow, borrow * f64::from(def.increment), pp)
+            }
             Some(PolicyKind::Privilege) => {
                 let (Some(org), Some(def)) = (
                     m.target,
@@ -724,6 +861,9 @@ impl Population {
                 // Whether a member of an organization brings a breach of its privilege (M7c
                 // slice BX).
                 self.weigh_breaches(ctx, pi);
+                self.weigh_plan_cases(ctx, pi);
+                // Whether a creditor brings a loan refused or left unpaid (M7d slice CB).
+                self.weigh_debts(ctx, pi);
                 // Whether the store's keeper draws from it for their own household (M7c slice
                 // BY).
                 self.keeper_weighs_drawing(ctx, pi);
@@ -889,6 +1029,14 @@ impl Population {
             if here && !term_ended {
                 return;
             }
+            // A plan whose keeper is gone stays in force with nobody to give its parcels (M8c
+            // slice CU): the office lies vacant until a later version names another.
+            if kind == PolicyKind::Plan {
+                if let Some(l) = self.polities[pi].law_mut(law) {
+                    l.holder = None;
+                }
+                return;
+            }
             if kind == PolicyKind::KeepStore {
                 let sheltered = self.polity_sheltered(pi);
                 self.polities[pi].settle_stores(ctx.now, &ctx.catalog.goods, sheltered);
@@ -913,6 +1061,7 @@ impl Population {
             let office = match kind {
                 PolicyKind::KeepWatch => "keeps watch",
                 PolicyKind::HearCases => "hears cases",
+                PolicyKind::Mint => "strikes coin",
                 _ => "keeps the common store",
             };
             let words = format!(
@@ -1014,6 +1163,12 @@ impl Population {
                 .collect(),
             // Those of them who hold a council seat (M7a slice BO): one sits where they live.
             Membership::Seats => self.sitting(adults),
+            // Members of organizations it recognizes, or grants a privilege (M7c slice BZ).
+            Membership::Organized | Membership::Privileged => adults
+                .iter()
+                .copied()
+                .filter(|&(_, h)| self.closed_member(m, h))
+                .collect(),
         }
     }
 
@@ -1046,6 +1201,7 @@ impl Population {
             Membership::Landholders => fields.iter().any(|f| f.holder.household() == Some(hh)),
             Membership::Watch => self.keeps_a_watch(person),
             Membership::Seats => self.sits(person),
+            m @ (Membership::Organized | Membership::Privileged) => self.closed_member(m, hh),
         }
     }
 
@@ -1338,7 +1494,47 @@ impl Population {
         let bank = self.public_bank(ctx, settlement, households);
         let mut fc = self.forecasts_with(ctx, pi, households, adults, sites, well, bank);
         self.with_enclosure(ctx, &mut fc, settlement, households);
+        let way = self.public_way(ctx, settlement, households);
+        self.with_way(ctx, &mut fc, way, households);
         fc
+    }
+
+    /// Adds to forecasts `fc` the passing place `way` the settlement's people could clear
+    /// together (M8b slice CQ, third part), with what an hour of each household's work brings it
+    /// if it was not reckoned already.
+    fn with_way(
+        &self,
+        ctx: &Ctx,
+        fc: &mut Forecasts,
+        way: Option<super::way_works::PublicWay>,
+        households: &[PermanentId],
+    ) {
+        fc.way = way;
+        if fc.way.is_some() && fc.hour_kcal.is_empty() {
+            fc.hour_kcal = households
+                .iter()
+                .filter_map(|&h| Some((h, self.hour_kcal(ctx, self.household(h)?))))
+                .collect();
+        }
+    }
+
+    /// Adds to forecasts `fc` the plans `plans` a sponsor could put forward (M8c slice CT, second
+    /// part), with what an hour of each household's work brings it if it was not reckoned
+    /// already.
+    fn with_plans(
+        &self,
+        ctx: &Ctx,
+        fc: &mut Forecasts,
+        plans: Vec<super::plans::PublicPlan>,
+        households: &[PermanentId],
+    ) {
+        fc.plans = plans;
+        if !fc.plans.is_empty() && fc.hour_kcal.is_empty() {
+            fc.hour_kcal = households
+                .iter()
+                .filter_map(|&h| Some((h, self.hour_kcal(ctx, self.household(h)?))))
+                .collect();
+        }
     }
 
     /// Adds to forecasts `fc` the palisade settlement `settlement`'s people could raise round
@@ -1400,6 +1596,37 @@ impl Population {
             })
             .collect();
         let closures = self.closure_forecasts(ctx, pi, households, adults);
+        // A mint's forecast (M7d slice CE2b): what each template would save weighing, and what
+        // striking would ask of its keeper.
+        let mints: Vec<(u16, f64, f64, f64)> = ctx
+            .catalog
+            .policies
+            .iter()
+            .enumerate()
+            .filter_map(|(k, d)| {
+                let m = d.mint?;
+                let r = ctx.catalog.recipes.get(m.recipe)?;
+                let per = r.inputs.first()?.1;
+                let strike_h = if per > 0.0 { r.unit_h / per } else { 0.0 };
+                let pieces = if m.metal_kg() > 0.0 {
+                    (1.0 - f64::from(m.fee)) / m.metal_kg()
+                } else {
+                    0.0
+                };
+                Some((k as u16, Self::weighing_saved_h(ctx, &m), strike_h, pieces))
+            })
+            .collect();
+        let weighed = if mints.is_empty() {
+            Vec::new()
+        } else {
+            self.weighed_kg_year(ctx, households)
+        };
+        let weighing = weighed.iter().any(|w| w.1 > 0.0);
+        let count_piece_h = if weighing {
+            self.count_piece_worths(ctx, households, &mints)
+        } else {
+            Vec::new()
+        };
         let worn = self.worn_bank(ctx, pi, households.len());
         let rules = self.rule_forecasts(ctx, pi, households);
         Forecasts {
@@ -1411,7 +1638,12 @@ impl Population {
             watchers,
             claim,
             closures,
-            hour_kcal: if sites.is_empty() && well.is_none() && bank.is_none() && worn.is_none() {
+            hour_kcal: if sites.is_empty()
+                && well.is_none()
+                && bank.is_none()
+                && worn.is_none()
+                && !weighing
+            {
                 Vec::new()
             } else {
                 households
@@ -1423,6 +1655,8 @@ impl Population {
             well,
             bank,
             worn,
+            way: None,
+            plans: Vec::new(),
             enclosure: None,
             rules,
             band_load: {
@@ -1451,6 +1685,20 @@ impl Population {
             }),
             forum_cases: self.forum_cases(ctx, pi),
             trade: self.trade_forecast(ctx, pi, households),
+            debts: self.debt_stakes(ctx, households),
+            store_food: (
+                stock_kcal(&self.polities[pi].stores, &ctx.catalog.goods),
+                households.len(),
+            ),
+            weighed,
+            mints,
+            count_piece_h,
+            pay: self.pay_forecasts(ctx, pi, households),
+            adults: {
+                let mut a = adults.to_vec();
+                a.sort_unstable();
+                a
+            },
         }
     }
 
@@ -2175,6 +2423,23 @@ impl Population {
         // BH).
         let burned_homes = self.burned_homes(&households);
         let gave_way_homes = self.gave_way_homes(&households);
+        // Where they could clear a passing place together, and the households whose carts
+        // waited at a stretch one cart wide within memory (M8b slice CQ, third part).
+        let way = self.public_way(ctx, settlement, &households);
+        let carts_waited: Vec<PermanentId> = if way.is_some() {
+            let half = params.places.use_half_life_days;
+            households
+                .iter()
+                .copied()
+                .filter(|&h| {
+                    self.traffic
+                        .losses_held(h, day, half)
+                        .any(|l| l.cause == crate::traffic::Cause::Width)
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
         let mut issues = self.issues(
             ctx,
             settlement,
@@ -2199,6 +2464,15 @@ impl Population {
         if self.held_by(pi).is_some() {
             issues.push(IssueKind::Holding);
         }
+        // Its carts wait where a passing place cleared together would repay its work (M8b slice
+        // CQ, third part).
+        if way.is_some() {
+            issues.push(IssueKind::CartsWait);
+        }
+        // What it saw of its ground within memory (M8c slice CT, second part): a household that
+        // found no ground for its home, a trail built over, a home beyond the built edge.
+        let (ground, ground_homes) = self.ground_issues(ctx, pi, settlement);
+        issues.extend(ground);
         // A case one of its households brought went unheard, or was not found, within memory
         // (M7b slice BR, ADR-0025 §1).
         let remember = day - i64::from(params.crime.remember_days);
@@ -2223,6 +2497,37 @@ impl Population {
         // Its households offer at home what its people fetched elsewhere lately (M7c slice BV).
         if self.fetched_elsewhere(ctx, pi, &households) {
             issues.push(IssueKind::FetchedElsewhere);
+        }
+        // Its store holds money while a law of its asks for common work (M7d slice CE3a).
+        let money_held = self.polities[pi].stores.iter().enumerate().any(|(g, &kg)| {
+            kg > 1e-9 && ctx.catalog.goods.get(g).is_some_and(|d| d.money.is_some())
+        });
+        let common_work = self.polities[pi].laws.iter().any(|l| {
+            l.status == LawStatus::InForce
+                && matches!(
+                    l.kind,
+                    PolicyKind::BuildCrossing
+                        | PolicyKind::DigWell
+                        | PolicyKind::BuildBank
+                        | PolicyKind::KeepBank
+                        | PolicyKind::Enclose
+                        | PolicyKind::BuildWay
+                )
+        });
+        if money_held && common_work {
+            issues.push(IssueKind::CoinIdle);
+        }
+        // A household of it paid or was paid in weighed metal lately (M7d slice CE2b).
+        if self.weighed_lately(ctx, &households) {
+            issues.push(IssueKind::Weighed);
+        }
+        // A loan one of its households made was refused or left unpaid, and nothing was taken
+        // for it nor a case brought (M7d slice CB).
+        if households
+            .iter()
+            .any(|&h| !self.unheard_debts(h).is_empty())
+        {
+            issues.push(IssueKind::DebtsUnpaid);
         }
         let polity = &self.polities[pi];
         // A watch may have one more while takings continue (M4c slice AI: a watch of several):
@@ -2270,6 +2575,11 @@ impl Population {
                 if d.kind == PolicyKind::BuildBank {
                     return true;
                 }
+                // Another passing place once none is being cleared (M8b slice CQ, third part:
+                // `public_way` holds to one at a time).
+                if d.kind == PolicyKind::BuildWay {
+                    return true;
+                }
                 // A keeping, of a bank no law in force keeps (M6b slice BG: `worn_bank`).
                 if d.kind == PolicyKind::KeepBank {
                     return true;
@@ -2277,6 +2587,11 @@ impl Population {
                 // A palisade, while the settlement has none (M6c slice BK: `public_enclosure`).
                 if d.kind == PolicyKind::Enclose {
                     return true;
+                }
+                // A plan, or a new version of the one in force, at most every so often (M8c slice
+                // CT, second part; ADR-0030 §2).
+                if d.kind == PolicyKind::Plan {
+                    return !self.plan_lately(pi, day);
                 }
                 // One forum at a time (M7b slice BR): another may replace the one in force (M7b
                 // slice BS: its seat or its authority changed by a law).
@@ -2330,6 +2645,14 @@ impl Population {
         // What each household expects, to forecast what a move would bring it.
         let mut fc = self.forecasts_with(ctx, pi, &households, &adults, sites, well, bank);
         self.with_enclosure(ctx, &mut fc, settlement, &households);
+        self.with_way(ctx, &mut fc, way, &households);
+        // The plans a sponsor could lay, for each plan template open (M8c slice CT, second part).
+        let plans: Vec<super::plans::PublicPlan> = open
+            .iter()
+            .filter(|(k, _)| ctx.catalog.policies[usize::from(*k)].kind == PolicyKind::Plan)
+            .flat_map(|&(k, _)| self.public_plans(ctx, pi, settlement, &households, k))
+            .collect();
+        self.with_plans(ctx, &mut fc, plans, &households);
         let outlooks = &fc.outlooks;
         // Who could keep the store: adults whose household is under a roof.
         let roofed: Vec<PermanentId> = adults
@@ -2372,6 +2695,9 @@ impl Population {
                             .chain(&flooded_homes)
                             .chain(&burned_homes)
                             .chain(&gave_way_homes)
+                            // And households whose carts waited where a passing place would
+                            // repay its work (M8b slice CQ, third part).
+                            .chain(&carts_waited)
                             .filter_map(|&h| self.elder_of(h, now, params)),
                     )
                     // And whoever holds that a source sickens (M6a slice BA).
@@ -2398,6 +2724,23 @@ impl Population {
         deliberators.sort_unstable();
         deliberators.dedup();
         deliberators.retain(|d| members.binary_search_by_key(d, |m| m.0).is_ok());
+        // And the elders of households whose building raised a plan's issue (M8c slice CT,
+        // second part), who weigh a plan alone unless something else reached them.
+        let plan_only: Vec<PermanentId> = if self.every_adult_deliberates || founding.is_some() {
+            Vec::new()
+        } else {
+            let mut v: Vec<PermanentId> = ground_homes
+                .iter()
+                .filter_map(|&h| self.elder_of(h, now, params))
+                .filter(|e| deliberators.binary_search(e).is_err())
+                .filter(|e| members.binary_search_by_key(e, |m| m.0).is_ok())
+                .collect();
+            v.sort_unstable();
+            v.dedup();
+            v
+        };
+        deliberators.extend(&plan_only);
+        deliberators.sort_unstable();
         let tp = &params.ties;
         // What its gatherings decided within memory (M4c slice AF): each law and case, with the
         // stances taken there (open acclamation: those who came saw them), and who each kind of
@@ -2684,6 +3027,22 @@ impl Population {
                             moves.push(MoveOption { hours, ..blank });
                         }
                     }
+                    // Lending from the store (M7d slice CC): one law, its terms the template's.
+                    PolicyKind::LendFromStore => moves.push(blank),
+                    // Pay for common work (M7d slice CE3a): one law, its rate the template's.
+                    PolicyKind::PayWork => moves.push(blank),
+                    // Debts heard (M7d slice CB): one law, its remedy the template's; it
+                    // replaces a law of debts heard of another template in force.
+                    PolicyKind::DebtsHeard => {
+                        let ends = self.polities[pi]
+                            .laws
+                            .iter()
+                            .find(|l| {
+                                l.kind == PolicyKind::DebtsHeard && l.status == LawStatus::InForce
+                            })
+                            .map(|l| l.id);
+                        moves.push(MoveOption { ends, ..blank });
+                    }
                     // A duty at each rate the template offers (M7c slice BV), naming as its
                     // collector, where the template has one, the adult the deliberator regards
                     // most, themselves included (M7c slice BY: favour in naming, as built).
@@ -2784,10 +3143,42 @@ impl Population {
                     }
                     // An office filled by lot names nobody: the lot draws among those who put
                     // their names in once it passes (M7a slice BN).
-                    PolicyKind::KeepStore | PolicyKind::KeepWatch
+                    PolicyKind::KeepStore | PolicyKind::KeepWatch | PolicyKind::Mint
                         if def.tenure.is_some_and(|t| t.by_lot) =>
                     {
                         moves.push(blank);
+                    }
+                    // A mint, its keeper whoever of the settlement who can work its recipe they
+                    // regard most, themselves first (M7d slice CE2b).
+                    PolicyKind::Mint => {
+                        let technique = def
+                            .mint
+                            .and_then(|m| ctx.catalog.recipes.get(m.recipe))
+                            .and_then(|r| r.technique);
+                        let barred = self.term_barred(pi, k, day, def);
+                        let pick = adults
+                            .iter()
+                            .map(|&(c, _)| c)
+                            .filter(|&c| Some(c) != barred)
+                            .filter(|&c| {
+                                self.person(c)
+                                    .is_some_and(|p| technique.is_none_or(|t| p.knows(t)))
+                            })
+                            .map(|c| {
+                                let r = if c == d {
+                                    1.0
+                                } else {
+                                    self.ties.regard(d, c, day, tp).clamp(0.0, 1.0)
+                                };
+                                (r, c)
+                            })
+                            .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)));
+                        if let Some((_, c)) = pick {
+                            moves.push(MoveOption {
+                                nominee: Some(c),
+                                ..blank
+                            });
+                        }
                     }
                     PolicyKind::KeepStore => {
                         let barred = self.term_barred(pi, k, day, def);
@@ -2803,9 +3194,16 @@ impl Population {
                                 (r, c)
                             })
                             .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)));
+                        // Another mint's terms replace the one in force (M7d slice CE4b).
+                        let ends = self.polities[pi]
+                            .laws
+                            .iter()
+                            .find(|l| l.kind == PolicyKind::Mint && l.status == LawStatus::InForce)
+                            .map(|l| l.id);
                         if let Some((_, c)) = pick {
                             moves.push(MoveOption {
                                 nominee: Some(c),
+                                ends,
                                 ..blank
                             });
                         }
@@ -2867,6 +3265,39 @@ impl Population {
                             moves.push(MoveOption {
                                 site: Some(p.cell(ctx.map)),
                                 target: None,
+                                ..blank
+                            });
+                        }
+                    }
+                    // A passing place, where the settlement's people could clear one together
+                    // (M8b slice CQ, third part), named by its cell.
+                    PolicyKind::BuildWay => {
+                        if let Some(p) = &fc.way {
+                            moves.push(MoveOption {
+                                site: Some(p.cell),
+                                target: None,
+                                ..blank
+                            });
+                        }
+                    }
+                    // A plan, put forward only by someone who knows how to lay ground out (M8c
+                    // slice CT, second part; ADR-0030 §2): each layout laid, named by its code.
+                    // Proposed, it replaces the plan in force, if one is, as its next version.
+                    PolicyKind::Plan => {
+                        let knows = def.plan.as_ref().is_some_and(|g| {
+                            g.needs
+                                .is_none_or(|t| self.person(d).is_some_and(|p| p.knows(t)))
+                        });
+                        // Its sponsor would keep it: stake its parcels and give them (M8c slice CU);
+                        // a finding of building on its reserved ground imposes the template's
+                        // bundle, if it names one (M8c slice CV).
+                        let sanction = def.bundles.first().copied().unwrap_or_default();
+                        for p in fc.plans.iter().filter(|p| p.policy == k && knows) {
+                            moves.push(MoveOption {
+                                site: Some(p.code),
+                                target: None,
+                                nominee: Some(d),
+                                sanction,
                                 ..blank
                             });
                         }
@@ -3085,6 +3516,13 @@ impl Population {
                 }
             }
             let sitters_of = |b: &Body| sat.iter().find(|x| x.0 == *b).map(|x| x.1.as_slice());
+            if plan_only.binary_search(&d).is_ok() {
+                moves.retain(|m| {
+                    policies
+                        .get(usize::from(m.policy))
+                        .is_some_and(|x| x.kind == PolicyKind::Plan)
+                });
+            }
             let gain_for = |m: &MoveOption, h: PermanentId| match (m.body, m.ends) {
                 (Some(b), _) => amend_gain(&b, sitters_of(&b), h, &seen_d),
                 (None, Some(_)) => -held(m, h),
@@ -3160,6 +3598,12 @@ impl Population {
                                 .or_else(|| self.polities[pi].kept_bank_of(l.id).map(|k| k.1))
                                 .map(|s| super::levees::bank_cell(ctx.map, &s))
                                 == m.site
+                            || self.polities[pi].way_site_of(l.id).map(|s| s.cell) == m.site
+                            || self.polities[pi].plan_of(l.id).and_then(|p| {
+                                p.layout
+                                    .axis
+                                    .map(|a| super::plans::plan_code(ctx.map, p.layout.origin, a))
+                            }) == m.site
                     })
                     .filter(|l| {
                         l.decided
@@ -3184,7 +3628,35 @@ impl Population {
             };
             // So is a limit (M7b slice BT).
             let limit = |m: &MoveOption| limit_gains.iter().any(|l| l.0 == m.policy);
-            moves.retain(|m| (m.body.is_none() && !further(m) && !limit(m)) || m.own_gain > 0.0);
+            // So is a plan (M8c slice CT, second part): proposed for what its sponsor expects it
+            // to bring them.
+            let plan = |m: &MoveOption| {
+                policies
+                    .get(usize::from(m.policy))
+                    .is_some_and(|x| x.kind == PolicyKind::Plan)
+            };
+            moves.retain(|m| {
+                (m.body.is_none() && !further(m) && !limit(m) && !plan(m)) || m.own_gain > 0.0
+            });
+            // Of the plans they laid, they put forward the one they reckon best for their
+            // household and those who regard them, the first among equals (ADR-0030 §2), as one
+            // move.
+            let reckoned =
+                |m: &MoveOption| m.support * (m.own_gain + pp.w_followers * m.followers_gain);
+            if let Some(best) = moves
+                .iter()
+                .enumerate()
+                .filter(|(_, m)| plan(m))
+                .min_by(|a, b| reckoned(b.1).total_cmp(&reckoned(a.1)).then(a.0.cmp(&b.0)))
+                .map(|(i, _)| i)
+            {
+                let mut i = 0;
+                moves.retain(|m| {
+                    let keep = !plan(m) || i == best;
+                    i += 1;
+                    keep
+                });
+            }
             let u =
                 Rng64::from_key(&[ctx.seed, PURPOSE_DELIBERATE, d.get(), day as u64]).next_f64();
             let choice = deliberator.choose(&moves, u);
@@ -3227,6 +3699,18 @@ impl Population {
         let def = &ctx.catalog.policies[usize::from(m.policy)];
         let id = ctx.ids.allocate();
         let meets = day + i64::from(pp.notice_days.max(1));
+        // A plan replaces the plan in force, if one is (M8c slice CT, second part: a new version).
+        let ends = m.ends.or_else(|| {
+            (def.kind == PolicyKind::Plan)
+                .then(|| {
+                    self.polities[pi]
+                        .laws
+                        .iter()
+                        .find(|l| l.kind == PolicyKind::Plan && l.status == LawStatus::InForce)
+                        .map(|l| l.id)
+                })
+                .flatten()
+        });
         let law = Law {
             id,
             policy: m.policy,
@@ -3249,7 +3733,7 @@ impl Population {
             compliance: Default::default(),
             watch: Default::default(),
             body: m.body,
-            ends: m.ends,
+            ends,
             agreement: None,
             target: m.target,
         };
@@ -3317,6 +3801,79 @@ impl Population {
                     polity.bank_saves.push((id, h, saves as f32));
                 }
                 polity.bank_saves.sort_unstable_by_key(|s| (s.0, s.1));
+            }
+        }
+        // A plan keeps its layout as the sponsor laid it now, its version one more than the
+        // polity's plans passed before (M8c slice CT, second part).
+        if def.kind == PolicyKind::Plan
+            && let Some(code) = m.site
+        {
+            let settlement = self.polities[pi].settlement;
+            let mut households: Vec<PermanentId> = self
+                .households
+                .iter()
+                .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
+                .map(|(_, x)| x.id)
+                .collect();
+            households.sort_unstable();
+            if let Some(p) = self
+                .public_plans(ctx, pi, settlement, &households, m.policy)
+                .into_iter()
+                .find(|p| p.code == code)
+            {
+                let polity = &mut self.polities[pi];
+                let passed = polity
+                    .plans
+                    .iter()
+                    .filter(|(law, _)| {
+                        polity
+                            .laws
+                            .iter()
+                            .any(|l| l.id == *law && l.outcome == Some(Outcome::Passed))
+                    })
+                    .count();
+                polity.plans.push((
+                    id,
+                    crate::polity::PlanLaid {
+                        version: passed as u16 + 1,
+                        grid: p.grid,
+                        layout: p.layout,
+                        staked_h: 0.0,
+                        refused_fields: Vec::new(),
+                    },
+                ));
+            }
+        }
+        // A passing place names its cell, as the settlement's people would clear it now, and
+        // keeps what each household reckoned it would spare it (M8b slice CQ, third part).
+        if def.kind == PolicyKind::BuildWay
+            && let Some(cell) = m.site
+        {
+            let settlement = self.polities[pi].settlement;
+            let mut households: Vec<PermanentId> = self
+                .households
+                .iter()
+                .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
+                .map(|(_, x)| x.id)
+                .collect();
+            households.sort_unstable();
+            if let Some(p) = self
+                .public_way(ctx, settlement, &households)
+                .filter(|p| p.cell == cell)
+            {
+                let polity = &mut self.polities[pi];
+                polity.ways.push((
+                    id,
+                    crate::polity::WaySite {
+                        cell,
+                        labour_h: p.labour_h,
+                        work: None,
+                    },
+                ));
+                for &(h, saves) in &p.saves {
+                    polity.way_saves.push((id, h, saves as f32));
+                }
+                polity.way_saves.sort_unstable_by_key(|s| (s.0, s.1));
             }
         }
         // A palisade names its line, as the settlement's people would raise it now, and keeps
@@ -3603,7 +4160,10 @@ impl Population {
         };
         // An office held for a term is filled, by lot where its template says (M7a slice BN).
         if outcome == Outcome::Passed
-            && matches!(kind, PolicyKind::KeepStore | PolicyKind::KeepWatch)
+            && matches!(
+                kind,
+                PolicyKind::KeepStore | PolicyKind::KeepWatch | PolicyKind::Mint
+            )
         {
             self.fill_term(ctx, pi, law_id);
         }
@@ -3626,6 +4186,10 @@ impl Population {
         // A bank passed is begun at once, the polity's (M6b slice BG).
         if outcome == Outcome::Passed && kind == PolicyKind::BuildBank {
             self.begin_public_bank(ctx, pi, law_id);
+        }
+        // A passing place passed is laid out at once, the polity's (M8b slice CQ, third part).
+        if outcome == Outcome::Passed && kind == PolicyKind::BuildWay {
+            self.begin_public_way(ctx, pi, law_id);
         }
         // A palisade passed is laid out at once, the polity's (M6c slice BK).
         if outcome == Outcome::Passed && kind == PolicyKind::Enclose {
@@ -4071,6 +4635,15 @@ impl Population {
                 self.norms.note_levy(household, day, false);
                 continue;
             }
+            // Part or all of it in the money the law takes, when the household holds some and
+            // its other uses are worth less to it than the grain (M7d slice CE3b).
+            let in_money = self.levy_in_money(ctx, pi, li, household, grain, owed);
+            let owed = owed - in_money;
+            if in_money > 0.0 && owed <= 1e-9 {
+                self.polities[pi].laws[li].compliance.complied += 1;
+                self.norms.note_levy(household, day, true);
+                continue;
+            }
             let held = self
                 .household(household)
                 .and_then(|x| x.stores.get(grain))
@@ -4084,6 +4657,10 @@ impl Population {
                 good: grain,
                 amount: paid,
             };
+            if in_money > 0.0 && paid <= 1e-9 {
+                self.polities[pi].laws[li].compliance.complied += 1;
+                self.norms.note_levy(household, day, true);
+            }
             if paid > 1e-9 && self.transfer(now, params, goods, &[leg], Channel::Levy) {
                 let c = &mut self.polities[pi].laws[li].compliance;
                 c.complied += 1;
@@ -4101,6 +4678,95 @@ impl Population {
                 }
             }
         }
+    }
+
+    /// Household `household` pays what it can of `owed` kilograms of grain levied under law `li`
+    /// of polity `pi` in the money the law's template takes (M7d slice CE3b), at its rate, when
+    /// it holds some and what a unit would otherwise bring it ([`Population::pay_worth_raw`]) is
+    /// worth less than the grain it pays for: the payer gives what is worth least to it. Returns
+    /// the kilograms of grain paid for so.
+    fn levy_in_money(
+        &mut self,
+        ctx: &Ctx,
+        pi: usize,
+        li: usize,
+        household: PermanentId,
+        grain: usize,
+        owed: f64,
+    ) -> f64 {
+        let Some(m) = ctx
+            .catalog
+            .policies
+            .get(usize::from(self.polities[pi].laws[li].policy))
+            .and_then(|d| d.medium)
+        else {
+            return 0.0;
+        };
+        let per_kg = f64::from(m.per_kg);
+        let Some(hh) = self.household(household) else {
+            return 0.0;
+        };
+        let held = hh.stores.get(m.good).copied().unwrap_or(0.0).max(0.0);
+        if held <= 1e-9 || per_kg <= 0.0 || owed <= 1e-9 {
+            return 0.0;
+        }
+        let costs = self.own_costs_of(ctx, hh);
+        let grain_h = costs.get(grain).copied().flatten().unwrap_or(0.0);
+        let unit_h = self
+            .pay_worth_raw(
+                ctx,
+                hh,
+                m.good,
+                costs.get(m.good).copied().flatten(),
+                held,
+                &costs,
+            )
+            .unwrap_or(0.0);
+        if unit_h * per_kg >= grain_h {
+            return 0.0;
+        }
+        let units = (owed * per_kg).min(held);
+        let leg = Leg {
+            from: household,
+            to: self.polities[pi].id,
+            good: m.good,
+            amount: units,
+        };
+        if !self.transfer(
+            ctx.now,
+            ctx.params,
+            &ctx.catalog.goods,
+            &[leg],
+            Channel::Levy,
+        ) {
+            return 0.0;
+        }
+        let kg = units / per_kg;
+        self.polities[pi].laws[li].compliance.levied_kg += kg;
+        kg
+    }
+
+    /// For tests: household `household` pays `owed` kilograms of grain levied under polity
+    /// `polity`'s common store `law` in its money, as far as it would (M7d slice CE3b).
+    #[doc(hidden)]
+    pub fn levy_in_money_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        polity: PermanentId,
+        law: PermanentId,
+        household: PermanentId,
+        owed: f64,
+    ) -> f64 {
+        let Some(pi) = self.polities.iter().position(|p| p.id == polity) else {
+            return 0.0;
+        };
+        let Some(li) = self.polities[pi].laws.iter().position(|l| l.id == law) else {
+            return 0.0;
+        };
+        let Some(grain) = ctx.catalog.crops.get(ctx.params.farm.crop).map(|c| c.good) else {
+            return 0.0;
+        };
+        self.levy_in_money(ctx, pi, li, household, grain, owed)
     }
 
     /// The common store of `hh`'s settlement as somewhere to ask for food (ADR-0013 §4), when a

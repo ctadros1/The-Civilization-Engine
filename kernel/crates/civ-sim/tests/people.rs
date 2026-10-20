@@ -4,7 +4,6 @@
 
 use std::path::Path;
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_agents::person::{Flow, Flows};
 use civ_agents::{Behavior, ChronicleKind, Origin, Repro, Sex, population};
@@ -27,7 +26,7 @@ fn content() -> &'static ContentRegistry {
 }
 
 fn new_world(seed: u64, band_size: u32) -> Sim {
-    Sim::create(
+    Sim::create_for_tests(
         &NewWorld {
             name: "People".to_owned(),
             seed,
@@ -39,8 +38,7 @@ fn new_world(seed: u64, band_size: u32) -> Sim {
             regime_id: String::new(),
         },
         content(),
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
     .expect("generates")
 }
@@ -137,7 +135,7 @@ fn a_band_of_any_allowed_size_can_be_asked_for() {
     let band = &content().people.params.band;
     let sim = new_world(3, band.min_size);
     assert_eq!(sim.people().living(), band.min_size as usize);
-    let refused = Sim::create(
+    let refused = Sim::create_for_tests(
         &NewWorld {
             name: "Too many".to_owned(),
             seed: 3,
@@ -149,8 +147,7 @@ fn a_band_of_any_allowed_size_can_be_asked_for() {
             regime_id: String::new(),
         },
         content(),
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     );
     assert!(refused.is_err());
 }
@@ -277,7 +274,7 @@ fn splitting_an_advance_changes_nothing() {
 }
 
 fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
-    Sim::create(
+    Sim::create_for_tests(
         &NewWorld {
             name: "Goods".to_owned(),
             seed,
@@ -289,8 +286,7 @@ fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
             regime_id: String::new(),
         },
         content,
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
     .expect("generates")
 }

@@ -310,6 +310,35 @@ export class HostClient {
     return body.earthworks;
   }
 
+  /** Every boat and cart (wire 1.86). */
+  async vehicles(): Promise<M.VehiclesInfo> {
+    const body = await this.query(M.getVehicles());
+    if (body.kind !== "vehicles") throw new HostError("internal", "expected vehicles");
+    return body.vehicles;
+  }
+
+  /** Every plan put forward or in force (wire 1.88). */
+  async plans(): Promise<M.PlansInfo> {
+    const body = await this.query(M.getPlans());
+    if (body.kind !== "plans") throw new HostError("internal", "expected plans");
+    return body.plans;
+  }
+
+  /** The land map: every plot with what was paid for it and what its household reckoned it
+   * worth (M8c slice CX). */
+  async land(): Promise<M.LandInfo> {
+    const body = await this.query(M.getLand());
+    if (body.kind !== "land") throw new HostError("internal", "expected land");
+    return body.land;
+  }
+
+  /** Every way people have worked on (wire 1.84). */
+  async ways(): Promise<M.WaysInfo> {
+    const body = await this.query(M.getWays());
+    if (body.kind !== "ways") throw new HostError("internal", "expected ways");
+    return body.ways;
+  }
+
   async crossings(): Promise<M.CrossingsInfo> {
     const body = await this.query(M.getCrossings());
     if (body.kind !== "crossings") throw new HostError("internal", "expected crossings");

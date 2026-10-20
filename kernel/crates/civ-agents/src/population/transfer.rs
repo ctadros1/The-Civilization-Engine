@@ -29,6 +29,7 @@ enum Holder {
     Polity(usize),
     Faction(usize),
     Due(usize),
+    Consignment(usize),
 }
 
 impl Population {
@@ -45,11 +46,164 @@ impl Population {
         if let Some(i) = self.factions.list.iter().position(|f| f.id == id) {
             return Some(Holder::Faction(i));
         }
-        self.agreements
-            .dues
+        if let Some(i) = self.agreements.dues.iter().position(|d| d.id == id) {
+            return Some(Holder::Due(i));
+        }
+        self.consignments
             .iter()
-            .position(|d| d.id == id)
-            .map(Holder::Due)
+            .position(|c| c.id == id)
+            .map(Holder::Consignment)
+    }
+
+    /// The polity whose own issues coin `holder` holds are (M7d slice CE4c): a household's or a
+    /// workshop's polity where it lives, or a polity's store itself.
+    pub(crate) fn home_issuer(&self, holder: PermanentId) -> Option<PermanentId> {
+        if self.polities.iter().any(|p| p.id == holder) {
+            return Some(holder);
+        }
+        let settlement = match self.household(holder) {
+            Some(x) => x.settlement,
+            None => self
+                .firms
+                .iter()
+                .find(|f| f.id == holder)
+                .and_then(|f| self.household(f.owner))
+                .and_then(|x| x.settlement),
+        }?;
+        self.polity_of(settlement).map(|pi| self.polities[pi].id)
+    }
+
+    /// Whether someone of household `holder` knows technique `assay` (a coin's assay, M7d slice
+    /// CE4a): one who can tell how much metal a piece holds. No household, or no assay, cannot.
+    pub(crate) fn assays(&self, holder: PermanentId, assay: Option<usize>) -> bool {
+        let Some(t) = assay else {
+            return false;
+        };
+        self.household(holder).is_some_and(|x| {
+            x.members
+                .iter()
+                .any(|&m| self.person(m).is_some_and(|p| p.knows(t)))
+        })
+    }
+
+    /// Puts every purse right by what its holder holds of each coin good (M7d slice CE): coin
+    /// moved by a path other than [`Population::transfer`] (a household dividing its stores, a
+    /// store's levy) is found again in whoever holds it, each issue's count conserved.
+    pub(super) fn reconcile_coin(&mut self, ctx: &crate::Ctx) {
+        let goods = &ctx.catalog.goods;
+        let coins: Vec<usize> = (0..goods.len())
+            .filter(|&g| goods[g].money.as_ref().is_some_and(|m| m.coin))
+            .collect();
+        if coins.is_empty() || self.order.coinage.cohorts.is_empty() {
+            return;
+        }
+        let at = |s: &Vec<f64>| {
+            coins
+                .iter()
+                .map(|&g| s.get(g).copied().unwrap_or(0.0))
+                .sum::<f64>()
+        };
+        let mut held: Vec<(PermanentId, f64)> = Vec::new();
+        held.extend(self.households.iter().map(|(_, x)| (x.id, at(&x.stores))));
+        held.extend(
+            self.firms
+                .iter()
+                .filter(|f| f.is_open())
+                .map(|f| (f.id, at(&f.stores))),
+        );
+        held.extend(self.polities.iter().map(|p| (p.id, at(&p.stores))));
+        held.extend(self.factions.list.iter().map(|f| (f.id, at(&f.stores))));
+        held.extend(self.agreements.dues.iter().map(|d| (d.id, at(&d.stores))));
+        held.extend(self.consignments.iter().map(|c| (c.id, at(&c.stores))));
+        held.retain(|&(_, n)| n > 0.0);
+        held.sort_unstable_by_key(|&(id, _)| id);
+        let holders: Vec<PermanentId> = held.iter().map(|&(id, _)| id).collect();
+        let lookup = |id: PermanentId| {
+            held.binary_search_by_key(&id, |&(i, _)| i)
+                .map_or(0.0, |i| held[i].1)
+        };
+        self.order.coinage.reconcile(&holders, &lookup);
+    }
+
+    /// Moves `amount` of `good` from one holder to another through the ledger, as a gift: for
+    /// tests.
+    #[doc(hidden)]
+    pub fn transfer_for_tests(
+        &mut self,
+        ctx: &crate::Ctx,
+        from: PermanentId,
+        to: PermanentId,
+        good: usize,
+        amount: f64,
+    ) -> bool {
+        let legs = [Leg {
+            from,
+            to,
+            good,
+            amount,
+        }];
+        self.transfer(
+            ctx.now,
+            ctx.params,
+            &ctx.catalog.goods,
+            &legs,
+            Channel::Gift,
+        )
+    }
+
+    /// Puts every purse right by what its holder holds (see [`Population::reconcile_coin`]): for
+    /// tests.
+    #[doc(hidden)]
+    pub fn reconcile_coin_for_tests(&mut self, ctx: &crate::Ctx) {
+        self.reconcile_coin(ctx);
+    }
+
+    /// Strikes `count` pieces of coin good `coin` for `issuer` into `holder`'s stores and purse,
+    /// `mass_g` grams each at `fineness`: for tests, until a mint strikes them (M7d slice CE).
+    #[doc(hidden)]
+    #[allow(clippy::too_many_arguments)]
+    pub fn strike_for_tests(
+        &mut self,
+        coin: usize,
+        issuer: PermanentId,
+        holder: PermanentId,
+        day: i64,
+        count: f64,
+        mass_g: f32,
+        fineness: f32,
+    ) -> bool {
+        self.put_struck(coin, issuer, holder, day, count, mass_g, fineness)
+    }
+
+    /// Strikes `count` pieces of coin good `coin` for `issuer` on `day` into `holder`'s stores
+    /// and purse, `mass_g` grams each at `fineness` (M7d slice CE). Returns `false`, striking
+    /// nothing, when `holder` holds nothing.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn put_struck(
+        &mut self,
+        coin: usize,
+        issuer: PermanentId,
+        holder: PermanentId,
+        day: i64,
+        count: f64,
+        mass_g: f32,
+        fineness: f32,
+    ) -> bool {
+        let Some(h) = self.holder(holder) else {
+            return false;
+        };
+        let Some((stores, flows)) = self.holder_goods(h) else {
+            return false;
+        };
+        if stores.len() <= coin {
+            stores.resize(coin + 1, 0.0);
+        }
+        stores[coin] += count;
+        flows.add(Flow::Made, coin, count);
+        self.order
+            .coinage
+            .strike(issuer, day, mass_g, fineness, count, holder);
+        true
     }
 
     /// Brings a holder's stores up to `now`: a household's spoil and burn, a firm's spoil (under
@@ -94,6 +248,12 @@ impl Population {
                     d.stores.resize(goods.len(), 0.0);
                 }
             }
+            Holder::Consignment(i) => {
+                if let Some(c) = self.consignments.get_mut(i) {
+                    c.settle_stores(now, goods);
+                    c.stores.resize(goods.len(), 0.0);
+                }
+            }
         }
     }
 
@@ -118,6 +278,10 @@ impl Population {
                 .dues
                 .get_mut(i)
                 .map(|d| (&mut d.stores, &mut d.flows)),
+            Holder::Consignment(i) => self
+                .consignments
+                .get_mut(i)
+                .map(|c| (&mut c.stores, &mut c.flows)),
         }
     }
 
@@ -164,6 +328,7 @@ impl Population {
                     Holder::Polity(i) => self.polities.get(i).map(|p| &p.stores),
                     Holder::Faction(i) => self.factions.list.get(i).map(|f| &f.stores),
                     Holder::Due(i) => self.agreements.dues.get(i).map(|d| &d.stores),
+                    Holder::Consignment(i) => self.consignments.get(i).map(|c| &c.stores),
                 })
                 .and_then(|s| s.get(good))
                 .copied()
@@ -184,6 +349,36 @@ impl Population {
                 flows.add(Flow::Received, l.good, moved);
             }
             self.transfers.add(channel, l.good, moved);
+            // Coin moves issue by issue, the payer giving the oldest first (M7d slice CE).
+            if let Some(m) = goods[l.good].money.as_ref().filter(|m| m.coin) {
+                // A payer who can assay gives the pieces holding least metal first (M7d slice
+                // CE4a); others give another polity's pieces first, then count them all alike, the
+                // oldest first (M7d slice CE4c).
+                let home = self.home_issuer(l.from);
+                let assays = self.assays(l.from, m.assay);
+                let metal: Vec<(u32, f64)> = self
+                    .order
+                    .coinage
+                    .cohorts
+                    .iter()
+                    .map(|c| {
+                        let w = if assays {
+                            c.metal_kg()
+                        } else if Some(c.issuer) == home {
+                            1.0
+                        } else {
+                            0.0
+                        };
+                        (c.id, w)
+                    })
+                    .collect();
+                let worth = |issue: u32| {
+                    metal
+                        .binary_search_by_key(&issue, |x| x.0)
+                        .map_or(0.0, |i| metal[i].1)
+                };
+                self.order.coinage.give(l.from, l.to, moved, &worth);
+            }
         }
         true
     }
@@ -197,6 +392,7 @@ mod tests {
 
     fn goods() -> Vec<GoodDef> {
         let good = |id: &str, purpose| GoodDef {
+            money: None,
             id: id.into(),
             name: id.into(),
             purpose,

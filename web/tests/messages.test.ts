@@ -318,6 +318,10 @@ describe("decoders", () => {
       earthworksRev: 0,
       weatherRev: 0,
       crossingsRev: 0,
+      waysRev: 0,
+      vehiclesRev: 0,
+      plansRev: 0,
+      landRev: 0,
       waterRev: 0,
       incidentsRev: 0,
       bands: [],
@@ -652,6 +656,7 @@ describe("decoders", () => {
     const upkeep = b.createString("mending the covering, 40% done");
     const style = b.createString("roof pitched 49°, walls 1.9 m to the eaves, after Bo's hut");
     const fireWords = b.createString("fully involved since 02:15, set alight by the observer (one recorded influence)");
+    const site = b.createString("chosen over 5 others: 34 hours less walking and levelling over 5 years than the next best");
     const group = W.GroupInfo.createGroupInfo(
       b,
       0x0700,
@@ -703,6 +708,7 @@ describe("decoders", () => {
     W.BuildingInfo.addFire(b, 2);
     W.BuildingInfo.addFireId(b, 3);
     W.BuildingInfo.addFireWords(b, fireWords);
+    W.BuildingInfo.addSite(b, site);
     const info = W.BuildingInfo.endBuildingInfo(b);
     const list = W.Buildings.createBuildingsVector(b, [info]);
     const buildings = W.Buildings.createBuildings(b, 77n, list);
@@ -774,6 +780,7 @@ describe("decoders", () => {
           fire: "involved",
           fireId: 3,
           fireWords: "fully involved since 02:15, set alight by the observer (one recorded influence)",
+          site: "chosen over 5 others: 34 hours less walking and levelling over 5 years than the next best",
         },
       ],
     });
@@ -864,12 +871,16 @@ describe("decoders", () => {
     const households = W.SettlementWealth.createHouseholdsVector(b, [household]);
     const history = W.SettlementWealth.createHistoryVector(b, [spread(1n, 0.25), spread(2n, 0.5)]);
     const place = b.createString("Alderford");
+    const loans = W.SettlementWealth.createLoansVector(b, [
+      b.createString("Wren's household owes Mira's household 40 kg of grain, lent on 3 May of year 2, due on 9 September of year 2"),
+    ]);
     W.SettlementWealth.startSettlementWealth(b);
     W.SettlementWealth.addSettlement(b, 3n);
     W.SettlementWealth.addName(b, place);
     W.SettlementWealth.addNow(b, now);
     W.SettlementWealth.addHouseholds(b, households);
     W.SettlementWealth.addHistory(b, history);
+    W.SettlementWealth.addLoans(b, loans);
     const settlement = W.SettlementWealth.endSettlementWealth(b);
     const regime = b.createString("Village fields");
     const list = W.Wealth.createSettlementsVector(b, [settlement]);
@@ -881,6 +892,9 @@ describe("decoders", () => {
     expect(body.wealth.regimeName).toBe("Village fields");
     const s = body.wealth.settlements[0]!;
     expect([s.settlement, s.name]).toEqual([3, "Alderford"]);
+    expect(s.loans).toEqual([
+      "Wren's household owes Mira's household 40 kg of grain, lent on 3 May of year 2, due on 9 September of year 2",
+    ]);
     expect(s.now).toMatchObject({ year: 3, households: 2, people: 7, giniGoods: 0.5, holdingNone: 1 });
     expect(s.now?.commonHa).toBe(1.5);
     expect([s.now?.roofedM2PerHouse, s.now?.storageKgPerHouse]).toEqual([41.5, 4150]);
@@ -1185,6 +1199,53 @@ describe("decoders", () => {
     });
     const query = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getCrossings()));
     expect(query.bodyType()).toBe(W.QueryBody.GetCrossings);
+  });
+
+  it("decodes the ways people worked on, and builds their query", () => {
+    const b = new flatbuffers.Builder(256);
+    const points = W.WaySegmentInfo.createPointsVector(b, [4, 4, 76, 4]);
+    const surface = b.createString("cleared ground");
+    const keeper = b.createString("Ada's household");
+    const segment = W.WaySegmentInfo.createWaySegmentInfo(b, points, 4, 1.5, 1.5, surface, 0.8, 0.05, keeper);
+    const segments = W.WayInfo.createSegmentsVector(b, [segment]);
+    const rankName = b.createString("lane");
+    const words = b.createString("Lane of 72 m, 1.5 m wide at most; begun in year 1.");
+    const info = W.WayInfo.createWayInfo(b, 61n, 0, rankName, 1, 3, segments, words);
+    const list = W.Ways.createWaysVector(b, [info]);
+    const ways = W.Ways.createWays(b, 5n, list);
+    const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Ways, ways)));
+    expect(body.kind).toBe("ways");
+    if (body.kind !== "ways") return;
+    expect(body.ways).toEqual({
+      rev: 5,
+      ways: [
+        {
+          id: 61,
+          rank: 0,
+          rankName: "lane",
+          modes: 1,
+          tripsADay: 3,
+          segments: [
+            {
+              points: [
+                [4, 4],
+                [76, 4],
+              ],
+              corridorM: 4,
+              builtM: 1.5,
+              usableM: 1.5,
+              surface: "cleared ground",
+              condition: expect.closeTo(0.8, 5) as number,
+              grade: expect.closeTo(0.05, 5) as number,
+              keeper: "Ada's household",
+            },
+          ],
+          words: "Lane of 72 m, 1.5 m wide at most; begun in year 1.",
+        },
+      ],
+    });
+    const query = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getWays()));
+    expect(query.bodyType()).toBe(W.QueryBody.GetWays);
   });
 
   it("decodes the wells, springs and places drawn at today, and builds their query", () => {

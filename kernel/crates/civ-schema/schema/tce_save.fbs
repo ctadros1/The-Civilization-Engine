@@ -260,16 +260,19 @@ table Settlements {
 // People.techniques (in a decision receipt, into the content's techniques when it was saved).
 // Douse (schema 91, M6b slice BD, step three): `index` where the water is drawn (a source's cell,
 // or 4294967295 the household's store), `id` the building it is thrown on.
-enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15, Douse = 16, Bank = 17, Ditch = 18, Enclosure = 19 }
+enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15, Douse = 16, Bank = 17, Ditch = 18, Enclosure = 19, Boat = 20, Way = 21 }
 
-enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3 }
+enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3, Paddle = 4, Handle = 5, Haul = 6 }
 
 table Step {
   kind: StepKind (id: 0);
-  // Walk destination.
+  // Walk destination; schema 145 (M8b slice CP): a haul's door.
   to: Point (id: 1);
   // Work or wait length.
   minutes: uint (id: 2);
+  // Schema 143 (M8b slice CO): a paddle's bank cell; a handling's unloading.
+  cell: uint (id: 3);
+  unload: bool (id: 4);
 }
 
 table Activity {
@@ -287,12 +290,34 @@ table Activity {
   target_id: ulong (id: 9);
 }
 
+// Schema 141 (M8b slice CN, ADR-0029 §4): the next bottleneck a walk reaches. `kind` 0 a
+// crossing (`id` its id), 1 a gate (`id` its enclosure, `sector` its sector); `dir` the way it
+// is passed (2 one file shared both ways); where its approach is reached, metres, and when,
+// minutes after setting off; the polyline point after which; a point just inside it; and the
+// seconds between walkers that way.
+table TripAheadSave {
+  kind: ubyte (id: 0);
+  id: ulong (id: 1);
+  sector: ushort (id: 2);
+  dir: ubyte (id: 3);
+  x: float (id: 4);
+  y: float (id: 5);
+  at_min: float (id: 6);
+  seg: uint (id: 7);
+  ix: float (id: 8);
+  iy: float (id: 9);
+  headway_s: float (id: 10);
+}
+
 table Trip {
   id: ulong (id: 0);
   rev: uint (id: 1);
   depart: long (id: 2);
   points: [Point] (id: 3);
   minutes: [float] (id: 4);
+  ahead: TripAheadSave (id: 5);
+  // Schema 143 (M8b slice CO): gone by boat.
+  afloat: bool (id: 6);
 }
 
 enum Sex : ubyte { Female = 0, Male = 1 }
@@ -688,6 +713,8 @@ table Field {
   // Schema 93 (M6b slice BF, ADR-0022 §13): flood depth (cm) and days standing under water.
   last_flood_depth_cm: ushort (id: 30);
   submerged_days: ushort (id: 31);
+  // Schema 159 (M8c slice CU, fifth part): the plan law that reserved its ground (0 = none).
+  reserved: ulong (id: 32);
 }
 
 table Fields {
@@ -711,6 +738,16 @@ table Plot {
   h_cm: int (id: 5);
   purpose: PlotUse (id: 6);
   since: long (id: 7);
+  // Schema 155 (M8c slice CS, second part): why its household chose it among others: how many it
+  // weighed (0: no receipt), and the hours the chosen and the next best would cost it.
+  receipt_weighed: ushort (id: 8);
+  receipt_hours: float (id: 9);
+  receipt_next: float (id: 10);
+  // Schema 158 (M8c slice CU, first part): the parcel of a plan it was given, if it was: the
+  // plan's law (0: none), the parcel's index in its layout, and the rule's code (0 by need).
+  allot_law: ulong (id: 11);
+  allot_parcel: ushort (id: 12);
+  allot_rule: ubyte (id: 13);
 }
 
 table Plots {
@@ -1338,6 +1375,10 @@ table LawSave {
   // What each household owed the sponsor for gifts before a gathering added to each stance,
   // points, in `stances` order (schema 131, M7c slice BY); absent when none did, and before.
   stance_owed: [float] (id: 58);
+  // A plan's bundle (schema 161): the building found is taken down, or may stand for a yearly
+  // payment.
+  remove: bool (id: 59);
+  yearly_days: float (id: 60);
 }
 
 // `law` 0: called on cases only (M4b slice AB).
@@ -1431,6 +1472,112 @@ table PolitySave {
   // Schema 131 (M7c slice BY): gifts its sponsors gave before its gatherings, oldest first,
   // within memory; absent before.
   patron_gifts: [PatronGiftSave] (id: 33);
+  // Schema 150 (M8b slice CQ, third part): where its laws would clear passing places, what each
+  // household reckoned they would spare it a year, and the hours each has given; absent before.
+  ways: [WaySiteSave] (id: 34);
+  way_saves: [BankShareSave] (id: 35);
+  way_given: [BankShareSave] (id: 36);
+  // Schema 156 (M8c slice CT, second part): the plans its laws lay, as realised when proposed,
+  // and what it saw of its settlements' ground within memory, oldest first; absent before.
+  plans: [PlanSave] (id: 37);
+  ground_seen: [GroundSeenSave] (id: 38);
+  // Schema 157 (M8c slice CT, third part): the buildings begun on ground a plan in force
+  // reserves, in the order begun; absent before.
+  encroachments: [EncroachmentSave] (id: 39);
+  // Schema 160 (M8c slice CV, first part): who saw each encroachment begun, by its index in
+  // `encroachments`, in order; absent before.
+  encroachment_seen: [EncroachmentSeenSave] (id: 40);
+  // What a finding ordered for each encroachment (schema 161).
+  encroachment_orders: [EncroachmentOrderSave] (id: 41);
+}
+
+// A plan a law lays (schema 156, M8c slice CT, second part; ADR-0030 §2): its version, its
+// origin (metres) and axis (0 east and west, 1 north and south), the grid laid (a block's sides
+// along and across, a parcel's frontage and depth, the streets' width, metres; blocks along and
+// across; whether the origin block is a square), and the layout as realised, in integer
+// centimetres from the map's north-west corner: street stretches and crossings, public sites (use
+// 0: a square), parcels with their block, and how many of each the ground refused.
+table PlanSave {
+  law: ulong (id: 0);
+  version: ushort (id: 1);
+  origin_x: float (id: 2);
+  origin_y: float (id: 3);
+  axis: ubyte (id: 4);
+  block_along: float (id: 5);
+  block_across: float (id: 6);
+  frontage: float (id: 7);
+  depth: float (id: 8);
+  street: float (id: 9);
+  blocks_along: ubyte (id: 10);
+  blocks_across: ubyte (id: 11);
+  square: bool (id: 12);
+  streets: [PlanRectSave] (id: 13);
+  sites: [PlanSiteSave] (id: 14);
+  parcels: [PlanParcelSave] (id: 15);
+  refused_streets: uint (id: 16);
+  refused_sites: uint (id: 17);
+  refused_parcels: uint (id: 18);
+  // Schema 158 (M8c slice CU, first part): the hours its keeper has spent staking parcels.
+  staked_h: float (id: 19);
+  // Schema 159 (M8c slice CU, fifth part): fields under its ground whose holders refused its pay.
+  refused_fields: [ulong] (id: 20);
+}
+
+struct PlanRectSave {
+  x: int;
+  y: int;
+  w: int;
+  h: int;
+}
+
+struct PlanSiteSave {
+  x: int;
+  y: int;
+  w: int;
+  h: int;
+  kind: ubyte;
+}
+
+struct PlanParcelSave {
+  x: int;
+  y: int;
+  w: int;
+  h: int;
+  block: ushort;
+}
+
+// What a polity saw of its settlements' ground (schema 156): the day, the settlement, the
+// household, and the issue it raises, by its code in `IssueKind::ALL`.
+struct GroundSeenSave {
+  day: long;
+  settlement: ulong;
+  household: ulong;
+  issue: ubyte;
+}
+
+// A building begun on ground a plan in force reserves (schema 157): the day, the plan's law, the
+// household that began it, and the building.
+struct EncroachmentSave {
+  day: long;
+  law: ulong;
+  household: ulong;
+  building: ulong;
+}
+
+// What a finding under a plan ordered for an encroachment (schema 161): its index in the
+// polity's encroachments; 1 to be taken down on `day`, 2 taken down on `day`, 3 may stand, owing
+// `kcal` a year from `day`.
+struct EncroachmentOrderSave {
+  encroachment: uint;
+  kind: ubyte;
+  day: long;
+  kcal: float;
+}
+
+// One who saw an encroachment begun (schema 160): its index in the polity's encroachments.
+struct EncroachmentSeenSave {
+  encroachment: uint;
+  person: ulong;
 }
 
 // A gift a sponsor's household gave another's before the gathering on the sponsor's law (schema
@@ -1545,6 +1692,16 @@ table HeldSettlementSave {
   since: long (id: 1);
   how: ubyte (id: 2);
   from: ulong (id: 3);
+}
+
+// Where a law would clear a passing place (schema 150, M8b slice CQ, third part): the cell at
+// the middle of the single-cart stretch, the hours clearing it would take, and its way once begun
+// (0 before).
+table WaySiteSave {
+  law: ulong (id: 0);
+  cell: uint (id: 1);
+  labour_h: double (id: 2);
+  work: ulong (id: 3);
 }
 
 // Where a law would raise a palisade (schema 114, M6c slice BK): the point its ring is drawn
@@ -1839,6 +1996,12 @@ table CaseSave {
   // For a challenge (schema 127, M7b slice BT): the limit the law `law` is said to breach; 0 for
   // a taking. A challenge names no incident (`incident` 0).
   challenge: ulong (id: 21);
+  // For a debt brought under a law of debts heard (schema 135, M7d slice CB): the loan it is of;
+  // 0 for none. A debt names no incident (`incident` 0).
+  loan: uint (id: 22);
+  // For a case under a plan (schema 160, M8c slice CV): the building begun on ground the plan
+  // reserves; 0 for none. It names no incident (`incident` 0).
+  building: ulong (id: 23);
 }
 
 // How someone met one of the watch come to take what a finding owed: 0 yielded, 1 stood in the
@@ -1958,6 +2121,81 @@ table Order {
   // Bands called and the encounters they met (schema 110, M6c slice BJ); absent before.
   bands: [BandSave] (id: 11);
   clashes: [ClashSave] (id: 12);
+  // Loans in goods between households, oldest first, the last loan number, and the asks made and
+  // refused (schema 133, M7d slice CA, ADR-0027 §1); absent before.
+  loans: [LoanSave] (id: 13);
+  loans_next: uint (id: 14);
+  loans_asked: ulong (id: 15);
+  loans_refused: ulong (id: 16);
+  // Each loan's pledge, answer and remedies, in `loans`' order (schema 134, M7d slice CB);
+  // absent before, when a loan had none.
+  loan_terms: [LoanTermsSave] (id: 17);
+  // Coin issues struck, in the order struck, and every holder's pieces of each issue (schema 136,
+  // M7d slice CE, ADR-0027 §6); absent before, when no coin was struck.
+  coin_issues: [CoinIssueSave] (id: 18);
+  purses: [PurseSave] (id: 19);
+  brought: [BroughtSave] (id: 20);
+}
+
+// An issue of coin (schema 136): its number, the polity whose mint struck it, the day, grams a
+// piece and its fineness, and the pieces struck and still in being.
+struct CoinIssueSave {
+  id: uint;
+  issuer: ulong;
+  day: long;
+  mass_g: float;
+  fineness: float;
+  count: double;
+}
+
+// Metal a household brought to a polity's mint and not yet struck (schema 137), in the order
+// brought: the polity, the household and the kilograms.
+struct BroughtSave {
+  polity: ulong;
+  household: ulong;
+  metal_kg: double;
+}
+
+// Pieces of one issue a holder holds (schema 136), by holder and issue.
+struct PurseSave {
+  holder: ulong;
+  issue: uint;
+  count: double;
+}
+
+// A loan in goods (schema 133): its number, the creditor and debtor households, the good (an
+// index into `Order.goods`), kilograms lent, owed and paid, the days made and due, its standing
+// (0 open, 1 repaid, 2 defaulted) and its two witnesses.
+struct LoanSave {
+  id: uint;
+  creditor: ulong;
+  debtor: ulong;
+  good: ushort;
+  standing: ubyte;
+  lent: float;
+  owed: float;
+  paid: float;
+  made: long;
+  due: long;
+  witness_a: ulong;
+  witness_b: ulong;
+}
+
+// A loan's pledge, answer and remedies (schema 134, M7d slice CB): `pledge_kind` 0 none, 1 a
+// field's use, 2 a guarantor (`pledge` the field or household); `answer` 0 not yet, 1 meant to
+// pay, 2 refused, with its `points`; the asks for time made and granted; the day the pledge was
+// taken (`taken`, the least i64 when not); kilograms a guarantor paid; and for a guarantor's claim
+// on the debtor, the loan it paid on (0 none). Loan standings gain 3 refused and 4 lapsed.
+struct LoanTermsSave {
+  pledge_kind: ubyte;
+  answer: ubyte;
+  asks: ubyte;
+  extensions: ubyte;
+  points: float;
+  pledge: ulong;
+  taken: long;
+  by_guarantor: float;
+  recourse: uint;
 }
 
 // Section "word" (schema 35, M4c slice AE, ADR-0016): shared claims, who heard them, and the
@@ -2252,7 +2490,7 @@ table FactionsSave {
 // Schema 88 (M6b slice BC): FireStep, a minute of every fire burning, pending whenever one burns.
 // Schema 89 (M6b slice BD): Ignite, a home's fires in use may escape (`person` holds the
 // building's id).
-enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2, BandLook = 3, Gates = 4 }
+enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2, BandLook = 3, Gates = 4, Pass = 5 }
 
 table PendingEvent {
   at: long (id: 0);
@@ -2262,6 +2500,8 @@ table PendingEvent {
   kind: EventKind (id: 4);
   person: ulong (id: 5);
   version: uint (id: 6);
+  // Schema 141: the trip a Pass event belongs to.
+  trip: ulong (id: 7);
 }
 
 table PendingEvents {
@@ -3000,6 +3240,20 @@ table ErrandSave {
   home_h: float (id: 7);
   share: float (id: 8);
   day: long (id: 9);
+  // Schema 143 (M8b slice CO): its way by boat, if any: the boat, the banks it is paddled from
+  // and to, the minutes of travel, and of carrying its load to the boat and loading it, and of
+  // unloading and carrying it up at home.
+  by_boat: bool (id: 10);
+  boat: ulong (id: 11);
+  boat_from: uint (id: 12);
+  boat_to: uint (id: 13);
+  travel_min: float (id: 14);
+  load_min: float (id: 15);
+  unload_min: float (id: 16);
+  // Schema 145 (M8b slice CP): its way by cart, if any: the cart (the minutes above are then
+  // its travel, its loading at the seller's door and its unloading at home).
+  by_cart: bool (id: 17);
+  cart: ulong (id: 18);
 }
 
 // A good offered in both of a pair of settlements at a month's end (schema 57).
@@ -3140,4 +3394,220 @@ table FloodsSave {
   reach_discharges: [float] (id: 5);
   river_forcings: [RiverForcingSave] (id: 6);
   storm_checks: [StormCheckSave] (id: 7);
+}
+
+// Ways people have worked on (schema 140, M8b slice CM; ADR-0029 §1). A stretch of one: the
+// cells it runs through in order along the way; its corridor, built and usable widths, metres;
+// `surface` 0 cleared ground, 1 shaped earth, 2 gravel, 3 a timber causeway; `keeper` 0 nobody,
+// 1 a household, 2 a polity, `keeper_id` its id; `kept` the day it was last laid or kept.
+table WaySegmentSave {
+  cells: [uint] (id: 0);
+  corridor_m: float (id: 1);
+  built_m: float (id: 2);
+  usable_m: float (id: 3);
+  surface: ubyte (id: 4);
+  keeper: ubyte (id: 5);
+  keeper_id: ulong (id: 6);
+  kept: long (id: 7);
+}
+
+// A way: the day work on it began; `modes` bits (1 walking, 2 handcarts); its trips, faded as of
+// `trips_day`; `rank` as last surveyed, 0 a lane, 1 a street, 2 a main way, 3 a way between
+// settlements.
+table WayLineSave {
+  id: ulong (id: 0);
+  begun: long (id: 1);
+  segments: [WaySegmentSave] (id: 2);
+  modes: ubyte (id: 3);
+  trips: float (id: 4);
+  trips_day: long (id: 5);
+  rank: ubyte (id: 6);
+}
+
+table WaysSave {
+  list: [WayLineSave] (id: 0);
+  revision: uint (id: 1);
+}
+
+// Boats (schema 142, M8b slice CO; ADR-0029 §2): each of a vehicle by content id, the household
+// it belongs to, the land cell beside the river where it is drawn up, the day it was made and
+// the share of its life spent.
+table BoatSave {
+  id: ulong (id: 0);
+  vehicle: string (id: 1);
+  owner: ulong (id: 2);
+  at: uint (id: 3);
+  made: long (id: 4);
+  wear: float (id: 5);
+  // Schema 144 (M8b slice CO, third part): its labour and the work done on it (a boat saved
+  // before has neither: it is made), the hours of walking a year it was expected to save, and
+  // the day of the last session begun on it and how many began one then.
+  labour_h: float (id: 6);
+  work_h: float (id: 7);
+  saves_h_year: float (id: 8);
+  crew_day: long (id: 9);
+  crew: ubyte (id: 10);
+}
+
+table BoatsSave {
+  list: [BoatSave] (id: 0);
+  revision: uint (id: 1);
+}
+
+// Goods in transit (schema 143, M8b slice CO; ADR-0029 §3): each load's owner household, carrier
+// and boat, the settlements it is from and bound for, when it was loaded and when what it holds
+// was last brought up to date, and what it holds by good content id.
+table ConsignedGoodSave {
+  good: string (id: 0);
+  amount: double (id: 1);
+}
+
+table ConsignmentSave {
+  id: ulong (id: 0);
+  owner: ulong (id: 1);
+  carrier: ulong (id: 2);
+  boat: ulong (id: 3);
+  from: ulong (id: 4);
+  to: ulong (id: 5);
+  made: long (id: 6);
+  stores_at: long (id: 7);
+  goods: [ConsignedGoodSave] (id: 8);
+}
+
+table ConsignmentsSave {
+  list: [ConsignmentSave] (id: 0);
+}
+
+// Turn-taking at bottlenecks (schema 141, M8b slice CN; ADR-0029 §4). A facility as in
+// `TripAheadSave` (`kind`, `id`, `sector`); a direction of one that has passed someone lately
+// and the slots it gave in its memory, seconds from the calendar origin, in order.
+table TrafficServerSave {
+  kind: ubyte (id: 0);
+  id: ulong (id: 1);
+  sector: ushort (id: 2);
+  dir: ubyte (id: 3);
+  slots: [double] (id: 4);
+}
+
+// A facility's passages and minutes waited by hour of the day (24 each), fading, as of `day`; the
+// walkers who stood short of its approach; its longest wait remembered and the day of it.
+table TrafficTallySave {
+  kind: ubyte (id: 0);
+  id: ulong (id: 1);
+  sector: ushort (id: 2);
+  day: long (id: 3);
+  passages: [float] (id: 4);
+  waited_min: [float] (id: 5);
+  held_short: float (id: 6);
+  longest_min: float (id: 7);
+  longest_day: long (id: 8);
+}
+
+// What a household holds of its waits at a facility: minutes and times, fading, as of `day`.
+struct TrafficWaitSave {
+  household: ulong;
+  id: ulong;
+  day: long;
+  minutes: float;
+  waits: float;
+  sector: ushort;
+  kind: ubyte;
+}
+
+// A wait worth telling (M8b slice CN): its number, the walker, their household and settlement
+// (0 none), the facility (as in `TripAheadSave`), where and when they reached it, minutes from the
+// calendar origin, the minutes they waited and the walkers ahead of them.
+struct TrafficLongWaitSave {
+  person: ulong;
+  household: ulong;
+  settlement: ulong;
+  id: ulong;
+  time: long;
+  wait_id: uint;
+  x: float;
+  y: float;
+  minutes: float;
+  ahead: uint;
+  sector: ushort;
+  kind: ubyte;
+}
+
+// What a household holds of the hours its trips lost at a site of a way (M8b slice CQ): the cell,
+// the cause (0 a climb, 1 too narrow for two carts), hours and times, fading, as of `day`.
+struct TrafficLossSave {
+  household: ulong;
+  day: long;
+  cell: uint;
+  hours: float;
+  times: float;
+  cause: ubyte;
+}
+
+// Travel measured (schema 152, M8b slice CR, first part): trips or waits and their minutes, by
+// the code of what they are counted under (a behaviour's for a purpose, a mode's).
+struct TravelTallySave {
+  minutes: double;
+  trips: uint;
+  code: ubyte;
+}
+
+// A settlement's year of travel: its trips by purpose and by mode, its waits, and its residents'
+// days by occupation (4) and band of the day's travel (8), with their minutes by occupation.
+table TravelYearSave {
+  year: long (id: 0);
+  settlement: ulong (id: 1);
+  purposes: [TravelTallySave] (id: 2);
+  modes: [TravelTallySave] (id: 3);
+  waits_trips: uint (id: 4);
+  waits_minutes: double (id: 5);
+  days: [uint] (id: 6);
+  minutes: [double] (id: 7);
+}
+
+// Someone's minutes of travel so far today.
+struct TravelTodaySave {
+  person: ulong;
+  minutes: float;
+}
+
+// What a household holds of its members' days of travel (schema 153): their minutes and the
+// member-days they came to, fading, as of `day`.
+struct TravelHouseholdSave {
+  minutes: double;
+  days: double;
+  household: ulong;
+  day: long;
+}
+
+// Where someone has gone from home (schema 154, M8c slice CS, first part): trips from their
+// household's home to a place (a block of map cells), fading, as of `day`; one per place.
+struct TravelGoingSave {
+  person: ulong;
+  day: long;
+  place: uint;
+  trips: float;
+}
+
+// A trip from home set off on today (schema 155): held at midnight.
+struct TravelGoingTodaySave {
+  person: ulong;
+  place: uint;
+}
+
+table TrafficSave {
+  servers: [TrafficServerSave] (id: 0);
+  tallies: [TrafficTallySave] (id: 1);
+  waits: [TrafficWaitSave] (id: 2);
+  long_waits: [TrafficLongWaitSave] (id: 3);
+  // Schema 148.
+  losses: [TrafficLossSave] (id: 4);
+  // Schema 152 (M8b slice CR, first part): travel measured; absent before.
+  travel_years: [TravelYearSave] (id: 5);
+  travel_today: [TravelTodaySave] (id: 6);
+  // Schema 153 (M8b slice CR, second part); absent before.
+  travel_households: [TravelHouseholdSave] (id: 7);
+  // Schema 154 (M8c slice CS, first part); absent before.
+  travel_goings: [TravelGoingSave] (id: 8);
+  // Schema 155 (M8c slice CS, second part); absent before (a save's trips of its day go uncounted).
+  travel_going_today: [TravelGoingTodaySave] (id: 9);
 }

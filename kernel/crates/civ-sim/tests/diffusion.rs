@@ -103,12 +103,16 @@ fn home_of(sim: &Sim, p: PermanentId) -> Option<PermanentId> {
         .and_then(|h| h.settlement)
 }
 
-/// Lives `sim` until every household has a finished home, half a year at most.
+/// Lives `sim` until every household it began with has a finished home, half a year at most (one
+/// formed meanwhile may still be building: where a home goes is a choice since M8c slice CS, and
+/// its timing with it).
 fn until_housed(sim: &mut Sim) {
+    let first: Vec<PermanentId> = sim.people().households.iter().map(|(_, h)| h.id).collect();
     for _ in 0..180 {
         sim.advance_minutes(DAY).expect("advances");
         let all = sim.people().households.iter().all(|(_, h)| {
             h.members.is_empty()
+                || !first.contains(&h.id)
                 || sim
                     .land()
                     .buildings

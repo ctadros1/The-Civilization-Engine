@@ -1,0 +1,26 @@
+# A passing place cleared together (M8b slice CQ, third part; ADR-0029 §6, shaped as `build_bank`;
+# research 10-07 §1.6: where carts cannot pass on a narrow way, a place cleared wide enough for two
+# is the first answer). When carts of the settlement's households wait for each other at a stretch
+# of trail one cart wide, as they remember, and a passing place cleared at its middle would spare
+# them together more waiting over its life than its work (the issue `carts_wait`), anyone may
+# propose that the polity clear it. A household weighs it by the waiting it remembers there that
+# the place would spare it, a year, less its share of the work spread over the place's life, each
+# hour worth the food an hour of its own work brings; a household whose carts never wait there
+# gains nothing and is still asked its share. Once passed, the polity lays out the place, and each
+# household is asked an equal share of the clearing: its people give it as they choose, and nothing
+# follows a share not given. Nobody keeps it up unless a law asks. Whether anyone proposes one,
+# whether it passes, and whether it is finished, is people's choice. Its id sorts after every older
+# template's: hearth talk about a question is keyed by a template's place in id order ("yours to
+# clear": each household's share of the place).
+kind = "policy"
+id = "core:policy/yours_to_clear_a_passing_place"
+name = "Passing place cleared together"
+description = "The polity clears a passing place where carts wait for each other on a way one cart wide, and each household is asked an equal share of the work."
+does = "build_way"
+answers = ["carts_wait"]
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement, as for a flood bank built together: a share of every
+# household's hours is asked.
+[bears]
+"core:value/autonomy" = -0.5

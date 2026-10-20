@@ -15,6 +15,8 @@ use civ_core::time::DAYS_PER_YEAR;
 
 /// Purpose tag for the day of the year a household reviews where it lives.
 pub const PURPOSE_REVIEW: u64 = 0x7265_7669_6577_3031; // "review01"
+/// A waking day, minutes: what a day's travel is weighed as a share of (a design prior).
+const WAKING_DAY_MIN: f64 = 16.0 * 60.0;
 
 /// What a household's members find at a settlement: close kin living there (outside the
 /// household) and the familiarity and warmth of those they know there, summed.
@@ -115,8 +117,10 @@ impl Population {
 
     /// What moving `household` to each settlement it knows would be worth against staying,
     /// points (ADR-0018 §5): kin and those known there against here, the food a member saw there
-    /// against what they see at home, the grievances its members hold, against the harvest its
-    /// fields here should bring, the work of a new home and fields, and the walk there once.
+    /// against what they see at home, the grievances its members hold, the day's travel its
+    /// members do against what a resident there does (M8b slice CR, second part), against the
+    /// harvest its fields here should bring, the work of a new home and fields, and the walk
+    /// there once.
     pub(super) fn move_worth(&self, ctx: &Ctx, household: PermanentId) -> Vec<(PermanentId, f64)> {
         let Some(x) = self.household(household) else {
             return Vec::new();
@@ -137,6 +141,7 @@ impl Population {
             .outlook(ctx, household)
             .map_or(0.0, |o| (o.harvest / o.year_need.max(1.0)).clamp(0.0, 1.0));
         let sat = |s: f64| s / (1.0 + s);
+        let walk_here = self.travel.household_daily_minutes(household);
         let mut out = Vec::new();
         for k in self.known_places.of(household) {
             let Some(s) = ctx
@@ -153,12 +158,16 @@ impl Population {
                 .map_or(Draw::default(), |d| d.1);
             let fed = k.food.map_or(0.0, |f| f64::from(f) - fed_here);
             let walk_h = self.walk_hours(ctx, home, s.id);
+            let travel = walk_here
+                .zip(self.travel.settlement_daily_minutes(s.id))
+                .map_or(0.0, |(h, t)| (h - t) / WAKING_DAY_MIN);
             let worth = mp.w_kin * (there.kin as f64 - here.kin as f64)
                 + mp.w_ties * (sat(there.known) - sat(here.known))
                 + mp.w_fed * fed
                 + mp.w_grievance * grievance
                 + mp.w_sickness * sickness
                 + self.raid_pull(ctx, household, s.id)
+                + mp.w_walk * travel
                 - mp.w_stake * stake
                 - mp.cost
                 - ctx.params.decision.w_walk_hour * walk_h;
@@ -278,10 +287,7 @@ impl Population {
     /// body's reserve), as anyone living there sees.
     fn fed_share(&self, ctx: &Ctx, settlement: PermanentId) -> f64 {
         let (mut all, mut fed) = (0u32, 0u32);
-        for (_, x) in self.households.iter() {
-            if x.settlement != Some(settlement) {
-                continue;
-            }
+        for x in self.households_in(settlement) {
             for p in x.members.iter().filter_map(|&m| self.person(m)) {
                 all += 1;
                 if !may_eat_reserve(p, ctx.now, ctx.params) {
@@ -457,9 +463,7 @@ impl Population {
             .learn(id, left, day, PlaceHow::Lived, None);
         self.leanings.remove(&from);
         // The household they leave: its workshops close and its ground and home stand empty.
-        if let Some(hd) = self.hh_index.remove(&from)
-            && let Some(gone) = self.households.remove(hd)
-        {
+        if let Some(gone) = self.take_household(from) {
             self.homes_moved += 1;
             self.flows_gone.absorb(&gone.flows);
         }

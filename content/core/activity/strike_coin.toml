@@ -1,0 +1,17 @@
+# Striking coin for the polity, at the minter's home, from the metal brought to the mint.
+kind = "activity"
+id = "core:activity/strike_coin"
+name = "Strike coin"
+doing = "striking coin"
+behavior = "make"
+recipe = "core:recipe/strike_coin"
+par = 3.0
+min_age_years = 16.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 300
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

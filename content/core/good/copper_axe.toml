@@ -1,0 +1,20 @@
+# A cast copper axe on a wooden haft: it does an axe's work (research 07-05 §3.2, M3: cast tools)
+# and is hammered sharp again rather than reground, so it lasts three stone axes' use, 600 hours
+# (a tuning value; the research gives no tool lifetimes). A household needing an axe makes this
+# one when it costs fewer of its hours for each hour of use (M7d slice CE).
+kind = "good"
+id = "core:good/copper_axe"
+name = "Copper axe"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 600.0
+per_worker = 0.5
+fixed = false
+serves = "core:good/axe"

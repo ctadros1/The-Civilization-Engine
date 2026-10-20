@@ -460,8 +460,8 @@ impl Population {
         let settlement = self.polities.iter().find(|p| p.id == payer)?.settlement;
         let crop = catalog.crops.get(params.farm.crop);
         let (mut output, mut need) = (0.0, 0.0);
-        for (_, x) in self.households.iter() {
-            if x.members.is_empty() || x.settlement != Some(settlement) {
+        for x in self.households_in(settlement) {
+            if x.members.is_empty() {
                 continue;
             }
             need += x.members.len() as f64 * params.household.daily_kcal_per_person * 365.0;

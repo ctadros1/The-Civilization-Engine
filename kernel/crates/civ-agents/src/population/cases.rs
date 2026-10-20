@@ -85,7 +85,7 @@ impl Population {
     }
 
     /// The words for household `household`: "the household of Rilla".
-    fn household_words(&self, ctx: &Ctx, household: PermanentId) -> String {
+    pub(super) fn household_words(&self, ctx: &Ctx, household: PermanentId) -> String {
         self.elder_of(household, ctx.now, ctx.params).map_or_else(
             || "a household".to_owned(),
             |e| format!("the household of {}", self.name_of(e)),
@@ -168,6 +168,8 @@ impl Population {
             challenge: None,
             tags: 0,
             departed: None,
+            loan: None,
+            building: None,
         });
         self.put_cases(&ctx.catalog.policies, pi, day, params.polity.notice_days);
         // Before a forum, if one hears it (M7b slice BR), else before the gathering.
@@ -657,6 +659,8 @@ impl Population {
                 challenge: Some(limit),
                 tags: 0,
                 departed: None,
+                loan: None,
+                building: None,
             });
             let (place, name) = ctx
                 .land
@@ -1100,17 +1104,34 @@ impl Population {
             .find(|l| l.id == c.law)
             .map(|l| l.sanction)
             .unwrap_or_default();
-        // A breach of a privilege (M7c slice BX): an offer at a door, which everyone saw.
-        let breach = self.polities[pi]
-            .laws
-            .iter()
-            .find(|l| l.id == c.law)
-            .is_some_and(|l| l.kind == PolicyKind::Privilege);
-        let breach_words = if breach {
+        // A breach of a privilege (M7c slice BX): an offer at a door, which everyone saw; or a
+        // building on ground a plan reserves (M8c slice CV), which stands there to be seen.
+        let breach = c.building.is_some()
+            || self.polities[pi]
+                .laws
+                .iter()
+                .find(|l| l.id == c.law)
+                .is_some_and(|l| l.kind == PolicyKind::Privilege);
+        let breach_words = if c.building.is_some() {
+            "the plan by building on ground it reserves".to_owned()
+        } else if breach {
             self.law_words_of(ctx, pi, c.law)
         } else {
             String::new()
         };
+        // A debt under a law of debts heard (M7d slice CB): the loan it is of, witnessed when it
+        // was made, and the law's remedy.
+        let debt = c
+            .loan
+            .and_then(|l| self.order.credit.claim(l).cloned())
+            .zip(
+                self.polities[pi]
+                    .laws
+                    .iter()
+                    .find(|l| l.id == c.law)
+                    .and_then(|l| ctx.catalog.policies.get(usize::from(l.policy)))
+                    .and_then(|d| d.debts),
+            );
         let need_of = |h: PermanentId| {
             self.household(h).map_or(1, |x| x.members.len().max(1)) as f64
                 * params.household.daily_kcal_per_person
@@ -1139,6 +1160,23 @@ impl Population {
         // few days' food matters most to those with least.
         let gain = cp.w_demand_loss * (restitution + compensation) / need_of(c.accuser);
         let loss = cp.w_demand_loss * (restitution + compensation + fine + exile) / debtor_need;
+        // A debt moves what is still owed of it, at the share the law's remedy moves.
+        let (gain, loss) = match &debt {
+            Some((claim, def)) => {
+                let kcal = claim.left()
+                    * ctx
+                        .catalog
+                        .goods
+                        .get(usize::from(claim.good))
+                        .map_or(0.0, |g| g.kcal_per_kg)
+                    * f64::from(def.share);
+                (
+                    cp.w_demand_loss * kcal / need_of(c.accuser),
+                    cp.w_demand_loss * kcal / debtor_need,
+                )
+            }
+            None => (gain, loss),
+        };
         // Its body's members now (M4c slice AF).
         let members = self.body_members(&ctx.land.fields, pi, now, params);
         let regard = |p: PermanentId, q: PermanentId| {
@@ -1173,6 +1211,7 @@ impl Population {
                     0.0
                 };
                 let believes = breach
+                    || debt.is_some()
                     || self
                         .order
                         .belief(p, c.incident)
@@ -1259,12 +1298,29 @@ impl Population {
             .map(|r| r.0)
             .max();
         let departed = case.departed;
+        // A debt found: the law's remedy (M7d slice CB).
+        let debt_words = match (&debt, decided) {
+            (Some((claim, def)), Decided::Passed) => self.debt_found(ctx, claim.id, c.id, *def),
+            _ => String::new(),
+        };
         let tally = match forum {
             Some((def, _)) if def.seat == ForumSeat::Holder => "heard alone".to_owned(),
             Some(_) => format!("{support} for, {oppose} against, of {eligible} who sat"),
             None => format!("{support} for, {oppose} against; {present} of {eligible} adults came"),
         };
         let words = match decided {
+            Decided::Passed if debt.is_some() => format!(
+                "{who} found that {accused_name}'s household owes {accuser_words} what it did not \
+                 repay of a loan{debt_words}: {tally}."
+            ),
+            Decided::Failed if debt.is_some() => format!(
+                "{who} did not find that {accused_name}'s household owes {accuser_words} what it \
+                 did not repay of a loan: {tally}."
+            ),
+            Decided::Tied if debt.is_some() => format!(
+                "{who} was evenly split on whether {accused_name}'s household owes \
+                 {accuser_words} what it did not repay of a loan, so it found nothing: {tally}."
+            ),
             Decided::Passed if breach => {
                 let mut owed = Vec::new();
                 if compensation > 1.0 {
@@ -1284,9 +1340,18 @@ impl Population {
                 } else {
                     format!(" {accused_name}'s household owes {}.", owed.join(" and "))
                 };
+                // A plan's remedy for the building (M8c slice CV, second part).
+                let remedy = match c.building {
+                    Some(_) if sanction.remove => " Its building is to be taken down.".to_owned(),
+                    Some(_) if sanction.yearly_days > 0.0 => format!(
+                        " Its building may stand for {:.0} days' food a year to the common store.",
+                        f64::from(sanction.yearly_days)
+                    ),
+                    _ => String::new(),
+                };
                 format!(
                     "{who} found that {accused_name}'s household broke {breach_words}: \
-                     {tally}.{owes}"
+                     {tally}.{owes}{remedy}"
                 )
             }
             Decided::Failed if breach => format!(
@@ -1381,7 +1446,8 @@ impl Population {
             restitution + compensation + fine,
             decided == Decided::Passed && sanction.exile && !outsider,
         );
-        if decided != Decided::Passed {
+        // A debt's finding was its remedy (M7d slice CB): nothing taken, nothing to believe.
+        if decided != Decided::Passed || debt.is_some() {
             return;
         }
         // The finding: the law's bundle, as obligations (ADR-0015 §5), and word of it.
@@ -1409,6 +1475,32 @@ impl Population {
                 standing: Standing::Open,
                 answer: None,
             });
+        }
+        // A plan's remedy for the building (M8c slice CV, second part; ADR-0030 §5): taken down
+        // once what is owed falls due, or let stand for a yearly payment to the store.
+        if let Some(b) = c.building {
+            use crate::polity::PlanOrder;
+            let order = if sanction.remove {
+                Some(PlanOrder::Remove {
+                    due: day + i64::from(cp.due_days),
+                })
+            } else if sanction.yearly_days > 0.0 {
+                Some(PlanOrder::Regularised {
+                    since: day,
+                    kcal: (f64::from(sanction.yearly_days) * debtor_need) as f32,
+                })
+            } else {
+                None
+            };
+            if let (Some(order), Some(e)) = (
+                order,
+                self.polities[pi]
+                    .encroachments
+                    .iter_mut()
+                    .find(|e| e.building == b && e.order.is_none()),
+            ) {
+                e.order = Some(order);
+            }
         }
         let origin = c.leads.first().copied().unwrap_or(c.by);
         // Exile: those who found against them see them go (09-07 §1.1: enforcement needs an

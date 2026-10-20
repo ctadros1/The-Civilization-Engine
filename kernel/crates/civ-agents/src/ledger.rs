@@ -57,11 +57,25 @@ pub enum Channel {
     /// Food the keeper of a polity's store drew from it for their own household (M7c slice BY,
     /// ADR-0026 §4).
     Diverted = 20,
+    /// Goods a household lent another, to be repaid (M7d slice CA, ADR-0027 §1).
+    Lent = 21,
+    /// Goods a household repaid on what it was lent (M7d slice CA).
+    Repaid = 22,
+    /// Metal, and the fuel to strike it, a household brought to its polity's mint (M7d slice
+    /// CE2b, ADR-0027 §6).
+    Mint = 23,
+    /// A load in transit unloaded into its owner's store (M8b slice CO, ADR-0029 §3).
+    Carried = 24,
+    /// What a household paid a polity's store for a plan's parcel, once (M8c slice CU, ADR-0030
+    /// §4).
+    GroundFee = 25,
+    /// A year's ground rent paid a polity's store for a plan's parcel (M8c slice CU, ADR-0030 §4).
+    GroundRent = 26,
 }
 
 impl Channel {
     /// Every channel, in code order.
-    pub const ALL: [Channel; 20] = [
+    pub const ALL: [Channel; 26] = [
         Channel::Gift,
         Channel::Share,
         Channel::Allocation,
@@ -82,6 +96,12 @@ impl Channel {
         Channel::Agreement,
         Channel::Duty,
         Channel::Diverted,
+        Channel::Lent,
+        Channel::Repaid,
+        Channel::Mint,
+        Channel::Carried,
+        Channel::GroundFee,
+        Channel::GroundRent,
     ];
 
     /// The channel with this code.
@@ -112,6 +132,12 @@ impl Channel {
             Channel::Agreement => "agreement",
             Channel::Duty => "duty",
             Channel::Diverted => "diverted",
+            Channel::Lent => "lent",
+            Channel::Repaid => "repaid",
+            Channel::Mint => "brought to the mint",
+            Channel::Carried => "carried home",
+            Channel::GroundFee => "ground fee",
+            Channel::GroundRent => "ground rent",
         }
     }
 }

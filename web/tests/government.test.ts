@@ -301,6 +301,11 @@ describe("the government on the wire", () => {
       settlements,
       ended,
       elections,
+      W.PolityLine.createCaptureVector(b, [
+        b.createString(
+          "Talia's organization: 2 of the 3 laws passed since it was founded were proposed by its members; 5 stood for them, 2 of them its members",
+        ),
+      ]),
     );
     const polities = W.Government.createPolitiesVector(b, [polity]);
     const siege = W.SiegeLine.createSiegeLine(
@@ -376,6 +381,9 @@ describe("the government on the wire", () => {
     expect(p.settlements).toHaveLength(2);
     expect(p.settlements[1]).toContain("by annexation");
     expect(p.ended).toBe("");
+    expect(p.capture).toEqual([
+      "Talia's organization: 2 of the 3 laws passed since it was founded were proposed by its members; 5 stood for them, 2 of them its members",
+    ]);
     expect(p.elections).toEqual([
       {
         id: 2,

@@ -230,6 +230,8 @@ impl Population {
         let hh = &self.hh_index;
         self.fords
             .forget(day, half, LEAST_WADES, |h| hh.contains_key(&h));
+        self.forget_traffic(ctx, day);
+        self.way_work_reviews(ctx, day);
         if ctx.catalog.bridges.is_empty() {
             return;
         }
@@ -887,8 +889,9 @@ impl Population {
         c.state = CrossingState::Building { work_h };
         // What each household gave of a polity's crossing is kept (research 09-06: labour asked
         // and labour given apart).
-        if matches!(c.owner, CrossingOwner::Polity(_)) {
+        if let CrossingOwner::Polity(polity) = c.owner {
             c.add_share(household, done as f32);
+            self.work_given.push((polity, household, done));
         }
         if let (Some((k, s)), Some(p)) = (skill, self.people.get_mut(h)) {
             p.set_skill(k, s.practised(p.skill(k), done));

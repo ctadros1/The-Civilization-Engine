@@ -199,6 +199,56 @@ pub fn commission(params: &StyleParams, taste: &Taste, def: &BuildingDef, key: &
     traits
 }
 
+/// What frame building `spec` was built with beyond what version 2 builds, in words (ADR-0031
+/// §1): a trussed roof, posts a storey high, walls tied at each storey, walls thinning storey by
+/// storey, each storey's windows and a stair. Empty before version 3.
+pub fn system_words(spec: &BuildingSpec) -> Vec<String> {
+    use frame_params as fp;
+    if spec.version < 3 {
+        return Vec::new();
+    }
+    let p = &spec.params;
+    let storeys = usize::from(spec.storeys).min(4);
+    let ordinal = |t: usize| ["first", "second", "third", "fourth"][t];
+    let mut words = Vec::new();
+    if p[fp::ROOF_SYSTEM] == 1 {
+        words.push("a trussed roof".to_owned());
+    }
+    if p[fp::POST_SYSTEM] == 1 {
+        words.push("posts a storey high".to_owned());
+    }
+    if p[fp::TIES] == 1 {
+        words.push("walls tied at each storey".to_owned());
+    }
+    if (0..storeys).any(|t| p[fp::STOREY_WALL_CM + t] != 0) {
+        let cm: Vec<String> = (0..storeys)
+            .map(|t| match p[fp::STOREY_WALL_CM + t] {
+                0 => p[fp::WALL_CM],
+                v => v,
+            })
+            .map(|v| v.to_string())
+            .collect();
+        words.push(format!("walls {} cm thick storey by storey", cm.join(", ")));
+    }
+    let open: Vec<String> = (0..storeys)
+        .filter(|&t| p[fp::OPENINGS + t] != 0)
+        .map(|t| {
+            format!(
+                "{}% of the {} storey's wall",
+                (f64::from(p[fp::OPENINGS + t]) / 10.0).round(),
+                ordinal(t)
+            )
+        })
+        .collect();
+    if !open.is_empty() {
+        words.push(format!("windows in {}", open.join(", ")));
+    }
+    if p[fp::STAIR] == 1 {
+        words.push("a stair to every storey".to_owned());
+    }
+    words
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -338,5 +388,53 @@ mod tests {
         assert_eq!(prestige(&p, 0.0), 1.0);
         assert_eq!(prestige(&p, 1.0), 3.0);
         assert_eq!(prestige(&p, 0.5), 2.0);
+    }
+
+    #[test]
+    fn a_version_three_frame_says_what_it_was_built_with() {
+        use civ_grammar::{Footprint, PARAMS, frame_params as fp};
+        let mut params = [0; PARAMS];
+        params[fp::WALL_CM] = 50;
+        let mut spec = BuildingSpec {
+            program: "core:building/longhouse".into(),
+            version: 2,
+            footprint: Footprint::Rect {
+                x: 0,
+                y: 0,
+                length: 1000,
+                width: 500,
+                angle: 0,
+            },
+            storeys: 3,
+            params,
+            materials: Vec::new(),
+            style_seed: 0,
+        };
+        assert!(
+            system_words(&spec).is_empty(),
+            "nothing of its own before version 3"
+        );
+        spec.version = 3;
+        assert!(
+            system_words(&spec).is_empty(),
+            "version 3 with nothing of its own"
+        );
+        spec.params[fp::ROOF_SYSTEM] = 1;
+        spec.params[fp::TIES] = 1;
+        spec.params[fp::STOREY_WALL_CM + 1] = 40;
+        spec.params[fp::STOREY_WALL_CM + 2] = 30;
+        spec.params[fp::OPENINGS] = 200;
+        spec.params[fp::OPENINGS + 2] = 100;
+        spec.params[fp::STAIR] = 1;
+        assert_eq!(
+            system_words(&spec),
+            [
+                "a trussed roof",
+                "walls tied at each storey",
+                "walls 50, 40, 30 cm thick storey by storey",
+                "windows in 20% of the first storey's wall, 10% of the third storey's wall",
+                "a stair to every storey",
+            ]
+        );
     }
 }

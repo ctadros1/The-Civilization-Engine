@@ -6,8 +6,8 @@
 //! cargo run --release -p civ-sim --example bench_village -- --people 200 --days 30
 //! ```
 //!
-//! Runs differ by world, as every world draws its own identity; compare several runs, or profile
-//! one (for example under `valgrind --tool=callgrind --toggle-collect='*advance_minutes*'`).
+//! Every world is made with one fixed identity, so a seed lives the same life each run (an
+//! identity orders the events of an instant); compare seeds, or profile one (for example under `valgrind --tool=callgrind --toggle-collect='*advance_minutes*'`).
 //! `--save-to DIR` saves the world when the days are lived, and `--load FILE` lives on from a
 //! save instead of making a world, so a profile can start in the middle of a year. Days after
 //! `--profile-after N` are lived through `profiled_day`, for
@@ -21,11 +21,11 @@
 //! `--groups N` founds N groups of `--people` each, their sites chosen together (ADR-0018 §6);
 //! `--known` has them know where each other camped. `--stop-trade` stops purchases between
 //! settlements (the twin harness, ADR-0019 §8), and `--no-sights` has nobody note the buildings
-//! they see in other settlements (M5b slice AR).
+//! they see in other settlements (M5b slice AR). Each settlement's residents, plots, footprint and
+//! home plots are printed at the end (M8c slice CX).
 
 use std::collections::BTreeMap;
 use std::path::Path;
-use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 
 use civ_core::time::MINUTES_PER_DAY;
@@ -144,7 +144,7 @@ fn main() {
     let started = Instant::now();
     let mut sim = match &a.load {
         Some(file) => persist::load(Path::new(file), &content).expect("the save loads"),
-        None => Sim::create(
+        None => Sim::create_for_tests(
             &NewWorld {
                 name: "Bench".to_owned(),
                 seed: a.seed,
@@ -156,8 +156,7 @@ fn main() {
                 regime_id: a.regime.clone(),
             },
             &content,
-            &mut |_| {},
-            &AtomicBool::new(false),
+            [7; 16],
         )
         .expect("the world generates"),
     };
@@ -178,10 +177,12 @@ fn main() {
         "leisure" => sim.set_approximations(civ_sim::Approximations {
             leisure_blocks: true,
             household_view: false,
+            views_by_party: false,
         }),
         "view" => sim.set_approximations(civ_sim::Approximations {
             leisure_blocks: false,
             household_view: true,
+            views_by_party: true,
         }),
         other => panic!("--only leisure or view, not {other}"),
     }
@@ -191,8 +192,8 @@ fn main() {
     }
     println!(
         "seed {} on {} cells: {} people in {} households, made in {:.1} s",
-        a.seed,
-        a.size,
+        sim.meta().seed,
+        sim.map().width,
         sim.people().living(),
         sim.people()
             .households
@@ -213,6 +214,13 @@ fn main() {
     let mut sights: std::collections::BTreeSet<(u64, u64)> = Default::default();
     let tastes_before = mean_tastes(&sim);
     let lived_from = sim.now().minutes();
+    // Each day's wall time, and the cells route searches on this thread expanded (M8a slice CF;
+    // the landmarks' own threads are not counted).
+    let mut days_ms: Vec<f64> = Vec::with_capacity(a.days as usize);
+    let cells_before = civ_world::nav::cells_searched();
+    let searches_before = civ_world::nav::searches();
+    let counts_before = sim.people().route_counts;
+    let views_before = sim.people().view_counts;
     for day in 1..=a.days {
         let t = Instant::now();
         if day > a.profile_after && a.profile_after > 0 {
@@ -222,6 +230,7 @@ fn main() {
                 .expect("the world lives on");
         }
         let ms = t.elapsed().as_secs_f64() * 1000.0;
+        days_ms.push(ms);
         if a.digest {
             for (p, list) in &sim.people().seen_away {
                 sights.extend(list.iter().map(|b| (p.get(), b.get())));
@@ -555,8 +564,15 @@ fn main() {
     }
     if let Some(dir) = &a.save_to {
         let saves = SaveDir::create(Path::new(dir), civ_schema::SAVE_EXTENSION).expect("save dir");
+        let t = Instant::now();
         let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "bench").expect("saves");
-        println!("saved {}", saved.path.display());
+        let bytes = std::fs::metadata(&saved.path).map_or(0, |m| m.len());
+        println!(
+            "saved {} ({:.1} MB in {:.2} s)",
+            saved.path.display(),
+            bytes as f64 / 1e6,
+            t.elapsed().as_secs_f64()
+        );
     }
     println!(
         "{} days in {:.1} s: {:.1} ms a day on average ({:.1} s a year); slowest day {} at {:.0} ms",
@@ -567,6 +583,88 @@ fn main() {
         slowest_day,
         slowest
     );
+    // The scale line (M8a slice CF, ADR-0028 §1): days at p50, p95 and worst, simulated years a
+    // real minute at the mean, route search work and peak memory.
+    let mut sorted = days_ms.clone();
+    sorted.sort_by(f64::total_cmp);
+    let at = |q: f64| {
+        sorted
+            .get(((sorted.len() as f64 - 1.0) * q).round() as usize)
+            .copied()
+            .unwrap_or(0.0)
+    };
+    let mean_s = total / f64::from(a.days.max(1));
+    let year = civ_core::time::DAYS_PER_YEAR as f64;
+    println!(
+        "scale: {} people; day p50 {:.0} ms, p95 {:.0} ms, worst {:.0} ms; {:.4} years a minute \
+         ({:.0} s a {}-day year); {:.1} M route cells a day; peak memory {}",
+        sim.people().living(),
+        at(0.5),
+        at(0.95),
+        at(1.0),
+        60.0 / (mean_s * year).max(1e-9),
+        mean_s * year,
+        year,
+        (civ_world::nav::cells_searched() - cells_before) as f64 / 1e6 / f64::from(a.days.max(1)),
+        peak_memory()
+    );
+    // How densely each settlement lives (M8c slice CX): residents a hectare of its footprint and
+    // of its home plots, the dashboard's Land row's denominators.
+    for st in &sim.land().settlements {
+        let residents = sim.people().residents(st.id);
+        let (footprint, homes) = civ_sim::frames::land::ground_ha(&sim, st.id);
+        let per = |ha: f64| {
+            if ha > 0.0 {
+                f64::from(residents) / ha
+            } else {
+                0.0
+            }
+        };
+        println!(
+            "land: {} {residents} residents, {} plots; footprint {footprint:.1} ha ({:.0} a \
+             hectare), home plots {homes:.2} ha ({:.0} a hectare)",
+            st.name,
+            sim.land()
+                .plots
+                .iter()
+                .filter(|p| sim
+                    .people()
+                    .household(p.household)
+                    .and_then(|h| h.settlement)
+                    == Some(st.id))
+                .count(),
+            per(footprint),
+            per(homes),
+        );
+    }
+    let counts = sim.people().route_counts;
+    let days = f64::from(a.days.max(1));
+    println!(
+        "routes: {:.0} searches a day; the cache cleared {} times and full {} times",
+        (civ_world::nav::searches() - searches_before) as f64 / days,
+        counts.0 - counts_before.0,
+        counts.1 - counts_before.1,
+    );
+    let views = sim.people().view_counts;
+    println!(
+        "views: {:.0} decisions a day found their household's view kept, {:.0} found none; \
+         every view let go {:.0} times a day",
+        (views.0 - views_before.0) as f64 / days,
+        (views.1 - views_before.1) as f64 / days,
+        (views.2 - views_before.2) as f64 / days,
+    );
+}
+
+/// The process's peak resident memory, from `/proc` where there is one.
+fn peak_memory() -> String {
+    std::fs::read_to_string("/proc/self/status")
+        .ok()
+        .and_then(|s| {
+            s.lines()
+                .find(|l| l.starts_with("VmHWM:"))
+                .map(|l| l.trim_start_matches("VmHWM:").trim().to_owned())
+        })
+        .unwrap_or_else(|| "unknown".to_owned())
 }
 
 /// Each settlement's mean taste over its households with anyone in them: pitch (centidegrees),

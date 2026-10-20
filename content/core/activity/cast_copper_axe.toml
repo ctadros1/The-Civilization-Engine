@@ -1,0 +1,17 @@
+# Casting, hammering and hafting a copper axe at home.
+kind = "activity"
+id = "core:activity/cast_copper_axe"
+name = "Cast a copper axe"
+doing = "casting a copper axe"
+behavior = "make"
+recipe = "core:recipe/cast_copper_axe"
+par = 3.0
+min_age_years = 16.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 300
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

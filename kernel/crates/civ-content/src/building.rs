@@ -6,7 +6,10 @@
 use std::collections::BTreeMap;
 
 use civ_agents::params::{BuildingDef, FrameDesign};
-use civ_grammar::{FrameRules, Grammar, HutRules, MAX_BAYS, MAX_STOREYS, ProgramRules, SpaceUse};
+use civ_grammar::{
+    FRAME_DESIGN_VERSION, FrameRules, Grammar, HutRules, Masonry, ProgramRules, SpaceUse,
+    frame_limits,
+};
 use civ_land::PlotUse;
 use serde::Deserialize;
 
@@ -53,6 +56,32 @@ pub(crate) struct BuildingFile {
     pub frame: Option<Frame>,
     /// The sizes people build a frame program to.
     pub design: Option<Design>,
+    /// The techniques that open frame version 3's systems (ADR-0031 §2).
+    #[serde(default)]
+    pub systems: Option<SystemsFile>,
+}
+
+/// The technique that opens each of frame version 3's systems: a technique id, or "" for none
+/// (ADR-0031 §2).
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct SystemsFile {
+    /// A roof of trusses carrying purlins.
+    #[serde(default)]
+    pub trussed_roof: String,
+    /// Each storey's posts standing on the frame below.
+    #[serde(default)]
+    pub storeyed_posts: String,
+    /// Mass walls tied at each storey.
+    #[serde(default)]
+    pub wall_ties: String,
+}
+
+impl SystemsFile {
+    /// The technique ids, in the order of [`civ_agents::params::BuildingDef::systems`].
+    pub fn ids(&self) -> [&str; 3] {
+        [&self.trussed_roof, &self.storeyed_posts, &self.wall_ties]
+    }
 }
 
 /// How a program's parts wear and decay (`civ_agents::params::Upkeep`), as authored: for each
@@ -183,6 +212,31 @@ pub(crate) struct Frame {
     pub wattle_kg_per_m2: f64,
     pub thatch_kg_per_m2: f64,
     pub ladder_kg: f64,
+    /// A mass wall's thickness from frame version 3 (ADR-0031 §1).
+    pub mass_wall_cm: [i32; 2],
+    /// Each kind of mass wall's figures.
+    pub masonry: MasonryFile,
+}
+
+/// What each kind of mass wall takes and gives, as authored: hours to lay a cubic metre, a cubic
+/// metre's weight in kilograms, and strength in compression in pascals (ADR-0031 §1).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct MasonryFile {
+    pub rubble: [f64; 3],
+    pub mud_brick: [f64; 3],
+    pub fired_brick: [f64; 3],
+}
+
+impl MasonryFile {
+    /// The kinds in wall-kind order (1 to 3), with their names.
+    fn kinds(&self) -> [(&'static str, [f64; 3]); 3] {
+        [
+            ("rubble", self.rubble),
+            ("mud_brick", self.mud_brick),
+            ("fired_brick", self.fired_brick),
+        ]
+    }
 }
 
 /// Degrees to hundredths of a degree.
@@ -247,7 +301,7 @@ impl BuildingFile {
             }
             Grammar::Frame => {
                 let f = self.frame.as_ref()?;
-                Some(ProgramRules::Frame(FrameRules {
+                Some(ProgramRules::Frame(Box::new(FrameRules {
                     bays: pair(f.bays),
                     bay_cm: pair(f.bay_cm),
                     width_cm: pair(f.width_cm),
@@ -293,7 +347,13 @@ impl BuildingFile {
                     wattle_kg_per_m2: f.wattle_kg_per_m2,
                     thatch_kg_per_m2: f.thatch_kg_per_m2,
                     ladder_kg: f.ladder_kg,
-                }))
+                    mass_wall_cm: pair(f.mass_wall_cm),
+                    masonry: f.masonry.kinds().map(|(_, [h, kg, pa])| Masonry {
+                        h_per_m3: h,
+                        kg_per_m3: kg,
+                        strength_pa: pa,
+                    }),
+                })))
             }
         }
     }
@@ -336,6 +396,7 @@ impl BuildingFile {
             shapes: Vec::new(),
             skill,
             upkeep: self.upkeep.upkeep(),
+            systems: [None; 3],
         };
         def.shapes = civ_agents::build::shapes(&def, goods);
         Some(def)
@@ -489,16 +550,18 @@ impl BuildingFile {
     fn frame_problems(&self, f: &Frame, p: &mut Vec<String>) {
         let t = "frame";
         ranged(p, t, "bays", f.bays[0], f.bays[1], 1);
-        if f.bays[1] > MAX_BAYS {
+        // Held to the version builders design under (ADR-0031 §1).
+        let (most_bays, most_storeys) = frame_limits(FRAME_DESIGN_VERSION);
+        if f.bays[1] > most_bays {
             p.push(format!(
-                "`frame.bays` may reach at most {MAX_BAYS} (got {})",
+                "`frame.bays` may reach at most {most_bays} (got {})",
                 f.bays[1]
             ));
         }
         let [s0, s1] = f.storeys;
-        if !(s0 >= 1 && s0 <= s1 && s1 <= MAX_STOREYS) {
+        if !(s0 >= 1 && s0 <= s1 && s1 <= most_storeys) {
             p.push(format!(
-                "`frame.storeys` must be [least, most] within 1..={MAX_STOREYS} (got [{s0}, {s1}])"
+                "`frame.storeys` must be [least, most] within 1..={most_storeys} (got [{s0}, {s1}])"
             ));
         }
         for (name, [lo, hi]) in [
@@ -508,8 +571,18 @@ impl BuildingFile {
             ("joist_cm", f.joist_cm),
             ("post_cm", f.post_cm),
             ("wall_cm", f.wall_cm),
+            ("mass_wall_cm", f.mass_wall_cm),
         ] {
             ranged(p, t, name, lo, hi, 1);
+        }
+        for (kind, figures) in f.masonry.kinds() {
+            for (what, v) in ["hours", "weight", "strength"].into_iter().zip(figures) {
+                if !(v.is_finite() && v > 0.0) {
+                    p.push(format!(
+                        "`frame.masonry.{kind}`'s {what} must be positive (got {v})"
+                    ));
+                }
+            }
         }
         for (name, [lo, hi]) in [
             ("overhang_cm", f.overhang_cm),

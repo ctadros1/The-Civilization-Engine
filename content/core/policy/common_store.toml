@@ -17,6 +17,16 @@ question = "whether to keep a common store"
 levy_shares = [0.05, 0.1, 0.2]   # a twentieth, a tenth or a fifth (09-05 §2.3: a sponsor weighs a few levels)
 relief_days = 5.0                # one ask brings at most five days of the household's food (a tuning value)
 
+# The levy may be paid in coin, two pieces for each kilogram of grain owed (content API 129, M7d
+# slice CE3b; research 08-06 §1.4: an obligation's acceptable media and conversion schedule are
+# stored explicitly, and an authority that accepts a medium for its dues makes it more useful). A
+# household pays in coin what it holds when coin's other uses are worth less to it than the grain;
+# and under the law a piece is worth to its holder at least the half kilogram it pays for. The rate
+# is a tuning value: two pieces are 16 g of copper.
+[medium]
+good = "core:good/coin"
+per_kg = 2.0
+
 # How a law of this kind bears on what people hold dear (content API 43, M4c slice AG): -1
 # against a value to 1 for it. An authoring judgement, not a measurement.
 [bears]

@@ -1270,6 +1270,12 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
             })
             .collect();
         let elections = fbb.create_vector(&elections);
+        // Who each organization by stake has come to hold (M7c slice BZ).
+        let capture: Vec<_> = capture_words(sim, polity)
+            .iter()
+            .map(|w| fbb.create_string(w))
+            .collect();
+        let capture = fbb.create_vector(&capture);
         list.push(wire::PolityLine::create(
             &mut fbb,
             &wire::PolityLineArgs {
@@ -1302,6 +1308,7 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                 settlements: Some(settlements),
                 ended: Some(ended),
                 elections: Some(elections),
+                capture: Some(capture),
             },
         ));
     }
@@ -1340,4 +1347,212 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
         },
     );
     response(fbb, wire::ResponseBody::Government, body)
+}
+
+/// Who an organization by stake has come to hold in polity `polity`, in sentences (M7c slice BZ,
+/// ADR-0026 §5: capture is derived, said in words, never a percentage), one paragraph for each
+/// organization with members among its people: the laws passed since it was founded that its
+/// members proposed, and who stood for them (its members, and those who owed its members for gifts
+/// before a gathering); the offices its members hold; the cases brought against its members and
+/// found; those it turned away; the purchases its people made at other settlements' doors, by
+/// whom; and, for goods a privilege of the polity it holds covers, the price at home against the
+/// neighbours'. Nothing for an organization that has done none of these.
+pub fn capture_words(sim: &Sim, polity: &Polity) -> Vec<String> {
+    let pop = &sim.people;
+    let mut out = Vec::new();
+    let orgs: Vec<&civ_agents::faction::Faction> = pop
+        .factions
+        .list
+        .iter()
+        .filter(|f| f.stake.is_some() && f.ended.is_none())
+        .collect();
+    for f in orgs {
+        let members: Vec<PermanentId> = pop.factions.members_of(f.id).map(|m| m.person).collect();
+        let mut homes: Vec<PermanentId> = members
+            .iter()
+            .filter_map(|&p| pop.person(p).map(|x| x.household))
+            .collect();
+        homes.sort_unstable();
+        homes.dedup();
+        let here = homes
+            .iter()
+            .any(|&h| pop.household(h).is_some_and(|x| polity.holds(x.settlement)));
+        if !here {
+            continue;
+        }
+        let member = |p: PermanentId| members.binary_search(&p).is_ok();
+        let name = super::word::faction_name(sim, f);
+        let mut said = Vec::new();
+        // Laws passed since it was founded, and who carried those its members proposed.
+        let passed: Vec<&Law> = polity
+            .laws
+            .iter()
+            .filter(|l| {
+                l.outcome == Some(Outcome::Passed) && l.decided.is_some_and(|d| d >= f.founded)
+            })
+            .collect();
+        let theirs: Vec<&&Law> = passed.iter().filter(|l| member(l.sponsor)).collect();
+        if !theirs.is_empty() {
+            let stood: Vec<&civ_agents::polity::StanceRecord> = theirs
+                .iter()
+                .flat_map(|l| l.stances.iter())
+                .filter(|r| r.stance == Stance::Support && !member(r.person))
+                .collect();
+            let by_members = theirs
+                .iter()
+                .flat_map(|l| l.stances.iter())
+                .filter(|r| r.stance == Stance::Support && member(r.person))
+                .count();
+            let owing = stood.iter().filter(|r| r.owed > 0.0).count();
+            let mut s = format!(
+                "{} of the {} laws passed since it was founded were proposed by its members; {} \
+                 stood for them",
+                theirs.len(),
+                passed.len(),
+                by_members + stood.len()
+            );
+            s.push_str(&format!(
+                ", {by_members} of them its members{}",
+                if owing > 0 {
+                    format!(" and {owing} who owed its members for gifts")
+                } else {
+                    String::new()
+                }
+            ));
+            said.push(s);
+        }
+        // The offices its members hold.
+        let mut held: Vec<PermanentId> = polity
+            .laws
+            .iter()
+            .filter(|l| l.status == LawStatus::InForce)
+            .filter_map(|l| l.holder)
+            .chain(polity.seated.iter().map(|s| s.holder))
+            .collect();
+        held.sort_unstable();
+        let offices = held.len();
+        let mine = held.iter().filter(|&&p| member(p)).count();
+        if mine > 0 {
+            said.push(format!("its members hold {mine} of its {offices} offices"));
+        }
+        // Cases against its members.
+        let against: Vec<_> = pop
+            .order
+            .cases
+            .iter()
+            .filter(|c| {
+                polity.holds(Some(c.settlement))
+                    && homes.binary_search(&c.accused_household).is_ok()
+            })
+            .collect();
+        if !against.is_empty() {
+            let found = against
+                .iter()
+                .filter(|c| c.stage == civ_agents::crime::CaseStage::Found)
+                .count();
+            said.push(format!(
+                "{} case{} brought against its members, {found} found",
+                against.len(),
+                if against.len() == 1 { " was" } else { "s were" }
+            ));
+        }
+        // Those it turned away.
+        let turned = f
+            .history
+            .iter()
+            .filter(|e| e.kind == civ_agents::faction::FactionEventKind::TurnedAway)
+            .count();
+        if turned > 0 {
+            said.push(format!("it turned away {turned} who asked to join"));
+        }
+        // Purchases its polity's people made at other settlements' doors, lately.
+        let away: Vec<&civ_agents::ledger::Trade> = pop
+            .markets
+            .iter()
+            .filter(|m| !polity.holds(Some(m.settlement)))
+            .flat_map(|m| m.recent.iter())
+            .filter(|t| t.from.is_some_and(|s| polity.holds(Some(s))))
+            .collect();
+        if !away.is_empty() {
+            let outside = away
+                .iter()
+                .filter(|t| homes.binary_search(&t.buyer).is_err())
+                .count();
+            said.push(format!(
+                "{outside} of the {} purchases its people made lately at other settlements' doors \
+                 were by households outside it",
+                away.len()
+            ));
+        }
+        // The price at home of goods its privileges cover, against the neighbours'.
+        for l in polity.laws.iter().filter(|l| {
+            l.status == LawStatus::InForce
+                && l.kind == civ_agents::polity::PolicyKind::Privilege
+                && l.target == Some(f.id)
+        }) {
+            let Some(g) = sim
+                .rules
+                .catalog
+                .policies
+                .get(usize::from(l.policy))
+                .and_then(|d| d.privilege)
+            else {
+                continue;
+            };
+            if let Some(w) = protected_price_words(sim, polity, g.purpose) {
+                said.push(w);
+            }
+        }
+        if !said.is_empty() {
+            out.push(format!("{name}: {}", said.join("; ")));
+        }
+    }
+    out
+}
+
+/// The last price at polity `polity`'s doors of each good of purpose `purpose` against the last
+/// at other settlements' doors, in the same payment, in words: "sickles last sold at home for 14
+/// kg of grain, at Sedgebrook for 9". None when no good of it has sold at home and elsewhere.
+fn protected_price_words(
+    sim: &Sim,
+    polity: &Polity,
+    purpose: civ_agents::params::GoodUse,
+) -> Option<String> {
+    let goods = &sim.rules.catalog.goods;
+    let markets = &sim.people.markets;
+    let mut parts = Vec::new();
+    for (g, def) in goods
+        .iter()
+        .enumerate()
+        .filter(|(_, d)| d.purpose == purpose)
+    {
+        let home = markets
+            .iter()
+            .filter(|m| polity.holds(Some(m.settlement)))
+            .find_map(|m| m.last.get(g).copied().flatten());
+        let Some((pay, at_home)) = home else {
+            continue;
+        };
+        let elsewhere: Vec<String> = markets
+            .iter()
+            .filter(|m| !polity.holds(Some(m.settlement)))
+            .filter_map(|m| {
+                let (p, price) = m.last.get(g).copied().flatten()?;
+                (p == pay)
+                    .then(|| format!("at {} for {price:.0}", settlement_name(sim, m.settlement)))
+            })
+            .collect();
+        if elsewhere.is_empty() {
+            continue;
+        }
+        let payment = goods
+            .get(usize::from(pay))
+            .map_or("goods".to_owned(), |d| d.name.to_lowercase());
+        parts.push(format!(
+            "{} last sold at home for {at_home:.0} kg of {payment}, {}",
+            def.name.to_lowercase(),
+            elsewhere.join(", ")
+        ));
+    }
+    (!parts.is_empty()).then(|| parts.join("; "))
 }

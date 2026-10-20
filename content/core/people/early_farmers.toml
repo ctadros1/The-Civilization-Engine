@@ -206,6 +206,10 @@ site_candidates = 24             # places looked at when marking out a new field
 programs = ["core:building/hut", "core:building/longhouse", "core:building/granary", "core:building/workshop"]
 store_horizon_days = 1095        # three years: grass thatch wants major repair every 2-3 (11-08; tuning)
 home_work_places = 2             # two at a craft beside living (tuning; the research gives no figure)
+# Where to build a home is a choice among plots (M8c slice CS, ADR-0030 §1): each costs its
+# members' walks a year from there to where they go, times these years, and the levelling it
+# needs once. Five years is a design prior: a hut stands about that long between rebuilds.
+site_years = 5.0
 # How unevenly the parts of a building are made, from a novice's to a master's: each group's
 # quality is one less this times the size of a normal draw (ADR-0009 §6). A novice's 0.30 is the
 # one dispersion figure the research gives, a building-to-building log-dispersion (11-06 §2.2);
@@ -351,6 +355,13 @@ money_min_trades = 10.0
 # A seller accepts a good it wants at least this much more of (1 when short of it), or the money.
 accept_want = 0.5
 recent_trades = 64
+# A holder of a weighed money (metal; content API 125) wants this many days of its spending in it:
+# beyond that a unit is worth less to it (08-06 §2.3: desired transaction balances of 7-30 days of
+# forecast spending).
+money_days = 14.0
+# Striking the metal brought to a mint is worth this to its minter as the duty of their office
+# (content API 127), as carrying an agreement's payment is (`relations.carry_points`).
+strike_points = 12.0
 
 [firm]                           # household workshops (slice J, ADR-0006 §5); every value a tuning value
 # A workshop that sells nothing for this long is given up by its owners: a voluntary exit, not a
@@ -444,6 +455,9 @@ founders = [
   { technique = "core:technique/rubble_walling", share = 1.0 },
   # Research 07-05 §3.1: sun-dried earthen units in early farming communities (ADR-0022 §10).
   { technique = "core:technique/mud_brick", share = 1.0 },
+  # Laying out a settlement by cord and stake is planning knowledge carried by few (research 10-04
+  # §4; ADR-0030 §2): one founder in ten (an authoring prior).
+  { technique = "core:technique/laying_out", share = 0.1 },
 ]
 # Learners one person teaches at once (research 07-02 §2.3: 1-3 a teacher).
 max_learners = 2
@@ -526,6 +540,12 @@ acts = [
   # M6c slice BJ, step two (content API 97): one who stayed home when a band went is a little less
   # to be counted on, a sixth of a refused restitution for each unit (`bands.shirk_*`).
   { act = "stayed_home", familiarity = 0.0, warmth = 0.0, domain = "word", good = 0.0, bad = 0.5 },
+  # M7d slice CA (content API 119): a loan at need counts toward provision, half a gift's weight
+  # (it is to be repaid); repaying it keeps one's word as paying rent does, and failing to breaks
+  # it as a refused restitution does.
+  { act = "lent", familiarity = 0.1, warmth = 0.02, domain = "provision", good = 0.5, bad = 0.0 },
+  { act = "repaid", familiarity = 0.0, warmth = 0.0, domain = "word", good = 1.0, bad = 0.0 },
+  { act = "defaulted", familiarity = 0.0, warmth = 0.0, domain = "word", good = 0.0, bad = 2.0 },
 ]
 
 [standing]                       # standing and notables (ADR-0014 §3-4); tuning values
@@ -1055,6 +1075,12 @@ w_sickness = 3.0
 # on their own settlement sets a household weighing where to live at once; a move the raids alone
 # tipped is recorded as fled. A design prior, set as `w_sickness` (05-06 §5.1: safety).
 w_raids = 3.0
+# Travel (M8b slice CR, second part; the transport brief §1.7: "where to live weighs the walk"):
+# `w_walk` for the minutes a day its members travel, as the household holds them over the places'
+# half-life (a week of member-days at least), less what a resident of the place has travelled a
+# day, as a share of a 16-hour waking day. A design prior, set as `w_fed`: members who travel an
+# hour a day more than people there count it a quarter point toward going.
+w_walk = 4.0
 
 [founding]                       # founding a settlement of their own (M5a slice AO); design priors
 # At the same review, a household also weighs founding a settlement with others at a site a member
@@ -1415,3 +1441,50 @@ w_record = 1.0                   # for how a candidate's seen stances lined up w
 w_slate = 1.0                    # for a candidate the voter's own faction endorsed
 w_campaign = 1.0                 # points for a candidate's evening at the hearth while their election runs
 w_evening = 0.25                 # points an evening at the gathering costs one who comes: what a council saves (ADR-0024 §6)
+
+[credit]                         # loans in goods between households (M7d slice CA, ADR-0027 §2)
+# Content API 119. A household reviews every `review_days` whether its food will last to its
+# harvest; short by at least `least_days` of its food, it asks up to `max_asked` households of its
+# settlement with food to spare, those its elder regards first. A lender lends at most
+# `lend_share` of what it can spare, due a week after the borrower's harvest comes in. It decides
+# by research 08-07 §1.3's reservation rate from what it believes: `p_prior`, the chance a loan to
+# a stranger is not repaid (less with its regard for the borrower, more as the borrower's expected
+# harvest falls short of the debt), `keep_return` (c), what keeping the food at home earns it a
+# year (none: grain kept spoils as much as it keeps), and no recovery without a pledge. It asks at
+# least `customary_increment` (08-07 §2.1: a third in grain was customary in Mesopotamia; a fifth
+# is a design prior for village lending between neighbours), refuses above a believed `p_max`,
+# and a borrower takes no loan above `max_increment`. A debtor has `grace_days` after the due day
+# to pay before the loan is defaulted. Design priors, unestimated.
+review_days = 7
+least_days = 3.0
+customary_increment = 0.2
+max_increment = 0.5
+p_prior = 0.2
+p_max = 0.5
+keep_return = 0.0
+lend_share = 0.5
+max_asked = 3
+grace_days = 30
+# Content API 120 (M7d slice CB, ADR-0027 §3). A lender that would refuse a loan bare weighs it
+# against the use of a field the borrower holds and works, believing it recovers `field_recovery`
+# of the debt (08-07 §2.3: recovery 20-80 %), and then with a guarantor: a household whose elder
+# regards the borrower's at least `guarantor_regard`. At the due day the debtor answers once:
+# `pay_base`, `w_pay_regard` for its elder's regard for the creditor's (0 to 1) and `w_pay_cost`
+# per share of the food it holds that the debt would take are points toward paying over refusing,
+# as a finding is met. One
+# that pays gives what it holds of the good beyond `keep_days` of its food; short, it asks for
+# time, which a creditor whose elder regards its elder at least `extend_regard` grants, moving the
+# due day on `extension_days`, up to `max_extensions` times. Design priors, unestimated.
+field_recovery = 0.5
+guarantor_regard = 0.3
+keep_days = 3.0
+extension_days = 30
+max_extensions = 1
+extend_regard = 0.0
+pay_base = 3.0
+w_pay_regard = 2.0
+w_pay_cost = 2.0
+# Content API 121 (M7d slice CB, ADR-0027 §3). A workshop that cannot pay a wage owes it to the
+# worker's household and hires nobody until it has paid; it fails only if what it owes is unpaid
+# `wage_days` after the work (plan §9's "revisit with credit"). A design prior, unestimated.
+wage_days = 30

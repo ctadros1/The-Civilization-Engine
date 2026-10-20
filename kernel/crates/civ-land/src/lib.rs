@@ -21,7 +21,10 @@
 #![forbid(unsafe_code)]
 
 pub mod banks;
+pub mod boating;
+pub mod boats;
 pub mod buildings;
+pub mod carting;
 pub mod crossings;
 pub mod deposits;
 pub mod ditches;
@@ -29,14 +32,17 @@ pub mod earth;
 pub mod enclosures;
 pub mod fields;
 pub mod paths;
+pub mod plans;
 pub mod soil;
 pub mod water;
+pub mod ways;
 pub mod weather;
 pub mod wells;
 
 pub use buildings::{
-    BuildWork, Building, BuildingState, GroupCondition, GroupState, MATERIAL_SLACK_KG, MendWork,
-    Plot, PlotUse, Repair, STAGE_DONE_SLACK_H, workable_h,
+    AllotRule, Allotment, BuildWork, Building, BuildingState, GroupCondition, GroupState,
+    MATERIAL_SLACK_KG, MendWork, Plot, PlotUse, Repair, STAGE_DONE_SLACK_H, SiteReceipt,
+    workable_h,
 };
 pub use fields::{
     Allowance, CropParams, Field, FieldStage, FieldTask, Lease, Party, RectCm, WorkDone,
@@ -173,6 +179,8 @@ pub struct LandParams {
     pub banks: banks::BankParams,
     /// Irrigation ditches' hydraulics (M6b slice BG).
     pub ditches: ditches::DitchParams,
+    /// What works on ways take (M8b slice CQ).
+    pub way_works: ways::WayWorkParams,
     /// How what people shed moves through the ground and water (ADR-0021 §4).
     pub contamination: ContaminationParams,
 }
@@ -395,6 +403,13 @@ pub struct Land {
     pub crossings: crossings::Crossings,
     /// Enclosures, in the order begun (M6c slice BK, ADR-0023 §6). Saved.
     pub enclosures: enclosures::Enclosures,
+    /// Ways people have worked on, in the order begun (M8b slice CM, ADR-0029 §1). Saved.
+    pub ways: ways::Ways,
+    /// Boats, oldest first (M8b slice CO, ADR-0029 §2). Saved.
+    pub boats: boats::Boats,
+    /// Carts, oldest first (M8b slice CP, ADR-0029 §2): records of the boat's shape, each
+    /// standing on the cell where it was left. Saved.
+    pub carts: boats::Boats,
     /// Water under the ground and the rivers' runoff store (M6a slice AY, ADR-0021 §1–§2): the
     /// heads and the store saved, the aquifer derived.
     pub water: Water,
@@ -402,6 +417,8 @@ pub struct Land {
     pub wells: wells::Wells,
     /// River hydraulics and precomputed floodplain storage curves (M6b slice BF). Derived.
     pub floodplain: WorldFloodplain,
+    /// The rivers as a graph a boat goes on, and their banks (M8b slice CO). Derived.
+    pub rivers: boating::RiverGraph,
     /// Today's discharge per reach, m³/s. Derived.
     pub reach_discharges: Vec<f32>,
     /// Today's flood depth per map cell, metres. Derived.
@@ -625,10 +642,14 @@ impl Land {
             ditch_flows: Vec::new(),
             ground: earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
             crossings: crossings::Crossings::default(),
+            ways: ways::Ways::default(),
+            boats: boats::Boats::default(),
+            carts: boats::Boats::default(),
             enclosures: enclosures::Enclosures::default(),
             water: Water::default(),
             wells: wells::Wells::default(),
             floodplain,
+            rivers: boating::RiverGraph::new(map),
             reach_discharges: map.reaches.iter().map(|r| r.discharge_m3s).collect(),
             flood_depths: vec![0.0; map.cell_count()],
             flood_revision: 0,
@@ -859,6 +880,7 @@ impl Land {
 
     pub fn problems(&self, map: &WorldMap, habitats: usize, next_id: u64) -> Vec<String> {
         let mut out = self.crossings.problems();
+        out.extend(self.ways.problems(map.width * map.height));
         out.extend(self.water.problems());
         out.extend(self.wells.problems(usize::MAX));
         let p = &self.patches;
@@ -1825,6 +1847,7 @@ mod tests {
             water: WaterParams::default(),
             banks: banks::BankParams::default(),
             ditches: ditches::DitchParams::default(),
+            way_works: ways::WayWorkParams::default(),
             contamination: ContaminationParams::default(),
         }
     }

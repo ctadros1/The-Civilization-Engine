@@ -6,7 +6,6 @@
 
 use std::path::Path;
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_agents::{Population, population};
 use civ_content::ContentRegistry;
@@ -27,7 +26,7 @@ fn content() -> &'static ContentRegistry {
 }
 
 fn create(seed: u64, regime: &str) -> Result<Sim, SimError> {
-    Sim::create(
+    Sim::create_for_tests(
         &NewWorld {
             name: "Tenure".to_owned(),
             seed,
@@ -39,8 +38,7 @@ fn create(seed: u64, regime: &str) -> Result<Sim, SimError> {
             regime_id: regime.to_owned(),
         },
         content(),
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
 }
 

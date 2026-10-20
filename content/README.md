@@ -43,7 +43,7 @@ CI runs the validator. Diagnostics have stable codes:
 | E3002 | Unknown or missing `kind` |
 | E3003 | Not exactly one world-generation preset has `default = true` |
 | E3004 | Not exactly one people profile, or not exactly one land profile |
-| E3005 | A technique gates no work: no recipe, activity, building program, bridge or well system names it |
+| E3005 | A technique gates no work: no recipe, activity, building program, bridge, vehicle or well system names it |
 | E3006 | Techniques' prerequisites form a cycle |
 | E3007 | A recipe can never be worked: an input or tool comes only from recipes that need it (research 07-03 §6's bootstrap test) |
 
@@ -319,6 +319,8 @@ A frame program's rules are a `[frame]` table instead:
 | `timber_kg_per_m3` | The timber's density: posts, beams, rafters, joists and boards are costed from their sizes. |
 | `groundwork_h_per_m2`, `posthole_h`, `post_h`, `beam_h_per_m`, `rafter_h`, `joist_h_per_m`, `wattle_h_per_m2`, `daub_h_per_m3`, `thatch_h_per_m2`, `finish_h_per_m2`, `decking_h_per_m2`, `ladder_h` | Person-hours of a capable adult for each part. All positive. |
 | `wattle_kg_per_m2`, `thatch_kg_per_m2`, `ladder_kg` | Material in each part besides the timber its sizes give. |
+| `mass_wall_cm` | A mass wall's allowed thickness from frame version 3, `[least, most]` (before it, mass walls are held to `wall_cm`). |
+| `[frame.masonry]` `rubble`, `mud_brick`, `fired_brick` | Each kind of mass wall: `[hours to lay a cubic metre, kilograms a cubic metre, strength in compression in pascals]`, all positive. |
 
 A bay and the width between the long walls must each be longer than the thickest post allows
 (`bay_cm`'s and `width_cm`'s least above `post_cm`'s most). The grammar refuses some buildings
@@ -686,6 +688,179 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_household`, `w_counsel`, `w_self`, `vote_scale`) and the points of coming to poll (`poll_base`,
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
+
+Content API 139 (M8b slice CR, second part) brings the people profile's `[moving] w_walk`
+(required; 0 to 100 points): what moving is worth for the minutes a day a household's members
+travel, as it holds them, less what a resident of the place weighed has travelled a day, as a
+share of a 16-hour waking day. The core sets it at 4, as `w_fed`.
+
+Content API 138 (M8b slice CQ, third part) brings the policy kind `build_way` and the issue
+`carts_wait`: where carts of the settlement's households wait at stretches of trail one cart wide,
+and a passing place cleared together at a stretch's middle would spare them more waiting over its
+life (the land profile's `passing_life_years`) than its work, the polity may clear it, each
+household asked an equal share; it levies nothing. The core adds
+`core:policy/yours_to_clear_a_passing_place`; it asks no question, so it enters no monthly
+opinion, and its id sorts after every earlier template's, so their indices, which key opinion's
+draws, are unchanged.
+
+Content API 137 (M8b slice CQ, second part) brings the activity behaviour `way`: walk to the passing
+place the household is making on its carts' way, clear and level ground there, and walk home, the
+work's own labour (the land profile's `[way_works]`: `passing_width_m`, the width it is cleared to;
+`clear_h_m2`, hours a square metre; `passing_life_years`, the years a household reckons it lasts;
+optional, with defaults of 2.0, 0.34 and 10). The core adds
+`core:activity/work_with_wooden_spade_on_passing_place` (from 14, one to four hours a session).
+
+Content API 136 (M8b slice CP, third part) brings the activity behaviour `cart`: work at home on a
+cart the household is making at its door, until its vehicle's `labour_h` is done, no more than its
+`crew` at once in a day; the cart's `material_kg` of its `good` comes out of the store as it is
+begun. The core adds `core:technique/wheel_and_axle` (research 07-08 L05, L11: needs jointed
+framing and the shaping of wood, tried in building and boat work with timber, E50 50,000 hours, a
+far technique), which `core:vehicle/handcart` now needs, and
+`core:activity/work_with_wood_on_handcart` (from 14, two to four hours a session; tuning values).
+A technique that no activity, building, well or treatment gates but a vehicle's making is learnt
+at home from the age of that work.
+
+Content API 135 (M8b slice CP) appends the vehicle mode `cart`: wheels pulled by a person. A
+cart names `tare_kg` (its own mass), `way_resistance` and `trail_resistance` (rolling resistance
+on a way that serves carts and on a worn trail; research 10-07 §1.2 illustrates 0.02), `pull_n`
+and `power_w` (its puller's most and sustained), and `brake_grade` (the steepest grade down they
+can hold it back on). A boat's `draft_m`, `paddle_m_s` and `slack_share` are a boat's only: each
+mode refuses the other's fields. The core's `core:vehicle/handcart` (M8b slice CP, second part)
+carries 150 kg, weighs 40 kg and is 0.9 m across, pulled at 200 N and 75 W, its resistances 0.02
+on a way and 0.05 on a worn trail, braked down 15 % at most (design priors where the reports give
+ranges); it loads at a boat's 10 kg a minute. Its makers need wheels on an axle (the third part).
+
+Content API 134 (M8b slice CO, third part) brings the activity behaviour `boat`: work on a boat
+the household is making, on the bank where it will be drawn up, until its vehicle's `labour_h` is
+done, no more than its `crew` at once in a day. The core adds `core:activity/work_with_wood_on_dugout`
+(heavy work with an axe, as work on a crossing is; its sessions and effort are tuning values as
+there). The trunk is felled where it is worked, so nothing is taken from the store.
+
+Content API 133 (M8b slice CO, second part) brings a vehicle's `handling_kg_min` (kilograms a
+person loads or unloads a minute; ADR-0029 §5: handling is people's work, 12-05 §2.3's 5-20) and
+`slack_share` (the share of a reach's mean velocity it meets going upstream along the banks,
+ADR-0029 §5 as amended). The core's dugout handles 10 kg a minute and meets 0.4 of the mean
+upstream: design priors, marked in its file.
+
+Content API 132 (M8b slice CO, ADR-0029 §2) brings vehicles: a new content kind (`kind =
+"vehicle"`, files under `vehicle/`), a made thing that carries more than a person can. It names
+its `mode` (`boat`, the only one yet), the `technique` and `skill` its makers need and practise
+and a `tool` they work with (a good with `[tool]`; each may be empty), the `good` it is made
+from and `material_kg` of it, `labour_h` and the `crew` who may work on one at once, its
+`payload_kg`, the `draft_m` it needs loaded, its paddlers' `paddle_m_s` through still water, its
+beam `width_m` and its `life_years`. Using one needs no technique; a technique a vehicle names
+gates work (E3005). A boat made of one is a record of its own, not a good in a store: it belongs
+to a household and stands at the bank where it was left. A reach carries it where its stage at
+the day's discharge is above its draft, at its paddlers' speed plus the reach's mean velocity
+downstream and less it upstream. The core's `core:vehicle/dugout` (research 07-08 W02) carries
+400 kg at a 0.3 m draft and 1.2 m/s, is made with an axe by `core:technique/wood_shaping` in 200
+hours from a 1,300 kg trunk, and lasts 12 years: design priors inside 07-08 §2.1's ranges, each
+marked in its file.
+
+Content API 131 (M7d slice CE4c, ADR-0027 §6) brings foreign coin. A coin's `[money]` may give a
+`foreign_discount` (below 1) and `foreign_assay_h`: one who cannot assay pays with another polity's
+pieces first and takes them by weight, the metal in the lightest it holds at what the metal is
+worth to it, less the discount and the hours of weighing a piece, unless what pieces bought it says
+more. The core's coin: a tenth off, 0.02 hours. `[money]` hours and the discount are now checked.
+
+Content API 130 (M7d slices CE4a-b, ADR-0027 §6) brings assay and debasement. A coin good's
+`[money]` may name the `metal` it is struck of and the technique (`assay`) whose knowers can tell
+how much metal a piece holds: a household with such a member values coin by the metal in the
+pieces it would pay with, at its own cost of the metal (or the levy's floor, if higher), and pays
+with the pieces holding least metal first; others count pieces alike and pay with the oldest. A
+second `mint` template may strike other terms: passed while a mint is in force, it takes that
+mint's place. The core's coin is struck of copper and assayed by those who know smelting; the core
+adds `core:policy/mint_light` (6 g pieces).
+
+Content API 129 (M7d slice CE3b, ADR-0027 §6) brings a levy in coin. A `common_store` policy may
+have a `[medium]` table: `good` (a money) and `per_kg` (units of it that pay for a kilogram of the
+grain owed). A household that holds some pays its levy in it when what a unit would otherwise bring
+it is worth less than the grain it pays for; and under such a law in force, which its people know,
+a unit is worth to its holder at least the grain it pays for, less as it holds more than the levy
+could take of it. The core's common store takes coin at two pieces a kilogram.
+
+Content API 128 (M7d slice CE3a, ADR-0027 §6) brings the polity's first spending. A policy may do
+`pay_work`, with a `[pay]` table: `good` (a money) and `per_hour` (units of it the store pays for
+each hour a household gives to the polity's crossing, well, flood bank or palisade, as far as the
+store holds it); it answers the issue `coin_idle` (the store holds money while a law asks for
+common work). The core adds `core:policy/pay_work` (8 pieces of coin an hour).
+
+Content API 127 (M7d slice CE2b, ADR-0027 §6) brings the mint. A policy may do `mint`, with a
+`[mint]` table: `recipe` (whose first input is a metal paid by weight and first output a coin),
+`mass_g` and `fineness` (each piece of the issues struck under it) and `fee` (the share of the
+pieces struck that the polity's store keeps, below 1); it answers the issue `weighed` (households
+paid or were paid in weighed metal lately) and names a keeper who knows the recipe's technique.
+The people profile's `[market]` adds `strike_points` (what striking is worth to the keeper as the
+duty of their office, 12). The core adds `core:policy/mint` (8 g pieces of pure copper, a 3 % fee),
+`core:recipe/strike_coin` and `core:activity/strike_coin` (2 hours and 5 kg of firewood a
+kilogram), and counts a piece of coin in about a second (`verify_h = 0.0003`).
+
+Content API 126 (M7d slice CE, ADR-0027 §6) brings coin. A good's `[money]` table may say `coin =
+true`: it is counted in pieces of issues a mint struck, each issue (issuer, day, grams a piece,
+fineness) kept apart in its holders' purses, payments moving the oldest issue first. The core adds
+`core:good/coin` (0.005 hours to count a piece, a second from API 127). Nothing strikes coin yet.
+
+Content API 125 (M7d slice CD, ADR-0027 §5) brings money's worth. A good may have a `[money]`
+table, `verify_h` (hours a holder spends weighing and testing a unit): it is paid by weight, and a
+holder values a unit at the greater of its own cost and what a unit bought in its purchases its
+markets remember, at its own costs and faded by the market's `memory_days`, less `verify_h`;
+beyond `money_days` of its spending in it (the people profile's `[market]`, 14), what a unit buys is
+worth less to it, by balance ÷ held. The core gives copper `[money]` (0.1 hours a kilogram).
+
+Content API 124 (M7d slice CE, ADR-0027 §6) brings metal. A tool's `[tool]` table may name
+`serves`, another tool (one that serves for none) whose work it does as well: work that needs
+that tool may be done with this one, the longest-lived at hand is worn first, and a household
+needing that tool makes whichever of the ways it can work costs fewer of its own hours for each
+hour of use; a material such a way needs that the household makes itself is made for it. The
+core adds copper: `core:good/copper_ore` (picked from upland surface patches, resource
+`copper_ore`, and dug from rare bodies at deposits), `core:good/copper`, `core:good/copper_axe`
+(serving for `core:good/axe`, 600 hours), the technique `core:technique/copper_smelting`
+(practised as pottery) (found by those who fire kilns with ore and fuel at home;
+founders do not bring it), the recipes `smelt_copper` (20 kg of ore and 40 kg of firewood a
+kilogram) and `cast_copper_axe`, and the activities `gather_ore`, `dig_ore`, `smelt_copper` and
+`cast_copper_axe`.
+
+Content API 123 (M7d slice CC, ADR-0027 §4) brings lending from the store. A policy may `does =
+"lend_from_store"` with a `[lending]` table: `increment` (what is owed on a loan beyond what was
+lent, a share of it) and `share` (the most of the food the store holds it lends at once). The core
+adds `core:policy/lend_from_store` (a tenth more, a quarter of the store), answering `food_short`.
+
+Content API 122 (M7d slice CB, ADR-0027 §3) brings *debts heard*. A policy may `does =
+"debts_heard"`, answering the appended issue `debts_unpaid` (a loan a household made was refused
+or left unpaid, and nothing was taken for it), with a `[debts]` table: `remedy` (`time`, the loan
+open again and due `extend_days` after the finding, or `imposed`, what is still owed imposed as a
+finding's obligation) and `share` (what households expect a finding to move, for their
+forecasts). The core adds `core:policy/debts_heard` (imposed) and
+`core:policy/debts_heard_time` (180 days more); one of them in force replaces the other.
+
+Content API 121 (M7d slice CB, ADR-0027 §3) brings wage arrears: the `[credit]` table adds
+`wage_days`, the days a workshop has to pay wages it could not pay before it fails.
+
+Content API 120 (M7d slice CB, ADR-0027 §3) brings pledges and answers at the due day. The
+`[credit]` table adds `field_recovery` (the share of a debt a lender believes the use of a field
+pledged recovers), `guarantor_regard` (the least regard a household's elder holds for a
+borrower's to stand its guarantor), `keep_days` (days of its food a debtor keeps back when it
+pays), `extension_days` and `max_extensions` (how far, and how often, a creditor puts the due day
+off), `extend_regard` (the least regard a creditor's elder holds for the debtor's to grant time),
+and `pay_base`, `w_pay_regard` and `w_pay_cost` (points toward paying at the due day over
+refusing: a base, regard for the creditor, and the share of the debtor's food the debt would
+take). `p_max` is now the believed loss, after what a pledge would recover.
+
+Content API 119 (M7d slice CA, ADR-0027 §1-2) brings loans in goods. The people profile adds a
+`[credit]` table: `review_days` (how often a household asks itself whether its food will last to
+its harvest), `least_days` (the least days of its food it borrows), `customary_increment` (the
+least increment a lender asks, a share of what it lends), `max_increment` (the most a borrower
+accepts), `p_prior` (the chance a lender believes a loan to a stranger is not repaid), `p_max`
+(above which it refuses), `keep_return` (what keeping the food at home earns a lender a year),
+`lend_share` (the most of what it can spare a lender lends), `max_asked` (lenders asked at one
+review) and `grace_days` (days after the due day before a loan is defaulted). The `[ties]` acts
+gain `lent`, `repaid` and `defaulted`.
+
+Content API 118 (M7c slice BZ, ADR-0026 §5) brings closure. An amendment's `members` may name
+`organized` (the adults of households in an organization by stake the polity recognizes) and
+`privileged` (those of households in one it grants a privilege in force); while the polity
+recognizes, or grants, none, such a body has nobody, and its gatherings fail for want of a
+quorum, recorded. The core adds `core:policy/close_the_custom`, answering `overruled`.
 
 Content API 117 (M7c slice BY, ADR-0026 §4) brings corruption and patronage. The people
 profile's `[crime]` table adds `divert_share` (the most of a common store's food its keeper draws
@@ -1312,3 +1487,70 @@ its absence does not make an authored material a universal fireproof building.
 More techniques (each only with the work behind it), more building programs and grammars, style
 primitives, offices beyond the storekeeper and further policies, service capability ladders, all
 as the milestones in the plan introduce them (§5, §7).
+
+Content API 140 (M8c slice CS, second part) brings the people profile's `[build] site_years`
+(required, positive): the years over which a household about to build a home reckons a plot's
+walking, its members' walks a year from there to where they go times these, beside the levelling
+the plot needs once. The core sets it at 5.
+
+Content API 141 (M8c slice CT, second part) brings the policy kind `plan` (ADR-0030 §2) with its
+`[plan]` table: an orthogonal grid's block sides along and across (`block_m`), a parcel's
+frontage and depth (`parcel_m`, the depth at most half a block's width), the streets' width
+(`street_m`), the extents in blocks a sponsor chooses among, smallest first (`extents`, 1 to 8 of
+1 to 16 blocks each way), whether the origin block is kept as a square (`square`), the hours
+staking out a parcel takes (`stake_hours`), and the technique a sponsor must know (`needs`). It
+brings the issues `no_ground`, `way_built_over` and `new_ground`, the core's
+`core:technique/laying_out` (laying out by cord and stake, which one founder in ten brings) and
+its template `core:policy/yours_to_plan_the_ground`. A technique a law's sponsor must know counts as gating work (E3005).
+
+Content API 142 (M8c slice CU, second part) brings a plan's `allot`, how its keeper gives its
+parcels: `need` (the default: a household about to build a home, the free parcel nearest the
+hearth), `lot` (a free parcel drawn by lot), `offer` (the parcel nearest the hearth to a household
+that pays the store the `[plan.fee]`'s `amount` of its `good`, once) or `standing` (the parcel
+nearest the hearth to a household whose eldest the keeper regards). A fee is for `offer` only, and
+`offer` needs one. The core's plan gives by need.
+
+Content API 143 (M8c slice CU, third part) brings a plan's `[plan.rent]`, for `allot = "offer"`:
+the food (a good with `kcal_per_kg`) and `amount` a household owes the store each year it holds a
+parcel given by offer, on the day it was given, answered as a fine is. An offer names a fee, a
+rent or both.
+
+Content API 144 (M8c slice CU, fourth part) brings a plan's `phases` (1 to 8, 1 when unnamed) and
+`open_at` (above 0 and at most 1, 0.75 when unnamed): its parcels open in phases outward from where
+it is laid, each once that share of the parcels of those before it is given.
+
+Content API 145 (M8c slice CU, fifth part) brings a plan's `fields`: `around` (the default: its
+layout bends round fields), `taken` (laid over them, each field under its ground reserved without
+consent once it is in force) or `paid` (laid over them, the store offering each field's holder the
+`[plan.pay]`'s `per_ha` of its `good` a hectare, which the holder takes or refuses). A pay is for
+`paid` only, and `paid` needs one.
+
+Content API 146 (M8c slice CV, first part) lets a plan template name a sanction bundle in
+`bundles`: at most one, without exile, its days within 0 to 365. A plan in force carries it as its
+law's sanction, and a forum's `hears` may name `plan` to hear cases of building on reserved ground.
+
+Content API 147 (M8c slice CV, second part) lets a plan's bundle take down what is found standing
+on its reserved ground (`remove = true`) or let it stand for `yearly_days` (0 to 365) of the
+household's food a year to the common store, not both. Only a plan's bundle has either.
+
+Content API 148 (M8c slice CW, first part) appends two `building_rule` templates, each with
+`from_m` (above 0 and at most 50): `fire_from_homes`, a new home whose household works fire (holds
+a fixed tool a fuelled recipe needs) stands `from_m` from other households' homes; and
+`midden_from_wells`, a new home, where its midden lies, stands `from_m` from every open well. The
+core authors them as `works_wrought_worked_fires` (10 m, answering `burned`) and
+`works_wrought_wells` (30 m, answering `sickness`).
+
+Content API 149 (M8c slice CW, second part) brings a plan's `[[plan.districts]]`: each names a
+`phase` of the plan's (1 to its `phases`, once) and the `uses` allowed on that phase's parcels, of
+`dwelling`, `store` and `work`. A phase named in none allows every use.
+
+Content API 150 (M8d slice CY, ninth part) moves mass walls' figures from code into each frame
+program (ADR-0031 §1): `frame.mass_wall_cm`, a mass wall's own thickness range from frame version
+3, and `[frame.masonry]`, for rubble, mud brick and fired brick the hours to lay a cubic metre,
+its weight and its strength in compression, which the structure check reads.
+
+Content API 151 (M8d slice CZ, second part) brings a building program's `[systems]`: for each of
+frame version 3's systems, the technique that opens it, `trussed_roof`, `storeyed_posts` and
+`wall_ties` (each a technique id, or omitted for none). A technique a program names there gates
+work (E3005). The core adds `trussed_roof`, `storeyed_frame` and `tied_masonry`, none known to
+founders, each tried toward in building huts; `jointed_frame` is now tried toward there too.

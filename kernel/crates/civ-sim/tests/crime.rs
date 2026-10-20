@@ -6,7 +6,6 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_agents::Channel;
 use civ_agents::crime::{Obligation, Outcome, Owed, Source, Standing};
@@ -32,7 +31,7 @@ fn content() -> &'static ContentRegistry {
 }
 
 fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
-    Sim::create(
+    Sim::create_for_tests(
         &NewWorld {
             name: "Order".to_owned(),
             seed,
@@ -44,8 +43,7 @@ fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
             regime_id: String::new(),
         },
         content,
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
     .expect("generates")
 }
@@ -1220,6 +1218,8 @@ fn a_refused_finding(sim: &mut Sim) -> (PermanentId, PermanentId, u32) {
         challenge: None,
         tags: 0,
         departed: None,
+        loan: None,
+        building: None,
     });
     let id = order.obligations.iter().map(|o| o.id).max().unwrap_or(0) + 1;
     order.obligations.push(Obligation {

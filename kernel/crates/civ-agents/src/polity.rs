@@ -130,11 +130,37 @@ pub enum PolicyKind {
     /// seller's choice; a breach is an offer at a door, which becomes a case only if someone
     /// brings it, and a finding imposes the template's bundle.
     Privilege,
+    /// Debts heard (M7d slice CB, ADR-0027 §3): a creditor whose loan was refused or left unpaid
+    /// when its days of grace ran out may bring it before the gathering, or a forum that hears
+    /// such cases; a finding imposes the template's remedy ([`DebtsDef`]). Without it, a
+    /// creditor has only its own answers and its household's memory.
+    DebtsHeard,
+    /// Lending from the store (M7d slice CC, ADR-0027 §4): a household of the polity short of
+    /// food before its harvest may borrow from the common store at the law's terms
+    /// ([`LendingDef`]), repaid into it after the harvest. Relief stays a gift.
+    LendFromStore,
+    /// A mint (M7d slice CE, ADR-0027 §6): the one the gathering names strikes coin, as its
+    /// template sets ([`MintDef`]), from the metal households of the polity bring, the polity's
+    /// store keeping the template's fee in coin. The law lapses when they die or leave.
+    Mint,
+    /// Pay for common work (M7d slice CE3a, ADR-0027 §6: the polity's first spending): the
+    /// polity's store pays the good its template names ([`PayDef`]), so much an hour, to each
+    /// household for the hours it gives to the polity's works, as far as the store holds it.
+    PayWork,
+    /// A way built together (M8b slice CQ, third part; ADR-0029 §6): a passing place cleared at
+    /// the middle of a single-cart stretch where the settlement's carts wait for each other, as a
+    /// flood bank is built together: its site where those waits would repay the work over the
+    /// place's life, equal shares of the work, payable by `pay_work`.
+    BuildWay,
+    /// A plan laid over the ground (M8c slice CT, second part; ADR-0030 §2): a template's grid
+    /// of streets, a square and parcels laid where the sponsor chose, saved as realised; in
+    /// force, it reserves its streets and square (ADR-0030 §3). An amendment is a new version.
+    Plan,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 25] = [
+    pub const ALL: [PolicyKind; 31] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -160,6 +186,12 @@ impl PolicyKind {
         PolicyKind::Embargo,
         PolicyKind::Recognize,
         PolicyKind::Privilege,
+        PolicyKind::DebtsHeard,
+        PolicyKind::LendFromStore,
+        PolicyKind::Mint,
+        PolicyKind::PayWork,
+        PolicyKind::BuildWay,
+        PolicyKind::Plan,
     ];
 
     /// The authored name.
@@ -190,6 +222,12 @@ impl PolicyKind {
             PolicyKind::Embargo => "embargo",
             PolicyKind::Recognize => "recognize",
             PolicyKind::Privilege => "privilege",
+            PolicyKind::DebtsHeard => "debts_heard",
+            PolicyKind::LendFromStore => "lend_from_store",
+            PolicyKind::Mint => "mint",
+            PolicyKind::PayWork => "pay_work",
+            PolicyKind::BuildWay => "build_way",
+            PolicyKind::Plan => "plan",
         }
     }
 
@@ -270,11 +308,32 @@ pub enum IssueKind {
     /// A household of the settlement offers at home goods its people fetched from another
     /// settlement lately (M7c slice BV, ADR-0026 §1): what a duty or an embargo answers.
     FetchedElsewhere,
+    /// A loan their household made was refused or left unpaid, and nothing was taken for it
+    /// (M7d slice CB, ADR-0027 §3): what a law of debts heard answers.
+    DebtsUnpaid,
+    /// A household of the settlement paid or was paid in weighed metal within its market's
+    /// memory (M7d slice CE, ADR-0027 §6): what a mint answers.
+    Weighed,
+    /// The polity's store holds money while a law of its asks households to work on its common
+    /// works (M7d slice CE3a): what paying for that work answers.
+    CoinIdle,
+    /// Carts of the settlement's households wait for each other at a stretch of trail one cart
+    /// wide, as they remember, and a passing place cleared there together would spare them more
+    /// waiting over its life than its work (M8b slice CQ, third part), as fords make a crossing
+    /// an issue.
+    CartsWait,
+    /// A household of the settlement found no clear ground for the home it meant to build
+    /// within its reach (M8c slice CT, second part; ADR-0030 §2).
+    NoGround,
+    /// A building was begun on a worn trail of the settlement's (M8c slice CT, second part).
+    WayBuiltOver,
+    /// A household built beyond the settlement's built edge (M8c slice CT, second part).
+    NewGround,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 21] = [
+    pub const ALL: [IssueKind; 28] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -296,6 +355,13 @@ impl IssueKind {
         IssueKind::Holding,
         IssueKind::CasesWaiting,
         IssueKind::FetchedElsewhere,
+        IssueKind::DebtsUnpaid,
+        IssueKind::Weighed,
+        IssueKind::CoinIdle,
+        IssueKind::CartsWait,
+        IssueKind::NoGround,
+        IssueKind::WayBuiltOver,
+        IssueKind::NewGround,
     ];
 
     /// The authored name.
@@ -322,6 +388,13 @@ impl IssueKind {
             IssueKind::Holding => "holding",
             IssueKind::CasesWaiting => "cases_waiting",
             IssueKind::FetchedElsewhere => "fetched_elsewhere",
+            IssueKind::DebtsUnpaid => "debts_unpaid",
+            IssueKind::Weighed => "weighed",
+            IssueKind::CoinIdle => "coin_idle",
+            IssueKind::CartsWait => "carts_wait",
+            IssueKind::NoGround => "no_ground",
+            IssueKind::WayBuiltOver => "way_built_over",
+            IssueKind::NewGround => "new_ground",
         }
     }
 
@@ -363,6 +436,15 @@ impl IssueKind {
             IssueKind::FetchedElsewhere => {
                 "people of theirs fetched from elsewhere goods their households offer at home"
             }
+            IssueKind::DebtsUnpaid => "a loan their household made was not repaid",
+            IssueKind::Weighed => "their households weighed out metal to pay",
+            IssueKind::CoinIdle => "the store held money while their common work wanted hands",
+            IssueKind::CartsWait => {
+                "their carts waited for each other where the way is one cart wide"
+            }
+            IssueKind::NoGround => "their household found no clear ground to build its home on",
+            IssueKind::WayBuiltOver => "a building went up on a trail they walked",
+            IssueKind::NewGround => "their households built beyond the edge of the settlement",
         }
     }
 }
@@ -379,6 +461,12 @@ pub struct Sanction {
     /// The one found to have taken is sent from the valley (ADR-0015 §5: exile, recorded as a
     /// migration; 09-07 §6.2).
     pub exile: bool,
+    /// For a plan (M8c slice CV, ADR-0030 §5): the building found standing on its reserved
+    /// ground is taken down.
+    pub remove: bool,
+    /// For a plan: the building found may stand for this many days of its household's food a
+    /// year to the polity's store (regularisation), 0 for none.
+    pub yearly_days: f32,
 }
 
 impl Sanction {
@@ -477,6 +565,113 @@ pub struct PolicyDef {
     pub duty: Option<DutyDef>,
     /// For a privilege: what it grants (M7c slice BX, ADR-0026 §3).
     pub privilege: Option<PrivilegeDef>,
+    /// For debts heard: what a finding does (M7d slice CB, ADR-0027 §3).
+    pub debts: Option<DebtsDef>,
+    /// For lending from the store: its terms (M7d slice CC, ADR-0027 §4).
+    pub lending: Option<LendingDef>,
+    /// For a mint: what it strikes (M7d slice CE, ADR-0027 §6).
+    pub mint: Option<MintDef>,
+    /// For pay for common work: what an hour is paid (M7d slice CE3a).
+    pub pay: Option<PayDef>,
+    /// For a common store: a money its levy may be paid in, and at what rate (M7d slice CE3b).
+    pub medium: Option<MediumDef>,
+    /// For a plan: its template (M8c slice CT, second part).
+    pub plan: Option<PlanDef>,
+}
+
+/// A money a common store's levy may be paid in, in place of grain (M7d slice CE3b, ADR-0027 §6;
+/// research 08-06 §1.4: an obligation's acceptable media and conversion schedule, stored
+/// explicitly).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MediumDef {
+    /// The money, by index in the catalog's goods.
+    pub good: usize,
+    /// Units of it that pay for a kilogram of the grain owed.
+    pub per_kg: f32,
+}
+
+/// What the store pays for an hour given to the polity's common works under a law of pay for
+/// common work (M7d slice CE3a, ADR-0027 §6).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PayDef {
+    /// The good paid, by index in the catalog's goods: a money.
+    pub good: usize,
+    /// Units of it an hour.
+    pub per_hour: f32,
+}
+
+/// What a mint strikes (M7d slice CE, ADR-0027 §6; research 08-06 §1.5): its recipe (metal and
+/// fuel in, the coin good out), and each piece of the issues struck under the law.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MintDef {
+    /// The recipe struck by, by index in the catalog's recipes: its first input is the metal,
+    /// its first output the coin good.
+    pub recipe: usize,
+    /// Grams a piece weighs.
+    pub mass_g: f32,
+    /// The share of a piece that is the metal.
+    pub fineness: f32,
+    /// The share of the pieces struck from what a household brings that the polity's store
+    /// keeps.
+    pub fee: f32,
+}
+
+impl MintDef {
+    /// Kilograms of the metal in a piece.
+    pub fn metal_kg(&self) -> f64 {
+        f64::from(self.mass_g) * f64::from(self.fineness) / 1000.0
+    }
+}
+
+/// The terms the common store lends on under a law of lending from the store (M7d slice CC,
+/// ADR-0027 §4): set by the law, not by what anyone believes of the borrower.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LendingDef {
+    /// The increment owed on what is lent, a share of it.
+    pub increment: f32,
+    /// The most of the food the store holds it lends at once, a share.
+    pub share: f32,
+}
+
+/// What a finding under a law of debts heard does (M7d slice CB, ADR-0027 §3): the custom's
+/// choice. Codes are part of content: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DebtRemedy {
+    /// The debt stands, and the debtor is given time: the loan is open again, due `extend_days`
+    /// after the finding (an extension in a lean year, research 08-20 §1.6).
+    Time = 0,
+    /// What is still owed is imposed as a finding's obligation, met as a finding is (paid,
+    /// refused and held against, or taken by the watch where a law sends it).
+    Imposed = 1,
+}
+
+impl DebtRemedy {
+    /// The authored name.
+    pub fn name(self) -> &'static str {
+        match self {
+            DebtRemedy::Time => "time",
+            DebtRemedy::Imposed => "imposed",
+        }
+    }
+
+    /// The remedy with an authored name.
+    pub fn from_name(name: &str) -> Option<DebtRemedy> {
+        [DebtRemedy::Time, DebtRemedy::Imposed]
+            .into_iter()
+            .find(|r| r.name() == name)
+    }
+}
+
+/// A law of debts heard's terms (M7d slice CB, ADR-0027 §3).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DebtsDef {
+    /// What a finding does.
+    pub remedy: DebtRemedy,
+    /// The share of what is still owed households expect a finding to move between creditor and
+    /// debtor, for their forecasts (all of it when imposed; less for time).
+    pub share: f32,
+    /// For time: the days after the finding the loan falls due again.
+    pub extend_days: u32,
 }
 
 /// What a duty is laid on (M7c slice BV, ADR-0026 §1): goods of one purpose bought at another
@@ -595,6 +790,13 @@ pub enum RuleTemplate {
     /// A building's plot must keep at least `gap_m` metres from every other's (separation:
     /// 11-09 §5.2).
     LeastGap { gap_m: f32 },
+    /// The home of a household that works fire (holds an oven or a kiln) must stand `from_m`
+    /// metres from every other household's home (M8c slice CW, ADR-0030 §6: `fire.rs`'s hazard;
+    /// a nuisance rule, separation by use).
+    FireFromHomes { from_m: f32 },
+    /// A new home, where its household's midden lies, must stand `from_m` metres from every open
+    /// well (M8c slice CW, ADR-0030 §6: `contagion.rs`'s seepage).
+    MiddenFromWells { from_m: f32 },
 }
 
 /// The names of the wall kinds, by kind code (ADR-0022 §10).
@@ -607,6 +809,8 @@ impl RuleTemplate {
             RuleTemplate::RoofsUnburnt { .. } => "roofs_unburnt",
             RuleTemplate::WallsOfKinds { .. } => "walls_of_kinds",
             RuleTemplate::LeastGap { .. } => "least_gap",
+            RuleTemplate::FireFromHomes { .. } => "fire_from_homes",
+            RuleTemplate::MiddenFromWells { .. } => "midden_from_wells",
         }
     }
 
@@ -632,6 +836,12 @@ impl RuleTemplate {
             }
             RuleTemplate::LeastGap { gap_m } => {
                 format!("a new building must stand {gap_m:.0} m from every other")
+            }
+            RuleTemplate::FireFromHomes { from_m } => format!(
+                "a new home where fire is worked must stand {from_m:.0} m from others' homes"
+            ),
+            RuleTemplate::MiddenFromWells { from_m } => {
+                format!("a new home and its midden must stand {from_m:.0} m from every open well")
             }
         }
     }
@@ -781,16 +991,24 @@ pub enum Membership {
     /// Those who hold a seat in its council (M7a slice BO, ADR-0024 §1): the body's `seats` say
     /// how many seats there are and how they are filled.
     Seats,
+    /// The adults of households that belong to an organization by stake the polity recognizes
+    /// (M7c slice BZ, ADR-0026 §5: closure). When it recognizes none, nobody.
+    Organized,
+    /// The adults of households that belong to an organization a privilege of the polity in force
+    /// is granted to (M7c slice BZ). When none holds one, nobody.
+    Privileged,
 }
 
 impl Membership {
     /// Every membership, in code order.
-    pub const ALL: [Membership; 5] = [
+    pub const ALL: [Membership; 7] = [
         Membership::Adults,
         Membership::Elders,
         Membership::Landholders,
         Membership::Watch,
         Membership::Seats,
+        Membership::Organized,
+        Membership::Privileged,
     ];
 
     /// Its number in saves.
@@ -811,6 +1029,8 @@ impl Membership {
             Membership::Landholders => "landholders",
             Membership::Watch => "watch",
             Membership::Seats => "seats",
+            Membership::Organized => "organized",
+            Membership::Privileged => "privileged",
         }
     }
 
@@ -827,6 +1047,8 @@ impl Membership {
             Membership::Landholders => "landholders",
             Membership::Watch => "watchers",
             Membership::Seats => "councillors",
+            Membership::Organized => "members of recognized organizations",
+            Membership::Privileged => "members of privileged organizations",
         }
     }
 }
@@ -939,6 +1161,13 @@ impl Body {
             }
             Membership::Watch => "Those who keep the watch",
             Membership::Seats => "Those who sit in its council",
+            Membership::Organized => {
+                "The adults of households in an organization it recognizes who come to the hearth"
+            }
+            Membership::Privileged => {
+                "The adults of households in an organization it grants a privilege who come to the \
+                 hearth"
+            }
         };
         let how = match self.pass {
             PassRule::MoreForThanAgainst => {
@@ -1440,6 +1669,18 @@ pub fn law_words(
                 work"
             .to_owned();
     }
+    // Without the site at hand (see [`Polity::words_of`]), only what it is.
+    if def.is_some_and(|d| d.kind == PolicyKind::BuildWay) {
+        return "a passing place cleared together where carts wait, each household doing its share \
+                of the work"
+            .to_owned();
+    }
+    // Without the layout at hand (see [`Polity::words_of`]), only what it is.
+    if def.is_some_and(|d| d.kind == PolicyKind::Plan) {
+        return "a plan of streets and parcels laid over the ground, its streets and square kept \
+                open"
+            .to_owned();
+    }
     if def.is_some_and(|d| d.kind == PolicyKind::Annex) {
         return "taking in the settlement a band of theirs holds".to_owned();
     }
@@ -1507,6 +1748,27 @@ pub fn law_words(
             None => "someone to keep watch over the stores at night".to_owned(),
         };
     }
+    if let Some(m) = def
+        .filter(|d| d.kind == PolicyKind::Mint)
+        .and_then(|d| d.mint)
+    {
+        let who = law.holder.map_or_else(|| "someone".to_owned(), name_of);
+        return format!(
+            "{who} to strike coin of {} g from the metal households bring, the store keeping {} \
+             of what is struck{instead}",
+            m.mass_g,
+            share_text(f64::from(m.fee))
+        );
+    }
+    if let Some(p) = def
+        .filter(|d| d.kind == PolicyKind::PayWork)
+        .and_then(|d| d.pay)
+    {
+        return format!(
+            "pay from the store, {} an hour, for the hours households give to the common works",
+            p.per_hour
+        );
+    }
     if def.is_some_and(|d| d.kind == PolicyKind::Curfew) {
         return format!(
             "a curfew: nobody may be away from home from {}:00 to {}:00, but the watch at its \
@@ -1551,6 +1813,8 @@ pub fn ending_words(
         Some(PolicyKind::CloseSource) => "the closing of a source of water".to_owned(),
         Some(PolicyKind::DigWell) => "the work on a well".to_owned(),
         Some(PolicyKind::BuildBank) => "the work on a flood bank".to_owned(),
+        Some(PolicyKind::BuildWay) => "the work on a passing place".to_owned(),
+        Some(PolicyKind::Plan) => "the plan of streets and parcels".to_owned(),
         Some(PolicyKind::KeepBank) => "the keeping of a flood bank".to_owned(),
         Some(PolicyKind::BuildingRule) => "the rule for building".to_owned(),
         Some(PolicyKind::SendBand) => "the band sent by law".to_owned(),
@@ -1563,6 +1827,10 @@ pub fn ending_words(
         Some(PolicyKind::Embargo) => "the embargo".to_owned(),
         Some(PolicyKind::Recognize) => "the recognition of an organization".to_owned(),
         Some(PolicyKind::Privilege) => "the privilege of an organization".to_owned(),
+        Some(PolicyKind::DebtsHeard) => "the hearing of debts".to_owned(),
+        Some(PolicyKind::LendFromStore) => "the lending from the store".to_owned(),
+        Some(PolicyKind::Mint) => who("striking of coin"),
+        Some(PolicyKind::PayWork) => "the pay for common work".to_owned(),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }
@@ -1651,7 +1919,10 @@ pub fn office_words(
     for (k, def) in policies.iter().enumerate() {
         if !matches!(
             def.kind,
-            PolicyKind::KeepStore | PolicyKind::KeepWatch | PolicyKind::HearCases
+            PolicyKind::KeepStore
+                | PolicyKind::KeepWatch
+                | PolicyKind::HearCases
+                | PolicyKind::Mint
         ) {
             continue;
         }
@@ -1818,6 +2089,24 @@ pub struct Polity {
     /// What each household reckoned, when it was proposed, a law's palisade would keep it a year,
     /// in hours of its work (law, household, hours), by law then household.
     pub enclosure_saves: Vec<(PermanentId, PermanentId, f32)>,
+    /// Where each law to clear a passing place would clear it, by law (M8b slice CQ, third
+    /// part).
+    pub ways: Vec<(PermanentId, WaySite)>,
+    /// What each household reckoned, when it was proposed, a law's passing place would spare it
+    /// a year, hours of waiting (law, household, hours), by law then household.
+    pub way_saves: Vec<(PermanentId, PermanentId, f32)>,
+    /// The hours each household has given to a law's passing place (law, household, hours), by
+    /// law then household.
+    pub way_given: Vec<(PermanentId, PermanentId, f32)>,
+    /// The plan each law of a plan lays, by law (M8c slice CT, second part): in force, it
+    /// reserves.
+    pub plans: Vec<(PermanentId, PlanLaid)>,
+    /// What it saw of its settlements' ground within memory (M8c slice CT, second part), oldest
+    /// first: what raises a plan's issues.
+    pub ground_seen: Vec<GroundSeen>,
+    /// The buildings begun on ground a plan in force reserves (M8c slice CT, third part), in the
+    /// order begun.
+    pub encroachments: Vec<Encroachment>,
     /// The settlements it holds besides its seat (`settlement`), in the order taken (M6c slice
     /// BM, ADR-0023 §9): their residents are its members too.
     pub held: Vec<HeldSettlement>,
@@ -1905,6 +2194,185 @@ impl EnclosureSite {
     /// The length of its line, metres.
     pub fn length_m(&self) -> f64 {
         std::f64::consts::TAU * f64::from(self.radius_m)
+    }
+}
+
+/// Where a law would clear a passing place (M8b slice CQ, third part; ADR-0029 §6): the cell
+/// at the middle of the single-cart stretch, the hours of work clearing it would take, and, once
+/// begun, the way it is.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WaySite {
+    pub cell: u32,
+    pub labour_h: f64,
+    pub work: Option<PermanentId>,
+}
+
+/// A plan's template (M8c slice CT, second part; ADR-0030 §2): the grid it lays, the extents in
+/// blocks (along and across) a sponsor chooses among by the households it expects, smallest
+/// first, the hours staking out a parcel takes, and the technique a sponsor must know to put it
+/// forward.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PlanDef {
+    pub grid: civ_land::plans::Grid,
+    pub extents: Vec<(u8, u8)>,
+    pub stake_h: f32,
+    pub needs: Option<usize>,
+    /// How its keeper gives its parcels (M8c slice CU).
+    pub allot: civ_land::AllotRule,
+    /// For a parcel given for a fee: the good, by index in the catalog's goods, and the amount
+    /// paid the store once.
+    pub fee: Option<(usize, f32)>,
+    /// For a parcel given for a ground rent (M8c slice CU, third part): the food, by index in the
+    /// catalog's goods, and the amount owed the store each year the parcel is held.
+    pub rent: Option<(usize, f32)>,
+    /// How many phases its parcels open in, outward from where it is laid, and the share of
+    /// those open given before the next opens (M8c slice CU, fourth part).
+    pub phases: u8,
+    pub open_at: f32,
+    /// What it does with the fields under the ground it reserves (M8c slice CU, fifth part), and
+    /// for [`FieldClause::Paid`] the good, by index in the catalog's goods, and the amount the
+    /// store offers a field's holder a hectare.
+    pub fields: FieldClause,
+    pub pay: Option<(usize, f32)>,
+    /// Its districts (M8c slice CW, ADR-0030 §6: zoning as a clause of a plan): each phase's
+    /// parcels, by phase from 0, and the uses allowed there, a bit for each by its place in
+    /// [`civ_land::PlotUse::ALL`]. A phase named in none allows every use.
+    pub districts: Vec<(u8, u8)>,
+}
+
+impl PlanDef {
+    /// Whether a parcel of phase `phase` (from 0) allows a building of use `use_`.
+    pub fn allows(&self, phase: u8, use_: civ_land::PlotUse) -> bool {
+        self.districts
+            .iter()
+            .find(|d| d.0 == phase)
+            .is_none_or(|d| d.1 & use_bit(use_) != 0)
+    }
+}
+
+/// The bit for use `use_` in a district's uses: its place in [`civ_land::PlotUse::ALL`].
+pub fn use_bit(use_: civ_land::PlotUse) -> u8 {
+    civ_land::PlotUse::ALL
+        .iter()
+        .position(|&u| u == use_)
+        .map_or(0, |i| 1 << i)
+}
+
+/// What a plan does with a field under the ground it reserves (ADR-0030 §4: a clause per kind of
+/// claim a layout touches). Never a standing home, under any.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum FieldClause {
+    /// The layout bends round fields: none is touched.
+    #[default]
+    Around,
+    /// Reserved without consent, its standing crop left to come in; its holder and those who
+    /// work it hold it against the gathering.
+    Taken,
+    /// The store offers its holder the template's goods a hectare, which it takes or refuses by
+    /// what breaking like ground elsewhere would cost it; refused, it stays out of the plan.
+    Paid,
+}
+
+impl FieldClause {
+    /// Every clause.
+    pub const ALL: [FieldClause; 3] = [FieldClause::Around, FieldClause::Taken, FieldClause::Paid];
+
+    /// Its name in content: "around", "taken", "paid".
+    pub fn name(self) -> &'static str {
+        match self {
+            FieldClause::Around => "around",
+            FieldClause::Taken => "taken",
+            FieldClause::Paid => "paid",
+        }
+    }
+
+    /// The clause named `name` in content.
+    pub fn from_name(name: &str) -> Option<FieldClause> {
+        FieldClause::ALL.into_iter().find(|c| c.name() == name)
+    }
+}
+
+/// The plan a law lays (M8c slice CT, second part; ADR-0030 §2): its version (1 for its polity's
+/// first, one more for each after), the grid laid, and the layout as realised when it was
+/// proposed, which does not change when the ground does.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PlanLaid {
+    pub version: u16,
+    pub grid: civ_land::plans::Grid,
+    pub layout: civ_land::plans::Layout,
+    /// The hours its keeper has spent staking the parcels given (M8c slice CU, first part).
+    pub staked_h: f32,
+    /// Fields under its ground whose holders refused what the store offered (fifth part): left
+    /// out of it, and not asked again.
+    pub refused_fields: Vec<PermanentId>,
+}
+
+/// What a polity saw of its settlements' ground (M8c slice CT, second part): the day, the
+/// settlement, the household it was of, and the issue it raises (`NoGround`, `WayBuiltOver` or
+/// `NewGround`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GroundSeen {
+    pub day: i64,
+    pub settlement: PermanentId,
+    pub household: PermanentId,
+    pub issue: IssueKind,
+}
+
+/// A building begun on ground a plan in force reserves (M8c slice CT, third part): the day, the
+/// plan's law, the household that began it, and the building.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Encroachment {
+    pub day: i64,
+    pub law: PermanentId,
+    pub household: PermanentId,
+    pub building: PermanentId,
+    /// Who saw it begun, in id order (M8c slice CV, ADR-0030 §5: "recorded with who saw it"):
+    /// the plan's keeper living there, and the grown of the households whose homes lie within
+    /// sight of it, never its own.
+    pub seen_by: Vec<PermanentId>,
+    /// What a finding under the plan ordered for it, if any (M8c slice CV, second part).
+    pub order: Option<PlanOrder>,
+}
+
+/// What a finding under a plan ordered for a building on its reserved ground (M8c slice CV,
+/// second part; ADR-0030 §5: removal, or regularisation for a yearly payment).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PlanOrder {
+    /// To be taken down on day `due`.
+    Remove { due: i64 },
+    /// Taken down on `day`.
+    Removed { day: i64 },
+    /// It may stand, its household owing the store `kcal` each year from day `since`.
+    Regularised { since: i64, kcal: f32 },
+}
+
+impl PlanOrder {
+    /// Its code in saves.
+    pub fn code(self) -> u8 {
+        match self {
+            PlanOrder::Remove { .. } => 1,
+            PlanOrder::Removed { .. } => 2,
+            PlanOrder::Regularised { .. } => 3,
+        }
+    }
+
+    /// From its code, day and amount in saves.
+    pub fn from_code(code: u8, day: i64, kcal: f32) -> Option<PlanOrder> {
+        match code {
+            1 => Some(PlanOrder::Remove { due: day }),
+            2 => Some(PlanOrder::Removed { day }),
+            3 => Some(PlanOrder::Regularised { since: day, kcal }),
+            _ => None,
+        }
+    }
+
+    /// Its day and amount in saves.
+    pub fn day_kcal(self) -> (i64, f32) {
+        match self {
+            PlanOrder::Remove { due } => (due, 0.0),
+            PlanOrder::Removed { day } => (day, 0.0),
+            PlanOrder::Regularised { since, kcal } => (since, kcal),
+        }
     }
 }
 
@@ -2038,6 +2506,12 @@ impl Polity {
             bank_keeps: Vec::new(),
             enclosures: Vec::new(),
             enclosure_saves: Vec::new(),
+            ways: Vec::new(),
+            way_saves: Vec::new(),
+            way_given: Vec::new(),
+            plans: Vec::new(),
+            ground_seen: Vec::new(),
+            encroachments: Vec::new(),
             held: Vec::new(),
             ended: None,
             terms: Vec::new(),
@@ -2161,6 +2635,66 @@ impl Polity {
         }
     }
 
+    /// Where law `law` would clear a passing place, if it is one that would (M8b slice CQ, third
+    /// part).
+    pub fn way_site_of(&self, law: PermanentId) -> Option<WaySite> {
+        self.ways.iter().find(|w| w.0 == law).map(|w| w.1)
+    }
+
+    /// What household `household` reckoned law `law`'s passing place would spare it a year,
+    /// hours.
+    pub fn way_saves_of(&self, law: PermanentId, household: PermanentId) -> f32 {
+        self.way_saves
+            .binary_search_by_key(&(law, household), |s| (s.0, s.1))
+            .map_or(0.0, |i| self.way_saves[i].2)
+    }
+
+    /// The hours household `household` has given to law `law`'s passing place.
+    pub fn way_given_by(&self, law: PermanentId, household: PermanentId) -> f32 {
+        self.way_given
+            .binary_search_by_key(&(law, household), |s| (s.0, s.1))
+            .map_or(0.0, |i| self.way_given[i].2)
+    }
+
+    /// Household `household` gives `hours` more to law `law`'s passing place.
+    pub fn give_to_way(&mut self, law: PermanentId, household: PermanentId, hours: f32) {
+        match self
+            .way_given
+            .binary_search_by_key(&(law, household), |s| (s.0, s.1))
+        {
+            Ok(i) => self.way_given[i].2 += hours,
+            Err(i) => self.way_given.insert(i, (law, household, hours)),
+        }
+    }
+
+    /// The plan law `law` lays, if it is one (M8c slice CT, second part).
+    pub fn plan_of(&self, law: PermanentId) -> Option<&PlanLaid> {
+        self.plans.iter().find(|p| p.0 == law).map(|p| &p.1)
+    }
+
+    /// The plans of its laws in force, oldest first (M8c slice CT): what they reserve.
+    pub fn plans_in_force(&self) -> impl Iterator<Item = (PermanentId, &PlanLaid)> {
+        self.plans.iter().filter_map(|(law, p)| {
+            self.laws
+                .iter()
+                .any(|l| l.id == *law && l.status == LawStatus::InForce)
+                .then_some((*law, p))
+        })
+    }
+
+    /// It saw `seen` (M8c slice CT, second part): kept once a day for each household and issue.
+    pub fn see_ground(&mut self, seen: GroundSeen) {
+        if !self
+            .ground_seen
+            .iter()
+            .rev()
+            .take_while(|g| g.day == seen.day)
+            .any(|g| *g == seen)
+        {
+            self.ground_seen.push(seen);
+        }
+    }
+
     /// The source of water law `law` would close, if it is one that would (M6a slice BA).
     pub fn closure_of(&self, law: PermanentId) -> Option<crate::uses::Place> {
         self.closed.iter().find(|c| c.0 == law).map(|c| c.1)
@@ -2252,6 +2786,11 @@ impl Polity {
             .filter_map(|l| Some((l.holder?, l)))
     }
 
+    /// The one who strikes coin by a law in force, and that law (M7d slice CE).
+    pub fn minter(&self) -> Option<(PermanentId, &Law)> {
+        self.office(PolicyKind::Mint)
+    }
+
     /// The holder of the office a law of kind `kind` in force names, and that law.
     fn office(&self, kind: PolicyKind) -> Option<(PermanentId, &Law)> {
         self.laws
@@ -2327,6 +2866,78 @@ impl Polity {
                  its share of {:.0} hours of work",
                 site.length_m(),
                 site.height_m,
+                site.labour_h
+            );
+        }
+        // A plan says its version, its grid and what it lays (M8c slice CT, second part).
+        if kind == Some(PolicyKind::Plan)
+            && let Some(plan) = self.plan_of(law.id)
+        {
+            let l = &plan.layout;
+            // How its parcels are given, said only when not by need (M8c slice CU, second part).
+            // An offer says what it asks: a fee, a yearly ground rent, or both (third part).
+            let given = match policies
+                .get(usize::from(law.policy))
+                .and_then(|d| d.plan.as_ref())
+            {
+                Some(d) if d.allot == civ_land::AllotRule::Offer => {
+                    let asks = match (d.fee.is_some(), d.rent.is_some()) {
+                        (true, true) => " for a fee and a yearly ground rent",
+                        (false, true) => " for a yearly ground rent",
+                        _ => " for a fee",
+                    };
+                    format!(" given{asks}")
+                }
+                Some(d) if d.allot != civ_land::AllotRule::Need => {
+                    format!(" given {}", d.allot.words())
+                }
+                _ => String::new(),
+            };
+            // A plan opening in phases says how many (fourth part), and one that takes or pays
+            // for the fields under it, which (fifth part).
+            let def = policies
+                .get(usize::from(law.policy))
+                .and_then(|d| d.plan.as_ref());
+            let given = match def.filter(|d| d.phases > 1) {
+                Some(d) => format!("{given}, opening in {} phases", d.phases),
+                None => given,
+            };
+            let given = match def.map(|d| d.fields) {
+                Some(FieldClause::Taken) => format!("{given}, taking the fields under it"),
+                Some(FieldClause::Paid) => format!("{given}, paying for the fields under it"),
+                _ => given,
+            };
+            return format!(
+                "a plan (version {}) of {} by {} blocks of {:.0} by {:.0} m with {:.0} m streets \
+                 running {}, laying out {} parcels{}{}, its streets{} kept open",
+                plan.version,
+                plan.grid.blocks.0,
+                plan.grid.blocks.1,
+                plan.grid.block_m.0,
+                plan.grid.block_m.1,
+                plan.grid.street_m,
+                l.axis.map_or("east and west", civ_land::plans::Axis::name),
+                l.parcels.len(),
+                if l.sites.is_empty() {
+                    ""
+                } else {
+                    " round a square"
+                },
+                given,
+                if l.sites.is_empty() {
+                    ""
+                } else {
+                    " and square"
+                },
+            );
+        }
+        // A passing place says the work it asks (M8b slice CQ, third part).
+        if kind == Some(PolicyKind::BuildWay)
+            && let Some(site) = self.way_site_of(law.id)
+        {
+            return format!(
+                "a passing place cleared where carts wait, each household doing its share of {:.0} \
+                 hours of work",
                 site.labour_h
             );
         }
@@ -2795,6 +3406,12 @@ pub(crate) mod tests {
             limit: None,
             duty: None,
             privilege: None,
+            debts: None,
+            lending: None,
+            mint: None,
+            pay: None,
+            medium: None,
+            plan: None,
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -2862,7 +3479,7 @@ pub(crate) mod tests {
         law.sanction = Sanction {
             compensation_days: 3.0,
             fine_days: 1.0,
-            exile: false,
+            ..Default::default()
         };
         assert_eq!(
             law_words(&law, &policies, &name_of),
@@ -2908,6 +3525,12 @@ pub(crate) mod tests {
             limit: None,
             duty: None,
             privilege: None,
+            debts: None,
+            lending: None,
+            mint: None,
+            pay: None,
+            medium: None,
+            plan: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -2971,7 +3594,7 @@ pub(crate) mod tests {
         let bundle = Sanction {
             compensation_days: 3.0,
             fine_days: 3.0,
-            exile: false,
+            ..Default::default()
         };
         let robbed = crate::crime::TakingsKnown {
             lost_kcal: 10.0 * need_day,
@@ -3129,6 +3752,12 @@ pub(crate) mod tests {
             limit: None,
             duty: None,
             privilege: None,
+            debts: None,
+            lending: None,
+            mint: None,
+            pay: None,
+            medium: None,
+            plan: None,
         }];
         assert!(
             law_words(&law, &policies, &|_| "Ada".to_owned())

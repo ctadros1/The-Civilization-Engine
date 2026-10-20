@@ -1362,8 +1362,9 @@ impl Population {
         }
         // What each household gave of a polity's well is kept (research 09-06: labour asked and
         // labour given apart).
-        if ctx.land.wells.list[i].polity.is_some() {
+        if let Some(polity) = ctx.land.wells.list[i].polity {
             ctx.land.wells.add_given(well, household, done as f32);
+            self.work_given.push((polity, household, done));
         }
         let w = &mut ctx.land.wells.list[i];
         w.work_h += done as f32;

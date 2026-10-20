@@ -739,10 +739,7 @@ impl Population {
         let now = ctx.now;
         let minute = now.minutes() as f64;
         let mut seen: Vec<usize> = Vec::new();
-        for (_, h) in self.households.iter() {
-            if h.settlement != Some(settlement) {
-                continue;
-            }
+        for h in self.households_in(settlement) {
             for &m in &h.members {
                 let Some(q) = self.person(m) else {
                     continue;
@@ -866,9 +863,7 @@ impl Population {
                 .iter()
                 .any(|&g| stores.get(g).copied().unwrap_or(0.0) > 1e-6)
         };
-        self.households
-            .iter()
-            .any(|(_, x)| x.settlement == Some(s) && held(&x.stores))
+        self.households_in(s).any(|x| held(&x.stores))
             || self
                 .firms
                 .iter()

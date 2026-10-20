@@ -1,0 +1,18 @@
+# Striking coin (M7d slice CE, ADR-0027 §6): melting a kilogram of copper, casting it into blanks
+# of the issue's weight and striking each between dies. Two hours and 5 kg of firewood a kilogram
+# (research 07-05 §2: 1-6 person-hours and 0.5-3 kg of charcoal a kilogram of casting; firewood
+# stands for the charcoal; tuning values). The pieces struck are set by the mint law (a kilogram of
+# fine metal over the grams of fine metal in a piece); the output here is the core mint's 8 g
+# pieces of pure copper, which is what a piece costs those who reckon what making one takes.
+kind = "recipe"
+id = "core:recipe/strike_coin"
+name = "Strike coin"
+skill = "core:skill/pottery"
+technique = "core:technique/copper_smelting"
+unit_h = 2.0
+session_h = 0.0
+max_units = 4.0
+tools = []
+inputs = [{ good = "core:good/copper", amount = 1.0 }, { good = "core:good/firewood", amount = 5.0 }]
+outputs = [{ good = "core:good/coin", amount = 125.0 }]
+session_inputs = []

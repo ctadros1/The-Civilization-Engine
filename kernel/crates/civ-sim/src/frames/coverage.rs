@@ -454,6 +454,9 @@ fn put_source<'a>(
 /// A `Response` with lens `lens` over settlement `settlement`'s homes (every settlement for
 /// `None`), or `None` for a lens there is not.
 pub fn coverage_response(sim: &Sim, settlement: Option<PermanentId>, lens: u8) -> Option<Vec<u8>> {
+    if lens == super::traffic::TRAFFIC {
+        return Some(super::traffic::lens_response(sim, settlement));
+    }
     if !matches!(lens, WATER | FIRE_HELP) {
         return None;
     }
@@ -574,6 +577,7 @@ pub fn coverage_response(sim: &Sim, settlement: Option<PermanentId>, lens: u8) -
             limit_min: SEARCH_S[SEARCH_S.len() - 1] / 60.0,
             days: PERIOD_DAYS as u16,
             summary: Some(summary),
+            places: None,
         },
     );
     Some(response(fbb, wire::ResponseBody::Coverage, body))

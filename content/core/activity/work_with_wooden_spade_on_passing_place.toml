@@ -1,0 +1,22 @@
+# Clearing a passing place a household chose to make on its carts' way (M8b slice CQ, second part;
+# ADR-0029 §6; research 10-07 §1.6, §2.2): grubbing out brush and stones beside the trail's tread
+# and levelling the ground there to two carts' width (the land profile's `[way_works]`). Heavy work,
+# as digging a ditch is; ages and session lengths are tuning values as for that work. Its id sorts
+# after every older activity's: activities are kept in id order. It asks no tool the content makes
+# (a wooden spade and a basket). Since the fourth part it also clears the ground of a way a
+# household lays on the worn trail its loaded carts drag on, to a trail's tread; its id is kept.
+kind = "activity"
+id = "core:activity/work_with_wooden_spade_on_passing_place"
+name = "Clear ground for a way"
+doing = "clearing ground for a way"
+behavior = "way"
+par = 5.0
+min_age_years = 14.0
+max_age_years = 65.0
+min_minutes = 60
+max_minutes = 240
+daylight_only = true
+max_walk_minutes = 30
+technique = ""
+tools = []
+rate = 1.0

@@ -39,6 +39,8 @@ use crate::person::{
     fuel_kg, reserve_food_kcal, stock_kcal,
 };
 
+mod boating;
+mod bottlenecks;
 mod cases;
 mod contagion;
 mod crime;
@@ -64,13 +66,16 @@ mod levees;
 mod life;
 mod loads;
 mod market;
+mod mint;
 mod moving;
 mod norm;
 mod opinion;
 mod payments;
 mod war;
+mod way_works;
 pub use crime::TakeProbe;
 pub use payments::Burden;
+mod credit;
 mod patronage;
 mod places;
 mod polity;
@@ -94,9 +99,13 @@ pub use loads::{
     DIES_IN_RUIN, DIES_UNDER_FLOOR, DIES_UNDER_ROOF, LIVE_PA, SNOW_TOLD_PA, SPILLED,
     snow_on_roof_pa, storm_pa,
 };
+mod plans;
+pub use plans::ParcelOffer;
+mod siting;
 mod taste;
 mod ties;
 mod transfer;
+mod travelled;
 mod trust;
 
 use knowledge::Gate;
@@ -113,8 +122,9 @@ fn keep_route(
     old: &mut FastMap<(u32, u32), Option<CachedRoute>>,
     key: (u32, u32),
     route: Option<CachedRoute>,
+    max: usize,
 ) {
-    if routes.len() >= ROUTE_CACHE_MAX {
+    if routes.len() >= max {
         *old = std::mem::take(routes);
     }
     routes.insert(key, route);
@@ -136,9 +146,13 @@ const WAIT_AFTER_FAILURE_MIN: u32 = 10;
 /// Cells beyond the ground people have walked that route searches are bounded by landmarks
 /// over ([`civ_world::nav::NavGrid::landmarks`]): half a wear tile, 256 m on 8 m cells.
 const LANDMARK_MARGIN_CELLS: usize = 32;
-/// Most routes the route cache keeps in each of its two generations: when the newer is full it
-/// becomes the older, and the older is let go.
+/// Fewest routes the route cache keeps in each of its two generations: when the newer is full it
+/// becomes the older, and the older is let go. A route found again is the route let go (the same
+/// paths, the same search), so its size changes how fast the world lives, never what happens.
 const ROUTE_CACHE_MAX: usize = 50_000;
+/// ...and routes kept a generation for each person living, above that (M8a slice CJ: three
+/// settlements of 3,334 search about 5,400 new routes a day).
+const ROUTE_CACHE_PER_PERSON: usize = 8;
 /// Farthest a household moves its home from where it stands to find clear ground to build on,
 /// metres (a tuning value).
 const HOME_SHIFT_M: f64 = 30.0;
@@ -185,6 +199,14 @@ pub enum AgentEvent {
     /// Gates are kept (M6c slice BK, step three): at first light each is opened, and at dusk the
     /// household nearest each chooses whether to shut it for the night.
     Gates,
+    /// A walker reaches a bottleneck on their walk (M8b slice CN, ADR-0029 §4).
+    Pass {
+        /// Who.
+        person: PermanentId,
+        /// The activity version and the trip it belongs to.
+        version: u32,
+        trip: u64,
+    },
 }
 
 /// The approximations the kernel makes as it advances (ADR-0011 §4), each on or off on its own.
@@ -200,6 +222,10 @@ pub struct Approximations {
     /// work, gather, dig and farm) is kept from its first decision after midnight until midnight
     /// or its next consequential step, instead of being worked out at every decision.
     pub household_view: bool,
+    /// When goods move between households (a gift, a trade, paid work, a fetch, a taking), only
+    /// the views of the two parties and of households whose kept choice names one of them are
+    /// let go, not every household's (M8a slice CL, ADR-0028 §6). Only with `household_view`.
+    pub views_by_party: bool,
 }
 
 impl Approximations {
@@ -207,11 +233,13 @@ impl Approximations {
     pub const NONE: Approximations = Approximations {
         leisure_blocks: false,
         household_view: false,
+        views_by_party: false,
     };
     /// Every approximation Accelerated mode declares.
     pub const ACCELERATED: Approximations = Approximations {
         leisure_blocks: true,
         household_view: true,
+        views_by_party: true,
     };
 }
 
@@ -432,6 +460,13 @@ pub struct Population {
     pub next_trip: u64,
     index: FastMap<PermanentId, Handle<Person>>,
     hh_index: FastMap<PermanentId, Handle<Household>>,
+    /// Each settlement's households, in the table's order (M8a slice CG, ADR-0028 §2): a search
+    /// walks its own settlement's, in the order a scan of every household would find them.
+    /// Derived, kept in step where households are added and taken away.
+    settled: BTreeMap<PermanentId, BTreeSet<Handle<Household>>>,
+    /// Whether households may have been changed by hand since `settled` was last built
+    /// ([`Population::forget_derived`]): it is built again before the world next advances.
+    settled_stale: bool,
     homes: FastMap<PermanentId, HomeField>,
     /// The kinds of place gathering trips go to.
     places: Vec<Places>,
@@ -443,6 +478,13 @@ pub struct Population {
     /// The paths survey and crossings the routes were planned on
     /// ([`civ_land::Land::route_revision`]).
     routes_rev: u64,
+    /// Times the route cache was cleared for a new revision of the paths, and times it was full
+    /// and began a new generation (M8a slice CJ's measurement). Not saved.
+    pub route_counts: (u64, u64),
+    /// Decisions in Accelerated mode that found their household's view kept and that found
+    /// none, and the times every view was let go after goods moved between households (M8a slice
+    /// CL's measurement). Not saved.
+    pub view_counts: (u64, u64, u64),
     /// Lower bounds for route searches on the paths as surveyed ([`NavGrid::landmarks`]),
     /// built at the first search after a survey once people have walked anywhere. Derived.
     landmarks: Option<Option<std::sync::Arc<civ_world::nav::Landmarks>>>,
@@ -574,6 +616,14 @@ pub struct Population {
     /// The demo's twin harness (ADR-0019 §8): purchases between settlements are stopped. Set in
     /// memory by a host command or a test, never by content or a save.
     pub stop_trade_between: bool,
+    /// Hours households gave to polities' common works since the last event was handled
+    /// (polity, household, hours): paid for under a law of pay for common work as each event
+    /// ends (M7d slice CE3a), so never held across a save.
+    pub(crate) work_given: Vec<(PermanentId, PermanentId, f64)>,
+    /// The households whose review today found a boat worth making (household, vehicle, bank
+    /// cell, hours of walking a year it would save): begun as the day's reviews end (M8b slice
+    /// CO, third part), so never held across a save.
+    pub(crate) boat_wishes: Vec<(PermanentId, usize, u32, f32)>,
     /// The buildings of other settlements each person has seen, newest first, until their
     /// household's next taste review (M5b slice AR).
     pub seen_away: BTreeMap<PermanentId, Vec<PermanentId>>,
@@ -594,6 +644,20 @@ pub struct Population {
     pub agreements: crate::agreements::Agreements,
     /// The river cells each household's people wade (M5c slice AW, step two).
     pub fords: crate::fords::Fords,
+    /// Turn-taking at bottlenecks, their tallies and the waits households hold (M8b slice CN,
+    /// ADR-0029 §4).
+    pub traffic: crate::traffic::Traffic,
+    /// Travel measured (M8b slice CR, first part): trips by purpose and mode, waits, and
+    /// residents' days of travel, by settlement and year. Nothing reads it to choose.
+    pub travel: crate::travel::Travel,
+    /// Goods in transit by boat (M8b slice CO, ADR-0029 §3), in the order loaded.
+    pub consignments: Vec<crate::consignments::Consignment>,
+    /// What the counters of consignments since unloaded saw: counters, never saved.
+    pub consigned_flows: crate::person::Flows,
+    /// Each cell a facility lies on, with it and its passage width, in cell order, and the
+    /// crossings' and enclosures' revisions it stands for. Derived.
+    facilities: Vec<(u32, crate::traffic::Facility, f32)>,
+    facilities_rev: Option<(u32, u32)>,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -603,6 +667,20 @@ struct NewHome {
     spec: BuildingSpec,
     stages: Vec<StageNeeds>,
     firm: Option<PermanentId>,
+    /// Why a home's plot was chosen among others (M8c slice CS).
+    receipt: Option<civ_land::SiteReceipt>,
+    /// The parcel of a plan it is to stand on, if a keeper gives one (M8c slice CU), and the fee
+    /// paid the store for it (the good, by index, and the amount), if one.
+    parcel: Option<civ_land::Allotment>,
+    fee: Option<(usize, f64)>,
+}
+
+/// Why a household begins no building (M8c slice CT): nothing it would build, or a home it would
+/// build and no clear ground for it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Unbuilt {
+    Nothing,
+    NoGround,
 }
 
 /// What a household builds: the building under way (or the one it would begin), the work left on
@@ -1003,10 +1081,102 @@ impl Population {
     /// Adds a household.
     pub fn insert_household(&mut self, h: Household) -> Handle<Household> {
         self.homes_moved += 1;
-        let id = h.id;
+        let (id, settlement) = (h.id, h.settlement);
         let handle = self.households.insert(h);
         self.hh_index.insert(id, handle);
+        if let Some(s) = settlement {
+            self.settled.entry(s).or_default().insert(handle);
+        }
         handle
+    }
+
+    /// Builds the settlement index from the households as they are.
+    fn build_settled(&mut self) {
+        self.settled.clear();
+        for (h, x) in self.households.iter() {
+            if let Some(s) = x.settlement {
+                self.settled.entry(s).or_default().insert(h);
+            }
+        }
+        self.settled_stale = false;
+    }
+
+    /// Builds the settlement index again if households may have been changed by hand since it
+    /// was built (as tests do, after [`Population::forget_derived`]). The world calls it before
+    /// each advance.
+    pub fn refresh_settled(&mut self) {
+        if self.settled_stale {
+            self.build_settled();
+        }
+    }
+
+    /// Takes household `id` away, with its place in the indexes.
+    pub(crate) fn take_household(&mut self, id: PermanentId) -> Option<Household> {
+        let hd = self.hh_index.remove(&id)?;
+        let gone = self.households.remove(hd)?;
+        if let Some(s) = gone.settlement
+            && let Some(set) = self.settled.get_mut(&s)
+        {
+            set.remove(&hd);
+            if set.is_empty() {
+                self.settled.remove(&s);
+            }
+        }
+        Some(gone)
+    }
+
+    /// The households of settlement `s`, in the order a scan of every household finds them
+    /// (M8a slice CG, ADR-0028 §2). Checked against that scan whenever debug checks are on.
+    pub(crate) fn households_in(&self, s: PermanentId) -> impl Iterator<Item = &Household> + '_ {
+        #[cfg(debug_assertions)]
+        self.check_settled(&[s]);
+        self.settled
+            .get(&s)
+            .into_iter()
+            .flatten()
+            .filter_map(|&h| self.households.get(h))
+    }
+
+    /// The households of any of `settlements`, in the order a scan of every household finds
+    /// them.
+    pub(crate) fn households_in_any(&self, settlements: &[PermanentId]) -> Vec<&Household> {
+        #[cfg(debug_assertions)]
+        self.check_settled(settlements);
+        let mut handles: Vec<Handle<Household>> = settlements
+            .iter()
+            .filter_map(|s| self.settled.get(s))
+            .flatten()
+            .copied()
+            .collect();
+        handles.sort_unstable();
+        handles.dedup();
+        handles
+            .into_iter()
+            .filter_map(|h| self.households.get(h))
+            .collect()
+    }
+
+    /// Panics unless the settlement index lists, for each of `settlements`, exactly the
+    /// households a scan finds, in its order.
+    #[cfg(debug_assertions)]
+    fn check_settled(&self, settlements: &[PermanentId]) {
+        for &s in settlements {
+            let scan: Vec<Handle<Household>> = self
+                .households
+                .iter()
+                .filter(|(_, x)| x.settlement == Some(s))
+                .map(|(h, _)| h)
+                .collect();
+            let index: Vec<Handle<Household>> = self
+                .settled
+                .get(&s)
+                .map(|set| set.iter().copied().collect())
+                .unwrap_or_default();
+            assert_eq!(
+                index, scan,
+                "the households of settlement {s} are out of step"
+            );
+        }
     }
 
     /// Adds a living person (their record must be added separately).
@@ -1021,6 +1191,7 @@ impl Population {
     pub fn rebuild_indexes(&mut self) {
         self.index = self.people.iter().map(|(h, p)| (p.id, h)).collect();
         self.hh_index = self.households.iter().map(|(h, x)| (x.id, h)).collect();
+        self.build_settled();
         self.homes.clear();
         self.places.clear();
         self.routes.clear();
@@ -1140,6 +1311,11 @@ impl Population {
         for d in &self.agreements.dues {
             all.absorb(&d.flows);
         }
+        // And loads in transit by boat (M8b slice CO).
+        for c in &self.consignments {
+            all.absorb(&c.flows);
+        }
+        all.absorb(&self.consigned_flows);
         all
     }
 
@@ -1153,7 +1329,8 @@ impl Population {
             .map(|(_, h)| &h.stores)
             .chain(self.firms.iter().map(|f| &f.stores))
             .chain(self.polities.iter().map(|p| &p.stores))
-            .chain(self.agreements.dues.iter().map(|d| &d.stores));
+            .chain(self.agreements.dues.iter().map(|d| &d.stores))
+            .chain(self.consignments.iter().map(|c| &c.stores));
         for s in stores {
             if out.len() < s.len() {
                 out.resize(s.len(), 0.0);
@@ -1242,6 +1419,8 @@ impl Population {
         out.extend(self.polity_views.problems());
         out.extend(self.claims_heard.problems());
         out.extend(self.fords.problems());
+        out.extend(self.traffic.problems());
+        out.extend(self.travel.problems());
         out.extend(self.agreements.problems());
         for (&p, seen) in &self.seen_away {
             if self.person(p).is_none() {
@@ -1525,7 +1704,23 @@ impl Population {
             AgentEvent::Ignite { building } => self.ignite(ctx, building),
             AgentEvent::BandLook => self.band_look(ctx),
             AgentEvent::Gates => self.keep_gates(ctx),
+            AgentEvent::Pass {
+                person,
+                version,
+                trip,
+            } => {
+                let Some(&h) = self.index.get(&person) else {
+                    return;
+                };
+                let live = self.people.get(h).is_some_and(|p| {
+                    p.act.version == version && p.trip.as_ref().map(|t| t.id) == Some(trip)
+                });
+                if live {
+                    self.reach_bottleneck(ctx, h);
+                }
+            }
         }
+        self.pay_for_work_given(ctx);
     }
 
     /// Sends `id` walking to `to` at once, as a step of their activity would (tests): `false`
@@ -1536,6 +1731,20 @@ impl Population {
             return false;
         };
         self.start_walk(ctx, h, to)
+    }
+
+    /// Sends `id` pulling their household's cart that stands where they are to `to` at once, as a
+    /// step of their activity would (tests): `false` when they cannot set off, or turn back.
+    #[doc(hidden)]
+    pub fn haul_for_tests(&mut self, ctx: &mut Ctx, id: PermanentId, to: (f32, f32)) -> bool {
+        let Some(&h) = self.index.get(&id) else {
+            return false;
+        };
+        if let Some(p) = self.people.get_mut(h) {
+            p.act.steps = vec![Step::Haul { to }];
+            p.act.step = 0;
+        }
+        self.start_haul(ctx, h, to)
     }
 
     /// Drops a person's activity so they decide again when an event of the returned version
@@ -1565,6 +1774,30 @@ impl Population {
         self.views.remove(&household);
     }
 
+    /// Goods moved between household `household` and the party its step was with (`with`): the
+    /// two of them, and every household whose kept view names either (as the seller it would buy
+    /// from, the household it would ask or take from, the workshop it would work for), see their
+    /// options afresh; the rest keep theirs (M8a slice CL, ADR-0028 §6).
+    fn views_moved(&mut self, household: PermanentId, with: Target) {
+        let (other, firm) = match with {
+            Target::Household(x) => (Some(x), None),
+            Target::Firm(f) => (self.firm(f).map(|x| x.owner), Some(f)),
+            _ => (None, None),
+        };
+        let party = |id: PermanentId| id == household || Some(id) == other || Some(id) == firm;
+        self.views.retain(|&hh, view| {
+            fn kept<T>(cell: &Option<Option<T>>) -> Option<&T> {
+                cell.as_ref().and_then(Option::as_ref)
+            }
+            !(party(hh)
+                || kept(&view.trade).is_some_and(|o| party(o.seller))
+                || kept(&view.fetch).is_some_and(|o| party(o.seller))
+                || kept(&view.giver).is_some_and(|g| party(g.household))
+                || kept(&view.job).is_some_and(|j| party(j.firm))
+                || kept(&view.take).is_some_and(|t| party(t.household())))
+        });
+    }
+
     /// Every household sees its options afresh at its next decision: after the observer has
     /// changed the world, or the approximations made have changed.
     pub fn forget_views(&mut self) {
@@ -1583,6 +1816,7 @@ impl Population {
         self.known_pruned.clear();
         self.fields_moved();
         self.children_indexed = usize::MAX;
+        self.settled_stale = true;
     }
 
     /// Starts a person's life in the simulation: they decide what to do first.
@@ -2031,6 +2265,16 @@ impl Population {
             Some((seen, site)) if *seen == day => site.clone(),
             _ => {
                 let site = self.new_building(ctx, hh, hearth, field_key, labour_per_day, home);
+                // A home it meant to build and found no clear ground for (M8c slice CT).
+                if site.as_ref().err() == Some(&Unbuilt::NoGround) {
+                    self.see_ground(
+                        ctx,
+                        hh.settlement,
+                        hh.id,
+                        crate::polity::IssueKind::NoGround,
+                    );
+                }
+                let site = site.ok();
                 self.home_sites.insert(hh.id, (day, site.clone()));
                 site
             }
@@ -2062,7 +2306,7 @@ impl Population {
         field_key: PermanentId,
         labour_per_day: f64,
         home: Option<f64>,
-    ) -> Option<NewHome> {
+    ) -> Result<NewHome, Unbuilt> {
         let catalog = ctx.catalog;
         let day = ctx.now.day_index();
         let programs = self.home_programs(ctx, &hh.members);
@@ -2074,7 +2318,7 @@ impl Population {
                 residents: hh.members.len().max(1),
                 storage_kg: self.storage_need(ctx, hh),
             };
-            match current {
+            let chosen = match current {
                 None => {
                     build::first_home(&catalog.buildings, &programs, need, carry, budget_h, time_h)
                 }
@@ -2087,7 +2331,25 @@ impl Population {
                     budget_h,
                     time_h,
                 ),
-            }
+            }?;
+            // And the shapes on less ground its means would also pay for, to be weighed with the
+            // ground each takes (M8d slice CZ): a first home's extra over the one chosen within
+            // what it would put into a home, a new home's whole within its means.
+            let program = &catalog.buildings[chosen.0];
+            let chosen_h = program
+                .shapes
+                .iter()
+                .find(|c| c.shape == chosen.1)
+                .map_or(0.0, |c| c.hours(carry));
+            let affordable = |h: f64| {
+                h <= time_h
+                    && match current {
+                        None => h <= chosen_h + budget_h,
+                        Some(_) => h <= budget_h,
+                    }
+            };
+            let compact = build::compact_alternatives(program, chosen.1, &need, carry, &affordable);
+            Some((chosen, compact))
         };
         let goods = &catalog.goods;
         let reach = self.homes.get(&field_key).map(|f| &f.reach);
@@ -2105,12 +2367,32 @@ impl Population {
         } else {
             Vec::new()
         };
+        // Other households' homes, which a home where fire is worked keeps its distance from
+        // (M8c slice CW).
+        let others_homes: Vec<civ_land::RectCm> = if kept_rules.fire_from.is_some() {
+            ctx.land
+                .buildings
+                .iter()
+                .filter(|b| b.household != hh.id && b.standing())
+                .filter(|b| catalog.is_dwelling(&b.spec.program))
+                .filter_map(|b| ctx.land.plots.iter().find(|p| p.id == b.plot))
+                .map(|p| p.rect)
+                .collect()
+        } else {
+            Vec::new()
+        };
+        // The plans in force its builders keep (M8c slice CT, third part), whose streets and
+        // public sites a new building keeps clear of.
+        let kept_plans = self.plans_kept(ctx, hh);
+        // And the parcels whose district allows only some uses (M8c slice CW).
+        let zoned = self.zoned_kept(ctx, hh);
         // Where `choice` would stand, its door toward `toward`, if there is clear ground for it
-        // within `max_m` of its home: keeping the rule its builders keep, if there is ground for
-        // that, else as they would without it.
+        // within `max_m` of `from`: keeping the rules and plans its builders keep, if there is
+        // ground for that, else as they would without them.
         let site_kept = |(p, shape): (usize, build::Shape),
                          toward: Option<(f32, f32)>,
                          firm: Option<PermanentId>,
+                         from: (f32, f32),
                          max_m: f64,
                          obey_rules: bool| {
             let program = &catalog.buildings[p];
@@ -2151,6 +2433,7 @@ impl Population {
             } else {
                 Default::default()
             };
+            let plans: &[&civ_land::plans::Layout] = if obey_rules { &kept_plans } else { &[] };
             let caution_thatch =
                 self.fire_caution_thatch(hh.settlement, ctx.now, &ctx.params.build.caution);
             let caution_wattle =
@@ -2170,6 +2453,15 @@ impl Population {
                 knows_mud_brick: knows_technique("core:technique/mud_brick"),
                 knows_firing: knows_technique("core:technique/firing"),
                 knows_lime: knows_technique("core:technique/lime_burning"),
+                // The version 3 systems its program opens to a technique someone of it knows.
+                knows_systems: program.systems.map(|t| {
+                    t.is_some_and(|t| {
+                        hh.members
+                            .iter()
+                            .filter_map(|&m| self.person(m))
+                            .any(|p| p.knows(t))
+                    })
+                }),
             };
             let design_at = |at: (f32, f32)| {
                 let reachable = reach.is_none_or(|r| r.seconds_to(cell_of(ctx.map, at)).is_some());
@@ -2203,6 +2495,37 @@ impl Population {
                             kinds & (1 << crate::rules::wall_kind(spec, &program.rules)) != 0
                         }) && rules.gap.is_none_or(|gap| nearest() >= gap)
                     })
+                    // A home keeps its midden from open wells, and one where fire is worked keeps
+                    // from others' homes (M8c slice CW).
+                    .filter(|spec| {
+                        program.use_ != civ_land::PlotUse::Dwelling || {
+                            let rect = build::plot_rect(spec, program);
+                            rules.midden_from.is_none_or(|m| {
+                                !crate::rules::near_open_well(&rect, m, &ctx.land.wells)
+                            }) && rules.fire_from.is_none_or(|m| {
+                                others_homes
+                                    .iter()
+                                    .all(|r| crate::rules::gap_m(&rect, r) >= m)
+                            })
+                        }
+                    })
+                    // Nor on ground a plan its builders keep reserves.
+                    .filter(|spec| {
+                        plans.is_empty() || {
+                            let rect = build::plot_rect(spec, program);
+                            plans.iter().all(|l| !l.reserves(&rect, 0))
+                        }
+                    })
+                    // Nor on a parcel whose district allows another use (M8c slice CW).
+                    .filter(|spec| {
+                        !obey_rules || zoned.is_empty() || {
+                            let rect = build::plot_rect(spec, program);
+                            let bit = crate::polity::use_bit(program.use_);
+                            zoned
+                                .iter()
+                                .all(|(r, uses)| uses & bit != 0 || !r.near(&rect, 0))
+                        }
+                    })
             };
             // Ground that drops too far across a plot is levelled, and ground too steep to level
             // by hand, or that would be levelled beside water, is not built on; level ground is
@@ -2220,31 +2543,196 @@ impl Population {
                 }
             };
             let spec = build::home_site(
-                ctx.land, ctx.map, ctx.nav, program, &design_at, hh.home, hearth, max_m, &levelling,
+                ctx.land, ctx.map, ctx.nav, program, &design_at, from, hearth, max_m, &levelling,
             )?;
             let stages = build::stage_needs(&spec, program)?;
-            Some(NewHome { spec, stages, firm })
+            // The levelling it needs, hours: a slope's cut, half the plot to a quarter of its
+            // drop on the mean, as the platform takes it (ADR-0010 §2).
+            let rect = build::plot_rect(&spec, program);
+            let area_m2 = f64::from(rect.w) * f64::from(rect.h) / 1e4;
+            let level_h = levelling(&rect).unwrap_or(0.0) * area_m2 / 8.0 * lev.h_per_m3;
+            Some((
+                NewHome {
+                    spec,
+                    stages,
+                    firm,
+                    receipt: None,
+                    parcel: None,
+                    fee: None,
+                },
+                level_h,
+            ))
+        };
+        let site_levelled = |choice: (usize, build::Shape),
+                             toward: Option<(f32, f32)>,
+                             firm: Option<PermanentId>,
+                             from: (f32, f32),
+                             max_m: f64| {
+            site_kept(choice, toward, firm, from, max_m, true).or_else(|| {
+                (kept_rules.any() || !kept_plans.is_empty())
+                    .then(|| site_kept(choice, toward, firm, from, max_m, false))
+                    .flatten()
+            })
         };
         let site = |choice: (usize, build::Shape),
                     toward: Option<(f32, f32)>,
                     firm: Option<PermanentId>,
                     max_m: f64| {
-            site_kept(choice, toward, firm, max_m, true).or_else(|| {
-                kept_rules
-                    .any()
-                    .then(|| site_kept(choice, toward, firm, max_m, false))
-                    .flatten()
-            })
+            site_levelled(choice, toward, firm, hh.home, max_m).map(|s| s.0)
+        };
+        // A home's plot is a choice (M8c slice CS, ADR-0030 §1): sought about the points its
+        // people's walks suggest, each found weighed by its walks over the content's years and
+        // its levelling, the cheapest taken with its receipt. About its old point first, farther
+        // afield for a first home when nothing is clear near.
+        let places = self.goings_of(ctx, hh);
+        let speed = ctx.nav.params().top_speed_ms().max(0.1);
+        let years = ctx.params.build.site_years;
+        let offer = self.parcel_offer(ctx, hh);
+        let choose_home = |choice: (usize, build::Shape), first: bool| {
+            let anchors = siting::site_anchors(hh.home, &places);
+            let mut found: Vec<(f64, NewHome)> = Vec::new();
+            for (i, &from) in anchors.iter().enumerate() {
+                let Some((home, level_h)) = site_levelled(choice, hearth, None, from, HOME_SHIFT_M)
+                    .or_else(|| {
+                        (first && i == 0)
+                            .then(|| site_levelled(choice, hearth, None, from, FIRST_HOME_SHIFT_M))
+                            .flatten()
+                    })
+                else {
+                    continue;
+                };
+                let at = build::centre_m(&home.spec);
+                if found.iter().any(|(_, f)| build::centre_m(&f.spec) == at) {
+                    continue;
+                }
+                // Beyond its old point, no farther from the hearth than the walk it accepts to a
+                // field: a home elsewhere is a move between settlements, weighed apart.
+                let near_hearth = reach.is_none_or(|r| {
+                    r.seconds_to(cell_of(ctx.map, at))
+                        .is_some_and(|s| f64::from(s) <= ctx.params.farm.max_walk_minutes * 60.0)
+                });
+                if i > 0 && !near_hearth {
+                    continue;
+                }
+                let hours = years * siting::walk_hours_year(at, &places, speed) + level_h;
+                found.push((hours, home));
+            }
+            // The parcel a plan's keeper would give it, weighed as any plot is (M8c slice CU):
+            // a plot found whose middle lies on it takes it, and its home is also laid out at the
+            // parcel's middle or a few metres along it, wholly within it.
+            // A fee counts at what the household's own hours would make of its good, and a
+            // ground rent the same each year over the years a site is weighed; one it cannot
+            // reckon is not paid.
+            let costs = self.own_costs_of(ctx, hh);
+            let cost_of = |g: usize| costs.get(g).copied().flatten();
+            let offer = offer.filter(|o| {
+                o.fee.is_none_or(|(g, _)| cost_of(g).is_some())
+                    && o.rent.is_none_or(|(g, _)| cost_of(g).is_some())
+            });
+            if let Some(o) = offer {
+                let (law, parcel, ground) = (o.law, o.parcel, o.ground);
+                let fee_h = o.fee.map_or(0.0, |(g, a)| a * cost_of(g).unwrap_or(0.0))
+                    + years * o.rent.map_or(0.0, |(g, a)| a * cost_of(g).unwrap_or(0.0));
+                let program = &catalog.buildings[choice.0];
+                let within = |spec: &BuildingSpec| {
+                    let rect = build::plot_rect(spec, program);
+                    rect.x >= ground.x
+                        && rect.y >= ground.y
+                        && rect.x + rect.w <= ground.x + ground.w
+                        && rect.y + rect.h <= ground.y + ground.h
+                };
+                let given = civ_land::Allotment {
+                    law,
+                    parcel,
+                    rule: o.rule,
+                };
+                let on = |spec: &BuildingSpec| {
+                    let (x, y) = build::centre_m(spec);
+                    let (x, y) = ((f64::from(x) * 100.0) as i32, (f64::from(y) * 100.0) as i32);
+                    x >= ground.x
+                        && y >= ground.y
+                        && x < ground.x + ground.w
+                        && y < ground.y + ground.h
+                };
+                for (h, f) in found.iter_mut().filter(|(_, f)| on(&f.spec)) {
+                    f.parcel = Some(given);
+                    f.fee = o.fee;
+                    *h += fee_h;
+                }
+                let (cx, cy) = ground.centre_m();
+                let along_x = ground.w >= ground.h;
+                let laid = [0.0f32, 2.0, -2.0, 4.0, -4.0].into_iter().find_map(|d| {
+                    let from = if along_x { (cx + d, cy) } else { (cx, cy + d) };
+                    site_levelled(choice, hearth, None, from, 0.0).filter(|(h, _)| within(&h.spec))
+                });
+                if let Some((mut home, level_h)) = laid {
+                    let at = build::centre_m(&home.spec);
+                    if !found.iter().any(|(_, f)| build::centre_m(&f.spec) == at) {
+                        let hours =
+                            years * siting::walk_hours_year(at, &places, speed) + level_h + fee_h;
+                        home.parcel = Some(given);
+                        home.fee = o.fee;
+                        found.push((hours, home));
+                    }
+                }
+            }
+            // The cheapest, the first found among equals.
+            let best = found
+                .iter()
+                .enumerate()
+                .min_by(|a, b| a.1.0.total_cmp(&b.1.0).then(a.0.cmp(&b.0)))
+                .map(|(i, _)| i)?;
+            let hours = found[best].0;
+            let next = found
+                .iter()
+                .enumerate()
+                .filter(|&(i, _)| i != best)
+                .map(|(_, f)| f.0)
+                .fold(None, |m: Option<f64>, h| Some(m.map_or(h, |m| m.min(h))))
+                .unwrap_or(hours);
+            let weighed = found.len() as u16;
+            let (_, mut home) = found.swap_remove(best);
+            home.receipt = Some(civ_land::SiteReceipt {
+                weighed,
+                hours: hours as f32,
+                next_hours: next as f32,
+            });
+            Some(home)
         };
         // A first home before anything, farther afield if there is no clear ground near; then a
         // store, while goods are lost for want of room, and a workshop for each firm that has more
         // at work than its home has room for, before more floor. A home's door faces the hearth;
         // a store's or a workshop's, its household's home.
+        // A home it means to build and finds no ground for is told apart (M8c slice CT).
+        // The shape it would build and those on less ground are each weighed with the plot it
+        // would take, in hours: building it and its ground's walks, levelling and fees, the least
+        // in all taken, the one first chosen among equals (M8d slice CZ, ADR-0031 §2).
+        let home_on_ground = |c: Option<((usize, build::Shape), Vec<build::Shape>)>,
+                              first: bool| {
+            let ((p, chosen), compact) = c.ok_or(Unbuilt::Nothing)?;
+            let program = &catalog.buildings[p];
+            let shape_h = |shape: build::Shape| {
+                program
+                    .shapes
+                    .iter()
+                    .find(|c| c.shape == shape)
+                    .map_or(0.0, |c| c.hours(carry))
+            };
+            let mut best: Option<(f64, NewHome)> = None;
+            for shape in std::iter::once(chosen).chain(compact) {
+                let Some(home) = choose_home((p, shape), first) else {
+                    continue;
+                };
+                let ground_h = home.receipt.map_or(0.0, |r| f64::from(r.hours));
+                let total = shape_h(shape) + ground_h;
+                if best.as_ref().is_none_or(|(b, _)| total < *b) {
+                    best = Some((total, home));
+                }
+            }
+            best.map(|(_, home)| home).ok_or(Unbuilt::NoGround)
+        };
         match home {
-            None => home_choice(None).and_then(|c| {
-                site(c, hearth, None, HOME_SHIFT_M)
-                    .or_else(|| site(c, hearth, None, FIRST_HOME_SHIFT_M))
-            }),
+            None => home_on_ground(home_choice(None), true),
             Some(current) => self
                 .storehouse_plan(ctx, hh, labour_per_day, day)
                 .and_then(|c| site(c, Some(hh.home), None, HOME_SHIFT_M))
@@ -2253,9 +2741,8 @@ impl Population {
                         .into_iter()
                         .find_map(|(c, firm)| site(c, Some(hh.home), Some(firm), HOME_SHIFT_M))
                 })
-                .or_else(|| {
-                    home_choice(Some(current)).and_then(|c| site(c, hearth, None, HOME_SHIFT_M))
-                }),
+                .ok_or(Unbuilt::Nothing)
+                .or_else(|_| home_on_ground(home_choice(Some(current)), false)),
         }
     }
 
@@ -2488,6 +2975,31 @@ impl Population {
     /// plot is marked out, the building is begun, and the household's home moves to it (a
     /// household that has a home moves when the new one's roof is on). `None` if the ground is no
     /// longer clear.
+    /// Household `household` begins the first home it would lay out now beside its settlement's
+    /// hearth, as if it had none: for tests.
+    #[doc(hidden)]
+    pub fn begin_home_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        household: PermanentId,
+    ) -> Option<PermanentId> {
+        let hh = self.household(household)?.clone();
+        let hearth = hh.settlement.and_then(|s| {
+            ctx.land
+                .settlements
+                .iter()
+                .find(|x| x.id == s)
+                .map(|x| x.hearth_m)
+        });
+        let labour = self.labour_per_day(&hh.members, ctx.now, ctx.params);
+        let site = self
+            .new_building(ctx, &hh, hearth, hh.id, labour, None)
+            .ok()?;
+        self.home_sites
+            .insert(household, (ctx.now.day_index(), Some(site)));
+        self.begin_home(ctx, household)
+    }
+
     fn begin_home(&mut self, ctx: &mut Ctx, household: PermanentId) -> Option<PermanentId> {
         let (_, site) = self.home_sites.remove(&household)?;
         let site = site?;
@@ -2522,6 +3034,37 @@ impl Population {
                     && b.standing()
                     && ctx.catalog.is_dwelling(&b.spec.program)
             });
+        // A parcel given for a fee is paid for first, to the store (M8c slice CU): unpaid, nothing
+        // is begun.
+        if let (Some(_), Some((good, amount))) = (site.parcel, site.fee) {
+            let store = self
+                .household(household)
+                .and_then(|x| x.settlement)
+                .and_then(|s| self.polity_of(s))
+                .map(|pi| self.polities[pi].id)?;
+            let legs = [crate::ledger::Leg {
+                from: household,
+                to: store,
+                good,
+                amount,
+            }];
+            if !self.transfer(
+                ctx.now,
+                ctx.params,
+                &ctx.catalog.goods,
+                &legs,
+                crate::ledger::Channel::GroundFee,
+            ) {
+                return None;
+            }
+        }
+        // What its polity sees of the ground it takes (M8c slice CT).
+        self.ground_taken(
+            ctx,
+            household,
+            &rect,
+            def.use_ == civ_land::PlotUse::Dwelling,
+        );
         let (plot, id) = (ctx.ids.allocate(), ctx.ids.allocate());
         ctx.land.plots.push(Plot {
             id: plot,
@@ -2529,7 +3072,14 @@ impl Population {
             rect,
             use_: def.use_,
             since: ctx.now,
+            receipt: site.receipt,
+            allotted: site.parcel,
         });
+        // A parcel given is staked by the plan's keeper (M8c slice CU).
+        if let Some(a) = site.parcel {
+            let settlement = self.household(household).and_then(|x| x.settlement);
+            self.stake_parcel(ctx, settlement, a.law);
+        }
         // Its builders' taste followed the building that moved it most (M3b slice R).
         let style_from = self.household(household).and_then(|h| h.admired);
         ctx.land.buildings.push(Building {
@@ -2584,8 +3134,8 @@ impl Population {
         }
         let reach = &self.homes.get(&field_key)?.reach;
         let mut found: Vec<GiverOption> = Vec::new();
-        for (_, x) in self.households.iter() {
-            if x.id == hh.id || x.settlement != Some(settlement) {
+        for x in self.households_in(settlement) {
+            if x.id == hh.id {
                 continue;
             }
             let kcal = spare_food_kcal(x, now, params, goods).min(want);
@@ -2719,7 +3269,13 @@ impl Population {
         // The household's view of its options: kept in Accelerated mode, worked out afresh at
         // each decision otherwise (ADR-0011 §4).
         let hh_view = if ctx.approx.household_view {
-            self.views.remove(&hh_id).unwrap_or_default()
+            let kept = self.views.remove(&hh_id);
+            if kept.is_some() {
+                self.view_counts.0 += 1;
+            } else {
+                self.view_counts.1 += 1;
+            }
+            kept.unwrap_or_default()
         } else {
             HouseholdView::default()
         }
@@ -2886,6 +3442,9 @@ impl Population {
             crossing: self.crossing_facts(ctx, &hh, p.id, field_key, dark),
             well: self.well_facts(ctx, &hh, p.id, dark),
             levee: self.levee_facts(ctx, &hh, p.id, field_key, dark),
+            boat: self.boat_facts(ctx, &hh, field_key, dark),
+            cart: self.cart_facts(ctx, &hh, dark),
+            way: self.way_facts(ctx, &hh, p.id, dark),
             enclosure: self.enclosure_facts(ctx, &hh, p.id, field_key, dark),
             ditch: self.ditch_facts(ctx, &hh, field_key, dark),
             band: band_facts,
@@ -2935,7 +3494,17 @@ impl Population {
         let farm_view = crop.map(|c| FarmView {
             crop: c,
             kcal_per_kg: grain_kcal,
-            fields: self.fields_of(ctx.land, hh_id).collect(),
+            // A field a plan reserved begins no crop again; one standing comes in (M8c slice CU).
+            fields: self
+                .fields_of(ctx.land, hh_id)
+                .filter(|f| {
+                    f.reserved.is_none()
+                        || matches!(
+                            f.stage,
+                            civ_land::FieldStage::Sown | civ_land::FieldStage::Reaped
+                        )
+                })
+                .collect(),
             day: today,
             labour_per_day,
             seed_kg,
@@ -3000,6 +3569,17 @@ impl Population {
                 }
             })
             .collect();
+        // A tool that serves for another counts toward the work that needs that one.
+        for (g, d) in goods.iter().enumerate() {
+            if let Some(t) = d.tool.as_ref().and_then(|x| x.serves)
+                && t != g
+            {
+                let more = free_tools.get(g).copied().unwrap_or(0.0);
+                if let Some(f) = free_tools.get_mut(t) {
+                    *f += more;
+                }
+            }
+        }
         let held_tools = free_tools.clone();
         for m in &hh.members {
             let Some(q) = self.person(*m).filter(|q| Some(q.id) != me) else {
@@ -3019,7 +3599,7 @@ impl Population {
         }
         let held_of = |g: usize| stores.get(g).copied().unwrap_or(0.0).max(0.0);
         let tool_need: Vec<f64> = (0..goods.len())
-            .map(|g| make::tool_need(wants[g], held_of(g)))
+            .map(|g| make::tool_need(wants[g], make::serving(goods, g).map(held_of).sum()))
             .collect();
         // Pots: as many more as would keep the food that lies anywhere but a raised floor or a
         // pot, and the food the next would keep over the store horizon (M3b slice Q).
@@ -3044,25 +3624,70 @@ impl Population {
         let for_sale = self.for_sale(ctx, &hh, &stores, &tool_need);
         let mut tool_material = vec![0.0; goods.len()];
         let mut tool_material_blocked = vec![false; goods.len()];
+        // How each tool it needs is made: its own recipe, or a tool that serves for it that costs
+        // fewer of its hours for each hour of use (M7d slice CE). And the materials those ways
+        // need that it makes itself (copper for a copper axe): the tool each is for, and how
+        // much of it.
+        let can_work = |r: &crate::params::RecipeDef| self.can_work_way(ctx, &hh, &stores, r);
+        let costs_once = OnceCell::new();
+        let costs = || {
+            costs_once
+                .get_or_init(|| self.own_costs_of(ctx, &hh))
+                .clone()
+        };
+        let ways: Vec<Option<usize>> = (0..goods.len())
+            .map(|t| {
+                if goods[t].tool.is_none() {
+                    None
+                } else if goods[t].tool.as_ref().is_some_and(|x| x.serves.is_some()) {
+                    catalog
+                        .recipes
+                        .iter()
+                        .position(|r| r.outputs.iter().any(|&(g, _)| g == t))
+                } else {
+                    make::way_to_tool(catalog, t, &can_work, &costs)
+                }
+            })
+            .collect();
+        let mut made_for: Vec<Option<(usize, f64)>> = vec![None; goods.len()];
         for (t, need) in tool_need.iter().enumerate() {
             if *need <= 0.0 && for_sale.get(t).copied().unwrap_or(0.0) <= 0.0 {
                 continue;
             }
-            let Some(r) = catalog
-                .recipes
-                .iter()
-                .find(|r| r.outputs.iter().any(|(g, _)| *g == t))
-            else {
+            let Some(r) = ways[t].and_then(|r| catalog.recipes.get(r)) else {
                 continue;
             };
+            let blocked = make::tools_for(goods, t, &held_of) < decide::MIN_TOOL;
             for &(g, amount) in &r.inputs {
+                let short = (amount - held_of(g)).max(0.0);
                 if let Some(m) = tool_material.get_mut(g) {
-                    *m += (amount - held_of(g)).max(0.0);
+                    *m += short;
                 }
-                if make::in_use(goods, t, held_of(t)) < decide::MIN_TOOL
-                    && let Some(b) = tool_material_blocked.get_mut(g)
-                {
+                if blocked && let Some(b) = tool_material_blocked.get_mut(g) {
                     *b = true;
+                }
+                // A material it makes itself, and what that is made of.
+                let Some((made, per_unit)) = catalog.recipes.iter().find_map(|m| {
+                    m.outputs
+                        .iter()
+                        .find(|&&(o, _)| o == g)
+                        .filter(|_| short > 0.0 && can_work(m))
+                        .map(|&(_, a)| (m, a))
+                }) else {
+                    continue;
+                };
+                if per_unit <= 0.0 {
+                    continue;
+                }
+                made_for[g] = Some((t, *need));
+                let units = short / per_unit;
+                for &(i, a) in &made.inputs {
+                    if let Some(m) = tool_material.get_mut(i) {
+                        *m += (a * units - held_of(i)).max(0.0);
+                    }
+                    if blocked && let Some(b) = tool_material_blocked.get_mut(i) {
+                        *b = true;
+                    }
                 }
             }
         }
@@ -3471,14 +4096,56 @@ impl Population {
             if speed <= 0.0 {
                 return Err((Reason::TooYoung, None));
             }
+            // Coin is struck only by a mint's keeper, from the metal brought to it (M7d slice
+            // CE2b): the polity's store holds the metal and fuel, the duty is worth the office's
+            // points.
+            if out_good.money.as_ref().is_some_and(|m| m.coin) {
+                let Some((_, _, kg)) = person
+                    .and_then(|p| self.mint_work(ctx, p.id))
+                    .filter(|w| a.recipe == Some(w.1.recipe))
+                else {
+                    return Err((Reason::NotNeeded, None));
+                };
+                if let Some(&t) = r
+                    .tools
+                    .iter()
+                    .find(|&&t| free_tools.get(t).copied().unwrap_or(0.0) < decide::MIN_TOOL)
+                {
+                    return Err((Reason::NoTool, Some(t)));
+                }
+                let per = r.inputs.first().map_or(1.0, |i| i.1).max(1e-9);
+                let units = (kg / per).min(make::units_in(r, f64::from(a.max_minutes), speed));
+                if units.is_nan() || units <= 1e-6 {
+                    return Err((Reason::NoInputs, None));
+                }
+                return Ok(MakeOption {
+                    units,
+                    minutes: make::minutes_for(r, units, speed),
+                    worth: MakeWorth::Office {
+                        points: params.market.strike_points,
+                    },
+                    firm: None,
+                    site: None,
+                });
+            }
             let have = |g: usize| make::available(&stores, goods, g, reserve_ok, protected);
             let from_inputs = make::units_from_inputs(r, &have);
             // What making it is worth, and how much of it is wanted.
             let (worth, wanted) = if let Some(_tool) = &out_good.tool {
-                let need = tool_need.get(out).copied().unwrap_or(0.0);
+                // Its need is the need of the tool it serves for, made the way the household
+                // makes that one (M7d slice CE).
+                let served = make::served(goods, out);
+                let need = tool_need.get(served).copied().unwrap_or(0.0);
                 let sale = for_sale.get(out).copied().unwrap_or(0.0);
-                if need > 0.0 {
-                    (MakeWorth::Tool { tool: out, need }, 1.0)
+                let way = ways
+                    .get(served)
+                    .copied()
+                    .flatten()
+                    .and_then(|w| catalog.recipes.get(w));
+                if need > 0.0 && way.is_some_and(|w| std::ptr::eq(w, r)) {
+                    (MakeWorth::Tool { tool: served, need }, 1.0)
+                } else if need > 0.0 && sale <= 0.0 {
+                    return Err((Reason::BetterWay, None));
                 } else if sale > 0.0 {
                     (MakeWorth::Sale { share: sale }, 1.0)
                 } else {
@@ -3521,6 +4188,19 @@ impl Population {
                     return Err((Reason::NotNeeded, None));
                 }
                 (MakeWorth::Preserve { kcal: kcal * made }, want / made)
+            } else if let Some((tool, need)) = made_for.get(out).copied().flatten() {
+                // A material it makes for a tool it needs (copper for a copper axe): as much as
+                // that way is short of.
+                let per_unit = r
+                    .outputs
+                    .iter()
+                    .find(|&&(g, _)| g == out)
+                    .map_or(0.0, |&(_, amount)| amount);
+                let short = tool_material.get(out).copied().unwrap_or(0.0);
+                if per_unit <= 0.0 || short <= 0.0 {
+                    return Err((Reason::NotNeeded, None));
+                }
+                (MakeWorth::Tool { tool, need }, short / per_unit)
             } else if out_good.purpose == GoodUse::Food {
                 let per_unit: f64 = r
                     .outputs
@@ -3918,6 +4598,7 @@ impl Population {
                         got_mm: 0.0,
                         last_flood_depth_cm: 0,
                         submerged_days: 0,
+                        reserved: None,
                         // Native ground's soil (ADR-0012 §3), of the ground the field keeps.
                         soil: FieldSoil::native(
                             &ctx.land_params.soil,
@@ -4032,6 +4713,10 @@ impl Population {
             }
             x.crew.1 = x.crew.1.saturating_add(1);
         }
+        // And so is someone who sets off to work on a boat (M8b slice CO, third part).
+        if let Target::Boat(b) = target {
+            Self::joined_boat_crew(ctx, b);
+        }
         // And so is someone who sets off to work on a well (M6a slice AY, step three).
         if let Target::Well(w) = target
             && catalog
@@ -4139,6 +4824,25 @@ impl Population {
                     self.start_work(ctx, h, minutes, behavior);
                     return;
                 }
+                Step::Paddle { to } => {
+                    if self.start_paddle(ctx, h, to) {
+                        return;
+                    }
+                    // No boat here, or no way by water today: home on foot instead.
+                    self.cannot_paddle(h);
+                }
+                Step::Haul { to } => {
+                    if self.start_haul(ctx, h, to) {
+                        return;
+                    }
+                    // No cart here, or no way for its wheels today: home on foot instead, the
+                    // cart and what is in it left where they are.
+                    self.cannot_paddle(h);
+                }
+                Step::Handle { minutes, .. } => {
+                    self.start_work(ctx, h, minutes, None);
+                    return;
+                }
                 Step::Wait { minutes } => {
                     // One with a band holding a settlement waits there asleep (M6c slice BM).
                     let band = self.people.get(h).is_some_and(|p| {
@@ -4159,6 +4863,7 @@ impl Population {
     fn start_walk(&mut self, ctx: &mut Ctx, h: Handle<Person>, to: (f32, f32)) -> bool {
         let now = ctx.now;
         let params = ctx.params;
+        let cache_max = ROUTE_CACHE_MAX.max(ROUTE_CACHE_PER_PERSON * self.people.len());
         let Some(p) = self.people.get_mut(h) else {
             return false;
         };
@@ -4168,6 +4873,7 @@ impl Population {
         let wear = &ctx.land.wear;
         let revision = ctx.land.route_revision(ctx.nav.travel_revision());
         if revision != self.routes_rev {
+            self.route_counts.0 += 1;
             self.routes.clear();
             self.routes_old.clear();
             self.landmarks = None;
@@ -4183,7 +4889,13 @@ impl Population {
         } else {
             let key = (from_cell as u32, to_cell as u32);
             if let Some(known) = self.routes_old.remove(&key) {
-                keep_route(&mut self.routes, &mut self.routes_old, key, known);
+                keep_route(
+                    &mut self.routes,
+                    &mut self.routes_old,
+                    key,
+                    known,
+                    cache_max,
+                );
             }
             let cached = match self.routes.get(&key) {
                 Some(known) => known.clone(),
@@ -4224,7 +4936,14 @@ impl Population {
                         ))),
                         RouteResult::Unreachable | RouteResult::BudgetExhausted => None,
                     };
-                    keep_route(&mut self.routes, &mut self.routes_old, key, found.clone());
+                    self.route_counts.1 += u64::from(self.routes.len() >= cache_max);
+                    keep_route(
+                        &mut self.routes,
+                        &mut self.routes_old,
+                        key,
+                        found.clone(),
+                        cache_max,
+                    );
                     found
                 }
             };
@@ -4273,6 +4992,8 @@ impl Population {
             depart: now,
             points,
             minutes,
+            ahead: None,
+            afloat: false,
         };
         settle(p, now, params);
         p.burn_kcal_min = burn_rate(p, now, params, params.energy.walk_par);
@@ -4283,6 +5004,13 @@ impl Population {
         p.act.step_ends = now.plus_minutes(duration as i64);
         let (id, version, ends) = (p.id, p.act.version, p.act.step_ends);
         ctx.schedule_step(ends, id, version);
+        self.count_trip(ctx, h, crate::travel::Mode::Walk, duration);
+        self.count_going(ctx, h);
+        // Its first bottleneck, if it passes one (M8b slice CN).
+        if !ctx.land.crossings.list.is_empty() || !ctx.land.enclosures.list.is_empty() {
+            self.facilities_now(ctx);
+            self.schedule_pass(ctx, h, 0.0, None);
+        }
         if let Some((household, points)) = seen {
             self.see_places(ctx, household, &points);
         }
@@ -4401,6 +5129,9 @@ impl Population {
                 | Behavior::Watch
                 | Behavior::Carry
                 | Behavior::Bridge
+                | Behavior::Boat
+                | Behavior::Cart
+                | Behavior::Way
                 | Behavior::Well
                 | Behavior::Levee
                 | Behavior::Palisade
@@ -4473,6 +5204,7 @@ impl Population {
                     ctx.land
                         .wear
                         .walk(&cells, now.day_index(), &ctx.land_params.paths);
+                    ctx.land.ways.walked(&cells, now.day_index());
                     self.look_for_deposits(ctx, who, household, &trip.points);
                 }
             }
@@ -4657,6 +5389,24 @@ impl Population {
                         self.crossing_work(ctx, (h, who), household, crossing, hours);
                     }
                 }
+                Some(Behavior::Way) => {
+                    if let Target::Way(way) = p.act.target {
+                        let rate = def.as_ref().map_or(1.0, |d| d.rate);
+                        let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * rate;
+                        let hours = f64::from(minutes) / 60.0 * eff;
+                        let household = p.household;
+                        self.way_work(ctx, household, way, hours);
+                    }
+                }
+                Some(Behavior::Boat | Behavior::Cart) => {
+                    if let Target::Boat(boat) = p.act.target {
+                        let rate = def.as_ref().map_or(1.0, |d| d.rate);
+                        let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * rate;
+                        let hours = f64::from(minutes) / 60.0 * eff;
+                        let (who, household) = (p.id, p.household);
+                        self.boat_work(ctx, (h, who), household, boat, hours);
+                    }
+                }
                 Some(Behavior::Well) => {
                     if let Target::Well(well) = p.act.target {
                         let rate = def.as_ref().map_or(1.0, |d| d.rate);
@@ -4712,13 +5462,42 @@ impl Population {
                 }
                 _ => {}
             },
-            Some(Step::Wait { .. } | Step::Deposit) | None => {}
+            Some(Step::Paddle { to }) => {
+                p.pos = civ_land::boating::RiverGraph::centre(&ctx.land.rivers, to);
+                if let Some(trip) = p.trip.take() {
+                    let from = trip.points.first().map(|&at| cell_of(ctx.map, at) as u32);
+                    if let Some(from) = from {
+                        Self::paddled(ctx, household, (from, to));
+                    }
+                }
+            }
+            Some(Step::Haul { to }) => {
+                p.pos = to;
+                if let Some(trip) = p.trip.take() {
+                    let map = ctx.map;
+                    let mut cells =
+                        cells_along(&trip.points, map.cell_size_m, map.width, map.height);
+                    cells.retain(|&c| map.water[c as usize] == WATER_LAND);
+                    ctx.land
+                        .wear
+                        .walk(&cells, now.day_index(), &ctx.land_params.paths);
+                    ctx.land.ways.walked(&cells, now.day_index());
+                    if let Some(&from) = trip.points.first() {
+                        let from = cell_of(map, from) as u32;
+                        Self::hauled(ctx, household, (from, cell_of(map, to) as u32));
+                    }
+                }
+            }
+            Some(Step::Handle { unload: true, .. }) => self.unloaded(ctx, who),
+            Some(Step::Wait { .. } | Step::Deposit | Step::Handle { .. }) | None => {}
         }
         // The time the step took.
         let took = (now.minutes() - started.minutes()).max(0) as f64;
         match step {
-            Some(Step::Walk { .. }) => self.time_use.walking += took,
-            Some(Step::Wait { .. }) => self.time_use.waiting += took,
+            Some(Step::Walk { .. } | Step::Paddle { .. } | Step::Haul { .. }) => {
+                self.time_use.walking += took
+            }
+            Some(Step::Wait { .. } | Step::Handle { .. }) => self.time_use.waiting += took,
             Some(Step::Work { .. }) => {
                 let b = def.as_ref().map(|d| d.behavior);
                 if let Some(i) = b.and_then(|b| Behavior::ALL.iter().position(|&x| x == b))
@@ -4742,7 +5521,12 @@ impl Population {
                 | Behavior::Fetch
                 | Behavior::Hire
                 | Behavior::Take => {
-                    self.views.clear();
+                    self.view_counts.2 += 1;
+                    if ctx.approx.views_by_party {
+                        self.views_moved(household, act_target);
+                    } else {
+                        self.views.clear();
+                    }
                 }
                 _ => {}
             }
@@ -4819,7 +5603,44 @@ impl Population {
         let protected =
             farm::protected_seed(self.fields_of(ctx.land, household), &ctx.catalog.crops);
         let hours = f64::from(minutes) / 60.0;
-        let units = make::units_in(recipe, f64::from(minutes), speed);
+        let mut units = make::units_in(recipe, f64::from(minutes), speed);
+        // Coin is struck from the metal brought to the mint the worker keeps, in the polity's
+        // store, and nobody else strikes it (M7d slice CE2b).
+        let coin = recipe
+            .outputs
+            .first()
+            .and_then(|&(g, _)| goods.get(g))
+            .and_then(|g| g.money.as_ref())
+            .is_some_and(|m| m.coin);
+        if coin {
+            let Some((pi, mint, kg)) = self
+                .mint_work(ctx, p.id)
+                .filter(|w| def.recipe == Some(w.1.recipe))
+            else {
+                return;
+            };
+            let per = recipe.inputs.first().map_or(1.0, |i| i.1).max(1e-9);
+            units = units.min(kg / per);
+            self.strike(ctx, pi, &mint, units);
+            if let Some(x) = self
+                .hh_index
+                .get(&household)
+                .and_then(|&hd| self.households.get_mut(hd))
+            {
+                let members = x.members.len().max(1);
+                x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
+                x.stores.resize(goods.len(), 0.0);
+                let before = x.stores.clone();
+                make::wear(&mut x.stores, goods, &recipe.tools, hours);
+                x.flows
+                    .add_changes(&before, &x.stores, Flow::Made, Flow::Worn);
+            }
+            if let (Some((k, s)), Some(p)) = (skill, self.people.get_mut(h)) {
+                let next = s.practised(p.skill(k), hours);
+                p.set_skill(k, next);
+            }
+            return;
+        }
         if let Some(x) = self
             .hh_index
             .get(&household)
@@ -5328,6 +6149,10 @@ impl Population {
                 _ => 0.0,
             };
             let kept = done.grain_kg * (1.0 - rent);
+            // A creditor working a field pledged to it counts what it keeps against the debt
+            // (M7d slice CB).
+            let field = ctx.land.fields[fi].id;
+            self.pledge_crop(ctx, field, household, crop.good, kept);
             self.levy(ctx, who, household, kept, crop.good);
             // And a faction the thresher belongs to its dues (M4c slice AH).
             self.pay_dues(ctx, who, household, kept, crop.good);
@@ -5899,6 +6724,8 @@ impl Population {
     }
 
     pub fn on_day(&mut self, ctx: &mut Ctx) {
+        self.pay_for_work_given(ctx);
+        self.close_travel_day(ctx);
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         // Gates are opened at first light and kept at dusk (M6c slice BK).
         self.schedule_gates(ctx);
@@ -5999,6 +6826,8 @@ impl Population {
         // Each settlement's polity: founded under the custom, its gathering decided, word of its
         // laws gone round, its review held (ADR-0013).
         self.polity_day(ctx);
+        // The fields under plans in force that take or pay for them (M8c slice CU, fifth part).
+        self.claim_plan_fields(ctx);
         // Takings found, word of them gone round, and what households taken from choose and are
         // owed (ADR-0015).
         self.crime_day(ctx);
@@ -6068,6 +6897,14 @@ impl Population {
         self.record_convergence(ctx);
         // Households whose day it is review what they offer and on what terms.
         self.review_offers(ctx, day);
+        // Those that found a boat would save them more walking over its life than making it
+        // takes begin one (M8b slice CO, third part).
+        self.begin_boats(ctx);
+        // Households whose day it is weigh borrowing, and loans due are paid (M7d slice CA).
+        self.credit_day(ctx, day);
+        // Households bring metal to their polity's mint (M7d slice CE2b).
+        self.bring_to_mints(ctx);
+        self.reconcile_coin(ctx);
         // A workshop whose firm closed goes to another firm of its household that has none.
         self.hand_on_workshops(ctx.land, ctx.catalog);
         // Births, deaths, couples and the households they make.
@@ -6078,6 +6915,8 @@ impl Population {
         if !self.influences.waves.is_empty() {
             crate::found::wave_arrivals(self, ctx);
         }
+        // Hours given to common works today are paid for (M7d slice CE3a).
+        self.pay_for_work_given(ctx);
     }
 }
 
@@ -6308,6 +7147,7 @@ mod tests {
 
     fn goods() -> Vec<GoodDef> {
         let good = |id: &str, purpose, kcal, half, eaten| GoodDef {
+            money: None,
             id: id.into(),
             name: id.into(),
             purpose,

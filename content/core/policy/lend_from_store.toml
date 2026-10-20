@@ -1,0 +1,23 @@
+# Lending from the store (M7d slice CC, ADR-0027 §4; research 08-20 §2.1: public lending, Rome in
+# AD 33 lending for three years at no interest; 08-20 §1.6: relief can lower self-insurance). Under
+# it a household of the polity whose food will not last to its harvest asks the common store
+# before its neighbours, and borrows at the law's terms, not what a lender believes of it: up to
+# `share` of the food the store holds, owed with `increment` more, due a week after its harvest
+# begins to come in, repaid into the store. Relief stays a gift. The terms are tuning values;
+# whether anyone proposes it and whether a gathering passes it is people's.
+kind = "policy"
+id = "core:policy/lend_from_store"
+name = "Lending from the store"
+description = "A household short before its harvest may borrow from the common store, repaid with a little more."
+does = "lend_from_store"
+answers = ["food_short"]
+question = "whether the common store lends to households short before their harvest"
+
+[lending]
+increment = 0.1
+share = 0.25
+
+# An authoring judgement, not a measurement.
+[bears]
+"core:value/security" = 1.0
+"core:value/reciprocity" = 0.5

@@ -24,15 +24,21 @@ use std::f64::consts::TAU;
 pub mod frame;
 
 pub use frame::{
-    FRAME_VERSION, FrameRules, MAX_BAYS, MAX_GROUPS, MAX_STOREYS, expand_frame, frame_materials,
-    frame_params,
+    FRAME_DESIGN_VERSION, FRAME_VERSION, FrameRules, MAX_BAYS, MAX_GROUPS, MAX_GROUPS_V3,
+    MAX_OPENING_PERMILLE, MAX_STOREYS, Masonry, STAIR_TILT_CENTIDEG, STAIR_WIDTH_CM, expand_frame,
+    frame_limits, frame_materials, frame_params, max_groups,
 };
 
 /// Version of the hut grammar.
 pub const HUT_VERSION: u16 = 1;
 
-/// Integer parameters a spec carries (ADR-0009 §2: eight in M1, sixteen since grammar v2).
-pub const PARAMS: usize = 16;
+/// Integer parameters a spec carries (ADR-0009 §2: eight in M1, sixteen since grammar v2;
+/// ADR-0031 §1: thirty-two for frame version 3).
+pub const PARAMS: usize = 32;
+
+/// Parameters a spec of a version before frame version 3 carries: the hut and frame versions 1
+/// and 2 use only the first sixteen, and are saved with sixteen (ADR-0031 §1).
+pub const PARAMS_BEFORE_V3: usize = 16;
 
 /// The grammar a program's buildings are expanded by.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -65,8 +71,8 @@ impl Grammar {
 pub enum ProgramRules {
     /// A hut's.
     Hut(HutRules),
-    /// A frame building's.
-    Frame(FrameRules),
+    /// A frame building's (boxed: it is many times a hut's).
+    Frame(Box<FrameRules>),
 }
 
 impl ProgramRules {
@@ -197,6 +203,19 @@ pub struct BuildingSpec {
     pub style_seed: u64,
 }
 
+impl BuildingSpec {
+    /// The parameters its grammar version has: the first sixteen before frame version 3, all
+    /// thirty-two since (ADR-0031 §1). Only these are saved, so a design of an earlier version is
+    /// saved as it always was.
+    pub fn params_in_use(&self) -> &[i32] {
+        if self.version >= 3 {
+            &self.params
+        } else {
+            &self.params[..PARAMS_BEFORE_V3]
+        }
+    }
+}
+
 /// A construction stage (ADR-0004 §2), in the order the work goes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Stage {
@@ -285,6 +304,17 @@ pub enum PartKind {
     MassWall,
     /// A fired clay roof tile (frame version 2).
     Tile,
+    /// A flight of stairs from one storey to the next (frame version 3).
+    Stair,
+    /// A window left open in a wall (frame version 3).
+    Window,
+    /// A truss's member at a frame line: a principal rafter or the king post (frame version 3).
+    Truss,
+    /// A beam along a roof slope from truss to truss, carrying the rafters (frame version 3).
+    Purlin,
+    /// A timber bond laid along a mass wall at a storey's head, into which floors and roof are
+    /// framed (frame version 3).
+    WallTie,
 }
 
 impl PartKind {
@@ -310,6 +340,11 @@ impl PartKind {
             PartKind::StoneFooting => 16,
             PartKind::MassWall => 17,
             PartKind::Tile => 18,
+            PartKind::Stair => 19,
+            PartKind::Window => 20,
+            PartKind::Truss => 21,
+            PartKind::Purlin => 22,
+            PartKind::WallTie => 23,
         }
     }
 }
@@ -360,6 +395,10 @@ pub enum Level {
     Loft,
     /// The roof itself.
     Roof,
+    /// A third storey (frame version 3).
+    Third,
+    /// A fourth storey (frame version 3).
+    Fourth,
 }
 
 impl Level {
@@ -370,7 +409,46 @@ impl Level {
             Level::Upper => 1,
             Level::Loft => 2,
             Level::Roof => 3,
+            Level::Third => 4,
+            Level::Fourth => 5,
         }
+    }
+
+    /// The level with stable code `code`.
+    pub fn from_code(code: u8) -> Option<Level> {
+        [
+            Level::Ground,
+            Level::Upper,
+            Level::Loft,
+            Level::Roof,
+            Level::Third,
+            Level::Fourth,
+        ]
+        .into_iter()
+        .find(|l| l.code() == code)
+    }
+
+    /// The level of storey `t`, 0 the first, up to the fourth.
+    pub fn storey(t: usize) -> Option<Level> {
+        [Level::Ground, Level::Upper, Level::Third, Level::Fourth]
+            .get(t)
+            .copied()
+    }
+
+    /// Which storey it is, in words: "first" to "fourth"; `None` for a loft or the roof.
+    pub fn ordinal(self) -> Option<&'static str> {
+        match self {
+            Level::Ground => Some("first"),
+            Level::Upper => Some("second"),
+            Level::Third => Some("third"),
+            Level::Fourth => Some("fourth"),
+            Level::Loft | Level::Roof => None,
+        }
+    }
+
+    /// Whether it is a storey above the first: the second, third or fourth.
+    pub fn above_ground(self) -> bool {
+        matches!(self, Level::Upper | Level::Third | Level::Fourth)
     }
 }
 
@@ -410,6 +488,12 @@ pub enum GroupKind {
     Floor,
     /// A mass wall of rubble, mud brick or fired brick (frame version 2).
     MassWall,
+    /// The trusses at the frame lines: principal rafters and king posts (frame version 3).
+    Trusses,
+    /// The purlins of one roof slope (frame version 3).
+    Purlins,
+    /// The ties binding one storey's mass walls at its head (frame version 3).
+    Ties,
 }
 
 impl GroupKind {
@@ -426,6 +510,9 @@ impl GroupKind {
             GroupKind::Infill => 8,
             GroupKind::Floor => 9,
             GroupKind::MassWall => 10,
+            GroupKind::Trusses => 11,
+            GroupKind::Purlins => 12,
+            GroupKind::Ties => 13,
         }
     }
 
@@ -442,11 +529,14 @@ impl GroupKind {
             GroupKind::Infill => "infill",
             GroupKind::Floor => "floor",
             GroupKind::MassWall => "mass wall",
+            GroupKind::Trusses => "trusses",
+            GroupKind::Purlins => "purlins",
+            GroupKind::Ties => "wall ties",
         }
     }
 
     /// Every kind, in code order.
-    pub const ALL: [GroupKind; 10] = [
+    pub const ALL: [GroupKind; 13] = [
         GroupKind::Posts,
         GroupKind::TieBeams,
         GroupKind::LoftJoists,
@@ -457,6 +547,9 @@ impl GroupKind {
         GroupKind::Infill,
         GroupKind::Floor,
         GroupKind::MassWall,
+        GroupKind::Trusses,
+        GroupKind::Purlins,
+        GroupKind::Ties,
     ];
 
     /// The kind with stable code `code`.

@@ -1,0 +1,27 @@
+# Homes and their middens kept from the wells (M8c slice CW; ADR-0030 §6: a nuisance rule over a
+# harm the kernel models, a heap's seepage to a well, `contagion.rs`). When households have heard of
+# sickness at home (the issue `sickness`), anyone may propose that a new home, where its household's
+# midden lies, must stand a set distance from every open well: the distance a heap seeps to in the
+# ground (`[contamination]`'s `link_radius_m`, 30 m). It needs no technique: only ground. It binds
+# only homes begun once it is in force, so old homes stand where they stood. A household weighs it
+# by the sickness it believes averted, the cases at home it has heard of at what a case takes from
+# its work, if its home stands within reach of a well. Keeping it is each builder's choice, with no
+# sanction. Its id sorts after every older template's: hearth talk about a question is keyed by a
+# template's place in id order.
+kind = "policy"
+id = "core:policy/works_wrought_wells"
+name = "Middens kept from the wells"
+description = "A new home, and its midden, must stand thirty metres from every open well."
+does = "building_rule"
+answers = ["sickness"]
+question = "whether new homes must stand apart from the wells"
+
+[rule]
+template = "midden_from_wells"
+from_m = 30.0
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement: it guards health and binds where people build.
+[bears]
+"core:value/security" = 0.5
+"core:value/autonomy" = -0.3

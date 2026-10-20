@@ -46,6 +46,19 @@ pub fn wall_kind(spec: &civ_grammar::BuildingSpec, rules: &civ_grammar::ProgramR
     }
 }
 
+/// The strength in compression and weight of a mass wall of kind `kind` (1 rubble, 2 mud brick, 3
+/// fired brick) in a program with rules `rules`, pascals and kilograms a cubic metre: the
+/// program's own figures (ADR-0031 §1), or rubble's for a kind it does not name.
+pub fn masonry(rules: &civ_grammar::ProgramRules, kind: i32) -> (f64, f64) {
+    match rules {
+        civ_grammar::ProgramRules::Frame(r) => {
+            let m = r.masonry[(kind.clamp(1, 3) - 1) as usize];
+            (m.strength_pa, m.kg_per_m3)
+        }
+        _ => (1.5e6, 1900.0),
+    }
+}
+
 /// The least distance between two plots' rectangles, metres.
 pub fn gap_m(a: &civ_land::RectCm, b: &civ_land::RectCm) -> f64 {
     let dx = (a.x - (b.x + b.w)).max(b.x - (a.x + a.w)).max(0);
@@ -65,6 +78,37 @@ pub fn near_another(
     buildings
         .iter()
         .filter(|b| Some(b.id) != except && b.standing())
+        .filter_map(plot_of)
+        .any(|r| gap_m(rect, &r) < within_m)
+}
+
+/// Whether a plot `rect` lies within `within_m` of an open well among `wells` (M8c slice CW): a
+/// household's midden lies at its home.
+pub fn near_open_well(
+    rect: &civ_land::RectCm,
+    within_m: f64,
+    wells: &civ_land::wells::Wells,
+) -> bool {
+    wells
+        .list
+        .iter()
+        .filter(|w| w.is_open())
+        .any(|w| gap_m(rect, &w.rect) < within_m)
+}
+
+/// Whether a plot `rect` lies within `within_m` of the plot of a standing home (`is_home`) of a
+/// household other than `household` among `buildings`, plots found by `plot_of` (M8c slice CW).
+pub fn near_others_homes(
+    rect: &civ_land::RectCm,
+    within_m: f64,
+    buildings: &[Building],
+    household: civ_core::PermanentId,
+    plot_of: &dyn Fn(&Building) -> Option<civ_land::RectCm>,
+    is_home: &dyn Fn(&Building) -> bool,
+) -> bool {
+    buildings
+        .iter()
+        .filter(|b| b.household != household && b.standing() && is_home(b))
         .filter_map(plot_of)
         .any(|r| gap_m(rect, &r) < within_m)
 }

@@ -49,6 +49,33 @@ test("a village shows the trails its people wore", async ({ page }) => {
     expect(at, "a trail near the settlement").not.toBeNull();
     await page.mouse.move(box.x + at![0]!, box.y + at![1]!);
     await expect(page.locator("#readout")).toContainText("a trail");
+    // Worn ground is not a way: nobody has worked on one, so there is none to draw (M8b slice CM).
+    expect(await page.evaluate(() => window.__TCE__.state().waysRev)).toBe(0);
+    expect((await page.evaluate(() => window.__TCE__.map())).ways).toEqual([]);
+    // Nobody has made a boat or a cart yet, so there is none to draw (M8b slice CP).
+    expect(await page.evaluate(() => window.__TCE__.state().vehiclesRev)).toBe(0);
+    expect((await page.evaluate(() => window.__TCE__.map())).vehicles).toEqual([]);
+    // The map draws a plan exactly when one is put forward or in force (M8c slice CT): none until
+    // a polity lays one, and each one laid once it does.
+    await expect
+      .poll(async () => {
+        const rev = await page.evaluate(() => window.__TCE__.state().plansRev);
+        const drawn = (await page.evaluate(() => window.__TCE__.map())).plans.length;
+        return rev === 0 ? drawn === 0 : drawn > 0;
+      })
+      .toBe(true);
+    // The land map (M8c slice CX) is drawn only while asked for, and then shows every plot laid.
+    expect((await page.evaluate(() => window.__TCE__.map())).land.plots).toBe(0);
+    await page.locator("#show-land").check();
+    await expect
+      .poll(async () => {
+        const rev = await page.evaluate(() => window.__TCE__.state().landRev);
+        const shown = (await page.evaluate(() => window.__TCE__.map())).land.plots;
+        return rev === 0 ? shown === 0 : shown > 0;
+      })
+      .toBe(true);
+    await page.locator("#show-land").uncheck();
+    await expect.poll(async () => (await page.evaluate(() => window.__TCE__.map())).land.plots).toBe(0);
     if (shots) await page.screenshot({ path: `${shots}/trails.png` });
   } finally {
     await host.stop();

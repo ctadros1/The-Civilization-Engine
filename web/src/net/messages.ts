@@ -387,6 +387,19 @@ export interface Snapshot {
   /** Wire 1.60: changes whenever a crossing is begun, worked on, opens, rots or gives way (0 =
    * none). Fetch the crossings with GetCrossings. */
   crossingsRev: number;
+  /** Wire 1.84: changes whenever a way is begun or changed, and at each month's survey while there
+   * are any (0 = none). Fetch the ways with GetWays. */
+  waysRev: number;
+  /** Wire 1.86: changes whenever a boat or a cart is begun, worked on, made, moved or gone, taken
+   * out or brought in, or the goods aboard one change (0 = none yet). Fetch them with GetVehicles. */
+  vehiclesRev: number;
+  /** Wire 1.88: changes whenever a plan is put forward, passed or ended, a building is begun on
+   * ground one reserves or one there falls, and with the ways while any plan was laid (0 = none
+   * yet). Fetch them with GetPlans. */
+  plansRev: number;
+  /** Wire 1.89: changes whenever a plot is laid or given up, or its receipt or the parcel it was
+   * given changes (0 = no plot yet). Fetch the land map with GetLand. */
+  landRev: number;
   /** Wire 1.61: changes whenever a well is begun, dug deeper, opens, rots, is relined, given up or
    * falls in, and with each day lived while the world has wells or springs (0 = neither). Fetch
    * them with GetWater. */
@@ -570,6 +583,10 @@ export interface BuildingInfo {
   fire: BuildingFire;
   fireId: number;
   fireWords: string;
+  /** Wire 1.87 (M8c slice CS): why its household chose its plot, in words rendered by the kernel
+   * ("chosen over 5 others: 34 hours less walking and levelling over 5 years than the next best");
+   * empty where nothing was weighed. */
+  site: string;
 }
 
 /** How a building stands to its latest fire (wire 1.68). */
@@ -1158,6 +1175,11 @@ export interface PolityLine {
   ended: string;
   /** Wire 1.77 (M7a slice BQ, ADR-0024 §3): its council's elections, newest first. */
   elections: ElectionLine[];
+  /**
+   * Wire 1.81 (M7c slice BZ, ADR-0026 §5): who each organization by stake has come to hold, in the
+   * kernel's sentences.
+   */
+  capture: string[];
 }
 
 /** One election of a council (wire 1.77), in the kernel's words. */
@@ -1575,6 +1597,17 @@ export interface SettlementWealth {
   households: HouseholdWealth[];
   /** At the end of each year, oldest first. */
   history: WealthSpread[];
+  /**
+   * Wire 1.82 (M7d slice CA): loans its households owe, open ones first then those closed within
+   * a year, newest first, in the kernel's words.
+   */
+  loans: string[];
+  /**
+   * Wire 1.83 (M7d slice CE): its coin in the kernel's words: the mint where it is a polity's
+   * seat, each kind of piece struck there, metal waiting and the store's pieces, then what its
+   * households hold by whose issue. Empty where there is no coin.
+   */
+  coin: string[];
 }
 
 export interface WealthInfo {
@@ -1729,6 +1762,116 @@ export interface CrossingsInfo {
   crossings: CrossingInfo[];
 }
 
+/** One stretch of a way (wire 1.84, M8b slice CM; ADR-0029 §1). */
+export interface WaySegmentInfo {
+  /** Its centre line, metres from the map's north-west corner. */
+  points: [number, number][];
+  /** The corridor reserved for it, the width built and the width usable today, metres. */
+  corridorM: number;
+  builtM: number;
+  usableM: number;
+  /** Its surface in words: "cleared ground", "gravel". */
+  surface: string;
+  /** Its condition today, 0–1, and its steepest grade, rise over run. */
+  condition: number;
+  grade: number;
+  /** Who keeps it, in words ("" for nobody). */
+  keeper: string;
+}
+
+/** A way people have worked on (wire 1.84). */
+export interface WayInfo {
+  id: number;
+  /** 0 a lane, 1 a street, 2 a main way, 3 a way between settlements: derived, shown only. */
+  rank: number;
+  rankName: string;
+  /** Bits: 1 walking, 2 handcarts. */
+  modes: number;
+  tripsADay: number;
+  segments: WaySegmentInfo[];
+  /** In the kernel's words: "Street of 240 m, 3.0 m wide at most; begun in year 2." */
+  words: string;
+}
+
+export interface WaysInfo {
+  rev: number;
+  ways: WayInfo[];
+}
+
+/** A boat or a cart (wire 1.86, M8b slices CO and CP; ADR-0029 §3). */
+export interface VehicleInfo {
+  id: number;
+  /** 0 a boat, 1 a cart. */
+  mode: number;
+  /** Its content name: "Dugout". */
+  name: string;
+  /** The household it is of, and that household in words: "Ada's household". */
+  owner: number;
+  ownerName: string;
+  /** Where it stands, metres from the map's north-west corner. */
+  x: number;
+  y: number;
+  /** How far it is made, 0–1 (1 made), and its wear, 0–1. */
+  made: number;
+  wear: number;
+  /** Who of its household has it out now (0 for nobody), and the goods aboard, kg. */
+  outWith: number;
+  loadKg: number;
+  /** In the kernel's words: "Ada's household's dugout, made in year 2; out with Bo, 40 kg aboard". */
+  words: string;
+}
+
+export interface VehiclesInfo {
+  rev: number;
+  vehicles: VehicleInfo[];
+}
+
+/** A rectangle of a plan's ground, metres from the map's north-west corner (wire 1.88). */
+export interface PlanRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** A plan put forward or in force (wire 1.88, M8c slice CT; ADR-0030 §3), in three layers kept
+ * apart: the streets and square it reserves and the parcels it lays out; the reserved ground a way
+ * already runs over; and the plots of the buildings standing on reserved ground. */
+export interface PlanInfo {
+  law: number;
+  version: number;
+  inForce: boolean;
+  streets: PlanRect[];
+  sites: PlanRect[];
+  parcels: PlanRect[];
+  built: PlanRect[];
+  occupied: PlanRect[];
+  /** In the kernel's words: "Ashford: a plan (version 1) of …, in force; 1 building stands on its
+   * reserved ground". */
+  words: string;
+}
+
+export interface PlansInfo {
+  rev: number;
+  plans: PlanInfo[];
+}
+
+/** A plot on the land map (wire 1.89, M8c slice CX; ADR-0030 §1): drawn from what is recorded of
+ * it, never from a land value the kernel keeps: what was paid for it, kcal (0 for none), and what
+ * its household reckoned it worth, the hours a year it saved over the next best of `weighed`
+ * plots (0 weighed for none). Neither is "nothing recorded". */
+export interface LandPlot {
+  rect: PlanRect;
+  paidKcal: number;
+  reckonedH: number;
+  weighed: number;
+}
+
+export interface LandInfo {
+  rev: number;
+  plots: LandPlot[];
+}
+
 /** A well (wire 1.61, M6a slice AY; ADR-0021 §3). */
 export interface WellInfo {
   id: number;
@@ -1837,6 +1980,25 @@ export interface CoverageHome {
 }
 
 /** A lens's homes with its legend's parts (15-01 §3.1): title, scope, period, denominator. */
+/** A bottleneck on the Traffic lens (wire 1.85, M8b slice CN; ADR-0029 §9). */
+export interface CoveragePlace {
+  /** In words: "Ada's household's log footbridge", "a gate of Ashford's palisade". */
+  name: string;
+  x: number;
+  y: number;
+  settlement: number;
+  /** Its passages and minutes waited over about the last 30 days, each fading; those who stood
+   * short of its approach; its longest wait remembered, minutes. */
+  passages: number;
+  waitedMin: number;
+  heldShort: number;
+  longestMin: number;
+  /** By hour of the day (24 each): passages, and seconds waited a passage. */
+  hourPassages: number[];
+  hourWaitS: number[];
+  words: string[];
+}
+
 export interface CoverageInfo {
   lens: number;
   title: string;
@@ -1850,6 +2012,8 @@ export interface CoverageInfo {
   /** The period of *did come*, days. */
   days: number;
   summary: string[];
+  /** The Traffic lens's bottlenecks (lens 3), busiest first. */
+  places: CoveragePlace[];
 }
 
 export interface EarthworksInfo {
@@ -1881,6 +2045,10 @@ export type ResponseBody =
   | { kind: "deposits"; deposits: DepositsInfo }
   | { kind: "earthworks"; earthworks: EarthworksInfo }
   | { kind: "crossings"; crossings: CrossingsInfo }
+  | { kind: "ways"; ways: WaysInfo }
+  | { kind: "vehicles"; vehicles: VehiclesInfo }
+  | { kind: "plans"; plans: PlansInfo }
+  | { kind: "land"; land: LandInfo }
   | { kind: "water"; water: WaterInfo }
   | { kind: "weather"; weather: WeatherReport }
   | { kind: "standing"; standing: StandingInfo }
@@ -2367,6 +2535,30 @@ export function getCrossings(): Uint8Array {
   return query(b, W.QueryBody.GetCrossings, W.GetCrossings.endGetCrossings(b));
 }
 
+export function getWays(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetWays.startGetWays(b);
+  return query(b, W.QueryBody.GetWays, W.GetWays.endGetWays(b));
+}
+
+export function getVehicles(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetVehicles.startGetVehicles(b);
+  return query(b, W.QueryBody.GetVehicles, W.GetVehicles.endGetVehicles(b));
+}
+
+export function getPlans(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetPlans.startGetPlans(b);
+  return query(b, W.QueryBody.GetPlans, W.GetPlans.endGetPlans(b));
+}
+
+export function getLand(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetLand.startGetLand(b);
+  return query(b, W.QueryBody.GetLand, W.GetLand.endGetLand(b));
+}
+
 /** A page of incidents (wire 1.64): `settlement` 0 for every one, `kind` 0 for every kind. */
 export function getIncidents(settlement: number, kind: number, before: IncidentKey | null, limit: number): Uint8Array {
   const b = new flatbuffers.Builder(64);
@@ -2671,6 +2863,10 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     earthworksRev: Number(s.earthworksRev()),
     weatherRev: Number(s.weatherRev()),
     crossingsRev: Number(s.crossingsRev()),
+    waysRev: Number(s.waysRev()),
+    vehiclesRev: Number(s.vehiclesRev()),
+    plansRev: Number(s.plansRev()),
+    landRev: Number(s.landRev()),
     waterRev: Number(s.waterRev()),
     incidentsRev: Number(s.incidentsRev()),
     bands: bandBriefs(s),
@@ -2752,6 +2948,109 @@ function crossings(w: W.Crossings): CrossingsInfo {
   return { rev: Number(w.rev()), crossings: list };
 }
 
+function ways(w: W.Ways): WaysInfo {
+  const list: WayInfo[] = [];
+  for (let i = 0; i < w.waysLength(); i++) {
+    const v = w.ways(i);
+    if (!v) continue;
+    const segments: WaySegmentInfo[] = [];
+    for (let j = 0; j < v.segmentsLength(); j++) {
+      const s = v.segments(j);
+      if (!s) continue;
+      const points: [number, number][] = [];
+      for (let k = 0; k + 1 < s.pointsLength(); k += 2) points.push([s.points(k) ?? 0, s.points(k + 1) ?? 0]);
+      segments.push({
+        points,
+        corridorM: s.corridorM(),
+        builtM: s.builtM(),
+        usableM: s.usableM(),
+        surface: s.surface() ?? "",
+        condition: s.condition(),
+        grade: s.grade(),
+        keeper: s.keeper() ?? "",
+      });
+    }
+    list.push({
+      id: Number(v.id()),
+      rank: v.rank(),
+      rankName: v.rankName() ?? "",
+      modes: v.modes(),
+      tripsADay: v.tripsADay(),
+      segments,
+      words: v.words() ?? "",
+    });
+  }
+  return { rev: Number(w.rev()), ways: list };
+}
+
+function vehicles(w: W.Vehicles): VehiclesInfo {
+  const list: VehicleInfo[] = [];
+  for (let i = 0; i < w.vehiclesLength(); i++) {
+    const v = w.vehicles(i);
+    if (!v) continue;
+    list.push({
+      id: Number(v.id()),
+      mode: v.mode(),
+      name: v.name() ?? "",
+      owner: Number(v.owner()),
+      ownerName: v.ownerName() ?? "",
+      x: v.x(),
+      y: v.y(),
+      made: v.made(),
+      wear: v.wear(),
+      outWith: Number(v.outWith()),
+      loadKg: v.loadKg(),
+      words: v.words() ?? "",
+    });
+  }
+  return { rev: Number(w.rev()), vehicles: list };
+}
+
+function planRects(n: number, at: (i: number) => W.PlanRect | null): PlanRect[] {
+  const out: PlanRect[] = [];
+  for (let i = 0; i < n; i++) {
+    const r = at(i);
+    if (r) out.push({ x: r.x(), y: r.y(), w: r.w(), h: r.h() });
+  }
+  return out;
+}
+
+function land(w: W.Land): LandInfo {
+  const plots: LandPlot[] = [];
+  for (let i = 0; i < w.plotsLength(); i++) {
+    const p = w.plots(i);
+    const r = p?.rect();
+    if (!p || !r) continue;
+    plots.push({
+      rect: { x: r.x(), y: r.y(), w: r.w(), h: r.h() },
+      paidKcal: p.paidKcal(),
+      reckonedH: p.reckonedH(),
+      weighed: p.weighed(),
+    });
+  }
+  return { rev: Number(w.rev()), plots };
+}
+
+function plans(w: W.Plans): PlansInfo {
+  const list: PlanInfo[] = [];
+  for (let i = 0; i < w.plansLength(); i++) {
+    const p = w.plans(i);
+    if (!p) continue;
+    list.push({
+      law: Number(p.law()),
+      version: p.version(),
+      inForce: p.inForce(),
+      streets: planRects(p.streetsLength(), (k) => p.streets(k)),
+      sites: planRects(p.sitesLength(), (k) => p.sites(k)),
+      parcels: planRects(p.parcelsLength(), (k) => p.parcels(k)),
+      built: planRects(p.builtLength(), (k) => p.built(k)),
+      occupied: planRects(p.occupiedLength(), (k) => p.occupied(k)),
+      words: p.words() ?? "",
+    });
+  }
+  return { rev: Number(w.rev()), plans: list };
+}
+
 function coverageSource(v: W.CoverageSource): CoverageSource {
   const at = v.at();
   const minutes = v.minutes();
@@ -2804,6 +3103,31 @@ function coverage(c: W.Coverage): CoverageInfo {
   }
   const summary: string[] = [];
   for (let i = 0; i < c.summaryLength(); i++) summary.push(c.summary(i));
+  const places: CoveragePlace[] = [];
+  for (let i = 0; i < c.placesLength(); i++) {
+    const p = c.places(i);
+    if (!p) continue;
+    const at = p.at();
+    const hourPassages: number[] = [];
+    for (let j = 0; j < p.hourPassagesLength(); j++) hourPassages.push(p.hourPassages(j) ?? 0);
+    const hourWaitS: number[] = [];
+    for (let j = 0; j < p.hourWaitSLength(); j++) hourWaitS.push(p.hourWaitS(j) ?? 0);
+    const words: string[] = [];
+    for (let j = 0; j < p.wordsLength(); j++) words.push(p.words(j));
+    places.push({
+      name: p.name() ?? "",
+      x: at?.x() ?? 0,
+      y: at?.y() ?? 0,
+      settlement: Number(p.settlement()),
+      passages: p.passages(),
+      waitedMin: p.waitedMin(),
+      heldShort: p.heldShort(),
+      longestMin: p.longestMin(),
+      hourPassages,
+      hourWaitS,
+      words,
+    });
+  }
   const periods: string[] = [];
   for (let i = 0; i < c.periodsLength(); i++) periods.push(c.periods(i));
   return {
@@ -2816,6 +3140,7 @@ function coverage(c: W.Coverage): CoverageInfo {
     limitMin: c.limitMin(),
     days: c.days(),
     summary,
+    places,
   };
 }
 
@@ -3541,6 +3866,7 @@ function buildings(f: W.Buildings): { rev: number; buildings: BuildingInfo[] } {
       fire: BUILDING_FIRES[x.fire()] ?? "none",
       fireId: x.fireId(),
       fireWords: x.fireWords() ?? "",
+      site: x.site() ?? "",
     });
   }
   return { rev: Number(f.rev()), buildings: out };
@@ -3848,6 +4174,8 @@ function wealth(w: W.Wealth): WealthInfo {
       now: now ? wealthSpread(now) : null,
       households,
       history,
+      loans: Array.from({ length: s.loansLength() }, (_, k) => s.loans(k) ?? ""),
+      coin: Array.from({ length: s.coinLength() }, (_, k) => s.coin(k) ?? ""),
     });
   }
   return { rev: Number(w.rev()), regimeName: w.regimeName() ?? "", settlements };
@@ -4336,6 +4664,7 @@ function governmentInfo(w: W.Government): GovernmentInfo {
           }),
         };
       }),
+      capture: Array.from({ length: p.captureLength() }, (_, k) => p.capture(k) ?? ""),
     });
   }
   const sieges: SiegeLine[] = [];
@@ -4536,6 +4865,26 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Crossings()) as W.Crossings | null;
       if (!f) break;
       return { kind: "crossings", crossings: crossings(f) };
+    }
+    case W.ResponseBody.Ways: {
+      const f = r.body(new W.Ways()) as W.Ways | null;
+      if (!f) break;
+      return { kind: "ways", ways: ways(f) };
+    }
+    case W.ResponseBody.Vehicles: {
+      const f = r.body(new W.Vehicles()) as W.Vehicles | null;
+      if (!f) break;
+      return { kind: "vehicles", vehicles: vehicles(f) };
+    }
+    case W.ResponseBody.Plans: {
+      const f = r.body(new W.Plans()) as W.Plans | null;
+      if (!f) break;
+      return { kind: "plans", plans: plans(f) };
+    }
+    case W.ResponseBody.Land: {
+      const f = r.body(new W.Land()) as W.Land | null;
+      if (!f) break;
+      return { kind: "land", land: land(f) };
     }
     case W.ResponseBody.Incidents: {
       const f = r.body(new W.Incidents()) as W.Incidents | null;

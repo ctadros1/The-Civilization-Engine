@@ -461,3 +461,75 @@ fn a_building_heard_to_give_way_opens_a_walls_rule_and_a_fire_a_gap_rule_both_ke
             .gave_way
     );
 }
+
+#[test]
+fn a_rule_keeps_a_home_where_fire_is_worked_from_others_homes() {
+    // M8c slice CW (ADR-0030 §6): a rule for building over `fire.rs`'s worked fires. In force, it
+    // binds only a household that works fire, holding a kiln: its builders keep its next home ten
+    // metres from others' homes, and its hut six metres from its neighbours' breaks it; a
+    // household that works no fire is not bound.
+    let mut sim = village(5);
+    sim.advance_minutes(DAY).expect("advances");
+    let homes = huts_in_a_row(&mut sim, 3, 6.0);
+    let (hut, potter) = homes[0];
+    let (other_hut, other) = homes[1];
+    let kiln = content()
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/kiln")
+        .expect("a kiln");
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == potter {
+            if x.stores.len() <= kiln {
+                x.stores.resize(kiln + 1, 0.0);
+            }
+            x.stores[kiln] = 1.0;
+        }
+    }
+    let settlement = sim
+        .people()
+        .household(potter)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.settlement == settlement)
+        .expect("a polity");
+    let sponsor = sim.people().household(other).expect("a household").members[0];
+    let k = policy("core:policy/works_wrought_worked_fires");
+    let law = sim.with_ctx_for_tests(|pop, ctx| pop.enact_rule_for_tests(ctx, pi, k, sponsor));
+    let kept = sim.with_ctx_for_tests(|pop, ctx| pop.rules_kept_for_tests(ctx, potter));
+    assert_eq!(kept.fire_from, Some(10.0), "{kept:?}");
+    let unbound = sim.with_ctx_for_tests(|pop, ctx| pop.rules_kept_for_tests(ctx, other));
+    assert_eq!(unbound.fire_from, None, "no fire worked: {unbound:?}");
+    // Its next home stands ten metres from every other household's home.
+    let spec = sim
+        .with_ctx_for_tests(|pop, ctx| pop.first_home_for_tests(ctx, potter))
+        .expect("a home laid out");
+    let catalog = &content().catalog;
+    let def = &catalog.buildings[catalog.building_index(&spec.program).expect("its program")];
+    let rect = civ_agents::build::plot_rect(&spec, def);
+    let nearest = sim
+        .land()
+        .buildings
+        .iter()
+        .filter(|b| b.household != potter && b.standing())
+        .filter(|b| catalog.is_dwelling(&b.spec.program))
+        .filter_map(|b| sim.land().plots.iter().find(|p| p.id == b.plot))
+        .map(|p| civ_agents::rules::gap_m(&rect, &p.rect))
+        .fold(f64::INFINITY, f64::min);
+    assert!(nearest >= 10.0, "{nearest} m from another's home");
+    // Its hut six metres from its neighbour's breaks it; the neighbour's binds nobody.
+    sim.with_ctx_for_tests(|pop, ctx| pop.count_rule_keeping_for_tests(ctx, potter, hut));
+    sim.with_ctx_for_tests(|pop, ctx| pop.count_rule_keeping_for_tests(ctx, other, other_hut));
+    let c = sim.people().polities[pi]
+        .laws
+        .iter()
+        .find(|l| l.id == law)
+        .expect("the law")
+        .compliance;
+    assert_eq!((c.complied, c.broken + c.broken_unaware), (0, 1), "{c:?}");
+}

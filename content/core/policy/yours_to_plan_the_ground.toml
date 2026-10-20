@@ -1,0 +1,38 @@
+# A plan of streets and parcels laid over the ground (M8c slice CT, second part; ADR-0030 §2;
+# research 10-04 §3.4: a regular grid of blocks between streets of one width, its square at the
+# origin). When a household of the settlement found no clear ground for the home it meant to build
+# (`no_ground`), a building went up on a trail people walked (`way_built_over`), households built
+# beyond the settlement's edge (`new_ground`) or a fire spread between buildings (`burned`),
+# someone who knows how to lay ground out by cord and stake may propose a plan. The sponsor lays
+# the grid at the hearth and at the built edge to each side, along either axis, at the least extent
+# whose parcels would house twice the households its members remember forming or arriving, and
+# puts forward the layout it reckons best for its household and those who regard it. A household
+# weighs a plan in hours: the walking a parcel would save it over the ground it would take now, if
+# it means to build, over a home's years, less its share of staking out the parcels. Passed, the
+# plan's layout is kept as it was laid, and while it is in force its streets and square are kept
+# open; it builds nothing, and nobody is made to build on its parcels. A later plan is a new
+# version. Whether anyone proposes one, where, and whether it passes, is people's choice. The
+# 80 by 40 m blocks with 6 m streets and 10 by 20 m parcels are 10-04 §3.4's test fixture, an
+# authoring choice and not a cultural preset. Its id sorts after every older template's: hearth
+# talk about a question is keyed by a template's place in id order ("yours to plan": the ground
+# each household would build on).
+kind = "policy"
+id = "core:policy/yours_to_plan_the_ground"
+name = "Plan of streets and parcels"
+description = "The polity lays a plan of streets, a square and parcels over the ground, and keeps its streets and square open while it is in force."
+does = "plan"
+answers = ["no_ground", "way_built_over", "new_ground", "burned"]
+
+[plan]
+block_m = [80.0, 40.0]
+parcel_m = [10.0, 20.0]
+street_m = 6.0
+extents = [[1, 1], [2, 1], [2, 2], [3, 2], [3, 3]]
+square = true
+stake_hours = 2.0                # pegging and cording one parcel's corners (tuning)
+needs = "core:technique/laying_out"
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement: it keeps ground from whoever would build there.
+[bears]
+"core:value/autonomy" = -0.3

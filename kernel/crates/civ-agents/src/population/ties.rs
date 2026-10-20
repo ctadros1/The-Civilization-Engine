@@ -145,13 +145,23 @@ impl Population {
             return;
         };
         let day = ctx.now.day_index();
-        let others: Vec<PermanentId> = present
-            .iter()
-            .copied()
-            .filter(|&q| self.person(q).is_some_and(|p| p.household != household))
-            .collect();
+        // Those present are in id order. Who is company is everyone there but the household's
+        // own; who of them is known comes from `me`'s ties, and who is new is the rest, kept as
+        // the places it leaves out (M8a slice CI): a crowd costs its few draws, not its size.
+        debug_assert!(present.windows(2).all(|w| w[0] < w[1]));
+        let mut out: Vec<usize> = self
+            .household(household)
+            .map(|x| {
+                x.members
+                    .iter()
+                    .filter_map(|m| present.binary_search(m).ok())
+                    .collect()
+            })
+            .unwrap_or_default();
+        out.sort_unstable();
+        let others = present.len() - out.len();
         let sessions = sessions.max(1);
-        let want = (tp.companions * sessions as usize).min(others.len());
+        let want = (tp.companions * sessions as usize).min(others);
         if want == 0 || minutes == 0 {
             return;
         }
@@ -161,13 +171,48 @@ impl Population {
         // touches no other draw.
         let mut rng =
             Rng64::from_key(&[ctx.seed, PURPOSE_HEARTH, me.get(), ctx.now.minutes() as u64]);
-        let (mut known, mut new): (Vec<(f64, PermanentId)>, Vec<PermanentId>) =
-            (Vec::new(), Vec::new());
-        for &q in &others {
-            match self.ties.known(me, q, day, tp) {
-                k if k > 0.0 => known.push((k, q)),
-                _ => new.push(q),
+        let mut known: Vec<(f64, PermanentId)> = Vec::new();
+        let mut skip = out.clone();
+        for t in self.ties.of(me) {
+            let Ok(i) = present.binary_search(&t.to) else {
+                continue;
+            };
+            if out.binary_search(&i).is_ok() {
+                continue;
             }
+            let k = t.known_at(day, tp);
+            if k > 0.0 {
+                known.push((k, t.to));
+                skip.push(i);
+            }
+        }
+        skip.sort_unstable();
+        let mut new = NewAtHearth {
+            present,
+            skip: &skip,
+            len: others - known.len(),
+            moved: Vec::new(),
+        };
+        #[cfg(debug_assertions)]
+        {
+            let others: Vec<PermanentId> = present
+                .iter()
+                .copied()
+                .filter(|&q| self.person(q).is_some_and(|p| p.household != household))
+                .collect();
+            let (mut k, mut n) = (Vec::new(), Vec::new());
+            for &q in &others {
+                match self.ties.known(me, q, day, tp) {
+                    x if x > 0.0 => k.push((x, q)),
+                    _ => n.push(q),
+                }
+            }
+            assert_eq!(k, known, "those {me} knows at the hearth are out of step");
+            assert_eq!(
+                (0..new.len).map(|i| new.get(i)).collect::<Vec<_>>(),
+                n,
+                "those new to {me} at the hearth are out of step"
+            );
         }
         let hours = f64::from(minutes) / 60.0 / f64::from(sessions);
         let home_of = |p: &Population, q: PermanentId| {
@@ -177,9 +222,9 @@ impl Population {
         };
         let my_home = home_of(self, me);
         for _ in 0..want {
-            let pick_new = !new.is_empty() && (known.is_empty() || rng.next_f64() < tp.new_share);
+            let pick_new = new.len > 0 && (known.is_empty() || rng.next_f64() < tp.new_share);
             let q = if pick_new {
-                new.swap_remove((rng.next_u64() % new.len() as u64) as usize)
+                new.swap_remove((rng.next_u64() % new.len as u64) as usize)
             } else {
                 let total: f64 = known.iter().map(|k| k.0).sum();
                 let mut at = rng.next_f64() * total;
@@ -259,5 +304,52 @@ impl Population {
         self.unmatched.retain(|id, _| here.contains(id));
         // And of the buildings they saw elsewhere (M5b slice AR).
         self.seen_away.retain(|id, _| here.contains(id));
+    }
+}
+
+/// Those at a hearth new to someone keeping company there, as the list a scan would make of
+/// them (everyone present but `skip`, in order) and `Vec::swap_remove` would leave: only the
+/// places a draw has filled from the end are kept.
+struct NewAtHearth<'a> {
+    present: &'a [PermanentId],
+    /// Places in `present` left out (their household's own, and those known), in order.
+    skip: &'a [usize],
+    len: usize,
+    /// Places refilled by a removal, with whom they now hold.
+    moved: Vec<(usize, PermanentId)>,
+}
+
+impl NewAtHearth<'_> {
+    /// The one at place `i` of the list.
+    fn get(&self, i: usize) -> PermanentId {
+        if let Some(&(_, q)) = self.moved.iter().find(|m| m.0 == i) {
+            return q;
+        }
+        // The `i`th of `present` not skipped.
+        let mut at = i;
+        for &k in self.skip {
+            if k <= at {
+                at += 1;
+            } else {
+                break;
+            }
+        }
+        self.present[at]
+    }
+
+    /// Takes the one at place `i` out, the last moving into its place.
+    fn swap_remove(&mut self, i: usize) -> PermanentId {
+        let q = self.get(i);
+        let last = self.len - 1;
+        if i != last {
+            let filler = self.get(last);
+            match self.moved.iter_mut().find(|m| m.0 == i) {
+                Some(m) => m.1 = filler,
+                None => self.moved.push((i, filler)),
+            }
+        }
+        self.moved.retain(|m| m.0 != last);
+        self.len = last;
+        q
     }
 }

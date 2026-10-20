@@ -53,6 +53,89 @@ pub struct Plot {
     pub use_: PlotUse,
     /// When it was claimed.
     pub since: SimTime,
+    /// Why its household chose it, where it weighed others (M8c slice CS, ADR-0030 §1).
+    pub receipt: Option<SiteReceipt>,
+    /// The parcel of a plan it was given, if it was (M8c slice CU; ADR-0030 §4).
+    pub allotted: Option<Allotment>,
+}
+
+/// A parcel of a plan given to a household (M8c slice CU; ADR-0030 §4): the plan's law, the
+/// parcel's index in its layout, and the rule it was given under.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Allotment {
+    pub law: PermanentId,
+    pub parcel: u16,
+    pub rule: AllotRule,
+}
+
+/// How a plan's keeper gives a parcel (ADR-0030 §4): codes are saved, append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AllotRule {
+    /// To a household short of a home, the free parcel nearest the hearth first.
+    Need,
+    /// To a household that asks, a free parcel drawn by lot.
+    Lot,
+    /// To a household that pays the plan's fee to the store, the free parcel nearest the hearth.
+    Offer,
+    /// To a household whose eldest the keeper regards, the free parcel nearest the hearth.
+    Standing,
+}
+
+impl AllotRule {
+    /// Every rule, by code.
+    pub const ALL: [AllotRule; 4] = [
+        AllotRule::Need,
+        AllotRule::Lot,
+        AllotRule::Offer,
+        AllotRule::Standing,
+    ];
+
+    /// Its code in saves.
+    pub fn code(self) -> u8 {
+        match self {
+            AllotRule::Need => 0,
+            AllotRule::Lot => 1,
+            AllotRule::Offer => 2,
+            AllotRule::Standing => 3,
+        }
+    }
+
+    /// Its name in content.
+    pub fn name(self) -> &'static str {
+        match self {
+            AllotRule::Need => "need",
+            AllotRule::Lot => "lot",
+            AllotRule::Offer => "offer",
+            AllotRule::Standing => "standing",
+        }
+    }
+
+    /// The rule named `name` in content.
+    pub fn from_name(name: &str) -> Option<AllotRule> {
+        AllotRule::ALL.into_iter().find(|r| r.name() == name)
+    }
+
+    /// Its name in words: "by need".
+    pub fn words(self) -> &'static str {
+        match self {
+            AllotRule::Need => "by need",
+            AllotRule::Lot => "by lot",
+            AllotRule::Offer => "by offer",
+            AllotRule::Standing => "by the keeper's choice",
+        }
+    }
+}
+
+/// What a household reckoned when it chose a plot for a home among others (ADR-0030 §1): how many
+/// it weighed, and the hours over its reckoning's years the chosen and the next best would cost
+/// it, its members' walks to where they go and the levelling. The difference is what the plot is
+/// worth to that household; nobody else reads it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SiteReceipt {
+    pub weighed: u16,
+    pub hours: f32,
+    /// The next best's hours; the chosen's own when it was the only one.
+    pub next_hours: f32,
 }
 
 /// How a component group of a building stands (ADR-0009 §4).

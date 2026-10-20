@@ -2507,3 +2507,711 @@ that does, which is assessed and holds it against the office), `tests/patronage.
 whose law would fail gives, and those given to owe it at the gathering; nobody gives for a law that
 would pass, where nothing is owed, or when the law is worth nothing to them; a patron who saw a
 client oppose gives it nothing more; a world with patron gifts saves and loads exactly).
+
+## 2026-10-16 — BZ: closure, capture in sentences, and the M7c demo
+
+**Built:** ADR-0026 §5. A body's membership may be closed to the adults of households in an
+organization the polity recognizes, or in one it grants a privilege; with none, the body has
+nobody and its gatherings fail, recorded. The core's `close_the_custom` amendment offers both, and
+is weighed as any amendment is. The government panel says, for each organization with members
+among a polity's people, what it has come to hold: laws its members proposed and who carried
+them, offices its members hold, cases against them, those it turned away, who bought elsewhere,
+and protected prices against the neighbours'. Content API 118, save schema 132, wire 1.81.
+ADR-0027 sets M7d's design: claims in goods first, then keepers, then money's worth, metal and
+coin.
+
+**The demo:** three villages of 40, four years, two seeds, nudging only a report's half-life and
+an organization's fixed cost. Seed 1: after the first nudge a purchase at a neighbour's door, then
+an embargo and a duty on tools passed by a council of five; nobody organized even after the
+second nudge. Seed 2: nobody bought elsewhere at all. Recorded as the outcome (`demos/m7c`): at
+this scale trade law comes, capture does not.
+
+**Evidence:** `tests/closure.rs` (a closed body admits members alone, and nobody without a
+recognized or privileged organization; the core amendment offers both; the capture sentences;
+a world with a closed custom saves and loads exactly).
+
+## 2026-10-16 — CA: loans in goods between households
+
+**Built:** ADR-0027 §1-2. A loan is a claim in a book of its own, apart from gifts and from what
+findings impose. A household whose food will not last to its harvest asks neighbours with food to
+spare, those it regards first; each lender weighs the loan by research 08-07 §1.3's reservation
+rate from its regard for the borrower and the harvest it expects them to bring in, asks at least
+a customary increment, and refuses when it believes the loan too likely lost. Loans fall due a
+week after the borrower's harvest comes in; repaid, the lender's elder notes its word kept;
+unpaid after the days of grace, defaulted and remembered. The wealth panel lists each village's
+loans. Content API 119, save schema 133, wire 1.82.
+
+**Fixed on the way:** the first build let a household that had just borrowed lend on what it
+borrowed (a borrowed season's food counts as spare); one that owes now lends nothing.
+
+**Evidence:** `tests/credit.rs` (a short household borrows from one with food to spare, at the
+increment, due after its harvest, and asks for no second loan while it owes; a lender believing
+the loan too likely lost refuses, and nobody lends to one short of nothing; repaid at the due day,
+or defaulted when grace runs out; a world with loans saves and loads exactly); the reservation
+rate checked against the money brief's illustration. Lived: three villages of 40 for four years
+made 60 loans, 24 repaid, 18 defaulted, and held their numbers.
+
+## 2026-10-16 — CB1: pledges and answers at the due day
+
+**Built:** ADR-0027 §3, its first half. A lender that would refuse a loan may still lend against
+the use of a field the borrower holds, or with a guarantor whose elder thinks well of the
+borrower. At the due day the debtor answers once, as a finding is met: it pays what it can spare,
+asks for time when that is not all, or refuses. A loan refused, or unpaid when the days of grace
+run out, is remembered by the whole creditor household, and the pledge is taken: the guarantor
+pays and the debtor owes the guarantor in turn, or the creditor works the pledged field until its
+crop has paid the debt, and gives it back. Content API 120, save schema 134.
+
+**Fixed on the way:** the first answer weighed what was owed in days of food, which made every
+harvest-sized loan a coin toss for a household holding nothing; it now weighs the share of what
+the household holds that the debt would take, at most all of it.
+
+**Tested:** a debtor repays or defaults; one short asks for time, granted or not by regard; one
+unwilling refuses; a guarantor pays and holds a claim on the debtor; a pledged field is worked by
+the creditor from the day it lies between crops and goes back once paid; pledges and answers
+save and load exactly. Lived (three villages of 40, four years): 69 loans, 21 times asked for
+time and granted, 22 repaid, 15 defaulted, none refused at the due day, and not one pledge: no
+lender refused a loan bare.
+
+## 2026-10-16 — CB3: wage arrears
+
+**Built:** ADR-0027 §3's last line. A workshop that could not pay a wage used to fail that day;
+now what it and its owners cannot pay it owes the worker's household, in the same book as loans,
+and it hires nobody until it has paid. When the debt falls due its owners pay what they can spare;
+unpaid, the workshop fails and the worker's household remembers it. Content API 121.
+
+**Tested:** wages owed one household add up in one claim; owners with grain pay them when due and
+the workshop stays open; owners with nothing see it fail on the due day and not before.
+
+**Lived:** in the M7c demo's world no workshop came up short of a wage in four years, so none was
+owed; the loans of the same run included the first guarantor called on.
+
+## 2026-10-16 — CB2: debts heard
+
+**Built:** ADR-0027 §3's law. A village may pass *debts heard*: a creditor whose loan was refused,
+or left unpaid when grace ran out, brings it before the gathering, the loan's witnesses its
+account, and the finding either gives the debtor time or imposes what is still owed as a finding's
+obligation, paid, refused or taken as findings are. Content API 122, save schema 135.
+
+**Fixed on the way:** a world saved with a case that names no incident (a breach of a privilege,
+now a debt) would not have loaded; saves now check a case's incident only when it names one. The
+first lived run had both remedies in force at once in two villages; a law of debts heard now
+replaces another.
+
+**Lived:** with nothing nudged about debts, two of three villages passed a law of debts heard
+within three years; 12 debts were brought and 9 found. The labour-days bundle is not built: no
+behaviour yet sends one household's people to work another's fields.
+
+## 2026-10-16 — CC1: lending from the store
+
+**Built:** ADR-0027 §4's public lending. A village may pass *lending from the store*: a household
+short before its harvest then asks the common store before its neighbours and borrows at the law's
+terms (a quarter of the store at most, a tenth more owed), repaid into the store after the
+harvest. Relief stays a gift. Content API 123; saves unchanged (the store is the loan's creditor).
+
+**Lived:** with nothing nudged about lending, 51 of the 67 loans of the M7c demo's world in four
+years came from a common store; 26 were repaid and 9 defaulted.
+
+## 2026-10-17 — CC2 deferred; CE1: metal as content
+
+**Measured first:** custody (ADR-0027 §4) answers a household holding more than its roof keeps.
+In about 40,000 household-days of seeds 1 and 2 none did, so custody, keepers' lending and runs
+wait for stores beyond a village's roofs.
+
+**Built:** copper. A tool may serve for another (a copper axe for an axe): the work takes either,
+the longer-lived wears first, and a household makes whichever way costs it fewer of its own hours
+for each hour of use, the copper and ore that way needs included. Ore is picked on uplands or dug
+from rare bodies; smelting is found by kiln-firers with ore at home, or taught. Content API 124;
+saves and wire unchanged; worlds where nobody smelts are as before.
+
+**Lived:** the observer taught smelting to one household of the M7c demo's world. In four years it
+chose the copper axe as its way, its village knew an ore body 2 km off, and still none was cast:
+its axes never wore below what it keeps. Copper waits on tools wearing out. A way is now chosen
+only when its makings can be got, after a first build could have left a household choosing a
+copper axe it had no ore for.
+
+## 2026-10-17 — CD: money's worth for weighed metal
+
+**Built:** ADR-0027 §5 for weighed metal. Copper is paid by weight: a holder values a kilogram at
+what a kilogram bought in its remembered purchases, in its own hours, less the weighing, and holds
+beyond about two weeks of its spending in it are worth less to it. The belief is read from trades
+the markets already save, so saves did not change. Content API 125.
+
+**Lived:** nothing yet: no world makes copper without the observer's help, so nobody pays with it.
+
+## 2026-10-17 — CE2a: coin, its issues and purses
+
+**Built:** the record coin needs before any mint. A piece of coin belongs to an issue (who struck
+it, when, how heavy and how fine), and every holder's purse counts its pieces of each issue.
+Payments move them issue by issue; anything else that moves coin is found again at midnight with
+every issue's count kept. Save schema 136; content API 126.
+
+**Lived:** nothing yet: no mint strikes coin until CE2b.
+
+## 2026-10-17 — CE2b: the mint
+
+**Built:** a village may name someone who knows how to cast copper to strike its coin. Its
+households bring the mint the copper they do not need, with firewood to melt it, but only when the
+coin they would get back is worth more to them than the copper; the keeper strikes it at home as
+the duty of the office, and each household gets its pieces back less a 3 % fee that the village's
+store keeps. Save schema 137; content API 127.
+
+**Lived:** nothing yet. Nobody makes copper unaided, and even with copper a household would not
+pay 3 % for coin that buys no more than its metal: the two minutes of weighing it saves on a
+kilogram are worth less. Coin begins to matter when a village pays in it (CE3).
+
+## 2026-10-17 — CE3a: pay for common work
+
+**Built:** a village's first spending. Under a law of pay for common work, its store pays each
+household coin for every hour it gives to the village's bridge, well, flood bank or palisade, eight
+pieces an hour, as long as the store has coin left. Save schema 138; content API 128.
+
+**Lived:** nothing yet: no store holds coin until a mint strikes some and keeps its fee.
+
+## 2026-10-17 — CE3b: a levy in coin
+
+**Built:** a village's common store may take its levy in coin, two pieces for each kilogram of
+grain owed. A household holding coin pays with it when it has no better use for the coin, and
+because the store takes it, a piece is worth half a kilogram of grain to anyone under that law,
+more than the copper in it. So a household with copper to spare would now bring it to a mint.
+Content API 129.
+
+**Lived:** nothing yet: nobody makes copper unaided.
+
+## 2026-10-17 — CE4a-b: assay and debasement
+
+**Built:** those who know how to smelt can tell how much copper a coin holds. They value coin by
+its copper and pay with the lightest pieces they have, as Gresham's law has it; everyone else
+counts pieces alike and pays with the oldest. A village may also replace its mint with one that
+strikes lighter pieces, a third more from the same copper, which looks like a gain to those who
+count and none to those who weigh. Content API 130.
+
+**Lived:** nothing yet: no world mints yet.
+
+## 2026-10-17 — CE4c: foreign coin by weight
+
+**Built:** coin struck by another village is taken by weight, at a tenth less than its copper and
+less a few minutes of weighing, by those who cannot assay it, and is the first they spend. Content
+API 131.
+
+**Lived:** nothing yet.
+
+## 2026-10-17 — CE5: the M7d demo, and M7 implemented
+
+**Built:** the chronicle now records a village's first coin and any coin struck to new terms, and
+the wealth panel tells each village's coin in sentences: its mint, the pieces struck, metal
+waiting, the store's pieces and whose coin its households hold. Save schema 139, wire 1.83.
+
+**Lived:** three villages of 40 for four years, two seeds, with copper smelting taught to one
+household in each. Both lent and borrowed grain within their first year, with no nudge: 84 loans
+in all, 54 of them from common stores, more than a third defaulted, some brought before the
+gathering. A rerun of the first seed lived a different life, which found the old flake of the
+polity test: a new world drew its identity, and so its tie-breaks, at random; tests and this demo
+now make worlds of a fixed identity. Nobody smelted copper. The households taught to smelt still had plenty of stone axes,
+and a household makes a tool only when it runs short, so no copper was made, no metal was weighed,
+and no mint was ever proposed. Credit comes from need; coin waits on metal; metal waits on tools
+wearing out. That closes M7d, and with it M7.
+
+## 2026-10-17 — The M8 design
+
+**Decided:** M8, the growing city, is split in four: scale first, then ways and carts and boats,
+then planning and land, then taller buildings and earthquakes with the demo. Four briefs read the
+research and the code. The plan's gate of 50,000 people at a year a minute is several hundred
+times beyond the kernel today, and its cost grows faster than its people, so the gate becomes
+10,000 people at a year a minute, measured on the owner's PC; the demo's city is measured, not
+gated, and 50,000 waits for M9's lower detail. Three things the plan assumed are recorded as
+gaps: the demo's planned capital names an outcome, homes cannot yet spread over a city's ground,
+and carts need animals the content does not have.
+
+## 2026-10-17 — CF: the baseline at scale
+
+**Measured:** a year of three villages of a thousand now takes 33 minutes at Max, 38 % more than
+before M6c and M7 landed. Three settlements of 3,334 live a day in about 30 seconds, one of 10,000
+in about 45: 250 to 340 times short of M8's gate of a year a minute. One day of the three
+settlements took 27 minutes: word of a gathering spreading to thousands at once, each hearing
+inserted into one long sorted list. That is fixed next.
+
+**Fixed:** a world of 10,000 saved but could not be loaded, because one section held more records
+than the save format's checker allows by default. The checker's limit now grows with the section.
+
+## 2026-10-17 — CI, first change: who heard what, kept by holder
+
+**Fixed (speed, exactly):** the 27-minute day is now 66 seconds. Who had heard which claim was one
+long sorted list, and word of a gathering reaching thousands moved most of it for each hearing;
+it is now a short list for each person. Every saved section is the same, byte for byte, after a
+month of three villages and ten days of three towns of 3,334, in both modes.
+
+## 2026-10-17 — CG: households indexed by settlement
+
+**Built (no change to what happens):** searches for sellers, givers, partners, foster homes and a
+dozen others now look only at their own settlement's households, through an index checked against the
+old scan in every test. Every saved section is the same as before.
+
+**Measured:** no faster. Cost still grows as people to the power 1.5, steepening to 1.7 between
+three and ten thousand: the cost lies inside a settlement as it grows (crowds at the hearth,
+every buyer weighing every seller, longer walks), not in looking across settlements, as the
+scale brief had supposed. The index stays for when there are many settlements.
+
+## 2026-10-17 — CI, second change: company at the hearth without weighing the crowd
+
+**Faster, exactly:** keeping company at the hearth no longer looks at everyone there for each person
+who does; it starts from whom they know and draws strangers by place. Ordinary days of three towns
+of 3,334 are 7 % faster; every saved section is the same as before.
+
+## 2026-10-17 — CJ: routing measured, the route cache sized by the people
+
+**Measured:** three towns of 3,334 plan about 5,400 new walks a day, each search looking at about
+4,600 cells; the cache of routes already found was never cleared and filled once in ten days.
+Routing is about an eighth of a day, not the large share the scale brief expected.
+
+**Built:** the cache grows with the number of people, so a city does not keep forgetting its
+walks. Nothing that happens changes. Bounds per region and an overlay wait for roads and faster
+ways of travelling (M8b).
+
+## 2026-10-17 — CL, first part: when goods move, only those concerned think again
+
+**Faster, approximately:** in Accelerated mode a household keeps its view of its options through
+the day. Every trade or gift anywhere used to make every household think again; now only the two
+parties, and those whose plans named one of them, do. Ten days of three towns of 3,334 are 8 %
+faster, and the statistical check that Accelerated mode lives like Detailed mode still passes,
+though its villages are too small to test this change hard.
+
+## 2026-10-17 — CH, first part: Max lived in chunks
+
+**Responsive at scale:** at the fastest speed the host used to live a whole day before answering
+anything, which at ten thousand people meant waiting twenty seconds or more. It now lives the day
+half an hour at a time and answers between; a pause asked for during a day takes effect at its
+midnight, where Accelerated mode may stop, and is acknowledged at once.
+
+## 2026-10-17 — M8a closed: where scale stands
+
+**Done:** six slices of speed work, five of them exact, one an approximation the statistical check
+passed. A day of three towns of 3,334 now takes about 21.5 seconds instead of 22.8, and the one day
+that took 28 minutes now takes one. The host stays responsive at that size.
+
+**Not done, and why:** the target of a simulated year in a real minute at 10,000 people is about
+130 times away. The measurements showed the cost is in people's decisions and walks inside a
+growing settlement, which no exact speed-up of this kind removes; the target will be amended at
+M8's end to what the kernel reaches, and cities of tens of thousands wait for M9's aggregate
+detail.
+
+## 2026-10-17 — M8b designed: ways, modes and traffic
+
+**Decided:** a path becomes a way only when someone works on it, and then it has a name and a
+keeper. The first ways of carrying more than a person can are the dugout on the river and the
+handcart on a way; there are no beasts until animals are designed properly. People wait only where
+something narrow makes them wait, at a bridge, a gate or a landing, and nothing they carry ever
+vanishes in a jam.
+
+## 2026-10-17 — CM: ways as records
+
+**Built:** a way is now a thing with a name of its own: the stretches someone worked on, how wide
+each is reserved, built and usable, its surface, who keeps it and when it was last kept. A kept
+way's ground stays as worn as its upkeep, so people walk it at full speed; left alone it fades as
+a path does. Each way counts the walks along it and, once a month, is called a lane, a street, a
+main way or a way between settlements from what it joins, how it is built and how much it is used.
+That name is only shown. The map draws ways and says what each is.
+
+**Not yet:** nothing lays a way. Clearing, widening and grading are CQ's work, by households and
+by law; until then a world with no ways lives exactly as before, which the digests show.
+
+## 2026-10-17 — CN, first part: taking turns at bridges and gates
+
+**Built:** a log footbridge takes walkers one at a time, about one every one and a half seconds,
+and a gate in a palisade a few at a time each way. Someone who reaches one while others are
+passing waits their turn; a wait of a minute or more shows on their walk and their household
+remembers it. Nobody vanishes in a crowd and nobody is skipped.
+
+**What it comes to:** a village of thirty never waits a minute at its gates; those who leave
+together step through one behind another. Made slow on purpose in a test, people queued, waited
+and still got where they were going.
+
+## 2026-10-17 — CN, second part: where people wait
+
+**Built:** the map's lenses now include Traffic: every bridge and gate that passed anyone in the
+last month, how many passed and how long they waited, hour by hour, and the longest wait still
+remembered. Anyone who waits a quarter of an hour or more becomes an incident, with how many
+were ahead of them.
+
+**What it comes to:** a fresh village shows its gates with waits under a second; only when made
+slow on purpose do quarter-hour waits appear, and each reads as who waited, where and behind how
+many.
+
+## 2026-10-18 — CO, first part: a river a boat can use
+
+**Built:** the engine now knows what a dugout is: hollowed from one trunk with stone axes, it
+carries about 400 kg and needs 30 cm of water under it. It knows where the river is deep enough
+for one today, how much faster the current carries it downstream than its paddlers can push it
+upstream, and the quickest way by water from one bank to another. A boat is a thing of its own:
+it belongs to a household, lies at the bank where it was left, and wears out after about twelve
+years.
+
+**Not yet:** nobody makes, owns or uses one. That is the next part's work, with loads carried by
+boat and the trips that choose it.
+
+## 2026-10-18 — CO, second part: fetching by boat
+
+**Built:** a household with a boat now weighs an errand both ways: walking with one load, or
+taking the boat, which carries far more but means walking to it, paddling, and carrying every
+load between the boat and the door at each end. When the boat wins, someone paddles off, buys a
+boat's load, and it travels as goods in transit, still the household's, until it is unloaded at
+home.
+
+**Found on the way:** the generated rivers are steep and fast, faster than anyone can paddle
+against, so no boat could ever come back upstream. Paddlers keep to the slack water near the
+banks, and now boats do too.
+
+**What it comes to:** a camp beside deep water fetched 261 kg of stone by boat, thirteen hand
+loads, in one long day; a camp two and a half kilometres from deep water still walks.
+
+## 2026-10-18 — CO, third part: making a dugout
+
+**Built:** a household with no boat now also asks, as it plans an errand, what a boat would
+bring. If it knows how to make one, holds an axe, and the river near home is deep enough, it
+weighs the hours a boat's load would save against the two hundred hours of felling and
+hollowing a trunk. When the boat wins, it begins one on the bank, and its people choose to work
+on it, no more than three at once, until it is done and drawn up ready.
+
+**What it comes to:** a household of five beside deep water, whose neighbours wanted stone, made
+its dugout in seventeen days and then sent its errands by water. A village with no reason to go
+far by boat makes none.
+
+## 2026-10-18 — CP, first part: where wheels go
+
+**Built:** the engine now knows what a cart needs from the ground. It goes on a worn trail or a
+way wide enough for it, over a bridge only if the deck is as wide as the cart, and never over a
+log laid for walkers or across rough ground. Pulling it uphill takes more the steeper it gets: a
+gentle slope of one in twenty takes three and a half times the pull of the level, and a slope of
+one in ten is more than one person can manage with a full load.
+
+**What it comes to:** a loaded handcart goes round a steep ridge by the level pass, while an
+empty one goes straight over. Nobody has a cart yet; making one, and choosing it for an errand,
+come next.
+
+## 2026-10-18 — CP, second part: fetching by handcart
+
+**Built:** the core now has a handcart, which carries 150 kg, seven times what a person carries
+home. A household with one weighs an errand three ways, on foot, by boat or by cart, counting the
+cart pulled there empty and back loaded along the ways wheels can take, the pushes between each
+door and the way, and the loading and unloading. When the cart wins, someone pulls it to the
+seller, buys a cart's load, and pulls it home with the goods in transit until they are unloaded.
+
+**Found on the way:** a bridge's deck was taken to lie at the level of the river bed, so a cart
+would have had to drop down into the river and climb out again. A deck now sits level with the
+higher bank.
+
+**What it comes to:** a household with a cart at its door, and a way laid to the other camp, sent
+for 150 kg of stone in about an hour and a half of pulling, where on foot it would have brought
+20 kg. Nobody makes a cart yet; that comes next.
+
+## 2026-10-18 — CP, third part: making a handcart
+
+**Built:** carts now need a technique, wheels on an axle, which takes fitted woodwork and is
+rarely found by trying: in practice someone brings it. A household that knows it, holds an axe
+and has the timber asks, as it plans an errand, what a cart would bring. When the cart would
+save more than it takes to make, it begins one at its door, the timber comes out of its store,
+and two of its people at a time work on it until it is done.
+
+**Found on the way:** a technique learnt at home is learnt from the age of the work it opens,
+and the new technique opened none but the cart's own making, so nobody could have learnt it as
+a child. Such a technique is now learnt for the work of making the vehicle.
+
+**What it comes to:** a household taught the technique made its handcart and sent its next
+errand by it. A world where nobody knows wheels on an axle makes no carts.
+
+## 2026-10-18 — CP, fourth part: carts meet by clearance
+
+**Built:** a handcart needs 1.8 m to pass another, and a worn trail is narrower than that. Where
+a cart's way is too narrow for two, a cart setting off waits at the near end for any cart
+already coming the other way, until it has passed. Carts going the same way just follow. A cart
+leaving its own door that would wait more than a quarter-hour stays home, and its puller walks
+instead; away from home a cart always waits, so none is left stranded. Households remember these
+waits, as they remember waits at bridges and gates.
+
+**What it comes to:** in the test, four carts set off at once on a narrowed way. Two went
+without waiting, one turned back at its door, and one waited for both oncoming carts before
+heading home.
+
+## 2026-10-18 — CP, fifth part: boats and carts on the map
+
+**Built:** the observer now shows boats and carts. Each is drawn where it stands, or beside
+whoever has it out, moving with them. One still being made is drawn faint, and one wears paler
+with age. Pointing at one says whose it is, how far it is made and what it carries.
+
+**What it comes to:** you can watch a household's cart go to a neighbour's door and come back
+loaded. Nothing in the simulation changed for this; the map only reads what is already there.
+
+## 2026-10-18 — CQ, first part: what poor ways cost
+
+**Built:** households now remember where their carts lose time. A climb costs a cart more than
+level ground, and a stretch too narrow for two makes it wait or turn back. Each household keeps,
+for each place, how many hours it lost there, and the memory fades over time as other
+remembered troubles do. This is what a household or a village will later weigh before laying
+a way, widening one, or easing a slope.
+
+**Found on the way:** the test village's ground is gentle. An empty cart loses nothing on its
+rises, and a loaded one only a second or two, too little to remember. The test makes the
+puller far weaker so the climbs show.
+
+## 2026-10-18 — CQ, second part: passing places
+
+**Built:** a household whose carts keep waiting where a trail is too narrow for two clears a
+passing place halfway along: a short stretch widened to two carts' width. It weighs the waiting
+the place would spare it over ten years against the hours of digging. If the place is worth it,
+its people walk out and clear it, a few hours at a time, until two carts can pass there.
+
+**What it comes to:** one cart turning back is not enough to make anyone dig. A household that
+turned back twenty times cleared its passing place within a few days.
+
+## 2026-10-18 — CQ, third part: passing places by law
+
+**Built:** where carts of several households wait at the same narrow stretch, the waiting may be
+worth a passing place to all of them together though to none alone. The settlement's gathering
+can now have the polity clear one by law, as it builds a flood bank: each household weighs what
+the place would spare it against its equal share of the digging, and once the law passes the
+polity lays the place out and each household is asked its share.
+
+**What it comes to:** in the test scene the buyer's turnings back raised the issue, someone
+proposed the law naming the stretch's middle, and once it was in force the households' shares
+cleared it to two carts' width.
+
+## 2026-10-18 — CQ, fourth part: laying a way on worn trail
+
+**Built:** a cart rolls much harder on a worn trail than on a laid way. Each haul now records,
+cell by cell, the seconds the trail cost it beyond a way. At its yearly review a household
+weighs laying a way of cleared ground over that trail near home against the hours of clearing,
+and if it is worth it, its people clear it a few hours at a time.
+
+**What it comes to:** with a weak puller hauling a season's loads, a household laid about 2.5 km
+of way and cleared it in under four months. Thirty hauls were not enough: the household marked a
+shorter way out but never chose to clear it over its other work.
+
+## 2026-10-18 — CQ closed; CR, first part: travel measured
+
+**Built:** slice CQ is closed with four works on ways; the rest wait for a world that needs
+them. The world now counts its travel as it happens: every trip by what it is for and how it
+goes, every wait at a bottleneck, and each resident's day of travel by what their household
+lives by. Nothing reads the count to choose; the dashboard reports it.
+
+**What it comes to:** over a year in the dashboard's five worlds, farmers' and workshop-keepers'
+days held about half an hour of travel, others' nearly an hour, and every trip was on foot.
+
+## 2026-10-18 — CR, second part: where to live weighs the walk
+
+**Built:** each household now remembers how long its members spend travelling each day. When
+it weighs moving to another settlement, it counts its own day's travel against what people
+there travel: an hour a day more than people there tips it a little toward going, as food
+others seem to have does.
+
+## 2026-10-18 — M8b closed; M8c designed; CS, first part: where people go from home
+
+**Built:** M8b is closed, and M8c (planning and land) is designed in ADR-0030. Its first slice
+makes where a household builds a choice, and that choice needs to know where its people go. So
+each walk out of a home's door now counts as a trip to the place it ends, and each person holds
+those trips, fading over months, for the places they go most. Nothing reads them yet.
+
+**What it comes to:** in a new village's first days, people's trips from home went to the
+hearth, to their own fields some 400 m out, and to the places they gather and draw water.
+
+## 2026-10-18 — CS, second part: where a household builds a home is a choice
+
+**Built:** a household about to build a home now looks for clear ground near its old spot, at
+the point that would make its people's walks shortest, and partway toward the places they go
+most. It counts each plot's cost in hours of walking over five years, plus the levelling the
+plot needs, and takes the cheapest. The plot keeps a note of what it weighed. Homes may now go
+as far from the hearth as people will walk to a field, not just five minutes' walk.
+
+**What it comes to:** in small villages most homes still stand by the hearth, because they were
+built before anyone had been anywhere. The first trial let homes drift toward a neighbouring
+settlement people traded with. That is a move between settlements, so homes now stay within a
+field's walk of their own hearth. A second catch: a world saved halfway through a day chose
+differently once loaded, so the day's trips now count from the next midnight.
+
+## 2026-10-18 — CS, third part: why here
+
+**Built:** a building's readout in the observer now ends with why its household chose that
+spot: how many other sites it weighed, and how many hours of walking and levelling it saved
+over the next best. Slice CS is closed.
+
+## 2026-10-18 — CT, first and second parts: a plan laid over the ground, as a law
+
+**Built:** the kernel can now lay a plan over the ground: a grid of blocks with streets of one
+width between and round them, each block cut into two rows of parcels, and a square at the
+middle. Anything that would fall on water, steep ground or someone's plot or field is left out
+and counted. A plan is now a kind of law. Its village notices three troubles: a household that
+found nowhere clear to build its home, a building put up on a worn trail, and a home built
+farther out than any before it. When one of those is fresh in memory, someone who knows how to
+lay ground out with cord and stakes (one founder in ten does) can lay the plan up to six ways:
+at the hearth, either way round, and at the village's edge on each side. Each household works
+out what each would save or cost it in hours, and the one put forward is kept with the law
+exactly as laid. A later plan becomes the next version. Passing a plan builds nothing, and it
+does not yet keep anyone off its streets.
+
+**What it comes to:** in a village two days old, five of the six layouts fit; the square at the
+hearth never does, because the first homes stand round it. Nobody gains yet, since everyone
+already has a home to live in.
+
+## 2026-10-19 — CT, third part: a plan's ground kept open, or built on
+
+**Built:** a plan in force now matters to those who build. A household whose eldest knows of
+the plan and chooses to keep it (as a rule for building is kept: by what they hold of the
+gathering's say, how they stood on the law and how they regard whoever put it forward) looks for
+its next plot off the plan's streets and square, and builds elsewhere only if it finds no such
+ground. Every building begun where the plan lays out ground is counted on the law as keeping it
+or not, and one begun on a street or the square is recorded as an encroachment. Nothing yet
+follows from that record; cases come with slice CV.
+
+## 2026-10-19 — CT, fourth part: a plan on the map
+
+**Built:** the map now shows every plan put forward or in force. Its parcels are outlined and
+the streets and square it keeps open are tinted; where a way people already use runs over that
+ground it is outlined in grey, and a building standing on reserved ground is ringed in red. A
+plan only put forward is drawn fainter than one in force. Pointing at any of it says which layer
+it is and the plan in the kernel's words. Slice CT is closed.
+
+## 2026-10-19 — CU, first part: a plan's keeper gives parcels
+
+**Built:** whoever puts a plan forward now keeps it. While they live there, a household about to
+build a home is offered the free parcel nearest the hearth and weighs it like any other plot, by
+the hours of walking and levelling it would cost. If it builds there, the plot remembers the
+parcel and that it was given by need, the keeper's staking is counted, and the next household is
+offered the next parcel. If the keeper dies or leaves, the plan stays but gives nothing until a
+new version names someone. In the test village the plan's parcels, laid over sloping ground,
+usually lose to level ground closer to where people walk; they are taken where nothing better
+is near.
+
+## 2026-10-19 — CU, second part: parcels by lot, for a fee, or by the keeper's choice
+
+**Built:** a plan can now say how its keeper hands out parcels. Besides "by need" (the nearest
+free parcel), a plan can give them by lot, sell them for a fixed fee paid once into the common
+store, or give them only to households whose eldest the keeper thinks well of. A household
+weighs a parcel's fee as the hours it would take to make that much of the good, and pays as it
+starts building. The plot remembers which rule it was given by, and the plan's description says
+so. The core plan still gives by need, so worlds run exactly as before.
+
+## 2026-10-19 — CU, third part: ground rent
+
+**Built:** a plan that hands out parcels by offer can now ask a yearly ground rent in food instead
+of, or as well as, a one-off fee. Households weigh the rent as the hours of work it would cost
+them over the years they weigh a site, so a parcel for rent alone is open to a household with
+nothing put by. Each year on the day its plot was given, the household owes the common store a
+year's rent; it decides whether to pay much as it would a fine, pays from food it can spare, and
+the chronicle says whether it paid. Nothing yet follows a refusal: bringing cases under a plan is
+the next slice.
+
+## 2026-10-19 — CU, fourth part: phases
+
+**Built:** a plan can now open its parcels a phase at a time, nearest first, so a town fills in
+from where it starts instead of scattering over the whole grid. The next phase opens once most of
+the parcels already open are given. A "build by" deadline was set aside for now: a household is
+only given a parcel as it starts building there, so no parcel ever sits given and empty.
+
+## 2026-10-19 — CU, fifth part: fields under a plan
+
+**Built:** a plan can now say what happens to fields lying where its streets and parcels go. It
+can still go around them, or take them, in which case the families who farmed them hold it
+against the gathering, or offer to buy them from the common store. A family accepts if the
+payment is worth more of its own work than breaking new ground elsewhere would cost; if it
+refuses, its field stays out of the plan. A field the plan has taken is not sown again, and once
+its last crop is in, homes can be built there. The settlement's own fields go to the plan at once.
+
+## 2026-10-19 — Fix: fines for breaking a privilege were never asked for
+
+**Fixed:** when the gathering found that someone had broken an organization's privilege, the
+fine and compensation it imposed were recorded but nobody was ever asked to pay them, and a save
+holding one could not be loaded. They are now answered like any other finding. Found while
+preparing cases under town plans, which would have hit the same problem.
+
+## 2026-10-19 — CV, first part: cases for building on a plan's ground
+
+**Built:** when a family starts building on ground a town plan keeps for streets or parcels, the
+neighbours who can see it and the plan's keeper now notice. One of them may take it to the
+gathering if they care enough about the plan and do not like the builder too much to accuse them.
+The gathering hears it like any broken rule and, if it agrees, can order a fine and amends, as
+the plan sets out. The town's plan in the core content sets none yet, so such a case is heard
+but asks nothing. Pulling the building down or letting it stay for a yearly payment comes next.
+
+## 2026-10-19 — CV, second part: taken down, or allowed to stay for a payment
+
+**Built:** a town plan can now say what happens to a building found on its ground. Either it is
+pulled down once the time to pay the fine has passed, or the family may keep it by paying the
+common store something every year. A family whose building is pulled down holds it against the
+gathering. For now the building comes down all at once on its day; nobody is yet seen doing the
+work, because the crews that pull buildings down in the game only work against a fire.
+
+## 2026-10-19 — CV, third part: people weigh what breaking a plan would cost
+
+**Built:** a family deciding whether to respect a town plan now thinks about what happened to
+others who did not. If they have heard that the gathering found against someone who built on the
+plan's ground, they count the fine, the yearly payment or the loss of the house, and how likely
+that seemed to them, against the trouble of building elsewhere. Families who have heard nothing
+of it, or have forgotten, are not deterred. This closes the work on cases under town plans.
+
+## 2026-10-19 — CW, first part: rules about where homes go
+
+**Built:** a gathering can now make two new rules about building. One says a family that fires
+pots or bakes in its own kiln or oven must build its next home well away from its neighbours,
+because those fires can catch. The other says a new home, and the dung heap beside it, must stand
+well away from the wells, because filth seeps through the ground into the water. People propose
+the first after a fire and the second after sickness at home, and each family decides whether to
+follow them when it builds.
+
+## 2026-10-19 — CW, second part: districts in a town plan
+
+**Built:** a town plan can now set aside a ring of its plots for stores and workshops only, or for
+homes only. The plan's keeper offers families looking for a place to live only plots where homes
+are allowed, and people who respect the plan don't put a building where its kind isn't allowed.
+Buildings already standing are left as they are. This finishes the rules about where things go.
+
+## 2026-10-19 — CX, first part: the land report
+
+**Built:** the long-run report now has a line about land. For each village it says how many
+people live per hectare, both across the whole settled area and on the house plots alone; how much
+was paid for plots; how much of each town plan has been handed out or built over, and how many
+cases are still waiting; and how much families thought their plots were worth, measured in the
+walking time each saved them, by how far from the village hearth the plots lie.
+
+## 2026-10-19 — CX, second part: the land map
+
+**Built:** the map has a new Land switch. Turned on, it colours every plot by what is actually
+known about it: brown where a family paid the plan's fee for it, green where the family worked
+out how much walking it saved them (darker the more it saved), and just an outline where nothing
+was recorded. Pointing at a plot says which, in those words. The engine still keeps no "price" of
+land of its own; the map only shows what was paid and what families reckoned.
+
+## 2026-10-19 — CX, third part: the biggest town, measured
+
+**Built:** the speed test now also reports how densely each settlement lives. One town of 10,000
+people ran its first month at about 40 seconds of computer time per day, roughly twice what the
+same number of people cost when split into three villages, and used about 1.6 GB of memory. It
+covered 132 hectares, about 76 people a hectare, which is what compact villages and small towns
+of the past reached. This finishes the planning and land part of the growing-city milestone.
+
+## 2026-10-19 — Fix: families no longer run out of water overnight after a long day in the fields
+
+**Fixed:** now and then a family that was already low on water worked its field right up to
+nightfall, came home in the dark, and could not go for water, so by midnight it had none. People
+only fetch water while there is light, and the rule that sends someone in the last of the light
+never got a chance because everyone was still out working. Now, when a family's water would not
+last until morning, its people stop working early enough to make the trip and eat before dark.
+
+## 2026-10-19 — Planning the last part of the growing city: tall buildings and earthquakes
+
+**Decided:** the next stretch of work lets people build houses up to four storeys, with the
+building methods that make that possible (roof trusses, frames built storey on storey, stone walls
+tied in at each floor) spreading only as people learn them. The observer gets an earthquake tool:
+each building is checked once against the shaking, some crack and some fall, and the village can
+then argue about rules on height or tied walls. Villages can also raise public buildings, such as
+a common storehouse, a hall or a watchtower, but only when they have a real problem that building
+would solve. The milestone ends with a demonstration run of a port town and an inland town.
+
+## 2026-10-19 — CY, first two parts: why nobody builds a framed house, and room in the plans
+
+**Found:** nobody in any world can ever build a framed house on their own. The people who found a
+village don't know how, and nothing they do leads them to work it out; only the observer can teach
+it. And when a family decides what to build, the price of land never comes into it, only where to
+put it. Both are now on the list for the next step.
+
+**Built:** the building plans now have room for taller and longer buildings, up to four storeys
+and twelve bays, and for the new parts that come next (roof trusses, posts stacked storey on
+storey, walls tied in at each floor, windows and stairs). Nothing uses that room yet, so every
+village builds exactly what it did before.

@@ -244,6 +244,8 @@ const FINE: Sanction = Sanction {
     compensation_days: 3.0,
     fine_days: 2.0,
     exile: false,
+    remove: false,
+    yearly_days: 0.0,
 };
 
 #[test]
@@ -252,9 +254,11 @@ fn a_licence_binds_those_outside_its_organization_who_keep_it_or_break_it() {
     // does.
     let mut sc = scene();
     let law = licence(&mut sc.sim, sc.a, sc.org, FINE, true);
+    // Until the seller has weighed it: others who come to offer sickles weigh it too.
     for _ in 0..10 {
         let c = the_law(&sc.sim, law).compliance;
-        if c.complied + c.broken > 0 {
+        let offers = offers_sickles(&sc.sim, sc.seller, sc.sickle);
+        if c.broken > 0 || (c.complied > 0 && !offers) {
             break;
         }
         sc.sim.advance_minutes(DAY).expect("advances");
@@ -288,12 +292,14 @@ fn a_member_brings_a_breach_seen_at_a_door_and_it_is_heard() {
     let mut sc = scene();
     // Nobody heard of it, so the seller keeps offering.
     let law = licence(&mut sc.sim, sc.a, sc.org, FINE, false);
+    // The case against the seller: others who come to offer sickles may be brought too.
+    let seller = sc.seller;
     let case = |sim: &Sim| {
         sim.people()
             .order
             .cases
             .iter()
-            .find(|c| c.law == law)
+            .find(|c| c.law == law && c.accused_household == seller)
             .cloned()
     };
     for _ in 0..40 {
@@ -303,7 +309,6 @@ fn a_member_brings_a_breach_seen_at_a_door_and_it_is_heard() {
         sc.sim.advance_minutes(DAY).expect("advances");
     }
     let c = case(&sc.sim).expect("a member brought the breach");
-    assert_eq!(c.accused_household, sc.seller);
     assert_eq!(c.incident, 0);
     assert!(
         sc.sim
@@ -337,6 +342,31 @@ fn a_member_brings_a_breach_seen_at_a_door_and_it_is_heard() {
                 .iter()
                 .any(|o| o.case == Some(c.id) && o.debtor == sc.seller)
         );
+        // What a breach's finding imposed names no incident: it is answered all the same, and
+        // a world holding it saves and loads.
+        sc.sim.advance_minutes(3 * DAY).expect("advances");
+        assert!(
+            sc.sim
+                .people()
+                .order
+                .obligations
+                .iter()
+                .filter(|o| o.case == Some(c.id))
+                .all(|o| o.answer.is_some()),
+            "answered: {:?}",
+            sc.sim.people().order.obligations
+        );
+        let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+        let saves =
+            commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+        let saved = persist::save(
+            &mut sc.sim,
+            &saves,
+            commons_persist::SaveKind::Manual,
+            "breach",
+        )
+        .expect("saves");
+        persist::load(&saved.path, content()).expect("loads");
     }
 }
 

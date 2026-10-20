@@ -211,6 +211,15 @@ pub enum Request {
     GetOrder,
     /// Every crossing over water (wire 1.60).
     GetCrossings,
+    /// Every way people have worked on (wire 1.84, ADR-0029 §9).
+    GetWays,
+    /// Every boat and cart (wire 1.86, ADR-0029 §9).
+    GetVehicles,
+    /// Every plan put forward or in force (wire 1.88).
+    GetPlans,
+    /// The land map: every plot, what was paid for it and what it was reckoned worth (wire
+    /// 1.89).
+    GetLand,
     /// The wells, springs and water drawn today (wire 1.61).
     GetWater,
     /// A page of incidents of every kind, newest first (wire 1.64, ADR-0015 §8).
@@ -676,6 +685,10 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                 wire::QueryBody::GetGovernment => Ok(Request::GetGovernment),
                 wire::QueryBody::GetOrder => Ok(Request::GetOrder),
                 wire::QueryBody::GetCrossings => Ok(Request::GetCrossings),
+                wire::QueryBody::GetWays => Ok(Request::GetWays),
+                wire::QueryBody::GetVehicles => Ok(Request::GetVehicles),
+                wire::QueryBody::GetPlans => Ok(Request::GetPlans),
+                wire::QueryBody::GetLand => Ok(Request::GetLand),
                 wire::QueryBody::GetWater => Ok(Request::GetWater),
                 wire::QueryBody::GetIncidents => {
                     let b = query
@@ -973,6 +986,10 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
         .sim
         .map_or(0, civ_sim::frames::crossings::crossings_rev);
     let water_rev = parts.sim.map_or(0, civ_sim::frames::water::water_rev);
+    let ways_rev = parts.sim.map_or(0, civ_sim::frames::ways::ways_rev);
+    let vehicles_rev = parts.sim.map_or(0, civ_sim::frames::vehicles::vehicles_rev);
+    let plans_rev = parts.sim.map_or(0, civ_sim::frames::plans::plans_rev);
+    let land_rev = parts.sim.map_or(0, civ_sim::frames::land::land_rev);
     let incidents_rev = parts
         .sim
         .map_or(0, civ_sim::frames::incidents::incidents_rev);
@@ -1032,6 +1049,10 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
             water_rev,
             incidents_rev,
             bands,
+            ways_rev,
+            vehicles_rev,
+            plans_rev,
+            land_rev,
         },
     );
     finish(fbb, root)

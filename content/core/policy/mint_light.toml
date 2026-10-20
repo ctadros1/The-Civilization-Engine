@@ -1,0 +1,25 @@
+# A lighter mint (M7d slice CE4b, ADR-0027 §6: debasement is a mint law setting the next issue's
+# mass, fineness or fee; research 08-06 §1.5-1.7). The same as the core mint but for its pieces:
+# 6 g of copper in place of 8 g, so a kilogram strikes a third more of them (08-06 §1.6: reducing
+# the metal a unit holds by a quarter lets the same metal make about a third more units). Passed
+# while a mint is in force, it takes that mint's place; pieces struck before keep their weight.
+# Those who count pieces get more of them for their metal; those who can assay see no more metal.
+# Whether anyone proposes it, and whether a gathering passes it, is people's.
+kind = "policy"
+id = "core:policy/mint_light"
+name = "Lighter mint"
+description = "The one the gathering names strikes lighter coin from the metal households bring, the store keeping a share."
+does = "mint"
+answers = ["weighed"]
+question = "whether the polity strikes lighter coin from the metal its households bring"
+
+[mint]
+recipe = "core:recipe/strike_coin"
+mass_g = 6.0
+fineness = 1.0
+fee = 0.03
+
+# An authoring judgement, not a measurement.
+[bears]
+"core:value/security" = 0.25
+"core:value/reciprocity" = 0.25

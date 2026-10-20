@@ -163,8 +163,28 @@ bandsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+waysRev():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 50);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
+vehiclesRev():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 52);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
+plansRev():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 54);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
+landRev():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 56);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
 static startSnapshot(builder:flatbuffers.Builder) {
-  builder.startObject(23);
+  builder.startObject(27);
 }
 
 static addWorld(builder:flatbuffers.Builder, worldOffset:flatbuffers.Offset) {
@@ -293,6 +313,22 @@ static createBandsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[])
 
 static startBandsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
+}
+
+static addWaysRev(builder:flatbuffers.Builder, waysRev:bigint) {
+  builder.addFieldInt64(23, waysRev, BigInt('0'));
+}
+
+static addVehiclesRev(builder:flatbuffers.Builder, vehiclesRev:bigint) {
+  builder.addFieldInt64(24, vehiclesRev, BigInt('0'));
+}
+
+static addPlansRev(builder:flatbuffers.Builder, plansRev:bigint) {
+  builder.addFieldInt64(25, plansRev, BigInt('0'));
+}
+
+static addLandRev(builder:flatbuffers.Builder, landRev:bigint) {
+  builder.addFieldInt64(26, landRev, BigInt('0'));
 }
 
 static endSnapshot(builder:flatbuffers.Builder):flatbuffers.Offset {

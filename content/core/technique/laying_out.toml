@@ -1,0 +1,22 @@
+# Laying out ground by cord and stake: setting out straight lines and right angles on the ground
+# with a stretched cord and pegs, and measuring off equal lengths along them (M8c slice CT,
+# second part; ADR-0030 §2: "a plan needs knowledge: laying out by cord and stake"). A household
+# that builds a house lays out its own walls; laying out a settlement's streets and parcels to one
+# grid is planning knowledge, which research 10-04 §4 finds "should diffuse through specialists,
+# texts and political imitation", not something every founder brings. So few founders know it
+# (`[knowledge] founders` in the people file), children learn it at home, and nothing yet finds it
+# anew. The hours that teach it are a tuning value within 07-02 §2.3's 20-200.
+kind = "technique"
+id = "core:technique/laying_out"
+name = "Laying out by cord and stake"
+can = "set out straight lines, right angles and equal lengths on the ground with a cord and pegs, so streets and parcels can be laid to one plan"
+domain = ""
+requires = []
+tried_in = []
+needs = []
+e50_h = 100000.0                 # unused while no work tries toward it
+learn_h = 40.0
+upbringing = true
+
+[answers]
+spoilage = []

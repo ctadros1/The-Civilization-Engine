@@ -24,9 +24,21 @@
 import { Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 
 import { buildingAt, buildingMarks, type Mark } from "../buildings.js";
-import { homeAt, lensMarks, type LensLayer } from "../coverage.js";
+import { homeAt, lensMarks, placeAt, type LensLayer } from "../coverage.js";
 import { crossingAt, crossingEnds, crossingLook } from "../crossings.js";
+import { wayAt, wayLook } from "../ways.js";
+import { vehicleAt, vehicleLook, vehiclePosition } from "../vehicles.js";
+import {
+  BUILT_COLOUR,
+  OCCUPIED_COLOUR,
+  PARCEL_COLOUR,
+  RESERVED_COLOUR,
+  planAt,
+  planLook,
+  type PlanLayer,
+} from "../plans.js";
 import { depositAt, depositLook } from "../deposits.js";
+import { landAt, landKind, landLook } from "../land.js";
 import { DITCH_COLOUR, PALISADE_COLOUR, changedTiles, detailTilesOver, earthworkAt, earthworkLook, sectorLook } from "../earthworks.js";
 import { fieldAt, fieldLook } from "../fields.js";
 import type { HostClient } from "../net/client.js";
@@ -39,9 +51,19 @@ import {
   type BuildingInfo,
   type Clock,
   type CoverageHome,
+  type CoveragePlace,
   type CoverageInfo,
   type CrossingInfo,
   type CrossingsInfo,
+  type WayInfo,
+  type WaySegmentInfo,
+  type WaysInfo,
+  type VehicleInfo,
+  type VehiclesInfo,
+  type PlanInfo,
+  type PlansInfo,
+  type LandInfo,
+  type LandPlot,
   type DepositInfo,
   type EarthworkInfo,
   type EarthworksInfo,
@@ -105,6 +127,14 @@ export interface PointerInfo {
   earthwork: EarthworkInfo | null;
   /** The crossing under the pointer, if any (M5c slice AW). */
   crossing: CrossingInfo | null;
+  /** The way under the pointer and the stretch of it, if any (M8b slice CM). */
+  way: { way: WayInfo; segment: WaySegmentInfo } | null;
+  /** The boat or cart under the pointer, if any (M8b slice CP). */
+  vehicle: VehicleInfo | null;
+  /** The plan under the pointer and which of its layers, if any (M8c slice CT). */
+  plan: { plan: PlanInfo; layer: PlanLayer } | null;
+  /** The plot under the pointer on the land map, while it is shown (M8c slice CX). */
+  land: LandPlot | null;
   /** The well, spring or place at the water's edge drawn at today under the pointer, if any, and
    * the rivers' flow today against their mean (null before the water is read; M6a slice AY). */
   well: WellInfo | null;
@@ -114,6 +144,8 @@ export interface PointerInfo {
   /** The home under the pointer while a lens is shown, with what the lens reads of it (M6a slice
    * BB, step three). */
   home: CoverageHome | null;
+  /** The crossing or gate under the pointer on the Traffic lens, if any (M8b slice CN). */
+  place: CoveragePlace | null;
   /** The worn ground under the pointer, if any. */
   path: { wear: number; trail: boolean } | null;
 }
@@ -243,6 +275,16 @@ export class MapView {
   private deposits: DepositInfo[] = [];
   private readonly earthworksLayer = new Graphics();
   private earthworks: EarthworkInfo[] = [];
+  private readonly waysLayer = new Graphics();
+  private ways: WayInfo[] = [];
+  private vehicles: VehicleInfo[] = [];
+  private wayScale = 0;
+  private readonly plansLayer = new Graphics();
+  private plans: PlanInfo[] = [];
+  private planScale = 0;
+  private readonly landLayer = new Graphics();
+  private land: LandPlot[] = [];
+  private landScale = 0;
   private readonly crossingsLayer = new Graphics();
   private crossings: CrossingInfo[] = [];
   private crossingScale = 0;
@@ -299,6 +341,9 @@ export class MapView {
       this.detail,
       this.wornLayer,
       this.trailsLayer,
+      this.waysLayer,
+      this.landLayer,
+      this.plansLayer,
       this.rivers,
       this.fieldsLayer,
       this.depositsLayer,
@@ -358,6 +403,13 @@ export class MapView {
     this.earthworksLayer.clear();
     this.crossings = [];
     this.crossingsLayer.clear();
+    this.ways = [];
+    this.waysLayer.clear();
+    this.plans = [];
+    this.plansLayer.clear();
+    this.land = [];
+    this.landLayer.clear();
+    this.vehicles = [];
     this.water = null;
     this.waterLayer.clear();
     this.lens = null;
@@ -464,6 +516,135 @@ export class MapView {
       this.groundSeen.clear();
     }
     if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** The boats and carts, as the host last listed them (null for none). They are drawn with the
+   * people, each frame, so one out moves with whoever has it. */
+  setVehicles(info: VehiclesInfo | null): void {
+    this.vehicles = info?.vehicles ?? [];
+    if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** Where each person is drawn now, metres, by their id. */
+  private positionsById(): Map<number, [number, number]> {
+    const positions = this.drawnPositions();
+    const out = new Map<number, [number, number]>();
+    for (const [i, p] of this.people.entries()) out.set(p.id, positions[i]!);
+    return out;
+  }
+
+  /** Each boat as a hull about 6 m long and each cart as a box on two wheels about 2 m long, never
+   * smaller than a few pixels, where it stands or beside whoever has it out. */
+  private drawVehicles(g: Graphics, positions: Map<number, [number, number]>, pxM: number): void {
+    for (const v of this.vehicles) {
+      const [x, y] = vehiclePosition(v, positions);
+      const look = vehicleLook(v);
+      if (look.boat) {
+        const half = Math.max(3, 5 * pxM);
+        const beam = Math.max(0.5, 1.6 * pxM);
+        g.poly([x - half, y, x - half * 0.6, y - beam, x + half * 0.6, y - beam, x + half, y, x + half * 0.6, y + beam, x - half * 0.6, y + beam])
+          .fill({ color: look.colour, alpha: look.alpha })
+          .stroke({ width: pxM, color: 0x14181b, alpha: 0.8 * look.alpha });
+      } else {
+        const half = Math.max(1, 3.5 * pxM);
+        const tall = Math.max(0.5, 2.2 * pxM);
+        g.rect(x - half, y - tall, 2 * half, 2 * tall)
+          .fill({ color: look.colour, alpha: look.alpha })
+          .stroke({ width: pxM, color: 0x14181b, alpha: 0.8 * look.alpha });
+        for (const dx of [-half * 0.55, half * 0.55]) {
+          g.circle(x + dx, y + tall, Math.max(0.3, 1.2 * pxM)).fill({ color: 0x2b2118, alpha: look.alpha });
+        }
+      }
+    }
+  }
+
+  /** The ways people have worked on, as the host last listed them (null for none). */
+  setWays(info: WaysInfo | null): void {
+    this.ways = info?.ways ?? [];
+    this.drawWays();
+    if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** Each stretch of a way along its centre line at its usable width, never thinner than about two
+   * pixels, so a lane shows at any zoom. */
+  private drawWays(): void {
+    const g = this.waysLayer;
+    g.clear();
+    this.wayScale = this.scale;
+    const pxM = 1 / Math.max(this.scale, 1e-6);
+    for (const w of this.ways) {
+      for (const s of w.segments) {
+        const [first, ...rest] = s.points;
+        if (!first) continue;
+        const look = wayLook(s, w.rank);
+        g.moveTo(first[0], first[1]);
+        if (rest.length === 0) g.lineTo(first[0] + 0.01, first[1]);
+        for (const [x, y] of rest) g.lineTo(x, y);
+        g.stroke({ width: Math.max(look.widthM, 2 * pxM), color: look.colour, alpha: look.alpha, cap: "round", join: "round" });
+      }
+    }
+  }
+
+  /** The plans put forward or in force, as the host last listed them (null for none). */
+  setPlans(info: PlansInfo | null): void {
+    this.plans = info?.plans ?? [];
+    this.drawPlans();
+    if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** Each plan in its three layers (research 10-04 §6.1): its parcels outlined and its streets and
+   * square tinted; the reserved ground a way already runs over outlined in grey; and the plot of
+   * each building on reserved ground ringed in red. One put forward is drawn fainter than one in
+   * force; lines are never thinner than about a pixel. */
+  private drawPlans(): void {
+    const g = this.plansLayer;
+    g.clear();
+    this.planScale = this.scale;
+    const pxM = 1 / Math.max(this.scale, 1e-6);
+    for (const p of this.plans) {
+      const look = planLook(p);
+      for (const r of p.parcels) {
+        g.rect(r.x, r.y, r.w, r.h).stroke({ width: Math.max(0.3, pxM), color: PARCEL_COLOUR, alpha: look.parcelAlpha });
+      }
+      for (const r of [...p.streets, ...p.sites]) {
+        g.rect(r.x, r.y, r.w, r.h).fill({ color: RESERVED_COLOUR, alpha: look.reservedAlpha });
+      }
+      for (const r of p.built) {
+        g.rect(r.x, r.y, r.w, r.h).stroke({ width: Math.max(0.6, 1.5 * pxM), color: BUILT_COLOUR, alpha: look.lineAlpha });
+      }
+      for (const r of p.occupied) {
+        const pad = 2 * pxM;
+        g.rect(r.x - pad, r.y - pad, r.w + 2 * pad, r.h + 2 * pad).stroke({
+          width: Math.max(0.8, 2 * pxM),
+          color: OCCUPIED_COLOUR,
+          alpha: look.lineAlpha,
+        });
+      }
+    }
+  }
+
+  /** The land map, as the host last listed it (null to hide it: M8c slice CX). */
+  setLand(info: LandInfo | null): void {
+    this.land = info?.plots ?? [];
+    this.drawLand();
+    if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** Each plot labelled by what is recorded of it (ADR-0030 §1): paid for in brown, reckoned in
+   * green deeper as it saved more, nothing recorded only outlined; lines never thinner than about
+   * a pixel. */
+  private drawLand(): void {
+    const g = this.landLayer;
+    g.clear();
+    this.landScale = this.scale;
+    const pxM = 1 / Math.max(this.scale, 1e-6);
+    const most = this.land.reduce((m, p) => Math.max(m, p.reckonedH), 0);
+    for (const p of this.land) {
+      const look = landLook(p, most);
+      const r = p.rect;
+      if (look.fill > 0) g.rect(r.x, r.y, r.w, r.h).fill({ color: look.colour, alpha: look.fill });
+      g.rect(r.x, r.y, r.w, r.h).stroke({ width: Math.max(0.3, pxM), color: look.colour, alpha: 0.8 });
+    }
   }
 
   /** The crossings over water, as the host last listed them (null for none). */
@@ -691,10 +872,16 @@ export class MapView {
   private drawPeople(): void {
     const g = this.peopleLayer;
     g.clear();
-    if (this.people.length === 0) return;
+    if (this.people.length === 0 && this.vehicles.length === 0) return;
     const pxM = 1 / this.scale;
     const positions = this.drawnPositions();
     let selectedAt: [number, number, number] | null = null;
+    // Boats and carts (M8b slice CP) beneath the people, so whoever has one out is drawn over it.
+    if (this.vehicles.length > 0) {
+      const byId = new Map<number, [number, number]>();
+      for (const [i, p] of this.people.entries()) byId.set(p.id, positions[i]!);
+      this.drawVehicles(g, byId, pxM);
+    }
     // Each band out (wire 1.74): a line from each who goes with it to the home it goes to, and a
     // ring there; a band still to muster is drawn faint.
     if (this.bands.length > 0) {
@@ -1026,11 +1213,17 @@ export class MapView {
       deposit: depositAt(this.deposits, xM, yM),
       earthwork: earthworkAt(this.earthworks, xM, yM),
       crossing: crossingAt(this.crossings, xM, yM, 4 / this.scale),
+      way: wayAt(this.ways, xM, yM, 3 / this.scale),
+      vehicle:
+        this.vehicles.length > 0 ? vehicleAt(this.vehicles, this.positionsById(), xM, yM, 6 / this.scale) : null,
+      plan: planAt(this.plans, xM, yM),
+      land: landAt(this.land, xM, yM),
       well: wellAt(this.water?.wells ?? [], xM, yM, 3 / this.scale),
       spring: springAt(this.water?.springs ?? [], xM, yM, 4 / this.scale),
       bank: bankAt(this.water?.banks ?? [], xM, yM, 4 / this.scale),
       flow: this.water?.flow ?? null,
       home: homeAt(this.lens, xM, yM, 5 / this.scale),
+      place: placeAt(this.lens, xM, yM, 5 / this.scale),
       path: pathAt(this.paths, cellX, cellY),
     };
   }
@@ -1045,6 +1238,15 @@ export class MapView {
       }
       if (this.trailScale === 0 || Math.abs(Math.log(scale / this.trailScale)) > 0.15) {
         this.drawTrails();
+      }
+      if (this.ways.length > 0 && Math.abs(Math.log(scale / this.wayScale)) > 0.15) {
+        this.drawWays();
+      }
+      if (this.plans.length > 0 && Math.abs(Math.log(scale / this.planScale)) > 0.15) {
+        this.drawPlans();
+      }
+      if (this.land.length > 0 && Math.abs(Math.log(scale / this.landScale)) > 0.15) {
+        this.drawLand();
       }
       if (this.crossings.length > 0 && Math.abs(Math.log(scale / this.crossingScale)) > 0.15) {
         this.drawCrossings();
@@ -1242,6 +1444,43 @@ export class MapView {
       earthworks: this.earthworks.length,
       bankSegments: this.earthworks.filter((w) => w.bank).map((w) => ({ id: w.id, ...w.bank!, words: w.words })),
       platforms: this.earthworks.map((w) => ({ x: w.x + w.w / 2, y: w.y + w.h / 2, done: w.done })),
+      // M8b slice CP: boats and carts, where each is drawn, how far made and who has it out.
+      vehicles: (() => {
+        const positions = this.positionsById();
+        return this.vehicles.map((v) => {
+          const [x, y] = vehiclePosition(v, positions);
+          return { id: v.id, mode: v.mode, x, y, made: v.made, outWith: v.outWith, loadKg: v.loadKg, words: v.words };
+        });
+      })(),
+      // M8c slice CX: the land map's plots, by what is recorded of each.
+      land: {
+        plots: this.land.length,
+        paid: this.land.filter((p) => landKind(p) === "paid").length,
+        reckoned: this.land.filter((p) => landKind(p) === "reckoned").length,
+        nothing: this.land.filter((p) => landKind(p) === "nothing").length,
+      },
+      // M8c slice CT: plans, each by its law and version, its layers' counts and its words.
+      plans: this.plans.map((p) => ({
+        law: p.law,
+        version: p.version,
+        inForce: p.inForce,
+        streets: p.streets.length,
+        sites: p.sites.length,
+        parcels: p.parcels.length,
+        built: p.built.length,
+        occupied: p.occupied.length,
+        words: p.words,
+      })),
+      // M8b slice CM: ways, where each runs, its rank and its stretches' condition.
+      ways: this.ways.map((w) => ({
+        id: w.id,
+        rank: w.rank,
+        rankName: w.rankName,
+        x: w.segments[0]?.points[0]?.[0] ?? 0,
+        y: w.segments[0]?.points[0]?.[1] ?? 0,
+        segments: w.segments.length,
+        words: w.words,
+      })),
       // M5c slice AW: crossings over water, where each lies and how far along it is.
       crossings: this.crossings.map((c) => ({
         x: (c.ax + c.bx) / 2,

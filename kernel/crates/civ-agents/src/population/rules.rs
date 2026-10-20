@@ -28,12 +28,22 @@ pub struct Kept {
     pub walls: Option<u8>,
     /// It keeps this far from every other building, metres.
     pub gap: Option<f64>,
+    /// A home where fire is worked keeps this far from other households' homes, metres (M8c
+    /// slice CW).
+    pub fire_from: Option<f64>,
+    /// A home, and the midden beside it, keeps this far from every open well, metres (M8c slice
+    /// CW).
+    pub midden_from: Option<f64>,
 }
 
 impl Kept {
     /// Whether it keeps any rule.
     pub fn any(&self) -> bool {
-        self.roof_within.is_some() || self.walls.is_some() || self.gap.is_some()
+        self.roof_within.is_some()
+            || self.walls.is_some()
+            || self.gap.is_some()
+            || self.fire_from.is_some()
+            || self.midden_from.is_some()
     }
 }
 
@@ -46,6 +56,27 @@ impl Population {
             .copied()
             .filter(|&h| self.household(h).is_some_and(|x| !x.fire_losses.is_empty()))
             .collect()
+    }
+
+    /// The cases of sickness at household `household`'s home its members have heard of (M8c
+    /// slice CW): claims of kind `Sickness` about it.
+    pub(super) fn sick_cases(&self, household: PermanentId) -> usize {
+        let Some(x) = self.household(household) else {
+            return 0;
+        };
+        let mut claims: Vec<u32> = x
+            .members
+            .iter()
+            .flat_map(|&m| self.word.heard_by(m).iter().map(|h| h.claim))
+            .filter(|&c| {
+                self.word.claim(c).is_some_and(|c| {
+                    c.kind == crate::word::ClaimKind::Sickness && c.subject == Some(household)
+                })
+            })
+            .collect();
+        claims.sort_unstable();
+        claims.dedup();
+        claims.len()
     }
 
     /// The households among `households` that heard a building of their settlement gave way
@@ -78,9 +109,24 @@ impl Population {
         pi: usize,
         households: &[PermanentId],
     ) -> RuleForecasts {
-        if self.burned_homes(households).is_empty() && self.gave_way_homes(households).is_empty() {
+        if self.burned_homes(households).is_empty()
+            && self.gave_way_homes(households).is_empty()
+            && !households.iter().any(|&h| self.sick_cases(h) > 0)
+        {
             return Vec::new();
         }
+        // What a case of a waterborne sickness takes from a household's work, hours: the mean
+        // days the ill are ill, of those with symptoms, at a day's work (M8c slice CW).
+        let case_h = {
+            let water: Vec<_> = ctx
+                .catalog
+                .diseases
+                .iter()
+                .filter(|d| d.routes.contains(&crate::params::DiseaseRoute::Water))
+                .collect();
+            water.iter().map(|d| d.ill.mean).sum::<f64>() / water.len().max(1) as f64
+                * ctx.params.farm.work_hours_per_day
+        };
         let settlement = self.polities[pi].settlement;
         let rp = &ctx.params.rules;
         // The buildings of the settlement that stand: what a household's remembered losses are
@@ -115,6 +161,27 @@ impl Population {
                     let x = self.household(h)?;
                     let kcal = self.hour_kcal(ctx, x);
                     let burnt = x.fire_losses.iter().filter(|l| l.burnable).count() as f64;
+                    let works_fire = self.works_fire_at_home(ctx, x);
+                    // A rule keeping homes and their middens from wells (M8c slice CW) averts
+                    // sickness, not the loss of a building: the cases of sickness at home the
+                    // household has heard of a year, at what a case takes from its work, if its
+                    // home (or the next it builds) stands within reach of an open well.
+                    if let RuleTemplate::MiddenFromWells { from_m } = rule.template {
+                        let near_well = ctx
+                            .land
+                            .buildings
+                            .iter()
+                            .filter(|b| b.household == h && b.standing())
+                            .filter(|b| ctx.catalog.is_dwelling(&b.spec.program))
+                            .filter_map(&plots)
+                            .any(|r| {
+                                crate::rules::near_open_well(&r, f64::from(from_m), &ctx.land.wells)
+                            });
+                        let homes = f64::from(u8::from(near_well))
+                            + f64::from(u8::from(self.builds_soon(ctx, x)));
+                        let cases = self.sick_cases(h) as f64 / rp.memory_years.max(1e-9);
+                        return Some((h, cases * case_h * homes * rp.avoided_share * kcal, 0.0));
+                    }
                     // What the rule forbids, of a building of its own standing now; the losses
                     // it remembers of that kind; and what its next building would cost more.
                     let (forbidden, seen, extra): (&Forbids, f64, f64) = match rule.template {
@@ -151,6 +218,27 @@ impl Population {
                             burnt,
                             0.0,
                         ),
+                        // A home where fire is worked near others' homes, if this household
+                        // works fire: what burnt it remembers (M8c slice CW).
+                        RuleTemplate::FireFromHomes { from_m } => (
+                            &move |b: &civ_land::Building| {
+                                works_fire
+                                    && ctx.catalog.is_dwelling(&b.spec.program)
+                                    && plots(b).is_some_and(|r| {
+                                        crate::rules::near_others_homes(
+                                            &r,
+                                            f64::from(from_m),
+                                            &ctx.land.buildings,
+                                            b.household,
+                                            &plots,
+                                            &|o| ctx.catalog.is_dwelling(&o.spec.program),
+                                        )
+                                    })
+                            },
+                            burnt,
+                            0.0,
+                        ),
+                        RuleTemplate::MiddenFromWells { .. } => unreachable!("weighed above"),
                     };
                     let rate = seen / (standing * rp.memory_years.max(1e-9));
                     let at_risk: f64 = ctx
@@ -400,9 +488,251 @@ impl Population {
                     let m = f64::from(gap_m);
                     kept.gap = Some(kept.gap.map_or(m, |k| k.max(m)));
                 }
+                // Only a household that works fire is bound to keep its home apart.
+                RuleTemplate::FireFromHomes { from_m } => {
+                    if self.works_fire_at_home(ctx, hh) {
+                        let m = f64::from(from_m);
+                        kept.fire_from = Some(kept.fire_from.map_or(m, |k| k.max(m)));
+                    }
+                }
+                RuleTemplate::MiddenFromWells { from_m } => {
+                    let m = f64::from(from_m);
+                    kept.midden_from = Some(kept.midden_from.map_or(m, |k| k.max(m)));
+                }
             }
         }
         kept
+    }
+
+    /// Whether household `hh` works fire at home (M8c slice CW): it holds a fixed tool, an oven
+    /// or a kiln, that a recipe burning fuel needs (`fire.rs`'s worked fires burn where those who
+    /// work them are, at home).
+    pub(crate) fn works_fire_at_home(&self, ctx: &Ctx, hh: &Household) -> bool {
+        let goods = &ctx.catalog.goods;
+        let fuelled = |r: &&crate::params::RecipeDef| {
+            r.inputs.iter().chain(&r.session_inputs).any(|&(g, _)| {
+                goods
+                    .get(g)
+                    .is_some_and(|d| d.purpose == crate::params::GoodUse::Fuel)
+            })
+        };
+        ctx.catalog
+            .recipes
+            .iter()
+            .filter(fuelled)
+            .flat_map(|r| r.tools.iter())
+            .any(|&t| {
+                goods
+                    .get(t)
+                    .and_then(|d| d.tool.as_ref())
+                    .is_some_and(|d| d.fixed)
+                    && hh.stores.get(t).is_some_and(|&kg| kg > 0.0)
+            })
+    }
+
+    /// The plans in force where household `hh` lives whose laws its eldest knows and chooses to
+    /// keep (M8c slice CT, third part; ADR-0030 §2), weighed as a rule for building is: its
+    /// builders keep its streets and public sites clear.
+    pub(crate) fn plans_kept(&self, ctx: &Ctx, hh: &Household) -> Vec<&civ_land::plans::Layout> {
+        let Some(pi) = hh.settlement.and_then(|s| self.polity_of(s)) else {
+            return Vec::new();
+        };
+        let polity = &self.polities[pi];
+        if polity.plans.is_empty() {
+            return Vec::new();
+        }
+        let Some(person) = self.elder_of(hh.id, ctx.now, ctx.params) else {
+            return Vec::new();
+        };
+        polity
+            .plans_in_force()
+            .filter(|(law, _)| {
+                polity
+                    .laws
+                    .iter()
+                    .find(|l| l.id == *law)
+                    .is_some_and(|l| self.keeps(ctx, person, l))
+            })
+            .map(|(_, p)| &p.layout)
+            .collect()
+    }
+
+    /// The parcels of the plans household `hh`'s builders keep whose district allows only some
+    /// uses (M8c slice CW, ADR-0030 §6), and the uses it allows, a bit for each: a building of
+    /// another use is not put on them.
+    pub(crate) fn zoned_kept(&self, ctx: &Ctx, hh: &Household) -> Vec<(civ_land::RectCm, u8)> {
+        let Some(pi) = hh.settlement.and_then(|s| self.polity_of(s)) else {
+            return Vec::new();
+        };
+        let polity = &self.polities[pi];
+        if polity.plans.is_empty() {
+            return Vec::new();
+        }
+        let Some(person) = self.elder_of(hh.id, ctx.now, ctx.params) else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        for (law, laid) in polity.plans_in_force() {
+            let Some(l) = polity.laws.iter().find(|l| l.id == law) else {
+                continue;
+            };
+            let Some(def) = ctx
+                .catalog
+                .policies
+                .get(usize::from(l.policy))
+                .and_then(|d| d.plan.as_ref())
+                .filter(|d| !d.districts.is_empty())
+            else {
+                continue;
+            };
+            if !self.keeps(ctx, person, l) {
+                continue;
+            }
+            let phase = laid.layout.phases(def.phases);
+            for (i, q) in laid.layout.parcels.iter().enumerate() {
+                if let Some(d) = def.districts.iter().find(|d| d.0 == phase[i]) {
+                    out.push((q.rect, d.1));
+                }
+            }
+        }
+        out
+    }
+
+    /// Household `household` has begun building `building` on plot `rect` (M8c slice CT, third
+    /// part): each plan in force where it lives over whose ground it stands counts whether it
+    /// was kept, and a building on ground the plan reserves is an encroachment, recorded.
+    fn count_plan_keeping(
+        &mut self,
+        ctx: &Ctx,
+        household: PermanentId,
+        building: PermanentId,
+        rect: &civ_land::RectCm,
+    ) {
+        let Some(pi) = self
+            .household(household)
+            .and_then(|x| x.settlement)
+            .and_then(|s| self.polity_of(s))
+        else {
+            return;
+        };
+        if self.polities[pi].plans.is_empty() {
+            return;
+        }
+        // A building of a use its district does not allow on a plan's parcel breaks the plan too
+        // (M8c slice CW), though it is no encroachment: it stands on no reserved ground.
+        let use_ = ctx
+            .land
+            .buildings
+            .iter()
+            .find(|b| b.id == building)
+            .and_then(|b| ctx.catalog.use_of(&b.spec.program));
+        let zoned_out = |law: PermanentId, p: &crate::polity::PlanLaid| {
+            let Some(def) = self.polities[pi]
+                .laws
+                .iter()
+                .find(|l| l.id == law)
+                .and_then(|l| ctx.catalog.policies.get(usize::from(l.policy)))
+                .and_then(|d| d.plan.as_ref())
+                .filter(|d| !d.districts.is_empty())
+            else {
+                return false;
+            };
+            let Some(use_) = use_ else {
+                return false;
+            };
+            let phase = p.layout.phases(def.phases);
+            p.layout
+                .parcels
+                .iter()
+                .enumerate()
+                .any(|(i, q)| q.rect.near(rect, 0) && !def.allows(phase[i], use_))
+        };
+        let zoned: Vec<PermanentId> = self.polities[pi]
+            .plans_in_force()
+            .filter(|&(law, p)| zoned_out(law, p))
+            .map(|(law, _)| law)
+            .collect();
+        for &law in &zoned {
+            let elder = self.elder_of(household, ctx.now, ctx.params);
+            if let Some(l) = self.polities[pi].law_mut(law) {
+                if elder.is_some_and(|e| l.knows(e)) {
+                    l.compliance.broken += 1;
+                } else {
+                    l.compliance.broken_unaware += 1;
+                }
+            }
+        }
+        let found: Vec<(PermanentId, bool)> = self.polities[pi]
+            .plans_in_force()
+            .filter(|(_, p)| plan_bounds(&p.layout).is_some_and(|b| b.near(rect, 0)))
+            .filter(|(law, _)| !zoned.contains(law))
+            .map(|(law, p)| (law, !p.layout.reserves(rect, 0)))
+            .collect();
+        if found.is_empty() {
+            return;
+        }
+        let elder = self.elder_of(household, ctx.now, ctx.params);
+        let day = ctx.now.day_index();
+        // Who sees it begun (M8c slice CV): the grown of the households whose homes lie within
+        // sight of it, never its own; each plan's keeper living there is added below.
+        let at = rect.centre_m();
+        let sight = ctx.params.crime.sight_m as f32;
+        let settlement = self.household(household).and_then(|x| x.settlement);
+        let mut near: Vec<PermanentId> = Vec::new();
+        for (_, x) in self.households.iter() {
+            if x.id == household
+                || x.settlement != settlement
+                || (x.home.0 - at.0).hypot(x.home.1 - at.1) > sight
+            {
+                continue;
+            }
+            near.extend(self.grown_of(x.id, ctx.now, ctx.params));
+        }
+        let keepers: Vec<(PermanentId, Option<PermanentId>)> = found
+            .iter()
+            .map(|&(law, _)| {
+                let keeper = self.polities[pi]
+                    .laws
+                    .iter()
+                    .find(|l| l.id == law)
+                    .and_then(|l| l.holder)
+                    .filter(|&k| {
+                        self.person(k)
+                            .and_then(|p| self.household(p.household))
+                            .is_some_and(|x| x.settlement == settlement && x.id != household)
+                    });
+                (law, keeper)
+            })
+            .collect();
+        let polity = &mut self.polities[pi];
+        for (law, kept) in found {
+            let Some(l) = polity.law_mut(law) else {
+                continue;
+            };
+            if kept {
+                l.compliance.complied += 1;
+                continue;
+            }
+            if elder.is_some_and(|e| l.knows(e)) {
+                l.compliance.broken += 1;
+            } else {
+                l.compliance.broken_unaware += 1;
+            }
+            let mut seen_by = near.clone();
+            if let Some(k) = keepers.iter().find(|k| k.0 == law).and_then(|k| k.1) {
+                seen_by.push(k);
+            }
+            seen_by.sort_unstable();
+            seen_by.dedup();
+            polity.encroachments.push(crate::polity::Encroachment {
+                day,
+                law,
+                household,
+                building,
+                seen_by,
+                order: None,
+            });
+        }
     }
 
     /// Whether `person`, knowing law `l`, chooses to keep it (M6b slice BH).
@@ -419,7 +749,81 @@ impl Population {
             .ties
             .regard(person, l.sponsor, ctx.now.day_index(), &ctx.params.ties);
         let norm = self.norm_points(ctx, person);
-        crate::polity::comply_points(norm, stance, regard, 0.0, &ctx.params.polity) > 0.0
+        let deterred = if l.kind == PolicyKind::Plan {
+            self.plan_sanction_points(ctx, person, l)
+        } else {
+            0.0
+        };
+        crate::polity::comply_points(norm, stance, regard, -deterred, &ctx.params.polity) > 0.0
+    }
+
+    /// What `person` expects building against plan `l` to cost their household, in the points a
+    /// day of its food is worth in a dispute (M8c slice CV, third part; ADR-0030 §5): the chance
+    /// they believe that someone sees, a hearing finds and the remedy follows, from the findings
+    /// under the plan they have heard of against the buildings it has had begun on its ground,
+    /// times the remedy's cost in days: its compensation and fine, a yearly payment over the
+    /// years a household reckons a plot by, and for removal the days of work their own home took.
+    fn plan_sanction_points(&self, ctx: &Ctx, person: PermanentId, l: &Law) -> f64 {
+        use crate::crime::CaseStage;
+        let (params, catalog) = (ctx.params, ctx.catalog);
+        let s = l.sanction;
+        let Some(polity) = self
+            .polities
+            .iter()
+            .find(|p| p.laws.iter().any(|x| x.id == l.id))
+        else {
+            return 0.0;
+        };
+        let begun = polity
+            .encroachments
+            .iter()
+            .filter(|e| e.law == l.id)
+            .count();
+        if begun == 0 {
+            return 0.0;
+        }
+        let found = self
+            .order
+            .cases
+            .iter()
+            .filter(|c| c.law == l.id && c.building.is_some() && c.stage == CaseStage::Found)
+            .filter(|c| {
+                self.word.claims.iter().any(|k| {
+                    k.kind == crate::word::ClaimKind::Finding
+                        && k.event == Some(c.id)
+                        && self.word.has_heard(person, k.id)
+                })
+            })
+            .count();
+        if found == 0 {
+            return 0.0;
+        }
+        let chance = (found as f64 / begun as f64).min(1.0);
+        let removal = if s.remove {
+            let household = self.person(person).map(|p| p.household);
+            ctx.land
+                .buildings
+                .iter()
+                .filter(|b| Some(b.household) == household && b.standing())
+                .filter(|b| catalog.is_dwelling(&b.spec.program))
+                .filter_map(|b| {
+                    let d = catalog.building_index(&b.spec.program)?;
+                    build::building_hours(
+                        &b.spec,
+                        catalog.buildings.get(d)?,
+                        params.household.carry_kg,
+                    )
+                })
+                .fold(0.0, f64::max)
+                / params.farm.work_hours_per_day.max(1.0)
+        } else {
+            0.0
+        };
+        let days = f64::from(s.compensation_days)
+            + f64::from(s.fine_days)
+            + f64::from(s.yearly_days) * params.build.site_years
+            + removal;
+        params.crime.w_demand_loss * chance * days
     }
 
     /// Household `household` has begun building `building` (M6b slice BH): for each rule for
@@ -435,13 +839,6 @@ impl Population {
         let Some(x) = self.household(household) else {
             return;
         };
-        let rules = self.rules_in_force(ctx, x.settlement);
-        if rules.is_empty() {
-            return;
-        }
-        let Some(pi) = x.settlement.and_then(|s| self.polity_of(s)) else {
-            return;
-        };
         let Some(b) = ctx.land.buildings.iter().find(|b| b.id == building) else {
             return;
         };
@@ -452,6 +849,15 @@ impl Population {
             .find(|p| p.id == b.plot)
             .map(|p| p.rect)
         else {
+            return;
+        };
+        let settlement = x.settlement;
+        self.count_plan_keeping(ctx, household, building, &rect);
+        let rules = self.rules_in_force(ctx, settlement);
+        if rules.is_empty() {
+            return;
+        }
+        let Some(pi) = settlement.and_then(|s| self.polity_of(s)) else {
             return;
         };
         let elder = self.elder_of(household, ctx.now, ctx.params);
@@ -472,6 +878,11 @@ impl Population {
                 &plots,
             )
         };
+        let home_of = |o: &civ_land::Building| ctx.catalog.is_dwelling(&o.spec.program);
+        let is_home = home_of(b);
+        let works_fire = self
+            .household(household)
+            .is_some_and(|x| self.works_fire_at_home(ctx, x));
         for (law, t) in rules {
             let (bound, kept) = match t {
                 RuleTemplate::RoofsUnburnt { within_m } => {
@@ -479,6 +890,23 @@ impl Population {
                 }
                 RuleTemplate::WallsOfKinds { kinds } => (true, kinds & (1 << wall) != 0),
                 RuleTemplate::LeastGap { gap_m } => (true, !near(gap_m)),
+                // A home where fire is worked, apart from others' homes (M8c slice CW).
+                RuleTemplate::FireFromHomes { from_m } => (
+                    is_home && works_fire,
+                    !crate::rules::near_others_homes(
+                        &rect,
+                        f64::from(from_m),
+                        &ctx.land.buildings,
+                        household,
+                        &plots,
+                        &home_of,
+                    ),
+                ),
+                // A home, and its midden, apart from every open well.
+                RuleTemplate::MiddenFromWells { from_m } => (
+                    is_home,
+                    !crate::rules::near_open_well(&rect, f64::from(from_m), &ctx.land.wells),
+                ),
             };
             if !bound {
                 continue;
@@ -494,6 +922,18 @@ impl Population {
                 l.compliance.broken_unaware += 1;
             }
         }
+    }
+
+    /// The plans household `household`'s builders keep, as laid: for tests.
+    #[doc(hidden)]
+    pub fn plans_kept_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+    ) -> Vec<civ_land::plans::Layout> {
+        self.household(household).map_or_else(Vec::new, |x| {
+            self.plans_kept(ctx, x).into_iter().cloned().collect()
+        })
     }
 
     /// What the rules household `household`'s builders keep ask of its next building: for tests.
@@ -521,7 +961,42 @@ impl Population {
         });
         let labour = self.labour_per_day(&hh.members, ctx.now, ctx.params);
         self.new_building(ctx, &hh, hearth, hh.id, labour, None)
+            .ok()
             .map(|n| n.spec)
+    }
+
+    /// The home household `household` would lay out today, beside its settlement's hearth, as if
+    /// it had none, and the parcel of a plan it would stand on, if a keeper gives it one: for
+    /// tests.
+    #[doc(hidden)]
+    pub fn first_home_parcel_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+    ) -> Option<(civ_grammar::BuildingSpec, Option<civ_land::Allotment>)> {
+        let hh = self.household(household)?.clone();
+        let hearth = hh.settlement.and_then(|s| {
+            ctx.land
+                .settlements
+                .iter()
+                .find(|x| x.id == s)
+                .map(|x| x.hearth_m)
+        });
+        let labour = self.labour_per_day(&hh.members, ctx.now, ctx.params);
+        self.new_building(ctx, &hh, hearth, hh.id, labour, None)
+            .ok()
+            .map(|n| (n.spec, n.parcel))
+    }
+
+    /// The parcel a plan in force would give household `household` now: for tests.
+    #[doc(hidden)]
+    pub fn parcel_offer_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+    ) -> Option<super::ParcelOffer> {
+        self.household(household)
+            .and_then(|x| self.parcel_offer(ctx, x))
     }
 
     /// Counts whether building `building` household `household` began keeps the rules in force
@@ -535,4 +1010,91 @@ impl Population {
     ) {
         self.count_rule_keeping(ctx, household, building);
     }
+
+    /// Rule for building `policy`, sponsored by `sponsor`, put in force at polity `pi` today and
+    /// known to everyone of it: for tests. Its id.
+    #[doc(hidden)]
+    pub fn enact_rule_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        pi: usize,
+        policy: u16,
+        sponsor: PermanentId,
+    ) -> PermanentId {
+        let now = ctx.now;
+        let def = &ctx.catalog.policies[usize::from(policy)];
+        let id = ctx.ids.allocate();
+        let mut known: Vec<(PermanentId, i64)> = self
+            .people
+            .iter()
+            .map(|(_, p)| (p.id, now.day_index()))
+            .collect();
+        known.sort_unstable_by_key(|k| k.0);
+        self.polities[pi].laws.push(Law {
+            id,
+            policy,
+            kind: def.kind,
+            levy_share: 0.0,
+            holder: None,
+            relief_days: 0.0,
+            sanction: Default::default(),
+            hours: (0, 0),
+            status: crate::polity::LawStatus::InForce,
+            sponsor,
+            proposed: now,
+            issue: def
+                .answers
+                .first()
+                .copied()
+                .unwrap_or(crate::polity::IssueKind::Burned),
+            meets_day: now.day_index(),
+            decided: Some(now),
+            outcome: Some(crate::polity::Outcome::Passed),
+            eligible: 0,
+            stances: Vec::new(),
+            known,
+            compliance: Default::default(),
+            watch: Default::default(),
+            body: None,
+            ends: None,
+            agreement: None,
+            target: None,
+        });
+        id
+    }
+
+    /// What `person` expects building against plan `law` to cost, in points: for tests.
+    #[doc(hidden)]
+    pub fn plan_sanction_points_for_tests(
+        &self,
+        ctx: &Ctx,
+        person: PermanentId,
+        law: PermanentId,
+    ) -> f64 {
+        self.polities
+            .iter()
+            .find_map(|p| p.laws.iter().find(|l| l.id == law))
+            .map_or(0.0, |l| self.plan_sanction_points(ctx, person, l))
+    }
+}
+
+/// The ground a plan's layout covers: the least rectangle about its streets, sites and parcels.
+fn plan_bounds(layout: &civ_land::plans::Layout) -> Option<civ_land::RectCm> {
+    let rects = layout
+        .streets
+        .iter()
+        .chain(layout.sites.iter().map(|s| &s.rect))
+        .chain(layout.parcels.iter().map(|p| &p.rect));
+    rects.fold(None, |acc: Option<civ_land::RectCm>, r| {
+        Some(acc.map_or(*r, |a| {
+            let (x0, y0) = (a.x.min(r.x), a.y.min(r.y));
+            let (x1, y1) = ((a.x + a.w).max(r.x + r.w), (a.y + a.h).max(r.y + r.h));
+            civ_land::RectCm {
+                x: x0,
+                y: y0,
+                w: x1 - x0,
+                h: y1 - y0,
+            }
+        }))
+    })
 }

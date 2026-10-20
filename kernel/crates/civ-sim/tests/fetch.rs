@@ -116,6 +116,12 @@ fn scene() -> Scene {
 /// [`scene`] in world `seed`.
 fn scene_in(seed: u64) -> Scene {
     let mut sim = world(seed, 30, &[30]);
+    // Nobody borrows (M7d slice CA): a household fed by a loan would make and offer goods again.
+    sim.rules_mut_for_tests()
+        .expect("rules of its own")
+        .people
+        .credit
+        .least_days = 1e9;
     sim.advance_minutes(DAY).expect("advances");
     let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
     let sickle = good(&sim, "core:good/sickle");
@@ -277,6 +283,12 @@ fn saves_and_goes_on_alike(sim: &mut Sim, minutes: i64) {
     let saved =
         persist::save(sim, &saves, commons_persist::SaveKind::Manual, "fetch").expect("saves");
     let mut loaded = persist::load(&saved.path, content()).expect("loads");
+    // Rules are never saved: a loaded world goes by the content's. What a scene set for its own
+    // ends (the walk weighed lightly, say) is set again on the world loaded.
+    loaded
+        .rules_mut_for_tests()
+        .expect("rules of its own")
+        .people = sim.rules().people.clone();
     let same = |a: &Sim, b: &Sim| {
         let (a, b) = (persist::encode_sections(a), persist::encode_sections(b));
         assert_eq!(a.len(), b.len());
@@ -284,6 +296,9 @@ fn saves_and_goes_on_alike(sim: &mut Sim, minutes: i64) {
             assert!(x.bytes == y.bytes, "section `{}` differs", x.tag);
         }
     };
+    same(sim, &loaded);
+    sim.advance_minutes(minutes).expect("advances");
+    loaded.advance_minutes(minutes).expect("advances");
     same(sim, &loaded);
     sim.advance_minutes(minutes).expect("advances");
     loaded.advance_minutes(minutes).expect("advances");
@@ -1080,6 +1095,9 @@ fn reseller(sc: &mut Scene, wanted: f64, worth_h: f64) -> f32 {
     let spare = offered(sim, buyer, sickle);
     assert!(spare > 1.0, "it offers what it holds beyond its keep");
     let keep = plenty as f32 - spare;
+    // Hoes enough for every hand: a trip to the seller's door is for the errand, not for a tool of
+    // its own (one trip, one deal, its own need first).
+    set(sim, buyer, &[("core:good/hoe", 10.0)]);
     let day = sim.now().day_index();
     let pop = sim.people_mut_for_tests();
     if let Some(h) = pop
@@ -1332,4 +1350,1456 @@ fn nobody_fetches_to_sell_what_their_neighbours_do_not_want_or_the_twin_stops() 
         "nothing was bought"
     );
     assert_eq!(went(&sim), trips, "nobody went");
+}
+
+/// `seller` offers 600 kg of toolstone for grain, a kilogram for a kilogram.
+fn offer_stone(sim: &mut Sim, seller: PermanentId, stone: usize, grain: usize) {
+    let h = sim
+        .people_mut_for_tests()
+        .households
+        .iter_mut()
+        .map(|(_, h)| h)
+        .find(|h| h.id == seller)
+        .expect("seller");
+    h.offers.retain(|o| usize::from(o.good) != stone);
+    h.offers.push(civ_agents::market::Offer {
+        good: stone as u16,
+        payment: grain as u16,
+        price: 1.0,
+        units: 600.0,
+        ask_h: 0.5,
+    });
+}
+
+/// `seller` offers its toolstone and nothing else: a buyer at its door with a need of its own it
+/// could meet there buys for that and not for its errand (M5b slice AQ).
+fn only_stone(sim: &mut Sim, seller: PermanentId, stone: usize) {
+    if let Some(h) = sim
+        .people_mut_for_tests()
+        .households
+        .iter_mut()
+        .map(|(_, h)| h)
+        .find(|h| h.id == seller)
+    {
+        h.offers.retain(|o| usize::from(o.good) == stone);
+    }
+}
+
+/// The bank nearest household `h`'s home where a dugout floats today, and the dugout's index.
+fn bank_near_home(sim: &Sim, h: PermanentId) -> (u32, usize) {
+    let home = sim.people().household(h).expect("household").home;
+    let dugout = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/dugout")
+        .expect("a dugout");
+    let land = sim.land();
+    let hull = sim.rules().catalog.vehicles[dugout].hull();
+    let (hyd, q) = (&land.floodplain.reaches, &land.reach_discharges);
+    let bank = land
+        .rivers
+        .nearest_bank(home, 5_000.0, |c| {
+            land.rivers.floats(sim.map(), c, hyd, q, hull)
+        })
+        .expect("a bank near home where a dugout floats");
+    (bank, dugout)
+}
+
+/// The scene's seller with toolstone on offer for grain, a kilogram for a kilogram; the buyer's
+/// neighbours want more toolstone than a person carries, and nobody offers it (M8b slice CO,
+/// ADR-0029 §3). World 4: one camp beside water a dugout floats on, the other a mile and a half
+/// from it.
+fn stone_scene() -> (Scene, usize) {
+    let mut sc = scene_in(4);
+    let (a, seller, buyer) = (sc.a, sc.seller, sc.buyer);
+    let sim = &mut sc.sim;
+    let stone = good(sim, "core:good/toolstone");
+    let grain = good(sim, "core:good/grain");
+    set(sim, seller, &[("core:good/toolstone", 900.0)]);
+    offer_stone(sim, seller, stone, grain);
+    let rules = sim.rules_mut_for_tests().expect("rules of its own");
+    rules.people.decision.w_walk_hour = 0.5;
+    rules.people.reports.share_told = 0.0;
+    plant_reports(sim, buyer, seller, stone);
+    let day = sim.now().day_index();
+    let pop = sim.people_mut_for_tests();
+    let goods = pop
+        .markets
+        .first()
+        .map_or(0, |m| m.sold.len())
+        .max(stone + 1);
+    if !pop.markets.iter().any(|m| m.settlement == a) {
+        pop.markets
+            .push(civ_agents::market::Market::new(a, goods, day));
+    }
+    pop.markets
+        .iter_mut()
+        .find(|m| m.settlement == a)
+        .expect("the buyer's market")
+        .record_unmet(stone, 300.0, 300.0 * 2.0);
+    (sc, stone)
+}
+
+/// The stone scene with the buyer's dugout drawn up at the bank nearest its home.
+fn boat_scene() -> (Scene, usize, PermanentId) {
+    let (mut sc, stone) = stone_scene();
+    let buyer = sc.buyer;
+    let sim = &mut sc.sim;
+    let (bank, dugout) = bank_near_home(sim, buyer);
+    let boat = sim.allocate_id_for_tests();
+    let made = sim.now().day_index();
+    let land = sim.land_mut_for_tests();
+    land.boats.list.push(civ_land::boats::Boat {
+        id: boat,
+        vehicle: dugout as u16,
+        owner: buyer,
+        at: bank,
+        made,
+        wear: 0.0,
+        labour_h: 0.0,
+        work_h: 0.0,
+        saves_h_year: 0.0,
+        crew: (0, 0),
+    });
+    land.boats.changed();
+    (sc, stone, boat)
+}
+
+#[test]
+fn a_household_with_a_boat_fetches_a_boat_load_by_water_carried_home_in_transit() {
+    let (sc, stone, boat) = boat_scene();
+    let Scene {
+        mut sim,
+        a,
+        b,
+        seller,
+        buyer,
+        ..
+    } = sc;
+    let carry = sim.rules().people.household.carry_kg;
+    let bank = sim.land().boats.list[0].at;
+    // At its review it weighs the trip both ways, and the boat brings far more for the hours.
+    past_review(&mut sim, buyer);
+    let errand = *sim
+        .people()
+        .reports
+        .errands
+        .get(&buyer)
+        .expect("an errand is planned");
+    let way = errand.by_boat.expect("by boat");
+    assert_eq!((errand.seller, errand.market, way.boat), (seller, b, boat));
+    assert_eq!((way.from, usize::from(errand.good)), (bank, stone));
+    assert!(
+        f64::from(errand.units) > carry * 2.0,
+        "a boat's load: {errand:?}"
+    );
+    // Saved and loaded, it is the same errand, and the world goes on alike.
+    saves_and_goes_on_alike(&mut sim, 60);
+    let since = sim.now();
+    let held_before = sim.people().household(buyer).expect("buyer").stores[stone];
+    // Someone paddles there, buys a boat's load, and it is in transit until it is unloaded at
+    // home; the boat is drawn up where it was again.
+    let mut afloat_load = 0.0f64;
+    let mut paddled = false;
+    let mut trade = None;
+    let grain = good(&sim, "core:good/grain");
+    for _ in 0..7 * 24 * 6 {
+        // The seller keeps offering toolstone, and only that, until it is bought.
+        if trade.is_none() {
+            offer_stone(&mut sim, seller, stone, grain);
+            only_stone(&mut sim, seller, stone);
+        }
+        sim.advance_minutes(10).expect("advances");
+        paddled |= sim
+            .people()
+            .people
+            .iter()
+            .any(|(_, p)| p.trip.as_ref().is_some_and(|t| t.afloat));
+        for c in &sim.people().consignments {
+            assert_eq!((c.owner, c.boat, c.from, c.to), (buyer, boat, b, a));
+            afloat_load = afloat_load.max(c.stores[stone]);
+        }
+        // The errand's own trade: what else the household buys meanwhile is its own business.
+        trade = trade.or_else(|| {
+            bought_by(&sim, b, a)
+                .into_iter()
+                .find(|t| t.buyer == buyer && t.at > since && usize::from(t.good) == stone)
+        });
+        if trade.is_some() && sim.people().consignments.is_empty() && afloat_load > 0.0 {
+            break;
+        }
+    }
+    assert!(paddled, "someone went by water");
+    let trade = trade.expect("the errand was run");
+    assert_eq!((trade.seller, usize::from(trade.good)), (seller, stone));
+    assert!(f64::from(trade.units) > carry * 2.0, "{trade:?}");
+    assert!(
+        afloat_load > carry * 2.0,
+        "carried in transit: {afloat_load}"
+    );
+    assert!(sim.people().consignments.is_empty(), "unloaded at home");
+    let held = sim.people().household(buyer).expect("buyer").stores[stone];
+    assert!(
+        held - held_before > carry * 2.0,
+        "the load is in the store: {held_before} then {held}"
+    );
+    // The boat is home, someone of the household is not afloat.
+    assert_eq!(sim.land().boats.list[0].at, bank);
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+    saves_and_goes_on_alike(&mut sim, 60);
+}
+
+#[test]
+fn a_household_that_finds_a_boat_would_save_it_more_than_it_takes_makes_one_and_fetches_by_it() {
+    let (sc, stone) = stone_scene();
+    let Scene {
+        mut sim,
+        seller,
+        buyer,
+        ..
+    } = sc;
+    let (bank, dugout) = bank_near_home(&sim, buyer);
+    // A smaller labour than the content's, so the test runs in days, not weeks.
+    let rules = sim.rules_mut_for_tests().expect("rules of its own");
+    rules.catalog.vehicles[dugout].labour_h = 24.0;
+    set(&mut sim, buyer, &[("core:good/axe", 2.0)]);
+    let grain = good(&sim, "core:good/grain");
+    // At its review it plans the errand on foot, and finds a boat would bring far more.
+    assert!(sim.land().boats.list.is_empty());
+    past_review(&mut sim, buyer);
+    let errand = *sim
+        .people()
+        .reports
+        .errands
+        .get(&buyer)
+        .expect("an errand is planned");
+    assert!(errand.by_boat.is_none(), "no boat yet: {errand:?}");
+    let begun = sim.land().boats.list.clone();
+    assert_eq!(begun.len(), 1, "a boat begun");
+    let b = &begun[0];
+    assert_eq!(
+        (b.owner, b.at, usize::from(b.vehicle)),
+        (buyer, bank, dugout)
+    );
+    assert!(!b.made() && b.work_h == 0.0 && (b.labour_h - 24.0).abs() < 1e-3);
+    assert!(
+        f64::from(b.saves_h_year) * sim.rules().catalog.vehicles[dugout].life_years > 24.0,
+        "worth more than it takes: {b:?}"
+    );
+    let boat = b.id;
+    // Saved and loaded while it is being made, the world goes on alike.
+    saves_and_goes_on_alike(&mut sim, 60);
+    // Its people work on it until it is made; then the chronicle says so.
+    let mut worked = false;
+    for _ in 0..40 * 24 * 6 {
+        offer_stone(&mut sim, seller, stone, grain);
+        sim.advance_minutes(10).expect("advances");
+        worked |= sim.people().people.iter().any(|(_, p)| {
+            p.household == buyer && p.act.target == civ_agents::person::Target::Boat(boat)
+        });
+        if sim
+            .land()
+            .boats
+            .list
+            .iter()
+            .any(|b| b.id == boat && b.made())
+        {
+            break;
+        }
+    }
+    assert!(worked, "someone of the household worked on it");
+    let made = sim
+        .land()
+        .boats
+        .list
+        .iter()
+        .find(|b| b.id == boat)
+        .expect("the boat");
+    assert!(made.made(), "made: {made:?}");
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|e| e.kind == civ_agents::ChronicleKind::BoatMade),
+        "the chronicle tells it"
+    );
+    // No second one is begun.
+    assert_eq!(sim.land().boats.of(buyer).count(), 1);
+    // An errand it plans once the water carries the boat both ways goes by the boat it made,
+    // its neighbours wanting toolstone as they did (what it fetched on foot meanwhile is sold or
+    // put by).
+    let a = sim
+        .people()
+        .household(buyer)
+        .and_then(|x| x.settlement)
+        .expect("home");
+    let mut by_boat = None;
+    for _ in 0..12 {
+        set(&mut sim, buyer, &[("core:good/toolstone", 0.0)]);
+        if let Some((_, x)) = sim
+            .people_mut_for_tests()
+            .households
+            .iter_mut()
+            .find(|(_, x)| x.id == buyer)
+        {
+            x.offers.retain(|o| usize::from(o.good) != stone);
+        }
+        sim.people_mut_for_tests()
+            .markets
+            .iter_mut()
+            .find(|m| m.settlement == a)
+            .expect("the buyer's market")
+            .record_unmet(stone, 300.0, 300.0 * 2.0);
+        past_review(&mut sim, buyer);
+        by_boat = sim
+            .people()
+            .reports
+            .errands
+            .get(&buyer)
+            .and_then(|e| e.by_boat);
+        if by_boat.is_some() {
+            break;
+        }
+    }
+    assert_eq!(
+        by_boat.map(|w| w.boat),
+        Some(boat),
+        "an errand by the boat it made"
+    );
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+    saves_and_goes_on_alike(&mut sim, 60);
+}
+
+/// The stone scene with a way that serves carts laid along the buyer's walk to the seller's door,
+/// and the buyer's handcart standing at its door (M8b slice CP, ADR-0029 §3, §7).
+fn cart_scene() -> (Scene, usize, PermanentId) {
+    let (mut sc, stone) = wheels_scene();
+    let buyer = sc.buyer;
+    let sim = &mut sc.sim;
+    let map = sim.map();
+    let from =
+        civ_agents::population::cell_of(map, sim.people().household(buyer).expect("buyer").home)
+            as u32;
+    let handcart = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart");
+    let cart = sim.allocate_id_for_tests();
+    let today = sim.now().day_index();
+    let land = sim.land_mut_for_tests();
+    land.carts.list.push(civ_land::boats::Boat {
+        id: cart,
+        vehicle: handcart as u16,
+        owner: buyer,
+        at: from,
+        made: today,
+        wear: 0.0,
+        labour_h: 0.0,
+        work_h: 0.0,
+        saves_h_year: 0.0,
+        crew: (0, 0),
+    });
+    land.carts.changed();
+    (sc, stone, cart)
+}
+
+/// The stone scene with a way that serves carts laid along the buyer's walk to the seller's door
+/// (M8b slice CP, ADR-0029 §3, §7), and nobody's cart yet.
+fn wheels_scene() -> (Scene, usize) {
+    use civ_land::ways::{CART, Keeper, Rank, Segment, Surface, WALK, Way};
+    let (mut sc, stone) = stone_scene();
+    let (buyer, seller) = (sc.buyer, sc.seller);
+    let sim = &mut sc.sim;
+    let map = sim.map();
+    let cell = |at: (f32, f32)| civ_agents::population::cell_of(map, at) as u32;
+    let home = sim.people().household(buyer).expect("buyer").home;
+    let door = sim.people().household(seller).expect("seller").home;
+    let (from, to) = (cell(home), cell(door));
+    let handcart = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart");
+    // The way a loaded handcart could take both ways over open ground, a deck over each stream it
+    // crosses: no grade steeper than its puller can climb with a load, up or down.
+    let v = sim.rules().catalog.vehicles[handcart].clone();
+    let walk = sim.rules().people.nav.tobler_ms(0.0);
+    let loaded = civ_land::carting::Wheels {
+        brake_grade: 0.08,
+        ..v.wheels(v.payload_kg, walk)
+    };
+    let mut decks: Vec<(u32, f32)> = (0..map.width * map.height)
+        .filter(|&c| map.water[c as usize] == civ_world::WATER_RIVER)
+        .map(|c| (c, civ_land::carting::deck_height(map, c)))
+        .collect();
+    decks.sort_unstable_by_key(|&(c, _)| c);
+    let terrain = civ_land::carting::Terrain {
+        elevation: &map.elevation,
+        water: &map.water,
+        decks: &decks,
+        width: map.width,
+        height: map.height,
+        cell_m: f64::from(map.cell_size_m),
+    };
+    let open = |c: u32| match map.water.get(c as usize) {
+        Some(&civ_world::WATER_LAND) | Some(&civ_world::WATER_RIVER) => Some(loaded.trail_c),
+        _ => None,
+    };
+    let cells = terrain
+        .route(&loaded, &open, &[from], &[to])
+        .expect("a way a loaded handcart could take between the camps")
+        .cells;
+    // Decks over the stream cells it crosses, and over those beside a corner it cuts, so no
+    // diagonal step squeezes past open water.
+    let river = |c: u32| map.water[c as usize] == civ_world::WATER_RIVER;
+    let w = map.width;
+    let mut wades: Vec<(u32, [u32; 2])> = Vec::new();
+    for (i, &c) in cells.iter().enumerate() {
+        if river(c) {
+            wades.push((c, [cells[i - 1], cells[i + 1]]));
+        }
+        if let Some(&n) = cells.get(i + 1)
+            && n % w != c % w
+            && n / w != c / w
+        {
+            for side in [(n / w) * w + c % w, (c / w) * w + n % w] {
+                if river(side) {
+                    wades.push((side, [c, n]));
+                }
+            }
+        }
+    }
+    wades.sort_unstable_by_key(|&(c, _)| c);
+    wades.dedup_by_key(|&mut (c, _)| c);
+    let system = sim
+        .rules()
+        .catalog
+        .bridge_index("core:bridge/log_beam")
+        .expect("a bridge system") as u16;
+    let now = sim.now();
+    for &(c, banks) in &wades {
+        let id = sim.allocate_id_for_tests();
+        let land = sim.land_mut_for_tests();
+        land.crossings.list.push(civ_land::crossings::Crossing {
+            id,
+            system,
+            banks,
+            cells: vec![c],
+            span_m: 8.0,
+            members: 6,
+            diameter_cm: 25.0,
+            quality: 1.0,
+            loss: 0.0,
+            owner: civ_land::crossings::CrossingOwner::Household(buyer),
+            labour_h: 0.0,
+            skill_h: 0.0,
+            begun: now,
+            state: civ_land::crossings::CrossingState::Open {
+                since: now.day_index(),
+            },
+            shares: Vec::new(),
+            crew: (0, 0),
+        });
+        land.crossings.changed();
+    }
+    sim.lay_decks_for_tests();
+    let way = sim.allocate_id_for_tests();
+    let today = sim.now().day_index();
+    let land = sim.land_mut_for_tests();
+    land.ways.add(Way {
+        id: way,
+        begun: today,
+        segments: vec![Segment {
+            cells,
+            corridor_m: 4.0,
+            built_m: 2.5,
+            usable_m: 2.5,
+            surface: Surface::Cleared,
+            keeper: Keeper::Household(buyer),
+            kept: today,
+        }],
+        modes: WALK | CART,
+        trips: 0.0,
+        trips_day: today,
+        rank: Rank::Lane,
+    });
+    (sc, stone)
+}
+
+#[test]
+fn a_household_with_a_handcart_fetches_a_cart_load_on_a_way_carried_home_in_transit() {
+    let (sc, stone, cart) = cart_scene();
+    let Scene {
+        mut sim,
+        a,
+        b,
+        seller,
+        buyer,
+        ..
+    } = sc;
+    let carry = sim.rules().people.household.carry_kg;
+    let door = sim.land().carts.list[0].at;
+    // At its review it weighs the trip on foot and by cart, and the cart brings more for the
+    // hours.
+    past_review(&mut sim, buyer);
+    let errand = *sim
+        .people()
+        .reports
+        .errands
+        .get(&buyer)
+        .expect("an errand is planned");
+    let way = errand.by_cart.expect("by cart");
+    assert_eq!((errand.seller, errand.market, way.cart), (seller, b, cart));
+    assert!(errand.by_boat.is_none());
+    assert!(
+        f64::from(errand.units) > carry * 2.0 && errand.units <= 150.0,
+        "a cart's load: {errand:?}"
+    );
+    saves_and_goes_on_alike(&mut sim, 60);
+    let since = sim.now();
+    let held_before = sim.people().household(buyer).expect("buyer").stores[stone];
+    // Someone pulls the cart there, buys a cart's load, and it is in transit until it is
+    // unloaded at home; the cart stands at the door again.
+    let mut loaded = 0.0f64;
+    let mut hauled = false;
+    let mut trade = None;
+    let grain = good(&sim, "core:good/grain");
+    for _ in 0..7 * 24 * 6 {
+        // The seller keeps offering toolstone, and only that, until it is bought: what the buyer
+        // would buy there for itself comes first (M5b slice AQ), and is not this test's.
+        if trade.is_none() {
+            if let Some((_, h)) = sim
+                .people_mut_for_tests()
+                .households
+                .iter_mut()
+                .find(|(_, h)| h.id == seller)
+            {
+                h.offers.clear();
+            }
+            offer_stone(&mut sim, seller, stone, grain);
+        }
+        sim.advance_minutes(10).expect("advances");
+        hauled |= sim.people().people.iter().any(|(_, p)| {
+            p.household == buyer
+                && p.trip.is_some()
+                && matches!(
+                    p.act.steps.get(usize::from(p.act.step)),
+                    Some(civ_agents::Step::Haul { .. })
+                )
+        });
+        for c in &sim.people().consignments {
+            assert_eq!((c.owner, c.boat, c.from, c.to), (buyer, cart, b, a));
+            loaded = loaded.max(c.stores[stone]);
+        }
+        trade = trade.or_else(|| {
+            bought_by(&sim, b, a)
+                .into_iter()
+                .find(|t| t.buyer == buyer && t.at > since && usize::from(t.good) == stone)
+        });
+        if trade.is_some() && sim.people().consignments.is_empty() && loaded > 0.0 {
+            break;
+        }
+    }
+    assert!(hauled, "someone pulled the cart");
+    let trade = trade.expect("the errand was run");
+    assert_eq!((trade.seller, usize::from(trade.good)), (seller, stone));
+    assert!(f64::from(trade.units) > carry * 2.0, "{trade:?}");
+    assert!(loaded > carry * 2.0, "carried in transit: {loaded}");
+    assert!(sim.people().consignments.is_empty(), "unloaded at home");
+    let held = sim.people().household(buyer).expect("buyer").stores[stone];
+    assert!(
+        held - held_before > carry * 2.0,
+        "the load is in the store: {held_before} then {held}"
+    );
+    assert_eq!(sim.land().carts.list[0].at, door, "the cart is home");
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+    saves_and_goes_on_alike(&mut sim, 60);
+}
+
+#[test]
+fn a_household_that_finds_a_cart_would_save_it_more_than_it_takes_makes_one_and_fetches_by_it() {
+    let (sc, stone) = wheels_scene();
+    let Scene {
+        mut sim,
+        seller,
+        buyer,
+        ..
+    } = sc;
+    let handcart = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart");
+    // A smaller labour than the content's, so the test runs in a day or two.
+    let rules = sim.rules_mut_for_tests().expect("rules of its own");
+    rules.catalog.vehicles[handcart].labour_h = 8.0;
+    let material = rules.catalog.vehicles[handcart].material_kg;
+    // Someone of the household knows wheels on an axle (the observer's introduction), and it
+    // holds an axe and timber enough for it beside what its building takes.
+    let who = sim
+        .people()
+        .households
+        .iter()
+        .find(|(_, x)| x.id == buyer)
+        .and_then(|(_, x)| x.members.first().copied())
+        .expect("a member");
+    sim.introduce_technique(who, "core:technique/jointed_frame", false)
+        .expect("introduced");
+    sim.introduce_technique(who, "core:technique/wheel_and_axle", false)
+        .expect("introduced");
+    set(
+        &mut sim,
+        buyer,
+        &[
+            ("core:good/axe", 2.0),
+            ("core:good/timber", material + 1000.0),
+        ],
+    );
+    let timber = good(&sim, "core:good/timber");
+    let grain = good(&sim, "core:good/grain");
+    // At its review it plans the errand on foot, and finds a cart would bring far more.
+    assert!(sim.land().carts.list.is_empty());
+    past_review(&mut sim, buyer);
+    let errand = *sim
+        .people()
+        .reports
+        .errands
+        .get(&buyer)
+        .expect("an errand is planned");
+    assert!(errand.by_cart.is_none(), "no cart yet: {errand:?}");
+    let begun = sim.land().carts.list.clone();
+    assert_eq!(begun.len(), 1, "a cart begun");
+    let c = &begun[0];
+    let door = civ_agents::population::cell_of(
+        sim.map(),
+        sim.people().household(buyer).expect("buyer").home,
+    ) as u32;
+    assert_eq!(
+        (c.owner, c.at, usize::from(c.vehicle)),
+        (buyer, door, handcart)
+    );
+    assert!(!c.made() && c.work_h == 0.0 && (c.labour_h - 8.0).abs() < 1e-3);
+    assert!(
+        f64::from(c.saves_h_year) * sim.rules().catalog.vehicles[handcart].life_years > 8.0,
+        "worth more than it takes: {c:?}"
+    );
+    // Its timber came out of the store.
+    let used = sim
+        .people()
+        .household(buyer)
+        .expect("buyer")
+        .flows
+        .get(civ_agents::person::Flow::Used, timber);
+    assert!(used >= material - 1e-6, "the timber is used: {used}");
+    let cart = c.id;
+    // Saved and loaded while it is being made, the world goes on alike.
+    saves_and_goes_on_alike(&mut sim, 60);
+    // Its people work on it at the door until it is made; then the chronicle says so.
+    let mut worked = false;
+    for _ in 0..20 * 24 * 6 {
+        offer_stone(&mut sim, seller, stone, grain);
+        sim.advance_minutes(10).expect("advances");
+        worked |= sim.people().people.iter().any(|(_, p)| {
+            p.household == buyer && p.act.target == civ_agents::person::Target::Boat(cart)
+        });
+        if sim
+            .land()
+            .carts
+            .list
+            .iter()
+            .any(|c| c.id == cart && c.made())
+        {
+            break;
+        }
+    }
+    assert!(worked, "someone of the household worked on it");
+    let made = sim
+        .land()
+        .carts
+        .list
+        .iter()
+        .find(|c| c.id == cart)
+        .expect("the cart");
+    assert!(made.made() && made.at == door, "made at the door: {made:?}");
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|e| e.kind == civ_agents::ChronicleKind::CartMade),
+        "the chronicle tells it"
+    );
+    assert_eq!(sim.land().carts.of(buyer).count(), 1, "no second one");
+    // An errand it plans now goes by the cart it made, its neighbours wanting toolstone as they
+    // did.
+    let a = sim
+        .people()
+        .household(buyer)
+        .and_then(|x| x.settlement)
+        .expect("home");
+    let mut by_cart = None;
+    for _ in 0..12 {
+        // The seller has toolstone again, and the buyer has word of it, as at the start: what
+        // was fetched on foot meanwhile may have emptied its door, and been seen so.
+        offer_stone(&mut sim, seller, stone, grain);
+        plant_reports(&mut sim, buyer, seller, stone);
+        set(&mut sim, buyer, &[("core:good/toolstone", 0.0)]);
+        if let Some((_, x)) = sim
+            .people_mut_for_tests()
+            .households
+            .iter_mut()
+            .find(|(_, x)| x.id == buyer)
+        {
+            x.offers.retain(|o| usize::from(o.good) != stone);
+        }
+        sim.people_mut_for_tests()
+            .markets
+            .iter_mut()
+            .find(|m| m.settlement == a)
+            .expect("the buyer's market")
+            .record_unmet(stone, 300.0, 300.0 * 2.0);
+        past_review(&mut sim, buyer);
+        by_cart = sim
+            .people()
+            .reports
+            .errands
+            .get(&buyer)
+            .and_then(|e| e.by_cart);
+        if by_cart.is_some() {
+            break;
+        }
+    }
+    assert_eq!(
+        by_cart.map(|w| w.cart),
+        Some(cart),
+        "an errand by the cart it made"
+    );
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+    saves_and_goes_on_alike(&mut sim, 60);
+}
+
+#[test]
+fn carts_meet_by_clearance_where_a_way_is_too_narrow_for_two() {
+    use civ_agents::traffic::Facility;
+    let (sc, _stone) = wheels_scene();
+    let Scene {
+        mut sim,
+        seller,
+        buyer,
+        ..
+    } = sc;
+    // The way from the buyer's door to the seller's is narrowed below two carts' width.
+    {
+        let land = sim.land_mut_for_tests();
+        for w in &mut land.ways.list {
+            for s in &mut w.segments {
+                s.usable_m = 1.5;
+            }
+        }
+        land.ways.changed();
+    }
+    let handcart = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart") as u16;
+    let home = |sim: &Sim, h: PermanentId| sim.people().household(h).expect("household").home;
+    let (buyer_door, seller_door) = (home(&sim, buyer), home(&sim, seller));
+    let members = |sim: &Sim, h: PermanentId| {
+        sim.people()
+            .household(h)
+            .expect("household")
+            .members
+            .clone()
+    };
+    let (sellers, buyers) = (members(&sim, seller), members(&sim, buyer));
+    assert!(sellers.len() >= 2 && buyers.len() >= 2, "two of each");
+    // Four carts: one of each household at each door, each with one of its people beside it.
+    let today = sim.now().day_index();
+    let put = |sim: &mut Sim, owner: PermanentId, who: PermanentId, at: (f32, f32)| {
+        let cell = civ_agents::population::cell_of(sim.map(), at) as u32;
+        let id = sim.allocate_id_for_tests();
+        let land = sim.land_mut_for_tests();
+        land.carts.list.push(civ_land::boats::Boat {
+            id,
+            vehicle: handcart,
+            owner,
+            at: cell,
+            made: today,
+            wear: 0.0,
+            labour_h: 0.0,
+            work_h: 0.0,
+            saves_h_year: 0.0,
+            crew: (0, 0),
+        });
+        land.carts.changed();
+        let pop = sim.people_mut_for_tests();
+        if let Some((_, p)) = pop.people.iter_mut().find(|(_, p)| p.id == who) {
+            p.pos = at;
+        }
+    };
+    put(&mut sim, seller, sellers[0], seller_door);
+    put(&mut sim, buyer, buyers[0], seller_door);
+    put(&mut sim, buyer, buyers[1], buyer_door);
+    put(&mut sim, seller, sellers[1], buyer_door);
+    let held = |sim: &Sim, h: PermanentId| -> f32 {
+        sim.people()
+            .traffic
+            .waits
+            .get(&h)
+            .map(|l| {
+                l.iter()
+                    .filter(|w| matches!(w.facility, Facility::Narrows(_)))
+                    .map(|w| w.minutes)
+                    .sum()
+            })
+            .unwrap_or(0.0)
+    };
+    let haul = |sim: &mut Sim, who: PermanentId, to: (f32, f32)| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.haul_for_tests(ctx, who, to))
+    };
+    let ends = |sim: &Sim, who: PermanentId| {
+        let p = sim
+            .people()
+            .people
+            .iter()
+            .find(|(_, p)| p.id == who)
+            .map(|(_, p)| p)
+            .expect("person");
+        let t = p.trip.as_ref().expect("a trip");
+        f64::from(t.duration_minutes())
+    };
+    // The seller's cart sets off for the buyer's door with nobody on the way: no wait.
+    assert!(haul(&mut sim, sellers[0], buyer_door));
+    assert_eq!(held(&sim, seller), 0.0);
+    // The buyer's cart at the seller's door follows it the same way: no wait either.
+    assert!(haul(&mut sim, buyers[0], buyer_door));
+    assert_eq!(held(&sim, buyer), 0.0);
+    let follower = ends(&sim, buyers[0]);
+    // The buyer's cart at its own door would meet both coming the other way and wait longer than
+    // a quarter-hour: its puller turns back, and the household remembers the wait it would have had.
+    assert!(!haul(&mut sim, buyers[1], seller_door));
+    let would = held(&sim, buyer);
+    assert!(
+        f64::from(would) > civ_agents::traffic::TURN_BACK_MIN,
+        "turned back: {would}"
+    );
+    // The seller's cart at the buyer's door, away from its own, waits at the stretch until both
+    // have left it, and goes on after: it gets home after the follower got to the buyer's door.
+    assert!(haul(&mut sim, sellers[1], seller_door));
+    let waited = held(&sim, seller);
+    assert!(
+        f64::from(waited) > civ_agents::traffic::TURN_BACK_MIN,
+        "{waited}"
+    );
+    assert!(ends(&sim, sellers[1]) > follower + f64::from(waited) * 0.5);
+    // Each household holds those waits as the way's losses there too (M8b slice CQ), in hours.
+    let lost = |sim: &Sim, h: PermanentId| -> f32 {
+        let day = sim.now().day_index();
+        sim.people()
+            .traffic
+            .losses_held(h, day, sim.rules().people.places.use_half_life_days)
+            .filter(|l| l.cause == civ_agents::traffic::Cause::Width)
+            .map(|l| l.hours)
+            .sum()
+    };
+    assert!((lost(&sim, buyer) - would / 60.0).abs() < 1e-3);
+    assert!((lost(&sim, seller) - waited / 60.0).abs() < 1e-3);
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+    // Saved and loaded with the waits held, the world goes on alike.
+    saves_and_goes_on_alike(&mut sim, 60);
+}
+
+#[test]
+fn a_household_remembers_what_the_climbs_on_its_carts_way_cost_where_each_begins() {
+    use civ_agents::traffic::{Cause, LEAST_LOSS_S};
+    let (sc, _stone) = wheels_scene();
+    let Scene {
+        mut sim,
+        seller,
+        buyer,
+        ..
+    } = sc;
+    let handcart = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart");
+    let home = |sim: &Sim, h: PermanentId| sim.people().household(h).expect("household").home;
+    let (from, to) = (home(&sim, buyer), home(&sim, seller));
+    let who = sim
+        .people()
+        .household(buyer)
+        .expect("buyer")
+        .members
+        .first()
+        .copied()
+        .expect("a member");
+    let door = civ_agents::population::cell_of(sim.map(), from) as u32;
+    let today = sim.now().day_index();
+    let id = sim.allocate_id_for_tests();
+    {
+        let land = sim.land_mut_for_tests();
+        land.carts.list.push(civ_land::boats::Boat {
+            id,
+            vehicle: handcart as u16,
+            owner: buyer,
+            at: door,
+            made: today,
+            wear: 0.0,
+            labour_h: 0.0,
+            work_h: 0.0,
+            saves_h_year: 0.0,
+            crew: (0, 0),
+        });
+        land.carts.changed();
+    }
+    if let Some((_, p)) = sim
+        .people_mut_for_tests()
+        .people
+        .iter_mut()
+        .find(|(_, p)| p.id == who)
+    {
+        p.pos = from;
+    }
+    // A weak puller, so the village's small rises cost the cart what a steep hill would cost a
+    // strong one.
+    let rules = sim.rules_mut_for_tests().expect("rules of its own");
+    rules.catalog.vehicles[handcart].power_w /= 20.0;
+    // The climbs on the way the empty cart will take, as the haul will find them.
+    let walk = sim.rules().people.nav.tobler_ms(0.0);
+    let wheels = sim.rules().catalog.vehicles[handcart].wheels(0.0, walk);
+    let (route, _) = sim
+        .land()
+        .cart_way(sim.map(), &wheels, from, to)
+        .expect("a way for wheels");
+    // Held in cell order.
+    let mut climbs: Vec<(u32, f64)> = sim
+        .land()
+        .cart_climbs(sim.map(), &wheels, &route.cells)
+        .into_iter()
+        .filter(|&(_, s)| s >= LEAST_LOSS_S)
+        .collect();
+    climbs.sort_by_key(|&(c, _)| c);
+    assert!(!climbs.is_empty(), "the way climbs somewhere");
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.haul_for_tests(ctx, who, to)));
+    let day = sim.now().day_index();
+    let half = sim.rules().people.places.use_half_life_days;
+    let held: Vec<(u32, f32)> = sim
+        .people()
+        .traffic
+        .losses_held(buyer, day, half)
+        .filter(|l| l.cause == Cause::Grade)
+        .map(|l| (l.cell, l.hours))
+        .collect();
+    assert_eq!(held.len(), climbs.len(), "{held:?} against {climbs:?}");
+    for ((c, h), (cc, s)) in held.iter().zip(&climbs) {
+        assert_eq!(c, cc);
+        assert!((f64::from(*h) - s / 3600.0).abs() < 1e-6);
+    }
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+    saves_and_goes_on_alike(&mut sim, 60);
+}
+
+#[test]
+fn a_household_lays_a_way_where_its_carts_drag_on_worn_trail_and_its_carts_then_roll_easier() {
+    use civ_agents::traffic::Cause;
+    let (sc, _stone) = wheels_scene();
+    let Scene {
+        mut sim,
+        seller,
+        buyer,
+        ..
+    } = sc;
+    // The way between the two doors is a worn trail: nobody has laid a way there.
+    let today = sim.now().day_index();
+    {
+        let paths = sim.rules().land.paths;
+        let land = sim.land_mut_for_tests();
+        let cells: Vec<(u32, f32)> = land
+            .ways
+            .list
+            .iter()
+            .flat_map(|w| w.segments.iter().flat_map(|s| s.cells.iter().copied()))
+            .map(|c| (c, 1.0))
+            .collect();
+        land.ways = Default::default();
+        land.wear.hold(&cells, today, &paths);
+        land.wear.survey(today, &paths);
+    }
+    let handcart = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart");
+    let home = |sim: &Sim, h: PermanentId| sim.people().household(h).expect("household").home;
+    let (from, to) = (home(&sim, buyer), home(&sim, seller));
+    let who = sim.people().household(buyer).expect("buyer").members[0];
+    let door = civ_agents::population::cell_of(sim.map(), from) as u32;
+    let id = sim.allocate_id_for_tests();
+    {
+        let land = sim.land_mut_for_tests();
+        land.carts.list.push(civ_land::boats::Boat {
+            id,
+            vehicle: handcart as u16,
+            owner: buyer,
+            at: door,
+            made: today,
+            wear: 0.0,
+            labour_h: 0.0,
+            work_h: 0.0,
+            saves_h_year: 0.0,
+            crew: (0, 0),
+        });
+        land.carts.changed();
+    }
+    if let Some((_, p)) = sim
+        .people_mut_for_tests()
+        .people
+        .iter_mut()
+        .find(|(_, p)| p.id == who)
+    {
+        p.pos = from;
+    }
+    // A weak puller, so the trail's roughness costs the cart what a load would cost a strong one.
+    sim.rules_mut_for_tests()
+        .expect("rules of its own")
+        .catalog
+        .vehicles[handcart]
+        .power_w /= 20.0;
+    let walk = sim.rules().people.nav.tobler_ms(0.0);
+    let wheels = sim.rules().catalog.vehicles[handcart].wheels(0.0, walk);
+    let (route, _) = sim
+        .land()
+        .cart_way(sim.map(), &wheels, from, to)
+        .expect("a way for wheels");
+    let roughs = sim.land().cart_roughs(sim.map(), &wheels, &route.cells);
+    assert!(roughs.len() > 3, "{roughs:?}");
+    // Each haul over it is remembered cell by cell, at what each cell cost beyond a way. A
+    // season's hauls: a few would not repay the clearing as well as the household's other work.
+    let hauls = 150;
+    for _ in 0..hauls {
+        assert!(sim.with_ctx_for_tests(|pop, ctx| pop.haul_for_tests(ctx, who, to)));
+    }
+    let half = sim.rules().people.places.use_half_life_days;
+    let held: Vec<(u32, f32)> = sim
+        .people()
+        .traffic
+        .losses_held(buyer, today, half)
+        .filter(|l| l.cause == Cause::Rough)
+        .map(|l| (l.cell, l.hours))
+        .collect();
+    assert_eq!(held.len(), roughs.len(), "{held:?} against {roughs:?}");
+    for ((c, h), (cc, s)) in held.iter().zip(&roughs) {
+        assert_eq!(c, cc);
+        let want = f64::from(hauls) * s / 3600.0;
+        assert!(
+            (f64::from(*h) - want).abs() < 1e-3 * want,
+            "{h} against {want}"
+        );
+    }
+    // At its review the household lays a way over the near part of that trail, marked out for
+    // now: a tread wide once cleared.
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_way_work_for_tests(ctx, buyer));
+    let way = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|w| {
+            w.segments
+                .iter()
+                .any(|s| s.keeper == civ_land::ways::Keeper::Household(buyer))
+        })
+        .cloned()
+        .expect("a way laid");
+    let s = &way.segments[0];
+    assert!(!s.cells.is_empty());
+    assert!(
+        s.cells.iter().all(|c| roughs.iter().any(|r| r.0 == *c)),
+        "{s:?}"
+    );
+    assert!(
+        (s.corridor_m - 1.2).abs() < 1e-6 && s.built_m < 0.1,
+        "{s:?}"
+    );
+    // Saved and loaded while it is being laid, the world goes on alike.
+    saves_and_goes_on_alike(&mut sim, 60);
+    // Its people clear it until it is a tread wide.
+    let mut worked = false;
+    for _ in 0..200 * 24 * 6 {
+        sim.advance_minutes(10).expect("advances");
+        worked |= sim.people().people.iter().any(|(_, p)| {
+            p.household == buyer && p.act.target == civ_agents::person::Target::Way(way.id)
+        });
+        let done = sim
+            .land()
+            .ways
+            .list
+            .iter()
+            .find(|w| w.id == way.id)
+            .is_some_and(|w| w.segments[0].built_m + 1e-3 >= w.segments[0].corridor_m);
+        if done {
+            break;
+        }
+    }
+    assert!(worked, "someone of the household worked on it");
+    let laid = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|w| w.id == way.id)
+        .cloned()
+        .expect("the way");
+    assert!((laid.segments[0].usable_m - 1.2).abs() < 1e-3, "{laid:?}");
+    // The cart rolls there now as on a way, and its trail costs nothing there beyond one.
+    for &c in &laid.segments[0].cells {
+        let (res, _) = sim
+            .land()
+            .cart_going(sim.map(), c, &wheels)
+            .expect("wheels go there");
+        assert!((res - wheels.way_c).abs() < 1e-9, "{c}: {res}");
+    }
+    let after = sim.land().cart_roughs(sim.map(), &wheels, &route.cells);
+    assert!(
+        after.iter().all(|r| !laid.segments[0].cells.contains(&r.0)),
+        "{after:?}"
+    );
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+}
+
+/// [`wheels_scene`] with the way between the two doors a worn trail no way is laid on, each
+/// household a handcart at its door, and the buyer's cart turned back `turns` times at the
+/// trail's single-cart stretch by the seller's on it: the scene, the handcart's index, and the
+/// stretch's middle cell, where the buyer's household holds the waits.
+fn carts_wait_scene(turns: usize) -> (Sim, PermanentId, PermanentId, usize, u32) {
+    use civ_agents::traffic::Cause;
+    let (sc, _stone) = wheels_scene();
+    let Scene {
+        mut sim,
+        seller,
+        buyer,
+        ..
+    } = sc;
+    // The way between the two doors is a worn trail, a cart's width and a half wide: nobody has
+    // laid a way there.
+    let today = sim.now().day_index();
+    {
+        let paths = sim.rules().land.paths;
+        let land = sim.land_mut_for_tests();
+        let cells: Vec<(u32, f32)> = land
+            .ways
+            .list
+            .iter()
+            .flat_map(|w| w.segments.iter().flat_map(|s| s.cells.iter().copied()))
+            .map(|c| (c, 1.0))
+            .collect();
+        land.ways = Default::default();
+        land.wear.hold(&cells, today, &paths);
+        land.wear.survey(today, &paths);
+    }
+    let handcart = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart");
+    let home = |sim: &Sim, h: PermanentId| sim.people().household(h).expect("household").home;
+    let (buyer_door, seller_door) = (home(&sim, buyer), home(&sim, seller));
+    let first =
+        |sim: &Sim, h: PermanentId| sim.people().household(h).expect("household").members[0];
+    let (s0, b0) = (first(&sim, seller), first(&sim, buyer));
+    let put = |sim: &mut Sim, owner: PermanentId, who: PermanentId, at: (f32, f32)| {
+        let cell = civ_agents::population::cell_of(sim.map(), at) as u32;
+        let id = sim.allocate_id_for_tests();
+        let land = sim.land_mut_for_tests();
+        land.carts.list.push(civ_land::boats::Boat {
+            id,
+            vehicle: handcart as u16,
+            owner,
+            at: cell,
+            made: today,
+            wear: 0.0,
+            labour_h: 0.0,
+            work_h: 0.0,
+            saves_h_year: 0.0,
+            crew: (0, 0),
+        });
+        land.carts.changed();
+        if let Some((_, p)) = sim
+            .people_mut_for_tests()
+            .people
+            .iter_mut()
+            .find(|(_, p)| p.id == who)
+        {
+            p.pos = at;
+        }
+    };
+    put(&mut sim, seller, s0, seller_door);
+    put(&mut sim, buyer, b0, buyer_door);
+    let haul = |sim: &mut Sim, who: PermanentId, to: (f32, f32)| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.haul_for_tests(ctx, who, to))
+    };
+    // The seller's cart sets off on the trail; the buyer's, meeting it there, turns back at its
+    // door, and its household holds the wait at the stretch's middle. It happens again and
+    // again: one turning back is not worth a day's clearing, a season of them is.
+    assert!(haul(&mut sim, s0, buyer_door));
+    for _ in 0..turns {
+        assert!(!haul(&mut sim, b0, seller_door), "turned back");
+    }
+    let half = sim.rules().people.places.use_half_life_days;
+    let held: Vec<(u32, f32)> = sim
+        .people()
+        .traffic
+        .losses_held(buyer, today, half)
+        .filter(|l| l.cause == Cause::Width)
+        .map(|l| (l.cell, l.hours))
+        .collect();
+    assert_eq!(held.len(), 1, "{held:?}");
+    let middle = held[0].0;
+    (sim, buyer, seller, handcart, middle)
+}
+
+#[test]
+fn a_household_makes_a_passing_place_where_its_carts_wait_and_two_carts_then_pass_there() {
+    let (mut sim, buyer, _seller, handcart, middle) = carts_wait_scene(20);
+    // At its review the household begins a passing place there, a trail's tread wide for now.
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_way_work_for_tests(ctx, buyer));
+    let way = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|w| {
+            w.segments
+                .iter()
+                .any(|s| s.keeper == civ_land::ways::Keeper::Household(buyer))
+        })
+        .cloned()
+        .expect("a passing place begun");
+    let s = &way.segments[0];
+    assert_eq!(s.cells, vec![middle]);
+    assert!(
+        (s.built_m - 1.2).abs() < 1e-6 && (s.corridor_m - 2.0).abs() < 1e-6,
+        "{s:?}"
+    );
+    // No second one while it is being made.
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_way_work_for_tests(ctx, buyer));
+    assert_eq!(sim.land().ways.list.len(), 1);
+    // Saved and loaded while it is being made, the world goes on alike.
+    saves_and_goes_on_alike(&mut sim, 60);
+    // Its people clear it until it is two carts wide.
+    let mut worked = false;
+    for _ in 0..20 * 24 * 6 {
+        sim.advance_minutes(10).expect("advances");
+        worked |= sim.people().people.iter().any(|(_, p)| {
+            p.household == buyer && p.act.target == civ_agents::person::Target::Way(way.id)
+        });
+        let done = sim
+            .land()
+            .ways
+            .list
+            .iter()
+            .find(|w| w.id == way.id)
+            .is_some_and(|w| w.segments[0].built_m + 1e-3 >= w.segments[0].corridor_m);
+        if done {
+            break;
+        }
+    }
+    assert!(worked, "someone of the household worked on it");
+    let made = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|w| w.id == way.id)
+        .cloned()
+        .expect("the passing place");
+    assert!((made.segments[0].usable_m - 2.0).abs() < 1e-3, "{made:?}");
+    // Two carts pass there now: the stretch is no longer one for a single cart at its middle.
+    let walk = sim.rules().people.nav.tobler_ms(0.0);
+    let wheels = sim.rules().catalog.vehicles[handcart].wheels(0.0, walk);
+    let (_, room) = sim
+        .land()
+        .cart_going(sim.map(), middle, &wheels)
+        .expect("wheels go there");
+    assert!(!wheels.single_file(room), "{room}");
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+}
+
+#[test]
+fn a_passing_place_the_gathering_asks_for_is_cleared_by_the_households_shares_of_its_work() {
+    use civ_agents::polity::{IssueKind, LawStatus, Outcome, PolicyKind};
+    let (mut sim, buyer, _seller, handcart, middle) = carts_wait_scene(20);
+    let settlement = sim
+        .people()
+        .household(buyer)
+        .and_then(|x| x.settlement)
+        .expect("the buyer's settlement");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    // The settlement's people could clear a passing place together where the buyer's cart
+    // waited: the strip that widens the trail to two carts, sparing the buyer's household half
+    // its waits there.
+    let (cell, labour_h, saves) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.public_way_for_tests(ctx, settlement))
+        .expect("a passing place to clear together");
+    assert_eq!(cell, middle);
+    assert!((1.0..100.0).contains(&labour_h), "{labour_h}");
+    assert_eq!(saves.len(), 1, "{saves:?}");
+    assert_eq!(saves[0].0, buyer);
+    // A law to clear it would bring the buyer's household more than any other of the
+    // settlement's, which would only give its share of the work.
+    let gains = sim.with_ctx_for_tests(|pop, ctx| {
+        pop.site_gains_for_tests(ctx, settlement, PolicyKind::BuildWay, middle)
+    });
+    let gain = |h: PermanentId| gains.iter().find(|g| g.0 == h).expect("weighed").1;
+    assert!(gains.len() >= 2, "{gains:?}");
+    assert!(
+        gains.iter().all(|g| g.0 == buyer || g.1 < gain(buyer)),
+        "{gains:?}"
+    );
+    // Someone proposes that the polity clear it, for its carts waited there: the law names its
+    // cell and keeps what each household reckoned it would spare it.
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    let mut proposed = None;
+    for _ in 0..12 {
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[pi].gathering = None;
+            for l in &mut pop.polities[pi].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        match sim.people().polities[pi].agenda().cloned() {
+            Some(l) if l.kind == PolicyKind::BuildWay => {
+                proposed = Some(l);
+                break;
+            }
+            Some(_) => continue,
+            None => break,
+        }
+    }
+    let law = proposed.expect("a passing place proposed");
+    assert_eq!(law.issue, IssueKind::CartsWait);
+    let id = law.id;
+    let site = sim.people().polities[pi]
+        .way_site_of(id)
+        .expect("its site recorded");
+    assert_eq!((site.cell, site.work), (middle, None));
+    assert!(sim.people().polities[pi].way_saves_of(id, buyer) > 0.0);
+    // The gathering passed it: a law in force, known to every adult of the settlement; the
+    // polity lays it out.
+    let adults: Vec<PermanentId> = sim
+        .people()
+        .people
+        .iter()
+        .filter(|(_, p)| {
+            p.age_years(sim.now()) >= 16.0
+                && sim
+                    .people()
+                    .household(p.household)
+                    .is_some_and(|x| x.settlement == Some(settlement))
+        })
+        .map(|(_, p)| p.id)
+        .collect();
+    {
+        let today = sim.now().day_index();
+        let pop = sim.people_mut_for_tests();
+        pop.every_adult_deliberates = false;
+        let p = &mut pop.polities[pi];
+        p.gathering = None;
+        let l = p.laws.iter_mut().find(|l| l.id == id).expect("the law");
+        l.status = LawStatus::InForce;
+        l.outcome = Some(Outcome::Passed);
+        l.known = adults.iter().map(|&a| (a, today)).collect();
+    }
+    let words = sim.people().polities[pi].words_of(
+        &sim.people().polities[pi]
+            .laws
+            .last()
+            .expect("the law")
+            .clone(),
+        &sim.rules().catalog.policies,
+        &|_| String::new(),
+    );
+    assert!(words.contains("passing place"), "{words}");
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_public_way_for_tests(ctx, pi, id));
+    let polity = sim.people().polities[pi].id;
+    let way = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|w| {
+            w.segments
+                .iter()
+                .any(|s| s.keeper == civ_land::ways::Keeper::Polity(polity))
+        })
+        .cloned()
+        .expect("the polity's passing place laid out");
+    assert_eq!(way.segments[0].cells, vec![middle]);
+    assert_eq!(
+        sim.people().polities[pi]
+            .way_site_of(id)
+            .and_then(|s| s.work),
+        Some(way.id)
+    );
+    // No second one while it is being cleared, by the polity or the household.
+    assert!(
+        sim.with_ctx_for_tests(|pop, ctx| pop.public_way_for_tests(ctx, settlement))
+            .is_none()
+    );
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_way_work_for_tests(ctx, buyer));
+    assert_eq!(sim.land().ways.list.len(), 1);
+    // Saved and loaded while it is being cleared, the world goes on alike.
+    saves_and_goes_on_alike(&mut sim, 60);
+    // Its people give their households' shares as they choose, until it is two carts wide.
+    for _ in 0..30 * 24 * 6 {
+        sim.advance_minutes(10).expect("advances");
+        let done = sim
+            .land()
+            .ways
+            .list
+            .iter()
+            .find(|w| w.id == way.id)
+            .is_some_and(|w| w.segments[0].built_m + 1e-3 >= w.segments[0].corridor_m);
+        if done {
+            break;
+        }
+    }
+    let made = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|w| w.id == way.id)
+        .cloned()
+        .expect("the passing place");
+    let given = sim.people().polities[pi].way_given.clone();
+    assert!(
+        (made.segments[0].usable_m - 2.0).abs() < 1e-3,
+        "{made:?}, {given:?}"
+    );
+    let total: f32 = given.iter().filter(|g| g.0 == id).map(|g| g.2).sum();
+    assert!(
+        (f64::from(total) - labour_h).abs() < 0.05 * labour_h,
+        "{total} of {labour_h}: {given:?}"
+    );
+    // Two carts pass there now.
+    let walk = sim.rules().people.nav.tobler_ms(0.0);
+    let wheels = sim.rules().catalog.vehicles[handcart].wheels(0.0, walk);
+    let (_, room) = sim
+        .land()
+        .cart_going(sim.map(), middle, &wheels)
+        .expect("wheels go there");
+    assert!(!wheels.single_file(room), "{room}");
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
 }

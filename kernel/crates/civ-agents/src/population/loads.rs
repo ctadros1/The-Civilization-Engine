@@ -336,14 +336,17 @@ impl Population {
             };
             let wear = condition::wear_state(c, &def.upkeep);
             let load = if g.kind == GroupKind::MassWall {
-                let dummy = structure::Timber {
+                // A mass wall's kind rides in its group's spacing; its strength is its program's.
+                let (strength, density) = crate::rules::masonry(&def.rules, g.spacing_cm);
+                let masonry = structure::Timber {
                     bending_pa: 0.0,
-                    compression_pa: 0.0,
+                    compression_pa: strength,
                     stiffness_pa: 0.0,
                     creep: 0.0,
                     sustained: 1.0,
+                    density_kg_m3: density,
                 };
-                structure::margin(g, c, &e, &loads, &dummy).state()
+                structure::margin(g, c, &e, &loads, &masonry).state()
             } else if g.kind == GroupKind::Covering {
                 let day = ctx.now.day_index();
                 let checked = ctx.land.storm_checks.iter().any(|s| {
@@ -514,7 +517,7 @@ impl Population {
                     .map(|s| s.area_m2)
                     .sum()
             };
-            let (ground, upper) = (area(Level::Ground), area(Level::Upper));
+            let (ground, upper) = (area(Level::Ground), upper_storeys_m2(&e));
             if ground + upper > 0.0 {
                 upper / (ground + upper)
             } else {
@@ -668,10 +671,19 @@ impl Population {
 }
 
 /// How grave it is that a group of kind `kind` gave way, the gravest first.
+/// Floor of every storey above the first, square metres.
+fn upper_storeys_m2(e: &Expansion) -> f64 {
+    e.spaces
+        .iter()
+        .filter(|s| s.level.above_ground())
+        .map(|s| s.area_m2)
+        .sum()
+}
+
 fn gravity(kind: GroupKind) -> u8 {
     match kind {
-        GroupKind::Posts | GroupKind::MassWall => 0,
-        GroupKind::RoofFrame => 1,
+        GroupKind::Posts | GroupKind::MassWall | GroupKind::Ties => 0,
+        GroupKind::RoofFrame | GroupKind::Trusses | GroupKind::Purlins => 1,
         GroupKind::TieBeams => 2,
         GroupKind::FloorJoists => 3,
         GroupKind::LoftJoists => 4,
@@ -718,7 +730,7 @@ fn loads_on(b: &Building, e: &Expansion, kept: &[Vec<f64>; 3]) -> Loads {
     let kg = |kind: usize| -> f64 { kept[kind].iter().map(|v| v.max(0.0)).sum() };
     let per = |kg: f64, m2: f64| if m2 > 0.0 { kg * G / m2 } else { 0.0 };
     let raised = e.groups.iter().any(|g| g.kind == GroupKind::RaisedFloor);
-    let (ground, upper) = (area(Level::Ground), area(Level::Upper));
+    let (ground, upper) = (area(Level::Ground), upper_storeys_m2(e));
     let upper_kg = if ground + upper > 0.0 {
         kg(storage::FLOOR) * upper / (ground + upper)
     } else {

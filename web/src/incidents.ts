@@ -11,11 +11,12 @@ export const INCIDENT_KINDS: { code: number; label: string }[] = [
   { code: 1, label: "Takings" },
   { code: 2, label: "Illness" },
   { code: 4, label: "Fires" },
+  { code: 10, label: "Waits at crossings and gates" },
 ];
 
 /** "taking", "illness", "fire": the class a row carries. */
 export function kindClass(kind: number): string {
-  return kind === 1 ? "taking" : kind === 2 ? "illness" : kind === 4 ? "fire" : "other";
+  return kind === 1 ? "taking" : kind === 2 ? "illness" : kind === 4 ? "fire" : kind === 10 ? "wait" : "other";
 }
 
 function count(n: number, one: string, many: string): string {
@@ -44,6 +45,11 @@ export function totalsLine(t: IncidentTotal): string {
     if (t.all === 0) return "Fires: none";
     const observer = t.observer > 0 ? `; ${t.observer} the observer's` : "";
     return `Fires: ${count(t.all, "building burned", "buildings burned")}${observer}`;
+  }
+  if (t.kind === 10) {
+    // A wait of a quarter of an hour or more at a crossing or a gate (wire 1.85).
+    if (t.all === 0) return "Waits: none of a quarter of an hour";
+    return `Waits: ${count(t.all, "of a quarter of an hour or more", "of a quarter of an hour or more")}`;
   }
   return `${t.all} in all`;
 }

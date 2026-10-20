@@ -7,8 +7,8 @@ use std::f64::consts::TAU;
 
 use civ_core::time::DAYS_PER_YEAR;
 use civ_grammar::{
-    BuildingSpec, FRAME_VERSION, Footprint, HUT_VERSION, PARAMS, ProgramRules, Stage, StageNeeds,
-    TURN, expand, frame_materials, frame_params, hut_params,
+    BuildingSpec, Footprint, HUT_VERSION, PARAMS, ProgramRules, Stage, StageNeeds, TURN, expand,
+    frame_materials, frame_params, hut_params,
 };
 use civ_land::{Building, Land, RectCm};
 use civ_world::nav::NavGrid;
@@ -45,6 +45,9 @@ pub const HOUSE_TIME_SHARE: f64 = 0.5;
 pub const REBUILD_GAIN: f64 = 0.25;
 /// Step between the rings of points tried when a home's own ground is not clear, metres.
 const SEARCH_STEP_M: f64 = 2.0;
+/// Most shapes on less ground a household weighs beside the one it would build, each with the
+/// ground it would take (M8d slice CZ; a bound on the search, not a behaviour).
+pub const COMPACT_SHAPES: usize = 2;
 /// Points tried on each ring.
 const SEARCH_DIRECTIONS: usize = 16;
 
@@ -160,6 +163,18 @@ pub fn plot_rect(spec: &BuildingSpec, def: &BuildingDef) -> RectCm {
 /// Whether ground can be claimed as a plot: inside the map, every cell under it dry walkable
 /// land, and clear of every field, plot, pit, spoil heap and well.
 pub fn plot_clear(land: &Land, map: &WorldMap, nav: &NavGrid, rect: &RectCm) -> bool {
+    ground_clear(land, map, nav, rect, true)
+}
+
+/// Whether `rect` is clear as [`plot_clear`] asks, fields aside: the ground a plan that takes or
+/// pays for the fields under it may lay over (M8c slice CU, fifth part).
+pub fn clear_but_fields(land: &Land, map: &WorldMap, nav: &NavGrid, rect: &RectCm) -> bool {
+    ground_clear(land, map, nav, rect, false)
+}
+
+/// Whether `rect` is clear of water, works, wells, plots and (with `fields`) fields; a field a
+/// plan reserved that lies idle keeps no ground (M8c slice CU, fifth part).
+fn ground_clear(land: &Land, map: &WorldMap, nav: &NavGrid, rect: &RectCm, fields: bool) -> bool {
     let cell_cm = cm(f64::from(map.cell_size_m)).max(1);
     let (map_w, map_h) = (map.width as i32 * cell_cm, map.height as i32 * cell_cm);
     if rect.w <= 0
@@ -171,7 +186,12 @@ pub fn plot_clear(land: &Land, map: &WorldMap, nav: &NavGrid, rect: &RectCm) -> 
     {
         return false;
     }
-    if land.fields.iter().any(|f| f.rect.near(rect, PLOT_GAP_CM))
+    let keeps = |f: &civ_land::Field| !(f.reserved.is_some() && f.lies_idle());
+    if (fields
+        && land
+            .fields
+            .iter()
+            .any(|f| keeps(f) && f.rect.near(rect, PLOT_GAP_CM)))
         || land.plots.iter().any(|p| p.rect.near(rect, PLOT_GAP_CM))
         || civ_land::earth::dug_near(&land.earthworks, rect, PLOT_GAP_CM)
         || land.wells.near(rect, PLOT_GAP_CM)
@@ -473,6 +493,9 @@ pub struct FireDesign {
     pub knows_firing: bool,
     /// Whether someone in the household knows lime burning.
     pub knows_lime: bool,
+    /// Whether someone in the household knows the technique that opens each of the program's
+    /// version 3 systems: a trussed roof, storeyed posts and wall ties (ADR-0031 §2).
+    pub knows_systems: [bool; 3],
 }
 
 /// [`design_shape`], by builders who make the members that carry a frame building's load
@@ -519,6 +542,10 @@ pub fn design_cautious(
             params[fp::BAYS] = bays;
             params[fp::DOOR] = fp::door(fp::SIDE_RIGHT, bays / 2);
             params[fp::LOFT_BAYS] = (1 << lofts.clamp(0, bays)) - 1;
+            // Three storeys or more are reached by a stair (frame version 3).
+            if storeys > 2 {
+                params[fp::STAIR] = 1;
+            }
             let caution = if caution.is_finite() {
                 caution.max(1.0)
             } else {
@@ -573,12 +600,27 @@ pub fn design_cautious(
             }
             params[fp::WALL_KIND] = wall_kind;
             params[fp::FOOTING] = footing;
+            // Mass walls of more than a storey are tied at each floor where the builders know
+            // how: untied, a wall stands its whole height (ADR-0031 §2).
+            if wall_kind > 0
+                && storeys > 1
+                && civ_grammar::FRAME_DESIGN_VERSION >= 3
+                && fire.is_some_and(|f| f.knows_systems[2])
+            {
+                params[fp::TIES] = 1;
+            }
+            // From frame version 3 a mass wall keeps to the program's own range, at its least,
+            // thickened by caution as it bears more by its square root (ADR-0031 §2: crushing
+            // grows with the thickness and so does the height it stands; a design prior).
+            if wall_kind > 0 && civ_grammar::FRAME_DESIGN_VERSION >= 3 {
+                params[fp::WALL_CM] = stronger(rules.mass_wall_cm.0, 2.0, rules.mass_wall_cm.1);
+            }
             // The door's wall faces `toward`: it faces a quarter turn on from the length.
             let facing = toward.map_or(0, |t| direction(at, t));
             let angle = (facing - TURN as i32 / 4).rem_euclid(TURN as i32) as u16;
             Some(BuildingSpec {
                 program: def.id.clone(),
-                version: FRAME_VERSION,
+                version: civ_grammar::FRAME_DESIGN_VERSION,
                 footprint: Footprint::Rect {
                     x: cm(f64::from(at.0)),
                     y: cm(f64::from(at.1)),
@@ -804,6 +846,43 @@ pub fn new_home(
         }
     }
     best.map(|(p, c, _)| (p, c.shape))
+}
+
+/// The shapes of program `def` on less ground than `chosen` that a household might build instead
+/// (M8d slice CZ, ADR-0031 §2: height weighed against ground): no less floor, covering `need` no
+/// worse, on fewer bays (the same width, more storeys or lofts), and `affordable` in their hours
+/// (`carry_kg` a load). The least ground first, then the fewest hours; at most
+/// [`COMPACT_SHAPES`].
+pub fn compact_alternatives(
+    def: &BuildingDef,
+    chosen: Shape,
+    need: &HomeNeed,
+    carry_kg: f64,
+    affordable: &dyn Fn(f64) -> bool,
+) -> Vec<Shape> {
+    let Shape::Bays { bays, .. } = chosen else {
+        return Vec::new();
+    };
+    let Some(base) = def.shapes.iter().find(|c| c.shape == chosen) else {
+        return Vec::new();
+    };
+    let cov = coverage(def, base, need);
+    let mut out: Vec<(&ShapeCost, i32, f64)> = def
+        .shapes
+        .iter()
+        .filter_map(|c| match c.shape {
+            Shape::Bays { bays: b, .. } if b < bays => Some((c, b, c.hours(carry_kg))),
+            _ => None,
+        })
+        .filter(|(c, _, h)| {
+            c.floor_m2 + 1e-9 >= base.floor_m2 && coverage(def, c, need) >= cov && affordable(*h)
+        })
+        .collect();
+    out.sort_by(|a, b| a.1.cmp(&b.1).then(a.2.total_cmp(&b.2)));
+    out.into_iter()
+        .take(COMPACT_SHAPES)
+        .map(|(c, _, _)| c.shape)
+        .collect()
 }
 
 /// What goods kept in a store instead of in the open would save over `horizon_days`, in hours of
@@ -1232,11 +1311,13 @@ pub(crate) mod tests {
             shapes: Vec::new(),
             skill: None,
             upkeep: crate::params::Upkeep::default(),
+            systems: [None; 3],
         }
     }
 
     fn goods() -> Vec<GoodDef> {
         let good = |id: &str| GoodDef {
+            money: None,
             id: id.into(),
             name: id.into(),
             purpose: GoodUse::Material,
@@ -1511,6 +1592,7 @@ pub(crate) mod tests {
     fn pots_are_wanted_for_food_on_floors_under_a_roof_and_add_no_room() {
         use crate::params::{Eaten, StoreDef};
         let good = |id: &str, purpose, kcal, half, sheltered| GoodDef {
+            money: None,
             id: id.to_owned(),
             name: id.to_owned(),
             purpose,
@@ -1621,12 +1703,18 @@ pub(crate) mod tests {
             wattle_kg_per_m2: 15.0,
             thatch_kg_per_m2: 20.0,
             ladder_kg: 25.0,
+            mass_wall_cm: (30, 90),
+            masonry: [civ_grammar::Masonry {
+                h_per_m3: 20.0,
+                kg_per_m3: 1800.0,
+                strength_pa: 1.5e6,
+            }; 3],
         };
         let def = BuildingDef {
             id: "core:building/longhouse".into(),
             name: "Longhouse".into(),
             use_: PlotUse::Dwelling,
-            rules: ProgramRules::Frame(frame_rules),
+            rules: ProgramRules::Frame(Box::new(frame_rules)),
             materials: vec![0, 0, 1, 0],
             eave_cm: 200,
             pitch_centideg: 4500,
@@ -1644,8 +1732,10 @@ pub(crate) mod tests {
             shapes: Vec::new(),
             skill: None,
             upkeep: crate::params::Upkeep::default(),
+            systems: [None; 3],
         };
         let good = |id: &str| GoodDef {
+            money: None,
             id: id.into(),
             name: id.into(),
             purpose: GoodUse::Material,
@@ -1670,6 +1760,41 @@ pub(crate) mod tests {
             storeys: 1,
             lofts: 0,
         };
+
+        // Shapes on less ground that give no less floor (M8d slice CZ): fewer bays, more storeys.
+        let mut def = def;
+        def.shapes = shapes(&def, &goods);
+        let wide = Shape::Bays {
+            bays: 4,
+            storeys: 1,
+            lofts: 0,
+        };
+        let need = HomeNeed {
+            residents: 4,
+            storage_kg: 0.0,
+        };
+        let floor = |s: Shape| {
+            def.shapes
+                .iter()
+                .find(|c| c.shape == s)
+                .map(|c| c.floor_m2)
+                .expect("a shape")
+        };
+        let compact = compact_alternatives(&def, wide, &need, 25.0, &|_| true);
+        assert!(!compact.is_empty() && compact.len() <= COMPACT_SHAPES);
+        let bays = |s: Shape| match s {
+            Shape::Bays { bays, .. } => bays,
+            Shape::Round { .. } => 0,
+        };
+        for s in &compact {
+            assert!(bays(*s) < 4, "{s:?}");
+            assert!(floor(*s) + 1e-9 >= floor(wide), "{s:?}");
+        }
+        assert!(
+            compact.windows(2).all(|w| bays(w[0]) <= bays(w[1])),
+            "least ground first"
+        );
+        assert!(compact_alternatives(&def, wide, &need, 25.0, &|_| false).is_empty());
 
         // Without fire caution: thatch covering and wattle walls (wall_kind = 0, footing = 0).
         let normal = design_cautious(&def, &goods, shape, (0.0, 0.0), None, 1.0, None, None)
@@ -1723,6 +1848,59 @@ pub(crate) mod tests {
         .expect("rubble design");
         assert_eq!(rubble.params[frame_params::WALL_KIND], 1);
         assert_eq!(rubble.params[frame_params::FOOTING], 1);
+        // Under frame version 3 a mass wall takes the program's own least thickness (30 cm), and
+        // caution thickens it by its square root, within the program's range.
+        assert_eq!(rubble.version, civ_grammar::FRAME_DESIGN_VERSION);
+        assert_eq!(rubble.params[frame_params::WALL_CM], 30);
+        let wary = design_cautious(
+            &def,
+            &goods,
+            shape,
+            (0.0, 0.0),
+            None,
+            4.0,
+            None,
+            Some(fire_rubble),
+        )
+        .expect("a wary rubble design");
+        assert_eq!(wary.params[frame_params::WALL_CM], 60, "30 cm × √4");
+        assert!(civ_grammar::expand(&wary, &def.rules).is_ok());
+        // Two storeys of rubble are tied at each floor only where tied masonry is known.
+        let tall = Shape::Bays {
+            bays: 3,
+            storeys: 2,
+            lofts: 0,
+        };
+        let design = |knows_ties: bool| {
+            design_cautious(
+                &def,
+                &goods,
+                tall,
+                (0.0, 0.0),
+                None,
+                1.0,
+                None,
+                Some(FireDesign {
+                    knows_systems: [false, false, knows_ties],
+                    ..fire_rubble
+                }),
+            )
+            .expect("two storeys of rubble")
+        };
+        assert_eq!(design(false).params[frame_params::TIES], 0);
+        let tied = design(true);
+        assert_eq!(tied.params[frame_params::TIES], 1);
+        assert_eq!(
+            rubble.params[frame_params::TIES],
+            0,
+            "one storey is not tied"
+        );
+        let e = civ_grammar::expand(&tied, &def.rules).expect("tied rubble expands");
+        assert!(
+            e.groups
+                .iter()
+                .any(|g| g.kind == civ_grammar::GroupKind::Ties)
+        );
 
         // Fire caution for wattle with mud brick known -> mud brick mass wall (kind 2, footing 1)!
         let fire_mud = FireDesign {

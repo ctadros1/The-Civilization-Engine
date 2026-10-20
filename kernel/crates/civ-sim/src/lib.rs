@@ -1241,6 +1241,8 @@ impl Sim {
             rect,
             use_,
             since: now,
+            receipt: None,
+            allotted: None,
         });
         // Its plot is levelled as one begun would be; past its first stage, it is done.
         let levelling = civ_agents::build::level_plot(
@@ -1483,6 +1485,40 @@ impl Sim {
         self.advance_minutes(minutes as i64)
     }
 
+    /// As [`Sim::advance_real`], except that an Accelerated day is lived at most `chunk`
+    /// minutes a call: a day begun is lived on in later calls, whatever the real time, and the
+    /// clock stops at its midnight as before. The host lives Max so, to answer commands within a
+    /// tick (ADR-0011 §2, ADR-0028 §5); cut anywhere, the world lives the same.
+    pub fn advance_real_in_chunks(
+        &mut self,
+        real_seconds: f64,
+        chunk: i64,
+    ) -> Result<Advance, SimError> {
+        let day_minutes = civ_core::time::MINUTES_PER_DAY;
+        // An Accelerated day begun is lived to its midnight whatever speed was chosen since
+        // (ADR-0011 §2): a paced speed takes effect there.
+        let day_begun = self.mode == Mode::Accelerated && self.now().minute_of_day() != 0;
+        if self.paused
+            || !(real_seconds.is_finite() && real_seconds > 0.0)
+            || (Mode::of_speed(self.speed) != Mode::Accelerated && !day_begun)
+        {
+            return self.advance_real(real_seconds);
+        }
+        let chunk = chunk.clamp(1, day_minutes);
+        let into_day = self.now().minute_of_day();
+        if into_day != 0 {
+            self.carry_seconds = 0.0;
+            return self.advance_minutes((day_minutes - into_day).min(chunk));
+        }
+        let day = (day_minutes * 60) as f64;
+        self.carry_seconds = (self.carry_seconds + real_seconds * f64::from(self.speed)).min(day);
+        if self.carry_seconds < day {
+            return Ok(Advance::default());
+        }
+        self.carry_seconds = 0.0;
+        self.advance_minutes(chunk)
+    }
+
     /// Advances to the next midnight: through the rest of the day, then the land's and the
     /// people's day there and any change of mode held for it, stopping before the new day's first
     /// event (ADR-0011 §2). Accelerated mode advances only so.
@@ -1501,6 +1537,8 @@ impl Sim {
         if minutes <= 0 {
             return Ok(Advance::default());
         }
+        // Households changed by hand in a test are indexed again before anyone looks.
+        self.people.refresh_settled();
         let target = self.now().plus_minutes(minutes);
         let mut advance = Advance {
             minutes,
@@ -1529,6 +1567,16 @@ impl Sim {
                         advance.days += 1;
                         // The day that just ended is complete.
                         land.advance_to_day(&rules.land, map, at.day_index() - 1);
+                        // Boats and carts age a day; those past use are gone (M8b slices CO
+                        // and CP).
+                        let vehicles = &rules.catalog.vehicles;
+                        let life = |v: u16| {
+                            vehicles
+                                .get(usize::from(v))
+                                .map_or(1.0, civ_agents::params::VehicleDef::life_days)
+                        };
+                        land.boats.age(life);
+                        land.carts.age(life);
                         refresh_nav(nav, map, rules, land);
                         let mut ctx = Ctx {
                             now: at,
@@ -1559,7 +1607,13 @@ impl Sim {
                     Cadence::Month => {
                         advance.months += 1;
                         // People plan their routes on the paths as they stand this month.
-                        land.wear.survey(at.day_index(), &rules.land.paths);
+                        // Kept ways hold their ground before it is surveyed (ADR-0029 §1).
+                        let day = at.day_index();
+                        let holds = land.ways.holds(day, &rules.land.paths);
+                        land.wear.hold(&holds, day, &rules.land.paths);
+                        land.wear.survey(day, &rules.land.paths);
+                        land.ways
+                            .survey(day, &land.settlements, map.width, map.cell_size_m);
                         people.note_trails(land, at);
                     }
                     Cadence::Year => {

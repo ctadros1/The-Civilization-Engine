@@ -45,13 +45,14 @@ mod regime;
 mod skill;
 mod technique;
 mod value;
+mod vehicle;
 mod well;
 mod worldgen;
 
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 117;
+pub const KERNEL_CONTENT_API: u32 = 151;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -81,7 +82,7 @@ pub enum Severity {
 /// | E3002 | The `kind` is unknown, or missing |
 /// | E3003 | Not exactly one world-generation preset is marked `default = true` |
 /// | E3004 | Not exactly one people profile, or not exactly one land profile |
-/// | E3005 | A technique gates no work: no recipe, activity, building program, bridge or well system names it, nor any disease as a treatment |
+/// | E3005 | A technique gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know |
 /// | E3006 | Techniques' prerequisites form a cycle |
 /// | E3007 | A recipe can never be worked: an input or tool comes only from recipes that need it |
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -417,6 +418,7 @@ struct Parsed {
     values: Vec<Def<value::ValueFile>>,
     ideologies: Vec<Def<ideology::IdeologyFile>>,
     bridges: Vec<Def<bridge::BridgeFile>>,
+    vehicles: Vec<Def<vehicle::VehicleFile>>,
     wells: Vec<Def<well::WellFile>>,
     diseases: Vec<Def<disease::DiseaseFile>>,
     /// Files declaring `kind = "people"`, parsed or not (so a broken profile is not also
@@ -651,6 +653,42 @@ fn resolve(
             Some(fi) => goods[gi].reserve_for = Some(fi),
         }
     }
+    // A tool that serves for another names a tool other than itself, one that serves for none.
+    let serves_of = |id: &str| {
+        parsed
+            .goods
+            .iter()
+            .find(|o| o.file.id == id)
+            .and_then(|o| o.file.tool.as_ref())
+            .map_or("", |t| t.serves.as_str())
+    };
+    for d in &parsed.goods {
+        let from = serves_of(&d.file.id);
+        if from.is_empty() {
+            continue;
+        }
+        let Some(gi) = ids.iter().position(|i| *i == d.file.id) else {
+            continue;
+        };
+        match ids.iter().position(|i| i == from) {
+            None => missing(c, parsed, &d.rel, "tool.serves", from),
+            Some(fi) if fi == gi || goods[fi].tool.is_none() || !serves_of(from).is_empty() => {
+                c.push(
+                    "E3001",
+                    &d.rel,
+                    None,
+                    format!(
+                        "`tool.serves` must name another tool that serves for none; `{from}` is not one"
+                    ),
+                )
+            }
+            Some(fi) => {
+                if let Some(t) = goods[gi].tool.as_mut() {
+                    t.serves = Some(fi);
+                }
+            }
+        }
+    }
     let good_index = |id: &str| goods.iter().position(|g| g.id == id);
     let mut skills: Vec<_> = parsed.skills.iter().map(|d| d.file.def()).collect();
     skills.sort_by(|a, b| a.id.cmp(&b.id));
@@ -749,9 +787,20 @@ fn resolve(
             found
         };
         let technique = gate(c, parsed, &technique_index, &d.rel, &d.file.technique);
+        // The techniques that open its version 3 systems (ADR-0031 §2).
+        let mut systems = [None; 3];
+        if let Some(named) = &d.file.systems {
+            for (slot, id) in named.ids().into_iter().enumerate() {
+                match gate(c, parsed, &technique_index, &d.rel, id) {
+                    Ok(t) => systems[slot] = t,
+                    Err(()) => ok = false,
+                }
+            }
+        }
         if let (true, Ok(technique)) = (ok, technique)
-            && let Some(def) = d.file.def(&good_index, &goods, technique, skill)
+            && let Some(mut def) = d.file.def(&good_index, &goods, technique, skill)
         {
+            def.systems = systems;
             if let Some(why) = civ_agents::build::unbuildable(&def, &goods) {
                 c.push(
                     "E3001",
@@ -1020,17 +1069,121 @@ fn resolve(
                 missing(c, parsed, &d.rel, "bears", id);
             }
         }
+        // A common store's levy medium is a money (M7d slice CE3b).
+        if let Some(m) = &d.file.medium {
+            match good_index(&m.good) {
+                None => missing(c, parsed, &d.rel, "medium.good", &m.good),
+                Some(g) if goods[g].money.is_none() => c.push(
+                    "E3001",
+                    &d.rel,
+                    None,
+                    format!(
+                        "`medium.good` must name a money (a good with a `[money]` table); `{}` is \
+                         not",
+                        m.good
+                    ),
+                ),
+                Some(_) => {}
+            }
+        }
+        // A plan's fee names a good (M8c slice CU).
+        if let Some(f) = d.file.plan.as_ref().and_then(|g| g.fee.as_ref())
+            && good_index(&f.good).is_none()
+        {
+            missing(c, parsed, &d.rel, "plan.fee.good", &f.good);
+        }
+        // A plan's pay for fields names a good (M8c slice CU, fifth part).
+        if let Some(f) = d.file.plan.as_ref().and_then(|g| g.pay.as_ref())
+            && good_index(&f.good).is_none()
+        {
+            missing(c, parsed, &d.rel, "plan.pay.good", &f.good);
+        }
+        // A plan's ground rent names a food, owed as food is (M8c slice CU, third part).
+        if let Some(f) = d.file.plan.as_ref().and_then(|g| g.rent.as_ref()) {
+            match good_index(&f.good) {
+                None => missing(c, parsed, &d.rel, "plan.rent.good", &f.good),
+                Some(g) if goods[g].kcal_per_kg.is_nan() || goods[g].kcal_per_kg <= 0.0 => c.push(
+                    "E3001",
+                    &d.rel,
+                    None,
+                    format!(
+                        "`plan.rent.good` must name a food (a good with `kcal_per_kg`); `{}` is \
+                         not",
+                        f.good
+                    ),
+                ),
+                Some(_) => {}
+            }
+        }
+        // Pay for common work names a money (M7d slice CE3a).
+        if let Some(pay) = &d.file.pay {
+            match good_index(&pay.good) {
+                None => missing(c, parsed, &d.rel, "pay.good", &pay.good),
+                Some(g) if goods[g].money.is_none() => c.push(
+                    "E3001",
+                    &d.rel,
+                    None,
+                    format!(
+                        "`pay.good` must name a money (a good with a `[money]` table); `{}` is not",
+                        pay.good
+                    ),
+                ),
+                Some(_) => {}
+            }
+        }
+        // A mint's recipe takes a weighed metal first and makes a coin first (M7d slice CE).
+        if let Some(m) = &d.file.mint {
+            match recipes.iter().find(|r| r.id == m.recipe) {
+                None => missing(c, parsed, &d.rel, "mint.recipe", &m.recipe),
+                Some(r) => {
+                    let money = |g: Option<usize>| goods.get(g?)?.money.as_ref();
+                    let metal = money(r.inputs.first().map(|i| i.0));
+                    let coin = money(r.outputs.first().map(|o| o.0));
+                    if !metal.is_some_and(|m| !m.coin) || !coin.is_some_and(|m| m.coin) {
+                        c.push(
+                            "E3001",
+                            &d.rel,
+                            None,
+                            format!(
+                                "`mint.recipe` must name a recipe whose first input is a metal \
+                                 paid by weight and whose first output is a coin; `{}` is not",
+                                m.recipe
+                            ),
+                        );
+                    }
+                }
+            }
+        }
         // The technique a rule's sponsor must know (M6b slice BH).
         if let Some(t) = d.file.rule.as_ref().and_then(|r| r.needs.as_deref())
             && technique_index(t).is_none()
         {
             missing(c, parsed, &d.rel, "rule.needs", t);
         }
+        // And a plan's (M8c slice CT).
+        if let Some(t) = d.file.plan.as_ref().and_then(|g| g.needs.as_deref())
+            && technique_index(t).is_none()
+        {
+            missing(c, parsed, &d.rel, "plan.needs", t);
+        }
     }
     let mut policies: Vec<_> = parsed
         .policies
         .iter()
-        .map(|d| d.file.def(&value_index, &technique_index))
+        .map(|d| {
+            let mut def = d.file.def(&value_index, &technique_index);
+            def.mint = d
+                .file
+                .mint_def(&|id| recipes.iter().position(|r| r.id == id));
+            def.pay = d.file.pay_def(&good_index);
+            def.medium = d.file.medium_def(&good_index);
+            if let Some(plan) = def.plan.as_mut() {
+                plan.fee = d.file.plan_fee(&good_index);
+                plan.rent = d.file.plan_rent(&good_index);
+                plan.pay = d.file.plan_pay(&good_index);
+            }
+            def
+        })
         .collect();
     policies.sort_by(|a, b| a.id.cmp(&b.id));
     let policy_index = |id: &str| policies.iter().position(|p| p.id == id);
@@ -1096,6 +1249,49 @@ fn resolve(
         }
     }
     bridges.sort_by(|a, b| a.id.cmp(&b.id));
+    // Vehicles (M8b slice CO): a known mode, a good to make one of, and a tool that is one.
+    let mut vehicles = Vec::new();
+    for d in &parsed.vehicles {
+        let good = good_index(&d.file.good);
+        if good.is_none() {
+            missing(c, parsed, &d.rel, "good", &d.file.good);
+        }
+        let resolve =
+            |c: &mut Collector, what: &str, id: &str, index: &dyn Fn(&str) -> Option<usize>| {
+                if id.is_empty() {
+                    Some(None)
+                } else {
+                    let i = index(id);
+                    if i.is_none() {
+                        missing(c, parsed, &d.rel, what, id);
+                    }
+                    i.map(Some)
+                }
+            };
+        let technique = resolve(c, "technique", &d.file.technique, &technique_index);
+        let skill = resolve(c, "skill", &d.file.skill, &skill_index);
+        let tool = resolve(c, "tool", &d.file.tool, &good_index);
+        if let Some(Some(t)) = tool
+            && goods[t].tool.is_none()
+        {
+            c.push(
+                "E3001",
+                &d.rel,
+                None,
+                format!(
+                    "`tool` must name a good with `[tool]`; `{}` has none",
+                    d.file.tool
+                ),
+            );
+        }
+        if let (Some(mode), Some(g), Some(t), Some(k), Some(tool)) =
+            (d.file.mode(), good, technique, skill, tool)
+            && tool.is_none_or(|t| goods[t].tool.is_some())
+        {
+            vehicles.push(d.file.def(mode, g, t, k, tool));
+        }
+    }
+    vehicles.sort_by(|a, b| a.id.cmp(&b.id));
     // Well systems (M6a slice AY, step three).
     let mut wells = Vec::new();
     for d in &parsed.wells {
@@ -1136,6 +1332,37 @@ fn resolve(
         }
     }
     diseases.sort_by(|a, b| a.id.cmp(&b.id));
+    // A coin's metal and the technique that assays it (M7d slice CE4a).
+    let mut resolved: Vec<(usize, Option<usize>, Option<usize>)> = Vec::new();
+    for d in &parsed.goods {
+        let Some(m) = &d.file.money else {
+            continue;
+        };
+        let Some(g) = good_index(&d.file.id) else {
+            continue;
+        };
+        let metal = m.metal.as_deref().and_then(|id| {
+            let i = good_index(id);
+            if i.is_none() {
+                missing(c, parsed, &d.rel, "money.metal", id);
+            }
+            i
+        });
+        let assay = m.assay.as_deref().and_then(|id| {
+            let i = technique_index(id);
+            if i.is_none() {
+                missing(c, parsed, &d.rel, "money.assay", id);
+            }
+            i
+        });
+        resolved.push((g, metal, assay));
+    }
+    for (g, metal, assay) in resolved {
+        if let Some(m) = goods[g].money.as_mut() {
+            m.metal = metal;
+            m.assay = assay;
+        }
+    }
     let catalog = Catalog {
         activities,
         goods,
@@ -1150,6 +1377,7 @@ fn resolve(
         values,
         ideologies,
         bridges,
+        vehicles,
         wells,
         diseases,
     };
@@ -1217,9 +1445,18 @@ fn knowledge_problems(
     for (t, def) in catalog.techniques.iter().enumerate() {
         let gated = catalog.activities.iter().any(|a| a.technique == Some(t))
             || catalog.recipes.iter().any(|r| r.technique == Some(t))
-            || catalog.buildings.iter().any(|b| b.technique == Some(t))
+            || catalog
+                .buildings
+                .iter()
+                .any(|b| b.technique == Some(t) || b.systems.contains(&Some(t)))
             || catalog.bridges.iter().any(|b| b.technique == Some(t))
+            || catalog.vehicles.iter().any(|v| v.technique == Some(t))
             || catalog.wells.iter().any(|w| w.technique == Some(t))
+            // Or a law its sponsor must know it to put forward (M8c slice CT).
+            || catalog.policies.iter().any(|p| {
+                p.plan.as_ref().is_some_and(|g| g.needs == Some(t))
+                    || p.rule.as_ref().is_some_and(|r| r.needs == Some(t))
+            })
             || parsed
                 .diseases
                 .iter()
@@ -1231,7 +1468,7 @@ fn knowledge_problems(
                 &rel_of(&def.id),
                 None,
                 format!(
-                    "technique `{}` gates no work: no recipe, activity, building program, bridge or well system names it, nor any disease as a treatment",
+                    "technique `{}` gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know",
                     def.id
                 ),
             );
@@ -1361,6 +1598,7 @@ fn parsed_tables(parsed: &Parsed) -> Vec<(&str, &toml::Table)> {
     all.extend(tables(&parsed.values, |f| &f.id));
     all.extend(tables(&parsed.ideologies, |f| &f.id));
     all.extend(tables(&parsed.bridges, |f| &f.id));
+    all.extend(tables(&parsed.vehicles, |f| &f.id));
     all.extend(tables(&parsed.wells, |f| &f.id));
     all.extend(tables(&parsed.diseases, |f| &f.id));
     all
@@ -1432,7 +1670,7 @@ fn range_problems(c: &mut Collector, rel: &str, problems: Vec<String>) {
     }
 }
 
-const KINDS: [&str; 19] = [
+const KINDS: [&str; 20] = [
     worldgen::KIND,
     people::KIND,
     land::KIND,
@@ -1450,6 +1688,7 @@ const KINDS: [&str; 19] = [
     value::KIND,
     ideology::KIND,
     bridge::KIND,
+    vehicle::KIND,
     well::KIND,
     disease::KIND,
 ];
@@ -1623,6 +1862,16 @@ fn compile_file(
             if check_identity(c, pack, rel, &file.id, bridge::ID_KIND, seen_ids) {
                 range_problems(c, rel, file.problems());
                 parsed.bridges.push(def(rel, pack, file, table));
+            }
+        }
+        vehicle::KIND => {
+            let Some(file) = parse::<vehicle::VehicleFile>(c, rel, source) else {
+                return;
+            };
+            debug_assert_eq!(file.kind, vehicle::KIND, "dispatched on kind");
+            if check_identity(c, pack, rel, &file.id, vehicle::ID_KIND, seen_ids) {
+                range_problems(c, rel, file.problems());
+                parsed.vehicles.push(def(rel, pack, file, table));
             }
         }
         disease::KIND => {

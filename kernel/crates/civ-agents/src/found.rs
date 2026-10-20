@@ -1719,6 +1719,8 @@ pub(crate) mod tests {
                 money_min_trades: 10.0,
                 accept_want: 0.5,
                 recent_trades: 64,
+                money_days: 14.0,
+                strike_points: 12.0,
             },
             firm: crate::params::FirmParams {
                 idle_close_days: 180.0,
@@ -1792,6 +1794,7 @@ pub(crate) mod tests {
             bands: crate::war::BandParams::core(),
             elections: crate::seats::ElectionParams::core(),
             enclosures: crate::enclose::EnclosureParams::core(),
+            credit: crate::credit::CreditParams::default(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,
@@ -1808,6 +1811,7 @@ pub(crate) mod tests {
                 programs: vec![0],
                 store_horizon_days: 1095.0,
                 home_work_places: 2,
+                site_years: 5.0,
                 quality_spread: [0.3, 0.1],
                 levelling: crate::params::Levelling {
                     from_m: 0.4,

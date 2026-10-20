@@ -942,6 +942,56 @@ pub fn describe_target(
             }
             None => "a palisade".to_owned(),
         },
+        // A boat being made (M8b slice CO): "the dugout on the bank north of home".
+        Target::Boat(id) => match sim.land.boats.list.iter().find(|b| b.id == id) {
+            Some(b) => {
+                let name = sim
+                    .rules
+                    .catalog
+                    .vehicles
+                    .get(usize::from(b.vehicle))
+                    .map_or_else(|| "boat".to_owned(), |v| v.name.to_lowercase());
+                let at = sim.land.rivers.centre(b.at);
+                format!("the {name} on the bank {} of home", bearing(home, at))
+            }
+            // A cart being made at the door (M8b slice CP, third part): "the household's
+            // handcart".
+            None => match sim.land.carts.list.iter().find(|c| c.id == id) {
+                Some(c) => {
+                    let name = sim
+                        .rules
+                        .catalog
+                        .vehicles
+                        .get(usize::from(c.vehicle))
+                        .map_or_else(|| "cart".to_owned(), |v| v.name.to_lowercase());
+                    format!("the household's {name}")
+                }
+                None => "a boat".to_owned(),
+            },
+        },
+        // A passing place a household is clearing (M8b slice CQ, second part): "a passing place
+        // east of home"; or a way it is laying on worn trail (the fourth part): "a way laid east
+        // of home".
+        Target::Way(id) => match sim.land.ways.list.iter().find(|w| w.id == id) {
+            Some(w) => {
+                let what =
+                    if w.segments.first().is_some_and(|s| {
+                        s.corridor_m <= civ_land::carting::TRAIL_TREAD_M as f32 + 1e-3
+                    }) {
+                        "a way laid"
+                    } else {
+                        "a passing place"
+                    };
+                match w.segments.first().and_then(|s| s.cells.first()) {
+                    Some(&c) if (c as usize) < sim.map.water.len() => {
+                        let at = civ_agents::population::cell_centre(&sim.map, c as usize);
+                        format!("{what} {} of home", bearing(home, at))
+                    }
+                    _ => what.to_owned(),
+                }
+            }
+            None => "a passing place".to_owned(),
+        },
     }
 }
 
@@ -1059,6 +1109,18 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
                 format!("walking ({what})")
             } else {
                 format!("walking to {place} ({what})")
+            }
+        }
+        // By the household's boat (M8b slice CO) or cart (M8b slice CP).
+        Some(Step::Paddle { .. }) => format!("paddling the household's boat ({what})"),
+        Some(Step::Haul { .. }) => format!("pulling the household's handcart ({what})"),
+        Some(Step::Handle { unload, .. }) => {
+            let cart = p.act.steps.iter().any(|s| matches!(s, Step::Haul { .. }));
+            match (unload, cart) {
+                (false, false) => format!("loading the boat ({what})"),
+                (true, false) => format!("unloading the boat and carrying the load up ({what})"),
+                (false, true) => format!("loading the handcart ({what})"),
+                (true, true) => format!("unloading the handcart ({what})"),
             }
         }
         Some(Step::Work { .. }) => {

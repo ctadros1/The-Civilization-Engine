@@ -411,6 +411,21 @@ table Snapshot {
   incidents_rev: ulong (id: 21);
   // Wire 1.74 (M6c slice BJ): the bands not yet home or dispersed.
   bands: [BandBrief] (id: 22);
+  // Wire 1.84 (M8b slice CM): changes whenever a way is begun or changed and at each month's
+  // survey while there are any (0 = no way yet). Fetch them with GetWays when it differs.
+  ways_rev: ulong (id: 23);
+  // Wire 1.86 (M8b slice CP): changes whenever a boat or a cart is begun, worked on, made, moved
+  // or gone, taken out or brought in, or the goods aboard one change (0 = no boat or cart yet).
+  // Fetch them with GetVehicles when it differs.
+  vehicles_rev: ulong (id: 24);
+  // Wire 1.88 (M8c slice CT, fourth part): changes whenever a plan is put forward, passed or
+  // ended, a building is begun on ground one reserves or one there falls, and with the ways while
+  // any polity has laid a plan (0 = no plan yet). Fetch them with GetPlans when it differs.
+  plans_rev: ulong (id: 25);
+  // Wire 1.89 (M8c slice CX): changes whenever a plot is laid or given up, or its receipt or the
+  // parcel it was given changes (0 = no plot yet). Fetch the land map with GetLand when it
+  // differs.
+  land_rev: ulong (id: 26);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -715,7 +730,7 @@ table GetOutbreak {
 // layers, *could reach* and *did come*, for the homes of one settlement (0: every settlement).
 table GetCoverage {
   settlement: ulong (id: 0);
-  // 1: water; 2: help at a fire.
+  // 1: water; 2: help at a fire; 3 (wire 1.85): traffic at crossings and gates.
   lens: ubyte (id: 1);
 }
 
@@ -735,7 +750,16 @@ table GetStorm {
   id: uint (id: 0);
 }
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings, GetWater, GetIncidents, GetIncident, GetOutbreak, GetCoverage, GetConflagration, GetFlood, GetStorm }
+// Wire 1.84 (M8b slice CM; ADR-0029 §9): every way people have worked on.
+table GetWays {}
+// Wire 1.88: every plan put forward or in force.
+table GetPlans {}
+// Wire 1.86: every boat and cart.
+table GetVehicles {}
+// Wire 1.89: the land map, every plot.
+table GetLand {}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings, GetWater, GetIncidents, GetIncident, GetOutbreak, GetCoverage, GetConflagration, GetFlood, GetStorm, GetWays, GetVehicles, GetPlans, GetLand }
 
 table Query {
   body: QueryBody (id: 1);
@@ -1367,6 +1391,10 @@ table BuildingInfo {
   fire: ubyte (id: 45);
   fire_id: uint (id: 46);
   fire_words: string (id: 47);
+  // Wire 1.87 (M8c slice CS, third part; ADR-0030 §1): why its household chose its plot, from
+  // the plot's receipt ("chosen over 5 others: 34 hours less walking and levelling over five
+  // years than the next best"); empty where nothing was weighed (built before plots kept why).
+  site: string (id: 48);
 }
 
 table Buildings {
@@ -1685,6 +1713,17 @@ table SettlementWealth {
   households: [HouseholdWealth] (id: 3);
   // At the end of each year, oldest first.
   history: [WealthSpread] (id: 4);
+  // Wire 1.82 (M7d slice CA, ADR-0027 §1): loans its households owe, open ones first then those
+  // closed within a year, newest first, at most twelve, in the kernel's words ("Wren's household
+  // owes Mira's household 40 kg of grain, lent on 3 May of year 2, due on 9 September of year
+  // 2").
+  loans: [string] (id: 5);
+  // Wire 1.83 (M7d slice CE, ADR-0027 §6): its coin, in the kernel's words: where it is a
+  // polity's seat, who keeps the mint and on what terms, each kind of piece struck there, metal
+  // waiting to be struck and what the common store holds; then what its households hold, by whose
+  // issue ("Its households hold 243 pieces: 200 of Ashford's issue, 43 of Bree's, taken by weight
+  // 10 % off"). Empty where there is no coin.
+  coin: [string] (id: 6);
 }
 
 table Wealth {
@@ -2166,6 +2205,10 @@ table PolityLine {
   ended: string (id: 27);
   // Wire 1.77 (M7a slice BQ, ADR-0024 §3): its council's elections, newest first, at most six.
   elections: [ElectionLine] (id: 28);
+  // Wire 1.81 (M7c slice BZ, ADR-0026 §5): who each organization by stake with members among its
+  // people has come to hold, in sentences rendered by the kernel, never a percentage ("Mira's
+  // organization: 3 of the 4 laws passed since it was founded were proposed by its members; ...").
+  capture: [string] (id: 29);
 }
 
 // One election of a council (wire 1.77, ADR-0024 §3), in words rendered by the kernel: which, when
@@ -2638,6 +2681,24 @@ table CoverageHome {
 
 // A lens's homes, with what the lens shows and over what (15-01 §3.1: title, scope, period,
 // denominator), and its counts in words.
+// Wire 1.85 (M8b slice CN; ADR-0029 §9): a bottleneck on the Traffic lens: a crossing or a gate,
+// in words, where it is, the settlement it is by (0 none), its passages and minutes waited over
+// about the last 30 days (each fading), those who stood short of its approach, its longest wait
+// remembered, minutes; its passages by hour of the day and the seconds waited a passage by hour
+// (24 each); and lines in words.
+table CoveragePlace {
+  name: string (id: 0);
+  at: Vec2 (id: 1);
+  settlement: ulong (id: 2);
+  passages: float (id: 3);
+  waited_min: float (id: 4);
+  held_short: float (id: 5);
+  longest_min: float (id: 6);
+  hour_passages: [float] (id: 7);
+  hour_wait_s: [float] (id: 8);
+  words: [string] (id: 9);
+}
+
 table Coverage {
   lens: ubyte (id: 0);
   title: string (id: 1);
@@ -2653,9 +2714,120 @@ table Coverage {
   // Each layer's counts in words: "Could reach: of 42 homes, 30 have water within a minute's
   // walk, ...", "Did come: ...".
   summary: [string] (id: 8);
+  // Wire 1.85: the Traffic lens's bottlenecks (lens 3), busiest first.
+  places: [CoveragePlace] (id: 9);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings, Water, Incidents, IncidentInfo, OutbreakInfo, Coverage, ConflagrationInfo, FloodInfo, StormInfo }
+// Wire 1.84 (M8b slice CM; ADR-0029 §1, §9): one stretch of a way: its centre line, metres from
+// the map's north-west corner, as x, y pairs; its corridor, built and usable widths, metres; its
+// surface in words; its condition today, 0-1; its steepest grade, rise over run; who keeps it, in
+// words ("" for nobody).
+table WaySegmentInfo {
+  points: [float] (id: 0);
+  corridor_m: float (id: 1);
+  built_m: float (id: 2);
+  usable_m: float (id: 3);
+  surface: string (id: 4);
+  condition: float (id: 5);
+  grade: float (id: 6);
+  keeper: string (id: 7);
+}
+
+// Wire 1.84: a way: its rank as last surveyed (0 a lane, 1 a street, 2 a main way, 3 a way
+// between settlements) and its name; `modes` bits (1 walking, 2 handcarts); its trips a day over
+// about the last 90 days; its stretches in order; and the way in words.
+table WayInfo {
+  id: ulong (id: 0);
+  rank: ubyte (id: 1);
+  rank_name: string (id: 2);
+  modes: ubyte (id: 3);
+  trips_a_day: float (id: 4);
+  segments: [WaySegmentInfo] (id: 5);
+  words: string (id: 6);
+}
+
+// Wire 1.84: every way, in the order begun.
+table Ways {
+  rev: ulong (id: 0);
+  ways: [WayInfo] (id: 1);
+}
+
+// Wire 1.86 (M8b slices CO and CP): a boat or a cart: its mode (0 a boat, 1 a cart) and its
+// content name ("Dugout"); the household it is of and that household in words ("Ada's
+// household"); where it stands, metres from the map's north-west corner; how far it is made, 0-1
+// (1 made); its wear, 0-1; who of its household has it out now (0 for nobody) and the goods
+// aboard, kg; and the vehicle in words.
+table VehicleInfo {
+  id: ulong (id: 0);
+  mode: ubyte (id: 1);
+  name: string (id: 2);
+  owner: ulong (id: 3);
+  owner_name: string (id: 4);
+  x: float (id: 5);
+  y: float (id: 6);
+  made: float (id: 7);
+  wear: float (id: 8);
+  out_with: ulong (id: 9);
+  load_kg: float (id: 10);
+  words: string (id: 11);
+}
+
+// Wire 1.86: every boat, then every cart, each in the order begun.
+table Vehicles {
+  rev: ulong (id: 0);
+  vehicles: [VehicleInfo] (id: 1);
+}
+
+// Wire 1.88 (M8c slice CT, fourth part; ADR-0030 §3, §8): a rectangle of a plan's ground,
+// metres from the map's north-west corner: its north-west corner and its size.
+struct PlanRect {
+  x: float;
+  y: float;
+  w: float;
+  h: float;
+}
+
+// Wire 1.88: a plan put forward or in force, in three layers kept apart (research 10-04 §6.1):
+// the streets and square it reserves and the parcels it lays out; the reserved ground a way
+// already runs over; and the plots of the buildings standing on reserved ground. Its law, its
+// version, whether it is in force (else put forward), and the plan in words.
+table PlanInfo {
+  law: ulong (id: 0);
+  version: ushort (id: 1);
+  in_force: bool (id: 2);
+  streets: [PlanRect] (id: 3);
+  sites: [PlanRect] (id: 4);
+  parcels: [PlanRect] (id: 5);
+  built: [PlanRect] (id: 6);
+  occupied: [PlanRect] (id: 7);
+  words: string (id: 8);
+}
+
+// Wire 1.88: every plan put forward or in force, by polity, each in the order laid.
+table Plans {
+  rev: ulong (id: 0);
+  plans: [PlanInfo] (id: 1);
+}
+
+// Wire 1.89 (M8c slice CX; ADR-0030 §1, §8): a plot on the land map, drawn from what is
+// recorded of it and labelled so, never from a land value the kernel keeps (it keeps none): what
+// was paid for it, kcal (a parcel given for a fee, 0 for none), and what its household reckoned
+// it worth, the hours a year it saved over the next best of `weighed` plots (0 weighed for none).
+// A plot with neither is "nothing recorded".
+table LandPlot {
+  rect: PlanRect (id: 0);
+  paid_kcal: float (id: 1);
+  reckoned_h: float (id: 2);
+  weighed: ushort (id: 3);
+}
+
+// Wire 1.89: every plot standing, in the order laid.
+table Land {
+  rev: ulong (id: 0);
+  plots: [LandPlot] (id: 1);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings, Water, Incidents, IncidentInfo, OutbreakInfo, Coverage, ConflagrationInfo, FloodInfo, StormInfo, Ways, Vehicles, Plans, Land }
 
 table Response {
   body: ResponseBody (id: 1);

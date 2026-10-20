@@ -18,16 +18,20 @@ import { GetHydrography } from '../../tce/wire/get-hydrography.js';
 import { GetIncident } from '../../tce/wire/get-incident.js';
 import { GetIncidents } from '../../tce/wire/get-incidents.js';
 import { GetKnowledge } from '../../tce/wire/get-knowledge.js';
+import { GetLand } from '../../tce/wire/get-land.js';
 import { GetMarkets } from '../../tce/wire/get-markets.js';
 import { GetOrder } from '../../tce/wire/get-order.js';
 import { GetOutbreak } from '../../tce/wire/get-outbreak.js';
 import { GetPaths } from '../../tce/wire/get-paths.js';
 import { GetPerson } from '../../tce/wire/get-person.js';
+import { GetPlans } from '../../tce/wire/get-plans.js';
 import { GetRaster } from '../../tce/wire/get-raster.js';
 import { GetStanding } from '../../tce/wire/get-standing.js';
 import { GetStorm } from '../../tce/wire/get-storm.js';
 import { GetTrips } from '../../tce/wire/get-trips.js';
+import { GetVehicles } from '../../tce/wire/get-vehicles.js';
 import { GetWater } from '../../tce/wire/get-water.js';
+import { GetWays } from '../../tce/wire/get-ways.js';
 import { GetWealth } from '../../tce/wire/get-wealth.js';
 import { GetWeather } from '../../tce/wire/get-weather.js';
 import { ListSaves } from '../../tce/wire/list-saves.js';
@@ -63,13 +67,17 @@ export enum QueryBody {
   GetCoverage = 26,
   GetConflagration = 27,
   GetFlood = 28,
-  GetStorm = 29
+  GetStorm = 29,
+  GetWays = 30,
+  GetVehicles = 31,
+  GetPlans = 32,
+  GetLand = 33
 }
 
 export function unionToQueryBody(
   type: QueryBody,
-  accessor: (obj:GetBuildings|GetChronicle|GetConflagration|GetCoverage|GetCrossings|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetFlood|GetGovernment|GetHydrography|GetIncident|GetIncidents|GetKnowledge|GetMarkets|GetOrder|GetOutbreak|GetPaths|GetPerson|GetRaster|GetStanding|GetStorm|GetTrips|GetWater|GetWealth|GetWeather|ListSaves) => GetBuildings|GetChronicle|GetConflagration|GetCoverage|GetCrossings|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetFlood|GetGovernment|GetHydrography|GetIncident|GetIncidents|GetKnowledge|GetMarkets|GetOrder|GetOutbreak|GetPaths|GetPerson|GetRaster|GetStanding|GetStorm|GetTrips|GetWater|GetWealth|GetWeather|ListSaves|null
-): GetBuildings|GetChronicle|GetConflagration|GetCoverage|GetCrossings|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetFlood|GetGovernment|GetHydrography|GetIncident|GetIncidents|GetKnowledge|GetMarkets|GetOrder|GetOutbreak|GetPaths|GetPerson|GetRaster|GetStanding|GetStorm|GetTrips|GetWater|GetWealth|GetWeather|ListSaves|null {
+  accessor: (obj:GetBuildings|GetChronicle|GetConflagration|GetCoverage|GetCrossings|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetFlood|GetGovernment|GetHydrography|GetIncident|GetIncidents|GetKnowledge|GetLand|GetMarkets|GetOrder|GetOutbreak|GetPaths|GetPerson|GetPlans|GetRaster|GetStanding|GetStorm|GetTrips|GetVehicles|GetWater|GetWays|GetWealth|GetWeather|ListSaves) => GetBuildings|GetChronicle|GetConflagration|GetCoverage|GetCrossings|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetFlood|GetGovernment|GetHydrography|GetIncident|GetIncidents|GetKnowledge|GetLand|GetMarkets|GetOrder|GetOutbreak|GetPaths|GetPerson|GetPlans|GetRaster|GetStanding|GetStorm|GetTrips|GetVehicles|GetWater|GetWays|GetWealth|GetWeather|ListSaves|null
+): GetBuildings|GetChronicle|GetConflagration|GetCoverage|GetCrossings|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetFlood|GetGovernment|GetHydrography|GetIncident|GetIncidents|GetKnowledge|GetLand|GetMarkets|GetOrder|GetOutbreak|GetPaths|GetPerson|GetPlans|GetRaster|GetStanding|GetStorm|GetTrips|GetVehicles|GetWater|GetWays|GetWealth|GetWeather|ListSaves|null {
   switch(QueryBody[type]) {
     case 'NONE': return null; 
     case 'GetRaster': return accessor(new GetRaster())! as GetRaster;
@@ -101,15 +109,19 @@ export function unionToQueryBody(
     case 'GetConflagration': return accessor(new GetConflagration())! as GetConflagration;
     case 'GetFlood': return accessor(new GetFlood())! as GetFlood;
     case 'GetStorm': return accessor(new GetStorm())! as GetStorm;
+    case 'GetWays': return accessor(new GetWays())! as GetWays;
+    case 'GetVehicles': return accessor(new GetVehicles())! as GetVehicles;
+    case 'GetPlans': return accessor(new GetPlans())! as GetPlans;
+    case 'GetLand': return accessor(new GetLand())! as GetLand;
     default: return null;
   }
 }
 
 export function unionListToQueryBody(
   type: QueryBody, 
-  accessor: (index: number, obj:GetBuildings|GetChronicle|GetConflagration|GetCoverage|GetCrossings|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetFlood|GetGovernment|GetHydrography|GetIncident|GetIncidents|GetKnowledge|GetMarkets|GetOrder|GetOutbreak|GetPaths|GetPerson|GetRaster|GetStanding|GetStorm|GetTrips|GetWater|GetWealth|GetWeather|ListSaves) => GetBuildings|GetChronicle|GetConflagration|GetCoverage|GetCrossings|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetFlood|GetGovernment|GetHydrography|GetIncident|GetIncidents|GetKnowledge|GetMarkets|GetOrder|GetOutbreak|GetPaths|GetPerson|GetRaster|GetStanding|GetStorm|GetTrips|GetWater|GetWealth|GetWeather|ListSaves|null, 
+  accessor: (index: number, obj:GetBuildings|GetChronicle|GetConflagration|GetCoverage|GetCrossings|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetFlood|GetGovernment|GetHydrography|GetIncident|GetIncidents|GetKnowledge|GetLand|GetMarkets|GetOrder|GetOutbreak|GetPaths|GetPerson|GetPlans|GetRaster|GetStanding|GetStorm|GetTrips|GetVehicles|GetWater|GetWays|GetWealth|GetWeather|ListSaves) => GetBuildings|GetChronicle|GetConflagration|GetCoverage|GetCrossings|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetFlood|GetGovernment|GetHydrography|GetIncident|GetIncidents|GetKnowledge|GetLand|GetMarkets|GetOrder|GetOutbreak|GetPaths|GetPerson|GetPlans|GetRaster|GetStanding|GetStorm|GetTrips|GetVehicles|GetWater|GetWays|GetWealth|GetWeather|ListSaves|null, 
   index: number
-): GetBuildings|GetChronicle|GetConflagration|GetCoverage|GetCrossings|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetFlood|GetGovernment|GetHydrography|GetIncident|GetIncidents|GetKnowledge|GetMarkets|GetOrder|GetOutbreak|GetPaths|GetPerson|GetRaster|GetStanding|GetStorm|GetTrips|GetWater|GetWealth|GetWeather|ListSaves|null {
+): GetBuildings|GetChronicle|GetConflagration|GetCoverage|GetCrossings|GetDeposits|GetEarthworks|GetFields|GetFirm|GetFirms|GetFlood|GetGovernment|GetHydrography|GetIncident|GetIncidents|GetKnowledge|GetLand|GetMarkets|GetOrder|GetOutbreak|GetPaths|GetPerson|GetPlans|GetRaster|GetStanding|GetStorm|GetTrips|GetVehicles|GetWater|GetWays|GetWealth|GetWeather|ListSaves|null {
   switch(QueryBody[type]) {
     case 'NONE': return null; 
     case 'GetRaster': return accessor(index, new GetRaster())! as GetRaster;
@@ -141,6 +153,10 @@ export function unionListToQueryBody(
     case 'GetConflagration': return accessor(index, new GetConflagration())! as GetConflagration;
     case 'GetFlood': return accessor(index, new GetFlood())! as GetFlood;
     case 'GetStorm': return accessor(index, new GetStorm())! as GetStorm;
+    case 'GetWays': return accessor(index, new GetWays())! as GetWays;
+    case 'GetVehicles': return accessor(index, new GetVehicles())! as GetVehicles;
+    case 'GetPlans': return accessor(index, new GetPlans())! as GetPlans;
+    case 'GetLand': return accessor(index, new GetLand())! as GetLand;
     default: return null;
   }
 }

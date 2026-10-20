@@ -1,0 +1,16 @@
+# Closing the custom (M7c slice BZ; ADR-0026 §5: closure is a run of amendments someone proposed,
+# each with its stances). An amendment of who belongs to the deciding body: the adults of
+# households in an organization the polity recognizes, or in one it grants a privilege. Like any
+# amendment it is open only to someone a gathering they came to overruled, or who holds a grievance
+# against the gathering, and each household judges it by how the body it would make would have
+# decided what its members saw decided. Nothing weighs toward it but that; whether anyone proposes
+# it, and whether it passes, is people's choice. The levels are tuning values.
+kind = "policy"
+id = "core:policy/close_the_custom"
+name = "Close the custom"
+description = "Gives the decision to the members of the organizations the polity recognizes, or to those it grants a privilege."
+does = "amend_body"
+answers = ["overruled"]
+members = ["organized", "privileged"]
+quorum_shares = [0.25, 0.5]
+pass = ["more_for", "two_thirds"]

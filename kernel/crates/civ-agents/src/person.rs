@@ -62,6 +62,12 @@ pub enum Target {
     Ditch(PermanentId),
     /// A palisade, by its enclosure's permanent id: the one raised (M6c slice BK).
     Enclosure(PermanentId),
+    /// A boat, by its permanent id: the one being made (M8b slice CO, third part); or a cart
+    /// being made, by its own (M8b slice CP, third part).
+    Boat(PermanentId),
+    /// A way a household is working on, by its permanent id: a passing place being cleared (M8b
+    /// slice CQ, second part).
+    Way(PermanentId),
 }
 
 /// Water for a fire drawn from the household's store at home, not a source (see
@@ -87,6 +93,25 @@ pub enum Step {
     Wait {
         /// How long.
         minutes: u32,
+    },
+    /// Paddle the household's boat from the bank where one stands to bank cell `to`, by the
+    /// quickest way by water today (M8b slice CO, ADR-0029 §5).
+    Paddle {
+        /// The bank cell to draw the boat up at.
+        to: u32,
+    },
+    /// Pull the household's cart from where it stands to the door at `to`, by the quickest way
+    /// for its wheels today with what it carries (M8b slice CP, ADR-0029 §7).
+    Haul {
+        /// The door, metres.
+        to: (f32, f32),
+    },
+    /// Load a boat at a bank or a cart at a door, or unload it (`unload`) and carry the load up
+    /// (ADR-0029 §5: handling is people's work).
+    Handle {
+        /// How long.
+        minutes: u32,
+        unload: bool,
     },
 }
 
@@ -126,6 +151,11 @@ pub struct Trip {
     pub points: Vec<(f32, f32)>,
     /// Minutes after departure at each vertex.
     pub minutes: Vec<f32>,
+    /// The next bottleneck it reaches, if any (M8b slice CN, ADR-0029 §4).
+    pub ahead: Option<crate::traffic::Pending>,
+    /// Gone by boat on the water, not walked (M8b slice CO): it wears no ground and passes no
+    /// crossing or gate.
+    pub afloat: bool,
 }
 
 impl Trip {
@@ -1241,6 +1271,8 @@ mod tests {
             depart: SimTime::from_minutes(100),
             points: vec![(0.0, 0.0), (10.0, 0.0), (10.0, 20.0)],
             minutes: vec![0.0, 1.0, 3.0],
+            ahead: None,
+            afloat: false,
         };
         assert_eq!(trip.position_at(90.0), (0.0, 0.0));
         assert_eq!(trip.position_at(100.5), (5.0, 0.0));
@@ -1287,6 +1319,7 @@ mod tests {
 
     fn goods() -> Vec<GoodDef> {
         let good = |id: &str, purpose, kcal, half, eaten| GoodDef {
+            money: None,
             id: id.into(),
             name: id.into(),
             purpose,

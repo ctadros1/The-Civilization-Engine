@@ -88,6 +88,15 @@ pub struct Facts {
     pub well: Option<WellFacts>,
     /// The flood bank their polity is building, if they may work on it (M6b slice BG).
     pub levee: Option<LeveeFacts>,
+    /// The boat their household is making, if it is within their reach (M8b slice CO, third
+    /// part).
+    pub boat: Option<BoatFacts>,
+    /// The cart their household is making at its door, if any (M8b slice CP, third part): as a
+    /// boat's, its place the door.
+    pub cart: Option<BoatFacts>,
+    /// The passing place their household is making on its carts' way, if any (M8b slice CQ,
+    /// second part): as a boat's, its place the stretch it widens.
+    pub way: Option<WayFacts>,
     /// The irrigation ditch their household is digging to its field, if any (M6b slice BG).
     pub ditch: Option<DitchFacts>,
     /// The palisade their polity is raising, if they may work on it (M6c slice BK).
@@ -183,6 +192,36 @@ pub struct CrossingFacts {
     pub saves_per_hour: f64,
     pub duty: f64,
     /// As many as there is room for have begun work on it today (M5c slice AX).
+    pub full: bool,
+}
+
+/// A boat someone's household is making on the bank where it will be drawn up (M8b slice CO,
+/// third part; ADR-0029 §2): where, the walk there from home, the hours of a capable adult's work
+/// it still takes, the hours of walking each hour of that work saves the household over the
+/// boat's life, and whether as many as may work on it at once have begun today.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BoatFacts {
+    pub boat: PermanentId,
+    pub at: (f32, f32),
+    pub walk_min: f64,
+    pub left_h: f64,
+    pub saves_per_hour: f64,
+    pub full: bool,
+}
+
+/// A passing place someone's household is making, or one their polity is clearing under a law
+/// they know of (M8b slice CQ): where its work is done, the walk there from home, the hours of
+/// work it still takes, the hours of waiting each hour of that work spares the household over the
+/// place's life, and, for a polity's while the household has not given the share asked of it,
+/// what keeping to the gathering's word is worth (0 for its own).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WayFacts {
+    pub way: PermanentId,
+    pub at: (f32, f32),
+    pub walk_min: f64,
+    pub left_h: f64,
+    pub saves_per_hour: f64,
+    pub duty: f64,
     pub full: bool,
 }
 
@@ -441,6 +480,33 @@ pub struct TradeOption {
     pub good: usize,
     /// What it brings the household.
     pub worth: TradeWorth,
+    /// The way by the household's boat, when it goes by water (M8b slice CO); `walk_min` is then
+    /// half the travel there and back.
+    pub by_boat: Option<BoatLegs>,
+    /// The way by the household's cart, when it goes by cart (M8b slice CP); `walk_min` is then
+    /// half the travel there and back.
+    pub by_cart: Option<CartLegs>,
+}
+
+/// A trip's handling by cart (M8b slice CP): the minutes its load takes to load at the seller's
+/// door and to unload at home.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CartLegs {
+    pub load_min: u32,
+    pub unload_min: u32,
+}
+
+/// A trip's legs by boat (M8b slice CO): the banks the boat is drawn up at, at home and by the
+/// seller, where they are, and the minutes its load takes to carry to the boat and load there,
+/// and to unload and carry up at home.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BoatLegs {
+    pub from: u32,
+    pub to: u32,
+    pub from_at: (f32, f32),
+    pub to_at: (f32, f32),
+    pub load_min: u32,
+    pub unload_min: u32,
 }
 
 /// What a purchase, or a wage, brings the household that gets it.
@@ -537,6 +603,12 @@ pub enum MakeWorth {
         /// Kcal.
         kcal: f64,
     },
+    /// Work an office asks of its holder (M7d slice CE2b: striking the metal brought to the
+    /// mint they keep): what the duty is worth to them, decision points.
+    Office {
+        /// Decision points.
+        points: f64,
+    },
 }
 
 /// A recipe a person could work at home: how much of it, for how long, and what it is worth.
@@ -590,6 +662,44 @@ pub struct Limits {
 /// fetches water before anything else of ordinary weight (a tuning value).
 pub(crate) const LAST_WATER_BEFORE_DARK_MIN: f64 = 180.0;
 
+/// A trip to `water` by activity `def`: the minutes drawing, the minutes there, drawing and back,
+/// and whether what is at home lasts until morning, through the night, the first meal and that trip
+/// at first light.
+fn night_water(
+    def: &ActivityDef,
+    f: &Facts,
+    limits: &Limits,
+    water: &WaterOption,
+) -> (u32, f64, bool) {
+    let draw = def.min_minutes.max(1) + water.lift_min.round().max(0.0) as u32;
+    let trip = 2.0 * water.walk_min + f64::from(draw);
+    let morning = f.until_sunrise_min + f64::from(limits.meal_min) + trip;
+    (draw, trip, f.water_days * 1440.0 >= morning)
+}
+
+/// The daylight work may use: all that is left, but while what is at home would not last until
+/// morning, less the trip to water and a meal, so whoever works by daylight is home while the trip
+/// can still be made, and the last of the light decides it, not the dusk.
+fn work_light(
+    defs: &[ActivityDef],
+    f: &Facts,
+    limits: &Limits,
+    water: Option<&WaterOption>,
+) -> f64 {
+    let fetch = defs.iter().find(|d| d.behavior == Behavior::FetchWater);
+    match (fetch, water) {
+        (Some(def), Some(water)) if !f.dark => {
+            let (_, trip, lasts_night) = night_water(def, f, limits, water);
+            if lasts_night {
+                f.daylight_left_min
+            } else {
+                f.daylight_left_min - trip - f64::from(limits.meal_min)
+            }
+        }
+        _ => f.daylight_left_min,
+    }
+}
+
 /// Work at a site the household is making something at, a crossing or a well, as weighed.
 struct Site {
     at: (f32, f32),
@@ -608,6 +718,7 @@ fn session_at_site(
     def: &ActivityDef,
     w: &DecisionParams,
     f: &Facts,
+    light: f64,
     site: &Site,
     reason: Reason,
     terms: &mut Vec<Term>,
@@ -619,7 +730,7 @@ fn session_at_site(
         return Err(Reason::Crowded);
     }
     let room = if def.daylight_only {
-        f.daylight_left_min - 2.0 * site.walk_min - 20.0
+        light - 2.0 * site.walk_min - 20.0
     } else {
         f64::from(def.max_minutes)
     };
@@ -803,6 +914,7 @@ pub fn candidates(
     take: &dyn Fn() -> Result<TakeOption, Reason>,
     visits: &dyn Fn() -> Vec<VisitOption>,
 ) -> (Vec<Candidate>, Vec<(u16, Reason)>) {
+    let light = work_light(defs, f, limits, water.as_ref());
     let mut out: Vec<Candidate> = Vec::new();
     let mut excluded = Vec::new();
     let mut blocked: Vec<usize> = Vec::new();
@@ -830,6 +942,19 @@ pub fn candidates(
         // So is work on a crossing to all but those whose household is building one (M5c slice
         // AW).
         if def.behavior == Behavior::Bridge && f.crossing.is_none() {
+            continue;
+        }
+        // And work on a boat to all but those whose household is making one (M8b slice CO).
+        if def.behavior == Behavior::Boat && f.boat.is_none() {
+            continue;
+        }
+        // And work on a cart to all but those whose household is making one (M8b slice CP).
+        if def.behavior == Behavior::Cart && f.cart.is_none() {
+            continue;
+        }
+        // And work on a passing place to all but those whose household is making one (M8b slice
+        // CQ).
+        if def.behavior == Behavior::Way && f.way.is_none() {
             continue;
         }
         // And work on a well to all but those whose household is digging or relining one (M6a
@@ -976,10 +1101,7 @@ pub fn candidates(
                 // In the last of the light it counts as a full shortage; once the light left would
                 // not see a meal and then the trip, the trip comes before anything that can wait
                 // until dark, the strongest hunger included.
-                let draw = def.min_minutes.max(1) + water.lift_min.round().max(0.0) as u32;
-                let trip = 2.0 * water.walk_min + f64::from(draw);
-                let morning = f.until_sunrise_min + f64::from(limits.meal_min) + trip;
-                let lasts_night = f.water_days * 1440.0 >= morning;
+                let (draw, trip, lasts_night) = night_water(def, f, limits, &water);
                 if !f.dark && !lasts_night {
                     if f.daylight_left_min < trip + f64::from(limits.meal_min) {
                         short = (w.w_hunger * w.max_hunger_drive + w.w_water) / w.w_water.max(1e-6);
@@ -1011,7 +1133,7 @@ pub fn candidates(
                 let walk = patch.walk_min;
                 // How long daylight allows, after the walk there and back.
                 let room = if def.daylight_only {
-                    f.daylight_left_min - 2.0 * walk - 20.0
+                    light - 2.0 * walk - 20.0
                 } else {
                     f64::from(def.max_minutes)
                 };
@@ -1132,7 +1254,7 @@ pub fn candidates(
                 };
                 let walk = field.walk_min;
                 let room = if def.daylight_only {
-                    f.daylight_left_min - 2.0 * walk - 20.0
+                    light - 2.0 * walk - 20.0
                 } else {
                     f64::from(def.max_minutes)
                 };
@@ -1203,7 +1325,7 @@ pub fn candidates(
                         continue;
                     }
                 };
-                let room = f.daylight_left_min - 2.0 * option.walk_min - 20.0;
+                let room = light - 2.0 * option.walk_min - 20.0;
                 let room = if def.daylight_only {
                     room
                 } else {
@@ -1412,13 +1534,49 @@ pub fn candidates(
                     Reason::Walking,
                     -w.w_walk_hour * 2.0 * t.walk_min / 60.0,
                 );
-                let steps = vec![
-                    Step::Walk { to: t.at },
-                    Step::Work {
-                        minutes: def.min_minutes.max(1),
+                let work = Step::Work {
+                    minutes: def.min_minutes.max(1),
+                };
+                let steps = match t.by_boat {
+                    // To the boat, down or up the river, to the door; back to the boat, load
+                    // it, home by water, unload and carry the load up, and home.
+                    Some(b) => vec![
+                        Step::Walk { to: b.from_at },
+                        Step::Paddle { to: b.to },
+                        Step::Walk { to: t.at },
+                        work,
+                        Step::Walk { to: b.to_at },
+                        Step::Handle {
+                            minutes: b.load_min,
+                            unload: false,
+                        },
+                        Step::Paddle { to: b.from },
+                        Step::Handle {
+                            minutes: b.unload_min,
+                            unload: true,
+                        },
+                        Step::Walk { to: f.home },
+                    ],
+                    None => match t.by_cart {
+                        // Home to the cart, pulled to the seller's door, loaded there, pulled
+                        // home and unloaded.
+                        Some(c) => vec![
+                            Step::Walk { to: f.home },
+                            Step::Haul { to: t.at },
+                            work,
+                            Step::Handle {
+                                minutes: c.load_min,
+                                unload: false,
+                            },
+                            Step::Haul { to: f.home },
+                            Step::Handle {
+                                minutes: c.unload_min,
+                                unload: true,
+                            },
+                        ],
+                        None => vec![Step::Walk { to: t.at }, work, Step::Walk { to: f.home }],
                     },
-                    Step::Walk { to: f.home },
-                ];
+                };
                 let target = if t.firm {
                     Target::Firm(t.seller)
                 } else {
@@ -1686,8 +1844,67 @@ pub fn candidates(
                     duty: c.duty,
                     full: c.full,
                 };
-                match session_at_site(def, w, f, &site, Reason::Crossing, &mut terms) {
+                match session_at_site(def, w, f, light, &site, Reason::Crossing, &mut terms) {
                     Ok(steps) => out.push(finish(id, Target::Crossing(c.crossing), terms, steps)),
+                    Err(why) => excluded.push((id, why)),
+                }
+            }
+            Behavior::Boat => {
+                // Work on the boat the household is making (M8b slice CO, third part), as on its
+                // crossing: each hour worth the walking the boat saves it over its life.
+                let Some(c) = f.boat else {
+                    continue;
+                };
+                let site = Site {
+                    at: c.at,
+                    walk_min: c.walk_min,
+                    left_h: c.left_h,
+                    saves_per_hour: c.saves_per_hour,
+                    duty: 0.0,
+                    full: c.full,
+                };
+                match session_at_site(def, w, f, light, &site, Reason::Boat, &mut terms) {
+                    Ok(steps) => out.push(finish(id, Target::Boat(c.boat), terms, steps)),
+                    Err(why) => excluded.push((id, why)),
+                }
+            }
+            Behavior::Cart => {
+                // Work at the door on the cart the household is making (M8b slice CP, third
+                // part), as on its boat; the vehicle is a target as a boat being made is.
+                let Some(c) = f.cart else {
+                    continue;
+                };
+                let site = Site {
+                    at: c.at,
+                    walk_min: c.walk_min,
+                    left_h: c.left_h,
+                    saves_per_hour: c.saves_per_hour,
+                    duty: 0.0,
+                    full: c.full,
+                };
+                match session_at_site(def, w, f, light, &site, Reason::Cart, &mut terms) {
+                    Ok(steps) => out.push(finish(id, Target::Boat(c.boat), terms, steps)),
+                    Err(why) => excluded.push((id, why)),
+                }
+            }
+            Behavior::Way => {
+                // Clear and level ground at the passing place the household is making (M8b
+                // slice CQ, second part), as on its boat, or at the one its polity is clearing
+                // (the third part), as on a flood bank built together: each hour worth the
+                // waiting the place spares it over its life.
+                let Some(c) = f.way else {
+                    continue;
+                };
+                let site = Site {
+                    at: c.at,
+                    walk_min: c.walk_min,
+                    left_h: c.left_h,
+                    saves_per_hour: c.saves_per_hour,
+                    duty: c.duty,
+                    full: c.full,
+                };
+                match session_at_site(def, w, f, light, &site, Reason::Way, &mut terms) {
+                    Ok(steps) => out.push(finish(id, Target::Way(c.way), terms, steps)),
                     Err(why) => excluded.push((id, why)),
                 }
             }
@@ -1704,7 +1921,7 @@ pub fn candidates(
                     duty: c.duty,
                     full: c.full,
                 };
-                match session_at_site(def, w, f, &site, Reason::Well, &mut terms) {
+                match session_at_site(def, w, f, light, &site, Reason::Well, &mut terms) {
                     Ok(steps) => out.push(finish(id, Target::Well(c.well), terms, steps)),
                     Err(why) => excluded.push((id, why)),
                 }
@@ -1723,7 +1940,7 @@ pub fn candidates(
                     duty: c.duty,
                     full: c.full,
                 };
-                match session_at_site(def, w, f, &site, Reason::Levee, &mut terms) {
+                match session_at_site(def, w, f, light, &site, Reason::Levee, &mut terms) {
                     Ok(steps) => out.push(finish(id, Target::Bank(c.bank), terms, steps)),
                     Err(why) => excluded.push((id, why)),
                 }
@@ -1742,7 +1959,7 @@ pub fn candidates(
                     duty: c.duty,
                     full: c.full,
                 };
-                match session_at_site(def, w, f, &site, Reason::Palisade, &mut terms) {
+                match session_at_site(def, w, f, light, &site, Reason::Palisade, &mut terms) {
                     Ok(steps) => out.push(finish(id, Target::Enclosure(c.enclosure), terms, steps)),
                     Err(why) => excluded.push((id, why)),
                 }
@@ -1761,7 +1978,7 @@ pub fn candidates(
                     duty: 0.0,
                     full: false,
                 };
-                match session_at_site(def, w, f, &site, Reason::Ditch, &mut terms) {
+                match session_at_site(def, w, f, light, &site, Reason::Ditch, &mut terms) {
                     Ok(steps) => out.push(finish(id, Target::Ditch(c.ditch), terms, steps)),
                     Err(why) => excluded.push((id, why)),
                 }
@@ -1965,6 +2182,7 @@ pub fn candidates(
                         let worth = kcal / (kcal + half.max(1.0));
                         term(&mut terms, Reason::Spoiling, w.w_food * worth);
                     }
+                    MakeWorth::Office { points } => term(&mut terms, Reason::Duty, points),
                     MakeWorth::Tool { tool, need } => {
                         term(&mut terms, Reason::Tools, w.w_tools * need.clamp(0.0, 1.0));
                         if blocked.contains(&tool) {
@@ -2230,6 +2448,9 @@ mod tests {
             crossing: None,
             well: None,
             levee: None,
+            boat: None,
+            cart: None,
+            way: None,
             enclosure: None,
             ditch: None,
             band: None,
@@ -2724,6 +2945,39 @@ mod tests {
         // Water that runs out at first light, before the morning's meal and trip: as short.
         let (eat, water) = totals(30.0, 800.0 / 1440.0);
         assert!(water > eat, "water {water} vs eat {eat}");
+    }
+
+    #[test]
+    fn daylight_work_leaves_the_water_trip_and_a_meal_when_water_would_not_last_the_night() {
+        let mut fetch = activity("fetch_water", Behavior::FetchWater, Vec::new(), 1.0);
+        fetch.min_minutes = 5;
+        let defs = vec![fetch];
+        let water = WaterOption {
+            cell: 1,
+            walk_min: 20.0,
+            at: (5.0, 0.0),
+            well: None,
+            lift_min: 3.0,
+        };
+        let light = |water_days: f64, dark: bool, water: Option<&WaterOption>| {
+            let f = Facts {
+                dark,
+                daylight_left_min: 300.0,
+                until_sunrise_min: 800.0,
+                water_days,
+                ..facts()
+            };
+            work_light(&defs, &f, &limits(), water)
+        };
+        // Water for five hours of a night of thirteen: work ends with the trip (20 there, 8
+        // drawing, 20 back) and a meal still to be had by daylight.
+        let meal = f64::from(limits().meal_min);
+        assert_eq!(light(5.0 / 24.0, false, Some(&water)), 300.0 - 48.0 - meal);
+        // Water enough for the night and the morning's trip: all the light is work's.
+        assert_eq!(light(1.0, false, Some(&water)), 300.0);
+        // In the dark, or with no water known, nothing changes.
+        assert_eq!(light(5.0 / 24.0, true, Some(&water)), 300.0);
+        assert_eq!(light(5.0 / 24.0, false, None), 300.0);
     }
 
     #[test]

@@ -9,7 +9,7 @@
 //! Nothing here decides who builds or mends what, or when.
 
 use civ_core::{PermanentId, Rng64, SimTime};
-use civ_grammar::{Expansion, Group, GroupKind, Stage, StageNeeds};
+use civ_grammar::{Expansion, Group, GroupKind, Level, Stage, StageNeeds};
 use civ_land::{Building, BuildingState, GroupCondition, GroupState, Repair};
 
 use crate::params::{Upkeep, Wear};
@@ -184,14 +184,17 @@ pub fn reconcile_all(
 /// ground).
 pub fn wear_of(kind: GroupKind, upkeep: &Upkeep) -> Option<Wear> {
     match kind {
-        GroupKind::Posts => Some(upkeep.posts),
+        // Ties lie in their wall and rot as posts do in the ground, by the wall's wetness.
+        GroupKind::Posts | GroupKind::Ties => Some(upkeep.posts),
         GroupKind::Covering => Some(upkeep.covering),
         GroupKind::Infill | GroupKind::MassWall => Some(upkeep.infill),
         GroupKind::TieBeams
         | GroupKind::LoftJoists
         | GroupKind::FloorJoists
         | GroupKind::RaisedFloor
-        | GroupKind::RoofFrame => Some(upkeep.under_leak),
+        | GroupKind::RoofFrame
+        | GroupKind::Trusses
+        | GroupKind::Purlins => Some(upkeep.under_leak),
         GroupKind::Floor => None,
     }
 }
@@ -281,7 +284,7 @@ pub fn wear_month(b: &mut Building, upkeep: &Upkeep, wetness: f64, rain: f64) ->
             continue;
         }
         let factor = match kind {
-            GroupKind::Posts | GroupKind::MassWall => wetness.max(0.0) * rain,
+            GroupKind::Posts | GroupKind::MassWall | GroupKind::Ties => wetness.max(0.0) * rain,
             GroupKind::Covering | GroupKind::Infill => rain,
             _ => leaking,
         };
@@ -486,18 +489,13 @@ pub fn room_left(b: &Building, upkeep: &Upkeep, e: &Expansion, room: [f64; 3]) -
     let upper: f64 = e
         .spaces
         .iter()
-        .filter(|s| s.level == civ_grammar::Level::Upper)
+        .filter(|s| s.level.above_ground())
         .map(|s| s.area_m2)
         .sum();
     let floors: f64 = e
         .spaces
         .iter()
-        .filter(|s| {
-            matches!(
-                s.level,
-                civ_grammar::Level::Ground | civ_grammar::Level::Upper
-            )
-        })
+        .filter(|s| s.level == civ_grammar::Level::Ground || s.level.above_ground())
         .map(|s| s.area_m2)
         .sum();
     if upper > 0.0 && floors > 0.0 {
@@ -520,7 +518,12 @@ pub fn symptoms(b: &Building, upkeep: &Upkeep) -> String {
         };
         return what.to_owned();
     }
-    let mut shown: Vec<(f64, &'static str)> = Vec::new();
+    // A building of three storeys or more says which storey a wall, its posts or a floor is on.
+    let tall = b.condition.iter().any(|c| {
+        Level::from_code((c.group >> 24) as u8)
+            .is_some_and(|l| matches!(l, Level::Third | Level::Fourth))
+    });
+    let mut shown: Vec<(f64, String)> = Vec::new();
     for c in &b.condition {
         let Some(kind) = GroupKind::of_group(c.group) else {
             continue;
@@ -552,8 +555,16 @@ pub fn symptoms(b: &Building, upkeep: &Upkeep) -> String {
             (GroupKind::Infill, _) => "the daub is worn",
             (GroupKind::RoofFrame, GroupState::Failed) => "the roof fell in",
             (GroupKind::LoftJoists, GroupState::Failed) => "a loft fell",
+            (GroupKind::Trusses, GroupState::Failed) => "a truss broke",
+            (GroupKind::Purlins, GroupState::Failed) => "a purlin broke",
+            (GroupKind::Ties, GroupState::Failed) => "a wall tie rotted through",
+            (GroupKind::Ties, _) => "rot in the wall ties",
             (_, GroupState::Failed) => "timber gave way",
             (_, _) => "rot in the roofed timber",
+        };
+        let words = match storey_of(c.group, kind, tall) {
+            Some(storey) => format!("{words} on the {storey} storey"),
+            None => words.to_owned(),
         };
         let over = if loaded { 0.0 } else { beyond(c.loss, w) };
         match shown.iter_mut().find(|(_, s)| *s == words) {
@@ -567,6 +578,23 @@ pub fn symptoms(b: &Building, upkeep: &Upkeep) -> String {
         .map(|(_, s)| s)
         .collect::<Vec<_>>()
         .join("; ")
+}
+
+/// Which storey group `group` of kind `kind` stands on, in words, where its building is `tall`
+/// (three storeys or more) and the kind is one a storey has: its walls, posts and floor.
+fn storey_of(group: u32, kind: GroupKind, tall: bool) -> Option<&'static str> {
+    if !tall {
+        return None;
+    }
+    let level = Level::from_code((group >> 24) as u8)?;
+    match kind {
+        GroupKind::MassWall | GroupKind::Posts | GroupKind::Ties => level.ordinal(),
+        // A floor is the storey it carries.
+        GroupKind::FloorJoists | GroupKind::TieBeams => {
+            level.above_ground().then(|| level.ordinal()).flatten()
+        }
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -630,6 +658,42 @@ mod tests {
             SimTime::ZERO,
         );
         (b, e)
+    }
+
+    #[test]
+    fn a_tall_building_says_which_storey_shows_its_wear() {
+        let (mut b, _) = hut();
+        let u = upkeep();
+        let worn = |group: u32, from: &GroupCondition| {
+            let mut c = *from;
+            c.group = group;
+            c.loss = 0.5;
+            c.state = GroupState::Symptom;
+            c
+        };
+        let first = b.condition[0];
+        let wall = |level: Level| civ_grammar::group_id(level, None, GroupKind::MassWall, 0);
+        let ties = civ_grammar::group_id(Level::Upper, None, GroupKind::Ties, 0);
+        // Two storeys: the words of version 2, whatever storey.
+        b.condition = vec![
+            worn(wall(Level::Ground), &first),
+            worn(wall(Level::Upper), &first),
+        ];
+        assert_eq!(symptoms(&b, &u), "wear at the wall's foot");
+        // Three: each storey's wall by name, and the ties in their own words.
+        b.condition.push(worn(wall(Level::Third), &first));
+        b.condition.push(worn(ties, &first));
+        let words = symptoms(&b, &u);
+        for storey in ["first", "second", "third"] {
+            assert!(
+                words.contains(&format!("wear at the wall's foot on the {storey} storey")),
+                "{words}"
+            );
+        }
+        assert!(
+            words.contains("rot in the wall ties on the second storey"),
+            "{words}"
+        );
     }
 
     fn group_of(e: &Expansion, kind: GroupKind) -> u32 {

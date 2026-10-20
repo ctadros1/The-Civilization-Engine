@@ -6,7 +6,6 @@
 
 use std::path::Path;
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_agents::ChronicleKind;
 use civ_agents::polity::{
@@ -42,7 +41,7 @@ fn sure() -> ContentRegistry {
 }
 
 fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
-    Sim::create(
+    Sim::create_for_tests(
         &NewWorld {
             name: "Custom".to_owned(),
             seed,
@@ -54,8 +53,7 @@ fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
             regime_id: String::new(),
         },
         content,
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
     .expect("generates")
 }
@@ -185,9 +183,21 @@ fn those_a_thin_gathering_overruled_propose_to_amend_the_custom_one_change_at_a_
         .collect();
     let pop = sim.people_mut_for_tests();
     let p = &mut pop.polities[0];
+    // A plan the village put forward meanwhile (M8c slice CT) is set aside: this stages a law
+    // of its own before an empty gathering.
+    p.laws.retain(|l| l.kind != PolicyKind::Plan);
+    let kept: Vec<PermanentId> = p.laws.iter().map(|l| l.id).collect();
+    p.plans.retain(|(law, _)| kept.contains(law));
+    if p.gathering
+        .as_ref()
+        .is_some_and(|g| g.law.is_some_and(|l| !kept.contains(&l)))
+    {
+        p.gathering = None;
+    }
     assert!(
         p.laws.is_empty() && p.gathering.is_none(),
-        "nothing before it yet"
+        "nothing before it yet: {:?}",
+        p.laws.iter().map(|l| (l.kind, l.issue)).collect::<Vec<_>>()
     );
     thin.eligible = 40;
     p.laws.push(thin);
@@ -277,9 +287,21 @@ fn an_amendment_passed_changes_who_decides_and_is_kept_as_a_version() {
     let params = sim.rules().people.clone();
     let pop = sim.people_mut_for_tests();
     let p = &mut pop.polities[0];
+    // A plan the village put forward meanwhile (M8c slice CT) is set aside: this stages a law
+    // of its own before an empty gathering.
+    p.laws.retain(|l| l.kind != PolicyKind::Plan);
+    let kept: Vec<PermanentId> = p.laws.iter().map(|l| l.id).collect();
+    p.plans.retain(|(law, _)| kept.contains(law));
+    if p.gathering
+        .as_ref()
+        .is_some_and(|g| g.law.is_some_and(|l| !kept.contains(&l)))
+    {
+        p.gathering = None;
+    }
     assert!(
         p.laws.is_empty() && p.gathering.is_none(),
-        "nothing before it yet"
+        "nothing before it yet: {:?}",
+        p.laws.iter().map(|l| (l.kind, l.issue)).collect::<Vec<_>>()
     );
     p.laws.push(amend);
     p.gathering = Some(Gathering {

@@ -1,0 +1,22 @@
+# Wheels on an axle (research 07-08 L05: accurate woodworking and wheel and axle bearings,
+# human or animal traction; c.3500-3300 BCE in Europe and Southwest Asia, solid wheels, axles,
+# grease; L11: a handcart is L05 with a balanced small chassis). Solid plank wheels must turn
+# true on a fitted axle: the fitting skill of a jointed frame and the shaping of wood (07-07
+# WO02). Woodwork that shapes and fits counts toward finding it; half of those who try would
+# need 50,000 qualified hours, a far technique that in practice comes from elsewhere, as the
+# observer's introduction (07-01 §2.3; a tuning value). Learnt in 80 hours beside a knower, and
+# at home by children who work wood (07-02 §2.3, a tuning value).
+kind = "technique"
+id = "core:technique/wheel_and_axle"
+name = "Wheels on an axle"
+can = "make a handcart of plank wheels turning on a fitted axle, and pull loads on it"
+domain = "core:skill/woodworking"
+requires = [["core:technique/jointed_frame", "core:technique/wood_shaping"]]
+tried_in = ["core:activity/build_hut", "core:activity/work_with_wood_on_dugout"]
+needs = ["core:good/timber"]
+e50_h = 50000.0
+learn_h = 80.0
+upbringing = true
+
+[answers]
+spoilage = []

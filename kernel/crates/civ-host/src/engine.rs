@@ -25,7 +25,7 @@ use civ_core::SimTime;
 
 use civ_content::ContentRegistry;
 use civ_schema::{SAVE_EXTENSION, wire};
-use civ_sim::{NewWorld, Sim, SimError, frames, persist};
+use civ_sim::{Mode, NewWorld, Sim, SimError, frames, persist};
 use civ_world::GenError;
 use commons_persist::{SaveDir, SaveKind};
 use tokio::sync::{broadcast, oneshot, watch};
@@ -44,6 +44,10 @@ const HISTORY: usize = 200;
 /// Share of each tick spent living the world on while running ahead; the rest keeps the observer
 /// answered.
 const RUN_AHEAD_SHARE: f64 = 0.8;
+/// Simulated minutes an Accelerated day is lived in at a call, so commands are answered within
+/// a tick however long a day takes (ADR-0028 §5; an engineering choice: about half a second a
+/// chunk at ten thousand people on the container).
+const ACCELERATED_CHUNK_MINUTES: i64 = 30;
 /// Longest run ahead asked for at once, simulated minutes (a hundred years).
 const MAX_RUN_AHEAD_MINUTES: i64 = 100 * civ_core::time::MINUTES_PER_YEAR;
 
@@ -200,6 +204,25 @@ struct World {
     dir: SaveDir,
     last_autosave: Instant,
     last_autosave_unix_ms: i64,
+    /// A pause asked for during an Accelerated day, which stops the clock at its midnight
+    /// (ADR-0011 §2).
+    pause_at_midnight: bool,
+}
+
+impl World {
+    /// Whether the world stands where Accelerated mode may stop, publish and save: anywhere in
+    /// Detailed mode, at a midnight in Accelerated (ADR-0011 §2).
+    fn at_rest(&self) -> bool {
+        self.sim.mode() != Mode::Accelerated || self.sim.now().minute_of_day() == 0
+    }
+
+    /// Lives an Accelerated day begun to its midnight, where it may be saved.
+    fn finish_day(&mut self) -> Result<(), SimError> {
+        if !self.at_rest() {
+            self.sim.advance_to_midnight()?;
+        }
+        Ok(())
+    }
 }
 
 struct Task {
@@ -537,6 +560,23 @@ impl Engine {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::crossings::crossings_response(&w.sim)),
             },
+            Request::GetVehicles => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::vehicles::vehicles_response(&w.sim)),
+            },
+            Request::GetPlans => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::plans::plans_response(&w.sim)),
+            },
+
+            Request::GetLand => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::land::land_response(&w.sim)),
+            },
+            Request::GetWays => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::ways::ways_response(&w.sim)),
+            },
             Request::GetWater => match &self.world {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::water::water_response(&w.sim)),
@@ -799,6 +839,14 @@ impl Engine {
         let Some(world) = self.world.as_mut() else {
             return no_world();
         };
+        if let Err(e) = world.finish_day() {
+            let text = format!("Saving failed: {e}");
+            self.fail(text.clone());
+            return Reply::Error(wire::ErrorCode::Internal, text);
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
         match persist::save(&mut world.sim, &world.dir, SaveKind::Manual, &label) {
             Ok(published) => {
                 let file = session::relative(&self.config.saves_root, &published.path);
@@ -831,8 +879,14 @@ impl Engine {
         if let Err(e) = world.sim.set_speed(speed) {
             return Reply::Error(wire::ErrorCode::BadRequest, e.to_string());
         }
-        world.sim.set_paused(paused);
         self.urgent = true;
+        // An Accelerated day begun is lived to its midnight, where the clock stops.
+        if paused && !world.sim.paused() && !world.at_rest() {
+            world.pause_at_midnight = true;
+            return ack("Pausing at midnight");
+        }
+        world.pause_at_midnight = false;
+        world.sim.set_paused(paused);
         ack(if paused { "Paused" } else { "Running" })
     }
 
@@ -948,6 +1002,7 @@ impl Engine {
             dir,
             last_autosave: Instant::now(),
             last_autosave_unix_ms: 0,
+            pause_at_midnight: false,
         });
         self.epoch = self.epoch.wrapping_add(1);
         self.recovery = None;
@@ -994,6 +1049,13 @@ impl Engine {
             return;
         };
         world.last_autosave = Instant::now();
+        if let Err(e) = world.finish_day() {
+            self.fail(format!("Autosave failed: {e}"));
+            return;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return;
+        };
         match persist::save(&mut world.sim, &world.dir, SaveKind::Autosave, label) {
             Ok(published) => {
                 world.last_autosave_unix_ms = commons_persist::now_unix_ms();
@@ -1034,7 +1096,10 @@ impl Engine {
         let step = real.min(MAX_STEP).as_secs_f64();
         let mut advance = civ_sim::Advance::default();
         loop {
-            match world.sim.advance_real(step) {
+            match world
+                .sim
+                .advance_real_in_chunks(step, ACCELERATED_CHUNK_MINUTES)
+            {
                 Ok(a) => {
                     advance.minutes += a.minutes;
                     advance.days += a.days;
@@ -1052,12 +1117,20 @@ impl Engine {
                 break;
             }
         }
-        if advance.minutes > 0 {
+        // Accelerated mode publishes and saves only at a midnight (ADR-0011 §2); a pause asked
+        // for during the day takes effect there.
+        let at_rest = world.at_rest();
+        if at_rest && world.pause_at_midnight {
+            world.pause_at_midnight = false;
+            world.sim.set_paused(true);
+            self.urgent = true;
+        }
+        if advance.minutes > 0 && at_rest {
             self.changed = true;
         }
         let due =
             advance.months > 0 || world.last_autosave.elapsed() >= self.config.autosave_interval;
-        if due && world.sim.is_dirty() {
+        if due && at_rest && world.sim.is_dirty() {
             self.autosave("Autosave");
         }
     }
@@ -1679,6 +1752,11 @@ impl Engine {
     }
 
     fn publish_if_due(&mut self) {
+        // Accelerated mode publishes only at a midnight (ADR-0011 §2): what changed or is urgent
+        // partway through a day waits for its midnight, the day lived on to it.
+        if self.world.as_ref().is_some_and(|w| !w.at_rest()) {
+            return;
+        }
         if self.urgent || (self.changed && self.last_publish.elapsed() >= SNAPSHOT_INTERVAL) {
             self.publish();
         }
@@ -1831,6 +1909,136 @@ mod tests {
     }
 
     #[test]
+    fn at_max_a_pause_asked_for_during_a_day_takes_effect_at_its_midnight() {
+        let mut h = Harness::new(None, None);
+        h.create("Chunks");
+        let world = h.engine.world.as_mut().expect("a world");
+        world.sim.set_paused(false);
+        world.sim.set_speed(civ_sim::SPEED_MAX).expect("Max");
+        // Accelerated from the next midnight; then partway through a day, as the host's chunks
+        // leave it.
+        world.sim.advance_to_midnight().expect("advances");
+        assert_eq!(world.sim.mode(), Mode::Accelerated);
+        world
+            .sim
+            .advance_real_in_chunks(0.001, ACCELERATED_CHUNK_MINUTES)
+            .expect("advances");
+        assert_eq!(
+            world.sim.now().minute_of_day(),
+            ACCELERATED_CHUNK_MINUTES,
+            "a chunk into the day"
+        );
+        let reply = h.ask(Request::SetClock {
+            paused: true,
+            speed: civ_sim::SPEED_MAX,
+        });
+        assert!(matches!(&reply, Reply::Response(_)), "{reply:?}");
+        let world = h.engine.world.as_ref().expect("a world");
+        assert!(
+            world.pause_at_midnight,
+            "the pause waits for the day's midnight"
+        );
+        assert!(!world.sim.paused(), "the day is lived on to its midnight");
+        for _ in 0..10_000 {
+            if h.engine.world.as_ref().is_some_and(|w| w.sim.paused()) {
+                break;
+            }
+            h.engine.tick(h.engine.config.tick);
+        }
+        let world = h.engine.world.as_ref().expect("a world");
+        assert!(world.sim.paused(), "the clock stops");
+        assert_eq!(world.sim.now().minute_of_day(), 0, "at the day's midnight");
+        // A save asked for during a day is made at its midnight.
+        let world = h.engine.world.as_mut().expect("a world");
+        world.sim.set_paused(false);
+        world
+            .sim
+            .advance_real_in_chunks(0.001, ACCELERATED_CHUNK_MINUTES)
+            .expect("advances");
+        assert!(matches!(
+            h.ask(Request::SaveWorld {
+                label: "Midday".to_owned()
+            }),
+            Reply::Response(_)
+        ));
+        let world = h.engine.world.as_ref().expect("a world");
+        assert_eq!(world.sim.now().minute_of_day(), 0, "saved at the midnight");
+    }
+
+    #[test]
+    fn at_max_a_paced_speed_chosen_during_a_day_takes_effect_at_its_midnight() {
+        let mut h = Harness::new(None, None);
+        h.create("Slower");
+        let world = h.engine.world.as_mut().expect("a world");
+        world.sim.set_paused(false);
+        world.sim.set_speed(civ_sim::SPEED_MAX).expect("Max");
+        world.sim.advance_to_midnight().expect("advances");
+        world
+            .sim
+            .advance_real_in_chunks(0.001, ACCELERATED_CHUNK_MINUTES)
+            .expect("advances");
+        let day = world.sim.now().day_index();
+        assert_ne!(world.sim.now().minute_of_day(), 0, "partway through a day");
+        assert!(matches!(
+            h.ask(Request::SetClock {
+                paused: false,
+                speed: 10.0,
+            }),
+            Reply::Response(_)
+        ));
+        // The day is lived on to its midnight in chunks, as at Max, not at ten times real time.
+        for _ in 0..100 {
+            if h.engine.world.as_ref().expect("a world").sim.mode() == Mode::Detailed {
+                break;
+            }
+            h.engine.tick(h.engine.config.tick);
+        }
+        let world = h.engine.world.as_ref().expect("a world");
+        assert_eq!(world.sim.mode(), Mode::Detailed, "10x from the midnight");
+        assert_eq!(world.sim.now().day_index(), day + 1, "that day's midnight");
+    }
+
+    #[test]
+    fn at_max_nothing_is_published_partway_through_a_day() {
+        let mut h = Harness::new(None, None);
+        h.create("Midday");
+        let world = h.engine.world.as_mut().expect("a world");
+        world.sim.set_paused(false);
+        world.sim.set_speed(civ_sim::SPEED_MAX).expect("Max");
+        world.sim.advance_to_midnight().expect("advances");
+        world
+            .sim
+            .advance_real_in_chunks(0.001, ACCELERATED_CHUNK_MINUTES)
+            .expect("advances");
+        assert_ne!(world.sim.now().minute_of_day(), 0, "partway through a day");
+        // A midnight's change not yet published, and something urgent, partway through the day.
+        h.engine.publish();
+        let before = h.engine.snapshot_rx.borrow().sim_time;
+        h.engine.changed = true;
+        h.engine.urgent = true;
+        h.engine.last_publish = Instant::now() - 2 * SNAPSHOT_INTERVAL;
+        let world = h.engine.world.as_mut().expect("a world");
+        world
+            .sim
+            .advance_real_in_chunks(0.001, ACCELERATED_CHUNK_MINUTES)
+            .expect("advances");
+        h.engine.publish_if_due();
+        assert_eq!(h.engine.snapshot_rx.borrow().sim_time, before, "held");
+        assert!(
+            h.engine.changed && h.engine.urgent,
+            "and kept for the midnight"
+        );
+        let world = h.engine.world.as_mut().expect("a world");
+        world.sim.advance_to_midnight().expect("advances");
+        h.engine.publish_if_due();
+        let published = h.engine.snapshot_rx.borrow().sim_time;
+        assert!(
+            published > before && published % (24 * 60) == 0,
+            "{published}"
+        );
+    }
+
+    #[test]
     fn running_ahead_stops_when_cancelled() {
         let mut h = Harness::new(None, None);
         h.create("Stop");
@@ -1945,6 +2153,411 @@ mod tests {
                 .iter()
                 .all(|w| !w.words().unwrap_or_default().is_empty())
         );
+    }
+
+    #[test]
+    fn the_ways_are_read_with_their_stretches_rank_and_keeper() {
+        use civ_land::ways::{Keeper, Rank, Segment, Surface, WALK, Way};
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::GetWays)),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Ways");
+        let read = |h: &mut Harness| {
+            let Reply::Response(payload) = h.ask(Request::GetWays) else {
+                panic!("the ways are read");
+            };
+            payload
+        };
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let list = response.body_as_ways().expect("ways");
+        assert_eq!(list.rev(), 0);
+        assert_eq!(list.ways().map_or(0, |l| l.len()), 0);
+        // A lane of ten cells eastward, cleared by the first household today, laid by hand.
+        let sim = &mut h.engine.world.as_mut().expect("a world").sim;
+        let household = sim
+            .people()
+            .households
+            .iter()
+            .map(|(_, x)| x.id)
+            .min()
+            .expect("a household");
+        let id = sim.allocate_id_for_tests();
+        let (w, today) = (sim.map().width, sim.now().day_index());
+        let cells: Vec<u32> = (0..10).map(|k| 40 * w + 40 + k).collect();
+        sim.land_mut_for_tests().ways.add(Way {
+            id,
+            begun: today,
+            segments: vec![Segment {
+                cells,
+                corridor_m: 4.0,
+                built_m: 1.5,
+                usable_m: 1.5,
+                surface: Surface::Cleared,
+                keeper: Keeper::Household(household),
+                kept: today,
+            }],
+            modes: WALK,
+            trips: 0.0,
+            trips_day: today,
+            rank: Rank::Lane,
+        });
+        let rev = frames::ways::ways_rev(sim);
+        assert_ne!(rev, 0);
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let list = response.body_as_ways().expect("ways");
+        assert_eq!(list.rev(), rev);
+        let way = list.ways().expect("a list").get(0);
+        assert_eq!((way.id(), way.rank(), way.modes()), (id.get(), 0, 1));
+        assert_eq!(way.rank_name(), Some("lane"));
+        let words = way.words().unwrap_or_default();
+        assert!(words.starts_with("Lane of 72 m, 1.5 m wide"), "{words}");
+        let s = way.segments().expect("its stretches").get(0);
+        // A straight line keeps only its ends.
+        assert_eq!(s.points().map_or(0, |p| p.len()), 4);
+        assert_eq!((s.usable_m(), s.corridor_m()), (1.5, 4.0));
+        assert_eq!(s.surface(), Some("cleared ground"));
+        assert!((s.condition() - 1.0).abs() < 1e-6);
+        assert!(s.keeper().unwrap_or_default().ends_with("'s household"));
+    }
+
+    #[test]
+    fn the_boats_and_carts_are_read_with_whose_they_are_and_how_far_made() {
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::GetVehicles)),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Vehicles");
+        let read = |h: &mut Harness| {
+            let Reply::Response(payload) = h.ask(Request::GetVehicles) else {
+                panic!("the vehicles are read");
+            };
+            payload
+        };
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let list = response.body_as_vehicles().expect("vehicles");
+        assert_eq!(list.rev(), 0);
+        assert_eq!(list.vehicles().map_or(0, |l| l.len()), 0);
+        // A dugout made and half worn, and a handcart 12 hours into its 40, both of the first
+        // household and at its door.
+        let sim = &mut h.engine.world.as_mut().expect("a world").sim;
+        let household = sim
+            .people()
+            .households
+            .iter()
+            .map(|(_, x)| x.id)
+            .min()
+            .expect("a household");
+        let door = civ_agents::population::cell_of(
+            sim.map(),
+            sim.people().household(household).expect("it").home,
+        ) as u32;
+        let index = |sim: &civ_sim::Sim, id: &str| {
+            sim.rules().catalog.vehicle_index(id).expect("in the core") as u16
+        };
+        let (dugout, handcart) = (
+            index(sim, "core:vehicle/dugout"),
+            index(sim, "core:vehicle/handcart"),
+        );
+        let (boat, cart) = (sim.allocate_id_for_tests(), sim.allocate_id_for_tests());
+        let today = sim.now().day_index();
+        let one = |id, vehicle, wear, labour_h, work_h| civ_land::boats::Boat {
+            id,
+            vehicle,
+            owner: household,
+            at: door,
+            made: today,
+            wear,
+            labour_h,
+            work_h,
+            saves_h_year: 0.0,
+            crew: (0, 0),
+        };
+        let land = sim.land_mut_for_tests();
+        land.boats.list.push(one(boat, dugout, 0.5, 0.0, 0.0));
+        land.boats.changed();
+        land.carts.list.push(one(cart, handcart, 0.0, 40.0, 12.0));
+        land.carts.changed();
+        let rev = frames::vehicles::vehicles_rev(sim);
+        assert_ne!(rev, 0);
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let list = response.body_as_vehicles().expect("vehicles");
+        assert_eq!(list.rev(), rev);
+        let all = list.vehicles().expect("a list");
+        assert_eq!(all.len(), 2);
+        let (b, c) = (all.get(0), all.get(1));
+        assert_eq!(
+            (b.id(), b.mode(), b.name()),
+            (boat.get(), 0, Some("Dugout"))
+        );
+        assert_eq!((c.id(), c.mode()), (cart.get(), 1));
+        assert_eq!((b.made(), b.out_with(), b.load_kg()), (1.0, 0, 0.0));
+        assert!((c.made() - 0.3).abs() < 1e-6 && b.wear() == 0.5);
+        assert_eq!(b.owner(), household.get());
+        let words = |v: wire::VehicleInfo| v.words().unwrap_or_default().to_owned();
+        assert!(
+            words(b).ends_with("dugout, made in year 1, half worn"),
+            "{}",
+            words(b)
+        );
+        assert!(
+            words(c).ends_with("handcart, being made: 12 of 40 hours' work done"),
+            "{}",
+            words(c)
+        );
+    }
+
+    #[test]
+    fn the_land_map_is_read_from_what_was_recorded_and_changes_nothing() {
+        // M8c slice CX (ADR-0030 §1): every plot, labelled paid, reckoned or nothing recorded,
+        // drawn from what was recorded; reading it changes no digest.
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::GetLand)),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Land");
+        h.engine
+            .world
+            .as_mut()
+            .expect("a world")
+            .sim
+            .advance_minutes(20 * 1440)
+            .expect("lives");
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        let before: Vec<_> = civ_sim::persist::encode_sections(sim)
+            .into_iter()
+            .map(|s| s.bytes)
+            .collect();
+        let Reply::Response(payload) = h.ask(Request::GetLand) else {
+            panic!("the land map is read");
+        };
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        let after: Vec<_> = civ_sim::persist::encode_sections(sim)
+            .into_iter()
+            .map(|s| s.bytes)
+            .collect();
+        assert_eq!(before, after, "reading the land map changes nothing");
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let land = response.body_as_land().expect("land");
+        assert_eq!(land.rev(), frames::land::land_rev(sim));
+        let plots = land.plots().expect("plots");
+        assert_eq!(plots.len(), sim.land().plots.len());
+        assert!(!plots.is_empty(), "homes were laid");
+        assert!(
+            plots.iter().any(|p| p.weighed() > 0),
+            "a plot chosen by its receipt"
+        );
+        for (p, q) in plots.iter().zip(&sim.land().plots) {
+            assert_eq!(p.weighed(), q.receipt.map_or(0, |r| r.weighed));
+            assert_eq!(p.paid_kcal(), frames::land::paid_kcal(sim, q) as f32);
+        }
+    }
+
+    #[test]
+    fn the_plans_are_read_in_their_layers_with_what_stands_on_them() {
+        use civ_agents::polity::{Encroachment, IssueKind, LawStatus};
+        use civ_land::ways::{Keeper, Rank, Segment, Surface, WALK, Way};
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::GetPlans)),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Plans");
+        let read = |h: &mut Harness| {
+            let Reply::Response(payload) = h.ask(Request::GetPlans) else {
+                panic!("the plans are read");
+            };
+            payload
+        };
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let list = response.body_as_plans().expect("plans");
+        assert_eq!(list.rev(), 0);
+        assert_eq!(list.plans().map_or(0, |l| l.len()), 0);
+        // Two days on, someone of the first household puts the first layout forward.
+        let sim = &mut h.engine.world.as_mut().expect("a world").sim;
+        sim.advance_minutes(2 * 24 * 60).expect("lives");
+        let settlement = sim.land().settlements[0].id;
+        let (household, sponsor) = sim
+            .people()
+            .households
+            .iter()
+            .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+            .map(|(_, x)| (x.id, x.members[0]))
+            .min()
+            .expect("a household");
+        let law = sim
+            .with_ctx_for_tests(|pop, ctx| {
+                pop.propose_plan_for_tests(ctx, settlement, sponsor, 0, IssueKind::NoGround)
+            })
+            .expect("a plan put forward");
+        let proposed = frames::plans::plans_rev(sim);
+        assert_ne!(proposed, 0);
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let list = response.body_as_plans().expect("plans");
+        assert_eq!(list.rev(), proposed);
+        let all = list.plans().expect("a list");
+        assert_eq!(all.len(), 1);
+        let p = all.get(0);
+        assert_eq!((p.law(), p.version(), p.in_force()), (law.get(), 1, false));
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        let pi = sim
+            .people()
+            .polities
+            .iter()
+            .position(|x| x.holds(Some(settlement)))
+            .expect("its polity");
+        let laid = sim.people().polities[pi]
+            .plan_of(law)
+            .expect("its plan")
+            .layout
+            .clone();
+        let n = |v: Option<flatbuffers::Vector<'_, wire::PlanRect>>| v.map_or(0, |v| v.len());
+        assert_eq!(n(p.streets()), laid.streets.len());
+        assert_eq!(n(p.sites()), laid.sites.len());
+        assert_eq!(n(p.parcels()), laid.parcels.len());
+        assert!(n(p.parcels()) > 0);
+        assert_eq!(n(p.occupied()), 0);
+        let first = laid.parcels[0].rect;
+        let r = p.parcels().expect("parcels").get(0);
+        assert_eq!(
+            (r.x(), r.y(), r.w(), r.h()),
+            (
+                first.x as f32 / 100.0,
+                first.y as f32 / 100.0,
+                first.w as f32 / 100.0,
+                first.h as f32 / 100.0
+            )
+        );
+        let words = p.words().unwrap_or_default().to_owned();
+        assert!(
+            words.contains("version 1") && words.ends_with("put forward"),
+            "{words}"
+        );
+        // A way laid over reserved ground: one cell whose centre lies on a street or the square.
+        let sim = &mut h.engine.world.as_mut().expect("a world").sim;
+        let map = sim.map();
+        let on = |r: &civ_land::RectCm, c: u32| {
+            let (x, y) = civ_agents::population::cell_centre(map, c as usize);
+            let (x, y) = (f64::from(x) * 100.0, f64::from(y) * 100.0);
+            x >= f64::from(r.x)
+                && x < f64::from(r.x + r.w)
+                && y >= f64::from(r.y)
+                && y < f64::from(r.y + r.h)
+        };
+        let cell = laid
+            .streets
+            .iter()
+            .chain(laid.sites.iter().map(|s| &s.rect))
+            .find_map(|r| {
+                let (x0, y0) = (r.x as f32 / 100.0, r.y as f32 / 100.0);
+                let (x1, y1) = (x0 + r.w as f32 / 100.0, y0 + r.h as f32 / 100.0);
+                let step = map.cell_size_m / 2.0;
+                let mut y = y0;
+                while y < y1 {
+                    let mut x = x0;
+                    while x < x1 {
+                        let c = civ_agents::population::cell_of(map, (x, y)) as u32;
+                        if on(r, c) {
+                            return Some(c);
+                        }
+                        x += step;
+                    }
+                    y += step;
+                }
+                None
+            })
+            .expect("a cell on reserved ground");
+        let (id, today) = (sim.allocate_id_for_tests(), sim.now().day_index());
+        sim.land_mut_for_tests().ways.add(Way {
+            id,
+            begun: today,
+            segments: vec![Segment {
+                cells: vec![cell],
+                corridor_m: 4.0,
+                built_m: 1.5,
+                usable_m: 1.5,
+                surface: Surface::Cleared,
+                keeper: Keeper::Household(household),
+                kept: today,
+            }],
+            modes: WALK,
+            trips: 0.0,
+            trips_day: today,
+            rank: Rank::Lane,
+        });
+        assert_ne!(frames::plans::plans_rev(sim), proposed);
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let p = response
+            .body_as_plans()
+            .and_then(|l| l.plans())
+            .expect("a list")
+            .get(0);
+        assert!(n(p.built()) >= 1);
+        let words = p.words().unwrap_or_default().to_owned();
+        assert!(words.contains("; a way already runs over "), "{words}");
+        // In force, with a building of the household's standing on one of its streets.
+        let street = *laid.streets.first().expect("a street");
+        let sim = &mut h.engine.world.as_mut().expect("a world").sim;
+        let building = sim
+            .land()
+            .buildings
+            .iter()
+            .find(|b| b.standing())
+            .map(|b| (b.id, b.plot))
+            .expect("a building");
+        {
+            let land = sim.land_mut_for_tests();
+            let q = land
+                .plots
+                .iter_mut()
+                .find(|q| q.id == building.1)
+                .expect("its plot");
+            q.rect.x = street.x;
+            q.rect.y = street.y;
+        }
+        let day = sim.now().day_index();
+        {
+            let polity = &mut sim.people_mut_for_tests().polities[pi];
+            polity.law_mut(law).expect("the law").status = LawStatus::InForce;
+            polity.encroachments.push(Encroachment {
+                day,
+                law,
+                household,
+                building: building.0,
+                seen_by: Vec::new(),
+                order: None,
+            });
+        }
+        let rev = frames::plans::plans_rev(sim);
+        assert!(rev != 0 && rev != proposed);
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let p = response
+            .body_as_plans()
+            .and_then(|l| l.plans())
+            .expect("a list")
+            .get(0);
+        assert!(p.in_force());
+        assert_eq!(n(p.occupied()), 1);
+        let words = p.words().unwrap_or_default().to_owned();
+        assert!(
+            words.contains(", in force")
+                && words.ends_with("; 1 building stands on its reserved ground"),
+            "{words}"
+        );
+        // Its sponsor keeps it, and none of its parcels is given yet (M8c slice CU).
+        assert!(words.contains(", in force; kept by "), "{words}");
+        assert!(words.contains("; 0 of "), "{words}");
     }
 
     #[test]

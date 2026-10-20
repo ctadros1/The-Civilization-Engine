@@ -99,11 +99,21 @@ pub enum Behavior {
     /// Go to the hearth on an election's polling day to name one's choices (M7a slice BO,
     /// ADR-0024 §3): only for one of its electorate who heard of it, once.
     Poll,
+    /// Walk to the bank where the household is making a boat, work on it, and walk home (M8b
+    /// slice CO, third part): the activity's numbers, the vehicle's labour.
+    Boat,
+    /// Work at home on the cart the household is making (M8b slice CP, third part): the
+    /// activity's numbers, the vehicle's labour.
+    Cart,
+    /// Walk to the passing place the household is making on its carts' way, clear and level
+    /// ground there, and walk home (M8b slice CQ, second part): the activity's numbers, the
+    /// work's own labour.
+    Way,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 34] = [
+    pub const ALL: [Behavior; 37] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -138,6 +148,9 @@ impl Behavior {
         Behavior::Band,
         Behavior::Palisade,
         Behavior::Poll,
+        Behavior::Boat,
+        Behavior::Cart,
+        Behavior::Way,
     ];
 
     /// The authored name of a behavior.
@@ -177,6 +190,9 @@ impl Behavior {
             Behavior::Band => "band",
             Behavior::Palisade => "palisade",
             Behavior::Poll => "poll",
+            Behavior::Boat => "boat",
+            Behavior::Cart => "cart",
+            Behavior::Way => "way",
         }
     }
 
@@ -323,6 +339,31 @@ pub struct ToolDef {
     pub per_worker: f64,
     /// It stays where it was made (an oven): never carried off.
     pub fixed: bool,
+    /// The tool whose work it does as well, by good index (a copper axe for an axe): work that
+    /// needs that tool may be done with this one (M7d slice CE).
+    pub serves: Option<usize>,
+}
+
+/// What a good paid by weight as money adds to being a good (M7d slice CD, ADR-0027 §5).
+#[derive(Clone, Debug, PartialEq)]
+pub struct MoneyDef {
+    /// Hours a holder spends weighing and testing a unit before it takes it (research 08-06
+    /// §1.3: what verifying it costs).
+    pub verify_h: f64,
+    /// It is counted in pieces of issues a mint struck (coin), whose purses are kept (M7d
+    /// slice CE); else it is weighed (metal).
+    pub coin: bool,
+    /// For coin: the metal it is struck of, by index in the catalog's goods (M7d slice CE4a).
+    pub metal: Option<usize>,
+    /// For coin: the technique whose knowers can tell how much metal a piece holds, by index in
+    /// the catalog's techniques (M7d slice CE4a, ADR-0027 §6: those who know smelting assay).
+    pub assay: Option<usize>,
+    /// For coin: the share off what the metal in a piece of another polity's issue is worth that
+    /// one who cannot assay takes it at (M7d slice CE4c, ADR-0027 §6: foreign coin by weight at a
+    /// discount).
+    pub foreign_discount: f64,
+    /// For coin: hours one who cannot assay spends weighing and testing a foreign piece.
+    pub foreign_assay_h: f64,
 }
 
 /// What a store good adds to being a good (M3b slice Q): the room each one gives.
@@ -361,6 +402,9 @@ pub struct GoodDef {
     /// For a store (a pot): the room each one gives.
     pub store: Option<StoreDef>,
     /// How it burns (M6b slice BC; content API 81): `None` for a good fire does not touch.
+    /// It is paid by weight as money (M7d slice CD): its worth to a holder is what a unit
+    /// bought in its recent purchases.
+    pub money: Option<MoneyDef>,
     pub fire: Option<GoodFire>,
 }
 
@@ -629,6 +673,9 @@ pub struct Catalog {
     /// Bridge systems, in content id order (M5c slice AW). Crossings refer to them by index,
     /// saves by content id.
     pub bridges: Vec<BridgeDef>,
+    /// Vehicles, in content id order (M8b slice CO). Boats refer to them by index, saves by
+    /// content id.
+    pub vehicles: Vec<VehicleDef>,
     /// Well systems, in content id order (M6a slice AY, step three). Wells refer to them by
     /// index, saves by content id.
     pub wells: Vec<WellDef>,
@@ -690,6 +737,11 @@ impl WellDef {
 }
 
 impl Catalog {
+    /// The index of the vehicle with content id `id`, if any.
+    pub fn vehicle_index(&self, id: &str) -> Option<usize> {
+        self.vehicles.iter().position(|v| v.id == id)
+    }
+
     /// The well system with content id `id`, by index.
     pub fn well_index(&self, id: &str) -> Option<usize> {
         self.wells.iter().position(|w| w.id == id)
@@ -809,6 +861,113 @@ impl Catalog {
     }
 }
 
+/// How a vehicle goes (M8b slice CO; ADR-0029 §2), by its name in content.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum VehicleMode {
+    /// On water, paddled.
+    Boat,
+    /// On wheels, pulled by a person (M8b slice CP).
+    Cart,
+}
+
+impl VehicleMode {
+    /// Its name in content.
+    pub fn name(self) -> &'static str {
+        match self {
+            VehicleMode::Boat => "boat",
+            VehicleMode::Cart => "cart",
+        }
+    }
+
+    /// The mode named `name`, if any.
+    pub fn from_name(name: &str) -> Option<VehicleMode> {
+        match name {
+            "boat" => Some(VehicleMode::Boat),
+            "cart" => Some(VehicleMode::Cart),
+            _ => None,
+        }
+    }
+}
+
+/// A vehicle (M8b slice CO; ADR-0029 §2): a made thing that carries more than a person can.
+/// Using one needs no technique; making one does.
+#[derive(Clone, Debug, PartialEq)]
+pub struct VehicleDef {
+    pub id: String,
+    pub name: String,
+    pub mode: VehicleMode,
+    /// The technique its makers need, by index, if any.
+    pub technique: Option<usize>,
+    /// The skill its makers practise, by index, if any.
+    pub skill: Option<usize>,
+    /// A tool its makers need, by good index, if any.
+    pub tool: Option<usize>,
+    /// The good it is made from, by index, and how many kilograms of it one takes.
+    pub good: usize,
+    pub material_kg: f64,
+    /// Hours of work to make one, and how many may work on one at once.
+    pub labour_h: f64,
+    pub crew: u32,
+    /// What it carries besides its crew, kilograms.
+    pub payload_kg: f64,
+    /// Water it needs under it loaded, metres.
+    pub draft_m: f64,
+    /// Its paddlers' speed through still water, metres a second.
+    pub paddle_m_s: f64,
+    /// Its beam, metres.
+    pub width_m: f64,
+    /// Years it lasts.
+    pub life_years: f64,
+    /// Kilograms a person loads or unloads a minute (ADR-0029 §5: handling is people's work).
+    pub handling_kg_min: f64,
+    /// The share of a reach's mean velocity it meets going upstream, keeping to the slack water
+    /// along the banks (ADR-0029 §5 as amended).
+    pub slack_share: f64,
+    /// A cart's own mass, kilograms (M8b slice CP; 0 for a boat).
+    pub tare_kg: f64,
+    /// A cart's rolling resistance on a way that serves carts, and on a worn trail.
+    pub way_resistance: f64,
+    pub trail_resistance: f64,
+    /// The most a person pulling a cart can pull, newtons, and their sustained power, watts.
+    pub pull_n: f64,
+    pub power_w: f64,
+    /// The steepest grade down, rise over run, a cart's puller can hold it back on.
+    pub brake_grade: f64,
+}
+
+impl VehicleDef {
+    /// How the ground sees a cart of this vehicle carrying `load_kg`, pulled by someone who walks
+    /// at `walk_m_s` (M8b slice CP).
+    pub fn wheels(&self, load_kg: f64, walk_m_s: f64) -> civ_land::carting::Wheels {
+        civ_land::carting::Wheels {
+            mass_kg: self.tare_kg + load_kg.max(0.0),
+            width_m: self.width_m,
+            way_c: self.way_resistance,
+            trail_c: self.trail_resistance,
+            pull_n: self.pull_n,
+            power_w: self.power_w,
+            walk_m_s,
+            brake_grade: self.brake_grade,
+        }
+    }
+
+    /// How the river sees it.
+    pub fn hull(&self) -> civ_land::boating::Hull {
+        civ_land::boating::Hull {
+            draft_m: self.draft_m,
+            paddle_m_s: self.paddle_m_s,
+            slack_share: self.slack_share,
+        }
+    }
+}
+
+impl VehicleDef {
+    /// Days it lasts, at 365.25 a year.
+    pub fn life_days(&self) -> f64 {
+        self.life_years * 365.25
+    }
+}
+
 /// A bridge system (content kind `bridge`, M5c slice AW; research 11-07 §2.1): the clear spans
 /// it may be proposed for, the members it is made of, the work it takes, and what wears and
 /// fails it. What a bridge of it can carry is worked out from its own members and condition
@@ -901,6 +1060,9 @@ pub struct BuildingDef {
     pub skill: Option<usize>,
     /// How its parts wear and decay (ADR-0009 §4).
     pub upkeep: Upkeep,
+    /// The technique that opens each of frame version 3's systems, by index in the techniques:
+    /// a trussed roof, storeyed posts and wall ties (ADR-0031 §2); `None` where none does.
+    pub systems: [Option<usize>; 3],
 }
 
 /// How one kind of a building's parts wears or decays (ADR-0009 §4).
@@ -1015,7 +1177,7 @@ impl Catalog {
     /// The youngest age at which anyone does work that technique `t` gates, years: the age a
     /// child brought up with it learns it (ADR-0008 §4). Building programs are worked by the
     /// `build` activities, well systems by the `well` ones, and a disease's treatments by the
-    /// `tend` ones.
+    /// `tend` ones; a technique no work gates but a vehicle's making, by that work.
     pub fn work_age(&self, t: usize) -> Option<f64> {
         let builds = self.buildings.iter().any(|b| b.technique == Some(t));
         let digs = self.wells.iter().any(|w| w.technique == Some(t));
@@ -1023,16 +1185,32 @@ impl Catalog {
             .diseases
             .iter()
             .any(|d| d.treatments.iter().any(|&(x, _)| x == t));
-        self.activities
-            .iter()
-            .filter(|a| {
-                self.technique_of(a) == Some(t)
-                    || (builds && a.behavior == Behavior::Build)
-                    || (digs && a.behavior == Behavior::Well)
-                    || (treats && a.behavior == Behavior::Tend)
+        let age = |gates: &dyn Fn(&ActivityDef) -> bool| {
+            self.activities
+                .iter()
+                .filter(|a| gates(a))
+                .map(|a| a.min_age_years)
+                .reduce(f64::min)
+        };
+        age(&|a| {
+            self.technique_of(a) == Some(t)
+                || (builds && a.behavior == Behavior::Build)
+                || (digs && a.behavior == Behavior::Well)
+                || (treats && a.behavior == Behavior::Tend)
+        })
+        .or_else(|| {
+            // A technique only a vehicle's making needs is learnt for the work on one (M8b slice
+            // CP, third part): wheels on an axle for a cart.
+            let makes = |mode: VehicleMode| {
+                self.vehicles
+                    .iter()
+                    .any(|v| v.mode == mode && v.technique == Some(t))
+            };
+            let (boats, carts) = (makes(VehicleMode::Boat), makes(VehicleMode::Cart));
+            age(&|a| {
+                (boats && a.behavior == Behavior::Boat) || (carts && a.behavior == Behavior::Cart)
             })
-            .map(|a| a.min_age_years)
-            .reduce(f64::min)
+        })
     }
 
     /// The tools an activity needs: its own, or its recipe's, each once (its own first, in no
@@ -1578,6 +1756,13 @@ pub struct MarketParams {
     pub accept_want: f64,
     /// Trades a market keeps in its list of the latest.
     pub recent_trades: usize,
+    /// A holder's desired balance of a weighed money (metal, coin), days of its spending in it:
+    /// what it holds beyond is worth less to it (M7d slice CD, ADR-0027 §5; research 08-06
+    /// §2.3: 7-30 days).
+    pub money_days: f64,
+    /// What striking the metal brought to a mint is worth to its minter as the duty of their
+    /// office, decision points (M7d slice CE2b), as carrying an agreement's payment is.
+    pub strike_points: f64,
 }
 
 /// Household workshops (slice J, ADR-0006 §5).
@@ -1609,6 +1794,10 @@ pub struct BuildParams {
     /// People who can work at a craft at once in a household's home, beside living there: a firm
     /// that has more working for it at once builds a workshop.
     pub home_work_places: u32,
+    /// Years over which a household reckons what a plot for a home would cost it in walking
+    /// (M8c slice CS, ADR-0030 §1): its members' walks a year from there to where they go, times
+    /// these, beside the levelling it would take once.
+    pub site_years: f64,
     /// How unevenly the parts of a building are made, by a novice and by a master builder: a
     /// group's quality is one less this times the size of a normal draw (ADR-0009 §6).
     pub quality_spread: [f64; 2],
@@ -1786,6 +1975,8 @@ pub struct PeopleParams {
     pub elections: crate::seats::ElectionParams,
     /// How people lay out and weigh an enclosure (M6c slice BK; content API 100).
     pub enclosures: crate::enclose::EnclosureParams,
+    /// How households borrow and lend food (M7d slice CA, ADR-0027 §2; content API 119).
+    pub credit: crate::credit::CreditParams,
     /// Names.
     pub names: NameParams,
 }

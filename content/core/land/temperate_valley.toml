@@ -390,6 +390,26 @@ half_rate_stock_per_ha = 20.0
 # floodplain gravels (research 03-05 §1.1-1.2; quality varies). Tuning values.
 stock_per_ha = [0.0, 0.0, 30.0, 10.0, 60.0]
 
+[[resource]]
+id = "copper_ore"
+name = "Copper ore"
+good = "core:good/copper_ore"
+unit_kg = 1.0
+discrete = false
+in_water = false
+range_patches = 1
+# Picking out green and blue copper minerals where an oxidized patch weathers out: a tuning value
+# (research 03-05 §1.1 gives no rates; the minerals show by their colour, so picking is quicker
+# than searching gravels for flint).
+max_rate_per_hour = 5.0
+half_rate_stock_per_ha = 5.0
+
+[resource.deposit]
+# Ore pieces a hectare can give by habitat: only on uplands, where bedrock and its weathered
+# zone come to the surface (research 03-05 §1.1: copper's oxidized patches lie near the surface
+# of exposed bodies). Rare: a tuning value.
+stock_per_ha = [0.0, 0.0, 0.0, 0.0, 2.0]
+
 # Deposits: bodies in the ground, placed once from the seed and never renewed (ADR-0010 §1;
 # content API 18), beside the loose stone and flint above. The research says where they lie only
 # in words (03-05 §1.1-1.2): clay in floodplains and old channels, often under cover; stone where
@@ -443,6 +463,20 @@ density_kg_m3 = 250.0            # flint in a cubic metre of its bed: the resear
 dig_h_per_m3 = 12.0              # a bed harder than earth, worked with picks of antler (tuning)
 working = "pit"
 
+[[deposit]]
+good = "core:good/copper_ore"
+slope = [0.1, 0.8]               # upland slopes where a mineralized body comes out
+hand_m = [10.0, 500.0]
+per_km2 = 0.2                    # rare: many valleys hold none (research 03-05 §1.1)
+radius_m = [5.0, 20.0]
+top_m = [0.0, 2.0]
+thickness_m = [0.5, 3.0]
+quality = [0.3, 0.9]
+exposed_share = 0.6              # oxidized copper shows green at the surface
+density_kg_m3 = 300.0            # selected ore in a cubic metre of the body (03-05: selected patches)
+dig_h_per_m3 = 15.0              # hard rock, worked with hammerstones and fire (tuning)
+working = "pit"
+
 [banks]
 # Design prior, not historical failure frequency (research 11-12 §4.2).
 erosion_per_head_day = 0.02
@@ -456,6 +490,17 @@ piping_per_head_day = 0.01
 # among a levee's defects but gives no figure.
 settle_share = 0.05
 settle_days = 365.0
+
+# Works on ways (M8b slice CQ; ADR-0029 §6; content API 137). A passing place is cleared to two
+# carts' width with room (research 10-07 §2.4 puts a single cart's running corridor at 2.5-3.5 m
+# and a two-cart passing one at 4.5-6 m for full-sized carts; the core's handcart is 0.9 m wide).
+# Clearing and levelling takes 0.34 hours a square metre: ILO's 3.5 m³ a worker-day in medium soil
+# (10-07 §2.2) over a 0.15 m cut. A household reckons a passing place lasts ten years (a design
+# prior; keeping it is not built yet).
+[way_works]
+passing_width_m = 2.0
+clear_h_m2 = 0.34
+passing_life_years = 10.0
 
 [ditches]
 # An irrigation ditch's Manning's n clean and densely weeded, s/m^(1/3) (research 11-12 §2.3:

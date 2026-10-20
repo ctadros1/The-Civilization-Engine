@@ -107,6 +107,8 @@ pub fn style_words(sim: &Sim, b: &Building, def: Option<&BuildingDef>) -> String
     words.push(format!("{walls} {:.1} m to the eaves", t.eave_cm / 100.0));
     if matches!(def.rules, ProgramRules::Frame(_)) {
         words.push(format!("eaves {:.1} m out", t.overhang_cm / 100.0));
+        // What version 3 lets it be built with (M8d slice CY).
+        words.extend(civ_agents::style::system_words(&b.spec));
     }
     if let Some(from) = b.style_from {
         // Where the building followed stands, if not where this one does (M5b slice AR).
@@ -187,6 +189,32 @@ fn rules_kept_by(sim: &Sim, b: &Building, def: &BuildingDef) -> Vec<String> {
                     kinds & (1 << civ_agents::rules::wall_kind(&b.spec, &def.rules)) != 0,
                 ),
                 RuleTemplate::LeastGap { gap_m } => ("it stands apart, keeping", apart(gap_m)),
+                // A home, apart from others' homes or from open wells (M8c slice CW).
+                RuleTemplate::FireFromHomes { from_m } => (
+                    "it stands apart from others' homes, keeping",
+                    def.use_ == civ_land::PlotUse::Dwelling
+                        && rect.is_some_and(|r| {
+                            !civ_agents::rules::near_others_homes(
+                                &r,
+                                f64::from(from_m),
+                                &sim.land.buildings,
+                                b.household,
+                                &plots,
+                                &|o| sim.rules.catalog.is_dwelling(&o.spec.program),
+                            )
+                        }),
+                ),
+                RuleTemplate::MiddenFromWells { from_m } => (
+                    "it and its midden stand apart from the wells, keeping",
+                    def.use_ == civ_land::PlotUse::Dwelling
+                        && rect.is_some_and(|r| {
+                            !civ_agents::rules::near_open_well(
+                                &r,
+                                f64::from(from_m),
+                                &sim.land.wells,
+                            )
+                        }),
+                ),
             };
             kept.then(|| {
                 format!(
@@ -481,6 +509,32 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                 .map_or(0, |s| s.get());
             let (fire, fire_id, fire_words) = super::incidents::building_fire(sim, b);
             let fire_words = fbb.create_string(&fire_words);
+            let site = sim
+                .land
+                .plots
+                .iter()
+                .find(|p| p.id == b.plot)
+                .map(|p| {
+                    let why = p
+                        .receipt
+                        .map(|r| site_words(&r, sim.rules.people.build.site_years));
+                    // On a plan's parcel (M8c slice CU): which, and how it was given.
+                    let given = p.allotted.map(|a| {
+                        format!(
+                            "on parcel {} of the plan, given {}",
+                            a.parcel + 1,
+                            a.rule.words()
+                        )
+                    });
+                    match (why, given) {
+                        (Some(w), Some(g)) => format!("{w}; {g}"),
+                        (Some(w), None) => w,
+                        (None, Some(g)) => g,
+                        (None, None) => String::new(),
+                    }
+                })
+                .unwrap_or_default();
+            let site = fbb.create_string(&site);
             wire::BuildingInfo::create(
                 &mut fbb,
                 &wire::BuildingInfoArgs {
@@ -533,6 +587,7 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                     fire,
                     fire_id,
                     fire_words: Some(fire_words),
+                    site: Some(site),
                 },
             )
         })
@@ -550,4 +605,59 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
         wire::ResponseBody::Buildings,
         buildings.as_union_value(),
     )
+}
+
+/// Why a household chose a plot, from its receipt (M8c slice CS, third part): over how many others
+/// and by how many hours of walking and levelling over its reckoning's `years`.
+pub(crate) fn site_words(r: &civ_land::SiteReceipt, years: f64) -> String {
+    let others = r.weighed.saturating_sub(1);
+    if others == 0 {
+        return "built where its household first looked for ground".to_owned();
+    }
+    let less = f64::from(r.next_hours - r.hours).max(0.0);
+    let years = if (years - years.round()).abs() < 1e-9 {
+        match years.round() as i64 {
+            1 => "a year".to_owned(),
+            n => format!("{n} years"),
+        }
+    } else {
+        format!("{years:.1} years")
+    };
+    let over = match others {
+        1 => "over 1 other".to_owned(),
+        n => format!("over {n} others"),
+    };
+    if less < 0.5 {
+        format!("chosen {over}, about as good as the next best over {years}")
+    } else {
+        format!(
+            "chosen {over}: {less:.0} hours less walking and levelling over {years} than the \
+             next best"
+        )
+    }
+}
+
+#[cfg(test)]
+mod site_tests {
+    #[test]
+    fn a_plot_s_receipt_reads_as_why_it_was_chosen() {
+        let r = |weighed, hours, next_hours| civ_land::SiteReceipt {
+            weighed,
+            hours,
+            next_hours,
+        };
+        assert_eq!(
+            super::site_words(&r(1, 40.0, 40.0), 5.0),
+            "built where its household first looked for ground"
+        );
+        assert_eq!(
+            super::site_words(&r(6, 400.0, 434.2), 5.0),
+            "chosen over 5 others: 34 hours less walking and levelling over 5 years than the next \
+             best"
+        );
+        assert_eq!(
+            super::site_words(&r(2, 400.0, 400.1), 1.0),
+            "chosen over 1 other, about as good as the next best over a year"
+        );
+    }
 }

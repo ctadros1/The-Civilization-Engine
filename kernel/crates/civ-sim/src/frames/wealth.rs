@@ -8,7 +8,7 @@ use std::hash::{Hash, Hasher};
 
 use civ_agents::params::{LandHolder, LandUse, RegimeDef, Succession};
 use civ_agents::wealth::{HouseholdWealth, Spread};
-use civ_core::PermanentId;
+use civ_core::{PermanentId, SimTime};
 use civ_schema::flatbuffers::{FlatBufferBuilder, WIPOffset};
 use civ_schema::wire;
 
@@ -199,6 +199,16 @@ pub fn wealth_response(sim: &Sim) -> Vec<u8> {
                 .map(|y| spread_info(&mut fbb, y.year, &y.spread))
                 .collect();
             let years = fbb.create_vector(&years);
+            let loans: Vec<_> = loan_words(sim, id)
+                .iter()
+                .map(|w| fbb.create_string(w))
+                .collect();
+            let loans = fbb.create_vector(&loans);
+            let coin: Vec<_> = coin_words(sim, id)
+                .iter()
+                .map(|w| fbb.create_string(w))
+                .collect();
+            let coin = fbb.create_vector(&coin);
             wire::SettlementWealth::create(
                 &mut fbb,
                 &wire::SettlementWealthArgs {
@@ -207,6 +217,8 @@ pub fn wealth_response(sim: &Sim) -> Vec<u8> {
                     now: spread,
                     households: Some(households),
                     history: Some(years),
+                    loans: Some(loans),
+                    coin: Some(coin),
                 },
             )
         })
@@ -222,6 +234,271 @@ pub fn wealth_response(sim: &Sim) -> Vec<u8> {
         },
     );
     response(fbb, wire::ResponseBody::Wealth, body)
+}
+
+/// Loans the households of `settlement` owe (M7d slice CA, ADR-0027 §1), in words: open ones
+/// first, then those closed within a year, newest first, at most twelve. "Wren's household owes
+/// Mira's household 40 kg of grain, lent on 3 May of year 2, due on 9 September of year 2";
+/// "... repaid it"; "... did not repay 12 kg of it".
+pub fn loan_words(sim: &Sim, settlement: PermanentId) -> Vec<String> {
+    use civ_agents::credit::{Pledge, Standing};
+    let pop = &sim.people;
+    let today = sim.now().day_index();
+    let year = civ_core::time::DAYS_PER_YEAR;
+    // A household's settlement, or a workshop's (M7d slice CB: wages a workshop owes).
+    let here = |h: PermanentId| {
+        pop.household(h)
+            .and_then(|x| x.settlement)
+            .or_else(|| pop.firm(h).and_then(|f| f.settlement))
+            == Some(settlement)
+    };
+    // A workshop, a polity's common store (M7d slice CC) or a household.
+    let name = |h: PermanentId| {
+        if pop.firm(h).is_some() {
+            super::people::firm_name(sim, h)
+        } else if pop.polities.iter().any(|p| p.id == h) {
+            "the common store".to_owned()
+        } else {
+            super::people::household_name(sim, h)
+        }
+    };
+    let mut loans: Vec<&civ_agents::credit::Claim> = pop
+        .order
+        .credit
+        .claims
+        .iter()
+        .filter(|c| here(c.debtor))
+        .filter(|c| c.standing == Standing::Open || today - c.due <= year)
+        .collect();
+    loans.sort_by(|a, b| {
+        (a.standing != Standing::Open)
+            .cmp(&(b.standing != Standing::Open))
+            .then(b.made.cmp(&a.made))
+            .then(b.id.cmp(&a.id))
+    });
+    loans.truncate(12);
+    let day = |d: i64| civ_agents::polity::day_words(SimTime::from_minutes(d * 1440));
+    loans
+        .into_iter()
+        .map(|c| {
+            let good = sim
+                .rules
+                .catalog
+                .goods
+                .get(usize::from(c.good))
+                .map_or("goods".to_owned(), |g| g.name.to_lowercase());
+            let base = format!(
+                "{} {} {} {:.0} kg of {good}, {} on {}",
+                name(c.debtor),
+                if c.standing == Standing::Open {
+                    "owes"
+                } else {
+                    "owed"
+                },
+                name(c.creditor),
+                c.owed,
+                if pop.firm(c.debtor).is_some() {
+                    "wages unpaid since"
+                } else {
+                    "lent"
+                },
+                day(c.made),
+            );
+            // What it was lent against, and on whose word (M7d slice CB).
+            let pledge = match c.pledge {
+                Some(Pledge::Field(_)) => ", against the use of a field".to_owned(),
+                Some(Pledge::Guarantor(g)) => format!(
+                    ", with {} standing guarantor",
+                    super::people::household_name(sim, g)
+                ),
+                None if c.recourse.is_some() => ", for what it paid as guarantor".to_owned(),
+                None => String::new(),
+            };
+            let base = format!("{base}{pledge}");
+            let remedy = || {
+                let mut out = String::new();
+                if c.by_guarantor > 0.0 {
+                    out.push_str(&format!("; its guarantor paid {:.0} kg", c.by_guarantor));
+                }
+                if matches!(c.pledge, Some(Pledge::Field(_))) && c.taken.is_some() {
+                    out.push_str(if c.left() > 1e-3 {
+                        "; the creditor works the field pledged until its crop pays the rest"
+                    } else {
+                        "; the crop of the field pledged paid it"
+                    });
+                }
+                out
+            };
+            match c.standing {
+                Standing::Open if c.extensions > 0 => {
+                    format!("{base}, due on {} after time was granted", day(c.due))
+                }
+                Standing::Open => format!("{base}, due on {}", day(c.due)),
+                Standing::Repaid => format!("{base}, and repaid it"),
+                // A workshop that could not pay wages fails when they fall due (M7d slice CB).
+                Standing::Defaulted if pop.firm(c.debtor).is_some() => format!(
+                    "{base}, and failed when they fell due, {:.0} kg still owed",
+                    c.left()
+                ),
+                Standing::Defaulted if c.left() > 1e-3 => format!(
+                    "{base}, and had not repaid it when its days of grace ran out{}; \
+                     {:.0} kg are still owed",
+                    remedy(),
+                    c.left()
+                ),
+                Standing::Defaulted => format!(
+                    "{base}, and had not repaid it when its days of grace ran out{}",
+                    remedy()
+                ),
+                Standing::Refused => format!("{base}, and refused to repay it{}", remedy()),
+                Standing::Lapsed => format!("{base}, until a household of the two was no more"),
+            }
+        })
+        .collect()
+}
+
+/// The coin of `settlement` (M7d slice CE, ADR-0027 §6), in words: where it is a polity's seat,
+/// who keeps its mint and on what terms, each kind of piece the mint struck, metal waiting there to
+/// be struck and what the common store holds; then what its households hold, by whose issue. None
+/// where there is no coin. "Wren keeps the mint, striking 8 g pieces of copper at a 3 % fee";
+/// "250 pieces of 8 g struck here on 3 May of year 2"; "Its households hold 243 pieces: 200 of
+/// Ashford's issue, 43 of Bree's, taken by weight 10 % off".
+pub fn coin_words(sim: &Sim, settlement: PermanentId) -> Vec<String> {
+    let pop = &sim.people;
+    let catalog = &sim.rules.catalog;
+    let coinage = &pop.order.coinage;
+    let day = |d: i64| civ_agents::polity::day_words(SimTime::from_minutes(d * 1440));
+    let seat = |polity: PermanentId| {
+        pop.polities
+            .iter()
+            .find(|p| p.id == polity)
+            .and_then(|p| sim.land.settlements.iter().find(|s| s.id == p.settlement))
+            .map_or_else(|| "another polity".to_owned(), |s| s.name.clone())
+    };
+    let mut out = Vec::new();
+    let home = pop.polities.iter().find(|p| p.holds(Some(settlement)));
+    if let Some(p) = home.filter(|p| p.settlement == settlement) {
+        if let Some((keeper, law)) = p.minter()
+            && let Some(m) = catalog
+                .policies
+                .get(usize::from(law.policy))
+                .and_then(|d| d.mint)
+        {
+            let metal = catalog
+                .recipes
+                .get(m.recipe)
+                .and_then(|r| r.inputs.first())
+                .and_then(|&(g, _)| catalog.goods.get(g))
+                .map_or_else(|| "metal".to_owned(), |g| g.name.to_lowercase());
+            out.push(format!(
+                "{} keeps the mint, striking {:.0} g pieces of {metal}{} at a {:.0} % fee",
+                pop.name_of(keeper),
+                m.mass_g,
+                if m.fineness < 1.0 {
+                    format!(", {:.0} % fine,", f64::from(m.fineness) * 100.0)
+                } else {
+                    String::new()
+                },
+                f64::from(m.fee) * 100.0
+            ));
+        }
+        // Each kind of piece struck here, in the order first struck: pieces still in being, and
+        // the first and last days struck.
+        let mut kinds: Vec<((f32, f32), f64, i64, i64)> = Vec::new();
+        for c in coinage.cohorts.iter().filter(|c| c.issuer == p.id) {
+            match kinds.iter_mut().find(|k| k.0 == (c.mass_g, c.fineness)) {
+                Some(k) => {
+                    k.1 += c.count;
+                    k.3 = k.3.max(c.day);
+                }
+                None => kinds.push(((c.mass_g, c.fineness), c.count, c.day, c.day)),
+            }
+        }
+        for ((mass, fine), n, first, last) in kinds {
+            let fine = if fine < 1.0 {
+                format!(", {:.0} % fine,", f64::from(fine) * 100.0)
+            } else {
+                String::new()
+            };
+            out.push(if first == last {
+                format!(
+                    "{n:.0} pieces of {mass:.0} g{fine} struck here on {}",
+                    day(first)
+                )
+            } else {
+                format!(
+                    "{n:.0} pieces of {mass:.0} g{fine} struck here from {} to {}",
+                    day(first),
+                    day(last)
+                )
+            });
+        }
+        let waiting: f64 = coinage
+            .brought
+            .iter()
+            .filter(|b| b.polity == p.id)
+            .map(|b| b.metal_kg)
+            .sum();
+        if waiting > 1e-3 {
+            out.push(format!(
+                "{waiting:.1} kg of metal waits at the mint to be struck"
+            ));
+        }
+        let store = coinage.purse(p.id).map_or(0.0, |x| x.total());
+        if store >= 0.5 {
+            out.push(format!("The common store holds {store:.0} pieces"));
+        }
+    }
+    // What its households hold, by whose issue, its own polity's first.
+    let mut by: Vec<(PermanentId, f64)> = Vec::new();
+    for (_, x) in pop.households.iter() {
+        if x.settlement != Some(settlement) {
+            continue;
+        }
+        let Some(purse) = coinage.purse(x.id) else {
+            continue;
+        };
+        for &(id, n) in &purse.counts {
+            let Some(c) = coinage.cohort(id) else {
+                continue;
+            };
+            match by.iter_mut().find(|b| b.0 == c.issuer) {
+                Some(b) => b.1 += n,
+                None => by.push((c.issuer, n)),
+            }
+        }
+    }
+    let own = home.map(|p| p.id);
+    by.sort_by_key(|b| (Some(b.0) != own, b.0));
+    let total: f64 = by.iter().map(|b| b.1).sum();
+    if total >= 0.5 {
+        let discount = catalog
+            .goods
+            .iter()
+            .filter_map(|g| g.money.as_ref())
+            .find(|m| m.coin)
+            .map_or(0.0, |m| m.foreign_discount);
+        let parts: Vec<String> = by
+            .iter()
+            .filter(|b| b.1 >= 0.5)
+            .map(|&(issuer, n)| {
+                if Some(issuer) == own || discount <= 0.0 {
+                    format!("{n:.0} of {}'s issue", seat(issuer))
+                } else {
+                    format!(
+                        "{n:.0} of {}'s, taken by weight {:.0} % off",
+                        seat(issuer),
+                        discount * 100.0
+                    )
+                }
+            })
+            .collect();
+        out.push(format!(
+            "Its households hold {total:.0} pieces: {}",
+            parts.join(", ")
+        ));
+    }
+    out
 }
 
 #[cfg(test)]

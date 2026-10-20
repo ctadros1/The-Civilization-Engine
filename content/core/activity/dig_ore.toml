@@ -1,0 +1,19 @@
+# Digging copper ore out of a body at a deposit the settlement knows, and carrying it home
+# (tuning starting points). Only done while the household needs ore for something it makes, and
+# when it brings more for the walk than picking ore from the surface. Digging is heavy work.
+kind = "activity"
+id = "core:activity/dig_ore"
+name = "Dig ore"
+doing = "digging ore"
+behavior = "dig"
+digs = "core:good/copper_ore"
+par = 5.5
+min_age_years = 14.0
+max_age_years = 60.0
+min_minutes = 30
+max_minutes = 180
+daylight_only = true
+max_walk_minutes = 60
+technique = ""
+tools = []
+rate = 1.0

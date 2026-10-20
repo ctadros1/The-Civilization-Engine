@@ -715,9 +715,10 @@ impl Population {
                 .find(|d| d.behavior == Behavior::Pull);
             let equipped = pull_def.is_some_and(|d| {
                 let stores = stores_now(hh, now, ctx.params, &ctx.catalog.goods);
-                d.tools
-                    .iter()
-                    .all(|&g| stores.get(g).is_some_and(|&kg| kg > 0.0))
+                d.tools.iter().all(|&g| {
+                    make::serving(&ctx.catalog.goods, g)
+                        .any(|s| stores.get(s).is_some_and(|&kg| kg > 0.0))
+                })
             });
             let place = self.pull_place(ctx, &b, pos);
             let pull_leave = b.household == hh.id
@@ -1002,7 +1003,10 @@ impl Population {
                 let stores = stores_now(hh, ctx.now, ctx.params, &ctx.catalog.goods);
                 def.tools
                     .iter()
-                    .all(|&g| stores.get(g).is_some_and(|&kg| kg > 0.0))
+                    .all(|&g| {
+                        make::serving(&ctx.catalog.goods, g)
+                            .any(|s| stores.get(s).is_some_and(|&kg| kg > 0.0))
+                    })
                     .then_some(p.id)
             })
             .collect();

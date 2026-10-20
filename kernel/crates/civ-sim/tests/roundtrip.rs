@@ -3,7 +3,6 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_content::ContentRegistry;
 use civ_grammar::Stage;
@@ -94,7 +93,7 @@ fn fixture() -> &'static Fixture {
             .prefix("roundtrip-")
             .tempdir_in(tmp)
             .expect("temp dir");
-        let mut sim = Sim::create(
+        let mut sim = Sim::create_for_tests(
             &NewWorld {
                 name: "Test Valley".to_owned(),
                 seed: 5,
@@ -106,8 +105,7 @@ fn fixture() -> &'static Fixture {
                 regime_id: String::new(),
             },
             content(),
-            &mut |_| {},
-            &AtomicBool::new(false),
+            [7; 16],
         )
         .expect("generates");
         sim.advance_minutes(3 * 24 * 60 + 7).expect("advances");
@@ -250,11 +248,11 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 35 land, field, plot, building,
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 40 land, field, plot, building,
     // wear, market, firm, wealth, knowledge, deposits, earth, ties, polity, order, word, opinion,
     // norms, values, creeds, factions, influence, places, relation, crossing, wells, sickness,
-    // pathogen, fires, floods and people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 35);
+    // pathogen, fires, floods, ways, traffic, boats, carts, consignments and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 40);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -270,7 +268,7 @@ fn a_loaded_map_equals_a_regenerated_one() {
     // Generation is deterministic on one build, so the saved world can be compared with a fresh
     // one from the same seed, including the derived drainage rebuilt on load.
     let loaded = load_first();
-    let fresh = Sim::create(
+    let fresh = Sim::create_for_tests(
         &NewWorld {
             name: "Again".to_owned(),
             seed: 5,
@@ -282,8 +280,7 @@ fn a_loaded_map_equals_a_regenerated_one() {
             regime_id: String::new(),
         },
         content(),
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
     .expect("generates");
     assert!(
@@ -653,21 +650,33 @@ fn slice_l_saves_load_with_what_founders_bring() {
     let (catalog, params) = (&migrated.rules().catalog, &migrated.rules().people);
     let now = migrated.now();
     for t in 0..catalog.techniques.len() {
-        let founders = params.knowledge.founders.iter().any(|&(x, _)| x == t);
+        let share = params
+            .knowledge
+            .founders
+            .iter()
+            .find(|f| f.0 == t)
+            .map_or(0.0, |f| f.1);
         let age = civ_agents::knowledge::knowing_age(catalog, t, params.family.independent_age)
             .expect("gates work");
         for (_, p) in migrated.people().people.iter() {
-            assert_eq!(
-                p.knows(t),
-                founders && p.age_years(now) >= age,
-                "{}",
-                p.given
-            );
+            let may = share > 0.0 && p.age_years(now) >= age;
+            // What every founder brings, every founder of its age knows; what only some bring
+            // (laying out by cord and stake, M8c slice CT), only those of its age may.
+            if share >= 1.0 {
+                assert_eq!(p.knows(t), may, "{}", p.given);
+            } else {
+                assert!(!p.knows(t) || may, "{}", p.given);
+            }
         }
     }
     let settlements = migrated.land().settlements.len();
     let records = &migrated.people().knowledge;
-    assert_eq!(records.len(), params.knowledge.founders.len() * settlements);
+    let founders = params.knowledge.founders.len();
+    assert!(
+        (settlements * (founders - 1)..=settlements * founders).contains(&records.len()),
+        "{}",
+        records.len()
+    );
     assert!(records.iter().all(|e| e.at == now
         && e.kind
             == civ_agents::knowledge::KnowledgeEventKind::Known(
@@ -1241,7 +1250,7 @@ fn a_save_without_its_wear_section_is_refused() {
 
 #[test]
 fn worn_ground_and_its_trails_survive_a_save_and_load() {
-    let mut sim = Sim::create(
+    let mut sim = Sim::create_for_tests(
         &NewWorld {
             name: "Trodden".to_owned(),
             seed: 5,
@@ -1253,8 +1262,7 @@ fn worn_ground_and_its_trails_survive_a_save_and_load() {
             regime_id: String::new(),
         },
         content(),
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
     .expect("generates");
     // Past two monthly surveys.
@@ -1316,8 +1324,7 @@ fn slice_c_saves_load_without_buildings_and_build_again() {
     assert!(migrated.is_dirty(), "the migration is new state");
     assert!(migrated.land().buildings.is_empty() && migrated.land().plots.is_empty());
     assert_eq!(migrated.land().fields, fixture().first_fields);
-    // Households begin their homes again within days: the fixture's world has a fresh identity
-    // each run, and on some its first day goes to other work.
+    // Households begin their homes again within days (a first day may go to other work).
     for _ in 0..30 {
         migrated
             .advance_minutes(24 * 60)
@@ -1834,7 +1841,7 @@ fn the_clock_runs_only_when_unpaused() {
 
 #[test]
 fn unknown_presets_are_refused() {
-    let result = Sim::create(
+    let result = Sim::create_for_tests(
         &NewWorld {
             name: String::new(),
             seed: 1,
@@ -1846,8 +1853,7 @@ fn unknown_presets_are_refused() {
             regime_id: String::new(),
         },
         content(),
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     );
     assert!(matches!(result, Err(civ_sim::SimError::UnknownPreset(_))));
 }
@@ -2376,6 +2382,431 @@ fn a_schema_68_save_loads_with_no_wade_remembered() {
     let mut loaded = persist::load(&path, content()).expect("a schema-68 save loads");
     assert!(loaded.people().fords.households.is_empty());
     assert!(loaded.land().crossings.list.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_160_save_loads_and_goes_on() {
+    // A schema-160 save, from before plans' bundles took buildings down or let them stand for a
+    // yearly payment (M8c slice CV, second part): its laws load with neither and its
+    // encroachments with no order, and it goes on.
+    let mut sim = load_first();
+    for p in &mut sim.people_mut_for_tests().polities {
+        for e in &mut p.encroachments {
+            e.order = None;
+        }
+        for l in &mut p.laws {
+            l.sanction.remove = false;
+            l.sanction.yearly_days = 0.0;
+        }
+    }
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V160;
+    let path = republish("slice-cv2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-160 save loads");
+    assert!(loaded.people().polities.iter().all(|p| {
+        p.encroachments.iter().all(|e| e.order.is_none())
+            && p.laws
+                .iter()
+                .all(|l| !l.sanction.remove && l.sanction.yearly_days == 0.0)
+    }));
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_159_save_loads_and_goes_on() {
+    // A schema-159 save, from before encroachments kept who saw them and cases the buildings
+    // plans are brought for (M8c slice CV, first part): it loads with neither, and goes on.
+    let mut sim = load_first();
+    for p in &mut sim.people_mut_for_tests().polities {
+        for e in &mut p.encroachments {
+            e.seen_by.clear();
+        }
+    }
+    for c in &mut sim.people_mut_for_tests().order.cases {
+        c.building = None;
+    }
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V159;
+    let path = republish("slice-cv1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-159 save loads");
+    assert!(
+        loaded
+            .people()
+            .order
+            .cases
+            .iter()
+            .all(|c| c.building.is_none())
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_158_save_loads_and_goes_on() {
+    // A schema-158 save, from before fields kept the plan that reserved them and plans the
+    // fields whose holders refused their pay (M8c slice CU, fifth part): its fields load with
+    // nothing reserved, and it goes on.
+    let mut sim = load_first();
+    for f in &mut sim.land_mut_for_tests().fields {
+        f.reserved = None;
+    }
+    for p in &mut sim.people_mut_for_tests().polities {
+        for plan in &mut p.plans {
+            plan.1.refused_fields.clear();
+        }
+    }
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V158;
+    let path = republish("slice-cu5", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-158 save loads");
+    assert_eq!(loaded.land().fields, sim.land().fields);
+    assert!(loaded.land().fields.iter().all(|f| f.reserved.is_none()));
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_157_save_loads_and_goes_on() {
+    // A schema-157 save, from before plots kept the parcels of plans they were given and plans
+    // their keepers' staking (M8c slice CU, first part): its plots load with no parcel, and it
+    // goes on.
+    let mut sim = load_first();
+    for p in &mut sim.land_mut_for_tests().plots {
+        p.allotted = None;
+    }
+    for p in &mut sim.people_mut_for_tests().polities {
+        for plan in &mut p.plans {
+            plan.1.staked_h = 0.0;
+        }
+    }
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V157;
+    let path = republish("slice-ct3", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-157 save loads");
+    assert_eq!(loaded.land().plots, sim.land().plots);
+    assert!(loaded.land().plots.iter().all(|p| p.allotted.is_none()));
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_156_save_loads_and_goes_on() {
+    // A schema-156 save, from before polities kept the buildings begun on ground a plan
+    // reserves (M8c slice CT, third part): it loads with none, and goes on.
+    let mut sim = load_first();
+    for p in &mut sim.people_mut_for_tests().polities {
+        p.encroachments.clear();
+    }
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V156;
+    let path = republish("slice-ct2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-156 save loads");
+    assert!(
+        loaded
+            .people()
+            .polities
+            .iter()
+            .all(|p| p.encroachments.is_empty())
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_155_save_loads_and_goes_on() {
+    // A schema-155 save, from before polities kept their plans and what they saw of their ground
+    // (M8c slice CT, second part): it loads with none, and goes on.
+    let mut sim = load_first();
+    for p in &mut sim.people_mut_for_tests().polities {
+        p.plans.clear();
+        p.ground_seen.clear();
+    }
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V155;
+    let path = republish("slice-cs2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-155 save loads");
+    assert!(
+        loaded
+            .people()
+            .polities
+            .iter()
+            .all(|p| p.plans.is_empty() && p.ground_seen.is_empty())
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_154_save_loads_and_goes_on() {
+    // A schema-154 save, from before plots kept why they were chosen (M8c slice CS, second
+    // part): its plots load with no receipt, and it goes on.
+    let mut sim = load_first();
+    for p in &mut sim.land_mut_for_tests().plots {
+        p.receipt = None;
+    }
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V154;
+    let path = republish("slice-cs1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-154 save loads");
+    assert_eq!(loaded.land().plots, sim.land().plots);
+    assert!(loaded.land().plots.iter().all(|p| p.receipt.is_none()));
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_153_save_loads_and_goes_on() {
+    // A schema-153 save, from before people's trips from home were held (M8c slice CS, first
+    // part): it loads holding none, and holds them from the next walk out of a door.
+    let mut sim = load_first();
+    sim.people_mut_for_tests().travel.goings.clear();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V153;
+    let path = republish("slice-cr2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-153 save loads");
+    assert_eq!(loaded.people().travel, sim.people().travel);
+    loaded.advance_minutes(24 * 60).expect("goes on");
+    assert!(!loaded.people().travel.goings.is_empty());
+}
+
+#[test]
+fn a_schema_152_save_loads_and_goes_on() {
+    // A schema-152 save, from before households held their days of travel (M8b slice CR, second
+    // part): it loads holding none, and holds them from its next midnight.
+    let mut sim = load_first();
+    sim.people_mut_for_tests().travel.households.clear();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V152;
+    let path = republish("slice-cr1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-152 save loads");
+    assert_eq!(loaded.people().travel, sim.people().travel);
+    loaded.advance_minutes(24 * 60).expect("goes on");
+    assert!(!loaded.people().travel.households.is_empty());
+}
+
+#[test]
+fn a_schema_151_save_loads_and_goes_on() {
+    // A schema-151 save, from before travel was measured (M8b slice CR, first part): it loads
+    // with none counted, and counts from then on.
+    let mut sim = load_first();
+    sim.people_mut_for_tests().travel = Default::default();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V151;
+    let path = republish("slice-cq4", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-151 save loads");
+    assert_eq!(loaded.people().travel, Default::default());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+    assert!(!loaded.people().travel.years.is_empty());
+}
+
+#[test]
+fn a_schema_150_save_loads_and_goes_on() {
+    // A schema-150 save, from before households held what worn trail cost their carts (M8b slice
+    // CQ, fourth part): it loads holding no such loss.
+    let sim = load_first();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V150;
+    let path = republish("slice-cq3", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-150 save loads");
+    assert_eq!(loaded.people().traffic, sim.people().traffic);
+    assert_eq!(loaded.land().ways, sim.land().ways);
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_149_save_loads_and_goes_on() {
+    // A schema-149 save, from before polities cleared passing places (M8b slice CQ, third part):
+    // no law names one, and it loads as it was.
+    let sim = load_first();
+    assert!(sim.people().polities.iter().all(|p| p.ways.is_empty()));
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V149;
+    let path = republish("slice-cq2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-149 save loads");
+    assert!(loaded.people().polities.iter().all(|p| p.ways.is_empty()));
+    assert_eq!(loaded.land().ways, sim.land().ways);
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_148_save_loads_and_goes_on() {
+    // A schema-148 save, from before households made passing places (M8b slice CQ, second part):
+    // nobody works on a way, and it loads as it was.
+    let sim = load_first();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V148;
+    let path = republish("slice-cq1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-148 save loads");
+    assert_eq!(loaded.land().ways, sim.land().ways);
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_147_save_loads_and_goes_on() {
+    // A schema-147 save, from before households held the hours their trips lost on ways (M8b
+    // slice CQ, first part): it loads holding none.
+    let sim = load_first();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V147;
+    let path = republish("slice-cp4", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-147 save loads");
+    assert_eq!(loaded.people().traffic, sim.people().traffic);
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_146_save_loads_and_goes_on() {
+    // A schema-146 save, from before carts met by clearance (M8b slice CP, fourth part): no
+    // household holds a wait at a narrows, and it loads as it was.
+    let sim = load_first();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V146;
+    let path = republish("slice-cp3", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-146 save loads");
+    assert_eq!(loaded.people().traffic, sim.people().traffic);
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_145_save_loads_and_goes_on() {
+    // A schema-145 save, from before carts were made by choice (M8b slice CP, third part): its
+    // chronicle holds no cart made, and it loads as it was.
+    let sim = load_first();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V145;
+    let path = republish("slice-cp2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-145 save loads");
+    assert_eq!(loaded.land().carts.list, sim.land().carts.list);
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_144_save_loads_with_no_cart() {
+    // A schema-144 save, from before carts (M8b slice CP, second part): nobody had one, so none
+    // is read from it.
+    let mut sim = load_first();
+    let id = sim.allocate_id_for_tests();
+    let owner = sim
+        .people()
+        .households
+        .iter()
+        .next()
+        .expect("a household")
+        .1
+        .id;
+    let land = sim.land_mut_for_tests();
+    land.carts.list.push(civ_land::boats::Boat {
+        id,
+        vehicle: 0,
+        owner,
+        at: 0,
+        made: 0,
+        wear: 0.0,
+        labour_h: 0.0,
+        work_h: 0.0,
+        saves_h_year: 0.0,
+        crew: (0, 0),
+    });
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V144;
+    let path = republish("slice-cp1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-144 save loads");
+    assert!(loaded.land().carts.list.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_143_save_loads_with_every_boat_made() {
+    // A schema-143 save, from before boats were made by choice (M8b slice CO, third part): every
+    // boat was given whole, so none is being made: one half made then is whole now.
+    let mut sim = load_first();
+    let id = sim.allocate_id_for_tests();
+    let owner = sim
+        .people()
+        .households
+        .iter()
+        .next()
+        .expect("a household")
+        .1
+        .id;
+    let land = sim.land_mut_for_tests();
+    land.boats.list.push(civ_land::boats::Boat {
+        id,
+        vehicle: 0,
+        owner,
+        at: 0,
+        made: 0,
+        wear: 0.0,
+        labour_h: 200.0,
+        work_h: 50.0,
+        saves_h_year: 30.0,
+        crew: (0, 0),
+    });
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V143;
+    let path = republish("slice-co2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-143 save loads");
+    let b = loaded
+        .land()
+        .boats
+        .list
+        .iter()
+        .find(|b| b.id == id)
+        .expect("the boat");
+    assert!(b.made() && b.labour_h == 0.0 && b.work_h == 0.0, "{b:?}");
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_142_save_loads_with_nothing_in_transit() {
+    // A schema-142 save, from before goods in transit by boat (M8b slice CO, second part): no
+    // load was afloat and no walk went by water.
+    let sim = load_first();
+    assert!(sim.people().consignments.is_empty());
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V142;
+    let path = republish("slice-co1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-142 save loads");
+    assert!(loaded.people().consignments.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_141_save_loads_with_no_boat() {
+    // A schema-141 save, from before boats (M8b slice CO): nobody had one.
+    let sim = load_first();
+    assert!(sim.land().boats.list.is_empty());
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V141;
+    let path = republish("slice-cn", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-141 save loads");
+    assert_eq!(loaded.land().boats, civ_land::boats::Boats::default());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_140_save_loads_with_nobody_having_taken_a_turn() {
+    // A schema-140 save, from before bottlenecks for walkers (M8b slice CN): no facility had
+    // passed anyone and no walk was bound for one.
+    let sim = load_first();
+    assert!(sim.people().traffic.tallies.is_empty());
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V140;
+    let path = republish("slice-cm", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-140 save loads");
+    assert_eq!(
+        loaded.people().traffic,
+        civ_agents::traffic::Traffic::default()
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_139_save_loads_with_no_way() {
+    // A schema-139 save, from before ways (M8b slice CM): nobody had worked on one.
+    let sim = load_first();
+    assert!(sim.land().ways.list.is_empty());
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V139;
+    let path = republish("slice-ce5", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-139 save loads");
+    assert!(loaded.land().ways.list.is_empty());
+    assert_eq!(loaded.land().ways.revision(), 0);
     loaded.advance_minutes(24 * 60).expect("goes on");
 }
 

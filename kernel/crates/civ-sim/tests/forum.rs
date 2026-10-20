@@ -8,7 +8,6 @@
 
 use std::path::Path;
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_agents::crime::{Case, CaseStage, Incident, Outcome as Ended};
 use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome as Decided, Stance};
@@ -33,7 +32,7 @@ fn content() -> &'static ContentRegistry {
 }
 
 fn world(seed: u64) -> Sim {
-    let mut sim = Sim::create(
+    let mut sim = Sim::create_for_tests(
         &NewWorld {
             name: "Forum".to_owned(),
             seed,
@@ -45,8 +44,7 @@ fn world(seed: u64) -> Sim {
             regime_id: String::new(),
         },
         content(),
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
     .expect("generates");
     sim.advance_minutes(2 * DAY).expect("advances");
@@ -193,6 +191,8 @@ fn case_by(sim: &mut Sim, accuser: &Household, accused: &Household, actor: Perma
         challenge: None,
         tags: 0,
         departed: None,
+        loan: None,
+        building: None,
     });
     id
 }

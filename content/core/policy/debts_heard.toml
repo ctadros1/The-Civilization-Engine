@@ -1,0 +1,24 @@
+# Debts heard (M7d slice CB, ADR-0027 §3; research 08-07 §1.8, 08-20 §1.6: default can be a
+# standstill, an extension or seizure; Hammurabi §48 relieves grain repayment in a failed
+# harvest). Under it a creditor whose loan was refused, or left unpaid when its days of grace ran
+# out, may bring it before the gathering, or a forum that hears such cases; the loan's witnesses
+# are the case's account. A finding imposes what is still owed, met as any finding is: paid,
+# refused and held against the gathering, or taken by the watch where a law sends it. Without
+# it, a creditor has only its own answers. Whether anyone proposes it and whether a gathering
+# passes it is people's; the share is what households expect a finding to move, a tuning value.
+kind = "policy"
+id = "core:policy/debts_heard"
+name = "Debts heard"
+description = "A loan refused or left unpaid may be brought; a finding imposes what is still owed."
+does = "debts_heard"
+answers = ["debts_unpaid"]
+question = "whether the gathering hears unpaid debts and imposes what is owed"
+
+[debts]
+remedy = "imposed"
+share = 1.0
+
+# An authoring judgement, not a measurement.
+[bears]
+"core:value/reciprocity" = 1.0
+"core:value/autonomy" = -0.25

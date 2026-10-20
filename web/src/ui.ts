@@ -2163,6 +2163,20 @@ export function bindUi(store: Store, actions: Actions): void {
           ),
         ),
       );
+      // Loans its households owe (wire 1.82, M7d slice CA).
+      if (s.loans.length > 0) {
+        block.append(
+          el("h4", { text: "Loans" }),
+          el("ul", { className: "loans" }, ...s.loans.map((v) => el("li", { text: v }))),
+        );
+      }
+      // Its coin (wire 1.83, M7d slice CE).
+      if (s.coin.length > 0) {
+        block.append(
+          el("h4", { text: "Coin" }),
+          el("ul", { className: "coin" }, ...s.coin.map((v) => el("li", { text: v }))),
+        );
+      }
       if (s.households.length > HOUSEHOLDS_SHOWN) {
         block.append(
           el("p", {
@@ -2457,6 +2471,17 @@ export function bindUi(store: Store, actions: Actions): void {
           text: `${membersText(p)}; the common store holds ${p.store}.`,
         }),
       );
+      // Who organizations by stake have come to hold (wire 1.81, M7c slice BZ).
+      if (p.capture.length > 0) {
+        block.append(
+          el(
+            "details",
+            { className: "capture" },
+            el("summary", { text: "Who holds sway" }),
+            el("ul", {}, ...p.capture.map((v) => el("li", { text: v }))),
+          ),
+        );
+      }
       // Its custom's versions, once it has been amended (wire 1.35, ADR-0017 §1).
       if (p.customHistory.length > 1) {
         block.append(

@@ -589,15 +589,23 @@ pub enum Owed {
     Compensation = 2,
     /// Food to the polity's common store, as the law's bundle says.
     Fine = 3,
+    /// What is still owed on a loan, imposed by a finding under a law of debts heard (M7d slice
+    /// CB, ADR-0027 §3): `incident` names the loan, and what is paid is paid on it.
+    Debt = 4,
+    /// A year's ground rent for a parcel given under a plan, to the polity's common store (M8c
+    /// slice CU, ADR-0030 §4): `incident` is 0, as it answers no incident.
+    GroundRent = 5,
 }
 
 impl Owed {
     /// Every kind, in code order.
-    pub const ALL: [Owed; 4] = [
+    pub const ALL: [Owed; 6] = [
         Owed::Demanded,
         Owed::Restitution,
         Owed::Compensation,
         Owed::Fine,
+        Owed::Debt,
+        Owed::GroundRent,
     ];
 
     /// Its number in saves.
@@ -617,6 +625,8 @@ impl Owed {
             Owed::Restitution => "restitution",
             Owed::Compensation => "compensation",
             Owed::Fine => "a fine",
+            Owed::Debt => "a debt",
+            Owed::GroundRent => "ground rent",
         }
     }
 }
@@ -635,7 +645,7 @@ pub struct Obligation {
     pub case: Option<u32>,
     /// The household that owes.
     pub debtor: PermanentId,
-    /// The household owed, or for a fine the polity.
+    /// The household owed, or for a fine or ground rent the polity.
     pub beneficiary: PermanentId,
     /// Food energy owed, kcal.
     pub kcal: f32,
@@ -653,6 +663,12 @@ pub struct Obligation {
 }
 
 impl Obligation {
+    /// Whether it answers a taking: not a debt (which names a loan), ground rent, or what a
+    /// finding with no taking behind it imposed (a breach of a privilege), which name none.
+    pub fn of_incident(&self) -> bool {
+        !matches!(self.kind, Owed::Debt | Owed::GroundRent) && self.incident != 0
+    }
+
     /// Food energy still owed, kcal.
     pub fn left_kcal(&self) -> f64 {
         (f64::from(self.kcal) - f64::from(self.paid_kcal)).max(0.0)
@@ -685,6 +701,10 @@ pub struct Order {
     pub bands: Vec<crate::war::Band>,
     /// Encounters bands met, in order (M6c slice BJ, ADR-0023 §4).
     pub clashes: Vec<crate::war::Clash>,
+    /// Loans in goods between households (M7d slice CA, ADR-0027 §1).
+    pub credit: crate::credit::Credit,
+    /// Coin issues and purses (M7d slice CE, ADR-0027 §6).
+    pub coinage: crate::coin::Coinage,
     /// Asks refused because the giver believed the asker took (a counter, not saved).
     pub refusals: u64,
 }
@@ -941,6 +961,12 @@ pub struct Case {
     pub tags: u8,
     /// The remembered finding of the same tags it went against, if it did (M7b slice BS).
     pub departed: Option<u32>,
+    /// For a debt brought under a law of debts heard (M7d slice CB, ADR-0027 §3): the loan it is
+    /// of. A debt names no incident (`incident` 0).
+    pub loan: Option<u32>,
+    /// For a case under a plan (M8c slice CV, ADR-0030 §5): the building begun on ground the
+    /// plan reserves. It names no incident (`incident` 0).
+    pub building: Option<PermanentId>,
 }
 
 /// A case's fact tags (M7b slice BS, ADR-0025 §2): derived from what the case holds, never from

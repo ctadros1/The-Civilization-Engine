@@ -1,0 +1,20 @@
+# Reducing copper ore in a fire held hot and starved of air, recovering the metal and casting it
+# (research 07-05 §3.2: M2, extractive copper metallurgy, secure at Belovode about 5000 BCE; M3,
+# melting and casting). It is found by those who already fire kilns, with ore and fuel at home
+# (07-05 §1.3: early metallurgical furnaces were not pottery kilns repurposed unchanged, so firing
+# is a route to it, not a recipe for it). Its practice is the potter's craft of holding a fire hot
+# and controlled. Founders do not bring it.
+kind = "technique"
+id = "core:technique/copper_smelting"
+name = "Smelting copper"
+can = "smelt copper from its ore and cast it into tools"
+domain = "core:skill/pottery"
+requires = [["core:technique/firing"]]
+tried_in = ["core:activity/burn_lime", "core:activity/fire_bricks"]
+needs = ["core:good/copper_ore", "core:good/firewood"]
+e50_h = 100000.0
+learn_h = 300.0
+upbringing = true
+
+[answers]
+spoilage = []

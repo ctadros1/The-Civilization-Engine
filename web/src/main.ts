@@ -15,6 +15,9 @@ import * as M from "./net/messages.js";
 import { Store, initialState, mergeEvents } from "./state.js";
 import { bindUi } from "./ui.js";
 import { bankWords, flowWords, springWords } from "./water.js";
+import { planWords } from "./plans.js";
+import { landWords } from "./land.js";
+import { wayWords } from "./ways.js";
 import { legend, lensId, type LensLayer } from "./coverage.js";
 import { seasonOf } from "./weather.js";
 
@@ -83,6 +86,10 @@ const client = new HostClient(socketUrl(), {
     void syncDeposits();
     void syncEarthworks();
     void syncCrossings();
+    void syncWays();
+    void syncVehicles();
+    void syncPlans();
+    void syncLand();
     void syncWater();
     void syncLens();
     void refreshPerson(false);
@@ -298,6 +305,130 @@ async function syncCrossings(): Promise<void> {
   if (ok) void syncCrossings();
 }
 
+/** `world:revision` of the ways on the map. */
+let waysKey = "";
+let waysBusy = false;
+
+/** Fetches the ways when one was begun or changed, or a month's survey ranked them again. */
+async function syncWays(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const key = world && s.waysRev !== 0 ? `${store.state.epoch}:${world.worldId}:${s.waysRev}` : "";
+  if (key === waysKey || waysBusy) return;
+  if (!key) {
+    waysKey = "";
+    map.setWays(null);
+    return;
+  }
+  waysBusy = true;
+  let ok = false;
+  try {
+    const info = await client.ways();
+    waysKey = key;
+    map.setWays(info);
+    ok = true;
+  } catch (e) {
+    console.warn(`tce: the ways could not be read: ${String(e)}`);
+  } finally {
+    waysBusy = false;
+  }
+  if (ok) void syncWays();
+}
+
+/** `world:revision` of the boats and carts on the map. */
+let vehiclesKey = "";
+let vehiclesBusy = false;
+
+/** Fetches the boats and carts when one was begun, worked on, made, moved, taken out or brought
+ * in, or the goods aboard one changed. */
+async function syncVehicles(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const key = world && s.vehiclesRev !== 0 ? `${store.state.epoch}:${world.worldId}:${s.vehiclesRev}` : "";
+  if (key === vehiclesKey || vehiclesBusy) return;
+  if (!key) {
+    vehiclesKey = "";
+    map.setVehicles(null);
+    return;
+  }
+  vehiclesBusy = true;
+  let ok = false;
+  try {
+    const info = await client.vehicles();
+    vehiclesKey = key;
+    map.setVehicles(info);
+    ok = true;
+  } catch (e) {
+    console.warn(`tce: the boats and carts could not be read: ${String(e)}`);
+  } finally {
+    vehiclesBusy = false;
+  }
+  if (ok) void syncVehicles();
+}
+
+/** `world:revision` of the plans on the map. */
+let plansKey = "";
+let plansBusy = false;
+
+/** Fetches the plans when one was put forward, passed or ended, a building was begun on ground
+ * one reserves or one there fell, or the ways changed. */
+async function syncPlans(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const key = world && s.plansRev !== 0 ? `${store.state.epoch}:${world.worldId}:${s.plansRev}` : "";
+  if (key === plansKey || plansBusy) return;
+  if (!key) {
+    plansKey = "";
+    map.setPlans(null);
+    return;
+  }
+  plansBusy = true;
+  let ok = false;
+  try {
+    const info = await client.plans();
+    plansKey = key;
+    map.setPlans(info);
+    ok = true;
+  } catch (e) {
+    console.warn(`tce: the plans could not be read: ${String(e)}`);
+  } finally {
+    plansBusy = false;
+  }
+  if (ok) void syncPlans();
+}
+
+/** `world:revision` of the land map, while it is shown. */
+let landKey = "";
+let landBusy = false;
+
+/** Fetches the land map while the Land toggle is on, again when a plot was laid, paid for or
+ * reckoned (M8c slice CX). */
+async function syncLand(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const shown = (byId("show-land") as HTMLInputElement).checked;
+  const key = shown && world && s.landRev !== 0 ? `${store.state.epoch}:${world.worldId}:${s.landRev}` : "";
+  if (key === landKey || landBusy) return;
+  if (!key) {
+    landKey = "";
+    map.setLand(null);
+    return;
+  }
+  landBusy = true;
+  let ok = false;
+  try {
+    const info = await client.land();
+    landKey = key;
+    map.setLand(info);
+    ok = true;
+  } catch (e) {
+    console.warn(`tce: the land map could not be read: ${String(e)}`);
+  } finally {
+    landBusy = false;
+  }
+  if (ok) void syncLand();
+}
+
 /** `world:revision` of the water on the map. */
 let waterKey = "";
 let waterBusy = false;
@@ -414,10 +545,11 @@ function renderLegend(): void {
   counts.className = "lens-counts";
   counts.textContent = l.counts;
   box.append(counts);
-  if (lensInfo.homes.length === 0) {
+  if (lensLayer === "traffic" ? lensInfo.places.length === 0 : lensInfo.homes.length === 0) {
     const none = document.createElement("p");
     none.className = "lens-empty";
-    none.textContent = "No home stands here yet.";
+    none.textContent =
+      lensLayer === "traffic" ? "No crossing or gate has passed anyone lately." : "No home stands here yet.";
     box.append(none);
   }
 }
@@ -1168,9 +1300,14 @@ map.onPointer = (info: PointerInfo | null) => {
   const deposit = info.deposit ? ` · ${depositWords(info.deposit, store.state.welcome?.goods ?? [])}` : "";
   const earthwork = info.earthwork ? ` · ${info.earthwork.words}` : "";
   const crossing = info.crossing ? ` · ${info.crossing.words}` : "";
+  const way = info.way && !info.crossing ? ` · ${wayWords(info.way.way, info.way.segment)}` : "";
+  const vehicle = info.vehicle ? ` · ${info.vehicle.words}` : "";
+  const plan = info.plan ? ` · ${planWords(info.plan)}` : "";
+  const land = info.land ? ` · ${landWords(info.land)}` : "";
   const flowing =
     (info.water === "river" || info.water === "lake") && info.flow !== null ? `, ${flowWords(info.flow)}` : "";
   const home = info.home ? ` · ${info.home.name}: ${info.home.words.join("; ")}` : "";
+  const place = info.place ? ` · ${info.place.name}: ${info.place.words.join("; ")}` : "";
   const source = info.well
     ? ` · ${info.well.words}${info.well.fouled ? ` · ${info.well.fouled}` : ""}`
     : info.spring
@@ -1180,7 +1317,7 @@ map.onPointer = (info: PointerInfo | null) => {
         : "";
   readout.textContent =
     `${formatDistance(info.xM)} E, ${formatDistance(info.yM)} S · cell ${info.cellX}, ${info.cellY}` +
-    `${height} · ${info.water ?? ""}${flowing}${home}${crossing}${source}${path}${field}${building}${earthwork}${deposit}`;
+    `${height} · ${info.water ?? ""}${flowing}${home}${place}${vehicle}${crossing}${way}${plan}${land}${source}${path}${field}${building}${earthwork}${deposit}`;
 };
 
 const scaleBar = byId("scalebar-bar");
@@ -1203,6 +1340,7 @@ byId("zoom-fit").addEventListener("click", () => map.fit());
 byId("show-rivers").addEventListener("change", (event) => {
   map.setRiversVisible((event.target as HTMLInputElement).checked);
 });
+byId("show-land").addEventListener("change", () => void syncLand());
 byId("lens").addEventListener("change", (event) => {
   const previousLens = lensLayer ? lensId(lensLayer) : 0;
   lensLayer = (event.target as HTMLSelectElement).value as LensLayer;
@@ -1453,6 +1591,10 @@ const hooks = {
       depositsRev: s.snapshot?.depositsRev ?? 0,
       earthworksRev: s.snapshot?.earthworksRev ?? 0,
       crossingsRev: s.snapshot?.crossingsRev ?? 0,
+      waysRev: s.snapshot?.waysRev ?? 0,
+      vehiclesRev: s.snapshot?.vehiclesRev ?? 0,
+      plansRev: s.snapshot?.plansRev ?? 0,
+      landRev: s.snapshot?.landRev ?? 0,
       waterRev: s.snapshot?.waterRev ?? 0,
       weatherRev: s.snapshot?.weatherRev ?? 0,
       weather: s.weather

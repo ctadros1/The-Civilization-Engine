@@ -91,6 +91,12 @@ pub enum Act {
     Struck,
     /// The holder went with a band the other was asked to go with and did not (M6c slice BJ).
     StayedHome,
+    /// The other's household lent the holder's food at need, to be repaid (M7d slice CA).
+    Lent,
+    /// The other's household repaid the holder's what it lent, as agreed (M7d slice CA).
+    Repaid,
+    /// The other's household did not repay the holder's what it lent by its day (M7d slice CA).
+    Defaulted,
 }
 
 impl Act {
@@ -111,6 +117,9 @@ impl Act {
         Act::RefusedRestitution,
         Act::Struck,
         Act::StayedHome,
+        Act::Lent,
+        Act::Repaid,
+        Act::Defaulted,
     ];
 
     /// Its number in saves.
@@ -141,6 +150,9 @@ impl Act {
             Act::RefusedRestitution => "refused_restitution",
             Act::Struck => "struck",
             Act::StayedHome => "stayed_home",
+            Act::Lent => "lent",
+            Act::Repaid => "repaid",
+            Act::Defaulted => "defaulted",
         }
     }
 
@@ -151,7 +163,7 @@ impl Act {
 }
 
 /// Number of acts.
-pub const ACTS: usize = 15;
+pub const ACTS: usize = 18;
 
 /// What one act writes into its holder's tie, for each unit of it (an act, or an hour for
 /// [`Act::LearnedFrom`] and [`Act::Hearth`]). Authored in content as tuning values.
@@ -257,6 +269,9 @@ impl TieParams {
             bad(Domain::Word, 2.0),
             bad(Domain::Provision, 3.0),
             bad(Domain::Word, 0.5),
+            w(0.1, 0.02, Some(Domain::Provision), 0.5),
+            w(0.0, 0.0, Some(Domain::Word), 1.0),
+            bad(Domain::Word, 2.0),
         ];
         p
     }
@@ -293,6 +308,9 @@ impl Reason {
             Act::RefusedRestitution => "would not give back what was taken from their household",
             Act::Struck => "struck them or one of their household",
             Act::StayedHome => "stayed home when a band went",
+            Act::Lent => "lent their household food at need",
+            Act::Repaid => "repaid what their household lent",
+            Act::Defaulted => "did not repay what their household lent",
         };
         let date = civ_core::time::SimTime::from_minutes(self.day * 1440).date();
         let month = civ_land::weather::MONTH_NAMES[usize::from(date.month.clamp(1, 12)) - 1];

@@ -39,8 +39,11 @@ test("people carry what they know, and the observer can teach them", async ({ pa
     // burning are available vocabulary learned later (M6b slice BE).
     const state = await page.evaluate(() => window.__TCE__.state());
     const village = state.knowledge![0]!;
-    // Manuring among them (M3c slice V), and digging and lining wells (M6a slice AY).
-    expect(village.techniques).toHaveLength(14);
+    // Manuring among them (M3c slice V), and digging and lining wells (M6a slice AY); and
+    // laying out by cord and stake when one of its founders brings it (M8c slice CT).
+    const brought = village.techniques.length;
+    const layingOut = village.techniques.some((t) => t.id === "core:technique/laying_out");
+    expect(brought).toBe(layingOut ? 15 : 14);
     expect(village.techniques.map((t) => t.id)).toContain("core:technique/manuring");
     expect(village.techniques.map((t) => t.id)).toContain("core:technique/well_digging");
     expect(village.techniques.map((t) => t.id)).toContain("core:technique/rubble_walling");
@@ -55,7 +58,7 @@ test("people carry what they know, and the observer can teach them", async ({ pa
     }
     expect(state.knowledgeRev).not.toBe(0);
     await expect(panel.locator("h3")).toHaveText(village.name);
-    await expect(panel.locator(".since")).toHaveText("Knows 14 techniques.");
+    await expect(panel.locator(".since")).toHaveText(`Knows ${brought} techniques.`);
     const emmer = panel.locator("details").filter({ hasText: "Growing emmer" });
     await expect(emmer.locator("summary .status")).toContainText("known by");
     await emmer.locator("summary").click();

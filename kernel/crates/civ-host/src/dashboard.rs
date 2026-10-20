@@ -163,6 +163,11 @@ pub struct WorldRun {
     /// Visits between its settlements over the run, the hours visitors spent at the hearths they
     /// went to, and marriages between them (M5a slice AM).
     pub contacts: (u32, f64, u32),
+    /// Its travel over the run, all settlements together (M8b slice CR, first part).
+    pub travel: TravelSeen,
+    /// Its land at the end: densities, what was paid for ground, plans' shares and reckoned
+    /// values (M8c slice CX).
+    pub land: LandSeen,
     /// People who came to live in another of its settlements over the run, by why (slice AN).
     pub between: Between,
     /// Each pair of its settlements, by name, as the price convergence row judges it (M5b slice
@@ -865,6 +870,330 @@ impl CrimeSeen {
     }
 }
 
+/// A world's land at the end of a run (M8c slice CX, ADR-0030 §7), by research 10-08 §1.1's
+/// quantities with their denominators: each settlement's residents against its footprint (the
+/// least rectangle about every plot of its households, streets and open ground within) and
+/// against its home plots; what was paid for ground over the run; each plan in force, its ground
+/// reserved, its parcels and those given, the buildings begun on its ground, those no case names
+/// and the cases waiting to be heard; and what households reckoned their plots worth, the hours
+/// a year the chosen saved over the next best, by walk to the hearth.
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct LandSeen {
+    /// Each settlement: its name, residents, footprint and home plots, hectares.
+    pub settlements: Vec<(String, u32, f64, f64)>,
+    /// Ground fees and ground rents paid over the run, kcal.
+    pub fees_kcal: f64,
+    pub rents_kcal: f64,
+    /// Each plan in force: its ground reserved, hectares; parcels; given; encroachments; those
+    /// no case names; cases open.
+    pub plans: Vec<(f64, u32, u32, u32, u32, u32)>,
+    /// Plots chosen with a receipt, by walk to their settlement's hearth (under 100 m, 100 to
+    /// 300, beyond), and the hours a year they saved over the next best, summed.
+    pub reckoned: [(u32, f64); 3],
+}
+
+/// The walks to the hearth a plot's reckoned worth is told by, metres.
+pub const RECKONED_BANDS_M: [f32; 2] = [100.0, 300.0];
+
+impl LandSeen {
+    /// What world `sim` holds now.
+    pub fn of(sim: &Sim) -> LandSeen {
+        use civ_agents::crime::CaseStage;
+        let (land, people) = (sim.land(), sim.people());
+        let catalog = &sim.rules().catalog;
+        let mut seen = LandSeen::default();
+        let settlement_of =
+            |p: &civ_land::Plot| people.household(p.household).and_then(|x| x.settlement);
+        for s in &land.settlements {
+            let plots: Vec<&civ_land::Plot> = land
+                .plots
+                .iter()
+                .filter(|p| settlement_of(p) == Some(s.id))
+                .collect();
+            let (footprint, homes) = civ_sim::frames::land::ground_ha(sim, s.id);
+            seen.settlements
+                .push((s.name.clone(), people.residents(s.id), footprint, homes));
+            for p in &plots {
+                let Some(r) = p.receipt else {
+                    continue;
+                };
+                let (x, y) = p.rect.centre_m();
+                let m = (x - s.hearth_m.0).hypot(y - s.hearth_m.1);
+                let band = RECKONED_BANDS_M.iter().filter(|&&b| m >= b).count();
+                seen.reckoned[band].0 += 1;
+                seen.reckoned[band].1 += f64::from((r.next_hours - r.hours).max(0.0));
+            }
+        }
+        let kcal = |channel| {
+            catalog
+                .goods
+                .iter()
+                .enumerate()
+                .map(|(g, d)| people.transfers.get(channel, g) * d.kcal_per_kg)
+                .sum::<f64>()
+        };
+        seen.fees_kcal = kcal(civ_agents::ledger::Channel::GroundFee);
+        seen.rents_kcal = kcal(civ_agents::ledger::Channel::GroundRent);
+        for polity in &people.polities {
+            for (law, laid) in polity.plans_in_force() {
+                let given = land
+                    .plots
+                    .iter()
+                    .filter(|p| p.allotted.is_some_and(|a| a.law == law))
+                    .count() as u32;
+                let begun: Vec<_> = polity
+                    .encroachments
+                    .iter()
+                    .filter(|e| e.law == law)
+                    .collect();
+                let unnamed = begun
+                    .iter()
+                    .filter(|e| {
+                        !people
+                            .order
+                            .cases
+                            .iter()
+                            .any(|c| c.building == Some(e.building))
+                    })
+                    .count() as u32;
+                let open = people
+                    .order
+                    .cases
+                    .iter()
+                    .filter(|c| c.law == law && c.building.is_some())
+                    .filter(|c| c.stage == CaseStage::Open)
+                    .count() as u32;
+                seen.plans.push((
+                    laid.layout.reserved_m2() / 1e4,
+                    laid.layout.parcels.len() as u32,
+                    given,
+                    begun.len() as u32,
+                    unnamed,
+                    open,
+                ));
+            }
+        }
+        seen
+    }
+
+    /// In words: each settlement's densities, what ground was paid for, each plan's shares and
+    /// what plots were reckoned worth by walk; "" when no settlement stands.
+    pub fn words(&self) -> String {
+        let mut parts: Vec<String> = self
+            .settlements
+            .iter()
+            .filter(|s| s.1 > 0)
+            .map(|(name, residents, footprint, homes)| {
+                let per = |ha: f64| {
+                    if ha > 0.0 {
+                        format!("{:.0}", f64::from(*residents) / ha)
+                    } else {
+                        "-".to_owned()
+                    }
+                };
+                format!(
+                    "{name} {residents} residents, {} a hectare of its {footprint:.1} ha \
+                     footprint and {} of its {homes:.2} ha of home plots",
+                    per(*footprint),
+                    per(*homes)
+                )
+            })
+            .collect();
+        if parts.is_empty() {
+            return String::new();
+        }
+        parts.push(format!(
+            "ground paid for: {:.0} kcal in fees, {:.0} in rents",
+            self.fees_kcal, self.rents_kcal
+        ));
+        for (reserved, parcels, given, begun, unnamed, open) in &self.plans {
+            parts.push(format!(
+                "a plan reserving {reserved:.2} ha, {given} of {parcels} parcels given, {begun} \
+                 buildings begun on its ground ({unnamed} no case names, {open} cases waiting)"
+            ));
+        }
+        let bands = ["under 100 m", "100-300 m", "beyond 300 m"];
+        let reckoned: Vec<String> = self
+            .reckoned
+            .iter()
+            .zip(bands)
+            .filter(|((n, _), _)| *n > 0)
+            .map(|((n, h), band)| {
+                format!(
+                    "{band} from the hearth {:.1} h a year over {n}",
+                    h / f64::from(*n)
+                )
+            })
+            .collect();
+        if !reckoned.is_empty() {
+            parts.push(format!(
+                "plots reckoned worth, saved over the next best: {}",
+                reckoned.join(", ")
+            ));
+        }
+        parts.join("; ")
+    }
+}
+
+/// A world's travel over a run, all its settlements and years together (M8b slice CR, first
+/// part; see [`civ_agents::travel`]).
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct TravelSeen {
+    /// Residents' days by occupation (in [`civ_agents::travel::Occupation::ALL`] order) and band
+    /// of the day's travel.
+    pub days: Vec<Vec<u32>>,
+    /// Residents' minutes of travel by occupation.
+    pub minutes: Vec<f64>,
+    /// Trips and their minutes by purpose, in words, most minutes first.
+    pub purposes: Vec<(String, u32, f64)>,
+    /// Trips and their minutes by mode (in [`civ_agents::travel::Mode::ALL`] order).
+    pub modes: Vec<(u32, f64)>,
+    /// Waits at bottlenecks and their minutes.
+    pub waits: (u32, f64),
+}
+
+impl TravelSeen {
+    /// What `travel` held, all settlements and years together.
+    pub fn of(travel: &civ_agents::travel::Travel) -> TravelSeen {
+        use civ_agents::travel::{BANDS, Mode, Occupation};
+        let mut seen = TravelSeen {
+            days: vec![vec![0; BANDS]; Occupation::ALL.len()],
+            minutes: vec![0.0; Occupation::ALL.len()],
+            modes: vec![(0, 0.0); Mode::ALL.len()],
+            ..TravelSeen::default()
+        };
+        let mut purposes: BTreeMap<u8, (u32, f64)> = BTreeMap::new();
+        for y in travel.years.values() {
+            for (o, row) in y.days.iter().enumerate() {
+                for (b, n) in row.iter().enumerate() {
+                    seen.days[o][b] += n;
+                }
+                seen.minutes[o] += y.minutes[o];
+            }
+            for (&code, t) in &y.purposes {
+                let e = purposes.entry(code).or_default();
+                e.0 += t.trips;
+                e.1 += t.minutes;
+            }
+            for (m, t) in y.modes.iter().enumerate() {
+                seen.modes[m].0 += t.trips;
+                seen.modes[m].1 += t.minutes;
+            }
+            seen.waits.0 += y.waits.trips;
+            seen.waits.1 += y.waits.minutes;
+        }
+        seen.purposes = purposes
+            .into_iter()
+            .map(|(code, (trips, minutes))| {
+                let name = civ_agents::params::Behavior::ALL
+                    .get(usize::from(code))
+                    .map_or("other", |b| b.name());
+                (name.to_owned(), trips, minutes)
+            })
+            .collect();
+        seen.purposes
+            .sort_by(|a, b| b.2.total_cmp(&a.2).then(a.0.cmp(&b.0)));
+        seen
+    }
+
+    fn join(&mut self, o: &TravelSeen) {
+        if self.days.is_empty() {
+            *self = o.clone();
+            return;
+        }
+        for (a, b) in self.days.iter_mut().zip(&o.days) {
+            for (x, y) in a.iter_mut().zip(b) {
+                *x += y;
+            }
+        }
+        for (a, b) in self.minutes.iter_mut().zip(&o.minutes) {
+            *a += b;
+        }
+        for (a, b) in self.modes.iter_mut().zip(&o.modes) {
+            a.0 += b.0;
+            a.1 += b.1;
+        }
+        for (name, trips, minutes) in &o.purposes {
+            match self.purposes.iter_mut().find(|p| &p.0 == name) {
+                Some(p) => {
+                    p.1 += trips;
+                    p.2 += minutes;
+                }
+                None => self.purposes.push((name.clone(), *trips, *minutes)),
+            }
+        }
+        self.purposes
+            .sort_by(|a, b| b.2.total_cmp(&a.2).then(a.0.cmp(&b.0)));
+        self.waits.0 += o.waits.0;
+        self.waits.1 += o.waits.1;
+    }
+
+    /// In words: each occupation's median and mean day of travel, the purposes most minutes went
+    /// to, the modes' shares of trips, and the waits.
+    pub fn words(&self) -> String {
+        use civ_agents::travel::{DAY_BANDS_MIN, Mode, Occupation};
+        let band = |b: usize| match b {
+            0 => "none".to_owned(),
+            b if b >= DAY_BANDS_MIN.len() => format!("{:.0} min or more", DAY_BANDS_MIN[b - 1]),
+            1 => format!("under {:.0} min", DAY_BANDS_MIN[1]),
+            b => format!("{:.0}–{:.0} min", DAY_BANDS_MIN[b - 1], DAY_BANDS_MIN[b]),
+        };
+        let mut parts = Vec::new();
+        for (o, occ) in Occupation::ALL.iter().enumerate() {
+            let row = &self.days[o];
+            let all: u32 = row.iter().sum();
+            if all == 0 {
+                continue;
+            }
+            let mut acc = 0;
+            let median = row
+                .iter()
+                .position(|&n| {
+                    acc += n;
+                    2 * acc >= all
+                })
+                .unwrap_or(0);
+            parts.push(format!(
+                "{}: a median day {}, {:.0} min on average",
+                occ.name(),
+                band(median),
+                self.minutes[o] / f64::from(all)
+            ));
+        }
+        let all_minutes: f64 = self.purposes.iter().map(|p| p.2).sum();
+        if all_minutes > 0.0 {
+            let top: Vec<String> = self
+                .purposes
+                .iter()
+                .take(4)
+                .map(|(n, _, m)| format!("{n} {:.0}%", 100.0 * m / all_minutes))
+                .collect();
+            parts.push(format!("travel time by purpose {}", top.join(", ")));
+        }
+        let trips: u32 = self.modes.iter().map(|m| m.0).sum();
+        if trips > 0 {
+            let shares: Vec<String> = Mode::ALL
+                .iter()
+                .zip(&self.modes)
+                .filter(|(_, m)| m.0 > 0)
+                .map(|(mode, m)| {
+                    format!(
+                        "{} {:.1}%",
+                        mode.name(),
+                        100.0 * f64::from(m.0) / f64::from(trips)
+                    )
+                })
+                .collect();
+            parts.push(format!("trips {}", shares.join(", ")));
+        }
+        parts.push(format!(
+            "{} waits at bottlenecks, {:.0} min in all",
+            self.waits.0, self.waits.1
+        ));
+        parts.join("; ")
+    }
+}
+
 /// One row of §4.7.
 #[derive(Clone, Debug, Serialize)]
 pub struct Row {
@@ -1164,6 +1493,8 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
             (v + c.visits, h + c.minutes as f64 / 60.0, m + c.marriages)
         });
     world.between = Between::of(sim);
+    world.travel = TravelSeen::of(&sim.people().travel);
+    world.land = LandSeen::of(sim);
     let name = |id| {
         sim.land()
             .settlements
@@ -1225,7 +1556,55 @@ pub fn grade(worlds: &[WorldRun], years: u32) -> Vec<Row> {
         fires(worlds),
         floods(worlds),
         regimes(worlds),
+        travel(worlds),
+        land(worlds),
     ]
+}
+
+/// Densities, what was paid for ground, plans' shares and reckoned values (M8c slice CX,
+/// ADR-0030 §7: "measured, never set"), every world: reported, never graded, with no tolerance
+/// until a run is seen.
+fn land(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Land",
+        "densities, ground paid for, plans' shares, plots' reckoned worth by walk to the hearth",
+        "reported",
+    )
+    .source("ADR-0030 §7; research 10-08 §1.1");
+    let parts: Vec<String> = worlds
+        .iter()
+        .map(|w| w.land.words())
+        .filter(|t| !t.is_empty())
+        .collect();
+    let text = if parts.is_empty() {
+        "no settlement stood at the end".to_owned()
+    } else {
+        format!("reported, not graded: {}", parts.join("; "))
+    };
+    row.graded(Grade::Gray, text)
+}
+
+/// Daily travel by occupation and purpose, mode shares and waits (M8b slice CR, first part; the
+/// transport brief §1.7: "measured, never capped"), all worlds together: reported, never graded,
+/// 12-05 §2.3's 45–90 minutes a day a check to read it against.
+fn travel(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Travel",
+        "daily travel time by occupation and purpose, mode shares, waits",
+        "reported",
+    )
+    .source("ADR-0029 §9; research 12-05 §2.3, §4.1");
+    let mut all = TravelSeen::default();
+    for w in worlds {
+        all.join(&w.travel);
+    }
+    let days: u32 = all.days.iter().flatten().sum();
+    let text = if days == 0 {
+        "no day of travel was counted".to_owned()
+    } else {
+        format!("reported, not graded: {}", all.words())
+    };
+    row.graded(Grade::Gray, text)
 }
 
 /// Settlements' sizes at the end, reported and not graded: 10-01 §4 and 10-02 §5 warn against
@@ -2487,6 +2866,66 @@ mod tests {
     }
 
     #[test]
+    fn the_land_row_reports_densities_ground_paid_for_plans_and_reckoned_worth() {
+        // M8c slice CX (ADR-0030 §7): reported, never graded; grey with nothing to say.
+        assert_eq!(land(&[world(1, &[30])]).grade, Grade::Gray);
+        assert!(
+            land(&[world(1, &[30])])
+                .text
+                .contains("no settlement stood")
+        );
+        let mut w = world(1, &[30]);
+        w.land = LandSeen {
+            settlements: vec![("Oakholt".to_owned(), 40, 2.0, 0.25)],
+            fees_kcal: 5000.0,
+            rents_kcal: 0.0,
+            plans: vec![(0.5, 24, 6, 2, 1, 1)],
+            reckoned: [(4, 20.0), (2, 2.0), (0, 0.0)],
+        };
+        let row = land(&[w]);
+        assert_eq!(row.grade, Grade::Gray);
+        for words in [
+            "Oakholt 40 residents, 20 a hectare of its 2.0 ha footprint and 160 of its 0.25 ha",
+            "5000 kcal in fees",
+            "a plan reserving 0.50 ha, 6 of 24 parcels given, 2 buildings begun on its ground \
+             (1 no case names, 1 cases waiting)",
+            "under 100 m from the hearth 5.0 h a year over 4, 100-300 m from the hearth 1.0 h",
+        ] {
+            assert!(row.text.contains(words), "{words:?} in {}", row.text);
+        }
+        // A world as lived: its settlement, residents and footprint once homes stand.
+        let root = civ_content::find_content_root(Path::new(env!("CARGO_MANIFEST_DIR")))
+            .expect("content/ is above the crate");
+        let content = civ_content::load(&root).registry.expect("content loads");
+        let mut sim = Sim::create_for_tests(
+            &NewWorld {
+                name: "Land".into(),
+                seed: 2,
+                preset_id: PRESET.to_owned(),
+                size_cells: 512,
+                band_size: 30,
+                neighbours: Vec::new(),
+                neighbours_known: false,
+                regime_id: String::new(),
+            },
+            &content,
+            [3; 16],
+        )
+        .expect("world");
+        sim.set_speed(SPEED_MAX).expect("Max");
+        sim.advance_minutes(20 * 1_440).expect("lives");
+        let seen = LandSeen::of(&sim);
+        assert_eq!(seen.settlements.len(), 1);
+        let (_, residents, footprint, homes) = seen.settlements[0].clone();
+        assert!(residents > 0 && footprint > 0.0 && homes > 0.0, "{seen:?}");
+        assert!(footprint >= homes, "{seen:?}");
+        assert!(
+            seen.reckoned.iter().map(|r| r.0).sum::<u32>() > 0,
+            "{seen:?}"
+        );
+    }
+
+    #[test]
     fn the_water_row_reports_where_water_was_drawn_wells_and_use_over_all_worlds() {
         let mut a = world(1, &[40]);
         a.water = WaterSeen {
@@ -2558,6 +2997,7 @@ mod tests {
             "Epidemics",
             "Floods and storms",
             "Regimes",
+            "Land",
         ] {
             assert!(grey.contains(&name), "{name} grey: {grey:?}");
         }
@@ -2580,7 +3020,7 @@ mod tests {
         // Only population and the accounts are graded, both worlds keep their bands and no
         // settlement's accounts failed: a pass, but no grey row counts as one.
         assert!(dashboard.passed());
-        assert_eq!(dashboard.summary(), "2 passed, 16 not yet applicable");
+        assert_eq!(dashboard.summary(), "2 passed, 18 not yet applicable");
     }
 
     #[test]
@@ -2609,6 +3049,8 @@ mod tests {
             challenge: challenge.then(|| id(8)),
             tags: 0,
             departed,
+            loan: None,
+            building: None,
         };
         let order = Order {
             cases: vec![

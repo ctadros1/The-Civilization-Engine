@@ -305,6 +305,10 @@ pub struct Field {
     pub last_flood_depth_cm: u16,
     /// Days the field's standing crop has remained submerged under water.
     pub submerged_days: u16,
+    /// The plan law that reserved its ground, if one has (M8c slice CU, fifth part; ADR-0030 §4):
+    /// no crop is begun on it again, and once it lies idle it no longer keeps ground from being
+    /// built on.
+    pub reserved: Option<PermanentId>,
 }
 
 /// What a field's season and soil allow its harvest (ADR-0012 §2-3).
@@ -338,6 +342,12 @@ pub struct WorkDone {
 }
 
 impl Field {
+    /// No crop stands on it: anything but sown (prepared ground holds none yet; reaped, its
+    /// sheaves are home) (M8c slice CU).
+    pub fn lies_idle(&self) -> bool {
+        self.stage != FieldStage::Sown
+    }
+
     /// Area, hectares.
     pub fn area_ha(&self) -> f64 {
         self.rect.area_ha()
@@ -712,6 +722,7 @@ pub(crate) mod tests {
             soil: FieldSoil::default(),
             last_flood_depth_cm: 0,
             submerged_days: 0,
+            reserved: None,
         }
     }
 

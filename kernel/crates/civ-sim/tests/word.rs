@@ -5,7 +5,6 @@
 
 use std::path::Path;
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_agents::polity::{Law, LawStatus, Outcome, PolicyKind};
 use civ_agents::word::{Blamed, ClaimKind, Grieved, Wrong};
@@ -30,7 +29,7 @@ fn content() -> &'static ContentRegistry {
 }
 
 fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
-    Sim::create(
+    Sim::create_for_tests(
         &NewWorld {
             name: "Word".to_owned(),
             seed,
@@ -42,8 +41,7 @@ fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
             regime_id: String::new(),
         },
         content,
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
     .expect("generates")
 }
@@ -89,6 +87,17 @@ fn a_store(sim: &mut Sim, known: &[PermanentId]) -> PermanentId {
     let id = PermanentId::from_raw(sim.ids().peek_next() + 1_000_000).expect("non-zero");
     let pop = sim.people_mut_for_tests();
     let p = &mut pop.polities[0];
+    // A plan the village put forward meanwhile (M8c slice CT) is set aside: this stages a law
+    // of its own before an empty gathering.
+    p.laws.retain(|l| l.kind != PolicyKind::Plan);
+    let kept: Vec<PermanentId> = p.laws.iter().map(|l| l.id).collect();
+    p.plans.retain(|(law, _)| kept.contains(law));
+    if p.gathering
+        .as_ref()
+        .is_some_and(|g| g.law.is_some_and(|l| !kept.contains(&l)))
+    {
+        p.gathering = None;
+    }
     assert!(p.laws.is_empty(), "the village has no law of its own yet");
     p.laws.push(Law {
         id,
@@ -227,8 +236,9 @@ fn only_those_who_heard_a_gathering_is_called_come_to_it() {
     assert!(what.starts_with("a gathering meets on "), "{what}");
     assert!(line.from_name().is_some_and(|n| !n.is_empty()));
     let word = &sim.people().word;
+    let heard: Vec<_> = word.heard.iter().collect();
     assert!(
-        word.heard
+        heard
             .windows(2)
             .all(|w| (w[0].holder, w[0].claim) < (w[1].holder, w[1].claim))
     );

@@ -4,7 +4,6 @@
 
 use std::path::Path;
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_content::ContentRegistry;
 use civ_core::SimTime;
@@ -26,7 +25,7 @@ fn content() -> &'static ContentRegistry {
 
 #[test]
 fn cropped_fields_keep_their_soil_and_harvests_across_the_years_and_a_save() {
-    let mut sim = Sim::create(
+    let mut sim = Sim::create_for_tests(
         &NewWorld {
             name: "Soil".to_owned(),
             seed: 2,
@@ -38,8 +37,7 @@ fn cropped_fields_keep_their_soil_and_harvests_across_the_years_and_a_save() {
             regime_id: String::new(),
         },
         content(),
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
     .expect("generates");
     // Two harvests, and the turns of two Januaries after them.

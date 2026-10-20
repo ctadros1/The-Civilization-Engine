@@ -1,7 +1,7 @@
 //! Goods (`kind = "good"`): things people carry home and keep, with how they keep. What anyone
 //! gathers, stores or eats is decided by people at run time.
 
-use civ_agents::params::{Eaten, GoodDef, GoodFire, GoodUse, StoreDef, ToolDef};
+use civ_agents::params::{Eaten, GoodDef, GoodFire, GoodUse, MoneyDef, StoreDef, ToolDef};
 use civ_agents::structure::Timber;
 use serde::Deserialize;
 
@@ -36,6 +36,9 @@ pub(crate) struct GoodFile {
     pub store: Option<StoreFile>,
     /// How it burns (content API 81; M6b slice BC): absent for a good fire does not touch.
     pub fire: Option<FireFile>,
+    /// Content API 125 (M7d slice CD): it is paid by weight as money.
+    #[serde(default)]
+    pub money: Option<Money>,
 }
 
 /// How a good burns (M6b slice BC; ADR-0022 §4, §5).
@@ -72,10 +75,34 @@ pub(crate) struct TimberFile {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub(crate) struct Money {
+    pub verify_h: f64,
+    /// Content API 126 (M7d slice CE): counted in pieces of issues a mint struck.
+    #[serde(default)]
+    pub coin: bool,
+    /// Content API 130 (M7d slice CE4a): for coin, the metal it is struck of, by content id.
+    #[serde(default)]
+    pub metal: Option<String>,
+    /// Content API 130 (M7d slice CE4a): for coin, the technique whose knowers assay a piece.
+    #[serde(default)]
+    pub assay: Option<String>,
+    /// Content API 131 (M7d slice CE4c): for coin, the share off the metal's worth a foreign
+    /// piece is taken at by one who cannot assay it.
+    #[serde(default)]
+    pub foreign_discount: f64,
+    /// Content API 131 (M7d slice CE4c): hours to weigh and test a foreign piece.
+    #[serde(default)]
+    pub foreign_assay_h: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Tool {
     pub life_h: f64,
     pub per_worker: f64,
     pub fixed: bool,
+    #[serde(default)]
+    pub serves: String,
 }
 
 impl GoodFile {
@@ -97,6 +124,7 @@ impl GoodFile {
                 life_h: t.life_h,
                 per_worker: t.per_worker,
                 fixed: t.fixed,
+                serves: None,
             }),
             timber: self.timber.as_ref().map(|t| Timber {
                 bending_pa: t.bending_mpa * 1e6,
@@ -104,9 +132,20 @@ impl GoodFile {
                 stiffness_pa: t.stiffness_gpa * 1e9,
                 creep: t.creep,
                 sustained: t.sustained,
+                // Timber's weight is the frame's (research 11-08 §2.1); only masonry reads it.
+                density_kg_m3: 760.0,
             }),
             store: self.store.as_ref().map(|t| StoreDef {
                 keeps_kg: t.keeps_kg,
+            }),
+            money: self.money.as_ref().map(|m| MoneyDef {
+                verify_h: m.verify_h,
+                coin: m.coin,
+                // Resolved once the goods and techniques are known (`civ_content::compile`).
+                metal: None,
+                assay: None,
+                foreign_discount: m.foreign_discount,
+                foreign_assay_h: m.foreign_assay_h,
             }),
             fire: self.fire.as_ref().map(|f| GoodFire {
                 catch_kw_m2: f.catch_kw_m2,
@@ -118,6 +157,22 @@ impl GoodFile {
     /// Range problems, as messages.
     pub fn problems(&self) -> Vec<String> {
         let mut p = Vec::new();
+        if let Some(m) = &self.money {
+            for (name, v) in [
+                ("money.verify_h", m.verify_h),
+                ("money.foreign_assay_h", m.foreign_assay_h),
+            ] {
+                if !(v.is_finite() && (0.0..=100.0).contains(&v)) {
+                    p.push(format!("`{name}` must be between 0 and 100 (got {v})"));
+                }
+            }
+            if !(m.foreign_discount.is_finite() && (0.0..1.0).contains(&m.foreign_discount)) {
+                p.push(format!(
+                    "`money.foreign_discount` must be at least 0 and below 1 (got {})",
+                    m.foreign_discount
+                ));
+            }
+        }
         if let Some(f) = &self.fire {
             if !(f.catch_kw_m2.is_finite() && (0.0..=500.0).contains(&f.catch_kw_m2)) {
                 p.push(format!(

@@ -36,6 +36,15 @@ pub const SAG_SHOWS: f64 = 1.0 / 180.0;
 /// asks for an imperfection model; a tuning value).
 pub const POST_IMPERFECTION: f64 = 0.5;
 
+/// Most a version 3 mass wall's restrained height may be over its thickness and the wall stand
+/// at all: EN 1996-1-1 §5.5.4's limit of 27, a design prior (research 11-05 gives height over
+/// thickness only as a vulnerability scale, much poorer above 9 to 12).
+pub const MOST_SLENDERNESS: f64 = 27.0;
+
+/// What a truss's heel joint, where a principal rafter meets the tie, holds against the roof's
+/// thrust, newtons: a design prior for a pegged and notched joint (ADR-0031 §2), logged as such.
+pub const TRUSS_JOINT_N: f64 = 20_000.0;
+
 /// A timber as the members of a building are made of it (research 11-05 §2.3).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Timber {
@@ -49,6 +58,8 @@ pub struct Timber {
     pub creep: f64,
     /// The share of its strength it keeps under load carried for years.
     pub sustained: f64,
+    /// A cubic metre's weight, kilograms: what a mass wall above weighs (frame version 3).
+    pub density_kg_m3: f64,
 }
 
 /// What presses on a building now, pascals on the area each acts on.
@@ -159,15 +170,20 @@ fn own_weight(g: &Group) -> f64 {
     area * f64::from(g.length_cm.max(0)) / 100.0 * TIMBER_KG_M3 * G
 }
 
+/// The storey a level is, 0 the first; `None` for a loft, the roof or no level.
+fn storey(level: Option<Level>) -> Option<usize> {
+    match level? {
+        Level::Ground => Some(0),
+        Level::Upper => Some(1),
+        Level::Third => Some(2),
+        Level::Fourth => Some(3),
+        Level::Loft | Level::Roof => None,
+    }
+}
+
 /// The level a group's id names.
 fn level_of(g: &Group) -> Option<Level> {
-    match (g.id >> 24) & 0xff {
-        0 => Some(Level::Ground),
-        1 => Some(Level::Upper),
-        2 => Some(Level::Loft),
-        3 => Some(Level::Roof),
-        _ => None,
-    }
+    Level::from_code(((g.id >> 24) & 0xff) as u8)
 }
 
 /// What one member of bending group `g` of building `e` carries, newtons spread along it, as
@@ -193,6 +209,20 @@ fn bending_load(g: &Group, e: &Expansion, loads: &Loads) -> Option<(f64, f64)> {
         (GroupKind::FloorJoists, _) | (GroupKind::TieBeams, _) => {
             (loads.upper_pa * per + own, loads.live_pa * per)
         }
+        (GroupKind::Purlins, _) => {
+            // Along the slope, a bay long: the covering on its share of the slope, and the peak
+            // on that share's plan.
+            let c = roof_cos(e);
+            (loads.covering_pa * per + own, loads.peak_pa * per * c)
+        }
+        (GroupKind::Trusses, _) => {
+            // A principal rafter carries half its truss's plan, normal to its slope.
+            let c = roof_cos(e);
+            (
+                (loads.covering_pa * per / 2.0 / c + own) * c,
+                loads.peak_pa * per / 2.0 * c,
+            )
+        }
         _ => return None,
     })
 }
@@ -213,7 +243,13 @@ fn weight_on_posts(e: &Expansion, loads: &Loads) -> (f64, f64) {
     } else {
         0.0
     };
-    let upper = area(Level::Upper);
+    // Every storey above the first.
+    let upper: f64 = e
+        .spaces
+        .iter()
+        .filter(|s| s.level.above_ground())
+        .map(|s| s.area_m2)
+        .sum();
     let own: f64 = e
         .groups
         .iter()
@@ -251,6 +287,9 @@ pub fn margin(g: &Group, c: &GroupCondition, e: &Expansion, loads: &Loads, t: &T
         return Margin::NONE;
     }
     let keep = t.sustained.max(1e-6);
+    if g.kind == GroupKind::MassWall && e.version >= 3 {
+        return mass_wall_by_storey(g, e, loads, t, q * left, keep);
+    }
     if g.kind == GroupKind::MassWall {
         let total: f64 = e
             .groups
@@ -279,12 +318,8 @@ pub fn margin(g: &Group, c: &GroupCondition, e: &Expansion, loads: &Loads, t: &T
         } else {
             (1.0 - (slenderness - 6.0) / 12.0).clamp(0.2, 1.0)
         };
-        let fm_pa = match g.spacing_cm {
-            1 => 1.5e6,
-            2 => 1.0e6,
-            3 => 3.0e6,
-            _ => 1.5e6,
-        };
+        // The wall's strength in compression comes with `t` (its program's masonry figure).
+        let fm_pa = t.compression_pa;
         let bearing_area = l_len * t_thick * left;
         let capacity = q * fm_pa * slenderness_factor * bearing_area;
         return Margin {
@@ -293,10 +328,12 @@ pub fn margin(g: &Group, c: &GroupCondition, e: &Expansion, loads: &Loads, t: &T
         };
     }
     if g.kind == GroupKind::Posts {
+        // Its share of what the first storey's posts carry: storeyed posts above carry less
+        // (frame version 3); posts through every storey are all the first's.
         let total: f64 = e
             .groups
             .iter()
-            .filter(|p| p.kind == GroupKind::Posts)
+            .filter(|p| p.kind == GroupKind::Posts && storey(level_of(p)) == Some(0))
             .map(|p| p.area_m2.max(0.0))
             .sum();
         if total <= 0.0 {
@@ -333,9 +370,226 @@ pub fn margin(g: &Group, c: &GroupCondition, e: &Expansion, loads: &Loads, t: &T
     } else {
         f64::INFINITY
     };
+    let mut strength = capacity / demand;
+    if g.kind == GroupKind::Trusses {
+        // The heel joint against the roof's thrust: half the truss's load over the pitch's tangent.
+        let c = roof_cos(e).clamp(1e-6, 1.0);
+        let tan = (1.0 - c * c).sqrt() / c;
+        let per = g.area_m2.max(0.0) / f64::from(g.count.max(1));
+        let load = loads.covering_pa * per / c / keep + loads.peak_pa * per;
+        if load > 0.0 && tan > 0.0 {
+            let thrust = load / 2.0 / tan;
+            strength = strength.min(q * left * TRUSS_JOINT_N / thrust);
+        }
+    }
+    Margin { strength, sag }
+}
+
+/// How near a version 3 mass wall of one storey is to crushing (ADR-0031 §2): it carries its
+/// share of what bears on the first storey's walls by the area it carries, its own weight and
+/// the walls above it on its line; it is restrained at each floor where the walls are tied and
+/// otherwise stands its whole height, and past [`MOST_SLENDERNESS`] it cannot stand. `kept` is
+/// its quality times what it keeps of its section.
+fn mass_wall_by_storey(
+    g: &Group,
+    e: &Expansion,
+    loads: &Loads,
+    t: &Timber,
+    kept: f64,
+    keep: f64,
+) -> Margin {
+    let Some(here) = storey(level_of(g)) else {
+        return Margin::NONE;
+    };
+    let line = g.id & 0xff;
+    let walls: Vec<&Group> = e
+        .groups
+        .iter()
+        .filter(|p| p.kind == GroupKind::MassWall)
+        .collect();
+    let first: f64 = walls
+        .iter()
+        .filter(|p| storey(level_of(p)) == Some(0))
+        .map(|p| p.area_m2.max(0.0))
+        .sum();
+    let (h, thick, long) = (
+        f64::from(g.length_cm.max(0)) / 100.0,
+        f64::from(g.section_cm[1].max(0)) / 100.0,
+        f64::from(g.section_cm[0].max(0)) / 100.0,
+    );
+    if first <= 0.0 || thick <= 0.0 || long <= 0.0 {
+        return Margin::NONE;
+    }
+    let weight = |p: &Group| {
+        f64::from(p.section_cm[0].max(0))
+            * f64::from(p.section_cm[1].max(0))
+            * f64::from(p.length_cm.max(0))
+            * 1e-6
+            * t.density_kg_m3
+            * G
+    };
+    let on_line = |p: &&&Group| p.id & 0xff == line;
+    let above: f64 = walls
+        .iter()
+        .filter(on_line)
+        .filter(|p| storey(level_of(p)).is_some_and(|s| s > here))
+        .map(|p| weight(p))
+        .sum();
+    let share = g.area_m2.max(0.0) / first;
+    let (held, passing) = weight_on_posts(e, loads);
+    let demand = (held * share + above + weight(g)) / keep + passing * share;
+    if demand <= 0.0 {
+        return Margin::NONE;
+    }
+    // Tied, a wall is held at each floor; untied, nothing holds it between the ground and the
+    // roof, so it stands the whole height of its line.
+    let tied = e.groups.iter().any(|p| p.kind == GroupKind::Ties);
+    let restrained = if tied {
+        h
+    } else {
+        walls
+            .iter()
+            .filter(on_line)
+            .map(|p| f64::from(p.length_cm.max(0)) / 100.0)
+            .sum()
+    };
+    let slenderness = restrained / thick;
+    let factor = if slenderness > MOST_SLENDERNESS {
+        0.0
+    } else if slenderness <= 6.0 {
+        1.0
+    } else {
+        (1.0 - (slenderness - 6.0) / 12.0).clamp(0.2, 1.0)
+    };
     Margin {
-        strength: capacity / demand,
-        sag,
+        strength: kept * t.compression_pa * factor * long * thick / demand,
+        sag: 0.0,
+    }
+}
+
+/// A mass wall's friction across its bed joints (ADR-0031 §3; research 11-05 §2.5: one air-lime
+/// rubble calibration fitted μ = 0.558; a design prior).
+pub const MASONRY_FRICTION: f64 = 0.55;
+
+/// A sound mass wall's cohesion across its bed joints, pascals (research 11-05 §2.5: the same
+/// calibration fitted c = 0.0815 MPa; a design prior). A cracked wall has none.
+pub const MASONRY_COHESION_PA: f64 = 0.08e6;
+
+/// How near group `g` of building `e`, in condition `c`, is to giving way when the ground shakes
+/// it sideways with a share `cs` of its weight (ADR-0031 §3; research 11-05 §5.4: `V = C_s·W`),
+/// used only during an event, never daily. A mass wall overturns out of its plane once `cs`
+/// passes its thickness over the height it stands unrestrained (11-05 §5.3), and slides in its
+/// plane once its shear passes `μN + cA` (11-05 §2.5; no cohesion once `cracked`); a post bends
+/// as a cantilever against its share of the shear. Other groups carry nothing this way.
+pub fn lateral_margin(
+    g: &Group,
+    c: &GroupCondition,
+    e: &Expansion,
+    loads: &Loads,
+    t: &Timber,
+    cs: f64,
+    cracked: bool,
+) -> Margin {
+    if cs <= 0.0 || g.material.is_none() {
+        return Margin::NONE;
+    }
+    let q = f64::from(c.quality).max(0.0);
+    let left = (1.0 - f64::from(c.loss)).clamp(0.0, 1.0);
+    let (held, passing) = weight_on_posts(e, loads);
+    let weight = held + passing;
+    match g.kind {
+        GroupKind::MassWall => {
+            let walls: Vec<&Group> = e
+                .groups
+                .iter()
+                .filter(|p| p.kind == GroupKind::MassWall)
+                .collect();
+            let line = g.id & 0xff;
+            let thick = f64::from(g.section_cm[1].max(0)) / 100.0 * left;
+            let long = f64::from(g.section_cm[0].max(0)) / 100.0;
+            let here = storey(level_of(g)).unwrap_or(0);
+            let on_line = |p: &&&Group| p.id & 0xff == line;
+            let wall_n = |p: &Group| {
+                f64::from(p.section_cm[0].max(0))
+                    * f64::from(p.section_cm[1].max(0))
+                    * f64::from(p.length_cm.max(0))
+                    * 1e-6
+                    * t.density_kg_m3
+                    * G
+            };
+            // Unrestrained: its storey where its walls are tied, else its line's whole height.
+            let tied = e.groups.iter().any(|p| p.kind == GroupKind::Ties);
+            let h = if tied || e.version < 3 {
+                f64::from(g.length_cm.max(0)) / 100.0
+            } else {
+                walls
+                    .iter()
+                    .filter(on_line)
+                    .map(|p| f64::from(p.length_cm.max(0)) / 100.0)
+                    .sum()
+            };
+            if thick <= 0.0 || long <= 0.0 || h <= 0.0 {
+                return Margin {
+                    strength: 0.0,
+                    sag: 0.0,
+                };
+            }
+            let out_of_plane = (thick / h) / cs;
+            // What bears on it: its share of the building's weight by the area it carries, and
+            // the walls above it on its line and itself.
+            let first: f64 = walls
+                .iter()
+                .filter(|p| storey(level_of(p)) == Some(0))
+                .map(|p| p.area_m2.max(0.0))
+                .sum();
+            let share = if first > 0.0 {
+                g.area_m2.max(0.0) / first
+            } else {
+                0.0
+            };
+            let above: f64 = walls
+                .iter()
+                .filter(on_line)
+                .filter(|p| storey(level_of(p)).is_some_and(|s| s > here))
+                .map(|p| wall_n(p))
+                .sum();
+            let n = weight * share + above + wall_n(g);
+            let cohesion = if cracked { 0.0 } else { MASONRY_COHESION_PA };
+            let resist = MASONRY_FRICTION * n + cohesion * long * thick * q;
+            let in_plane = if n > 0.0 {
+                resist / (cs * n)
+            } else {
+                f64::INFINITY
+            };
+            Margin {
+                strength: out_of_plane.min(in_plane),
+                sag: 0.0,
+            }
+        }
+        GroupKind::Posts => {
+            // A cantilever from its foot against its share of the shear, as it shares the weight.
+            let total: f64 = e
+                .groups
+                .iter()
+                .filter(|p| p.kind == GroupKind::Posts && storey(level_of(p)) == Some(0))
+                .map(|p| p.area_m2.max(0.0))
+                .sum();
+            if total <= 0.0 {
+                return Margin::NONE;
+            }
+            let share = g.area_m2.max(0.0) / total / f64::from(g.count.max(1));
+            let shear = cs * weight * share;
+            let h = f64::from(g.length_cm.max(0)) / 100.0;
+            let (_, z, _) = section(g);
+            if shear <= 0.0 || h <= 0.0 {
+                return Margin::NONE;
+            }
+            Margin {
+                strength: t.bending_pa * z * q * left.powi(3) / (shear * h),
+                sag: 0.0,
+            }
+        }
+        _ => Margin::NONE,
     }
 }
 
@@ -354,6 +608,7 @@ mod tests {
             stiffness_pa: 8.6e9,
             creep: 1.0,
             sustained: 0.6,
+            density_kg_m3: 760.0,
         }
     }
 
@@ -577,6 +832,18 @@ mod tests {
         );
     }
 
+    /// A rubble wall's strength in compression, as the core's programs give it.
+    fn rubble() -> Timber {
+        Timber {
+            bending_pa: 0.0,
+            compression_pa: 1.5e6,
+            stiffness_pa: 0.0,
+            creep: 0.0,
+            sustained: 1.0,
+            density_kg_m3: 1900.0,
+        }
+    }
+
     #[test]
     fn mass_walls_fail_by_slenderness_or_loss() {
         let wall = Group {
@@ -607,7 +874,7 @@ mod tests {
             peak_pa: 1000.0,
             ..Loads::default()
         };
-        let m = margin(&e.groups[0], &sound(1.0), &e, &loads, &oak());
+        let m = margin(&e.groups[0], &sound(1.0), &e, &loads, &rubble());
         assert!(
             m.strength > 10.0,
             "sound rubble wall carries roof: {}",
@@ -617,12 +884,229 @@ mod tests {
 
         let mut worn = sound(1.0);
         worn.loss = 0.999;
-        let m_worn = margin(&e.groups[0], &worn, &e, &loads, &oak());
+        let m_worn = margin(&e.groups[0], &worn, &e, &loads, &rubble());
         assert!(
             m_worn.strength < 1.0,
             "heavily eroded wall fails: {}",
             m_worn.strength
         );
         assert_eq!(m_worn.state(), GroupState::Failed);
+    }
+
+    /// A version 3 building of four storeys of rubble walls 30 cm thick and 2.5 m high, 10 m
+    /// long, on two lines, each storey's carrying half the floors above it; tied or not.
+    fn four_storeys_of_rubble(tied: bool) -> Expansion {
+        let mut groups = Vec::new();
+        for (t, level) in [Level::Ground, Level::Upper, Level::Third, Level::Fourth]
+            .into_iter()
+            .enumerate()
+        {
+            for side in 0..2 {
+                groups.push(Group {
+                    id: group_id(level, None, GroupKind::MassWall, side),
+                    kind: GroupKind::MassWall,
+                    stage: Stage::Walls,
+                    material: Some(1),
+                    count: 1,
+                    section_cm: [1000, 30],
+                    length_cm: 250,
+                    spacing_cm: 1,
+                    area_m2: 30.0 + 25.0 * (3 - t) as f64,
+                });
+            }
+            if tied {
+                groups.push(Group {
+                    id: group_id(level, None, GroupKind::Ties, 0),
+                    kind: GroupKind::Ties,
+                    stage: Stage::Walls,
+                    material: Some(0),
+                    count: 10,
+                    section_cm: [15, 15],
+                    length_cm: 250,
+                    spacing_cm: 0,
+                    area_m2: 0.0,
+                });
+            }
+        }
+        let mut e = expansion_with(groups);
+        e.version = 3;
+        e
+    }
+
+    #[test]
+    fn an_untied_wall_four_storeys_high_cannot_stand_where_a_tied_one_does() {
+        let loads = Loads {
+            covering_pa: 30.0 * G,
+            ..Loads::default()
+        };
+        let at = |e: &Expansion, level: Level| {
+            let g = e
+                .groups
+                .iter()
+                .find(|g| g.id == group_id(level, None, GroupKind::MassWall, 0))
+                .expect("a wall");
+            margin(g, &sound(1.0), e, &loads, &rubble())
+        };
+        // Untied, the first storey's wall stands 10 m over 30 cm: beyond h/t 27.
+        let loose = four_storeys_of_rubble(false);
+        assert_eq!(at(&loose, Level::Ground).strength, 0.0);
+        assert_eq!(at(&loose, Level::Ground).state(), GroupState::Failed);
+        // So does its top storey's: nothing holds the line between the ground and the roof.
+        assert_eq!(at(&loose, Level::Fourth).strength, 0.0);
+        // Tied at each floor, each storey's wall stands a storey high, and the first carries the
+        // three above it: four walls of 10 × 0.3 × 2.5 m at 1,900 kg/m³ and more.
+        let tied = four_storeys_of_rubble(true);
+        let (first, top) = (at(&tied, Level::Ground), at(&tied, Level::Fourth));
+        assert_eq!(first.state(), GroupState::Sound, "{first:?}");
+        assert!(top.strength > first.strength, "{top:?} {first:?}");
+        let walls_kn = 4.0 * 10.0 * 0.3 * 2.5 * 1900.0 * G / 1000.0;
+        let factor = 1.0 - (2.5 / 0.3 - 6.0) / 12.0;
+        let capacity_kn = 1.5e6 * factor * 10.0 * 0.3 / 1000.0;
+        assert!(
+            first.strength < capacity_kn / walls_kn,
+            "the walls' weight bears on it"
+        );
+    }
+
+    #[test]
+    fn storeyed_posts_above_carry_less_than_the_first_storeys() {
+        let post = |level: Level, area: f64| Group {
+            id: group_id(level, None, GroupKind::Posts, 0),
+            kind: GroupKind::Posts,
+            stage: Stage::Frame,
+            material: Some(0),
+            count: 5,
+            section_cm: [20, 20],
+            length_cm: 250,
+            spacing_cm: 250,
+            area_m2: area,
+        };
+        let covering = Group {
+            id: group_id(Level::Roof, None, GroupKind::Covering, 0),
+            kind: GroupKind::Covering,
+            stage: Stage::Roof,
+            material: Some(2),
+            count: 1,
+            section_cm: [30, 30],
+            length_cm: 500,
+            spacing_cm: 0,
+            area_m2: 60.0,
+        };
+        let mut e = expansion_with(vec![
+            post(Level::Ground, 60.0),
+            post(Level::Upper, 30.0),
+            covering,
+        ]);
+        e.version = 3;
+        let loads = Loads {
+            covering_pa: 30.0 * G,
+            ..Loads::default()
+        };
+        let m = |i: usize| margin(&e.groups[i], &sound(1.0), &e, &loads, &oak()).strength;
+        assert!(
+            (m(1) / m(0) - 2.0).abs() < 1e-9,
+            "half the load, the same span"
+        );
+    }
+
+    #[test]
+    fn a_truss_is_held_by_its_members_and_its_heel_joint() {
+        let truss = Group {
+            id: group_id(Level::Roof, None, GroupKind::Trusses, 0),
+            kind: GroupKind::Trusses,
+            stage: Stage::Frame,
+            material: Some(0),
+            count: 5,
+            section_cm: [15, 15],
+            length_cm: 354,
+            spacing_cm: 250,
+            area_m2: 60.0,
+        };
+        let mut e = expansion_with(vec![truss]);
+        e.version = 3;
+        // A covering pitched at 45° over the roof's plan.
+        let slope = roof_plan_m2(&e) / (45.0_f64).to_radians().cos();
+        e.groups.push(Group {
+            id: group_id(Level::Roof, None, GroupKind::Covering, 0),
+            kind: GroupKind::Covering,
+            stage: Stage::Roof,
+            material: Some(2),
+            count: 1,
+            section_cm: [30, 30],
+            length_cm: 500,
+            spacing_cm: 0,
+            area_m2: slope,
+        });
+        let m = |covering_kg: f64| {
+            let loads = Loads {
+                covering_pa: covering_kg * G,
+                ..Loads::default()
+            };
+            margin(&e.groups[0], &sound(1.0), &e, &loads, &oak()).strength
+        };
+        // Under thatch it stands; under twice tile's weight it carries less, its heel joint at most
+        // what the joint holds against the thrust.
+        // The joint against the thrust: half the truss's 12 m² of plan, its covering kept
+        // over years (0.6), over tan 45°.
+        let c = roof_cos(&e);
+        assert!((c - (45.0_f64).to_radians().cos()).abs() < 1e-9);
+        let thrust = |kg: f64| kg * G * 12.0 / c / 0.6 / 2.0 / ((1.0 - c * c).sqrt() / c);
+        assert!(m(30.0) > 1.0);
+        assert!(m(130.0) < m(30.0));
+        assert!(m(130.0) <= TRUSS_JOINT_N / thrust(130.0) + 1e-9);
+    }
+
+    #[test]
+    fn shaking_overturns_a_slender_wall_and_slides_a_cracked_one_before_a_sound_one() {
+        let loads = Loads {
+            covering_pa: 30.0 * G,
+            ..Loads::default()
+        };
+        let wall = |e: &Expansion, level: Level| {
+            *e.groups
+                .iter()
+                .find(|g| g.id == group_id(level, None, GroupKind::MassWall, 0))
+                .expect("a wall")
+        };
+        // Tied, each storey's wall stands 2.5 m over 30 cm: it overturns past C_s = 0.12.
+        let tied = four_storeys_of_rubble(true);
+        let g = wall(&tied, Level::Ground);
+        let m = |cs: f64, cracked: bool| {
+            lateral_margin(&g, &sound(1.0), &tied, &loads, &rubble(), cs, cracked).strength
+        };
+        // Out of plane governs: sliding needs at least μ / C_s, nine times over.
+        assert!((m(0.06, false) - 2.0).abs() < 1e-9, "{}", m(0.06, false));
+        assert!(m(0.2, false) < 1.0, "{}", m(0.2, false));
+        // Untied, it stands 10 m: it overturns at a quarter of that.
+        let loose = four_storeys_of_rubble(false);
+        let lg = wall(&loose, Level::Ground);
+        let lm = lateral_margin(&lg, &sound(1.0), &loose, &loads, &rubble(), 0.06, false).strength;
+        assert!(lm < m(0.06, false) && lm < 1.0, "{lm}");
+        // A cracked wall slides sooner than a sound one, and nothing shakes it at C_s 0.
+        // Two metres thick it no longer overturns first (t/h 0.8 > μ): cracked it slides at
+        // μ / C_s, and sound its cohesion holds it longer.
+        let squat = Group {
+            section_cm: [g.section_cm[0], 200],
+            ..g
+        };
+        let slide = |cracked: bool| {
+            lateral_margin(&squat, &sound(1.0), &tied, &loads, &rubble(), 0.1, cracked).strength
+        };
+        assert!(
+            (slide(true) - MASONRY_FRICTION / 0.1).abs() < 1e-9,
+            "{}",
+            slide(true)
+        );
+        assert!(slide(false) > slide(true), "{}", slide(false));
+        assert_eq!(m(0.0, false), f64::INFINITY);
+        // A covering carries nothing this way.
+        let cover = Group {
+            kind: GroupKind::Covering,
+            ..g
+        };
+        assert_eq!(
+            lateral_margin(&cover, &sound(1.0), &tied, &loads, &rubble(), 0.3, false),
+            Margin::NONE
+        );
     }
 }

@@ -1,0 +1,19 @@
+# A trussed roof: principal rafters and a king post on the tie beam at each frame line, carrying
+# purlins on which the rafters rest, so a rafter spans half its slope and a frame may be wider
+# (ADR-0031 §2; research 11-05 §2.1: pole members span 2-5 m). Nobody knows it at first; framing
+# a building counts toward it, a far technique (a tuning value). Learnt in 150 hours beside a
+# knower, and at home by children who build (07-02 §2.3, a tuning value).
+kind = "technique"
+id = "core:technique/trussed_roof"
+name = "Trussed roofs"
+can = "frame a roof of trusses at each frame line, with purlins carrying the rafters"
+domain = "core:skill/woodworking"
+requires = [["core:technique/jointed_frame"]]
+tried_in = ["core:activity/build_hut"]
+needs = ["core:good/timber"]
+e50_h = 3000.0                   # a design prior (M8d slice CZ)
+learn_h = 150.0
+upbringing = true
+
+[answers]
+spoilage = []

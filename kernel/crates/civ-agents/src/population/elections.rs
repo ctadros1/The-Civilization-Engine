@@ -1096,6 +1096,7 @@ impl Population {
             Membership::Landholders => fields.iter().any(|f| f.holder.household() == Some(hh)),
             Membership::Watch => self.keeps_a_watch(person),
             Membership::Seats => self.sits(person),
+            m @ (Membership::Organized | Membership::Privileged) => self.closed_member(m, hh),
         }
     }
 

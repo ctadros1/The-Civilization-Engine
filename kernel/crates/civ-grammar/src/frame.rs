@@ -18,6 +18,21 @@
 //! the roof's area is its projection over the cosine of its pitch (11-04 §2.3). Part and group ids
 //! are semantic (research 11-03 §4.8): level, bay or frame line, kind and index, a byte each, so a
 //! building with one more bay keeps every id it had.
+//!
+//! Version 3 (ADR-0031 §1) has room for twelve bays and four storeys and names its own
+//! parameters (roof and post systems, wall ties, each storey's wall thickness and openings, a
+//! stair). Its mass walls are laid storey by storey, each storey's at its own thickness, thinning
+//! upward and grouped by storey. It may rise three or four storeys, each above the first floored
+//! on joists like the second; three or more need a stair, a flight from each storey to the next
+//! in place of the ladder, beside the well of the flight below, and each storey gives up the
+//! flights' floor. Each storey may leave a share of its wall open, a window half the storey high
+//! in every piece of wall the door does not split; an opening costs no wall and shortens the
+//! length a mass wall bears on. Its roof may be trussed: two principal rafters and a king post on
+//! the tie beam at each frame line, carrying a purlin along each slope halfway up on which the
+//! rafters rest, so each spans half its slope. Its posts may be storeyed, each storey's standing
+//! on the frame below rather than running through every storey; its mass walls may be tied, a
+//! timber bond along every wall at each storey's head. With its own parameters all 0, a frame of
+//! wattle walls builds what version 2 builds.
 
 use std::f64::consts::TAU;
 
@@ -26,14 +41,43 @@ use crate::{
     PartKind, RECT_QUANTUM_CM, Space, SpaceUse, Stage, StageNeeds, TURN, cm, group_id, within,
 };
 
-/// Version of the frame grammar.
-pub const FRAME_VERSION: u16 = 2;
-/// Most bays a frame may have.
-pub const MAX_BAYS: i32 = 8;
-/// Most storeys a frame may have (research 11-05 §2.2: one to three in timber; two here).
-pub const MAX_STOREYS: u8 = 2;
+/// The newest version of the frame grammar (ADR-0031 §1). Versions 1 and 2 are frozen: what they
+/// expand to is pinned by their goldens.
+pub const FRAME_VERSION: u16 = 3;
+/// Most bays a frame may have (version 3; versions 1 and 2 have at most eight).
+pub const MAX_BAYS: i32 = 12;
+/// Most storeys a frame may have (version 3, ADR-0031 §1; versions 1 and 2 have at most two:
+/// research 11-05 §2.2, one to three in timber).
+pub const MAX_STOREYS: u8 = 4;
+
+/// The frame version builders design under: version 3 since M8d slice CZ (ADR-0031 §2), whose
+/// specs with nothing of their own build what version 2 builds. Content's programs are held to
+/// what it allows.
+pub const FRAME_DESIGN_VERSION: u16 = 3;
+
+/// The most bays and storeys a frame of `version` may have.
+pub fn frame_limits(version: u16) -> (i32, u8) {
+    if version >= 3 {
+        (MAX_BAYS, MAX_STOREYS)
+    } else {
+        (8, 2)
+    }
+}
+
 /// Most component groups an expansion may have (research 11-06 §5.1: 8 to 32).
 pub const MAX_GROUPS: usize = 32;
+/// Most component groups a version 3 expansion may have: a hall of twelve bays and four storeys
+/// keeps a group for each floor's joists in each bay.
+pub const MAX_GROUPS_V3: usize = 96;
+
+/// The most component groups an expansion of frame `version` may have.
+pub fn max_groups(version: u16) -> usize {
+    if version >= 3 {
+        MAX_GROUPS_V3
+    } else {
+        MAX_GROUPS
+    }
+}
 /// Most rafters a slope has in a bay, or joists a floor has in a bay: indexes fit a byte.
 const MAX_MEMBERS_PER_BAY: usize = 64;
 /// Rise of a ladder from the horizontal, hundredths of a degree.
@@ -42,6 +86,15 @@ pub const LADDER_TILT_CENTIDEG: i32 = 7000;
 pub const LADDER_WIDTH_CM: i32 = 50;
 /// Thickness of a ladder, centimetres.
 const LADDER_DEPTH_CM: f64 = 8.0;
+/// Most of a storey's wall an opening may leave open, thousandths: a window half the storey high
+/// and at most nine tenths of its panel wide.
+pub const MAX_OPENING_PERMILLE: i32 = 450;
+/// Rise of a stair from the horizontal, hundredths of a degree.
+pub const STAIR_TILT_CENTIDEG: i32 = 3800;
+/// Width of a stair, centimetres.
+pub const STAIR_WIDTH_CM: i32 = 80;
+/// Depth of a stair's strings and treads, centimetres.
+const STAIR_DEPTH_CM: f64 = 20.0;
 /// Height of a hearth's clay, centimetres.
 const HEARTH_HEIGHT_CM: f64 = 10.0;
 /// How much wider than its post a posthole is dug, centimetres (as the hut's).
@@ -78,6 +131,26 @@ pub mod frame_params {
     pub const STYLE: usize = 12;
     /// Number of style traits.
     pub const STYLE_TRAITS: usize = 4;
+
+    // Version 3 (ADR-0031 §1). In versions 1 and 2 every one of these is 0.
+
+    /// The roof system: 0, rafters from the eaves to the ridge; 1, a truss at each frame line
+    /// carrying purlins.
+    pub const ROOF_SYSTEM: usize = 16;
+    /// The post system: 0, posts through every storey to the plates; 1, each storey's posts
+    /// standing on the frame below.
+    pub const POST_SYSTEM: usize = 17;
+    /// Wall ties: 0, none; 1, floors and roof framed into the walls at each storey.
+    pub const TIES: usize = 18;
+    /// The first of four: each storey's mass-wall thickness, centimetres, the ground storey's
+    /// first; 0 takes [`WALL_CM`].
+    pub const STOREY_WALL_CM: usize = 19;
+    /// The first of four: the share of each storey's wall left open, thousandths.
+    pub const OPENINGS: usize = 23;
+    /// A stair: 0, none; 1, a stair from each storey to the next.
+    pub const STAIR: usize = 27;
+    /// The first parameter no version has yet; it and those after it are 0.
+    pub const SPARE: usize = 28;
 
     /// The long wall to the right of the length's direction (`+v`).
     pub const SIDE_RIGHT: i32 = 0;
@@ -135,8 +208,13 @@ pub struct FrameRules {
     pub overhang_cm: (i32, i32),
     /// Allowed height of a raised floor, centimetres; `(0, 0)` when the program has none.
     pub floor_raise_cm: (i32, i32),
-    /// Allowed thickness of a daubed wall, centimetres.
+    /// Allowed thickness of a daubed wall, centimetres (and, before version 3, of a mass wall).
     pub wall_cm: (i32, i32),
+    /// Allowed thickness of a mass wall from version 3, centimetres (ADR-0031 §1).
+    pub mass_wall_cm: (i32, i32),
+    /// What laying each kind of mass wall takes and what it gives: rubble, mud brick and fired
+    /// brick, wall kinds 1 to 3 (ADR-0031 §1).
+    pub masonry: [Masonry; 3],
     /// Whether bays may be floored as lofts.
     pub lofts: bool,
     /// What the first storey is for.
@@ -205,6 +283,17 @@ pub struct FrameRules {
     pub thatch_kg_per_m2: f64,
     /// Boards in a ladder, kilograms.
     pub ladder_kg: f64,
+}
+
+/// A kind of mass wall's figures, from content (ADR-0031 §1).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Masonry {
+    /// Person-hours to lay a cubic metre of wall.
+    pub h_per_m3: f64,
+    /// A cubic metre's weight, kilograms.
+    pub kg_per_m3: f64,
+    /// The wall's strength in compression, pascals.
+    pub strength_pa: f64,
 }
 
 fn refuse<T>(what: impl Into<String>) -> Result<T, GrammarError> {
@@ -284,21 +373,38 @@ struct Layout<'r> {
     raised: bool,
     door_side: i32,
     door_bay: i32,
-    /// Floors on joists: a raised floor (with its middle rail) and an upper storey's, with the
+    /// Floors on joists: a raised floor (with its middle rail) and each upper storey's, with the
     /// height of their surface.
     floors: Vec<(Level, f64, bool)>,
+    /// Whether a stair rises from each storey to the next (version 3) in place of a ladder.
+    stair: bool,
+    /// The share of each storey's wall left open (version 3), a fraction.
+    openings: Vec<f64>,
+    /// Whether a truss stands at each frame line carrying purlins (version 3).
+    truss: bool,
+    /// Whether each storey's posts stand on the frame below, not through every storey
+    /// (version 3).
+    storeyed: bool,
+    /// Whether a timber tie binds the mass walls at each storey's head (version 3).
+    ties: bool,
     wall_kind: i32,
     footing: i32,
     tile: bool,
+    /// The grammar version it was designed under.
+    version: u16,
+    /// Each storey's wall thickness, centimetres: all `wt` but in version 3's mass walls, which
+    /// may thin upward (ADR-0031 §1).
+    storey_wt: Vec<f64>,
 }
 
 impl<'r> Layout<'r> {
     /// Checks `spec` against `rules` (ADR-0009 §2) and lays it out.
     fn new(spec: &BuildingSpec, rules: &'r FrameRules) -> Result<Layout<'r>, GrammarError> {
         use frame_params as fp;
-        if spec.version != 1 && spec.version != FRAME_VERSION {
+        if !(1..=FRAME_VERSION).contains(&spec.version) {
             return Err(GrammarError::UnknownVersion(spec.version));
         }
+        let (most_bays, most_storeys) = frame_limits(spec.version);
         let Footprint::Rect {
             x: cx,
             y: cy,
@@ -336,7 +442,7 @@ impl<'r> Layout<'r> {
         // What the spec chose, against what the program allows.
         let bays = p[fp::BAYS];
         within("bays", bays, rules.bays)?;
-        within("bays", bays, (1, MAX_BAYS))?;
+        within("bays", bays, (1, most_bays))?;
         for (name, v) in [("length", length), ("width", width)] {
             if v <= 0 || v % RECT_QUANTUM_CM != 0 {
                 return refuse(format!(
@@ -356,7 +462,7 @@ impl<'r> Layout<'r> {
             storeys,
             (i32::from(rules.storeys.0), i32::from(rules.storeys.1)),
         )?;
-        within("storeys", storeys, (1, i32::from(MAX_STOREYS)))?;
+        within("storeys", storeys, (1, i32::from(most_storeys)))?;
         let eave = p[fp::EAVE_CM];
         within("storey height", eave, rules.eave_cm)?;
         let pitch_cd = p[fp::PITCH_CENTIDEG];
@@ -370,8 +476,16 @@ impl<'r> Layout<'r> {
         let overhang = p[fp::OVERHANG_CM];
         within("overhang", overhang, rules.overhang_cm)?;
         let wall = p[fp::WALL_CM];
-        within("wall thickness", wall, rules.wall_cm)?;
         let wall_kind = p[fp::WALL_KIND];
+        // From version 3 a mass wall has its program's own range (ADR-0031 §1); before it, the
+        // daub's, so that every building already saved stands as it was.
+        let mass_range = spec.version >= 3 && wall_kind > 0;
+        let wall_range = if mass_range {
+            rules.mass_wall_cm
+        } else {
+            rules.wall_cm
+        };
+        within("wall thickness", wall, wall_range)?;
         let footing = p[fp::FOOTING];
         let tile = spec.materials[usize::from(COVERING)].contains("tile");
         if spec.version == 1 {
@@ -405,7 +519,126 @@ impl<'r> Layout<'r> {
             .iter()
             .any(|&t| t != 0)
         {
-            return refuse("frame version 1 and 2 have no style traits");
+            return refuse("no frame version lays out style traits yet");
+        }
+        // Version 3's parameters: none before it, and in it only those laid out so far.
+        let laid_out = |i: usize| {
+            spec.version >= 3
+                && ((fp::STOREY_WALL_CM..fp::OPENINGS + 4).contains(&i)
+                    || i == fp::STAIR
+                    || i == fp::ROOF_SYSTEM
+                    || i == fp::POST_SYSTEM
+                    || i == fp::TIES)
+        };
+        if let Some(i) = (fp::ROOF_SYSTEM..crate::PARAMS).find(|&i| p[i] != 0 && !laid_out(i)) {
+            return refuse(if spec.version < 3 {
+                format!("parameter {i} is unknown to frame version {}", spec.version)
+            } else {
+                format!("parameter {i} is not laid out by frame version 3 yet")
+            });
+        }
+        // Each storey's mass wall (version 3): its own thickness, never thicker than the one below.
+        let mut storey_wt = vec![f64::from(wall); storeys as usize];
+        for t in 0..4 {
+            let v = p[fp::STOREY_WALL_CM + t];
+            if v == 0 {
+                continue;
+            }
+            if t >= storey_wt.len() {
+                return refuse(format!(
+                    "storey {} has a wall thickness and no storey",
+                    t + 1
+                ));
+            }
+            if wall_kind == 0 {
+                return refuse(
+                    "wattle walls have one thickness; storeys' thicknesses are for mass walls",
+                );
+            }
+            within("storey wall thickness", v, wall_range)?;
+            storey_wt[t] = f64::from(v);
+        }
+        if storey_wt.windows(2).any(|w| w[1] > w[0]) {
+            return refuse("a mass wall may thin upward, not thicken");
+        }
+        // Each storey's openings (version 3): a share of its wall, on the bay rhythm.
+        let mut openings = vec![0.0; storeys as usize];
+        for t in 0..4 {
+            let v = p[fp::OPENINGS + t];
+            if v == 0 {
+                continue;
+            }
+            if t >= openings.len() {
+                return refuse(format!(
+                    "storey {} has openings (parameter {}) and no storey",
+                    t + 1,
+                    fp::OPENINGS + t
+                ));
+            }
+            within("openings", v, (0, MAX_OPENING_PERMILLE))?;
+            openings[t] = f64::from(v) / 1000.0;
+        }
+        let roof_system = p[fp::ROOF_SYSTEM];
+        if !(0..=1).contains(&roof_system) {
+            return refuse(format!(
+                "roof system {roof_system} (parameter {}) is unknown to frame version {}",
+                fp::ROOF_SYSTEM,
+                spec.version
+            ));
+        }
+        let post_system = p[fp::POST_SYSTEM];
+        if !(0..=1).contains(&post_system) {
+            return refuse(format!(
+                "post system {post_system} (parameter {}) is unknown to frame version {}",
+                fp::POST_SYSTEM,
+                spec.version
+            ));
+        }
+        if post_system == 1 && wall_kind != 0 {
+            return refuse(format!(
+                "storeyed posts (parameter {}) stand in a timber frame; mass walls have none",
+                fp::POST_SYSTEM
+            ));
+        }
+        if post_system == 1 && storeys == 1 {
+            return refuse(format!(
+                "storeyed posts (parameter {}) need a storey above the first",
+                fp::POST_SYSTEM
+            ));
+        }
+        let ties = p[fp::TIES];
+        if !(0..=1).contains(&ties) {
+            return refuse(format!(
+                "wall ties {ties} (parameter {}) are unknown to frame version {}",
+                fp::TIES,
+                spec.version
+            ));
+        }
+        if ties == 1 && wall_kind == 0 {
+            return refuse(format!(
+                "wall ties (parameter {}) bind mass walls; a timber frame is tied by its joints",
+                fp::TIES
+            ));
+        }
+        let stair = p[fp::STAIR];
+        if !(0..=1).contains(&stair) {
+            return refuse(format!(
+                "stair {stair} (parameter {}) is unknown to frame version {}",
+                fp::STAIR,
+                spec.version
+            ));
+        }
+        if storeys > 2 && stair == 0 {
+            return refuse(format!(
+                "{storeys} storeys need a stair (parameter {})",
+                fp::STAIR
+            ));
+        }
+        if storeys == 1 && stair != 0 {
+            return refuse(format!(
+                "a stair (parameter {}) needs a storey above the first",
+                fp::STAIR
+            ));
         }
         // A program with no raised floor allows only 0; one whose floor may stand on the ground
         // or be raised allows 0 among the rest.
@@ -514,21 +747,39 @@ impl<'r> Layout<'r> {
             raised,
             door_side,
             door_bay,
-            floors: [
-                raised.then_some((Level::Ground, r, true)),
-                (storeys > 1).then_some((Level::Upper, r + h, false)),
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
+            floors: raised
+                .then_some((Level::Ground, r, true))
+                .into_iter()
+                .chain((1..storeys).map(|t| (storey_level(t), r + h * f64::from(t), false)))
+                .collect(),
+            stair: stair != 0,
+            openings,
+            truss: roof_system == 1,
+            storeyed: post_system == 1,
+            ties: ties == 1,
             wall_kind,
             footing,
             tile,
+            version: spec.version,
+            storey_wt,
         };
         if raised && layout.wt / 2.0 + layout.ladder_run(r) > o {
             return refuse(format!(
                 "the ladder up to a floor raised {raise} cm would stand beyond the roof's edge"
             ));
+        }
+        if layout.stair {
+            let run = layout.stair_run();
+            if run > l - layout.pd {
+                return refuse(format!(
+                    "a stair rising {eave} cm runs {run:.0} cm, more than the building's length"
+                ));
+            }
+            if f64::from(2 * STAIR_WIDTH_CM) > w - layout.pd {
+                return refuse(format!(
+                    "two flights of stairs {STAIR_WIDTH_CM} cm wide do not fit a width of {width} cm"
+                ));
+            }
         }
         Ok(layout)
     }
@@ -579,6 +830,68 @@ impl<'r> Layout<'r> {
         rise / ladder_tilt().sin()
     }
 
+    /// How far a flight of stairs reaches along the length to rise a storey, and its length.
+    fn stair_run(&self) -> f64 {
+        self.h / stair_tilt().tan()
+    }
+
+    fn stair_len(&self) -> f64 {
+        self.h / stair_tilt().sin()
+    }
+
+    /// Floor a storey gives up to the stair, square metres: the flight rising from it and the
+    /// well it is reached through, each a flight's plan.
+    fn stair_m2(&self, t: i32) -> f64 {
+        if !self.stair {
+            return 0.0;
+        }
+        let flights = usize::from(t > 0) + usize::from(t + 1 < self.storeys);
+        flights as f64 * self.stair_run() * f64::from(STAIR_WIDTH_CM) * M2
+    }
+
+    /// The width of the window in a wall piece `piece` wide on storey `t`, centimetres: none in
+    /// a piece the door splits. A window is half the storey high, so it leaves its storey's share
+    /// of the piece open.
+    fn window(&self, t: i32, piece: f64, door_here: bool) -> f64 {
+        if door_here {
+            0.0
+        } else {
+            2.0 * self.openings[t as usize] * piece
+        }
+    }
+
+    /// Whether the door splits the piece of wall `side` in bay `j` (0 on an end wall) on storey
+    /// `t`.
+    fn door_here(&self, t: i32, side: i32, j: usize) -> bool {
+        t == 0 && side == self.door_side && (side >= SIDE_BACK || j as i32 == self.door_bay)
+    }
+
+    /// The windows' width along long wall `side` on storey `t`, centimetres, for panels
+    /// `panel` wide.
+    fn windows_along(&self, t: i32, side: i32, panel: f64) -> f64 {
+        (0..self.n)
+            .map(|j| self.window(t, panel, self.door_here(t, side, j)))
+            .sum()
+    }
+
+    /// A truss's principal rafter, from a plate to the apex, and its king post, centimetres.
+    fn principal_len(&self) -> f64 {
+        self.w / 2.0 / self.pitch.cos()
+    }
+
+    fn king_post_h(&self) -> f64 {
+        self.z_a - self.z_p
+    }
+
+    /// What storey `t` is for.
+    fn use_of(&self, t: i32) -> SpaceUse {
+        if t == 0 {
+            self.rules.ground_use
+        } else {
+            self.rules.upper_use
+        }
+    }
+
     /// Every floor on joists by bay: (level, bay, floor surface height); raised and upper floors
     /// cover every bay, lofts their own.
     fn decks(&self) -> Vec<(Level, usize, f64)> {
@@ -608,12 +921,17 @@ fn ladder_tilt() -> f64 {
     f64::from(LADDER_TILT_CENTIDEG) / 100.0 * TAU / 360.0
 }
 
+/// A stair's rise from the horizontal, radians.
+fn stair_tilt() -> f64 {
+    f64::from(STAIR_TILT_CENTIDEG) / 100.0 * TAU / 360.0
+}
+
 /// The slopes: index and which side of the ridge (`+v`, `-v`).
 const SLOPES: [(usize, f64); 2] = [(0, 1.0), (1, -1.0)];
 
-/// The level of storey `t` (0 the first).
+/// The level of storey `t` (0 the first; a layout has at most [`MAX_STOREYS`]).
 fn storey_level(t: i32) -> Level {
-    if t == 0 { Level::Ground } else { Level::Upper }
+    Level::storey(t as usize).unwrap_or(Level::Fourth)
 }
 
 /// The parts of a building as they are laid out, with their semantic ids.
@@ -648,6 +966,29 @@ impl Parts<'_, '_> {
             tilt,
             material,
         });
+    }
+
+    /// A window `width` wide in the wall piece at `slot` (level, bay, index), half its storey high
+    /// and centred in it, through a wall `thickness` thick facing `angle`; none when `width` is 0.
+    fn window(
+        &mut self,
+        (level, bay, index): (Level, Option<usize>, usize),
+        width: f64,
+        at: (f64, f64, f64),
+        thickness: f64,
+        angle: u16,
+    ) {
+        if width > 0.0 {
+            let h = self.layout.h;
+            self.push(
+                (level, bay, PartKind::Window, index),
+                Stage::Walls,
+                at,
+                [width, thickness, h / 2.0],
+                (angle, 0),
+                None,
+            );
+        }
     }
 
     /// A timber member lying flat.
@@ -739,7 +1080,27 @@ fn foundation(p: &mut Parts) {
 fn frame(p: &mut Parts) {
     let l = p.layout;
     for k in 0..=l.n {
-        if l.wall_kind == 0 {
+        if l.wall_kind == 0 && l.storeyed {
+            // Each storey's posts stand on the frame below: the first's in the ground to the head
+            // of the first storey, each above it a storey high.
+            for t in 0..l.storeys {
+                let bottom = if t == 0 {
+                    -l.depth
+                } else {
+                    l.z_g + l.h * f64::from(t)
+                };
+                let top = l.z_g + l.h * f64::from(t + 1);
+                for (side, v) in l.long_walls() {
+                    p.member(
+                        (storey_level(t), Some(k), PartKind::Post, side as usize),
+                        Stage::Frame,
+                        (l.u_line(k), v, (bottom + top) / 2.0),
+                        [l.pd, l.pd, top - bottom],
+                        l.along(),
+                    );
+                }
+            }
+        } else if l.wall_kind == 0 {
             for (side, v) in l.long_walls() {
                 p.member(
                     (Level::Ground, Some(k), PartKind::Post, side as usize),
@@ -861,6 +1222,49 @@ fn frame(p: &mut Parts) {
             l.along(),
         );
     }
+    if l.truss {
+        // A truss at each frame line: two principal rafters on the tie beam meeting a king post
+        // at the apex; and a purlin along each slope halfway up, a bay at a time, on which the
+        // rafters rest.
+        let z_mid = (l.z_p + l.z_a) / 2.0;
+        for k in 0..=l.n {
+            for (sl, sign) in SLOPES {
+                p.push(
+                    (Level::Roof, Some(k), PartKind::Truss, sl),
+                    Stage::Frame,
+                    (l.u_line(k), sign * l.w / 4.0, z_mid),
+                    [l.principal_len(), l.beam, l.beam],
+                    (
+                        if sign > 0.0 {
+                            l.back_across()
+                        } else {
+                            l.across()
+                        },
+                        l.pitch_cd,
+                    ),
+                    Some(TIMBER),
+                );
+            }
+            p.member(
+                (Level::Roof, Some(k), PartKind::Truss, 2),
+                Stage::Frame,
+                (l.u_line(k), 0.0, z_mid),
+                [l.beam, l.beam, l.king_post_h()],
+                l.along(),
+            );
+        }
+        for j in 0..l.n {
+            for (sl, sign) in SLOPES {
+                p.member(
+                    (Level::Roof, Some(j), PartKind::Purlin, sl),
+                    Stage::Frame,
+                    (l.u_line(j) + l.b / 2.0, sign * l.w / 4.0, z_mid + l.beam),
+                    [l.b, l.beam, l.beam],
+                    l.along(),
+                );
+            }
+        }
+    }
 }
 
 /// The pieces of a wall panel `panel` wide: whole, or split either side of the door, as (index,
@@ -879,10 +1283,13 @@ fn pieces(panel: f64, door_w: f64, door_here: bool) -> Vec<(usize, f64, f64)> {
 
 /// Walls: wattle and daub between the posts, or mass walls of rubble, mud brick or fired brick,
 /// storey by storey, the door's panel split either side of it; and the gables. The walls' area,
-/// square centimetres.
-fn walls(p: &mut Parts) -> f64 {
+/// square centimetres, and a mass wall's volume, cubic centimetres (each storey at its own
+/// thickness).
+fn walls(p: &mut Parts) -> (f64, f64) {
     let l = p.layout;
     let mut area = 0.0;
+    // A mass wall's volume, cubic centimetres, storey by storey.
+    let mut volume = 0.0;
     if l.wall_kind == 0 {
         for t in 0..l.storeys {
             let level = storey_level(t);
@@ -894,10 +1301,18 @@ fn walls(p: &mut Parts) -> f64 {
                 };
                 for j in 0..l.n {
                     for (side, v) in l.long_walls() {
-                        let door_here = t == 0 && side == l.door_side && j as i32 == l.door_bay;
+                        let door_here = l.door_here(t, side, j);
                         for (half, du, pw) in pieces(l.b - l.pd, l.door_w, door_here) {
+                            let open = l.window(t, pw, door_here);
                             if kind == PartKind::Wattle {
-                                area += pw * l.h;
+                                area += pw * l.h - open * l.h / 2.0;
+                                p.window(
+                                    (level, Some(j), side as usize * 2 + half),
+                                    open,
+                                    (l.u_line(j) + l.b / 2.0 + du, v, zc),
+                                    l.wt,
+                                    l.along(),
+                                );
                             }
                             p.push(
                                 (level, Some(j), kind, side as usize * 2 + half),
@@ -911,10 +1326,18 @@ fn walls(p: &mut Parts) -> f64 {
                     }
                 }
                 for (side, u) in l.end_walls() {
-                    let door_here = t == 0 && side == l.door_side;
+                    let door_here = l.door_here(t, side, 0);
                     for (half, dv, pw) in pieces(l.w - l.pd, l.door_w, door_here) {
+                        let open = l.window(t, pw, door_here);
                         if kind == PartKind::Wattle {
-                            area += pw * l.h;
+                            area += pw * l.h - open * l.h / 2.0;
+                            p.window(
+                                (level, None, side as usize * 2 + half),
+                                open,
+                                (u, dv, zc),
+                                l.wt,
+                                l.across(),
+                            );
                         }
                         p.push(
                             (level, None, kind, side as usize * 2 + half),
@@ -944,16 +1367,27 @@ fn walls(p: &mut Parts) -> f64 {
         for t in 0..l.storeys {
             let level = storey_level(t);
             let zc = l.z_g + l.h * f64::from(t) + l.h / 2.0;
+            let wt = l.storey_wt[t as usize];
             for j in 0..l.n {
                 for (side, v) in l.long_walls() {
-                    let door_here = t == 0 && side == l.door_side && j as i32 == l.door_bay;
+                    let door_here = l.door_here(t, side, j);
                     for (half, du, pw) in pieces(l.b, l.door_w, door_here) {
-                        area += pw * l.h;
+                        let open = l.window(t, pw, door_here);
+                        let at = (l.u_line(j) + l.b / 2.0 + du, v, zc);
+                        area += pw * l.h - open * l.h / 2.0;
+                        volume += (pw * l.h - open * l.h / 2.0) * wt;
+                        p.window(
+                            (level, Some(j), side as usize * 2 + half),
+                            open,
+                            at,
+                            wt,
+                            l.along(),
+                        );
                         p.push(
                             (level, Some(j), PartKind::MassWall, side as usize * 2 + half),
                             Stage::Walls,
                             (l.u_line(j) + l.b / 2.0 + du, v, zc),
-                            [pw, l.wt, l.h],
+                            [pw, wt, l.h],
                             (l.along(), 0),
                             Some(WATTLE),
                         );
@@ -961,14 +1395,23 @@ fn walls(p: &mut Parts) -> f64 {
                 }
             }
             for (side, u) in l.end_walls() {
-                let door_here = t == 0 && side == l.door_side;
+                let door_here = l.door_here(t, side, 0);
                 for (half, dv, pw) in pieces(l.w, l.door_w, door_here) {
-                    area += pw * l.h;
+                    let open = l.window(t, pw, door_here);
+                    area += pw * l.h - open * l.h / 2.0;
+                    volume += (pw * l.h - open * l.h / 2.0) * wt;
+                    p.window(
+                        (level, None, side as usize * 2 + half),
+                        open,
+                        (u, dv, zc),
+                        wt,
+                        l.across(),
+                    );
                     p.push(
                         (level, None, PartKind::MassWall, side as usize * 2 + half),
                         Stage::Walls,
                         (u, dv, zc),
-                        [pw, l.wt, l.h],
+                        [pw, wt, l.h],
                         (l.across(), 0),
                         Some(WATTLE),
                     );
@@ -976,19 +1419,55 @@ fn walls(p: &mut Parts) -> f64 {
             }
         }
         let gable_h = l.z_a - l.z_p;
+        let top_wt = l.storey_wt.last().copied().unwrap_or(l.wt);
         for (side, u) in l.end_walls() {
             area += l.w * gable_h / 2.0;
+            volume += l.w * gable_h / 2.0 * top_wt;
             p.push(
                 (Level::Roof, None, PartKind::MassWall, side as usize),
                 Stage::Walls,
                 (u, 0.0, l.z_p + gable_h / 3.0),
-                [l.w, l.wt, gable_h],
+                [l.w, top_wt, gable_h],
                 (l.across(), 0),
                 Some(WATTLE),
             );
         }
     }
-    area
+    (area, volume)
+}
+
+/// Wall ties: a timber bond along each mass wall at the head of every storey, a bay at a time
+/// on the long walls and whole across the ends, into which that storey's floor or the roof is
+/// framed.
+fn ties(p: &mut Parts) {
+    let l = p.layout;
+    if !l.ties {
+        return;
+    }
+    for t in 0..l.storeys {
+        let level = storey_level(t);
+        let z = l.z_g + l.h * f64::from(t + 1) - l.beam / 2.0;
+        for j in 0..l.n {
+            for (side, v) in l.long_walls() {
+                p.member(
+                    (level, Some(j), PartKind::WallTie, side as usize),
+                    Stage::Walls,
+                    (l.u_line(j) + l.b / 2.0, v, z),
+                    [l.b, l.beam, l.beam],
+                    l.along(),
+                );
+            }
+        }
+        for (side, u) in l.end_walls() {
+            p.member(
+                (level, None, PartKind::WallTie, side as usize),
+                Stage::Walls,
+                (u, 0.0, z),
+                [l.w, l.beam, l.beam],
+                l.across(),
+            );
+        }
+    }
 }
 
 /// Roof: the covering, a slope at a time.
@@ -1019,9 +1498,10 @@ fn roof(p: &mut Parts) {
 }
 
 /// Finish: a floor beaten on the ground, or boards on the joists of every floor; the hearth on
-/// the lowest living storey; ladders up to a raised floor, an upper storey and a loft. How many
-/// ladders.
-fn finish(p: &mut Parts) -> usize {
+/// the lowest living storey; ladders up to a raised floor, an upper storey and a loft, or a stair
+/// from each storey to the next. What the ladders and flights take, in ladders: a flight takes a
+/// ladder's labour and boards by its boards' area against a ladder's of the same rise.
+fn finish(p: &mut Parts) -> f64 {
     let l = p.layout;
     if !l.raised {
         p.push(
@@ -1043,8 +1523,7 @@ fn finish(p: &mut Parts) -> usize {
             Some(BOARDS),
         );
     }
-    let uses = [l.rules.ground_use, l.rules.upper_use];
-    if let Some(t) = (0..l.storeys).find(|&t| uses[t as usize] == SpaceUse::Living) {
+    if let Some(t) = (0..l.storeys).find(|&t| l.use_of(t) == SpaceUse::Living) {
         let hearth = f64::from(l.rules.hearth_cm);
         p.push(
             (storey_level(t), None, PartKind::Hearth, 0),
@@ -1066,7 +1545,7 @@ fn finish(p: &mut Parts) -> usize {
             LADDER_DEPTH_CM,
         ]
     };
-    let mut ladders = 0;
+    let mut ladders = 0.0;
     if l.raised {
         // Outside the door, its top at the doorway, its foot under the eaves.
         let out = l.wt / 2.0 + l.ladder_run(l.r) / 2.0;
@@ -1077,7 +1556,7 @@ fn finish(p: &mut Parts) -> usize {
             SIDE_BACK => (-l.l / 2.0 - out, 0.0, l.along()),
             _ => (l.l / 2.0 + out, 0.0, l.back()),
         };
-        ladders += 1;
+        ladders += 1.0;
         p.push(
             (Level::Ground, None, PartKind::Ladder, 0),
             Stage::Finish,
@@ -1087,8 +1566,29 @@ fn finish(p: &mut Parts) -> usize {
             Some(BOARDS),
         );
     }
-    if l.storeys > 1 {
-        ladders += 1;
+    if l.stair {
+        // Along the left long wall from the back, each flight beside the well of the one below.
+        let run = l.stair_run();
+        let width = f64::from(STAIR_WIDTH_CM);
+        let flight = l.stair_len() * width / (l.ladder_len(l.h) * f64::from(LADDER_WIDTH_CM));
+        for t in 0..l.storeys - 1 {
+            let v = -l.w / 2.0 + l.pd / 2.0 + width * (f64::from(t % 2) + 0.5);
+            ladders += flight;
+            p.push(
+                (storey_level(t), None, PartKind::Stair, 0),
+                Stage::Finish,
+                (
+                    l.u_line(0) + l.pd / 2.0 + run / 2.0,
+                    v,
+                    l.z_g + l.h * f64::from(t) + l.h / 2.0,
+                ),
+                [l.stair_len(), width, STAIR_DEPTH_CM],
+                (l.along(), STAIR_TILT_CENTIDEG),
+                Some(BOARDS),
+            );
+        }
+    } else if l.storeys > 1 {
+        ladders += 1.0;
         p.push(
             (Level::Upper, None, PartKind::Ladder, 0),
             Stage::Finish,
@@ -1101,7 +1601,7 @@ fn finish(p: &mut Parts) -> usize {
     if let Some(&j) = l.lofts.first() {
         let from = l.z_g + l.h * f64::from(l.storeys - 1);
         let rise = l.z_p + l.jst + l.dk - from;
-        ladders += 1;
+        ladders += 1.0;
         p.push(
             (Level::Loft, None, PartKind::Ladder, 0),
             Stage::Finish,
@@ -1129,20 +1629,14 @@ fn facts(l: &Layout) -> Facts {
     let rules = l.rules;
     let storey_m2 = l.l * l.w * M2;
     let bay_m2 = l.b * l.w * M2;
-    let mut spaces = vec![Space {
-        level: Level::Ground,
-        bays: l.all_bays as u16,
-        area_m2: storey_m2,
-        use_: rules.ground_use,
-    }];
-    if l.storeys > 1 {
-        spaces.push(Space {
-            level: Level::Upper,
+    let mut spaces: Vec<Space> = (0..l.storeys)
+        .map(|t| Space {
+            level: storey_level(t),
             bays: l.all_bays as u16,
-            area_m2: storey_m2,
-            use_: rules.upper_use,
-        });
-    }
+            area_m2: storey_m2 - l.stair_m2(t),
+            use_: l.use_of(t),
+        })
+        .collect();
     if !l.lofts.is_empty() {
         spaces.push(Space {
             level: Level::Loft,
@@ -1186,13 +1680,19 @@ fn facts(l: &Layout) -> Facts {
 }
 
 /// The labour and materials of each stage, from the members' counts and sizes, the walls'
-/// area (square centimetres) and the ladders.
-fn needs(l: &Layout, wall_area_cm2: f64, ladders: usize) -> Vec<StageNeeds> {
+/// area (square centimetres) and the ladders (a flight of stairs in ladders).
+fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> Vec<StageNeeds> {
     let rules = l.rules;
     let n = l.n;
     let storey_m2 = l.l * l.w * M2;
     let bay_m2 = l.b * l.w * M2;
     let wall_posts = if l.wall_kind == 0 { 2 * (n + 1) } else { 0 };
+    // Storeyed posts: the first storey's set in the ground, and a post a storey above it.
+    let posts_above = if l.storeyed {
+        wall_posts * (l.storeys as usize - 1)
+    } else {
+        0
+    };
     let floor_posts = if l.raised { n + 1 } else { 0 };
     let rafters = 2 * (n * l.rafters_per_bay + 1);
     let floored_bays = l.decks().len();
@@ -1206,6 +1706,18 @@ fn needs(l: &Layout, wall_area_cm2: f64, ladders: usize) -> Vec<StageNeeds> {
     let cross_beams = (1 + l.floors.len()) * (n + 1);
     let beams_m = (2 * n + rails) as f64 * l.b * 0.01 + cross_beams as f64 * l.w * 0.01;
     let ridge_m = (l.l + 2.0 * l.o) * 0.01;
+    // A truss's principals and king post at each frame line, and two purlins a bay.
+    // Wall ties round every storey's head.
+    let ties_m = if l.ties {
+        f64::from(l.storeys) * 2.0 * (l.l + l.w) * 0.01
+    } else {
+        0.0
+    };
+    let truss_m = if l.truss {
+        ((n + 1) as f64 * (2.0 * l.principal_len() + l.king_post_h()) + 2.0 * n as f64 * l.b) * 0.01
+    } else {
+        0.0
+    };
     let roof_m2 = (l.l + 2.0 * l.o) * (l.w + 2.0 * l.o) * M2 / l.pitch.cos();
     let wall_m2 = wall_area_cm2 * M2;
     let deck_m2 = floored_bays as f64 * bay_m2;
@@ -1214,12 +1726,17 @@ fn needs(l: &Layout, wall_area_cm2: f64, ladders: usize) -> Vec<StageNeeds> {
         round_section_m2(d) * count as f64 * len_cm * 0.01 * rules.timber_kg_per_m3
     };
     let floor_posts_kg = timber(l.pd, floor_posts, l.floor_post_h + l.depth);
-    let frame_kg = timber(l.pd, wall_posts, l.z_p + l.depth)
-        + timber(l.beam, 1, beams_m * 100.0 + ridge_m * 100.0)
-        + timber(l.raf, rafters, l.slope)
+    let frame_kg = if l.storeyed {
+        timber(l.pd, wall_posts, l.z_g + l.h + l.depth) + timber(l.pd, posts_above, l.h)
+    } else {
+        timber(l.pd, wall_posts, l.z_p + l.depth)
+    } + timber(
+        l.beam,
+        1,
+        beams_m * 100.0 + ridge_m * 100.0 + truss_m * 100.0,
+    ) + timber(l.raf, rafters, l.slope)
         + timber(l.jst, joists, l.w);
-    let boards_kg =
-        deck_m2 * l.dk * 0.01 * rules.timber_kg_per_m3 + rules.ladder_kg * ladders as f64;
+    let boards_kg = deck_m2 * l.dk * 0.01 * rules.timber_kg_per_m3 + rules.ladder_kg * ladders;
     let slots = |timber: f64, wattle: f64, covering: f64, boards: f64| {
         let mut kg = vec![0.0; frame_materials::COUNT];
         kg[usize::from(TIMBER)] = timber;
@@ -1248,13 +1765,15 @@ fn needs(l: &Layout, wall_area_cm2: f64, ladders: usize) -> Vec<StageNeeds> {
             rules.wattle_kg_per_m2 * wall_m2,
         )
     } else {
-        let wall_vol_m3 = wall_m2 * (l.wt * 0.01);
-        let (masonry_h_per_m3, masonry_density) = match l.wall_kind {
-            1 => (32.0, 1900.0),
-            2 => (16.0, 1600.0),
-            3 => (20.0, 1800.0),
-            _ => (20.0, 1800.0),
+        // Version 3's walls thin storey by storey; before it they are one thickness.
+        let wall_vol_m3 = if l.version >= 3 {
+            wall_volume_cm3 * 1.0e-6
+        } else {
+            wall_m2 * (l.wt * 0.01)
         };
+        // Rubble, mud brick or fired brick, by the program's figures.
+        let m = rules.masonry[(l.wall_kind.clamp(1, 3) - 1) as usize];
+        let (masonry_h_per_m3, masonry_density) = (m.h_per_m3, m.kg_per_m3);
         (
             wall_vol_m3 * masonry_h_per_m3,
             wall_vol_m3 * masonry_density,
@@ -1278,16 +1797,16 @@ fn needs(l: &Layout, wall_area_cm2: f64, ladders: usize) -> Vec<StageNeeds> {
         },
         StageNeeds {
             stage: Stage::Frame,
-            labour_h: rules.post_h * wall_posts as f64
-                + rules.beam_h_per_m * (beams_m + ridge_m)
+            labour_h: rules.post_h * (wall_posts + posts_above) as f64
+                + rules.beam_h_per_m * (beams_m + ridge_m + truss_m)
                 + rules.rafter_h * rafters as f64
                 + rules.joist_h_per_m * joists as f64 * l.w * 0.01,
             materials_kg: slots(frame_kg, 0.0, 0.0, 0.0),
         },
         StageNeeds {
             stage: Stage::Walls,
-            labour_h: walls_labour,
-            materials_kg: slots(0.0, walls_kg, 0.0, 0.0),
+            labour_h: walls_labour + rules.beam_h_per_m * ties_m,
+            materials_kg: slots(timber(l.beam, 1, ties_m * 100.0), walls_kg, 0.0, 0.0),
         },
         StageNeeds {
             stage: Stage::Roof,
@@ -1298,7 +1817,7 @@ fn needs(l: &Layout, wall_area_cm2: f64, ladders: usize) -> Vec<StageNeeds> {
             stage: Stage::Finish,
             labour_h: rules.finish_h_per_m2 * beaten_m2
                 + rules.decking_h_per_m2 * deck_m2
-                + rules.ladder_h * ladders as f64,
+                + rules.ladder_h * ladders,
             materials_kg: slots(0.0, 0.0, 0.0, boards_kg),
         },
     ]
@@ -1350,7 +1869,31 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
     let timber = Some(TIMBER);
     let storeys_h = l.h * f64::from(l.storeys);
     let mut out = Vec::new();
-    if l.wall_kind == 0 {
+    if l.wall_kind == 0 && l.storeyed {
+        // Each storey's posts carry the roof's slope, half of every floor above their storey and
+        // the lofts, and the first storey's a raised floor's share too.
+        let lofts_m2 = l.lofts.len() as f64 * bay_m2;
+        for t in 0..l.storeys {
+            let floors_above = f64::from(l.storeys - 1 - t) * storey_m2;
+            for (side, _) in l.long_walls() {
+                out.push(GroupOf {
+                    level: storey_level(t),
+                    bay: None,
+                    kind: GroupKind::Posts,
+                    index: side as u8,
+                    stage: Stage::Frame,
+                    material: timber,
+                    count: n + 1,
+                    section: [l.pd, l.pd],
+                    length: if t == 0 { l.z_g + l.h } else { l.h },
+                    spacing: l.b,
+                    area_m2: roof_plan_side_m2
+                        + (lofts_m2 + floors_above) / 2.0
+                        + if t == 0 { raised_m2 / 4.0 } else { 0.0 },
+                });
+            }
+        }
+    } else if l.wall_kind == 0 {
         for (side, _) in l.long_walls() {
             // Each long wall carries its slope of the roof and half of every floor across the width
             // (a raised floor's middle line takes half of that one).
@@ -1368,6 +1911,31 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
                 area_m2: roof_plan_side_m2 + (suspended_m2 - raised_m2) / 2.0 + raised_m2 / 4.0,
             });
         }
+    } else if l.version >= 3 {
+        // Version 3: one group per long wall per storey, each at its own thickness and height,
+        // each carrying the roof's slope, the lofts and half of every floor above its storey
+        // (ADR-0031 §2; its own weight and the walls above it the structure check adds).
+        let lofts_m2 = l.lofts.len() as f64 * bay_m2;
+        for t in 0..l.storeys {
+            for (side, _) in l.long_walls() {
+                out.push(GroupOf {
+                    level: storey_level(t),
+                    bay: None,
+                    kind: GroupKind::MassWall,
+                    index: side as u8,
+                    stage: Stage::Walls,
+                    material: Some(WATTLE),
+                    count: 1,
+                    // Its windows shorten the length it bears on.
+                    section: [l.l - l.windows_along(t, side, l.b), l.storey_wt[t as usize]],
+                    length: l.h,
+                    spacing: l.wall_kind as f64,
+                    area_m2: roof_plan_side_m2
+                        + (lofts_m2 + f64::from(l.storeys - 1 - t) * storey_m2) / 2.0
+                        + if t == 0 { raised_m2 / 4.0 } else { 0.0 },
+                });
+            }
+        }
     } else {
         for (side, _) in l.long_walls() {
             out.push(GroupOf {
@@ -1382,6 +1950,24 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
                 length: storeys_h,
                 spacing: l.wall_kind as f64,
                 area_m2: roof_plan_side_m2 + (suspended_m2 - raised_m2) / 2.0 + raised_m2 / 4.0,
+            });
+        }
+    }
+    if l.ties {
+        // Each storey's ties restrain its walls; by gravity they carry nothing.
+        for t in 0..l.storeys {
+            out.push(GroupOf {
+                level: storey_level(t),
+                bay: None,
+                kind: GroupKind::Ties,
+                index: 0,
+                stage: Stage::Walls,
+                material: timber,
+                count: 2 * n + 2,
+                section: [l.beam, l.beam],
+                length: l.b,
+                spacing: 0.0,
+                area_m2: 0.0,
             });
         }
     }
@@ -1433,7 +2019,7 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
     for &(level, j, _) in &decks {
         let (kind, span) = match level {
             Level::Loft => (GroupKind::LoftJoists, l.w),
-            Level::Upper => (GroupKind::FloorJoists, l.w),
+            Level::Upper | Level::Third | Level::Fourth => (GroupKind::FloorJoists, l.w),
             // A raised floor, with its middle rail.
             Level::Ground | Level::Roof => (GroupKind::RaisedFloor, l.w / 2.0),
         };
@@ -1463,10 +2049,42 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
             material: timber,
             count: 2 * l.rafters_per_bay + last,
             section: [l.raf, l.raf],
-            length: l.slope,
+            // On a truss's purlin a rafter spans half its slope.
+            length: if l.truss { l.slope / 2.0 } else { l.slope },
             spacing: l.b / l.rafters_per_bay as f64,
             area_m2: (l.b + ends) * (l.w + 2.0 * l.o) * M2 / l.pitch.cos(),
         });
+    }
+    if l.truss {
+        // The trusses carry the whole roof, the purlins of each slope half of it.
+        out.push(GroupOf {
+            level: Level::Roof,
+            bay: None,
+            kind: GroupKind::Trusses,
+            index: 0,
+            stage: Stage::Frame,
+            material: timber,
+            count: n + 1,
+            section: [l.beam, l.beam],
+            length: l.principal_len(),
+            spacing: l.b,
+            area_m2: 2.0 * roof_plan_side_m2,
+        });
+        for (sl, _) in SLOPES {
+            out.push(GroupOf {
+                level: Level::Roof,
+                bay: None,
+                kind: GroupKind::Purlins,
+                index: sl as u8,
+                stage: Stage::Frame,
+                material: timber,
+                count: n,
+                section: [l.beam, l.beam],
+                length: l.b,
+                spacing: 0.0,
+                area_m2: roof_m2 / 4.0,
+            });
+        }
     }
     for (sl, _) in SLOPES {
         out.push(GroupOf {
@@ -1490,6 +2108,21 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
     let gable_h = l.z_a - l.z_p;
     let door_m2 = l.door_w * l.h * M2;
     if l.wall_kind == 0 {
+        // What the windows leave open of a wall, square metres, over every storey.
+        let open_m2 = |side: i32, panel: f64| -> f64 {
+            (0..l.storeys)
+                .map(|t| {
+                    if side >= SIDE_BACK {
+                        l.window(t, panel, l.door_here(t, side, 0))
+                    } else {
+                        l.windows_along(t, side, panel)
+                    }
+                })
+                .sum::<f64>()
+                * l.h
+                / 2.0
+                * M2
+        };
         for (side, _) in l.long_walls() {
             let door = if side == l.door_side { door_m2 } else { 0.0 };
             out.push(GroupOf {
@@ -1503,7 +2136,9 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
                 section: [l.wt, l.wt],
                 length: storeys_h,
                 spacing: l.b,
-                area_m2: (l.b - l.pd) * storeys_h * M2 * n as f64 - door,
+                area_m2: (l.b - l.pd) * storeys_h * M2 * n as f64
+                    - door
+                    - open_m2(side, l.b - l.pd),
             });
         }
         for (side, _) in l.end_walls() {
@@ -1519,7 +2154,9 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
                 section: [l.wt, l.wt],
                 length: storeys_h + gable_h,
                 spacing: 0.0,
-                area_m2: (l.w - l.pd) * (storeys_h + gable_h / 2.0) * M2 - door,
+                area_m2: (l.w - l.pd) * (storeys_h + gable_h / 2.0) * M2
+                    - door
+                    - open_m2(side, l.w - l.pd),
             });
         }
     }
@@ -1538,9 +2175,10 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
             area_m2: storey_m2,
         });
     }
-    if out.len() > MAX_GROUPS {
+    let most = max_groups(l.version);
+    if out.len() > most {
         return refuse(format!(
-            "{} component groups are more than {MAX_GROUPS}",
+            "{} component groups are more than {most}",
             out.len()
         ));
     }
@@ -1559,7 +2197,8 @@ pub fn expand_frame(spec: &BuildingSpec, rules: &FrameRules) -> Result<Expansion
     };
     foundation(&mut p);
     frame(&mut p);
-    let wall_area_cm2 = walls(&mut p);
+    let (wall_area_cm2, wall_volume_cm3) = walls(&mut p);
+    ties(&mut p);
     roof(&mut p);
     let ladders = finish(&mut p);
     let mut parts = p.parts;
@@ -1592,7 +2231,7 @@ pub fn expand_frame(spec: &BuildingSpec, rules: &FrameRules) -> Result<Expansion
         apex_cm: cm(l.z_a),
         door: (cm(dx), cm(dy), facing),
         door_width_cm: rules.door_cm,
-        stages: needs(&l, wall_area_cm2, ladders),
+        stages: needs(&l, wall_area_cm2, wall_volume_cm3, ladders),
         floor_area_m2: f.floor_area_m2,
         sleeping_places: f.sleeping_places,
         roof_outline: corners(l.l / 2.0 + l.o, l.w / 2.0 + l.o),
@@ -1660,6 +2299,24 @@ mod tests {
             wattle_kg_per_m2: 6.0,
             thatch_kg_per_m2: 30.0,
             ladder_kg: 15.0,
+            mass_wall_cm: (30, 90),
+            masonry: [
+                Masonry {
+                    h_per_m3: 32.0,
+                    kg_per_m3: 1900.0,
+                    strength_pa: 1.5e6,
+                },
+                Masonry {
+                    h_per_m3: 16.0,
+                    kg_per_m3: 1600.0,
+                    strength_pa: 1.0e6,
+                },
+                Masonry {
+                    h_per_m3: 20.0,
+                    kg_per_m3: 1800.0,
+                    strength_pa: 3.0e6,
+                },
+            ],
         }
     }
 
@@ -1979,7 +2636,24 @@ mod tests {
     #[test]
     fn every_part_stands_within_the_plot() {
         // The plot is the box round the roof (crate civ-agents); every part's plan lies under it.
-        for (s, r, _) in goldens() {
+        let tall = [
+            (tall(3), tall_house()),
+            (tall(4), tall_house()),
+            (windowed(), tall_house()),
+            (trussed(), house()),
+            (
+                BuildingSpec {
+                    params: {
+                        let mut p = tall(3).params;
+                        p[fp::POST_SYSTEM] = 1;
+                        p
+                    },
+                    ..tall(3)
+                },
+                tall_house(),
+            ),
+        ];
+        for (s, r) in goldens().map(|(s, r, _)| (s, r)).into_iter().chain(tall) {
             let e = expand_frame(&s, &r).expect("expands");
             let (mut x0, mut x1, mut y0, mut y1) = (i32::MAX, i32::MIN, i32::MAX, i32::MIN);
             for &(x, y) in &e.roof_outline {
@@ -2011,7 +2685,8 @@ mod tests {
 
     #[test]
     fn areas_by_use_sum_to_the_floor() {
-        for (s, r, _) in goldens() {
+        let tall = [(tall(3), tall_house()), (tall(4), tall_house())];
+        for (s, r) in goldens().map(|(s, r, _)| (s, r)).into_iter().chain(tall) {
             let e = expand_frame(&s, &r).expect("expands");
             let by_use: f64 = e.floor_by_use.iter().sum();
             let spaces: f64 = e.spaces.iter().map(|s| s.area_m2).sum();
@@ -2080,6 +2755,713 @@ mod tests {
         // A jointed frame takes 0.5 to 2 pd8 a square metre of footprint (11-04 §2.2).
         let frame_pd8_m2 = e.stages[Stage::Frame.index()].labour_h / 8.0 / 37.5;
         assert!((0.5..=2.0).contains(&frame_pd8_m2), "{frame_pd8_m2}");
+    }
+
+    #[test]
+    fn version_three_with_nothing_of_its_own_expands_as_version_two() {
+        // ADR-0031 §1: what version 3 adds is chosen by its own parameters; with them all 0 it
+        // builds what version 2 builds, and only the version it records differs.
+        for (spec, rules, _) in goldens() {
+            let v2 = expand_frame(
+                &BuildingSpec {
+                    version: 2,
+                    ..spec.clone()
+                },
+                &rules,
+            )
+            .expect("version 2 expands");
+            let mut v3 = expand_frame(&BuildingSpec { version: 3, ..spec }, &rules)
+                .expect("version 3 expands");
+            assert_eq!(v3.version, 3);
+            v3.version = v2.version;
+            assert_eq!(v3, v2);
+        }
+    }
+
+    #[test]
+    fn version_three_has_room_for_more_bays_and_its_parameters_are_its_own() {
+        let mut r = house();
+        r.bays = (1, 12);
+        let at = |version: u16, bays: i32| {
+            let mut s = spec(bays, 250, 500);
+            s.version = version;
+            s
+        };
+        assert!(
+            expand_frame(&at(2, 9), &r).is_err(),
+            "version 2 has at most eight bays"
+        );
+        assert!(expand_frame(&at(3, 12), &r).is_ok());
+        assert!(expand_frame(&at(3, 13), &r).is_err());
+        // A version 3 parameter is unknown before it, and refused by name.
+        let mut old = at(2, 3);
+        old.params[fp::TIES] = 1;
+        assert_eq!(
+            expand_frame(&old, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "parameter {} is unknown to frame version 2",
+                fp::TIES
+            )))
+        );
+        let mut spare = at(3, 3);
+        spare.params[fp::SPARE] = 1;
+        assert!(expand_frame(&spare, &r).is_err());
+        // Three storeys need a stair.
+        let mut r3 = r.clone();
+        r3.storeys = (1, 4);
+        let mut tall = at(3, 3);
+        tall.storeys = 3;
+        tall.params[fp::JOIST_CM] = 18;
+        assert_eq!(
+            expand_frame(&tall, &r3),
+            Err(GrammarError::OutOfRange(format!(
+                "3 storeys need a stair (parameter {})",
+                fp::STAIR
+            )))
+        );
+    }
+
+    #[test]
+    fn version_three_mass_walls_take_each_storeys_thickness_and_thin_upward() {
+        let mut r = house();
+        r.wall_cm = (10, 60);
+        let mass = |walls: [i32; 2]| {
+            let mut s = two_storeys();
+            s.version = 3;
+            s.params[fp::WALL_KIND] = 1;
+            s.params[fp::FOOTING] = 1;
+            s.params[fp::WALL_CM] = 50;
+            s.params[fp::STOREY_WALL_CM] = walls[0];
+            s.params[fp::STOREY_WALL_CM + 1] = walls[1];
+            s
+        };
+        let walls_kg =
+            |e: &Expansion| e.stages[Stage::Walls.index()].materials_kg[usize::from(WATTLE)];
+        let tapered = expand_frame(&mass([50, 40]), &r).expect("a wall thinning upward");
+        // Each storey's wall parts at its own thickness.
+        let thickness = |level: Level| {
+            tapered
+                .parts
+                .iter()
+                .filter(|p| p.kind == PartKind::MassWall && p.id >> 24 == u32::from(level.code()))
+                .map(|p| p.size[1])
+                .collect::<Vec<_>>()
+        };
+        let (ground, upper) = (thickness(Level::Ground), thickness(Level::Upper));
+        assert!(!ground.is_empty() && !upper.is_empty());
+        assert!(ground.iter().all(|&t| t == 50), "{ground:?}");
+        assert!(upper.iter().all(|&t| t == 40), "{upper:?}");
+        // One group per long wall per storey, each its storey's height and thickness.
+        let groups: Vec<_> = tapered
+            .groups
+            .iter()
+            .filter(|g| g.kind == GroupKind::MassWall)
+            .map(|g| (g.section_cm[1], g.length_cm))
+            .collect();
+        assert_eq!(groups.len(), 4, "{groups:?}");
+        assert_eq!(groups.iter().filter(|g| g.0 == 50).count(), 2);
+        assert_eq!(groups.iter().filter(|g| g.0 == 40).count(), 2);
+        assert!(groups.iter().all(|g| g.1 == 200));
+        // A wall of one thickness weighs as version 2's; thinning it upward saves stone.
+        let even = expand_frame(&mass([0, 0]), &r).expect("one thickness");
+        let mut v2 = mass([0, 0]);
+        v2.version = 2;
+        let v2 = expand_frame(&v2, &r).expect("version 2");
+        assert!((walls_kg(&even) - walls_kg(&v2)).abs() < 1e-6 * walls_kg(&v2));
+        assert!(walls_kg(&tapered) < walls_kg(&even));
+        // Never thicker above; only storeys it has; only mass walls.
+        assert!(expand_frame(&mass([40, 50]), &r).is_err(), "thicker above");
+        let mut third = mass([50, 40]);
+        third.params[fp::STOREY_WALL_CM + 2] = 30;
+        assert!(
+            expand_frame(&third, &r).is_err(),
+            "a third storey's wall on two"
+        );
+        let mut wattle = mass([50, 40]);
+        wattle.params[fp::WALL_KIND] = 0;
+        wattle.params[fp::FOOTING] = 0;
+        wattle.params[fp::WALL_CM] = 15;
+        assert!(
+            expand_frame(&wattle, &r).is_err(),
+            "wattle has one thickness"
+        );
+    }
+
+    /// Rules that allow a hall of up to twelve bays and four storeys.
+    fn tall_house() -> FrameRules {
+        FrameRules {
+            bays: (1, 12),
+            storeys: (1, 4),
+            ..house()
+        }
+    }
+
+    /// Four bays of 2.5 m by 5 m, `storeys` high, with a stair (version 3).
+    fn tall(storeys: u8) -> BuildingSpec {
+        let mut s = two_storeys();
+        s.version = 3;
+        s.storeys = storeys;
+        s.params[fp::STAIR] = 1;
+        s
+    }
+
+    #[test]
+    fn version_three_rises_three_and_four_storeys_by_a_stair() {
+        let r = tall_house();
+        // A flight rises 2 m at 38°, so it runs 2 m / tan 38° along the length, 80 cm wide.
+        let flight_m2 = 200.0 / (38.0_f64).to_radians().tan() * 80.0 * 1.0e-4;
+        for storeys in [3_u8, 4] {
+            let e = expand_frame(&tall(storeys), &r).expect("a tall building expands");
+            let n = usize::from(storeys);
+            let levels: Vec<Level> = e.spaces.iter().map(|s| s.level).collect();
+            assert_eq!(
+                levels,
+                (0..n).filter_map(Level::storey).collect::<Vec<_>>(),
+                "a space a storey"
+            );
+            // Each storey gives up the flight rising from it and the well it is reached through.
+            for (t, s) in e.spaces.iter().enumerate() {
+                let flights = usize::from(t > 0) + usize::from(t + 1 < n);
+                assert!(
+                    (s.area_m2 - (50.0 - flights as f64 * flight_m2)).abs() < 1e-9,
+                    "storey {t}: {}",
+                    s.area_m2
+                );
+            }
+            let stairs: Vec<&Part> = e
+                .parts
+                .iter()
+                .filter(|p| p.kind == PartKind::Stair)
+                .collect();
+            assert_eq!(stairs.len(), n - 1, "a flight from each storey to the next");
+            assert!(stairs.iter().all(|p| p.tilt == STAIR_TILT_CENTIDEG));
+            assert!(
+                !e.parts.iter().any(|p| p.kind == PartKind::Ladder),
+                "the stair takes the ladder's place"
+            );
+            let ids: HashSet<u32> = e.parts.iter().map(|p| p.id).collect();
+            assert_eq!(ids.len(), e.parts.len(), "part ids are unique");
+            let gids: HashSet<u32> = e.groups.iter().map(|g| g.id).collect();
+            assert_eq!(gids.len(), e.groups.len(), "group ids are unique");
+            // Every storey above the first floored on joists, a group a bay.
+            let floors = e
+                .groups
+                .iter()
+                .filter(|g| g.kind == GroupKind::FloorJoists)
+                .count();
+            assert_eq!(floors, 4 * (n - 1));
+            let top = Level::storey(n - 1).expect("a storey");
+            assert!(
+                e.groups
+                    .iter()
+                    .any(|g| g.kind == GroupKind::TieBeams && g.id >> 24 == u32::from(top.code()))
+            );
+            // Posts run through every storey to the plates.
+            let posts = e
+                .groups
+                .iter()
+                .find(|g| g.kind == GroupKind::Posts)
+                .expect("posts");
+            assert_eq!(posts.length_cm, 200 * i32::from(storeys));
+            // Walls on every storey; living floor from every storey.
+            assert!(
+                e.parts
+                    .iter()
+                    .any(|p| p.kind == PartKind::Daub && p.id >> 24 == u32::from(top.code()))
+            );
+            assert!((e.floor_area_m2 - e.floor_by_use[SpaceUse::Living.index()]).abs() < 1e-9);
+        }
+        // A third storey takes more of every stage but the roof's than two.
+        let two = expand_frame(
+            &BuildingSpec {
+                storeys: 2,
+                ..tall(3)
+            },
+            &r,
+        )
+        .expect("two storeys by a stair");
+        let three = expand_frame(&tall(3), &r).expect("three storeys");
+        for stage in [Stage::Frame, Stage::Walls, Stage::Finish] {
+            assert!(three.stages[stage.index()].labour_h > two.stages[stage.index()].labour_h);
+        }
+        assert_eq!(
+            three.stages[Stage::Roof.index()],
+            two.stages[Stage::Roof.index()]
+        );
+        // Two storeys by a stair: one flight and no ladder; costlier than the ladder it replaces.
+        assert_eq!(
+            two.parts
+                .iter()
+                .filter(|p| p.kind == PartKind::Stair)
+                .count(),
+            1
+        );
+        let mut laddered = tall(3);
+        laddered.storeys = 2;
+        laddered.params[fp::STAIR] = 0;
+        let laddered = expand_frame(&laddered, &r).expect("two storeys by a ladder");
+        assert!(
+            two.stages[Stage::Finish.index()].labour_h
+                > laddered.stages[Stage::Finish.index()].labour_h
+        );
+        // Twelve bays of four storeys, lofted throughout, stay within version 3's groups.
+        let mut hall = tall(4);
+        hall.params[fp::BAYS] = 12;
+        hall.params[fp::LOFT_BAYS] = (1 << 12) - 1;
+        if let Footprint::Rect { length, .. } = &mut hall.footprint {
+            *length = 12 * 250;
+        }
+        let e = expand_frame(&hall, &r).expect("a hall of twelve bays and four storeys");
+        assert!(e.groups.len() > MAX_GROUPS && e.groups.len() <= MAX_GROUPS_V3);
+        assert_eq!(max_groups(2), MAX_GROUPS);
+    }
+
+    /// Two storeys by a stair with a fifth of the first storey's wall open and a tenth of the
+    /// second's.
+    fn windowed() -> BuildingSpec {
+        let mut s = tall(2);
+        s.params[fp::OPENINGS] = 200;
+        s.params[fp::OPENINGS + 1] = 100;
+        s
+    }
+
+    #[test]
+    fn version_three_openings_leave_each_storeys_share_of_wall_open() {
+        let r = tall_house();
+        let e = expand_frame(&windowed(), &r).expect("a building with windows");
+        let shut = expand_frame(
+            &BuildingSpec {
+                params: {
+                    let mut p = windowed().params;
+                    p[fp::OPENINGS] = 0;
+                    p[fp::OPENINGS + 1] = 0;
+                    p
+                },
+                ..windowed()
+            },
+            &r,
+        )
+        .expect("the same without windows");
+        let windows: Vec<&Part> = e
+            .parts
+            .iter()
+            .filter(|p| p.kind == PartKind::Window)
+            .collect();
+        // A window in every piece of wall but the door's: seven long pieces and two ends below,
+        // eight and two above.
+        let on = |level: Level| {
+            windows
+                .iter()
+                .filter(|p| p.id >> 24 == u32::from(level.code()))
+                .count()
+        };
+        assert_eq!((on(Level::Ground), on(Level::Upper)), (9, 10));
+        assert!(
+            windows.iter().all(|p| p.size[2] == 100),
+            "half a storey high"
+        );
+        assert!(!shut.parts.iter().any(|p| p.kind == PartKind::Window));
+        // What they leave open: 2 × share × piece wide, half a storey high.
+        let open_cm2 = 7.0 * (0.4 * 235.0) * 100.0
+            + 2.0 * (0.4 * 485.0) * 100.0
+            + 8.0 * (0.2 * 235.0) * 100.0
+            + 2.0 * (0.2 * 485.0) * 100.0;
+        let open_m2 = open_cm2 * 1.0e-4;
+        let wattle =
+            |e: &Expansion| e.stages[Stage::Walls.index()].materials_kg[usize::from(WATTLE)];
+        assert!(
+            (wattle(&shut) - wattle(&e) - open_m2 * r.wattle_kg_per_m2).abs() < 1e-6,
+            "an opening costs no wall"
+        );
+        let infill = |e: &Expansion| -> f64 {
+            e.groups
+                .iter()
+                .filter(|g| g.kind == GroupKind::Infill)
+                .map(|g| g.area_m2)
+                .sum()
+        };
+        assert!((infill(&shut) - infill(&e) - open_m2).abs() < 1e-9);
+        // A mass wall's windows shorten the length it bears on, storey by storey.
+        let mut rubble = windowed();
+        rubble.params[fp::WALL_KIND] = 1;
+        rubble.params[fp::FOOTING] = 1;
+        rubble.params[fp::WALL_CM] = 50;
+        let mut rr = r.clone();
+        rr.wall_cm = (10, 60);
+        let m = expand_frame(&rubble, &rr).expect("rubble with windows");
+        let bearing = |level: Level, side: i32| {
+            m.groups
+                .iter()
+                .find(|g| g.id == group_id(level, None, GroupKind::MassWall, side as u8))
+                .map(|g| g.section_cm[0])
+                .expect("the wall's group")
+        };
+        // The door is in bay 2 of the right wall: three windows of a metre below, four on the left.
+        assert_eq!(bearing(Level::Ground, fp::SIDE_RIGHT), 1000 - 300);
+        assert_eq!(bearing(Level::Ground, fp::SIDE_LEFT), 1000 - 400);
+        assert_eq!(bearing(Level::Upper, fp::SIDE_RIGHT), 1000 - 200);
+        rubble.params[fp::OPENINGS] = 0;
+        rubble.params[fp::OPENINGS + 1] = 0;
+        let solid = expand_frame(&rubble, &rr).expect("rubble without windows");
+        assert!(
+            m.stages[Stage::Walls.index()].labour_h < solid.stages[Stage::Walls.index()].labour_h
+        );
+        // Refused: more than the most, a storey it has not, and before version 3.
+        let mut wide = windowed();
+        wide.params[fp::OPENINGS] = MAX_OPENING_PERMILLE + 1;
+        assert!(expand_frame(&wide, &r).is_err());
+        let mut third = windowed();
+        third.params[fp::OPENINGS + 2] = 100;
+        assert_eq!(
+            expand_frame(&third, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "storey 3 has openings (parameter {}) and no storey",
+                fp::OPENINGS + 2
+            )))
+        );
+        let mut old = spec(3, 250, 500);
+        old.version = 2;
+        old.params[fp::OPENINGS] = 100;
+        assert_eq!(
+            expand_frame(&old, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "parameter {} is unknown to frame version 2",
+                fp::OPENINGS
+            )))
+        );
+    }
+
+    /// Three bays with a loft (version 3) under a trussed roof.
+    fn trussed() -> BuildingSpec {
+        let mut s = three_bays_one_loft();
+        s.version = 3;
+        s.params[fp::ROOF_SYSTEM] = 1;
+        s
+    }
+
+    #[test]
+    fn a_trussed_roof_has_a_truss_at_each_frame_line_and_purlins_halving_the_rafters_span() {
+        let r = house();
+        let e = expand_frame(&trussed(), &r).expect("a trussed roof");
+        let poles = expand_frame(
+            &BuildingSpec {
+                version: 3,
+                ..three_bays_one_loft()
+            },
+            &r,
+        )
+        .expect("pole rafters");
+        let count = |k: PartKind| e.parts.iter().filter(|p| p.kind == k).count();
+        // Four frame lines of two principals and a king post; two purlins a bay.
+        assert_eq!(count(PartKind::Truss), 4 * 3);
+        assert_eq!(count(PartKind::Purlin), 3 * 2);
+        assert!(!poles.parts.iter().any(|p| p.kind == PartKind::Truss));
+        let group = |e: &Expansion, k: GroupKind| e.groups.iter().filter(|g| g.kind == k).count();
+        assert_eq!(group(&e, GroupKind::Trusses), 1);
+        assert_eq!(group(&e, GroupKind::Purlins), 2);
+        // A rafter on a purlin spans half its slope.
+        let span = |e: &Expansion| {
+            e.groups
+                .iter()
+                .find(|g| g.kind == GroupKind::RoofFrame)
+                .map(|g| g.length_cm)
+                .expect("a roof frame")
+        };
+        assert!((span(&e) * 2 - span(&poles)).abs() <= 1);
+        // The trusses' and purlins' timber is costed as beams: 2.5 m / cos 45° principals and a
+        // 2.5 m king post at four lines, and six purlins of 2.5 m.
+        let principal = 250.0 / (45.0_f64).to_radians().cos();
+        let truss_m = (4.0 * (2.0 * principal + 250.0) + 6.0 * 250.0) * 0.01;
+        let frame_h = |e: &Expansion| e.stages[Stage::Frame.index()].labour_h;
+        assert!((frame_h(&e) - frame_h(&poles) - r.beam_h_per_m * truss_m).abs() < 1e-6);
+        let beam = f64::from(r.beam_cm) / 100.0;
+        let kg = std::f64::consts::PI / 4.0 * beam * beam * truss_m * r.timber_kg_per_m3;
+        let frame_kg =
+            |e: &Expansion| e.stages[Stage::Frame.index()].materials_kg[usize::from(TIMBER)];
+        assert!((frame_kg(&e) - frame_kg(&poles) - kg).abs() < 1e-6);
+        // Refused: an unknown system, and a truss before version 3.
+        let mut odd = trussed();
+        odd.params[fp::ROOF_SYSTEM] = 2;
+        assert_eq!(
+            expand_frame(&odd, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "roof system 2 (parameter {}) is unknown to frame version 3",
+                fp::ROOF_SYSTEM
+            )))
+        );
+        let mut old = trussed();
+        old.version = 2;
+        assert!(expand_frame(&old, &r).is_err());
+    }
+
+    #[test]
+    fn storeyed_posts_stand_a_storey_high_on_the_frame_below() {
+        let r = tall_house();
+        let through = expand_frame(&tall(3), &r).expect("posts through three storeys");
+        let mut s = tall(3);
+        s.params[fp::POST_SYSTEM] = 1;
+        let e = expand_frame(&s, &r).expect("storeyed posts");
+        fn posts(e: &Expansion) -> Vec<&Part> {
+            e.parts
+                .iter()
+                .filter(|p| p.kind == PartKind::Post)
+                .collect()
+        }
+        // Five frame lines of two posts, through three storeys or one a storey.
+        assert_eq!(posts(&through).len(), 10);
+        assert_eq!(posts(&e).len(), 30);
+        let ids: HashSet<u32> = e.parts.iter().map(|p| p.id).collect();
+        assert_eq!(ids.len(), e.parts.len(), "part ids are unique");
+        // The first storey's in the ground (70 cm) to its head; each above a storey high.
+        for p in posts(&e) {
+            let level = Level::from_code((p.id >> 24) as u8).expect("a level");
+            let expect = if level == Level::Ground {
+                200 + 70
+            } else {
+                200
+            };
+            assert_eq!(p.size[2], expect, "{level:?}");
+        }
+        // A posts group a wall a storey, each carrying the roof's slope and half the floors above
+        // it: the first storey's what the through posts carry, the top storey's the roof alone.
+        let group = |e: &Expansion, level: Level| {
+            e.groups
+                .iter()
+                .find(|g| g.id == group_id(level, None, GroupKind::Posts, fp::SIDE_RIGHT as u8))
+                .copied()
+                .expect("a posts group")
+        };
+        let (g0, g2) = (group(&e, Level::Ground), group(&e, Level::Third));
+        let whole = group(&through, Level::Ground);
+        assert_eq!(
+            e.groups
+                .iter()
+                .filter(|g| g.kind == GroupKind::Posts)
+                .count(),
+            6
+        );
+        assert_eq!(
+            (g0.length_cm, g2.length_cm, whole.length_cm),
+            (200, 200, 600)
+        );
+        assert!((g0.area_m2 - whole.area_m2).abs() < 1e-9);
+        assert!(
+            (whole.area_m2 - g2.area_m2 - 50.0).abs() < 1e-9,
+            "two floors of 50 m², halved"
+        );
+        // As much post timber in all; more posts to joint and raise.
+        let frame = |e: &Expansion| e.stages[Stage::Frame.index()].clone();
+        assert!(
+            (frame(&e).materials_kg[usize::from(TIMBER)]
+                - frame(&through).materials_kg[usize::from(TIMBER)])
+            .abs()
+                < 1e-6
+        );
+        assert!((frame(&e).labour_h - frame(&through).labour_h - r.post_h * 20.0).abs() < 1e-9);
+        // The same postholes.
+        assert_eq!(
+            e.stages[Stage::Foundation.index()],
+            through.stages[Stage::Foundation.index()]
+        );
+        // Refused: an unknown system, mass walls, one storey, and before version 3.
+        let mut odd = s.clone();
+        odd.params[fp::POST_SYSTEM] = 2;
+        assert!(expand_frame(&odd, &r).is_err());
+        let mut rubble = s.clone();
+        rubble.params[fp::WALL_KIND] = 1;
+        rubble.params[fp::FOOTING] = 1;
+        rubble.params[fp::WALL_CM] = 50;
+        assert_eq!(
+            expand_frame(&rubble, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "storeyed posts (parameter {}) stand in a timber frame; mass walls have none",
+                fp::POST_SYSTEM
+            )))
+        );
+        let mut low = s.clone();
+        low.storeys = 1;
+        low.params[fp::STAIR] = 0;
+        assert_eq!(
+            expand_frame(&low, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "storeyed posts (parameter {}) need a storey above the first",
+                fp::POST_SYSTEM
+            )))
+        );
+        let mut old = two_storeys();
+        old.version = 2;
+        old.params[fp::POST_SYSTEM] = 1;
+        assert!(expand_frame(&old, &house()).is_err());
+    }
+
+    #[test]
+    fn wall_ties_bind_each_storeys_mass_walls_at_its_head() {
+        let mut r = house();
+        r.wall_cm = (10, 60);
+        let rubble = |ties: i32| {
+            let mut s = two_storeys();
+            s.version = 3;
+            s.params[fp::WALL_KIND] = 1;
+            s.params[fp::FOOTING] = 1;
+            s.params[fp::WALL_CM] = 50;
+            s.params[fp::TIES] = ties;
+            s
+        };
+        let tied = expand_frame(&rubble(1), &r).expect("tied rubble");
+        let loose = expand_frame(&rubble(0), &r).expect("untied rubble");
+        // Four bays a long wall and the two ends, at the head of each of two storeys.
+        let ties: Vec<&Part> = tied
+            .parts
+            .iter()
+            .filter(|p| p.kind == PartKind::WallTie)
+            .collect();
+        assert_eq!(ties.len(), 2 * (2 * 4 + 2));
+        assert!(!loose.parts.iter().any(|p| p.kind == PartKind::WallTie));
+        let heads: HashSet<i32> = ties.iter().map(|p| p.at[2]).collect();
+        assert_eq!(
+            heads,
+            HashSet::from([193, 393]),
+            "half a beam under each storey's head"
+        );
+        let ids: HashSet<u32> = tied.parts.iter().map(|p| p.id).collect();
+        assert_eq!(ids.len(), tied.parts.len(), "part ids are unique");
+        // A group a storey, carrying nothing by gravity.
+        let groups: Vec<&Group> = tied
+            .groups
+            .iter()
+            .filter(|g| g.kind == GroupKind::Ties)
+            .collect();
+        assert_eq!(groups.len(), 2);
+        assert!(groups.iter().all(|g| g.area_m2 == 0.0 && g.count == 10));
+        // Round both storeys' heads: 2 × (10 + 5) m a storey, costed as beams in the walls' stage.
+        let ties_m = 2.0 * 2.0 * (10.0 + 5.0);
+        let walls = |e: &Expansion| e.stages[Stage::Walls.index()].clone();
+        assert!(
+            (walls(&tied).labour_h - walls(&loose).labour_h - r.beam_h_per_m * ties_m).abs() < 1e-9
+        );
+        let beam = f64::from(r.beam_cm) / 100.0;
+        let kg = std::f64::consts::PI / 4.0 * beam * beam * ties_m * r.timber_kg_per_m3;
+        assert!((walls(&tied).materials_kg[usize::from(TIMBER)] - kg).abs() < 1e-6);
+        assert_eq!(walls(&loose).materials_kg[usize::from(TIMBER)], 0.0);
+        // Refused: a timber frame, an unknown value, and before version 3.
+        let mut wattle = tall(2);
+        wattle.params[fp::TIES] = 1;
+        assert_eq!(
+            expand_frame(&wattle, &tall_house()),
+            Err(GrammarError::OutOfRange(format!(
+                "wall ties (parameter {}) bind mass walls; a timber frame is tied by its joints",
+                fp::TIES
+            )))
+        );
+        assert!(expand_frame(&rubble(2), &r).is_err());
+        let mut old = rubble(1);
+        old.version = 2;
+        assert!(expand_frame(&old, &r).is_err());
+    }
+
+    #[test]
+    fn a_programs_masonry_figures_cost_its_mass_walls_and_version_three_holds_their_own_range() {
+        let rubble = |version: u16, wall: i32| {
+            let mut s = two_storeys();
+            s.version = version;
+            s.params[fp::WALL_KIND] = 1;
+            s.params[fp::FOOTING] = 1;
+            s.params[fp::WALL_CM] = wall;
+            s
+        };
+        let mut r = house();
+        r.wall_cm = (10, 60);
+        let walls = |e: &Expansion| e.stages[Stage::Walls.index()].clone();
+        let base = expand_frame(&rubble(3, 50), &r).expect("rubble");
+        // Twice the hours and half the weight a cubic metre: twice the hours, half the stone.
+        let mut slow = r.clone();
+        slow.masonry[0].h_per_m3 *= 2.0;
+        slow.masonry[0].kg_per_m3 /= 2.0;
+        let e = expand_frame(&rubble(3, 50), &slow).expect("rubble");
+        assert!((walls(&e).labour_h - 2.0 * walls(&base).labour_h).abs() < 1e-9);
+        assert!(
+            (walls(&e).materials_kg[usize::from(WATTLE)]
+                - walls(&base).materials_kg[usize::from(WATTLE)] / 2.0)
+                .abs()
+                < 1e-9
+        );
+        // From version 3 a mass wall keeps to `mass_wall_cm`, before it to `wall_cm`.
+        assert!(expand_frame(&rubble(3, 20), &r).is_err(), "below 30 cm");
+        assert!(
+            expand_frame(&rubble(2, 20), &r).is_ok(),
+            "within the daub's range"
+        );
+        assert!(
+            expand_frame(&rubble(2, 70), &r).is_err(),
+            "beyond the daub's range"
+        );
+        assert!(expand_frame(&rubble(3, 70), &r).is_ok());
+    }
+
+    #[test]
+    fn a_stair_is_refused_by_name_where_it_has_no_place() {
+        let r = tall_house();
+        let mut odd = tall(3);
+        odd.params[fp::STAIR] = 2;
+        assert_eq!(
+            expand_frame(&odd, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "stair 2 (parameter {}) is unknown to frame version 3",
+                fp::STAIR
+            )))
+        );
+        let mut low = tall(3);
+        low.storeys = 1;
+        low.params[fp::JOIST_CM] = 0;
+        assert_eq!(
+            expand_frame(&low, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "a stair (parameter {}) needs a storey above the first",
+                fp::STAIR
+            )))
+        );
+        let mut v2 = tall(2);
+        v2.version = 2;
+        assert_eq!(
+            expand_frame(&v2, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "parameter {} is unknown to frame version 2",
+                fp::STAIR
+            )))
+        );
+        // A stair runs further than one bay of 2.5 m is long.
+        let mut short = tall(3);
+        short.params[fp::BAYS] = 1;
+        short.params[fp::DOOR] = fp::door(fp::SIDE_RIGHT, 0);
+        if let Footprint::Rect { length, .. } = &mut short.footprint {
+            *length = 250;
+        }
+        assert!(matches!(
+            expand_frame(&short, &r),
+            Err(GrammarError::OutOfRange(m)) if m.contains("more than the building's length")
+        ));
+    }
+
+    #[test]
+    fn version_three_golden_is_pinned() {
+        // Three storeys by a stair: a change here is a change to what version 3 builds.
+        let e = expand_frame(&tall(3), &tall_house()).expect("expands");
+        assert_eq!(
+            expansion_hash(&e),
+            GOLDEN_V3_THREE_STOREYS,
+            "{:#x}",
+            expansion_hash(&e)
+        );
+    }
+
+    #[test]
+    fn a_spec_keeps_the_parameters_its_version_has() {
+        let mut s = three_bays_one_loft();
+        assert_eq!(s.params_in_use().len(), crate::PARAMS_BEFORE_V3);
+        s.version = 2;
+        assert_eq!(s.params_in_use().len(), crate::PARAMS_BEFORE_V3);
+        s.version = 3;
+        assert_eq!(s.params_in_use().len(), PARAMS);
     }
 
     #[test]
@@ -2221,4 +3603,5 @@ mod tests {
     const GOLDEN_TWO_STOREYS: u64 = 0x7375_f0e6_7a98_0a0f;
     const GOLDEN_RAISED_STORE: u64 = 0xebfd_8b32_1aba_8021;
     const GOLDEN_WORKSHOP: u64 = 0xeadd_ad42_080a_e6ba;
+    const GOLDEN_V3_THREE_STOREYS: u64 = 0xc325_5d0f_4a84_a224;
 }

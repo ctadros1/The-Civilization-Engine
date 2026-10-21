@@ -215,3 +215,12 @@ compose by sum (offsets) and product (factors).
   is shared.
 - **No fire in use is tended in a household-resolved settlement**, so none escapes there: §2's
   "ignitions are planned only for Detailed settlements", as built.
+
+## Amendment (2026-10-21, M9a slice DI): weighed three times a day
+
+§2's "scored once" became three weighings a member-day: at sunrise for the morning, at midday for
+the afternoon, and an hour after sunset for the evening until turning in. One weighing at sunrise
+shared every waking hour by the morning's priorities and put work 10–16 % above Detailed and
+leisure 4–7 % below it on Gate C. The later weighings put each member's needs back as they found
+them. A day is still about three decisions a person, not fourteen. The night runs from turning in,
+two hours after sunset, to sunrise; the day's energy is each block at its activity's level.

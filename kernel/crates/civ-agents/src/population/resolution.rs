@@ -13,6 +13,19 @@ const NEEDS_DAY_PAR: f64 = 1.6;
 /// activity restarted on load, or a newborn's or founder's first, has no steps and stands at 0).
 pub const PARKED_STEP: u8 = u8::MAX;
 
+/// The minutes after sunset a household-resolved day's people turn in: the middle of the four-hour
+/// evening a decision reads (a design prior, NUDGE in PROJECT_PLAN §9: a Detailed day's bedtimes
+/// spread over the evening as its choices do).
+const TURN_IN_AFTER_SUNSET_MIN: i64 = 120;
+
+/// Minutes of sleep a day: from turning in after sunset ([`TURN_IN_AFTER_SUNSET_MIN`]) to
+/// sunrise, within the content's sleep range.
+fn night_minutes(sleep: &crate::params::SleepParams, sun: (i64, i64)) -> f64 {
+    let turn_in = (sun.1 + TURN_IN_AFTER_SUNSET_MIN).min(MINUTES_PER_DAY);
+    let night = (MINUTES_PER_DAY - turn_in + sun.0) as f64;
+    night.clamp(sleep.min_hours * 60.0, sleep.max_hours * 60.0)
+}
+
 /// Most trips for water a household makes in a household-resolved day (a design bound).
 const MAX_WATER_TRIPS: usize = 8;
 
@@ -388,7 +401,8 @@ impl Population {
         }
         let (midnight, params) = (ctx.now, ctx.params);
         let doy = civ_land::day_of_year(midnight.day_index());
-        let sunrise = needs::daylight(params.latitude_deg, doy).0;
+        let sun = needs::daylight(params.latitude_deg, doy);
+        let sunrise = sun.0;
         let wake = midnight.plus_minutes(sunrise.clamp(0, MINUTES_PER_DAY - 1));
         let sleep_par = ctx
             .catalog
@@ -396,9 +410,8 @@ impl Population {
             .iter()
             .find(|a| a.behavior == Behavior::Sleep)
             .map_or(1.0, |a| a.par);
-        // Waking minutes a day, less the meals (a design prior: the content's sleep range's
-        // middle; slice DI measures the day against Detailed).
-        let sleep_min = 30.0 * (params.sleep.min_hours + params.sleep.max_hours);
+        // The night runs from turning in after sunset to sunrise.
+        let sleep_min = night_minutes(&params.sleep, sun);
         let settlements: Vec<PermanentId> = self
             .resolved
             .iter()
@@ -430,13 +443,22 @@ impl Population {
                         p.sleep_pressure = 0.0;
                     }
                     let plan = self.plan_day(ctx, h, wake);
+                    // The afternoon is weighed as it stands at midday, the evening an hour after
+                    // sunset, in the dark (ADR-0032 §2, amended): what they weigh changes nobody's
+                    // needs.
+                    let noon = (sun.0 + sun.1) / 2;
+                    let afternoon = self.plan_evening(ctx, h, midnight.plus_minutes(noon));
+                    let evening = self.plan_evening(ctx, h, midnight.plus_minutes(sun.1 + 60));
                     self.eat(ctx, h, id);
                     let Some(plan) = plan else {
                         continue;
                     };
-                    let waking =
-                        (MINUTES_PER_DAY as f64 - sleep_min - 3.0 * f64::from(plan.meal_min))
-                            .max(0.0);
+                    let meals = 3.0 * f64::from(plan.meal_min);
+                    // Daylight less the meals is the morning's to share; turning in less sunset the
+                    // evening's.
+                    let daylight = ((sun.1 - sun.0) as f64 - meals).max(0.0);
+                    let evening_min =
+                        (MINUTES_PER_DAY as f64 - sleep_min - meals - daylight).max(0.0);
                     if water_cand.is_none()
                         && let Some(c) = plan
                             .cands
@@ -445,23 +467,53 @@ impl Population {
                     {
                         water_cand = Some((h, c.clone()));
                     }
-                    for (i, reps) in shares(ctx, &plan, waking, hh.home) {
-                        let cand = &plan.cands[i];
-                        if behavior_of(ctx, cand) == Some(Behavior::Socialize) {
-                            let minutes = work_minutes(cand) * reps;
-                            let session = ctx
+                    // The night and the meals, as time use counts them (the shares fill the rest).
+                    self.count_time(Behavior::Sleep, sleep_min);
+                    self.count_time(Behavior::Eat, meals);
+                    // The day's energy: each block at its activity's level, rest for the rest.
+                    let rest_par = ctx
+                        .catalog
+                        .activities
+                        .iter()
+                        .find(|a| a.behavior == Behavior::Rest)
+                        .map_or(NEEDS_DAY_PAR, |a| a.par);
+                    let (mut par_minutes, mut active) = (0.0, 0.0);
+                    // Each half of the daylight is weighed at its start, the evening in the dark.
+                    let parts = [
+                        Some((&plan, daylight / 2.0)),
+                        afternoon.as_ref().map(|a| (a, daylight / 2.0)),
+                        evening.as_ref().map(|e| (e, evening_min)),
+                    ];
+                    for (part, minutes_to_share) in parts.into_iter().flatten() {
+                        for (i, reps) in shares(ctx, part, minutes_to_share, hh.home) {
+                            let cand = &part.cands[i];
+                            let minutes = f64::from(work_minutes(cand) * reps);
+                            let par = ctx
                                 .catalog
                                 .activities
                                 .get(usize::from(cand.scored.def))
-                                .map_or(minutes, |a| a.min_minutes.max(1));
-                            company.push((m, minutes, (minutes / session.max(1)).max(1)));
-                        }
-                        for _ in 0..reps {
-                            self.enact(ctx, h, cand, plan.site, &hh);
+                                .map_or(rest_par, |a| a.par);
+                            par_minutes += par * minutes;
+                            active += minutes;
+                            if behavior_of(ctx, cand) == Some(Behavior::Socialize) {
+                                let minutes = work_minutes(cand) * reps;
+                                let session = ctx
+                                    .catalog
+                                    .activities
+                                    .get(usize::from(cand.scored.def))
+                                    .map_or(minutes, |a| a.min_minutes.max(1));
+                                company.push((m, minutes, (minutes / session.max(1)).max(1)));
+                            }
+                            for _ in 0..reps {
+                                self.enact(ctx, h, cand, part.site, &hh);
+                            }
                         }
                     }
+                    let awake = (MINUTES_PER_DAY - sunrise).max(1) as f64;
+                    let day_par =
+                        (par_minutes + (awake - active).max(0.0) * rest_par) / awake.max(active);
                     if let Some(p) = self.people.get_mut(h) {
-                        p.burn_kcal_min = burn_rate(p, wake, params, NEEDS_DAY_PAR);
+                        p.burn_kcal_min = burn_rate(p, wake, params, day_par);
                     }
                 }
                 // Water the household uses in a day, by the trip a member would make for it.
@@ -486,6 +538,40 @@ impl Population {
             for (me, minutes, sessions) in company {
                 self.keep_company(ctx, me, &pool, minutes, sessions);
             }
+        }
+    }
+
+    /// Person `h` scored as they would stand at `at`, in the evening, with their needs then put
+    /// back as they were: the evening's weighing changes nothing it only weighs.
+    fn plan_evening(&mut self, ctx: &mut Ctx, h: Handle<Person>, at: SimTime) -> Option<Planned> {
+        let kept = self.people.get(h).map(|p| {
+            (
+                p.energy_kcal,
+                p.sleep_pressure,
+                p.relatedness,
+                p.needs_at,
+                p.asleep,
+            )
+        })?;
+        let plan = self.plan_day(ctx, h, at);
+        if let Some(p) = self.people.get_mut(h) {
+            (
+                p.energy_kcal,
+                p.sleep_pressure,
+                p.relatedness,
+                p.needs_at,
+                p.asleep,
+            ) = kept;
+        }
+        plan
+    }
+
+    /// Minutes of `b` counted in time use, as an event-driven day counts them at a step's end.
+    fn count_time(&mut self, b: Behavior, minutes: f64) {
+        if let Some(i) = Behavior::ALL.iter().position(|&x| x == b)
+            && let Some(m) = self.time_use.work.get_mut(i)
+        {
+            *m += minutes;
         }
     }
 

@@ -5561,6 +5561,30 @@ and M6a gives rivers a daily flow.
         (wholly Detailed: 1,204 ms, 293 and 212).
     - **DI**: Gate C (`consistency --resolution household`), planning in parallel and exact at
       1–8 workers, measured.
+      - *As built, first part (2026-10-21):* `civ-host consistency --household` is Gate C: Gate
+        B's two fixtures, years and aggregates, its five Detailed runs a fixture and its
+        tolerances (set from Detailed calibration in 2026-10-07, not widened), against five runs
+        living every settlement household-resolved at Max. Its first evaluation found and fixed
+        four faults of the household day: the night and the meals reached no time use (now
+        counted as a step's end counts them); a day burned a flat 1.6 times basal (now each block
+        at its activity's own level, rest for the rest); a fixed night of the content's middle
+        sleep (now from turning in two hours after sunset to sunrise, within the content's
+        range); and the whole day shared by the sunrise's weighing, which tilts it to work (now
+        weighed three times, at sunrise, midday and an hour after sunset, each sharing its part:
+        the morning, the afternoon, and the evening to turning in; the later two put each member's
+        needs back as they found them). **Gate C, as it stands:** within tolerance are people,
+        walking, harvest, materials and roofs on both fixtures, work on the valley (+7.8 %, 10 %)
+        and sleep on the coast (+2.4 %, 3 %); outside by a little are leisure (−5.4 % and −5.7 %
+        against 3 %), food days (+4.9 % and +4.7 % against 4 %), work on the coast (+10.9 %
+        against 10 %), sleep in the valley (+4.1 % against 3 %) and the Gini of goods in the valley
+        (−17 % against 8 %, where Detailed's own spread calibrates at 18.8 %). **Gate C fails**,
+        so household resolution is no host default (ADR-0032 §5); the bench and tests set it by
+        hand. The five household-resolved runs of a fixture are alike: a household day draws on
+        no scheduler tie-break. **Exact:** with no settlement household-resolved, every section's
+        digest equals the build before. **Measured** (2×500, Max, 40 days, one
+        household-resolved): 763 ms a day, 294 fields and 212 buildings (wholly Detailed 1,204 ms,
+        293 and 212). **Not yet:** planning in parallel needs the decision's scoring out of
+        `decide`'s `&mut self` (DI's second part).
   - **M9b, many settlements** (ADR-0032 §6, §8).
     - **DJ**: worlds founded with up to 30 groups; memory a person measured and cut where it can
       be exactly; 100k founded, lived and saved on the bench.
@@ -6913,6 +6937,13 @@ One line each. Don't re-litigate without a reason written next to the entry.
   centre; a watch round begins there. These are kernel constants (`LATE_NOTICE_MIN`,
   `TOWER_SIGHT_M`, `AT_TOWER_M`), revisited if the demo (DE) shows no tower ever proposed where
   fires burn unseen, or one that never helps.
+- **Gate C's first evaluation and the household day's priors (2026-10-21, M9a slice DI,
+  ADR-0032 §5):** NUDGE: a household-resolved day's people turn in two hours after sunset (the
+  middle of the four-hour evening a decision reads; with the evening's end the night was 7.8 h
+  against Detailed's 8.8 h) and are weighed at sunrise, midday and an hour after sunset. Seven
+  evaluations of Gate C (each about five minutes) took the household day from leisure +75 %, sleep
+  −100 % and food +17–30 % to every aggregate within a few points of its tolerance; the rest is
+  time-boxed here and recorded above (plan §7, DI). Tolerances were not touched.
 - **Design priors for the household day (2026-10-20, M9a slice DG, ADR-0032 §2):** NUDGE: the
   day is scored once at sunrise; waking minutes are the day less the middle of the content's
   sleep range and three meals; a walk's length in the day's sharing is reckoned straight off trail

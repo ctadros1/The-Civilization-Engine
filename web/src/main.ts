@@ -1450,9 +1450,9 @@ bindUi(store, {
   openConflagration,
   openQuake,
   closeIncidentPage,
-  runAhead: async (minutes) => {
+  runAhead: async (minutes, skip, stopOn) => {
     const clock = store.state.snapshot?.clock;
-    if (clock) await command(M.runUntil(clock.minute + minutes));
+    if (clock) await command(M.runUntil(clock.minute + minutes, skip, stopOn));
   },
   setPlacing,
   setPlacingDeposit,

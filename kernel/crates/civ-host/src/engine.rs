@@ -231,12 +231,22 @@ struct Task {
     cancel: Option<Arc<AtomicBool>>,
 }
 
-/// Running ahead to a time in full detail, as fast as the machine allows (M1 slice G).
+/// Running ahead to a time, as fast as the machine allows (M1 slice G), or skipping there
+/// (M9c slice DL, ADR-0032 §7).
 struct RunAhead {
     task: u64,
     from: SimTime,
     until: SimTime,
     cancel: Arc<AtomicBool>,
+    skip: Option<Skip>,
+}
+
+/// A skip under way: what it put aside, the chronicle's head when it began, and the kinds of entry
+/// that stop it.
+struct Skip {
+    restore: civ_sim::skip::SkipRestore,
+    from_seq: u64,
+    stop_on: u8,
 }
 
 enum Origin {
@@ -425,7 +435,11 @@ impl Engine {
             Request::CancelTask => self.cancel_task(),
             Request::RecoverWorld { accept } => self.recover(accept),
             Request::SpawnFamily { at, families } => self.spawn_families(at, families),
-            Request::RunUntil { minute } => self.start_run_ahead(minute),
+            Request::RunUntil {
+                minute,
+                skip,
+                stop_on,
+            } => self.start_run_ahead(minute, skip, stop_on),
             Request::IntroduceTechnique {
                 person,
                 technique,
@@ -1640,11 +1654,11 @@ impl Engine {
         }
     }
 
-    fn start_run_ahead(&mut self, minute: i64) -> Reply {
+    fn start_run_ahead(&mut self, minute: i64, skip: bool, stop_on: u8) -> Reply {
         if let Some(busy) = self.busy() {
             return busy;
         }
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.world.as_mut() else {
             return no_world();
         };
         let from = world.sim.now();
@@ -1661,16 +1675,40 @@ impl Engine {
                 "running ahead is limited to a hundred years at a time".to_owned(),
             );
         }
+        // A skip lives at Accelerated Max with every settlement household-resolved, from the
+        // next midnight, until it ends (ADR-0032 §7); at Max the clock stops only at midnights,
+        // so it runs to the first at or after the time asked.
+        let day = civ_core::time::MINUTES_PER_DAY;
+        let until = if skip {
+            SimTime::from_minutes((until.minutes() + day - 1).div_euclid(day) * day)
+        } else {
+            until
+        };
+        let skip = skip.then(|| Skip {
+            from_seq: world.sim.chronicle_head(),
+            restore: world.sim.begin_skip(),
+            stop_on,
+        });
         let cancel = Arc::new(AtomicBool::new(false));
-        let name = format!("Running ahead to {until}");
+        let name = if skip.is_some() {
+            format!("Skipping to {until}")
+        } else {
+            format!("Running ahead to {until}")
+        };
+        let skipping = skip.is_some();
         let task = self.begin_task(name, Some(Arc::clone(&cancel)));
         self.run_ahead = Some(RunAhead {
             task,
             from,
             until,
             cancel,
+            skip,
         });
-        ack("Running ahead")
+        ack(if skipping {
+            "Skipping ahead"
+        } else {
+            "Running ahead"
+        })
     }
 
     /// Lives the world on in whole hours for most of a tick, then shows how far it got.
@@ -1683,14 +1721,29 @@ impl Engine {
         };
         let (until, cancelled) = (run.until, run.cancel.load(Ordering::Relaxed));
         let (task, from) = (run.task, run.from);
+        let stop = run.skip.as_ref().map(|s| (s.from_seq, s.stop_on));
+        let (stopped, ran) = if stop.is_some() {
+            ("Stopped skipping", "Skipped")
+        } else {
+            ("Stopped running ahead", "Ran ahead")
+        };
         if cancelled {
-            self.finish_run_ahead("Stopped running ahead");
+            self.finish_run_ahead(stopped);
             return;
         }
         let mut failed = None;
+        let mut marked = None;
         while world.sim.now() < until && started.elapsed() < budget {
-            let step = (until.minutes() - world.sim.now().minutes()).min(60);
-            match world.sim.advance_minutes(step) {
+            // A skip goes a day at a time, to each midnight, and looks for the entries that stop
+            // it after each.
+            let now = world.sim.now().minutes();
+            let day = civ_core::time::MINUTES_PER_DAY;
+            let step = if stop.is_some() {
+                day - now.rem_euclid(day)
+            } else {
+                60
+            };
+            match world.sim.advance_minutes((until.minutes() - now).min(step)) {
                 Ok(advance) => {
                     if advance.minutes > 0 {
                         self.changed = true;
@@ -1701,17 +1754,31 @@ impl Engine {
                     break;
                 }
             }
+            if let Some((from_seq, stop_on)) = stop
+                && let Some(e) = world.sim.skip_stop(from_seq, stop_on)
+            {
+                marked = Some(world.sim.chronicle_words(e));
+                break;
+            }
         }
         let now = world.sim.now();
         let autosave_due =
             world.last_autosave.elapsed() >= self.config.autosave_interval && world.sim.is_dirty();
         if let Some(e) = failed {
-            self.finish_run_ahead("Stopped running ahead");
+            self.finish_run_ahead(stopped);
             self.fail(format!("The clock stopped: {e}"));
             return;
         }
+        if let Some(words) = marked {
+            self.finish_run_ahead(stopped);
+            self.event(
+                wire::EventKind::Info,
+                format!("The skip stopped at: {words}"),
+            );
+            return;
+        }
         if now >= until {
-            self.finish_run_ahead("Ran ahead");
+            self.finish_run_ahead(ran);
             return;
         }
         if let Some(t) = self.task.as_mut().filter(|t| t.id == task) {
@@ -1735,6 +1802,10 @@ impl Engine {
         let Some(world) = self.world.as_mut() else {
             return;
         };
+        // A skip puts back the speed and the resolutions it set aside.
+        if let Some(skip) = run.skip {
+            world.sim.end_skip(skip.restore);
+        }
         world.sim.set_paused(true);
         let date = world.sim.now();
         let dirty = world.sim.is_dirty();
@@ -1949,7 +2020,9 @@ mod tests {
         let target = start.plus_minutes(2 * civ_core::time::MINUTES_PER_DAY);
         assert!(matches!(
             h.ask(Request::RunUntil {
-                minute: target.minutes()
+                minute: target.minutes(),
+                skip: false,
+                stop_on: 0,
             }),
             Reply::Response(_)
         ));
@@ -1962,7 +2035,9 @@ mod tests {
         // Another long job waits for it.
         assert_eq!(
             error_code(&h.ask(Request::RunUntil {
-                minute: target.minutes() + 10
+                minute: target.minutes() + 10,
+                skip: false,
+                stop_on: 0,
             })),
             Some(wire::ErrorCode::Busy)
         );
@@ -1982,7 +2057,9 @@ mod tests {
         // The past cannot be run to.
         assert_eq!(
             error_code(&h.ask(Request::RunUntil {
-                minute: start.minutes()
+                minute: start.minutes(),
+                skip: false,
+                stop_on: 0,
             })),
             Some(wire::ErrorCode::BadRequest)
         );
@@ -2119,6 +2196,50 @@ mod tests {
     }
 
     #[test]
+    fn skipping_lives_at_max_by_household_and_puts_the_speed_back() {
+        // M9c slice DL (ADR-0032 §7).
+        let mut h = Harness::new(None, None);
+        h.create("Skip");
+        let world = h.engine.world.as_ref().expect("a world");
+        let (start, speed) = (world.sim.now(), world.sim.speed());
+        let target = start.plus_minutes(3 * civ_core::time::MINUTES_PER_DAY);
+        // At Max the clock stops at midnights: the skip runs to the first at or after it.
+        let day = civ_core::time::MINUTES_PER_DAY;
+        let midnight = SimTime::from_minutes((target.minutes() + day - 1).div_euclid(day) * day);
+        assert!(matches!(
+            h.ask(Request::RunUntil {
+                minute: target.minutes(),
+                skip: true,
+                stop_on: 0,
+            }),
+            Reply::Response(_)
+        ));
+        let task = h.engine.task.as_ref().map(|t| t.view.name.clone());
+        assert!(
+            task.as_ref().is_some_and(|n| n.starts_with("Skipping to")),
+            "{task:?}"
+        );
+        // While it runs: Max, and the policy that lives every settlement by household (the
+        // kernel's tests show it does; how many days one tick lives depends on the machine).
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        assert_eq!(sim.speed(), civ_sim::SPEED_MAX);
+        assert!(sim.focus_policy().is_some());
+        for _ in 0..10_000 {
+            if h.engine.run_ahead.is_none() {
+                break;
+            }
+            h.engine.tick(h.engine.config.tick);
+        }
+        let world = h.engine.world.as_ref().expect("a world");
+        assert_eq!(world.sim.now(), midnight);
+        assert!(world.sim.paused());
+        assert_eq!(world.sim.speed(), speed, "the speed put back");
+        assert!(world.sim.focus_policy().is_none());
+        let history = h.engine.history.lock().expect("history");
+        assert!(history.iter().any(|e| e.text.starts_with("Skipped to")));
+    }
+
+    #[test]
     fn running_ahead_stops_when_cancelled() {
         let mut h = Harness::new(None, None);
         h.create("Stop");
@@ -2126,7 +2247,9 @@ mod tests {
         let target = start.plus_minutes(5 * civ_core::time::MINUTES_PER_YEAR);
         assert!(matches!(
             h.ask(Request::RunUntil {
-                minute: target.minutes()
+                minute: target.minutes(),
+                skip: false,
+                stop_on: 0,
             }),
             Reply::Response(_)
         ));

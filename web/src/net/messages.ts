@@ -2517,10 +2517,23 @@ export function bless(person: number, curse: boolean, days: number, share: numbe
   return command(b, W.CommandBody.Bless, body);
 }
 
-/** Runs ahead to a simulation minute, unpaced and in full detail. */
-export function runUntil(minute: number): Uint8Array {
+/** Kinds of chronicle entry that stop a skip (wire 1.95, M9c slice DL): bits of `stopOn`. */
+export const SkipStop = {
+  settlements: 1,
+  hunger: 2,
+  disasters: 4,
+  politics: 8,
+  discoveries: 16,
+  all: 31,
+} as const;
+
+/** Runs ahead to a simulation minute, unpaced at the speed set; or skips there, at the fastest
+ * speed with every settlement lived by household, stopping too at the first chronicle entry of a
+ * kind marked in `stopOn` (wire 1.95, ADR-0032 §7). */
+export function runUntil(minute: number, skip = false, stopOn = 0): Uint8Array {
   const b = new flatbuffers.Builder(32);
-  return command(b, W.CommandBody.RunUntil, W.RunUntil.createRunUntil(b, BigInt(minute)));
+  const body = W.RunUntil.createRunUntil(b, BigInt(minute), skip, stopOn);
+  return command(b, W.CommandBody.RunUntil, body);
 }
 
 export function recoverWorld(accept: boolean): Uint8Array {

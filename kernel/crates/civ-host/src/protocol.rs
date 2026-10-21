@@ -51,10 +51,14 @@ pub enum Request {
         /// How many come together (at least one).
         families: u32,
     },
-    /// Run ahead to a time, unpaced and in full detail.
+    /// Run ahead to a time, unpaced: at the speed set, or as a skip (wire 1.95, ADR-0032 §7).
     RunUntil {
         /// Simulation minute to stop at.
         minute: i64,
+        /// Skip: Accelerated Max with every settlement household-resolved, put back after.
+        skip: bool,
+        /// The kinds of chronicle entry that stop a skip ([`civ_sim::skip::stop`]).
+        stop_on: u8,
     },
     /// A living person comes to know a technique, or only hears of it (god tool, ADR-0008 §6).
     IntroduceTechnique {
@@ -531,7 +535,11 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                     let b = command
                         .body_as_run_until()
                         .ok_or_else(|| missing("command"))?;
-                    Ok(Request::RunUntil { minute: b.minute() })
+                    Ok(Request::RunUntil {
+                        minute: b.minute(),
+                        skip: b.skip(),
+                        stop_on: b.stop_on(),
+                    })
                 }
                 wire::CommandBody::IntroduceTechnique => {
                     let b = command
@@ -1282,7 +1290,14 @@ mod tests {
             })
         );
         let mut fbb = FlatBufferBuilder::new();
-        let body = wire::RunUntil::create(&mut fbb, &wire::RunUntilArgs { minute: 525_600 });
+        let body = wire::RunUntil::create(
+            &mut fbb,
+            &wire::RunUntilArgs {
+                minute: 525_600,
+                skip: true,
+                stop_on: 5,
+            },
+        );
         let root = wire::Command::create(
             &mut fbb,
             &wire::CommandArgs {
@@ -1292,7 +1307,11 @@ mod tests {
         );
         assert_eq!(
             decode_request(FrameKind::Command, &finish(fbb, root)),
-            Ok(Request::RunUntil { minute: 525_600 })
+            Ok(Request::RunUntil {
+                minute: 525_600,
+                skip: true,
+                stop_on: 5,
+            })
         );
         let mut fbb = FlatBufferBuilder::new();
         let body = wire::Whisper::create(

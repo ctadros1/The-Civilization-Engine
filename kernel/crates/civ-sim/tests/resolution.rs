@@ -608,3 +608,68 @@ fn under_the_focus_the_settlement_of_the_person_followed_is_held_detailed() {
     sim.advance_minutes(MINUTES_PER_DAY).expect("advances");
     assert_eq!(sim.household_resolved(), &[ids[1], ids[2], ids[4]].into());
 }
+
+#[test]
+fn a_skip_lives_every_settlement_by_household_at_max_and_puts_everything_back() {
+    // M9c slice DL (ADR-0032 §7): even two settlements, fewer than the focus would resolve.
+    let mut sim = two_settlements();
+    let all: BTreeSet<PermanentId> = sim.land().settlements.iter().map(|s| s.id).collect();
+    let speed = sim.speed();
+    let restore = sim.begin_skip();
+    assert_eq!(sim.mode(), civ_sim::Mode::Accelerated, "at a midnight: now");
+    sim.advance_minutes(3 * MINUTES_PER_DAY).expect("advances");
+    assert_eq!(sim.household_resolved(), &all);
+    sim.end_skip(restore);
+    assert_eq!(sim.speed(), speed);
+    assert!(sim.focus_policy().is_none());
+    sim.advance_to_midnight().expect("advances");
+    assert!(sim.household_resolved().is_empty(), "Detailed again");
+    assert_eq!(sim.mode(), civ_sim::Mode::Detailed);
+    let problems = sim
+        .people()
+        .problems(sim.ids().peek_next(), sim.rules().catalog.activities.len());
+    assert!(problems.is_empty(), "{problems:?}");
+}
+
+#[test]
+fn a_skip_puts_back_the_observers_focus_as_it_was() {
+    let mut sim = five_settlements();
+    let ids: Vec<PermanentId> = sim.land().settlements.iter().map(|s| s.id).collect();
+    sim.set_resolution_by_focus(true);
+    sim.set_focus(Some(ids[0]));
+    sim.advance_minutes(MINUTES_PER_DAY).expect("advances");
+    let restore = sim.begin_skip();
+    sim.advance_minutes(MINUTES_PER_DAY).expect("advances");
+    assert_eq!(sim.household_resolved().len(), ids.len(), "every one");
+    sim.end_skip(restore);
+    assert_eq!(sim.focus_policy().and_then(|p| p.focus), Some(ids[0]));
+    sim.advance_minutes(MINUTES_PER_DAY).expect("advances");
+    assert!(
+        !sim.household_resolved().contains(&ids[0]),
+        "the focus is Detailed again"
+    );
+}
+
+#[test]
+fn a_skip_stops_at_the_first_entry_of_a_kind_marked() {
+    use civ_sim::skip::{mark_of, stop};
+    let sim = two_settlements();
+    // The settlements' foundings are in the chronicle from the start.
+    let first = sim
+        .skip_stop(0, stop::SETTLEMENTS)
+        .expect("a settlement founded");
+    assert_eq!(mark_of(first.kind), stop::SETTLEMENTS);
+    let earliest = sim
+        .people()
+        .chronicle
+        .iter()
+        .find(|e| mark_of(e.kind) & stop::SETTLEMENTS != 0)
+        .expect("one");
+    assert_eq!(first.seq, earliest.seq, "the first after the head given");
+    assert!(!sim.chronicle_words(first).is_empty());
+    assert!(sim.skip_stop(sim.chronicle_head(), stop::ALL).is_none());
+    assert!(
+        sim.skip_stop(0, 0).is_none(),
+        "nothing marked stops nothing"
+    );
+}

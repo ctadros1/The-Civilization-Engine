@@ -28,9 +28,20 @@ pub struct FocusPolicy {
     pub pins: BTreeSet<PermanentId>,
     /// The day each settlement last became Detailed under the policy.
     detailed_since: BTreeMap<PermanentId, i64>,
+    /// Every settlement lived in household-resolved, whatever the focus (a skip, M9c slice DL).
+    everything: bool,
 }
 
 impl FocusPolicy {
+    /// The policy of a skip (ADR-0032 §7): every settlement lived in household-resolved, however
+    /// few, from the next midnight.
+    pub fn everything() -> FocusPolicy {
+        FocusPolicy {
+            everything: true,
+            ..FocusPolicy::default()
+        }
+    }
+
     /// The settlements to household-resolve from the midnight beginning `day`, given those
     /// household-resolved now and the settlement of the person followed, or `None` if they stay
     /// as they are. With more than [`DETAILED_UP_TO`] settlements lived in, every one but the
@@ -48,6 +59,10 @@ impl FocusPolicy {
             .filter(|s| s.abandoned.is_none())
             .map(|s| s.id)
             .collect();
+        if self.everything {
+            let next: BTreeSet<PermanentId> = lived.into_iter().collect();
+            return (next != *now).then_some(next);
+        }
         let kept = |s: &PermanentId| {
             Some(*s) == self.focus || Some(*s) == followed || self.pins.contains(s)
         };
@@ -119,6 +134,17 @@ mod tests {
             .expect("a change");
         assert_eq!(next, [id(1), id(3), id(5)].into());
         assert_eq!(p.next(11, &land_of(5), &next, None), None, "settled");
+    }
+
+    #[test]
+    fn a_skip_household_resolves_every_settlement_however_few() {
+        let mut p = FocusPolicy::everything();
+        let all: BTreeSet<_> = [id(1), id(2)].into();
+        assert_eq!(
+            p.next(0, &land_of(2), &BTreeSet::new(), None),
+            Some(all.clone())
+        );
+        assert_eq!(p.next(1, &land_of(2), &all, None), None);
     }
 
     #[test]

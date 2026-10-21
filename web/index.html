@@ -24,6 +24,16 @@
             <option value="2628000">5 years</option>
             <option value="5256000">10 years</option>
           </select>
+          <label class="skip-ahead" title="Skip: every settlement lived by household at the fastest speed, the speed and resolutions put back after (ADR-0032 §7)"><input type="checkbox" id="skip-ahead" disabled /> skip</label>
+          <select id="skip-stop" aria-label="Stop a skip at" disabled>
+            <option value="0">only at the date</option>
+            <option value="31">or at anything notable</option>
+            <option value="1">or at a new settlement</option>
+            <option value="2">or at hunger</option>
+            <option value="4">or at a disaster</option>
+            <option value="8">or at politics</option>
+            <option value="16">or at a discovery</option>
+          </select>
         </div>
         <div class="actions">
           <button id="btn-new" type="button" disabled>New world</button>

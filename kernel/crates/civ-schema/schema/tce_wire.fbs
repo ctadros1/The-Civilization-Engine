@@ -506,6 +506,11 @@ table SpawnFamily {
 // task; CancelTask stops it. The clock is paused when it arrives.
 table RunUntil {
   minute: long (id: 0);
+  // Wire 1.95 (M9c slice DL, ADR-0032 §7): a skip, at Accelerated Max with every settlement
+  // lived by household, the speed and the resolutions put back after; and the kinds of chronicle
+  // entry that stop it (bits: 1 settlements, 2 hunger, 4 disasters, 8 politics, 16 discoveries).
+  skip: bool (id: 1);
+  stop_on: ubyte (id: 2);
 }
 
 // M3b slice M: the observer introduces a technique (god tool, ADR-0008 §6): a living person comes

@@ -27,12 +27,30 @@ minute():bigint {
   return offset ? this.bb!.readInt64(this.bb_pos + offset) : BigInt('0');
 }
 
+skip():boolean {
+  const offset = this.bb!.__offset(this.bb_pos, 6);
+  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
+}
+
+stopOn():number {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : 0;
+}
+
 static startRunUntil(builder:flatbuffers.Builder) {
-  builder.startObject(1);
+  builder.startObject(3);
 }
 
 static addMinute(builder:flatbuffers.Builder, minute:bigint) {
   builder.addFieldInt64(0, minute, BigInt('0'));
+}
+
+static addSkip(builder:flatbuffers.Builder, skip:boolean) {
+  builder.addFieldInt8(1, +skip, +false);
+}
+
+static addStopOn(builder:flatbuffers.Builder, stopOn:number) {
+  builder.addFieldInt8(2, stopOn, 0);
 }
 
 static endRunUntil(builder:flatbuffers.Builder):flatbuffers.Offset {
@@ -40,9 +58,11 @@ static endRunUntil(builder:flatbuffers.Builder):flatbuffers.Offset {
   return offset;
 }
 
-static createRunUntil(builder:flatbuffers.Builder, minute:bigint):flatbuffers.Offset {
+static createRunUntil(builder:flatbuffers.Builder, minute:bigint, skip:boolean, stopOn:number):flatbuffers.Offset {
   RunUntil.startRunUntil(builder);
   RunUntil.addMinute(builder, minute);
+  RunUntil.addSkip(builder, skip);
+  RunUntil.addStopOn(builder, stopOn);
   return RunUntil.endRunUntil(builder);
 }
 }

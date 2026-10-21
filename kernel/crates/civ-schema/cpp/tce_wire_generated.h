@@ -6069,15 +6069,25 @@ struct RunUntil FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef RunUntilBuilder Builder;
   struct Traits;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_MINUTE = 4
+    VT_MINUTE = 4,
+    VT_SKIP = 6,
+    VT_STOP_ON = 8
   };
   int64_t minute() const {
     return GetField<int64_t>(VT_MINUTE, 0);
+  }
+  bool skip() const {
+    return GetField<uint8_t>(VT_SKIP, 0) != 0;
+  }
+  uint8_t stop_on() const {
+    return GetField<uint8_t>(VT_STOP_ON, 0);
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int64_t>(verifier, VT_MINUTE, 8) &&
+           VerifyField<uint8_t>(verifier, VT_SKIP, 1) &&
+           VerifyField<uint8_t>(verifier, VT_STOP_ON, 1) &&
            verifier.EndTable();
   }
 };
@@ -6088,6 +6098,12 @@ struct RunUntilBuilder {
   ::flatbuffers::uoffset_t start_;
   void add_minute(int64_t minute) {
     fbb_.AddElement<int64_t>(RunUntil::VT_MINUTE, minute, 0);
+  }
+  void add_skip(bool skip) {
+    fbb_.AddElement<uint8_t>(RunUntil::VT_SKIP, static_cast<uint8_t>(skip), 0);
+  }
+  void add_stop_on(uint8_t stop_on) {
+    fbb_.AddElement<uint8_t>(RunUntil::VT_STOP_ON, stop_on, 0);
   }
   explicit RunUntilBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -6102,9 +6118,13 @@ struct RunUntilBuilder {
 
 inline ::flatbuffers::Offset<RunUntil> CreateRunUntil(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    int64_t minute = 0) {
+    int64_t minute = 0,
+    bool skip = false,
+    uint8_t stop_on = 0) {
   RunUntilBuilder builder_(_fbb);
   builder_.add_minute(minute);
+  builder_.add_stop_on(stop_on);
+  builder_.add_skip(skip);
   return builder_.Finish();
 }
 

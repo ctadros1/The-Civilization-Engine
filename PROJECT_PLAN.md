@@ -5663,6 +5663,27 @@ and M6a gives rivers a daily flow.
         shown so and their settlement lived in detail once selected.
   - **M9c, skips, climate and the demo** (ADR-0032 §7, §9).
     - **DL**: "skip to" as a host command and in the web.
+      - *As built (2026-10-21):* running ahead may be a skip (`RunUntil.skip`, **wire 1.95**):
+        the kernel sets Accelerated Max and a policy that household-resolves every settlement lived
+        in, however few, from the next midnight (`Sim::begin_skip`; whatever holds a settlement
+        Detailed, a fire or a band, still holds it); the host advances a day at a time and stops
+        at the first midnight at or after the date (at Max the clock stops only at midnights),
+        at the observer's stop, or after the first chronicle entry of a kind marked
+        (`RunUntil.stop_on`); it then puts back the speed and the observer's choice of
+        resolutions, focus and pins included (`Sim::end_skip`), from the next midnight, and says
+        where it stopped and at what. A skip is the world lived; nothing is generated after it,
+        and it saves and reproduces as any run. **The marks** are the observer's five kinds, not
+        the engine's: a settlement founded, taken into a polity or seceding; hunger; a disaster
+        (fire, flood, storm damage, a building giving way, an outbreak, a raid); politics (a law
+        decided, a custom amended or taken, a revolt or coup called, an election, an alliance
+        or agreement); a discovery (a technique or a deposit found). **The observer:** beside
+        "Run ahead", a "skip" box and what else to stop at. **Tested:** a skip household-resolves
+        even two settlements at Max and every one is Detailed again after, the speed back; the
+        observer's focus is put back as it was; the first entry of a marked kind after the head
+        stops it, and nothing marked stops nothing; the host's skip lives by household, reaches
+        its date at Max with the skip's policy and puts the speed back; the command decodes; the builder; end to end, a skip
+        of a month marked to stop at a new settlement runs to its date and the speed is put
+        back.
     - **DM**: the climate forcing tool: kernel, saves, chronicle, wire and web.
     - **DN**: the M9 demo and the gate (100k, ten or more settlements, ≥ 0.1 years a minute).
 

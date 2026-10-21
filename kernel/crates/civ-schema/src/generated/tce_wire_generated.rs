@@ -9396,6 +9396,8 @@ impl<'a> ::flatbuffers::Follow<'a> for RunUntil<'a> {
 
 impl<'a> RunUntil<'a> {
   pub const VT_MINUTE: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SKIP: ::flatbuffers::VOffsetT = 6;
+  pub const VT_STOP_ON: ::flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -9408,6 +9410,8 @@ impl<'a> RunUntil<'a> {
   ) -> ::flatbuffers::WIPOffset<RunUntil<'bldr>> {
     let mut builder = RunUntilBuilder::new(_fbb);
     builder.add_minute(args.minute);
+    builder.add_stop_on(args.stop_on);
+    builder.add_skip(args.skip);
     builder.finish()
   }
 
@@ -9419,6 +9423,20 @@ impl<'a> RunUntil<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(RunUntil::VT_MINUTE, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn skip(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(RunUntil::VT_SKIP, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn stop_on(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(RunUntil::VT_STOP_ON, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for RunUntil<'_> {
@@ -9428,18 +9446,24 @@ impl ::flatbuffers::Verifiable for RunUntil<'_> {
   ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
     v.visit_table(pos)?
      .visit_field::<i64>("minute", Self::VT_MINUTE, false)?
+     .visit_field::<bool>("skip", Self::VT_SKIP, false)?
+     .visit_field::<u8>("stop_on", Self::VT_STOP_ON, false)?
      .finish();
     Ok(())
   }
 }
 pub struct RunUntilArgs {
     pub minute: i64,
+    pub skip: bool,
+    pub stop_on: u8,
 }
 impl<'a> Default for RunUntilArgs {
   #[inline]
   fn default() -> Self {
     RunUntilArgs {
       minute: 0,
+      skip: false,
+      stop_on: 0,
     }
   }
 }
@@ -9452,6 +9476,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RunUntilBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_minute(&mut self, minute: i64) {
     self.fbb_.push_slot::<i64>(RunUntil::VT_MINUTE, minute, 0);
+  }
+  #[inline]
+  pub fn add_skip(&mut self, skip: bool) {
+    self.fbb_.push_slot::<bool>(RunUntil::VT_SKIP, skip, false);
+  }
+  #[inline]
+  pub fn add_stop_on(&mut self, stop_on: u8) {
+    self.fbb_.push_slot::<u8>(RunUntil::VT_STOP_ON, stop_on, 0);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RunUntilBuilder<'a, 'b, A> {
@@ -9472,6 +9504,8 @@ impl ::core::fmt::Debug for RunUntil<'_> {
   fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
     let mut ds = f.debug_struct("RunUntil");
       ds.field("minute", &self.minute());
+      ds.field("skip", &self.skip());
+      ds.field("stop_on", &self.stop_on());
       ds.finish()
   }
 }

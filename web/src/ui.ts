@@ -151,8 +151,9 @@ export interface Actions {
   closeIncidentPage(): void;
   /** Centres the map on a point, metres (the camera moves only when asked). */
   locate(xM: number, yM: number): void;
-  /** Run ahead by `minutes` of simulated time. */
-  runAhead(minutes: number): Promise<void>;
+  /** Run ahead by `minutes` of simulated time; as a skip, stopping too at the entries marked in
+   * `stopOn` (wire 1.95, ADR-0032 §7). */
+  runAhead(minutes: number, skip: boolean, stopOn: number): Promise<void>;
   /**
    * Arm or disarm the map tool that sends families where the map is clicked, and set how many
    * come together.
@@ -564,10 +565,17 @@ export function bindUi(store: Store, actions: Actions): void {
   };
   $("btn-run").addEventListener("click", toggleRun);
   const runAhead = $<HTMLSelectElement>("run-ahead");
+  const skipAhead = $<HTMLInputElement>("skip-ahead");
+  const skipStop = $<HTMLSelectElement>("skip-stop");
   runAhead.addEventListener("change", () => {
     const minutes = Number(runAhead.value);
     runAhead.value = "";
-    if (minutes > 0) void attempt(() => actions.runAhead(minutes));
+    const skip = skipAhead.checked;
+    const stopOn = skip ? Number(skipStop.value) : 0;
+    if (minutes > 0) void attempt(() => actions.runAhead(minutes, skip, stopOn));
+  });
+  skipAhead.addEventListener("change", () => {
+    skipStop.disabled = runAhead.disabled || !skipAhead.checked;
   });
   const addFamily = $<HTMLButtonElement>("add-family");
   const familyCount = $<HTMLSelectElement>("family-count");
@@ -3307,6 +3315,9 @@ export function bindUi(store: Store, actions: Actions): void {
     $<HTMLButtonElement>("btn-save").disabled = !open || !world;
     $<HTMLButtonElement>("btn-load").disabled = !open || !!task;
     $<HTMLSelectElement>("run-ahead").disabled = !open || !world || !!task;
+    $<HTMLInputElement>("skip-ahead").disabled = !open || !world || !!task;
+    $<HTMLSelectElement>("skip-stop").disabled =
+      !open || !world || !!task || !$<HTMLInputElement>("skip-ahead").checked;
     const placing = $<HTMLButtonElement>("add-family");
     placing.disabled = !open || !world;
     placing.setAttribute("aria-pressed", String(state.placing));

@@ -76,6 +76,16 @@ describe("builders", () => {
     ]);
   });
 
+  it("builds the request that skips ahead, and the one that runs ahead", () => {
+    const skip = W.Command.getRootAsCommand(bb(M.runUntil(525_600, true, M.SkipStop.disasters)));
+    expect(skip.bodyType()).toBe(W.CommandBody.RunUntil);
+    const until = skip.body(new W.RunUntil()) as W.RunUntil;
+    expect([until.minute(), until.skip(), until.stopOn()]).toEqual([525_600n, true, 4]);
+    const run = W.Command.getRootAsCommand(bb(M.runUntil(1_440)));
+    const plain = run.body(new W.RunUntil()) as W.RunUntil;
+    expect([plain.minute(), plain.skip(), plain.stopOn()]).toEqual([1_440n, false, 0]);
+  });
+
   it("builds clock and raster requests", () => {
     const clock = W.Command.getRootAsCommand(bb(M.setClock(false, 288)));
     const set = clock.body(new W.SetClock()) as W.SetClock;

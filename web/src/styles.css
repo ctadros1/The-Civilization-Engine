@@ -242,6 +242,15 @@ select {
   margin-left: 6px;
 }
 
+.skip-ahead {
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+#skip-stop {
+  width: auto;
+}
+
 #family-count {
   width: auto;
   padding: 4px 6px;

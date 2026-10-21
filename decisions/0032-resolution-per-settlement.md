@@ -235,3 +235,33 @@ binds only going down: a settlement the observer turns to is Detailed from the n
 one turned from stays Detailed its 30 days (being looked at keeps the count fresh). Pins are held
 Detailed whatever their days. Turning the setting off makes every settlement Detailed from the next
 midnight. Neither the setting nor its days are saved.
+
+## Amendment (2026-10-21, M9c slice DN): the gate, amended to the figure reached
+
+§8's gate is not met, and is amended to the figure reached (ADR-0028 §1's rule), the profile as
+evidence:
+
+- **Measured** (the container, release build, `bench_village --people 10000 --groups 10 --size
+  2048 --known --max --household 10 --days 5`, ten settlements of 10,000, every one
+  household-resolved, at Accelerated Max; the M9 demo's run shared the four cores): 100,026 people
+  live a day in **224 s** on average (p50 215 s, p95 257 s), **0.0007 simulated years a real
+  minute** against §8's 0.1, about 140 times short. The founding day, lived in full detail to the
+  first midnight, took 1,146 s. Peak memory **2.3 GB** at 100k (no save encoded; slice DJ measured
+  3.5 GB while one is), within plan §4.6's 4 GB at 50k and at 100k.
+- **The figure M9 stands at:** 100,000 people in ten settlements are founded, lived
+  household-resolved and saved, each still one record, at about 0.0007 years a minute (2.2 ms a
+  person-day). Settlements of 2,000 live at about 0.7 ms a person-day (twenty thousand in ten, 14 s
+  a day); the cost of a person-day still grows with the size of the settlement.
+- **The profile** (gdb samples of the main thread, release): in ten settlements of 2,000 with nine
+  household-resolved, a quarter of a review day was the polity's plan forecast looking for the
+  site every household without a home would take, done again wherever only a plan's codes were
+  read (cut exactly in slice DN); the rest was the household days, the Detailed settlement's
+  decisions and routes. In ten small settlements on a large map with the Detailed one followed, 30 %
+  of the time went to rebuilding route landmarks over the bounding box of all walked ground (most
+  of the map), thrown away whenever walking costs anywhere change.
+- **The next levers**, in order: landmarks over each settlement's own walked ground (a change of
+  search bounds, which can choose another of equally fast routes, so proven against the route
+  times rather than by digest); what a household-resolved decision reads kept by settlement as
+  the Detailed caches are (sellers, buildings a household holds, ground near a field site);
+  planning household days on every core (DI's second part); then cohorts (§1), designed by a new
+  amendment if those do not reach a year a minute at 10,000 in ten settlements.

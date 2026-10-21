@@ -5719,6 +5719,19 @@ and M6a gives rivers a daily flow.
         before but the save's clock time: 3×400 with two household-resolved, 60 days at Max;
         a village of 500, 90 days by the minute). Those two runs went from 704 to 625 and from
         767 to 653 ms a day.
+      - *As built, second part (2026-10-21): the gate, amended.* **Measured** (release,
+        `bench_village --people 10000 --groups 10 --size 2048 --known --max --household 10 --days
+        5`, ten settlements of 10,000, all household-resolved, the demo's run sharing the four
+        cores): 100,026 people live a day in 224 s on average (p50 215 s, p95 257 s), 0.0007
+        simulated years a real minute against ADR-0032 §8's 0.1, about 140 times short; the
+        founding day to the first midnight 1,146 s; peak memory 2.3 GB. Twenty thousand in ten
+        settlements of 2,000 live at 0.7 ms a person-day against 2.2 ms in settlements of 10,000.
+        **The gate is amended to that figure** (ADR-0032's amendment of slice DN, ADR-0028 §1's
+        rule), with the profile as evidence: in ten small settlements on a large map, 30 % of the
+        time went to rebuilding route landmarks over the bounding box of all walked ground,
+        thrown away whenever walking costs anywhere change. The next levers, in order: landmarks
+        over each settlement's own walked ground, what a household-resolved decision reads kept
+        by settlement, household days planned on every core (DI's second part), then cohorts.
 
 **Post-v1 (ordered, not sized):**
 - **M9, Aggregate LOD & scale:** planned above (ADR-0032).

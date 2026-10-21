@@ -1296,6 +1296,12 @@ function select(id: number | null): void {
   map.setSelected(id);
   store.update({ selected: id === null ? null : { id, info: null, error: null } });
   if (id !== null) void refreshPerson(true);
+  // The person selected is the one followed: their settlement is lived in detail.
+  const follow = id ?? 0;
+  if (follow !== resolution.follow) {
+    resolution.follow = follow;
+    if (store.state.snapshot?.clock?.resolutionByFocus) sendResolution(true);
+  }
 }
 
 map.onSelect = (id) => select(id);
@@ -1311,11 +1317,12 @@ function syncMap(): void {
 }
 
 /** The observer's choice of which settlements are lived in detail (wire 1.93, ADR-0032 §6): the
- * settlement last chosen and those held; the host keeps whether it is on. */
-const resolution = { focus: 0, pins: new Set<number>() };
+ * settlement last chosen, those held, and the person followed (the one selected, wire 1.94); the
+ * host keeps whether it is on. */
+const resolution = { focus: 0, pins: new Set<number>(), follow: 0 };
 
 function sendResolution(on: boolean): void {
-  void command(M.setResolution(on, resolution.focus, [...resolution.pins]));
+  void command(M.setResolution(on, resolution.focus, [...resolution.pins], resolution.follow));
 }
 
 async function command(payload: Uint8Array): Promise<void> {
@@ -1632,6 +1639,7 @@ const hooks = {
       people: s.snapshot?.people.length ?? 0,
       settlements:
         s.snapshot?.settlements.map((x) => ({
+          id: x.id,
           name: x.name,
           population: x.population,
           founding: x.founding,
@@ -1859,6 +1867,7 @@ const hooks = {
         ? {
             id: s.selected.id,
             name: s.selected.info?.name ?? null,
+            settlement: s.selected.info?.settlement ?? null,
             doing: s.selected.info?.doing ?? null,
             untilMinute: s.selected.info?.untilMinute ?? null,
             residence: s.selected.info?.residence ?? null,
@@ -1879,7 +1888,12 @@ const hooks = {
   },
   peopleOnScreen: () => map.peopleOnScreen(),
   briefs: () =>
-    store.state.snapshot?.people.map((p) => ({ id: p.id, sex: p.sex, ageYears: p.ageYears })) ?? [],
+    store.state.snapshot?.people.map((p) => ({
+      id: p.id,
+      sex: p.sex,
+      ageYears: p.ageYears,
+      blockUntilMinute: p.blockUntilMinute,
+    })) ?? [],
   select: (id: number | null) => select(id),
   openFirm: (id: number | null) => openFirm(id),
   openIncident: (kind: number, id: number) => openIncident(kind, id),

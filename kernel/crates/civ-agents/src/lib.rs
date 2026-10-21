@@ -102,4 +102,4 @@ pub use person::{
     Activity, FloodLoss, FloodMemory, Household, KnownPatch, Load, Person, Repro, Step, Target,
     Traits, Trip,
 };
-pub use population::{AgentEvent, Approximations, Ctx, Population, TimeUse, WaterDraws};
+pub use population::{AgentEvent, Approximations, Ctx, DayBlock, Population, TimeUse, WaterDraws};

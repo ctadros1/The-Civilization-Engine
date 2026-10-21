@@ -301,6 +301,9 @@ export interface PersonBrief {
   ageYears: number;
   household: number;
   asleep: boolean;
+  /** Wire 1.94 (M9b slice DK, ADR-0032 §6): for someone whose settlement is lived by household,
+   * the minute the block of their day they are in ends, drawn where it is done; 0 when not. */
+  blockUntilMinute: number;
 }
 
 /** Wire 1.74 (M6c slice BJ): a band not yet home or dispersed: who of it are going, the home it
@@ -2362,15 +2365,27 @@ export function setClock(paused: boolean, speed: number): Uint8Array {
 }
 
 /** Settlements away from the observer's focus lived by household, or not (wire 1.93, M9b slice
- * DK, ADR-0032 §6): `focus` the settlement it follows or centres (0: none), `pins` those it
- * holds in detail. */
-export function setResolution(byFocus: boolean, focus: number, pins: number[]): Uint8Array {
+ * DK, ADR-0032 §6): `focus` the settlement it centres (0: none), `pins` those it holds in detail,
+ * and `follow` the person it follows (wire 1.94; 0: none), whose settlement is held as the focus
+ * is. */
+export function setResolution(
+  byFocus: boolean,
+  focus: number,
+  pins: number[],
+  follow = 0,
+): Uint8Array {
   const b = new flatbuffers.Builder(64);
   const pinned = W.SetResolution.createPinsVector(
     b,
     pins.map((p) => BigInt(p)),
   );
-  const body = W.SetResolution.createSetResolution(b, byFocus, BigInt(focus), pinned);
+  const body = W.SetResolution.createSetResolution(
+    b,
+    byFocus,
+    BigInt(focus),
+    pinned,
+    BigInt(follow),
+  );
   return command(b, W.CommandBody.SetResolution, body);
 }
 
@@ -3326,6 +3341,7 @@ function personBriefs(s: W.Snapshot): PersonBrief[] {
       ageYears: p.ageYears(),
       household: Number(p.household()),
       asleep: p.asleep(),
+      blockUntilMinute: Number(p.blockUntilMinute()),
     });
   }
   return out;

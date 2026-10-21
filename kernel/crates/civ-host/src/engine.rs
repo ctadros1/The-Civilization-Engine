@@ -472,7 +472,8 @@ impl Engine {
                 by_focus,
                 focus,
                 pins,
-            } => self.set_resolution(by_focus, focus, &pins),
+                follow,
+            } => self.set_resolution(by_focus, focus, &pins, follow),
             Request::GetRaster(query) => match &self.world {
                 None => no_world(),
                 Some(w) => match frames::raster_response(
@@ -889,14 +890,15 @@ impl Engine {
     }
 
     /// Settlements away from the observer's focus household-resolved, or not (ADR-0032 §6): the
-    /// kernel chooses them at each midnight; ids that name no settlement are ignored.
-    fn set_resolution(&mut self, by_focus: bool, focus: u64, pins: &[u64]) -> Reply {
+    /// kernel chooses them at each midnight; ids that name no settlement or person are ignored.
+    fn set_resolution(&mut self, by_focus: bool, focus: u64, pins: &[u64], follow: u64) -> Reply {
         let Some(world) = self.world.as_mut() else {
             return no_world();
         };
         let id = |raw: u64| civ_core::PermanentId::from_raw(raw);
         world.sim.set_resolution_by_focus(by_focus);
         world.sim.set_focus(id(focus));
+        world.sim.set_follow(id(follow));
         let wanted: std::collections::BTreeSet<_> = pins.iter().filter_map(|&p| id(p)).collect();
         let held: Vec<_> = world
             .sim

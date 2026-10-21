@@ -1,6 +1,7 @@
 // M9b slice DK end to end (ADR-0032 §6): in a world of more than three settlements the observer
 // may have those away from the one it chooses lived by household; the settlements list says
-// which are, and turning it off brings every settlement back to detail at the next midnight.
+// which are, someone of one is shown in a block of their day, the person selected is followed, and
+// turning it off brings every settlement back to detail at the next midnight.
 
 import { expect, test } from "@playwright/test";
 
@@ -60,6 +61,28 @@ test("settlements away from the chosen one are lived by household while the obse
     );
     await expect(body).toContainText("lived by household");
     await expect(body.getByRole("button", { name: "Hold in detail" }).first()).toBeVisible();
+
+    // Wire 1.94: someone of a settlement lived by household is shown in a block of their day by
+    // the clock, and the inspector says so.
+    if (!(await page.evaluate(() => window.__TCE__.state().clock?.paused))) {
+      await page.getByRole("button", { name: "Pause" }).click();
+    }
+    const inBlock = await page.evaluate(
+      () => window.__TCE__.briefs().find((p) => p.blockUntilMinute > 0)?.id ?? 0,
+    );
+    expect(inBlock).toBeGreaterThan(0);
+    await page.evaluate((x) => window.__TCE__.select(x), inBlock);
+    await expect(body).toContainText("their day lived by household");
+    // The person selected is followed: their settlement is lived in detail from the next midnight.
+    const theirs = await page.waitForFunction(() => window.__TCE__.state().selected?.settlement ?? 0);
+    const settlement = (await theirs.jsonValue()) as number;
+    await page.getByRole("button", { name: "Run", exact: true }).click();
+    await page.waitForFunction(
+      (id) => window.__TCE__.state().settlements.find((x) => x.id === id)?.householdResolved === false,
+      settlement,
+      { timeout: 120_000 },
+    );
+    await page.evaluate(() => window.__TCE__.select(null));
 
     // Off: every settlement in detail again from the next midnight.
     await page.locator("#resolution-by-focus").uncheck();

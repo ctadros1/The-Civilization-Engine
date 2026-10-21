@@ -141,6 +141,8 @@ pub enum Request {
         focus: u64,
         /// The settlements it holds Detailed.
         pins: Vec<u64>,
+        /// The person it follows, or 0 for none (wire 1.94).
+        follow: u64,
     },
     /// Shake the ground under a settlement, or the whole map (god tool, M8d slice DA; ADR-0031
     /// §4).
@@ -660,6 +662,7 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         by_focus: b.by_focus(),
                         focus: b.focus(),
                         pins: b.pins().map(|v| v.iter().collect()).unwrap_or_default(),
+                        follow: b.follow_person(),
                     })
                 }
                 other => Err(format!("unknown command {}", other.0)),
@@ -1458,6 +1461,7 @@ mod tests {
                 by_focus: true,
                 focus: 7,
                 pins: Some(pins),
+                follow_person: 9,
             },
         );
         let root = wire::Command::create(
@@ -1473,6 +1477,7 @@ mod tests {
                 by_focus: true,
                 focus: 7,
                 pins: vec![3, 5],
+                follow: 9,
             })
         );
         let mut fbb = FlatBufferBuilder::new();

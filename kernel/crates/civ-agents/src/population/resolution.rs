@@ -40,6 +40,36 @@ pub(super) struct Planned {
     pub meal_min: u32,
 }
 
+/// Where a household-resolved person's day puts them, block by block (ADR-0032 §6; M9b slice
+/// DK): what the observer is shown of a day lived at midnight, by the clock. Recorded as the day
+/// is lived, never read by the simulation and never saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DayBlock {
+    /// The minute of the day it begins.
+    pub from: u16,
+    /// The minute of the day it ends.
+    pub until: u16,
+    /// Its activity, an index into the catalog's activities.
+    pub def: u16,
+    /// Where it is drawn: where its work is done, or home.
+    pub at: (f32, f32),
+    /// Whether it is the night's sleep.
+    pub asleep: bool,
+}
+
+/// Where option `c`'s work is done: the end of the last walk before its first work, or `home`.
+fn work_place(c: &decide::Candidate, home: (f32, f32)) -> (f32, f32) {
+    let mut at = home;
+    for s in &c.steps {
+        match *s {
+            Step::Walk { to } => at = to,
+            Step::Work { .. } | Step::Wait { .. } => return at,
+            _ => {}
+        }
+    }
+    at
+}
+
 /// Behaviours a household-resolved day shares hours among (slice DG): the rest wait for slice DH
 /// or are not taken while household-resolved (ADR-0032 §2).
 const SHARED: [Behavior; 27] = [
@@ -118,6 +148,22 @@ fn work_minutes(c: &decide::Candidate) -> u32 {
         .sum()
 }
 
+/// Minutes one repetition of option `c` takes from `home`: its work and its walks. Its walks are
+/// reckoned straight off trail from where each begins (an approximation the day's length only
+/// weighs; the travel field gives a walk's time when slice DI measures it).
+fn option_minutes(ctx: &Ctx, c: &decide::Candidate, home: (f32, f32)) -> f64 {
+    let speed = ctx.params.nav.tobler_ms(0.0) * ctx.params.nav.offtrail_factor * 60.0;
+    let mut at = home;
+    let mut walk = 0.0;
+    for s in &c.steps {
+        if let Step::Walk { to } = *s {
+            walk += f64::from((to.0 - at.0).hypot(to.1 - at.1)) / speed.max(1e-6);
+            at = to;
+        }
+    }
+    (f64::from(work_minutes(c)) + walk).max(1.0)
+}
+
 /// How many times a day each option is lived (ADR-0032 §2): each option is chosen with the
 /// probability [`decide::choose`] would give it, and lasts its work and its walk there and back,
 /// so over `waking` minutes it is chosen `waking · p / Σ p·T` times. Only [`SHARED`] behaviours
@@ -145,21 +191,7 @@ fn shares(ctx: &Ctx, plan: &Planned, waking: f64, home: (f32, f32)) -> Vec<(usiz
     }
     let totals: Vec<f32> = idx.iter().map(|&i| plan.cands[i].scored.total).collect();
     let probs = decide::probabilities(&totals, &ctx.params.decision);
-    // Its walks are reckoned straight off trail from where each begins (an approximation the
-    // day's length only weighs; the travel field gives a walk's time when slice DI measures it).
-    let speed = ctx.params.nav.tobler_ms(0.0) * ctx.params.nav.offtrail_factor * 60.0;
-    let length = |i: usize| {
-        let c = &plan.cands[i];
-        let mut at = home;
-        let mut walk = 0.0;
-        for s in &c.steps {
-            if let Step::Walk { to } = *s {
-                walk += f64::from((to.0 - at.0).hypot(to.1 - at.1)) / speed.max(1e-6);
-                at = to;
-            }
-        }
-        (f64::from(work_minutes(c)) + walk).max(1.0)
-    };
+    let length = |i: usize| option_minutes(ctx, &plan.cands[i], home);
     let per: f64 = idx.iter().zip(&probs).map(|(&i, p)| p * length(i)).sum();
     if per <= 0.0 {
         return Vec::new();
@@ -228,6 +260,21 @@ impl Population {
     /// ([`Self::reconcile_resolutions`]).
     pub fn set_household_resolved(&mut self, settlements: BTreeSet<PermanentId>) {
         self.resolved = settlements;
+    }
+
+    /// The block person `id`'s household-resolved day puts them in at `at` (ADR-0032 §6), if
+    /// they are parked and `at` falls in the day last lived.
+    pub fn day_block(&self, id: PermanentId, at: SimTime) -> Option<&DayBlock> {
+        if at.day_index() != self.day_blocks_day {
+            return None;
+        }
+        let m = at.minutes() - at.day_index() * MINUTES_PER_DAY;
+        let parked = self.index.get(&id).is_some_and(|&h| self.parked(h));
+        self.day_blocks
+            .get(&id)
+            .filter(|_| parked)?
+            .iter()
+            .find(|b| i64::from(b.from) <= m && m < i64::from(b.until))
     }
 
     /// The household-resolved settlements held Detailed for now (ADR-0032 §1).
@@ -396,6 +443,8 @@ impl Population {
     /// steps' effects ([`Self::enact`]). Company at the hearth is drawn once a member-day from
     /// the settlement's pool of those who keep it. Effects land now, at midnight.
     pub fn live_household_days(&mut self, ctx: &mut Ctx) {
+        self.day_blocks.clear();
+        self.day_blocks_day = ctx.now.day_index();
         if self.resolved.is_empty() {
             return;
         }
@@ -412,6 +461,16 @@ impl Population {
             .map_or(1.0, |a| a.par);
         // The night runs from turning in after sunset to sunrise.
         let sleep_min = night_minutes(&params.sleep, sun);
+        let turn_in = (sun.1 + TURN_IN_AFTER_SUNSET_MIN).min(MINUTES_PER_DAY);
+        let def_of = |b: Behavior| {
+            ctx.catalog
+                .activities
+                .iter()
+                .position(|a| a.behavior == b)
+                .map_or(0, |i| i as u16)
+        };
+        let (sleep_def, eat_def) = (def_of(Behavior::Sleep), def_of(Behavior::Eat));
+        let minute = |m: i64| m.clamp(0, MINUTES_PER_DAY) as u16;
         let settlements: Vec<PermanentId> = self
             .resolved
             .iter()
@@ -480,13 +539,37 @@ impl Population {
                     let (mut par_minutes, mut active) = (0.0, 0.0);
                     // Each half of the daylight is weighed at its start, the evening in the dark.
                     let parts = [
-                        Some((&plan, daylight / 2.0)),
-                        afternoon.as_ref().map(|a| (a, daylight / 2.0)),
-                        evening.as_ref().map(|e| (e, evening_min)),
+                        Some((&plan, daylight / 2.0, sunrise, noon)),
+                        afternoon.as_ref().map(|a| (a, daylight / 2.0, noon, sun.1)),
+                        evening.as_ref().map(|e| (e, evening_min, sun.1, turn_in)),
                     ];
-                    for (part, minutes_to_share) in parts.into_iter().flatten() {
+                    // What the observer is shown: the night to sunrise, each part's blocks laid
+                    // end to end from its start, a meal at home in what is left of it, and the
+                    // night from turning in.
+                    let night = |from: i64, until: i64| DayBlock {
+                        from: minute(from),
+                        until: minute(until),
+                        def: sleep_def,
+                        at: hh.home,
+                        asleep: true,
+                    };
+                    let mut blocks = vec![night(0, sunrise)];
+                    for (part, minutes_to_share, from, to) in parts.into_iter().flatten() {
+                        let mut t = from;
                         for (i, reps) in shares(ctx, part, minutes_to_share, hh.home) {
                             let cand = &part.cands[i];
+                            let lasts = option_minutes(ctx, cand, hh.home) * f64::from(reps);
+                            let end = (t + lasts.round() as i64).min(to);
+                            if end > t {
+                                blocks.push(DayBlock {
+                                    from: minute(t),
+                                    until: minute(end),
+                                    def: cand.scored.def,
+                                    at: work_place(cand, hh.home),
+                                    asleep: false,
+                                });
+                                t = end;
+                            }
                             let minutes = f64::from(work_minutes(cand) * reps);
                             let par = ctx
                                 .catalog
@@ -508,7 +591,18 @@ impl Population {
                                 self.enact(ctx, h, cand, part.site, &hh);
                             }
                         }
+                        if t < to {
+                            blocks.push(DayBlock {
+                                from: minute(t),
+                                until: minute(to),
+                                def: eat_def,
+                                at: hh.home,
+                                asleep: false,
+                            });
+                        }
                     }
+                    blocks.push(night(turn_in, MINUTES_PER_DAY));
+                    self.day_blocks.insert(m, blocks);
                     let awake = (MINUTES_PER_DAY - sunrise).max(1) as f64;
                     let day_par =
                         (par_minutes + (awake - active).max(0.0) * rest_par) / awake.max(active);

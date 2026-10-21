@@ -7035,6 +7035,7 @@ impl<'a> PersonBrief<'a> {
   pub const VT_AGE_YEARS: ::flatbuffers::VOffsetT = 16;
   pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 18;
   pub const VT_ASLEEP: ::flatbuffers::VOffsetT = 20;
+  pub const VT_BLOCK_UNTIL_MINUTE: ::flatbuffers::VOffsetT = 22;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -7046,6 +7047,7 @@ impl<'a> PersonBrief<'a> {
     args: &'args PersonBriefArgs<'args>
   ) -> ::flatbuffers::WIPOffset<PersonBrief<'bldr>> {
     let mut builder = PersonBriefBuilder::new(_fbb);
+    builder.add_block_until_minute(args.block_until_minute);
     builder.add_household(args.household);
     builder.add_trip(args.trip);
     builder.add_id(args.id);
@@ -7122,6 +7124,13 @@ impl<'a> PersonBrief<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<bool>(PersonBrief::VT_ASLEEP, Some(false)).unwrap()}
   }
+  #[inline]
+  pub fn block_until_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(PersonBrief::VT_BLOCK_UNTIL_MINUTE, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonBrief<'_> {
@@ -7139,6 +7148,7 @@ impl ::flatbuffers::Verifiable for PersonBrief<'_> {
      .visit_field::<f32>("age_years", Self::VT_AGE_YEARS, false)?
      .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
      .visit_field::<bool>("asleep", Self::VT_ASLEEP, false)?
+     .visit_field::<i64>("block_until_minute", Self::VT_BLOCK_UNTIL_MINUTE, false)?
      .finish();
     Ok(())
   }
@@ -7153,6 +7163,7 @@ pub struct PersonBriefArgs<'a> {
     pub age_years: f32,
     pub household: u64,
     pub asleep: bool,
+    pub block_until_minute: i64,
 }
 impl<'a> Default for PersonBriefArgs<'a> {
   #[inline]
@@ -7167,6 +7178,7 @@ impl<'a> Default for PersonBriefArgs<'a> {
       age_years: 0.0,
       household: 0,
       asleep: false,
+      block_until_minute: 0,
     }
   }
 }
@@ -7213,6 +7225,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonBriefBuilder<'a, 'b, A>
     self.fbb_.push_slot::<bool>(PersonBrief::VT_ASLEEP, asleep, false);
   }
   #[inline]
+  pub fn add_block_until_minute(&mut self, block_until_minute: i64) {
+    self.fbb_.push_slot::<i64>(PersonBrief::VT_BLOCK_UNTIL_MINUTE, block_until_minute, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonBriefBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonBriefBuilder {
@@ -7239,6 +7255,7 @@ impl ::core::fmt::Debug for PersonBrief<'_> {
       ds.field("age_years", &self.age_years());
       ds.field("household", &self.household());
       ds.field("asleep", &self.asleep());
+      ds.field("block_until_minute", &self.block_until_minute());
       ds.finish()
   }
 }
@@ -11065,6 +11082,7 @@ impl<'a> SetResolution<'a> {
   pub const VT_BY_FOCUS: ::flatbuffers::VOffsetT = 4;
   pub const VT_FOCUS: ::flatbuffers::VOffsetT = 6;
   pub const VT_PINS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_FOLLOW_PERSON: ::flatbuffers::VOffsetT = 10;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -11076,6 +11094,7 @@ impl<'a> SetResolution<'a> {
     args: &'args SetResolutionArgs<'args>
   ) -> ::flatbuffers::WIPOffset<SetResolution<'bldr>> {
     let mut builder = SetResolutionBuilder::new(_fbb);
+    builder.add_follow_person(args.follow_person);
     builder.add_focus(args.focus);
     if let Some(x) = args.pins { builder.add_pins(x); }
     builder.add_by_focus(args.by_focus);
@@ -11104,6 +11123,13 @@ impl<'a> SetResolution<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(SetResolution::VT_PINS, None)}
   }
+  #[inline]
+  pub fn follow_person(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SetResolution::VT_FOLLOW_PERSON, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for SetResolution<'_> {
@@ -11115,6 +11141,7 @@ impl ::flatbuffers::Verifiable for SetResolution<'_> {
      .visit_field::<bool>("by_focus", Self::VT_BY_FOCUS, false)?
      .visit_field::<u64>("focus", Self::VT_FOCUS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("pins", Self::VT_PINS, false)?
+     .visit_field::<u64>("follow_person", Self::VT_FOLLOW_PERSON, false)?
      .finish();
     Ok(())
   }
@@ -11123,6 +11150,7 @@ pub struct SetResolutionArgs<'a> {
     pub by_focus: bool,
     pub focus: u64,
     pub pins: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub follow_person: u64,
 }
 impl<'a> Default for SetResolutionArgs<'a> {
   #[inline]
@@ -11131,6 +11159,7 @@ impl<'a> Default for SetResolutionArgs<'a> {
       by_focus: false,
       focus: 0,
       pins: None,
+      follow_person: 0,
     }
   }
 }
@@ -11153,6 +11182,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SetResolutionBuilder<'a, 'b, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SetResolution::VT_PINS, pins);
   }
   #[inline]
+  pub fn add_follow_person(&mut self, follow_person: u64) {
+    self.fbb_.push_slot::<u64>(SetResolution::VT_FOLLOW_PERSON, follow_person, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SetResolutionBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SetResolutionBuilder {
@@ -11173,6 +11206,7 @@ impl ::core::fmt::Debug for SetResolution<'_> {
       ds.field("by_focus", &self.by_focus());
       ds.field("focus", &self.focus());
       ds.field("pins", &self.pins());
+      ds.field("follow_person", &self.follow_person());
       ds.finish()
   }
 }

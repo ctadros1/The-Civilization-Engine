@@ -1264,6 +1264,14 @@ impl Sim {
         }
     }
 
+    /// The person the observer follows; under the focus policy, their settlement is Detailed
+    /// from the next midnight, wherever they live then.
+    pub fn set_follow(&mut self, person: Option<civ_core::PermanentId>) {
+        if let Some(p) = self.focus_policy.as_mut() {
+            p.follow = person;
+        }
+    }
+
     /// Pins a settlement Detailed under the focus policy, or lets it go.
     pub fn pin_detailed(&mut self, settlement: civ_core::PermanentId, pinned: bool) {
         if let Some(p) = self.focus_policy.as_mut() {
@@ -1757,10 +1765,16 @@ impl Sim {
                         if resolution_next.is_none()
                             && let Some(policy) = focus_policy.as_mut()
                         {
+                            let followed = policy
+                                .follow
+                                .and_then(|p| people.person(p))
+                                .and_then(|p| people.household(p.household))
+                                .and_then(|h| h.settlement);
                             *resolution_next = policy.next(
                                 at.day_index(),
                                 &ctx.land.settlements,
                                 people.household_resolved(),
+                                followed,
                             );
                         }
                         let switched = resolution_next.take().map(|next| {

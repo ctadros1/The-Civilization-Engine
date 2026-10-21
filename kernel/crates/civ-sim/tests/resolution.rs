@@ -526,3 +526,85 @@ fn under_the_focus_settlements_away_from_it_are_household_resolved_and_the_focus
     sim.advance_minutes(MINUTES_PER_DAY).expect("advances");
     assert!(sim.household_resolved().is_empty());
 }
+
+#[test]
+fn a_household_resolved_persons_day_is_shown_block_by_block_by_the_clock() {
+    // M9b slice DK (ADR-0032 §6): someone of a household-resolved settlement is shown in the
+    // block of their day the clock is in, drawn where it is done; someone Detailed is in none.
+    let mut sim = two_settlements();
+    let s = second(&sim);
+    let first = sim.land().settlements[0].id;
+    sim.set_household_resolved([s]);
+    sim.advance_to_midnight().expect("advances");
+    assert_eq!(sim.household_resolved(), &BTreeSet::from([s]));
+    let parked = residents(&sim, s);
+    let detailed = residents(&sim, first);
+    assert!(!parked.is_empty() && !detailed.is_empty());
+    let home = |sim: &Sim, id: PermanentId| {
+        let people = sim.people();
+        let p = people.person(id).expect("lives");
+        people.household(p.household).expect("household").home
+    };
+    let (mut shown, mut away, mut asleep_at_three) = (0usize, 0usize, 0usize);
+    for step in 0..48 {
+        if step > 0 {
+            sim.advance_minutes(30).expect("advances");
+        }
+        let now = sim.now();
+        let minute = now.minutes() - now.day_index() * MINUTES_PER_DAY;
+        for &id in &detailed {
+            assert!(
+                sim.people().day_block(id, now).is_none(),
+                "{id:?} is Detailed"
+            );
+        }
+        for &id in &parked {
+            let Some(b) = sim.people().day_block(id, now) else {
+                continue;
+            };
+            shown += 1;
+            assert!(i64::from(b.from) <= minute && minute < i64::from(b.until));
+            if minute == 180 && b.asleep {
+                asleep_at_three += 1;
+            }
+            if b.asleep {
+                assert_eq!(b.at, home(&sim, id), "the night is slept at home");
+            } else if b.at != home(&sim, id) {
+                away += 1;
+            }
+        }
+    }
+    assert!(shown > 0, "blocks are shown");
+    assert!(away > 0, "some blocks are done away from home");
+    assert!(asleep_at_three > 0, "the night is shown asleep");
+    // The next day is a new day's blocks; the day before's are gone.
+    let before = sim.now();
+    sim.advance_to_midnight().expect("advances");
+    assert!(
+        parked
+            .iter()
+            .all(|&id| sim.people().day_block(id, before).is_none())
+    );
+    // Brought back, they are Detailed and in no block.
+    sim.set_household_resolved([]);
+    sim.advance_to_midnight().expect("advances");
+    sim.advance_minutes(600).expect("advances");
+    assert!(
+        parked
+            .iter()
+            .all(|&id| sim.people().day_block(id, sim.now()).is_none())
+    );
+}
+
+#[test]
+fn under_the_focus_the_settlement_of_the_person_followed_is_held_detailed() {
+    // M9b slice DK (ADR-0032 §6): following someone holds their settlement as the focus is.
+    let mut sim = five_settlements();
+    let ids: Vec<PermanentId> = sim.land().settlements.iter().map(|s| s.id).collect();
+    let someone = residents(&sim, ids[3])[0];
+    sim.set_resolution_by_focus(true);
+    sim.set_focus(Some(ids[0]));
+    sim.set_follow(Some(someone));
+    sim.advance_minutes(MINUTES_PER_DAY).expect("advances");
+    assert_eq!(sim.household_resolved(), &[ids[1], ids[2], ids[4]].into());
+}

@@ -59,18 +59,23 @@ pub fn person_briefs<'a>(
                 .as_ref()
                 .filter(|_| trips)
                 .map_or((0, 0), |t| (t.id, t.rev));
+            // Someone of a household-resolved settlement is drawn where their day's block by the
+            // clock puts them (ADR-0032 §6).
+            let block = sim.people.day_block(p.id, now);
+            let midnight = now.day_index() * civ_core::time::MINUTES_PER_DAY;
             wire::PersonBrief::create(
                 fbb,
                 &wire::PersonBriefArgs {
                     id: p.id.get(),
-                    pos: Some(&vec2(p.position_at(t))),
-                    activity: p.act.def,
+                    pos: Some(&vec2(block.map_or_else(|| p.position_at(t), |b| b.at))),
+                    activity: block.map_or(p.act.def, |b| b.def),
                     trip,
                     trip_rev,
                     sex: sex(p.sex),
                     age_years: p.age_years(now) as f32,
                     household: p.household.get(),
-                    asleep: p.asleep,
+                    asleep: block.map_or(p.asleep, |b| b.asleep),
+                    block_until_minute: block.map_or(0, |b| midnight + i64::from(b.until)),
                 },
             )
         })

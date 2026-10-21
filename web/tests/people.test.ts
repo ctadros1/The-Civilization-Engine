@@ -38,6 +38,7 @@ function brief(id: number, tripId = 0, tripRev = 0): M.PersonBrief {
     ageYears: 30,
     household: 1,
     asleep: false,
+    blockUntilMinute: 0,
   };
 }
 
@@ -142,6 +143,8 @@ describe("people payloads", () => {
     W.PersonBrief.addAgeYears(b, 31.5);
     W.PersonBrief.addHousehold(b, 4n);
     W.PersonBrief.addAsleep(b, true);
+    // Wire 1.94 (M9b slice DK): the block of a household-resolved day they are in ends at 03:00.
+    W.PersonBrief.addBlockUntilMinute(b, 180n);
     const person = W.PersonBrief.endPersonBrief(b);
     const people = W.Snapshot.createPeopleVector(b, [person]);
     const name = b.createString("Alderford");
@@ -186,6 +189,7 @@ describe("people payloads", () => {
         ageYears: 31.5,
         household: 4,
         asleep: true,
+        blockUntilMinute: 180,
       },
     ]);
     expect(s.settlements).toEqual([

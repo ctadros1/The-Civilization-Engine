@@ -1336,20 +1336,27 @@ export function bindUi(store: Store, actions: Actions): void {
           ),
         );
       }
+      // Someone whose settlement is lived by household is in a block of their day (wire 1.94,
+      // ADR-0032 §6), not a step of a decision.
+      const brief = state.snapshot?.people.find((b) => b.id === p.id);
+      const block = brief && brief.blockUntilMinute > 0 ? brief : null;
       nodes.push(
         el(
           "p",
           { className: "doing" },
           el("span", { className: "dot" }),
-          p.doing,
+          block ? activityName(welcome, block.activity) : p.doing,
           el("span", {
             className: "since",
-            text: `since ${formatClockTime(p.sinceMinute, now)} · this step ends ${formatClockTime(p.untilMinute, now)}`,
+            text: block
+              ? `their day lived by household · this block ends ${formatClockTime(block.blockUntilMinute, now)}`
+              : `since ${formatClockTime(p.sinceMinute, now)} · this step ends ${formatClockTime(p.untilMinute, now)}`,
           }),
         ),
       );
       const dot = nodes[nodes.length - 1]?.firstChild as HTMLElement | null;
-      if (dot) dot.style.background = cssColour(activityColour(welcome?.activities[p.activity]));
+      const shown = block ? block.activity : p.activity;
+      if (dot) dot.style.background = cssColour(activityColour(welcome?.activities[shown]));
       const needs = el("dl", { className: "needs" });
       needs.append(...meter("Hunger", p.hunger, 0.5));
       needs.append(...meter("Tiredness", p.sleepPressure));

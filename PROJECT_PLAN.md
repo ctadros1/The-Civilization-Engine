@@ -5643,6 +5643,24 @@ and M6a gives rivers a daily flow.
         person's block on the wire (the household day keeps no plan of its blocks to show), and
         following a person choosing their settlement (a person's brief names their household,
         not their settlement).
+      - *As built, second part (2026-10-21):* **a household-resolved person's block.** As a
+        household day is lived at midnight its people's day is recorded in blocks of whole minutes
+        (`DayBlock`: from, until, activity, where, asleep): the night to sunrise; each weighing's
+        shares (morning from sunrise, afternoon from midday, evening from sunset) laid end to end
+        in the order shared, each as long as its repetitions' work and walks and drawn where its
+        work is done; what is left of each part a meal at home; the night from turning in. It is
+        what the observer is shown, never read by the simulation and never saved; a person
+        brought back to detail, or a day not yet lived, is in no block. **Following:** the focus
+        policy also holds the settlement of the person the observer follows, found at each
+        midnight from where they live then. **Wire 1.94:** `SetResolution.follow_person`; each person
+        brief's `block_until_minute`, the block's position, activity and sleep in place of the
+        parked person's own. **The observer:** the person selected is the one followed; the
+        inspector of someone in a block names its activity and when it ends ("their day lived by
+        household"). **Tested:** blocks by the clock through a day (each person's block covers
+        the minute, the night asleep at home, some blocks away from home; none for the Detailed
+        settlement, none the next day, none once brought back); the followed person's settlement
+        held as the focus is; the command and the brief decode; end to end, a person in a block
+        shown so and their settlement lived in detail once selected.
   - **M9c, skips, climate and the demo** (ADR-0032 §7, §9).
     - **DL**: "skip to" as a host command and in the web.
     - **DM**: the climate forcing tool: kernel, saves, chronicle, wire and web.

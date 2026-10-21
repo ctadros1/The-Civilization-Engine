@@ -75,7 +75,7 @@ mod war;
 mod way_works;
 pub use crime::TakeProbe;
 pub use payments::Burden;
-pub use resolution::{NOT_TAKEN, SwitchInvariants};
+pub use resolution::{DayBlock, NOT_TAKEN, SwitchInvariants};
 mod credit;
 mod patronage;
 mod places;
@@ -527,6 +527,10 @@ pub struct Population {
     /// (ADR-0032 §2): set and taken within [`Self::live_household_days`] only.
     planning: bool,
     planned: Option<resolution::Planned>,
+    /// Per parked person, the blocks of the household-resolved day last lived and that day's
+    /// index (ADR-0032 §6): what the observer is shown, never read by the simulation, never saved.
+    day_blocks: FastMap<PermanentId, Vec<resolution::DayBlock>>,
+    day_blocks_day: i64,
     /// Per settlement, who has set to keeping company at its hearth since it was last looked at,
     /// and who was there then, in id order: everyone there now, and some who have left
     /// ([`Self::hearth_company`]). Derived: built at the first look after a load.

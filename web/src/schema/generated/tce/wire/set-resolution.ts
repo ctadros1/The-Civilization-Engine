@@ -42,8 +42,13 @@ pinsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+followPerson():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 10);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
 static startSetResolution(builder:flatbuffers.Builder) {
-  builder.startObject(3);
+  builder.startObject(4);
 }
 
 static addByFocus(builder:flatbuffers.Builder, byFocus:boolean) {
@@ -70,16 +75,21 @@ static startPinsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(8, numElems, 8);
 }
 
+static addFollowPerson(builder:flatbuffers.Builder, followPerson:bigint) {
+  builder.addFieldInt64(3, followPerson, BigInt('0'));
+}
+
 static endSetResolution(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createSetResolution(builder:flatbuffers.Builder, byFocus:boolean, focus:bigint, pinsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createSetResolution(builder:flatbuffers.Builder, byFocus:boolean, focus:bigint, pinsOffset:flatbuffers.Offset, followPerson:bigint):flatbuffers.Offset {
   SetResolution.startSetResolution(builder);
   SetResolution.addByFocus(builder, byFocus);
   SetResolution.addFocus(builder, focus);
   SetResolution.addPins(builder, pinsOffset);
+  SetResolution.addFollowPerson(builder, followPerson);
   return SetResolution.endSetResolution(builder);
 }
 }

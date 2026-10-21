@@ -305,6 +305,10 @@ table PersonBrief {
   age_years: float (id: 6);
   household: ulong (id: 7);
   asleep: bool (id: 8);
+  // Wire 1.94 (M9b slice DK, ADR-0032 §6): for someone whose settlement is household-resolved,
+  // the minute the block of their day they are in by the clock ends; they are drawn where it is
+  // done, not walking, and `activity` is its activity. 0: not in such a block.
+  block_until_minute: long (id: 9);
 }
 
 table SettlementBrief {
@@ -614,6 +618,9 @@ table SetResolution {
   by_focus: bool (id: 0);
   focus: ulong (id: 1);
   pins: [ulong] (id: 2);
+  // Wire 1.94: the person the observer follows (0: none); their settlement is held as the
+  // focus is, wherever they live at the midnight.
+  follow_person: ulong (id: 3);
 }
 
 union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless, SendWave, Plague, Drought, SetFire, RaiseRiver, SendStorm, Shake, SetResolution }

@@ -20,8 +20,10 @@ pub const DETAILED_AT_LEAST_DAYS: i64 = 30;
 /// Where the observer looks, and what it holds Detailed.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FocusPolicy {
-    /// The settlement the observer follows or centres, if any.
+    /// The settlement the observer centres, if any.
     pub focus: Option<PermanentId>,
+    /// The person the observer follows, if any: their settlement is held as the focus is.
+    pub follow: Option<PermanentId>,
     /// Settlements the observer pinned Detailed.
     pub pins: BTreeSet<PermanentId>,
     /// The day each settlement last became Detailed under the policy.
@@ -30,21 +32,25 @@ pub struct FocusPolicy {
 
 impl FocusPolicy {
     /// The settlements to household-resolve from the midnight beginning `day`, given those
-    /// household-resolved now, or `None` if they stay as they are. With more than
-    /// [`DETAILED_UP_TO`] settlements lived in, every one but the focus and the pins, each once
-    /// it has been Detailed [`DETAILED_AT_LEAST_DAYS`].
+    /// household-resolved now and the settlement of the person followed, or `None` if they stay
+    /// as they are. With more than [`DETAILED_UP_TO`] settlements lived in, every one but the
+    /// focus, the followed person's and the pins, each once it has been Detailed
+    /// [`DETAILED_AT_LEAST_DAYS`].
     pub fn next(
         &mut self,
         day: i64,
         settlements: &[Settlement],
         now: &BTreeSet<PermanentId>,
+        followed: Option<PermanentId>,
     ) -> Option<BTreeSet<PermanentId>> {
         let lived: Vec<PermanentId> = settlements
             .iter()
             .filter(|s| s.abandoned.is_none())
             .map(|s| s.id)
             .collect();
-        let kept = |s: &PermanentId| Some(*s) == self.focus || self.pins.contains(s);
+        let kept = |s: &PermanentId| {
+            Some(*s) == self.focus || Some(*s) == followed || self.pins.contains(s)
+        };
         let mut next = BTreeSet::new();
         for s in lived.iter().filter(|_| lived.len() > DETAILED_UP_TO) {
             let wanted = !kept(s);
@@ -98,7 +104,7 @@ mod tests {
     #[test]
     fn three_settlements_or_fewer_stay_detailed() {
         let mut p = FocusPolicy::default();
-        assert_eq!(p.next(10, &land_of(3), &BTreeSet::new()), None);
+        assert_eq!(p.next(10, &land_of(3), &BTreeSet::new(), None), None);
     }
 
     #[test]
@@ -108,9 +114,21 @@ mod tests {
             pins: [id(4)].into(),
             ..FocusPolicy::default()
         };
-        let next = p.next(10, &land_of(5), &BTreeSet::new()).expect("a change");
+        let next = p
+            .next(10, &land_of(5), &BTreeSet::new(), None)
+            .expect("a change");
         assert_eq!(next, [id(1), id(3), id(5)].into());
-        assert_eq!(p.next(11, &land_of(5), &next), None, "settled");
+        assert_eq!(p.next(11, &land_of(5), &next, None), None, "settled");
+    }
+
+    #[test]
+    fn the_followed_persons_settlement_is_held_as_the_focus_is() {
+        let mut p = FocusPolicy {
+            focus: Some(id(1)),
+            ..FocusPolicy::default()
+        };
+        let next = p.next(10, &land_of(5), &BTreeSet::new(), Some(id(3)));
+        assert_eq!(next, Some([id(2), id(4), id(5)].into()));
     }
 
     #[test]
@@ -121,13 +139,18 @@ mod tests {
             ..FocusPolicy::default()
         };
         let all_but_1: BTreeSet<_> = [id(2), id(3), id(4), id(5)].into();
-        assert_eq!(p.next(0, &land, &BTreeSet::new()), Some(all_but_1.clone()));
+        assert_eq!(
+            p.next(0, &land, &BTreeSet::new(), None),
+            Some(all_but_1.clone())
+        );
         // The observer turns to settlement 2: Detailed from the next midnight; 1 holds 30 days.
         p.focus = Some(id(2));
-        let now = p.next(1, &land, &all_but_1).expect("2 comes into focus");
+        let now = p
+            .next(1, &land, &all_but_1, None)
+            .expect("2 comes into focus");
         assert!(!now.contains(&id(2)) && !now.contains(&id(1)));
-        assert_eq!(p.next(29, &land, &now), None, "1 is held Detailed");
-        let later = p.next(31, &land, &now).expect("1 is let go");
+        assert_eq!(p.next(29, &land, &now, None), None, "1 is held Detailed");
+        let later = p.next(31, &land, &now, None).expect("1 is let go");
         assert!(later.contains(&id(1)) && !later.contains(&id(2)));
     }
 }

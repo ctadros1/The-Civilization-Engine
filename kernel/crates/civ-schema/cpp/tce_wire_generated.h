@@ -4570,7 +4570,8 @@ struct PersonBrief FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_SEX = 14,
     VT_AGE_YEARS = 16,
     VT_HOUSEHOLD = 18,
-    VT_ASLEEP = 20
+    VT_ASLEEP = 20,
+    VT_BLOCK_UNTIL_MINUTE = 22
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -4599,6 +4600,9 @@ struct PersonBrief FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   bool asleep() const {
     return GetField<uint8_t>(VT_ASLEEP, 0) != 0;
   }
+  int64_t block_until_minute() const {
+    return GetField<int64_t>(VT_BLOCK_UNTIL_MINUTE, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -4611,6 +4615,7 @@ struct PersonBrief FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<float>(verifier, VT_AGE_YEARS, 4) &&
            VerifyField<uint64_t>(verifier, VT_HOUSEHOLD, 8) &&
            VerifyField<uint8_t>(verifier, VT_ASLEEP, 1) &&
+           VerifyField<int64_t>(verifier, VT_BLOCK_UNTIL_MINUTE, 8) &&
            verifier.EndTable();
   }
 };
@@ -4646,6 +4651,9 @@ struct PersonBriefBuilder {
   void add_asleep(bool asleep) {
     fbb_.AddElement<uint8_t>(PersonBrief::VT_ASLEEP, static_cast<uint8_t>(asleep), 0);
   }
+  void add_block_until_minute(int64_t block_until_minute) {
+    fbb_.AddElement<int64_t>(PersonBrief::VT_BLOCK_UNTIL_MINUTE, block_until_minute, 0);
+  }
   explicit PersonBriefBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -4667,8 +4675,10 @@ inline ::flatbuffers::Offset<PersonBrief> CreatePersonBrief(
     tce::wire::Sex sex = tce::wire::Sex::Female,
     float age_years = 0.0f,
     uint64_t household = 0,
-    bool asleep = false) {
+    bool asleep = false,
+    int64_t block_until_minute = 0) {
   PersonBriefBuilder builder_(_fbb);
+  builder_.add_block_until_minute(block_until_minute);
   builder_.add_household(household);
   builder_.add_trip(trip);
   builder_.add_id(id);
@@ -6949,7 +6959,8 @@ struct SetResolution FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_BY_FOCUS = 4,
     VT_FOCUS = 6,
-    VT_PINS = 8
+    VT_PINS = 8,
+    VT_FOLLOW_PERSON = 10
   };
   bool by_focus() const {
     return GetField<uint8_t>(VT_BY_FOCUS, 0) != 0;
@@ -6960,6 +6971,9 @@ struct SetResolution FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<uint64_t> *pins() const {
     return GetPointer<const ::flatbuffers::Vector<uint64_t> *>(VT_PINS);
   }
+  uint64_t follow_person() const {
+    return GetField<uint64_t>(VT_FOLLOW_PERSON, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -6967,6 +6981,7 @@ struct SetResolution FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_FOCUS, 8) &&
            VerifyOffset(verifier, VT_PINS) &&
            verifier.VerifyVector(pins()) &&
+           VerifyField<uint64_t>(verifier, VT_FOLLOW_PERSON, 8) &&
            verifier.EndTable();
   }
 };
@@ -6984,6 +6999,9 @@ struct SetResolutionBuilder {
   void add_pins(::flatbuffers::Offset<::flatbuffers::Vector<uint64_t>> pins) {
     fbb_.AddOffset(SetResolution::VT_PINS, pins);
   }
+  void add_follow_person(uint64_t follow_person) {
+    fbb_.AddElement<uint64_t>(SetResolution::VT_FOLLOW_PERSON, follow_person, 0);
+  }
   explicit SetResolutionBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -6999,8 +7017,10 @@ inline ::flatbuffers::Offset<SetResolution> CreateSetResolution(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     bool by_focus = false,
     uint64_t focus = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<uint64_t>> pins = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<uint64_t>> pins = 0,
+    uint64_t follow_person = 0) {
   SetResolutionBuilder builder_(_fbb);
+  builder_.add_follow_person(follow_person);
   builder_.add_focus(focus);
   builder_.add_pins(pins);
   builder_.add_by_focus(by_focus);
@@ -7016,13 +7036,15 @@ inline ::flatbuffers::Offset<SetResolution> CreateSetResolutionDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     bool by_focus = false,
     uint64_t focus = 0,
-    const std::vector<uint64_t> *pins = nullptr) {
+    const std::vector<uint64_t> *pins = nullptr,
+    uint64_t follow_person = 0) {
   auto pins__ = pins ? _fbb.CreateVector<uint64_t>(*pins) : 0;
   return tce::wire::CreateSetResolution(
       _fbb,
       by_focus,
       focus,
-      pins__);
+      pins__,
+      follow_person);
 }
 
 struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

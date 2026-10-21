@@ -3996,7 +3996,7 @@ impl Population {
                 .collect();
             households.sort_unstable();
             if let Some(p) = self
-                .public_plans(ctx, pi, settlement, &households, m.policy)
+                .plan_layouts(ctx, pi, settlement, &households, m.policy)
                 .into_iter()
                 .find(|p| p.code == code)
             {

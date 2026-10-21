@@ -222,6 +222,32 @@ impl Population {
         households: &[PermanentId],
         policy: u16,
     ) -> Vec<PublicPlan> {
+        self.plans_weighed(ctx, pi, settlement, households, policy, true)
+    }
+
+    /// The plans [`Population::public_plans`] finds, laid out alike but not weighed: their gains
+    /// are left empty, for a caller that reads only their codes and layouts (M9c slice DN: the
+    /// site each household without a home would take now is the dearest part of weighing them).
+    pub(super) fn plan_layouts(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        settlement: PermanentId,
+        households: &[PermanentId],
+        policy: u16,
+    ) -> Vec<PublicPlan> {
+        self.plans_weighed(ctx, pi, settlement, households, policy, false)
+    }
+
+    fn plans_weighed(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        settlement: PermanentId,
+        households: &[PermanentId],
+        policy: u16,
+        weigh: bool,
+    ) -> Vec<PublicPlan> {
         let Some(def) = ctx
             .catalog
             .policies
@@ -241,16 +267,20 @@ impl Population {
         };
         let catalog = ctx.catalog;
         // Who means to build: a household without a finished home standing.
-        let homed = |h: PermanentId| {
-            ctx.land.buildings.iter().any(|b| {
-                b.household == h
-                    && b.finished()
-                    && b.standing()
-                    && catalog.is_dwelling(&b.spec.program)
-            })
-        };
-        let unhoused: Vec<PermanentId> =
-            households.iter().copied().filter(|&h| !homed(h)).collect();
+        let mut homed: Vec<PermanentId> = ctx
+            .land
+            .buildings
+            .iter()
+            .filter(|b| b.finished() && b.standing() && catalog.is_dwelling(&b.spec.program))
+            .map(|b| b.household)
+            .collect();
+        homed.sort_unstable();
+        homed.dedup();
+        let unhoused: Vec<PermanentId> = households
+            .iter()
+            .copied()
+            .filter(|h| homed.binary_search(h).is_err())
+            .collect();
         // Sized by the households it remembers wanting ground and those without a home now.
         let (_, wanting) = self.ground_issues(ctx, pi, settlement);
         let mut want: Vec<PermanentId> = wanting
@@ -313,6 +343,7 @@ impl Population {
         let reach_h = ctx.params.farm.max_walk_minutes / 60.0;
         let weighing: Vec<Weighing> = households
             .iter()
+            .filter(|_| weigh)
             .filter_map(|&h| {
                 let hh = self.household(h)?;
                 let places = self.goings_of(ctx, hh);
@@ -1065,7 +1096,7 @@ impl Population {
             .collect();
         households.sort_unstable();
         let code = self
-            .public_plans(ctx, pi, settlement, &households, policy)
+            .plan_layouts(ctx, pi, settlement, &households, policy)
             .get(i)?
             .code;
         let m = crate::polity::MoveOption {

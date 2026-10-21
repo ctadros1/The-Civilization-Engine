@@ -5708,6 +5708,17 @@ and M6a gives rivers a daily flow.
         going on alike; out-of-range forcings refused; the host's answer and report; the command
         and the builder decode; end to end, the tool, the banner, the panel and the chronicle.
     - **DN**: the M9 demo and the gate (100k, ten or more settlements, ≥ 0.1 years a minute).
+      - *As built, first part (2026-10-21):* **profiled** (release, ten settlements of 2,000,
+        nine household-resolved, gdb samples of the main thread over a review day): a quarter of
+        the day was the polity review's plan forecast, which looked for the site every household
+        without a home would take now, once to weigh the plans and again whenever a sponsor's
+        proposal or a passed plan only needed their codes and layouts; the rest was decisions in
+        the Detailed settlement and routes. **Cut, exactly:** a proposal and a passed plan lay
+        the plans out without weighing them, and who has a home is read from one pass over the
+        buildings rather than one for each household (every section's digest equal to the build
+        before but the save's clock time: 3×400 with two household-resolved, 60 days at Max;
+        a village of 500, 90 days by the minute). Those two runs went from 704 to 625 and from
+        767 to 653 ms a day.
 
 **Post-v1 (ordered, not sized):**
 - **M9, Aggregate LOD & scale:** planned above (ADR-0032).

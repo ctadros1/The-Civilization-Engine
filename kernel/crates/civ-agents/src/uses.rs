@@ -145,6 +145,27 @@ pub struct PlaceUse {
     pub recent: u64,
 }
 
+/// Most other households a household notes drawing at a source in a day (M9b slice DJ): research
+/// 04-04's outermost layer of a personal network, about 150, taken as the scale of those one
+/// tells apart among many at the water, not as a limit on whom one knows. A design prior.
+pub const NOTED_AT_SOURCE: usize = 150;
+
+/// The drawers at a source on a day, in household order, that `household` (one of them) notes:
+/// all of them when there are no more than [`NOTED_AT_SOURCE`] others, else the
+/// [`NOTED_AT_SOURCE`] nearest it in that order (half either side where there are enough), itself
+/// among them.
+fn noted_at_source(drawers: &[PermanentId], household: PermanentId) -> &[PermanentId] {
+    let n = drawers.len();
+    if n <= NOTED_AT_SOURCE + 1 {
+        return drawers;
+    }
+    let at = drawers.binary_search(&household).unwrap_or_else(|i| i);
+    let lo = at
+        .saturating_sub(NOTED_AT_SOURCE / 2)
+        .min(n - (NOTED_AT_SOURCE + 1));
+    &drawers[lo..lo + NOTED_AT_SOURCE + 1]
+}
+
 /// Days a place's [`PlaceUse::recent`] remembers, exactly.
 pub const RECENT_DAYS: i64 = 64;
 
@@ -417,7 +438,10 @@ impl Uses {
                         ),
                     }
                 }
-                for &other in drawers.iter().filter(|&&h| h != household) {
+                for &other in noted_at_source(&drawers, household)
+                    .iter()
+                    .filter(|&&h| h != household)
+                {
                     match u.seen.binary_search_by(|x| x.household.cmp(&other)) {
                         Ok(x) => {
                             u.seen[x].days += 1.0;
@@ -545,6 +569,30 @@ impl Uses {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn at_a_crowded_source_each_household_notes_the_nearest_in_household_order() {
+        let ids: Vec<PermanentId> = (1..=200).map(id).collect();
+        // Few enough: everyone.
+        assert_eq!(noted_at_source(&ids[..151], id(7)).len(), 151);
+        // More: 150 others and itself, half either side where there are enough.
+        for (h, first) in [(1, 1), (100, 25), (200, 50)] {
+            let noted = noted_at_source(&ids, id(h));
+            assert_eq!(noted.len(), NOTED_AT_SOURCE + 1);
+            assert!(noted.contains(&id(h)));
+            assert_eq!(noted[0], id(first), "{h}");
+        }
+        let mut u = Uses::default();
+        let well = Place::Source(40);
+        for h in 1..=200 {
+            u.worked(work(well, 10, h, 9, 0.0));
+        }
+        u.fold(30.0);
+        for h in [1, 100, 200] {
+            let seen = &u.held(id(h), well, 10, 30.0).expect("held").seen;
+            assert_eq!(seen.len(), NOTED_AT_SOURCE, "{h}");
+        }
+    }
 
     #[test]
     fn at_a_source_each_household_holds_the_others_it_saw_draw_there_that_day() {

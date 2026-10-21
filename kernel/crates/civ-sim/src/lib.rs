@@ -561,7 +561,7 @@ impl Sim {
         let mut placed = sizes.len();
         while placed > 0 {
             match sim.found_bands(&sizes[..placed]) {
-                Ok(founded) if placed == sizes.len() => {
+                Ok(founded) if founded.len() == sizes.len() => {
                     if request.neighbours_known {
                         let day = sim.now().day_index();
                         sim.people.know_each_other(&founded, day);
@@ -574,7 +574,8 @@ impl Sim {
                         sim.people.know_each_other(&founded, day);
                     }
                     sim.founding_problem = Some(format!(
-                        "only {placed} of {} founding groups found room for fields apart",
+                        "only {} of {} founding groups found room for fields apart",
+                        founded.len(),
                         sizes.len()
                     ));
                     break;

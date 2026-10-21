@@ -528,10 +528,13 @@ impl Person {
     }
 
     /// Keeps a receipt, dropping the oldest past [`RECEIPT_RING`].
-    pub fn push_receipt(&mut self, receipt: Receipt) {
+    pub fn push_receipt(&mut self, mut receipt: Receipt) {
         if self.receipts.len() == RECEIPT_RING {
             self.receipts.pop_front();
         }
+        // Kept for days: no room beyond what it holds (M9b slice DJ).
+        receipt.others.shrink_to_fit();
+        receipt.excluded.shrink_to_fit();
         self.receipts.push_back(receipt);
     }
 }

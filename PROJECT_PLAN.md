@@ -5588,6 +5588,35 @@ and M6a gives rivers a daily flow.
   - **M9b, many settlements** (ADR-0032 §6, §8).
     - **DJ**: worlds founded with up to 30 groups; memory a person measured and cut where it can
       be exactly; 100k founded, lived and saved on the bench.
+      - *As built (2026-10-21):* a world takes up to 30 founding groups (the new-world dialog up
+        to 29 neighbours). Three or fewer are still placed as one assignment; more choose in the
+        order listed, each by one draw over the candidates whose fields' reach is clear of those
+        chosen before, and those that find no room are left out with every group after them
+        (the world says how many settled). **The bench at 100,000** (`bench_village --people
+        10000 --groups 10 --size 2048 --known --max --household 10`, ten settlements of 10,000,
+        all household-resolved): made in 73 s; its founding day, lived Detailed to the first
+        midnight, 1,785 s; the save at a later midnight 146.5 MB (7.9 s), loaded in 10 s.
+        Household days, release build, from that save: 221, 203 and 365 s (2.0–3.6 ms a
+        person-day, 0.0006 years a minute, about 160 times short of §8's figure); peak memory
+        2.4 GB (3.5 GB while a save is encoded), within plan §4.6's 4 GB at 100k. A person-day
+        costs ten to eighteen times what it does in settlements of 500 (about 0.2 ms): what a
+        decision reads still grows with the settlement (every seller's offers, every building
+        a household might hold, the ground a field site is weighed against), the next work
+        for slice DN with planning in parallel (DI's second part). **Cut, exactly** (every
+        section's digest equal to the build before, 2×200 people, 12 days by the minute and 20 at
+        Max): a home site search gathers the fields and plots that could lie near any point it
+        tries once, not for every point (the founding day at 100k went from 2,758 s to 1,921 s);
+        a field site's homes come from the settlement index; a decision's receipt keeps no spare
+        room. **Cut as a model change** (§9): what a household holds of the others it saw draw at
+        a source had grown with the square of a settlement's households (8.9 KB a person at
+        100k, 894 MB of a 125 MB save's sections); a household now notes at most 150 others
+        there a day, the nearest in household order, so at a source drawn by no more than 151
+        households a day nothing changes. Saves 169, content API 157 and wire 1.92 are
+        unchanged. **Tested:** a world takes at most thirty groups; twelve groups on a map about
+        6 km a side settle apart, each whole, those without room left out and told, the same
+        world settling the same way twice; at a crowded source each household notes the nearest
+        150 in household order and at a smaller one everyone. The simcheck profile's debug
+        checks scan whole tables, so speed is measured in release.
     - **DK**: the host chooses resolutions by the observer's focus with hysteresis and pins; the
       wire carries each settlement's resolution and a household-resolved person's block; the web
       shows both.
@@ -6937,6 +6966,16 @@ One line each. Don't re-litigate without a reason written next to the entry.
   centre; a watch round begins there. These are kernel constants (`LATE_NOTICE_MIN`,
   `TOWER_SIGHT_M`, `AT_TOWER_M`), revisited if the demo (DE) shows no tower ever proposed where
   fires burn unseen, or one that never helps.
+- **Who is noted at a crowded source (2026-10-21, M9b slice DJ):** design prior: a household
+  notes at most 150 other households drawing at a source in a day (`uses::NOTED_AT_SOURCE`), the
+  nearest to it in household order, which for founders follows where they live about the hearth.
+  Research 04-04's outermost personal-network layer (about 150, a pattern and not a limit) gives
+  the scale of those one tells apart among many at the water; the suspicion of a source
+  (ADR-0021) reads only those seen there for some days. Before it, a settlement of 2,000
+  households at one river held four million such pairs and folded them every midnight. Where no
+  more than 151 households draw at a source in a day nothing changes: the suite passes as before
+  and the bench's 2×200 digests are unchanged; a settlement as large as M8's 10,000 lives
+  differently.
 - **Gate C's first evaluation and the household day's priors (2026-10-21, M9a slice DI,
   ADR-0032 §5):** NUDGE: a household-resolved day's people turn in two hours after sunset (the
   middle of the four-hour evening a decision reads; with the evening's end the night was 7.8 h

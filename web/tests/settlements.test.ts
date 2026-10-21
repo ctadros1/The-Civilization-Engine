@@ -14,8 +14,9 @@ describe("neighbouring groups", () => {
     expect(neighbourSizes("50 60", limits)).toEqual([50, 60]);
   });
 
-  it("are at most two, whole and within the band limits", () => {
-    expect(neighbourSizes("40, 40, 40", limits)).toMatch(/At most 2/);
+  it("are at most twenty-nine, whole and within the band limits", () => {
+    expect(neighbourSizes(Array(29).fill("40").join(", "), limits)).toHaveLength(29);
+    expect(neighbourSizes(Array(30).fill("40").join(", "), limits)).toMatch(/At most 29/);
     expect(neighbourSizes("4.5", limits)).toMatch(/whole number/);
     expect(neighbourSizes("20", limits)).toMatch(/30 to 125/);
     expect(neighbourSizes("20", null)).toEqual([20]);

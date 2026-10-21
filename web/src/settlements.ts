@@ -1,7 +1,7 @@
 // Several settlements in the observer (ADR-0018): the new-world dialog's neighbouring groups.
 
-/** Most founding groups a world is made with, the first included (ADR-0018 §6). */
-export const MAX_FOUNDING_GROUPS = 3;
+/** Most founding groups a world is made with, the first included (ADR-0018 §6, ADR-0032 §8). */
+export const MAX_FOUNDING_GROUPS = 30;
 
 /**
  * The sizes of the further founding groups typed as `text` ("40, 30"; blank for none), or what is

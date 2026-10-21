@@ -567,6 +567,12 @@ pub(crate) fn site_scores(
 /// assignments whose fields' reaches do not overlap, so the order the groups are listed in
 /// cannot decide who gets the best land. Groups are taken largest first (groups of a size are
 /// alike). Returns each group's cell, in the order given, or `None` when no assignment fits.
+///
+/// More than [`JOINT_GROUPS`] groups cannot be assigned together (the assignments grow as the
+/// pool's size to the power of the groups), so they choose in the order listed, each by one draw
+/// over the candidates whose fields' reach is clear of those chosen before (M9 slice DJ). Those
+/// that find no room are left out with every group listed after them: the cells returned are for
+/// the groups listed first, and `None` only when not even the first finds ground.
 fn choose_sites(
     ctx: &Ctx,
     params: &PeopleParams,
@@ -585,6 +591,30 @@ fn choose_sites(
     if pool.is_empty() || sizes.is_empty() {
         return None;
     }
+    let apart = 2.0 * field_reach_m(params);
+    let at: Vec<(f32, f32)> = pool.iter().map(|&c| cell_centre(ctx.map, c)).collect();
+    let fits = |a: usize, b: usize| a != b && (at[a].0 - at[b].0).hypot(at[a].1 - at[b].1) >= apart;
+    if sizes.len() > JOINT_GROUPS {
+        let ground_at = |c: usize| (ground.slopes[c], ground.hand[c]);
+        let mut scored: Vec<(u32, Vec<f32>)> = Vec::new();
+        let mut chosen: Vec<usize> = Vec::new();
+        for &size in sizes {
+            if !scored.iter().any(|(s, _)| *s == size) {
+                scored.push((size, site_scores(ctx, params, &ground_at, &pool, size)));
+            }
+            let scores = &scored.iter().find(|(s, _)| *s == size)?.1;
+            let open: Vec<usize> = (0..pool.len())
+                .filter(|&c| chosen.iter().all(|&a| fits(a, c)))
+                .collect();
+            if open.is_empty() {
+                break;
+            }
+            let totals: Vec<f32> = open.iter().map(|&c| scores[c]).collect();
+            let (i, _, _) = decide::choose(&totals, &params.decision, d.unit());
+            chosen.push(open[i]);
+        }
+        return (!chosen.is_empty()).then(|| chosen.into_iter().map(|c| pool[c]).collect());
+    }
     let mut order: Vec<usize> = (0..sizes.len()).collect();
     order.sort_by_key(|&g| std::cmp::Reverse(sizes[g]));
     let scores: Vec<Vec<f32>> = order
@@ -594,9 +624,6 @@ fn choose_sites(
             site_scores(ctx, params, &at, &pool, sizes[g])
         })
         .collect();
-    let apart = 2.0 * field_reach_m(params);
-    let at: Vec<(f32, f32)> = pool.iter().map(|&c| cell_centre(ctx.map, c)).collect();
-    let fits = |a: usize, b: usize| a != b && (at[a].0 - at[b].0).hypot(at[a].1 - at[b].1) >= apart;
     let n = pool.len();
     let mut totals: Vec<f32> = Vec::new();
     let mut choices: Vec<[u16; 3]> = Vec::new();
@@ -896,8 +923,12 @@ pub fn founder_skills(
         .collect()
 }
 
-/// Most founding groups a world is made with (ADR-0018 §6).
-pub const MAX_FOUNDING_GROUPS: usize = 3;
+/// Most founding groups a world is made with (ADR-0018 §6, ADR-0032 §8).
+pub const MAX_FOUNDING_GROUPS: usize = 30;
+
+/// Most founding groups whose sites are chosen as one assignment; more choose in turn (see
+/// `choose_sites`).
+const JOINT_GROUPS: usize = 3;
 
 /// Brings a founding band of `size` people into the world at a site they choose, founds their
 /// settlement, records the chronicle, and has everyone decide what to do first.
@@ -908,7 +939,8 @@ pub fn found_band(pop: &mut Population, ctx: &mut Ctx, size: u32) -> Result<Foun
 /// Brings founding groups of `sizes` people (at most [`MAX_FOUNDING_GROUPS`]) into the world,
 /// each a band of its own, at sites chosen together so that none counts on another's fields
 /// (ADR-0018 §6), and founds a settlement for each as [`found_band`] does. Fails when there is no
-/// ground to camp on, or no room for the groups apart.
+/// ground to camp on, or no room for the groups apart. Of more than three groups, those listed
+/// first that find room are founded and the rest left out (fewer are returned than asked).
 pub fn found_bands(
     pop: &mut Population,
     ctx: &mut Ctx,

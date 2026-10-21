@@ -127,11 +127,57 @@ fn the_order_founding_groups_are_listed_in_does_not_choose_their_land() {
 }
 
 #[test]
-fn a_world_takes_at_most_three_founding_groups() {
+fn a_world_takes_at_most_thirty_founding_groups() {
     assert!(matches!(
-        world(3, 0, &[0, 0, 0]),
-        Err(SimError::TooManyGroups(4))
+        world(3, 0, &[0; 30]),
+        Err(SimError::TooManyGroups(31))
     ));
+}
+
+#[test]
+fn many_founding_groups_choose_in_turn_with_fields_apart_and_those_without_room_are_left_out() {
+    // Twelve groups on a map about 6 km a side, each wanting fields within a half-hour walk of its
+    // hearth (M9 slice DJ): those listed first settle, apart, and the rest are left out and told.
+    let sim = world(3, 30, &[30; 11]).expect("generates");
+    let hearths: Vec<(f32, f32)> = sim.land().settlements.iter().map(|s| s.hearth_m).collect();
+    let n = hearths.len();
+    assert!(n > 3, "more than three settled: {n}");
+    for s in &sim.land().settlements {
+        assert_eq!(sim.people().residents(s.id), 30, "{}", s.name);
+    }
+    let params = &sim.rules().people;
+    let apart = 2.0
+        * params.nav.tobler_ms(0.0)
+        * params.nav.offtrail_factor
+        * params.farm.max_walk_minutes
+        * 60.0;
+    for (i, a) in hearths.iter().enumerate() {
+        for b in &hearths[i + 1..] {
+            let d = f64::from((a.0 - b.0).hypot(a.1 - b.1));
+            assert!(d >= apart - 1.0, "hearths {d:.0} m apart, under {apart:.0}");
+        }
+    }
+    match sim.founding_problem() {
+        None => assert_eq!(n, 12),
+        Some(why) => {
+            assert!(n < 12);
+            assert_eq!(
+                why,
+                format!("only {n} of 12 founding groups found room for fields apart")
+            );
+        }
+    }
+    let again = world(3, 30, &[30; 11]).expect("generates");
+    let hearths_again: Vec<(f32, f32)> = again
+        .land()
+        .settlements
+        .iter()
+        .map(|s| s.hearth_m)
+        .collect();
+    assert_eq!(
+        hearths, hearths_again,
+        "the same world settles the same way"
+    );
 }
 
 #[test]

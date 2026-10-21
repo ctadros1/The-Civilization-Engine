@@ -2110,14 +2110,23 @@ impl Population {
     /// Where a new field for household `hh` keeps clear of: every home of its settlement (its
     /// own if it has none) and the settlement's hearth.
     fn site_homes(&self, land: &civ_land::Land, hh: &Household) -> Vec<(f32, f32)> {
-        let mut homes: Vec<(f32, f32)> = self
-            .households
-            .iter()
-            .filter(|(_, x)| {
-                x.id == hh.id || (hh.settlement.is_some() && x.settlement == hh.settlement)
-            })
-            .map(|(_, x)| x.home)
-            .collect();
+        // Its settlement's households from the index, which lists them in the order a scan finds
+        // them (M9b slice DJ); a household the index does not hold among them is looked for by
+        // the scan, as before.
+        let indexed = hh
+            .settlement
+            .filter(|&s| self.households_in(s).any(|x| x.id == hh.id));
+        let mut homes: Vec<(f32, f32)> = match indexed {
+            Some(s) => self.households_in(s).map(|x| x.home).collect(),
+            None => self
+                .households
+                .iter()
+                .filter(|(_, x)| {
+                    x.id == hh.id || (hh.settlement.is_some() && x.settlement == hh.settlement)
+                })
+                .map(|(_, x)| x.home)
+                .collect(),
+        };
         homes.extend(
             land.settlements
                 .iter()

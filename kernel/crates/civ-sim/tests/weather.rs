@@ -263,3 +263,71 @@ fn the_wind_and_the_thatch_s_dryness_are_kept_across_a_save_and_drawn_afresh_fro
     redrawn.draw_new_fields(&old.rules().land.weather, &old.land().climatology);
     assert_eq!(w, &redrawn);
 }
+
+#[test]
+fn the_observer_forces_the_climate_and_the_weather_follows_kept_across_a_save() {
+    // M9c slice DM (ADR-0032 §9).
+    use civ_agents::influence::InfluenceKind;
+    let mut forced = empty(4);
+    let mut free = empty(4);
+    for (offset, factor, years) in [
+        (11.0, 1.0, 1),
+        (0.0, 0.1, 1),
+        (0.0, 5.0, 1),
+        (1.0, 1.0, 101),
+    ] {
+        assert!(forced.force_climate(offset, factor, years).is_err());
+    }
+    assert!(forced.land().weather.forcings.is_empty());
+    let day = forced.now().day_index();
+    forced.force_climate(3.0, 0.5, 0).expect("forced");
+    assert_eq!(forced.land().weather.forcings.len(), 1);
+    assert_eq!(forced.land().weather.forcings[0].from_day, day + 1);
+    let records: Vec<_> = forced
+        .people()
+        .influences
+        .list
+        .iter()
+        .filter(|i| i.kind == InfluenceKind::Climate)
+        .collect();
+    assert_eq!(records.len(), 1);
+    let line = forced
+        .people()
+        .chronicle
+        .iter()
+        .rev()
+        .find(|e| {
+            e.kind == ChronicleKind::Influence
+                && e.number == f64::from(InfluenceKind::Climate.code())
+        })
+        .expect("a line in the chronicle");
+    assert!(
+        line.name.contains("3.0 °C warmer") && line.name.contains("50% less rain"),
+        "{}",
+        line.name
+    );
+    // Kept across a save, and the world goes on alike (saves 170).
+    let dir = tempfile::tempdir().expect("tempdir");
+    let saves = SaveDir::create(dir.path().join("saves"), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(&mut forced, &saves, SaveKind::Manual, "forced").expect("saves");
+    let mut loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.land().weather, forced.land().weather);
+    // Two months on: every day 3 °C warmer and every wet day half as wet, the same days wet.
+    let (mut warmer, mut wet, mut ratio) = (0.0, 0, 0.0);
+    for _ in 0..60 {
+        for sim in [&mut forced, &mut free, &mut loaded] {
+            sim.advance_minutes(24 * 60).expect("advances");
+        }
+        let (f, u) = (forced.land().weather.today, free.land().weather.today);
+        assert_eq!(f.wet, u.wet);
+        warmer += f64::from(f.mean_c - u.mean_c);
+        if u.wet && u.precip_mm > 0.0 {
+            wet += 1;
+            ratio += f64::from(f.precip_mm / u.precip_mm);
+        }
+    }
+    assert!((warmer / 60.0 - 3.0).abs() < 1e-3, "{}", warmer / 60.0);
+    assert!(wet > 0 && (ratio / f64::from(wet) - 0.5).abs() < 1e-3);
+    assert_eq!(loaded.land().weather, forced.land().weather);
+    assert_eq!(loaded.land().water, forced.land().water);
+}

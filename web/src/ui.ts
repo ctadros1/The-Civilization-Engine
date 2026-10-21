@@ -187,6 +187,8 @@ export interface Actions {
   /** Hold back the rain for `months` months, `depth` standard deviations dry (god tool, M6a
    * slice BA). */
   drought(months: number, depth: number): Promise<void>;
+  /** Changes the climate (wire 1.96, ADR-0032 §9). */
+  forceClimate(offsetC: number, wetFactor: number, rampYears: number): Promise<void>;
   /** Shake the ground over the whole map with a sideways share `strength` of every building's
    * weight (god tool, M8d slice DA). */
   shake(strength: number): Promise<void>;
@@ -616,6 +618,15 @@ export function bindUi(store: Store, actions: Actions): void {
     const months = Number($<HTMLSelectElement>("drought-months").value) || 12;
     const depth = Number($<HTMLSelectElement>("drought-depth").value) || 1.5;
     void actions.drought(months, depth);
+  });
+  // The climate (M9c slice DM): a choice of changes, each "offset,factor,years".
+  const forceClimate = $<HTMLSelectElement>("force-climate");
+  forceClimate.addEventListener("change", () => {
+    const [offset, factor, years] = forceClimate.value.split(",").map(Number);
+    forceClimate.value = "";
+    if (factor !== undefined && years !== undefined && offset !== undefined) {
+      void actions.forceClimate(offset, factor, years);
+    }
   });
   const shakeGround = $<HTMLSelectElement>("shake-ground");
   shakeGround.addEventListener("change", () => {
@@ -2322,6 +2333,9 @@ export function bindUi(store: Store, actions: Actions): void {
     if (w.drought) {
       nodes.push(el("p", { className: "weather-drought", text: `${w.drought}.` }));
     }
+    if (w.climate) {
+      nodes.push(el("p", { className: "weather-climate", text: `${w.climate}.` }));
+    }
     nodes.push(
       el("p", {
         className: "aside",
@@ -3379,6 +3393,8 @@ export function bindUi(store: Store, actions: Actions): void {
     const rain = $<HTMLButtonElement>("hold-rain");
     rain.disabled = !open || !world;
     for (const id of ["drought-months", "drought-depth"]) $<HTMLSelectElement>(id).disabled = rain.disabled;
+    // The climate (M9c slice DM).
+    $<HTMLSelectElement>("force-climate").disabled = rain.disabled;
     // The shaking (M8d slice DA): the whole map, once.
     $<HTMLSelectElement>("shake-ground").disabled = !open || !world;
     // The fire (M6b slice BC): the building clicked is set alight.

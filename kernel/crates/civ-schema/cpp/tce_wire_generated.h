@@ -140,6 +140,9 @@ struct PlagueBuilder;
 struct Drought;
 struct DroughtBuilder;
 
+struct ForceClimate;
+struct ForceClimateBuilder;
+
 struct SetFire;
 struct SetFireBuilder;
 
@@ -906,11 +909,12 @@ enum class CommandBody : uint8_t {
   SendStorm = 20,
   Shake = 21,
   SetResolution = 22,
+  ForceClimate = 23,
   MIN = NONE,
-  MAX = SetResolution
+  MAX = ForceClimate
 };
 
-inline const CommandBody (&EnumValuesCommandBody())[23] {
+inline const CommandBody (&EnumValuesCommandBody())[24] {
   static const CommandBody values[] = {
     CommandBody::NONE,
     CommandBody::NewWorld,
@@ -934,13 +938,14 @@ inline const CommandBody (&EnumValuesCommandBody())[23] {
     CommandBody::RaiseRiver,
     CommandBody::SendStorm,
     CommandBody::Shake,
-    CommandBody::SetResolution
+    CommandBody::SetResolution,
+    CommandBody::ForceClimate
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandBody() {
-  static const char * const names[24] = {
+  static const char * const names[25] = {
     "NONE",
     "NewWorld",
     "SaveWorld",
@@ -964,13 +969,14 @@ inline const char * const *EnumNamesCommandBody() {
     "SendStorm",
     "Shake",
     "SetResolution",
+    "ForceClimate",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandBody(CommandBody e) {
-  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::SetResolution)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::ForceClimate)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandBody()[index];
 }
@@ -1065,6 +1071,10 @@ template<> struct CommandBodyTraits<tce::wire::Shake> {
 
 template<> struct CommandBodyTraits<tce::wire::SetResolution> {
   static const CommandBody enum_value = CommandBody::SetResolution;
+};
+
+template<> struct CommandBodyTraits<tce::wire::ForceClimate> {
+  static const CommandBody enum_value = CommandBody::ForceClimate;
 };
 
 template <bool B = false>
@@ -6741,6 +6751,74 @@ struct Drought::Traits {
   static auto constexpr Create = CreateDrought;
 };
 
+struct ForceClimate FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef ForceClimateBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_OFFSET_C = 4,
+    VT_WET_FACTOR = 6,
+    VT_RAMP_YEARS = 8
+  };
+  float offset_c() const {
+    return GetField<float>(VT_OFFSET_C, 0.0f);
+  }
+  float wet_factor() const {
+    return GetField<float>(VT_WET_FACTOR, 0.0f);
+  }
+  uint32_t ramp_years() const {
+    return GetField<uint32_t>(VT_RAMP_YEARS, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<float>(verifier, VT_OFFSET_C, 4) &&
+           VerifyField<float>(verifier, VT_WET_FACTOR, 4) &&
+           VerifyField<uint32_t>(verifier, VT_RAMP_YEARS, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct ForceClimateBuilder {
+  typedef ForceClimate Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_offset_c(float offset_c) {
+    fbb_.AddElement<float>(ForceClimate::VT_OFFSET_C, offset_c, 0.0f);
+  }
+  void add_wet_factor(float wet_factor) {
+    fbb_.AddElement<float>(ForceClimate::VT_WET_FACTOR, wet_factor, 0.0f);
+  }
+  void add_ramp_years(uint32_t ramp_years) {
+    fbb_.AddElement<uint32_t>(ForceClimate::VT_RAMP_YEARS, ramp_years, 0);
+  }
+  explicit ForceClimateBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<ForceClimate> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<ForceClimate>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<ForceClimate> CreateForceClimate(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    float offset_c = 0.0f,
+    float wet_factor = 0.0f,
+    uint32_t ramp_years = 0) {
+  ForceClimateBuilder builder_(_fbb);
+  builder_.add_ramp_years(ramp_years);
+  builder_.add_wet_factor(wet_factor);
+  builder_.add_offset_c(offset_c);
+  return builder_.Finish();
+}
+
+struct ForceClimate::Traits {
+  using type = ForceClimate;
+  static auto constexpr Create = CreateForceClimate;
+};
+
 struct SetFire FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef SetFireBuilder Builder;
   struct Traits;
@@ -7147,6 +7225,9 @@ struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const tce::wire::SetResolution *body_as_SetResolution() const {
     return body_type() == tce::wire::CommandBody::SetResolution ? static_cast<const tce::wire::SetResolution *>(body()) : nullptr;
   }
+  const tce::wire::ForceClimate *body_as_ForceClimate() const {
+    return body_type() == tce::wire::CommandBody::ForceClimate ? static_cast<const tce::wire::ForceClimate *>(body()) : nullptr;
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -7243,6 +7324,10 @@ template<> inline const tce::wire::Shake *Command::body_as<tce::wire::Shake>() c
 
 template<> inline const tce::wire::SetResolution *Command::body_as<tce::wire::SetResolution>() const {
   return body_as_SetResolution();
+}
+
+template<> inline const tce::wire::ForceClimate *Command::body_as<tce::wire::ForceClimate>() const {
+  return body_as_ForceClimate();
 }
 
 struct CommandBuilder {
@@ -18805,7 +18890,8 @@ struct WeatherReport FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_TODAY = 10,
     VT_MONTHS = 12,
     VT_MONTH = 14,
-    VT_DROUGHT = 16
+    VT_DROUGHT = 16,
+    VT_CLIMATE = 18
   };
   uint64_t rev() const {
     return GetField<uint64_t>(VT_REV, 0);
@@ -18828,6 +18914,9 @@ struct WeatherReport FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *drought() const {
     return GetPointer<const ::flatbuffers::String *>(VT_DROUGHT);
   }
+  const ::flatbuffers::String *climate() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_CLIMATE);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -18842,6 +18931,8 @@ struct WeatherReport FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint8_t>(verifier, VT_MONTH, 1) &&
            VerifyOffset(verifier, VT_DROUGHT) &&
            verifier.VerifyString(drought()) &&
+           VerifyOffset(verifier, VT_CLIMATE) &&
+           verifier.VerifyString(climate()) &&
            verifier.EndTable();
   }
 };
@@ -18871,6 +18962,9 @@ struct WeatherReportBuilder {
   void add_drought(::flatbuffers::Offset<::flatbuffers::String> drought) {
     fbb_.AddOffset(WeatherReport::VT_DROUGHT, drought);
   }
+  void add_climate(::flatbuffers::Offset<::flatbuffers::String> climate) {
+    fbb_.AddOffset(WeatherReport::VT_CLIMATE, climate);
+  }
   explicit WeatherReportBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -18890,9 +18984,11 @@ inline ::flatbuffers::Offset<WeatherReport> CreateWeatherReport(
     ::flatbuffers::Offset<tce::wire::DayWeather> today = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WeatherMonthInfo>>> months = 0,
     uint8_t month = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> drought = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> drought = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> climate = 0) {
   WeatherReportBuilder builder_(_fbb);
   builder_.add_rev(rev);
+  builder_.add_climate(climate);
   builder_.add_drought(drought);
   builder_.add_months(months);
   builder_.add_today(today);
@@ -18915,9 +19011,11 @@ inline ::flatbuffers::Offset<WeatherReport> CreateWeatherReportDirect(
     ::flatbuffers::Offset<tce::wire::DayWeather> today = 0,
     const std::vector<::flatbuffers::Offset<tce::wire::WeatherMonthInfo>> *months = nullptr,
     uint8_t month = 0,
-    const char *drought = nullptr) {
+    const char *drought = nullptr,
+    const char *climate = nullptr) {
   auto months__ = months ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::WeatherMonthInfo>>(*months) : 0;
   auto drought__ = drought ? _fbb.CreateString(drought) : 0;
+  auto climate__ = climate ? _fbb.CreateString(climate) : 0;
   return tce::wire::CreateWeatherReport(
       _fbb,
       rev,
@@ -18926,7 +19024,8 @@ inline ::flatbuffers::Offset<WeatherReport> CreateWeatherReportDirect(
       today,
       months__,
       month,
-      drought__);
+      drought__,
+      climate__);
 }
 
 struct SettlementStanding FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -26337,6 +26436,10 @@ inline bool VerifyCommandBody(::flatbuffers::VerifierTemplate<B> &verifier, cons
     }
     case CommandBody::SetResolution: {
       auto ptr = reinterpret_cast<const tce::wire::SetResolution *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case CommandBody::ForceClimate: {
+      auto ptr = reinterpret_cast<const tce::wire::ForceClimate *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

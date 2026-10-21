@@ -1504,6 +1504,13 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                         event.name
                     ))];
                 }
+                // The climate forced (M9c slice DM): its words are the entry's.
+                Some(crate::influence::InfluenceKind::Climate) => {
+                    return vec![Span::Text(format!(
+                        "One recorded influence: the observer changed the climate{}",
+                        event.name
+                    ))];
+                }
                 // The ground shaken (M8d slice DA): its words are the entry's.
                 Some(crate::influence::InfluenceKind::Earthquake) => {
                     return vec![Span::Text(format!(

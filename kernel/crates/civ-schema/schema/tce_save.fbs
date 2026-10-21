@@ -227,6 +227,18 @@ table Weather {
   // deviations (0 before).
   wind_along: double (id: 10);
   wind_across: double (id: 11);
+  // Schema 170 (M9c slice DM, ADR-0032 §9): the observer's forcings on the climate, in the order
+  // set (none before).
+  forcings: [ClimateForcing] (id: 12);
+}
+
+// Schema 170: an offset to every temperature normal, °C, and a factor on wet days' amounts, each
+// reached linearly over `ramp_days` from `from_day` and held after.
+table ClimateForcing {
+  from_day: long (id: 0);
+  ramp_days: long (id: 1);
+  offset_c: double (id: 2);
+  wet_factor: double (id: 3);
 }
 
 // Section "settle": settlements.

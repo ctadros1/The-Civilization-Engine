@@ -955,6 +955,19 @@ impl Sim {
         self.influence(|people, ctx| people.drought(ctx, months, depth))
     }
 
+    /// The observer forces the background climate (god tool, M9c slice DM; ADR-0032 §9): every
+    /// temperature normal `offset_c` °C warmer or cooler and wet days' amounts times
+    /// `wet_factor`, reached over `ramp_years` years from tomorrow and held after. What follows,
+    /// in snow, water, dryness, soils and harvests, is the world's.
+    pub fn force_climate(
+        &mut self,
+        offset_c: f64,
+        wet_factor: f64,
+        ramp_years: u32,
+    ) -> Result<civ_agents::population::Reached, String> {
+        self.influence(|people, ctx| people.force_climate(ctx, offset_c, wet_factor, ramp_years))
+    }
+
     /// The observer sets building `building`'s covering alight (god tool, M6b slice BC; ADR-0022
     /// §14). It burns as any fire does: whether it spreads, and what it takes, is the fire's and
     /// the weather's.

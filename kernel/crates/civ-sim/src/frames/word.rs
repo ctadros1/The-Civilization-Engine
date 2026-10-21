@@ -1317,6 +1317,7 @@ pub fn influence_lines<'a>(
                 InfluenceKind::Flood => "the observer raised the river's runoff".to_owned(),
                 InfluenceKind::Storm => "the observer sent a storm".to_owned(),
                 InfluenceKind::Earthquake => "the observer shook the ground".to_owned(),
+                InfluenceKind::Climate => "the observer changed the climate".to_owned(),
             };
             let what = fbb.create_string(&words);
             wire::InfluenceLine::create(

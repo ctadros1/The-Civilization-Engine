@@ -882,6 +882,34 @@ pub struct DayWater {
     pub surplus_mm: f64,
 }
 
+/// The observer's forcing on the background climate (ADR-0032 §9; M9c slice DM): an offset to
+/// every temperature normal and a factor on wet days' amounts, each reached linearly over a ramp
+/// of whole years from the day given and held after. Saved: it is the world's.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Forcing {
+    /// The day it begins.
+    pub from_day: i64,
+    /// Days to reach its full size (0: at once).
+    pub ramp_days: i64,
+    /// Degrees Celsius added to every normal, at full size.
+    pub offset_c: f64,
+    /// Factor on every wet day's amount, at full size.
+    pub wet_factor: f64,
+}
+
+impl Forcing {
+    /// How much of it holds on day `day`, 0 to 1.
+    pub fn share(&self, day: i64) -> f64 {
+        if day < self.from_day {
+            0.0
+        } else if self.ramp_days <= 0 {
+            1.0
+        } else {
+            ((day - self.from_day) as f64 / self.ramp_days as f64).min(1.0)
+        }
+    }
+}
+
 /// A world's weather: today's, what tomorrow depends on, and the record. Saved.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Weather {
@@ -908,6 +936,8 @@ pub struct Weather {
     /// this value, in standard deviations, until the day given (not including it). Each month's
     /// draw is made as ever, so the days after it run as they would from where it left them.
     pub hold: Option<(f64, i64)>,
+    /// The observer's forcings on the climate, in the order set (M9c slice DM).
+    pub forcings: Vec<Forcing>,
 }
 
 impl Weather {
@@ -943,9 +973,29 @@ impl Weather {
             cover_ease: 1.0,
             months: Vec::new(),
             hold: None,
+            forcings: Vec::new(),
         };
         w.draw(params, climate, first);
         w
+    }
+
+    /// The observer forces the climate (ADR-0032 §9): from tomorrow, the first day drawn.
+    pub fn force(&mut self, forcing: Forcing) {
+        self.forcings.push(forcing);
+    }
+
+    /// The forcing on day `day`: the offset to the temperature normals, °C, the sum of each
+    /// forcing's held share, and the factor on wet days' amounts, the product of each's.
+    pub fn forced(&self, day: i64) -> (f64, f64) {
+        self.forcings
+            .iter()
+            .fold((0.0, 1.0), |(offset, factor), f| {
+                let share = f.share(day);
+                (
+                    offset + share * f.offset_c,
+                    factor * (1.0 + share * (f.wet_factor - 1.0)),
+                )
+            })
     }
 
     /// The observer holds the slow anomaly at `value` standard deviations from now until day
@@ -1140,6 +1190,9 @@ impl Weather {
             Some(_) => self.hold = None,
             None => {}
         }
+        // The observer's forcing (ADR-0032 §9): the normals moved and wet days' amounts scaled.
+        // The draws are the unforced day's, so a forced world keeps its weather's sequence.
+        let (offset_c, wet_factor) = self.forced(day);
         let q0 = params.wet_days[month];
         let q = (q0 * (1.0 + params.slow_wet_days * self.slow)).clamp(0.02, 0.95);
         let rho = params.persistence;
@@ -1155,6 +1208,7 @@ impl Weather {
             let sigma = params.slow_amount;
             (params.wet_day_mm + gamma(&mut rng, k) * scale)
                 * (sigma * self.slow - sigma * sigma / 2.0).exp()
+                * wet_factor
         } else {
             0.0
         };
@@ -1167,7 +1221,7 @@ impl Weather {
         } else {
             n.cooling_c * q0
         };
-        let mean = n.mean_c + n.sd_c * self.anomaly + n.slow_c * self.slow + shift;
+        let mean = n.mean_c + offset_c + n.sd_c * self.anomaly + n.slow_c * self.slow + shift;
         let r_wet = params.wet_day_range.clamp(0.0, 1.0);
         let range = n.range_c
             * if wet {
@@ -1632,6 +1686,62 @@ pub(crate) mod tests {
             f64::from(dry.today.fuel_moisture) < mean,
             "{}",
             dry.today.fuel_moisture
+        );
+    }
+
+    #[test]
+    fn a_forced_climate_moves_the_normals_and_scales_the_rain_over_its_ramp_the_draws_unchanged() {
+        // M9c slice DM (ADR-0032 §9).
+        let p = params();
+        let c = climate(3, landscape_key("core:worldgen/river_valley"));
+        let (mut free, _) = live(&c, 1);
+        let mut forced = free.clone();
+        let from = free.today.day + 1;
+        forced.force(Forcing {
+            from_day: from,
+            ramp_days: 2 * DAYS_PER_YEAR,
+            offset_c: 2.0,
+            wet_factor: 0.8,
+        });
+        let mut checked = 0;
+        for _ in 0..3 * DAYS_PER_YEAR {
+            free.live(&p, &c);
+            forced.live(&p, &c);
+            let (day, share) = (free.today.day, forced.forcings[0].share(free.today.day));
+            assert_eq!(
+                forced.today.wet, free.today.wet,
+                "day {day}: the same draws"
+            );
+            let warmer = f64::from(forced.today.mean_c - free.today.mean_c);
+            assert!((warmer - 2.0 * share).abs() < 1e-3, "day {day}: {warmer}");
+            if free.today.wet {
+                let ratio = f64::from(forced.today.precip_mm / free.today.precip_mm);
+                assert!(
+                    (ratio - (1.0 - 0.2 * share)).abs() < 1e-3,
+                    "day {day}: {ratio}"
+                );
+                checked += 1;
+            }
+        }
+        assert!(checked > 100);
+        assert_eq!(
+            forced.forced(from + 3 * DAYS_PER_YEAR),
+            (2.0, 0.8),
+            "held after the ramp"
+        );
+        // Forcings compose: offsets by sum, factors by product.
+        forced.force(Forcing {
+            from_day: from,
+            ramp_days: 0,
+            offset_c: -0.5,
+            wet_factor: 1.5,
+        });
+        let (offset, factor) = forced.forced(from + 3 * DAYS_PER_YEAR);
+        assert!((offset - 1.5).abs() < 1e-12 && (factor - 1.2).abs() < 1e-12);
+        assert_eq!(
+            forced.forced(from - 1),
+            (0.0, 1.0),
+            "nothing before it begins"
         );
     }
 

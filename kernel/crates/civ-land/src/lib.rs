@@ -51,7 +51,9 @@ pub use fields::{
 pub use paths::{PathParams, Trail, ViewTile, Wear, WearTile};
 pub use soil::{FieldSoil, HarvestRecord, Limit, SoilParams};
 pub use water::{AquiferUnit, ContaminationParams, Water, WaterParams};
-pub use weather::{Climatology, MonthRecord, Unworkable, Weather, WeatherDay, WeatherParams};
+pub use weather::{
+    Climatology, Forcing, MonthRecord, Unworkable, Weather, WeatherDay, WeatherParams,
+};
 
 use civ_core::time::{DAYS_PER_YEAR, MONTH_STARTS};
 use civ_core::{PermanentId, SimTime};

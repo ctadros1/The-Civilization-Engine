@@ -589,6 +589,16 @@ table Drought {
   depth: float (id: 1);
 }
 
+// Wire 1.96 (M9c slice DM, ADR-0032 §9): the observer forces the background climate, every
+// temperature normal `offset_c` °C warmer or cooler (-10 to 10) and every wet day's amount times
+// `wet_factor` (0.25 to 4), reached over `ramp_years` whole years (0 to 100) from tomorrow and
+// held after. Forcings compose and are the world's.
+table ForceClimate {
+  offset_c: float (id: 0);
+  wet_factor: float (id: 1);
+  ramp_years: uint (id: 2);
+}
+
 // Wire 1.68 (M6b slice BC, step three; ADR-0022 §14): the observer sets a building's covering
 // alight; it burns as any fire does, and what follows is the fire's and people's. Refused for a
 // building that is not roofed, already burns, or has no covering left to burn.
@@ -628,7 +638,7 @@ table SetResolution {
   follow_person: ulong (id: 3);
 }
 
-union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless, SendWave, Plague, Drought, SetFire, RaiseRiver, SendStorm, Shake, SetResolution }
+union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless, SendWave, Plague, Drought, SetFire, RaiseRiver, SendStorm, Shake, SetResolution, ForceClimate }
 
 table Command {
   body: CommandBody (id: 1);
@@ -2072,6 +2082,9 @@ table WeatherReport {
   // Wire 1.63: the observer's drought while it holds, in words ("The observer holds back the
   // rain, 2 standard deviations dry, until 3 May of year 2"); absent when none holds.
   drought: string (id: 6);
+  // Wire 1.96 (M9c slice DM): the observer's forcing on the climate, in words, where it stands
+  // today and where it is going; absent when none was set.
+  climate: string (id: 7);
 }
 
 // A settlement's standing (wire 1.26): its notables first, then those most esteemed, at most

@@ -267,6 +267,8 @@ export interface WeatherReport {
   month: number;
   /** The observer's drought while it holds, in words; empty when none holds (wire 1.63). */
   drought: string;
+  /** The observer's forcing on the climate, in words; empty when none was set (wire 1.96). */
+  climate: string;
 }
 
 export interface Task {
@@ -2456,6 +2458,14 @@ export function shake(strength: number, settlement: bigint): Uint8Array {
 }
 
 /** Holds back the rain for `months` months, `depth` standard deviations dry (god tool, wire 1.63). */
+/** Changes the climate (wire 1.96, M9c slice DM, ADR-0032 §9): every temperature normal
+ * `offsetC` °C warmer or cooler and every wet day's rain times `wetFactor`, over `rampYears`. */
+export function forceClimate(offsetC: number, wetFactor: number, rampYears: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  const body = W.ForceClimate.createForceClimate(b, offsetC, wetFactor, rampYears);
+  return command(b, W.CommandBody.ForceClimate, body);
+}
+
 export function drought(months: number, depth: number): Uint8Array {
   const b = new flatbuffers.Builder(32);
   const body = W.Drought.createDrought(b, months, depth);
@@ -3906,6 +3916,7 @@ function weatherReport(r: W.WeatherReport): WeatherReport {
     months,
     month: r.month(),
     drought: r.drought() ?? "",
+    climate: r.climate() ?? "",
   };
 }
 

@@ -160,6 +160,15 @@
           </section>
           <section class="panel weather-panel" id="weather-panel" aria-labelledby="weather-heading">
             <h2 id="weather-heading">Weather</h2>
+            <select id="force-climate" class="panel-tool" aria-label="Change the climate" title="Change the climate: every month's usual temperature moved and every wet day's rain scaled, reached over the years given and held after; snow, water, soils and harvests follow, and people meet it as they meet any change of weather" disabled>
+              <option value="">Climate…</option>
+              <option value="2,1,10">2 °C warmer over 10 years</option>
+              <option value="2,0.85,10">2 °C warmer and 15% drier over 10 years</option>
+              <option value="4,0.7,50">4 °C warmer and 30% drier over 50 years</option>
+              <option value="-2,1,10">2 °C cooler over 10 years</option>
+              <option value="0,1.3,10">30% wetter over 10 years</option>
+              <option value="4,0.7,0">4 °C warmer and 30% drier from tomorrow</option>
+            </select>
             <div class="panel-body" id="weather-body"></div>
           </section>
           <section class="panel knowledge-panel" id="knowledge-panel" aria-labelledby="knowledge-heading">

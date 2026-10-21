@@ -156,6 +156,15 @@ pub enum Request {
         /// The settlement's id, or 0 for the whole map.
         settlement: u64,
     },
+    /// Force the background climate (god tool, wire 1.96, M9c slice DM, ADR-0032 §9).
+    ForceClimate {
+        /// °C added to every temperature normal, -10 to 10.
+        offset_c: f32,
+        /// Factor on every wet day's amount, 0.25 to 4.
+        wet_factor: f32,
+        /// Whole years to reach it, 0 to 100.
+        ramp_years: u32,
+    },
     /// Hold back the rain over the settlement for a while (god tool, M6a slice BA, ADR-0021 §8).
     Drought {
         /// How many months it holds, 3 to 24.
@@ -626,6 +635,16 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                     Ok(Request::Drought {
                         months: b.months(),
                         depth: b.depth(),
+                    })
+                }
+                wire::CommandBody::ForceClimate => {
+                    let b = command
+                        .body_as_force_climate()
+                        .ok_or_else(|| missing("command"))?;
+                    Ok(Request::ForceClimate {
+                        offset_c: b.offset_c(),
+                        wet_factor: b.wet_factor(),
+                        ramp_years: b.ramp_years(),
                     })
                 }
                 wire::CommandBody::SetFire => {
@@ -1448,6 +1467,30 @@ mod tests {
             Ok(Request::Drought {
                 months: 9,
                 depth: 1.5
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::ForceClimate::create(
+            &mut fbb,
+            &wire::ForceClimateArgs {
+                offset_c: 2.0,
+                wet_factor: 0.8,
+                ramp_years: 10,
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::ForceClimate,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::ForceClimate {
+                offset_c: 2.0,
+                wet_factor: 0.8,
+                ramp_years: 10,
             })
         );
         let mut fbb = FlatBufferBuilder::new();

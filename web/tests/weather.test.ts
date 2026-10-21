@@ -33,7 +33,7 @@ function month(over: Partial<WeatherMonth> = {}): WeatherMonth {
 }
 
 function report(months: WeatherMonth[]): WeatherReport {
-  return { rev: 7, heightM: 150, annualMm: 800, today: null, months, month: 0, drought: "" };
+  return { rev: 7, heightM: 150, annualMm: 800, today: null, months, month: 0, drought: "", climate: "" };
 }
 
 describe("the weather panel's words", () => {

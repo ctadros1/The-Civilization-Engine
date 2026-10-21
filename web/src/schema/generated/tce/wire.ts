@@ -57,6 +57,7 @@ export { Firms } from './wire/firms.js';
 export { FloodCell } from './wire/flood-cell.js';
 export { FloodInfo } from './wire/flood-info.js';
 export { FloodRow } from './wire/flood-row.js';
+export { ForceClimate } from './wire/force-climate.js';
 export { GetBuildings } from './wire/get-buildings.js';
 export { GetChronicle } from './wire/get-chronicle.js';
 export { GetConflagration } from './wire/get-conflagration.js';

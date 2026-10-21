@@ -26562,6 +26562,7 @@ impl<'a> Weather<'a> {
   pub const VT_HOLD_UNTIL: ::flatbuffers::VOffsetT = 22;
   pub const VT_WIND_ALONG: ::flatbuffers::VOffsetT = 24;
   pub const VT_WIND_ACROSS: ::flatbuffers::VOffsetT = 26;
+  pub const VT_FORCINGS: ::flatbuffers::VOffsetT = 28;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -26581,6 +26582,7 @@ impl<'a> Weather<'a> {
     builder.add_soil_mm(args.soil_mm);
     builder.add_slow(args.slow);
     builder.add_anomaly(args.anomaly);
+    if let Some(x) = args.forcings { builder.add_forcings(x); }
     if let Some(x) = args.months { builder.add_months(x); }
     if let Some(x) = args.snow_mm { builder.add_snow_mm(x); }
     builder.add_snow_base_m(args.snow_base_m);
@@ -26673,6 +26675,13 @@ impl<'a> Weather<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f64>(Weather::VT_WIND_ACROSS, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn forcings(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ClimateForcing<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ClimateForcing>>>>(Weather::VT_FORCINGS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Weather<'_> {
@@ -26693,6 +26702,7 @@ impl ::flatbuffers::Verifiable for Weather<'_> {
      .visit_field::<i64>("hold_until", Self::VT_HOLD_UNTIL, false)?
      .visit_field::<f64>("wind_along", Self::VT_WIND_ALONG, false)?
      .visit_field::<f64>("wind_across", Self::VT_WIND_ACROSS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ClimateForcing>>>>("forcings", Self::VT_FORCINGS, false)?
      .finish();
     Ok(())
   }
@@ -26710,6 +26720,7 @@ pub struct WeatherArgs<'a> {
     pub hold_until: i64,
     pub wind_along: f64,
     pub wind_across: f64,
+    pub forcings: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ClimateForcing<'a>>>>>,
 }
 impl<'a> Default for WeatherArgs<'a> {
   #[inline]
@@ -26727,6 +26738,7 @@ impl<'a> Default for WeatherArgs<'a> {
       hold_until: 0,
       wind_along: 0.0,
       wind_across: 0.0,
+      forcings: None,
     }
   }
 }
@@ -26785,6 +26797,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WeatherBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f64>(Weather::VT_WIND_ACROSS, wind_across, 0.0);
   }
   #[inline]
+  pub fn add_forcings(&mut self, forcings: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<ClimateForcing<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Weather::VT_FORCINGS, forcings);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WeatherBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WeatherBuilder {
@@ -26814,6 +26830,154 @@ impl ::core::fmt::Debug for Weather<'_> {
       ds.field("hold_until", &self.hold_until());
       ds.field("wind_along", &self.wind_along());
       ds.field("wind_across", &self.wind_across());
+      ds.field("forcings", &self.forcings());
+      ds.finish()
+  }
+}
+pub enum ClimateForcingOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ClimateForcing<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for ClimateForcing<'a> {
+  type Inner = ClimateForcing<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> ClimateForcing<'a> {
+  pub const VT_FROM_DAY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_RAMP_DAYS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_OFFSET_C: ::flatbuffers::VOffsetT = 8;
+  pub const VT_WET_FACTOR: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    ClimateForcing { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ClimateForcingArgs
+  ) -> ::flatbuffers::WIPOffset<ClimateForcing<'bldr>> {
+    let mut builder = ClimateForcingBuilder::new(_fbb);
+    builder.add_wet_factor(args.wet_factor);
+    builder.add_offset_c(args.offset_c);
+    builder.add_ramp_days(args.ramp_days);
+    builder.add_from_day(args.from_day);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn from_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(ClimateForcing::VT_FROM_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ramp_days(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(ClimateForcing::VT_RAMP_DAYS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn offset_c(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(ClimateForcing::VT_OFFSET_C, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn wet_factor(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(ClimateForcing::VT_WET_FACTOR, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for ClimateForcing<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("from_day", Self::VT_FROM_DAY, false)?
+     .visit_field::<i64>("ramp_days", Self::VT_RAMP_DAYS, false)?
+     .visit_field::<f64>("offset_c", Self::VT_OFFSET_C, false)?
+     .visit_field::<f64>("wet_factor", Self::VT_WET_FACTOR, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ClimateForcingArgs {
+    pub from_day: i64,
+    pub ramp_days: i64,
+    pub offset_c: f64,
+    pub wet_factor: f64,
+}
+impl<'a> Default for ClimateForcingArgs {
+  #[inline]
+  fn default() -> Self {
+    ClimateForcingArgs {
+      from_day: 0,
+      ramp_days: 0,
+      offset_c: 0.0,
+      wet_factor: 0.0,
+    }
+  }
+}
+
+pub struct ClimateForcingBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ClimateForcingBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_from_day(&mut self, from_day: i64) {
+    self.fbb_.push_slot::<i64>(ClimateForcing::VT_FROM_DAY, from_day, 0);
+  }
+  #[inline]
+  pub fn add_ramp_days(&mut self, ramp_days: i64) {
+    self.fbb_.push_slot::<i64>(ClimateForcing::VT_RAMP_DAYS, ramp_days, 0);
+  }
+  #[inline]
+  pub fn add_offset_c(&mut self, offset_c: f64) {
+    self.fbb_.push_slot::<f64>(ClimateForcing::VT_OFFSET_C, offset_c, 0.0);
+  }
+  #[inline]
+  pub fn add_wet_factor(&mut self, wet_factor: f64) {
+    self.fbb_.push_slot::<f64>(ClimateForcing::VT_WET_FACTOR, wet_factor, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ClimateForcingBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ClimateForcingBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<ClimateForcing<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for ClimateForcing<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("ClimateForcing");
+      ds.field("from_day", &self.from_day());
+      ds.field("ramp_days", &self.ramp_days());
+      ds.field("offset_c", &self.offset_c());
+      ds.field("wet_factor", &self.wet_factor());
       ds.finish()
   }
 }

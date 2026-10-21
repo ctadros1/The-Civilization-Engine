@@ -5685,6 +5685,28 @@ and M6a gives rivers a daily flow.
         of a month marked to stop at a new settlement runs to its date and the speed is put
         back.
     - **DM**: the climate forcing tool: kernel, saves, chronicle, wire and web.
+      - *As built (2026-10-21):* the observer forces the background climate
+        (`Sim::force_climate`): every temperature normal `offset_c` °C warmer or cooler (-10 to
+        10) and every wet day's amount times `wet_factor` (0.25 to 4), each reached linearly over
+        `ramp_years` whole years (0 to 100) from tomorrow and held after. The weather's draw adds
+        the offset to the day's mean (its range moves with it) and scales a wet day's amount; the
+        draws themselves are the unforced day's, so the same days are wet and a forced world keeps
+        its weather's sequence. Snow, water, dryness, soils and harvests follow through the
+        existing chain. The climatology's long-run means are drawn from a weather of their own,
+        unforced, so the harvest factor's mean stays the unforced climate's and a forced climate
+        is not renormalised away. Forcings compose by sum (offsets) and product (factors), are the
+        world's (**saves 170**: the weather's `forcings`), and each is one influence record
+        (`InfluenceKind::Climate`, code 12) with a line in the chronicle ("the climate grows 2.0 °C
+        warmer and wet days bring 20% less rain, over 10 years"). **Wire 1.96:** the command
+        `ForceClimate`; the weather report's `climate`, in words, where the change stands today
+        and where it is going. **The observer:** a "Climate…" choice at the top of the weather panel
+        (warmer, cooler, drier or wetter, over years or from tomorrow; the map's tool bar has no
+        room left: one more control there squeezed the map), and the panel tells it. **Tested:** the generator (the same days wet, every day's mean
+        moved by the ramped offset and every wet day's amount by the ramped factor, held after
+        the ramp; forcings compose; nothing before one begins); twin worlds, one forced, two
+        months on (3 °C warmer and half the rain on the same wet days) and kept across a save,
+        going on alike; out-of-range forcings refused; the host's answer and report; the command
+        and the builder decode; end to end, the tool, the banner, the panel and the chronicle.
     - **DN**: the M9 demo and the gate (100k, ten or more settlements, ≥ 0.1 years a minute).
 
 **Post-v1 (ordered, not sized):**

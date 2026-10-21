@@ -468,6 +468,11 @@ impl Engine {
             } => self.bless(person, curse, days, share),
             Request::Plague { person, disease } => self.plague(person, disease),
             Request::Drought { months, depth } => self.drought(months, depth),
+            Request::ForceClimate {
+                offset_c,
+                wet_factor,
+                ramp_years,
+            } => self.force_climate(offset_c, wet_factor, ramp_years),
             Request::SetFire { building } => self.set_fire(building),
             Request::RaiseRiver {
                 reach,
@@ -1598,6 +1603,37 @@ impl Engine {
 
     /// The observer holds back the rain over the settlement for `months` months, `depth`
     /// standard deviations dry (M6a slice BA, ADR-0021 §8).
+    /// The observer forces the climate (wire 1.96, ADR-0032 §9): what follows is the world's.
+    fn force_climate(&mut self, offset_c: f32, wet_factor: f32, ramp_years: u32) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        match world
+            .sim
+            .force_climate(f64::from(offset_c), f64::from(wet_factor), ramp_years)
+        {
+            Ok(_) => {
+                let over = match ramp_years {
+                    0 => "from tomorrow".to_owned(),
+                    1 => "over a year".to_owned(),
+                    n => format!("over {n} years"),
+                };
+                let text = format!(
+                    "The observer changes the climate: {offset_c:+.1} °C and wet days' rain \
+                     ×{wet_factor:.2}, {over}"
+                );
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
     fn drought(&mut self, months: u32, depth: f32) -> Reply {
         if let Some(busy) = self.busy() {
             return busy;
@@ -3769,6 +3805,59 @@ mod tests {
             })),
             Some(wire::ErrorCode::BadRequest)
         );
+    }
+
+    #[test]
+    fn the_observer_can_change_the_climate_and_the_weather_panel_tells_of_it() {
+        // M9c slice DM (wire 1.96, ADR-0032 §9).
+        let mut h = Harness::new(None, None);
+        h.create("Warm years");
+        let reply = h.ask(Request::ForceClimate {
+            offset_c: 2.0,
+            wet_factor: 0.8,
+            ramp_years: 10,
+        });
+        let Reply::Response(ack) = reply else {
+            panic!("forced: {reply:?}");
+        };
+        let message = flatbuffers::root::<wire::Response>(&ack)
+            .expect("decodes")
+            .body_as_ack()
+            .and_then(|a| a.message())
+            .unwrap_or_default()
+            .to_owned();
+        assert_eq!(
+            message,
+            "The observer changes the climate: +2.0 °C and wet days' rain ×0.80, over 10 years"
+        );
+        for (offset_c, wet_factor, ramp_years) in [
+            (11.0, 1.0, 1),
+            (0.0, 0.2, 1),
+            (0.0, 1.0, 101),
+            (f32::NAN, 1.0, 1),
+        ] {
+            assert_eq!(
+                error_code(&h.ask(Request::ForceClimate {
+                    offset_c,
+                    wet_factor,
+                    ramp_years
+                })),
+                Some(wire::ErrorCode::BadRequest)
+            );
+        }
+        let Reply::Response(payload) = h.ask(Request::GetWeather) else {
+            panic!("the weather is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let report = response.body_as_weather_report().expect("a report");
+        let climate = report.climate().expect("the change is told");
+        assert!(
+            climate.starts_with("The observer has changed the climate: +0.0 °C")
+                && climate.contains("reaching +2.0 °C and ×0.80 by"),
+            "{climate}"
+        );
+        let world = h.engine.world.as_ref().expect("a world");
+        assert_eq!(world.sim.land().weather.forcings.len(), 1);
     }
 
     #[test]

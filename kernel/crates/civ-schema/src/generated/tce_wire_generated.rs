@@ -669,10 +669,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for FieldStage {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_COMMAND_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_COMMAND_BODY: u8 = 22;
+pub const ENUM_MAX_COMMAND_BODY: u8 = 23;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 23] = [
+pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 24] = [
   CommandBody::NONE,
   CommandBody::NewWorld,
   CommandBody::SaveWorld,
@@ -696,6 +696,7 @@ pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 23] = [
   CommandBody::SendStorm,
   CommandBody::Shake,
   CommandBody::SetResolution,
+  CommandBody::ForceClimate,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -726,9 +727,10 @@ impl CommandBody {
   pub const SendStorm: Self = Self(20);
   pub const Shake: Self = Self(21);
   pub const SetResolution: Self = Self(22);
+  pub const ForceClimate: Self = Self(23);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 22;
+  pub const ENUM_MAX: u8 = 23;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::NewWorld,
@@ -753,6 +755,7 @@ impl CommandBody {
     Self::SendStorm,
     Self::Shake,
     Self::SetResolution,
+    Self::ForceClimate,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -780,6 +783,7 @@ impl CommandBody {
       Self::SendStorm => Some("SendStorm"),
       Self::Shake => Some("Shake"),
       Self::SetResolution => Some("SetResolution"),
+      Self::ForceClimate => Some("ForceClimate"),
       _ => None,
     }
   }
@@ -10645,6 +10649,136 @@ impl ::core::fmt::Debug for Drought<'_> {
       ds.finish()
   }
 }
+pub enum ForceClimateOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ForceClimate<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for ForceClimate<'a> {
+  type Inner = ForceClimate<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> ForceClimate<'a> {
+  pub const VT_OFFSET_C: ::flatbuffers::VOffsetT = 4;
+  pub const VT_WET_FACTOR: ::flatbuffers::VOffsetT = 6;
+  pub const VT_RAMP_YEARS: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    ForceClimate { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ForceClimateArgs
+  ) -> ::flatbuffers::WIPOffset<ForceClimate<'bldr>> {
+    let mut builder = ForceClimateBuilder::new(_fbb);
+    builder.add_ramp_years(args.ramp_years);
+    builder.add_wet_factor(args.wet_factor);
+    builder.add_offset_c(args.offset_c);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn offset_c(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(ForceClimate::VT_OFFSET_C, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn wet_factor(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(ForceClimate::VT_WET_FACTOR, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn ramp_years(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(ForceClimate::VT_RAMP_YEARS, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for ForceClimate<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<f32>("offset_c", Self::VT_OFFSET_C, false)?
+     .visit_field::<f32>("wet_factor", Self::VT_WET_FACTOR, false)?
+     .visit_field::<u32>("ramp_years", Self::VT_RAMP_YEARS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ForceClimateArgs {
+    pub offset_c: f32,
+    pub wet_factor: f32,
+    pub ramp_years: u32,
+}
+impl<'a> Default for ForceClimateArgs {
+  #[inline]
+  fn default() -> Self {
+    ForceClimateArgs {
+      offset_c: 0.0,
+      wet_factor: 0.0,
+      ramp_years: 0,
+    }
+  }
+}
+
+pub struct ForceClimateBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ForceClimateBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_offset_c(&mut self, offset_c: f32) {
+    self.fbb_.push_slot::<f32>(ForceClimate::VT_OFFSET_C, offset_c, 0.0);
+  }
+  #[inline]
+  pub fn add_wet_factor(&mut self, wet_factor: f32) {
+    self.fbb_.push_slot::<f32>(ForceClimate::VT_WET_FACTOR, wet_factor, 0.0);
+  }
+  #[inline]
+  pub fn add_ramp_years(&mut self, ramp_years: u32) {
+    self.fbb_.push_slot::<u32>(ForceClimate::VT_RAMP_YEARS, ramp_years, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ForceClimateBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ForceClimateBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<ForceClimate<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for ForceClimate<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("ForceClimate");
+      ds.field("offset_c", &self.offset_c());
+      ds.field("wet_factor", &self.wet_factor());
+      ds.field("ramp_years", &self.ramp_years());
+      ds.finish()
+  }
+}
 pub enum SetFireOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -11623,6 +11757,21 @@ impl<'a> Command<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_force_climate(&self) -> Option<ForceClimate<'a>> {
+    if self.body_type() == CommandBody::ForceClimate {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { ForceClimate::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Command<'_> {
@@ -11655,6 +11804,7 @@ impl ::flatbuffers::Verifiable for Command<'_> {
           CommandBody::SendStorm => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SendStorm>>("CommandBody::SendStorm", pos),
           CommandBody::Shake => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Shake>>("CommandBody::Shake", pos),
           CommandBody::SetResolution => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SetResolution>>("CommandBody::SetResolution", pos),
+          CommandBody::ForceClimate => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ForceClimate>>("CommandBody::ForceClimate", pos),
           _ => Ok(()),
         }
      })?
@@ -11858,6 +12008,13 @@ impl ::core::fmt::Debug for Command<'_> {
         },
         CommandBody::SetResolution => {
           if let Some(x) = self.body_as_set_resolution() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        CommandBody::ForceClimate => {
+          if let Some(x) = self.body_as_force_climate() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -30294,6 +30451,7 @@ impl<'a> WeatherReport<'a> {
   pub const VT_MONTHS: ::flatbuffers::VOffsetT = 12;
   pub const VT_MONTH: ::flatbuffers::VOffsetT = 14;
   pub const VT_DROUGHT: ::flatbuffers::VOffsetT = 16;
+  pub const VT_CLIMATE: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -30306,6 +30464,7 @@ impl<'a> WeatherReport<'a> {
   ) -> ::flatbuffers::WIPOffset<WeatherReport<'bldr>> {
     let mut builder = WeatherReportBuilder::new(_fbb);
     builder.add_rev(args.rev);
+    if let Some(x) = args.climate { builder.add_climate(x); }
     if let Some(x) = args.drought { builder.add_drought(x); }
     if let Some(x) = args.months { builder.add_months(x); }
     if let Some(x) = args.today { builder.add_today(x); }
@@ -30365,6 +30524,13 @@ impl<'a> WeatherReport<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WeatherReport::VT_DROUGHT, None)}
   }
+  #[inline]
+  pub fn climate(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WeatherReport::VT_CLIMATE, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WeatherReport<'_> {
@@ -30380,6 +30546,7 @@ impl ::flatbuffers::Verifiable for WeatherReport<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WeatherMonthInfo>>>>("months", Self::VT_MONTHS, false)?
      .visit_field::<u8>("month", Self::VT_MONTH, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("drought", Self::VT_DROUGHT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("climate", Self::VT_CLIMATE, false)?
      .finish();
     Ok(())
   }
@@ -30392,6 +30559,7 @@ pub struct WeatherReportArgs<'a> {
     pub months: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WeatherMonthInfo<'a>>>>>,
     pub month: u8,
     pub drought: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub climate: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for WeatherReportArgs<'a> {
   #[inline]
@@ -30404,6 +30572,7 @@ impl<'a> Default for WeatherReportArgs<'a> {
       months: None,
       month: 0,
       drought: None,
+      climate: None,
     }
   }
 }
@@ -30442,6 +30611,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WeatherReportBuilder<'a, 'b, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WeatherReport::VT_DROUGHT, drought);
   }
   #[inline]
+  pub fn add_climate(&mut self, climate: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WeatherReport::VT_CLIMATE, climate);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WeatherReportBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WeatherReportBuilder {
@@ -30466,6 +30639,7 @@ impl ::core::fmt::Debug for WeatherReport<'_> {
       ds.field("months", &self.months());
       ds.field("month", &self.month());
       ds.field("drought", &self.drought());
+      ds.field("climate", &self.climate());
       ds.finish()
   }
 }

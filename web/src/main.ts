@@ -1057,6 +1057,13 @@ async function drought(months: number, depth: number): Promise<void> {
   void syncWeather();
 }
 
+/** Changes the climate, then asks for the weather again at once (wire 1.96). */
+async function forceClimate(offsetC: number, wetFactor: number, rampYears: number): Promise<void> {
+  await influence(M.forceClimate(offsetC, wetFactor, rampYears), "The climate is changed");
+  weatherKey = "";
+  void syncWeather();
+}
+
 // ---- Incidents (wire 1.64, M6a slice BB) -----------------------------------------------------
 
 /** `epoch:world:revision:kind` of the incidents shown, and the world they belong to. */
@@ -1465,6 +1472,7 @@ bindUi(store, {
   setPlacingWave,
   setPlacingFire,
   drought,
+  forceClimate,
   shake,
 });
 

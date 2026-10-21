@@ -144,6 +144,13 @@ describe("builders", () => {
     expect([body.person(), body.disease()]).toEqual([42n, 1]);
   });
 
+  it("builds the observer's change of climate", () => {
+    const command = W.Command.getRootAsCommand(bb(M.forceClimate(2, 0.85, 10)));
+    expect(command.bodyType()).toBe(W.CommandBody.ForceClimate);
+    const f = command.body(new W.ForceClimate()) as W.ForceClimate;
+    expect([f.offsetC(), f.wetFactor(), f.rampYears()]).toEqual([2, Math.fround(0.85), 10]);
+  });
+
   it("builds the observer's drought", () => {
     const command = W.Command.getRootAsCommand(bb(M.drought(9, 1.5)));
     expect(command.bodyType()).toBe(W.CommandBody.Drought);

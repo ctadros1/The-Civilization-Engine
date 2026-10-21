@@ -247,8 +247,19 @@ select {
   white-space: nowrap;
 }
 
+#skip-ahead {
+  width: auto;
+}
+
 #skip-stop {
   width: auto;
+}
+
+/* A tool at the top of a panel: the weather's change of climate (M9c slice DM). */
+.panel-tool {
+  width: auto;
+  max-width: 100%;
+  margin: 0 0 8px;
 }
 
 #family-count {

@@ -4195,6 +4195,22 @@ fn encode_weather<'a>(
         })
         .collect();
     let months = fbb.create_vector(&months);
+    let forcings: Vec<_> = w
+        .forcings
+        .iter()
+        .map(|f| {
+            save::ClimateForcing::create(
+                fbb,
+                &save::ClimateForcingArgs {
+                    from_day: f.from_day,
+                    ramp_days: f.ramp_days,
+                    offset_c: f.offset_c,
+                    wet_factor: f.wet_factor,
+                },
+            )
+        })
+        .collect();
+    let forcings = fbb.create_vector(&forcings);
     save::Weather::create(
         fbb,
         &save::WeatherArgs {
@@ -4210,6 +4226,7 @@ fn encode_weather<'a>(
             hold_until: w.hold.map_or(0, |h| h.1),
             wind_along: w.wind.0,
             wind_across: w.wind.1,
+            forcings: Some(forcings),
         },
     )
 }
@@ -4258,6 +4275,18 @@ fn decode_weather(w: save::Weather<'_>) -> Option<Weather> {
             .collect(),
         // The observer's drought (schema 84); none before.
         hold: (w.hold_until() > 0).then(|| (w.hold_slow(), w.hold_until())),
+        // The observer's forcings on the climate (schema 170); none before.
+        forcings: w
+            .forcings()
+            .iter()
+            .flatten()
+            .map(|f| civ_land::Forcing {
+                from_day: f.from_day(),
+                ramp_days: f.ramp_days(),
+                offset_c: f.offset_c(),
+                wet_factor: f.wet_factor(),
+            })
+            .collect(),
     })
 }
 
@@ -13367,7 +13396,8 @@ fn decode_influences(
             | InfluenceKind::Fire
             | InfluenceKind::Flood
             | InfluenceKind::Storm
-            | InfluenceKind::Earthquake => i.subject(),
+            | InfluenceKind::Earthquake
+            | InfluenceKind::Climate => i.subject(),
             InfluenceKind::Ideology | InfluenceKind::Agitator => {
                 match map.get(i.subject() as usize) {
                     Some(Some(k)) => *k,

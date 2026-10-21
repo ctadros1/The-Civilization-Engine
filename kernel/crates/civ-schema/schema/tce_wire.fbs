@@ -211,6 +211,9 @@ table Clock {
   mode: ClockMode (id: 9);
   // Wire 1.24 (M3c slice U, ADR-0012): today's weather on the valley floor.
   weather: DayWeather (id: 10);
+  // Wire 1.93 (M9b slice DK, ADR-0032 §6): settlements away from the observer's focus are
+  // household-resolved, as the observer chose; off, every settlement is Detailed.
+  resolution_by_focus: bool (id: 11);
 }
 
 // Wire 1.24 (M3c slice U, ADR-0012 §1): today's weather on the valley floor, at the height the
@@ -337,6 +340,9 @@ table SettlementBrief {
   // founded to build, how its households would build now, how the year's new buildings and its
   // standing buildings were built, and how many of the new follow a building elsewhere.
   style: string (id: 13);
+  // Wire 1.93 (M9b slice DK, ADR-0032 §1): its day is resolved household by household at
+  // midnight, its people at home between; false when it is Detailed.
+  household_resolved: bool (id: 14);
 }
 
 // Wire 1.74 (M6c slice BJ, ADR-0023 §11): a band not yet home or dispersed: the settlement it is
@@ -601,7 +607,16 @@ table Shake {
   settlement: ulong (id: 1);
 }
 
-union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless, SendWave, Plague, Drought, SetFire, RaiseRiver, SendStorm, Shake }
+// Wire 1.93 (M9b slice DK, ADR-0032 §6): the observer has settlements away from its focus
+// household-resolved, or not; `focus` is the settlement it follows or centres (0: none) and
+// `pins` those it holds Detailed. A run setting, never saved.
+table SetResolution {
+  by_focus: bool (id: 0);
+  focus: ulong (id: 1);
+  pins: [ulong] (id: 2);
+}
+
+union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless, SendWave, Plague, Drought, SetFire, RaiseRiver, SendStorm, Shake, SetResolution }
 
 table Command {
   body: CommandBody (id: 1);

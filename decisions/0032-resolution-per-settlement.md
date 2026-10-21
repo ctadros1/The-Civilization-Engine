@@ -224,3 +224,14 @@ shared every waking hour by the morning's priorities and put work 10–16 % abov
 leisure 4–7 % below it on Gate C. The later weighings put each member's needs back as they found
 them. A day is still about three decisions a person, not fourteen. The night runs from turning in,
 two hours after sunset, to sunrise; the day's energy is each block at its activity's level.
+
+## Amendment (2026-10-21, M9b slice DK): focus is the observer's to turn on
+
+§6's focus rule is a run setting the observer turns on, off in every world as it begins: while
+Gate C fails, §5 forbids household resolution as any host default, and an observer's choice is
+not one. Under it, at each midnight every settlement lived in but the one last chosen and those
+pinned is household-resolved once there are more than `DETAILED_UP_TO` (3). The 30-day residence
+binds only going down: a settlement the observer turns to is Detailed from the next midnight, and
+one turned from stays Detailed its 30 days (being looked at keeps the count fresh). Pins are held
+Detailed whatever their days. Turning the setting off makes every settlement Detailed from the next
+midnight. Neither the setting nor its days are saved.

@@ -126,8 +126,14 @@ export interface Actions {
   select(id: number | null): void;
   /** Inspect a person and centre the map on them. */
   focusPerson(id: number): void;
-  /** Centre the map on a settlement. */
+  /** Centre the map on a settlement; under resolution by focus, it is lived in detail. */
   focusSettlement(id: number): void;
+  /** Settlements away from the focus lived by household, or not (wire 1.93, ADR-0032 §6). */
+  setResolutionByFocus(on: boolean): void;
+  /** Hold a settlement in detail under resolution by focus, or let it go. */
+  pinSettlement(id: number, pinned: boolean): void;
+  /** The settlements the observer holds in detail. */
+  resolutionPins(): number[];
   /** Open a workshop's page in the workshops panel (null goes back to the list). */
   openFirm(id: number | null): void;
   /** Shows incidents of one kind in the Incidents panel: 0 every kind, 1 takings, 2 illness, 4
@@ -1535,7 +1541,10 @@ export function bindUi(store: Store, actions: Actions): void {
         s.contacts,
         s.coalitions,
         s.style,
+        s.householdResolved,
       ]),
+      state.snapshot?.clock?.resolutionByFocus ?? false,
+      actions.resolutionPins(),
       state.welcome?.activities.length ?? 0,
     ]);
     if (key === peopleKey) return;
@@ -1553,11 +1562,39 @@ export function bindUi(store: Store, actions: Actions): void {
       );
       return;
     }
-    const nodes: Node[] = settlements.map((s) =>
+    // Resolution by focus (wire 1.93, M9b slice DK, ADR-0032 §6): off, every settlement is lived
+    // in detail; on, those away from the one last chosen here, and not held, by household.
+    const byFocus = state.snapshot?.clock?.resolutionByFocus ?? false;
+    const pins = actions.resolutionPins();
+    const nodes: Node[] = [];
+    if (settlements.length > 3) {
+      const toggle = el("input");
+      toggle.type = "checkbox";
+      toggle.id = "resolution-by-focus";
+      toggle.checked = byFocus;
+      toggle.addEventListener("change", () => actions.setResolutionByFocus(toggle.checked));
+      const label = el(
+        "label",
+        { className: "resolution" },
+        toggle,
+        " Live settlements away from the one you choose by household, a day at a time",
+      );
+      label.htmlFor = toggle.id;
+      nodes.push(el("p", {}, label));
+    }
+    const pinButton = (id: number): HTMLElement => {
+      const pinned = pins.includes(id);
+      const b = el("button", { className: "pin", text: pinned ? "Let go" : "Hold in detail" });
+      b.addEventListener("click", () => actions.pinSettlement(id, !pinned));
+      return b;
+    };
+    nodes.push(...settlements.map((s) =>
       el(
         "p",
         {},
         link(s.name, () => actions.focusSettlement(s.id)),
+        s.householdResolved ? el("span", { className: "badge", text: "lived by household" }) : "",
+        byFocus && s.abandonedMinute < 0 ? pinButton(s.id) : "",
         ` · ${s.population} people · food for ${formatDays(s.foodDays)}`,
         s.harvestKg > 0 ? ` · harvest so far ${formatKg(s.harvestKg)}` : "",
         s.foodShort && s.abandonedMinute < 0
@@ -1585,7 +1622,7 @@ export function bindUi(store: Store, actions: Actions): void {
           .filter((b) => b.from === s.id)
           .map((b) => el("span", { className: "since band", text: `${b.words}.` })),
       ),
-    );
+    ));
     nodes.push(
       el("p", {
         className: "empty",

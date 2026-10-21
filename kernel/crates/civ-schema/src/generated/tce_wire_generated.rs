@@ -669,10 +669,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for FieldStage {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_COMMAND_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_COMMAND_BODY: u8 = 21;
+pub const ENUM_MAX_COMMAND_BODY: u8 = 22;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 22] = [
+pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 23] = [
   CommandBody::NONE,
   CommandBody::NewWorld,
   CommandBody::SaveWorld,
@@ -695,6 +695,7 @@ pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 22] = [
   CommandBody::RaiseRiver,
   CommandBody::SendStorm,
   CommandBody::Shake,
+  CommandBody::SetResolution,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -724,9 +725,10 @@ impl CommandBody {
   pub const RaiseRiver: Self = Self(19);
   pub const SendStorm: Self = Self(20);
   pub const Shake: Self = Self(21);
+  pub const SetResolution: Self = Self(22);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 21;
+  pub const ENUM_MAX: u8 = 22;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::NewWorld,
@@ -750,6 +752,7 @@ impl CommandBody {
     Self::RaiseRiver,
     Self::SendStorm,
     Self::Shake,
+    Self::SetResolution,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -776,6 +779,7 @@ impl CommandBody {
       Self::RaiseRiver => Some("RaiseRiver"),
       Self::SendStorm => Some("SendStorm"),
       Self::Shake => Some("Shake"),
+      Self::SetResolution => Some("SetResolution"),
       _ => None,
     }
   }
@@ -5652,6 +5656,7 @@ impl<'a> Clock<'a> {
   pub const VT_SPEED: ::flatbuffers::VOffsetT = 20;
   pub const VT_MODE: ::flatbuffers::VOffsetT = 22;
   pub const VT_WEATHER: ::flatbuffers::VOffsetT = 24;
+  pub const VT_RESOLUTION_BY_FOCUS: ::flatbuffers::VOffsetT = 26;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -5668,6 +5673,7 @@ impl<'a> Clock<'a> {
     if let Some(x) = args.weather { builder.add_weather(x); }
     builder.add_speed(args.speed);
     if let Some(x) = args.season { builder.add_season(x); }
+    builder.add_resolution_by_focus(args.resolution_by_focus);
     builder.add_mode(args.mode);
     builder.add_paused(args.paused);
     builder.add_minute_of_hour(args.minute_of_hour);
@@ -5755,6 +5761,13 @@ impl<'a> Clock<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<DayWeather>>(Clock::VT_WEATHER, None)}
   }
+  #[inline]
+  pub fn resolution_by_focus(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(Clock::VT_RESOLUTION_BY_FOCUS, Some(false)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Clock<'_> {
@@ -5774,6 +5787,7 @@ impl ::flatbuffers::Verifiable for Clock<'_> {
      .visit_field::<f32>("speed", Self::VT_SPEED, false)?
      .visit_field::<ClockMode>("mode", Self::VT_MODE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<DayWeather>>("weather", Self::VT_WEATHER, false)?
+     .visit_field::<bool>("resolution_by_focus", Self::VT_RESOLUTION_BY_FOCUS, false)?
      .finish();
     Ok(())
   }
@@ -5790,6 +5804,7 @@ pub struct ClockArgs<'a> {
     pub speed: f32,
     pub mode: ClockMode,
     pub weather: Option<::flatbuffers::WIPOffset<DayWeather<'a>>>,
+    pub resolution_by_focus: bool,
 }
 impl<'a> Default for ClockArgs<'a> {
   #[inline]
@@ -5806,6 +5821,7 @@ impl<'a> Default for ClockArgs<'a> {
       speed: 0.0,
       mode: ClockMode::Detailed,
       weather: None,
+      resolution_by_focus: false,
     }
   }
 }
@@ -5860,6 +5876,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ClockBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<DayWeather>>(Clock::VT_WEATHER, weather);
   }
   #[inline]
+  pub fn add_resolution_by_focus(&mut self, resolution_by_focus: bool) {
+    self.fbb_.push_slot::<bool>(Clock::VT_RESOLUTION_BY_FOCUS, resolution_by_focus, false);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ClockBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ClockBuilder {
@@ -5888,6 +5908,7 @@ impl ::core::fmt::Debug for Clock<'_> {
       ds.field("speed", &self.speed());
       ds.field("mode", &self.mode());
       ds.field("weather", &self.weather());
+      ds.field("resolution_by_focus", &self.resolution_by_focus());
       ds.finish()
   }
 }
@@ -7251,6 +7272,7 @@ impl<'a> SettlementBrief<'a> {
   pub const VT_CONTACTS: ::flatbuffers::VOffsetT = 26;
   pub const VT_COALITIONS: ::flatbuffers::VOffsetT = 28;
   pub const VT_STYLE: ::flatbuffers::VOffsetT = 30;
+  pub const VT_HOUSEHOLD_RESOLVED: ::flatbuffers::VOffsetT = 32;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -7275,6 +7297,7 @@ impl<'a> SettlementBrief<'a> {
     builder.add_population(args.population);
     if let Some(x) = args.hearth { builder.add_hearth(x); }
     if let Some(x) = args.name { builder.add_name(x); }
+    builder.add_household_resolved(args.household_resolved);
     builder.add_food_short(args.food_short);
     builder.finish()
   }
@@ -7378,6 +7401,13 @@ impl<'a> SettlementBrief<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(SettlementBrief::VT_STYLE, None)}
   }
+  #[inline]
+  pub fn household_resolved(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(SettlementBrief::VT_HOUSEHOLD_RESOLVED, Some(false)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for SettlementBrief<'_> {
@@ -7400,6 +7430,7 @@ impl ::flatbuffers::Verifiable for SettlementBrief<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("contacts", Self::VT_CONTACTS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("coalitions", Self::VT_COALITIONS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("style", Self::VT_STYLE, false)?
+     .visit_field::<bool>("household_resolved", Self::VT_HOUSEHOLD_RESOLVED, false)?
      .finish();
     Ok(())
   }
@@ -7419,6 +7450,7 @@ pub struct SettlementBriefArgs<'a> {
     pub contacts: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub coalitions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub style: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub household_resolved: bool,
 }
 impl<'a> Default for SettlementBriefArgs<'a> {
   #[inline]
@@ -7438,6 +7470,7 @@ impl<'a> Default for SettlementBriefArgs<'a> {
       contacts: None,
       coalitions: None,
       style: None,
+      household_resolved: false,
     }
   }
 }
@@ -7504,6 +7537,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SettlementBriefBuilder<'a, 'b
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SettlementBrief::VT_STYLE, style);
   }
   #[inline]
+  pub fn add_household_resolved(&mut self, household_resolved: bool) {
+    self.fbb_.push_slot::<bool>(SettlementBrief::VT_HOUSEHOLD_RESOLVED, household_resolved, false);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SettlementBriefBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SettlementBriefBuilder {
@@ -7535,6 +7572,7 @@ impl ::core::fmt::Debug for SettlementBrief<'_> {
       ds.field("contacts", &self.contacts());
       ds.field("coalitions", &self.coalitions());
       ds.field("style", &self.style());
+      ds.field("household_resolved", &self.household_resolved());
       ds.finish()
   }
 }
@@ -11008,6 +11046,136 @@ impl ::core::fmt::Debug for Shake<'_> {
       ds.finish()
   }
 }
+pub enum SetResolutionOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SetResolution<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for SetResolution<'a> {
+  type Inner = SetResolution<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> SetResolution<'a> {
+  pub const VT_BY_FOCUS: ::flatbuffers::VOffsetT = 4;
+  pub const VT_FOCUS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_PINS: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    SetResolution { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SetResolutionArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<SetResolution<'bldr>> {
+    let mut builder = SetResolutionBuilder::new(_fbb);
+    builder.add_focus(args.focus);
+    if let Some(x) = args.pins { builder.add_pins(x); }
+    builder.add_by_focus(args.by_focus);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn by_focus(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(SetResolution::VT_BY_FOCUS, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn focus(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SetResolution::VT_FOCUS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn pins(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(SetResolution::VT_PINS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for SetResolution<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<bool>("by_focus", Self::VT_BY_FOCUS, false)?
+     .visit_field::<u64>("focus", Self::VT_FOCUS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("pins", Self::VT_PINS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SetResolutionArgs<'a> {
+    pub by_focus: bool,
+    pub focus: u64,
+    pub pins: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+}
+impl<'a> Default for SetResolutionArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SetResolutionArgs {
+      by_focus: false,
+      focus: 0,
+      pins: None,
+    }
+  }
+}
+
+pub struct SetResolutionBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SetResolutionBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_by_focus(&mut self, by_focus: bool) {
+    self.fbb_.push_slot::<bool>(SetResolution::VT_BY_FOCUS, by_focus, false);
+  }
+  #[inline]
+  pub fn add_focus(&mut self, focus: u64) {
+    self.fbb_.push_slot::<u64>(SetResolution::VT_FOCUS, focus, 0);
+  }
+  #[inline]
+  pub fn add_pins(&mut self, pins: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SetResolution::VT_PINS, pins);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SetResolutionBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SetResolutionBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<SetResolution<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for SetResolution<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("SetResolution");
+      ds.field("by_focus", &self.by_focus());
+      ds.field("focus", &self.focus());
+      ds.field("pins", &self.pins());
+      ds.finish()
+  }
+}
 pub enum CommandOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -11372,6 +11540,21 @@ impl<'a> Command<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_set_resolution(&self) -> Option<SetResolution<'a>> {
+    if self.body_type() == CommandBody::SetResolution {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { SetResolution::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Command<'_> {
@@ -11403,6 +11586,7 @@ impl ::flatbuffers::Verifiable for Command<'_> {
           CommandBody::RaiseRiver => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<RaiseRiver>>("CommandBody::RaiseRiver", pos),
           CommandBody::SendStorm => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SendStorm>>("CommandBody::SendStorm", pos),
           CommandBody::Shake => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Shake>>("CommandBody::Shake", pos),
+          CommandBody::SetResolution => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SetResolution>>("CommandBody::SetResolution", pos),
           _ => Ok(()),
         }
      })?
@@ -11599,6 +11783,13 @@ impl ::core::fmt::Debug for Command<'_> {
         },
         CommandBody::Shake => {
           if let Some(x) = self.body_as_shake() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        CommandBody::SetResolution => {
+          if let Some(x) = self.body_as_set_resolution() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

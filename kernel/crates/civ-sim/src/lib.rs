@@ -12,10 +12,13 @@
 
 #![forbid(unsafe_code)]
 
+mod focus;
 pub mod frames;
 pub mod labels;
 pub mod persist;
 pub mod relations;
+
+pub use focus::{DETAILED_AT_LEAST_DAYS, DETAILED_UP_TO, FocusPolicy};
 
 use std::collections::BTreeSet;
 use std::fmt;
@@ -367,6 +370,9 @@ pub struct Sim {
     /// or a change made while the clock stands at a midnight). A setting, never saved.
     resolution_next: Option<BTreeSet<civ_core::PermanentId>>,
     reconcile_due: bool,
+    /// Resolutions chosen at each midnight from the observer's focus (ADR-0032 §6), when the
+    /// observer has turned it on. A setting, never saved.
+    focus_policy: Option<FocusPolicy>,
     /// The approximations Accelerated mode makes (ADR-0011 §4): all it declares, unless a test
     /// has switched some off. Detailed mode makes none. A setting, never saved.
     approximations: Approximations,
@@ -1095,6 +1101,7 @@ impl Sim {
             mode_next: None,
             resolution_next: None,
             reconcile_due: true,
+            focus_policy: None,
             approximations: Approximations::ACCELERATED,
             carry_seconds: 0.0,
             content,
@@ -1227,6 +1234,44 @@ impl Sim {
             self.reconcile_due = true;
         } else {
             self.resolution_next = Some(set);
+        }
+    }
+
+    /// Has the settlements household-resolved chosen at each midnight from the observer's focus
+    /// (ADR-0032 §6), or, turned off, every settlement Detailed from the next midnight. Off is
+    /// how every world begins (ADR-0032 §5). A setting, never saved.
+    pub fn set_resolution_by_focus(&mut self, on: bool) {
+        match (on, self.focus_policy.is_some()) {
+            (true, false) => self.focus_policy = Some(FocusPolicy::default()),
+            (false, true) => {
+                self.focus_policy = None;
+                self.set_household_resolved(std::iter::empty());
+            }
+            _ => {}
+        }
+    }
+
+    /// The focus policy, when resolutions are chosen by the observer's focus.
+    pub fn focus_policy(&self) -> Option<&FocusPolicy> {
+        self.focus_policy.as_ref()
+    }
+
+    /// The settlement the observer follows or centres; under the focus policy, Detailed from the
+    /// next midnight.
+    pub fn set_focus(&mut self, settlement: Option<civ_core::PermanentId>) {
+        if let Some(p) = self.focus_policy.as_mut() {
+            p.focus = settlement;
+        }
+    }
+
+    /// Pins a settlement Detailed under the focus policy, or lets it go.
+    pub fn pin_detailed(&mut self, settlement: civ_core::PermanentId, pinned: bool) {
+        if let Some(p) = self.focus_policy.as_mut() {
+            if pinned {
+                p.pins.insert(settlement);
+            } else {
+                p.pins.remove(&settlement);
+            }
         }
     }
 
@@ -1666,6 +1711,7 @@ impl Sim {
             mode,
             mode_next,
             resolution_next,
+            focus_policy,
             approximations,
             ..
         } = self;
@@ -1706,6 +1752,17 @@ impl Sim {
                         // Resolutions per settlement (ADR-0032 §1–§3): a change held for this
                         // midnight takes effect, people's execution is brought in line, and the
                         // household-resolved settlements live the day now beginning.
+                        // Under the observer's focus, the settlements it does not hold
+                        // Detailed, unless a change was set by hand for this midnight.
+                        if resolution_next.is_none()
+                            && let Some(policy) = focus_policy.as_mut()
+                        {
+                            *resolution_next = policy.next(
+                                at.day_index(),
+                                &ctx.land.settlements,
+                                people.household_resolved(),
+                            );
+                        }
                         let switched = resolution_next.take().map(|next| {
                             let before = switch_check(people, ctx.land);
                             people.set_household_resolved(next);

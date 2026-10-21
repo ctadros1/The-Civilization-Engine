@@ -83,8 +83,13 @@ weather(obj?:DayWeather):DayWeather|null {
   return offset ? (obj || new DayWeather()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
 }
 
+resolutionByFocus():boolean {
+  const offset = this.bb!.__offset(this.bb_pos, 26);
+  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
+}
+
 static startClock(builder:flatbuffers.Builder) {
-  builder.startObject(11);
+  builder.startObject(12);
 }
 
 static addMinute(builder:flatbuffers.Builder, minute:bigint) {
@@ -129,6 +134,10 @@ static addMode(builder:flatbuffers.Builder, mode:ClockMode) {
 
 static addWeather(builder:flatbuffers.Builder, weatherOffset:flatbuffers.Offset) {
   builder.addFieldOffset(10, weatherOffset, 0);
+}
+
+static addResolutionByFocus(builder:flatbuffers.Builder, resolutionByFocus:boolean) {
+  builder.addFieldInt8(11, +resolutionByFocus, +false);
 }
 
 static endClock(builder:flatbuffers.Builder):flatbuffers.Offset {

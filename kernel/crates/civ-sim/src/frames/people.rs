@@ -236,6 +236,8 @@ pub fn settlement_briefs<'a>(
                     contacts: Some(contacts),
                     coalitions: Some(coalitions),
                     style: Some(style),
+                    household_resolved: sim.household_resolved().contains(&s.id)
+                        && !sim.people().held_detailed().contains(&s.id),
                 },
             )
         })

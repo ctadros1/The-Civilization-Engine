@@ -152,6 +152,9 @@ struct SendStormBuilder;
 struct Shake;
 struct ShakeBuilder;
 
+struct SetResolution;
+struct SetResolutionBuilder;
+
 struct Command;
 struct CommandBuilder;
 
@@ -902,11 +905,12 @@ enum class CommandBody : uint8_t {
   RaiseRiver = 19,
   SendStorm = 20,
   Shake = 21,
+  SetResolution = 22,
   MIN = NONE,
-  MAX = Shake
+  MAX = SetResolution
 };
 
-inline const CommandBody (&EnumValuesCommandBody())[22] {
+inline const CommandBody (&EnumValuesCommandBody())[23] {
   static const CommandBody values[] = {
     CommandBody::NONE,
     CommandBody::NewWorld,
@@ -929,13 +933,14 @@ inline const CommandBody (&EnumValuesCommandBody())[22] {
     CommandBody::SetFire,
     CommandBody::RaiseRiver,
     CommandBody::SendStorm,
-    CommandBody::Shake
+    CommandBody::Shake,
+    CommandBody::SetResolution
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandBody() {
-  static const char * const names[23] = {
+  static const char * const names[24] = {
     "NONE",
     "NewWorld",
     "SaveWorld",
@@ -958,13 +963,14 @@ inline const char * const *EnumNamesCommandBody() {
     "RaiseRiver",
     "SendStorm",
     "Shake",
+    "SetResolution",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandBody(CommandBody e) {
-  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::Shake)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::SetResolution)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandBody()[index];
 }
@@ -1055,6 +1061,10 @@ template<> struct CommandBodyTraits<tce::wire::SendStorm> {
 
 template<> struct CommandBodyTraits<tce::wire::Shake> {
   static const CommandBody enum_value = CommandBody::Shake;
+};
+
+template<> struct CommandBodyTraits<tce::wire::SetResolution> {
+  static const CommandBody enum_value = CommandBody::SetResolution;
 };
 
 template <bool B = false>
@@ -3617,7 +3627,8 @@ struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_PAUSED = 18,
     VT_SPEED = 20,
     VT_MODE = 22,
-    VT_WEATHER = 24
+    VT_WEATHER = 24,
+    VT_RESOLUTION_BY_FOCUS = 26
   };
   int64_t minute() const {
     return GetField<int64_t>(VT_MINUTE, 0);
@@ -3652,6 +3663,9 @@ struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const tce::wire::DayWeather *weather() const {
     return GetPointer<const tce::wire::DayWeather *>(VT_WEATHER);
   }
+  bool resolution_by_focus() const {
+    return GetField<uint8_t>(VT_RESOLUTION_BY_FOCUS, 0) != 0;
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -3668,6 +3682,7 @@ struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint8_t>(verifier, VT_MODE, 1) &&
            VerifyOffset(verifier, VT_WEATHER) &&
            verifier.VerifyTable(weather()) &&
+           VerifyField<uint8_t>(verifier, VT_RESOLUTION_BY_FOCUS, 1) &&
            verifier.EndTable();
   }
 };
@@ -3709,6 +3724,9 @@ struct ClockBuilder {
   void add_weather(::flatbuffers::Offset<tce::wire::DayWeather> weather) {
     fbb_.AddOffset(Clock::VT_WEATHER, weather);
   }
+  void add_resolution_by_focus(bool resolution_by_focus) {
+    fbb_.AddElement<uint8_t>(Clock::VT_RESOLUTION_BY_FOCUS, static_cast<uint8_t>(resolution_by_focus), 0);
+  }
   explicit ClockBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -3732,13 +3750,15 @@ inline ::flatbuffers::Offset<Clock> CreateClock(
     bool paused = false,
     float speed = 0.0f,
     tce::wire::ClockMode mode = tce::wire::ClockMode::Detailed,
-    ::flatbuffers::Offset<tce::wire::DayWeather> weather = 0) {
+    ::flatbuffers::Offset<tce::wire::DayWeather> weather = 0,
+    bool resolution_by_focus = false) {
   ClockBuilder builder_(_fbb);
   builder_.add_year(year);
   builder_.add_minute(minute);
   builder_.add_weather(weather);
   builder_.add_speed(speed);
   builder_.add_season(season);
+  builder_.add_resolution_by_focus(resolution_by_focus);
   builder_.add_mode(mode);
   builder_.add_paused(paused);
   builder_.add_minute_of_hour(minute_of_hour);
@@ -3765,7 +3785,8 @@ inline ::flatbuffers::Offset<Clock> CreateClockDirect(
     bool paused = false,
     float speed = 0.0f,
     tce::wire::ClockMode mode = tce::wire::ClockMode::Detailed,
-    ::flatbuffers::Offset<tce::wire::DayWeather> weather = 0) {
+    ::flatbuffers::Offset<tce::wire::DayWeather> weather = 0,
+    bool resolution_by_focus = false) {
   auto season__ = season ? _fbb.CreateString(season) : 0;
   return tce::wire::CreateClock(
       _fbb,
@@ -3779,7 +3800,8 @@ inline ::flatbuffers::Offset<Clock> CreateClockDirect(
       paused,
       speed,
       mode,
-      weather);
+      weather,
+      resolution_by_focus);
 }
 
 struct DayWeather FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -4681,7 +4703,8 @@ struct SettlementBrief FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_ABANDONED_MINUTE = 24,
     VT_CONTACTS = 26,
     VT_COALITIONS = 28,
-    VT_STYLE = 30
+    VT_STYLE = 30,
+    VT_HOUSEHOLD_RESOLVED = 32
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -4725,6 +4748,9 @@ struct SettlementBrief FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *style() const {
     return GetPointer<const ::flatbuffers::String *>(VT_STYLE);
   }
+  bool household_resolved() const {
+    return GetField<uint8_t>(VT_HOUSEHOLD_RESOLVED, 0) != 0;
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -4749,6 +4775,7 @@ struct SettlementBrief FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVectorOfStrings(coalitions()) &&
            VerifyOffset(verifier, VT_STYLE) &&
            verifier.VerifyString(style()) &&
+           VerifyField<uint8_t>(verifier, VT_HOUSEHOLD_RESOLVED, 1) &&
            verifier.EndTable();
   }
 };
@@ -4799,6 +4826,9 @@ struct SettlementBriefBuilder {
   void add_style(::flatbuffers::Offset<::flatbuffers::String> style) {
     fbb_.AddOffset(SettlementBrief::VT_STYLE, style);
   }
+  void add_household_resolved(bool household_resolved) {
+    fbb_.AddElement<uint8_t>(SettlementBrief::VT_HOUSEHOLD_RESOLVED, static_cast<uint8_t>(household_resolved), 0);
+  }
   explicit SettlementBriefBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -4825,7 +4855,8 @@ inline ::flatbuffers::Offset<SettlementBrief> CreateSettlementBrief(
     int64_t abandoned_minute = -1LL,
     ::flatbuffers::Offset<::flatbuffers::String> contacts = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> coalitions = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> style = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> style = 0,
+    bool household_resolved = false) {
   SettlementBriefBuilder builder_(_fbb);
   builder_.add_abandoned_minute(abandoned_minute);
   builder_.add_founded_minute(founded_minute);
@@ -4840,6 +4871,7 @@ inline ::flatbuffers::Offset<SettlementBrief> CreateSettlementBrief(
   builder_.add_population(population);
   builder_.add_hearth(hearth);
   builder_.add_name(name);
+  builder_.add_household_resolved(household_resolved);
   builder_.add_food_short(food_short);
   return builder_.Finish();
 }
@@ -4864,7 +4896,8 @@ inline ::flatbuffers::Offset<SettlementBrief> CreateSettlementBriefDirect(
     int64_t abandoned_minute = -1LL,
     const char *contacts = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *coalitions = nullptr,
-    const char *style = nullptr) {
+    const char *style = nullptr,
+    bool household_resolved = false) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto founding__ = founding ? _fbb.CreateString(founding) : 0;
   auto year__ = year ? _fbb.CreateString(year) : 0;
@@ -4886,7 +4919,8 @@ inline ::flatbuffers::Offset<SettlementBrief> CreateSettlementBriefDirect(
       abandoned_minute,
       contacts__,
       coalitions__,
-      style__);
+      style__,
+      household_resolved);
 }
 
 struct BandBrief FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -6909,6 +6943,88 @@ struct Shake::Traits {
   static auto constexpr Create = CreateShake;
 };
 
+struct SetResolution FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef SetResolutionBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_BY_FOCUS = 4,
+    VT_FOCUS = 6,
+    VT_PINS = 8
+  };
+  bool by_focus() const {
+    return GetField<uint8_t>(VT_BY_FOCUS, 0) != 0;
+  }
+  uint64_t focus() const {
+    return GetField<uint64_t>(VT_FOCUS, 0);
+  }
+  const ::flatbuffers::Vector<uint64_t> *pins() const {
+    return GetPointer<const ::flatbuffers::Vector<uint64_t> *>(VT_PINS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_BY_FOCUS, 1) &&
+           VerifyField<uint64_t>(verifier, VT_FOCUS, 8) &&
+           VerifyOffset(verifier, VT_PINS) &&
+           verifier.VerifyVector(pins()) &&
+           verifier.EndTable();
+  }
+};
+
+struct SetResolutionBuilder {
+  typedef SetResolution Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_by_focus(bool by_focus) {
+    fbb_.AddElement<uint8_t>(SetResolution::VT_BY_FOCUS, static_cast<uint8_t>(by_focus), 0);
+  }
+  void add_focus(uint64_t focus) {
+    fbb_.AddElement<uint64_t>(SetResolution::VT_FOCUS, focus, 0);
+  }
+  void add_pins(::flatbuffers::Offset<::flatbuffers::Vector<uint64_t>> pins) {
+    fbb_.AddOffset(SetResolution::VT_PINS, pins);
+  }
+  explicit SetResolutionBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<SetResolution> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<SetResolution>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<SetResolution> CreateSetResolution(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    bool by_focus = false,
+    uint64_t focus = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<uint64_t>> pins = 0) {
+  SetResolutionBuilder builder_(_fbb);
+  builder_.add_focus(focus);
+  builder_.add_pins(pins);
+  builder_.add_by_focus(by_focus);
+  return builder_.Finish();
+}
+
+struct SetResolution::Traits {
+  using type = SetResolution;
+  static auto constexpr Create = CreateSetResolution;
+};
+
+inline ::flatbuffers::Offset<SetResolution> CreateSetResolutionDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    bool by_focus = false,
+    uint64_t focus = 0,
+    const std::vector<uint64_t> *pins = nullptr) {
+  auto pins__ = pins ? _fbb.CreateVector<uint64_t>(*pins) : 0;
+  return tce::wire::CreateSetResolution(
+      _fbb,
+      by_focus,
+      focus,
+      pins__);
+}
+
 struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef CommandBuilder Builder;
   struct Traits;
@@ -6985,6 +7101,9 @@ struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::Shake *body_as_Shake() const {
     return body_type() == tce::wire::CommandBody::Shake ? static_cast<const tce::wire::Shake *>(body()) : nullptr;
+  }
+  const tce::wire::SetResolution *body_as_SetResolution() const {
+    return body_type() == tce::wire::CommandBody::SetResolution ? static_cast<const tce::wire::SetResolution *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -7078,6 +7197,10 @@ template<> inline const tce::wire::SendStorm *Command::body_as<tce::wire::SendSt
 
 template<> inline const tce::wire::Shake *Command::body_as<tce::wire::Shake>() const {
   return body_as_Shake();
+}
+
+template<> inline const tce::wire::SetResolution *Command::body_as<tce::wire::SetResolution>() const {
+  return body_as_SetResolution();
 }
 
 struct CommandBuilder {
@@ -26168,6 +26291,10 @@ inline bool VerifyCommandBody(::flatbuffers::VerifierTemplate<B> &verifier, cons
     }
     case CommandBody::Shake: {
       auto ptr = reinterpret_cast<const tce::wire::Shake *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case CommandBody::SetResolution: {
+      auto ptr = reinterpret_cast<const tce::wire::SetResolution *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

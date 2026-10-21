@@ -101,6 +101,7 @@ describe("the clock estimate", () => {
     speed: 960,
     mode: "detailed",
     weather: null,
+    resolutionByFocus: false,
   };
   it("runs on at the clock's speed and stops while paused", () => {
     expect(estimateMinute(clock, 0, 500)).toBeCloseTo(1008);
@@ -204,6 +205,7 @@ describe("people payloads", () => {
         contacts: "in year 2: 3 visits from Brook, 4 hours at the hearth here",
         coalitions: ["Ada's household and one more household mean to found a settlement 3.1 km north"],
         style: "founded to build 48° roofs, 1.9 m to the eaves, 0.5 m out",
+        householdResolved: false,
       },
     ]);
     expect(s.chronicleHead).toBe(2);

@@ -132,6 +132,16 @@ pub enum Request {
         wind_speed_ms: f32,
         direction_deg: f32,
     },
+    /// Have settlements away from the observer's focus household-resolved, or not (wire 1.93,
+    /// M9b slice DK, ADR-0032 §6). A run setting.
+    SetResolution {
+        /// Choose resolutions by the focus.
+        by_focus: bool,
+        /// The settlement the observer follows or centres, or 0 for none.
+        focus: u64,
+        /// The settlements it holds Detailed.
+        pins: Vec<u64>,
+    },
     /// Shake the ground under a settlement, or the whole map (god tool, M8d slice DA; ADR-0031
     /// §4).
     Shake {
@@ -640,6 +650,16 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                     Ok(Request::Shake {
                         strength: b.strength(),
                         settlement: b.settlement(),
+                    })
+                }
+                wire::CommandBody::SetResolution => {
+                    let b = command
+                        .body_as_set_resolution()
+                        .ok_or_else(|| missing("command"))?;
+                    Ok(Request::SetResolution {
+                        by_focus: b.by_focus(),
+                        focus: b.focus(),
+                        pins: b.pins().map(|v| v.iter().collect()).unwrap_or_default(),
                     })
                 }
                 other => Err(format!("unknown command {}", other.0)),
@@ -1428,6 +1448,31 @@ mod tests {
             Ok(Request::Shake {
                 strength: 0.25,
                 settlement: 7
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let pins = fbb.create_vector(&[3u64, 5]);
+        let body = wire::SetResolution::create(
+            &mut fbb,
+            &wire::SetResolutionArgs {
+                by_focus: true,
+                focus: 7,
+                pins: Some(pins),
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::SetResolution,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::SetResolution {
+                by_focus: true,
+                focus: 7,
+                pins: vec![3, 5],
             })
         );
         let mut fbb = FlatBufferBuilder::new();

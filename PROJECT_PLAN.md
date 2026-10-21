@@ -5620,6 +5620,29 @@ and M6a gives rivers a daily flow.
     - **DK**: the host chooses resolutions by the observer's focus with hysteresis and pins; the
       wire carries each settlement's resolution and a household-resolved person's block; the web
       shows both.
+      - *As built, first part (2026-10-21):* resolution by focus is a run setting the observer
+        turns on (`Sim::set_resolution_by_focus`, `set_focus`, `pin_detailed`; the
+        `FocusPolicy` in `civ-sim/src/focus.rs`), off as every world begins, so no settlement is
+        household-resolved by default while Gate C fails (ADR-0032 §5; amendment). On, at each
+        midnight the kernel household-resolves every settlement lived in but the one last chosen
+        and those pinned, once there are more than three; a settlement chosen is Detailed from the
+        next midnight, one turned from stays Detailed thirty days. It runs in the day's cadence
+        itself, so every way the host advances (paced, Max, running ahead) keeps it. **Wire
+        1.93:** the command `SetResolution` (on or off, the settlement chosen, the pins); the
+        clock's `resolution_by_focus`; each settlement's `household_resolved`, true only where
+        its day is lived by household now (not where a fire or a band holds it Detailed). **The
+        observer:** in a world of more than three settlements the settlements list offers "Live
+        settlements away from the one you choose by household"; choosing a settlement's name
+        makes it the one, each settlement lived so is marked, and each can be held in detail.
+        The web's schema identity, left at 1.68, now says 1.93. **Tested:** the policy (three
+        or fewer stay Detailed; all but the focus and pins; a settlement turned to is Detailed at
+        once and the one turned from is held thirty days); five settlements living under it,
+        their problems none, and all Detailed again when it is turned off; the command decodes;
+        the builder; end to end, a world of five groups whose four others are lived by household
+        while the observer asks and none once it stops. **Not yet:** a household-resolved
+        person's block on the wire (the household day keeps no plan of its blocks to show), and
+        following a person choosing their settlement (a person's brief names their household,
+        not their settlement).
   - **M9c, skips, climate and the demo** (ADR-0032 §7, §9).
     - **DL**: "skip to" as a host command and in the web.
     - **DM**: the climate forcing tool: kernel, saves, chronicle, wire and web.

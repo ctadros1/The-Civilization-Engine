@@ -63,6 +63,18 @@ describe("builders", () => {
     expect(known.neighboursKnown()).toBe(true);
   });
 
+  it("builds the request that has settlements away from the focus lived by household", () => {
+    const command = W.Command.getRootAsCommand(bb(M.setResolution(true, 7, [3, 5])));
+    expect(command.bodyType()).toBe(W.CommandBody.SetResolution);
+    const set = command.body(new W.SetResolution()) as W.SetResolution;
+    expect([set.byFocus(), set.focus(), set.pinsLength(), set.pins(1)]).toEqual([
+      true,
+      7n,
+      2,
+      5n,
+    ]);
+  });
+
   it("builds clock and raster requests", () => {
     const clock = W.Command.getRootAsCommand(bb(M.setClock(false, 288)));
     const set = clock.body(new W.SetClock()) as W.SetClock;

@@ -112,8 +112,13 @@ style(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+householdResolved():boolean {
+  const offset = this.bb!.__offset(this.bb_pos, 32);
+  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
+}
+
 static startSettlementBrief(builder:flatbuffers.Builder) {
-  builder.startObject(14);
+  builder.startObject(15);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -182,6 +187,10 @@ static startCoalitionsVector(builder:flatbuffers.Builder, numElems:number) {
 
 static addStyle(builder:flatbuffers.Builder, styleOffset:flatbuffers.Offset) {
   builder.addFieldOffset(13, styleOffset, 0);
+}
+
+static addHouseholdResolved(builder:flatbuffers.Builder, householdResolved:boolean) {
+  builder.addFieldInt8(14, +householdResolved, +false);
 }
 
 static endSettlementBrief(builder:flatbuffers.Builder):flatbuffers.Offset {

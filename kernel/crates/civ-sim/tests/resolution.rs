@@ -465,3 +465,64 @@ fn nothing_not_taken_is_ever_lived_while_household_resolved() {
     assert!(sim.people().resolution_problems().is_empty());
     assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
 }
+
+/// Five founding groups of 30 on a river valley with a fixed identity, at a midnight.
+fn five_settlements() -> Sim {
+    let mut sim = Sim::create_for_tests(
+        &NewWorld {
+            name: "Focus".to_owned(),
+            seed: 3,
+            preset_id: "core:worldgen/river_valley".to_owned(),
+            size_cells: 768,
+            band_size: 30,
+            neighbours: vec![30; 4],
+            neighbours_known: true,
+            regime_id: String::new(),
+        },
+        content(),
+        [7; 16],
+    )
+    .expect("generates");
+    assert_eq!(
+        sim.land().settlements.len(),
+        5,
+        "{:?}",
+        sim.founding_problem()
+    );
+    sim.advance_to_midnight().expect("advances");
+    sim
+}
+
+#[test]
+fn under_the_focus_settlements_away_from_it_are_household_resolved_and_the_focus_held_its_days() {
+    // M9b slice DK (ADR-0032 §6): off, as every world begins, nothing is household-resolved.
+    let mut sim = five_settlements();
+    let ids: Vec<PermanentId> = sim.land().settlements.iter().map(|s| s.id).collect();
+    sim.advance_minutes(MINUTES_PER_DAY).expect("advances");
+    assert!(sim.household_resolved().is_empty());
+    // On, with the first in focus and the third pinned: the rest from the next midnight.
+    sim.set_resolution_by_focus(true);
+    sim.set_focus(Some(ids[0]));
+    sim.pin_detailed(ids[2], true);
+    sim.advance_minutes(MINUTES_PER_DAY).expect("advances");
+    let away: std::collections::BTreeSet<_> = [ids[1], ids[3], ids[4]].into();
+    assert_eq!(sim.household_resolved(), &away);
+    // The observer turns to the second: Detailed from the next midnight, the first held.
+    sim.set_focus(Some(ids[1]));
+    sim.advance_minutes(MINUTES_PER_DAY).expect("advances");
+    assert_eq!(sim.household_resolved(), &[ids[3], ids[4]].into());
+    sim.advance_minutes(29 * MINUTES_PER_DAY).expect("advances");
+    assert!(
+        sim.household_resolved().contains(&ids[0]),
+        "let go after its days"
+    );
+    assert!(!sim.household_resolved().contains(&ids[1]));
+    let problems = sim
+        .people()
+        .problems(sim.ids().peek_next(), sim.rules().catalog.activities.len());
+    assert!(problems.is_empty(), "{problems:?}");
+    // Off: every settlement Detailed from the next midnight.
+    sim.set_resolution_by_focus(false);
+    sim.advance_minutes(MINUTES_PER_DAY).expect("advances");
+    assert!(sim.household_resolved().is_empty());
+}

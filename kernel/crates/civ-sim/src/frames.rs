@@ -165,6 +165,7 @@ pub fn clock<'a>(fbb: &mut FlatBufferBuilder<'a>, sim: &Sim) -> WIPOffset<wire::
                 crate::Mode::Accelerated => wire::ClockMode::Accelerated,
             },
             weather: Some(weather),
+            resolution_by_focus: sim.focus_policy().is_some(),
         },
     )
 }

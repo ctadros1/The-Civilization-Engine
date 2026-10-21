@@ -173,6 +173,7 @@ export { SendStorm } from './wire/send-storm.js';
 export { SendWave } from './wire/send-wave.js';
 export { SetClock } from './wire/set-clock.js';
 export { SetFire } from './wire/set-fire.js';
+export { SetResolution } from './wire/set-resolution.js';
 export { SettlementBrief } from './wire/settlement-brief.js';
 export { SettlementKnowledge } from './wire/settlement-knowledge.js';
 export { SettlementStanding } from './wire/settlement-standing.js';

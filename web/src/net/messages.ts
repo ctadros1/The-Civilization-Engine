@@ -195,6 +195,9 @@ export interface Clock {
   mode: "detailed" | "accelerated";
   /** Today's weather on the valley floor (wire 1.24, ADR-0012); null from an older host. */
   weather: DayWeather | null;
+  /** Settlements away from the observer's focus are lived by household (wire 1.93, ADR-0032
+   * §6), as the observer chose; false: every settlement in detail. */
+  resolutionByFocus: boolean;
 }
 
 /** A day's weather on the valley floor (wire 1.24, M3c slice U). */
@@ -342,6 +345,9 @@ export interface SettlementBrief {
    * build, its households' taste now, the year's new buildings and its standing ones), in the
    * kernel's words; empty with nothing to say. */
   style: string;
+  /** Wire 1.93 (M9b slice DK, ADR-0032 §1): its day is lived household by household at
+   * midnight, its people at home between; false when it is lived in detail. */
+  householdResolved: boolean;
 }
 
 export interface Snapshot {
@@ -2355,6 +2361,19 @@ export function setClock(paused: boolean, speed: number): Uint8Array {
   return command(b, W.CommandBody.SetClock, W.SetClock.createSetClock(b, paused, speed));
 }
 
+/** Settlements away from the observer's focus lived by household, or not (wire 1.93, M9b slice
+ * DK, ADR-0032 §6): `focus` the settlement it follows or centres (0: none), `pins` those it
+ * holds in detail. */
+export function setResolution(byFocus: boolean, focus: number, pins: number[]): Uint8Array {
+  const b = new flatbuffers.Builder(64);
+  const pinned = W.SetResolution.createPinsVector(
+    b,
+    pins.map((p) => BigInt(p)),
+  );
+  const body = W.SetResolution.createSetResolution(b, byFocus, BigInt(focus), pinned);
+  return command(b, W.CommandBody.SetResolution, body);
+}
+
 export function cancelTask(): Uint8Array {
   const b = new flatbuffers.Builder(16);
   W.CancelTask.startCancelTask(b);
@@ -2886,6 +2905,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
           speed: clock.speed(),
           mode: clock.mode() === W.ClockMode.Accelerated ? "accelerated" : "detailed",
           weather: dayWeather(clock.weather()),
+          resolutionByFocus: clock.resolutionByFocus(),
         }
       : null,
     task: task
@@ -3333,6 +3353,7 @@ function settlementBriefs(s: W.Snapshot): SettlementBrief[] {
       contacts: t.contacts() ?? "",
       coalitions: Array.from({ length: t.coalitionsLength() }, (_, k) => t.coalitions(k) ?? ""),
       style: t.style() ?? "",
+      householdResolved: t.householdResolved(),
     });
   }
   return out;

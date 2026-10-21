@@ -1310,6 +1310,14 @@ function syncMap(): void {
   else map.clear();
 }
 
+/** The observer's choice of which settlements are lived in detail (wire 1.93, ADR-0032 §6): the
+ * settlement last chosen and those held; the host keeps whether it is on. */
+const resolution = { focus: 0, pins: new Set<number>() };
+
+function sendResolution(on: boolean): void {
+  void command(M.setResolution(on, resolution.focus, [...resolution.pins]));
+}
+
 async function command(payload: Uint8Array): Promise<void> {
   await client.command(payload);
 }
@@ -1416,7 +1424,16 @@ bindUi(store, {
   focusSettlement: (id) => {
     const s = store.state.snapshot?.settlements.find((x) => x.id === id);
     if (s) lookAt(s.x, s.y, 0.5);
+    resolution.focus = id;
+    if (store.state.snapshot?.clock?.resolutionByFocus) sendResolution(true);
   },
+  setResolutionByFocus: (on) => sendResolution(on),
+  pinSettlement: (id, pinned) => {
+    if (pinned) resolution.pins.add(id);
+    else resolution.pins.delete(id);
+    sendResolution(store.state.snapshot?.clock?.resolutionByFocus ?? false);
+  },
+  resolutionPins: () => [...resolution.pins].sort((a, b) => a - b),
   locate: (xM, yM) => lookAt(xM, yM, 1),
   openFirm,
   setIncidentKind,
@@ -1623,6 +1640,7 @@ const hooks = {
           contacts: x.contacts,
           coalitions: x.coalitions,
           style: x.style,
+          householdResolved: x.householdResolved,
         })) ?? [],
       fieldsRev: s.snapshot?.fieldsRev ?? 0,
       buildingsRev: s.snapshot?.buildingsRev ?? 0,

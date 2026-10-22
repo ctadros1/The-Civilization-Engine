@@ -5750,11 +5750,74 @@ and M6a gives rivers a daily flow.
         stops for floods nobody saw; and the year's mean temperature swings about 0.6 °C, as much
         as the forcing's ramp over a decade. Slice DN is closed, and with it **M9c** and **M9**.
 
+**M10: Industrial content.**
+- *Contents:* fuel by heat, iron, water power, coal, engines and the works; rail and gas light;
+  services sold for a fee (care, birth attendance, inoculation, teaching), letters and written
+  records, a health office; acceptance of a money, custody, notes, runs, a polity's notes and fiat.
+- *Demo:* a world of several settlements, some with a fall or coal and some without, lived until
+  whoever will has built a mill or a works, laid a line, lit a street, kept a school or issued
+  notes; what was built where, by whom and why, and what the others did instead. Whether any
+  settlement industrialises is the people's; nudges are logged.
+- *Proves:* industry, services and money enter as vocabulary people may take up or not, and a world
+  without them lives as before.
+- *Gate:* where nobody knows the new techniques, every save section's digest is unchanged by each
+  slice except its own new empty sections; the bench stays within 10 % of M9's figures.
+- *Split (2026-10-22, §9 "M10 design"):* four parts, three ADRs,
+  [ADR-0033](decisions/0033-power-fuel-and-the-works.md),
+  [ADR-0034](decisions/0034-rail-and-gas-light.md) and
+  [ADR-0035](decisions/0035-services-letters-and-notes.md), from four briefs
+  (`docs/briefs/m10-power.md`, `m10-rail-gas.md`, `m10-services.md`, `m10-money.md`).
+  - **M10a, power and the works** (ADR-0033; ADR-0034 §1).
+    - **DO**: routing groundwork: landmarks per settlement over its own walked ground (ADR-0028 §4
+      as decided) and ways' wear by mode; route times unchanged, measured on the many-settlement
+      bench.
+    - **DP**: fuel by heat (`[fuel]`, hearths burning megajoules), batches in elapsed days,
+      charcoal, iron ore, the bloomery, forging and smithing, iron tools that serve.
+    - **DQ**: the firm's own stations and stages (ADR-0006 §5 as decided), several lines with goods
+      in progress, a mill's toll on an appended channel.
+    - **DR**: water power at a site (installations, daily kilowatts from discharge, `kwh_per_unit`,
+      the water mill) and techniques that answer needs in hours.
+    - **DS**: coal and coke, pits that flood below the ground-water head, bailing and pumping, the
+      atmospheric engine at the pit head.
+    - **DT**: the works: machines with crews, shifts by daylight, the household-resolved block.
+  - **M10b, rail and gas light** (ADR-0034).
+    - **DU**: light before gas: lamps burning fuel for hours of light, places dark or lit, dark
+      sight (equal to day sight until a world has lamps), what light changes in the evening.
+    - **DV**: wagonways pushed by people: the `RAIL` mode, track by cells with a turn rule and a
+      ruling grade, wagons.
+    - **DW**: engines on rails and train runs: block sections, single track and loops.
+    - **DX**: stations, timetables set at review, fares and freight as posted terms, consignments
+      of many owners, rides as household-day blocks, who builds and owns a line.
+    - **DY**: the gas chain: gasworks, holders, mains, connections by district capacity,
+      interruptions by cause, street lighting as a public work.
+  - **M10c, services and letters** (ADR-0035 §1–§7).
+    - **DZ**: care beyond the household: a call, tending another home, kin unasked, the `Fee`
+      channel, reputation from claims.
+    - **EA**: birth care: the maternal draw split by complication and rescaled by births attended,
+      birth attending and clean hands.
+    - **EB**: teaching and study settled at midnight, working alongside recorded the same way (the
+      parked-learning claim checked first), schools and `keep_a_school`.
+    - **EC**: letters and records: reading, writing and reckoning as techniques, written records as
+      saved entities, office requirements, licences as privileges.
+    - **ED**: inoculation: the `Company` route, smallpox by the observer's hand, variolation and
+      vaccination with protection records.
+    - **EE**: the health office and the sickhouse: register and rounds, `keep_apart`,
+      `clear_middens`, the sickhouse's pool and capacity; the observer's service views.
+  - **M10d, money and the demo** (ADR-0035 §8–§12).
+    - **EF**: acceptance of a money for onward exchange and dues, a money's value in a midnight
+      table instead of a scan per decision.
+    - **EG**: the deposit-demand probe re-run in towns; if demand, custody, keepers' fees and
+      receipts.
+    - **EH**: notes that pass: issues and purses, redemption and its queue, valuation by belief.
+    - **EI**: keepers issuing beyond backing, presentations and runs, suspension.
+    - **EJ**: a polity's notes: issue within a ceiling, dues in notes, legal tender, suspended
+      redemption and the derived fiat label.
+    - **EK**: counterfeiting.
+    - **EL**: the M10 demo, time-boxed, nudges logged.
+
 **Post-v1 (ordered, not sized):**
 - **M9, Aggregate LOD & scale:** planned above (ADR-0032).
-- **M10, Industrial content:** steam, factories, rail, gas light; capability
-  rungs for industrial services; healthcare and education as full services;
-  fiat money.
+- **M10, Industrial content:** planned above (ADR-0033, ADR-0034, ADR-0035).
 - **M11, Modern content:** electricity and a power grid, motor vehicles,
   transit, telecom, modern architecture primitives, waste.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
@@ -7115,6 +7178,33 @@ One line each. Don't re-litigate without a reason written next to the entry.
   claim on new ground, a home or a workshop once; at most 8 trips for water a household-day;
   company is one draw a member-day against the pool of the settlement's residents who kept it
   that day. Each is revisited by Gate C (slice DI).
+- **M10 design (2026-10-22, plan §7):** from four briefs (`docs/briefs/m10-power.md`,
+  `m10-rail-gas.md`, `m10-services.md`, `m10-money.md`), which read 07-06, 07-12, 07-05, 08-08,
+  08-10, 08-03, 07-08, 12-09, 12-05, 12-06, 12-03, 12-04, 05-05, 06-08, 07-11, 05-04, 08-06, 08-07,
+  08-13 and 08-20 against the code; three ADRs,
+  [ADR-0033](decisions/0033-power-fuel-and-the-works.md),
+  [ADR-0034](decisions/0034-rail-and-gas-light.md) and
+  [ADR-0035](decisions/0035-services-letters-and-notes.md). **What the briefs found in the code:**
+  hearths burn any fuel good by the kilogram in catalogue order, and there is no charcoal, coal or
+  iron; firms use their owners' tools though ADR-0006 §5 decided otherwise; pits never reach ground
+  water; landmarks are built over all walked ground though ADR-0028 §4 decided per region (the
+  30 % of ADR-0032's DN amendment); ways keep wear whatever their modes; sight is the same by night;
+  nothing holds literacy, records, healers or schools; tending reaches only the carer's own
+  household; childbirth is one flat draw; custody and runs were deferred in M7d (CC2) for want of
+  deposits; no lived world has struck coin; a money nobody uses is never accepted; valuing a money
+  scans every market's trades per decision. **The briefs' open questions, answered:** no textiles
+  or draught animals in M10 (wagonways are pushed by people); hearths may burn coal; charcoal draws
+  a patch's increment, then its stock; works are owned by household firms, organizations by stake
+  or polities, with no new partnership; far techniques are found by discovery or introduced by the
+  observer, never imported; a works and a line do not hold a settlement Detailed, and a ride is a
+  block; track is cells with a turn rule, on open ground; dark sight equals day sight until a world
+  has lamps, and a lamp comes before gas; fares are posted terms; light changes the evening, not
+  bedtime; services are paid on a new `Fee` channel; letters are techniques in one script a world;
+  records are saved entities; kin tend unasked, others on a call; smallpox only by the observer's
+  hand; one health officer; acceptance is learnt for coin and notes only; notes need writing and,
+  if no deposits are wanted, begin with a polity's issue; legal tender is a law; fiat is a derived
+  label. **Order:** the routing groundwork first (it speeds every many-settlement world), then
+  power, rail and light, services and letters, money last (it needs letters), and the demo.
 - **M9 design (2026-10-20, plan §7):** from the brief (`docs/briefs/m9-lod.md`), which reads
   01-04, 01-03 and 03-03, one ADR, [ADR-0032](decisions/0032-resolution-per-settlement.md).
   **Plan §4.5 amended:** the aggregate model keeps every person, household, tie, debt, office and

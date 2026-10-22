@@ -39,6 +39,9 @@ the milestone is too big and gets split.
 | [0030](0030-planning-and-land.md) | Planning and land | Accepted | M8c |
 | [0031](0031-tall-public-buildings-and-shaking.md) | Tall buildings, public buildings and shaking | Accepted | M8d |
 | [0032](0032-resolution-per-settlement.md) | Resolution per settlement, the household day and time skips | Accepted | M9 |
+| [0033](0033-power-fuel-and-the-works.md) | Power, fuel and the works | Accepted | M10 |
+| [0034](0034-rail-and-gas-light.md) | Rail and gas light | Accepted | M10 |
+| [0035](0035-services-letters-and-notes.md) | Services, letters and notes | Accepted | M10 |
 
 ## Template
 

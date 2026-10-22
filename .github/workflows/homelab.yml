@@ -14,7 +14,7 @@ on:
       runner:
         description: Pool or a specific machine (an offline specific machine queues)
         type: choice
-        options: [tce-ci, node1, node3]
+        options: [tce-ci, node1, node3, node4]
         default: tce-ci
 permissions:
   contents: read
@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [node1, node3]
+        node: ${{ inputs.runner == 'node4' && fromJSON('["node4"]') || fromJSON('["node1","node3"]') }}
     runs-on: [self-hosted, Linux, X64, tce-ci, '${{ matrix.node }}']
     timeout-minutes: 10
     steps:

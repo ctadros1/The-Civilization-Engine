@@ -1,0 +1,164 @@
+# The full verification chain on the homelab cluster's self-hosted runners, run by hand for one
+# commit (CLAUDE.md "Everyday commands"; AGENTS.md's per-slice checks): formatting, generated
+# schema code, lints, the checked optimized test suite, smoke seeds, the content validator, and the
+# web observer's build, unit tests and browser tests. Each step's output is kept as an artifact.
+#
+# - Triggered only by workflow_dispatch, never by pushes or pull requests: on a self-hosted runner
+#   no fork may run code. It takes no secrets, checks out without persisting credentials and has
+#   read-only permissions, so nothing is pushed from the cluster.
+# - The toolchain is installed or checked each run: Rust from rust-toolchain.toml via rustup,
+#   Node 22, flatc 25.12.19 built from source (cached), Playwright's Chromium.
+# - `runner` is the JSON list of labels a job needs; every self-hosted Linux runner carries
+#   `self-hosted` and `linux`. Narrow it to the cluster's own label once that is known.
+#
+# Actions are pinned to the same commit SHAs as ci.yml.
+name: Chain (homelab)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or commit to verify
+        required: true
+        default: claude/adoring-turing-w10ius
+      runner:
+        description: JSON list of runner labels
+        required: true
+        default: '["self-hosted", "linux"]'
+      browser_deps:
+        description: Install Chromium's system libraries too (needs passwordless sudo)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chain-${{ inputs.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+  LOGS: ${{ github.workspace }}/chain-logs
+
+jobs:
+  chain:
+    name: Chain (${{ inputs.ref }})
+    runs-on: ${{ fromJSON(inputs.runner) }}
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Commit under test
+        run: |
+          mkdir -p "$LOGS"
+          git rev-parse HEAD | tee "$LOGS/commit.txt"
+          uname -a | tee -a "$LOGS/commit.txt"
+
+      - name: Rust (from rust-toolchain.toml)
+        run: |
+          if ! command -v rustup >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+              | sh -s -- -y --profile minimal --default-toolchain none
+          fi
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.cargo/bin:$PATH"
+          rustup show active-toolchain || rustup toolchain install
+          rustc --version
+          cargo --version
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Cached flatc
+        id: flatc
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/flatc
+          key: flatc-25.12.19-${{ runner.os }}-${{ runner.arch }}-selfhosted
+
+      - name: Build flatc 25.12.19
+        if: steps.flatc.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch v25.12.19 https://github.com/google/flatbuffers "$RUNNER_TEMP/flatbuffers"
+          cmake -S "$RUNNER_TEMP/flatbuffers" -B "$RUNNER_TEMP/flatbuffers/build" \
+            -DCMAKE_BUILD_TYPE=Release -DFLATBUFFERS_BUILD_TESTS=OFF
+          cmake --build "$RUNNER_TEMP/flatbuffers/build" --target flatc --parallel 4
+          mkdir -p ~/flatc
+          cp "$RUNNER_TEMP/flatbuffers/build/flatc" ~/flatc/
+
+      - name: Web dependencies and Chromium
+        working-directory: web
+        run: |
+          set -o pipefail
+          npm ci 2>&1 | tee "$LOGS/npm-ci.txt"
+          if [ "${{ inputs.browser_deps }}" = "true" ]; then
+            npx playwright install --with-deps chromium 2>&1 | tee "$LOGS/playwright.txt"
+          else
+            npx playwright install chromium 2>&1 | tee "$LOGS/playwright.txt"
+          fi
+
+      - name: Kernel — formatting
+        working-directory: kernel
+        run: set -o pipefail; cargo fmt --all --check 2>&1 | tee "$LOGS/fmt.txt"
+
+      - name: Generated schema code
+        run: set -o pipefail; FLATC="$HOME/flatc/flatc" tools/gen-schema.sh --check 2>&1 | tee "$LOGS/schema.txt"
+
+      - name: Kernel — lints
+        working-directory: kernel
+        run: set -o pipefail; cargo clippy --workspace --all-targets --locked -- -D warnings 2>&1 | tee "$LOGS/clippy.txt"
+
+      - name: Kernel — checked optimized tests
+        working-directory: kernel
+        run: |
+          set -o pipefail
+          cargo test --workspace --locked --profile simcheck --no-fail-fast 2>&1 | tee "$LOGS/suite.txt"
+          grep -h "test result" "$LOGS/suite.txt" | awk '{p+=$4; f+=$6} END {print "passed", p, "failed", f}' | tee "$LOGS/suite-totals.txt"
+
+      - name: Smoke seeds
+        working-directory: kernel
+        run: set -o pipefail; cargo run --locked --release -p civ-host -- smoke 2>&1 | tee "$LOGS/smoke.txt"
+
+      - name: Content validator
+        working-directory: kernel
+        run: set -o pipefail; cargo run --locked --release -p civ-host -- content validate 2>&1 | tee "$LOGS/validate.txt"
+
+      - name: Commons — formatting, lints and tests
+        working-directory: commons
+        run: |
+          set -o pipefail
+          {
+            cargo fmt --all -- --check
+            cargo clippy --workspace --all-targets --locked -- -D warnings
+            cargo test --workspace --locked
+          } 2>&1 | tee "$LOGS/commons.txt"
+
+      - name: Web — type-check and build
+        working-directory: web
+        run: set -o pipefail; npm run build 2>&1 | tee "$LOGS/webbuild.txt"
+
+      - name: Web — unit tests
+        working-directory: web
+        run: set -o pipefail; npm test 2>&1 | tee "$LOGS/webtest.txt"
+
+      - name: Web — browser tests
+        working-directory: web
+        run: set -o pipefail; npm run test:e2e 2>&1 | tee "$LOGS/e2e.txt"
+
+      - name: Chain logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: chain-logs-${{ github.run_id }}
+          path: |
+            chain-logs/
+            web/test-results/
+          if-no-files-found: warn

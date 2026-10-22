@@ -104,6 +104,12 @@ content and smoke seeds; a second Windows job builds the kernel library and keep
 artifact; Ubuntu lanes cover the web shell and schema freshness. Keep it green.
 `.github/workflows/nightly.yml` runs the ten-year smoke seeds nightly on `main` and on pull
 requests into it; run them yourself before a change to how people live, farm, build or die.
+`.github/workflows/chain.yml` runs the whole per-slice chain (fmt, schema, clippy, the simcheck
+suite, smoke, content validator, commons, web build, unit and browser tests) on the homelab
+cluster's self-hosted runners, by hand only (`workflow_dispatch` with a `ref`, the runner labels
+as a JSON list, and whether to install Chromium's system libraries), and keeps every step's log
+as an artifact. It takes no secrets and pushes nothing. GitHub dispatches a workflow only once
+it is on the default branch (`main`).
 
 ## Rules for changes
 

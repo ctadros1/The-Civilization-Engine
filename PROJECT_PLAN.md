@@ -5837,7 +5837,7 @@ and M6a gives rivers a daily flow.
         50,000 h), and `recipe/burn_charcoal` at 5 kg of wood a kilogram (20 % yield), 0.06 h a
         kilogram and 2 h a session (60 h a tonne and the mound), for ten days. NUDGE: the ten
         days are a small mound's carbonising and cooling (an earth mound's whole cycle 24 days,
-        07-05 §2.1); revisit if the iron chain (part 4) finds charcoal the bottleneck. Nothing
+        07-05 §2.1); revisit if the iron chain (third part) finds charcoal the bottleneck. Nothing
         yet wants charcoal, so no world makes it until iron does. Firms do not batch (their
         stations are slice DQ). Saves of schema 169 load again (no decoder had named them since
         170). **Discovery draws keyed by content id:** a find's draw was keyed by the technique's
@@ -5851,6 +5851,31 @@ and M6a gives rivers a daily flow.
         **Tested:** a burn takes five kilograms of wood a kilogram when stacked, gives
         nothing while it burns, blocks a second mound, saves and loads to the byte, and gives its
         charcoal exactly when opened after its days.
+      - *As built, third part (2026-10-22): iron, smithing and iron tools; DP closed.* Content
+        only, with one change in founding. **Smithing** (`skill/smithing`) is a skill founders
+        do not bring; copper's smelting and casting move to it from pottery (ADR-0033 §3), so a
+        household new to smithing now makes a stone axe rather than a poor, slow copper one, and
+        one practised in it casts copper (`tests/metal.rs` shows both). A skill whose founders'
+        range is nothing takes no draw (`found::founder_skills`), so adding one moves no other
+        founder's levels. **Iron ore** is bog ore, a gathered resource of wet margins (30 kg a
+        hectare) and damp floodplain (3), cut at 6 kg an hour (`activity/gather_bog_ore`), not a
+        placed deposit: a new deposit body takes a permanent id after the founders' and would move
+        every later id in every world. Upland iron bodies wait until deposit ids are drawn apart
+        from the people's. **The bloomery** (`technique/bloomery`, routes firing or copper
+        smelting, tried in burning charcoal and smelting copper with ore and charcoal at home,
+        E50 100,000 h) smelts a batch of one elapsed day: 8 kg of ore and 12 of charcoal a
+        kilogram of bloom, 3 h a kilogram, up to 8 kg a charge (07-05 §2.2). **Forging**
+        (`technique/forging`, found in smelting iron, E50 20,000 h) hammers 1.25 kg of bloom and
+        8 kg of charcoal into a kilogram of bar in 6 h, so bar takes 9.75 h and 23 kg of charcoal
+        a kilogram, 115 t of wood a tonne (07-05 §2.3: 6-20 h and 5-30 kg; the brief's 25-150 t),
+        and forges axes, sickles and hoes (2-5 h, 1.5-4 kg of charcoal) that serve for the stone
+        and wooden ones at five to six times their life (tuning values; the research gives no
+        tool lifetimes). Nails and steel (`carburizing`) wait for a use. **Proved:** the three
+        bench worlds with and without the iron files give the same chronicle, counts and
+        summaries; the code change alone leaves every section but `meta` as it was. **Tested:**
+        the chain's envelopes, iron tools serving and outlasting, metal under smithing that no
+        founder holds, a smelt that cools overnight, bar and an axe made with every kilogram
+        accounted, and no iron held in sixty days where nobody knows the bloomery.
     - **DQ**: the firm's own stations and stages (ADR-0006 §5 as decided), several lines with goods
       in progress, a mill's toll on an appended channel.
     - **DR**: water power at a site (installations, daily kilowatts from discharge, `kwh_per_unit`,

@@ -1,0 +1,16 @@
+# Consolidating a bloom: reheating it and hammering out the slag until it is bar, a fifth of its
+# weight lost (research 07-05 §1.2). Six hours and 8 kg of charcoal a kilogram of bar, so the chain
+# from ore takes 9.75 hours and 23 kg of charcoal a kilogram of bar (07-05 §2.3: 6-20 person-hours
+# and 5-30 kg of charcoal a kilogram of usable bar). Tuning values within that envelope.
+kind = "recipe"
+id = "core:recipe/forge_bar"
+name = "Forge bar iron"
+skill = "core:skill/smithing"
+technique = "core:technique/forging"
+unit_h = 6.0
+session_h = 0.0
+max_units = 2.0
+tools = []
+inputs = [{ good = "core:good/iron_bloom", amount = 1.25 }, { good = "core:good/charcoal", amount = 8.0 }]
+outputs = [{ good = "core:good/iron", amount = 1.0 }]
+session_inputs = []

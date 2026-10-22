@@ -1,0 +1,17 @@
+# Consolidating a bloom into bar and forging bar into tools at a hearth with hammer and anvil
+# (research 07-05 §4, I2: develops with practical bloomery production, distinct from reducing
+# ore). Found by those who smelt iron, with a bloom and charcoal at home. Founders do not bring it.
+kind = "technique"
+id = "core:technique/forging"
+name = "Forging iron"
+can = "hammer a bloom into bar iron and forge it into tools"
+domain = "core:skill/smithing"
+requires = [["core:technique/bloomery"]]
+tried_in = ["core:activity/smelt_iron"]
+needs = ["core:good/iron_bloom", "core:good/charcoal"]
+e50_h = 20000.0
+learn_h = 300.0
+upbringing = true
+
+[answers]
+spoilage = []

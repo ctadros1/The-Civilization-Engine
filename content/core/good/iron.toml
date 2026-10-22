@@ -1,0 +1,13 @@
+# Bar iron: a bloom hammered hot until its slag is driven out, ready for the smith (research 07-05
+# §1.2, I2: bars, nails, agricultural tools, fittings and repairs). Weighed by the kilogram. It
+# keeps.
+kind = "good"
+id = "core:good/iron"
+name = "Iron"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

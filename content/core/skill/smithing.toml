@@ -1,0 +1,11 @@
+# Working metal hot: smelting, hammering blooms into bar and forging tools (research 07-05 §1.2, I2:
+# a reheating hearth, hammer and anvil, and skill). Taken as 1,500 hours like the other crafts.
+# Founders bring none: nobody arrives knowing how to smelt (M10a slice DP; ADR-0033 §3). Copper is
+# worked under it once it exists. Speeds, quality and levels are tuning values.
+kind = "skill"
+id = "core:skill/smithing"
+name = "Smithing"
+t80_h = 1500.0
+speed = [[0.0, 0.5], [0.5, 1.0], [1.0, 1.4]]
+quality = [[0.0, 0.5], [0.5, 1.0], [1.0, 1.5]]
+founder_level = [0.0, 0.0]

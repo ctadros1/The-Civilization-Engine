@@ -1,0 +1,17 @@
+# Forging, hardening and hafting an iron axe at home.
+kind = "activity"
+id = "core:activity/forge_iron_axe"
+name = "Forge an iron axe"
+doing = "forging an iron axe"
+behavior = "make"
+recipe = "core:recipe/forge_iron_axe"
+par = 4.5
+min_age_years = 14.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 300
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

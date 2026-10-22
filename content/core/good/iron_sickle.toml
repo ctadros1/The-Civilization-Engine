@@ -1,0 +1,18 @@
+# A forged iron sickle: a sickle's work, its edge kept at the forge, lasting five flint sickles'
+# use, 500 hours (a tuning value; the research gives no tool lifetimes).
+kind = "good"
+id = "core:good/iron_sickle"
+name = "Iron sickle"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 500.0
+per_worker = 1.0
+fixed = false
+serves = "core:good/sickle"

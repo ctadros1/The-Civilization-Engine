@@ -1,0 +1,17 @@
+# Reheating a bloom and hammering out its slag into bar at the hearth.
+kind = "activity"
+id = "core:activity/forge_bar"
+name = "Forge bar iron"
+doing = "forging bar iron"
+behavior = "make"
+recipe = "core:recipe/forge_bar"
+par = 5.0
+min_age_years = 14.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 480
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

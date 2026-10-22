@@ -4,7 +4,7 @@
 kind = "recipe"
 id = "core:recipe/cast_copper_axe"
 name = "Cast a copper axe"
-skill = "core:skill/pottery"
+skill = "core:skill/smithing"
 technique = "core:technique/copper_smelting"
 unit_h = 5.0
 session_h = 0.0

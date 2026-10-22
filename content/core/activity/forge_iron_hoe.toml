@@ -1,0 +1,17 @@
+# Forging and hafting an iron hoe at home.
+kind = "activity"
+id = "core:activity/forge_iron_hoe"
+name = "Forge an iron hoe"
+doing = "forging an iron hoe"
+behavior = "make"
+recipe = "core:recipe/forge_iron_hoe"
+par = 4.5
+min_age_years = 14.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 300
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

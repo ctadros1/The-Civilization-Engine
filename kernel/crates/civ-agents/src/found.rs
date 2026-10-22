@@ -914,6 +914,8 @@ fn add_family(
 
 /// The skills a founder of `age` brings: grown people (from `grown_at`) a level drawn for each
 /// skill from its founders' range, younger ones a part of it growing from age 10 (ADR-0006 §2).
+/// A skill founders never bring (a range of nothing) takes no draw, so adding one moves no other
+/// skill's level (M10a slice DP: smithing).
 pub fn founder_skills(
     skills: &[crate::params::SkillDef],
     age: f64,
@@ -926,6 +928,9 @@ pub fn founder_skills(
         .enumerate()
         .filter_map(|(i, s)| {
             let [lo, hi] = s.founder_level;
+            if hi <= 0.0 {
+                return None;
+            }
             let level = (lo + (hi - lo) * rng.next_f64()) * share;
             (level > 0.0).then_some((i as u16, level as f32))
         })
@@ -1631,6 +1636,31 @@ pub(crate) mod tests {
         SleepParams, SocialParams,
     };
     use civ_world::nav::NavParams;
+
+    #[test]
+    fn a_skill_founders_never_bring_takes_no_draw_and_moves_no_other_level() {
+        let skill = |id: &str, founder_level: [f64; 2]| crate::params::SkillDef {
+            id: id.into(),
+            name: id.into(),
+            t80_h: 1500.0,
+            speed: vec![(0.0, 1.0)],
+            quality: vec![(0.0, 1.0)],
+            founder_level,
+        };
+        let before = vec![skill("a", [0.1, 0.6]), skill("c", [0.2, 0.7])];
+        let after = vec![
+            skill("a", [0.1, 0.6]),
+            skill("b", [0.0, 0.0]),
+            skill("c", [0.2, 0.7]),
+        ];
+        let draw = |skills: &[crate::params::SkillDef]| {
+            founder_skills(skills, 30.0, 18.0, &mut Rng64::from_key(&[7, 8]))
+        };
+        // The same levels, `c` now at index 2, and nothing of `b`.
+        let (old, new) = (draw(&before), draw(&after));
+        assert_eq!(old.len(), 2);
+        assert_eq!(new, vec![(0, old[0].1), (2, old[1].1)]);
+    }
 
     /// A full set of people parameters for tests.
     pub(crate) fn params() -> PeopleParams {

@@ -1,0 +1,19 @@
+# Forging an axe head from 1.2 kg of bar, hardening its edge and hafting it: five hours and 4 kg of
+# charcoal (docs/briefs/m10-power.md §1.2 from research 07-05 §2.3: simple forged tools 2-10 hours
+# and 1-5 kg of charcoal a kilogram). Tuning values within that envelope.
+kind = "recipe"
+id = "core:recipe/forge_iron_axe"
+name = "Forge an iron axe"
+skill = "core:skill/smithing"
+technique = "core:technique/forging"
+unit_h = 5.0
+session_h = 0.0
+max_units = 1.0
+tools = []
+inputs = [
+  { good = "core:good/iron", amount = 1.2 },
+  { good = "core:good/timber", amount = 1.0 },
+  { good = "core:good/charcoal", amount = 4.0 },
+]
+outputs = [{ good = "core:good/iron_axe", amount = 1.0 }]
+session_inputs = []

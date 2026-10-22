@@ -2009,6 +2009,24 @@ struct FloodCell {
   depth_m: float;
 }
 
+// A water mill (wire 1.97, M10a slice DR; ADR-0033 §5): where its wheel stands, the fall it
+// takes, the power its river gives it today and the most its wheel delivers, whether its headrace
+// is dug, whose it is, and all of it in words.
+table MillInfo {
+  id: ulong (id: 0);
+  // Its wheel, metres from the map's north-west corner.
+  x: float (id: 1);
+  y: float (id: 2);
+  head_m: float (id: 3);
+  // Kilowatts today (0 while its race is undug or its river dry) and its wheel's rating.
+  kw: float (id: 4);
+  rated_kw: float (id: 5);
+  dug: bool (id: 6);
+  household: ulong (id: 7);
+  // "Ada's household's water mill, a fall of 0.7 m: 0.2 kW today of its 3 kW".
+  words: string (id: 8);
+}
+
 table Water {
   // The snapshot revision this is at.
   rev: ulong (id: 0);
@@ -2020,6 +2038,8 @@ table Water {
   banks: [BankDraw] (id: 4);
   // Flooded cells today with water depth, metres (wire 1.69).
   flooded: [FloodCell] (id: 5);
+  // Every water mill, its race dug or not (wire 1.97).
+  mills: [MillInfo] (id: 6);
 }
 
 // A tile of what earthworks have done to the ground, numbered row by row across the map. Its

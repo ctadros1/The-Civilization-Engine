@@ -126,6 +126,7 @@ export { LoadWorld } from './wire/load-world.js';
 export { MarketGood } from './wire/market-good.js';
 export { MarketInfo } from './wire/market-info.js';
 export { Markets } from './wire/markets.js';
+export { MillInfo } from './wire/mill-info.js';
 export { MonthOfTrade } from './wire/month-of-trade.js';
 export { MonthStatement } from './wire/month-statement.js';
 export { NewWorld } from './wire/new-world.js';

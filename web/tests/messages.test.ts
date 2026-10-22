@@ -1285,7 +1285,7 @@ describe("decoders", () => {
     expect(query.bodyType()).toBe(W.QueryBody.GetWays);
   });
 
-  it("decodes the wells, springs and places drawn at today, and builds their query", () => {
+  it("decodes the wells, springs, places drawn at today and water mills, and builds their query", () => {
     const b = new flatbuffers.Builder(256);
     const system = b.createString("Timber-lined well");
     const words = b.createString("Ada's household's timber-lined well, being dug: 2.0 of 4.5 m");
@@ -1301,7 +1301,10 @@ describe("decoders", () => {
     W.Water.startFloodedVector(b, 1);
     W.FloodCell.createFloodCell(b, 1024, 0.5);
     const flooded = b.endVector();
-    const water = W.Water.createWater(b, 33n, wells, springs, 0.5, banks, flooded);
+    const millWords = b.createString("Ada's household's water mill, a fall of 0.7 m: 0.2 kW today of its 3 kW");
+    const mill = W.MillInfo.createMillInfo(b, 40n, 310, 420, 0.7, 0.25, 3, true, 7n, millWords);
+    const mills = W.Water.createMillsVector(b, [mill]);
+    const water = W.Water.createWater(b, 33n, wells, springs, 0.5, banks, flooded, mills);
     const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Water, water)));
     expect(body.kind).toBe("water");
     if (body.kind !== "water") return;
@@ -1330,6 +1333,19 @@ describe("decoders", () => {
       flow: 0.5,
       banks: [{ x: 120, y: 140, trips: 6 }],
       flooded: [{ cell: 1024, depthM: 0.5 }],
+      mills: [
+        {
+          id: 40,
+          x: 310,
+          y: 420,
+          headM: expect.closeTo(0.7, 5) as number,
+          kw: 0.25,
+          ratedKw: 3,
+          dug: true,
+          household: 7,
+          words: "Ada's household's water mill, a fall of 0.7 m: 0.2 kW today of its 3 kW",
+        },
+      ],
     });
     const query = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getWater()));
     expect(query.bodyType()).toBe(W.QueryBody.GetWater);

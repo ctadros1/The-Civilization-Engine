@@ -43,7 +43,7 @@ import { DITCH_COLOUR, PALISADE_COLOUR, changedTiles, detailTilesOver, earthwork
 import { fieldAt, fieldLook } from "../fields.js";
 import type { HostClient } from "../net/client.js";
 import { TRAIL_COLOUR, pathAt, smoothed, trailLook, wornPixels } from "../paths.js";
-import { BANK_COLOUR, SPRING_COLOUR, bankAt, springAt, wellAt, wellLook } from "../water.js";
+import { BANK_COLOUR, MILL_COLOUR, SPRING_COLOUR, bankAt, millAt, springAt, wellAt, wellLook } from "../water.js";
 import {
   RasterLayer,
   type ActivityInfo,
@@ -64,6 +64,7 @@ import {
   type PlansInfo,
   type LandInfo,
   type LandPlot,
+  type MillInfo,
   type DepositInfo,
   type EarthworkInfo,
   type EarthworksInfo,
@@ -141,6 +142,8 @@ export interface PointerInfo {
   spring: SpringInfo | null;
   bank: BankDrawInfo | null;
   flow: number | null;
+  /** The water mill under the pointer, if any (M10a slice DR). */
+  mill: MillInfo | null;
   /** The home under the pointer while a lens is shown, with what the lens reads of it (M6a slice
    * BB, step three). */
   home: CoverageHome | null;
@@ -699,6 +702,13 @@ export class MapView {
       g.circle(w.x, w.y, Math.max(look.radiusM, 1.1 * pxM));
       g.fill({ color: look.colour, alpha: look.alpha });
     }
+    // A water mill's wheel (M10a slice DR): a square about four pixels across, faint while its
+    // headrace is still being dug.
+    for (const m of water.mills) {
+      const half = Math.max(2, 2 * pxM);
+      g.rect(m.x - half, m.y - half, 2 * half, 2 * half);
+      g.fill({ color: MILL_COLOUR, alpha: m.dug ? 0.95 : 0.45 });
+    }
   }
 
   /** The lens shown over the homes (the Water lens's `layer`), or none (M6a slice BB, step three). */
@@ -1222,6 +1232,7 @@ export class MapView {
       spring: springAt(this.water?.springs ?? [], xM, yM, 4 / this.scale),
       bank: bankAt(this.water?.banks ?? [], xM, yM, 4 / this.scale),
       flow: this.water?.flow ?? null,
+      mill: millAt(this.water?.mills ?? [], xM, yM, 5 / this.scale),
       home: homeAt(this.lens, xM, yM, 5 / this.scale),
       place: placeAt(this.lens, xM, yM, 5 / this.scale),
       path: pathAt(this.paths, cellX, cellY),
@@ -1497,6 +1508,8 @@ export class MapView {
         fouled: w.fouled,
       })),
       springs: this.water?.springs.length ?? 0,
+      // M10a slice DR: water mills, where each wheel stands and what it gives today.
+      mills: (this.water?.mills ?? []).map((m) => ({ x: m.x, y: m.y, kw: m.kw, dug: m.dug, words: m.words })),
       banks: this.water?.banks.length ?? 0,
       flow: this.water?.flow ?? null,
       groundTiles: this.groundSeen.size,

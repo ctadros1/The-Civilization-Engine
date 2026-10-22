@@ -5996,6 +5996,19 @@ and M6a gives rivers a daily flow.
         than a load, the customer keeps fifteen sixteenths of the flour and the owner the rest,
         and the owner's wheel wears; a customer that knows the mill and grinds 600 kg a year sets
         none of its own beside a working one.
+      - *As built, fifth part (2026-10-22): the observer's view of mills; DR closed.* `GetWater`
+        lists every water mill (wire 1.97, `Water.mills`): its wheel, the fall it takes, its
+        kilowatts today and its wheel's rating, whether its headrace is dug, whose it is, and in
+        words ("Ada's household's water mill, a fall of 0.7 m: 0.2 kW today of its 3 kW", or that
+        its headrace is still being dug). The water revision counts mills, so a world with mills
+        and no wells is fetched. The map's water layer draws each wheel as a small square, faint
+        while its race is undug; the readout under the pointer says what the mill is; the earthwork
+        readout names a headrace as one (third part); a person going to grind elsewhere reads
+        "grinding grain at the mill south of home" (fourth part). Fuel and power rows on the
+        dashboard wait for DS's engines, as nothing burns for power before them. **Tested:** the
+        reply carries a neighbour's mill with its owner, its race dug and the kilowatts its river
+        gives it today, and its words; the web decodes `Water.mills`. No world on the e2e path has
+        a mill, so the e2e is unchanged.
     - **DS**: coal and coke, pits that flood below the ground-water head, bailing and pumping, the
       atmospheric engine at the pit head.
     - **DT**: the works: machines with crews, shifts by daylight, the household-resolved block.

@@ -24,7 +24,12 @@ use crate::Sim;
 pub fn water_rev(sim: &Sim) -> u64 {
     let wells = &sim.land.wells.list;
     let has_flood = sim.land.flood_depths.iter().any(|&d| d > 0.0);
-    if wells.is_empty() && !sim.land.water.aquifer.seep.iter().any(Option::is_some) && !has_flood {
+    let mills = &sim.land.installations;
+    if wells.is_empty()
+        && mills.is_empty()
+        && !sim.land.water.aquifer.seep.iter().any(Option::is_some)
+        && !has_flood
+    {
         return 0;
     }
     let mut hasher = DefaultHasher::new();
@@ -47,7 +52,33 @@ pub fn water_rev(sim: &Sim) -> u64 {
         )
             .hash(&mut hasher);
     }
+    // Water mills (wire 1.97): set, dug, given to another; their power moves with the day.
+    for (i, m) in mills.iter().enumerate() {
+        (m.id.get(), m.owner.get(), sim.land.installation_ready(i)).hash(&mut hasher);
+    }
     hasher.finish() | 1
+}
+
+/// Water mill `i` in the kernel's words, as `GetWater` lists it: "Ada's household's water mill,
+/// a fall of 0.7 m: 0.2 kW today of its 3 kW", or that its headrace is still being dug.
+pub fn mill_words(sim: &Sim, i: usize) -> String {
+    let Some(m) = sim.land.installations.get(i) else {
+        return String::new();
+    };
+    let whose = super::people::eldest_name(sim, m.owner)
+        .map_or_else(|| "A".to_owned(), |name| format!("{name}'s household's"));
+    if !sim.land.installation_ready(i) {
+        return format!(
+            "{whose} water mill, a fall of {:.1} m: its headrace is still being dug",
+            m.head_m
+        );
+    }
+    format!(
+        "{whose} water mill, a fall of {:.1} m: {:.1} kW today of its {:.0} kW",
+        m.head_m,
+        sim.land.installation_kw(&sim.rules.land, i),
+        m.rated_kw
+    )
 }
 
 /// The water standing in an open well's shaft now and how far below its mouth its surface is,
@@ -166,7 +197,7 @@ pub(crate) fn spring_cell(sim: &Sim, cell: u32) -> bool {
 }
 
 /// Every well, in the order begun; every spring flowing today with what was drawn there today;
-/// the river and lake edges drawn at today; and today's flow.
+/// the river and lake edges drawn at today; today's flow; and every water mill (wire 1.97).
 pub fn water_response(sim: &Sim) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let map = &sim.map;
@@ -245,6 +276,25 @@ pub fn water_response(sim: &Sim) -> Vec<u8> {
         .map(|(cell, &d)| wire::FloodCell::new(cell as u32, d))
         .collect();
     let flooded = fbb.create_vector(&flooded);
+    let mut mills = Vec::with_capacity(sim.land.installations.len());
+    for (i, m) in sim.land.installations.iter().enumerate() {
+        let words = fbb.create_string(&mill_words(sim, i));
+        mills.push(wire::MillInfo::create(
+            &mut fbb,
+            &wire::MillInfoArgs {
+                id: m.id.get(),
+                x: m.at[0] as f32,
+                y: m.at[1] as f32,
+                head_m: m.head_m as f32,
+                kw: sim.land.installation_kw(&sim.rules.land, i) as f32,
+                rated_kw: m.rated_kw as f32,
+                dug: sim.land.installation_ready(i),
+                household: m.owner.get(),
+                words: Some(words),
+            },
+        ));
+    }
+    let mills = fbb.create_vector(&mills);
     let body = wire::Water::create(
         &mut fbb,
         &wire::WaterArgs {
@@ -254,6 +304,7 @@ pub fn water_response(sim: &Sim) -> Vec<u8> {
             flow: sim.land.flow_factor(&sim.rules.land) as f32,
             banks: Some(banks),
             flooded: Some(flooded),
+            mills: Some(mills),
         },
     );
     response(fbb, wire::ResponseBody::Water, body)

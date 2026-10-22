@@ -29766,6 +29766,238 @@ impl ::core::fmt::Debug for WellInfo<'_> {
       ds.finish()
   }
 }
+pub enum MillInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct MillInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for MillInfo<'a> {
+  type Inner = MillInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> MillInfo<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_X: ::flatbuffers::VOffsetT = 6;
+  pub const VT_Y: ::flatbuffers::VOffsetT = 8;
+  pub const VT_HEAD_M: ::flatbuffers::VOffsetT = 10;
+  pub const VT_KW: ::flatbuffers::VOffsetT = 12;
+  pub const VT_RATED_KW: ::flatbuffers::VOffsetT = 14;
+  pub const VT_DUG: ::flatbuffers::VOffsetT = 16;
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 18;
+  pub const VT_WORDS: ::flatbuffers::VOffsetT = 20;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    MillInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args MillInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<MillInfo<'bldr>> {
+    let mut builder = MillInfoBuilder::new(_fbb);
+    builder.add_household(args.household);
+    builder.add_id(args.id);
+    if let Some(x) = args.words { builder.add_words(x); }
+    builder.add_rated_kw(args.rated_kw);
+    builder.add_kw(args.kw);
+    builder.add_head_m(args.head_m);
+    builder.add_y(args.y);
+    builder.add_x(args.x);
+    builder.add_dug(args.dug);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(MillInfo::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn x(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(MillInfo::VT_X, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn y(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(MillInfo::VT_Y, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn head_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(MillInfo::VT_HEAD_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn kw(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(MillInfo::VT_KW, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn rated_kw(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(MillInfo::VT_RATED_KW, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn dug(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(MillInfo::VT_DUG, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(MillInfo::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn words(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(MillInfo::VT_WORDS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for MillInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<f32>("x", Self::VT_X, false)?
+     .visit_field::<f32>("y", Self::VT_Y, false)?
+     .visit_field::<f32>("head_m", Self::VT_HEAD_M, false)?
+     .visit_field::<f32>("kw", Self::VT_KW, false)?
+     .visit_field::<f32>("rated_kw", Self::VT_RATED_KW, false)?
+     .visit_field::<bool>("dug", Self::VT_DUG, false)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct MillInfoArgs<'a> {
+    pub id: u64,
+    pub x: f32,
+    pub y: f32,
+    pub head_m: f32,
+    pub kw: f32,
+    pub rated_kw: f32,
+    pub dug: bool,
+    pub household: u64,
+    pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for MillInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    MillInfoArgs {
+      id: 0,
+      x: 0.0,
+      y: 0.0,
+      head_m: 0.0,
+      kw: 0.0,
+      rated_kw: 0.0,
+      dug: false,
+      household: 0,
+      words: None,
+    }
+  }
+}
+
+pub struct MillInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MillInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(MillInfo::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_x(&mut self, x: f32) {
+    self.fbb_.push_slot::<f32>(MillInfo::VT_X, x, 0.0);
+  }
+  #[inline]
+  pub fn add_y(&mut self, y: f32) {
+    self.fbb_.push_slot::<f32>(MillInfo::VT_Y, y, 0.0);
+  }
+  #[inline]
+  pub fn add_head_m(&mut self, head_m: f32) {
+    self.fbb_.push_slot::<f32>(MillInfo::VT_HEAD_M, head_m, 0.0);
+  }
+  #[inline]
+  pub fn add_kw(&mut self, kw: f32) {
+    self.fbb_.push_slot::<f32>(MillInfo::VT_KW, kw, 0.0);
+  }
+  #[inline]
+  pub fn add_rated_kw(&mut self, rated_kw: f32) {
+    self.fbb_.push_slot::<f32>(MillInfo::VT_RATED_KW, rated_kw, 0.0);
+  }
+  #[inline]
+  pub fn add_dug(&mut self, dug: bool) {
+    self.fbb_.push_slot::<bool>(MillInfo::VT_DUG, dug, false);
+  }
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(MillInfo::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_words(&mut self, words: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(MillInfo::VT_WORDS, words);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> MillInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    MillInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<MillInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for MillInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("MillInfo");
+      ds.field("id", &self.id());
+      ds.field("x", &self.x());
+      ds.field("y", &self.y());
+      ds.field("head_m", &self.head_m());
+      ds.field("kw", &self.kw());
+      ds.field("rated_kw", &self.rated_kw());
+      ds.field("dug", &self.dug());
+      ds.field("household", &self.household());
+      ds.field("words", &self.words());
+      ds.finish()
+  }
+}
 pub enum WaterOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -29788,6 +30020,7 @@ impl<'a> Water<'a> {
   pub const VT_FLOW: ::flatbuffers::VOffsetT = 10;
   pub const VT_BANKS: ::flatbuffers::VOffsetT = 12;
   pub const VT_FLOODED: ::flatbuffers::VOffsetT = 14;
+  pub const VT_MILLS: ::flatbuffers::VOffsetT = 16;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -29800,6 +30033,7 @@ impl<'a> Water<'a> {
   ) -> ::flatbuffers::WIPOffset<Water<'bldr>> {
     let mut builder = WaterBuilder::new(_fbb);
     builder.add_rev(args.rev);
+    if let Some(x) = args.mills { builder.add_mills(x); }
     if let Some(x) = args.flooded { builder.add_flooded(x); }
     if let Some(x) = args.banks { builder.add_banks(x); }
     builder.add_flow(args.flow);
@@ -29851,6 +30085,13 @@ impl<'a> Water<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, FloodCell>>>(Water::VT_FLOODED, None)}
   }
+  #[inline]
+  pub fn mills(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MillInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MillInfo>>>>(Water::VT_MILLS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Water<'_> {
@@ -29865,6 +30106,7 @@ impl ::flatbuffers::Verifiable for Water<'_> {
      .visit_field::<f32>("flow", Self::VT_FLOW, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, BankDraw>>>("banks", Self::VT_BANKS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, FloodCell>>>("flooded", Self::VT_FLOODED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MillInfo>>>>("mills", Self::VT_MILLS, false)?
      .finish();
     Ok(())
   }
@@ -29876,6 +30118,7 @@ pub struct WaterArgs<'a> {
     pub flow: f32,
     pub banks: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, BankDraw>>>,
     pub flooded: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, FloodCell>>>,
+    pub mills: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MillInfo<'a>>>>>,
 }
 impl<'a> Default for WaterArgs<'a> {
   #[inline]
@@ -29887,6 +30130,7 @@ impl<'a> Default for WaterArgs<'a> {
       flow: 0.0,
       banks: None,
       flooded: None,
+      mills: None,
     }
   }
 }
@@ -29921,6 +30165,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WaterBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Water::VT_FLOODED, flooded);
   }
   #[inline]
+  pub fn add_mills(&mut self, mills: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<MillInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Water::VT_MILLS, mills);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WaterBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WaterBuilder {
@@ -29944,6 +30192,7 @@ impl ::core::fmt::Debug for Water<'_> {
       ds.field("flow", &self.flow());
       ds.field("banks", &self.banks());
       ds.field("flooded", &self.flooded());
+      ds.field("mills", &self.mills());
       ds.finish()
   }
 }

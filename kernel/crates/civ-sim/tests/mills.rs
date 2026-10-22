@@ -262,6 +262,26 @@ fn a_household_grinds_at_a_neighbours_mill_for_its_toll_and_builds_none_of_its_o
     let params = sim.rules().land.clone();
     let kw = sim.land().installation_kw(&params, 0);
     assert!(kw > 0.0, "the river turns the wheel");
+    // The observer sees the mill on the water layer, its power today and whose it is (wire 1.97).
+    assert_ne!(civ_sim::frames::water::water_rev(&sim), 0);
+    let payload = civ_sim::frames::water::water_response(&sim);
+    let water = civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&payload)
+        .expect("a response")
+        .body_as_water()
+        .expect("water");
+    let seen = water.mills().expect("mills");
+    assert_eq!(seen.len(), 1);
+    let m = seen.get(0);
+    assert_eq!(
+        (m.id(), m.household(), m.dug()),
+        (mill.get(), owner.get(), true)
+    );
+    assert!((f64::from(m.kw()) - kw).abs() < 1e-3);
+    let words = m.words().expect("words");
+    assert!(
+        words.contains("water mill") && words.contains("kW today"),
+        "{words}"
+    );
     // The neighbour sees the mill: a load's grinding, and hours spared.
     let facts = sim
         .with_ctx_for_tests(|pop, ctx| pop.mill_facts_for_tests(ctx, carrier))

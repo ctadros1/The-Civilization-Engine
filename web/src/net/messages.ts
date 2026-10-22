@@ -1941,6 +1941,20 @@ export interface FloodCellInfo {
   depthM: number;
 }
 
+/** A water mill (wire 1.97, M10a slice DR): its wheel, the fall it takes, its power today and
+ * its wheel's rating (kW), whether its headrace is dug, whose it is, and all of it in words. */
+export interface MillInfo {
+  id: number;
+  x: number;
+  y: number;
+  headM: number;
+  kw: number;
+  ratedKw: number;
+  dug: boolean;
+  household: number;
+  words: string;
+}
+
 export interface WaterInfo {
   rev: number;
   wells: WellInfo[];
@@ -1950,6 +1964,8 @@ export interface WaterInfo {
   banks: BankDrawInfo[];
   /** Flooded cells today with water depth, metres. */
   flooded: FloodCellInfo[];
+  /** Every water mill (wire 1.97). */
+  mills: MillInfo[];
 }
 
 /** A source of water as one home stands to it (wire 1.66): `kind` 1 its own well, 2 a well by
@@ -3298,7 +3314,23 @@ function water(w: W.Water): WaterInfo {
     const v = w.flooded(i);
     if (v) flooded.push({ cell: v.cell(), depthM: v.depthM() });
   }
-  return { rev: Number(w.rev()), wells, springs, flow: w.flow(), banks, flooded };
+  const mills: MillInfo[] = [];
+  for (let i = 0; i < w.millsLength(); i++) {
+    const v = w.mills(i);
+    if (!v) continue;
+    mills.push({
+      id: Number(v.id()),
+      x: v.x(),
+      y: v.y(),
+      headM: v.headM(),
+      kw: v.kw(),
+      ratedKw: v.ratedKw(),
+      dug: v.dug(),
+      household: Number(v.household()),
+      words: v.words() ?? "",
+    });
+  }
+  return { rev: Number(w.rev()), wells, springs, flow: w.flow(), banks, flooded, mills };
 }
 
 function earthworks(w: W.Earthworks): EarthworksInfo {

@@ -1027,3 +1027,96 @@ fn a_works_of_two_lines_smelts_in_a_batch_and_forges_its_own_blooms_into_bar() {
         "its own blooms used, not put in"
     );
 }
+
+#[test]
+fn a_mill_grinds_what_its_wheel_turns_more_when_the_river_runs_and_none_when_it_is_dry() {
+    // M10a slice DR, ADR-0033 §5: a powered recipe makes the least of what its hands, its inputs
+    // and its installations' power over the session allow; a dry month idles the mill.
+    let mut sim = new_world(3);
+    sim.advance_minutes(24 * 60).expect("advances");
+    let rules = sim.rules().clone();
+    let goods = &rules.catalog.goods;
+    let good = |id: &str| goods.iter().position(|d| d.id == id).expect(id);
+    let (wheel, flour) = (good("core:good/water_wheel"), good("core:good/flour"));
+    let mill = rules
+        .catalog
+        .activities
+        .iter()
+        .position(|a| a.id == "core:activity/grind_grain_water")
+        .expect("grind_grain_water");
+    let kwh = rules
+        .catalog
+        .recipes
+        .iter()
+        .find(|r| r.id == "core:recipe/grind_grain_water")
+        .expect("recipe")
+        .kwh_per_unit;
+    let now = sim.now();
+    let (miller, who) = sim
+        .people()
+        .households
+        .iter()
+        .find_map(|(_, h)| {
+            let grown = h.members.iter().copied().find(|&m| {
+                sim.people()
+                    .person(m)
+                    .is_some_and(|p| p.age_years(now) >= 20.0)
+            })?;
+            Some((h.id, grown))
+        })
+        .expect("a household with a grown member");
+    set(
+        &mut sim,
+        miller,
+        &[("core:good/water_wheel", 1.0), ("core:good/grain", 5000.0)],
+    );
+    let firm = sim
+        .with_ctx_for_tests(|pop, ctx| pop.found_firm_for_tests(ctx, miller, who, flour))
+        .expect("a mill");
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.put_in_station(ctx, firm, wheel, 1.0)));
+    // Its installation: a wheel at reach 0 falling half a metre, its headrace carrying 0.5 m³/s.
+    let reach = 0u32;
+    sim.land_mut_for_tests()
+        .installations
+        .push(civ_land::power::Installation {
+            id: PermanentId::from_raw(9_000_002).expect("id"),
+            reach,
+            at: [0.0, 0.0],
+            head_m: 0.5,
+            race_m3s: 0.5,
+            efficiency: 0.3,
+            rated_kw: 3.0,
+            owner: firm,
+            building: None,
+        });
+    let share = sim.rules().land.ditches.max_share;
+    let ground = |sim: &mut Sim, discharge: f32| {
+        sim.land_mut_for_tests().reach_discharges[reach as usize] = discharge;
+        let before = sim.people().firm(firm).expect("firm").stores[flour];
+        sim.with_ctx_for_tests(|pop, ctx| pop.firm_make_for_tests(ctx, who, mill, 600, firm));
+        sim.people().firm(firm).expect("firm").stores[flour] - before
+    };
+    let by_power = |discharge: f64| {
+        let q = (share * discharge).min(0.5);
+        (9.81 * q * 0.5 * 0.3).min(3.0) * 10.0 / kwh * 0.98
+    };
+    // A full river: the wheel's power over ten hours, not the hands', sets what is ground.
+    let full = ground(&mut sim, 5.0);
+    assert!(
+        (full - by_power(5.0)).abs() < 1e-6,
+        "{full} against {}",
+        by_power(5.0)
+    );
+    // A low one: less, by its share of the flow.
+    let low = ground(&mut sim, 0.4);
+    assert!(
+        (low - by_power(0.4)).abs() < 1e-6,
+        "{low} against {}",
+        by_power(0.4)
+    );
+    assert!(low < full);
+    // A dry one idles the mill.
+    assert_eq!(ground(&mut sim, 0.0), 0.0);
+    // Its wheel wore on its own books.
+    assert!(sim.people().firm(firm).expect("firm").stores[wheel] < 1.0);
+}

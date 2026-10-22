@@ -1,0 +1,18 @@
+# Grinding grain at a water mill: the miller feeds the hopper and dresses the flour while the
+# wheel turns the stones (research 08-03 §2.2: a water mill grinds 20-100 kg an hour with one or
+# two attendants, 0.01-0.10 hours a kilogram, against the rotary quern's 0.25). 0.06 kWh a
+# kilogram, so a 3 kW wheel grinds 50 kg an hour at full water and less as the river falls
+# (tuning values within that envelope).
+kind = "recipe"
+id = "core:recipe/grind_grain_water"
+name = "Grind grain at a water mill"
+skill = "core:skill/milling"
+technique = "core:technique/water_wheel"
+unit_h = 0.02
+session_h = 0.0
+max_units = 0.0
+kwh_per_unit = 0.06
+tools = ["core:good/water_wheel"]
+inputs = [{ good = "core:good/grain", amount = 1.0 }]
+outputs = [{ good = "core:good/flour", amount = 0.98 }]
+session_inputs = []

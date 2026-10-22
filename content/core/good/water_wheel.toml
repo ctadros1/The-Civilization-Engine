@@ -1,0 +1,24 @@
+# A water wheel with its shaft and a pair of millstones, set at an installation's headrace (M10a
+# slice DR; ADR-0033 §5). An undershot wheel turns about 30 % of the water's power into work, up
+# to 3 kW (research 07-06 §2.2: simple wheels 20-40 %, 0.5-3 kW for a direct-drive wheel). It
+# stands where it is built and lasts a generation, 40,000 hours of turning (a tuning value).
+kind = "good"
+id = "core:good/water_wheel"
+name = "Water wheel"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 40000.0
+per_worker = 1.0
+fixed = true
+
+[power]
+source = "water"
+rated_kw = 3.0
+efficiency = 0.3

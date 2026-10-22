@@ -1,0 +1,17 @@
+# Minding a water mill through a session: feeding the hopper, dressing the stones and the flour.
+kind = "activity"
+id = "core:activity/grind_grain_water"
+name = "Grind grain at a water mill"
+doing = "minding the mill"
+behavior = "make"
+recipe = "core:recipe/grind_grain_water"
+par = 2.5
+min_age_years = 14.0
+max_age_years = 75.0
+min_minutes = 60
+max_minutes = 600
+daylight_only = false
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

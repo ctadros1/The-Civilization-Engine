@@ -1,0 +1,19 @@
+# Building a water wheel, its shaft and gearing of timber and a pair of millstones dressed from
+# stone: 300 hours, 600 kg of timber and 800 kg of stone (tuning values; research 07-06 §4.1
+# gives a mill's parts but no hours). Where it is set, its weir and headrace, is the installation's
+# work (M10a slice DR, its third part).
+kind = "recipe"
+id = "core:recipe/build_water_wheel"
+name = "Build a water wheel"
+skill = "core:skill/building"
+technique = "core:technique/water_wheel"
+unit_h = 300.0
+session_h = 0.0
+max_units = 1.0
+tools = []
+inputs = [
+  { good = "core:good/timber", amount = 600.0 },
+  { good = "core:good/stone", amount = 800.0 },
+]
+outputs = [{ good = "core:good/water_wheel", amount = 1.0 }]
+session_inputs = []

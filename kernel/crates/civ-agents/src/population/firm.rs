@@ -337,7 +337,12 @@ impl Population {
             * def.rate;
         let quality = skill.map_or(1.0, |(_, s)| interpolate(&s.quality, level));
         let hours = f64::from(minutes) / 60.0;
-        let units = make::units_in(recipe, f64::from(minutes), speed);
+        let mut units = make::units_in(recipe, f64::from(minutes), speed);
+        // A powered recipe makes no more than its installations deliver over the session (M10a
+        // slice DR; ADR-0033 §5).
+        if recipe.kwh_per_unit > 0.0 {
+            units = units.min(super::power_kw_of(ctx, id) * hours / recipe.kwh_per_unit);
+        }
         // What the recipe takes from the owners' stores for what can be made in the time (never
         // the seed: a workshop's work is not hunger's), and what it gives.
         let goods = &ctx.catalog.goods;

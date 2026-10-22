@@ -5863,6 +5863,11 @@ impl Population {
             farm::protected_seed(self.fields_of(ctx.land, household), &ctx.catalog.crops);
         let hours = f64::from(minutes) / 60.0;
         let mut units = make::units_in(recipe, f64::from(minutes), speed);
+        // A powered recipe makes no more than its household's installations deliver over the
+        // session (M10a slice DR; ADR-0033 §5).
+        if recipe.kwh_per_unit > 0.0 {
+            units = units.min(power_kw_of(ctx, household) * hours / recipe.kwh_per_unit);
+        }
         // Coin is struck from the metal brought to the mint the worker keeps, in the polity's
         // store, and nobody else strikes it (M7d slice CE2b).
         let coin = recipe
@@ -7376,6 +7381,18 @@ fn water_edges(map: &WorldMap, field: &TravelField) -> Vec<(u32, f32)> {
         }
     }
     out
+}
+
+/// The kilowatts the installations `holder` owns deliver today (M10a slice DR; ADR-0033 §5):
+/// the sum of their powers from the day's river. Nothing for a holder that owns none.
+pub(crate) fn power_kw_of(ctx: &Ctx, holder: PermanentId) -> f64 {
+    ctx.land
+        .installations
+        .iter()
+        .enumerate()
+        .filter(|(_, x)| x.owner == holder)
+        .map(|(i, _)| ctx.land.installation_kw(ctx.land_params, i))
+        .sum()
 }
 
 #[cfg(test)]

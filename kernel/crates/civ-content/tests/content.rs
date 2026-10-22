@@ -1858,6 +1858,13 @@ fn techniques_check_their_references_gates_and_routes() {
                         "inputs = [{ good = \"core:good/bread\"",
                     ),
                 ),
+                (
+                    "recipe/grind_grain_water.toml",
+                    real("recipe/grind_grain_water.toml").replace(
+                        "inputs = [{ good = \"core:good/grain\"",
+                        "inputs = [{ good = \"core:good/bread\"",
+                    ),
+                ),
             ],
             "E3007",
             "recipe `core:recipe/grind_grain` can never be worked",

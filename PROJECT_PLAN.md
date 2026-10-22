@@ -5930,6 +5930,21 @@ and M6a gives rivers a daily flow.
         and the rating, broken records refused; the content's ranges and the fixed-tool rule;
         and an installation in a lived village taking its power from the day's river, saved and
         loaded to the byte.
+      - *As built, second part (2026-10-22): powered making and the water mill.* A recipe with
+        `kwh_per_unit` makes the least of what its hands and inputs allow and what the
+        installations its holder owns deliver over the session (`power_kw_of`: a workshop's for
+        work done for it, a household's for its own), so a low river grinds less and a dry one
+        idles the mill. Content: `technique/water_wheel` (the water mill: rotary milling and
+        jointed framing, found in grinding at a rotary quern, E50 200,000 h), `good/water_wheel`
+        (a fixed tool, `[power]` water, 3 kW at 30 %, research 07-06 §2.2), `recipe/build_water_
+        wheel` (300 h, 600 kg of timber, 800 kg of stone) and `recipe/grind_grain_water` (0.02 h
+        and 0.06 kWh a kilogram of grain: 50 kg an hour at full water, 08-03 §2.2's 20-100), each
+        with its activity. A wheel built without an installation turns nothing; where one is set
+        and who weighs it is the third part. **Proved:** the three bench worlds give the same
+        chronicle and summaries as the first part (the sections holding goods by index differ by
+        the new rows). **Tested:** a mill's flour over ten hours is its wheel's kilowatts over
+        0.06 kWh a kilogram at a full river and at a low one's share, nothing on a dry one, its
+        wheel worn on its own books.
     - **DS**: coal and coke, pits that flood below the ground-water head, bailing and pumping, the
       atmospheric engine at the pit head.
     - **DT**: the works: machines with crews, shifts by daylight, the household-resolved block.

@@ -6056,6 +6056,23 @@ and M6a gives rivers a daily flow.
         hours); a body that passes no water lets none in; in a world, water standing in a coal
         pit is lifted out before any coal is dug, only coal pits hold water, and a save keeps it
         to the byte.
+      - *As built, third part (2026-10-22): engines that pump.* `good/atmospheric_engine` is a
+        fixed tool with fuel power (4 kW at 1 %, 40,000 hours; the priors below). An engine set
+        at a pit (`civ_land::power::Engine`: its pit, its owner, its rated power and efficiency;
+        `Land::engines`, saves 176, absent while none is set) pumps each day, after the mills,
+        while its owner holds the engine whole and fuel for it: it lifts what stands in the pit
+        through the lift from the water's middle to the mouth (`lift_kwh`, `ρgVH` at a pump's
+        50 %), at most its rated power for twelve hours, burning the owner's fuels in the
+        catalogue's order by their heat at the engine's efficiency (`fuel_kg`, 07-06 §2.3), and
+        it wears by the hours it ran. Water in a pit now stands no higher than its mouth.
+        Who sets an engine, and why, is the next part. Coke waits for the works' blast furnace:
+        nothing yet uses it. **Proved:** against the second part, the three bench worlds of DO keep the same chronicle
+        (`history`) and every count and summary line; the sections holding goods by index (people,
+        houses, market, firms, deposits, polity, order, factions, places) differ by the new good's
+        shifted position only, as the first part's did. **Tested:** an atmospheric engine burns the
+        brief's coal for its water (at 1 % a kWh of lift takes 14 kg of coal); an engine at a
+        flooded pit pumps it dry with the owner's coal, burning what its work over the lift
+        asks, and wears; an engine whose owner holds no fuel pumps nothing.
     - **DT**: the works: machines with crews, shifts by daylight, the household-resolved block.
   - **M10b, rail and gas light** (ADR-0034).
     - **DU**: light before gas: lamps burning fuel for hours of light, places dark or lit, dark
@@ -7470,6 +7487,13 @@ One line each. Don't re-litigate without a reason written next to the entry.
   influence; a person bails at 75 W, half of it lifting water (07-06 §1.3, §2.2); water coming in
   during a session is counted from its end. Revisited when pumping by wheel or engine (DS's next
   part) is weighed against bailing.
+- **Design priors for the atmospheric engine (2026-10-22, M10a slice DS):** NUDGE: an engine
+  gives up to 4 kW (a Newcomen engine's 5.5 hp) at 1 % of its fuel's heat (research 07-06 §2.3:
+  0.5-1.5 %), lasts 40,000 hours of working, works a pump at half its power into lifting water
+  (07-06 §2.2) and is kept going 12 hours a day; its tending is not yet counted in anyone's hours
+  (the works' crews, slice DT). It burns its owner's fuels in the catalogue's order by heat, coal
+  first. Revisited with the works' crews and when the M10 demo shows whether engines pay at pit
+  heads.
 - **Design priors for the household day (2026-10-20, M9a slice DG, ADR-0032 §2):** NUDGE: the
   day is scored once at sunrise; waking minutes are the day less the middle of the content's
   sleep range and three meals; a walk's length in the day's sharing is reckoned straight off trail

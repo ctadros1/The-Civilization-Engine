@@ -404,6 +404,8 @@ pub struct Land {
     /// Water standing in pits, as last worked out, by pit (M10a slice DS; ADR-0033 §7). Saved;
     /// a pit with none has no record.
     pub pit_water: Vec<pits::PitWater>,
+    /// Engines set at pits to pump them, in the order set (M10a slice DS, third part). Saved.
+    pub engines: Vec<power::Engine>,
     /// Today's water the ditches took from their reaches and returned below them, as changes to
     /// a reach's flow passed on down the river, m³/s (M6b slice BG). Saved.
     pub ditch_flows: Vec<(u32, f32)>,
@@ -651,6 +653,7 @@ impl Land {
             ditches: Vec::new(),
             installations: Vec::new(),
             pit_water: Vec::new(),
+            engines: Vec::new(),
             ditch_flows: Vec::new(),
             ground: earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
             crossings: crossings::Crossings::default(),
@@ -948,7 +951,14 @@ impl Land {
             .find(|p| p.work == work)
             .map_or((0.0, now), |p| (p.water_m3, p.at));
         let days = (now.minutes() - at.minutes()) as f64 / 1_440.0;
-        let level = pits::settle(floor_m + water0 / area, head_m.max(floor_m), rate, days);
+        // Water stands no higher than the pit's mouth: above it, it runs off over the ground.
+        let mouth = w.level_m().max(floor_m);
+        let level = pits::settle(
+            (floor_m + water0 / area).min(mouth),
+            head_m.max(floor_m).min(mouth),
+            rate,
+            days,
+        );
         Some(pits::PitState {
             water_m3: ((level - floor_m) * area).max(0.0),
             floor_m,
@@ -1060,6 +1070,17 @@ impl Land {
             }
             if !(s.harvest_kg.is_finite() && s.harvest_kg >= 0.0) {
                 out.push(format!("settlement {} has an invalid harvest", s.id));
+            }
+        }
+        // An engine pumps a pit, one to a pit, and is whole (M10a slice DS, third part).
+        let mut pumped = civ_core::FastSet::default();
+        for e in &self.engines {
+            let pit = self
+                .earthworks
+                .iter()
+                .any(|w| w.id == e.pit && w.kind == earth::EarthKind::Pit);
+            if !pit || !pumped.insert(e.pit) || !e.valid() || e.id.get() >= next_id {
+                out.push(format!("engine {} is not whole or not at one pit", e.id));
             }
         }
         // Water stands only in pits, one record each (M10a slice DS).

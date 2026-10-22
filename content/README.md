@@ -1639,3 +1639,9 @@ giving none keeps its pits dry. The people profile's `[digging]` gains `bail_w` 
 sustained power, watts; default 75), `bail_efficiency` (the share of it that lifts water, above 0
 and at most 1; default 0.5) and `influence_m` (a pit's radius of influence, metres; default 50).
 The core's coal rule gives 0.3 m/day; its other bodies none.
+
+M10a slice DS, third part, adds no field: a fixed tool whose `[power]` source is `fuel` is an
+engine, and one set at a pit pumps its water each day while its owner holds it whole and fuel,
+burning the owner's fuels in the catalogue's order by their heat at the engine's efficiency. The
+first is `good/atmospheric_engine` (4 kW at 1 %, 40,000 hours); how an engine is made and set is
+the next part.

@@ -6296,6 +6296,229 @@ impl<'a> BankRefillRecord {
 
 }
 
+// struct EngineRecord, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct EngineRecord(pub [u8; 40]);
+impl Default for EngineRecord { 
+  fn default() -> Self { 
+    Self([0; 40])
+  }
+}
+impl ::core::fmt::Debug for EngineRecord {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("EngineRecord")
+      .field("id", &self.id())
+      .field("pit", &self.pit())
+      .field("owner", &self.owner())
+      .field("rated_kw", &self.rated_kw())
+      .field("efficiency", &self.efficiency())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for EngineRecord {}
+impl<'a> ::flatbuffers::Follow<'a> for EngineRecord {
+  type Inner = &'a EngineRecord;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a EngineRecord>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a EngineRecord {
+  type Inner = &'a EngineRecord;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<EngineRecord>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for EngineRecord {
+    type Output = EngineRecord;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const EngineRecord as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for EngineRecord {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> EngineRecord {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    id: u64,
+    pit: u64,
+    owner: u64,
+    rated_kw: f64,
+    efficiency: f64,
+  ) -> Self {
+    let mut s = Self([0; 40]);
+    s.set_id(id);
+    s.set_pit(pit);
+    s.set_owner(owner);
+    s.set_rated_kw(rated_kw);
+    s.set_efficiency(efficiency);
+    s
+  }
+
+  pub fn id(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_id(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn pit(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_pit(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn owner(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_owner(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn rated_kw(&self) -> f64 {
+    let mut mem = ::core::mem::MaybeUninit::<<f64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[24..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_rated_kw(&mut self, x: f64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[24..].as_mut_ptr(),
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn efficiency(&self) -> f64 {
+    let mut mem = ::core::mem::MaybeUninit::<<f64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[32..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_efficiency(&mut self, x: f64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[32..].as_mut_ptr(),
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct PitWaterRecord, aligned to 8
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -38479,6 +38702,7 @@ impl<'a> Earth<'a> {
   pub const VT_DITCH_FLOWS: ::flatbuffers::VOffsetT = 20;
   pub const VT_INSTALLATIONS: ::flatbuffers::VOffsetT = 22;
   pub const VT_PIT_WATER: ::flatbuffers::VOffsetT = 24;
+  pub const VT_ENGINES: ::flatbuffers::VOffsetT = 26;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -38490,6 +38714,7 @@ impl<'a> Earth<'a> {
     args: &'args EarthArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Earth<'bldr>> {
     let mut builder = EarthBuilder::new(_fbb);
+    if let Some(x) = args.engines { builder.add_engines(x); }
     if let Some(x) = args.pit_water { builder.add_pit_water(x); }
     if let Some(x) = args.installations { builder.add_installations(x); }
     if let Some(x) = args.ditch_flows { builder.add_ditch_flows(x); }
@@ -38582,6 +38807,13 @@ impl<'a> Earth<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, PitWaterRecord>>>(Earth::VT_PIT_WATER, None)}
   }
+  #[inline]
+  pub fn engines(&self) -> Option<::flatbuffers::Vector<'a, EngineRecord>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, EngineRecord>>>(Earth::VT_ENGINES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Earth<'_> {
@@ -38601,6 +38833,7 @@ impl ::flatbuffers::Verifiable for Earth<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, DitchFlowRecord>>>("ditch_flows", Self::VT_DITCH_FLOWS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, InstallationRecord>>>("installations", Self::VT_INSTALLATIONS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, PitWaterRecord>>>("pit_water", Self::VT_PIT_WATER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, EngineRecord>>>("engines", Self::VT_ENGINES, false)?
      .finish();
     Ok(())
   }
@@ -38617,6 +38850,7 @@ pub struct EarthArgs<'a> {
     pub ditch_flows: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, DitchFlowRecord>>>,
     pub installations: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, InstallationRecord>>>,
     pub pit_water: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, PitWaterRecord>>>,
+    pub engines: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, EngineRecord>>>,
 }
 impl<'a> Default for EarthArgs<'a> {
   #[inline]
@@ -38633,6 +38867,7 @@ impl<'a> Default for EarthArgs<'a> {
       ditch_flows: None,
       installations: None,
       pit_water: None,
+      engines: None,
     }
   }
 }
@@ -38687,6 +38922,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> EarthBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Earth::VT_PIT_WATER, pit_water);
   }
   #[inline]
+  pub fn add_engines(&mut self, engines: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , EngineRecord>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Earth::VT_ENGINES, engines);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> EarthBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     EarthBuilder {
@@ -38715,6 +38954,7 @@ impl ::core::fmt::Debug for Earth<'_> {
       ds.field("ditch_flows", &self.ditch_flows());
       ds.field("installations", &self.installations());
       ds.field("pit_water", &self.pit_water());
+      ds.field("engines", &self.engines());
       ds.finish()
   }
 }

@@ -1258,6 +1258,18 @@ table Earth {
   installations: [InstallationRecord] (id: 9);
   // Schema 175 (M10a slice DS): water standing in pits, absent while no pit has taken any in.
   pit_water: [PitWaterRecord] (id: 10);
+  // Schema 176 (M10a slice DS, third part): engines set at pits, absent while there are none.
+  engines: [EngineRecord] (id: 11);
+}
+
+// An engine set at a pit (schema 176, M10a slice DS; ADR-0033 §7): its id, the pit it pumps by
+// earthwork id, the household that set it, and its rated kilowatts and efficiency.
+struct EngineRecord {
+  id: ulong;
+  pit: ulong;
+  owner: ulong;
+  rated_kw: double;
+  efficiency: double;
 }
 
 // Water standing in a pit when last worked out (schema 175, M10a slice DS; ADR-0033 §7): the pit

@@ -51,6 +51,7 @@ mod ditches;
 mod duties;
 mod elections;
 mod enclosures;
+mod engines;
 mod faction;
 mod fire;
 mod firm;
@@ -7224,6 +7225,10 @@ impl Population {
         self.ditches_day(ctx, day);
         // And the mills (M10a slice DR): the households whose day it is weigh one.
         self.mills_day(ctx, day);
+        // And the engines at pits pump them (M10a slice DS, third part).
+        if !ctx.land.engines.is_empty() {
+            self.engines_day(ctx);
+        }
         // A month ended: its asks and prices per pair of settlements are recorded (M5b slice AQ).
         self.record_convergence(ctx);
         // Households whose day it is review what they offer and on what terms.

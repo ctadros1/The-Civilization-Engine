@@ -75,9 +75,82 @@ impl Installation {
     }
 }
 
+/// An engine set at a pit (M10a slice DS, third part; ADR-0033 §7): it burns fuel to pump the
+/// pit's water out, its owner holding the engine itself and its fuel. Its rated power and the
+/// share of its fuel's heat it turns into work are those of the engine set, kept with it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Engine {
+    pub id: PermanentId,
+    /// The pit it pumps, by earthwork id.
+    pub pit: PermanentId,
+    /// The household that set it and keeps it going.
+    pub owner: PermanentId,
+    /// The most it delivers, kilowatts.
+    pub rated_kw: f64,
+    /// The share of its fuel's heat it turns into work (research 07-06 §2.3: 0.5-1.5 %
+    /// atmospheric).
+    pub efficiency: f64,
+}
+
+impl Engine {
+    /// Whether its record is whole: finite, of a positive rating and an efficiency in (0, 1].
+    pub fn valid(&self) -> bool {
+        self.rated_kw.is_finite()
+            && self.efficiency.is_finite()
+            && self.rated_kw > 0.0
+            && self.efficiency > 0.0
+            && self.efficiency <= 1.0
+    }
+}
+
+/// Kilowatt-hours of work at a pump's shaft that lift `m3` of water through `lift_m` with a pump
+/// of efficiency `pump_efficiency` (research 07-06 §2.2: 1 kWh lifts 36.7 m³ through 5 m at
+/// 50 %): ρ g V H over the pump's share, in kWh.
+pub fn lift_kwh(m3: f64, lift_m: f64, pump_efficiency: f64) -> f64 {
+    if m3 <= 0.0 || lift_m <= 0.0 || pump_efficiency.is_nan() || pump_efficiency <= 0.0 {
+        return 0.0;
+    }
+    WATER_KN_PER_M3 * m3 * lift_m / (3_600.0 * pump_efficiency)
+}
+
+/// Kilograms of a fuel of `mj_per_kg` an engine of `efficiency` burns for `kwh` of work
+/// (research 07-06 §2.3: 3.6 / (MJ η) a kWh, 14.4 kg of coal at 1 %).
+pub fn fuel_kg(kwh: f64, mj_per_kg: f64, efficiency: f64) -> f64 {
+    let heat = mj_per_kg * efficiency;
+    if kwh <= 0.0 || heat.is_nan() || heat <= 0.0 {
+        return 0.0;
+    }
+    3.6 * kwh / heat
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_atmospheric_engine_burns_the_briefs_coal_for_its_water() {
+        // 07-06 §2.3: a kWh at 1 % takes 14.4 kg of coal of 25 MJ; §2.2: 1 kWh lifts 36.7 m³
+        // through 5 m at 50 %.
+        assert!((fuel_kg(1.0, 25.0, 0.01) - 14.4).abs() < 1e-9);
+        assert!((lift_kwh(36.7, 5.0, 0.5) - 1.0).abs() < 0.001);
+        assert_eq!(lift_kwh(0.0, 5.0, 0.5), 0.0);
+        assert_eq!(fuel_kg(1.0, 25.0, 0.0), 0.0);
+        let e = Engine {
+            id: PermanentId::from_raw(1).expect("id"),
+            pit: PermanentId::from_raw(2).expect("id"),
+            owner: PermanentId::from_raw(3).expect("id"),
+            rated_kw: 4.0,
+            efficiency: 0.01,
+        };
+        assert!(e.valid());
+        assert!(
+            !Engine {
+                efficiency: 0.0,
+                ..e
+            }
+            .valid()
+        );
+    }
 
     fn wheel() -> Installation {
         Installation {

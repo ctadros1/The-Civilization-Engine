@@ -127,7 +127,7 @@ use super::{
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
     SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
     SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
-    SCHEMA_V174, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V174, SCHEMA_V175, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -874,9 +874,10 @@ pub(super) fn decode<R: Read + Seek>(
         // The observer's forcings (schema 170) changed no people or land.
         SCHEMA_V169 | SCHEMA_V170 => Schema::V169,
         // Workshops' batches (schema 172) changed no people or land; installations (schema 173),
-        // households' mill counts (schema 174) and pits' water (schema 175) are read wherever
-        // saved.
-        SCHEMA_V171 | SCHEMA_V172 | SCHEMA_V173 | SCHEMA_V174 | SAVE_SCHEMA_VERSION => Schema::V171,
+        // households' mill counts (schema 174), pits' water (schema 175) and engines (schema
+        // 176) are read wherever saved.
+        SCHEMA_V171 | SCHEMA_V172 | SCHEMA_V173 | SCHEMA_V174 | SCHEMA_V175
+        | SAVE_SCHEMA_VERSION => Schema::V171,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -3493,6 +3494,21 @@ fn encode_earth(land: &Land) -> Vec<u8> {
         .map(|p| save::PitWaterRecord::new(p.work.get(), p.water_m3, p.at.minutes()))
         .collect();
     let pit_water = (!pit_water.is_empty()).then(|| fbb.create_vector(&pit_water));
+    // Engines set at pits (schema 176), absent while there are none.
+    let engines: Vec<_> = land
+        .engines
+        .iter()
+        .map(|e| {
+            save::EngineRecord::new(
+                e.id.get(),
+                e.pit.get(),
+                e.owner.get(),
+                e.rated_kw,
+                e.efficiency,
+            )
+        })
+        .collect();
+    let engines = (!engines.is_empty()).then(|| fbb.create_vector(&engines));
     let root = save::Earth::create(
         &mut fbb,
         &save::EarthArgs {
@@ -3507,6 +3523,7 @@ fn encode_earth(land: &Land) -> Vec<u8> {
             ditch_flows: Some(ditch_flows),
             installations,
             pit_water,
+            engines,
         },
     );
     finish(fbb, root)
@@ -3692,6 +3709,23 @@ fn decode_earth(bytes: &[u8], land: &mut Land, schema: Schema) -> Result<(), Loa
             )));
         }
         land.installations.push(record);
+    }
+    // Engines set at pits (schema 176); before, none.
+    for e in root.engines().iter().flatten() {
+        let record = civ_land::power::Engine {
+            id: required(e.id(), "an engine")?,
+            pit: required(e.pit(), "an engine's pit")?,
+            owner: required(e.owner(), "an engine's owner")?,
+            rated_kw: e.rated_kw(),
+            efficiency: e.efficiency(),
+        };
+        if !record.valid() {
+            return Err(LoadError::Malformed(format!(
+                "engine {} is not whole",
+                record.id
+            )));
+        }
+        land.engines.push(record);
     }
     // Water standing in pits (schema 175); before, none.
     for p in root.pit_water().iter().flatten() {
@@ -4473,6 +4507,7 @@ fn decode_land(
         ditch_flows: Vec::new(),
         installations: Vec::new(),
         pit_water: Vec::new(),
+        engines: Vec::new(),
         ground: civ_land::earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
         // Read from its own section (schema 68 on).
         crossings: Default::default(),

@@ -1,0 +1,25 @@
+# An atmospheric engine with its boiler, cylinder and beam, working a pump at a pit head (M10a
+# slice DS; ADR-0033 §7; the M10 power brief §1.4). It burns fuel for power at about 1 % of its
+# heat (research 07-06 §2.3: 0.5-1.5 % atmospheric), up to some 4 kW (a Newcomen engine's 5.5 hp),
+# and stands where it is set. Its life, 40,000 hours of working, is a tuning value. Its first use
+# is pumping a pit that floods; a rotary drive is a further technique.
+kind = "good"
+id = "core:good/atmospheric_engine"
+name = "Atmospheric engine"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 40000.0
+per_worker = 0.1
+fixed = true
+
+[power]
+source = "fuel"
+rated_kw = 4.0
+efficiency = 0.01

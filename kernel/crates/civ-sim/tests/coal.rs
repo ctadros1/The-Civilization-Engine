@@ -329,3 +329,128 @@ fn water_standing_in_a_coal_pit_is_lifted_out_before_coal_is_dug() {
     let loaded = civ_sim::persist::load(&saved.path, content()).expect("loads");
     assert_eq!(loaded.land().pit_water, sim.land().pit_water);
 }
+
+/// A pit opened on a seam by the first household, which knows how to burn coal: the seam, the
+/// pit and the household that dug it.
+fn a_coal_pit(sim: &mut Sim) -> (PermanentId, PermanentId, PermanentId) {
+    let (_, members) = first_household(sim);
+    let burning = technique(sim, "core:technique/coal_burning");
+    teach(sim, &members, burning);
+    let seam = coal_by_the_hearth(sim);
+    let pit = |sim: &Sim| {
+        sim.land()
+            .earthworks
+            .iter()
+            .find(|w| w.kind == civ_land::earth::EarthKind::Pit && w.deposit == Some(seam))
+            .map(|w| (w.id, w.household))
+    };
+    for _ in 0..60 * 24 {
+        if pit(sim).is_some() {
+            break;
+        }
+        sim.advance_minutes(60).expect("advances");
+    }
+    let (work, household) = pit(sim).expect("a pit on the seam");
+    (seam, work, household)
+}
+
+#[test]
+fn an_engine_at_a_flooded_pit_pumps_it_dry_with_the_owners_coal() {
+    let mut sim = world(3);
+    let (coal, engine) = (
+        good(&sim, "core:good/coal"),
+        good(&sim, "core:good/atmospheric_engine"),
+    );
+    let (_, work, owner) = a_coal_pit(&mut sim);
+    let now = sim.now();
+    sim.land_mut_for_tests().set_pit_water(work, 30.0, now);
+    for (_, h) in sim.people_mut_for_tests().households.iter_mut() {
+        if h.id == owner {
+            h.stores[engine] += 1.0;
+            h.stores[coal] += 500.0;
+        }
+    }
+    let set = sim.with_ctx_for_tests(|pop, ctx| pop.set_engine_for_tests(ctx, owner, work, engine));
+    assert!(set.is_some());
+    // What lifting it out takes: 30 m³ through its lift at the pump's half, burned at 1 % of
+    // coal's 25.8 MJ.
+    let state = sim
+        .with_ctx_for_tests(|_, ctx| {
+            ctx.land.pit_water_now(
+                ctx.map,
+                ctx.land_params,
+                ctx.params.digging.influence_m,
+                work,
+                ctx.now,
+            )
+        })
+        .expect("a wet pit");
+    let kwh = civ_land::power::lift_kwh(state.water_m3, state.lift_m(), 0.5);
+    let burned = civ_land::power::fuel_kg(kwh, 25.8, 0.01);
+    let held = |sim: &Sim, g: usize| {
+        sim.people()
+            .household(owner)
+            .map_or(0.0, |h| h.stores.get(g).copied().unwrap_or(0.0))
+    };
+    // What the engine burns is counted as used; what the hearth burns, as burned.
+    let used = |sim: &Sim| {
+        sim.people()
+            .household(owner)
+            .map_or(0.0, |h| h.flows.get(civ_agents::person::Flow::Used, coal))
+    };
+    let (used_before, engine_before) = (used(&sim), held(&sim, engine));
+    sim.with_ctx_for_tests(|pop, ctx| pop.engines_day_for_tests(ctx));
+    let water = sim
+        .land()
+        .pit_water
+        .iter()
+        .find(|p| p.work == work)
+        .map_or(0.0, |p| p.water_m3);
+    assert!(water < 1e-9, "pumped dry: {water} m³ left");
+    let burned_now = used(&sim) - used_before;
+    assert!(
+        (burned_now - burned).abs() < 1e-9 + 1e-6 * burned,
+        "{burned_now} kg against {burned}"
+    );
+    assert!(held(&sim, engine) < engine_before, "the engine wore");
+}
+
+#[test]
+fn an_engine_without_fuel_pumps_nothing() {
+    let mut sim = world(3);
+    let (coal, engine) = (
+        good(&sim, "core:good/coal"),
+        good(&sim, "core:good/atmospheric_engine"),
+    );
+    let (_, work, owner) = a_coal_pit(&mut sim);
+    let now = sim.now();
+    sim.land_mut_for_tests().set_pit_water(work, 30.0, now);
+    // An engine, and no fuel of any kind.
+    let fuels: Vec<usize> = sim
+        .rules()
+        .catalog
+        .goods
+        .iter()
+        .enumerate()
+        .filter(|(_, g)| g.purpose == civ_agents::params::GoodUse::Fuel)
+        .map(|(i, _)| i)
+        .collect();
+    for (_, h) in sim.people_mut_for_tests().households.iter_mut() {
+        if h.id == owner {
+            h.stores[engine] += 1.0;
+            for &f in &fuels {
+                h.stores[f] = 0.0;
+            }
+        }
+    }
+    let _ = coal;
+    sim.with_ctx_for_tests(|pop, ctx| pop.set_engine_for_tests(ctx, owner, work, engine));
+    sim.with_ctx_for_tests(|pop, ctx| pop.engines_day_for_tests(ctx));
+    let water = sim
+        .land()
+        .pit_water
+        .iter()
+        .find(|p| p.work == work)
+        .map_or(0.0, |p| p.water_m3);
+    assert!((water - 30.0).abs() < 1e-9, "{water}");
+}

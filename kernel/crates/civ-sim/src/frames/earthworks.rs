@@ -45,6 +45,10 @@ pub fn earthworks_rev(sim: &Sim) -> u64 {
         if let Some(p) = sim.land.pit_water.iter().find(|p| p.work == w.id) {
             (p.water_m3.to_bits(), p.at.minutes()).hash(&mut hasher);
         }
+        // An engine set at it (third part).
+        if let Some(e) = sim.land.engines.iter().find(|e| e.pit == w.id) {
+            e.id.get().hash(&mut hasher);
+        }
         if let Some(b) = sim.land.banks.iter().find(|b| b.work == w.id) {
             (
                 b.settlement_m.to_bits(),
@@ -120,7 +124,16 @@ fn words(sim: &Sim, w: &Earthwork, building: Option<&Building>) -> String {
                 .map_or_else(String::new, |s| {
                     format!(", {:.1} m of water standing in it", s.depth_m())
                 });
-            return format!("{whose} {good} {working}, {:.1} m deep{wet}", w.depth_m());
+            // An engine at its head (M10a slice DS, third part).
+            let engine = if sim.land.engines.iter().any(|e| e.pit == w.id) {
+                ", an engine at its head"
+            } else {
+                ""
+            };
+            return format!(
+                "{whose} {good} {working}, {:.1} m deep{wet}{engine}",
+                w.depth_m()
+            );
         }
         EarthKind::Bank => {
             let bank = sim.land.banks.iter().find(|b| b.work == w.id);

@@ -482,6 +482,8 @@ pub const SCHEMA_V172: u32 = 172;
 pub const SCHEMA_V173: u32 = 173;
 /// Households counted what they ground for a mill, before pits held water.
 pub const SCHEMA_V174: u32 = 174;
+/// Pits held water, before engines pumped them.
+pub const SCHEMA_V175: u32 = 175;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

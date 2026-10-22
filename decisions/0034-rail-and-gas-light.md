@@ -37,6 +37,11 @@ Route times are unchanged (landmarks only bound searches); a route may differ on
 fast ones, so the change is proven against route times and digests of everything else. Ways keep
 wear by mode: a way's walking surface wears and holds only where people walk it.
 
+*Amended 2026-10-22 (M10a slice DO, measured):* landmarks per settlement were built and found
+slower on the many-settlement bench (5–8 % a day; walks between settlements lost their bound), so
+landmarks stay one set over the walked area; what this section asks of them is met by keeping
+them, and home walking fields, until a change touches the cells they read.
+
 ### 2. Track
 
 A `RAIL` mode on ways. Track is a way of grid cells under a turn rule (no turn sharper than the

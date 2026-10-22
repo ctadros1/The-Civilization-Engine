@@ -5786,8 +5786,7 @@ and M6a gives rivers a daily flow.
         home field whose reach box no changed tile touches (refreshing only the day's land and
         source facts), and keeps landmarks whose reach (`NavGrid::landmark_reach`, their searches'
         cap at the top speed) is untouched while the wear survey stands. Routes found are still
-        let go. `paths::walked_regions` groups walked ground into regions (for the second part);
-        `Ways::holds` counts only ways open to walkers (all are today). **Proved:** a unit test
+        let go. `Ways::holds` counts only ways open to walkers (all are today). **Proved:** a unit test
         changes the ring of cells just outside a field's reach box (made unwalkable and raised)
         and gets the field to the bit, and the same ring on the reached cells' own border changes
         it; three worlds (A: the run above; B: a village of 500 for 90 days; C: three settlements
@@ -5795,6 +5794,22 @@ and M6a gives rivers a daily flow.
         unchanged. **Measured** (same run): four or five of ten home fields kept at each local
         change (all at the 140-tile survey), 868 ms a day (from 983), the worst day 9.0 s (from
         12.4 s).
+      - *As built, second part (2026-10-22): wear by mode; landmarks per settlement measured and
+        set aside.* **Wear by mode:** `Ways::walked` takes the trip's modes and counts a trip only
+        on ways serving one of them; a walker's trip is `WALK`, a hauler's `WALK | CART` (on foot
+        beside the cart), so nothing changes today and a mode that is not walking (rail, DV) will
+        leave footpaths unworn; tested with a cart-only way. **Landmarks per settlement (ADR-0028
+        §4) tried and measured:** regions of walked ground joined within two tiles (1 km), each
+        with its own landmarks, chosen by the region a walk ends in. Route times are unchanged by
+        construction (`landmarks_bound_searches_without_changing_route_times` routes with
+        landmarks over part of a map against plain searches), and the wear, traffic and events
+        digests moved in two of the three worlds (equally fast routes taken). It was **slower**:
+        A 871 to 944 ms a day, B 559 to 587, C 532 to 550; peak memory 1.5 to 1.1 GB in A. Walks
+        between settlements end in a region they start outside, so they lose the bound the one
+        walked area gave them. **Decision:** landmarks stay one set over the walked area,
+        kept until a change touches their reach (first part); ADR-0034 §1 amended. Revisit when
+        landmark memory matters (maps far larger than 2,048 cells) or long walks get the overlay
+        of ADR-0028 §4.
     - **DP**: fuel by heat (`[fuel]`, hearths burning megajoules), batches in elapsed days,
       charcoal, iron ore, the bloomery, forging and smithing, iron tools that serve.
     - **DQ**: the firm's own stations and stages (ADR-0006 §5 as decided), several lines with goods

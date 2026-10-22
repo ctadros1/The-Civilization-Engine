@@ -154,9 +154,9 @@ const WAIT_AFTER_FAILURE_MIN: u32 = 10;
 /// over ([`civ_world::nav::NavGrid::landmarks`]): half a wear tile, 256 m on 8 m cells.
 const LANDMARK_MARGIN_CELLS: usize = 32;
 
-/// Landmarks by region of walked ground (ADR-0028 §4): the regions as last surveyed (each with
-/// its margin), and each region's landmarks once a search has asked for them, with the box of
-/// cells they read ([`NavGrid::landmark_reach`]). Derived.
+/// Landmarks by region of walked ground: the regions as last surveyed (each with its margin; one,
+/// the walked area, since M10a slice DO), and each region's landmarks once a search has asked for
+/// them, with the box of cells they read ([`NavGrid::landmark_reach`]). Derived.
 #[derive(Debug, Default)]
 struct RegionLandmarks {
     /// The paths survey the regions were drawn from ([`civ_land::paths::Wear::rev`]).
@@ -5071,8 +5071,9 @@ impl Population {
                     // Planned on the paths as last surveyed; with no worn ground the search can
                     // assume off-trail walking everywhere and stays tight. Where people walk,
                     // landmarks bound it more tightly still (M5a slice AL).
-                    // By the region of walked ground the walk ends in (ADR-0028 §4): built
-                    // round that region alone, so ground walked elsewhere costs it nothing.
+                    // One region round all walked ground: landmarks per settlement's ground
+                    // (ADR-0028 §4) left walks between settlements unbounded and were slower
+                    // (M10a slice DO, measured), so the regions are the one walked area.
                     let by_region = self.landmarks.get_or_insert_with(|| {
                         let m = LANDMARK_MARGIN_CELLS;
                         let regions: Vec<CellBox> = wear
@@ -5391,7 +5392,9 @@ impl Population {
                     ctx.land
                         .wear
                         .walk(&cells, now.day_index(), &ctx.land_params.paths);
-                    ctx.land.ways.walked(&cells, now.day_index());
+                    ctx.land
+                        .ways
+                        .walked(&cells, now.day_index(), civ_land::ways::WALK);
                     self.look_for_deposits(ctx, who, household, &trip.points);
                 }
             }
@@ -5677,7 +5680,12 @@ impl Population {
                     ctx.land
                         .wear
                         .walk(&cells, now.day_index(), &ctx.land_params.paths);
-                    ctx.land.ways.walked(&cells, now.day_index());
+                    // The hauler walks beside the cart: a trip on footpath and cart track alike.
+                    ctx.land.ways.walked(
+                        &cells,
+                        now.day_index(),
+                        civ_land::ways::WALK | civ_land::ways::CART,
+                    );
                     if let Some(&from) = trip.points.first() {
                         let from = cell_of(map, from) as u32;
                         Self::hauled(ctx, household, (from, cell_of(map, to) as u32));

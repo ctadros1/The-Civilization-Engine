@@ -1169,9 +1169,11 @@ impl Household {
                 }
             }
             if g.purpose == GoodUse::Fuel && burned > 0.0 {
-                let take = burned.min(*kg);
+                // `burned` is in kilograms of the first fuel; another burns by its heat.
+                let per_kg = crate::params::fuel_ratio(goods, i);
+                let take = (burned / per_kg).min(*kg);
                 *kg -= take;
-                burned -= take;
+                burned -= take * per_kg;
             }
         }
         out
@@ -1242,13 +1244,14 @@ pub fn reserve_food_kcal(stores: &[f64], goods: &[GoodDef]) -> f64 {
         .sum()
 }
 
-/// Firewood in a set of stores, kilograms.
+/// Fuel in a set of stores, in kilograms of the first fuel (firewood) by heat (M10a slice DP).
 pub fn fuel_kg(stores: &[f64], goods: &[GoodDef]) -> f64 {
     stores
         .iter()
         .zip(goods)
-        .filter(|(_, g)| g.purpose == GoodUse::Fuel)
-        .map(|(kg, _)| kg.max(0.0))
+        .enumerate()
+        .filter(|(_, (_, g))| g.purpose == GoodUse::Fuel)
+        .map(|(i, (kg, _))| kg.max(0.0) * crate::params::fuel_ratio(goods, i))
         .sum()
 }
 
@@ -1269,6 +1272,7 @@ fn burned_kg(t0: i64, t1: i64, per_day: &dyn Fn(i64) -> f64) -> f64 {
 mod tests {
     use super::*;
     use crate::params::Eaten;
+    use crate::params::GoodFuel;
 
     #[test]
     fn trips_interpolate_between_vertices() {
@@ -1326,6 +1330,7 @@ mod tests {
 
     fn goods() -> Vec<GoodDef> {
         let good = |id: &str, purpose, kcal, half, eaten| GoodDef {
+            fuel: None,
             money: None,
             id: id.into(),
             name: id.into(),
@@ -1496,5 +1501,43 @@ mod tests {
             "meat must be cooked; nuts need no fire"
         );
         assert_eq!(fuel_kg(&later, &goods), 0.0);
+    }
+
+    #[test]
+    fn a_hearth_burns_a_second_fuel_by_its_heat() {
+        // Firewood at 15.6 MJ a kilogram is the measure; a fuel giving twice the heat burns half
+        // the weight once the firewood is gone (M10a slice DP, ADR-0033 §1).
+        let mut goods = goods();
+        goods[2].fuel = Some(GoodFuel {
+            mj_per_kg: 15.6,
+            smoke: 1.0,
+        });
+        let mut dense = goods[2].clone();
+        dense.id = "dense".into();
+        dense.fuel = Some(GoodFuel {
+            mj_per_kg: 31.2,
+            smoke: 0.2,
+        });
+        goods.push(dense);
+        let per_day = |_: i64| 10.0;
+        let h = household(vec![0.0, 0.0, 15.0, 20.0]);
+        let s = h.stores_at_time(SimTime::from_minutes(3 * 1440), &goods, &per_day);
+        assert_eq!(s[2], 0.0, "firewood first, all of it");
+        assert!(
+            (s[3] - (20.0 - 7.5)).abs() < 1e-9,
+            "15 kg of the 30 at half weight: {}",
+            s[3]
+        );
+        assert!(
+            (fuel_kg(&s, &goods) - 25.0).abs() < 1e-9,
+            "12.5 kg stands for 25 of firewood"
+        );
+        // With firewood alone the weight burned is the need, to the bit.
+        let alone = household(vec![0.0, 0.0, 15.0, 0.0]).stores_at_time(
+            SimTime::from_minutes(1440),
+            &goods,
+            &per_day,
+        );
+        assert_eq!(alone[2], 5.0);
     }
 }

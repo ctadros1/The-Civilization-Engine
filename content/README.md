@@ -137,7 +137,7 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | | `food_target_days`, `carry_kg`, `daily_kcal_per_person` | The food store people aim for, the load one person carries home, average need. |
 | | `harvest_margin_days` | The food a household wants in store beyond the first grain of its next harvest: stores short of that much make wild food worth going out for (`decision.w_lean`). |
 | | `raised_store_factor` | How many times as long goods keep on a raised store's floor as elsewhere under a roof (1 or more). |
-| | `fuel_kg_per_person_day`, `fuel_target_days` | Firewood burned per person per day by month (January first), and the store people aim for. |
+| | `fuel_kg_per_person_day`, `fuel_target_days` | Firewood burned per person per day by month (January first), and the store people aim for; another fuel stands for firewood by its heat (`[fuel]` on goods). |
 | | `short_food_days`, `recovered_food_days` | The chronicle notes a settlement's shortage below the first and its end above the second. |
 | | `leave_at_depletion`, `leave_per_day`, `leave_unless_ripe_within_days` | A household with less than a day's food, whose members have drawn on average this share of their reserve, and with no crop of its own ripening within these days or reaped and waiting, weighs leaving, with at most this chance a day. |
 | | `leave_w_gap`, `leave_w_stake`, `leave_stay` | How it weighs it (M4a slice Z; content API 32): points toward going for the whole of the wait to its next harvest that its food, its share of what other households could spare and its share of a common store it knows it may ask would not cover (0 to 100); toward staying for a whole year's food its fields should bring, which leaving gives up (0 to 100); and toward staying before either (−100 to 100). The day's chance is `leave_per_day` times the logistic of going's points less staying's. |
@@ -1594,3 +1594,9 @@ Content API 157 (M8d slice DD) gives a taste a front: `style.tradition`, `tradit
 (hours of craft a square metre of its front), `finish` (0 bare, 1 daubed, 2 lime-washed) and
 `symmetry` (0 none to 1 a front set out about its middle), each 0 where not named. Only a frame
 of version 3 has a front, a store no openings; a lime wash takes someone who knows lime burning.
+
+Content API 158 (M10a slice DP) gives a fuel its heat: a good of purpose `fuel` must carry a
+strict `[fuel]` table with `mj_per_kg` (1–60; firewood 15.6, charcoal 29.5, coal 25.8 by research
+07-06 §2.3) and `smoke` (0–10, against firewood's 1). A household's hearth need stays in
+kilograms of the first fuel in the catalogue (firewood); any other fuel burns by its heat, once
+the fuels before it are gone. Which fuel a recipe takes is the recipe's, not the table's.

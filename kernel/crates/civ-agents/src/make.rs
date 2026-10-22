@@ -392,6 +392,7 @@ mod tests {
 
     fn good(id: &str, purpose: GoodUse, kcal: f64, eaten: Eaten) -> GoodDef {
         GoodDef {
+            fuel: None,
             money: None,
             id: id.into(),
             name: id.into(),
@@ -494,11 +495,13 @@ mod tests {
         let mut goods = goods();
         let meat = goods.len();
         goods.push(GoodDef {
+            fuel: None,
             half_life_days: 3.0,
             ..good("meat", GoodUse::Food, 1500.0, Eaten::Cooked)
         });
         let dried = goods.len();
         goods.push(GoodDef {
+            fuel: None,
             half_life_days: 180.0,
             ..good("dried", GoodUse::Food, 3750.0, Eaten::Raw)
         });

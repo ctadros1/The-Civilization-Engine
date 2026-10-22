@@ -1414,6 +1414,7 @@ pub(crate) mod tests {
 
     fn goods() -> Vec<GoodDef> {
         let good = |id: &str| GoodDef {
+            fuel: None,
             money: None,
             id: id.into(),
             name: id.into(),
@@ -1689,6 +1690,7 @@ pub(crate) mod tests {
     fn pots_are_wanted_for_food_on_floors_under_a_roof_and_add_no_room() {
         use crate::params::{Eaten, StoreDef};
         let good = |id: &str, purpose, kcal, half, sheltered| GoodDef {
+            fuel: None,
             money: None,
             id: id.to_owned(),
             name: id.to_owned(),
@@ -1707,6 +1709,7 @@ pub(crate) mod tests {
         let goods = vec![
             good("grain", GoodUse::Food, 3340.0, 1560.0, 4932.0),
             GoodDef {
+                fuel: None,
                 store: Some(StoreDef { keeps_kg: 15.0 }),
                 ..good("pot", GoodUse::Store, 0.0, 1100.0, 0.0)
             },
@@ -1832,6 +1835,7 @@ pub(crate) mod tests {
             systems: [None; 3],
         };
         let good = |id: &str| GoodDef {
+            fuel: None,
             money: None,
             id: id.into(),
             name: id.into(),

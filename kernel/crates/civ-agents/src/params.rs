@@ -411,6 +411,31 @@ pub struct GoodDef {
     /// bought in its recent purchases.
     pub money: Option<MoneyDef>,
     pub fire: Option<GoodFire>,
+    /// What it gives burned (M10a slice DP, ADR-0033 §1; content API 158): `None` for a good not
+    /// burned for heat.
+    pub fuel: Option<GoodFuel>,
+}
+
+/// What a good gives burned (M10a slice DP, ADR-0033 §1): heat, and the smoke that comes with it.
+/// Fitness for a process is not here: a recipe names the fuels it takes.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GoodFuel {
+    /// Heat, megajoules a kilogram (research 07-06 §2.3).
+    pub mj_per_kg: f64,
+    /// Smoke a kilogram makes, against firewood's 1.
+    pub smoke: f64,
+}
+
+/// What a kilogram of `goods[g]` stands for at the hearth, in kilograms of the first fuel among
+/// `goods` (firewood, the measure a household's need is given in), by their heat (M10a slice DP):
+/// exactly 1 for that fuel itself, and for any fuel whose heat is not given.
+pub fn fuel_ratio(goods: &[GoodDef], g: usize) -> f64 {
+    let heat = |d: &GoodDef| d.fuel.map_or(1.0, |f| f.mj_per_kg);
+    let reference = goods
+        .iter()
+        .find(|d| d.purpose == GoodUse::Fuel)
+        .map_or(1.0, heat);
+    goods.get(g).map_or(1.0, |d| heat(d) / reference)
 }
 
 /// How a good burns (M6b slice BC; ADR-0022 §4, §5). Design priors: the reports give no

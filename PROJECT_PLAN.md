@@ -5812,6 +5812,17 @@ and M6a gives rivers a daily flow.
         of ADR-0028 §4.
     - **DP**: fuel by heat (`[fuel]`, hearths burning megajoules), batches in elapsed days,
       charcoal, iron ore, the bloomery, forging and smithing, iron tools that serve.
+      - *As built, first part (2026-10-22): fuel by heat.* A good may carry a `[fuel]` table,
+        `mj_per_kg` and `smoke` (content API 158); a good of purpose `fuel` must. Firewood gives
+        15.6 MJ a kilogram (07-06 §2.3). A household's need stays in kilograms of the first fuel
+        in the catalogue (firewood), and `params::fuel_ratio` turns any other fuel's kilograms
+        into that measure by heat: hearths burn the fuels in catalogue order, each by its heat
+        (`Household::stores_at_time`); stock days, the fuel held (`person::fuel_kg`) and what a
+        household keeps back from sale count heat. The ratio of firewood to itself is exactly 1,
+        so every digest is unchanged while firewood is the only fuel (the three bench worlds of
+        DO, every section but `meta` and `content`, the pack's own hash). Burning the cheapest fuel by a household's own hours waits
+        for a second fuel a hearth may hold (coal and peat, DS); until then a made fuel (charcoal)
+        is a material, as the brief says, so the hearth never eats the smith's charcoal.
     - **DQ**: the firm's own stations and stages (ADR-0006 §5 as decided), several lines with goods
       in progress, a mill's toll on an appended channel.
     - **DR**: water power at a site (installations, daily kilowatts from discharge, `kwh_per_unit`,

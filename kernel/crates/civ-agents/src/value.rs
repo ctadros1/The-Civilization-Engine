@@ -206,6 +206,7 @@ mod tests {
 
     fn good(id: &str, purpose: GoodUse, tool: Option<f64>) -> GoodDef {
         GoodDef {
+            fuel: None,
             money: None,
             id: id.into(),
             name: id.into(),

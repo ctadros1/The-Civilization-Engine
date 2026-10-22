@@ -638,7 +638,9 @@ impl Population {
         let fuel_day = fuel_per_day(params, members, ctx.now.day_index());
         for (g, d) in goods.iter().enumerate() {
             if d.purpose == GoodUse::Fuel {
-                keep[g] = params.household.fuel_target_days * fuel_day;
+                // The household's need is in kilograms of the first fuel; another by its heat.
+                keep[g] = params.household.fuel_target_days * fuel_day
+                    / crate::params::fuel_ratio(goods, g);
             }
             // What it builds with stays while it is not housed; a money is not built with.
             if d.purpose == GoodUse::Material && !housed && d.money.is_none() {

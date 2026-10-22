@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 157
+kernel_content_api = 158
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -350,6 +350,38 @@ fn wells_check_their_numbers_and_need_their_lining_inside_their_shaft() {
         let report = load_fixture(&[
             ("worldgen/river_valley.toml", &real_preset()),
             ("well/timber_lined.toml", &body),
+        ]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(
+            report.diagnostics[0].message.contains(needle),
+            "{needle}: {}",
+            report.diagnostics[0].message
+        );
+    }
+}
+
+#[test]
+fn a_fuel_says_what_it_gives_burned() {
+    // M10a slice DP (content API 158): a fuel carries its heat and smoke, in range.
+    let real_wood = real("good/firewood.toml");
+    for (body, needle) in [
+        (
+            real_wood.replace("mj_per_kg = 15.6", "mj_per_kg = 0.2"),
+            "fuel.mj_per_kg",
+        ),
+        (
+            real_wood.replace("smoke = 1.0", "smoke = -1.0"),
+            "fuel.smoke",
+        ),
+        (
+            real_wood.replace("[fuel]\nmj_per_kg = 15.6\nsmoke = 1.0\n", ""),
+            "a `[fuel]` table",
+        ),
+    ] {
+        assert_ne!(body, real_wood, "{needle}: the fixture changed nothing");
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &real_preset()),
+            ("good/firewood.toml", &body),
         ]);
         assert_eq!(codes(&report), vec!["E3001"], "{needle}");
         assert!(

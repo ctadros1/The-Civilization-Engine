@@ -10,3 +10,8 @@ sheltered_half_life_days = 0.0    # a roof makes no difference
 eaten = "never"
 shared = false
 reserve_for = ""
+
+# Heat by weight (research 07-06 §2.3, IPCC default for wood): the measure hearths are given in.
+[fuel]
+mj_per_kg = 15.6
+smoke = 1.0

@@ -4012,7 +4012,9 @@ impl Population {
             let held = stores.get(res.good).copied().unwrap_or(0.0).max(0.0);
             let stored_days = match good.purpose {
                 GoodUse::Food => held * good.kcal_per_kg / kcal_day.max(1.0),
-                GoodUse::Fuel => held / household_fuel_day.max(1e-6),
+                GoodUse::Fuel => {
+                    held * crate::params::fuel_ratio(goods, res.good) / household_fuel_day.max(1e-6)
+                }
                 GoodUse::Material | GoodUse::Tool | GoodUse::Store => 0.0,
             };
             // A material is worth bringing only toward what the household is building, or the
@@ -7352,6 +7354,7 @@ mod tests {
 
     fn goods() -> Vec<GoodDef> {
         let good = |id: &str, purpose, kcal, half, eaten| GoodDef {
+            fuel: None,
             money: None,
             id: id.into(),
             name: id.into(),

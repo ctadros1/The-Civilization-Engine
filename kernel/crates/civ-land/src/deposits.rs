@@ -45,6 +45,20 @@ pub struct DepositRule {
     pub dig_h_per_m3: f64,
     /// What a working of it is called: "pit", "quarry".
     pub working: String,
+    /// Whether its bodies take ids of their own ([`keyed_id`]) rather than the world's next
+    /// (M10a slice DS): a rule added to a land profile then moves no other id in any world.
+    pub keyed_ids: bool,
+}
+
+/// The first id of the space keyed deposits take ([`keyed_id`]): far beyond any id a world will
+/// allocate, and below 2^53, so the observer's numbers hold it exactly.
+pub const KEYED_ID_BASE: u64 = 1 << 52;
+
+/// The id of the `n`th body of the land profile's rule `rule`, when that rule's bodies take keyed
+/// ids: the same in every world, and never one the world's allocator gives.
+pub fn keyed_id(rule: usize, n: usize) -> PermanentId {
+    PermanentId::from_raw(KEYED_ID_BASE + ((rule as u64) << 16) + n as u64)
+        .expect("a keyed id is above zero")
 }
 
 /// A body as placed, before it is given a permanent id.
@@ -92,6 +106,19 @@ impl Deposit {
 /// qualifying land cell drawn at random, its sizes drawn within the rule's ranges. The same seed,
 /// map and rules give the same bodies.
 pub fn place(map: &WorldMap, rules: &[DepositRule], channel_area_m2: f32, seed: u64) -> Vec<Body> {
+    place_ruled(map, rules, channel_area_m2, seed)
+        .into_iter()
+        .map(|(_, b)| b)
+        .collect()
+}
+
+/// [`place`]'s bodies, each with the index of the rule that placed it.
+pub fn place_ruled(
+    map: &WorldMap,
+    rules: &[DepositRule],
+    channel_area_m2: f32,
+    seed: u64,
+) -> Vec<(usize, Body)> {
     if rules.is_empty() {
         return Vec::new();
     }
@@ -132,20 +159,23 @@ pub fn place(map: &WorldMap, rules: &[DepositRule], channel_area_m2: f32, seed: 
             let thickness = draw(&mut rng, rule.thickness_m);
             let quality = draw(&mut rng, rule.quality).clamp(0.0, 1.0);
             let shows = rng.next_f64() < rule.exposed_share;
-            out.push(Body {
-                good: u16::try_from(rule.good).unwrap_or(u16::MAX),
-                at_cm,
-                radius_cm: (radius * 100.0).round() as i32,
-                top_cm: (top * 100.0).round() as i32,
-                thickness_cm: (thickness * 100.0).round() as i32,
-                quality: quality as f32,
-                exposed: top < 0.005 || shows,
-                initial_kg: std::f64::consts::PI
-                    * radius
-                    * radius
-                    * thickness
-                    * rule.density_kg_m3.max(0.0),
-            });
+            out.push((
+                r,
+                Body {
+                    good: u16::try_from(rule.good).unwrap_or(u16::MAX),
+                    at_cm,
+                    radius_cm: (radius * 100.0).round() as i32,
+                    top_cm: (top * 100.0).round() as i32,
+                    thickness_cm: (thickness * 100.0).round() as i32,
+                    quality: quality as f32,
+                    exposed: top < 0.005 || shows,
+                    initial_kg: std::f64::consts::PI
+                        * radius
+                        * radius
+                        * thickness
+                        * rule.density_kg_m3.max(0.0),
+                },
+            ));
         }
     }
     out
@@ -169,6 +199,7 @@ mod tests {
             density_kg_m3: 1_800.0,
             dig_h_per_m3: 0.0,
             working: "pit".to_owned(),
+            keyed_ids: false,
         }
     }
 

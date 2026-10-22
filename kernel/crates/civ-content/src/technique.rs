@@ -27,6 +27,10 @@ pub(crate) struct TechniqueFile {
     pub tried_in: Vec<String>,
     /// Goods a household must hold to try it: good ids.
     pub needs: Vec<String>,
+    /// Content API 162 (M10a slice DS): goods its settlement must know a deposit of, with some
+    /// left, to try it: good ids. Empty by default.
+    #[serde(default)]
+    pub needs_known: Vec<String>,
     /// Qualified hours of experiment to a median find.
     pub e50_h: f64,
     /// Hours of work beside someone who knows it that teach it.
@@ -77,6 +81,11 @@ impl TechniqueFile {
                 .collect::<Option<Vec<_>>>()?,
             needs: self
                 .needs
+                .iter()
+                .map(|g| good_index(g))
+                .collect::<Option<Vec<_>>>()?,
+            needs_known: self
+                .needs_known
                 .iter()
                 .map(|g| good_index(g))
                 .collect::<Option<Vec<_>>>()?,

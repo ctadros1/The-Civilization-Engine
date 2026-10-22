@@ -381,6 +381,9 @@ pub struct PatchOption {
     pub purpose: GoodUse,
     /// Its food energy, kcal per kilogram.
     pub kcal_per_kg: f64,
+    /// For a fuel: what a kilogram of it stands for at the hearth, in kilograms of the fuel a
+    /// household's need is given in (`params::fuel_ratio`; M10a slice DS); 1 for anything else.
+    pub fuel_ratio: f64,
     /// Days of the household's need it already holds of this good.
     pub stored_days: f64,
     /// For a material: kilograms of it the household still needs for what it is building,
@@ -1221,7 +1224,9 @@ pub fn candidates(
                     }
                     GoodUse::Fuel => {
                         let half = w.trip_half_worth_days * f.household_fuel_day.max(0.1);
-                        let worth = kg / (kg + half);
+                        // A load by its heat (M10a slice DS).
+                        let heat = kg * patch.fuel_ratio;
+                        let worth = heat / (heat + half);
                         let target = f.fuel_target_days.max(1e-6);
                         let short = (1.0 - f.fuel_days / target).clamp(0.0, 1.0);
                         let room = target / (target + patch.stored_days.max(0.0));
@@ -2850,6 +2855,7 @@ mod tests {
                 kg_per_hour: 20.0,
                 purpose: GoodUse::Material,
                 kcal_per_kg: 0.0,
+                fuel_ratio: 1.0,
                 stored_days: 0.0,
                 need_kg: 200.0,
                 urgency: 1.0,

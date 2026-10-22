@@ -498,6 +498,25 @@ density_kg_m3 = 300.0            # selected ore in a cubic metre of the body (03
 dig_h_per_m3 = 15.0              # hard rock, worked with hammerstones and fire (tuning)
 working = "pit"
 
+[[deposit]]
+# Coal (M10a slice DS; ADR-0033 §7): seams in the sedimentary uplands, often under cover, showing
+# where a stream or slope cuts them (research 07-06 §1.6: coal behaves as a depleting deposit; it
+# gives no figures for where seams lie or how thick). Every figure is a tuning value. Its bodies
+# take ids of their own (`keyed_ids`), so adding the rule moves no other id in any world.
+good = "core:good/coal"
+slope = [0.05, 0.6]              # upland slopes and valley sides
+hand_m = [5.0, 500.0]
+per_km2 = 0.3
+radius_m = [20.0, 60.0]          # a stretch of seam
+top_m = [0.0, 6.0]               # from showing to six metres under
+thickness_m = [0.5, 2.0]
+quality = [0.6, 0.95]            # what is sorted out as coal; shale and dirt go to the heap
+exposed_share = 0.4
+density_kg_m3 = 1300.0           # bituminous coal in place, about 1,300 kg/m³
+dig_h_per_m3 = 8.0               # softer than stone, harder than earth (tuning)
+working = "pit"
+keyed_ids = true
+
 [banks]
 # Design prior, not historical failure frequency (research 11-12 §4.2).
 erosion_per_head_day = 0.02

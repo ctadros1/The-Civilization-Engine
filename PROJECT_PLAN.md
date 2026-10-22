@@ -6011,6 +6011,32 @@ and M6a gives rivers a daily flow.
         a mill, so the e2e is unchanged.
     - **DS**: coal and coke, pits that flood below the ground-water head, bailing and pumping, the
       atmospheric engine at the pit head.
+      - *As built, first part (2026-10-22): coal in the ground and at the hearth.* **Seams** are
+        a deposit rule of the land profile (`good/coal`, 25.8 MJ a kilogram, 07-06 §2.3) on
+        upland slopes; a rule may now say `keyed_ids` (content API 162), and its bodies take ids
+        of their own (`deposits::keyed_id`, from 2^52, below 2^53 so the observer's numbers hold
+        them), so adding coal moves no other id in any world (the bloomery's note above: a new
+        body would move every later id). **Burning coal is a technique of its own** (ADR-0033 §1;
+        07-06 §3): a fuel may name one (`[fuel] technique`), and a household keeps that fuel for
+        its hearth, and wants it in trade, only if one of them knows it; the hearth's measure
+        stays the first fuel that asks none (firewood), though coal comes first in the catalogue.
+        `technique/coal_burning` is found by people gathering wood where their settlement knows
+        coal showing (a technique's `needs_known`: goods its settlement must know a deposit of)
+        and nowhere else; those who know it dig coal (`activity/dig_coal`) at the pit nearest
+        home, a trip for fuel weighed by its heat, and hearths burn it by its heat beside
+        firewood. Domestic coal (the brief's open question 2) is so answered yes, by knowledge.
+        **Proved:** the code alone leaves every section of the three bench worlds of DO but
+        `meta` as it was; with the coal content, a run whose coal rule places nothing gives the
+        same chronicle (`history`) as before, and the sections holding goods or techniques by
+        index (people, houses, receipts, market, firms, know, deposits, polity, order, factions,
+        places) differ by the shifted positions only, every count and summary line equal; with
+        seams placed, only `deposits` and the chronicle of seams found differ further (world A;
+        in B and C no seam was found). **Tested:** a keyed rule beside another moves none of its
+        ids nor the world's next; every seam over six seeds has a keyed id; coal is reckoned
+        against firewood by its heat; a household keeps none for its hearth until a member knows
+        how to burn it, then the same heat as its firewood; burning coal is found only once coal
+        is known; those who know it dig coal from a seam and carry it home; and a world with seams saves and
+        loads to the byte (a save's deposit ids may be the world's or keyed).
     - **DT**: the works: machines with crews, shifts by daylight, the household-resolved block.
   - **M10b, rail and gas light** (ADR-0034).
     - **DU**: light before gas: lamps burning fuel for hours of light, places dark or lit, dark
@@ -7410,6 +7436,14 @@ One line each. Don't re-litigate without a reason written next to the entry.
   a household grinding 600 kg a year beside a working mill would set a second for the toll it
   saves. Each revisited if the M10 demo shows mills nowhere where grain is ground by hand at
   scale, or one beside every household.
+- **Design priors for coal (2026-10-22, M10a slice DS):** NUDGE: seams lie on upland slopes
+  (slope 0.05–0.6, 5 m or more above a channel), 0.3 to a square kilometre that qualifies,
+  20–60 m in radius, 0.5–2 m thick under up to 6 m of cover, 40 % of those under cover showing,
+  1,300 kg of coal a cubic metre of which 60–95 % is sorted out as coal, broken out at 8 hours a
+  cubic metre; burning coal is found at an E50 of 2,000 hours of gathering wood where a seam is
+  known (cheap where coal shows, ADR-0033 §1) and is learned in 20 hours; coal smokes twice as
+  much as wood. The research gives none of these. Each revisited if the M10 demo shows coal
+  burned nowhere a seam shows, or everywhere within a year.
 - **Design priors for the household day (2026-10-20, M9a slice DG, ADR-0032 §2):** NUDGE: the
   day is scored once at sunrise; waking minutes are the day less the middle of the content's
   sleep range and three meals; a walk's length in the day's sharing is reckoned straight off trail

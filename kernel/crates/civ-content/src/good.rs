@@ -71,6 +71,10 @@ pub(crate) struct FuelFile {
     pub mj_per_kg: f64,
     /// Smoke a kilogram makes, against firewood's 1.
     pub smoke: f64,
+    /// Content API 162 (M10a slice DS): the technique a household must know to want it for its
+    /// hearth; none, the default, for a fuel anyone burns.
+    #[serde(default)]
+    pub technique: Option<String>,
 }
 
 /// How a good burns (M6b slice BC; ADR-0022 §4, §5).
@@ -186,6 +190,8 @@ impl GoodFile {
             fuel: self.fuel.as_ref().map(|f| GoodFuel {
                 mj_per_kg: f.mj_per_kg,
                 smoke: f.smoke,
+                // Resolved once the techniques are known (`civ_content::compile`).
+                technique: None,
             }),
             power: self.power.as_ref().map(|w| GoodPower {
                 source: if w.source == "fuel" {

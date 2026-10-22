@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 161;
+pub const KERNEL_CONTENT_API: u32 = 162;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1044,6 +1044,11 @@ fn resolve(
                     .map(|g| ("needs", g, good_index(g).is_some())),
             )
             .chain(
+                f.needs_known
+                    .iter()
+                    .map(|g| ("needs_known", g, good_index(g).is_some())),
+            )
+            .chain(
                 f.answers
                     .spoilage
                     .iter()
@@ -1368,10 +1373,29 @@ fn resolve(
         });
         resolved.push((g, metal, assay));
     }
+    // The technique a fuel asks of the hearths that burn it (M10a slice DS).
+    let mut fuels: Vec<(usize, Option<usize>)> = Vec::new();
+    for d in &parsed.goods {
+        let Some(id) = d.file.fuel.as_ref().and_then(|f| f.technique.as_deref()) else {
+            continue;
+        };
+        let t = technique_index(id);
+        if t.is_none() {
+            missing(c, parsed, &d.rel, "fuel.technique", id);
+        }
+        if let Some(g) = good_index(&d.file.id) {
+            fuels.push((g, t));
+        }
+    }
     for (g, metal, assay) in resolved {
         if let Some(m) = goods[g].money.as_mut() {
             m.metal = metal;
             m.assay = assay;
+        }
+    }
+    for (g, t) in fuels {
+        if let Some(f) = goods[g].fuel.as_mut() {
+            f.technique = t;
         }
     }
     let catalog = Catalog {

@@ -263,6 +263,10 @@ pub(crate) struct DepositFile {
     /// What a working of it is called (content API 21): "pit", the default, or "quarry".
     #[serde(default = "pit")]
     pub working: String,
+    /// Content API 162 (M10a slice DS): whether its bodies take ids of their own, so adding the
+    /// rule moves no other id in any world (`civ_land::deposits::keyed_id`). False by default.
+    #[serde(default)]
+    pub keyed_ids: bool,
 }
 
 /// A working's name when a deposit rule gives none.
@@ -672,6 +676,7 @@ impl LandFile {
                         density_kg_m3: d.density_kg_m3,
                         dig_h_per_m3: d.dig_h_per_m3,
                         working: d.working.clone(),
+                        keyed_ids: d.keyed_ids,
                     })
                 })
                 .collect::<Option<Vec<_>>>()?,

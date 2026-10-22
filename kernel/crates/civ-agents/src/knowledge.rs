@@ -236,6 +236,7 @@ mod tests {
             requires: Vec::new(),
             tried_in: Vec::new(),
             needs: Vec::new(),
+            needs_known: Vec::new(),
             e50_h: 1000.0,
             learn_h: 50.0,
             upbringing,

@@ -869,19 +869,28 @@ impl Land {
         seed: u64,
         ids: &mut civ_core::IdAllocator,
     ) -> usize {
-        let bodies = deposits::place(
+        let bodies = deposits::place_ruled(
             map,
             &params.deposits,
             (params.channel_area_km2 * 1e6) as f32,
             seed,
         );
         let n = bodies.len();
-        self.deposits
-            .extend(bodies.into_iter().map(|body| deposits::Deposit {
-                id: ids.allocate(),
+        // A rule whose bodies take keyed ids numbers them itself (M10a slice DS).
+        let mut keyed = vec![0usize; params.deposits.len()];
+        for (r, body) in bodies {
+            let id = if params.deposits[r].keyed_ids {
+                keyed[r] += 1;
+                deposits::keyed_id(r, keyed[r] - 1)
+            } else {
+                ids.allocate()
+            };
+            self.deposits.push(deposits::Deposit {
+                id,
                 body,
                 taken_kg: 0.0,
-            }));
+            });
+        }
         n
     }
 
@@ -971,7 +980,9 @@ impl Land {
         for d in &self.deposits {
             let b = &d.body;
             let (x, y) = (b.at_cm.0 as f64, b.at_cm.1 as f64);
-            if d.id.get() >= next_id || !seen.insert(d.id) {
+            // An id the world gave, or one of the keyed space (M10a slice DS).
+            let keyed = (deposits::KEYED_ID_BASE..1 << 53).contains(&d.id.get());
+            if (d.id.get() >= next_id && !keyed) || !seen.insert(d.id) {
                 out.push(format!("deposit {} is unallocated or repeated", d.id));
             }
             if !((0.0..=w_cm).contains(&x) && (0.0..=h_cm).contains(&y)) {
@@ -1949,6 +1960,49 @@ mod tests {
                 lake_evaporation_mm_per_yr: 900.0,
             },
             drainage_area_m2: vec![64.0; n],
+        }
+    }
+
+    #[test]
+    fn a_rule_with_keyed_ids_moves_no_other_id() {
+        // M10a slice DS: clay placed alone and clay placed with a keyed rule after it take the
+        // same ids, and the keyed rule takes none of the world's.
+        let rule = |good: usize, keyed_ids: bool| deposits::DepositRule {
+            good,
+            slope: (0.0, 10.0),
+            hand_m: (0.0, 1e6),
+            per_km2: 400.0,
+            radius_m: (5.0, 20.0),
+            top_m: (0.0, 1.0),
+            thickness_m: (0.5, 2.0),
+            quality: (0.4, 0.9),
+            exposed_share: 0.3,
+            density_kg_m3: 1_800.0,
+            dig_h_per_m3: 0.0,
+            working: "pit".to_owned(),
+            keyed_ids,
+        };
+        let placed = |rules: Vec<deposits::DepositRule>| {
+            let mut p = params();
+            p.deposits = rules;
+            let mut land = create(&p, 1, 400);
+            let mut ids = civ_core::IdAllocator::new();
+            land.place_deposits(&map(), &p, 7, &mut ids);
+            (land.deposits, ids.peek_next())
+        };
+        let (alone, next_alone) = placed(vec![rule(3, false)]);
+        let (both, next_both) = placed(vec![rule(3, false), rule(4, true)]);
+        assert!(!alone.is_empty());
+        assert_eq!(
+            next_alone, next_both,
+            "the keyed rule took none of the world's ids"
+        );
+        assert_eq!(&both[..alone.len()], &alone[..]);
+        let keyed = &both[alone.len()..];
+        assert!(!keyed.is_empty());
+        for (n, d) in keyed.iter().enumerate() {
+            assert_eq!(d.id, deposits::keyed_id(1, n));
+            assert!(d.id.get() >= deposits::KEYED_ID_BASE && d.id.get() < 1 << 53);
         }
     }
 

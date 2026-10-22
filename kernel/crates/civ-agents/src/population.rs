@@ -3922,6 +3922,11 @@ impl Population {
                 1.0
             }
         };
+        // What a kilogram of a fuel stands for at the hearth (M10a slice DS); 1 for anything else.
+        let heat_of = |g: usize| match catalog.goods.get(g) {
+            Some(d) if d.purpose == GoodUse::Fuel => crate::params::fuel_ratio(&catalog.goods, g),
+            _ => 1.0,
+        };
         let dig = |def: usize| -> Option<PatchOption> {
             {
                 let a = catalog.activities.get(def)?;
@@ -3931,7 +3936,9 @@ impl Population {
                 let good = catalog.goods.get(g)?;
                 let need_kg = build_need.get(g).copied().unwrap_or(0.0);
                 let tool_need_kg = tool_material.get(g).copied().unwrap_or(0.0);
-                let needed = need_kg > 0.0 || tool_need_kg > 0.0;
+                // A fuel is dug for the hearth, so where it would be dug is wanted too (M10a slice
+                // DS).
+                let needed = need_kg > 0.0 || tool_need_kg > 0.0 || good.purpose == GoodUse::Fuel;
                 let hours = f64::from(a.max_minutes) / 60.0;
                 let mut best: Option<(f64, PatchOption)> = None;
                 for d in ctx.land.deposits.iter().filter(|d| {
@@ -3972,6 +3979,7 @@ impl Population {
                                 kg_per_hour,
                                 purpose: good.purpose,
                                 kcal_per_kg: good.kcal_per_kg,
+                                fuel_ratio: heat_of(g),
                                 stored_days: 0.0,
                                 need_kg,
                                 urgency: build_urgency,
@@ -4074,6 +4082,7 @@ impl Population {
                             kg_per_hour,
                             purpose: good.purpose,
                             kcal_per_kg: good.kcal_per_kg,
+                            fuel_ratio: heat_of(res.good),
                             stored_days,
                             need_kg,
                             urgency,

@@ -450,16 +450,20 @@ pub struct GoodFuel {
     pub mj_per_kg: f64,
     /// Smoke a kilogram makes, against firewood's 1.
     pub smoke: f64,
+    /// The technique a household must know to want it for its hearth, by index in the
+    /// techniques (M10a slice DS: burning coal is a technique of its own, ADR-0033 §1); `None`
+    /// for a fuel anyone burns.
+    pub technique: Option<usize>,
 }
 
 /// What a kilogram of `goods[g]` stands for at the hearth, in kilograms of the first fuel among
-/// `goods` (firewood, the measure a household's need is given in), by their heat (M10a slice DP):
-/// exactly 1 for that fuel itself, and for any fuel whose heat is not given.
+/// `goods` that asks no technique (firewood, the measure a household's need is given in), by their
+/// heat (M10a slice DP): exactly 1 for that fuel itself, and for any fuel whose heat is not given.
 pub fn fuel_ratio(goods: &[GoodDef], g: usize) -> f64 {
     let heat = |d: &GoodDef| d.fuel.map_or(1.0, |f| f.mj_per_kg);
     let reference = goods
         .iter()
-        .find(|d| d.purpose == GoodUse::Fuel)
+        .find(|d| d.purpose == GoodUse::Fuel && d.fuel.is_none_or(|f| f.technique.is_none()))
         .map_or(1.0, heat);
     goods.get(g).map_or(1.0, |d| heat(d) / reference)
 }
@@ -692,6 +696,9 @@ pub struct TechniqueDef {
     pub tried_in: Vec<usize>,
     /// Goods a household must hold to try it (the feasibility gate), by index in the goods.
     pub needs: Vec<usize>,
+    /// Goods its settlement must know a deposit of, with some left, to try it (M10a slice DS:
+    /// coal burned where it shows at the surface), by index in the goods.
+    pub needs_known: Vec<usize>,
     /// Qualified hours of experiment to a median find (E50, research 07-01 §5.3).
     pub e50_h: f64,
     /// Hours of work beside someone who knows it that teach it.

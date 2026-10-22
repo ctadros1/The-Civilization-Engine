@@ -1622,8 +1622,11 @@ by the way the mill's wheel turns, and carry the flour home, the mill's owner ke
 (a sixteenth, a tuning value). Its activity names no recipe; the way is the mill's. The first is
 `activity/carry_grain_to_mill`.
 
-Content API 161 (M10a slice DR, fourth part) adds the behavior `mill`: carry a load of the
-household's grain to a working water mill of another household of its settlement, grind it there
-by the way the mill's wheel turns, and carry the flour home, the mill's owner keeping a toll of it
-(a sixteenth, a tuning value). Its activity names no recipe; the way is the mill's. The first is
-`activity/carry_grain_to_mill`.
+Content API 162 (M10a slice DS) adds three optional fields. A deposit rule's `keyed_ids` (default
+false) gives its bodies ids of their own, numbered by the rule's place among the land profile's
+rules, rather than the world's next ones, so adding the rule moves no other id in any world; a
+fuel's `[fuel] technique` names the technique a household must know to keep that fuel for its
+hearth (the hearth's measure stays the first fuel that asks none); and a technique's
+`needs_known` lists goods its finder's settlement must know a deposit of, with some left. The
+first of each is coal: `good/coal`, the coal rule of `land/temperate_valley`,
+`activity/dig_coal` and `technique/coal_burning`.

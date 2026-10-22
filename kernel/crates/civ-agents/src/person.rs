@@ -1546,12 +1546,14 @@ mod tests {
         goods[2].fuel = Some(GoodFuel {
             mj_per_kg: 15.6,
             smoke: 1.0,
+            technique: None,
         });
         let mut dense = goods[2].clone();
         dense.id = "dense".into();
         dense.fuel = Some(GoodFuel {
             mj_per_kg: 31.2,
             smoke: 0.2,
+            technique: None,
         });
         goods.push(dense);
         let per_day = |_: i64| 10.0;

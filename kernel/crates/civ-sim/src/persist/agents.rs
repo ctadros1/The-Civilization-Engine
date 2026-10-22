@@ -127,7 +127,7 @@ use super::{
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
     SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
     SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
-    SCHEMA_V174, SCHEMA_V175, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -874,9 +874,9 @@ pub(super) fn decode<R: Read + Seek>(
         // The observer's forcings (schema 170) changed no people or land.
         SCHEMA_V169 | SCHEMA_V170 => Schema::V169,
         // Workshops' batches (schema 172) changed no people or land; installations (schema 173),
-        // households' mill counts (schema 174), pits' water (schema 175) and engines (schema
-        // 176) are read wherever saved.
-        SCHEMA_V171 | SCHEMA_V172 | SCHEMA_V173 | SCHEMA_V174 | SCHEMA_V175
+        // households' mill counts (schema 174), pits' water (schema 175), engines (schema 176)
+        // and pits' bailing (schema 177) are read wherever saved.
+        SCHEMA_V171 | SCHEMA_V172 | SCHEMA_V173 | SCHEMA_V174 | SCHEMA_V175 | SCHEMA_V176
         | SAVE_SCHEMA_VERSION => Schema::V171,
         other => {
             return Err(LoadError::Incompatible(format!(
@@ -3509,6 +3509,13 @@ fn encode_earth(land: &Land) -> Vec<u8> {
         })
         .collect();
     let engines = (!engines.is_empty()).then(|| fbb.create_vector(&engines));
+    // Hours bailed at pits (schema 177), absent while none.
+    let pit_bailing: Vec<_> = land
+        .pit_bailing
+        .iter()
+        .map(|p| save::PitBailingRecord::new(p.work.get(), p.hours, p.since.minutes()))
+        .collect();
+    let pit_bailing = (!pit_bailing.is_empty()).then(|| fbb.create_vector(&pit_bailing));
     let root = save::Earth::create(
         &mut fbb,
         &save::EarthArgs {
@@ -3524,6 +3531,7 @@ fn encode_earth(land: &Land) -> Vec<u8> {
             installations,
             pit_water,
             engines,
+            pit_bailing,
         },
     );
     finish(fbb, root)
@@ -3726,6 +3734,20 @@ fn decode_earth(bytes: &[u8], land: &mut Land, schema: Schema) -> Result<(), Loa
             )));
         }
         land.engines.push(record);
+    }
+    // Hours bailed at pits (schema 177); before, none.
+    for p in root.pit_bailing().iter().flatten() {
+        let work = required(p.work(), "a pit's bailing")?;
+        if !(p.hours().is_finite() && p.hours() >= 0.0) {
+            return Err(LoadError::Malformed(format!(
+                "pit {work} tallies invalid hours of bailing"
+            )));
+        }
+        land.pit_bailing.push(civ_land::pits::Bailed {
+            work,
+            hours: p.hours(),
+            since: SimTime::from_minutes(p.since()),
+        });
     }
     // Water standing in pits (schema 175); before, none.
     for p in root.pit_water().iter().flatten() {
@@ -4508,6 +4530,7 @@ fn decode_land(
         installations: Vec::new(),
         pit_water: Vec::new(),
         engines: Vec::new(),
+        pit_bailing: Vec::new(),
         ground: civ_land::earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
         // Read from its own section (schema 68 on).
         crossings: Default::default(),

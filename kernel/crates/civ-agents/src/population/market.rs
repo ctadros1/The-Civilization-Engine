@@ -552,6 +552,14 @@ impl Population {
         costs
     }
 
+    /// What each good costs household `household` in hours of its own work now
+    /// ([`Self::own_costs_of`]), for tests; nothing for a household that is not there.
+    #[doc(hidden)]
+    pub fn own_costs_for_tests(&self, ctx: &Ctx, household: PermanentId) -> Vec<Option<f64>> {
+        self.household(household)
+            .map_or_else(Vec::new, |hh| self.own_costs_of(ctx, hh))
+    }
+
     /// What household `household` keeps of each good from its stores now ([`Self::holding_of`]),
     /// for tests; nothing for a household that is not there.
     pub fn keep_for_tests(&self, ctx: &Ctx, household: PermanentId) -> Vec<f64> {
@@ -610,7 +618,7 @@ impl Population {
             .collect();
         let knows = |t: usize| self.household_knows(&hh.members, t);
         let mut wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
-        super::cap_water_wants(ctx, hh.id, &mut wants);
+        super::cap_power_wants(ctx, hh.id, &mut wants);
         let can_work = |r: &crate::params::RecipeDef| self.can_work_way(ctx, hh, stores, r);
         let costs_once = std::cell::OnceCell::new();
         let costs = || {

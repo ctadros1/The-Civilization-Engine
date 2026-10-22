@@ -454,3 +454,119 @@ fn an_engine_without_fuel_pumps_nothing() {
         .map_or(0.0, |p| p.water_m3);
     assert!((water - 30.0).abs() < 1e-9, "{water}");
 }
+
+/// The first household knows how to build an engine and all it is made of: the engine, copper
+/// smelting, iron from bog ore by charcoal, and forging.
+fn teach_engine_building(sim: &mut Sim) {
+    let (_, members) = first_household(sim);
+    for id in [
+        "core:technique/atmospheric_engine",
+        "core:technique/copper_smelting",
+        "core:technique/charcoal_burning",
+        "core:technique/bloomery",
+        "core:technique/forging",
+    ] {
+        let t = technique(sim, id);
+        teach(sim, &members, t);
+    }
+}
+
+/// Records `hours` bailed by hand at pit `work` over the year before now.
+fn bailed_for_a_year(sim: &mut Sim, work: PermanentId, hours: f64) {
+    let since = civ_core::SimTime::from_minutes(sim.now().minutes() - 365 * 24 * 60);
+    let land = sim.land_mut_for_tests();
+    land.pit_bailing.retain(|b| b.work != work);
+    land.pit_bailing
+        .push(civ_land::pits::Bailed { work, hours, since });
+}
+
+#[test]
+fn bailing_by_hand_is_tallied_at_its_pit_and_saved() {
+    let mut sim = world(3);
+    let (_, work, _) = a_coal_pit(&mut sim);
+    let now = sim.now();
+    sim.land_mut_for_tests().set_pit_water(work, 30.0, now);
+    let tallied = |sim: &Sim| {
+        sim.land()
+            .pit_bailing
+            .iter()
+            .find(|b| b.work == work)
+            .map_or(0.0, |b| b.hours)
+    };
+    for _ in 0..60 * 24 {
+        if tallied(&sim) > 0.0 {
+            break;
+        }
+        sim.advance_minutes(60).expect("advances");
+    }
+    let hours = tallied(&sim);
+    // At most what lifting all 30 m³ by hand takes, through no more than the pit's depth.
+    assert!(hours > 0.0, "the bailing was tallied");
+    // Only pits are tallied, and a save keeps the tally to the byte.
+    assert!(
+        sim.land()
+            .problems(sim.map(), usize::MAX, sim.ids().peek_next())
+            .is_empty()
+    );
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = civ_sim::persist::save(
+        &mut sim,
+        &saves,
+        commons_persist::SaveKind::Manual,
+        "bailed",
+    )
+    .expect("saves");
+    let loaded = civ_sim::persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.land().pit_bailing, sim.land().pit_bailing);
+}
+
+#[test]
+fn a_household_that_bails_long_sets_an_engine_at_its_pit_and_then_wants_one() {
+    let mut sim = world(3);
+    let engine = good(&sim, "core:good/atmospheric_engine");
+    let (_, work, owner) = a_coal_pit(&mut sim);
+    teach_engine_building(&mut sim);
+    let wanted =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.keep_for_tests(ctx, owner))[engine];
+    // Before it has set one, it wants no engine, whatever its people's work.
+    assert_eq!(wanted(&mut sim), 0.0);
+    // Five thousand hours of bailing a year repay an engine and its fuel over its years.
+    bailed_for_a_year(&mut sim, work, 5_000.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_engine_for_tests(ctx, owner));
+    let set: Vec<_> = sim
+        .land()
+        .engines
+        .iter()
+        .filter(|e| e.pit == work && e.owner == owner)
+        .copied()
+        .collect();
+    assert_eq!(set.len(), 1, "an engine is set at the pit");
+    assert!(wanted(&mut sim) >= 1.0, "and it wants one for it");
+    // Weighing again sets no second engine at the same pit.
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_engine_for_tests(ctx, owner));
+    assert_eq!(sim.land().engines.len(), 1);
+    assert!(
+        sim.land()
+            .problems(sim.map(), usize::MAX, sim.ids().peek_next())
+            .is_empty()
+    );
+}
+
+#[test]
+fn a_little_bailing_or_no_way_to_build_one_sets_no_engine() {
+    // Fifty hours a year repay nothing like an engine.
+    let mut sim = world(3);
+    let (_, work, owner) = a_coal_pit(&mut sim);
+    teach_engine_building(&mut sim);
+    bailed_for_a_year(&mut sim, work, 50.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_engine_for_tests(ctx, owner));
+    assert!(sim.land().engines.is_empty());
+    // Nor does a household that bails much but knows no way of building one.
+    let mut sim = world(3);
+    let (_, work, owner) = a_coal_pit(&mut sim);
+    bailed_for_a_year(&mut sim, work, 5_000.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_engine_for_tests(ctx, owner));
+    assert!(sim.land().engines.is_empty());
+}

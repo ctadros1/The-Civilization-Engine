@@ -406,6 +406,9 @@ pub struct Land {
     pub pit_water: Vec<pits::PitWater>,
     /// Engines set at pits to pump them, in the order set (M10a slice DS, third part). Saved.
     pub engines: Vec<power::Engine>,
+    /// Hours bailed by hand at pits, by pit (M10a slice DS, fourth part). Saved; a pit never
+    /// bailed has no record.
+    pub pit_bailing: Vec<pits::Bailed>,
     /// Today's water the ditches took from their reaches and returned below them, as changes to
     /// a reach's flow passed on down the river, m³/s (M6b slice BG). Saved.
     pub ditch_flows: Vec<(u32, f32)>,
@@ -654,6 +657,7 @@ impl Land {
             installations: Vec::new(),
             pit_water: Vec::new(),
             engines: Vec::new(),
+            pit_bailing: Vec::new(),
             ditch_flows: Vec::new(),
             ground: earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
             crossings: crossings::Crossings::default(),
@@ -991,6 +995,22 @@ impl Land {
         }
     }
 
+    /// Adds `hours` bailed by hand at pit `work` at `now` to its tally (M10a slice DS, fourth
+    /// part).
+    pub fn add_bailing(&mut self, work: civ_core::PermanentId, hours: f64, now: civ_core::SimTime) {
+        if hours.is_nan() || hours <= 0.0 {
+            return;
+        }
+        match self.pit_bailing.iter_mut().find(|p| p.work == work) {
+            Some(p) => p.hours += hours,
+            None => self.pit_bailing.push(pits::Bailed {
+                work,
+                hours,
+                since: now,
+            }),
+        }
+    }
+
     /// Whether installation `i` can turn: its headrace, the earthwork sharing its id, is dug (an
     /// installation laid without one stands ready).
     pub fn installation_ready(&self, i: usize) -> bool {
@@ -1092,6 +1112,17 @@ impl Land {
                 .any(|e| e.id == p.work && e.kind == earth::EarthKind::Pit);
             if !pit || !wet.insert(p.work) || !(p.water_m3.is_finite() && p.water_m3 >= 0.0) {
                 out.push(format!("pit water {} is not of one pit", p.work));
+            }
+        }
+        // Hours bailed are tallied only at pits, one record each (M10a slice DS, fourth part).
+        let mut bailed = civ_core::FastSet::default();
+        for p in &self.pit_bailing {
+            let pit = self
+                .earthworks
+                .iter()
+                .any(|e| e.id == p.work && e.kind == earth::EarthKind::Pit);
+            if !pit || !bailed.insert(p.work) || !(p.hours.is_finite() && p.hours >= 0.0) {
+                out.push(format!("pit bailing {} is not of one pit", p.work));
             }
         }
         let (w_cm, h_cm) = (f64::from(w) * 100.0, f64::from(h) * 100.0);

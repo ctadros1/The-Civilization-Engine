@@ -6073,6 +6073,29 @@ and M6a gives rivers a daily flow.
         brief's coal for its water (at 1 % a kWh of lift takes 14 kg of coal); an engine at a
         flooded pit pumps it dry with the owner's coal, burning what its work over the lift
         asks, and wears; an engine whose owner holds no fuel pumps nothing.
+      - *As built, fourth part (2026-10-22): who sets an engine.* `technique/atmospheric_engine`
+        (forging and jointed framing first; found digging coal with coal and bar iron at home;
+        founders do not bring it) and `recipe/build_atmospheric_engine` (sheet copper, bar iron,
+        timber and stone, under smithing, its `activity` a making in daylight; the priors below).
+        Bailing by hand is tallied at its pit (`civ_land::pits::Bailed`, `Land::pit_bailing`,
+        saves 177). On its day of the year a household one of whose people knows a way of making
+        an engine weighs each of its own pits bailed for half a year or more without one: the
+        hours a year it bails there, less the fuel an engine would burn lifting the same water
+        (its cheapest fuel by heat, or the pit's own where that is a fuel it burns, at the hours
+        it takes to dig), over the years the engine's life lasts at that work (at most 20),
+        against the engine's own cost in hours; where that is gained it sets an engine at the pit
+        with the most to gain, and only then wants one, which it makes or buys as any tool (a
+        household wants an engine only for a pit it has set one at, as a wheel only for a dug
+        race). A household that knows no way of making one sets none. **Proved:** against the third part, the three bench worlds of DO keep the same
+        chronicle and every count and summary line; only the sections holding techniques, recipes
+        or activities by index (people, receipts, firms, know) differ, by the shifted positions,
+        and `market` is unchanged, so capping the want of engines changed no trade.
+        **Tested:** bailing by hand is tallied at its pit and a save keeps it to the byte; a
+        household that has bailed 5,000 hours a year sets an engine at its pit, then wants one,
+        and sets no second; fifty hours a year set none, nor do 5,000 where nobody knows how.
+        **DS is closed.** Coke waits for the works' blast furnace (DT), nothing yet using it;
+        pumping by a wheel, and an engine pumping for a wheel (the brief's complement), are a §9
+        entry for the works.
     - **DT**: the works: machines with crews, shifts by daylight, the household-resolved block.
   - **M10b, rail and gas light** (ADR-0034).
     - **DU**: light before gas: lamps burning fuel for hours of light, places dark or lit, dark
@@ -7494,6 +7517,20 @@ One line each. Don't re-litigate without a reason written next to the entry.
   (the works' crews, slice DT). It burns its owner's fuels in the catalogue's order by heat, coal
   first. Revisited with the works' crews and when the M10 demo shows whether engines pay at pit
   heads.
+- **Design priors for setting an engine (2026-10-22, M10a slice DS):** NUDGE: building an
+  atmospheric engine takes 2,000 hours, 300 kg of copper, 150 kg of bar iron, 1,500 kg of timber
+  and 3,000 kg of stone (07-06 §4.2 names the parts but no hours); the technique is found by those
+  digging coal with coal and bar iron at home at an E50 of 400,000 hours, and learned in 400; a
+  household weighs it on its day of the year once it has bailed a pit for half a year, over at
+  most 20 years of the engine's life at its work, valuing the pit's own fuel at the hours it takes
+  to dig. With these an engine repays only some thousands of hours of bailing a year, several
+  hands bailing most days: Newcomen's niche, the deep pit where drainage limits. Revisited if the
+  M10 demo shows engines set nowhere coal pits are bailed for years, or at every wet pit.
+- **Pumping by a wheel, and coke, deferred to the works (2026-10-22, M10a slice DS):** ADR-0033
+  §7 names three ways a flooded pit is drained: by hand, by a wheel, or by an engine. DS built hand
+  and engine; a wheel pumping a pit, and an engine pumping water back to a wheel (the brief's
+  complement, 07-06 §5.5), wait for the works (slice DT), where a powered station drives more
+  than millstones. Coke waits for the same slice's blast furnace, as nothing yet would burn it.
 - **Design priors for the household day (2026-10-20, M9a slice DG, ADR-0032 §2):** NUDGE: the
   day is scored once at sunrise; waking minutes are the day less the middle of the content's
   sleep range and three meals; a walk's length in the day's sharing is reckoned straight off trail

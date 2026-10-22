@@ -24,6 +24,18 @@ pub struct PitWater {
     pub at: SimTime,
 }
 
+/// The hours spent lifting water out of one pit by hand since its first bailing (M10a slice DS,
+/// fourth part): what its household weighs an engine against. Saved; a pit never bailed has none.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Bailed {
+    /// The pit, by earthwork id.
+    pub work: PermanentId,
+    /// Hours bailed there.
+    pub hours: f64,
+    /// When the first of them was.
+    pub since: SimTime,
+}
+
 /// How a pit's water stands at a moment ([`crate::Land::pit_water_now`]).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PitState {

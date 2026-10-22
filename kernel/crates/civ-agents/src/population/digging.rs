@@ -280,6 +280,9 @@ pub(super) fn dig_at(
             rules.bail_w,
             rules.bail_efficiency,
         );
+        // What is bailed is tallied, for its household to weigh an engine against (M10a slice DS,
+        // fourth part).
+        ctx.land.add_bailing(pit_id, bail.min(effort_h), ctx.now);
         if bail > effort_h {
             let left = state.water_m3 * (1.0 - effort_h / bail);
             ctx.land.set_pit_water(pit_id, left, ctx.now);

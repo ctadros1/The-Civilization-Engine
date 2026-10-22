@@ -1260,6 +1260,16 @@ table Earth {
   pit_water: [PitWaterRecord] (id: 10);
   // Schema 176 (M10a slice DS, third part): engines set at pits, absent while there are none.
   engines: [EngineRecord] (id: 11);
+  // Schema 177 (M10a slice DS, fourth part): hours bailed by hand at pits, absent while none.
+  pit_bailing: [PitBailingRecord] (id: 12);
+}
+
+// Hours bailed by hand at a pit since its first bailing (schema 177, M10a slice DS; ADR-0033 §7):
+// the pit by earthwork id, the hours, and when the first was (minutes).
+struct PitBailingRecord {
+  work: ulong;
+  hours: double;
+  since: long;
 }
 
 // An engine set at a pit (schema 176, M10a slice DS; ADR-0033 §7): its id, the pit it pumps by

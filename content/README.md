@@ -1643,5 +1643,8 @@ The core's coal rule gives 0.3 m/day; its other bodies none.
 M10a slice DS, third part, adds no field: a fixed tool whose `[power]` source is `fuel` is an
 engine, and one set at a pit pumps its water each day while its owner holds it whole and fuel,
 burning the owner's fuels in the catalogue's order by their heat at the engine's efficiency. The
-first is `good/atmospheric_engine` (4 kW at 1 %, 40,000 hours); how an engine is made and set is
-the next part.
+first is `good/atmospheric_engine` (4 kW at 1 %, 40,000 hours). Its fourth part adds no field
+either: a household wants an engine only for a pit it has chosen to set one at, weighing the hours
+it bails there against the engine and its fuel; `technique/atmospheric_engine`,
+`recipe/build_atmospheric_engine` and `activity/build_atmospheric_engine` are the first way of
+making one.

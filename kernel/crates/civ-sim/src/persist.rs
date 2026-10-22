@@ -484,6 +484,8 @@ pub const SCHEMA_V173: u32 = 173;
 pub const SCHEMA_V174: u32 = 174;
 /// Pits held water, before engines pumped them.
 pub const SCHEMA_V175: u32 = 175;
+/// Engines pumped pits, before pits tallied the hours bailed at them.
+pub const SCHEMA_V176: u32 = 176;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

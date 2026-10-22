@@ -3699,7 +3699,7 @@ impl Population {
             .collect();
         let knows = |t: usize| self.household_knows(&hh.members, t);
         let mut wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
-        cap_water_wants(ctx, hh.id, &mut wants);
+        cap_power_wants(ctx, hh.id, &mut wants);
         let me = self.people.get(h).map(|p| p.id);
         let mut free_tools: Vec<f64> = stores
             .iter()
@@ -7225,7 +7225,9 @@ impl Population {
         self.ditches_day(ctx, day);
         // And the mills (M10a slice DR): the households whose day it is weigh one.
         self.mills_day(ctx, day);
-        // And the engines at pits pump them (M10a slice DS, third part).
+        // And the engines at pits pump them (M10a slice DS, third part); the households whose
+        // day it is weigh one (its fourth part).
+        self.engine_reviews(ctx, day);
         if !ctx.land.engines.is_empty() {
             self.engines_day(ctx);
         }
@@ -7429,27 +7431,41 @@ pub(crate) fn power_kw_of(ctx: &Ctx, holder: PermanentId) -> f64 {
         .sum()
 }
 
-/// Caps `holder`'s want of each water-powered tool at the installations it owns whose headraces
-/// are dug (M10a slice DR): a wheel is wanted only where one can be set.
-pub(crate) fn cap_water_wants(ctx: &Ctx, holder: PermanentId, wants: &mut [f64]) {
-    let mut sites = None;
+/// Caps `holder`'s want of each powered tool at the places it has to set one: a wheel at the
+/// installations it owns whose headraces are dug (M10a slice DR), an engine at the pits it has
+/// chosen to set one at (M10a slice DS, fourth part). A wheel or an engine is wanted only where
+/// one can be set.
+pub(crate) fn cap_power_wants(ctx: &Ctx, holder: PermanentId, wants: &mut [f64]) {
+    use crate::params::PowerSource;
+    let (mut sites, mut pits) = (None, None);
     for (g, want) in wants.iter_mut().enumerate() {
-        let water = ctx.catalog.goods.get(g).is_some_and(|x| {
-            x.power
-                .as_ref()
-                .is_some_and(|p| p.source == crate::params::PowerSource::Water)
-        });
-        if water {
-            let n = *sites.get_or_insert_with(|| {
+        let Some(source) = ctx
+            .catalog
+            .goods
+            .get(g)
+            .and_then(|x| x.power.as_ref())
+            .map(|p| p.source)
+        else {
+            continue;
+        };
+        let n = match source {
+            PowerSource::Water => *sites.get_or_insert_with(|| {
                 ctx.land
                     .installations
                     .iter()
                     .enumerate()
                     .filter(|&(i, x)| x.owner == holder && ctx.land.installation_ready(i))
                     .count()
-            });
-            *want = want.min(n as f64);
-        }
+            }),
+            PowerSource::Fuel => *pits.get_or_insert_with(|| {
+                ctx.land
+                    .engines
+                    .iter()
+                    .filter(|e| e.owner == holder)
+                    .count()
+            }),
+        };
+        *want = want.min(n as f64);
     }
 }
 

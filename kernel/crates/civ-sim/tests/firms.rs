@@ -811,3 +811,100 @@ fn a_workshop_in_a_building_of_its_own_hires_there() {
         }
     }
 }
+
+#[test]
+fn a_workshop_holds_its_kiln_wears_it_on_its_books_and_draws_it_back_when_it_closes() {
+    // M10a slice DQ, ADR-0033 §4 (ADR-0006 §5 as decided): a firm holds its fixed tools and
+    // stations, its recipes wear them on its books, and they pass back to its owners with the rest
+    // of its stores when it closes.
+    let mut sim = new_world(3);
+    sim.advance_minutes(24 * 60).expect("advances");
+    let rules = sim.rules().clone();
+    let goods = &rules.catalog.goods;
+    let good = |id: &str| goods.iter().position(|d| d.id == id).expect(id);
+    let (kiln, brick, axe) = (
+        good("core:good/kiln"),
+        good("core:good/brick"),
+        good("core:good/axe"),
+    );
+    let fire = rules
+        .catalog
+        .activities
+        .iter()
+        .position(|a| a.id == "core:activity/fire_bricks")
+        .expect("fire_bricks");
+    let now = sim.now();
+    let (maker, who) = sim
+        .people()
+        .households
+        .iter()
+        .find_map(|(_, h)| {
+            let grown = h.members.iter().copied().find(|&m| {
+                sim.people()
+                    .person(m)
+                    .is_some_and(|p| p.age_years(now) >= 20.0)
+            })?;
+            Some((h.id, grown))
+        })
+        .expect("a household with a grown member");
+    set(
+        &mut sim,
+        maker,
+        &[
+            ("core:good/kiln", 1.0),
+            ("core:good/clay", 400.0),
+            ("core:good/firewood", 400.0),
+        ],
+    );
+    let firm = sim
+        .with_ctx_for_tests(|pop, ctx| pop.found_firm_for_tests(ctx, maker, who, brick))
+        .expect("a workshop");
+    let kilns = |sim: &Sim| {
+        (
+            sim.people().household(maker).expect("maker").stores[kiln],
+            sim.people().firm(firm).expect("firm").stores[kiln],
+        )
+    };
+    // Something that is not a fixed tool is never a station.
+    assert!(!sim.with_ctx_for_tests(|pop, ctx| pop.put_in_station(ctx, firm, axe, 1.0)));
+    // The owners put their kiln in: it is the workshop's now, on its books.
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.put_in_station(ctx, firm, kiln, 1.0)));
+    assert_eq!(kilns(&sim), (0.0, 1.0));
+    let (before, flows_before) = held(sim.people());
+    // A session firing bricks for it wears its kiln, not the owners' (they have none), and makes
+    // its bricks.
+    sim.with_ctx_for_tests(|pop, ctx| pop.firm_make_for_tests(ctx, who, fire, 480, firm));
+    let (home, shop) = kilns(&sim);
+    assert_eq!(home, 0.0);
+    assert!(shop < 1.0 && shop > 0.9, "the kiln wore: {shop}");
+    let f = sim.people().firm(firm).expect("firm");
+    assert!(f.stores[brick] > 0.0, "bricks were made");
+    assert!(
+        f.books
+            .entries
+            .iter()
+            .any(|e| e.kind == BookKind::Used && usize::from(e.good) == kiln),
+        "the wear is on its books"
+    );
+    // Every good is accounted for: what is held now is what was held and what the flows say.
+    let (after, flows_after) = held(sim.people());
+    let net = |f: &civ_agents::person::Flows, g: usize| f.net(g);
+    for g in [kiln, brick] {
+        let change = after[g] - before[g];
+        let flowed = net(&flows_after, g) - net(&flows_before, g);
+        assert!(
+            (change - flowed).abs() < 1e-6,
+            "{}: {change} held against {flowed} flowed",
+            goods[g].id
+        );
+    }
+    // Saved and loaded, the station is the workshop's, to the byte.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "kiln").expect("saves");
+    let mut sim = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(kilns(&sim), (home, shop));
+    // Closed, the workshop draws its kiln back to its owners with the rest of its stores.
+    sim.with_ctx_for_tests(|pop, ctx| pop.close_firm_for_tests(ctx, firm, Exit::Idle));
+    assert_eq!(kilns(&sim), (shop, 0.0));
+}

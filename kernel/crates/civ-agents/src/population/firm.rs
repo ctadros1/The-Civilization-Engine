@@ -38,6 +38,129 @@ impl Population {
             .map(|f| f.id)
     }
 
+    /// `minutes` of `who`'s work at make activity `def` for workshop `id`: for tests.
+    #[doc(hidden)]
+    pub fn firm_make_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        who: PermanentId,
+        def: usize,
+        minutes: u32,
+        id: PermanentId,
+    ) {
+        let (Some(&h), Some(d)) = (self.index.get(&who), ctx.catalog.activities.get(def)) else {
+            return;
+        };
+        let d = d.clone();
+        self.firm_make(ctx, h, &d, minutes, id);
+    }
+
+    /// Workshop `id` closes for `why`: for tests.
+    #[doc(hidden)]
+    pub fn close_firm_for_tests(&mut self, ctx: &Ctx, id: PermanentId, why: Exit) {
+        self.close_firm(ctx, id, why);
+    }
+
+    /// How much of tool `t`'s work the stations workshop `id` holds can do: the fixed tools that
+    /// serve for `t` in its own stores, each only when whole (M10a slice DQ; ADR-0033 §4: a firm
+    /// holds its fixed tools and machines). Tools that are not fixed are never stations: a
+    /// workshop's stock of axes is for sale, not for its work.
+    pub(crate) fn station_for(
+        &self,
+        goods: &[crate::params::GoodDef],
+        id: PermanentId,
+        t: usize,
+    ) -> f64 {
+        let Some(f) = self.firm(id) else {
+            return 0.0;
+        };
+        make::serving(goods, t)
+            .filter(|&g| is_fixed(goods, g))
+            .map(|g| make::in_use(goods, g, f.stores.get(g).copied().unwrap_or(0.0)))
+            .sum()
+    }
+
+    /// Household `owner`'s fixed tool `good`, `amount` of it, put into its open workshop `id` as
+    /// a station (the `owner` channel): the workshop's recipes wear it on its books from then on,
+    /// and it is drawn back with the rest of its stores when it closes. False if it is not a
+    /// fixed tool, not the owners' workshop, or they do not hold it.
+    pub fn put_in_station(&mut self, ctx: &Ctx, id: PermanentId, good: usize, amount: f64) -> bool {
+        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let Some(owner) = self.firm(id).filter(|f| f.is_open()).map(|f| f.owner) else {
+            return false;
+        };
+        if !is_fixed(goods, good) || amount.is_nan() || amount <= 0.0 {
+            return false;
+        }
+        let legs = [Leg {
+            from: owner,
+            to: id,
+            good,
+            amount,
+        }];
+        if !self.transfer(now, params, goods, &legs, Channel::Owner) {
+            return false;
+        }
+        let keep = params.firm.book_entries;
+        if let Some(f) = self.firm_mut(id) {
+            f.books.record(
+                Entry {
+                    at: now,
+                    kind: BookKind::PutIn,
+                    good: good as u16,
+                    amount: amount as f32,
+                    other: Some(owner),
+                },
+                0.0,
+                keep,
+            );
+        }
+        true
+    }
+
+    /// Workshop `id`'s stations for `tools` worn by `hours` of its work, each tool's work done by
+    /// the longest-lived of its stations in use, as [`make::wear`] does a household's; the wear
+    /// is a cost on its books at what the station is worth to its owners.
+    fn wear_stations(&mut self, ctx: &Ctx, id: PermanentId, tools: &[usize], hours: f64) {
+        let goods = &ctx.catalog.goods;
+        let keep = ctx.params.firm.book_entries;
+        let Some(owner) = self.firm(id).map(|f| f.owner) else {
+            return;
+        };
+        let worth = self.worth_to(ctx, owner);
+        let Some(f) = self.firm_mut(id) else {
+            return;
+        };
+        for &t in tools {
+            let held = |g: usize| f.stores.get(g).copied().unwrap_or(0.0);
+            let Some((g, life)) = make::serving(goods, t)
+                .filter(|&g| is_fixed(goods, g) && make::in_use(goods, g, held(g)) > 1e-9)
+                .filter_map(|g| Some((g, goods.get(g)?.tool.as_ref()?.life_h)))
+                .filter(|&(_, life)| life > 0.0)
+                .max_by(|a, b| a.1.total_cmp(&b.1).then(b.0.cmp(&a.0)))
+            else {
+                continue;
+            };
+            let worn = (hours.max(0.0) / life).min(held(g));
+            if worn <= 0.0 {
+                continue;
+            }
+            f.stores[g] -= worn;
+            f.flows.add(Flow::Worn, g, worn);
+            f.books.record(
+                Entry {
+                    at: ctx.now,
+                    kind: BookKind::Used,
+                    good: g as u16,
+                    amount: worn as f32,
+                    other: None,
+                },
+                worn * worth.get(g).copied().unwrap_or(0.0),
+                keep,
+            );
+        }
+    }
+
     /// Household `owner` sets up a workshop to make `good`, founded by `founder`, who is setting
     /// to work making it to sell. Its existing one if it has one.
     pub(super) fn found_firm(
@@ -291,8 +414,16 @@ impl Population {
             f.books.worked(now, hours, hired);
             f.saw_at_once(u8::try_from(at_once).unwrap_or(u8::MAX), now.day_index());
         }
-        // The work is done with the owners' tools.
-        self.wear_tools(ctx, owner, &recipe.tools, hours);
+        // Its stations do the work they can and wear on its books; the owners' tools do the rest.
+        let goods = &ctx.catalog.goods;
+        let (stations, theirs): (Vec<usize>, Vec<usize>) = recipe
+            .tools
+            .iter()
+            .partition(|&&t| self.station_for(goods, id, t) >= crate::decide::MIN_TOOL);
+        if !stations.is_empty() {
+            self.wear_stations(ctx, id, &stations, hours);
+        }
+        self.wear_tools(ctx, owner, &theirs, hours);
         if let (Some((k, s)), Some(p)) = (skill, self.people.get_mut(h)) {
             let next = s.practised(p.skill(k), hours);
             p.set_skill(k, next);
@@ -597,7 +728,7 @@ impl Population {
             let Some(owner) = self.household(f.owner) else {
                 continue;
             };
-            // The work is done with the workshop's owners' tools.
+            // The work is done with the workshop's stations and its owners' tools.
             let Some(recipe) = catalog
                 .activities
                 .get(usize::from(w.activity))
@@ -609,6 +740,7 @@ impl Population {
             if recipe.tools.iter().any(|&t| {
                 let held = |g: usize| owner.stores.get(g).copied().unwrap_or(0.0);
                 make::tools_for(&catalog.goods, t, &held) < crate::decide::MIN_TOOL
+                    && self.station_for(&catalog.goods, f.id, t) < crate::decide::MIN_TOOL
             }) {
                 continue;
             }
@@ -888,4 +1020,13 @@ impl Population {
             f.last_sale = Some(now);
         }
     }
+}
+
+/// Whether good `g` is a fixed tool: one that stays where it is made (an oven, a kiln), which a
+/// workshop may hold as a station.
+fn is_fixed(goods: &[crate::params::GoodDef], g: usize) -> bool {
+    goods
+        .get(g)
+        .and_then(|d| d.tool.as_ref())
+        .is_some_and(|t| t.fixed)
 }

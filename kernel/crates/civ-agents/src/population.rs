@@ -4401,11 +4401,15 @@ impl Population {
             if from_inputs <= 1e-6 {
                 return Err((Reason::NoInputs, None));
             }
-            if let Some(&t) = r
-                .tools
-                .iter()
-                .find(|&&t| free_tools.get(t).copied().unwrap_or(0.0) < decide::MIN_TOOL)
-            {
+            // Made for sale, its workshop's stations do the work they can (M10a slice DQ).
+            let shop = match worth {
+                MakeWorth::Sale { .. } => self.workshop_of(hh_id, out),
+                _ => None,
+            };
+            if let Some(&t) = r.tools.iter().find(|&&t| {
+                free_tools.get(t).copied().unwrap_or(0.0) < decide::MIN_TOOL
+                    && shop.is_none_or(|f| self.station_for(goods, f, t) < decide::MIN_TOOL)
+            }) {
                 return Err((Reason::NoTool, Some(t)));
             }
             let by_time = make::units_in(r, f64::from(a.max_minutes), speed);

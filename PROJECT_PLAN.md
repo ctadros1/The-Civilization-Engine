@@ -5878,6 +5878,20 @@ and M6a gives rivers a daily flow.
         accounted, and no iron held in sixty days where nobody knows the bloomery.
     - **DQ**: the firm's own stations and stages (ADR-0006 §5 as decided), several lines with goods
       in progress, a mill's toll on an appended channel.
+      - *As built, first part (2026-10-22): a firm's own stations.* A workshop may hold fixed
+        tools (a kiln, an oven, later a mill or an engine) in its own stores as stations. Its
+        owners put one in by the `owner` channel (`Population::put_in_station`, on its books as
+        put in); a fixed tool only, since a workshop's stock of tools that are not fixed is for
+        sale. A recipe worked for it uses its stations for the tools they serve, whole only
+        (`make::in_use`), worn on its own stores and books (a `Used` entry valued at what the
+        station is worth to its owners), and its owners' tools for the rest; the owners' making
+        for sale and the work a workshop hires for both count its stations at the tool gate.
+        Closing draws its stations back to its owners with the rest of its stores, as before;
+        its saves need nothing new (a firm's stores are saved by good). Nothing yet puts a
+        station in (the works of slice DT will), so every bench world is unchanged in every
+        section but `meta`. **Tested:** a kiln put in, worn by firing bricks for the workshop on
+        its books with the owners' stores untouched, every good accounted for, saved and loaded
+        to the station, and drawn back on closing; an axe is refused as a station.
     - **DR**: water power at a site (installations, daily kilowatts from discharge, `kwh_per_unit`,
       the water mill) and techniques that answer needs in hours.
     - **DS**: coal and coke, pits that flood below the ground-water head, bailing and pumping, the

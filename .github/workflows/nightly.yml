@@ -48,10 +48,15 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Attach local Rust build directories
+        if: runner.environment == 'self-hosted'
+        run: tools/ci/prepare-workspace.sh
+
       - name: Toolchain (from rust-toolchain.toml)
         run: rustup show active-toolchain
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: runner.environment != 'self-hosted'
         with:
           workspaces: kernel -> target
 
@@ -83,10 +88,15 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Attach local Rust build directories
+        if: runner.environment == 'self-hosted'
+        run: tools/ci/prepare-workspace.sh
+
       - name: Toolchain (from rust-toolchain.toml)
         run: rustup show active-toolchain
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: runner.environment != 'self-hosted'
         with:
           workspaces: kernel -> target
 
@@ -141,10 +151,15 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Attach local Rust build directories
+        if: runner.environment == 'self-hosted'
+        run: tools/ci/prepare-workspace.sh
+
       - name: Toolchain (from rust-toolchain.toml)
         run: rustup show active-toolchain
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: runner.environment != 'self-hosted'
         with:
           workspaces: kernel -> target
 

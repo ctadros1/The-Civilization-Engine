@@ -37,6 +37,10 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Attach local Rust build directories
+        if: runner.environment == 'self-hosted'
+        run: tools/ci/prepare-workspace.sh
+
       - name: Toolchain (from rust-toolchain.toml)
         run: |
           rustup show active-toolchain
@@ -44,6 +48,7 @@ jobs:
           cargo --version
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: runner.environment != 'self-hosted'
         with:
           workspaces: |
             commons -> target
@@ -90,10 +95,15 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Attach local Rust build directories
+        if: runner.environment == 'self-hosted'
+        run: tools/ci/prepare-workspace.sh
+
       - name: Toolchain (from rust-toolchain.toml)
         run: rustup show active-toolchain
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: runner.environment != 'self-hosted'
         with:
           workspaces: kernel -> target
 
@@ -117,6 +127,10 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Attach local Rust build directories
+        if: runner.environment == 'self-hosted'
+        run: tools/ci/prepare-workspace.sh
+
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
@@ -139,6 +153,7 @@ jobs:
         run: rustup show active-toolchain
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: runner.environment != 'self-hosted'
         with:
           workspaces: kernel -> target
 
@@ -175,6 +190,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Attach local Rust build directories
+        if: runner.environment == 'self-hosted'
+        run: tools/ci/prepare-workspace.sh
 
       - name: Cached flatc
         if: runner.environment != 'self-hosted'

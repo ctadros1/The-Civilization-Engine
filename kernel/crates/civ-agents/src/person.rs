@@ -528,10 +528,13 @@ impl Person {
     }
 
     /// Keeps a receipt, dropping the oldest past [`RECEIPT_RING`].
-    pub fn push_receipt(&mut self, receipt: Receipt) {
+    pub fn push_receipt(&mut self, mut receipt: Receipt) {
         if self.receipts.len() == RECEIPT_RING {
             self.receipts.pop_front();
         }
+        // Kept for days: no room beyond what it holds (M9b slice DJ).
+        receipt.others.shrink_to_fit();
+        receipt.excluded.shrink_to_fit();
         self.receipts.push_back(receipt);
     }
 }
@@ -717,6 +720,21 @@ impl Flows {
     }
 }
 
+/// A batch a household started that runs unattended for its recipe's `elapsed_days` (M10a slice
+/// DP, ADR-0033 §2): its inputs were taken when it was started; its outputs are given when someone
+/// of the household opens it, on a session of the same recipe once `ends_day` is reached.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Batch {
+    /// The recipe, by index in the catalog's recipes.
+    pub recipe: usize,
+    /// Units started.
+    pub units: f64,
+    /// Worth of the tools it makes, in standard tools each (1 for other goods).
+    pub quality: f64,
+    /// The first day it may be opened.
+    pub ends_day: i64,
+}
+
 /// People who live and eat together.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Household {
@@ -778,6 +796,20 @@ pub struct Household {
     /// Buildings of its settlement its people heard gave way (M6b slice BH), oldest first, kept
     /// for the years its people remember.
     pub gave_way: Vec<GaveWay>,
+    /// Batches it has started that run unattended (a charcoal burn; M10a slice DP, ADR-0033 §2),
+    /// oldest first: their inputs were taken when started, their outputs come when opened.
+    pub batches: Vec<Batch>,
+    /// What it had made by water-powered ways' outputs when it last weighed a mill (M10a slice
+    /// DR), so the next review reads a year's making from the change; none until its first.
+    pub mill_seen: Option<MillSeen>,
+}
+
+/// A household's count, at a review, of the goods it has made that a water-powered way would
+/// make (M10a slice DR): the day and the kilograms made in all its years by then.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MillSeen {
+    pub day: i64,
+    pub kg: f64,
 }
 
 /// A building of a household's settlement that gave way, as its people heard it told (M6b slice
@@ -794,6 +826,10 @@ pub struct GaveWay {
     pub wall_kind: u8,
     /// The work putting it right would take, hours.
     pub hours: f32,
+    /// Its storeys (M8d slice DB).
+    pub storeys: u8,
+    /// Whether its mass walls were tied at each floor (M8d slice DB).
+    pub tied: bool,
 }
 
 /// A building a household lost to fire, or that its people saw burn (M6b slice BH; ADR-0022
@@ -1162,9 +1198,11 @@ impl Household {
                 }
             }
             if g.purpose == GoodUse::Fuel && burned > 0.0 {
-                let take = burned.min(*kg);
+                // `burned` is in kilograms of the first fuel; another burns by its heat.
+                let per_kg = crate::params::fuel_ratio(goods, i);
+                let take = (burned / per_kg).min(*kg);
                 *kg -= take;
-                burned -= take;
+                burned -= take * per_kg;
             }
         }
         out
@@ -1235,13 +1273,14 @@ pub fn reserve_food_kcal(stores: &[f64], goods: &[GoodDef]) -> f64 {
         .sum()
 }
 
-/// Firewood in a set of stores, kilograms.
+/// Fuel in a set of stores, in kilograms of the first fuel (firewood) by heat (M10a slice DP).
 pub fn fuel_kg(stores: &[f64], goods: &[GoodDef]) -> f64 {
     stores
         .iter()
         .zip(goods)
-        .filter(|(_, g)| g.purpose == GoodUse::Fuel)
-        .map(|(kg, _)| kg.max(0.0))
+        .enumerate()
+        .filter(|(_, (_, g))| g.purpose == GoodUse::Fuel)
+        .map(|(i, (kg, _))| kg.max(0.0) * crate::params::fuel_ratio(goods, i))
         .sum()
 }
 
@@ -1262,6 +1301,7 @@ fn burned_kg(t0: i64, t1: i64, per_day: &dyn Fn(i64) -> f64) -> f64 {
 mod tests {
     use super::*;
     use crate::params::Eaten;
+    use crate::params::GoodFuel;
 
     #[test]
     fn trips_interpolate_between_vertices() {
@@ -1314,11 +1354,15 @@ mod tests {
             ditch_worth: 0.0,
             fire_losses: Vec::new(),
             gave_way: Vec::new(),
+            batches: Vec::new(),
+            mill_seen: None,
         }
     }
 
     fn goods() -> Vec<GoodDef> {
         let good = |id: &str, purpose, kcal, half, eaten| GoodDef {
+            fuel: None,
+            power: None,
             money: None,
             id: id.into(),
             name: id.into(),
@@ -1489,5 +1533,43 @@ mod tests {
             "meat must be cooked; nuts need no fire"
         );
         assert_eq!(fuel_kg(&later, &goods), 0.0);
+    }
+
+    #[test]
+    fn a_hearth_burns_a_second_fuel_by_its_heat() {
+        // Firewood at 15.6 MJ a kilogram is the measure; a fuel giving twice the heat burns half
+        // the weight once the firewood is gone (M10a slice DP, ADR-0033 §1).
+        let mut goods = goods();
+        goods[2].fuel = Some(GoodFuel {
+            mj_per_kg: 15.6,
+            smoke: 1.0,
+        });
+        let mut dense = goods[2].clone();
+        dense.id = "dense".into();
+        dense.fuel = Some(GoodFuel {
+            mj_per_kg: 31.2,
+            smoke: 0.2,
+        });
+        goods.push(dense);
+        let per_day = |_: i64| 10.0;
+        let h = household(vec![0.0, 0.0, 15.0, 20.0]);
+        let s = h.stores_at_time(SimTime::from_minutes(3 * 1440), &goods, &per_day);
+        assert_eq!(s[2], 0.0, "firewood first, all of it");
+        assert!(
+            (s[3] - (20.0 - 7.5)).abs() < 1e-9,
+            "15 kg of the 30 at half weight: {}",
+            s[3]
+        );
+        assert!(
+            (fuel_kg(&s, &goods) - 25.0).abs() < 1e-9,
+            "12.5 kg stands for 25 of firewood"
+        );
+        // With firewood alone the weight burned is the need, to the bit.
+        let alone = household(vec![0.0, 0.0, 15.0, 0.0]).stores_at_time(
+            SimTime::from_minutes(1440),
+            &goods,
+            &per_day,
+        );
+        assert_eq!(alone[2], 5.0);
     }
 }

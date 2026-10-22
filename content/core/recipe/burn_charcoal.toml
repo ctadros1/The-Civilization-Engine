@@ -1,0 +1,18 @@
+# Burning charcoal: 5 kg of wood a kilogram (20 % yield; 15-25 %, research 07-05 §2.1), about
+# 60 hours of stacking, covering, tending and unloading a tonne (20-100, 07-05 §2.3), and a burn
+# that runs ten days whoever tends it, a small mound's carbonising and cooling (an earth mound's
+# whole cycle 24 days, 07-05 §2.1). Active labour is not elapsed time (08-03 §1.1). Tuning values
+# within those envelopes.
+kind = "recipe"
+id = "core:recipe/burn_charcoal"
+name = "Burn charcoal"
+skill = "core:skill/pottery"
+technique = "core:technique/charcoal_burning"
+unit_h = 0.06
+session_h = 2.0
+max_units = 200.0
+tools = []
+inputs = [{ good = "core:good/firewood", amount = 5.0 }]
+outputs = [{ good = "core:good/charcoal", amount = 1.0 }]
+session_inputs = []
+elapsed_days = 10.0

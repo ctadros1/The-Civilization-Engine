@@ -1,0 +1,13 @@
+# A bloom: the spongy lump of iron and slag drawn from a bloomery once it has cooled (research
+# 07-05 §1.2: bloomery iron is reduced in the solid state, and the bloom holds metal and slag and
+# needs consolidating before it is stock). Weighed by the kilogram. It keeps.
+kind = "good"
+id = "core:good/iron_bloom"
+name = "Iron bloom"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

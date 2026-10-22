@@ -384,6 +384,14 @@ impl Population {
             if !home || members == 0 {
                 continue;
             }
+            // No fire in use is tended in a household-resolved settlement (ADR-0032 §2).
+            if self
+                .household(b.household)
+                .and_then(|x| x.settlement)
+                .is_some_and(|s| self.resolved_settlement(s))
+            {
+                continue;
+            }
             let mean = ignition_bound(p, members) * scale * 24.0;
             let mut rng = Rng64::from_key(&[ctx.seed, PURPOSE_IGNITE, b.id.get(), day as u64]);
             let count = civ_land::poisson_quantile(mean, rng.next_f64());
@@ -1359,6 +1367,13 @@ impl Population {
     fn kindle(&mut self, ctx: &mut Ctx, b: &Building, kindled: Kindled) -> u32 {
         let id = self.fires.list.len() as u32 + 1;
         let settlement = self.household(b.household).and_then(|x| x.settlement);
+        // A fire not put out before it reached a roof: measured against what a watch tower would
+        // answer (M8d slice DC).
+        if let Some(pi) = settlement.and_then(|s| self.polity_of(s)) {
+            self.polities[pi]
+                .measured_mut(ctx.now.date().year)
+                .roof_fires += 1;
+        }
         self.fires.list.push(Fire {
             id,
             building: b.id,
@@ -1497,7 +1512,8 @@ impl Population {
     }
 
     /// Who comes to know of the fires burning now, and the shouts (ADR-0022 §6-§7). Anyone awake
-    /// within sight of a burning building notices it, or is inside it; each fire they see or are
+    /// within sight of a burning building notices it, or is inside it, and anyone at a polity's
+    /// watch tower sees further (M8d slice DC); each fire they see or are
     /// in is a record of theirs. Whoever comes to know of a conflagration (or lone fire) they did
     /// not know of shouts, those who saw it at once and those who heard a shout the minute after:
     /// anyone within earshot who did not know of it hears, waking if asleep. Anyone awake who
@@ -1545,6 +1561,10 @@ impl Population {
                 knows_root.insert((root, k.person));
             }
         }
+        // Where a polity's watch tower stands: anyone at one sees further (M8d slice DC).
+        let towers: Vec<(f32, f32)> = (0..self.polities.len())
+            .filter_map(|pi| self.tower_at(ctx, pi))
+            .collect();
         // Those in or within sight of a fire who did not know of it.
         let mut seen: Vec<(Handle<Person>, Knew, bool)> = Vec::new();
         for (h, q) in self.people.iter() {
@@ -1552,9 +1572,17 @@ impl Population {
                 continue;
             }
             let at = q.position_at(t);
+            let up = towers.iter().any(|&(x, y)| {
+                f64::from(at.0 - x).hypot(f64::from(at.1 - y)) <= super::raising::AT_TOWER_M
+            });
+            let reach = if up {
+                sight.max(super::raising::TOWER_SIGHT_M)
+            } else {
+                sight
+            };
             for &(fire, root, ref o) in &burning {
                 let d = outside(o, at);
-                if d > sight || knows_fire.contains(&(fire, q.id)) {
+                if d > reach || knows_fire.contains(&(fire, q.id)) {
                     continue;
                 }
                 let how = if q.trip.is_none() && within(o, at) {
@@ -2068,6 +2096,8 @@ impl Population {
                 });
             }
         }
+        // Measured against its polity if nobody saw it for a while (M8d slice DC).
+        self.measure_late_fire(fire, f64::from(hours));
     }
 
     /// Fire `i` has burnt out: it ends, its household's buildings are weighed against what they

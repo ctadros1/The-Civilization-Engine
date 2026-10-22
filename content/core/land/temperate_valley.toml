@@ -410,6 +410,27 @@ half_rate_stock_per_ha = 5.0
 # of exposed bodies). Rare: a tuning value.
 stock_per_ha = [0.0, 0.0, 0.0, 0.0, 2.0]
 
+[[resource]]
+id = "iron_ore"
+name = "Bog iron ore"
+good = "core:good/iron_ore"
+unit_kg = 1.0
+discrete = false
+in_water = false
+range_patches = 1
+# Cutting lumps of bog ore out of wet ground with a spade and picking them clean: a tuning value
+# (research 07-05 gives no gathering rates; the brief's §1.2 puts bog ore in wet ground).
+max_rate_per_hour = 6.0
+half_rate_stock_per_ha = 10.0
+
+[resource.deposit]
+# Ore a hectare holds by habitat: bog ore forms where iron-bearing water seeps out in wet margins,
+# a little on damp floodplain (docs/briefs/m10-power.md §1.2; research 07-05 §1.1: every deposit
+# has its own small, persistent material profile). It is a stock, never renewed in a lifetime.
+# Tuning values. Iron ore is a gathered resource and not a placed body (`[[deposit]]`), because a
+# new body takes a permanent id after the founders' and would move every later id in every world.
+stock_per_ha = [0.0, 30.0, 3.0, 0.0, 0.0]
+
 # Deposits: bodies in the ground, placed once from the seed and never renewed (ADR-0010 §1;
 # content API 18), beside the loose stone and flint above. The research says where they lie only
 # in words (03-05 §1.1-1.2): clay in floodplains and old channels, often under cover; stone where

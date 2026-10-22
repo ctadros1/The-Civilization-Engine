@@ -113,8 +113,13 @@ storm():number {
   return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
 }
 
+quake():number {
+  const offset = this.bb!.__offset(this.bb_pos, 36);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
 static startIncidentRow(builder:flatbuffers.Builder) {
-  builder.startObject(16);
+  builder.startObject(17);
 }
 
 static addKind(builder:flatbuffers.Builder, kind:number) {
@@ -179,6 +184,10 @@ static addFlood(builder:flatbuffers.Builder, flood:number) {
 
 static addStorm(builder:flatbuffers.Builder, storm:number) {
   builder.addFieldInt32(15, storm, 0);
+}
+
+static addQuake(builder:flatbuffers.Builder, quake:number) {
+  builder.addFieldInt32(16, quake, 0);
 }
 
 static endIncidentRow(builder:flatbuffers.Builder):flatbuffers.Offset {

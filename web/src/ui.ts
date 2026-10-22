@@ -126,8 +126,14 @@ export interface Actions {
   select(id: number | null): void;
   /** Inspect a person and centre the map on them. */
   focusPerson(id: number): void;
-  /** Centre the map on a settlement. */
+  /** Centre the map on a settlement; under resolution by focus, it is lived in detail. */
   focusSettlement(id: number): void;
+  /** Settlements away from the focus lived by household, or not (wire 1.93, ADR-0032 §6). */
+  setResolutionByFocus(on: boolean): void;
+  /** Hold a settlement in detail under resolution by focus, or let it go. */
+  pinSettlement(id: number, pinned: boolean): void;
+  /** The settlements the observer holds in detail. */
+  resolutionPins(): number[];
   /** Open a workshop's page in the workshops panel (null goes back to the list). */
   openFirm(id: number | null): void;
   /** Shows incidents of one kind in the Incidents panel: 0 every kind, 1 takings, 2 illness, 4
@@ -140,11 +146,14 @@ export interface Actions {
   openIncident(kind: number, id: number): void;
   openOutbreak(id: number): void;
   openConflagration(id: number): void;
+  /** Opens a shaking's page in the Incidents panel (wire 1.91). */
+  openQuake(id: number): void;
   closeIncidentPage(): void;
   /** Centres the map on a point, metres (the camera moves only when asked). */
   locate(xM: number, yM: number): void;
-  /** Run ahead by `minutes` of simulated time. */
-  runAhead(minutes: number): Promise<void>;
+  /** Run ahead by `minutes` of simulated time; as a skip, stopping too at the entries marked in
+   * `stopOn` (wire 1.95, ADR-0032 §7). */
+  runAhead(minutes: number, skip: boolean, stopOn: number): Promise<void>;
   /**
    * Arm or disarm the map tool that sends families where the map is clicked, and set how many
    * come together.
@@ -178,6 +187,11 @@ export interface Actions {
   /** Hold back the rain for `months` months, `depth` standard deviations dry (god tool, M6a
    * slice BA). */
   drought(months: number, depth: number): Promise<void>;
+  /** Changes the climate (wire 1.96, ADR-0032 §9). */
+  forceClimate(offsetC: number, wetFactor: number, rampYears: number): Promise<void>;
+  /** Shake the ground over the whole map with a sideways share `strength` of every building's
+   * weight (god tool, M8d slice DA). */
+  shake(strength: number): Promise<void>;
 }
 
 const MAX_SEED = (1n << 64n) - 1n;
@@ -553,10 +567,17 @@ export function bindUi(store: Store, actions: Actions): void {
   };
   $("btn-run").addEventListener("click", toggleRun);
   const runAhead = $<HTMLSelectElement>("run-ahead");
+  const skipAhead = $<HTMLInputElement>("skip-ahead");
+  const skipStop = $<HTMLSelectElement>("skip-stop");
   runAhead.addEventListener("change", () => {
     const minutes = Number(runAhead.value);
     runAhead.value = "";
-    if (minutes > 0) void attempt(() => actions.runAhead(minutes));
+    const skip = skipAhead.checked;
+    const stopOn = skip ? Number(skipStop.value) : 0;
+    if (minutes > 0) void attempt(() => actions.runAhead(minutes, skip, stopOn));
+  });
+  skipAhead.addEventListener("change", () => {
+    skipStop.disabled = runAhead.disabled || !skipAhead.checked;
   });
   const addFamily = $<HTMLButtonElement>("add-family");
   const familyCount = $<HTMLSelectElement>("family-count");
@@ -597,6 +618,21 @@ export function bindUi(store: Store, actions: Actions): void {
     const months = Number($<HTMLSelectElement>("drought-months").value) || 12;
     const depth = Number($<HTMLSelectElement>("drought-depth").value) || 1.5;
     void actions.drought(months, depth);
+  });
+  // The climate (M9c slice DM): a choice of changes, each "offset,factor,years".
+  const forceClimate = $<HTMLSelectElement>("force-climate");
+  forceClimate.addEventListener("change", () => {
+    const [offset, factor, years] = forceClimate.value.split(",").map(Number);
+    forceClimate.value = "";
+    if (factor !== undefined && years !== undefined && offset !== undefined) {
+      void actions.forceClimate(offset, factor, years);
+    }
+  });
+  const shakeGround = $<HTMLSelectElement>("shake-ground");
+  shakeGround.addEventListener("change", () => {
+    const strength = Number(shakeGround.value);
+    shakeGround.value = "";
+    if (strength > 0) void actions.shake(strength);
   });
   document.addEventListener("keydown", (event) => {
     if (event.key !== " " || isTyping(event.target)) return;
@@ -1319,20 +1355,27 @@ export function bindUi(store: Store, actions: Actions): void {
           ),
         );
       }
+      // Someone whose settlement is lived by household is in a block of their day (wire 1.94,
+      // ADR-0032 §6), not a step of a decision.
+      const brief = state.snapshot?.people.find((b) => b.id === p.id);
+      const block = brief && brief.blockUntilMinute > 0 ? brief : null;
       nodes.push(
         el(
           "p",
           { className: "doing" },
           el("span", { className: "dot" }),
-          p.doing,
+          block ? activityName(welcome, block.activity) : p.doing,
           el("span", {
             className: "since",
-            text: `since ${formatClockTime(p.sinceMinute, now)} · this step ends ${formatClockTime(p.untilMinute, now)}`,
+            text: block
+              ? `their day lived by household · this block ends ${formatClockTime(block.blockUntilMinute, now)}`
+              : `since ${formatClockTime(p.sinceMinute, now)} · this step ends ${formatClockTime(p.untilMinute, now)}`,
           }),
         ),
       );
       const dot = nodes[nodes.length - 1]?.firstChild as HTMLElement | null;
-      if (dot) dot.style.background = cssColour(activityColour(welcome?.activities[p.activity]));
+      const shown = block ? block.activity : p.activity;
+      if (dot) dot.style.background = cssColour(activityColour(welcome?.activities[shown]));
       const needs = el("dl", { className: "needs" });
       needs.append(...meter("Hunger", p.hunger, 0.5));
       needs.append(...meter("Tiredness", p.sleepPressure));
@@ -1524,7 +1567,10 @@ export function bindUi(store: Store, actions: Actions): void {
         s.contacts,
         s.coalitions,
         s.style,
+        s.householdResolved,
       ]),
+      state.snapshot?.clock?.resolutionByFocus ?? false,
+      actions.resolutionPins(),
       state.welcome?.activities.length ?? 0,
     ]);
     if (key === peopleKey) return;
@@ -1542,11 +1588,39 @@ export function bindUi(store: Store, actions: Actions): void {
       );
       return;
     }
-    const nodes: Node[] = settlements.map((s) =>
+    // Resolution by focus (wire 1.93, M9b slice DK, ADR-0032 §6): off, every settlement is lived
+    // in detail; on, those away from the one last chosen here, and not held, by household.
+    const byFocus = state.snapshot?.clock?.resolutionByFocus ?? false;
+    const pins = actions.resolutionPins();
+    const nodes: Node[] = [];
+    if (settlements.length > 3) {
+      const toggle = el("input");
+      toggle.type = "checkbox";
+      toggle.id = "resolution-by-focus";
+      toggle.checked = byFocus;
+      toggle.addEventListener("change", () => actions.setResolutionByFocus(toggle.checked));
+      const label = el(
+        "label",
+        { className: "resolution" },
+        toggle,
+        " Live settlements away from the one you choose by household, a day at a time",
+      );
+      label.htmlFor = toggle.id;
+      nodes.push(el("p", {}, label));
+    }
+    const pinButton = (id: number): HTMLElement => {
+      const pinned = pins.includes(id);
+      const b = el("button", { className: "pin", text: pinned ? "Let go" : "Hold in detail" });
+      b.addEventListener("click", () => actions.pinSettlement(id, !pinned));
+      return b;
+    };
+    nodes.push(...settlements.map((s) =>
       el(
         "p",
         {},
         link(s.name, () => actions.focusSettlement(s.id)),
+        s.householdResolved ? el("span", { className: "badge", text: "lived by household" }) : "",
+        byFocus && s.abandonedMinute < 0 ? pinButton(s.id) : "",
         ` · ${s.population} people · food for ${formatDays(s.foodDays)}`,
         s.harvestKg > 0 ? ` · harvest so far ${formatKg(s.harvestKg)}` : "",
         s.foodShort && s.abandonedMinute < 0
@@ -1574,7 +1648,7 @@ export function bindUi(store: Store, actions: Actions): void {
           .filter((b) => b.from === s.id)
           .map((b) => el("span", { className: "since band", text: `${b.words}.` })),
       ),
-    );
+    ));
     nodes.push(
       el("p", {
         className: "empty",
@@ -1649,6 +1723,7 @@ export function bindUi(store: Store, actions: Actions): void {
             const open = link("Open", () => {
               if (kind === 3) actions.openOutbreak(id);
               else if (kind === 5) actions.openConflagration(id);
+              else if (kind === 12) actions.openQuake(id);
               else actions.openIncident(kind, id);
               $("incidents-panel").scrollIntoView({ block: "nearest" });
             });
@@ -2258,6 +2333,9 @@ export function bindUi(store: Store, actions: Actions): void {
     if (w.drought) {
       nodes.push(el("p", { className: "weather-drought", text: `${w.drought}.` }));
     }
+    if (w.climate) {
+      nodes.push(el("p", { className: "weather-climate", text: `${w.climate}.` }));
+    }
     nodes.push(
       el("p", {
         className: "aside",
@@ -2482,6 +2560,17 @@ export function bindUi(store: Store, actions: Actions): void {
           ),
         );
       }
+      // The buildings its laws raise together (wire 1.92, M8d slice DC).
+      if (p.projects.length > 0) {
+        const projects = el(
+          "details",
+          { className: "projects" },
+          el("summary", { text: "Buildings raised together" }),
+          el("ul", {}, ...p.projects.map((v) => el("li", { text: v }))),
+        );
+        projects.open = true;
+        block.append(projects);
+      }
       // Its custom's versions, once it has been amended (wire 1.35, ADR-0017 §1).
       if (p.customHistory.length > 1) {
         block.append(
@@ -2691,10 +2780,10 @@ export function bindUi(store: Store, actions: Actions): void {
   const SVG_NS = "http://www.w3.org/2000/svg";
   const capitalise = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
   /** One incident as a list item: its three layers, each labelled, and a way to its page. */
-  /** Whom an incident's words begin with, as a link: a person to focus, or a fire's building to
-   * find on the map. */
+  /** Whom an incident's words begin with, as a link: a person to focus, or a building that burned
+   * or was shaken, to find on the map. */
   const whoLink = (r: IncidentRow): HTMLElement =>
-    r.kind === 4
+    r.kind === 4 || r.kind === 11
       ? link(r.whoName, () => actions.locate(r.at[0], r.at[1]))
       : link(r.whoName, () => actions.focusPerson(r.who));
   const incidentItem = (r: IncidentRow): HTMLElement => {
@@ -2806,7 +2895,9 @@ export function bindUi(store: Store, actions: Actions): void {
                   ? link(capitalise(l.words), () => actions.openIncident(4, l.id))
                   : l.target === "conflagration"
                     ? link(capitalise(l.words), () => actions.openConflagration(l.id))
-                    : capitalise(l.words),
+                    : l.target === "quake"
+                      ? link(capitalise(l.words), () => actions.openQuake(l.id))
+                      : capitalise(l.words),
             ),
           ),
         ),
@@ -2901,6 +2992,31 @@ export function bindUi(store: Store, actions: Actions): void {
     if (page.error) nodes.push(el("p", { className: "note", text: `Not up to date: ${page.error}` }));
     return nodes;
   };
+  const quakePageNodes = (page: NonNullable<AppState["quakePage"]>): Node[] => {
+    const back = link("Back to the incidents", () => actions.closeIncidentPage());
+    back.classList.add("incident-back");
+    if (!page.info) {
+      return [
+        back,
+        page.error
+          ? el("p", { className: "form-error", text: `The shaking could not be read: ${page.error}` })
+          : el("p", { className: "empty", text: "Asking the host…" }),
+      ];
+    }
+    const q = page.info;
+    const nodes: Node[] = [
+      back,
+      el("h3", { className: "quake-title", text: `${q.row.words}.` }),
+      el("p", { className: "quake-cause", text: `${q.cause}.` }),
+      layerBlock("layer-truth", "What it did (the kernel's truth)", q.summary),
+      el("h4", { text: `Buildings that fell or cracked (${q.incidents.length})` }),
+      q.incidents.length === 0
+        ? el("p", { className: "empty", text: "Every building it reached stood." })
+        : el("ol", { className: "incidents quake-buildings" }, ...q.incidents.map(incidentItem)),
+    ];
+    if (page.error) nodes.push(el("p", { className: "note", text: `Not up to date: ${page.error}` }));
+    return nodes;
+  };
   const renderIncidents = (state: AppState) => {
     const world = state.snapshot?.world ?? null;
     const key = [
@@ -2912,6 +3028,7 @@ export function bindUi(store: Store, actions: Actions): void {
       state.incidentPage,
       state.outbreakPage,
       state.conflagrationPage,
+      state.quakePage,
     ];
     if (key.length === incidentsRenderKey.length && key.every((k, i) => k === incidentsRenderKey[i])) return;
     incidentsRenderKey = key;
@@ -2925,6 +3042,10 @@ export function bindUi(store: Store, actions: Actions): void {
     }
     if (state.conflagrationPage) {
       incidentsBody.replaceChildren(...conflagrationPageNodes(state.conflagrationPage));
+      return;
+    }
+    if (state.quakePage) {
+      incidentsBody.replaceChildren(...quakePageNodes(state.quakePage));
       return;
     }
     if (state.incidentPage) {
@@ -2992,6 +3113,25 @@ export function bindUi(store: Store, actions: Actions): void {
               "li",
               { className: "conflagration" },
               `${c.words}${c.observer > 0 ? " (the observer's)" : ""}. `,
+              open,
+            );
+          }),
+        ),
+      );
+    }
+    if ((state.incidentKind === 0 || state.incidentKind === 11) && inc.quakes.length > 0) {
+      nodes.push(
+        el("h4", { text: "Shakings" }),
+        el(
+          "ul",
+          { className: "quakes" },
+          ...inc.quakes.map((q) => {
+            const open = link("Open", () => actions.openQuake(q.id));
+            open.classList.add("quake-open");
+            return el(
+              "li",
+              { className: "quake" },
+              `${q.words}${q.observer > 0 ? " (the observer's)" : ""}. `,
               open,
             );
           }),
@@ -3189,6 +3329,9 @@ export function bindUi(store: Store, actions: Actions): void {
     $<HTMLButtonElement>("btn-save").disabled = !open || !world;
     $<HTMLButtonElement>("btn-load").disabled = !open || !!task;
     $<HTMLSelectElement>("run-ahead").disabled = !open || !world || !!task;
+    $<HTMLInputElement>("skip-ahead").disabled = !open || !world || !!task;
+    $<HTMLSelectElement>("skip-stop").disabled =
+      !open || !world || !!task || !$<HTMLInputElement>("skip-ahead").checked;
     const placing = $<HTMLButtonElement>("add-family");
     placing.disabled = !open || !world;
     placing.setAttribute("aria-pressed", String(state.placing));
@@ -3250,6 +3393,10 @@ export function bindUi(store: Store, actions: Actions): void {
     const rain = $<HTMLButtonElement>("hold-rain");
     rain.disabled = !open || !world;
     for (const id of ["drought-months", "drought-depth"]) $<HTMLSelectElement>(id).disabled = rain.disabled;
+    // The climate (M9c slice DM).
+    $<HTMLSelectElement>("force-climate").disabled = rain.disabled;
+    // The shaking (M8d slice DA): the whole map, once.
+    $<HTMLSelectElement>("shake-ground").disabled = !open || !world;
     // The fire (M6b slice BC): the building clicked is set alight.
     const fire = $<HTMLButtonElement>("set-fire");
     fire.disabled = !open || !world;

@@ -242,6 +242,26 @@ select {
   margin-left: 6px;
 }
 
+.skip-ahead {
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+#skip-ahead {
+  width: auto;
+}
+
+#skip-stop {
+  width: auto;
+}
+
+/* A tool at the top of a panel: the weather's change of climate (M9c slice DM). */
+.panel-tool {
+  width: auto;
+  max-width: 100%;
+  margin: 0 0 8px;
+}
+
 #family-count {
   width: auto;
   padding: 4px 6px;
@@ -1655,7 +1675,8 @@ button.link:hover {
 }
 .incidents-panel .incident-totals,
 .incidents-panel .outbreaks,
-.incidents-panel .conflagrations {
+.incidents-panel .conflagrations,
+.incidents-panel .quakes {
   margin: 0.4rem 0;
   padding-left: 1.2rem;
 }
@@ -1668,7 +1689,8 @@ button.link:hover {
 }
 .incidents-panel .incident-open,
 .incidents-panel .outbreak-open,
-.incidents-panel .conflagration-open {
+.incidents-panel .conflagration-open,
+.incidents-panel .quake-open {
   font-size: 0.85em;
 }
 .incidents-panel .incident-steps {

@@ -12,11 +12,16 @@
 
 #![forbid(unsafe_code)]
 
+mod focus;
 pub mod frames;
 pub mod labels;
 pub mod persist;
 pub mod relations;
+pub mod skip;
 
+pub use focus::{DETAILED_AT_LEAST_DAYS, DETAILED_UP_TO, FocusPolicy};
+
+use std::collections::BTreeSet;
 use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -317,6 +322,37 @@ impl fmt::Display for SimError {
 
 impl std::error::Error for SimError {}
 
+/// What a switch of resolution is checked against (ADR-0032 §3): the invariants, what is held
+/// and the books.
+type SwitchCheck = (
+    civ_agents::population::SwitchInvariants,
+    Vec<f64>,
+    civ_agents::person::Flows,
+);
+
+fn switch_check(people: &Population, land: &Land) -> SwitchCheck {
+    (
+        people.switch_invariants(land),
+        people.goods_held(),
+        people.flows(),
+    )
+}
+
+/// With debug checks on (the suite's profile), a switch of resolution changes nobody, no holding
+/// and no good beyond what the books account for (ADR-0032 §3).
+fn check_switch(before: &SwitchCheck, after: &SwitchCheck) {
+    debug_assert_eq!(before.0, after.0, "a switch of resolution changed a record");
+    debug_assert!(
+        civ_agents::population::unaccounted(
+            before.1.len().max(after.1.len()),
+            (&before.1, &before.2),
+            (&after.1, &after.2),
+        )
+        .is_empty(),
+        "a switch of resolution left goods unaccounted"
+    );
+}
+
 /// One world and everything the kernel knows about it.
 #[derive(Debug)]
 pub struct Sim {
@@ -330,6 +366,14 @@ pub struct Sim {
     /// How the kernel advances now, and a change of mode held for the next midnight.
     mode: Mode,
     mode_next: Option<Mode>,
+    /// The settlements to be household-resolved from the next midnight (ADR-0032 §1), and
+    /// whether people's execution is to be brought in line before the next event (after a load,
+    /// or a change made while the clock stands at a midnight). A setting, never saved.
+    resolution_next: Option<BTreeSet<civ_core::PermanentId>>,
+    reconcile_due: bool,
+    /// Resolutions chosen at each midnight from the observer's focus (ADR-0032 §6), when the
+    /// observer has turned it on. A setting, never saved.
+    focus_policy: Option<FocusPolicy>,
     /// The approximations Accelerated mode makes (ADR-0011 §4): all it declares, unless a test
     /// has switched some off. Detailed mode makes none. A setting, never saved.
     approximations: Approximations,
@@ -524,7 +568,7 @@ impl Sim {
         let mut placed = sizes.len();
         while placed > 0 {
             match sim.found_bands(&sizes[..placed]) {
-                Ok(founded) if placed == sizes.len() => {
+                Ok(founded) if founded.len() == sizes.len() => {
                     if request.neighbours_known {
                         let day = sim.now().day_index();
                         sim.people.know_each_other(&founded, day);
@@ -537,7 +581,8 @@ impl Sim {
                         sim.people.know_each_other(&founded, day);
                     }
                     sim.founding_problem = Some(format!(
-                        "only {placed} of {} founding groups found room for fields apart",
+                        "only {} of {} founding groups found room for fields apart",
+                        founded.len(),
                         sizes.len()
                     ));
                     break;
@@ -910,6 +955,19 @@ impl Sim {
         self.influence(|people, ctx| people.drought(ctx, months, depth))
     }
 
+    /// The observer forces the background climate (god tool, M9c slice DM; ADR-0032 §9): every
+    /// temperature normal `offset_c` °C warmer or cooler and wet days' amounts times
+    /// `wet_factor`, reached over `ramp_years` years from tomorrow and held after. What follows,
+    /// in snow, water, dryness, soils and harvests, is the world's.
+    pub fn force_climate(
+        &mut self,
+        offset_c: f64,
+        wet_factor: f64,
+        ramp_years: u32,
+    ) -> Result<civ_agents::population::Reached, String> {
+        self.influence(|people, ctx| people.force_climate(ctx, offset_c, wet_factor, ramp_years))
+    }
+
     /// The observer sets building `building`'s covering alight (god tool, M6b slice BC; ADR-0022
     /// §14). It burns as any fire does: whether it spreads, and what it takes, is the fire's and
     /// the weather's.
@@ -958,6 +1016,20 @@ impl Sim {
             return Err("wind direction must be finite and in 0 to 360 degrees".to_owned());
         }
         self.influence(|people, ctx| people.send_storm(ctx, wind_speed_ms, direction_deg))
+    }
+
+    /// The observer shakes the ground under `settlement`, or the whole map, with a lateral share
+    /// `strength` of every building's weight (god tool, M8d slice DA; ADR-0031 §4). Every standing
+    /// building is checked once in its lateral modes.
+    pub fn shake(
+        &mut self,
+        strength: f64,
+        settlement: Option<civ_core::PermanentId>,
+    ) -> Result<civ_agents::population::Reached, String> {
+        if !strength.is_finite() {
+            return Err("a shaking's strength must be finite".to_owned());
+        }
+        self.influence(|people, ctx| people.shake(ctx, strength, settlement))
     }
 
     /// Runs god tool `tool` on the people with a context for now, then schedules what it planned.
@@ -1041,6 +1113,9 @@ impl Sim {
             speed: SPEED_1X,
             mode: Mode::Detailed,
             mode_next: None,
+            resolution_next: None,
+            reconcile_due: true,
+            focus_policy: None,
             approximations: Approximations::ACCELERATED,
             carry_seconds: 0.0,
             content,
@@ -1151,6 +1226,104 @@ impl Sim {
             seed,
             0x6761_7465_6221,
         ]));
+    }
+
+    /// The settlements household-resolved now (ADR-0032 §1).
+    pub fn household_resolved(&self) -> &BTreeSet<civ_core::PermanentId> {
+        self.people.household_resolved()
+    }
+
+    /// Makes `settlements` the household-resolved ones (ADR-0032 §1, §3), the rest Detailed: at
+    /// the next midnight, after the day's work there, their people parked and their day lived
+    /// then; or, if the clock stands at a midnight, before the next event, the day there already
+    /// lived. A setting, never saved: a world loaded is wholly Detailed until it is set again.
+    pub fn set_household_resolved(
+        &mut self,
+        settlements: impl IntoIterator<Item = civ_core::PermanentId>,
+    ) {
+        let set: BTreeSet<_> = settlements.into_iter().collect();
+        if self.now().minute_of_day() == 0 {
+            self.people.set_household_resolved(set);
+            self.resolution_next = None;
+            self.reconcile_due = true;
+        } else {
+            self.resolution_next = Some(set);
+        }
+    }
+
+    /// Has the settlements household-resolved chosen at each midnight from the observer's focus
+    /// (ADR-0032 §6), or, turned off, every settlement Detailed from the next midnight. Off is
+    /// how every world begins (ADR-0032 §5). A setting, never saved.
+    pub fn set_resolution_by_focus(&mut self, on: bool) {
+        match (on, self.focus_policy.is_some()) {
+            (true, false) => self.focus_policy = Some(FocusPolicy::default()),
+            (false, true) => {
+                self.focus_policy = None;
+                self.set_household_resolved(std::iter::empty());
+            }
+            _ => {}
+        }
+    }
+
+    /// The focus policy, when resolutions are chosen by the observer's focus.
+    pub fn focus_policy(&self) -> Option<&FocusPolicy> {
+        self.focus_policy.as_ref()
+    }
+
+    /// The settlement the observer follows or centres; under the focus policy, Detailed from the
+    /// next midnight.
+    pub fn set_focus(&mut self, settlement: Option<civ_core::PermanentId>) {
+        if let Some(p) = self.focus_policy.as_mut() {
+            p.focus = settlement;
+        }
+    }
+
+    /// The person the observer follows; under the focus policy, their settlement is Detailed
+    /// from the next midnight, wherever they live then.
+    pub fn set_follow(&mut self, person: Option<civ_core::PermanentId>) {
+        if let Some(p) = self.focus_policy.as_mut() {
+            p.follow = person;
+        }
+    }
+
+    /// Pins a settlement Detailed under the focus policy, or lets it go.
+    pub fn pin_detailed(&mut self, settlement: civ_core::PermanentId, pinned: bool) {
+        if let Some(p) = self.focus_policy.as_mut() {
+            if pinned {
+                p.pins.insert(settlement);
+            } else {
+                p.pins.remove(&settlement);
+            }
+        }
+    }
+
+    /// Brings people's execution in line with the resolutions in force, now.
+    fn reconcile_now(&mut self) {
+        let now = self.now();
+        let approx = self.approximations_now();
+        let mut pending = Vec::new();
+        {
+            let mut ctx = Ctx {
+                now,
+                seed: self.meta.seed,
+                map: &self.map,
+                nav: &self.nav,
+                land: &mut self.land,
+                land_params: &self.rules.land,
+                params: &self.rules.people,
+                catalog: &self.rules.catalog,
+                regime: &self.regime,
+                ids: &mut self.ids,
+                schedule: &mut pending,
+                approx,
+            };
+            self.people.reconcile_resolutions(&mut ctx);
+        }
+        for (at, event) in pending {
+            let _ = self
+                .scheduler
+                .schedule(at, PHASE_AGENT, SimEvent::Agent(event));
+        }
     }
 
     /// The approximations made now, in the mode in force.
@@ -1539,6 +1712,9 @@ impl Sim {
         }
         // Households changed by hand in a test are indexed again before anyone looks.
         self.people.refresh_settled();
+        if std::mem::take(&mut self.reconcile_due) {
+            self.reconcile_now();
+        }
         let target = self.now().plus_minutes(minutes);
         let mut advance = Advance {
             minutes,
@@ -1556,6 +1732,8 @@ impl Sim {
             people,
             mode,
             mode_next,
+            resolution_next,
+            focus_policy,
             approximations,
             ..
         } = self;
@@ -1593,6 +1771,37 @@ impl Sim {
                             approx: in_mode(*approximations, *mode),
                         };
                         people.on_day(&mut ctx);
+                        // Resolutions per settlement (ADR-0032 §1–§3): a change held for this
+                        // midnight takes effect, people's execution is brought in line, and the
+                        // household-resolved settlements live the day now beginning.
+                        // Under the observer's focus, the settlements it does not hold
+                        // Detailed, unless a change was set by hand for this midnight.
+                        if resolution_next.is_none()
+                            && let Some(policy) = focus_policy.as_mut()
+                        {
+                            let followed = policy
+                                .follow
+                                .and_then(|p| people.person(p))
+                                .and_then(|p| people.household(p.household))
+                                .and_then(|h| h.settlement);
+                            *resolution_next = policy.next(
+                                at.day_index(),
+                                &ctx.land.settlements,
+                                people.household_resolved(),
+                                followed,
+                            );
+                        }
+                        let switched = resolution_next.take().map(|next| {
+                            let before = switch_check(people, ctx.land);
+                            people.set_household_resolved(next);
+                            before
+                        });
+                        people.park_resolved(&mut ctx);
+                        if let Some(before) = switched {
+                            check_switch(&before, &switch_check(people, ctx.land));
+                        }
+                        people.resume_unresolved(&mut ctx);
+                        people.live_household_days(&mut ctx);
                         // Newborns decide what to do first.
                         for (t, e) in pending.drain(..) {
                             let _ = followups.schedule(t, PHASE_AGENT, SimEvent::Agent(e));

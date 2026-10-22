@@ -33,6 +33,7 @@ pub mod enclosures;
 pub mod fields;
 pub mod paths;
 pub mod plans;
+pub mod power;
 pub mod soil;
 pub mod water;
 pub mod ways;
@@ -51,7 +52,9 @@ pub use fields::{
 pub use paths::{PathParams, Trail, ViewTile, Wear, WearTile};
 pub use soil::{FieldSoil, HarvestRecord, Limit, SoilParams};
 pub use water::{AquiferUnit, ContaminationParams, Water, WaterParams};
-pub use weather::{Climatology, MonthRecord, Unworkable, Weather, WeatherDay, WeatherParams};
+pub use weather::{
+    Climatology, Forcing, MonthRecord, Unworkable, Weather, WeatherDay, WeatherParams,
+};
 
 use civ_core::time::{DAYS_PER_YEAR, MONTH_STARTS};
 use civ_core::{PermanentId, SimTime};
@@ -394,6 +397,9 @@ pub struct Land {
     pub banks: Vec<banks::BankSegment>,
     /// Irrigation ditches, linked to their earthwork, in the order begun (M6b slice BG). Saved.
     pub ditches: Vec<ditches::DitchSegment>,
+    /// Water-power installations, in the order built (M10a slice DR; ADR-0033 §5). Saved; their
+    /// power is worked out from the day's discharge ([`Land::installation_kw`]) and never saved.
+    pub installations: Vec<power::Installation>,
     /// Today's water the ditches took from their reaches and returned below them, as changes to
     /// a reach's flow passed on down the river, m³/s (M6b slice BG). Saved.
     pub ditch_flows: Vec<(u32, f32)>,
@@ -639,6 +645,7 @@ impl Land {
             earthworks: Vec::new(),
             banks: Vec::new(),
             ditches: Vec::new(),
+            installations: Vec::new(),
             ditch_flows: Vec::new(),
             ground: earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
             crossings: crossings::Crossings::default(),
@@ -878,8 +885,42 @@ impl Land {
         n
     }
 
+    /// Whether installation `i` can turn: its headrace, the earthwork sharing its id, is dug (an
+    /// installation laid without one stands ready).
+    pub fn installation_ready(&self, i: usize) -> bool {
+        self.installations.get(i).is_some_and(|x| {
+            self.earthworks
+                .iter()
+                .find(|e| e.id == x.id)
+                .is_none_or(|e| e.done >= 1.0)
+        })
+    }
+
+    /// Installation `i`'s power today, kilowatts: from what its reach carries today, its intake
+    /// taking no more than a ditch's share of it (M10a slice DR; ADR-0033 §5). Nothing for an
+    /// installation the land does not have or whose headrace is not yet dug.
+    pub fn installation_kw(&self, params: &LandParams, i: usize) -> f64 {
+        let Some(x) = self.installations.get(i) else {
+            return 0.0;
+        };
+        if !self.installation_ready(i) {
+            return 0.0;
+        }
+        let q = self
+            .reach_discharges
+            .get(x.reach as usize)
+            .copied()
+            .map_or(0.0, f64::from);
+        x.power_kw(q, params.ditches.max_share)
+    }
+
     pub fn problems(&self, map: &WorldMap, habitats: usize, next_id: u64) -> Vec<String> {
         let mut out = self.crossings.problems();
+        for x in &self.installations {
+            if !x.valid() {
+                out.push(format!("installation {} is not whole", x.id));
+            }
+        }
         out.extend(self.ways.problems(map.width * map.height));
         out.extend(self.water.problems());
         out.extend(self.wells.problems(usize::MAX));

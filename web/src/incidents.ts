@@ -12,11 +12,22 @@ export const INCIDENT_KINDS: { code: number; label: string }[] = [
   { code: 2, label: "Illness" },
   { code: 4, label: "Fires" },
   { code: 10, label: "Waits at crossings and gates" },
+  { code: 11, label: "Shaken buildings" },
 ];
 
 /** "taking", "illness", "fire": the class a row carries. */
 export function kindClass(kind: number): string {
-  return kind === 1 ? "taking" : kind === 2 ? "illness" : kind === 4 ? "fire" : kind === 10 ? "wait" : "other";
+  return kind === 1
+    ? "taking"
+    : kind === 2
+      ? "illness"
+      : kind === 4
+        ? "fire"
+        : kind === 10
+          ? "wait"
+          : kind === 11
+            ? "shaken"
+            : "other";
 }
 
 function count(n: number, one: string, many: string): string {
@@ -50,6 +61,13 @@ export function totalsLine(t: IncidentTotal): string {
     // A wait of a quarter of an hour or more at a crossing or a gate (wire 1.85).
     if (t.all === 0) return "Waits: none of a quarter of an hour";
     return `Waits: ${count(t.all, "of a quarter of an hour or more", "of a quarter of an hour or more")}`;
+  }
+  if (t.kind === 11) {
+    // Buildings that fell or cracked when the ground shook (wire 1.91); nobody in the world tells
+    // of them as such yet, so only the truth is counted.
+    if (t.all === 0) return "Shaken buildings: none fell or cracked";
+    const observer = t.observer > 0 ? `; ${t.observer} the observer's` : "";
+    return `Shaken buildings: ${count(t.all, "fell or cracked", "fell or cracked")}${observer}`;
   }
   return `${t.all} in all`;
 }

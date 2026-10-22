@@ -1,0 +1,20 @@
+# Turning millstones by a wheel set in a headrace, the stones of a rotary quern driven by falling
+# water instead of an arm (research 07-06 §2.2: simple wheels 20-40 %; the M10 power brief §1.3:
+# a water mill is the combination of rotary milling and a wheel, not a node of its own, 07-03
+# §4.2). It needs rotary milling and jointed framing for the wheel and its shaft. Found by those
+# who grind at a rotary quern; half of them would need 200,000 qualified hours (a far technique,
+# a tuning value). Learnt in 200 hours beside a knower.
+kind = "technique"
+id = "core:technique/water_wheel"
+name = "The water mill"
+can = "turn millstones by a wheel in falling water"
+domain = "core:skill/milling"
+requires = [["core:technique/rotary_quern", "core:technique/jointed_frame"]]
+tried_in = ["core:activity/grind_grain_rotary"]
+needs = ["core:good/grain", "core:good/timber"]
+e50_h = 200000.0
+learn_h = 200.0
+upbringing = true
+
+[answers]
+spoilage = []

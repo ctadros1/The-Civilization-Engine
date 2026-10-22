@@ -1642,6 +1642,8 @@ pub(crate) struct PolityFile {
     pub stance_margin: f64,
     pub attend_base: f64,
     pub w_attend: f64,
+    /// Content API 154 (M8d slice DC): what rain takes from a gathering in the open.
+    pub wet_attend: f64,
     pub w_followers: f64,
     pub propose_cost: f64,
     pub temperature: f64,
@@ -1676,6 +1678,7 @@ impl PolityFile {
             stance_margin: self.stance_margin,
             attend_base: self.attend_base,
             w_attend: self.w_attend,
+            wet_attend: self.wet_attend,
             w_followers: self.w_followers,
             propose_cost: self.propose_cost,
             temperature: self.temperature,
@@ -1714,6 +1717,7 @@ impl PolityFile {
             ("polity.stance_margin", self.stance_margin, 0.0, 100.0),
             ("polity.attend_base", self.attend_base, -100.0, 100.0),
             ("polity.w_attend", self.w_attend, 0.0, 100.0),
+            ("polity.wet_attend", self.wet_attend, 0.0, 100.0),
             ("polity.w_followers", self.w_followers, 0.0, 10.0),
             ("polity.propose_cost", self.propose_cost, 0.0, 100.0),
             ("polity.temperature", self.temperature, 0.01, 100.0),
@@ -1934,13 +1938,24 @@ pub(crate) struct MiddenFile {
     pub spread_h_per_t: f64,
 }
 
-/// Taste in building, as authored: roof pitch in degrees, eaves and overhang in metres.
+/// Taste in building, as authored: roof pitch in degrees, eaves and overhang in metres; and the
+/// front of a frame of version 3 (M8d slice DD; content API 157), each 0 where not given: the
+/// share of its walls left open, ornament in hours of craft a square metre, finish (0 bare, 1
+/// daubed, 2 lime-washed) and symmetry (0 none to 1 a front set out about its middle).
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct TasteFile {
     pub pitch_deg: f64,
     pub eave_m: f64,
     pub overhang_m: f64,
+    #[serde(default)]
+    pub openings: f64,
+    #[serde(default)]
+    pub ornament_h_per_m2: f64,
+    #[serde(default)]
+    pub finish: f64,
+    #[serde(default)]
+    pub symmetry: f64,
 }
 
 impl TasteFile {
@@ -1949,6 +1964,10 @@ impl TasteFile {
             pitch_centideg: (self.pitch_deg * 100.0) as f32,
             eave_cm: (self.eave_m * 100.0) as f32,
             overhang_cm: (self.overhang_m * 100.0) as f32,
+            openings_permille: (self.openings * 1000.0) as f32,
+            ornament_dh: (self.ornament_h_per_m2 * 10.0) as f32,
+            finish: self.finish as f32,
+            symmetry: self.symmetry as f32,
         }
     }
 }

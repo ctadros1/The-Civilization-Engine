@@ -153,10 +153,32 @@ fn one_who_knows_smelting_smelts_ore_and_casts_a_copper_axe() {
             x.stores[timber] += 10.0;
         }
     }
-    // With ore at home, the copper axe is the way it makes an axe: fewer of its hours for each
-    // hour of use.
-    let (way, _) = sim.with_ctx_for_tests(|pop, ctx| pop.tool_way_for_tests(ctx, hh, axe));
-    assert_eq!(way.as_deref(), Some("core:recipe/cast_copper_axe"));
+    // Copper is worked under smithing (M10a slice DP), which founders do not bring: new to it,
+    // they would cast slowly and poorly, and a stone axe costs fewer of their hours for each hour
+    // of use.
+    let way = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.tool_way_for_tests(ctx, hh, axe))
+            .0
+    };
+    assert_eq!(way(&mut sim).as_deref(), Some("core:recipe/make_axe"));
+    // Practised in smithing, as the potters who smelted copper before were in their craft, the
+    // copper axe is the way it makes an axe: fewer of its hours for each hour of use.
+    let smithing = sim
+        .rules()
+        .catalog
+        .skills
+        .iter()
+        .position(|s| s.id == "core:skill/smithing")
+        .expect("smithing");
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if grown.contains(&p.id) {
+            p.set_skill(smithing, 0.6);
+        }
+    }
+    assert_eq!(
+        way(&mut sim).as_deref(),
+        Some("core:recipe/cast_copper_axe")
+    );
     let mut cast = false;
     for _ in 0..30 {
         sim.advance_minutes(DAY).expect("advances");

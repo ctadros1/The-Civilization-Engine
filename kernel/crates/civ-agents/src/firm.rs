@@ -292,6 +292,9 @@ pub struct Firm {
     pub most_at_once: u8,
     /// The day that was seen.
     pub most_at_once_day: i64,
+    /// Its batches under way, as a household's (M10a slice DQ; ADR-0033 §2): a recipe of elapsed
+    /// days worked for it starts one, and a later session opens it into its stores.
+    pub batches: Vec<crate::person::Batch>,
 }
 
 /// Days a firm remembers the most people it had working for it at once (a tuning value: about two
@@ -300,6 +303,27 @@ pub struct Firm {
 pub const AT_ONCE_DAYS: i64 = 60;
 
 impl Firm {
+    /// Good `good` becomes another of its lines (M10a slice DQ; ADR-0033 §4): a works making goods
+    /// in stages keeps what one line makes for the next. False if it is a line already.
+    pub fn add_line(&mut self, good: u16) -> bool {
+        if self.lines.contains(&good) {
+            return false;
+        }
+        self.lines.push(good);
+        true
+    }
+
+    /// Its stock of `good` held as goods in progress toward a recipe making `output`: what
+    /// another of its lines made of it. Nothing for a workshop of one line, so its owners put in
+    /// everything its work takes, as before lines could be several.
+    pub fn in_progress(&self, good: usize, output: usize) -> f64 {
+        let line = |g: usize| self.lines.iter().any(|&l| usize::from(l) == g);
+        if good == output || !line(good) || !line(output) {
+            return 0.0;
+        }
+        self.stores.get(good).copied().unwrap_or(0.0).max(0.0)
+    }
+
     /// `n` people are working for it at once on `day`: its most lately, if as many or more, or if
     /// the last was seen more than [`AT_ONCE_DAYS`] ago.
     pub fn saw_at_once(&mut self, n: u8, day: i64) {
@@ -346,6 +370,7 @@ impl Firm {
             flows: Flows::default(),
             most_at_once: 0,
             most_at_once_day: 0,
+            batches: Vec::new(),
         }
     }
 

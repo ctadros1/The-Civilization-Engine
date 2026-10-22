@@ -207,6 +207,32 @@ pub fn weather_response(sim: &Sim) -> Vec<u8> {
             civ_agents::polity::day_words(civ_core::SimTime::from_minutes(until * 1440))
         ))
     });
+    // The observer's forcing on the climate (wire 1.96): today's, and the full size it reaches.
+    let climate = (!land.weather.forcings.is_empty()).then(|| {
+        let w = &land.weather;
+        let today = w.today.day;
+        let end = w
+            .forcings
+            .iter()
+            .map(|f| f.from_day + f.ramp_days)
+            .max()
+            .unwrap_or(today);
+        let (now_c, now_f) = w.forced(today);
+        let (full_c, full_f) = w.forced(end.max(today));
+        let words = if end > today {
+            format!(
+                "The observer has changed the climate: {now_c:+.1} °C and wet days' rain ×{now_f:.2} \
+                 today, reaching {full_c:+.1} °C and ×{full_f:.2} by {}",
+                civ_agents::polity::day_words(civ_core::SimTime::from_minutes(end * 1440))
+            )
+        } else {
+            format!(
+                "The observer has changed the climate: {full_c:+.1} °C and wet days' rain \
+                 ×{full_f:.2}"
+            )
+        };
+        fbb.create_string(&words)
+    });
     let body = wire::WeatherReport::create(
         &mut fbb,
         &wire::WeatherReportArgs {
@@ -217,6 +243,7 @@ pub fn weather_response(sim: &Sim) -> Vec<u8> {
             months: Some(months),
             month: month_of(land.weather.today.day) as u8,
             drought,
+            climate,
         },
     );
     response(fbb, wire::ResponseBody::WeatherReport, body)
@@ -290,6 +317,7 @@ mod tests {
             cover_ease: 1.0,
             months: Vec::new(),
             hold: None,
+            forcings: Vec::new(),
         }
     }
 

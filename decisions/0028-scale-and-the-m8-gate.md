@@ -161,6 +161,18 @@ milestone since M5 has.
 - **Weigh only known sellers now** (ADR-0018 §4). Faster, but a model change that would move every
   market; not a speed fix.
 
+## Amendment (2026-10-20, M8d slice DE): the gate as reached
+
+The gate of 10,000 people at a simulated year a real minute is not met, and is amended to the
+figure reached, as §1 asks. With M8b–M8d in, one settlement of 10,000 (`bench_village --people
+10000 --groups 1 --size 2048 --seed 2 --days 10 --max`) lived ten days at a mean of 53.5 s a day
+(p50 56.2 s, p95 65.4 s, worst 65.4 s): **0.0031 simulated years a real minute**, 0.92 GB at its
+peak, 4,968 route searches a day, on the container. The M8 demo's two settlements of 1,000–1,084
+lived three years at 3.42 s a day: 0.049 years a minute. M8a's three settlements of 3,334 lived a
+day in about 21 s; a single settlement costs about twice that, and the cost a day rises as
+buildings rise. The target PC is not yet measured. The year-a-minute scale moves with 50k to M9's
+aggregate level of detail, which is where it can be met; no M8 slice is rerun for it.
+
 ## Revisit when
 
 - The target PC's measurement differs from the container's by more than the levers' ranges.

@@ -1,0 +1,667 @@
+//! Buildings a polity raises together (M8d slice DC; ADR-0031 §6), on the shape of a passing
+//! place cleared together (M8b slice CQ, third part). A program answers a loss the polity
+//! measured (a storehouse its common store's spoiling, a hall its gatherings in the open rained
+//! off, a watch tower its fires seen late): where one is measured and no building of
+//! the program is raised or being raised, each household weighs its share of the loss averted
+//! against its equal share of the work over the years it weighs, and someone who knows the
+//! program's technique may propose it. Passed, it is laid out near the hearth, held in the
+//! polity's name rather than a household's; its work is each household's to give by choice, as for a
+//! passing place, the hours including making and carrying its materials. A storehouse finished
+//! keeps the common store under its roof; a hall finished keeps the rain off its gatherings; a
+//! watch tower finished is where its watch looks out from, seeing fires further.
+
+use super::*;
+use crate::decide::RaiseFacts;
+use crate::polity::{LawStatus, PolicyKind};
+use crate::ties::Act;
+
+/// What raising a building together would bring the households of a settlement (M8d slice DC):
+/// its template and program, the hours of a capable adult's work it takes, the years it is
+/// weighed over, the food a year each household believes it would avert, and how many households
+/// share the work.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct PublicRaise {
+    pub policy: u16,
+    pub program: usize,
+    pub labour_h: f64,
+    pub life: f64,
+    pub averted_kcal: f64,
+    pub households: usize,
+}
+
+impl PublicRaise {
+    /// Each household's equal share of the work, hours.
+    pub fn share_h(&self) -> f64 {
+        self.labour_h / self.households.max(1) as f64
+    }
+}
+
+impl Population {
+    /// The food a year polity `pi`'s common store lost to spoiling, kcal, over the years it
+    /// measured (M8d slice DC).
+    fn spoiled_a_year(&self, pi: usize) -> f64 {
+        let m = &self.polities[pi].measured;
+        if m.is_empty() {
+            return 0.0;
+        }
+        m.iter().map(|y| y.spoiled_kcal).sum::<f64>() / m.len() as f64
+    }
+
+    /// The hours a year those who came gave to polity `pi`'s gatherings in the open that a wet
+    /// day left without a quorum, over the years it measured (M8d slice DC).
+    fn rained_off_a_year(&self, pi: usize) -> f64 {
+        let m = &self.polities[pi].measured;
+        if m.is_empty() {
+            return 0.0;
+        }
+        m.iter().map(|y| y.wet_lost_h).sum::<f64>() / m.len() as f64
+    }
+
+    /// The hours of work a year the fires that burned unseen awhile cost polity `pi`, over the
+    /// years it measured (M8d slice DC).
+    fn fires_unseen_a_year(&self, pi: usize) -> f64 {
+        let m = &self.polities[pi].measured;
+        if m.is_empty() {
+            return 0.0;
+        }
+        m.iter().map(|y| y.late_fire_h).sum::<f64>() / m.len() as f64
+    }
+
+    /// What an hour of work brings the households of polity `pi`'s settlements, kcal, on the
+    /// mean: the worth of an hour given for nothing.
+    fn polity_hour_kcal(&self, ctx: &Ctx, pi: usize) -> f64 {
+        let (mut sum, mut n) = (0.0, 0usize);
+        for (_, x) in self.households.iter() {
+            if self.polities[pi].holds(x.settlement) && !x.members.is_empty() {
+                sum += self.hour_kcal(ctx, x);
+                n += 1;
+            }
+        }
+        if n == 0 { 0.0 } else { sum / n as f64 }
+    }
+
+    /// The loss a year a building of program `program` would answer for polity `pi`, kcal: a
+    /// storehouse its common store's spoiling, a hall the hours its gatherings in the open were
+    /// rained off, a watch tower the work its fires seen late cost, while a watch keeps watch to
+    /// look out from it; nothing measured for any other.
+    fn loss_answered(&self, ctx: &Ctx, pi: usize, program: usize) -> f64 {
+        match ctx.catalog.buildings.get(program).map(|d| d.use_) {
+            Some(civ_land::PlotUse::Store) => self.spoiled_a_year(pi),
+            Some(civ_land::PlotUse::Hall) => {
+                let hours = self.rained_off_a_year(pi);
+                if hours > 0.0 {
+                    hours * self.polity_hour_kcal(ctx, pi)
+                } else {
+                    0.0
+                }
+            }
+            Some(civ_land::PlotUse::Tower) => {
+                let hours = self.fires_unseen_a_year(pi);
+                if hours > 0.0 && self.polities[pi].watchers().next().is_some() {
+                    hours * self.polity_hour_kcal(ctx, pi)
+                } else {
+                    0.0
+                }
+            }
+            _ => 0.0,
+        }
+    }
+
+    /// Whether polity `pi` has a building of program `program` raised or being raised.
+    fn raised(&self, ctx: &Ctx, pi: usize, program: usize) -> bool {
+        let polity = self.polities[pi].id;
+        ctx.land.buildings.iter().any(|b| {
+            b.polity == Some(polity)
+                && b.standing()
+                && ctx.catalog.building_index(&b.spec.program) == Some(program)
+        }) || self.polities[pi].laws.iter().any(|l| {
+            l.kind == PolicyKind::RaiseBuilding
+                && matches!(l.status, LawStatus::Proposed | LawStatus::InForce)
+                && self.polities[pi]
+                    .raise_site_of(l.id)
+                    .is_some_and(|s| usize::from(s.program) == program && s.building.is_none())
+        })
+    }
+
+    /// Whether a building of use `use_` that a template would raise is raised or being raised
+    /// for polity `pi`.
+    fn raised_for(&self, ctx: &Ctx, pi: usize, use_: civ_land::PlotUse) -> bool {
+        ctx.catalog.policies.iter().any(|d| {
+            d.raise.is_some_and(|r| {
+                ctx.catalog.buildings.get(r.program).map(|b| b.use_) == Some(use_)
+                    && self.raised(ctx, pi, r.program)
+            })
+        })
+    }
+
+    /// Whether the common store's spoiling is an issue for polity `pi` (M8d slice DC): measured,
+    /// and no storehouse of its raised or being raised.
+    pub(super) fn store_spoils(&self, ctx: &Ctx, pi: usize) -> bool {
+        self.spoiled_a_year(pi) > 0.0 && !self.raised_for(ctx, pi, civ_land::PlotUse::Store)
+    }
+
+    /// Whether its gatherings rained off are an issue for polity `pi` (M8d slice DC): measured,
+    /// and no hall of its raised or being raised.
+    pub(super) fn rained_off(&self, ctx: &Ctx, pi: usize) -> bool {
+        self.rained_off_a_year(pi) > 0.0 && !self.raised_for(ctx, pi, civ_land::PlotUse::Hall)
+    }
+
+    /// Whether its fires seen late are an issue for polity `pi` (M8d slice DC): measured, a watch
+    /// keeping watch that could look out from a tower, and no tower of its raised or being
+    /// raised.
+    pub(super) fn fires_unseen(&self, ctx: &Ctx, pi: usize) -> bool {
+        self.fires_unseen_a_year(pi) > 0.0
+            && self.polities[pi].watchers().next().is_some()
+            && !self.raised_for(ctx, pi, civ_land::PlotUse::Tower)
+    }
+
+    /// Fire `fire` has burnt out (M8d slice DC): if nobody saw it for [`LATE_NOTICE_MIN`] after
+    /// its covering caught, and it did not catch from a neighbour already burning, the work its
+    /// building takes to put right is measured against its settlement's polity: what a watch
+    /// tower answers.
+    pub(super) fn measure_late_fire(&mut self, fire: u32, hours: f64) {
+        let Some(f) = self.fires.get(fire) else {
+            return;
+        };
+        if matches!(f.kindled, crate::fire::Kindled::Neighbour { .. }) || hours <= 0.0 {
+            return;
+        }
+        let began = f.began.minutes();
+        let first = self
+            .fires
+            .knew
+            .iter()
+            .filter(|k| k.fire == fire)
+            .map(|k| k.at.minutes())
+            .min();
+        let late = first.is_none_or(|t| (t - began) as f64 > LATE_NOTICE_MIN);
+        let (Some(settlement), year) = (f.settlement, f.began.date().year) else {
+            return;
+        };
+        if let (true, Some(pi)) = (late, self.polity_of(settlement)) {
+            self.polities[pi].measured_mut(year).late_fire_h += hours;
+        }
+    }
+
+    /// Where polity `pi`'s watch tower stands, finished, if one does: its centre, metres.
+    pub(super) fn tower_at(&self, ctx: &Ctx, pi: usize) -> Option<(f32, f32)> {
+        let id = self.polities[pi].tower?;
+        ctx.land
+            .buildings
+            .iter()
+            .find(|b| b.id == id && b.finished() && b.standing())
+            .map(|b| build::centre_m(&b.spec))
+    }
+
+    /// What raising each building its templates name would bring polity `pi`'s households
+    /// `households` (M8d slice DC): one for each whose loss is measured and none of whose
+    /// program is raised or being raised.
+    pub(crate) fn public_raises(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        households: &[PermanentId],
+    ) -> Vec<PublicRaise> {
+        let rp = &ctx.params.rules;
+        let carry = ctx.params.household.carry_kg;
+        let mut out = Vec::new();
+        for (k, d) in ctx.catalog.policies.iter().enumerate() {
+            let Some(r) = d.raise.filter(|_| d.kind == PolicyKind::RaiseBuilding) else {
+                continue;
+            };
+            let loss = self.loss_answered(ctx, pi, r.program);
+            if loss <= 0.0 || self.raised(ctx, pi, r.program) {
+                continue;
+            }
+            let Some(labour_h) = ctx
+                .catalog
+                .buildings
+                .get(r.program)
+                .and_then(|b| b.shapes.first())
+                .map(|c| c.hours(carry))
+            else {
+                continue;
+            };
+            out.push(PublicRaise {
+                policy: k as u16,
+                program: r.program,
+                labour_h,
+                life: rp.horizon_years,
+                averted_kcal: loss * rp.avoided_share / households.len().max(1) as f64,
+                households: households.len(),
+            });
+        }
+        out
+    }
+
+    /// Polity `pi` lays out the building its law `law` raises, as its law passed would (M8d slice
+    /// DC): near the hearth, on clear ground level enough to build on as it is, plot and building
+    /// held in the polity's name. Nothing where no ground is clear.
+    pub(super) fn begin_public_raise(&mut self, ctx: &mut Ctx, pi: usize, law: PermanentId) {
+        let Some(site) = self.polities[pi].raise_site_of(law) else {
+            return;
+        };
+        if site.building.is_some() {
+            return;
+        }
+        let Some(def) = ctx.catalog.buildings.get(usize::from(site.program)) else {
+            return;
+        };
+        let Some(shape) = def.shapes.first().map(|c| c.shape) else {
+            return;
+        };
+        let settlement = self.polities[pi].settlement;
+        let Some(hearth) = ctx
+            .land
+            .settlements
+            .iter()
+            .find(|s| s.id == settlement)
+            .map(|s| s.hearth_m)
+        else {
+            return;
+        };
+        // Held in the polity's own name, so that no household keeps, stores in, inherits or keeps
+        // up the building (ADR-0031 §6: its upkeep falls to nobody unless a law asks it).
+        let keeper = self.polities[pi].id;
+        let goods = &ctx.catalog.goods;
+        let design_at = |at: (f32, f32)| build::design_shape(def, goods, shape, at, Some(hearth));
+        let lev = &ctx.params.build.levelling;
+        let bed = |x: f64, y: f64| civ_land::earth::bed_height(ctx.map, (x, y));
+        let level = |rect: &civ_land::RectCm| {
+            (civ_land::earth::drop_across(rect, &bed) <= lev.from_m).then_some(0.0)
+        };
+        let Some(spec) = build::home_site(
+            ctx.land,
+            ctx.map,
+            ctx.nav,
+            def,
+            &design_at,
+            hearth,
+            Some(hearth),
+            RAISE_WITHIN_M,
+            &level,
+        ) else {
+            return;
+        };
+        let rect = build::plot_rect(&spec, def);
+        let (plot, id) = (ctx.ids.allocate(), ctx.ids.allocate());
+        ctx.land.plots.push(civ_land::Plot {
+            id: plot,
+            household: keeper,
+            rect,
+            use_: def.use_,
+            since: ctx.now,
+            receipt: None,
+            allotted: None,
+        });
+        ctx.land.buildings.push(Building {
+            polity: Some(self.polities[pi].id),
+            ..Building::new(id, keeper, plot, spec, ctx.now)
+        });
+        if let Some(s) = self.polities[pi].raises.iter_mut().find(|s| s.0 == law) {
+            s.1.building = Some(id);
+            s.1.begun = Some(ctx.now);
+        }
+    }
+
+    /// Polity `pi` lays out the building its law `law` raises: for tests.
+    #[doc(hidden)]
+    pub fn begin_public_raise_for_tests(&mut self, ctx: &mut Ctx, pi: usize, law: PermanentId) {
+        self.begin_public_raise(ctx, pi, law);
+    }
+
+    /// The building household `x`'s people may help raise, if it is light (M8d slice DC): one
+    /// their polity raises under a law in force `person` knows of, not yet finished; where its
+    /// work is done, the walk there from home, the hours of a capable adult's work it still
+    /// takes, and, while the household has not given its equal share, what keeping to the
+    /// gathering's word is worth to `person`, as for a passing place cleared together.
+    pub(super) fn raise_facts(
+        &self,
+        ctx: &Ctx,
+        x: &Household,
+        person: PermanentId,
+        dark: bool,
+    ) -> Option<RaiseFacts> {
+        if dark {
+            return None;
+        }
+        let pi = self.polity_of(x.settlement?)?;
+        let polity = &self.polities[pi];
+        let (law, site, b) = polity.raises.iter().find_map(|(l, site)| {
+            let law = polity.laws.iter().find(|k| {
+                k.id == *l
+                    && k.status == LawStatus::InForce
+                    && k.kind == PolicyKind::RaiseBuilding
+                    && k.knows(person)
+            })?;
+            let b = ctx
+                .land
+                .buildings
+                .iter()
+                .find(|b| Some(b.id) == site.building && !b.finished() && b.standing())?;
+            Some((law, *site, b))
+        })?;
+        let given: f64 = polity
+            .raise_given
+            .iter()
+            .filter(|g| g.0 == law.id)
+            .map(|g| f64::from(g.2))
+            .sum();
+        let households = self
+            .households
+            .iter()
+            .filter(|(_, y)| y.settlement == x.settlement && !y.members.is_empty())
+            .count()
+            .max(1);
+        let share = site.labour_h / households as f64;
+        let mut duty = 0.0;
+        if f64::from(polity.raise_given_by(law.id, x.id)) + 1e-6 < share {
+            let stance = law
+                .stances
+                .iter()
+                .find(|r| r.person == person)
+                .map_or(0.0, |r| r.stance.sign());
+            let regard =
+                self.ties
+                    .regard(person, law.sponsor, ctx.now.day_index(), &ctx.params.ties);
+            let norm = self.norm_points(ctx, person);
+            duty = crate::polity::comply_points(norm, stance, regard, 0.0, &ctx.params.polity)
+                .max(0.0);
+        }
+        let at = build::centre_m(&b.spec);
+        let pace = ctx.params.nav.tobler_ms(0.0).max(1e-6);
+        Some(RaiseFacts {
+            building: b.id,
+            at,
+            walk_min: f64::from((at.0 - x.home.0).hypot(at.1 - x.home.1)) / pace / 60.0,
+            left_h: (site.labour_h - given).max(0.0),
+            duty,
+        })
+    }
+
+    /// `hours` of a capable adult's work by someone of `household` on building `building` its
+    /// polity raises (M8d slice DC): the stage under way rises by them, its materials made and
+    /// carried among the hours (each stage's labour scaled by its program's carrying), and the
+    /// hours are the household's given to the law and to the polity's works. A storehouse
+    /// finished keeps the common store under its roof.
+    pub(super) fn raise_work(
+        &mut self,
+        ctx: &mut Ctx,
+        household: PermanentId,
+        building: PermanentId,
+        hours: f64,
+    ) {
+        let now = ctx.now;
+        let Some(bi) = ctx.land.buildings.iter().position(|b| b.id == building) else {
+            return;
+        };
+        let Some(polity) = ctx.land.buildings[bi].polity else {
+            return;
+        };
+        let Some(pi) = self
+            .household(household)
+            .and_then(|x| self.polity_of(x.settlement?))
+            .filter(|&pi| self.polities[pi].id == polity)
+        else {
+            return;
+        };
+        let Some(law) = self.polities[pi]
+            .raises
+            .iter()
+            .find(|s| s.1.building == Some(building))
+            .map(|s| s.0)
+        else {
+            return;
+        };
+        let catalog = ctx.catalog;
+        let Some(def) = catalog
+            .building_index(&ctx.land.buildings[bi].spec.program)
+            .and_then(|i| catalog.buildings.get(i))
+        else {
+            return;
+        };
+        if ctx.land.buildings[bi].finished() {
+            return;
+        }
+        let Some(needs) = self.needs_of(&ctx.land.buildings[bi], def, 0.0) else {
+            return;
+        };
+        let carry = ctx.params.household.carry_kg;
+        let scale = def
+            .shapes
+            .first()
+            .filter(|c| c.labour_h > 0.0)
+            .map_or(1.0, |c| c.hours(carry) / c.labour_h);
+        let work = build::HomeWork::of(&ctx.land.buildings[bi], needs);
+        let Some(stage) = work.needs() else {
+            return;
+        };
+        let b = &mut ctx.land.buildings[bi];
+        let done = b.work(
+            hours,
+            stage.labour_h * scale,
+            &stage.materials_kg,
+            &stage.materials_kg,
+            now,
+        );
+        b.skill_h += (done.hours * condition::MIDDLING_SKILL) as f32;
+        if let Some(finished) = done.finished {
+            if let Ok(e) = civ_grammar::expand(&b.spec, &def.rules) {
+                let spread = ctx.params.build.quality_spread;
+                condition::install(
+                    b,
+                    &e,
+                    finished,
+                    condition::MIDDLING_SKILL,
+                    ctx.seed,
+                    spread,
+                    now,
+                );
+            }
+            b.skill_h = 0.0;
+        }
+        let finished = b.finished();
+        if done.hours > 0.0 {
+            self.polities[pi].give_to_raise(law, household, done.hours as f32);
+            self.work_given.push((polity, household, done.hours));
+            if let Some(s) = self.polities[pi].raises.iter_mut().find(|s| s.0 == law) {
+                s.1.last_work = Some(now);
+            }
+        }
+        if finished {
+            match def.use_ {
+                civ_land::PlotUse::Store => self.polities[pi].storehouse = Some(building),
+                civ_land::PlotUse::Hall => self.polities[pi].hall = Some(building),
+                civ_land::PlotUse::Tower => self.polities[pi].tower = Some(building),
+                _ => {}
+            }
+            let first_time = self.polities[pi]
+                .raises
+                .iter_mut()
+                .find(|s| s.0 == law)
+                .filter(|s| s.1.finished.is_none())
+                .map(|s| {
+                    s.1.finished = Some(now);
+                    // The common store moves under a storehouse's roof the day it is finished.
+                    if def.use_ == civ_land::PlotUse::Store {
+                        s.1.first_use = Some(now);
+                    }
+                    s.1.stalled.is_none()
+                });
+            if let Some(as_proposed) = first_time {
+                self.raised_seen(ctx, pi, law, as_proposed);
+            }
+        }
+    }
+
+    /// `hours` of work by someone of `household` on building `building` its polity raises: for
+    /// tests.
+    #[doc(hidden)]
+    pub fn raise_work_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        household: PermanentId,
+        building: PermanentId,
+        hours: f64,
+    ) {
+        self.raise_work(ctx, household, building, hours);
+    }
+
+    /// Those who use the building law `law` of polity `pi` raised, every adult of its
+    /// settlements, see it finished (M8d slice DC; ADR-0031 §6): each household that gave its
+    /// share of the work, and who built it, among the [`SEEN_GIVERS`] that gave most, and, if it
+    /// was finished as proposed (`as_proposed`, never stalled), its sponsor's counsel borne out.
+    /// Nothing gives a completion bonus.
+    fn raised_seen(&mut self, ctx: &Ctx, pi: usize, law: PermanentId, as_proposed: bool) {
+        let Some(site) = self.polities[pi].raise_site_of(law) else {
+            return;
+        };
+        let Some(sponsor) = self.polities[pi]
+            .laws
+            .iter()
+            .find(|l| l.id == law)
+            .map(|l| l.sponsor)
+        else {
+            return;
+        };
+        let users = self.members_of_polity(pi, ctx.now, ctx.params);
+        let households = self
+            .households
+            .iter()
+            .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
+            .count()
+            .max(1);
+        let share = site.labour_h / households as f64;
+        let mut givers: Vec<(PermanentId, f64)> = self.polities[pi]
+            .raise_given
+            .iter()
+            .filter(|g| g.0 == law && g.2 > 0.0)
+            .map(|g| (g.1, f64::from(g.2)))
+            .collect();
+        givers.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+        givers.truncate(SEEN_GIVERS);
+        let elders: Vec<(PermanentId, bool)> = givers
+            .iter()
+            .filter_map(|&(h, given)| {
+                Some((
+                    self.elder_of(h, ctx.now, ctx.params)?,
+                    given + 1e-6 >= share,
+                ))
+            })
+            .collect();
+        for (user, _) in users {
+            if as_proposed {
+                self.note_tie(ctx, user, sponsor, Act::RaisedAsProposed, 1.0, 0.0);
+            }
+            for &(elder, full) in &elders {
+                self.note_tie(ctx, user, elder, Act::RaisedWell, 1.0, 0.0);
+                if full {
+                    self.note_tie(ctx, user, elder, Act::ShareRaised, 1.0, 0.0);
+                }
+            }
+        }
+    }
+
+    /// Building `building`, raised together, is used for the first time today, if it was not
+    /// before (M8d slice DC): a hall a gathering meets in, a tower a round begins at.
+    pub(super) fn first_use_of(&mut self, pi: usize, building: PermanentId, now: SimTime) {
+        if let Some(s) = self.polities[pi]
+            .raises
+            .iter_mut()
+            .find(|s| s.1.building == Some(building))
+            && s.1.first_use.is_none()
+        {
+            s.1.first_use = Some(now);
+        }
+    }
+
+    /// The buildings polity `pi` is raising, laid out but unfinished, that no one has worked on
+    /// for [`STALL_DAYS`] stall (M8d slice DC): the stall stays visible, and those who would use
+    /// them see their sponsor's counsel come to nothing.
+    fn look_over_raisings(&mut self, ctx: &Ctx, pi: usize) {
+        let now = ctx.now;
+        let stalled: Vec<PermanentId> = self.polities[pi]
+            .raises
+            .iter()
+            .filter(|(_, s)| s.building.is_some() && s.finished.is_none() && s.stalled.is_none())
+            .filter(|(_, s)| {
+                s.last_work
+                    .or(s.begun)
+                    .is_some_and(|t| now.day_index() - t.day_index() >= STALL_DAYS)
+            })
+            .map(|(l, _)| *l)
+            .collect();
+        for law in stalled {
+            let Some(sponsor) = self.polities[pi]
+                .laws
+                .iter()
+                .find(|l| l.id == law && l.status == LawStatus::InForce)
+                .map(|l| l.sponsor)
+            else {
+                continue;
+            };
+            if let Some(s) = self.polities[pi].raises.iter_mut().find(|s| s.0 == law) {
+                s.1.stalled = Some(now);
+            }
+            for (user, _) in self.members_of_polity(pi, now, ctx.params) {
+                self.note_tie(ctx, user, sponsor, Act::ProposalStalled, 1.0, 0.0);
+            }
+        }
+    }
+
+    /// Polity `pi`'s raisings looked over: for tests.
+    #[doc(hidden)]
+    pub fn look_over_raisings_for_tests(&mut self, ctx: &Ctx, pi: usize) {
+        self.look_over_raisings(ctx, pi);
+    }
+
+    /// Each polity's storehouse, hall and watch tower are looked over (monthly): one no longer
+    /// standing finished keeps the store, shelters a gathering or is watched from no more (M8d
+    /// slice DC). And the buildings each is raising that have stalled are seen to.
+    pub(super) fn look_over_storehouses(&mut self, ctx: &Ctx) {
+        for pi in 0..self.polities.len() {
+            self.look_over_raisings(ctx, pi);
+        }
+        let stands = |id: PermanentId| {
+            ctx.land
+                .buildings
+                .iter()
+                .any(|b| b.id == id && b.finished() && b.standing())
+        };
+        for p in &mut self.polities {
+            if p.storehouse.is_some_and(|id| !stands(id)) {
+                p.storehouse = None;
+            }
+            if p.hall.is_some_and(|id| !stands(id)) {
+                p.hall = None;
+            }
+            if p.tower.is_some_and(|id| !stands(id)) {
+                p.tower = None;
+            }
+        }
+    }
+}
+
+/// How far from the hearth a polity looks for clear ground for a building it raises, metres.
+pub const RAISE_WITHIN_M: f64 = 80.0;
+
+/// Minutes after its covering caught within which a fire seen was seen in time (M8d slice DC; a
+/// design prior: an escape grows into a roof in 2-15 minutes, and a roof burns through in about
+/// an hour).
+pub const LATE_NOTICE_MIN: f64 = 10.0;
+
+/// How far someone at a watch tower sees a burning roof, metres (M8d slice DC; a design prior:
+/// from a look-out two storeys up, over the roofs about, against the flat 150 m of someone on
+/// the ground).
+pub const TOWER_SIGHT_M: f64 = 500.0;
+
+/// How near a watch tower's centre someone stands to look out from it, metres.
+pub const AT_TOWER_M: f64 = 4.0;
+
+/// Days without work after which a building being raised together stands stalled (M8d slice DC;
+/// a design prior: a season's work missed).
+pub const STALL_DAYS: i64 = 120;
+
+/// The most households whose work on a building raised together each of its users sees (M8d
+/// slice DC; a bound on the evidence written, those that gave most).
+pub const SEEN_GIVERS: usize = 8;

@@ -1,0 +1,13 @@
+# Bog iron ore: lumps of iron oxides cut out of wet ground where iron-bearing water seeps out
+# (docs/briefs/m10-power.md §1.2; research 07-05 §1.1: ores differ in metal content and unwanted
+# constituents, so iron ore is its own good, not copper's). It keeps.
+kind = "good"
+id = "core:good/iron_ore"
+name = "Iron ore"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

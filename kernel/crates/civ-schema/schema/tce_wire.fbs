@@ -211,6 +211,9 @@ table Clock {
   mode: ClockMode (id: 9);
   // Wire 1.24 (M3c slice U, ADR-0012): today's weather on the valley floor.
   weather: DayWeather (id: 10);
+  // Wire 1.93 (M9b slice DK, ADR-0032 §6): settlements away from the observer's focus are
+  // household-resolved, as the observer chose; off, every settlement is Detailed.
+  resolution_by_focus: bool (id: 11);
 }
 
 // Wire 1.24 (M3c slice U, ADR-0012 §1): today's weather on the valley floor, at the height the
@@ -302,6 +305,10 @@ table PersonBrief {
   age_years: float (id: 6);
   household: ulong (id: 7);
   asleep: bool (id: 8);
+  // Wire 1.94 (M9b slice DK, ADR-0032 §6): for someone whose settlement is household-resolved,
+  // the minute the block of their day they are in by the clock ends; they are drawn where it is
+  // done, not walking, and `activity` is its activity. 0: not in such a block.
+  block_until_minute: long (id: 9);
 }
 
 table SettlementBrief {
@@ -337,6 +344,9 @@ table SettlementBrief {
   // founded to build, how its households would build now, how the year's new buildings and its
   // standing buildings were built, and how many of the new follow a building elsewhere.
   style: string (id: 13);
+  // Wire 1.93 (M9b slice DK, ADR-0032 §1): its day is resolved household by household at
+  // midnight, its people at home between; false when it is Detailed.
+  household_resolved: bool (id: 14);
 }
 
 // Wire 1.74 (M6c slice BJ, ADR-0023 §11): a band not yet home or dispersed: the settlement it is
@@ -496,6 +506,11 @@ table SpawnFamily {
 // task; CancelTask stops it. The clock is paused when it arrives.
 table RunUntil {
   minute: long (id: 0);
+  // Wire 1.95 (M9c slice DL, ADR-0032 §7): a skip, at Accelerated Max with every settlement
+  // lived by household, the speed and the resolutions put back after; and the kinds of chronicle
+  // entry that stop it (bits: 1 settlements, 2 hunger, 4 disasters, 8 politics, 16 discoveries).
+  skip: bool (id: 1);
+  stop_on: ubyte (id: 2);
 }
 
 // M3b slice M: the observer introduces a technique (god tool, ADR-0008 §6): a living person comes
@@ -574,6 +589,16 @@ table Drought {
   depth: float (id: 1);
 }
 
+// Wire 1.96 (M9c slice DM, ADR-0032 §9): the observer forces the background climate, every
+// temperature normal `offset_c` °C warmer or cooler (-10 to 10) and every wet day's amount times
+// `wet_factor` (0.25 to 4), reached over `ramp_years` whole years (0 to 100) from tomorrow and
+// held after. Forcings compose and are the world's.
+table ForceClimate {
+  offset_c: float (id: 0);
+  wet_factor: float (id: 1);
+  ramp_years: uint (id: 2);
+}
+
 // Wire 1.68 (M6b slice BC, step three; ADR-0022 §14): the observer sets a building's covering
 // alight; it burns as any fire does, and what follows is the fire's and people's. Refused for a
 // building that is not roofed, already burns, or has no covering left to burn.
@@ -594,7 +619,26 @@ table SendStorm {
   direction_deg: float (id: 1);
 }
 
-union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless, SendWave, Plague, Drought, SetFire, RaiseRiver, SendStorm }
+// Wire 1.90 (M8d slice DA; ADR-0031 §4): the observer shakes the ground under a settlement, or the
+// whole map when `settlement` is 0, with a lateral share of every building's weight, 0.02 to 0.6.
+table Shake {
+  strength: float (id: 0);
+  settlement: ulong (id: 1);
+}
+
+// Wire 1.93 (M9b slice DK, ADR-0032 §6): the observer has settlements away from its focus
+// household-resolved, or not; `focus` is the settlement it follows or centres (0: none) and
+// `pins` those it holds Detailed. A run setting, never saved.
+table SetResolution {
+  by_focus: bool (id: 0);
+  focus: ulong (id: 1);
+  pins: [ulong] (id: 2);
+  // Wire 1.94: the person the observer follows (0: none); their settlement is held as the
+  // focus is, wherever they live at the midnight.
+  follow_person: ulong (id: 3);
+}
+
+union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless, SendWave, Plague, Drought, SetFire, RaiseRiver, SendStorm, Shake, SetResolution, ForceClimate }
 
 table Command {
   body: CommandBody (id: 1);
@@ -701,7 +745,8 @@ struct IncidentKey {
 
 // Wire 1.64: incidents of every kind in one shape, newest first, a page at a time. Kinds: 1 a
 // taking (ADR-0015 §1), 2 a case of illness (an infection, ADR-0021 §5), 4 a building's fire
-// (wire 1.68, ADR-0022 §13).
+// (wire 1.68, ADR-0022 §13); wire 1.91: 11 a building that fell or cracked when the ground shook
+// (12, a shaking, has no rows of its own: shakings come in `quakes`).
 table GetIncidents {
   // A settlement's permanent id; 0 for every settlement.
   settlement: ulong (id: 0);
@@ -750,6 +795,11 @@ table GetStorm {
   id: uint (id: 0);
 }
 
+// Wire 1.91 (M8d slice DA; ADR-0031 §4): one shaking's page.
+table GetQuake {
+  id: uint (id: 0);
+}
+
 // Wire 1.84 (M8b slice CM; ADR-0029 §9): every way people have worked on.
 table GetWays {}
 // Wire 1.88: every plan put forward or in force.
@@ -759,7 +809,7 @@ table GetVehicles {}
 // Wire 1.89: the land map, every plot.
 table GetLand {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings, GetWater, GetIncidents, GetIncident, GetOutbreak, GetCoverage, GetConflagration, GetFlood, GetStorm, GetWays, GetVehicles, GetPlans, GetLand }
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings, GetWater, GetIncidents, GetIncident, GetOutbreak, GetCoverage, GetConflagration, GetFlood, GetStorm, GetWays, GetVehicles, GetPlans, GetLand, GetQuake }
 
 table Query {
   body: QueryBody (id: 1);
@@ -2032,6 +2082,9 @@ table WeatherReport {
   // Wire 1.63: the observer's drought while it holds, in words ("The observer holds back the
   // rain, 2 standard deviations dry, until 3 May of year 2"); absent when none holds.
   drought: string (id: 6);
+  // Wire 1.96 (M9c slice DM): the observer's forcing on the climate, in words, where it stands
+  // today and where it is going; absent when none was set.
+  climate: string (id: 7);
 }
 
 // A settlement's standing (wire 1.26): its notables first, then those most esteemed, at most
@@ -2209,6 +2262,14 @@ table PolityLine {
   // people has come to hold, in sentences rendered by the kernel, never a percentage ("Mira's
   // organization: 3 of the 4 laws passed since it was founded were proposed by its members; ...").
   capture: [string] (id: 29);
+  // Wire 1.92 (M8d slice DC, ADR-0031 §6): each building its laws raise together, newest first,
+  // in a sentence rendered by the kernel: what and why, its dates (proposed, laid out, first used,
+  // finished), the hours given against the hours it takes and by how many households, and a stall
+  // kept visible ("A granary raised together because the common store spoiled with no
+  // storehouse to keep it: proposed by Pirra on 3 May of year 2; laid out on 9 May of year 2; 212
+  // of 533 hours given by 4 households; stalled since 2 October of year 2, nobody having worked
+  // on it since 30 May of year 2").
+  projects: [string] (id: 30);
 }
 
 // One election of a council (wire 1.77, ADR-0024 §3), in words rendered by the kernel: which, when
@@ -2426,6 +2487,9 @@ table IncidentRow {
   flood: uint (id: 14);
   // Wire 1.69: the storm episode damage is part of, by number (0: none).
   storm: uint (id: 15);
+  // Wire 1.91: the shaking a building that fell or cracked (kind 11) is part of, by number (0:
+  // none).
+  quake: uint (id: 16);
 }
 
 // How many incidents of a kind there are, in the scope asked: all of them (the kernel's truth),
@@ -2505,6 +2569,28 @@ table StormRow {
   words: string (id: 7);
 }
 
+// A shaking (wire 1.91, M8d slice DA; ADR-0031 §4): the ground shaken by the observer, and what
+// the buildings it reached did.
+table QuakeRow {
+  id: uint (id: 0);
+  // The settlement it was sent to (0: the whole map).
+  settlement: ulong (id: 1);
+  // When it shook, as a minute.
+  at: long (id: 2);
+  // The share of a building's weight it put on each sideways.
+  strength: float (id: 3);
+  // The buildings it reached, those that fell, those that cracked, and those inside who died.
+  reached: uint (id: 4);
+  fell: uint (id: 5);
+  cracked: uint (id: 6);
+  deaths: uint (id: 7);
+  // The observer's influence that sent it, by number (0: none).
+  observer: uint (id: 8);
+  // In words: "The ground shook at Hazelford on 3 May of year 2 with 0.30 of a building's
+  // weight: 12 buildings reached; 2 fell, 3 cracked; 1 died".
+  words: string (id: 9);
+}
+
 table Incidents {
   minute: long (id: 0);
   // Newest first.
@@ -2521,6 +2607,8 @@ table Incidents {
   floods: [FloodRow] (id: 6);
   // Wire 1.69: every storm in the scope asked, newest first.
   storms: [StormRow] (id: 7);
+  // Wire 1.91: every shaking in the scope asked, newest first.
+  quakes: [QuakeRow] (id: 8);
 }
 
 // A step in an incident's chain (12-07 §1.1): it began, was seen, was told, was answered, ended.
@@ -2543,7 +2631,7 @@ table IncidentLink {
   relation: ubyte (id: 0);
   // What it points at: 0 an influence of the observer, 1 a person, 2 a household, 3 a source of
   // water, 4 an outbreak, 5 a taking, 6 a case of illness; wire 1.68: 7 a building's fire, 8 a
-  // conflagration, 9 a building.
+  // conflagration, 9 a building; wire 1.69: 10 a flood, 11 a storm; wire 1.91: 12 a shaking.
   target: ubyte (id: 1);
   id: ulong (id: 2);
   // In words: "brought by the observer (one recorded influence)", "part of the outbreak of
@@ -2631,6 +2719,16 @@ table StormInfo {
   weather: string (id: 3);
   incidents: [IncidentRow] (id: 4);
   summary: [string] (id: 5);
+}
+
+// A shaking's page (wire 1.91, M8d slice DA; ADR-0031 §4): who sent it, what it reached, and
+// each building that fell or cracked (kind 11 rows).
+table QuakeInfo {
+  row: QuakeRow (id: 0);
+  cause: string (id: 1);
+  cause_link: IncidentLink (id: 2);
+  incidents: [IncidentRow] (id: 3);
+  summary: [string] (id: 4);
 }
 
 // A source of water as one home stands to it (wire 1.66).
@@ -2827,7 +2925,7 @@ table Land {
   plots: [LandPlot] (id: 1);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings, Water, Incidents, IncidentInfo, OutbreakInfo, Coverage, ConflagrationInfo, FloodInfo, StormInfo, Ways, Vehicles, Plans, Land }
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings, Water, Incidents, IncidentInfo, OutbreakInfo, Coverage, ConflagrationInfo, FloodInfo, StormInfo, Ways, Vehicles, Plans, Land, QuakeInfo }
 
 table Response {
   body: ResponseBody (id: 1);

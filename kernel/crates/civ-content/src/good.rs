@@ -1,7 +1,10 @@
 //! Goods (`kind = "good"`): things people carry home and keep, with how they keep. What anyone
 //! gathers, stores or eats is decided by people at run time.
 
-use civ_agents::params::{Eaten, GoodDef, GoodFire, GoodUse, MoneyDef, StoreDef, ToolDef};
+use civ_agents::params::{
+    Eaten, GoodDef, GoodFire, GoodFuel, GoodPower, GoodUse, MoneyDef, PowerSource, StoreDef,
+    ToolDef,
+};
 use civ_agents::structure::Timber;
 use serde::Deserialize;
 
@@ -39,6 +42,35 @@ pub(crate) struct GoodFile {
     /// Content API 125 (M7d slice CD): it is paid by weight as money.
     #[serde(default)]
     pub money: Option<Money>,
+    /// Content API 158 (M10a slice DP): what it gives burned; a fuel must have one.
+    #[serde(default)]
+    pub fuel: Option<FuelFile>,
+    /// Content API 160 (M10a slice DR): the power it delivers as a station; only a fixed tool.
+    #[serde(default)]
+    pub power: Option<PowerFile>,
+}
+
+/// The power a wheel or an engine delivers (M10a slice DR, ADR-0033 §5).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PowerFile {
+    /// `water` (a wheel at an installation) or `fuel` (an engine).
+    pub source: String,
+    /// The most it delivers, kilowatts.
+    pub rated_kw: f64,
+    /// The share of its source's power it turns into work, above 0 and at most 1 (research
+    /// 07-06 §2.2).
+    pub efficiency: f64,
+}
+
+/// What a good gives burned (M10a slice DP, ADR-0033 §1).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct FuelFile {
+    /// Heat, megajoules a kilogram (research 07-06 §2.3: wood 15.6, charcoal 29.5, coal 25.8).
+    pub mj_per_kg: f64,
+    /// Smoke a kilogram makes, against firewood's 1.
+    pub smoke: f64,
 }
 
 /// How a good burns (M6b slice BC; ADR-0022 §4, §5).
@@ -151,6 +183,19 @@ impl GoodFile {
                 catch_kw_m2: f.catch_kw_m2,
                 burns: f.burns,
             }),
+            fuel: self.fuel.as_ref().map(|f| GoodFuel {
+                mj_per_kg: f.mj_per_kg,
+                smoke: f.smoke,
+            }),
+            power: self.power.as_ref().map(|w| GoodPower {
+                source: if w.source == "fuel" {
+                    PowerSource::Fuel
+                } else {
+                    PowerSource::Water
+                },
+                rated_kw: w.rated_kw,
+                efficiency: w.efficiency,
+            }),
         })
     }
 
@@ -171,6 +216,46 @@ impl GoodFile {
                     "`money.foreign_discount` must be at least 0 and below 1 (got {})",
                     m.foreign_discount
                 ));
+            }
+        }
+        if let Some(f) = &self.fuel {
+            if !(f.mj_per_kg.is_finite() && (1.0..=60.0).contains(&f.mj_per_kg)) {
+                p.push(format!(
+                    "`fuel.mj_per_kg` must be between 1 and 60 (got {})",
+                    f.mj_per_kg
+                ));
+            }
+            if !(f.smoke.is_finite() && (0.0..=10.0).contains(&f.smoke)) {
+                p.push(format!(
+                    "`fuel.smoke` must be between 0 and 10 (got {})",
+                    f.smoke
+                ));
+            }
+        }
+        if let Some(w) = &self.power {
+            if !matches!(w.source.as_str(), "water" | "fuel") {
+                p.push(format!(
+                    "unknown `power.source` `{}` (known: water, fuel)",
+                    w.source
+                ));
+            }
+            if !(w.rated_kw.is_finite() && w.rated_kw > 0.0 && w.rated_kw <= 1000.0) {
+                p.push(format!(
+                    "`power.rated_kw` must be above 0 and at most 1000 (got {})",
+                    w.rated_kw
+                ));
+            }
+            if !(w.efficiency.is_finite() && w.efficiency > 0.0 && w.efficiency <= 1.0) {
+                p.push(format!(
+                    "`power.efficiency` must be above 0 and at most 1 (got {})",
+                    w.efficiency
+                ));
+            }
+            if !self.tool.as_ref().is_some_and(|t| t.fixed) {
+                p.push(
+                    "only a fixed tool delivers power: `[power]` needs `[tool] fixed = true`"
+                        .to_owned(),
+                );
             }
         }
         if let Some(f) = &self.fire {
@@ -302,6 +387,13 @@ impl GoodFile {
                 }
             }
             Some(GoodUse::Fuel) => {
+                if self.fuel.is_none() {
+                    p.push(
+                        "a fuel says what it gives burned: a `[fuel]` table with `mj_per_kg` \
+                         and `smoke`"
+                            .to_owned(),
+                    );
+                }
                 if self.kcal_per_kg != 0.0 {
                     p.push("a fuel is not eaten: `kcal_per_kg` must be 0".to_owned());
                 }

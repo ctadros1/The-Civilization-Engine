@@ -60,6 +60,9 @@ pub(super) struct Forecasts {
     /// Where the settlement's people could clear a passing place together, if anywhere (M8b
     /// slice CQ, third part).
     pub(super) way: Option<super::way_works::PublicWay>,
+    /// What raising each building its templates name would bring, where its loss is measured
+    /// (M8d slice DC).
+    pub(super) raises: Vec<super::raising::PublicRaise>,
     /// The plans a sponsor could put forward, if it weighs one (M8c slice CT, second part).
     pub(super) plans: Vec<super::plans::PublicPlan>,
     /// The palisade the settlement's people could raise round their hearth together, if any
@@ -452,6 +455,21 @@ impl Forecasts {
                 let saved = p.saves_of(h) * kcal;
                 let owed = p.share_h() / p.life.max(1e-9) * kcal;
                 crate::polity::kept_gain(o, saved, pp) - crate::polity::levy_cost(o, owed, pp)
+            }
+            // A building raised together (M8d slice DC), as a passing place: the food a year the
+            // household believes its share of the loss averted, less what its share of the work,
+            // spread over the years it weighs, could bring.
+            Some(PolicyKind::RaiseBuilding) => {
+                let Some(p) = self.raises.iter().find(|r| r.policy == m.policy) else {
+                    return 0.0;
+                };
+                let kcal = self
+                    .hour_kcal
+                    .binary_search_by_key(&h, |k| k.0)
+                    .map_or(0.0, |i| self.hour_kcal[i].1);
+                let owed = p.share_h() / p.life.max(1e-9) * kcal;
+                crate::polity::kept_gain(o, p.averted_kcal, pp)
+                    - crate::polity::levy_cost(o, owed, pp)
             }
             // A plan (M8c slice CT, second part): the food a year the walking its best parcel
             // would save the household could bring, against the ground it would take now if it
@@ -1470,11 +1488,13 @@ impl Population {
 
     /// Whether polity `pi`'s store is kept under a roof now: its keeper's household is under one.
     pub(crate) fn polity_sheltered(&self, pi: usize) -> bool {
-        self.polities[pi]
-            .keeper()
-            .and_then(|(k, _)| self.person(k))
-            .and_then(|p| self.household(p.household))
-            .is_some_and(|x| x.sheltered)
+        // Under the roof of a storehouse it raised (M8d slice DC).
+        self.polities[pi].storehouse.is_some()
+            || self.polities[pi]
+                .keeper()
+                .and_then(|(k, _)| self.person(k))
+                .and_then(|p| self.household(p.household))
+                .is_some_and(|x| x.sheltered)
     }
 
     /// What the households `households` of polity `pi`'s settlement expect, to forecast what a
@@ -1496,6 +1516,8 @@ impl Population {
         self.with_enclosure(ctx, &mut fc, settlement, households);
         let way = self.public_way(ctx, settlement, households);
         self.with_way(ctx, &mut fc, way, households);
+        let raises = self.public_raises(ctx, pi, households);
+        self.with_raises(ctx, &mut fc, raises, households);
         fc
     }
 
@@ -1511,6 +1533,25 @@ impl Population {
     ) {
         fc.way = way;
         if fc.way.is_some() && fc.hour_kcal.is_empty() {
+            fc.hour_kcal = households
+                .iter()
+                .filter_map(|&h| Some((h, self.hour_kcal(ctx, self.household(h)?))))
+                .collect();
+        }
+    }
+
+    /// Adds to forecasts `fc` the buildings `raises` the settlement's people could raise together
+    /// (M8d slice DC), with what an hour of each household's work brings it if it was not
+    /// reckoned already.
+    fn with_raises(
+        &self,
+        ctx: &Ctx,
+        fc: &mut Forecasts,
+        raises: Vec<super::raising::PublicRaise>,
+        households: &[PermanentId],
+    ) {
+        fc.raises = raises;
+        if !fc.raises.is_empty() && fc.hour_kcal.is_empty() {
             fc.hour_kcal = households
                 .iter()
                 .filter_map(|&h| Some((h, self.hour_kcal(ctx, self.household(h)?))))
@@ -1656,6 +1697,7 @@ impl Population {
             bank,
             worn,
             way: None,
+            raises: Vec::new(),
             plans: Vec::new(),
             enclosure: None,
             rules,
@@ -1915,6 +1957,53 @@ impl Population {
         }
     }
 
+    /// Polity `pi`'s gathering, if one is called, sits now and decides: for tests.
+    #[doc(hidden)]
+    pub fn decide_gathering_for_tests(&mut self, ctx: &mut Ctx, pi: usize) {
+        self.decide_gathering(ctx, pi);
+    }
+
+    /// `sponsor` puts forward template `policy` before the gathering of settlement `settlement`,
+    /// answering `issue`, with no levy, sanction or hours: the law's id; for tests.
+    #[doc(hidden)]
+    pub fn propose_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        settlement: PermanentId,
+        sponsor: PermanentId,
+        policy: u16,
+        issue: IssueKind,
+    ) -> Option<PermanentId> {
+        let pi = self.polity_of(settlement)?;
+        let m = MoveOption {
+            policy,
+            levy_share: 0.0,
+            issue,
+            nominee: Some(sponsor),
+            sanction: Default::default(),
+            hours: (0, 0),
+            body: None,
+            ends: None,
+            site: None,
+            target: None,
+            own_gain: 0.0,
+            followers_gain: 0.0,
+            support: 0.5,
+        };
+        self.propose(ctx, pi, sponsor, m, Vec::new(), None);
+        self.polities[pi].laws.last().map(|l| l.id)
+    }
+
+    /// The points coming to the gathering its polity has called is worth to `person`, whether or
+    /// not they heard of it: for tests.
+    #[doc(hidden)]
+    pub fn gathering_points_for_tests(&self, ctx: &Ctx, person: PermanentId) -> Option<f64> {
+        let hh = self.household(self.person(person)?.household)?;
+        let pi = self.polity_of(hh.settlement?)?;
+        self.polities[pi].gathering.as_ref()?;
+        Some(self.attend_points(ctx, pi, person, hh))
+    }
+
     /// What a law closing the source at `cell` would bring each household of settlement
     /// `settlement`, points, as its members would weigh it at the gathering: for tests.
     #[doc(hidden)]
@@ -1963,6 +2052,55 @@ impl Population {
             body: None,
             ends: None,
             site: Some(cell),
+            target: None,
+            own_gain: 0.0,
+            followers_gain: 0.0,
+            support: 0.5,
+        };
+        let pp = &ctx.params.polity;
+        households
+            .iter()
+            .map(|&h| {
+                (
+                    h,
+                    pp.w_gain * fc.gain(&m, h, &ctx.catalog.policies, ctx.params),
+                )
+            })
+            .collect()
+    }
+
+    /// What the rule for building of catalog index `policy` would bring each household of
+    /// settlement `settlement`, points, as its members would weigh it at the gathering (M8d slice
+    /// DB): for tests.
+    #[doc(hidden)]
+    pub fn rule_gains_for_tests(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+        policy: u16,
+    ) -> Vec<(PermanentId, f64)> {
+        let Some(pi) = self.polity_of(settlement) else {
+            return Vec::new();
+        };
+        let mut households: Vec<PermanentId> = self
+            .households
+            .iter()
+            .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
+            .map(|(_, x)| x.id)
+            .collect();
+        households.sort_unstable();
+        let adults = self.members_of(settlement, ctx.now, ctx.params);
+        let fc = self.forecasts(ctx, pi, &households, &adults);
+        let m = MoveOption {
+            policy,
+            levy_share: 0.0,
+            issue: IssueKind::GaveWay,
+            nominee: None,
+            sanction: Default::default(),
+            hours: (0, 0),
+            body: None,
+            ends: None,
+            site: None,
             target: None,
             own_gain: 0.0,
             followers_gain: 0.0,
@@ -2512,10 +2650,26 @@ impl Population {
                         | PolicyKind::KeepBank
                         | PolicyKind::Enclose
                         | PolicyKind::BuildWay
+                        | PolicyKind::RaiseBuilding
                 )
         });
         if money_held && common_work {
             issues.push(IssueKind::CoinIdle);
+        }
+        // Its common store spoiled, measured, and no storehouse of its stands or is being
+        // raised (M8d slice DC).
+        if self.store_spoils(ctx, pi) {
+            issues.push(IssueKind::StoreSpoils);
+        }
+        // A gathering in the open rained off, measured, and no hall of its stands or is being
+        // raised (M8d slice DC).
+        if self.rained_off(ctx, pi) {
+            issues.push(IssueKind::RainedOff);
+        }
+        // A fire seen late, measured, a watch keeping watch, and no tower of its stands or is
+        // being raised (M8d slice DC).
+        if self.fires_unseen(ctx, pi) {
+            issues.push(IssueKind::FiresUnseen);
         }
         // A household of it paid or was paid in weighed metal lately (M7d slice CE2b).
         if self.weighed_lately(ctx, &households) {
@@ -2578,6 +2732,11 @@ impl Population {
                 // Another passing place once none is being cleared (M8b slice CQ, third part:
                 // `public_way` holds to one at a time).
                 if d.kind == PolicyKind::BuildWay {
+                    return true;
+                }
+                // Another building raised together, of a program none is raised of
+                // (`public_raises` holds to one of each).
+                if d.kind == PolicyKind::RaiseBuilding {
                     return true;
                 }
                 // A keeping, of a bank no law in force keeps (M6b slice BG: `worn_bank`).
@@ -2646,6 +2805,8 @@ impl Population {
         let mut fc = self.forecasts_with(ctx, pi, &households, &adults, sites, well, bank);
         self.with_enclosure(ctx, &mut fc, settlement, &households);
         self.with_way(ctx, &mut fc, way, &households);
+        let raises = self.public_raises(ctx, pi, &households);
+        self.with_raises(ctx, &mut fc, raises, &households);
         // The plans a sponsor could lay, for each plan template open (M8c slice CT, second part).
         let plans: Vec<super::plans::PublicPlan> = open
             .iter()
@@ -3280,6 +3441,24 @@ impl Population {
                             });
                         }
                     }
+                    // A building raised together, put forward only by someone who knows how to
+                    // build its program, where its loss is measured (M8d slice DC).
+                    PolicyKind::RaiseBuilding => {
+                        let knows = def
+                            .raise
+                            .and_then(|r| ctx.catalog.buildings.get(r.program))
+                            .is_some_and(|b| {
+                                b.technique
+                                    .is_none_or(|t| self.person(d).is_some_and(|p| p.knows(t)))
+                            });
+                        if knows && fc.raises.iter().any(|r| r.policy == k) {
+                            moves.push(MoveOption {
+                                site: None,
+                                target: None,
+                                ..blank
+                            });
+                        }
+                    }
                     // A plan, put forward only by someone who knows how to lay ground out (M8c
                     // slice CT, second part; ADR-0030 §2): each layout laid, named by its code.
                     // Proposed, it replaces the plan in force, if one is, as its next version.
@@ -3817,7 +3996,7 @@ impl Population {
                 .collect();
             households.sort_unstable();
             if let Some(p) = self
-                .public_plans(ctx, pi, settlement, &households, m.policy)
+                .plan_layouts(ctx, pi, settlement, &households, m.policy)
                 .into_iter()
                 .find(|p| p.code == code)
             {
@@ -3843,6 +4022,25 @@ impl Population {
                     },
                 ));
             }
+        }
+        // A building raised together keeps its program and the work it asks (M8d slice DC).
+        if def.kind == PolicyKind::RaiseBuilding
+            && let Some(r) = def.raise
+            && let Some(labour_h) = ctx
+                .catalog
+                .buildings
+                .get(r.program)
+                .and_then(|b| b.shapes.first())
+                .map(|c| c.hours(ctx.params.household.carry_kg))
+        {
+            self.polities[pi].raises.push((
+                id,
+                crate::polity::RaiseSite {
+                    program: r.program as u16,
+                    labour_h,
+                    ..Default::default()
+                },
+            ));
         }
         // A passing place names its cell, as the settlement's people would clear it now, and
         // keeps what each household reckoned it would spare it (M8b slice CQ, third part).
@@ -4004,8 +4202,36 @@ impl Population {
         let Some(g) = self.polities[pi].gathering.take() else {
             return;
         };
+        // Held at the hearth in the open, unless a hall of the polity's stands: measured against
+        // what a hall would answer (M8d slice DC).
+        let wet = ctx.land.weather.today.wet;
+        let open = self.polities[pi].hall.is_none();
+        let year = ctx.now.date().year;
+        // A hall's first gathering is its first use (M8d slice DC).
+        if let Some(hall) = self.polities[pi].hall {
+            self.first_use_of(pi, hall, ctx.now);
+        }
+        if open {
+            let m = self.polities[pi].measured_mut(year);
+            m.gatherings += 1;
+            m.wet_gatherings += u32::from(wet);
+        }
         if let Some(law) = g.law {
             self.decide_law(ctx, pi, &g, law);
+            // Those who came on a wet day to a gathering in the open gave their hours for nothing
+            // where it lacked a quorum: what a hall would have spared them.
+            let rained_off = open
+                && wet
+                && self.polities[pi]
+                    .laws
+                    .iter()
+                    .find(|l| l.id == law)
+                    .is_some_and(|l| l.outcome == Some(Outcome::NoQuorum));
+            if rained_off {
+                let hours =
+                    g.present.len() as f64 * f64::from(ctx.params.polity.gathering_minutes) / 60.0;
+                self.polities[pi].measured_mut(year).wet_lost_h += hours;
+            }
         }
         for &case in &g.cases {
             self.hear_case(ctx, pi, &g.present, None, case);
@@ -4190,6 +4416,10 @@ impl Population {
         // A passing place passed is laid out at once, the polity's (M8b slice CQ, third part).
         if outcome == Outcome::Passed && kind == PolicyKind::BuildWay {
             self.begin_public_way(ctx, pi, law_id);
+        }
+        // A building raised together is laid out at once, the polity's (M8d slice DC).
+        if outcome == Outcome::Passed && kind == PolicyKind::RaiseBuilding {
+            self.begin_public_raise(ctx, pi, law_id);
         }
         // A palisade passed is laid out at once, the polity's (M6c slice BK).
         if outcome == Outcome::Passed && kind == PolicyKind::Enclose {
@@ -4402,6 +4632,23 @@ impl Population {
         {
             return None;
         }
+        Some(GatheringFacts {
+            points: self.attend_points(ctx, pi, person, hh),
+            minutes: (end - minute) as f64,
+        })
+    }
+
+    /// The points attending polity `pi`'s gathering is worth to `person` of household `hh`: what
+    /// their household made of the law and their regard for its sponsor, over the custom's own
+    /// pull, less what rain takes from a gathering in the open (M8d slice DC). 0 when none is
+    /// called.
+    fn attend_points(&self, ctx: &Ctx, pi: usize, person: PermanentId, hh: &Household) -> f64 {
+        let params = ctx.params;
+        let pp = &params.polity;
+        let polity = &self.polities[pi];
+        let Some(g) = polity.gathering.as_ref() else {
+            return 0.0;
+        };
         let day = ctx.now.day_index();
         let regard_for = |q: PermanentId| {
             if q == person {
@@ -4436,10 +4683,14 @@ impl Population {
             })
             .fold(0.0, f64::max);
         let stake = law_stake.max(case_stake);
-        Some(GatheringFacts {
-            points: pp.attend_base + pp.w_attend * stake,
-            minutes: (end - minute) as f64,
-        })
+        // Rain keeps people from a gathering held in the open, no hall of the polity's standing
+        // (M8d slice DC).
+        let rained = if ctx.land.weather.today.wet && polity.hall.is_none() {
+            pp.wet_attend
+        } else {
+            0.0
+        };
+        pp.attend_base + pp.w_attend * stake - rained
     }
 
     /// A curfew in force where household `hh` lives and running at minute `minute` of the day

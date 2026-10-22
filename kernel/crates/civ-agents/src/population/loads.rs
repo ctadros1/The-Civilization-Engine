@@ -78,10 +78,10 @@ fn kept_in(fill: &[Vec<f64>; 3], room_all: [f64; 3], room: [f64; 3]) -> [Vec<f64
 }
 
 /// A group of a building that gave way today, and why it was weak.
-struct Fell {
-    kind: GroupKind,
-    quality: f32,
-    loss: f32,
+pub(super) struct Fell {
+    pub(super) kind: GroupKind,
+    pub(super) quality: f32,
+    pub(super) loss: f32,
 }
 
 impl Population {
@@ -276,7 +276,7 @@ impl Population {
             if let Some((fell, snow)) = self.weigh(ctx, i, &kept, storm, observer) {
                 changed = true;
                 if !fell.is_empty() {
-                    self.give_way(ctx, i, &kept, &fell, storm, snow);
+                    self.give_way(ctx, i, &kept, &fell, storm, snow, false);
                 }
             }
         }
@@ -476,9 +476,10 @@ impl Population {
 
     /// What follows when parts of building `i`, which held `kept` of its household's goods, gave
     /// way (`fell`, the gravest first) under the month's storm `storm` and the snow `snow` on its
-    /// roof, pascals on its plan: the goods on what fell are spilled and part lost, those inside
-    /// may die, and the chronicle tells of it.
-    fn give_way(
+    /// roof, pascals on its plan, or when the ground shook (`shaking`): the goods on what fell are
+    /// spilled and part lost, those inside may die, and the chronicle tells of it. How many died.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn give_way(
         &mut self,
         ctx: &mut Ctx,
         i: usize,
@@ -486,7 +487,8 @@ impl Population {
         fell: &[Fell],
         storm: f64,
         snow: f64,
-    ) {
+        shaking: bool,
+    ) -> usize {
         let (now, catalog) = (ctx.now, ctx.catalog);
         let goods = &catalog.goods;
         let b = &ctx.land.buildings[i];
@@ -495,12 +497,14 @@ impl Population {
             .building_index(&b.spec.program)
             .and_then(|d| catalog.buildings.get(d))
         else {
-            return;
+            return 0;
         };
         let Some(e) = self.expansion_of(b, def) else {
-            return;
+            return 0;
         };
-        let (at, technique) = (build::centre_m(&b.spec), def.technique);
+        let at = build::centre_m(&b.spec);
+        // Every technique it used (ADR-0031 §5): its program's, its walls' and its systems'.
+        let techniques = crate::rules::techniques_used(catalog, &b.spec, def);
         let reach_m = match b.spec.footprint {
             civ_grammar::Footprint::Round { radius, .. } => f64::from(radius) / 100.0,
             civ_grammar::Footprint::Rect { length, width, .. } => {
@@ -601,12 +605,16 @@ impl Population {
             _ => "gave way",
         };
         let mut words = format!("{} {what}", def.name.to_lowercase());
+        if shaking {
+            words.push_str(" when the ground shook");
+        }
         if fallen_kg >= 1.0 {
             words.push_str(&format!(" under {}", mass(fallen_kg)));
             if let Some(m) = mostly {
                 words.push_str(&format!(" of {m}"));
             }
-        } else if storm > 0.0
+        } else if !shaking
+            && storm > 0.0
             && storm >= snow
             && storm >= 2.0 * ctx.land_params.weather.storm_median_pa
         {
@@ -637,9 +645,11 @@ impl Population {
             dead.len() as f64,
             words,
         );
-        // The settlement remembers it against the technique (ADR-0009 §6).
+        // The settlement remembers it against each technique it used (ADR-0009 §6, ADR-0031 §5).
         let caution = &ctx.params.build.caution;
-        self.remember_failure(settlement, technique, dead.len(), now, caution);
+        for t in techniques {
+            self.remember_failure(settlement, Some(t), dead.len(), now, caution);
+        }
         // And each household of it hears it told and remembers it (M6b slice BH).
         if let Some(b) = ctx.land.buildings.get(i) {
             let seen = crate::person::GaveWay {
@@ -648,6 +658,8 @@ impl Population {
                 own: false,
                 wall_kind: crate::rules::wall_kind(&b.spec, &def.rules),
                 hours: Self::fire_cost_h(ctx, b) as f32,
+                storeys: b.spec.storeys.max(1),
+                tied: crate::rules::tied(&b.spec),
             };
             for (_, x) in self.households.iter_mut() {
                 if settlement.is_some() && x.settlement == settlement {
@@ -658,6 +670,7 @@ impl Population {
                 }
             }
         }
+        let deaths = dead.len();
         for who in dead {
             self.die(ctx, who, Cause::Collapse);
         }
@@ -667,6 +680,7 @@ impl Population {
         {
             b.repair = None;
         }
+        deaths
     }
 }
 
@@ -680,7 +694,7 @@ fn upper_storeys_m2(e: &Expansion) -> f64 {
         .sum()
 }
 
-fn gravity(kind: GroupKind) -> u8 {
+pub(super) fn gravity(kind: GroupKind) -> u8 {
     match kind {
         GroupKind::Posts | GroupKind::MassWall | GroupKind::Ties => 0,
         GroupKind::RoofFrame | GroupKind::Trusses | GroupKind::Purlins => 1,
@@ -695,7 +709,7 @@ fn gravity(kind: GroupKind) -> u8 {
 /// What presses on building `b` (of expansion `e`) holding `kept` of its household's goods, the
 /// month's peak aside: its covering's weight once it is on, the goods on its lofts and floors,
 /// and people on floors off the ground.
-fn loads_on(b: &Building, e: &Expansion, kept: &[Vec<f64>; 3]) -> Loads {
+pub(super) fn loads_on(b: &Building, e: &Expansion, kept: &[Vec<f64>; 3]) -> Loads {
     let area = |level: Level| -> f64 {
         e.spaces
             .iter()

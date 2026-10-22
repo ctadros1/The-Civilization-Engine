@@ -286,6 +286,10 @@ struct ConsistencyArgs {
     /// parties': to see what the approximation changes, not the gate.
     #[arg(long)]
     without_views_by_party: bool,
+    /// Gate C (ADR-0032 §5): the compared runs live every settlement household-resolved, held to
+    /// the same Detailed runs and tolerances.
+    #[arg(long)]
+    household: bool,
     /// Also write the report as JSON to this file.
     #[arg(long)]
     json: Option<PathBuf>,
@@ -675,9 +679,10 @@ fn run_consistency(args: ConsistencyArgs) -> anyhow::Result<ExitCode> {
         consistency::RUNS
     };
     println!(
-        "Gate B (ADR-0011 §5): {} fixture worlds at {}² cells, each lived by the minute to 1 \
+        "{} (ADR-0011 §5, ADR-0032 §5): {} fixture worlds at {}² cells, each lived by the minute to 1 \
          January of year {} and saved; from each, {runs} runs {} of that year, each with its own \
          tie-break stream, on {threads} threads",
+        if args.household { "Gate C" } else { "Gate B" },
         consistency::FIXTURES.len(),
         consistency::SIZE,
         consistency::RUN_YEAR,
@@ -697,6 +702,7 @@ fn run_consistency(args: ConsistencyArgs) -> anyhow::Result<ExitCode> {
                 household_view: !args.without_household_view,
                 views_by_party: !args.without_views_by_party,
             },
+            household: args.household,
         },
         dir.path(),
         threads,

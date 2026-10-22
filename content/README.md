@@ -137,7 +137,7 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | | `food_target_days`, `carry_kg`, `daily_kcal_per_person` | The food store people aim for, the load one person carries home, average need. |
 | | `harvest_margin_days` | The food a household wants in store beyond the first grain of its next harvest: stores short of that much make wild food worth going out for (`decision.w_lean`). |
 | | `raised_store_factor` | How many times as long goods keep on a raised store's floor as elsewhere under a roof (1 or more). |
-| | `fuel_kg_per_person_day`, `fuel_target_days` | Firewood burned per person per day by month (January first), and the store people aim for. |
+| | `fuel_kg_per_person_day`, `fuel_target_days` | Firewood burned per person per day by month (January first), and the store people aim for; another fuel stands for firewood by its heat (`[fuel]` on goods). |
 | | `short_food_days`, `recovered_food_days` | The chronicle notes a settlement's shortage below the first and its end above the second. |
 | | `leave_at_depletion`, `leave_per_day`, `leave_unless_ripe_within_days` | A household with less than a day's food, whose members have drawn on average this share of their reserve, and with no crop of its own ripening within these days or reaped and waiting, weighs leaving, with at most this chance a day. |
 | | `leave_w_gap`, `leave_w_stake`, `leave_stay` | How it weighs it (M4a slice Z; content API 32): points toward going for the whole of the wait to its next harvest that its food, its share of what other households could spare and its share of a common store it knows it may ask would not cover (0 to 100); toward staying for a whole year's food its fields should bring, which leaving gives up (0 to 100); and toward staying before either (−100 to 100). The day's chance is `leave_per_day` times the logistic of going's points less staying's. |
@@ -167,6 +167,7 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | `polity` | `review_days`, `notice_days`, `gathering_minutes`, `quorum_share` | The polity and its founding custom (M4a slice Z, ADR-0013; content API 31): days between a polity's routine reviews, when its notables, the elders of households whose food will not last, and whoever came to a gathering or learnt a law since the last review weigh proposing (1 to 365); days from a proposal to the gathering that decides it (1 to 30); minutes a gathering sits from the start of the evening (15 to 600); and the share of the settlement's adults who must come for it to decide (0 to 1). Every world starts from this one custom: the adults at the hearth decide by acclamation, more for than against, a tie failing. |
 | | `w_gain`, `w_regard`, `stance_margin` | Stances (0 to 100 each): points per unit of what a law is forecast to bring a member's household (the change in the expected log of its year's food above subsistence, over an ordinary and a lean year), points for full regard for the law's sponsor, and the points either way within which a member abstains. |
 | | `attend_base`, `w_attend` | Attending: the points the custom itself is worth (−100 to 100), and points per point a member's household and regard for the sponsor have at stake (0 to 100). |
+| | `wet_attend` | Points a gathering held in the open is worth the less on a wet day, no hall of the polity's standing (0 to 100; content API 154, M8d slice DC). |
 | | `w_followers`, `propose_cost`, `temperature` | Proposing (ADR-0013 §5): the weight of those who regard a sponsor against the sponsor's own household (0 to 10), the points a proposal costs (0 to 100), and the temperature of the choice among moves and none (0.01 to 100). A move is worth its forecast by the share of those the sponsor knows who would back it. |
 | | `vote_memory_days` | Days a member remembers how a gathering they came to stood on a proposal (0 to 3650): while they do, they expect no more support for the same proposal, at the same level or naming the same holder, than it got there (content API 34; research 09-05 §1.2: a sponsor weighs expected success). |
 | | `prior_lean`, `prior_years`, `lean_harvest`, `subsistence_share` | Forecasts: the lean years believed in before any are seen, out of `prior_years` (lean years seen are those the settlement's food ran short in); a lean year's harvest as a share of an ordinary one (0 to 1); and the share of a year's food below which a household cannot live (0 to 1): food there is worth the most, and a household that would fall below it by paying a levy cannot pay. |
@@ -292,7 +293,7 @@ building skill and `[upkeep]`.
 | Table | Fields | Meaning |
 |---|---|---|
 | (top) | `grammar` | The grammar that expands it: `hut` or `frame`. |
-| | `use` | What its buildings are for: `dwelling`, `store` or `work` (the use of the plot it stands on). |
+| | `use` | What its buildings are for: `dwelling`, `store`, `work` or, from content API 154, `hall` (a polity's gatherings meet in it), and from 155 `tower` (a polity's watch looks out from it); only a polity raises a hall or a tower (the use of the plot it stands on). |
 | | `eave_cm`, `pitch_deg` | The wall height (a frame's: each storey's) and roof pitch people build to, within the rules' ranges. |
 | | `roof_by_day` | The day of the year (from 0) a household wants to be under its roof by; the pressure to build grows as it nears. |
 | | `technique` | The technique building it needs (ADR-0008). |
@@ -1554,3 +1555,63 @@ frame version 3's systems, the technique that opens it, `trussed_roof`, `storeye
 `wall_ties` (each a technique id, or omitted for none). A technique a program names there gates
 work (E3005). The core adds `trussed_roof`, `storeyed_frame` and `tied_masonry`, none known to
 founders, each tried toward in building huts; `jointed_frame` is now tried toward there too.
+
+Content API 152 (M8d slice DB) brings two building-rule templates (ADR-0031 §5): `most_storeys`,
+a dimension rule that a new building whose walls are of one of `walls` rise at most `storeys` (1 to
+3); and `tied_walls`, a technique rule that new mass walls above a storey be tied at each floor,
+which a policy gates by `needs`. The core authors them as `yours_to_stay_low` (rubble and mud brick
+a storey high) and `yours_to_tie_the_walls` (needing `tied_masonry`), each answering `gave_way`.
+
+Content API 153 (M8d slice DC, second part) brings the policy kind `raise_building`, whose
+`[raise]` table names the building `program` a polity raises in common; it answers the issue
+`store_spoils` (the common store spoiling unsheltered, as measured a year), and a store program
+raised so shelters the common store once it stands. Work on it is the behaviour `raise`. The core
+authors `yourselves_raise_a_storehouse` (a granary) and the activity
+`work_with_wooden_tools_on_raising`.
+
+Content API 154 (M8d slice DC, third part) brings the building use `hall` and the people
+profile's `polity.wet_attend`, the points a gathering held in the open is worth the less on a wet
+day. A gathering rained off for want of a quorum is measured, and the issue `rained_off` opens
+while it is; a hall raised under `raise_building` answers it, and the polity's gatherings then
+meet under its roof. The core authors the program `hall` and the template `yourselves_roof_a_hall`.
+
+Content API 155 (M8d slice DC, third part) brings the building use `tower`. A fire nobody saw for
+ten minutes after its covering caught, not caught from a neighbour already burning, is measured by
+the work its building takes to put right, and the issue `fires_unseen` opens while it is and a
+watch keeps watch; a tower raised under `raise_building` answers it. A watch round then begins at
+the tower, and whoever stands at it sees a burning roof 500 m off. The core authors the program
+`watch_tower` and the template `yourselves_watch_from_a_tower`.
+
+Content API 156 (M8d slice DC, fourth part) brings four ties acts (`ties.acts` must list them):
+`share_raised` (the other's household gave its share of the work on a building raised together),
+`raised_well` (someone of the other's household worked on one that stands finished),
+`raised_as_proposed` (one the other proposed was finished as proposed) and `proposal_stalled` (one
+the other proposed stalled). Those who use a building raised together, every adult of its polity,
+see them when it is finished or stalls.
+
+Content API 157 (M8d slice DD) gives a taste a front: `style.tradition`, `tradition_spread` and
+`personal_spread` may name `openings` (the share of a frame's walls left open), `ornament_h_per_m2`
+(hours of craft a square metre of its front), `finish` (0 bare, 1 daubed, 2 lime-washed) and
+`symmetry` (0 none to 1 a front set out about its middle), each 0 where not named. Only a frame
+of version 3 has a front, a store no openings; a lime wash takes someone who knows lime burning.
+
+Content API 158 (M10a slice DP) gives a fuel its heat: a good of purpose `fuel` must carry a
+strict `[fuel]` table with `mj_per_kg` (1–60; firewood 15.6, charcoal 29.5, coal 25.8 by research
+07-06 §2.3) and `smoke` (0–10, against firewood's 1). A household's hearth need stays in
+kilograms of the first fuel in the catalogue (firewood); any other fuel burns by its heat, once
+the fuels before it are gone. Which fuel a recipe takes is the recipe's, not the table's.
+
+Content API 159 (M10a slice DP) gives a recipe `elapsed_days` (0–60, default 0): a batch that
+runs unattended once started. A session of it takes the inputs and starts a batch; the outputs
+come when someone of the household opens it on a later session, once its days are past; while
+one of that recipe is under way the household does not start another. Charcoal is the first:
+`good/charcoal` (a material, 29.5 MJ a kilogram), `technique/charcoal_burning` (found from firing),
+`recipe/burn_charcoal` (5 kg of wood a kilogram, ten days) and `activity/burn_charcoal`.
+
+Content API 160 (M10a slice DR) gives a fixed tool a `[power]` table and a recipe
+`kwh_per_unit` (0–100, default 0). `[power]` names its `source` (`water`, a wheel at an
+installation, or `fuel`, an engine), `rated_kw` (above 0, at most 1000) and `efficiency` (above 0,
+at most 1; research 07-06 §2.2: simple wheels 20–40 %, overshot 50–70 %); only a fixed tool may
+carry one. A recipe's `kwh_per_unit` is the power a unit takes from a powered station; a session
+makes no more than the station's power over its hours allows. An installation's power is worked
+out each day from its river reach's discharge, P = 9.81 Q H η, and is never saved.

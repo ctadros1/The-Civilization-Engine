@@ -109,11 +109,14 @@ pub enum Behavior {
     /// ground there, and walk home (M8b slice CQ, second part): the activity's numbers, the
     /// work's own labour.
     Way,
+    /// Walk to the building the household's polity raises, help raise it, and walk home (M8d
+    /// slice DC): the activity's numbers, the work's own labour.
+    Raise,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 37] = [
+    pub const ALL: [Behavior; 38] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -151,6 +154,7 @@ impl Behavior {
         Behavior::Boat,
         Behavior::Cart,
         Behavior::Way,
+        Behavior::Raise,
     ];
 
     /// The authored name of a behavior.
@@ -193,6 +197,7 @@ impl Behavior {
             Behavior::Boat => "boat",
             Behavior::Cart => "cart",
             Behavior::Way => "way",
+            Behavior::Raise => "raise",
         }
     }
 
@@ -406,6 +411,52 @@ pub struct GoodDef {
     /// bought in its recent purchases.
     pub money: Option<MoneyDef>,
     pub fire: Option<GoodFire>,
+    /// What it gives burned (M10a slice DP, ADR-0033 §1; content API 158): `None` for a good not
+    /// burned for heat.
+    pub fuel: Option<GoodFuel>,
+    /// The power it delivers as a station (M10a slice DR, ADR-0033 §5; content API 160): `None`
+    /// for a good that is not a wheel or an engine.
+    pub power: Option<GoodPower>,
+}
+
+/// What drives a powered station (M10a slice DR).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PowerSource {
+    /// Falling water at an installation (ADR-0033 §5).
+    Water,
+    /// A fuel burned in it (an engine, slice DS).
+    Fuel,
+}
+
+/// The power a wheel or an engine delivers (M10a slice DR; research 07-06 §2.2): its source, the
+/// most it delivers and the share of its source's power it turns into work.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GoodPower {
+    pub source: PowerSource,
+    pub rated_kw: f64,
+    pub efficiency: f64,
+}
+
+/// What a good gives burned (M10a slice DP, ADR-0033 §1): heat, and the smoke that comes with it.
+/// Fitness for a process is not here: a recipe names the fuels it takes.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GoodFuel {
+    /// Heat, megajoules a kilogram (research 07-06 §2.3).
+    pub mj_per_kg: f64,
+    /// Smoke a kilogram makes, against firewood's 1.
+    pub smoke: f64,
+}
+
+/// What a kilogram of `goods[g]` stands for at the hearth, in kilograms of the first fuel among
+/// `goods` (firewood, the measure a household's need is given in), by their heat (M10a slice DP):
+/// exactly 1 for that fuel itself, and for any fuel whose heat is not given.
+pub fn fuel_ratio(goods: &[GoodDef], g: usize) -> f64 {
+    let heat = |d: &GoodDef| d.fuel.map_or(1.0, |f| f.mj_per_kg);
+    let reference = goods
+        .iter()
+        .find(|d| d.purpose == GoodUse::Fuel)
+        .map_or(1.0, heat);
+    goods.get(g).map_or(1.0, |d| heat(d) / reference)
 }
 
 /// How a good burns (M6b slice BC; ADR-0022 §4, §5). Design priors: the reports give no
@@ -606,6 +657,15 @@ pub struct RecipeDef {
     pub skill: Option<usize>,
     /// The technique working it needs, by index in the techniques (ADR-0008 §1).
     pub technique: Option<usize>,
+    /// Days a batch runs once started, unattended (a charcoal burn, a smelt): 0 for a recipe
+    /// whose outputs come at the end of the session (M10a slice DP, ADR-0033 §2). Its inputs are
+    /// taken when the batch is started and its outputs given when it is opened, on a visit once
+    /// its days are past.
+    pub elapsed_days: f64,
+    /// Kilowatt-hours a unit takes from a powered station (M10a slice DR, ADR-0033 §5; content
+    /// API 160): a session makes no more than the station's power over its hours allows. 0 for
+    /// work done by hand.
+    pub kwh_per_unit: f64,
 }
 
 /// A technique: a practical capability people know, learn and can lose (ADR-0008 §1). What it
@@ -1831,8 +1891,10 @@ pub struct Digging {
 }
 
 /// A taste in building, or the traits of a building (M3b slice R): the roof pitch, the height to
-/// the eaves and the roof's overhang beyond the walls a household would build to, each held to
-/// what a program allows when it builds.
+/// the eaves and the roof's overhang beyond the walls a household would build to, and from frame
+/// version 3 its front's four (M8d slice DD; ADR-0031 §7): the share of its walls left open, its
+/// ornament, its walls' finish and its symmetry. Each is held to what a program allows when it
+/// builds.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Taste {
     /// Roof pitch, hundredths of a degree.
@@ -1841,20 +1903,46 @@ pub struct Taste {
     pub eave_cm: f32,
     /// How far the roof reaches beyond the walls, centimetres.
     pub overhang_cm: f32,
+    /// The share of each storey's walls left open, thousandths.
+    pub openings_permille: f32,
+    /// Ornament, tenths of an hour of craft a square metre of front.
+    pub ornament_dh: f32,
+    /// The walls' finish: 0 bare, 1 daubed, 2 lime-washed.
+    pub finish: f32,
+    /// Symmetry: 0 none, 1 a front set out about its middle.
+    pub symmetry: f32,
 }
 
 impl Taste {
-    /// Its traits in order: pitch, eaves, overhang.
-    pub fn traits(&self) -> [f32; 3] {
-        [self.pitch_centideg, self.eave_cm, self.overhang_cm]
+    /// How many traits it has.
+    pub const TRAITS: usize = 7;
+    /// How many of them are the roof's and walls' height, which every program has (the rest are
+    /// version 3's front).
+    pub const ROOF_TRAITS: usize = 3;
+
+    /// Its traits in order: pitch, eaves, overhang, openings, ornament, finish, symmetry.
+    pub fn traits(&self) -> [f32; Taste::TRAITS] {
+        [
+            self.pitch_centideg,
+            self.eave_cm,
+            self.overhang_cm,
+            self.openings_permille,
+            self.ornament_dh,
+            self.finish,
+            self.symmetry,
+        ]
     }
 
     /// The taste with traits `t` in that order.
-    pub fn from_traits(t: [f32; 3]) -> Taste {
+    pub fn from_traits(t: [f32; Taste::TRAITS]) -> Taste {
         Taste {
             pitch_centideg: t[0],
             eave_cm: t[1],
             overhang_cm: t[2],
+            openings_permille: t[3],
+            ornament_dh: t[4],
+            finish: t[5],
+            symmetry: t[6],
         }
     }
 }

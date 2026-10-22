@@ -335,13 +335,18 @@ impl Ways {
             .map(|&(_, k)| k as usize)
     }
 
-    /// Someone walked across `cells` on `day`: one trip along each way they used. Nothing is
-    /// done while there are no ways.
-    pub fn walked(&mut self, cells: &[u32], day: i64) {
+    /// Someone went across `cells` on `day` by `modes` (bits, as [`Way::modes`]): one trip along
+    /// each way they used that serves one of them, so a way wears only by the modes it serves
+    /// (ADR-0034 §1). Nothing is done while there are no ways.
+    pub fn walked(&mut self, cells: &[u32], day: i64, modes: u8) {
         if self.list.is_empty() {
             return;
         }
-        let mut used: Vec<usize> = cells.iter().flat_map(|&c| self.at(c)).collect();
+        let mut used: Vec<usize> = cells
+            .iter()
+            .flat_map(|&c| self.at(c))
+            .filter(|&k| self.list[k].modes & modes != 0)
+            .collect();
         used.sort_unstable();
         used.dedup();
         for k in used {
@@ -351,12 +356,15 @@ impl Ways {
         }
     }
 
-    /// What each way holds its cells' wear at on `day`, ahead of the survey: its condition, cell
-    /// by cell (the greatest where ways meet), in cell order.
+    /// What each way people walk holds its cells' wear at on `day`, ahead of the survey: its
+    /// condition, cell by cell (the greatest where ways meet), in cell order.
     pub fn holds(&self, day: i64, params: &PathParams) -> Vec<(u32, f32)> {
         let mut out: Vec<(u32, f32)> = self
             .list
             .iter()
+            // Only a way people walk holds walking ground (ADR-0034 §1): track for wheels alone
+            // is not a footpath.
+            .filter(|w| w.modes & WALK != 0)
             .flat_map(|w| {
                 w.segments.iter().flat_map(move |s| {
                     let c = s.condition(day, params);
@@ -491,9 +499,25 @@ mod tests {
     }
 
     #[test]
+    fn a_way_wears_only_by_the_modes_it_serves() {
+        // Track for carts alone is not walked: a walker's trip leaves it as it was, a hauler's
+        // (on foot beside the cart) counts on it and on the footpath it crosses alike.
+        let mut ways = Ways::default();
+        ways.add(Way {
+            modes: CART,
+            ..way(5, vec![segment(vec![1, 2, 3], 3.0, 0)])
+        });
+        ways.add(way(6, vec![segment(vec![3, 4], 1.5, 0)]));
+        ways.walked(&[1, 2, 3, 4], 10, WALK);
+        assert_eq!((ways.list[0].trips, ways.list[1].trips), (0.0, 1.0));
+        ways.walked(&[1, 2, 3, 4], 10, WALK | CART);
+        assert_eq!((ways.list[0].trips, ways.list[1].trips), (1.0, 2.0));
+    }
+
+    #[test]
     fn walks_count_once_a_way_and_fade_over_the_memory() {
         let mut ways = Ways::default();
-        ways.walked(&[1, 2, 3], 0);
+        ways.walked(&[1, 2, 3], 0, WALK);
         assert_eq!(ways.revision(), 0, "no ways, nothing counted or changed");
         ways.add(way(
             5,
@@ -502,8 +526,8 @@ mod tests {
         ways.add(way(6, vec![segment(vec![4, 9], 1.5, 0)]));
         assert_eq!(ways.revision(), 2);
         assert_eq!(ways.at(4).collect::<Vec<_>>(), vec![0, 1]);
-        ways.walked(&[0, 1, 2, 3], 10);
-        ways.walked(&[2, 3, 4, 5], 10);
+        ways.walked(&[0, 1, 2, 3], 10, WALK);
+        ways.walked(&[2, 3, 4, 5], 10, WALK);
         assert_eq!((ways.list[0].trips, ways.list[1].trips), (2.0, 1.0));
         let later = ways.list[0].trips_on(100);
         assert!((later - 2.0 * (-1.0f32).exp()).abs() < 1e-4, "{later}");
@@ -537,6 +561,11 @@ mod tests {
         assert!((wear.factor(8) - 1.0).abs() < 1e-2 && wear.is_trail(8));
         assert!((wear.factor(7) - 0.5).abs() < 1e-2 && wear.is_trail(7));
         assert_eq!(wear.factor(3), 0.0);
+        // A way for wheels alone holds no walking ground (ADR-0034 §1).
+        let mut wheels = way(7, vec![segment(vec![3, 4], 1.5, 120)]);
+        wheels.modes = CART;
+        ways.add(wheels);
+        assert_eq!(ways.holds(120, &params()), holds);
     }
 
     #[test]

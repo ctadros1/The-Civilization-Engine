@@ -306,6 +306,22 @@ pub fn apply(
     reserve_ok: bool,
     protected: Option<(usize, f64)>,
 ) -> f64 {
+    let units = start(recipe, stores, goods, units, reserve_ok, protected);
+    give(recipe, stores, goods, units, quality);
+    units
+}
+
+/// Starts `units` of `recipe` on `stores`: takes its inputs as [`apply`] does, but gives nothing
+/// yet (a batch that runs for its `elapsed_days`, M10a slice DP). Returns the units started, no
+/// more than the inputs allowed.
+pub fn start(
+    recipe: &RecipeDef,
+    stores: &mut [f64],
+    goods: &[GoodDef],
+    units: f64,
+    reserve_ok: bool,
+    protected: Option<(usize, f64)>,
+) -> f64 {
     let can = {
         let snapshot: &[f64] = stores;
         units_from_inputs(recipe, &|g| {
@@ -349,6 +365,15 @@ pub fn apply(
     for &(g, amount) in &recipe.inputs {
         take(g, amount * units);
     }
+    units
+}
+
+/// Gives the outputs of `units` of `recipe` to `stores`, tools made worth `quality` standard
+/// tools each: the end of a session, or the opening of a batch (M10a slice DP).
+pub fn give(recipe: &RecipeDef, stores: &mut [f64], goods: &[GoodDef], units: f64, quality: f64) {
+    if !(units > 0.0 && units.is_finite()) {
+        return;
+    }
     for &(g, amount) in &recipe.outputs {
         let q = if goods.get(g).is_some_and(|d| d.tool.is_some()) {
             quality
@@ -359,7 +384,6 @@ pub fn apply(
             *s += amount * units * q;
         }
     }
-    units
 }
 
 /// Wears the tools `tools` by `hours` of use: each loses `hours / life_h` of a standard tool,
@@ -392,6 +416,8 @@ mod tests {
 
     fn good(id: &str, purpose: GoodUse, kcal: f64, eaten: Eaten) -> GoodDef {
         GoodDef {
+            fuel: None,
+            power: None,
             money: None,
             id: id.into(),
             name: id.into(),
@@ -459,6 +485,8 @@ mod tests {
 
     fn grind() -> RecipeDef {
         RecipeDef {
+            elapsed_days: 0.0,
+            kwh_per_unit: 0.0,
             id: "grind".into(),
             name: "Grind".into(),
             inputs: vec![(0, 1.0)],
@@ -475,6 +503,8 @@ mod tests {
 
     fn oven_bake() -> RecipeDef {
         RecipeDef {
+            elapsed_days: 0.0,
+            kwh_per_unit: 0.0,
             id: "bake".into(),
             name: "Bake".into(),
             inputs: vec![(2, 1.0), (4, 0.1)],
@@ -494,15 +524,21 @@ mod tests {
         let mut goods = goods();
         let meat = goods.len();
         goods.push(GoodDef {
+            fuel: None,
+            power: None,
             half_life_days: 3.0,
             ..good("meat", GoodUse::Food, 1500.0, Eaten::Cooked)
         });
         let dried = goods.len();
         goods.push(GoodDef {
+            fuel: None,
+            power: None,
             half_life_days: 180.0,
             ..good("dried", GoodUse::Food, 3750.0, Eaten::Raw)
         });
         let dry = RecipeDef {
+            elapsed_days: 0.0,
+            kwh_per_unit: 0.0,
             inputs: vec![(meat, 1.0)],
             outputs: vec![(dried, 0.4)],
             ..grind()
@@ -514,6 +550,8 @@ mod tests {
             "grinding keeps nothing from spoiling"
         );
         let barely = RecipeDef {
+            elapsed_days: 0.0,
+            kwh_per_unit: 0.0,
             outputs: vec![(meat, 1.0)],
             ..dry.clone()
         };
@@ -591,6 +629,8 @@ mod tests {
         wear(&mut stores, &goods, &[5], 500.0);
         assert_eq!(stores[5], 0.0);
         let make_quern = RecipeDef {
+            elapsed_days: 0.0,
+            kwh_per_unit: 0.0,
             id: "q".into(),
             name: "q".into(),
             inputs: Vec::new(),
@@ -612,6 +652,8 @@ mod tests {
 
     fn recipe(id: &str, out: usize, inputs: Vec<(usize, f64)>, unit_h: f64) -> RecipeDef {
         RecipeDef {
+            elapsed_days: 0.0,
+            kwh_per_unit: 0.0,
             id: id.to_owned(),
             name: id.to_owned(),
             inputs,

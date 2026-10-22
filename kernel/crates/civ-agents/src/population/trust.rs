@@ -1,6 +1,7 @@
 //! What each settlement has seen of its buildings, and how cautiously it builds (ADR-0009 §6):
-//! every building that gives way is remembered against its technique in its household's
-//! settlement, and so is every month a building of it stands. The caution that follows sizes the
+//! every building that gives way is remembered against each technique it used in its household's
+//! settlement (its program's, its walls' and its version 3 systems': ADR-0031 §5), and so is every
+//! month a building using it stands. The caution that follows sizes the
 //! next frame buildings' members ([`crate::build::design_cautious`]).
 
 use super::*;
@@ -27,6 +28,32 @@ impl Population {
             .iter()
             .find(|x| x.settlement == s && usize::from(x.technique) == t)
             .map_or(1.0, |x| x.caution(now, p))
+    }
+
+    /// How many times their usual strength household `hh`'s builders make the members of a
+    /// building of program `program` (ADR-0031 §5): the most any technique they would build it
+    /// with calls for, of its program's and the walls and version 3 systems its people know.
+    pub(super) fn building_caution(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        program: &crate::params::BuildingDef,
+    ) -> f64 {
+        let p = &ctx.params.build.caution;
+        let knows = |t: usize| self.household_knows(&hh.members, t);
+        // Only a frame raises walls of stone or brick.
+        let frame = matches!(program.rules, civ_grammar::ProgramRules::Frame(_));
+        let walls = 1..=(if frame { 3 } else { 0 });
+        let mut techniques: Vec<usize> = walls
+            .flat_map(|k| crate::rules::wall_techniques(ctx.catalog, k))
+            .chain(program.systems.iter().flatten().copied())
+            .filter(|&t| knows(t))
+            .collect();
+        techniques.extend(program.technique);
+        techniques
+            .into_iter()
+            .map(|t| self.caution(hh.settlement, Some(t), ctx.now, p))
+            .fold(1.0, f64::max)
     }
 
     /// What settlement `settlement` has seen of technique `technique`'s buildings, brought up to
@@ -167,8 +194,8 @@ impl Population {
         1.0 + (p.most - 1.0).max(0.0) * rate / (rate + p.half_rate.max(1e-12))
     }
 
-    /// A month passes: each settlement remembers a month of standing for every building of each
-    /// technique its households have standing (not a ruin, and with parts in place), and a month
+    /// A month passes: each settlement remembers a month of standing for every building using each
+    /// technique (its program's, its walls' and its systems') its households have standing (not a ruin, and with parts in place), and a month
     /// of standing for each covering and wall kind against fire.
     pub(super) fn remember_standing(&mut self, ctx: &Ctx) {
         let catalog = ctx.catalog;
@@ -178,12 +205,16 @@ impl Population {
             if b.state == BuildingState::Ruin || b.condition.is_empty() {
                 continue;
             }
-            let technique = catalog
+            // Every technique it used (ADR-0031 §5).
+            let techniques = catalog
                 .building_index(&b.spec.program)
-                .and_then(|i| catalog.buildings[i].technique);
+                .map(|i| crate::rules::techniques_used(catalog, &b.spec, &catalog.buildings[i]))
+                .unwrap_or_default();
             let settlement = self.household(b.household).and_then(|x| x.settlement);
-            if let (Some(s), Some(t)) = (settlement, technique) {
-                *standing.entry((s, t)).or_default() += 1;
+            if let Some(s) = settlement {
+                for t in techniques {
+                    *standing.entry((s, t)).or_default() += 1;
+                }
             }
             if let Some(s) = settlement {
                 let tile = b

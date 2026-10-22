@@ -30,6 +30,7 @@ plan wins. Check a brief's citations against the reports before relying on one.
 | [m8-transport.md](m8-transport.md) | M8b | Ways as records, modes from techniques, boats on reaches, congestion at bottlenecks, goods in transit, ways as public works, grading |
 | [m8-planning.md](m8-planning.md) | M8c | Plans as laws, land assembly, allotment, compliance, zoning by use and nuisance, land value from what is paid |
 | [m8-building.md](m8-building.md) | M8d | Frame grammar v3, techniques that open structural systems, lateral margins, earthquakes as an observer tool, buildings a polity raises |
+| [m9-lod.md](m9-lod.md) | M9 | A resolution per settlement that keeps every person, the household day, switching, many settlements, time skips, the climate tool |
 
 The M4 briefs were written on 2026-10-07 for the M4 design (plan §9, "M4a design"); the M5
 briefs on 2026-10-09 for the M5 design (plan §9, "M5 design"); the M6 briefs on 2026-10-10 for

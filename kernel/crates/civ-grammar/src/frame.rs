@@ -89,6 +89,15 @@ const LADDER_DEPTH_CM: f64 = 8.0;
 /// Most of a storey's wall an opening may leave open, thousandths: a window half the storey high
 /// and at most nine tenths of its panel wide.
 pub const MAX_OPENING_PERMILLE: i32 = 450;
+/// Most ornament a front may carry, tenths of an hour of craft a square metre (ADR-0031 §7; a
+/// design prior: two hours a square metre is carved and painted work over a whole front).
+pub const MAX_ORNAMENT_DH: i32 = 20;
+/// Hours a square metre of wall takes to finish, by finish: bare, a coat of daub over the outer
+/// face, and lime wash in two coats (ADR-0031 §7; design priors).
+pub const FINISH_H_PER_M2: [f64; 3] = [0.0, 0.25, 0.15];
+/// Hours a bay takes to set a front out about its middle and match its openings (ADR-0031 §7; a
+/// design prior).
+pub const SYMMETRY_H_PER_BAY: f64 = 2.0;
 /// Rise of a stair from the horizontal, hundredths of a degree.
 pub const STAIR_TILT_CENTIDEG: i32 = 3800;
 /// Width of a stair, centimetres.
@@ -127,10 +136,19 @@ pub mod frame_params {
     pub const WALL_CM: usize = 10;
     /// The footing: 0, posts set in the ground (the only kind in version 1).
     pub const FOOTING: usize = 11;
-    /// The first of four style traits (ADR-0009 §7). Version 1 has none, so they are 0.
+    /// The first of four style traits (ADR-0009 §7). Versions 1 and 2 have none, so they are 0;
+    /// version 3 lays out the first three (ADR-0031 §7), its fourth style trait being each
+    /// storey's [`OPENINGS`].
     pub const STYLE: usize = 12;
     /// Number of style traits.
     pub const STYLE_TRAITS: usize = 4;
+    /// Ornament (version 3): tenths of an hour of craft a square metre of the door's wall, up to
+    /// [`super::MAX_ORNAMENT_DH`].
+    pub const ORNAMENT: usize = STYLE;
+    /// The walls' finish (version 3): 0, bare; 1, daubed; 2, lime-washed.
+    pub const FINISH: usize = STYLE + 1;
+    /// Symmetry (version 3): 0, none; 1, a front set out about its middle, its door central.
+    pub const SYMMETRY: usize = STYLE + 2;
 
     // Version 3 (ADR-0031 §1). In versions 1 and 2 every one of these is 0.
 
@@ -395,6 +413,12 @@ struct Layout<'r> {
     /// Each storey's wall thickness, centimetres: all `wt` but in version 3's mass walls, which
     /// may thin upward (ADR-0031 §1).
     storey_wt: Vec<f64>,
+    /// Hours of ornament a square metre of the door's wall (version 3).
+    ornament_h_per_m2: f64,
+    /// The walls' finish (version 3): bare, daubed or lime-washed.
+    finish: usize,
+    /// Whether its front is set out about its middle (version 3).
+    symmetric: bool,
 }
 
 impl<'r> Layout<'r> {
@@ -515,11 +539,37 @@ impl<'r> Layout<'r> {
                 ));
             }
         }
-        if p[fp::STYLE..fp::STYLE + fp::STYLE_TRAITS]
-            .iter()
-            .any(|&t| t != 0)
+        // Style traits (ADR-0031 §7): none before version 3, and in it three of the four slots.
+        if spec.version < 3
+            && p[fp::STYLE..fp::STYLE + fp::STYLE_TRAITS]
+                .iter()
+                .any(|&t| t != 0)
         {
-            return refuse("no frame version lays out style traits yet");
+            return refuse(format!(
+                "frame version {} lays out no style traits",
+                spec.version
+            ));
+        }
+        if p[fp::STYLE + 3] != 0 {
+            return refuse(format!(
+                "parameter {} is not laid out by frame version 3",
+                fp::STYLE + 3
+            ));
+        }
+        within("ornament", p[fp::ORNAMENT], (0, MAX_ORNAMENT_DH))?;
+        let finish = p[fp::FINISH];
+        if !(0..=2).contains(&finish) {
+            return refuse(format!(
+                "finish {finish} (parameter {}) is unknown to frame version 3",
+                fp::FINISH
+            ));
+        }
+        let symmetric = p[fp::SYMMETRY];
+        if !(0..=1).contains(&symmetric) {
+            return refuse(format!(
+                "symmetry {symmetric} (parameter {}) is unknown to frame version 3",
+                fp::SYMMETRY
+            ));
         }
         // Version 3's parameters: none before it, and in it only those laid out so far.
         let laid_out = |i: usize| {
@@ -685,6 +735,15 @@ impl<'r> Layout<'r> {
                 rules.door_cm
             ));
         }
+        // A symmetrical front has its door in its middle: on an end wall, or in the middle bay
+        // of an odd number.
+        if symmetric == 1 && door_side < SIDE_BACK && !(bays % 2 == 1 && door_bay == bays / 2) {
+            return refuse(format!(
+                "a symmetrical front (parameter {}) has its door in its middle bay, not bay {} of {bays}",
+                fp::SYMMETRY,
+                door_bay + 1
+            ));
+        }
 
         let (l, w, b) = (f64::from(length), f64::from(width), f64::from(bay));
         let (h, r, o) = (f64::from(eave), f64::from(raise), f64::from(overhang));
@@ -762,6 +821,9 @@ impl<'r> Layout<'r> {
             tile,
             version: spec.version,
             storey_wt,
+            ornament_h_per_m2: f64::from(p[fp::ORNAMENT]) / 10.0,
+            finish: finish as usize,
+            symmetric: symmetric == 1,
         };
         if raised && layout.wt / 2.0 + layout.ladder_run(r) > o {
             return refuse(format!(
@@ -1720,6 +1782,22 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> 
     };
     let roof_m2 = (l.l + 2.0 * l.o) * (l.w + 2.0 * l.o) * M2 / l.pitch.cos();
     let wall_m2 = wall_area_cm2 * M2;
+    // Version 3's style traits (ADR-0031 §7): ornament over the door's wall less its openings,
+    // the finish over every wall, and the setting out of a symmetrical front bay by bay.
+    let front_cm = if l.door_side < SIDE_BACK { l.l } else { l.w };
+    let open_share = if l.openings.is_empty() {
+        0.0
+    } else {
+        l.openings.iter().sum::<f64>() / l.openings.len() as f64
+    };
+    let front_m2 = front_cm * l.h * f64::from(l.storeys) * (1.0 - open_share) * M2;
+    let style_h = l.ornament_h_per_m2 * front_m2
+        + FINISH_H_PER_M2[l.finish.min(2)] * wall_m2
+        + if l.symmetric {
+            SYMMETRY_H_PER_BAY * l.n as f64
+        } else {
+            0.0
+        };
     let deck_m2 = floored_bays as f64 * bay_m2;
     let beaten_m2 = if l.raised { 0.0 } else { storey_m2 };
     let timber = |d: f64, count: usize, len_cm: f64| {
@@ -1817,7 +1895,8 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> 
             stage: Stage::Finish,
             labour_h: rules.finish_h_per_m2 * beaten_m2
                 + rules.decking_h_per_m2 * deck_m2
-                + rules.ladder_h * ladders,
+                + rules.ladder_h * ladders
+                + style_h,
             materials_kg: slots(0.0, 0.0, 0.0, boards_kg),
         },
     ]
@@ -3023,6 +3102,72 @@ mod tests {
         s.params[fp::OPENINGS] = 200;
         s.params[fp::OPENINGS + 1] = 100;
         s
+    }
+
+    #[test]
+    fn version_three_style_traits_cost_their_hours_in_finishing_and_nothing_else() {
+        let r = tall_house();
+        let with = |f: &dyn Fn(&mut BuildingSpec)| {
+            let mut s = windowed();
+            f(&mut s);
+            expand_frame(&s, &r)
+        };
+        let plain = with(&|_| ()).expect("plain");
+        let labour = |e: &Expansion, st: Stage| e.stages[st.index()].labour_h;
+        let extra = |e: &Expansion| labour(e, Stage::Finish) - labour(&plain, Stage::Finish);
+        let same_else = |e: &Expansion| {
+            [Stage::Foundation, Stage::Frame, Stage::Walls, Stage::Roof]
+                .iter()
+                .all(|&st| labour(e, st) == labour(&plain, st))
+                && e.stages
+                    .iter()
+                    .zip(&plain.stages)
+                    .all(|(a, b)| a.materials_kg == b.materials_kg)
+        };
+        // Ornament: an hour a square metre over the door's long wall, 10 m by two storeys of
+        // 2 m, less the 15 % its openings leave open on the mean.
+        let carved = with(&|s| s.params[fp::ORNAMENT] = 10).expect("ornament");
+        assert!(
+            (extra(&carved) - 40.0 * 0.85).abs() < 1e-9,
+            "{}",
+            extra(&carved)
+        );
+        assert!(same_else(&carved));
+        // A finish over every wall: lime wash in two coats takes less than a coat of daub.
+        let daubed = with(&|s| s.params[fp::FINISH] = 1).expect("daubed");
+        let limed = with(&|s| s.params[fp::FINISH] = 2).expect("lime-washed");
+        assert!(extra(&daubed) > 0.0 && same_else(&daubed) && same_else(&limed));
+        assert!((extra(&limed) / extra(&daubed) - 0.15 / 0.25).abs() < 1e-9);
+        // Symmetry: the door in the middle of the front, set out bay by bay.
+        assert!(
+            with(&|s| s.params[fp::SYMMETRY] = 1).is_err(),
+            "a door in bay 3 of 4 is not central"
+        );
+        let gabled = with(&|s| {
+            s.params[fp::SYMMETRY] = 1;
+            s.params[fp::DOOR] = fp::door(fp::SIDE_FRONT, 0);
+        })
+        .expect("a door in the gable");
+        let unset = with(&|s| s.params[fp::DOOR] = fp::door(fp::SIDE_FRONT, 0)).expect("gable");
+        assert!(
+            (labour(&gabled, Stage::Finish)
+                - labour(&unset, Stage::Finish)
+                - 4.0 * SYMMETRY_H_PER_BAY)
+                .abs()
+                < 1e-9
+        );
+        // Out of range, a spare slot, or before version 3: refused.
+        assert!(with(&|s| s.params[fp::ORNAMENT] = MAX_ORNAMENT_DH + 1).is_err());
+        assert!(with(&|s| s.params[fp::FINISH] = 3).is_err());
+        assert!(with(&|s| s.params[fp::SYMMETRY] = 2).is_err());
+        assert!(with(&|s| s.params[fp::STYLE + 3] = 1).is_err());
+        let mut old = two_storeys();
+        old.version = 2;
+        old.params[fp::FINISH] = 1;
+        assert!(
+            expand_frame(&old, &r).is_err(),
+            "version 2 has no style traits"
+        );
     }
 
     #[test]

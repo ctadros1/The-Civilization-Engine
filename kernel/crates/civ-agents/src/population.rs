@@ -12,7 +12,7 @@ use std::sync::Arc;
 use civ_core::time::{DAYS_PER_YEAR, MINUTES_PER_DAY};
 use civ_core::{FastMap, GenTable, Handle, IdAllocator, PermanentId, Rng64, SimTime};
 use civ_grammar::{BuildingSpec, Expansion, Stage, StageNeeds};
-use civ_land::paths::cells_along;
+use civ_land::paths::{CellBox, cells_along};
 use civ_land::{
     Building, CropParams, Field, FieldSoil, FieldStage, FieldTask, Land, LandParams, Party, Plot,
 };
@@ -35,8 +35,8 @@ use crate::params::{
     RegimeDef, interpolate,
 };
 use crate::person::{
-    Activity, Flow, Flows, Household, KnownPatch, Load, Person, Step, Target, Trip, food_kcal,
-    fuel_kg, reserve_food_kcal, stock_kcal,
+    Activity, Batch, Flow, Flows, Household, KnownPatch, Load, Person, Step, Target, Trip,
+    food_kcal, fuel_kg, reserve_food_kcal, stock_kcal,
 };
 
 mod boating;
@@ -66,6 +66,7 @@ mod levees;
 mod life;
 mod loads;
 mod market;
+mod mills;
 mod mint;
 mod moving;
 mod norm;
@@ -75,6 +76,7 @@ mod war;
 mod way_works;
 pub use crime::TakeProbe;
 pub use payments::Burden;
+pub use resolution::{DayBlock, NOT_TAKEN, SwitchInvariants};
 mod credit;
 mod patronage;
 mod places;
@@ -82,6 +84,7 @@ mod polity;
 mod privileges;
 mod relations;
 mod residence;
+mod resolution;
 mod rules;
 mod sickness;
 mod stewardship;
@@ -100,7 +103,12 @@ pub use loads::{
     snow_on_roof_pa, storm_pa,
 };
 mod plans;
+mod quakes;
 pub use plans::ParcelOffer;
+mod raising;
+pub use raising::{
+    AT_TOWER_M, LATE_NOTICE_MIN, RAISE_WITHIN_M, SEEN_GIVERS, STALL_DAYS, TOWER_SIGHT_M,
+};
 mod siting;
 mod taste;
 mod ties;
@@ -146,6 +154,17 @@ const WAIT_AFTER_FAILURE_MIN: u32 = 10;
 /// Cells beyond the ground people have walked that route searches are bounded by landmarks
 /// over ([`civ_world::nav::NavGrid::landmarks`]): half a wear tile, 256 m on 8 m cells.
 const LANDMARK_MARGIN_CELLS: usize = 32;
+
+/// Landmarks by region of walked ground: the regions as last surveyed (each with its margin; one,
+/// the walked area, since M10a slice DO), and each region's landmarks once a search has asked for
+/// them, with the box of cells they read ([`NavGrid::landmark_reach`]). Derived.
+#[derive(Debug, Default)]
+struct RegionLandmarks {
+    /// The paths survey the regions were drawn from ([`civ_land::paths::Wear::rev`]).
+    wear_rev: u32,
+    regions: Vec<CellBox>,
+    built: Vec<Option<(std::sync::Arc<civ_world::nav::Landmarks>, CellBox)>>,
+}
 /// Fewest routes the route cache keeps in each of its two generations: when the newer is full it
 /// becomes the older, and the older is let go. A route found again is the route let go (the same
 /// paths, the same search), so its size changes how fast the world lives, never what happens.
@@ -485,9 +504,14 @@ pub struct Population {
     /// none, and the times every view was let go after goods moved between households (M8a slice
     /// CL's measurement). Not saved.
     pub view_counts: (u64, u64, u64),
-    /// Lower bounds for route searches on the paths as surveyed ([`NavGrid::landmarks`]),
-    /// built at the first search after a survey once people have walked anywhere. Derived.
-    landmarks: Option<Option<std::sync::Arc<civ_world::nav::Landmarks>>>,
+    /// Lower bounds for route searches on the paths as surveyed ([`NavGrid::landmarks`]), by
+    /// region of walked ground, each built at the first search after a survey to a cell in it.
+    /// Derived.
+    landmarks: Option<RegionLandmarks>,
+    /// What walking reads in each wear tile at `routes_rev` ([`NavGrid::tile_digests`]): where
+    /// a new revision leaves a tile's digest as it was, fields and landmarks that read only such
+    /// tiles are kept (M10a slice DO). Derived.
+    route_tiles: Vec<u64>,
     /// Per activity, what a trip is expected to bring from each patch today.
     priors: Vec<Prior>,
     /// Per household, the new ground it would mark out for a field, as found on a day against the
@@ -510,6 +534,20 @@ pub struct Population {
     /// People in a leisure block that ends by their choosing something else, with the version of
     /// that activity and its activity (ADR-0011 §4). Kept only until the next midnight.
     switched: FastMap<PermanentId, (u32, u16)>,
+    /// The settlements household-resolved (M9a slice DF, ADR-0032 §1): a run setting, never
+    /// saved; their people are parked ([`Self::reconcile_resolutions`]).
+    resolved: BTreeSet<PermanentId>,
+    /// Of those, the ones held Detailed for now (ADR-0032 §1): a fire burns there, or a band is
+    /// called from it, out from it, or come to it. Derived from saved state at each reconcile.
+    held: BTreeSet<PermanentId>,
+    /// Whether a decision is a household-resolved day's planning, and what it found
+    /// (ADR-0032 §2): set and taken within [`Self::live_household_days`] only.
+    planning: bool,
+    planned: Option<resolution::Planned>,
+    /// Per parked person, the blocks of the household-resolved day last lived and that day's
+    /// index (ADR-0032 §6): what the observer is shown, never read by the simulation, never saved.
+    day_blocks: FastMap<PermanentId, Vec<resolution::DayBlock>>,
+    day_blocks_day: i64,
     /// Per settlement, who has set to keeping company at its hearth since it was last looked at,
     /// and who was there then, in id order: everyone there now, and some who have left
     /// ([`Self::hearth_company`]). Derived: built at the first look after a load.
@@ -543,6 +581,8 @@ pub struct Population {
     pub fires: crate::fire::Fires,
     /// Every high-water, flood and storm incident and episode (M6b slice BF). Saved.
     pub floods: crate::floods::Floods,
+    /// Every time the ground shook and what each building did (M8d slice DA). Saved.
+    pub quakes: crate::quake::Quakes,
     /// River cells by the reach they belong to, for loads washed or drawn there. Derived from the
     /// map when first needed; not saved.
     reach_cells: Option<BTreeMap<u32, u32>>,
@@ -1204,6 +1244,7 @@ impl Population {
         self.at_hearth = None;
         self.known_pruned.clear();
         self.landmarks = None;
+        self.route_tiles.clear();
         self.fields_moved();
     }
 
@@ -1470,7 +1511,9 @@ impl Population {
             if usize::from(p.act.def) >= catalog_len.max(1) {
                 out.push(format!("person {} does an unknown activity", p.id));
             }
-            if usize::from(p.act.step) > p.act.steps.len() {
+            // A parked activity (ADR-0032 §3) has no steps and stands at its own mark.
+            let parked = p.act.steps.is_empty() && p.act.step == resolution::PARKED_STEP;
+            if usize::from(p.act.step) > p.act.steps.len() && !parked {
                 out.push(format!(
                     "person {} is past the last step of their activity",
                     p.id
@@ -1892,7 +1935,68 @@ impl Population {
         (f64::from(max_min) * 60.0 * 1.2) as f32
     }
 
+    /// Brings route caches to the paths survey and walking ground as they stand
+    /// ([`civ_land::Land::route_revision`]). On a new revision the routes found are let go, as
+    /// before; walking fields and landmarks are kept where every wear tile they read has the
+    /// digest it had (M10a slice DO, ADR-0034 §1): walking costs there are as they were, so
+    /// they are what working them out again would give. A kept field's day's facts are drawn
+    /// again at its next use, as for a new one.
+    fn sync_routes(&mut self, ctx: &Ctx) {
+        let revision = ctx.land.route_revision(ctx.nav.travel_revision());
+        if revision == self.routes_rev && !self.route_tiles.is_empty() {
+            return;
+        }
+        if revision != self.routes_rev {
+            self.route_counts.0 += 1;
+        }
+        self.routes.clear();
+        self.routes_old.clear();
+        self.routes_rev = revision;
+        let wear = &ctx.land.wear;
+        let tile = civ_land::paths::TILE as usize;
+        let digests = ctx
+            .nav
+            .tile_digests(tile, &ctx.map.elevation, &|c| wear.factor(c));
+        let tiles_x = (ctx.map.width as usize).div_ceil(tile);
+        let changed: Vec<(usize, usize)> = if digests.len() == self.route_tiles.len() {
+            digests
+                .iter()
+                .zip(&self.route_tiles)
+                .enumerate()
+                .filter(|(_, (a, b))| a != b)
+                .map(|(k, _)| (k % tiles_x, k / tiles_x))
+                .collect()
+        } else {
+            (0..digests.len())
+                .map(|k| (k % tiles_x, k / tiles_x))
+                .collect()
+        };
+        let untouched = |((x0, y0), (x1, y1)): CellBox| {
+            !changed.iter().any(|&(tx, ty)| {
+                tx * tile <= x1 && x0 < (tx + 1) * tile && ty * tile <= y1 && y0 < (ty + 1) * tile
+            })
+        };
+        self.homes
+            .retain(|_, f| f.reach.reach_box().is_some_and(untouched));
+        for f in self.homes.values_mut() {
+            f.rev = revision;
+            f.day = i64::MIN;
+        }
+        match self.landmarks.as_mut() {
+            Some(by_region) if by_region.wear_rev == wear.rev() => {
+                for built in &mut by_region.built {
+                    if built.as_ref().is_some_and(|(_, reach)| !untouched(*reach)) {
+                        *built = None;
+                    }
+                }
+            }
+            _ => self.landmarks = None,
+        }
+        self.route_tiles = digests;
+    }
+
     fn home_field(&mut self, ctx: &Ctx, key: PermanentId, origin: (f32, f32)) {
+        self.sync_routes(ctx);
         let cell = cell_of(ctx.map, origin);
         let day = ctx.now.day_index();
         let rev = ctx.land.route_revision(ctx.nav.travel_revision());
@@ -2089,14 +2193,23 @@ impl Population {
     /// Where a new field for household `hh` keeps clear of: every home of its settlement (its
     /// own if it has none) and the settlement's hearth.
     fn site_homes(&self, land: &civ_land::Land, hh: &Household) -> Vec<(f32, f32)> {
-        let mut homes: Vec<(f32, f32)> = self
-            .households
-            .iter()
-            .filter(|(_, x)| {
-                x.id == hh.id || (hh.settlement.is_some() && x.settlement == hh.settlement)
-            })
-            .map(|(_, x)| x.home)
-            .collect();
+        // Its settlement's households from the index, which lists them in the order a scan finds
+        // them (M9b slice DJ); a household the index does not hold among them is looked for by
+        // the scan, as before.
+        let indexed = hh
+            .settlement
+            .filter(|&s| self.households_in(s).any(|x| x.id == hh.id));
+        let mut homes: Vec<(f32, f32)> = match indexed {
+            Some(s) => self.households_in(s).map(|x| x.home).collect(),
+            None => self
+                .households
+                .iter()
+                .filter(|(_, x)| {
+                    x.id == hh.id || (hh.settlement.is_some() && x.settlement == hh.settlement)
+                })
+                .map(|(_, x)| x.home)
+                .collect(),
+        };
         homes.extend(
             land.settlements
                 .iter()
@@ -2396,13 +2509,10 @@ impl Population {
                          max_m: f64,
                          obey_rules: bool| {
             let program = &catalog.buildings[p];
-            // Members as strong as what the settlement has seen of the technique calls for.
-            let caution = self.caution(
-                hh.settlement,
-                program.technique,
-                ctx.now,
-                &ctx.params.build.caution,
-            );
+            // Members as strong as what the settlement has seen of the techniques it would build
+            // with calls for: its program's, and the walls and systems its people know (ADR-0031
+            // §5: a fallen rubble wall thickens the next rubble walls).
+            let caution = self.building_caution(ctx, hh, program);
             // Built to the household's taste, held to what the program allows, and now and then
             // with something new to it (M3b slice R).
             let style = crate::style::commission(
@@ -2465,20 +2575,44 @@ impl Population {
             };
             let design_at = |at: (f32, f32)| {
                 let reachable = reach.is_none_or(|r| r.seconds_to(cell_of(ctx.map, at)).is_some());
+                let design = |shape: build::Shape| {
+                    build::design_cautious(
+                        program,
+                        goods,
+                        shape,
+                        at,
+                        toward,
+                        caution,
+                        Some(style),
+                        Some(fire_design),
+                    )
+                };
                 reachable
                     .then(|| {
-                        build::design_cautious(
-                            program,
-                            goods,
-                            shape,
-                            at,
-                            toward,
-                            caution,
-                            Some(style),
-                            Some(fire_design),
-                        )
+                        let spec = design(shape)?;
+                        // Built lower where a height or ties rule its builders keep allows no
+                        // more storeys on its walls (M8d slice DB).
+                        let most = rules.most_storeys(
+                            crate::rules::wall_kind(&spec, &program.rules),
+                            crate::rules::tied(&spec),
+                        );
+                        match shape {
+                            build::Shape::Bays {
+                                bays,
+                                storeys,
+                                lofts,
+                            } if storeys > most && most >= 1 => design(build::Shape::Bays {
+                                bays,
+                                storeys: most,
+                                lofts,
+                            }),
+                            _ => Some(spec),
+                        }
                     })
                     .flatten()
+                    .filter(|spec| {
+                        !rules.too_tall(spec, crate::rules::wall_kind(spec, &program.rules))
+                    })
                     // A roof that burns is not put within a roof rule's reach of another building,
                     // walls are of a kind the rules allow, and a plot keeps the least gap.
                     .filter(|spec| {
@@ -3226,6 +3360,12 @@ impl Population {
     }
 
     fn decide(&mut self, ctx: &mut Ctx, h: Handle<Person>, depth: u32) {
+        // Someone of a household-resolved settlement decides nothing: their day is lived at
+        // midnight (ADR-0032 §2).
+        if self.resolved_person(h) && !self.planning {
+            self.park(ctx, h);
+            return;
+        }
         let now = ctx.now;
         let params = ctx.params;
         let Some(p) = self.people.get_mut(h) else {
@@ -3445,6 +3585,7 @@ impl Population {
             boat: self.boat_facts(ctx, &hh, field_key, dark),
             cart: self.cart_facts(ctx, &hh, dark),
             way: self.way_facts(ctx, &hh, p.id, dark),
+            raise: self.raise_facts(ctx, &hh, p.id, dark),
             enclosure: self.enclosure_facts(ctx, &hh, p.id, field_key, dark),
             ditch: self.ditch_facts(ctx, &hh, field_key, dark),
             band: band_facts,
@@ -3555,7 +3696,8 @@ impl Population {
             .map(|q| q.age_years(now))
             .collect();
         let knows = |t: usize| self.household_knows(&hh.members, t);
-        let wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
+        let mut wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
+        cap_water_wants(ctx, hh.id, &mut wants);
         let me = self.people.get(h).map(|p| p.id);
         let mut free_tools: Vec<f64> = stores
             .iter()
@@ -3872,7 +4014,9 @@ impl Population {
             let held = stores.get(res.good).copied().unwrap_or(0.0).max(0.0);
             let stored_days = match good.purpose {
                 GoodUse::Food => held * good.kcal_per_kg / kcal_day.max(1.0),
-                GoodUse::Fuel => held / household_fuel_day.max(1e-6),
+                GoodUse::Fuel => {
+                    held * crate::params::fuel_ratio(goods, res.good) / household_fuel_day.max(1e-6)
+                }
                 GoodUse::Material | GoodUse::Tool | GoodUse::Store => 0.0,
             };
             // A material is worth bringing only toward what the household is building, or the
@@ -4129,7 +4273,31 @@ impl Population {
                 });
             }
             let have = |g: usize| make::available(&stores, goods, g, reserve_ok, protected);
-            let from_inputs = make::units_from_inputs(r, &have);
+            // A batch runs unattended (M10a slice DP, ADR-0033 §2): while one of this recipe is
+            // under way there is nothing to do; once its days are past, a session opens it, worth
+            // what making its units would be.
+            let mut waiting = 0.0;
+            if r.elapsed_days > 0.0 {
+                let today = ctx.now.day_index();
+                // Its workshop's batches of it as well as its own (M10a slice DQ).
+                let shop = self
+                    .workshop_of(hh_id, out)
+                    .and_then(|f| self.firm(f))
+                    .map(|f| f.batches.as_slice())
+                    .unwrap_or_default();
+                for b in hh
+                    .batches
+                    .iter()
+                    .chain(shop)
+                    .filter(|b| a.recipe == Some(b.recipe))
+                {
+                    if b.ends_day > today {
+                        return Err((Reason::Burning, None));
+                    }
+                    waiting += b.units;
+                }
+            }
+            let mut from_inputs = make::units_from_inputs(r, &have) + waiting;
             // What making it is worth, and how much of it is wanted.
             let (worth, wanted) = if let Some(_tool) = &out_good.tool {
                 // Its need is the need of the tool it serves for, made the way the household
@@ -4243,14 +4411,26 @@ impl Population {
             } else {
                 return Err((Reason::NotNeeded, None));
             };
+            // Made for sale, its workshop's goods in progress (what another of its lines made) go
+            // in before the household's, and its stations do the work they can (M10a slice DQ).
+            let shop = match worth {
+                MakeWorth::Sale { .. } => self.workshop_of(hh_id, out),
+                _ => None,
+            };
+            if let Some(f) = shop
+                .and_then(|f| self.firm(f))
+                .filter(|f| f.lines.len() > 1)
+            {
+                let with = |g: usize| have(g) + f.in_progress(g, out);
+                from_inputs = make::units_from_inputs(r, &with) + waiting;
+            }
             if from_inputs <= 1e-6 {
                 return Err((Reason::NoInputs, None));
             }
-            if let Some(&t) = r
-                .tools
-                .iter()
-                .find(|&&t| free_tools.get(t).copied().unwrap_or(0.0) < decide::MIN_TOOL)
-            {
+            if let Some(&t) = r.tools.iter().find(|&&t| {
+                free_tools.get(t).copied().unwrap_or(0.0) < decide::MIN_TOOL
+                    && shop.is_none_or(|f| self.station_for(goods, f, t) < decide::MIN_TOOL)
+            }) {
                 return Err((Reason::NoTool, Some(t)));
             }
             let by_time = make::units_in(r, f64::from(a.max_minutes), speed);
@@ -4464,6 +4644,16 @@ impl Population {
                 }
             }
         }
+        // A household-resolved day's planning takes the options as scored and stops here
+        // (ADR-0032 §2): nothing is chosen, drawn or begun.
+        if self.planning {
+            self.planned = Some(resolution::Planned {
+                cands,
+                site,
+                meal_min: limits.meal_min,
+            });
+            return;
+        }
         let Some(p) = self.people.get_mut(h) else {
             return;
         };
@@ -4532,7 +4722,7 @@ impl Population {
         }
         let mut order: Vec<usize> = (0..cands.len()).filter(|&i| i != choice).collect();
         order.sort_by(|&a, &b| cands[b].scored.total.total_cmp(&cands[a].scored.total));
-        let mut receipt = Receipt {
+        let receipt = Receipt {
             at: now,
             chosen: cands[choice].scored.clone(),
             runner_up: order.first().map(|&i| cands[i].scored.clone()),
@@ -4564,7 +4754,25 @@ impl Population {
                 law.compliance.broken_unaware += 1;
             }
         }
-        let chosen = &cands[choice];
+        self.take_up(ctx, h, &cands[choice], site, &hh, block, Some(receipt));
+        self.run_steps(ctx, h, depth + 1);
+    }
+
+    /// Takes up `chosen` (shared by a decision and a household-resolved day, ADR-0032 §2): new
+    /// ground marked out, a workshop set up, paid work held, a home begun, the activity set with
+    /// its receipt, a round of the watch counted and the crews joined.
+    #[allow(clippy::too_many_arguments)]
+    fn take_up(
+        &mut self,
+        ctx: &mut Ctx,
+        h: Handle<Person>,
+        chosen: &decide::Candidate,
+        site: Option<Site>,
+        hh: &Household,
+        block: Option<(u32, bool)>,
+        mut receipt: Option<Receipt>,
+    ) {
+        let (now, params, catalog, hh_id) = (ctx.now, ctx.params, ctx.catalog, hh.id);
         let mut target = chosen.scored.target;
         if target == Target::NewField {
             // New ground is marked out when someone sets off to break it.
@@ -4610,7 +4818,9 @@ impl Population {
                 }
                 None => target = Target::None,
             }
-            receipt.chosen.target = target;
+            if let Some(r) = receipt.as_mut() {
+                r.chosen.target = target;
+            }
         }
         if target == Target::NewFirm {
             // A workshop is set up when someone sets to work making what it sells.
@@ -4628,7 +4838,9 @@ impl Population {
                     .map_or(Target::Home, Target::Firm),
                 _ => Target::Home,
             };
-            receipt.chosen.target = target;
+            if let Some(r) = receipt.as_mut() {
+                r.chosen.target = target;
+            }
         }
         // Paid work taken is held for the person (slice J).
         if let (Target::Firm(firm), Some(Behavior::Hire)) = (
@@ -4663,7 +4875,9 @@ impl Population {
             target = self
                 .begin_home(ctx, hh_id)
                 .map_or(Target::None, Target::Building);
-            receipt.chosen.target = target;
+            if let Some(r) = receipt.as_mut() {
+                r.chosen.target = target;
+            }
             if let Some(new_home) = self.household(hh_id).map(|x| x.home) {
                 for s in &mut steps {
                     if let Step::Walk { to } = s
@@ -4687,7 +4901,9 @@ impl Population {
             step_ends: now,
             version: p.act.version.wrapping_add(1),
         };
-        p.push_receipt(receipt);
+        if let Some(r) = receipt {
+            p.push_receipt(r);
+        }
         if let Some((_, true)) = block {
             let (id, version, def) = (p.id, p.act.version, p.act.def);
             self.switched.insert(id, (version, def));
@@ -4726,7 +4942,6 @@ impl Population {
         {
             Self::joined_well_crew(ctx, w);
         }
-        self.run_steps(ctx, h, depth + 1);
     }
 
     /// Replaces the activity with waiting where the person stands.
@@ -4861,6 +5076,7 @@ impl Population {
     }
 
     fn start_walk(&mut self, ctx: &mut Ctx, h: Handle<Person>, to: (f32, f32)) -> bool {
+        self.sync_routes(ctx);
         let now = ctx.now;
         let params = ctx.params;
         let cache_max = ROUTE_CACHE_MAX.max(ROUTE_CACHE_PER_PERSON * self.people.len());
@@ -4871,14 +5087,6 @@ impl Population {
         let to_cell = cell_of(ctx.map, to);
         let speed = interpolate(&params.walk_speed_by_age, p.age_years(now)).max(0.05);
         let wear = &ctx.land.wear;
-        let revision = ctx.land.route_revision(ctx.nav.travel_revision());
-        if revision != self.routes_rev {
-            self.route_counts.0 += 1;
-            self.routes.clear();
-            self.routes_old.clear();
-            self.landmarks = None;
-            self.routes_rev = revision;
-        }
         let (points, minutes): (Vec<(f32, f32)>, Vec<f32>) = if from_cell == to_cell {
             let d = ((to.0 - p.pos.0).powi(2) + (to.1 - p.pos.1).powi(2)).sqrt();
             let surface = params.nav.offtrail_factor
@@ -4903,23 +5111,42 @@ impl Population {
                     // Planned on the paths as last surveyed; with no worn ground the search can
                     // assume off-trail walking everywhere and stays tight. Where people walk,
                     // landmarks bound it more tightly still (M5a slice AL).
-                    let landmarks = self
-                        .landmarks
-                        .get_or_insert_with(|| {
-                            let ((x0, y0), (x1, y1)) = wear.walked_area()?;
-                            let m = LANDMARK_MARGIN_CELLS;
-                            let area = (
-                                (x0.saturating_sub(m), y0.saturating_sub(m)),
-                                (x1 + m, y1 + m),
-                            );
-                            let trail = |c| wear.factor(c);
-                            Some(std::sync::Arc::new(ctx.nav.landmarks(
-                                &ctx.map.elevation,
-                                &trail,
-                                area,
-                            )))
-                        })
-                        .as_deref();
+                    // One region round all walked ground: landmarks per settlement's ground
+                    // (ADR-0028 §4) left walks between settlements unbounded and were slower
+                    // (M10a slice DO, measured), so the regions are the one walked area.
+                    let by_region = self.landmarks.get_or_insert_with(|| {
+                        let m = LANDMARK_MARGIN_CELLS;
+                        let regions: Vec<CellBox> = wear
+                            .walked_area()
+                            .into_iter()
+                            .map(|((x0, y0), (x1, y1))| {
+                                (
+                                    (x0.saturating_sub(m), y0.saturating_sub(m)),
+                                    (x1 + m, y1 + m),
+                                )
+                            })
+                            .collect();
+                        RegionLandmarks {
+                            wear_rev: wear.rev(),
+                            built: vec![None; regions.len()],
+                            regions,
+                        }
+                    });
+                    let width = ctx.map.width as usize;
+                    let (tx, ty) = (to_cell % width, to_cell / width);
+                    let region = by_region.regions.iter().position(|&((x0, y0), (x1, y1))| {
+                        (x0..=x1).contains(&tx) && (y0..=y1).contains(&ty)
+                    });
+                    let landmarks = region.map(|k| {
+                        let area = by_region.regions[k];
+                        &*by_region.built[k]
+                            .get_or_insert_with(|| {
+                                let trail = |c| wear.factor(c);
+                                let built = ctx.nav.landmarks(&ctx.map.elevation, &trail, area);
+                                (std::sync::Arc::new(built), ctx.nav.landmark_reach(area))
+                            })
+                            .0
+                    });
                     let routed = ctx.nav.route_with(
                         &ctx.map.elevation,
                         (from_cell, to_cell),
@@ -5132,6 +5359,7 @@ impl Population {
                 | Behavior::Boat
                 | Behavior::Cart
                 | Behavior::Way
+                | Behavior::Raise
                 | Behavior::Well
                 | Behavior::Levee
                 | Behavior::Palisade
@@ -5204,7 +5432,9 @@ impl Population {
                     ctx.land
                         .wear
                         .walk(&cells, now.day_index(), &ctx.land_params.paths);
-                    ctx.land.ways.walked(&cells, now.day_index());
+                    ctx.land
+                        .ways
+                        .walked(&cells, now.day_index(), civ_land::ways::WALK);
                     self.look_for_deposits(ctx, who, household, &trip.points);
                 }
             }
@@ -5389,6 +5619,15 @@ impl Population {
                         self.crossing_work(ctx, (h, who), household, crossing, hours);
                     }
                 }
+                Some(Behavior::Raise) => {
+                    if let Target::Building(building) = p.act.target {
+                        let rate = def.as_ref().map_or(1.0, |d| d.rate);
+                        let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * rate;
+                        let hours = f64::from(minutes) / 60.0 * eff;
+                        let household = p.household;
+                        self.raise_work(ctx, household, building, hours);
+                    }
+                }
                 Some(Behavior::Way) => {
                     if let Target::Way(way) = p.act.target {
                         let rate = def.as_ref().map_or(1.0, |d| d.rate);
@@ -5481,7 +5720,12 @@ impl Population {
                     ctx.land
                         .wear
                         .walk(&cells, now.day_index(), &ctx.land_params.paths);
-                    ctx.land.ways.walked(&cells, now.day_index());
+                    // The hauler walks beside the cart: a trip on footpath and cart track alike.
+                    ctx.land.ways.walked(
+                        &cells,
+                        now.day_index(),
+                        civ_land::ways::WALK | civ_land::ways::CART,
+                    );
                     if let Some(&from) = trip.points.first() {
                         let from = cell_of(map, from) as u32;
                         Self::hauled(ctx, household, (from, cell_of(map, to) as u32));
@@ -5578,6 +5822,23 @@ impl Population {
             .add_changes(&before, &x.stores, Flow::Made, Flow::Worn);
     }
 
+    /// `minutes` of `who`'s work at activity `def` (a making), as their session would do: for
+    /// tests.
+    #[doc(hidden)]
+    pub fn make_work_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        who: PermanentId,
+        def: usize,
+        minutes: u32,
+    ) {
+        let (Some(&h), Some(d)) = (self.index.get(&who), ctx.catalog.activities.get(def)) else {
+            return;
+        };
+        let d = d.clone();
+        self.make_work(ctx, h, &d, minutes);
+    }
+
     /// Applies `minutes` of person `h` working the recipe of make activity `def` at home: what
     /// their skill and age let them make in that time, from what the household holds (seed only
     /// in hunger, and never the seed for the ground already cropped), the recipe's tools worn by
@@ -5604,6 +5865,11 @@ impl Population {
             farm::protected_seed(self.fields_of(ctx.land, household), &ctx.catalog.crops);
         let hours = f64::from(minutes) / 60.0;
         let mut units = make::units_in(recipe, f64::from(minutes), speed);
+        // A powered recipe makes no more than its household's installations deliver over the
+        // session (M10a slice DR; ADR-0033 §5).
+        if recipe.kwh_per_unit > 0.0 {
+            units = units.min(power_kw_of(ctx, household) * hours / recipe.kwh_per_unit);
+        }
         // Coin is struck from the metal brought to the mint the worker keeps, in the polity's
         // store, and nobody else strikes it (M7d slice CE2b).
         let coin = recipe
@@ -5650,15 +5916,52 @@ impl Population {
             x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
             x.stores.resize(goods.len(), 0.0);
             let before = x.stores.clone();
-            make::apply(
-                recipe,
-                &mut x.stores,
-                goods,
-                units,
-                quality,
-                reserve_ok,
-                protected,
-            );
+            match def.recipe.filter(|_| recipe.elapsed_days > 0.0) {
+                // A batch (M10a slice DP, ADR-0033 §2): open those of this recipe whose days are
+                // past, and start another unless one is still under way.
+                Some(ri) => {
+                    let today = now.day_index();
+                    let mut running = false;
+                    let mut opened = Vec::new();
+                    x.batches.retain(|b| {
+                        if b.recipe != ri {
+                            true
+                        } else if b.ends_day <= today {
+                            opened.push((b.units, b.quality));
+                            false
+                        } else {
+                            running = true;
+                            true
+                        }
+                    });
+                    for (u, q) in opened {
+                        make::give(recipe, &mut x.stores, goods, u, q);
+                    }
+                    if !running {
+                        let started =
+                            make::start(recipe, &mut x.stores, goods, units, reserve_ok, protected);
+                        if started > 0.0 {
+                            x.batches.push(Batch {
+                                recipe: ri,
+                                units: started,
+                                quality,
+                                ends_day: today + recipe.elapsed_days.ceil() as i64,
+                            });
+                        }
+                    }
+                }
+                None => {
+                    make::apply(
+                        recipe,
+                        &mut x.stores,
+                        goods,
+                        units,
+                        quality,
+                        reserve_ok,
+                        protected,
+                    );
+                }
+            }
             x.flows
                 .add_changes(&before, &x.stores, Flow::Made, Flow::Used);
             let before = x.stores.clone();
@@ -6721,6 +7024,7 @@ impl Population {
             self.buildings_changed(ctx.now, ctx.land, catalog, ctx.params, household);
         }
         self.remember_standing(ctx);
+        self.look_over_storehouses(ctx);
     }
 
     pub fn on_day(&mut self, ctx: &mut Ctx) {
@@ -6893,6 +7197,8 @@ impl Population {
         // And the ditches (M6b slice BG): the households whose day it is weigh one, and every
         // ditch's intake is opened or shut for the day.
         self.ditches_day(ctx, day);
+        // And the mills (M10a slice DR): the households whose day it is weigh one.
+        self.mills_day(ctx, day);
         // A month ended: its asks and prices per pair of settlements are recorded (M5b slice AQ).
         self.record_convergence(ctx);
         // Households whose day it is review what they offer and on what terms.
@@ -7081,6 +7387,42 @@ fn water_edges(map: &WorldMap, field: &TravelField) -> Vec<(u32, f32)> {
     out
 }
 
+/// The kilowatts the installations `holder` owns deliver today (M10a slice DR; ADR-0033 §5):
+/// the sum of their powers from the day's river. Nothing for a holder that owns none.
+pub(crate) fn power_kw_of(ctx: &Ctx, holder: PermanentId) -> f64 {
+    ctx.land
+        .installations
+        .iter()
+        .enumerate()
+        .filter(|(_, x)| x.owner == holder)
+        .map(|(i, _)| ctx.land.installation_kw(ctx.land_params, i))
+        .sum()
+}
+
+/// Caps `holder`'s want of each water-powered tool at the installations it owns whose headraces
+/// are dug (M10a slice DR): a wheel is wanted only where one can be set.
+pub(crate) fn cap_water_wants(ctx: &Ctx, holder: PermanentId, wants: &mut [f64]) {
+    let mut sites = None;
+    for (g, want) in wants.iter_mut().enumerate() {
+        let water = ctx.catalog.goods.get(g).is_some_and(|x| {
+            x.power
+                .as_ref()
+                .is_some_and(|p| p.source == crate::params::PowerSource::Water)
+        });
+        if water {
+            let n = *sites.get_or_insert_with(|| {
+                ctx.land
+                    .installations
+                    .iter()
+                    .enumerate()
+                    .filter(|&(i, x)| x.owner == holder && ctx.land.installation_ready(i))
+                    .count()
+            });
+            *want = want.min(n as f64);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -7147,6 +7489,8 @@ mod tests {
 
     fn goods() -> Vec<GoodDef> {
         let good = |id: &str, purpose, kcal, half, eaten| GoodDef {
+            fuel: None,
+            power: None,
             money: None,
             id: id.into(),
             name: id.into(),

@@ -71,8 +71,13 @@ asleep():boolean {
   return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
 }
 
+blockUntilMinute():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 22);
+  return offset ? this.bb!.readInt64(this.bb_pos + offset) : BigInt('0');
+}
+
 static startPersonBrief(builder:flatbuffers.Builder) {
-  builder.startObject(9);
+  builder.startObject(10);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -109,6 +114,10 @@ static addHousehold(builder:flatbuffers.Builder, household:bigint) {
 
 static addAsleep(builder:flatbuffers.Builder, asleep:boolean) {
   builder.addFieldInt8(8, +asleep, +false);
+}
+
+static addBlockUntilMinute(builder:flatbuffers.Builder, blockUntilMinute:bigint) {
+  builder.addFieldInt64(9, blockUntilMinute, BigInt('0'));
 }
 
 static endPersonBrief(builder:flatbuffers.Builder):flatbuffers.Offset {

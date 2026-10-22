@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 151;
+pub const KERNEL_CONTENT_API: u32 = 160;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1166,6 +1166,12 @@ fn resolve(
         {
             missing(c, parsed, &d.rel, "plan.needs", t);
         }
+        // The program a building raised in common is (M8d slice DC).
+        if let Some(r) = d.file.raise.as_ref()
+            && !buildings.iter().any(|b| b.id == r.program)
+        {
+            missing(c, parsed, &d.rel, "raise.program", &r.program);
+        }
     }
     let mut policies: Vec<_> = parsed
         .policies
@@ -1177,6 +1183,11 @@ fn resolve(
                 .mint_def(&|id| recipes.iter().position(|r| r.id == id));
             def.pay = d.file.pay_def(&good_index);
             def.medium = d.file.medium_def(&good_index);
+            def.raise = d.file.raise.as_ref().and_then(|r| {
+                Some(civ_agents::polity::RaiseDef {
+                    program: buildings.iter().position(|b| b.id == r.program)?,
+                })
+            });
             if let Some(plan) = def.plan.as_mut() {
                 plan.fee = d.file.plan_fee(&good_index);
                 plan.rent = d.file.plan_rent(&good_index);

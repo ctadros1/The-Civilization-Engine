@@ -186,6 +186,8 @@ pub struct WorldRun {
     pub epidemics: EpidemicsSeen,
     /// The floods and storms it saw (M6b slice BF).
     pub floods: FloodsSeen,
+    /// The observer's shakings and what they did (M8d slice DA).
+    pub shaking: ShakingSeen,
 }
 
 /// A world's infections over a run, and each outbreak's cases against the source most of its
@@ -427,6 +429,39 @@ impl FiresSeen {
         self.observer_burned += o.observer_burned;
         self.observer_spread += o.observer_spread;
         self.observer_deaths += o.observer_deaths;
+    }
+}
+
+/// The shakings the observer sent and what they did (M8d slice DA, ADR-0031 §4): kept apart
+/// from the structural failures row, which counts only what fell by itself.
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+pub struct ShakingSeen {
+    pub events: u32,
+    pub reached: u32,
+    pub fell: u32,
+    pub cracked: u32,
+    pub deaths: u32,
+}
+
+impl ShakingSeen {
+    /// Counts `sim`'s shakings since it was made.
+    pub fn count(&mut self, sim: &Sim) {
+        use civ_agents::quake::Outcome;
+        let list = &sim.people().quakes.list;
+        self.events = list.len() as u32;
+        let shaken = || list.iter().flat_map(|q| &q.shaken);
+        self.reached = shaken().count() as u32;
+        self.fell = shaken().filter(|s| s.outcome == Outcome::Fell).count() as u32;
+        self.cracked = shaken().filter(|s| s.outcome == Outcome::Cracked).count() as u32;
+        self.deaths = shaken().map(|s| u32::from(s.deaths)).sum();
+    }
+
+    fn join(&mut self, o: &ShakingSeen) {
+        self.events += o.events;
+        self.reached += o.reached;
+        self.fell += o.fell;
+        self.cracked += o.cracked;
+        self.deaths += o.deaths;
     }
 }
 
@@ -1393,6 +1428,32 @@ fn run_one(
     world
 }
 
+/// Counts the structural failures for the failures row. What the observer's shaking brought down
+/// is its row's, not this one's (ADR-0031 §4): its entries are told at the minute it shook.
+pub(crate) fn count_failures(sim: &Sim, world: &mut WorldRun) {
+    let shaken_at: Vec<civ_core::SimTime> = sim
+        .people()
+        .quakes
+        .list
+        .iter()
+        .filter(|q| !q.origin.natural())
+        .map(|q| q.at)
+        .collect();
+    for e in &sim.people().chronicle {
+        if e.kind == civ_agents::ChronicleKind::BuildingFailed && !shaken_at.contains(&e.at) {
+            // An entry names its household's first member, when it had anyone living.
+            if e.people.is_empty() {
+                world.empty_failures += 1;
+            } else {
+                world.lived_failures += 1;
+                world
+                    .lived_failed
+                    .push((e.at.date().year, format!("{}, {} killed", e.name, e.number)));
+            }
+        }
+    }
+}
+
 /// Lives the world its years a day at a time at Max, from the first midnight after its first
 /// month, checking each year's end.
 fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
@@ -1446,19 +1507,7 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
         }
     }
     world.lived_building_months = run.lived_building_months;
-    for e in &sim.people().chronicle {
-        if e.kind == civ_agents::ChronicleKind::BuildingFailed {
-            // An entry names its household's first member, when it had anyone living.
-            if e.people.is_empty() {
-                world.empty_failures += 1;
-            } else {
-                world.lived_failures += 1;
-                world
-                    .lived_failed
-                    .push((e.at.date().year, format!("{}, {} killed", e.name, e.number)));
-            }
-        }
-    }
+    count_failures(sim, world);
     // The largest settlement's Gini of goods at each year's end.
     let mut by_year: BTreeMap<i64, (f64, u32)> = BTreeMap::new();
     for w in &sim.people().wealth_years {
@@ -1474,6 +1523,7 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
     world.water = WaterSeen::of(sim);
     world.fires.count(sim);
     world.floods.count(sim);
+    world.shaking.count(sim);
     world.epidemics = std::mem::take(&mut run.epidemics);
     world.epidemics.finish(sim);
     world.settlements = sim
@@ -1555,6 +1605,7 @@ pub fn grade(worlds: &[WorldRun], years: u32) -> Vec<Row> {
         epidemics(worlds),
         fires(worlds),
         floods(worlds),
+        shaking(worlds),
         regimes(worlds),
         travel(worlds),
         land(worlds),
@@ -2090,6 +2141,29 @@ fn floods(worlds: &[WorldRun]) -> Row {
         all.spoiled_kg,
         all.storm_episodes,
         all.storm_damages,
+    );
+    row.graded(Grade::Gray, text)
+}
+
+/// The observer's shakings (M8d slice DA, ADR-0031 §4): buildings reached, fell, cracked and
+/// the dead, counted apart from what fell by itself. Reported and not graded.
+fn shaking(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Shaking",
+        "the observer's shakings: buildings reached, fell and cracked, and the dead",
+        "reported",
+    )
+    .source("research 11-06 §2.2; ADR-0031 §4");
+    let mut all = ShakingSeen::default();
+    for w in worlds {
+        all.join(&w.shaking);
+    }
+    if all.events == 0 {
+        return row.graded(Grade::Gray, "the ground was never shaken".to_owned());
+    }
+    let text = format!(
+        "{} shakings reached {} buildings: {} fell, {} cracked, {} died",
+        all.events, all.reached, all.fell, all.cracked, all.deaths,
     );
     row.graded(Grade::Gray, text)
 }
@@ -3020,7 +3094,7 @@ mod tests {
         // Only population and the accounts are graded, both worlds keep their bands and no
         // settlement's accounts failed: a pass, but no grey row counts as one.
         assert!(dashboard.passed());
-        assert_eq!(dashboard.summary(), "2 passed, 18 not yet applicable");
+        assert_eq!(dashboard.summary(), "2 passed, 19 not yet applicable");
     }
 
     #[test]
@@ -3104,6 +3178,33 @@ mod tests {
         assert_eq!(
             row.text,
             "3 flood episodes (7 high waters); 6 buildings inundated, 1 fields lost, 100 kg spoiled; 3 storm episodes (7 damages)"
+        );
+    }
+
+    #[test]
+    fn the_shaking_row_reports_what_the_observers_shakings_did() {
+        let mut a = world(1, &[40]);
+        assert_eq!(shaking(&[a.clone()]).text, "the ground was never shaken");
+        a.shaking = ShakingSeen {
+            events: 1,
+            reached: 30,
+            fell: 4,
+            cracked: 6,
+            deaths: 2,
+        };
+        let mut b = world(2, &[40]);
+        b.shaking = ShakingSeen {
+            events: 2,
+            reached: 50,
+            fell: 1,
+            cracked: 3,
+            deaths: 0,
+        };
+        let row = shaking(&[a, b]);
+        assert_eq!(row.grade, Grade::Gray);
+        assert_eq!(
+            row.text,
+            "3 shakings reached 80 buildings: 5 fell, 9 cracked, 2 died"
         );
     }
 

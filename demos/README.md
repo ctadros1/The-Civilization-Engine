@@ -89,3 +89,24 @@ nor a lived M6b outcome.
 
 The bank panel now reports soil washed into sediment stock when a saved bank has overtopped.
 The ordinary fixture remains a construction example, without a lived flood or public work.
+
+## M8 (2026-10-20)
+
+The M8 demo is `civ-sim --example m8_city <saves> 1 500 1080`, recorded in `demos/m8/m8-demo.txt`:
+two settlements of 500 on the river valley, the port and an inland one, live three years with
+framing introduced by the observer on the first day and the ground shaken once. No household built
+a frame; the polities raised two granaries and a hall; a plan of streets was rejected at first and
+passed later at the port; the shaking felled nothing. `m8_city <save>` reads the run's save again.
+The scale gate's figure (ADR-0028, amendment) is measured with `bench_village`.
+
+## M9 (2026-10-21)
+
+The M9 demo is `civ-sim --example m9_world <saves> 10 200 10 2048`, recorded in
+`demos/m9/m9-demo.txt`: ten groups of 200 on a map of 2048 cells, one person followed in full
+detail and every other settlement lived by household, the climate forced 3 °C warmer and a fifth
+drier over twenty years, lived a decade at the fastest speed. The people founded an eleventh
+settlement in the third year; 2,000 became 2,576; three people of household-resolved settlements
+opened at the end each have their name, household, parents, knowledge and the block of the day
+they are in, and the save of 28 MB loads with everyone there. It ran at 0.039 simulated years a
+real minute. The gate's figure at 100,000 (ADR-0032, amendment of slice DN) is measured with
+`bench_village`.

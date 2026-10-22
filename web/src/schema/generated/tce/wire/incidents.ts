@@ -10,6 +10,7 @@ import { IncidentKey } from '../../tce/wire/incident-key.js';
 import { IncidentRow } from '../../tce/wire/incident-row.js';
 import { IncidentTotal } from '../../tce/wire/incident-total.js';
 import { OutbreakRow } from '../../tce/wire/outbreak-row.js';
+import { QuakeRow } from '../../tce/wire/quake-row.js';
 import { StormRow } from '../../tce/wire/storm-row.js';
 
 
@@ -101,8 +102,18 @@ stormsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+quakes(index: number, obj?:QuakeRow):QuakeRow|null {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? (obj || new QuakeRow()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+quakesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startIncidents(builder:flatbuffers.Builder) {
-  builder.startObject(8);
+  builder.startObject(9);
 }
 
 static addMinute(builder:flatbuffers.Builder, minute:bigint) {
@@ -206,6 +217,22 @@ static createStormsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]
 }
 
 static startStormsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addQuakes(builder:flatbuffers.Builder, quakesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(8, quakesOffset, 0);
+}
+
+static createQuakesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startQuakesVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 

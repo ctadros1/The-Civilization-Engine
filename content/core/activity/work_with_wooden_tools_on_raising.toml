@@ -1,0 +1,21 @@
+# Giving a share of the work on a building the polity raises in common (M8d slice DC, second part;
+# ADR-0031 §6): felling and carrying its timber, setting its posts and roofing it beside the
+# others asked, at the site by the hearth. Work as building one's own is; ages and session lengths
+# are tuning values as for clearing a passing place. Its id sorts after every older activity's:
+# activities are kept in id order. It asks no tool the content makes, and no technique: those who
+# raise it are shown the work by those who know it.
+kind = "activity"
+id = "core:activity/work_with_wooden_tools_on_raising"
+name = "Raise a building together"
+doing = "raising a building together"
+behavior = "raise"
+par = 5.0
+min_age_years = 14.0
+max_age_years = 65.0
+min_minutes = 60
+max_minutes = 240
+daylight_only = true
+max_walk_minutes = 30
+technique = ""
+tools = []
+rate = 1.0

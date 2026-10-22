@@ -21,9 +21,9 @@ test("a world made with neighbours has a settlement for each group", async ({ pa
     await page.getByLabel("Seed").fill("3");
     await page.getByLabel("Founding band").fill("30");
     const neighbours = page.getByLabel("Neighbouring groups");
-    await neighbours.fill("30, 30, 30");
+    await neighbours.fill(Array(30).fill("30").join(", "));
     await page.getByRole("button", { name: "Create", exact: true }).click();
-    await expect(page.locator("#nw-error")).toContainText("At most 2 neighbouring groups");
+    await expect(page.locator("#nw-error")).toContainText("At most 29 neighbouring groups");
     await neighbours.fill("30");
     await page.getByLabel("The groups know where the others camped").check();
     await page.getByRole("button", { name: "Create", exact: true }).click();

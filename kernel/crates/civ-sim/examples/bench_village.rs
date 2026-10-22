@@ -22,7 +22,10 @@
 //! `--known` has them know where each other camped. `--stop-trade` stops purchases between
 //! settlements (the twin harness, ADR-0019 §8), and `--no-sights` has nobody note the buildings
 //! they see in other settlements (M5b slice AR). Each settlement's residents, plots, footprint and
-//! home plots are printed at the end (M8c slice CX).
+//! home plots are printed at the end (M8c slice CX). `--household N` makes the last N settlements
+//! household-resolved and lives to the next midnight before the measured days, so each measured
+//! day is a whole household day (M9b slice DJ); `--save-to` also prints each save section's bytes
+//! a person. Measure speed with `--release`: the simcheck profile's debug checks scan whole tables.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -48,6 +51,7 @@ struct Args {
     exact: bool,
     only: String,
     groups: u32,
+    household: usize,
     known: bool,
     stop_trade: bool,
     no_sights: bool,
@@ -70,6 +74,7 @@ fn args() -> Args {
         exact: false,
         only: String::new(),
         groups: 1,
+        household: 0,
         known: false,
         stop_trade: false,
         no_sights: false,
@@ -115,6 +120,8 @@ fn args() -> Args {
             "--families" => a.families = value.parse().expect("--families N"),
             "--only" => a.only = value,
             "--groups" => a.groups = value.parse().expect("--groups N"),
+            // The last N settlements household-resolved (M9a slice DF, ADR-0032 §1).
+            "--household" => a.household = value.parse().expect("--household N"),
             other => panic!("unknown flag {other}"),
         }
     }
@@ -202,6 +209,32 @@ fn main() {
             .count(),
         started.elapsed().as_secs_f64()
     );
+    if a.household > 0 {
+        let all: Vec<_> = sim.land().settlements.iter().map(|s| s.id).collect();
+        let resolved = all[all.len().saturating_sub(a.household)..].to_vec();
+        println!(
+            "household-resolved from the next midnight: {} of {} settlements",
+            resolved.len(),
+            all.len()
+        );
+        sim.set_household_resolved(resolved);
+        // The days measured are whole household days: lived to the next midnight first.
+        let to_midnight = (MINUTES_PER_DAY - sim.now().minute_of_day()) % MINUTES_PER_DAY;
+        if to_midnight > 0 {
+            let t = Instant::now();
+            sim.advance_minutes(to_midnight)
+                .expect("the world lives on");
+            println!(
+                "lived to midnight ({to_midnight} minutes) in {:.1} s; {} people, {} fields, {} \
+                 buildings; peak memory {}",
+                t.elapsed().as_secs_f64(),
+                sim.people().living(),
+                sim.land().fields.len(),
+                sim.land().buildings.len(),
+                peak_memory()
+            );
+        }
+    }
     let lived = Instant::now();
     let mut window = Instant::now();
     let (mut slowest, mut slowest_day) = (0.0f64, 0);
@@ -573,6 +606,26 @@ fn main() {
             bytes as f64 / 1e6,
             t.elapsed().as_secs_f64()
         );
+        // Where the bytes go, before compression, the largest sections first (M9b slice DJ).
+        let mut sections: BTreeMap<String, usize> = BTreeMap::new();
+        for section in persist::encode_sections(&sim) {
+            *sections.entry(section.tag.to_string()).or_default() += section.bytes.len();
+        }
+        let mut sections: Vec<(String, usize)> = sections.into_iter().collect();
+        sections.sort_by_key(|(_, b)| std::cmp::Reverse(*b));
+        let living = sim.people().living().max(1) as f64;
+        let line: Vec<String> = sections
+            .iter()
+            .take(12)
+            .map(|(tag, b)| {
+                format!(
+                    "{tag} {:.1} MB ({:.0} B a person)",
+                    *b as f64 / 1e6,
+                    *b as f64 / living
+                )
+            })
+            .collect();
+        println!("save sections, uncompressed: {}", line.join("; "));
     }
     println!(
         "{} days in {:.1} s: {:.1} ms a day on average ({:.1} s a year); slowest day {} at {:.0} ms",

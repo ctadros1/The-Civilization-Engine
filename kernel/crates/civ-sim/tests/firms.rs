@@ -811,3 +811,312 @@ fn a_workshop_in_a_building_of_its_own_hires_there() {
         }
     }
 }
+
+#[test]
+fn a_workshop_holds_its_kiln_wears_it_on_its_books_and_draws_it_back_when_it_closes() {
+    // M10a slice DQ, ADR-0033 §4 (ADR-0006 §5 as decided): a firm holds its fixed tools and
+    // stations, its recipes wear them on its books, and they pass back to its owners with the rest
+    // of its stores when it closes.
+    let mut sim = new_world(3);
+    sim.advance_minutes(24 * 60).expect("advances");
+    let rules = sim.rules().clone();
+    let goods = &rules.catalog.goods;
+    let good = |id: &str| goods.iter().position(|d| d.id == id).expect(id);
+    let (kiln, brick, axe) = (
+        good("core:good/kiln"),
+        good("core:good/brick"),
+        good("core:good/axe"),
+    );
+    let fire = rules
+        .catalog
+        .activities
+        .iter()
+        .position(|a| a.id == "core:activity/fire_bricks")
+        .expect("fire_bricks");
+    let now = sim.now();
+    let (maker, who) = sim
+        .people()
+        .households
+        .iter()
+        .find_map(|(_, h)| {
+            let grown = h.members.iter().copied().find(|&m| {
+                sim.people()
+                    .person(m)
+                    .is_some_and(|p| p.age_years(now) >= 20.0)
+            })?;
+            Some((h.id, grown))
+        })
+        .expect("a household with a grown member");
+    set(
+        &mut sim,
+        maker,
+        &[
+            ("core:good/kiln", 1.0),
+            ("core:good/clay", 400.0),
+            ("core:good/firewood", 400.0),
+        ],
+    );
+    let firm = sim
+        .with_ctx_for_tests(|pop, ctx| pop.found_firm_for_tests(ctx, maker, who, brick))
+        .expect("a workshop");
+    let kilns = |sim: &Sim| {
+        (
+            sim.people().household(maker).expect("maker").stores[kiln],
+            sim.people().firm(firm).expect("firm").stores[kiln],
+        )
+    };
+    // Something that is not a fixed tool is never a station.
+    assert!(!sim.with_ctx_for_tests(|pop, ctx| pop.put_in_station(ctx, firm, axe, 1.0)));
+    // The owners put their kiln in: it is the workshop's now, on its books.
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.put_in_station(ctx, firm, kiln, 1.0)));
+    assert_eq!(kilns(&sim), (0.0, 1.0));
+    let (before, flows_before) = held(sim.people());
+    // A session firing bricks for it wears its kiln, not the owners' (they have none), and makes
+    // its bricks.
+    sim.with_ctx_for_tests(|pop, ctx| pop.firm_make_for_tests(ctx, who, fire, 480, firm));
+    let (home, shop) = kilns(&sim);
+    assert_eq!(home, 0.0);
+    assert!(shop < 1.0 && shop > 0.9, "the kiln wore: {shop}");
+    let f = sim.people().firm(firm).expect("firm");
+    assert!(f.stores[brick] > 0.0, "bricks were made");
+    assert!(
+        f.books
+            .entries
+            .iter()
+            .any(|e| e.kind == BookKind::Used && usize::from(e.good) == kiln),
+        "the wear is on its books"
+    );
+    // Every good is accounted for: what is held now is what was held and what the flows say.
+    let (after, flows_after) = held(sim.people());
+    let net = |f: &civ_agents::person::Flows, g: usize| f.net(g);
+    for g in [kiln, brick] {
+        let change = after[g] - before[g];
+        let flowed = net(&flows_after, g) - net(&flows_before, g);
+        assert!(
+            (change - flowed).abs() < 1e-6,
+            "{}: {change} held against {flowed} flowed",
+            goods[g].id
+        );
+    }
+    // Saved and loaded, the station is the workshop's, to the byte.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "kiln").expect("saves");
+    let mut sim = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(kilns(&sim), (home, shop));
+    // Closed, the workshop draws its kiln back to its owners with the rest of its stores.
+    sim.with_ctx_for_tests(|pop, ctx| pop.close_firm_for_tests(ctx, firm, Exit::Idle));
+    assert_eq!(kilns(&sim), (shop, 0.0));
+}
+
+#[test]
+fn a_works_of_two_lines_smelts_in_a_batch_and_forges_its_own_blooms_into_bar() {
+    // M10a slice DQ, ADR-0033 §2 and §4: a works keeps goods in progress between its lines
+    // (bloom, then bar), takes them from its own stock before its owners put any in, and a batch
+    // worked for it runs and is opened in its own stores, saved with it.
+    let mut sim = new_world(3);
+    sim.advance_minutes(24 * 60).expect("advances");
+    let rules = sim.rules().clone();
+    let goods = &rules.catalog.goods;
+    let good = |id: &str| goods.iter().position(|d| d.id == id).expect(id);
+    let (ore, charcoal, bloom, iron) = (
+        good("core:good/iron_ore"),
+        good("core:good/charcoal"),
+        good("core:good/iron_bloom"),
+        good("core:good/iron"),
+    );
+    let act = |id: &str| {
+        rules
+            .catalog
+            .activities
+            .iter()
+            .position(|a| a.id == id)
+            .expect(id)
+    };
+    let (smelt, forge) = (
+        act("core:activity/smelt_iron"),
+        act("core:activity/forge_bar"),
+    );
+    let now = sim.now();
+    let (maker, who) = sim
+        .people()
+        .households
+        .iter()
+        .find_map(|(_, h)| {
+            let grown = h.members.iter().copied().find(|&m| {
+                sim.people()
+                    .person(m)
+                    .is_some_and(|p| p.age_years(now) >= 20.0)
+            })?;
+            Some((h.id, grown))
+        })
+        .expect("a household with a grown member");
+    for t in ["core:technique/bloomery", "core:technique/forging"] {
+        sim.introduce_technique(who, t, false).expect("introduced");
+    }
+    set(
+        &mut sim,
+        maker,
+        &[
+            ("core:good/iron_ore", 100.0),
+            ("core:good/charcoal", 300.0),
+            ("core:good/iron_bloom", 0.0),
+            ("core:good/iron", 0.0),
+        ],
+    );
+    let firm = sim
+        .with_ctx_for_tests(|pop, ctx| pop.found_firm_for_tests(ctx, maker, who, bloom))
+        .expect("a works");
+    {
+        let pop = sim.people_mut_for_tests();
+        let f = pop.firms.iter_mut().find(|f| f.id == firm).expect("firm");
+        assert!(f.add_line(iron as u16), "bar is its second line");
+        assert!(!f.add_line(iron as u16), "only once");
+    }
+    let stock = |sim: &Sim, g: usize| {
+        (
+            sim.people().household(maker).expect("maker").stores[g],
+            sim.people().firm(firm).expect("firm").stores[g],
+        )
+    };
+    // Charging its furnace takes its owners' ore and charcoal and starts its batch; no bloom yet.
+    sim.with_ctx_for_tests(|pop, ctx| pop.firm_make_for_tests(ctx, who, smelt, 480, firm));
+    let batches = sim.people().firm(firm).expect("firm").batches.clone();
+    assert_eq!(batches.len(), 1, "one smelt under way");
+    let units = batches[0].units;
+    assert!(units > 0.0);
+    assert!((stock(&sim, ore).0 - (100.0 - 8.0 * units)).abs() < 1e-6);
+    assert_eq!(stock(&sim, bloom), (0.0, 0.0));
+    assert!(
+        sim.people()
+            .household(maker)
+            .expect("maker")
+            .batches
+            .is_empty()
+    );
+    // Saved and loaded, its batch is its own, to the byte.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "works").expect("saves");
+    let mut sim = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(sim.people().firm(firm).expect("firm").batches, batches);
+    // The next day a session opens it into the works' stores and charges the furnace again.
+    sim.advance_minutes(24 * 60).expect("advances");
+    sim.with_ctx_for_tests(|pop, ctx| pop.firm_make_for_tests(ctx, who, smelt, 480, firm));
+    let (home, shop) = stock(&sim, bloom);
+    assert_eq!(home, 0.0);
+    assert!((shop - units).abs() < 1e-9, "{shop} of a bloom of {units}");
+    // Forging bar takes its own blooms, not its owners' (they have none), and their charcoal.
+    let coal_before = stock(&sim, charcoal).0;
+    sim.with_ctx_for_tests(|pop, ctx| pop.firm_make_for_tests(ctx, who, forge, 480, firm));
+    let (_, bar) = stock(&sim, iron);
+    assert!(bar > 0.0, "bar was forged");
+    let (home, left) = stock(&sim, bloom);
+    assert_eq!(home, 0.0);
+    assert!(
+        (shop - left - 1.25 * bar).abs() < 1e-6,
+        "{shop} to {left} for {bar}"
+    );
+    assert!((coal_before - stock(&sim, charcoal).0 - 8.0 * bar).abs() < 1e-6);
+    let f = sim.people().firm(firm).expect("firm");
+    assert!(
+        f.books
+            .entries
+            .iter()
+            .any(|e| e.kind == BookKind::Used && usize::from(e.good) == bloom && e.other.is_none()),
+        "its own blooms used, not put in"
+    );
+}
+
+#[test]
+fn a_mill_grinds_what_its_wheel_turns_more_when_the_river_runs_and_none_when_it_is_dry() {
+    // M10a slice DR, ADR-0033 §5: a powered recipe makes the least of what its hands, its inputs
+    // and its installations' power over the session allow; a dry month idles the mill.
+    let mut sim = new_world(3);
+    sim.advance_minutes(24 * 60).expect("advances");
+    let rules = sim.rules().clone();
+    let goods = &rules.catalog.goods;
+    let good = |id: &str| goods.iter().position(|d| d.id == id).expect(id);
+    let (wheel, flour) = (good("core:good/water_wheel"), good("core:good/flour"));
+    let mill = rules
+        .catalog
+        .activities
+        .iter()
+        .position(|a| a.id == "core:activity/grind_grain_water")
+        .expect("grind_grain_water");
+    let kwh = rules
+        .catalog
+        .recipes
+        .iter()
+        .find(|r| r.id == "core:recipe/grind_grain_water")
+        .expect("recipe")
+        .kwh_per_unit;
+    let now = sim.now();
+    let (miller, who) = sim
+        .people()
+        .households
+        .iter()
+        .find_map(|(_, h)| {
+            let grown = h.members.iter().copied().find(|&m| {
+                sim.people()
+                    .person(m)
+                    .is_some_and(|p| p.age_years(now) >= 20.0)
+            })?;
+            Some((h.id, grown))
+        })
+        .expect("a household with a grown member");
+    set(
+        &mut sim,
+        miller,
+        &[("core:good/water_wheel", 1.0), ("core:good/grain", 5000.0)],
+    );
+    let firm = sim
+        .with_ctx_for_tests(|pop, ctx| pop.found_firm_for_tests(ctx, miller, who, flour))
+        .expect("a mill");
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.put_in_station(ctx, firm, wheel, 1.0)));
+    // Its installation: a wheel at reach 0 falling half a metre, its headrace carrying 0.5 m³/s.
+    let reach = 0u32;
+    sim.land_mut_for_tests()
+        .installations
+        .push(civ_land::power::Installation {
+            id: PermanentId::from_raw(9_000_002).expect("id"),
+            reach,
+            at: [0.0, 0.0],
+            head_m: 0.5,
+            race_m3s: 0.5,
+            efficiency: 0.3,
+            rated_kw: 3.0,
+            owner: firm,
+            building: None,
+        });
+    let share = sim.rules().land.ditches.max_share;
+    let ground = |sim: &mut Sim, discharge: f32| {
+        sim.land_mut_for_tests().reach_discharges[reach as usize] = discharge;
+        let before = sim.people().firm(firm).expect("firm").stores[flour];
+        sim.with_ctx_for_tests(|pop, ctx| pop.firm_make_for_tests(ctx, who, mill, 600, firm));
+        sim.people().firm(firm).expect("firm").stores[flour] - before
+    };
+    let by_power = |discharge: f64| {
+        let q = (share * discharge).min(0.5);
+        (9.81 * q * 0.5 * 0.3).min(3.0) * 10.0 / kwh * 0.98
+    };
+    // A full river: the wheel's power over ten hours, not the hands', sets what is ground.
+    let full = ground(&mut sim, 5.0);
+    assert!(
+        (full - by_power(5.0)).abs() < 1e-6,
+        "{full} against {}",
+        by_power(5.0)
+    );
+    // A low one: less, by its share of the flow.
+    let low = ground(&mut sim, 0.4);
+    assert!(
+        (low - by_power(0.4)).abs() < 1e-6,
+        "{low} against {}",
+        by_power(0.4)
+    );
+    assert!(low < full);
+    // A dry one idles the mill.
+    assert_eq!(ground(&mut sim, 0.0), 0.0);
+    // Its wheel wore on its own books.
+    assert!(sim.people().firm(firm).expect("firm").stores[wheel] < 1.0);
+}

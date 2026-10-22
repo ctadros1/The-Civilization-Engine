@@ -24,6 +24,16 @@
             <option value="2628000">5 years</option>
             <option value="5256000">10 years</option>
           </select>
+          <label class="skip-ahead" title="Skip: every settlement lived by household at the fastest speed, the speed and resolutions put back after (ADR-0032 §7)"><input type="checkbox" id="skip-ahead" disabled /> skip</label>
+          <select id="skip-stop" aria-label="Stop a skip at" disabled>
+            <option value="0">only at the date</option>
+            <option value="31">or at anything notable</option>
+            <option value="1">or at a new settlement</option>
+            <option value="2">or at hunger</option>
+            <option value="4">or at a disaster</option>
+            <option value="8">or at politics</option>
+            <option value="16">or at a discovery</option>
+          </select>
         </div>
         <div class="actions">
           <button id="btn-new" type="button" disabled>New world</button>
@@ -103,6 +113,14 @@
                 <option value="2">a hard drought (2 sd)</option>
                 <option value="3">a great drought (3 sd)</option>
               </select>
+              <select id="shake-ground" aria-label="Shake the ground" title="Shake the ground: every standing building meets a sideways share of its weight once, each by its own response; some crack and some fall, and people meet it as they would any earthquake. The words are the observer's only; nothing in the world reads them" disabled>
+                <option value="">Shake…</option>
+                <option value="0.05">felt by all (0.05)</option>
+                <option value="0.1">strong (0.1)</option>
+                <option value="0.2">very strong (0.2)</option>
+                <option value="0.35">severe (0.35)</option>
+                <option value="0.6">violent (0.6)</option>
+              </select>
               <button id="set-fire" type="button" aria-pressed="false" title="Set a building alight: its covering catches; whether it spreads is the wind's, the dryness's and the gaps'; click the building (Esc cancels)" disabled>Set alight</button>
               <label class="toggle"><input type="checkbox" id="show-rivers" checked /> Rivers</label>
               <label class="toggle"><input type="checkbox" id="show-land" /> Land</label>
@@ -142,6 +160,15 @@
           </section>
           <section class="panel weather-panel" id="weather-panel" aria-labelledby="weather-heading">
             <h2 id="weather-heading">Weather</h2>
+            <select id="force-climate" class="panel-tool" aria-label="Change the climate" title="Change the climate: every month's usual temperature moved and every wet day's rain scaled, reached over the years given and held after; snow, water, soils and harvests follow, and people meet it as they meet any change of weather" disabled>
+              <option value="">Climate…</option>
+              <option value="2,1,10">2 °C warmer over 10 years</option>
+              <option value="2,0.85,10">2 °C warmer and 15% drier over 10 years</option>
+              <option value="4,0.7,50">4 °C warmer and 30% drier over 50 years</option>
+              <option value="-2,1,10">2 °C cooler over 10 years</option>
+              <option value="0,1.3,10">30% wetter over 10 years</option>
+              <option value="4,0.7,0">4 °C warmer and 30% drier from tomorrow</option>
+            </select>
             <div class="panel-body" id="weather-body"></div>
           </section>
           <section class="panel knowledge-panel" id="knowledge-panel" aria-labelledby="knowledge-heading">

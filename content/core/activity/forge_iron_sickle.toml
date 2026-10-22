@@ -1,0 +1,17 @@
+# Forging and hafting an iron sickle at home.
+kind = "activity"
+id = "core:activity/forge_iron_sickle"
+name = "Forge an iron sickle"
+doing = "forging an iron sickle"
+behavior = "make"
+recipe = "core:recipe/forge_iron_sickle"
+par = 4.5
+min_age_years = 14.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 240
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

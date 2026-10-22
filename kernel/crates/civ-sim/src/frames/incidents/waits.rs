@@ -33,6 +33,7 @@ pub fn wait_row(sim: &Sim, w: &LongWait) -> Row {
         conflagration: 0,
         flood: 0,
         storm: 0,
+        quake: 0,
         open: false,
     }
 }

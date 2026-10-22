@@ -3215,3 +3215,46 @@ put it. Both are now on the list for the next step.
 and twelve bays, and for the new parts that come next (roof trusses, posts stacked storey on
 storey, walls tied in at each floor, windows and stairs). Nothing uses that room yet, so every
 village builds exactly what it did before.
+
+## 2026-10-20 — CY to DA: taller buildings that stand or fall by their weight, and the first earthquake
+
+**Built:** the building plans can now describe houses of up to four storeys with walls that thin
+storey by storey, windows and doors, a stair, roof trusses, posts a storey high and timber ties
+laid into stone walls at each floor, each costed in hours and materials from the content files.
+The checks that decide whether a building stands now weigh a stone wall's own weight and what the
+walls above put on it, and an untied wall counts as standing its whole height with nothing to hold
+it, so a tall untied rubble house cannot stand where a tied one does. Framing can now be worked
+out by people who build huts, about once a generation in a busy village, instead of only through
+the observer, and the three new ways of building (trusses, storeyed frames and tied walls) are
+found the same way. Families now weigh a narrower, taller house against the ground and the walking
+it saves, and tie their walls when they know how.
+
+**Built:** the first half of the earthquake. Each wall and post now has a measure of how close it
+is to toppling or sliding when the ground shakes it sideways, and the observer's shaking checks
+every standing building once: a building's own response is drawn once and never redrawn, what
+fails comes down as a collapse does (so a night shake kills more than a noon one, with no rule
+saying so), and a stone wall that holds but strains is left cracked, weaker until someone mends
+it. Every shaking and what each building did is kept and saved. The button in the observer and
+the earthquake panel come next.
+
+**Built:** the rest of the earthquake. The observer has a "Shake…" choice from felt-by-all to
+violent, and the dashboard reports what shakings did on a row of their own, so the observer's
+own shaking never counts as the buildings' failing. Stone walls now hold by their mortar as well
+as their weight, so fired brick in lime outlasts rubble and rubble outlasts mud brick, while a
+light timber frame rides out far more than any of them. Every building that fell or cracked is
+an incident with its own page, each shaking has a page listing them, and the chronicle links to
+it. Tests now show that two copies of one village, the same house tied in one and untied in the
+other, meet the same shaking alike and the untied one never fares better; that a crack survives
+a save until the wall is mended; and that the observer's collapses stay out of the failures row.
+
+**Deferred:** a map layer for the damage (the Incidents panel already lists and links it), and
+a check of the frame's joints, so a timber frame now looks stronger than it would be.
+
+**Built:** what a village does after a shaking. Two new rules can be proposed once buildings have
+come down: one keeps houses of rubble or mud brick to a single storey, and anyone may put it
+forward; the other requires stone or brick walls above a storey to be tied into the floors, and
+only someone who knows how to tie them can propose it. A family whose two-storey house fell
+reckons what the height rule would take from it in lost floor and opposes it, while its neighbours
+do not. Builders who keep a rule build a storey lower where it asks. And a fall is now remembered
+against every craft the building used, so a fallen rubble wall makes the next rubble walls
+thicker, not only the timbers.

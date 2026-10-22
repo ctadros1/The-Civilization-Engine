@@ -1,0 +1,20 @@
+# Reducing iron ore in a clay shaft furnace packed with charcoal and blown hard, then drawing out
+# the bloom of iron and slag once it has cooled (research 07-05 §4, I1: suitable ore, a reducing
+# furnace, charcoal, draft and slag management). Found by those who already hold a fire hot and
+# starved of air, burning charcoal or smelting copper, with iron ore and charcoal at home; copper is
+# "a soft advantage rather than an absolute requirement" (07-05 §3.2), so firing alone is a route.
+# Founders do not bring it.
+kind = "technique"
+id = "core:technique/bloomery"
+name = "The bloomery"
+can = "smelt iron from its ore in a charcoal furnace"
+domain = "core:skill/smithing"
+requires = [["core:technique/firing"], ["core:technique/copper_smelting"]]
+tried_in = ["core:activity/burn_charcoal", "core:activity/smelt_copper"]
+needs = ["core:good/iron_ore", "core:good/charcoal"]
+e50_h = 100000.0
+learn_h = 300.0
+upbringing = true
+
+[answers]
+spoilage = []

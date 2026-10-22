@@ -16,6 +16,9 @@ use civ_sim::{NewWorld, Sim, persist};
 use commons_persist::{SaveDir, SaveKind};
 
 /// The core content, but nothing new by chance: a building is built to its builders' taste.
+/// The traits a hut shows: the roof's three; a hut has no front to move a taste (M8d slice DD).
+const ROOF: [bool; Taste::TRAITS] = [true, true, true, false, false, false, false];
+
 fn content() -> &'static ContentRegistry {
     static CONTENT: OnceLock<ContentRegistry> = OnceLock::new();
     CONTENT.get_or_init(|| {
@@ -54,8 +57,8 @@ fn def<'a>(sim: &'a Sim, b: &Building) -> &'a BuildingDef {
         .expect("its program")]
 }
 
-/// Building `b`'s traits, in whole units: pitch, eaves, overhang.
-fn traits(sim: &Sim, b: &Building) -> [i32; 3] {
+/// Building `b`'s traits, in whole units: pitch, eaves, overhang and the front's four.
+fn traits(sim: &Sim, b: &Building) -> [i32; Taste::TRAITS] {
     let t = style::traits_of(&b.spec, def(sim, b)).traits();
     t.map(|v| v.round() as i32)
 }
@@ -195,7 +198,7 @@ fn taste_moves_toward_an_admired_new_building_and_the_next_home_follows_it() {
             assert_eq!(now_taste, was);
             continue;
         }
-        let expected = style::moved(&was, &model, alpha);
+        let expected = style::moved_where(&was, &model, alpha, ROOF);
         for (a, b) in now_taste.traits().iter().zip(expected.traits()) {
             assert!(
                 (a - b).abs() < 1e-3,
@@ -299,4 +302,192 @@ fn taste_moves_toward_an_admired_new_building_and_the_next_home_follows_it() {
             .expect("loaded");
         assert_eq!(l.style_from, b.style_from);
     }
+}
+
+#[test]
+fn a_front_is_built_to_taste_and_moves_taste_only_as_far_as_its_viewers_could_build_it() {
+    use civ_agents::build::{FireDesign, Shape, design_cautious};
+    use civ_grammar::frame_params as fp;
+    let mut sim = world(3);
+    for _ in 0..180 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        let all = sim.people().households.iter().all(|(_, h)| {
+            sim.land()
+                .buildings
+                .iter()
+                .any(|b| b.household == h.id && b.finished())
+        });
+        if all {
+            break;
+        }
+    }
+    let mut ids: Vec<PermanentId> = sim.people().households.iter().map(|(_, h)| h.id).collect();
+    ids.sort();
+    assert!(ids.len() >= 3, "a village");
+    let (owner, learned, unlearned) = (ids[0], ids[1], ids[2]);
+    let catalog = sim.rules().catalog.clone();
+    let longhouse = &catalog.buildings[catalog
+        .building_index("core:building/longhouse")
+        .expect("the longhouse")];
+    let home = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.household == owner && b.finished())
+        .map(|b| civ_agents::build::centre_m(&b.spec))
+        .expect("the owner's home");
+    // A frame designed to a front of 30 % open walls, 1.5 h of ornament a square metre, lime
+    // wash and symmetry: three bays put its door in the middle; two set out no symmetry, and
+    // builders who cannot burn lime daub it instead.
+    let front = [4_800, 190, 50, 300, 15, 2, 1];
+    let design = |bays: i32, lime: bool| {
+        design_cautious(
+            longhouse,
+            &catalog.goods,
+            Shape::Bays {
+                bays,
+                storeys: 1,
+                lofts: 0,
+            },
+            (home.0 + 15.0, home.1),
+            Some(home),
+            1.0,
+            Some(front),
+            Some(FireDesign {
+                knows_lime: lime,
+                ..FireDesign::default()
+            }),
+        )
+        .expect("designed")
+    };
+    let spec = design(3, true);
+    assert_eq!(
+        [
+            spec.params[fp::OPENINGS],
+            spec.params[fp::ORNAMENT],
+            spec.params[fp::FINISH],
+            spec.params[fp::SYMMETRY]
+        ],
+        [300, 15, 2, 1]
+    );
+    let plain = design(2, false);
+    assert_eq!(
+        (plain.params[fp::FINISH], plain.params[fp::SYMMETRY]),
+        (1, 0)
+    );
+    // It is the year's one new building.
+    let long_ago = SimTime::from_minutes(sim.now().minutes() - 400 * 24 * 60);
+    for b in sim.land_mut_for_tests().buildings.iter_mut() {
+        b.stage_since = long_ago;
+    }
+    let id = sim
+        .place_building_for_tests(owner, spec, civ_grammar::Stage::ALL.len() as u8)
+        .expect("placed");
+    let model = {
+        let b = sim
+            .land()
+            .buildings
+            .iter()
+            .find(|b| b.id == id)
+            .expect("it");
+        assert!(b.finished());
+        style::traits_of(&b.spec, def(&sim, b))
+    };
+    assert_eq!(
+        (
+            model.openings_permille,
+            model.ornament_dh,
+            model.finish,
+            model.symmetry
+        ),
+        (300.0, 15.0, 2.0, 1.0)
+    );
+    let words = {
+        let b = sim
+            .land()
+            .buildings
+            .iter()
+            .find(|b| b.id == id)
+            .expect("it");
+        civ_sim::frames::buildings::style_words(&sim, b, Some(def(&sim, b)))
+    };
+    assert!(
+        words.contains(
+            "30 % of the walls open, 1.5 h of ornament a square metre, lime-washed, set out \
+             about the middle"
+        ),
+        "{words}"
+    );
+    // One household knows how to frame it and burn lime; another knows neither.
+    for m in sim.people().household(learned).expect("it").members.clone() {
+        for t in [
+            "core:technique/jointed_frame",
+            "core:technique/lime_burning",
+        ] {
+            sim.introduce_technique(m, t, false).expect("taught");
+        }
+    }
+    let unknown = |sim: &Sim, t: &str| {
+        let t = sim.rules().catalog.technique_index(t).expect("it");
+        sim.people()
+            .household(unlearned)
+            .expect("it")
+            .members
+            .iter()
+            .filter_map(|&m| sim.people().person(m))
+            .all(|p| !p.knows(t))
+    };
+    assert!(unknown(&sim, "core:technique/jointed_frame"));
+    let was = (taste(&sim, learned), taste(&sim, unlearned));
+    let rules = sim.rules().clone();
+    let (land, now) = (sim.land().clone(), sim.now());
+    sim.people_mut_for_tests().review_tastes(
+        &rules.catalog,
+        &rules.people,
+        &rules.land,
+        &land,
+        now,
+    );
+    let now_taste = (taste(&sim, learned), taste(&sim, unlearned));
+    let moved = |k: usize, before: &Taste, after: &Taste| {
+        (after.traits()[k] - before.traits()[k]).abs() > 1e-3
+    };
+    // Those who could build it move toward all seven; the rest toward its roof, its openings
+    // and its symmetry, not its ornament and finish.
+    for k in 0..Taste::TRAITS {
+        assert!(moved(k, &was.0, &now_taste.0), "{k}: {was:?} {now_taste:?}");
+        let could = !(k == 4 || k == 5);
+        assert_eq!(
+            moved(k, &was.1, &now_taste.1),
+            could,
+            "{k}: {was:?} {now_taste:?}"
+        );
+    }
+    // Tastes of seven traits survive a save.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        SaveDir::create(dir.path().join("saves"), civ_schema::SAVE_EXTENSION).expect("save dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "front").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    for &h in &ids {
+        assert_eq!(taste(&loaded, h), taste(&sim, h));
+    }
+}
+
+#[test]
+fn a_front_is_said_in_words_and_a_hut_s_way_says_none() {
+    use civ_sim::frames::people::front_words;
+    let hut = [4_800.0, 190.0, 50.0, 0.0, 0.0, 0.0, 0.0];
+    assert_eq!(front_words(&hut), "");
+    let frame = [4_800.0, 190.0, 50.0, 120.0, 5.0, 1.0, 0.5];
+    assert_eq!(
+        front_words(&frame),
+        ", 12 % of the walls open, 0.5 h of ornament a square metre, daubed, 50 % set out about \
+         the middle"
+    );
+    let limed = [4_800.0, 190.0, 50.0, 0.0, 0.0, 2.0, 1.0];
+    assert_eq!(
+        front_words(&limed),
+        ", lime-washed, set out about the middle"
+    );
 }

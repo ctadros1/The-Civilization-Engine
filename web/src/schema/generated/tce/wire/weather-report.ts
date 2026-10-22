@@ -68,8 +68,15 @@ drought(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+climate():string|null
+climate(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+climate(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 18);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startWeatherReport(builder:flatbuffers.Builder) {
-  builder.startObject(7);
+  builder.startObject(8);
 }
 
 static addRev(builder:flatbuffers.Builder, rev:bigint) {
@@ -110,6 +117,10 @@ static addMonth(builder:flatbuffers.Builder, month:number) {
 
 static addDrought(builder:flatbuffers.Builder, droughtOffset:flatbuffers.Offset) {
   builder.addFieldOffset(6, droughtOffset, 0);
+}
+
+static addClimate(builder:flatbuffers.Builder, climateOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(7, climateOffset, 0);
 }
 
 static endWeatherReport(builder:flatbuffers.Builder):flatbuffers.Offset {

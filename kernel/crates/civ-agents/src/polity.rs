@@ -156,11 +156,16 @@ pub enum PolicyKind {
     /// of streets, a square and parcels laid where the sponsor chose, saved as realised; in
     /// force, it reserves its streets and square (ADR-0030 §3). An amendment is a new version.
     Plan,
+    /// A building raised together (M8d slice DC, ADR-0031 §6), shaped as `build_way`: the
+    /// program its template names ([`RaiseDef`]) answering a loss the polity measured, put up
+    /// near the hearth (or on a plan's square), each household asked an equal share of its work,
+    /// payable by `pay_work`; the polity owns it.
+    RaiseBuilding,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 31] = [
+    pub const ALL: [PolicyKind; 32] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -192,6 +197,7 @@ impl PolicyKind {
         PolicyKind::PayWork,
         PolicyKind::BuildWay,
         PolicyKind::Plan,
+        PolicyKind::RaiseBuilding,
     ];
 
     /// The authored name.
@@ -228,6 +234,7 @@ impl PolicyKind {
             PolicyKind::PayWork => "pay_work",
             PolicyKind::BuildWay => "build_way",
             PolicyKind::Plan => "plan",
+            PolicyKind::RaiseBuilding => "raise_building",
         }
     }
 
@@ -329,11 +336,22 @@ pub enum IssueKind {
     WayBuiltOver,
     /// A household built beyond the settlement's built edge (M8c slice CT, second part).
     NewGround,
+    /// The common store spoiled within the years its polity measures, and no storehouse of the
+    /// polity's stands or is being raised (M8d slice DC, ADR-0031 §6): what raising one answers.
+    StoreSpoils,
+    /// A gathering held in the open came to nothing for want of a quorum on a wet day, within the
+    /// years its polity measures, and no hall of the polity's stands or is being raised (M8d
+    /// slice DC): what raising one answers.
+    RainedOff,
+    /// A fire burned awhile before anyone saw it, within the years its polity measures, while
+    /// its watch keeps watch and no tower of the polity's stands or is being raised (M8d slice
+    /// DC): what raising one answers.
+    FiresUnseen,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 28] = [
+    pub const ALL: [IssueKind; 31] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -362,6 +380,9 @@ impl IssueKind {
         IssueKind::NoGround,
         IssueKind::WayBuiltOver,
         IssueKind::NewGround,
+        IssueKind::StoreSpoils,
+        IssueKind::RainedOff,
+        IssueKind::FiresUnseen,
     ];
 
     /// The authored name.
@@ -395,6 +416,9 @@ impl IssueKind {
             IssueKind::NoGround => "no_ground",
             IssueKind::WayBuiltOver => "way_built_over",
             IssueKind::NewGround => "new_ground",
+            IssueKind::StoreSpoils => "store_spoils",
+            IssueKind::RainedOff => "rained_off",
+            IssueKind::FiresUnseen => "fires_unseen",
         }
     }
 
@@ -445,6 +469,13 @@ impl IssueKind {
             IssueKind::NoGround => "their household found no clear ground to build its home on",
             IssueKind::WayBuiltOver => "a building went up on a trail they walked",
             IssueKind::NewGround => "their households built beyond the edge of the settlement",
+            IssueKind::StoreSpoils => "the common store spoiled with no storehouse to keep it",
+            IssueKind::RainedOff => {
+                "a gathering in the open came to nothing in the rain, with no hall to meet in"
+            }
+            IssueKind::FiresUnseen => {
+                "a fire burned awhile before anyone saw it, with no tower to watch from"
+            }
         }
     }
 }
@@ -554,6 +585,8 @@ pub struct PolicyDef {
     pub bears: Vec<(u16, f32)>,
     /// For a rule for building: what it requires (M6b slice BH).
     pub rule: Option<RuleDef>,
+    /// For a building raised together: what it raises (M8d slice DC).
+    pub raise: Option<RaiseDef>,
     /// For an office (the store's keeper, the watch): how long it is held and how it is filled,
     /// when not until the holder dies or leaves and named by the body (M7a slice BN, ADR-0024 §2).
     pub tenure: Option<Tenure>,
@@ -766,6 +799,13 @@ pub struct Term {
     pub pool: u32,
 }
 
+/// What a law raising a building raises (M8d slice DC, ADR-0031 §6): its program, by index in
+/// the catalog's buildings.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RaiseDef {
+    pub program: usize,
+}
+
 /// What a rule for building requires of a building begun while it is in force (M6b slice BH;
 /// ADR-0022 §12). Each template names either a property or a technique (research 11-09 §5.2),
 /// and applies only where its predicate holds (11-09 §1.7).
@@ -797,6 +837,13 @@ pub enum RuleTemplate {
     /// A new home, where its household's midden lies, must stand `from_m` metres from every open
     /// well (M8c slice CW, ADR-0030 §6: `contagion.rs`'s seepage).
     MiddenFromWells { from_m: f32 },
+    /// A building whose walls are of one of the kinds named (a bit for each, as
+    /// [`RuleTemplate::WallsOfKinds`]) may rise at most `storeys` storeys (M8d slice DB, ADR-0031
+    /// §5: a dimension rule).
+    MostStoreys { storeys: u8, kinds: u8 },
+    /// Mass walls of more than a storey must be tied at each floor (M8d slice DB, ADR-0031 §5: a
+    /// technique rule).
+    TiedWalls,
 }
 
 /// The names of the wall kinds, by kind code (ADR-0022 §10).
@@ -811,6 +858,8 @@ impl RuleTemplate {
             RuleTemplate::LeastGap { .. } => "least_gap",
             RuleTemplate::FireFromHomes { .. } => "fire_from_homes",
             RuleTemplate::MiddenFromWells { .. } => "midden_from_wells",
+            RuleTemplate::MostStoreys { .. } => "most_storeys",
+            RuleTemplate::TiedWalls => "tied_walls",
         }
     }
 
@@ -821,18 +870,7 @@ impl RuleTemplate {
                 format!("a new roof within {within_m:.0} m of another building must not burn")
             }
             RuleTemplate::WallsOfKinds { kinds } => {
-                let names: Vec<&str> = ["wattle and daub", "rubble", "mud brick", "fired brick"]
-                    .into_iter()
-                    .enumerate()
-                    .filter(|(k, _)| kinds & (1 << k) != 0)
-                    .map(|(_, n)| n)
-                    .collect();
-                let list = match names.as_slice() {
-                    [] => "nothing".to_owned(),
-                    [one] => (*one).to_owned(),
-                    [rest @ .., last] => format!("{} or {last}", rest.join(", ")),
-                };
-                format!("new walls must be of {list}")
+                format!("new walls must be of {}", wall_kinds_words(kinds))
             }
             RuleTemplate::LeastGap { gap_m } => {
                 format!("a new building must stand {gap_m:.0} m from every other")
@@ -843,7 +881,30 @@ impl RuleTemplate {
             RuleTemplate::MiddenFromWells { from_m } => {
                 format!("a new home and its midden must stand {from_m:.0} m from every open well")
             }
+            RuleTemplate::MostStoreys { storeys, kinds } => format!(
+                "a new building with walls of {} must rise no more than {storeys} {}",
+                wall_kinds_words(kinds),
+                if storeys == 1 { "storey" } else { "storeys" }
+            ),
+            RuleTemplate::TiedWalls => {
+                "new walls of stone or brick above a storey must be tied at each floor".to_owned()
+            }
         }
+    }
+}
+
+/// The wall kinds of `kinds`, a bit for each, in words: "rubble, mud brick or fired brick".
+fn wall_kinds_words(kinds: u8) -> String {
+    let names: Vec<&str> = ["wattle and daub", "rubble", "mud brick", "fired brick"]
+        .into_iter()
+        .enumerate()
+        .filter(|(k, _)| kinds & (1 << k) != 0)
+        .map(|(_, n)| n)
+        .collect();
+    match names.as_slice() {
+        [] => "nothing".to_owned(),
+        [one] => (*one).to_owned(),
+        [rest @ .., last] => format!("{} or {last}", rest.join(", ")),
     }
 }
 
@@ -896,6 +957,9 @@ pub struct PolityParams {
     pub attend_base: f64,
     /// Points per point at stake in what a gathering decides.
     pub w_attend: f64,
+    /// Points a gathering held in the open is worth the less on a wet day (M8d slice DC): rain
+    /// keeps people from a gathering a hall would shelter.
+    pub wet_attend: f64,
     /// Weight of those who regard a sponsor in what the sponsor forecasts, against their own
     /// household's 1.
     pub w_followers: f64,
@@ -955,6 +1019,7 @@ impl PolityParams {
             stance_margin: 0.25,
             attend_base: 1.0,
             w_attend: 0.5,
+            wet_attend: 1.0,
             w_followers: 0.5,
             propose_cost: 0.5,
             temperature: 0.5,
@@ -1675,6 +1740,13 @@ pub fn law_words(
                 of the work"
             .to_owned();
     }
+    // Without the site at hand (see [`Polity::words_of`]), only what it is (M8d slice DC).
+    if let Some(d) = def.filter(|d| d.kind == PolicyKind::RaiseBuilding) {
+        return format!(
+            "{} raised together near the hearth, each household doing its share of the work",
+            d.name.to_lowercase()
+        );
+    }
     // Without the layout at hand (see [`Polity::words_of`]), only what it is.
     if def.is_some_and(|d| d.kind == PolicyKind::Plan) {
         return "a plan of streets and parcels laid over the ground, its streets and square kept \
@@ -1814,6 +1886,7 @@ pub fn ending_words(
         Some(PolicyKind::DigWell) => "the work on a well".to_owned(),
         Some(PolicyKind::BuildBank) => "the work on a flood bank".to_owned(),
         Some(PolicyKind::BuildWay) => "the work on a passing place".to_owned(),
+        Some(PolicyKind::RaiseBuilding) => "the raising of a building together".to_owned(),
         Some(PolicyKind::Plan) => "the plan of streets and parcels".to_owned(),
         Some(PolicyKind::KeepBank) => "the keeping of a flood bank".to_owned(),
         Some(PolicyKind::BuildingRule) => "the rule for building".to_owned(),
@@ -2098,6 +2171,20 @@ pub struct Polity {
     /// The hours each household has given to a law's passing place (law, household, hours), by
     /// law then household.
     pub way_given: Vec<(PermanentId, PermanentId, f32)>,
+    /// The building each law raising one raises, by law (M8d slice DC).
+    pub raises: Vec<(PermanentId, RaiseSite)>,
+    /// The hours each household has given to a law's building (law, household, hours), by law
+    /// then household (M8d slice DC).
+    pub raise_given: Vec<(PermanentId, PermanentId, f32)>,
+    /// The storehouse it raised that stands finished, if any (M8d slice DC): the common store
+    /// is kept under its roof. Looked over monthly.
+    pub storehouse: Option<PermanentId>,
+    /// The hall it raised that stands finished, if any (M8d slice DC): its gatherings meet under
+    /// its roof, whatever the weather. Looked over monthly.
+    pub hall: Option<PermanentId>,
+    /// The watch tower it raised that stands finished, if any (M8d slice DC): its watch looks out
+    /// from it. Looked over monthly.
+    pub tower: Option<PermanentId>,
     /// The plan each law of a plan lays, by law (M8c slice CT, second part): in force, it
     /// reserves.
     pub plans: Vec<(PermanentId, PlanLaid)>,
@@ -2122,6 +2209,36 @@ pub struct Polity {
     /// Gifts its sponsors gave before its gatherings, oldest first, within
     /// [`PolityParams::owed_memory_days`] (M7c slice BY).
     pub patron_gifts: Vec<PatronGift>,
+    /// What its settlements measured of the losses a public building would answer, a year each,
+    /// the latest [`MEASURED_YEARS`] (M8d slice DC, ADR-0031 §6).
+    pub measured: Vec<Measured>,
+}
+
+/// Years of [`Measured`] a polity keeps.
+pub const MEASURED_YEARS: usize = 3;
+
+/// What a polity's settlements measured in a year of the losses a public building would answer
+/// (M8d slice DC, ADR-0031 §6: public programs answer measured losses only): its common store's
+/// spoilage, the gatherings it held in the open and how many of them on a wet day, and the fires
+/// that reached a roof, noticed only once the covering had caught.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Measured {
+    /// The year.
+    pub year: i64,
+    /// Food its common store lost to spoiling, kcal.
+    pub spoiled_kcal: f64,
+    /// Gatherings it held in the open, with no hall of its standing.
+    pub gatherings: u32,
+    /// Of them, those held on a wet day.
+    pub wet_gatherings: u32,
+    /// Buildings whose covering caught: fires not noticed before they reached a roof.
+    pub roof_fires: u32,
+    /// Hours those who came gave to gatherings in the open that a wet day left without a quorum
+    /// (schema 166): what a hall would have spared them.
+    pub wet_lost_h: f64,
+    /// Hours of work putting right the buildings of fires nobody saw for a while after their
+    /// covering caught, but spread from a neighbour (schema 167): what a watch tower answers.
+    pub late_fire_h: f64,
 }
 
 /// How a polity came to hold a settlement besides its seat (M6c slice BM, ADR-0023 §9). Codes are
@@ -2205,6 +2322,24 @@ pub struct WaySite {
     pub cell: u32,
     pub labour_h: f64,
     pub work: Option<PermanentId>,
+}
+
+/// The building a law raises (M8d slice DC, ADR-0031 §6): its program, by index in the catalog's
+/// buildings; the hours of a capable adult's work raising it takes, its materials made and
+/// carried among them, as reckoned when it was proposed; and the building once laid out. With
+/// the law's own day of proposal, its dates (ADR-0031 §6: proposal, start, first use and
+/// completion are kept, and a stall stays visible): when it was laid out, last worked on, first
+/// used and finished, and when it stalled, if it did.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct RaiseSite {
+    pub program: u16,
+    pub labour_h: f64,
+    pub building: Option<PermanentId>,
+    pub begun: Option<SimTime>,
+    pub last_work: Option<SimTime>,
+    pub first_use: Option<SimTime>,
+    pub finished: Option<SimTime>,
+    pub stalled: Option<SimTime>,
 }
 
 /// A plan's template (M8c slice CT, second part; ADR-0030 §2): the grid it lays, the extents in
@@ -2509,6 +2644,11 @@ impl Polity {
             ways: Vec::new(),
             way_saves: Vec::new(),
             way_given: Vec::new(),
+            raises: Vec::new(),
+            raise_given: Vec::new(),
+            storehouse: None,
+            hall: None,
+            tower: None,
             plans: Vec::new(),
             ground_seen: Vec::new(),
             encroachments: Vec::new(),
@@ -2518,7 +2658,27 @@ impl Polity {
             seated: Vec::new(),
             elections: Vec::new(),
             patron_gifts: Vec::new(),
+            measured: Vec::new(),
         }
+    }
+
+    /// Year `year`'s measured losses, begun if new; the oldest beyond [`MEASURED_YEARS`] are
+    /// let go (M8d slice DC).
+    pub fn measured_mut(&mut self, year: i64) -> &mut Measured {
+        if self.measured.last().is_none_or(|m| m.year < year) {
+            self.measured.push(Measured {
+                year,
+                ..Measured::default()
+            });
+            let drop = self.measured.len().saturating_sub(MEASURED_YEARS);
+            self.measured.drain(..drop);
+        }
+        let i = self
+            .measured
+            .iter()
+            .rposition(|m| m.year <= year)
+            .unwrap_or(0);
+        &mut self.measured[i]
     }
 
     /// The term of office law `law`, if it is held for one (M7a slice BN).
@@ -2664,6 +2824,29 @@ impl Polity {
         {
             Ok(i) => self.way_given[i].2 += hours,
             Err(i) => self.way_given.insert(i, (law, household, hours)),
+        }
+    }
+
+    /// The building law `law` raises, if it raises one (M8d slice DC).
+    pub fn raise_site_of(&self, law: PermanentId) -> Option<RaiseSite> {
+        self.raises.iter().find(|r| r.0 == law).map(|r| r.1)
+    }
+
+    /// The hours household `household` has given to law `law`'s building (M8d slice DC).
+    pub fn raise_given_by(&self, law: PermanentId, household: PermanentId) -> f32 {
+        self.raise_given
+            .binary_search_by_key(&(law, household), |s| (s.0, s.1))
+            .map_or(0.0, |i| self.raise_given[i].2)
+    }
+
+    /// Household `household` gives `hours` more to law `law`'s building (M8d slice DC).
+    pub fn give_to_raise(&mut self, law: PermanentId, household: PermanentId, hours: f32) {
+        match self
+            .raise_given
+            .binary_search_by_key(&(law, household), |s| (s.0, s.1))
+        {
+            Ok(i) => self.raise_given[i].2 += hours,
+            Err(i) => self.raise_given.insert(i, (law, household, hours)),
         }
     }
 
@@ -2941,6 +3124,24 @@ impl Polity {
                 site.labour_h
             );
         }
+        // A building raised together says the work it asks (M8d slice DC).
+        if kind == Some(PolicyKind::RaiseBuilding)
+            && let Some(site) = self.raise_site_of(law.id)
+            && let Some(d) = policies.get(usize::from(law.policy))
+        {
+            // Where it stands: finished, or stalled, kept visible (ADR-0031 §6).
+            let state = match (site.finished, site.stalled) {
+                (Some(_), _) => "; finished",
+                (None, Some(_)) => "; stalled",
+                (None, None) => "",
+            };
+            return format!(
+                "{} raised together near the hearth, each household doing its share of {:.0} \
+                 hours of work{state}",
+                d.name.to_lowercase(),
+                site.labour_h
+            );
+        }
         // A palisade says how long a line it would raise, the homes it takes in and the work it
         // asks (M6c slice BK).
         if kind == Some(PolicyKind::Enclose)
@@ -2990,6 +3191,7 @@ impl Polity {
         }
         self.stores.resize(goods.len(), 0.0);
         let days = (t.minutes() - self.stores_at.minutes()) as f64 / 1440.0;
+        let mut spoiled_kcal = 0.0;
         for (g, (kg, d)) in self.stores.iter_mut().zip(goods).enumerate() {
             let half_life = if sheltered && d.sheltered_half_life_days > 0.0 {
                 d.sheltered_half_life_days
@@ -2999,10 +3201,15 @@ impl Polity {
             if half_life > 0.0 && *kg > 0.0 {
                 let after = *kg * 0.5f64.powf(days / half_life);
                 self.flows.add(crate::person::Flow::Spoiled, g, *kg - after);
+                spoiled_kcal += (*kg - after) * d.kcal_per_kg;
                 *kg = after;
             }
         }
         self.stores_at = t;
+        // Measured against what a storehouse would answer (M8d slice DC).
+        if spoiled_kcal > 0.0 {
+            self.measured_mut(t.date().year).spoiled_kcal += spoiled_kcal;
+        }
     }
 }
 
@@ -3401,6 +3608,7 @@ pub(crate) mod tests {
             question: None,
             bears: Vec::new(),
             rule: None,
+            raise: None,
             tenure: None,
             forum: None,
             limit: None,
@@ -3520,6 +3728,7 @@ pub(crate) mod tests {
             question: None,
             bears: Vec::new(),
             rule: None,
+            raise: None,
             tenure: None,
             forum: None,
             limit: None,
@@ -3747,6 +3956,7 @@ pub(crate) mod tests {
             question: None,
             bears: Vec::new(),
             rule: None,
+            raise: None,
             tenure: None,
             forum: None,
             limit: None,

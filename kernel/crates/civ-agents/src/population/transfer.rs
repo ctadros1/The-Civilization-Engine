@@ -392,6 +392,8 @@ mod tests {
 
     fn goods() -> Vec<GoodDef> {
         let good = |id: &str, purpose| GoodDef {
+            fuel: None,
+            power: None,
             money: None,
             id: id.into(),
             name: id.into(),
@@ -448,6 +450,8 @@ mod tests {
                 ditch_worth: 0.0,
                 fire_losses: Vec::new(),
                 gave_way: Vec::new(),
+                batches: Vec::new(),
+                mill_seen: None,
             });
         }
         pop

@@ -51,6 +51,11 @@ pub const COMPACT_SHAPES: usize = 2;
 /// Points tried on each ring.
 const SEARCH_DIRECTIONS: usize = 16;
 
+/// How far beyond a home site search's farthest point its plots are looked for at once, metres:
+/// more than a plot reaches from its point (a plot reaching farther is checked against every
+/// field and plot, so the answer is the same either way).
+const SEARCH_MARGIN_M: f64 = 40.0;
+
 fn cm(m: f64) -> i32 {
     (m * 100.0).round() as i32
 }
@@ -172,9 +177,64 @@ pub fn clear_but_fields(land: &Land, map: &WorldMap, nav: &NavGrid, rect: &RectC
     ground_clear(land, map, nav, rect, false)
 }
 
+/// The fields and plots that could lie within [`PLOT_GAP_CM`] of a rectangle inside `within`,
+/// gathered once for a search that tries many rectangles about one place (M9b slice DJ). A
+/// rectangle inside `within` is clear of the world's fields and plots exactly when it is clear of
+/// these; one reaching outside it is checked against them all.
+struct Nearby<'a> {
+    within: RectCm,
+    fields: Vec<&'a RectCm>,
+    plots: Vec<&'a RectCm>,
+}
+
+impl<'a> Nearby<'a> {
+    fn of(land: &'a Land, within: RectCm) -> Self {
+        Nearby {
+            fields: land
+                .fields
+                .iter()
+                .filter(|f| keeps_ground(f) && f.rect.near(&within, PLOT_GAP_CM))
+                .map(|f| &f.rect)
+                .collect(),
+            plots: land
+                .plots
+                .iter()
+                .filter(|p| p.rect.near(&within, PLOT_GAP_CM))
+                .map(|p| &p.rect)
+                .collect(),
+            within,
+        }
+    }
+
+    fn covers(&self, rect: &RectCm) -> bool {
+        rect.x >= self.within.x
+            && rect.y >= self.within.y
+            && rect.x + rect.w <= self.within.x + self.within.w
+            && rect.y + rect.h <= self.within.y + self.within.h
+    }
+}
+
+/// Whether a field keeps its ground from building: a field a plan reserved that lies idle keeps
+/// none (M8c slice CU, fifth part).
+fn keeps_ground(f: &civ_land::Field) -> bool {
+    !(f.reserved.is_some() && f.lies_idle())
+}
+
 /// Whether `rect` is clear of water, works, wells, plots and (with `fields`) fields; a field a
 /// plan reserved that lies idle keeps no ground (M8c slice CU, fifth part).
 fn ground_clear(land: &Land, map: &WorldMap, nav: &NavGrid, rect: &RectCm, fields: bool) -> bool {
+    ground_clear_near(land, map, nav, rect, fields, None)
+}
+
+/// [`ground_clear`], looking among `nearby`'s fields and plots when they cover `rect`.
+fn ground_clear_near(
+    land: &Land,
+    map: &WorldMap,
+    nav: &NavGrid,
+    rect: &RectCm,
+    fields: bool,
+    nearby: Option<&Nearby>,
+) -> bool {
     let cell_cm = cm(f64::from(map.cell_size_m)).max(1);
     let (map_w, map_h) = (map.width as i32 * cell_cm, map.height as i32 * cell_cm);
     if rect.w <= 0
@@ -186,13 +246,21 @@ fn ground_clear(land: &Land, map: &WorldMap, nav: &NavGrid, rect: &RectCm, field
     {
         return false;
     }
-    let keeps = |f: &civ_land::Field| !(f.reserved.is_some() && f.lies_idle());
-    if (fields
-        && land
-            .fields
-            .iter()
-            .any(|f| keeps(f) && f.rect.near(rect, PLOT_GAP_CM)))
-        || land.plots.iter().any(|p| p.rect.near(rect, PLOT_GAP_CM))
+    let taken = match nearby.filter(|n| n.covers(rect)) {
+        Some(n) => {
+            (fields && n.fields.iter().any(|f| f.near(rect, PLOT_GAP_CM)))
+                || n.plots.iter().any(|p| p.near(rect, PLOT_GAP_CM))
+        }
+        None => {
+            (fields
+                && land
+                    .fields
+                    .iter()
+                    .any(|f| keeps_ground(f) && f.rect.near(rect, PLOT_GAP_CM)))
+                || land.plots.iter().any(|p| p.rect.near(rect, PLOT_GAP_CM))
+        }
+    };
+    if taken
         || civ_land::earth::dug_near(&land.earthworks, rect, PLOT_GAP_CM)
         || land.wells.near(rect, PLOT_GAP_CM)
     {
@@ -252,13 +320,27 @@ pub fn home_site(
             (home.0 + (d * a.cos()) as f32, home.1 + (d * a.sin()) as f32)
         })
     });
+    // Every point tried lies within `max_m` of home; a plot about it within a margin more.
+    let reach = cm(max_m + SEARCH_MARGIN_M);
+    let (hx, hy) = (cm(f64::from(home.0)), cm(f64::from(home.1)));
+    let nearby = Nearby::of(
+        land,
+        RectCm {
+            x: hx - reach,
+            y: hy - reach,
+            w: 2 * reach,
+            h: 2 * reach,
+        },
+    );
     let mut least: Option<(f64, BuildingSpec)> = None;
     for at in std::iter::once(home).chain(around) {
         let Some(spec) = design_at(at) else {
             continue;
         };
         let rect = plot_rect(&spec, def);
-        if !(clear_of_hearth(&rect) && plot_clear(land, map, nav, &rect)) {
+        if !(clear_of_hearth(&rect)
+            && ground_clear_near(land, map, nav, &rect, true, Some(&nearby)))
+        {
             continue;
         }
         match levelling(&rect) {
@@ -504,7 +586,9 @@ pub struct FireDesign {
 /// (buckling goes as d⁴), each to the nearest centimetre and no more than the program allows.
 /// A hut is built as usual: its rules leave nothing to size. `style`, when given, is the roof
 /// pitch, eaves and overhang it is built to ([`crate::style::commission`], within what the program
-/// allows; a hut's overhang is its rules'), else the program's usual ones. When `fire` caution
+/// allows; a hut's overhang is its rules'), else the program's usual ones; and from frame version
+/// 3 its front: every storey's openings, its ornament, its finish, and symmetry where its bays are
+/// odd, so its door is central (M8d slice DD). When `fire` caution
 /// is elevated, mass walls and tile roofs are chosen where known techniques permit (ADR-0022 §7, §10).
 #[allow(clippy::too_many_arguments)]
 pub fn design_cautious(
@@ -514,13 +598,13 @@ pub fn design_cautious(
     at: (f32, f32),
     toward: Option<(f32, f32)>,
     caution: f64,
-    style: Option<[i32; 3]>,
+    style: Option<[i32; crate::params::Taste::TRAITS]>,
     fire: Option<FireDesign>,
 ) -> Option<BuildingSpec> {
     match (shape, &def.rules) {
         (Shape::Round { radius }, ProgramRules::Hut(_)) => {
             let mut spec = design(def, goods, radius, at, toward);
-            if let Some([pitch, eave, _]) = style {
+            if let Some([pitch, eave, ..]) = style {
                 spec.params[hut_params::PITCH_CENTIDEG] = pitch;
                 spec.params[hut_params::EAVE_CM] = eave;
             }
@@ -560,10 +644,23 @@ pub fn design_cautious(
             }
             params[fp::FLOOR_RAISE_CM] = d.floor_raise_cm;
             params[fp::OVERHANG_CM] = d.overhang_cm;
-            if let Some([pitch, eave, overhang]) = style {
+            if let Some([pitch, eave, overhang, openings, ornament, finish, symmetry]) = style {
                 params[fp::PITCH_CENTIDEG] = pitch;
                 params[fp::EAVE_CM] = eave;
                 params[fp::OVERHANG_CM] = overhang;
+                if civ_grammar::FRAME_DESIGN_VERSION >= 3 {
+                    for t in 0..usize::from(storeys.clamp(0, 4)) {
+                        params[fp::OPENINGS + t] = openings;
+                    }
+                    params[fp::ORNAMENT] = ornament;
+                    // Lime wash takes someone who knows how to burn lime; daub anyone.
+                    params[fp::FINISH] = if finish >= 2 && !fire.is_some_and(|f| f.knows_lime) {
+                        1
+                    } else {
+                        finish
+                    };
+                    params[fp::SYMMETRY] = if bays % 2 == 1 { symmetry } else { 0 };
+                }
             }
             params[fp::POST_CM] = stronger(d.post_cm, 4.0, rules.post_cm.1);
             params[fp::WALL_CM] = d.wall_cm;
@@ -1295,7 +1392,7 @@ pub(crate) mod tests {
     }
 
     /// The core hut program.
-    fn def() -> BuildingDef {
+    pub(crate) fn def() -> BuildingDef {
         BuildingDef {
             id: "core:building/hut".into(),
             name: "Hut".into(),
@@ -1317,6 +1414,8 @@ pub(crate) mod tests {
 
     fn goods() -> Vec<GoodDef> {
         let good = |id: &str| GoodDef {
+            fuel: None,
+            power: None,
             money: None,
             id: id.into(),
             name: id.into(),
@@ -1592,6 +1691,8 @@ pub(crate) mod tests {
     fn pots_are_wanted_for_food_on_floors_under_a_roof_and_add_no_room() {
         use crate::params::{Eaten, StoreDef};
         let good = |id: &str, purpose, kcal, half, sheltered| GoodDef {
+            fuel: None,
+            power: None,
             money: None,
             id: id.to_owned(),
             name: id.to_owned(),
@@ -1610,6 +1711,8 @@ pub(crate) mod tests {
         let goods = vec![
             good("grain", GoodUse::Food, 3340.0, 1560.0, 4932.0),
             GoodDef {
+                fuel: None,
+                power: None,
                 store: Some(StoreDef { keeps_kg: 15.0 }),
                 ..good("pot", GoodUse::Store, 0.0, 1100.0, 0.0)
             },
@@ -1735,6 +1838,8 @@ pub(crate) mod tests {
             systems: [None; 3],
         };
         let good = |id: &str| GoodDef {
+            fuel: None,
+            power: None,
             money: None,
             id: id.into(),
             name: id.into(),

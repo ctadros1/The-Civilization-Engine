@@ -38,6 +38,129 @@ impl Population {
             .map(|f| f.id)
     }
 
+    /// `minutes` of `who`'s work at make activity `def` for workshop `id`: for tests.
+    #[doc(hidden)]
+    pub fn firm_make_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        who: PermanentId,
+        def: usize,
+        minutes: u32,
+        id: PermanentId,
+    ) {
+        let (Some(&h), Some(d)) = (self.index.get(&who), ctx.catalog.activities.get(def)) else {
+            return;
+        };
+        let d = d.clone();
+        self.firm_make(ctx, h, &d, minutes, id);
+    }
+
+    /// Workshop `id` closes for `why`: for tests.
+    #[doc(hidden)]
+    pub fn close_firm_for_tests(&mut self, ctx: &Ctx, id: PermanentId, why: Exit) {
+        self.close_firm(ctx, id, why);
+    }
+
+    /// How much of tool `t`'s work the stations workshop `id` holds can do: the fixed tools that
+    /// serve for `t` in its own stores, each only when whole (M10a slice DQ; ADR-0033 §4: a firm
+    /// holds its fixed tools and machines). Tools that are not fixed are never stations: a
+    /// workshop's stock of axes is for sale, not for its work.
+    pub(crate) fn station_for(
+        &self,
+        goods: &[crate::params::GoodDef],
+        id: PermanentId,
+        t: usize,
+    ) -> f64 {
+        let Some(f) = self.firm(id) else {
+            return 0.0;
+        };
+        make::serving(goods, t)
+            .filter(|&g| is_fixed(goods, g))
+            .map(|g| make::in_use(goods, g, f.stores.get(g).copied().unwrap_or(0.0)))
+            .sum()
+    }
+
+    /// Household `owner`'s fixed tool `good`, `amount` of it, put into its open workshop `id` as
+    /// a station (the `owner` channel): the workshop's recipes wear it on its books from then on,
+    /// and it is drawn back with the rest of its stores when it closes. False if it is not a
+    /// fixed tool, not the owners' workshop, or they do not hold it.
+    pub fn put_in_station(&mut self, ctx: &Ctx, id: PermanentId, good: usize, amount: f64) -> bool {
+        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let Some(owner) = self.firm(id).filter(|f| f.is_open()).map(|f| f.owner) else {
+            return false;
+        };
+        if !is_fixed(goods, good) || amount.is_nan() || amount <= 0.0 {
+            return false;
+        }
+        let legs = [Leg {
+            from: owner,
+            to: id,
+            good,
+            amount,
+        }];
+        if !self.transfer(now, params, goods, &legs, Channel::Owner) {
+            return false;
+        }
+        let keep = params.firm.book_entries;
+        if let Some(f) = self.firm_mut(id) {
+            f.books.record(
+                Entry {
+                    at: now,
+                    kind: BookKind::PutIn,
+                    good: good as u16,
+                    amount: amount as f32,
+                    other: Some(owner),
+                },
+                0.0,
+                keep,
+            );
+        }
+        true
+    }
+
+    /// Workshop `id`'s stations for `tools` worn by `hours` of its work, each tool's work done by
+    /// the longest-lived of its stations in use, as [`make::wear`] does a household's; the wear
+    /// is a cost on its books at what the station is worth to its owners.
+    fn wear_stations(&mut self, ctx: &Ctx, id: PermanentId, tools: &[usize], hours: f64) {
+        let goods = &ctx.catalog.goods;
+        let keep = ctx.params.firm.book_entries;
+        let Some(owner) = self.firm(id).map(|f| f.owner) else {
+            return;
+        };
+        let worth = self.worth_to(ctx, owner);
+        let Some(f) = self.firm_mut(id) else {
+            return;
+        };
+        for &t in tools {
+            let held = |g: usize| f.stores.get(g).copied().unwrap_or(0.0);
+            let Some((g, life)) = make::serving(goods, t)
+                .filter(|&g| is_fixed(goods, g) && make::in_use(goods, g, held(g)) > 1e-9)
+                .filter_map(|g| Some((g, goods.get(g)?.tool.as_ref()?.life_h)))
+                .filter(|&(_, life)| life > 0.0)
+                .max_by(|a, b| a.1.total_cmp(&b.1).then(b.0.cmp(&a.0)))
+            else {
+                continue;
+            };
+            let worn = (hours.max(0.0) / life).min(held(g));
+            if worn <= 0.0 {
+                continue;
+            }
+            f.stores[g] -= worn;
+            f.flows.add(Flow::Worn, g, worn);
+            f.books.record(
+                Entry {
+                    at: ctx.now,
+                    kind: BookKind::Used,
+                    good: g as u16,
+                    amount: worn as f32,
+                    other: None,
+                },
+                worn * worth.get(g).copied().unwrap_or(0.0),
+                keep,
+            );
+        }
+    }
+
     /// Household `owner` sets up a workshop to make `good`, founded by `founder`, who is setting
     /// to work making it to sell. Its existing one if it has one.
     pub(super) fn found_firm(
@@ -214,7 +337,12 @@ impl Population {
             * def.rate;
         let quality = skill.map_or(1.0, |(_, s)| interpolate(&s.quality, level));
         let hours = f64::from(minutes) / 60.0;
-        let units = make::units_in(recipe, f64::from(minutes), speed);
+        let mut units = make::units_in(recipe, f64::from(minutes), speed);
+        // A powered recipe makes no more than its installations deliver over the session (M10a
+        // slice DR; ADR-0033 §5).
+        if recipe.kwh_per_unit > 0.0 {
+            units = units.min(super::power_kw_of(ctx, id) * hours / recipe.kwh_per_unit);
+        }
         // What the recipe takes from the owners' stores for what can be made in the time (never
         // the seed: a workshop's work is not hunger's), and what it gives.
         let goods = &ctx.catalog.goods;
@@ -227,15 +355,58 @@ impl Population {
         let members = x.members.len().max(1);
         x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
         x.stores.resize(goods.len(), 0.0);
-        let before = x.stores.clone();
+        // Goods in progress (M10a slice DQ): what another of its lines made is taken from its own
+        // stock before its owners put any in.
+        let output = recipe.outputs.first().map_or(usize::MAX, |&(g, _)| g);
+        let wip: Vec<f64> = match self.firm(id) {
+            Some(f) => (0..goods.len()).map(|g| f.in_progress(g, output)).collect(),
+            None => vec![0.0; goods.len()],
+        };
+        // A batch (ADR-0033 §2), as a household's: those of this recipe whose days are past are
+        // opened into its stores, and another is started unless one is still under way.
+        let today = now.day_index();
+        let batch = def.recipe.filter(|_| recipe.elapsed_days > 0.0);
+        let (opened, running): (Vec<(f64, f64)>, bool) = match (batch, self.firm(id)) {
+            (Some(ri), Some(f)) => (
+                f.batches
+                    .iter()
+                    .filter(|b| b.recipe == ri && b.ends_day <= today)
+                    .map(|b| (b.units, b.quality))
+                    .collect(),
+                f.batches
+                    .iter()
+                    .any(|b| b.recipe == ri && b.ends_day > today),
+            ),
+            _ => (Vec::new(), false),
+        };
+        let Some(x) = self.households.get_mut(hd) else {
+            return;
+        };
+        let before: Vec<f64> = x.stores.iter().zip(&wip).map(|(h, w)| h + w).collect();
         let mut after = before.clone();
-        make::apply(recipe, &mut after, goods, units, quality, false, None);
-        let taken: Vec<(usize, f64)> = before
+        let mut started = 0.0;
+        if batch.is_some() {
+            for &(u, q) in &opened {
+                make::give(recipe, &mut after, goods, u, q);
+            }
+            if !running {
+                started = make::start(recipe, &mut after, goods, units, false, None);
+            }
+        } else {
+            make::apply(recipe, &mut after, goods, units, quality, false, None);
+        }
+        let used: Vec<(usize, f64)> = before
             .iter()
             .zip(&after)
             .enumerate()
             .filter(|(_, (b, a))| *b > *a)
             .map(|(g, (b, a))| (g, b - a))
+            .collect();
+        // What its owners put in: what was used beyond its own goods in progress.
+        let taken: Vec<(usize, f64)> = used
+            .iter()
+            .map(|&(g, kg)| (g, kg - kg.min(wip[g])))
+            .filter(|&(_, kg)| kg > 0.0)
             .collect();
         let made: Vec<(usize, f64)> = before
             .iter()
@@ -257,20 +428,39 @@ impl Population {
         let worth = self.worth_to(ctx, owner);
         let keep = params.firm.book_entries;
         if let Some(f) = self.firm_mut(id) {
-            if put_in && !made.is_empty() {
-                for &(g, amount) in &taken {
+            if put_in && let Some(ri) = batch {
+                f.batches
+                    .retain(|b| !(b.recipe == ri && b.ends_day <= today));
+                if started > 0.0 {
+                    f.batches.push(crate::person::Batch {
+                        recipe: ri,
+                        units: started,
+                        quality,
+                        ends_day: today + recipe.elapsed_days.ceil() as i64,
+                    });
+                }
+            }
+            if put_in && (!made.is_empty() || started > 0.0) {
+                for &(g, amount) in &used {
+                    let theirs = taken.iter().find(|t| t.0 == g).map_or(0.0, |t| t.1);
                     f.stores[g] -= amount;
                     f.flows.add(Flow::Used, g, amount);
-                    let entry = |kind| Entry {
+                    let entry = |kind, amount: f64, other| Entry {
                         at: now,
                         kind,
                         good: g as u16,
                         amount: amount as f32,
-                        other: Some(owner),
+                        other,
                     };
-                    f.books.record(entry(BookKind::PutIn), 0.0, keep);
-                    f.books
-                        .record(entry(BookKind::Used), amount * worth[g], keep);
+                    if theirs > 0.0 {
+                        f.books
+                            .record(entry(BookKind::PutIn, theirs, Some(owner)), 0.0, keep);
+                    }
+                    f.books.record(
+                        entry(BookKind::Used, amount, (theirs > 0.0).then_some(owner)),
+                        amount * worth[g],
+                        keep,
+                    );
                 }
                 for &(g, amount) in &made {
                     f.stores[g] += amount;
@@ -291,8 +481,16 @@ impl Population {
             f.books.worked(now, hours, hired);
             f.saw_at_once(u8::try_from(at_once).unwrap_or(u8::MAX), now.day_index());
         }
-        // The work is done with the owners' tools.
-        self.wear_tools(ctx, owner, &recipe.tools, hours);
+        // Its stations do the work they can and wear on its books; the owners' tools do the rest.
+        let goods = &ctx.catalog.goods;
+        let (stations, theirs): (Vec<usize>, Vec<usize>) = recipe
+            .tools
+            .iter()
+            .partition(|&&t| self.station_for(goods, id, t) >= crate::decide::MIN_TOOL);
+        if !stations.is_empty() {
+            self.wear_stations(ctx, id, &stations, hours);
+        }
+        self.wear_tools(ctx, owner, &theirs, hours);
         if let (Some((k, s)), Some(p)) = (skill, self.people.get_mut(h)) {
             let next = s.practised(p.skill(k), hours);
             p.set_skill(k, next);
@@ -461,6 +659,8 @@ impl Population {
     /// all of it: hired work always pays the workshop.
     /// It is paid in the settlement's money, or else in what neighbours most accept of what it or
     /// its owners can spare (never a tool), for as many hours as that covers.
+    /// A workshop of several lines (M10a slice DQ) hires for the line with the most work wanted,
+    /// the first on a tie.
     fn plan_wage(
         &self,
         ctx: &Ctx,
@@ -469,9 +669,30 @@ impl Population {
         holding: &super::market::Holding,
         owner_stores: &[f64],
     ) -> Option<WageOffer> {
+        let mut best: Option<WageOffer> = None;
+        for &line in &f.lines {
+            let offer = self.plan_wage_for(ctx, f, usize::from(line), costs, holding, owner_stores);
+            if let Some(o) = offer
+                && best.is_none_or(|b| o.hours > b.hours)
+            {
+                best = Some(o);
+            }
+        }
+        best
+    }
+
+    /// The wage workshop `f` would offer for work on its line `line`, as [`Self::plan_wage`].
+    fn plan_wage_for(
+        &self,
+        ctx: &Ctx,
+        f: &Firm,
+        line: usize,
+        costs: &[Option<f64>],
+        holding: &super::market::Holding,
+        owner_stores: &[f64],
+    ) -> Option<WageOffer> {
         let (params, catalog) = (ctx.params, ctx.catalog);
         let fp = &params.firm;
-        let line = usize::from(*f.lines.first()?);
         let (activity, recipe) = catalog.activities.iter().enumerate().find_map(|(i, a)| {
             let r = catalog.recipes.get(a.recipe?)?;
             (a.behavior == Behavior::Make && r.outputs.first().is_some_and(|&(g, _)| g == line))
@@ -597,7 +818,7 @@ impl Population {
             let Some(owner) = self.household(f.owner) else {
                 continue;
             };
-            // The work is done with the workshop's owners' tools.
+            // The work is done with the workshop's stations and its owners' tools.
             let Some(recipe) = catalog
                 .activities
                 .get(usize::from(w.activity))
@@ -609,6 +830,7 @@ impl Population {
             if recipe.tools.iter().any(|&t| {
                 let held = |g: usize| owner.stores.get(g).copied().unwrap_or(0.0);
                 make::tools_for(&catalog.goods, t, &held) < crate::decide::MIN_TOOL
+                    && self.station_for(&catalog.goods, f.id, t) < crate::decide::MIN_TOOL
             }) {
                 continue;
             }
@@ -888,4 +1110,13 @@ impl Population {
             f.last_sale = Some(now);
         }
     }
+}
+
+/// Whether good `g` is a fixed tool: one that stays where it is made (an oven, a kiln), which a
+/// workshop may hold as a station.
+fn is_fixed(goods: &[crate::params::GoodDef], g: usize) -> bool {
+    goods
+        .get(g)
+        .and_then(|d| d.tool.as_ref())
+        .is_some_and(|t| t.fixed)
 }

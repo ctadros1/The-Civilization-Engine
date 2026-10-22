@@ -32,6 +32,14 @@ pub(crate) struct RecipeFile {
     pub outputs: Vec<Amount>,
     /// Per session, whatever its size.
     pub session_inputs: Vec<Amount>,
+    /// Content API 159 (M10a slice DP): days a batch runs unattended once started, its outputs
+    /// given when it is opened after them; 0 (and absent) for outputs at the session's end.
+    #[serde(default)]
+    pub elapsed_days: f64,
+    /// Content API 160 (M10a slice DR): kilowatt-hours a unit takes from a powered station; 0
+    /// (and absent) for work done by hand.
+    #[serde(default)]
+    pub kwh_per_unit: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -92,6 +100,8 @@ impl RecipeFile {
                 .collect::<Option<Vec<_>>>()?,
             skill,
             technique,
+            elapsed_days: self.elapsed_days,
+            kwh_per_unit: self.kwh_per_unit,
         })
     }
 
@@ -106,6 +116,18 @@ impl RecipeFile {
             if !(v.is_finite() && v >= 0.0) {
                 p.push(format!("`{name}` must be zero or more (got {v})"));
             }
+        }
+        if !(self.elapsed_days.is_finite() && (0.0..=60.0).contains(&self.elapsed_days)) {
+            p.push(format!(
+                "`elapsed_days` must be between 0 and 60 (got {})",
+                self.elapsed_days
+            ));
+        }
+        if !(self.kwh_per_unit.is_finite() && (0.0..=100.0).contains(&self.kwh_per_unit)) {
+            p.push(format!(
+                "`kwh_per_unit` must be between 0 and 100 (got {})",
+                self.kwh_per_unit
+            ));
         }
         if self.unit_h <= 0.0 && self.session_h <= 0.0 {
             p.push("a recipe takes some work: `unit_h` or `session_h` must be positive".to_owned());

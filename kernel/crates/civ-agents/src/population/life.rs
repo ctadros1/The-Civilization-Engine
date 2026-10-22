@@ -1715,6 +1715,8 @@ impl Population {
             ditch_worth: 0.0,
             fire_losses: Vec::new(),
             gave_way: Vec::new(),
+            batches: Vec::new(),
+            mill_seen: None,
         });
         for who in [woman, man] {
             let Some(from) = self.person(who).map(|p| p.household) else {

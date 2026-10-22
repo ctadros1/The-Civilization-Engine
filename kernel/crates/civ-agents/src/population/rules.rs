@@ -34,6 +34,10 @@ pub struct Kept {
     /// A home, and the midden beside it, keeps this far from every open well, metres (M8c slice
     /// CW).
     pub midden_from: Option<f64>,
+    /// The most storeys it rises with walls of each kind (M8d slice DB).
+    pub storeys: Option<[u8; 4]>,
+    /// Its mass walls above a storey are tied at each floor (M8d slice DB).
+    pub tied: bool,
 }
 
 impl Kept {
@@ -44,6 +48,33 @@ impl Kept {
             || self.gap.is_some()
             || self.fire_from.is_some()
             || self.midden_from.is_some()
+            || self.storeys.is_some()
+            || self.tied
+    }
+
+    /// Whether a building of `spec`, its walls of kind `wall_kind`, breaks a height or ties rule
+    /// kept (M8d slice DB).
+    pub fn too_tall(&self, spec: &civ_grammar::BuildingSpec, wall_kind: u8) -> bool {
+        crate::rules::too_tall(
+            spec.storeys,
+            wall_kind,
+            crate::rules::tied(spec),
+            self.storeys,
+            self.tied,
+        )
+    }
+
+    /// The most storeys a building with walls of kind `wall_kind` rises under the height and
+    /// ties rules kept, if it is not tied at each floor (M8d slice DB).
+    pub fn most_storeys(&self, wall_kind: u8, tied: bool) -> u8 {
+        let most = self
+            .storeys
+            .map_or(u8::MAX, |m| m[usize::from(wall_kind.min(3))]);
+        if self.tied && wall_kind > 0 && !tied {
+            most.min(1)
+        } else {
+            most
+        }
     }
 }
 
@@ -239,6 +270,59 @@ impl Population {
                             0.0,
                         ),
                         RuleTemplate::MiddenFromWells { .. } => unreachable!("weighed above"),
+                        // A building rising higher on walls of the kinds named (M8d slice DB): the
+                        // buildings it heard gave way that rose so, against the floor the rule
+                        // would take from its next home.
+                        RuleTemplate::MostStoreys { storeys, kinds } => (
+                            &move |b: &civ_land::Building| {
+                                kinds & (1 << self.wall_kind_of(ctx, b)) != 0
+                                    && b.spec.storeys > storeys
+                            },
+                            x.gave_way
+                                .iter()
+                                .filter(|l| {
+                                    kinds & (1 << l.wall_kind.min(7)) != 0 && l.storeys > storeys
+                                })
+                                .count() as f64,
+                            self.floor_lost_hours(ctx, x, &|wall, _| {
+                                (kinds & (1 << wall) != 0).then_some(storeys)
+                            }),
+                        ),
+                        // Mass walls above a storey untied (M8d slice DB): the buildings it heard
+                        // gave way so, against tying its next home's walls if it knows how, else
+                        // the floor building it a storey high would take.
+                        RuleTemplate::TiedWalls => {
+                            let ties = ctx
+                                .catalog
+                                .technique_index("core:technique/tied_masonry")
+                                .is_some_and(|t| self.household_knows(&x.members, t));
+                            (
+                                &move |b: &civ_land::Building| {
+                                    self.wall_kind_of(ctx, b) > 0
+                                        && b.spec.storeys > 1
+                                        && !crate::rules::tied(&b.spec)
+                                },
+                                x.gave_way
+                                    .iter()
+                                    .filter(|l| l.wall_kind > 0 && l.storeys > 1 && !l.tied)
+                                    .count() as f64,
+                                if ties {
+                                    self.redesign_hours(ctx, x, &|spec, rules| {
+                                        let tie = crate::rules::wall_kind(spec, rules) > 0
+                                            && spec.storeys > 1
+                                            && !crate::rules::tied(spec);
+                                        if tie {
+                                            spec.params[civ_grammar::frame::frame_params::TIES] = 1;
+                                        }
+                                        tie
+                                    })
+                                } else {
+                                    self.floor_lost_hours(ctx, x, &|wall, tied| {
+                                        (wall > 0 && !tied).then_some(1)
+                                    })
+                                },
+                            )
+                        }
                     };
                     let rate = seen / (standing * rp.memory_years.max(1e-9));
                     let at_risk: f64 = ctx
@@ -295,6 +379,36 @@ impl Population {
             .max_by_key(|b| (b.started, b.id))
             .and_then(|b| self.rebuild_hours(ctx, b))
             .unwrap_or(0.0)
+    }
+
+    /// The work the floor a height rule would take from its newest home would take to build,
+    /// hours (M8d slice DB, ADR-0031 §5: a household that would build tall forecasts the floor a
+    /// height rule takes from it): the share of its storeys above the most `most` allows, given
+    /// its walls' kind and whether they are tied, of what the home took to build. Nothing when it
+    /// rises no higher than allowed.
+    fn floor_lost_hours(
+        &self,
+        ctx: &Ctx,
+        x: &Household,
+        most: &dyn Fn(u8, bool) -> Option<u8>,
+    ) -> f64 {
+        let Some(b) = ctx
+            .land
+            .buildings
+            .iter()
+            .filter(|b| b.household == x.id && ctx.catalog.is_dwelling(&b.spec.program))
+            .max_by_key(|b| (b.started, b.id))
+        else {
+            return 0.0;
+        };
+        let storeys = b.spec.storeys.max(1);
+        match most(self.wall_kind_of(ctx, b), crate::rules::tied(&b.spec)) {
+            Some(m) if m < storeys => {
+                self.rebuild_hours(ctx, b).unwrap_or(0.0) * f64::from(storeys - m)
+                    / f64::from(storeys)
+            }
+            _ => 0.0,
+        }
     }
 
     /// Whether household `x` is about to build (M6b slice BH): it has no roof enough for its
@@ -499,6 +613,17 @@ impl Population {
                     let m = f64::from(from_m);
                     kept.midden_from = Some(kept.midden_from.map_or(m, |k| k.max(m)));
                 }
+                // The fewest storeys any height rule allows walls of each kind (M8d slice DB).
+                RuleTemplate::MostStoreys { storeys, kinds } => {
+                    let mut most = kept.storeys.unwrap_or([u8::MAX; 4]);
+                    for (k, m) in most.iter_mut().enumerate() {
+                        if kinds & (1 << k) != 0 {
+                            *m = (*m).min(storeys);
+                        }
+                    }
+                    kept.storeys = Some(most);
+                }
+                RuleTemplate::TiedWalls => kept.tied = true,
             }
         }
         kept
@@ -907,6 +1032,14 @@ impl Population {
                     is_home,
                     !crate::rules::near_open_well(&rect, f64::from(from_m), &ctx.land.wells),
                 ),
+                // A building on walls of the kinds named, no higher than allowed (M8d slice DB).
+                RuleTemplate::MostStoreys { storeys, kinds } => {
+                    (kinds & (1 << wall) != 0, b.spec.storeys <= storeys)
+                }
+                // Mass walls above a storey, tied at each floor.
+                RuleTemplate::TiedWalls => {
+                    (wall > 0 && b.spec.storeys > 1, crate::rules::tied(&b.spec))
+                }
             };
             if !bound {
                 continue;

@@ -38,6 +38,7 @@ function brief(id: number, tripId = 0, tripRev = 0): M.PersonBrief {
     ageYears: 30,
     household: 1,
     asleep: false,
+    blockUntilMinute: 0,
   };
 }
 
@@ -101,6 +102,7 @@ describe("the clock estimate", () => {
     speed: 960,
     mode: "detailed",
     weather: null,
+    resolutionByFocus: false,
   };
   it("runs on at the clock's speed and stops while paused", () => {
     expect(estimateMinute(clock, 0, 500)).toBeCloseTo(1008);
@@ -141,6 +143,8 @@ describe("people payloads", () => {
     W.PersonBrief.addAgeYears(b, 31.5);
     W.PersonBrief.addHousehold(b, 4n);
     W.PersonBrief.addAsleep(b, true);
+    // Wire 1.94 (M9b slice DK): the block of a household-resolved day they are in ends at 03:00.
+    W.PersonBrief.addBlockUntilMinute(b, 180n);
     const person = W.PersonBrief.endPersonBrief(b);
     const people = W.Snapshot.createPeopleVector(b, [person]);
     const name = b.createString("Alderford");
@@ -185,6 +189,7 @@ describe("people payloads", () => {
         ageYears: 31.5,
         household: 4,
         asleep: true,
+        blockUntilMinute: 180,
       },
     ]);
     expect(s.settlements).toEqual([
@@ -204,6 +209,7 @@ describe("people payloads", () => {
         contacts: "in year 2: 3 visits from Brook, 4 hours at the hearth here",
         coalitions: ["Ada's household and one more household mean to found a settlement 3.1 km north"],
         style: "founded to build 48° roofs, 1.9 m to the eaves, 0.5 m out",
+        householdResolved: false,
       },
     ]);
     expect(s.chronicleHead).toBe(2);

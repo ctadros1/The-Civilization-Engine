@@ -249,6 +249,7 @@ impl Population {
                 catalog,
                 params,
                 land_params,
+                land,
                 h,
                 now,
             ));

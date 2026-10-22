@@ -435,12 +435,17 @@ research result.
 ### 4.5 LOD strategy
 
 - **Simulation:** everyone is simulated in full through v1.
-- **Aggregate model (M9):** a settlement can run as cohorts (age × sex ×
-  occupation × wealth × ideology bins) with rates calibrated from the agent
-  simulation. When focused, individuals are synthesized from the cohort
-  distributions. Notables persist as named individuals in both modes.
-- **Time skips:** the same aggregate machinery would serve a "skip 100 years"
-  feature. That feature is a **deferred decision** (§8).
+- **Aggregate model (M9, amended 2026-10-20 by ADR-0032):** every person,
+  household, tie, debt, office and asset stays one record at every resolution;
+  only how a settlement's day is computed changes. A settlement is Detailed (as
+  through v1) or household-resolved: each household's day scored once at
+  midnight by the live decision rules, its members' hours shared among what they
+  would choose, each block applied through the behaviour's own effect. Cohorts
+  with people synthesised on focus are not built: they would delete history no
+  synthesis recovers (research 01-04 §1.1).
+- **Time skips (decided in M9, ADR-0032 §7):** kept, as fast runs of the same
+  machinery with every settlement household-resolved; nothing is generated after
+  the fact.
 - **Rendering:** full crowd near the camera; instanced vertex-animated
   characters at mid distance; density or impostors far away. Only the followed
   agent gets a full skeletal rig.
@@ -5133,30 +5138,881 @@ and M6a gives rivers a daily flow.
         storey high has a margin of exactly 2 at `C_s` 0.06 and fails at 0.2; untied, the same
         wall fails at 0.06; two metres thick, it slides first, cracked at exactly `μ/C_s` and sound
         later; no shaking, no demand; a covering carries none.
+      - *Second part, as built (2026-10-20): the ground shaken, in the kernel* (ADR-0031 §4).
+        `Population::shake` (and `Sim::shake`) takes a strength of 0.02-0.6 and a settlement or
+        the whole map, records an `InfluenceKind::Earthquake` (code 11), and checks every
+        standing building it reaches once, at that minute: its response is the strength times
+        `exp(0.30·z)`, `z` a standard normal keyed by world, event and building and never drawn
+        again; its mass walls and posts meet `lateral_margin` with the goods it holds. A group
+        below a margin of 1 gives way as under load (`give_way`, now told "when the ground
+        shook", returning its dead), so those inside die by the same shares and the settlement
+        remembers it against the technique. A mass wall below `STRAIN_SHOWS` cracks: it takes a
+        loss of 0.2 (at least what shows, a tuning value), which its upkeep sees and mends, and
+        keeps no cohesion until it is mended, which the event's record answers
+        (`Quakes::cracked`: cracked by an event since it was last repaired), so a second shake
+        meets the cracked stock without a new field on the building. Each event keeps its time,
+        strength, settlement and origin and, per building, the draw, the response, stood,
+        cracked or fell, the groups cracked and the dead (`civ_agents::quake`). **Test:** strengths
+        out of range and an unknown settlement change nothing; one record per standing building,
+        each response as drawn; the record round-trips a save and both runs go on alike; under
+        the strongest shaking, each building that fell has a failed group and one entry told
+        "when the ground shook", their dead summed alike. **Boundary:** saves 162 (section
+        `quakes`).
+      - *Third part, as built (2026-10-20): the observer's shaking, and its own row* (ADR-0031
+        §4). `Request::Shake { strength, settlement }` (wire 1.90, `Shake`, settlement 0 for the
+        whole map) reaches `Sim::shake`, and the host answers with what fell and cracked. The
+        observer's tool bar has one "Shake…" choice, a strength in intensity words (felt by all
+        0.05, strong 0.1, very strong 0.2, severe 0.35, violent 0.6), the observer's words only;
+        one choice so the crowded bar does not wrap over the map. A strength arrives in single
+        precision, so 0.6 is taken as the tool's 0.6. The dashboard's Shaking row reports the shakings, buildings reached, fell, cracked
+        and the dead, and the structural failures row leaves out what fell at the minute an
+        observer's shaking struck (ADR-0022 §14's rule by origin). The earthquake panel, the
+        damage layer and incidents per settlement are the next part. **Test:** the request
+        round-trips the wire; the host refuses it without a world, out of range or for no such
+        settlement, and answers what fell; the Shaking row sums its worlds; the web builds the
+        command, and end to end the button shakes a sixty-day village and the chronicle records
+        it as the observer's. **Boundary:** wire 1.90.
+      - *Fourth part, as built (2026-10-20): joints by their masonry, and the four-way sweep*
+        (ADR-0031 §3; research 11-05 §2.5: calibrate by interface type). A mass wall's cohesion
+        is a share of its masonry's strength in compression (a design prior, §9), so fired
+        brick in lime binds best and mud brick least; a sound wall's joints also hold it out of
+        its plane beyond rocking about its foot (`t/h + c·t²·L / 3Nh`), which a crack takes
+        away with its cohesion. **Test:** the four-way sweep: two storeys of 30 cm walls of
+        each masonry, tied and untied, and a frame of twelve oak posts a storey: ties raise
+        every wall's share of its weight it meets sideways before giving way, fired brick holds
+        more than rubble and rubble more than mud brick, and the light frame more than any of
+        them; a cracked wall only rocks (`t/h` exactly).
+      - *Fifth part, as built (2026-10-20): the shaking's incidents, its page and links*
+        (ADR-0031 §4), as storms have theirs (slice BF). Each building that fell or cracked is an
+        incident of kind 11 in the one shape, its words "fell when the ground shook (it met 0.31
+        of its weight sideways)" or "cracked …", with its own page; its number is a running count
+        from 1 over every shaking's buildings that fell or cracked, in the order the shakings
+        came and, within one, the order its buildings were checked, which a shaking's record
+        keeps whole, so a number names the same building after a save and a load. Each shaking
+        is listed beside the incidents with its strength, the buildings it reached, those that
+        fell and cracked and the dead (`QuakeRow`), and has a page (`GetQuake`, `QuakeInfo`):
+        sent by the observer, linked to the influence, what it did, and its buildings that fell
+        or cracked. The chronicle's entry for a shaking, and for each building that gave way in
+        one, opens the shaking's page (kind 12). The observer's Incidents panel lists the
+        shakings, opens a shaking's page and has a "Shaken buildings" kind. **Test:** the host
+        shakes a world with a finished hut and lists the shaking with the counts the kernel
+        recorded, its page with the same, and one kind 11 row for each building that fell or
+        cracked, linked to it; the chronicle's entries link to it; the web decodes the list, the
+        page and the link, and builds the query. **Boundary:** wire 1.91.
+      - *Sixth part, as built (2026-10-20): the slice's remaining tests, and DA closed.* The
+        dashboard's tally of structural failures is its own function (`count_failures`), so a
+        test can read it on a shaken world. A crack is counted against the wall's last repair
+        strictly after it, so a wall shaken the minute it was finished or mended is sound, a
+        convention the tests keep by letting a day pass. The damage layer on the map is deferred:
+        the Incidents panel already names and links every building that fell or cracked, and a
+        layer would need each building's group states on the wire; it is the first observer work
+        should the demo (DE) want the damage seen at a glance. **Test:** what the observer's
+        strongest shaking brings down is told in the chronicle and left out of the failures row;
+        a strength between standing and falling cracks the rubble longhouse, whose walls take the
+        loss and are told cracked by the record, through a save, while the cracked world and its
+        loaded twin go on alike a day, and whole again once mended after it; twin villages, the
+        one longhouse tied in one and untied in the other, meet the same response at every
+        strength, the untied never faring better and at some strength worse. **Slice DA is
+        closed.**
     - **DB, after the shaking:** `MostStoreys` and `TiedWalls`, forecasts of floor lost and of
       losses avoided, lessons from what was seen to fall. *Tests:* a shaken village proposes a
       rule only where someone knows the remedy; a household planning height opposes it.
+      - *First part, as built (2026-10-20): the two rules* (ADR-0031 §5). Two building-rule
+        templates are appended (content API 152): `MostStoreys { storeys, kinds }`, a dimension
+        rule that a new building whose walls are of a kind named rise at most so many storeys, and
+        `TiedWalls`, a technique rule that new mass walls above a storey be tied at each floor. The
+        core authors them as `yours_to_stay_low` (rubble and mud brick, a storey) and
+        `yours_to_tie_the_walls` (needing `tied_masonry`), each answering `gave_way`. What a
+        household heard gave way now keeps its storeys and whether its walls were tied (saves 163),
+        so a household counts the falls each rule would have prevented. One whose newest home rises
+        above a height rule's limit forecasts the floor the rule takes from it, the share of the
+        home's storeys above the limit of the work it took, spread over the years it weighs; one
+        that cannot tie its walls forecasts a ties rule the same way at a storey, and one that can,
+        the work of tying them. Builders who keep either design a storey lower where the walls
+        would rise above what it allows (the same bays, so less floor), and a building begun under
+        it is counted kept or broken. **Test:** a village whose untied rubble longhouse a shaking
+        brings down remembers it two storeys high, untied; the household whose longhouse it was
+        forecasts a loss under the height rule while nobody else does, and someone proposes it;
+        nobody proposes the ties rule until people know tied masonry, then one of them does; under
+        both, the longhouse breaks each and a hut is bound by neither; the memory round-trips a
+        save. **Boundary:** saves 163, content API 152.
+      - *Second part, as built (2026-10-20): trust kept by every technique a building used*
+        (ADR-0031 §5). A building that gives way is remembered against each technique it used, its
+        program's, its walls' (rubble walling, mud brick, or firing and lime burning for fired
+        brick) and each version 3 system it was built with, and each month a building stands counts
+        for each of them too. A household's builders size a building's members by the most any
+        technique they would build it with calls for: its program's, and for a frame the walls and
+        systems its people know. So a fallen rubble wall thickens the next rubble walls, and quiet
+        years let the caution fall again as before. **Test:** a rubble longhouse the strongest
+        shaking brings down raises its settlement's caution for rubble walling and for framing,
+        none for mud brick, which it did not use; at that caution a rubble wall is designed thicker.
+        **Slice DB is closed.** One part of the ADR is left: a household that lost kin forecasts
+        the losses a rule avoids in buildings alone, not in lives, since what it heard gave way
+        keeps no dead; weighing the dead waits for the demo (DE) to show whether buildings alone
+        move a gathering.
     - **DC, public buildings:** polity owners, `RaiseBuilding`, storehouse, hall and tower
       programs each answering a measured loss, equal shares, pay for work, patrons' shares,
       ties evidence, four dates and stalls. *Tests:* no proposal without a measured loss; a
       stalled hall costs its sponsor `Counsel` evidence; the ledger conserved over a project.
       *Observer:* the project panel.
+      - *Parts, planned (2026-10-20):* no generic public work exists (crossings, wells, banks,
+        palisades and passing places are each their own path), so DC builds one on the passing
+        place's shape: (1) losses measured; (2) a storehouse raised by law: `Building.polity`,
+        `PolicyKind::RaiseBuilding` with a program and the measured loss it answers, an issue
+        per loss, each household's forecast its share of the loss averted against its equal
+        share of the work, a site near the hearth or on a plan's square (not counted an
+        encroachment), work given by choice like a passing place's (the hours include making and
+        carrying its materials), and a finished storehouse sheltering the common store; (3) a
+        hall and a watch tower as content programs answering wet gatherings and fires that
+        reach a roof; (4) four dates and a stall, evidence for payers, sponsor and builders, pay
+        and patrons; (5) the observer's project panel.
+      - *First part, as built (2026-10-20): the losses each public program answers, measured*
+        (ADR-0031 §6: public programs answer measured losses only). Each polity keeps a record a
+        year, the latest three (saves 164): the food its common store lost to spoiling, at the
+        hearth or under its keeper's roof (a storehouse's loss); the gatherings it held, all in
+        the open at the hearth, and how many of them on a wet day (a hall's); and the buildings
+        whose covering caught, fires nobody put out before they reached a roof (a watch tower's).
+        Nothing proposes on them yet. **Test:** grain left a month in the common store spoils and
+        is measured; a gathering is counted, and counted wet on a wet day; a hut set alight is
+        counted; the record round-trips a save. **Boundary:** saves 164.
+      - *Second part, as built (2026-10-20): a storehouse raised together by law.* A template
+        of the new kind `raise_building` names the program it raises (content API 153: `[raise]
+        program`); the core's `yourselves_raise_a_storehouse` raises a granary and answers the new
+        issue `store_spoils`, open while the common store's spoiling is measured and no storehouse
+        of the polity's stands or is being raised. Each household weighs its share of the loss
+        averted a year against its equal share of the work over the years it weighs, each hour
+        worth the food an hour of its own work brings; only someone who knows the program's
+        technique may put it forward. Passed, the polity lays it out on clear, level ground within
+        80 m of the hearth, plot and building held in the polity's own name (`Building.polity`),
+        so that no household keeps, stores in, inherits or keeps it up. Its people give the work by
+        choice as for a passing place (the behaviour `raise`, the activity
+        `work_with_wooden_tools_on_raising`), the hours counting the making and carrying of its
+        materials; once it stands finished the common store is kept under its roof, and looked
+        over monthly, a storehouse no longer standing keeps it no more. The observer calls it "the
+        granary raised together" and asks no materials of a household for it. **Test:** nothing
+        measured brings nobody a gain; grain left a month spoils and is measured, and then
+        households gain by a storehouse; once its people know framing, one puts it forward for the
+        store spoils; passed, it is laid out near the hearth in the polity's name, no second is
+        weighed, the hours given survive a save partway, and finished it shelters the store, which
+        survives a save. **Boundary:** saves 165, content API 153. Siting on a plan's square, pay
+        and patrons wait for the fourth part.
+      - *Third part, first half, as built (2026-10-20): a hall against the rain.* No loss of a
+        gathering in the open existed to answer, so one is made first: on a wet day a gathering
+        held in the open is worth `polity.wet_attend` points less to come to (content API 154),
+        so only those with something at stake come, and one so thinned may fail for want of a
+        quorum; the hours those who came gave such a gathering are measured a year (saves 166).
+        While any are, the issue `rained_off` opens, and the core's `yourselves_roof_a_hall`
+        raises a `hall` (a new building use: a frame of four 3 m bays, 6 m wide, one open floor)
+        as the storehouse is raised, each household weighing its share of those hours a year,
+        each worth what an hour of its own work brings. Finished, the polity's gatherings meet
+        under its roof: rain takes nothing, and they are no longer counted as held in the open.
+        Loading takes a raised building's program from its law's template, so content that adds
+        a building program cannot shift it. **Test:** rain takes `wet_attend` from coming; a wet
+        gathering with one come has no quorum and its hour is measured; one such hour does not
+        repay a hall and a year of them does; once framing is known a hall is put forward for
+        the rain, laid out, raised, and then rain takes nothing and its gatherings are not
+        counted open; the hall and the measures survive a save. **Boundary:** saves 166, content
+        API 154. The watch tower is the third part's second half.
+      - *Third part, second half, as built (2026-10-20): a watch tower against fires seen late.*
+        A fire nobody saw for ten minutes after its covering caught, but one caught from a
+        neighbour already burning, is measured at burn-out by the work its building takes to put
+        right (saves 167). While any is measured and a watch keeps watch, the issue
+        `fires_unseen` opens, and the core's `yourselves_watch_from_a_tower` raises a
+        `watch_tower` (a new building use `tower`: one 3 m bay of two storeys) as the storehouse
+        is raised (content API 155). With no watch to look out from it a tower is worth nothing.
+        Finished, a watch round begins at the tower, and anyone awake at it sees a burning roof
+        within 500 m against the 150 m of someone on the ground. **Test:** a hut burning out
+        while everyone sleeps is measured; with no watch a tower brings nobody anything, with one
+        a year of such fires repays it; once framing is known a tower is put forward for the
+        fires, laid out and raised; a watch round then starts at it, and the watcher there sees a
+        roof catch some 300 m off; the tower and the measures survive a save. **Boundary:** saves
+        167, content API 155. Slice DC's third part is done; four dates, evidence, pay and
+        patrons are the fourth.
+      - *Fourth part, as built (2026-10-20): dates, a stall, and what users see.* Each building
+        raised together keeps, beside its law's day of proposal, when it was laid out, last worked
+        on, first used (a storehouse the day it is finished, a hall at its first gathering, a
+        tower at its first round) and finished (saves 168). One laid out and unfinished that no
+        one has worked on for 120 days stands stalled, looked over monthly, and its law's words
+        say so ("; stalled", or "; finished"). When it is finished, every adult of the polity
+        sees, of the eight households that gave most to it, each one that gave its full share
+        (`share_raised`, provision) and each that built it (`raised_well`, craft), and, if it
+        never stalled, its sponsor's counsel borne out (`raised_as_proposed`); when it stalls,
+        they see that counsel come to nothing (`proposal_stalled`) (content API 156). Nothing
+        gives a completion bonus. Pay for common work already paid the hours given to a raising
+        as to any common work. **Test:** a storehouse begun, given its shares by two households,
+        and finished keeps its dates, its store moving in the day it is finished; a user's ties
+        gain counsel of its sponsor, provision of a household that gave its share and craft of
+        it; a hall begun and left stands stalled once a season has passed, found by the monthly
+        look over, and a user's ties lose counsel of its sponsor; the dates survive a save.
+        **Boundary:** saves 168, content API 156. Patrons' shares are deferred: a raising takes
+        no goods (its materials are made among its hours), so a patron's share would be hired
+        hands, and hiring for common work waits for the demo (DE) to show a raising short of
+        hands; the observer's project panel is the fifth part.
+      - *Fifth part, as built (2026-10-20): the project panel.* The government panel lists, under
+        "Buildings raised together", each building its polity has raised or begun by law, newest
+        first, as one sentence: what it is and the loss it answers, who put it forward and when,
+        whether it was laid out or is still before the gathering (or its law no longer stands),
+        the hours given of those it takes and by how many households, and when it was first
+        used, finished, or stalled with the day it was last worked on (`PolityLine.projects`,
+        wire 1.92). **Test:** the stalled hall and finished granary of the fourth part read as
+        such, newest first, with their givers' counts; the web parses and shows the sentences.
+        **Boundary:** wire 1.92. **Slice DC is closed.** Of its planned tests, with no loss measured a
+        storehouse or tower brings no household anything, so none is put forward, and a stalled hall
+        costs its sponsor counsel; the ledger is untouched by a raising, which takes no goods.
+        Deferred: patrons' shares (above), and siting a public building on a plan's square, which
+        waits until a plan's square is something a polity raises on (DE shows whether it is).
     - **DD, style over seven traits:** opening share, ornament, finish and symmetry; taste over
       seven traits; sighting scaled by height; copying only what one could build; the clocks
       over all seven. *Tests:* a one-settlement world drifts as before in the three old traits;
       a tower is seen from farther; the neighbours row stays green or amber.
+      - *Parts, planned (2026-10-20):* (1) frame version 3 lays out its front: ornament, finish
+        and symmetry in three of its four style slots, each costing hours, its openings being the
+        fourth trait; (2) taste over seven traits: founding draws, commissions, designs, the
+        review moving a front only toward a building that has one, and ornament and finish only
+        toward one the household could build (saves 169, content API 157); (3) a building seen
+        from farther the higher it stands over its neighbours' eaves; (4) the three clocks, the
+        neighbours row and the observer over all seven, then the slice closed.
+      - *First part, as built (2026-10-20): a front in the grammar* (ADR-0031 §7). Frame version
+        3 lays out three of its four style slots: ornament, tenths of an hour of craft a square
+        metre of the door's wall up to two hours; finish, bare, daubed or lime-washed (0.25 h and
+        0.15 h a square metre of wall); and symmetry, a front set out about its middle (two hours
+        a bay), which needs its door on an end wall or in the middle bay of an odd number. Each
+        costs hours in finishing and nothing else; its openings (version 3's per-storey share,
+        which already weaken the walls) are the fourth trait. Versions 1 and 2 still refuse any
+        style trait. **Test:** ornament costs an hour a square metre of the door's wall less its
+        openings, the finishes their hours over every wall, symmetry two hours a bay with the
+        door central and is refused off it; out of range, a spare slot or version 2 is refused.
+      - *Second part, as built (2026-10-20): taste over seven traits.* A taste, and the traits a
+        building is built to, gain a front: openings, ornament, finish and symmetry. Founding
+        bands draw them after the roof's three, so the roof's draws are as before; a commission
+        draws its front's new trait on a stream of its own, so a hut is commissioned exactly as
+        before and has no front. Only a frame designed under version 3 allows a front, and a
+        store no openings; designs give every storey the taste's openings, symmetry only to an
+        odd number of bays, and a lime wash only where someone knows lime burning, else daub.
+        The yearly review moves a front only toward a building that has one, and ornament and
+        finish only toward one whose techniques (its program's, and lime burning for a lime
+        wash) someone of the household knows. Content authors the front's tradition and spreads
+        (content API 157); tastes save their seven traits and founding ways their front (saves
+        169; a taste of three from an older save loads with a bare front). The inspector says a
+        frame's front in words. Lime itself is not yet drawn from stores for a wash, nor clay for
+        daub, as daubed walls' clay never was. **Test:** a hut is commissioned exactly as M3b
+        commissioned it over 400 keys, many of them innovating; a taste moves only in the traits
+        named; a lime-washed, ornamented, symmetrical three-bay frame is built to its front and
+        read back, a two-bay one daubed without symmetry by builders who cannot burn lime; after
+        it is built, a household that could build it moves toward all seven traits and one that
+        could not toward all but ornament and finish; tastes survive a save; the existing style
+        and diffusion tests pass with huts moving the roof alone.
+      - *Third part, as built (2026-10-20): seen from farther the higher it stands.* Someone at
+        another settlement's hearth or a seller's door sees a new building there within the
+        content's `sight_m` times its eaves' height over the highest eaves of the standing
+        buildings within 30 m of it (never under 2 m), from one to four times (design priors), so
+        a hall or a tower over huts is an exemplar from farther away. **Test:** a watch tower of
+        two storeys among huts is seen from at least twice the usual sight and a hut from barely
+        more than it; someone of another settlement standing half as far again as the usual
+        sight from the tower notes the tower and not the hut; a visitor's sightings each lie
+        within their building's reach.
+      - *Fourth part, as built (2026-10-20): the clocks over seven traits, and the slice closed.*
+        The three clocks (founding way, households' taste, the year's new and the standing
+        buildings) take their mean and spread over all seven traits, and their words say a
+        front where there is one ("…, 12 % of the walls open, 0.5 h of ornament a square metre,
+        daubed, 50 % set out about the middle"); the smoke's style line counts the frames with a
+        front. The neighbours row counts what crossed by chains of followed buildings and
+        admiration, whatever the trait, so it covers all seven unchanged; no wire change was
+        needed, the observer's style words being the kernel's. **Test:** a front is said in
+        words and a hut's way says none; the neighbours and clocks tests pass. **Slice DD is
+        closed.** The twin's roof-style measure stays the pitch (the M5b demo's question).
+        Deferred: lime and clay drawn from stores for a finish.
     - **DE, the M8 demo and the gate:** two settlements founded large, an organic port and an
       inland settlement that may pass a plan, at the largest size that lives within the time
       box; who builds tall, what public buildings rise or stall, what falls when both are shaken
       alike and which rules follow; nudges logged; the scale gate measured and amended to the
       figure reached (ADR-0028 §1).
+      - *As built (2026-10-20): the M8 demo, and the gate measured.* `civ-sim --example m8_city`
+        founds two groups on the river valley, the one whose hearth lies nearer the river the
+        port, lives them at Max with a fixed identity, and reports each settlement's residents,
+        buildings by program and storeys, who knows framing and who holds a frame, its style
+        clocks, the buildings raised together and the laws on building, raising, plans, ways and
+        the watch at each settlement (those after the shaking marked), and what the shaking did;
+        it prints each line as it comes, and reads a save it left again (`m8_city <save>`). The
+        observer acts as ADR-0031 §8 asks: framing introduced on the first day to the grown
+        members of each settlement's four largest households, laying out to the inland one's
+        largest, and the whole map shaken once at 0.4 of each building's weight half a year
+        before the end. The recorded run (`demos/m8/m8-demo.txt`) is two groups of 500 for three
+        years; two of 750 took more than two hours and were stopped, so 1,000 is the size reached
+        within the time box. **What it showed:** 1,084 people at the end, 545 at the port
+        (Rushmere) and 539 inland (Reedholt). Of 24 households that knew framing, none built a
+        frame: every home stayed a one-storey hut, because a first home is the cheapest shape that
+        houses its household (a hut) and a larger one is built only when the household's spare
+        goods pay for the whole of it, which none reached in three years. The only frames were
+        the polity's: each settlement raised a granary together for its spoiling store (533
+        hours each, given by 93 and 88 households), the inland settlement raised a hall to 1,885
+        of 2,038 hours, the port's first hall law lapsed and a second was in force but not yet
+        laid out.
+        Both gatherings rejected a plan of streets in their first weeks (20 for and 28 against;
+        19 and 25), and the port passed one after the shaking, though laying out was taught
+        inland. Five watches were set. The shaking cracked nothing and felled nothing (256
+        buildings stood), so no rule followed it. Nothing was nudged: the step that did not come
+        (a household frame) is held back by the kernel's share of spare goods put into a home,
+        a constant rather than a content prior, which is recorded as a finding for M9 (§9).
+        **The gate (ADR-0028 §1, amended):** one settlement of 10,000 with M8b–M8d in lived ten
+        days at a mean of 53.5 s a day (p50 56.2 s, p95 65.4 s), 0.0031 simulated years a real
+        minute, peaking at 0.92 GB, on the container; the demo's 1,000–1,084 lived at 3.42 s a day
+        (0.049 years a minute). The gate of a year a minute at 10,000 is not met and is amended
+        to the figure reached; the target PC is not yet measured. Slice DE is closed, and with it
+        **M8d** and **M8**.
+
+**M9: Aggregate LOD & scale.**
+- *Contents:* a resolution per settlement that keeps every person (ADR-0032), 10–30
+  settlements, 100k+ people, time skips decided, a climate change god tool.
+- *Demo:* a world of at least ten settlements and 100,000 people, one followed in full detail and
+  the rest household-resolved, skipped ahead decades with the climate forced, every person still
+  one record the observer can open.
+- *Proves:* the engine scales by resolving routine days coarsely without losing who anyone is.
+- *Split (2026-10-20, §9 "M9 design"):* three parts, one ADR,
+  [ADR-0032](decisions/0032-resolution-per-settlement.md), from the brief
+  `docs/briefs/m9-lod.md` (research 01-04, 01-03, 03-03).
+  - **M9a, the household day** (ADR-0032 §1–§5).
+    - **DF**: the switch that changes nothing: a resolution per settlement as a run setting held
+      to midnight, demotion and promotion, the invariants function, Gate A's switch tests, a
+      household-resolved settlement living only its needs (sleep, meals, water) in tests, and the
+      bench founding many settlements with some household-resolved.
+      - *As built (2026-10-20):* `Sim::set_household_resolved` names the household-resolved
+        settlements, a run setting never saved: set between midnights it is held for the next,
+        set at a midnight it takes effect before the next event. At each midnight, after the
+        day's work, `Population::park_resolved` parks everyone of a household-resolved settlement
+        (what they carry banked, standing at home, their activity replaced by one of no steps
+        standing at `PARKED_STEP`, so no event of the old one does anything), then
+        `resume_unresolved` gives anyone parked elsewhere a first decision, and
+        `live_household_days` lives the household-resolved settlements' needs: each parked
+        member's needs brought up to the hour at a day's mean activity (1.6 times basal, a
+        design prior), a meal from the household's stores as one at home is eaten, rested, and
+        the household's water at a day's use. `decide` parks anyone of a household-resolved
+        settlement who reaches it. Parking is idempotent and the parked form is saved as it
+        stands, so a save of a household-resolved world loaded and set again lives on byte for
+        byte as if never saved, and one loaded and not set again takes up its day at the first
+        advance. With debug checks on, every switch at a midnight asserts that nobody, no
+        household's membership or settlement, and no holder of a field, building or workshop
+        changed, and that the books balance (`switch_invariants`, `unaccounted`). **Tested**
+        (`tests/resolution.rs`): a switch undone before it takes effect leaves every section's
+        bytes as they were; a settlement held for midnight is parked then, eats from its stores
+        and the other settlement lives as ever; parking mid-morning changes no record and leaves
+        the books balanced with loads banked; the save and load continuations above; a
+        settlement brought back is about its day again; six switches back and forth lose nobody.
+        `bench_village --household N` makes the last N settlements household-resolved.
+        **Measured:** two settlements of 500 at Max, six days: 1,093 ms a day wholly Detailed,
+        822 ms with one household-resolved; the parked half eats but does not yet farm (169
+        fields against 123), so this is no measure of the household day, which slice DG builds.
+    - **DG**: the household day for the core behaviours: pure planning by `decide::candidates`,
+      hours shared by the softmax's probabilities, blocks applied through each behaviour's own
+      effect function in household id order (gather, farm, build, make, dig, leisure, ask, trade
+      within the settlement), company from the hearth pool, path wear along cached routes.
+      - *As built (2026-10-20):* `Population::live_household_days` lives each parked member's
+        night asleep to sunrise and scores them there once: `decide` in a planning mode stops
+        after the technique gate and a curfew's cost and hands over the options it scored,
+        drawing and beginning nothing. Each option's expected number of repetitions over the
+        waking minutes (the day less the middle of the content's sleep range and three meals) is
+        `waking · p / Σ p·T`, `p` the probability `decide::choose` would give it
+        (`decide::probabilities`, the same softmax) and `T` its work and walks; counts are rounded
+        by largest remainder. Gathering, farming, building, making, digging, trying, rest, play,
+        company, asking and buying within the settlement are shared; asking, buying and a claim on
+        new ground, a home or a workshop at most once a day; the rest wait for slice DH. Each
+        repetition is taken up by `take_up`, the code a decision runs after its choice (moved out
+        of `decide` unchanged: new ground marked out, a workshop set up, a home begun, crews
+        joined), and lived at once through its steps (`enact`): a walk is planned and walked as
+        an event-driven one is (route, wear, ways, deposits looked for, the trip counted), work
+        has its effect through `end_step`, loads are banked. They eat once, what the night and the
+        day before used; the household's water is fetched by the trip a member would make until a
+        day's use is in (at most 8). Company is drawn once a member-day: each who kept company
+        meets the pool of all who did, through `keep_company`. Effects land at midnight
+        (ADR-0032, amendment). **Exact:** with no settlement household-resolved, every section's
+        digest equals the build before over 12 days by the minute and 20 at Max (2×200 people).
+        **Tested:** a household-resolved settlement works its fields, comes to know one another at
+        the hearth and stays fed, with the books balanced and no problem found; eight days cut
+        every 433 minutes end in the bytes of eight lived whole. **Measured** (2×500, Max, 40
+        days): wholly Detailed 1,204 ms a day, 293 fields and 212 buildings at the end; one
+        settlement household-resolved 788 ms a day, 291 fields and 212 buildings; the
+        household-resolved half costs about a fifth of its Detailed cost (roughly 0.2 ms a
+        person-day against 1.2 ms). Its plots' bounding box ended 39.5 ha against 6.5 ha (one
+        plot laid far off; 105 plots in both), for Gate C (DI) to weigh.
+    - **DH**: every other behaviour resolved as a block or listed as not taken (ADR-0032 §2),
+      incidents at a block's end, a settlement held Detailed while a fire, band, siege or called
+      gathering holds.
+      - *As built (2026-10-20):* every behaviour is now shared, never taken, or lived apart,
+        and a unit test fails if one is added without saying which. **Shared** besides DG's: paid
+        work, crossings, wells, banks, ditches, palisades, ways, raising, boats and carts made,
+        the watch, tending, taking, and coming to a gathering, poll or petition (counted as an
+        arrival there is: `attend`, `cast`, `join_petition`); paid work, taking, a round of the
+        watch and each gathering at most once a day. **Never taken** (`NOT_TAKEN`): visits,
+        fetching, carrying dues, bands and the four fire behaviours; options moved by boat or cart
+        wait for slice DJ's journeys. **Lived apart:** the night, meals and water. Each step of a
+        block is dated by its own length (a walk's route, work's minutes), so time use, practice
+        and everything reading a step's duration count as an event-driven day does. **Held
+        Detailed** (`held_detailed`, worked out at each reconcile from saved state): a
+        settlement where a fire burns, or which a band was called from, set off for, camps by or
+        holds, until it is home or dispersed. No fire in use is tended, so none escapes, in a
+        settlement household-resolved. A Detailed visitor at a household-resolved hearth meets its
+        parked residents. A called gathering does not hold a settlement (ADR-0032, amendment).
+        **Exact:** with no settlement household-resolved, every section's digest equals the build
+        before. **Tested:** the classification; a fire set ten minutes before midnight holds its
+        settlement Detailed, its people about their day, and when it is out the settlement is
+        household-resolved again; with both settlements household-resolved fifteen days, no
+        minute goes to a behaviour never taken, and the fields are worked. **Measured** (2×500,
+        Max, 40 days, one household-resolved): 769 ms a day, 288 fields and 212 buildings
+        (wholly Detailed: 1,204 ms, 293 and 212).
+    - **DI**: Gate C (`consistency --resolution household`), planning in parallel and exact at
+      1–8 workers, measured.
+      - *As built, first part (2026-10-21):* `civ-host consistency --household` is Gate C: Gate
+        B's two fixtures, years and aggregates, its five Detailed runs a fixture and its
+        tolerances (set from Detailed calibration in 2026-10-07, not widened), against five runs
+        living every settlement household-resolved at Max. Its first evaluation found and fixed
+        four faults of the household day: the night and the meals reached no time use (now
+        counted as a step's end counts them); a day burned a flat 1.6 times basal (now each block
+        at its activity's own level, rest for the rest); a fixed night of the content's middle
+        sleep (now from turning in two hours after sunset to sunrise, within the content's
+        range); and the whole day shared by the sunrise's weighing, which tilts it to work (now
+        weighed three times, at sunrise, midday and an hour after sunset, each sharing its part:
+        the morning, the afternoon, and the evening to turning in; the later two put each member's
+        needs back as they found them). **Gate C, as it stands:** within tolerance are people,
+        walking, harvest, materials and roofs on both fixtures, work on the valley (+7.8 %, 10 %)
+        and sleep on the coast (+2.4 %, 3 %); outside by a little are leisure (−5.4 % and −5.7 %
+        against 3 %), food days (+4.9 % and +4.7 % against 4 %), work on the coast (+10.9 %
+        against 10 %), sleep in the valley (+4.1 % against 3 %) and the Gini of goods in the valley
+        (−17 % against 8 %, where Detailed's own spread calibrates at 18.8 %). **Gate C fails**,
+        so household resolution is no host default (ADR-0032 §5); the bench and tests set it by
+        hand. The five household-resolved runs of a fixture are alike: a household day draws on
+        no scheduler tie-break. **Exact:** with no settlement household-resolved, every section's
+        digest equals the build before. **Measured** (2×500, Max, 40 days, one
+        household-resolved): 763 ms a day, 294 fields and 212 buildings (wholly Detailed 1,204 ms,
+        293 and 212). **Not yet:** planning in parallel needs the decision's scoring out of
+        `decide`'s `&mut self` (DI's second part).
+  - **M9b, many settlements** (ADR-0032 §6, §8).
+    - **DJ**: worlds founded with up to 30 groups; memory a person measured and cut where it can
+      be exactly; 100k founded, lived and saved on the bench.
+      - *As built (2026-10-21):* a world takes up to 30 founding groups (the new-world dialog up
+        to 29 neighbours). Three or fewer are still placed as one assignment; more choose in the
+        order listed, each by one draw over the candidates whose fields' reach is clear of those
+        chosen before, and those that find no room are left out with every group after them
+        (the world says how many settled). **The bench at 100,000** (`bench_village --people
+        10000 --groups 10 --size 2048 --known --max --household 10`, ten settlements of 10,000,
+        all household-resolved): made in 73 s; its founding day, lived Detailed to the first
+        midnight, 1,785 s; the save at a later midnight 146.5 MB (7.9 s), loaded in 10 s.
+        Household days, release build, from that save: 221, 203 and 365 s (2.0–3.6 ms a
+        person-day, 0.0006 years a minute, about 160 times short of §8's figure); peak memory
+        2.4 GB (3.5 GB while a save is encoded), within plan §4.6's 4 GB at 100k. A person-day
+        costs ten to eighteen times what it does in settlements of 500 (about 0.2 ms): what a
+        decision reads still grows with the settlement (every seller's offers, every building
+        a household might hold, the ground a field site is weighed against), the next work
+        for slice DN with planning in parallel (DI's second part). **Cut, exactly** (every
+        section's digest equal to the build before, 2×200 people, 12 days by the minute and 20 at
+        Max): a home site search gathers the fields and plots that could lie near any point it
+        tries once, not for every point (the founding day at 100k went from 2,758 s to 1,921 s);
+        a field site's homes come from the settlement index; a decision's receipt keeps no spare
+        room. **Cut as a model change** (§9): what a household holds of the others it saw draw at
+        a source had grown with the square of a settlement's households (8.9 KB a person at
+        100k, 894 MB of a 125 MB save's sections); a household now notes at most 150 others
+        there a day, the nearest in household order, so at a source drawn by no more than 151
+        households a day nothing changes. Saves 169, content API 157 and wire 1.92 are
+        unchanged. **Tested:** a world takes at most thirty groups; twelve groups on a map about
+        6 km a side settle apart, each whole, those without room left out and told, the same
+        world settling the same way twice; at a crowded source each household notes the nearest
+        150 in household order and at a smaller one everyone. The simcheck profile's debug
+        checks scan whole tables, so speed is measured in release.
+    - **DK**: the host chooses resolutions by the observer's focus with hysteresis and pins; the
+      wire carries each settlement's resolution and a household-resolved person's block; the web
+      shows both.
+      - *As built, first part (2026-10-21):* resolution by focus is a run setting the observer
+        turns on (`Sim::set_resolution_by_focus`, `set_focus`, `pin_detailed`; the
+        `FocusPolicy` in `civ-sim/src/focus.rs`), off as every world begins, so no settlement is
+        household-resolved by default while Gate C fails (ADR-0032 §5; amendment). On, at each
+        midnight the kernel household-resolves every settlement lived in but the one last chosen
+        and those pinned, once there are more than three; a settlement chosen is Detailed from the
+        next midnight, one turned from stays Detailed thirty days. It runs in the day's cadence
+        itself, so every way the host advances (paced, Max, running ahead) keeps it. **Wire
+        1.93:** the command `SetResolution` (on or off, the settlement chosen, the pins); the
+        clock's `resolution_by_focus`; each settlement's `household_resolved`, true only where
+        its day is lived by household now (not where a fire or a band holds it Detailed). **The
+        observer:** in a world of more than three settlements the settlements list offers "Live
+        settlements away from the one you choose by household"; choosing a settlement's name
+        makes it the one, each settlement lived so is marked, and each can be held in detail.
+        The web's schema identity, left at 1.68, now says 1.93. **Tested:** the policy (three
+        or fewer stay Detailed; all but the focus and pins; a settlement turned to is Detailed at
+        once and the one turned from is held thirty days); five settlements living under it,
+        their problems none, and all Detailed again when it is turned off; the command decodes;
+        the builder; end to end, a world of five groups whose four others are lived by household
+        while the observer asks and none once it stops. **Not yet:** a household-resolved
+        person's block on the wire (the household day keeps no plan of its blocks to show), and
+        following a person choosing their settlement (a person's brief names their household,
+        not their settlement).
+      - *As built, second part (2026-10-21):* **a household-resolved person's block.** As a
+        household day is lived at midnight its people's day is recorded in blocks of whole minutes
+        (`DayBlock`: from, until, activity, where, asleep): the night to sunrise; each weighing's
+        shares (morning from sunrise, afternoon from midday, evening from sunset) laid end to end
+        in the order shared, each as long as its repetitions' work and walks and drawn where its
+        work is done; what is left of each part a meal at home; the night from turning in. It is
+        what the observer is shown, never read by the simulation and never saved; a person
+        brought back to detail, or a day not yet lived, is in no block. **Following:** the focus
+        policy also holds the settlement of the person the observer follows, found at each
+        midnight from where they live then. **Wire 1.94:** `SetResolution.follow_person`; each person
+        brief's `block_until_minute`, the block's position, activity and sleep in place of the
+        parked person's own. **The observer:** the person selected is the one followed; the
+        inspector of someone in a block names its activity and when it ends ("their day lived by
+        household"). **Tested:** blocks by the clock through a day (each person's block covers
+        the minute, the night asleep at home, some blocks away from home; none for the Detailed
+        settlement, none the next day, none once brought back); the followed person's settlement
+        held as the focus is; the command and the brief decode; end to end, a person in a block
+        shown so and their settlement lived in detail once selected.
+  - **M9c, skips, climate and the demo** (ADR-0032 §7, §9).
+    - **DL**: "skip to" as a host command and in the web.
+      - *As built (2026-10-21):* running ahead may be a skip (`RunUntil.skip`, **wire 1.95**):
+        the kernel sets Accelerated Max and a policy that household-resolves every settlement lived
+        in, however few, from the next midnight (`Sim::begin_skip`; whatever holds a settlement
+        Detailed, a fire or a band, still holds it); the host advances a day at a time and stops
+        at the first midnight at or after the date (at Max the clock stops only at midnights),
+        at the observer's stop, or after the first chronicle entry of a kind marked
+        (`RunUntil.stop_on`); it then puts back the speed and the observer's choice of
+        resolutions, focus and pins included (`Sim::end_skip`), from the next midnight, and says
+        where it stopped and at what. A skip is the world lived; nothing is generated after it,
+        and it saves and reproduces as any run. **The marks** are the observer's five kinds, not
+        the engine's: a settlement founded, taken into a polity or seceding; hunger; a disaster
+        (fire, flood, storm damage, a building giving way, an outbreak, a raid); politics (a law
+        decided, a custom amended or taken, a revolt or coup called, an election, an alliance
+        or agreement); a discovery (a technique or a deposit found). **The observer:** beside
+        "Run ahead", a "skip" box and what else to stop at. **Tested:** a skip household-resolves
+        even two settlements at Max and every one is Detailed again after, the speed back; the
+        observer's focus is put back as it was; the first entry of a marked kind after the head
+        stops it, and nothing marked stops nothing; the host's skip lives by household, reaches
+        its date at Max with the skip's policy and puts the speed back; the command decodes; the builder; end to end, a skip
+        of a month marked to stop at a new settlement runs to its date and the speed is put
+        back.
+    - **DM**: the climate forcing tool: kernel, saves, chronicle, wire and web.
+      - *As built (2026-10-21):* the observer forces the background climate
+        (`Sim::force_climate`): every temperature normal `offset_c` °C warmer or cooler (-10 to
+        10) and every wet day's amount times `wet_factor` (0.25 to 4), each reached linearly over
+        `ramp_years` whole years (0 to 100) from tomorrow and held after. The weather's draw adds
+        the offset to the day's mean (its range moves with it) and scales a wet day's amount; the
+        draws themselves are the unforced day's, so the same days are wet and a forced world keeps
+        its weather's sequence. Snow, water, dryness, soils and harvests follow through the
+        existing chain. The climatology's long-run means are drawn from a weather of their own,
+        unforced, so the harvest factor's mean stays the unforced climate's and a forced climate
+        is not renormalised away. Forcings compose by sum (offsets) and product (factors), are the
+        world's (**saves 170**: the weather's `forcings`), and each is one influence record
+        (`InfluenceKind::Climate`, code 12) with a line in the chronicle ("the climate grows 2.0 °C
+        warmer and wet days bring 20% less rain, over 10 years"). **Wire 1.96:** the command
+        `ForceClimate`; the weather report's `climate`, in words, where the change stands today
+        and where it is going. **The observer:** a "Climate…" choice at the top of the weather panel
+        (warmer, cooler, drier or wetter, over years or from tomorrow; the map's tool bar has no
+        room left: one more control there squeezed the map), and the panel tells it. **Tested:** the generator (the same days wet, every day's mean
+        moved by the ramped offset and every wet day's amount by the ramped factor, held after
+        the ramp; forcings compose; nothing before one begins); twin worlds, one forced, two
+        months on (3 °C warmer and half the rain on the same wet days) and kept across a save,
+        going on alike; out-of-range forcings refused; the host's answer and report; the command
+        and the builder decode; end to end, the tool, the banner, the panel and the chronicle.
+    - **DN**: the M9 demo and the gate (100k, ten or more settlements, ≥ 0.1 years a minute).
+      - *As built, first part (2026-10-21):* **profiled** (release, ten settlements of 2,000,
+        nine household-resolved, gdb samples of the main thread over a review day): a quarter of
+        the day was the polity review's plan forecast, which looked for the site every household
+        without a home would take now, once to weigh the plans and again whenever a sponsor's
+        proposal or a passed plan only needed their codes and layouts; the rest was decisions in
+        the Detailed settlement and routes. **Cut, exactly:** a proposal and a passed plan lay
+        the plans out without weighing them, and who has a home is read from one pass over the
+        buildings rather than one for each household (every section's digest equal to the build
+        before but the save's clock time: 3×400 with two household-resolved, 60 days at Max;
+        a village of 500, 90 days by the minute). Those two runs went from 704 to 625 and from
+        767 to 653 ms a day.
+      - *As built, second part (2026-10-21): the gate, amended.* **Measured** (release,
+        `bench_village --people 10000 --groups 10 --size 2048 --known --max --household 10 --days
+        5`, ten settlements of 10,000, all household-resolved, the demo's run sharing the four
+        cores): 100,026 people live a day in 224 s on average (p50 215 s, p95 257 s), 0.0007
+        simulated years a real minute against ADR-0032 §8's 0.1, about 140 times short; the
+        founding day to the first midnight 1,146 s; peak memory 2.3 GB. Twenty thousand in ten
+        settlements of 2,000 live at 0.7 ms a person-day against 2.2 ms in settlements of 10,000.
+        **The gate is amended to that figure** (ADR-0032's amendment of slice DN, ADR-0028 §1's
+        rule), with the profile as evidence: in ten small settlements on a large map, 30 % of the
+        time went to rebuilding route landmarks over the bounding box of all walked ground,
+        thrown away whenever walking costs anywhere change. The next levers, in order: landmarks
+        over each settlement's own walked ground, what a household-resolved decision reads kept
+        by settlement, household days planned on every core (DI's second part), then cohorts.
+      - *As built, third part (2026-10-21): the demo.* `civ-sim --example m9_world <saves> 10
+        200 10 2048` (`demos/m9/m9-demo.txt`): ten groups of 200, the observer following one
+        person of the first settlement (resolution by focus, ADR-0032 §6) and every other
+        settlement household-resolved, the climate forced 3 °C warmer and wet days' rain ×0.8
+        over twenty years from the first day, a decade lived at Max. Nothing was nudged. 2,000
+        people became 2,576 in 623 households; the people founded an eleventh settlement in the
+        third year; the followed founder lived the decade in full detail; three people of
+        household-resolved settlements opened at the end each have their record and the block of
+        the day they are in; the 28.2 MB save loads with every person. 4.22 s a day on average
+        (p50 2.67 s, p95 13.67 s), 0.039 years a minute; the slow days are route landmarks rebuilt
+        for the one Detailed settlement over all walked ground (the gate's next lever). **Cut to
+        a decade:** the twenty-year run was lost at its seventh year when the container
+        restarted, and the rerun, identical line for line, was time-boxed to ten years. **Seen:**
+        the chronicle's flood entries are one per river reach overtopped and receded on the whole
+        map, inhabited or not (every year a multiple of 236): a skip that stops at disasters
+        stops for floods nobody saw; and the year's mean temperature swings about 0.6 °C, as much
+        as the forcing's ramp over a decade. Slice DN is closed, and with it **M9c** and **M9**.
+
+**M10: Industrial content.**
+- *Contents:* fuel by heat, iron, water power, coal, engines and the works; rail and gas light;
+  services sold for a fee (care, birth attendance, inoculation, teaching), letters and written
+  records, a health office; acceptance of a money, custody, notes, runs, a polity's notes and fiat.
+- *Demo:* a world of several settlements, some with a fall or coal and some without, lived until
+  whoever will has built a mill or a works, laid a line, lit a street, kept a school or issued
+  notes; what was built where, by whom and why, and what the others did instead. Whether any
+  settlement industrialises is the people's; nudges are logged.
+- *Proves:* industry, services and money enter as vocabulary people may take up or not, and a world
+  without them lives as before.
+- *Gate:* where nobody knows the new techniques, every save section's digest is unchanged by each
+  slice except its own new empty sections; the bench stays within 10 % of M9's figures.
+- *Split (2026-10-22, §9 "M10 design"):* four parts, three ADRs,
+  [ADR-0033](decisions/0033-power-fuel-and-the-works.md),
+  [ADR-0034](decisions/0034-rail-and-gas-light.md) and
+  [ADR-0035](decisions/0035-services-letters-and-notes.md), from four briefs
+  (`docs/briefs/m10-power.md`, `m10-rail-gas.md`, `m10-services.md`, `m10-money.md`).
+  - **M10a, power and the works** (ADR-0033; ADR-0034 §1).
+    - **DO**: routing groundwork: landmarks per settlement over its own walked ground (ADR-0028 §4
+      as decided) and ways' wear by mode; route times unchanged, measured on the many-settlement
+      bench.
+      - *As built, first part (2026-10-22): route caches kept where nothing they read changed.*
+        **Profiled** first (release `bench_village`, seed 1, ten settlements of 60 on 2,048 cells,
+        household-resolved, 40 days: 983 ms a day, p95 3.6 s): the slow days are the ones the
+        route revision moves (floods and the monthly wear survey, six a run), when every home's
+        travel field was worked out again; landmarks over one box per settlement saved little
+        (983 to 960 ms a day), so they wait for the second part. **What a field reads:**
+        `TravelField::reach_box` is the reached cells' box and a cell more (a step from a reached
+        cell reads only the cells around it); a quicker way to a reached cell would have to step
+        from one onto a changed cell, so no change outside it alters the field. A field's search
+        box is no guide: it is sized by the top speed over the walk's limit and covers the map.
+        **What changed:** `NavGrid::tile_digests` hashes ground, heights and trails per 64-cell
+        tile; on a new revision `Population::sync_routes` compares them with the last, keeps every
+        home field whose reach box no changed tile touches (refreshing only the day's land and
+        source facts), and keeps landmarks whose reach (`NavGrid::landmark_reach`, their searches'
+        cap at the top speed) is untouched while the wear survey stands. Routes found are still
+        let go. `Ways::holds` counts only ways open to walkers (all are today). **Proved:** a unit test
+        changes the ring of cells just outside a field's reach box (made unwalkable and raised)
+        and gets the field to the bit, and the same ring on the reached cells' own border changes
+        it; three worlds (A: the run above; B: a village of 500 for 90 days; C: three settlements
+        of 400 for 60 days, two household-resolved) give every save section's digest but `meta`
+        unchanged. **Measured** (same run): four or five of ten home fields kept at each local
+        change (all at the 140-tile survey), 868 ms a day (from 983), the worst day 9.0 s (from
+        12.4 s).
+      - *As built, second part (2026-10-22): wear by mode; landmarks per settlement measured and
+        set aside.* **Wear by mode:** `Ways::walked` takes the trip's modes and counts a trip only
+        on ways serving one of them; a walker's trip is `WALK`, a hauler's `WALK | CART` (on foot
+        beside the cart), so nothing changes today and a mode that is not walking (rail, DV) will
+        leave footpaths unworn; tested with a cart-only way. **Landmarks per settlement (ADR-0028
+        §4) tried and measured:** regions of walked ground joined within two tiles (1 km), each
+        with its own landmarks, chosen by the region a walk ends in. Route times are unchanged by
+        construction (`landmarks_bound_searches_without_changing_route_times` routes with
+        landmarks over part of a map against plain searches), and the wear, traffic and events
+        digests moved in two of the three worlds (equally fast routes taken). It was **slower**:
+        A 871 to 944 ms a day, B 559 to 587, C 532 to 550; peak memory 1.5 to 1.1 GB in A. Walks
+        between settlements end in a region they start outside, so they lose the bound the one
+        walked area gave them. **Decision:** landmarks stay one set over the walked area,
+        kept until a change touches their reach (first part); ADR-0034 §1 amended. Revisit when
+        landmark memory matters (maps far larger than 2,048 cells) or long walks get the overlay
+        of ADR-0028 §4.
+    - **DP**: fuel by heat (`[fuel]`, hearths burning megajoules), batches in elapsed days,
+      charcoal, iron ore, the bloomery, forging and smithing, iron tools that serve.
+      - *As built, first part (2026-10-22): fuel by heat.* A good may carry a `[fuel]` table,
+        `mj_per_kg` and `smoke` (content API 158); a good of purpose `fuel` must. Firewood gives
+        15.6 MJ a kilogram (07-06 §2.3). A household's need stays in kilograms of the first fuel
+        in the catalogue (firewood), and `params::fuel_ratio` turns any other fuel's kilograms
+        into that measure by heat: hearths burn the fuels in catalogue order, each by its heat
+        (`Household::stores_at_time`); stock days, the fuel held (`person::fuel_kg`) and what a
+        household keeps back from sale count heat. The ratio of firewood to itself is exactly 1,
+        so every digest is unchanged while firewood is the only fuel (the three bench worlds of
+        DO, every section but `meta` and `content`, the pack's own hash). Burning the cheapest fuel by a household's own hours waits
+        for a second fuel a hearth may hold (coal and peat, DS); until then a made fuel (charcoal)
+        is a material, as the brief says, so the hearth never eats the smith's charcoal.
+      - *As built, second part (2026-10-22): batches in elapsed days, and charcoal.* A recipe may
+        name `elapsed_days` (content API 159). A session of it takes its inputs and starts a
+        batch, a saved record of the household's (`Household::batches`: recipe, units, the
+        quality of tools it makes, and the first day it may be opened; schema 171, the recipe by
+        content id, dropped on load if the content no longer has it); the outputs are given when
+        a later session of the same recipe opens it, once its days are past, and that session
+        starts the next. While one is under way a household does not choose the work (a new
+        reason, `Burning`); one finished waits to be opened and counts as made units when the
+        work is weighed. `make::apply` is now `start` and `give`, the same arithmetic. Charcoal is
+        the first batch: `good/charcoal` a material of 29.5 MJ a kilogram, `technique/charcoal_
+        burning` found from firing, lime burning and smelting copper with wood at home (E50
+        50,000 h), and `recipe/burn_charcoal` at 5 kg of wood a kilogram (20 % yield), 0.06 h a
+        kilogram and 2 h a session (60 h a tonne and the mound), for ten days. NUDGE: the ten
+        days are a small mound's carbonising and cooling (an earth mound's whole cycle 24 days,
+        07-05 §2.1); revisit if the iron chain (third part) finds charcoal the bottleneck. Nothing
+        yet wants charcoal, so no world makes it until iron does. Firms do not batch (their
+        stations are slice DQ). Saves of schema 169 load again (no decoder had named them since
+        170). **Discovery draws keyed by content id:** a find's draw was keyed by the technique's
+        index in the catalogue, so a technique added before others in id order moved their
+        draws (the bench worlds found `jointed_frame` on other days); it is now keyed by a hash
+        of the technique's content id (`found::content_key`), so content added beside it moves
+        no draw. A one-time change of every world's finds against the slice before. **Proved:**
+        the three bench worlds of DO with and without the four charcoal files give the same
+        chronicle (`history` digest), counts and knowledge records; the sections that hold
+        stores or catalogue indices differ by the new columns and shifted positions only.
+        **Tested:** a burn takes five kilograms of wood a kilogram when stacked, gives
+        nothing while it burns, blocks a second mound, saves and loads to the byte, and gives its
+        charcoal exactly when opened after its days.
+      - *As built, third part (2026-10-22): iron, smithing and iron tools; DP closed.* Content
+        only, with one change in founding. **Smithing** (`skill/smithing`) is a skill founders
+        do not bring; copper's smelting and casting move to it from pottery (ADR-0033 §3), so a
+        household new to smithing now makes a stone axe rather than a poor, slow copper one, and
+        one practised in it casts copper (`tests/metal.rs` shows both). A skill whose founders'
+        range is nothing takes no draw (`found::founder_skills`), so adding one moves no other
+        founder's levels. **Iron ore** is bog ore, a gathered resource of wet margins (30 kg a
+        hectare) and damp floodplain (3), cut at 6 kg an hour (`activity/gather_bog_ore`), not a
+        placed deposit: a new deposit body takes a permanent id after the founders' and would move
+        every later id in every world. Upland iron bodies wait until deposit ids are drawn apart
+        from the people's. **The bloomery** (`technique/bloomery`, routes firing or copper
+        smelting, tried in burning charcoal and smelting copper with ore and charcoal at home,
+        E50 100,000 h) smelts a batch of one elapsed day: 8 kg of ore and 12 of charcoal a
+        kilogram of bloom, 3 h a kilogram, up to 8 kg a charge (07-05 §2.2). **Forging**
+        (`technique/forging`, found in smelting iron, E50 20,000 h) hammers 1.25 kg of bloom and
+        8 kg of charcoal into a kilogram of bar in 6 h, so bar takes 9.75 h and 23 kg of charcoal
+        a kilogram, 115 t of wood a tonne (07-05 §2.3: 6-20 h and 5-30 kg; the brief's 25-150 t),
+        and forges axes, sickles and hoes (2-5 h, 1.5-4 kg of charcoal) that serve for the stone
+        and wooden ones at five to six times their life (tuning values; the research gives no
+        tool lifetimes). Nails and steel (`carburizing`) wait for a use. **Proved:** the three
+        bench worlds with and without the iron files give the same chronicle, counts and
+        summaries; the code change alone leaves every section but `meta` as it was. **Tested:**
+        the chain's envelopes, iron tools serving and outlasting, metal under smithing that no
+        founder holds, a smelt that cools overnight, bar and an axe made with every kilogram
+        accounted, and no iron held in sixty days where nobody knows the bloomery.
+    - **DQ**: the firm's own stations and stages (ADR-0006 §5 as decided), several lines with goods
+      in progress, a mill's toll on an appended channel.
+      - *As built, first part (2026-10-22): a firm's own stations.* A workshop may hold fixed
+        tools (a kiln, an oven, later a mill or an engine) in its own stores as stations. Its
+        owners put one in by the `owner` channel (`Population::put_in_station`, on its books as
+        put in); a fixed tool only, since a workshop's stock of tools that are not fixed is for
+        sale. A recipe worked for it uses its stations for the tools they serve, whole only
+        (`make::in_use`), worn on its own stores and books (a `Used` entry valued at what the
+        station is worth to its owners), and its owners' tools for the rest; the owners' making
+        for sale and the work a workshop hires for both count its stations at the tool gate.
+        Closing draws its stations back to its owners with the rest of its stores, as before;
+        its saves need nothing new (a firm's stores are saved by good). Nothing yet puts a
+        station in (the works of slice DT will), so every bench world is unchanged in every
+        section but `meta`. **Tested:** a kiln put in, worn by firing bricks for the workshop on
+        its books with the owners' stores untouched, every good accounted for, saved and loaded
+        to the station, and drawn back on closing; an axe is refused as a station.
+      - *As built, second part (2026-10-22): several lines, goods in progress and a works'
+        batches.* A firm's lines may be several (`Firm::add_line`). Work on one line takes from
+        the firm's own stock first what another of its lines made (`Firm::in_progress`: bloom
+        for bar), and from its owners the rest (on its books as used, put in only for their
+        part); its owners, deciding to make for sale, count that stock as inputs; and it hires
+        for the line with the most work wanted (`plan_wage` over its lines, the first on a tie).
+        A recipe of elapsed days worked for it runs as a batch of its own (`Firm::batches`, saves
+        schema 172, `FirmState.batches` by recipe id; DP part 2 had left firms giving a batch's
+        outputs at once), opened into its stores by a later session, and a household's choice of
+        the work waits while its workshop's batch of it burns. A firm of one line takes nothing
+        from its own stock and plans as before, and nothing yet gives a firm a second line (the
+        works of slice DT will), so the three bench worlds are unchanged in every section but
+        `meta`. **Tested:** a works with bloom and bar for lines smelts a batch from its owners'
+        ore and charcoal, keeps the batch through a save and load to the byte, opens the bloom
+        into its own stores the next day, and forges bar from its own blooms with only its
+        owners' charcoal put in.
+      - *Closed (2026-10-22):* the mill's toll moves to DR (its fourth part): a toll is what a
+        mill that grinds without the miller's hands takes for the grinding, and before DR no
+        station grinds without hands, so the channel would have nothing to carry.
+    - **DR**: water power at a site (installations, daily kilowatts from discharge, `kwh_per_unit`,
+      the water mill) and techniques that answer needs in hours.
+      - *As built, first part (2026-10-22): installations and their power.* An installation
+        (`civ_land::power::Installation`, `Land::installations`) is a record of where its wheel
+        stands, the reach its intake takes from, its fall at the wheel, what its headrace carries
+        running full, the wheel's efficiency and rated kilowatts, its owner and the building it
+        drives; it is saved in the earth section (schema 173, absent while there are none, so a
+        world without one saves the same bytes). Its power is worked out from the day's
+        discharge and never saved (`Land::installation_kw`): Q is the least of its headrace and
+        a ditch's share of the reach (ADR-0022 §11's `max_share`), P = 9.81 Q H η, no more than
+        its rating; the water goes back at the tail, so a wheel takes nothing from the reaches
+        below. Content API 160: a fixed tool's `[power]` table (`source` water or fuel,
+        `rated_kw`, `efficiency`) and a recipe's `kwh_per_unit`. Nothing builds one yet (part 3)
+        and nothing reads a recipe's power (part 2), so every bench world is unchanged but for
+        `meta` and the pack's `content`. **Tested:** the brief's 4.9 kW from 0.5 m³/s through
+        2 m at 50 %, a low river's share and a dry one's nothing, a flood capped by the headrace
+        and the rating, broken records refused; the content's ranges and the fixed-tool rule;
+        and an installation in a lived village taking its power from the day's river, saved and
+        loaded to the byte.
+      - *As built, second part (2026-10-22): powered making and the water mill.* A recipe with
+        `kwh_per_unit` makes the least of what its hands and inputs allow and what the
+        installations its holder owns deliver over the session (`power_kw_of`: a workshop's for
+        work done for it, a household's for its own), so a low river grinds less and a dry one
+        idles the mill. Content: `technique/water_wheel` (the water mill: rotary milling and
+        jointed framing, found in grinding at a rotary quern, E50 200,000 h), `good/water_wheel`
+        (a fixed tool, `[power]` water, 3 kW at 30 %, research 07-06 §2.2), `recipe/build_water_
+        wheel` (300 h, 600 kg of timber, 800 kg of stone) and `recipe/grind_grain_water` (0.02 h
+        and 0.06 kWh a kilogram of grain: 50 kg an hour at full water, 08-03 §2.2's 20-100), each
+        with its activity. A wheel built without an installation turns nothing; where one is set
+        and who weighs it is the third part. **Proved:** the three bench worlds give the same
+        chronicle and summaries as the first part (the sections holding goods by index differ by
+        the new rows). **Tested:** a mill's flour over ten hours is its wheel's kilowatts over
+        0.06 kWh a kilogram at a full river and at a low one's share, nothing on a dry one, its
+        wheel worn on its own books.
+      - *As built, third part (2026-10-22): a mill set by choice.* On its day of the year a
+        household one of whose people knows a way of making by falling water counts what it has
+        made of that way's goods (`Household.mill_seen`, saves 174) and reads a year's making
+        from its last count. Each kilogram saves what the good costs it now (by its other ways:
+        a household without a dug installation of its own no longer prices a powered way into
+        its own costs, so knowing the mill does not make flour cheap) less the wheel's way's
+        hours and inputs; ADR-0033 §6's answer is read from the recipes, not authored. It seeks a
+        site within a ditch's longest of home: an intake on a reach, the wheel on the bank beside
+        a river cell further down, joined by a headrace at a ditch's least fall that leaves the
+        wheel at least 0.5 m (a prior), crosses no field, plot or well, and stands 50 m (a prior)
+        from any other wheel; power at the reach's mean flow, eight grinding hours a day (a
+        prior). It sets the site whose gain over a ditch's 20 years most exceeds digging the race
+        and the wheel's own cost: the race is a ditch whose field is its own work (it never
+        irrigates), dug by the ditch work from the wheel's end, and the installation shares its
+        id and turns nothing until it is dug; only then is a water wheel wanted, one to an
+        installation (`water_wheel` now `per_worker` 0.1, as an oven). One mill to a household,
+        none while it digs. *Limitations:* the mill is minded from home; every household that
+        grinds weighs its own mill, so a village that knows the mill sets several until the toll
+        (part 4) lets a household grind at a neighbour's. *Measured:* on seed 3's village with
+        every household knowing the mill and grinding 600 kg a year, all six set one, at falls of
+        0.5-1.0 m over races of 8-24 m (one to three cells: the valley's steep cells, a wheel at a
+        rapid). **Proved:** the three bench worlds' digests match the second part's
+        in every section but meta (schema 174) and content (the wheel's `per_worker`). **Tested:** a household that knows no water way neither counts
+        nor weighs; one that does sets a mill whose race, earthwork and fall are as described,
+        turning nothing until dug, one to a household; the race is dug by the ditch work and the
+        chronicle names a headrace; dug, grinding by the wheel is its cheapest flour; counts and
+        mills save and load to the byte.
+    - **DS**: coal and coke, pits that flood below the ground-water head, bailing and pumping, the
+      atmospheric engine at the pit head.
+    - **DT**: the works: machines with crews, shifts by daylight, the household-resolved block.
+  - **M10b, rail and gas light** (ADR-0034).
+    - **DU**: light before gas: lamps burning fuel for hours of light, places dark or lit, dark
+      sight (equal to day sight until a world has lamps), what light changes in the evening.
+    - **DV**: wagonways pushed by people: the `RAIL` mode, track by cells with a turn rule and a
+      ruling grade, wagons.
+    - **DW**: engines on rails and train runs: block sections, single track and loops.
+    - **DX**: stations, timetables set at review, fares and freight as posted terms, consignments
+      of many owners, rides as household-day blocks, who builds and owns a line.
+    - **DY**: the gas chain: gasworks, holders, mains, connections by district capacity,
+      interruptions by cause, street lighting as a public work.
+  - **M10c, services and letters** (ADR-0035 §1–§7).
+    - **DZ**: care beyond the household: a call, tending another home, kin unasked, the `Fee`
+      channel, reputation from claims.
+    - **EA**: birth care: the maternal draw split by complication and rescaled by births attended,
+      birth attending and clean hands.
+    - **EB**: teaching and study settled at midnight, working alongside recorded the same way (the
+      parked-learning claim checked first), schools and `keep_a_school`.
+    - **EC**: letters and records: reading, writing and reckoning as techniques, written records as
+      saved entities, office requirements, licences as privileges.
+    - **ED**: inoculation: the `Company` route, smallpox by the observer's hand, variolation and
+      vaccination with protection records.
+    - **EE**: the health office and the sickhouse: register and rounds, `keep_apart`,
+      `clear_middens`, the sickhouse's pool and capacity; the observer's service views.
+  - **M10d, money and the demo** (ADR-0035 §8–§12).
+    - **EF**: acceptance of a money for onward exchange and dues, a money's value in a midnight
+      table instead of a scan per decision.
+    - **EG**: the deposit-demand probe re-run in towns; if demand, custody, keepers' fees and
+      receipts.
+    - **EH**: notes that pass: issues and purses, redemption and its queue, valuation by belief.
+    - **EI**: keepers issuing beyond backing, presentations and runs, suspension.
+    - **EJ**: a polity's notes: issue within a ceiling, dues in notes, legal tender, suspended
+      redemption and the derived fiat label.
+    - **EK**: counterfeiting.
+    - **EL**: the M10 demo, time-boxed, nudges logged.
 
 **Post-v1 (ordered, not sized):**
-- **M9, Aggregate LOD & scale:** cohort model, 10–30 settlements, 100k+
-  agents; **decide time skips**; climate change god tool.
-- **M10, Industrial content:** steam, factories, rail, gas light; capability
-  rungs for industrial services; healthcare and education as full services;
-  fiat money.
+- **M9, Aggregate LOD & scale:** planned above (ADR-0032).
+- **M10, Industrial content:** planned above (ADR-0033, ADR-0034, ADR-0035).
 - **M11, Modern content:** electricity and a power grid, motor vehicles,
   transit, telecom, modern architecture primitives, waste.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
@@ -5228,7 +6084,7 @@ and M6a gives rivers a daily flow.
 
 ### Open questions
 
-1. **Time skips:** keep or drop? Decide in M9, once the aggregate model exists.
+1. **Time skips:** kept, as fast runs of the household day (decided in M9, ADR-0032 §7).
 2. **LLM backend:** local vs API, which model, and cost limits. Deferred to M12.
 3. **"Art style" beyond architecture:** flags, emblems, clothing, painted and
    sculpted art objects. These are probably generated from the culture palette
@@ -5282,11 +6138,11 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Technology:** full progression from an authored technology graph with no era gates; discovery and diffusion driven by each society's institutions.
 - **Default start:** early agrarian; start point configurable as a known-technology set.
 - **Time:** endless simulation, detailed over decades, with speed controls.
-- **Time skips:** undecided; deferred to M9.
+- **Time skips:** kept, as fast runs of the same machinery (M9, ADR-0032 §7).
 - **Scale:** largest city 10–50k at first, growing with optimization. Settlements: start with 2–3 and grow later.
 - **Cognition:** two tiers, every citizen on utility AI plus about 1% (≤ 500) notables with a deliberation layer.
 - **LLMs:** a pluggable `Deliberator`, off by default.
-- **Spatial LOD:** full simulation everywhere now; aggregate cohort model later (M9), shared with time skips.
+- **Spatial LOD:** full simulation everywhere through v1; from M9 a resolution per settlement that keeps every person (ADR-0032), shared with time skips.
 - **1x speed:** daily life visible (1 in-game day per about 15 min); Accelerated mode resolves days statistically.
 - **Buildings:** all procedural (a Rust grammar plus a Nanite kit assembled at runtime), including monuments; no hand-authored landmarks.
 - **Interiors:** fake (interior mapping plus occupancy lights); building data in the UI; no enterable interiors.
@@ -6436,9 +7292,176 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Design priors for masonry under shaking (2026-10-20, M8d slice DA, ADR-0031 §3):** NUDGE:
   a mass wall's bed joints resist sliding with friction 0.55 and cohesion 0.08 MPa
   (`MASONRY_FRICTION`, `MASONRY_COHESION_PA`; research 11-05 §2.5 reports one air-lime rubble
-  calibration of μ = 0.558 and c = 0.0815 MPa), the same for rubble, mud brick and fired brick,
-  and a cracked wall keeps its friction but loses its cohesion. Design priors, to be revisited
-  if the four-way sweep orders construction against what the reports say.
+  calibration of μ = 0.558 and c = 0.0815 MPa), and a cracked wall keeps its friction but loses
+  its cohesion. Revised in slice DA's fourth part: the research asks joints to be calibrated by
+  kind, so cohesion is a share of the masonry's strength in compression from content
+  (`MASONRY_COHESION_SHARE` 0.054, which gives the calibration's 0.08 MPa for the core's 1.5 MPa
+  rubble, 0.054 MPa for mud brick and 0.16 MPa for fired brick in lime), and the same cohesion
+  stands for the joints' bond in bending, which holds a sound wall out of its plane beyond rocking
+  (`c·t²·L / 3Nh`; EN 1996's flexural strengths are of the same order). Design priors, to be
+  revisited if the four-way sweep or the demo orders construction against what the reports say.
+- **What the four-way sweep found (2026-10-20, M8d slice DA's fourth part, ADR-0031 §3):**
+  NUDGE: two storeys of 30 cm walls meet, before one gives way, about 0.15 (mud brick), 0.15
+  (rubble) and 0.19 (fired brick) of their weight sideways tied at each floor, and half of that
+  untied, which sits in the range at which unreinforced masonry is damaged; but a frame of twelve
+  20 cm oak posts a storey meets about 10 of its weight, so a timber frame never falls by
+  shaking. Posts are checked only as cantilevers in bending; the frame's joints, which ADR-0031
+  §3 names and research 11-05 says fail first, are not yet checked. Recorded, not tuned: the
+  joints wait for the storeyed frame's check, and the demo should not read frames' survival as a
+  finding.
+- **Design priors for the rules after a shaking (2026-10-20, M8d slice DB, ADR-0031 §5):**
+  NUDGE: the core's height rule names rubble and mud brick, a storey, and leaves fired brick in lime
+  out, an authoring judgement from the sweep's order (fired brick holds most). The floor a height
+  rule takes is valued at the work its newest home took times the share of its storeys above the
+  limit: the work of making that floor again elsewhere, ignoring the ground it would take (ADR-0030
+  §1's plot costs are not reckoned here). A builder keeping it builds the same bays a storey lower
+  rather than wider, so a kept rule costs floor, not ground. Each revisited if the demo (DE) shows
+  no household weighing height at all. And a household sizes a frame's members by the most caution
+  any wall or system technique its people know calls for, not only the one the design ends up
+  using (the wall kind is chosen inside the design), so a rubble failure also stiffens a wattle
+  frame's posts a little; accepted while one caution scalar sizes every member.
+- **Design priors for a storehouse raised together (2026-10-20, M8d slice DC's second part,
+  ADR-0031 §6):** NUDGE: a household believes a storehouse would avert the rules' avoided share
+  of the common store's measured spoiling a year (the mean of the years kept), split equally among
+  the households, as for a rule's avoided losses; and it weighs the work over the rules' horizon
+  of years, not the granary's own life. The work is the program's first shape's hours with its
+  materials carried, at a middling skill when done. A building a polity raises is held in the
+  polity's own id, owner of its plot and building, rather than a keeper household's: every
+  household lookup then passes it by (upkeep, storage, inheritance, wealth, home work), which is
+  what ADR-0031 §6 asks ("its upkeep falls to nobody unless a law asks it"); taste and the "seen
+  elsewhere" review pass it by too until style reaches it (DD). Each revisited if the demo (DE)
+  shows no storehouse proposed where stores spoil.
+- **Design priors for a hall against the rain (2026-10-20, M8d slice DC's third part, ADR-0031
+  §6):** NUDGE: rain takes `wet_attend` = 1 point from coming to a gathering in the open, the
+  custom's whole own pull (`attend_base` = 1), so on a wet day only those with something at stake
+  come; nothing measures how much rain thins an outdoor assembly, so it is a prior to revisit if
+  the demo (DE) shows no gathering ever rained off, or every wet one. The loss a hall answers is
+  only the hours given to a gathering that failed for want of a quorum, valued at the polity's
+  mean hour; delay to what it would have decided is not weighed. The hall's size (four 3 m bays,
+  6 m wide) is a design prior. Its gathering still meets at the hearth, the hall standing within
+  80 m of it: the walk there is not changed.
+- **Design priors for a watch tower (2026-10-20, M8d slice DC's third part, ADR-0031 §6):**
+  NUDGE: a fire is seen late when nobody knew of it within 10 minutes of its covering catching
+  (an escape grows into a roof in 2-15 minutes and a roof burns through in about an hour); a
+  fire caught from a neighbour is left out, its conflagration's first fire carrying the loss. The
+  loss is the whole work of putting its building right, not the part a sooner sighting would have
+  saved. From the tower one sees 500 m against 150 m on the ground, standing within 4 m of its
+  centre; a watch round begins there. These are kernel constants (`LATE_NOTICE_MIN`,
+  `TOWER_SIGHT_M`, `AT_TOWER_M`), revisited if the demo (DE) shows no tower ever proposed where
+  fires burn unseen, or one that never helps.
+- **Who is noted at a crowded source (2026-10-21, M9b slice DJ):** design prior: a household
+  notes at most 150 other households drawing at a source in a day (`uses::NOTED_AT_SOURCE`), the
+  nearest to it in household order, which for founders follows where they live about the hearth.
+  Research 04-04's outermost personal-network layer (about 150, a pattern and not a limit) gives
+  the scale of those one tells apart among many at the water; the suspicion of a source
+  (ADR-0021) reads only those seen there for some days. Before it, a settlement of 2,000
+  households at one river held four million such pairs and folded them every midnight. Where no
+  more than 151 households draw at a source in a day nothing changes: the suite passes as before
+  and the bench's 2×200 digests are unchanged; a settlement as large as M8's 10,000 lives
+  differently.
+- **Gate C's first evaluation and the household day's priors (2026-10-21, M9a slice DI,
+  ADR-0032 §5):** NUDGE: a household-resolved day's people turn in two hours after sunset (the
+  middle of the four-hour evening a decision reads; with the evening's end the night was 7.8 h
+  against Detailed's 8.8 h) and are weighed at sunrise, midday and an hour after sunset. Seven
+  evaluations of Gate C (each about five minutes) took the household day from leisure +75 %, sleep
+  −100 % and food +17–30 % to every aggregate within a few points of its tolerance; the rest is
+  time-boxed here and recorded above (plan §7, DI). Tolerances were not touched.
+- **Design priors for the household day (2026-10-20, M9a slice DG, ADR-0032 §2):** NUDGE: the
+  day is scored once at sunrise; waking minutes are the day less the middle of the content's
+  sleep range and three meals; a walk's length in the day's sharing is reckoned straight off trail
+  (its time when walked is the route's); asking and buying are taken at most once a day, and a
+  claim on new ground, a home or a workshop once; at most 8 trips for water a household-day;
+  company is one draw a member-day against the pool of the settlement's residents who kept it
+  that day. Each is revisited by Gate C (slice DI).
+- **M10 design (2026-10-22, plan §7):** from four briefs (`docs/briefs/m10-power.md`,
+  `m10-rail-gas.md`, `m10-services.md`, `m10-money.md`), which read 07-06, 07-12, 07-05, 08-08,
+  08-10, 08-03, 07-08, 12-09, 12-05, 12-06, 12-03, 12-04, 05-05, 06-08, 07-11, 05-04, 08-06, 08-07,
+  08-13 and 08-20 against the code; three ADRs,
+  [ADR-0033](decisions/0033-power-fuel-and-the-works.md),
+  [ADR-0034](decisions/0034-rail-and-gas-light.md) and
+  [ADR-0035](decisions/0035-services-letters-and-notes.md). **What the briefs found in the code:**
+  hearths burn any fuel good by the kilogram in catalogue order, and there is no charcoal, coal or
+  iron; firms use their owners' tools though ADR-0006 §5 decided otherwise; pits never reach ground
+  water; landmarks are built over all walked ground though ADR-0028 §4 decided per region (the
+  30 % of ADR-0032's DN amendment); ways keep wear whatever their modes; sight is the same by night;
+  nothing holds literacy, records, healers or schools; tending reaches only the carer's own
+  household; childbirth is one flat draw; custody and runs were deferred in M7d (CC2) for want of
+  deposits; no lived world has struck coin; a money nobody uses is never accepted; valuing a money
+  scans every market's trades per decision. **The briefs' open questions, answered:** no textiles
+  or draught animals in M10 (wagonways are pushed by people); hearths may burn coal; charcoal draws
+  a patch's increment, then its stock; works are owned by household firms, organizations by stake
+  or polities, with no new partnership; far techniques are found by discovery or introduced by the
+  observer, never imported; a works and a line do not hold a settlement Detailed, and a ride is a
+  block; track is cells with a turn rule, on open ground; dark sight equals day sight until a world
+  has lamps, and a lamp comes before gas; fares are posted terms; light changes the evening, not
+  bedtime; services are paid on a new `Fee` channel; letters are techniques in one script a world;
+  records are saved entities; kin tend unasked, others on a call; smallpox only by the observer's
+  hand; one health officer; acceptance is learnt for coin and notes only; notes need writing and,
+  if no deposits are wanted, begin with a polity's issue; legal tender is a law; fiat is a derived
+  label. **Order:** the routing groundwork first (it speeds every many-settlement world), then
+  power, rail and light, services and letters, money last (it needs letters), and the demo.
+- **M9 design (2026-10-20, plan §7):** from the brief (`docs/briefs/m9-lod.md`), which reads
+  01-04, 01-03 and 03-03, one ADR, [ADR-0032](decisions/0032-resolution-per-settlement.md).
+  **Plan §4.5 amended:** the aggregate model keeps every person, household, tie, debt, office and
+  asset as one record at every resolution and changes only how a settlement's day is computed;
+  cohorts with people synthesised on focus would delete what no lifting recovers (01-04 §1.1),
+  and are a later lever, built only if the household day misses M9's figure. **Why a household
+  day:** M8 ended at about 5 ms a person-day against 1.6 µs for a year a minute at 100k; half a
+  day is deciding (14.5 decisions a person-day), so a lighter person who still decides each
+  activity saves 1.3–1.5× at most. A household-resolved settlement scores each household once at
+  midnight with the live `decide::candidates`, shares its members' waking hours by the softmax's
+  probabilities, and applies each block through the behaviour's own effect function in household
+  id order, planning in parallel. **The brief's open questions, answered:** (1) blocks that leave
+  home lay wear along cached routes; (2) `Visit`, `Fetch` beyond the settlement, `Carry`, `Band`
+  and the fire behaviours are not taken while household-resolved, and a settlement holds Detailed
+  while a fire burns, a band is out, a siege line stands or a gathering is called; (3) focus
+  decides, with 30 days' hysteresis, and the observer may pin; worlds of three settlements or
+  fewer stay wholly Detailed; (4) Gate C compares a year on Gate B's fixtures, with a ten-year
+  horizon on the smoke seeds reported ungraded until its tolerances are set; (5) "skip to" is a
+  host command over the same machinery (plan §8's first question: kept); (6) the climate forcing
+  acts on the whole map, which has one weather series; (7) cohorts only if the gate misses;
+  (8) M9's gate is 100,000 people in ten or more settlements, all but one household-resolved, at
+  ≥ 0.1 simulated years a real minute on the container (1.64 s a day), memory recorded against
+  plan §4.6, amended to the figure reached if it misses (ADR-0028 §1's rule). **Settlements side
+  by side** (ADR-0028 §3's deferral) are not built: parallel planning of household days uses the
+  cores without splitting every table by settlement. **Order:** the switch that changes nothing
+  first (01-04 §4.10), then the core behaviours, the rest, Gate C, many settlements, the observer,
+  skips, climate and the demo.
+- **The M8 demo and the gate (2026-10-20, M8d slice DE, ADR-0031 §8, ADR-0028 §1):** two
+  groups of 500 lived three years (`demos/m8/m8-demo.txt`). No household built a frame though 24
+  knew framing: a first home is the cheapest covering shape (a hut), and a new home is begun only
+  when spare goods times the kernel's `HOUSE_INVESTMENT_SHARE` pay for all of it, which no
+  household reached in three years; the polities raised the only frames (two granaries, a hall
+  and part of another). Not nudged: the share is a kernel constant, not a content prior, so moving
+  it would be a model change made for a demo. Open for M9: whether a household should build in
+  steps (a frame begun and finished as means allow, as homes were in M1), or weigh a frame's
+  room against a hut's per hour of upkeep, so wealth reaches building over a lifetime rather than
+  in one purchase. A shaking at 0.4 of each building's weight felled no hut or one-storey frame,
+  so rules after a shaking were not exercised by the demo (slice DB's tests exercise them). The
+  plan of streets was rejected at both settlements' first gatherings and passed at the port
+  after three years. The gate: 10,000 at 0.0031 simulated years a real minute on the container
+  (53.5 s a day; M8c measured 40 s a day over the same span's first 30 days with fewer
+  buildings), the demo's 1,000 at 0.049; the gate is amended to these figures (ADR-0028 §1) and
+  the target PC remains unmeasured. M8 is closed with v1's milestones; M9 (aggregate LOD) is the
+  scale answer.
+- **Design priors for a front (2026-10-20, M8d slice DD, ADR-0031 §7):** NUDGE: ornament runs
+  to two hours of craft a square metre of front, a coat of daub takes 0.25 h and lime wash 0.15 h
+  a square metre of wall, setting a front out about its middle two hours a bay; the front's
+  tradition is a tenth of the walls open, 0.1 h of ornament, about half daubed and few
+  symmetrical, with spreads of 5 %, 0.2 h, 0.5 and 0.4 between bands. "Could build" is knowing the
+  program's technique, and lime burning for a lime wash. A building is seen `sight_m` times its
+  eaves over the highest within 30 m (never under 2 m), one to four times. Each revisited if the
+  demo (DE) shows fronts converging or drifting nowhere, or towers moving no taste.
+- **Design priors for what a building raised together shows (2026-10-20, M8d slice DC's fourth
+  part, ADR-0031 §6):** NUDGE: a raising stalls after 120 days with no work (a season's work
+  missed); its users are every adult of its polity; each sees at most the eight households that
+  gave most (a bound on the evidence written, not a model of attention), a full share being the
+  work over its households' number; the four acts weigh half a gift (provision), as work seen
+  (craft) and one unit of counsel either way. Each revisited if the demo (DE) shows no sponsor's
+  standing moving by the buildings they put forward.
+- **A test helper leaves state a load derives otherwise (2026-10-20, M8d slice DA):**
+  `Sim::place_building_for_tests` leaves state a load derives otherwise: a save taken right after
+  it does not resume exactly (the shaking test reloads once after placing). To be fixed.
 - **Why no frame is built, probed (2026-10-19, M8d slice CY's first step, ADR-0031 §6):** read
   from the code, so it holds for every world. **Nobody can come to know framing:** founders bring
   the roundhouse, wood shaping, rubble walling and mud brick, but not `jointed_frame`, and its

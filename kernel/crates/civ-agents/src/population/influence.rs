@@ -312,6 +312,84 @@ impl Population {
         })
     }
 
+    /// The observer forces the background climate (M9c slice DM, ADR-0032 §9): every temperature
+    /// normal `offset_c` °C warmer (or cooler) and every wet day's amount times `wet_factor`, each
+    /// reached linearly over `ramp_years` whole years from tomorrow and held after. Snow, water,
+    /// dryness, soils and harvests follow through the weather; forcings compose by sum and
+    /// product. A forcing is the world's: saved, and never undone but by another.
+    pub fn force_climate(
+        &mut self,
+        ctx: &mut Ctx,
+        offset_c: f64,
+        wet_factor: f64,
+        ramp_years: u32,
+    ) -> Result<Reached, String> {
+        if !(offset_c.is_finite() && (-10.0..=10.0).contains(&offset_c)) {
+            return Err(format!(
+                "the climate may be moved from 10 °C cooler to 10 °C warmer, not {offset_c}"
+            ));
+        }
+        if !(wet_factor.is_finite() && (0.25..=4.0).contains(&wet_factor)) {
+            return Err(format!(
+                "wet days' rain may be scaled by a quarter to four times, not {wet_factor}"
+            ));
+        }
+        if ramp_years > 100 {
+            return Err(format!(
+                "a change of climate comes in over at most 100 years, not {ramp_years}"
+            ));
+        }
+        let settlement =
+            ctx.land.settlements.first().map(|s| s.id).ok_or_else(|| {
+                "there is no settlement here to live under the climate".to_owned()
+            })?;
+        let (now, day) = (ctx.now, ctx.now.day_index());
+        let from_day = day + 1;
+        let ramp_days = i64::from(ramp_years) * DAYS_PER_YEAR;
+        ctx.land.weather.force(civ_land::Forcing {
+            from_day,
+            ramp_days,
+            offset_c,
+            wet_factor,
+        });
+        let index = ctx.land.weather.forcings.len().saturating_sub(1) as u32;
+        let id = self
+            .influences
+            .add(now, InfluenceKind::Climate, settlement, index);
+        if let Some(i) = self.influences.list.iter_mut().find(|i| i.id == id) {
+            i.until = from_day + ramp_days;
+        }
+        let warmer = if offset_c >= 0.0 { "warmer" } else { "cooler" };
+        let rain = (wet_factor - 1.0) * 100.0;
+        let wetter = if rain >= 0.0 { "more" } else { "less" };
+        let over = match ramp_years {
+            0 => "from tomorrow".to_owned(),
+            1 => "over a year".to_owned(),
+            n => format!("over {n} years"),
+        };
+        let words = format!(
+            ": the climate grows {:.1} °C {warmer} and wet days bring {:.0}% {wetter} rain, {over}.",
+            offset_c.abs(),
+            rain.abs()
+        );
+        self.chronicle_push(
+            now,
+            ChronicleKind::Influence,
+            Vec::new(),
+            Some(settlement),
+            None,
+            f64::from(InfluenceKind::Climate.code()),
+            words,
+        );
+        Ok(Reached {
+            id,
+            repeat: false,
+            holds: true,
+            fit: 0.0,
+            chance: 0.0,
+        })
+    }
+
     /// The observer blesses `person`, or with `curse` curses them, for `days` days by `share`
     /// (M4c slice AJ, ADR-0016 §5): their own draws for illness or accident and for finding
     /// things out are moved their way, or against them, as [`Luck`] says. Never a decision's

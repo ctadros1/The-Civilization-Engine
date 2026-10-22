@@ -471,16 +471,20 @@ fn mass_wall_by_storey(
 /// rubble calibration fitted μ = 0.558; a design prior).
 pub const MASONRY_FRICTION: f64 = 0.55;
 
-/// A sound mass wall's cohesion across its bed joints, pascals (research 11-05 §2.5: the same
-/// calibration fitted c = 0.0815 MPa; a design prior). A cracked wall has none.
-pub const MASONRY_COHESION_PA: f64 = 0.08e6;
+/// A sound mass wall's cohesion across its bed joints, and the bond that holds it in bending, as
+/// a share of its masonry's strength in compression (research 11-05 §2.5: the same calibration
+/// fitted c = 0.0815 MPa for air-lime rubble, about 0.054 of the core's 1.5 MPa; the research
+/// asks for joints calibrated by kind, which the content's strengths give; a design prior). A
+/// cracked wall has none.
+pub const MASONRY_COHESION_SHARE: f64 = 0.054;
 
 /// How near group `g` of building `e`, in condition `c`, is to giving way when the ground shakes
 /// it sideways with a share `cs` of its weight (ADR-0031 §3; research 11-05 §5.4: `V = C_s·W`),
 /// used only during an event, never daily. A mass wall overturns out of its plane once `cs`
-/// passes its thickness over the height it stands unrestrained (11-05 §5.3), and slides in its
-/// plane once its shear passes `μN + cA` (11-05 §2.5; no cohesion once `cracked`); a post bends
-/// as a cantilever against its share of the shear. Other groups carry nothing this way.
+/// passes its thickness over the height it stands unrestrained (11-05 §5.3) and what its joints'
+/// bond adds while sound (`c·t²·L / 3Nh`), and slides in its plane once its shear passes
+/// `μN + cA` (11-05 §2.5); `c` is its masonry's cohesion, none once `cracked`. A post bends as a
+/// cantilever against its share of the shear. Other groups carry nothing this way.
 pub fn lateral_margin(
     g: &Group,
     c: &GroupCondition,
@@ -534,7 +538,6 @@ pub fn lateral_margin(
                     sag: 0.0,
                 };
             }
-            let out_of_plane = (thick / h) / cs;
             // What bears on it: its share of the building's weight by the area it carries, and
             // the walls above it on its line and itself.
             let first: f64 = walls
@@ -554,8 +557,19 @@ pub fn lateral_margin(
                 .map(|p| wall_n(p))
                 .sum();
             let n = weight * share + above + wall_n(g);
-            let cohesion = if cracked { 0.0 } else { MASONRY_COHESION_PA };
-            let resist = MASONRY_FRICTION * n + cohesion * long * thick * q;
+            let cohesion = if cracked {
+                0.0
+            } else {
+                MASONRY_COHESION_SHARE * t.compression_pa * q
+            };
+            // Rocking about its foot (`t/h`), and the bond of its joints in bending while sound.
+            let bond = if n > 0.0 {
+                cohesion * thick * thick * long / (3.0 * n * h)
+            } else {
+                0.0
+            };
+            let out_of_plane = (thick / h + bond) / cs;
+            let resist = MASONRY_FRICTION * n + cohesion * long * thick;
             let in_plane = if n > 0.0 {
                 resist / (cs * n)
             } else {
@@ -1074,8 +1088,10 @@ mod tests {
         let m = |cs: f64, cracked: bool| {
             lateral_margin(&g, &sound(1.0), &tied, &loads, &rubble(), cs, cracked).strength
         };
-        // Out of plane governs: sliding needs at least μ / C_s, nine times over.
-        assert!((m(0.06, false) - 2.0).abs() < 1e-9, "{}", m(0.06, false));
+        // Out of plane governs: sliding needs at least μ / C_s, nine times over. Cracked, the
+        // wall only rocks, t/h over C_s; sound, its joints' bond holds it a little longer.
+        assert!((m(0.06, true) - 2.0).abs() < 1e-9, "{}", m(0.06, true));
+        assert!(m(0.06, false) > m(0.06, true), "{}", m(0.06, false));
         assert!(m(0.2, false) < 1.0, "{}", m(0.2, false));
         // Untied, it stands 10 m: it overturns at a quarter of that.
         let loose = four_storeys_of_rubble(false);
@@ -1108,5 +1124,112 @@ mod tests {
             lateral_margin(&cover, &sound(1.0), &tied, &loads, &rubble(), 0.3, false),
             Margin::NONE
         );
+    }
+
+    /// Two storeys of 30 cm walls of masonry `t`, 2.5 m a storey, 10 m long on two lines, tied or
+    /// not, under a light roof.
+    fn two_storeys_of(tied: bool) -> Expansion {
+        let mut e = four_storeys_of_rubble(tied);
+        e.groups.push(thatch());
+        e.groups
+            .retain(|g| matches!(level_of(g), Some(Level::Ground | Level::Upper)));
+        for g in &mut e.groups {
+            if g.kind == GroupKind::MassWall {
+                g.area_m2 = if level_of(g) == Some(Level::Ground) {
+                    55.0
+                } else {
+                    30.0
+                };
+            }
+        }
+        e
+    }
+
+    /// A thatched roof over 55 m² of plan: what a light building carries.
+    fn thatch() -> Group {
+        Group {
+            id: group_id(Level::Roof, None, GroupKind::Covering, 0),
+            kind: GroupKind::Covering,
+            stage: Stage::Roof,
+            material: Some(2),
+            count: 1,
+            section_cm: [30, 30],
+            length_cm: 500,
+            spacing_cm: 0,
+            area_m2: 70.0,
+        }
+    }
+
+    /// The least share of their weight a building's walls or posts meet sideways before one
+    /// gives way, all sound.
+    fn capacity(e: &Expansion, t: &Timber) -> f64 {
+        let loads = Loads {
+            covering_pa: 30.0 * G,
+            ..Loads::default()
+        };
+        e.groups
+            .iter()
+            .filter(|g| matches!(g.kind, GroupKind::MassWall | GroupKind::Posts))
+            .map(|g| lateral_margin(g, &sound(1.0), e, &loads, t, 1.0, false).strength)
+            .fold(f64::INFINITY, f64::min)
+    }
+
+    #[test]
+    fn shaking_orders_frames_and_masonry_by_how_they_are_built() {
+        // The core's masonry: rubble, mud brick and fired brick in lime, by their strength.
+        let kind = |compression_pa: f64, density_kg_m3: f64| Timber {
+            compression_pa,
+            density_kg_m3,
+            ..rubble()
+        };
+        let mud = kind(1.0e6, 1600.0);
+        let stone = kind(1.5e6, 1900.0);
+        let brick = kind(3.0e6, 1800.0);
+        let walls = |tied: bool, t: &Timber| capacity(&two_storeys_of(tied), t);
+        // A wattle frame: twelve 20 cm oak posts a storey high on each of two storeys.
+        let frame = {
+            let posts = |level: Level, area_m2: f64| Group {
+                id: group_id(level, None, GroupKind::Posts, 0),
+                kind: GroupKind::Posts,
+                stage: Stage::Frame,
+                material: Some(0),
+                count: 12,
+                section_cm: [20, 20],
+                length_cm: 250,
+                spacing_cm: 250,
+                area_m2,
+            };
+            let mut e = expansion_with(vec![
+                posts(Level::Ground, 55.0),
+                posts(Level::Upper, 30.0),
+                thatch(),
+            ]);
+            e.version = 3;
+            capacity(&e, &oak())
+        };
+        eprintln!(
+            "frame {frame:.3}; tied: mud {:.3} rubble {:.3} brick {:.3}; untied: mud {:.3} rubble {:.3} brick {:.3}",
+            walls(true, &mud),
+            walls(true, &stone),
+            walls(true, &brick),
+            walls(false, &mud),
+            walls(false, &stone),
+            walls(false, &brick),
+        );
+        for t in [&mud, &stone, &brick] {
+            assert!(
+                walls(true, t) > walls(false, t),
+                "ties hold a wall at each floor"
+            );
+        }
+        for tied in [true, false] {
+            assert!(
+                walls(tied, &brick) > walls(tied, &stone),
+                "brick in lime binds best"
+            );
+            assert!(walls(tied, &stone) > walls(tied, &mud), "mud binds least");
+        }
+        // A light frame meets far less of its weight sideways than heavy masonry does.
+        assert!(frame.is_finite() && frame > walls(true, &brick), "{frame}");
     }
 }

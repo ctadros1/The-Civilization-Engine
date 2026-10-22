@@ -231,12 +231,22 @@ struct Task {
     cancel: Option<Arc<AtomicBool>>,
 }
 
-/// Running ahead to a time in full detail, as fast as the machine allows (M1 slice G).
+/// Running ahead to a time, as fast as the machine allows (M1 slice G), or skipping there
+/// (M9c slice DL, ADR-0032 §7).
 struct RunAhead {
     task: u64,
     from: SimTime,
     until: SimTime,
     cancel: Arc<AtomicBool>,
+    skip: Option<Skip>,
+}
+
+/// A skip under way: what it put aside, the chronicle's head when it began, and the kinds of entry
+/// that stop it.
+struct Skip {
+    restore: civ_sim::skip::SkipRestore,
+    from_seq: u64,
+    stop_on: u8,
 }
 
 enum Origin {
@@ -425,7 +435,11 @@ impl Engine {
             Request::CancelTask => self.cancel_task(),
             Request::RecoverWorld { accept } => self.recover(accept),
             Request::SpawnFamily { at, families } => self.spawn_families(at, families),
-            Request::RunUntil { minute } => self.start_run_ahead(minute),
+            Request::RunUntil {
+                minute,
+                skip,
+                stop_on,
+            } => self.start_run_ahead(minute, skip, stop_on),
             Request::IntroduceTechnique {
                 person,
                 technique,
@@ -454,6 +468,11 @@ impl Engine {
             } => self.bless(person, curse, days, share),
             Request::Plague { person, disease } => self.plague(person, disease),
             Request::Drought { months, depth } => self.drought(months, depth),
+            Request::ForceClimate {
+                offset_c,
+                wet_factor,
+                ramp_years,
+            } => self.force_climate(offset_c, wet_factor, ramp_years),
             Request::SetFire { building } => self.set_fire(building),
             Request::RaiseRiver {
                 reach,
@@ -464,6 +483,16 @@ impl Engine {
                 wind_speed_ms,
                 direction_deg,
             } => self.send_storm(wind_speed_ms, direction_deg),
+            Request::Shake {
+                strength,
+                settlement,
+            } => self.shake(strength, settlement),
+            Request::SetResolution {
+                by_focus,
+                focus,
+                pins,
+                follow,
+            } => self.set_resolution(by_focus, focus, &pins, follow),
             Request::GetRaster(query) => match &self.world {
                 None => no_world(),
                 Some(w) => match frames::raster_response(
@@ -643,6 +672,16 @@ impl Engine {
                     None => Reply::Error(
                         wire::ErrorCode::NotFound,
                         format!("no storm episode numbered {id}"),
+                    ),
+                },
+            },
+            Request::GetQuake { id } => match &self.world {
+                None => no_world(),
+                Some(w) => match frames::incidents::quake_response(&w.sim, id) {
+                    Some(payload) => Reply::Response(payload),
+                    None => Reply::Error(
+                        wire::ErrorCode::NotFound,
+                        format!("no shaking numbered {id}"),
                     ),
                 },
             },
@@ -867,6 +906,36 @@ impl Engine {
                 Reply::Error(wire::ErrorCode::Internal, text)
             }
         }
+    }
+
+    /// Settlements away from the observer's focus household-resolved, or not (ADR-0032 §6): the
+    /// kernel chooses them at each midnight; ids that name no settlement or person are ignored.
+    fn set_resolution(&mut self, by_focus: bool, focus: u64, pins: &[u64], follow: u64) -> Reply {
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        let id = |raw: u64| civ_core::PermanentId::from_raw(raw);
+        world.sim.set_resolution_by_focus(by_focus);
+        world.sim.set_focus(id(focus));
+        world.sim.set_follow(id(follow));
+        let wanted: std::collections::BTreeSet<_> = pins.iter().filter_map(|&p| id(p)).collect();
+        let held: Vec<_> = world
+            .sim
+            .focus_policy()
+            .map(|p| p.pins.iter().copied().collect())
+            .unwrap_or_default();
+        for p in held {
+            world.sim.pin_detailed(p, wanted.contains(&p));
+        }
+        for &p in &wanted {
+            world.sim.pin_detailed(p, true);
+        }
+        self.urgent = true;
+        ack(if by_focus {
+            "Settlements away from the focus are lived by household from the next midnight"
+        } else {
+            "Every settlement is lived in detail from the next midnight"
+        })
     }
 
     fn set_clock(&mut self, paused: bool, speed: f32) -> Reply {
@@ -1502,8 +1571,69 @@ impl Engine {
         }
     }
 
+    /// The observer shakes the ground under settlement `settlement`, or the whole map when it is
+    /// 0, with a lateral share `strength` of every building's weight (M8d slice DA, ADR-0031 §4).
+    fn shake(&mut self, strength: f32, settlement: u64) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        let at = civ_core::PermanentId::from_raw(settlement);
+        match world.sim.shake(f64::from(strength), at) {
+            Ok(_) => {
+                let q = world.sim.people().quakes.list.last();
+                let count = |o: civ_agents::quake::Outcome| {
+                    q.map_or(0, |q| q.shaken.iter().filter(|s| s.outcome == o).count())
+                };
+                let text = format!(
+                    "The observer shook the ground with {strength:.2} of a building's weight: {} fell, {} cracked",
+                    count(civ_agents::quake::Outcome::Fell),
+                    count(civ_agents::quake::Outcome::Cracked),
+                );
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
     /// The observer holds back the rain over the settlement for `months` months, `depth`
     /// standard deviations dry (M6a slice BA, ADR-0021 §8).
+    /// The observer forces the climate (wire 1.96, ADR-0032 §9): what follows is the world's.
+    fn force_climate(&mut self, offset_c: f32, wet_factor: f32, ramp_years: u32) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        match world
+            .sim
+            .force_climate(f64::from(offset_c), f64::from(wet_factor), ramp_years)
+        {
+            Ok(_) => {
+                let over = match ramp_years {
+                    0 => "from tomorrow".to_owned(),
+                    1 => "over a year".to_owned(),
+                    n => format!("over {n} years"),
+                };
+                let text = format!(
+                    "The observer changes the climate: {offset_c:+.1} °C and wet days' rain \
+                     ×{wet_factor:.2}, {over}"
+                );
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
     fn drought(&mut self, months: u32, depth: f32) -> Reply {
         if let Some(busy) = self.busy() {
             return busy;
@@ -1560,11 +1690,11 @@ impl Engine {
         }
     }
 
-    fn start_run_ahead(&mut self, minute: i64) -> Reply {
+    fn start_run_ahead(&mut self, minute: i64, skip: bool, stop_on: u8) -> Reply {
         if let Some(busy) = self.busy() {
             return busy;
         }
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.world.as_mut() else {
             return no_world();
         };
         let from = world.sim.now();
@@ -1581,16 +1711,40 @@ impl Engine {
                 "running ahead is limited to a hundred years at a time".to_owned(),
             );
         }
+        // A skip lives at Accelerated Max with every settlement household-resolved, from the
+        // next midnight, until it ends (ADR-0032 §7); at Max the clock stops only at midnights,
+        // so it runs to the first at or after the time asked.
+        let day = civ_core::time::MINUTES_PER_DAY;
+        let until = if skip {
+            SimTime::from_minutes((until.minutes() + day - 1).div_euclid(day) * day)
+        } else {
+            until
+        };
+        let skip = skip.then(|| Skip {
+            from_seq: world.sim.chronicle_head(),
+            restore: world.sim.begin_skip(),
+            stop_on,
+        });
         let cancel = Arc::new(AtomicBool::new(false));
-        let name = format!("Running ahead to {until}");
+        let name = if skip.is_some() {
+            format!("Skipping to {until}")
+        } else {
+            format!("Running ahead to {until}")
+        };
+        let skipping = skip.is_some();
         let task = self.begin_task(name, Some(Arc::clone(&cancel)));
         self.run_ahead = Some(RunAhead {
             task,
             from,
             until,
             cancel,
+            skip,
         });
-        ack("Running ahead")
+        ack(if skipping {
+            "Skipping ahead"
+        } else {
+            "Running ahead"
+        })
     }
 
     /// Lives the world on in whole hours for most of a tick, then shows how far it got.
@@ -1603,14 +1757,29 @@ impl Engine {
         };
         let (until, cancelled) = (run.until, run.cancel.load(Ordering::Relaxed));
         let (task, from) = (run.task, run.from);
+        let stop = run.skip.as_ref().map(|s| (s.from_seq, s.stop_on));
+        let (stopped, ran) = if stop.is_some() {
+            ("Stopped skipping", "Skipped")
+        } else {
+            ("Stopped running ahead", "Ran ahead")
+        };
         if cancelled {
-            self.finish_run_ahead("Stopped running ahead");
+            self.finish_run_ahead(stopped);
             return;
         }
         let mut failed = None;
+        let mut marked = None;
         while world.sim.now() < until && started.elapsed() < budget {
-            let step = (until.minutes() - world.sim.now().minutes()).min(60);
-            match world.sim.advance_minutes(step) {
+            // A skip goes a day at a time, to each midnight, and looks for the entries that stop
+            // it after each.
+            let now = world.sim.now().minutes();
+            let day = civ_core::time::MINUTES_PER_DAY;
+            let step = if stop.is_some() {
+                day - now.rem_euclid(day)
+            } else {
+                60
+            };
+            match world.sim.advance_minutes((until.minutes() - now).min(step)) {
                 Ok(advance) => {
                     if advance.minutes > 0 {
                         self.changed = true;
@@ -1621,17 +1790,31 @@ impl Engine {
                     break;
                 }
             }
+            if let Some((from_seq, stop_on)) = stop
+                && let Some(e) = world.sim.skip_stop(from_seq, stop_on)
+            {
+                marked = Some(world.sim.chronicle_words(e));
+                break;
+            }
         }
         let now = world.sim.now();
         let autosave_due =
             world.last_autosave.elapsed() >= self.config.autosave_interval && world.sim.is_dirty();
         if let Some(e) = failed {
-            self.finish_run_ahead("Stopped running ahead");
+            self.finish_run_ahead(stopped);
             self.fail(format!("The clock stopped: {e}"));
             return;
         }
+        if let Some(words) = marked {
+            self.finish_run_ahead(stopped);
+            self.event(
+                wire::EventKind::Info,
+                format!("The skip stopped at: {words}"),
+            );
+            return;
+        }
         if now >= until {
-            self.finish_run_ahead("Ran ahead");
+            self.finish_run_ahead(ran);
             return;
         }
         if let Some(t) = self.task.as_mut().filter(|t| t.id == task) {
@@ -1655,6 +1838,10 @@ impl Engine {
         let Some(world) = self.world.as_mut() else {
             return;
         };
+        // A skip puts back the speed and the resolutions it set aside.
+        if let Some(skip) = run.skip {
+            world.sim.end_skip(skip.restore);
+        }
         world.sim.set_paused(true);
         let date = world.sim.now();
         let dirty = world.sim.is_dirty();
@@ -1869,7 +2056,9 @@ mod tests {
         let target = start.plus_minutes(2 * civ_core::time::MINUTES_PER_DAY);
         assert!(matches!(
             h.ask(Request::RunUntil {
-                minute: target.minutes()
+                minute: target.minutes(),
+                skip: false,
+                stop_on: 0,
             }),
             Reply::Response(_)
         ));
@@ -1882,7 +2071,9 @@ mod tests {
         // Another long job waits for it.
         assert_eq!(
             error_code(&h.ask(Request::RunUntil {
-                minute: target.minutes() + 10
+                minute: target.minutes() + 10,
+                skip: false,
+                stop_on: 0,
             })),
             Some(wire::ErrorCode::Busy)
         );
@@ -1902,7 +2093,9 @@ mod tests {
         // The past cannot be run to.
         assert_eq!(
             error_code(&h.ask(Request::RunUntil {
-                minute: start.minutes()
+                minute: start.minutes(),
+                skip: false,
+                stop_on: 0,
             })),
             Some(wire::ErrorCode::BadRequest)
         );
@@ -2039,6 +2232,50 @@ mod tests {
     }
 
     #[test]
+    fn skipping_lives_at_max_by_household_and_puts_the_speed_back() {
+        // M9c slice DL (ADR-0032 §7).
+        let mut h = Harness::new(None, None);
+        h.create("Skip");
+        let world = h.engine.world.as_ref().expect("a world");
+        let (start, speed) = (world.sim.now(), world.sim.speed());
+        let target = start.plus_minutes(3 * civ_core::time::MINUTES_PER_DAY);
+        // At Max the clock stops at midnights: the skip runs to the first at or after it.
+        let day = civ_core::time::MINUTES_PER_DAY;
+        let midnight = SimTime::from_minutes((target.minutes() + day - 1).div_euclid(day) * day);
+        assert!(matches!(
+            h.ask(Request::RunUntil {
+                minute: target.minutes(),
+                skip: true,
+                stop_on: 0,
+            }),
+            Reply::Response(_)
+        ));
+        let task = h.engine.task.as_ref().map(|t| t.view.name.clone());
+        assert!(
+            task.as_ref().is_some_and(|n| n.starts_with("Skipping to")),
+            "{task:?}"
+        );
+        // While it runs: Max, and the policy that lives every settlement by household (the
+        // kernel's tests show it does; how many days one tick lives depends on the machine).
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        assert_eq!(sim.speed(), civ_sim::SPEED_MAX);
+        assert!(sim.focus_policy().is_some());
+        for _ in 0..10_000 {
+            if h.engine.run_ahead.is_none() {
+                break;
+            }
+            h.engine.tick(h.engine.config.tick);
+        }
+        let world = h.engine.world.as_ref().expect("a world");
+        assert_eq!(world.sim.now(), midnight);
+        assert!(world.sim.paused());
+        assert_eq!(world.sim.speed(), speed, "the speed put back");
+        assert!(world.sim.focus_policy().is_none());
+        let history = h.engine.history.lock().expect("history");
+        assert!(history.iter().any(|e| e.text.starts_with("Skipped to")));
+    }
+
+    #[test]
     fn running_ahead_stops_when_cancelled() {
         let mut h = Harness::new(None, None);
         h.create("Stop");
@@ -2046,7 +2283,9 @@ mod tests {
         let target = start.plus_minutes(5 * civ_core::time::MINUTES_PER_YEAR);
         assert!(matches!(
             h.ask(Request::RunUntil {
-                minute: target.minutes()
+                minute: target.minutes(),
+                skip: false,
+                stop_on: 0,
             }),
             Reply::Response(_)
         ));
@@ -3072,6 +3311,313 @@ mod tests {
     }
 
     #[test]
+    fn the_observer_shakes_the_ground_and_is_told_what_fell() {
+        let mut h = Harness::new(None, None);
+        let shake = |strength: f32, settlement: u64| Request::Shake {
+            strength,
+            settlement,
+        };
+        assert_eq!(
+            error_code(&h.ask(shake(0.2, 0))),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Shaking");
+        assert_eq!(
+            error_code(&h.ask(shake(0.9, 0))),
+            Some(wire::ErrorCode::BadRequest)
+        );
+        assert_eq!(
+            error_code(&h.ask(shake(0.2, 999_999))),
+            Some(wire::ErrorCode::BadRequest)
+        );
+        let settlement = h
+            .engine
+            .world
+            .as_ref()
+            .expect("a world")
+            .sim
+            .land()
+            .settlements[0]
+            .id
+            .get();
+        // The strongest the tool sends, which reaches the host in single precision.
+        let reply = h.ask(shake(0.6, settlement));
+        let Reply::Response(ack) = reply else {
+            panic!("shaken: {reply:?}");
+        };
+        let message = flatbuffers::root::<wire::Response>(&ack)
+            .expect("decodes")
+            .body_as_ack()
+            .and_then(|a| a.message())
+            .unwrap_or_default()
+            .to_owned();
+        assert!(
+            message.starts_with("The observer shook the ground with 0.60 of a building's weight: "),
+            "{message}"
+        );
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        let q = sim.people().quakes.list.last().expect("a record");
+        assert_eq!(q.settlement.map(|s| s.get()), Some(settlement));
+    }
+
+    #[test]
+    fn what_the_shaking_brings_down_is_kept_out_of_the_failures_row() {
+        let mut h = Harness::new(None, None);
+        h.create("Shaken failures");
+        let failed = |sim: &civ_sim::Sim| {
+            sim.people()
+                .chronicle
+                .iter()
+                .filter(|e| e.kind == civ_agents::ChronicleKind::BuildingFailed)
+                .count()
+        };
+        let counted = |sim: &civ_sim::Sim| {
+            let mut world = crate::dashboard::WorldRun::default();
+            crate::dashboard::count_failures(sim, &mut world);
+            world.lived_failures + world.empty_failures
+        };
+        // A longhouse of two storeys of untied rubble beside the first home, which the strongest
+        // shaking overturns.
+        {
+            use civ_agents::build::{self, FireDesign, Shape};
+            let sim = &mut h.engine.world.as_mut().expect("a world").sim;
+            let (household, home) = sim
+                .people()
+                .households
+                .iter()
+                .map(|(_, x)| (x.id, x.home))
+                .min_by_key(|x| x.0)
+                .expect("a household");
+            let catalog = &sim.rules().catalog;
+            let def = &catalog.buildings[catalog
+                .building_index("core:building/longhouse")
+                .expect("longhouse")];
+            let spec = build::design_cautious(
+                def,
+                &catalog.goods,
+                Shape::Bays {
+                    bays: 2,
+                    storeys: 2,
+                    lofts: 0,
+                },
+                (home.0 + 25.0, home.1),
+                None,
+                1.0,
+                None,
+                Some(FireDesign {
+                    caution_thatch: 1.0,
+                    caution_wattle: 2.0,
+                    knows_rubble: true,
+                    knows_mud_brick: false,
+                    knows_firing: false,
+                    knows_lime: false,
+                    knows_systems: [false; 3],
+                }),
+            )
+            .expect("design");
+            sim.place_building_for_tests(household, spec, 5)
+                .expect("placed");
+        }
+        let (told, before) = {
+            let sim = &h.engine.world.as_ref().expect("a world").sim;
+            (failed(sim), counted(sim))
+        };
+        let reply = h.ask(Request::Shake {
+            strength: 0.6,
+            settlement: 0,
+        });
+        assert!(matches!(reply, Reply::Response(_)), "{reply:?}");
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        assert!(failed(sim) > told, "the longhouse fell and is told");
+        assert_eq!(
+            counted(sim),
+            before,
+            "but it is the shaking's, not a failure"
+        );
+    }
+
+    #[test]
+    fn the_shaking_is_listed_with_its_page_and_what_fell_or_cracked() {
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::GetQuake { id: 1 })),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Shaken incidents");
+        // A finished hut beside the first household's home, so the shaking reaches something.
+        {
+            let sim = &mut h.engine.world.as_mut().expect("a world").sim;
+            let (household, home) = sim
+                .people()
+                .households
+                .iter()
+                .map(|(_, x)| (x.id, x.home))
+                .min_by_key(|x| x.0)
+                .expect("a household");
+            let catalog = &sim.rules().catalog;
+            let def = &catalog.buildings[catalog.building_index("core:building/hut").expect("hut")];
+            let spec = civ_agents::build::design_shape(
+                def,
+                &catalog.goods,
+                civ_agents::build::Shape::Round { radius: 310 },
+                (home.0 + 40.0, home.1),
+                None,
+            )
+            .expect("a hut");
+            sim.place_building_for_tests(household, spec, 5)
+                .expect("placed");
+        }
+        assert_eq!(
+            error_code(&h.ask(Request::GetQuake { id: 1 })),
+            Some(wire::ErrorCode::NotFound)
+        );
+        let reply = h.ask(Request::Shake {
+            strength: 0.6,
+            settlement: 0,
+        });
+        assert!(matches!(reply, Reply::Response(_)), "{reply:?}");
+        let q = {
+            let sim = &h.engine.world.as_ref().expect("a world").sim;
+            sim.people().quakes.list.last().expect("a record").clone()
+        };
+        assert!(!q.shaken.is_empty(), "the hut is reached");
+        let count = |o: civ_agents::quake::Outcome| {
+            q.shaken.iter().filter(|s| s.outcome == o).count() as u32
+        };
+        let fell = count(civ_agents::quake::Outcome::Fell);
+        let cracked = count(civ_agents::quake::Outcome::Cracked);
+        let deaths: u32 = q.shaken.iter().map(|s| u32::from(s.deaths)).sum();
+        // The shaking is listed with the counts the kernel recorded.
+        let Reply::Response(payload) = h.ask(Request::GetIncidents {
+            settlement: 0,
+            kind: 12,
+            before: None,
+            limit: 0,
+        }) else {
+            panic!("the incidents are read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let incidents = response.body_as_incidents().expect("incidents");
+        assert_eq!(
+            incidents.rows().map_or(0, |r| r.len()),
+            0,
+            "a shaking has no rows"
+        );
+        let listed: Vec<_> = incidents.quakes().expect("quakes").iter().collect();
+        assert_eq!(listed.len(), 1);
+        let row = listed[0];
+        assert_eq!(
+            (row.id(), row.at(), row.settlement(), row.observer()),
+            (q.id, q.at.minutes(), 0, q.influence)
+        );
+        assert_eq!(
+            (row.reached(), row.fell(), row.cracked(), row.deaths()),
+            (q.shaken.len() as u32, fell, cracked, deaths)
+        );
+        assert!(
+            row.words()
+                .unwrap_or_default()
+                .starts_with("The ground shook over the whole map on "),
+            "{:?}",
+            row.words()
+        );
+        // Its page: the same row, sent by the observer, and every building that fell or cracked.
+        let Reply::Response(payload) = h.ask(Request::GetQuake { id: q.id }) else {
+            panic!("its page is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let info = response.body_as_quake_info().expect("a shaking's page");
+        let page_row = info.row().expect("its row");
+        assert_eq!(
+            (
+                page_row.reached(),
+                page_row.fell(),
+                page_row.cracked(),
+                page_row.deaths()
+            ),
+            (q.shaken.len() as u32, fell, cracked, deaths)
+        );
+        let cause = info.cause_link().expect("its cause");
+        assert_eq!(
+            (cause.relation(), cause.target(), cause.id()),
+            (0, 0, u64::from(q.influence))
+        );
+        let members: Vec<(u8, u32, u64, u32)> = info
+            .incidents()
+            .expect("its buildings")
+            .iter()
+            .map(|r| (r.kind(), r.id(), r.who(), r.quake()))
+            .collect();
+        let want: Vec<(u8, u32, u64, u32)> = q
+            .shaken
+            .iter()
+            .filter(|s| s.outcome != civ_agents::quake::Outcome::Stood)
+            .zip(1u32..)
+            .map(|(s, id)| (11, id, s.building.get(), q.id))
+            .collect();
+        assert_eq!(members, want);
+        // Buildings that fell or cracked are incidents of their own, each linked to the shaking.
+        let Reply::Response(payload) = h.ask(Request::GetIncidents {
+            settlement: 0,
+            kind: 11,
+            before: None,
+            limit: 0,
+        }) else {
+            panic!("the incidents are read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let incidents = response.body_as_incidents().expect("incidents");
+        let mut rows: Vec<(u8, u32, u64, u32)> = incidents
+            .rows()
+            .expect("rows")
+            .iter()
+            .map(|r| (r.kind(), r.id(), r.who(), r.quake()))
+            .collect();
+        rows.sort_unstable();
+        assert_eq!(rows, want);
+        let total = incidents
+            .totals()
+            .expect("totals")
+            .iter()
+            .find(|t| t.kind() == 11)
+            .expect("a total for buildings shaken");
+        assert_eq!(total.all(), fell + cracked);
+        if let Some(&(_, id, _, _)) = want.first() {
+            let Reply::Response(payload) = h.ask(Request::GetIncident { kind: 11, id }) else {
+                panic!("its page is read");
+            };
+            let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+            let info = response.body_as_incident_info().expect("a page");
+            assert!(
+                info.links()
+                    .expect("links")
+                    .iter()
+                    .any(|l| l.relation() == 1 && l.target() == 12 && l.id() == u64::from(q.id))
+            );
+        }
+        // The chronicle's entry for the shaking, and for each building that fell, link to it.
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        let linked: Vec<_> = sim
+            .people()
+            .chronicle
+            .iter()
+            .filter(|e| e.at == q.at)
+            .filter_map(|e| frames::incidents::chronicle_link(sim, e).map(|l| (e.kind, l)))
+            .collect();
+        assert!(
+            linked.contains(&(civ_agents::history::ChronicleKind::Influence, (12, q.id))),
+            "{linked:?}"
+        );
+        let failed = linked
+            .iter()
+            .filter(|(k, l)| {
+                *k == civ_agents::history::ChronicleKind::BuildingFailed && *l == (12, q.id)
+            })
+            .count();
+        assert_eq!(failed as u32, fell);
+    }
+
+    #[test]
     fn the_observer_sets_a_hut_alight_and_its_fire_is_listed_with_its_page() {
         let mut h = Harness::new(None, None);
         assert_eq!(
@@ -3259,6 +3805,59 @@ mod tests {
             })),
             Some(wire::ErrorCode::BadRequest)
         );
+    }
+
+    #[test]
+    fn the_observer_can_change_the_climate_and_the_weather_panel_tells_of_it() {
+        // M9c slice DM (wire 1.96, ADR-0032 §9).
+        let mut h = Harness::new(None, None);
+        h.create("Warm years");
+        let reply = h.ask(Request::ForceClimate {
+            offset_c: 2.0,
+            wet_factor: 0.8,
+            ramp_years: 10,
+        });
+        let Reply::Response(ack) = reply else {
+            panic!("forced: {reply:?}");
+        };
+        let message = flatbuffers::root::<wire::Response>(&ack)
+            .expect("decodes")
+            .body_as_ack()
+            .and_then(|a| a.message())
+            .unwrap_or_default()
+            .to_owned();
+        assert_eq!(
+            message,
+            "The observer changes the climate: +2.0 °C and wet days' rain ×0.80, over 10 years"
+        );
+        for (offset_c, wet_factor, ramp_years) in [
+            (11.0, 1.0, 1),
+            (0.0, 0.2, 1),
+            (0.0, 1.0, 101),
+            (f32::NAN, 1.0, 1),
+        ] {
+            assert_eq!(
+                error_code(&h.ask(Request::ForceClimate {
+                    offset_c,
+                    wet_factor,
+                    ramp_years
+                })),
+                Some(wire::ErrorCode::BadRequest)
+            );
+        }
+        let Reply::Response(payload) = h.ask(Request::GetWeather) else {
+            panic!("the weather is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let report = response.body_as_weather_report().expect("a report");
+        let climate = report.climate().expect("the change is told");
+        assert!(
+            climate.starts_with("The observer has changed the climate: +0.0 °C")
+                && climate.contains("reaching +2.0 °C and ×0.80 by"),
+            "{climate}"
+        );
+        let world = h.engine.world.as_ref().expect("a world");
+        assert_eq!(world.sim.land().weather.forcings.len(), 1);
     }
 
     #[test]

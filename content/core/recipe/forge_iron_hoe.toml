@@ -1,0 +1,19 @@
+# Forging a hoe blade from 0.8 kg of bar and hafting it: three and a half hours and 3 kg of
+# charcoal (research 07-05 §2.3: simple forged tools 2-10 hours and 1-5 kg of charcoal a
+# kilogram). Tuning values within that envelope.
+kind = "recipe"
+id = "core:recipe/forge_iron_hoe"
+name = "Forge an iron hoe"
+skill = "core:skill/smithing"
+technique = "core:technique/forging"
+unit_h = 3.5
+session_h = 0.0
+max_units = 1.0
+tools = []
+inputs = [
+  { good = "core:good/iron", amount = 0.8 },
+  { good = "core:good/timber", amount = 1.0 },
+  { good = "core:good/charcoal", amount = 3.0 },
+]
+outputs = [{ good = "core:good/iron_hoe", amount = 1.0 }]
+session_inputs = []

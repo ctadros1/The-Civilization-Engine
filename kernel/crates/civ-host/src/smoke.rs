@@ -1370,7 +1370,7 @@ fn kept_and_fixed(sim: &Sim) -> Option<String> {
 fn style(sim: &Sim) -> Option<String> {
     let catalog = &sim.rules().catalog;
     let buildings = &sim.land().buildings;
-    let traits: Vec<[f32; 3]> = buildings
+    let traits: Vec<[f32; civ_agents::params::Taste::TRAITS]> = buildings
         .iter()
         .filter_map(|b| {
             let def = catalog
@@ -1389,9 +1389,28 @@ fn style(sim: &Sim) -> Option<String> {
     };
     let ((p0, p1), (e0, e1)) = (range(0), range(1));
     let followed = buildings.iter().filter(|b| b.style_from.is_some()).count();
+    // Frames with a front (M8d slice DD): openings, ornament, finish or symmetry.
+    let fronted = traits
+        .iter()
+        .filter(|t| {
+            t[civ_agents::params::Taste::ROOF_TRAITS..]
+                .iter()
+                .any(|&x| x > 0.0)
+        })
+        .count();
+    let front = if fronted == 0 {
+        String::new()
+    } else {
+        let (o0, o1) = range(3);
+        format!(
+            "; {fronted} with a front, {:.0}-{:.0} % of the walls open",
+            o0 / 10.0,
+            o1 / 10.0
+        )
+    };
     Some(format!(
         "roofs pitched {:.0}-{:.0}°, eaves {e0:.0}-{e1:.0} cm; {followed} of {} buildings built \
-         after an admired one",
+         after an admired one{front}",
         p0 / 100.0,
         p1 / 100.0,
         buildings.len()

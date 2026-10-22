@@ -35,6 +35,12 @@ struct Met {
     traits: Taste,
     /// How well it was built: its parts' quality, on average.
     built: f64,
+    /// Which of its traits it shows: the roof's always, the front's only where its program has
+    /// one (M8d slice DD).
+    shows: [bool; Taste::TRAITS],
+    /// The techniques building it as it stands takes (its program's, and lime burning for a lime
+    /// wash), which a household must know to move toward its ornament and finish.
+    needs: Vec<usize>,
 }
 
 impl Population {
@@ -144,7 +150,8 @@ impl Population {
 
     /// `me` stands at `at` in `settlement`, not their own, on a visit or a trip to buy (M5b slice
     /// AR; research 11-02 §1.1: exposure through travel and observed buildings): they see its
-    /// buildings finished in the year past that stand whole within the content's `sight_m`, and
+    /// buildings finished in the year past that stand whole within the content's `sight_m`, or
+    /// farther for one that rises over its neighbours ([`style::seen_from_m`], M8d slice DD), and
     /// keep up to `seen_most` of them in mind, newest first, a building seen again only once.
     pub(crate) fn note_sights(
         &mut self,
@@ -165,7 +172,8 @@ impl Population {
             return;
         }
         let since = ctx.now.minutes() - DAYS_PER_YEAR * MINUTES_PER_DAY;
-        let reach = rules.sight_m.max(0.0) as f32;
+        let sight = rules.sight_m.max(0.0);
+        let farthest = (sight * style::MOST_SIGHT_SCALE) as f32;
         let mut seen: Vec<(i64, PermanentId)> = ctx
             .land
             .buildings
@@ -178,7 +186,8 @@ impl Population {
             })
             .filter(|b| {
                 let c = crate::build::centre_m(&b.spec);
-                (c.0 - at.0).hypot(c.1 - at.1) <= reach
+                let d = (c.0 - at.0).hypot(c.1 - at.1);
+                d <= farthest && f64::from(d) <= style::seen_from_m(ctx.land, b, sight)
             })
             .map(|b| (b.stage_since.minutes(), b.id))
             .collect();
@@ -193,6 +202,18 @@ impl Population {
             list.insert(0, id);
         }
         list.truncate(rules.seen_most);
+    }
+
+    /// [`Population::note_sights`]: for tests.
+    #[doc(hidden)]
+    pub fn note_sights_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        me: PermanentId,
+        settlement: PermanentId,
+        at: (f32, f32),
+    ) {
+        self.note_sights(ctx, me, settlement, at);
     }
 
     /// Once a year, as wealth is recorded: each household's taste moves toward each building of
@@ -235,6 +256,7 @@ impl Population {
         }
         let standing: FastMap<PermanentId, f64> = goods.into_values().flat_map(ranks).collect();
         // The year's new buildings that stand whole.
+        let lime = catalog.technique_index("core:technique/lime_burning");
         let mut met: Vec<Met> = Vec::new();
         for b in &land.buildings {
             let sound = b.finished()
@@ -265,12 +287,22 @@ impl Population {
                     .sum::<f64>()
                     / b.condition.len() as f64
             };
+            let traits = style::traits_of(&b.spec, def);
+            let allowed = style::allowed(def);
+            let mut needs: Vec<usize> = def.technique.into_iter().collect();
+            if traits.finish >= 2.0 {
+                needs.extend(lime);
+            }
             met.push(Met {
                 settlement,
                 owner: b.household,
                 id: b.id,
-                traits: style::traits_of(&b.spec, def),
+                traits,
                 built,
+                shows: std::array::from_fn(|k| {
+                    k < Taste::ROOF_TRAITS || allowed[k].1 > allowed[k].0
+                }),
+                needs,
             });
         }
         // How well each was built among its settlement's.
@@ -331,6 +363,33 @@ impl Population {
                 }
             }
         }
+        // What each household could build of the year's buildings with a front: the techniques
+        // they take that someone of it knows (M8d slice DD).
+        let needed: BTreeSet<usize> = met
+            .iter()
+            .filter(|m| m.shows[Taste::ROOF_TRAITS..].iter().any(|&x| x))
+            .flat_map(|m| m.needs.iter().copied())
+            .collect();
+        let known: FastMap<PermanentId, Vec<usize>> = if needed.is_empty() {
+            FastMap::default()
+        } else {
+            self.households
+                .iter()
+                .map(|(_, h)| {
+                    let knows: Vec<usize> = needed
+                        .iter()
+                        .copied()
+                        .filter(|&t| {
+                            h.members
+                                .iter()
+                                .filter_map(|&m| self.person(m))
+                                .any(|p| p.knows(t))
+                        })
+                        .collect();
+                    (h.id, knows)
+                })
+                .collect()
+        };
         let most = rules.prestige_most.max(1.0);
         let units = rules.tradition_spread.traits();
         for (_, h) in self.households.iter_mut() {
@@ -354,9 +413,19 @@ impl Population {
                 let rank = (patron + craft.get(&m.id).copied().unwrap_or(0.0)) / 2.0;
                 let admired = style::prestige(rules, rank);
                 let before = h.taste;
-                h.taste = style::moved(&h.taste, &m.traits, rules.alpha * admired / most);
+                // Its front moves only toward a building that has one, and its ornament and
+                // finish only toward one it could build (ADR-0031 §7).
+                let could = m
+                    .needs
+                    .iter()
+                    .all(|t| known.get(&h.id).is_some_and(|k| k.contains(t)));
+                let mut which = m.shows;
+                which[4] &= could;
+                which[5] &= could;
+                h.taste =
+                    style::moved_where(&h.taste, &m.traits, rules.alpha * admired / most, which);
                 // How far it moved, each trait in its band's spread.
-                let shift: f64 = (0..3)
+                let shift: f64 = (0..Taste::TRAITS)
                     .filter(|&k| units[k] > 0.0)
                     .map(|k| {
                         f64::from((h.taste.traits()[k] - before.traits()[k]) / units[k]).powi(2)

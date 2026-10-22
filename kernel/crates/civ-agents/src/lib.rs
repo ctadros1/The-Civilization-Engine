@@ -65,6 +65,7 @@ pub mod person;
 pub mod places;
 pub mod polity;
 pub mod population;
+pub mod quake;
 pub mod reports;
 pub mod rules;
 pub mod seats;
@@ -101,4 +102,4 @@ pub use person::{
     Activity, FloodLoss, FloodMemory, Household, KnownPatch, Load, Person, Repro, Step, Target,
     Traits, Trip,
 };
-pub use population::{AgentEvent, Approximations, Ctx, Population, TimeUse, WaterDraws};
+pub use population::{AgentEvent, Approximations, Ctx, DayBlock, Population, TimeUse, WaterDraws};

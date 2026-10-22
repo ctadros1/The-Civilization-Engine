@@ -1,15 +1,21 @@
 //! Style v0 (M3b slice R; research 11-02): a household's taste in building, the traits a building
 //! is built to, and how taste moves toward the buildings a settlement admires. Traits are
 //! realised decisions kept in a design's parameters (ADR-0009 §7): roof pitch, height to the eaves
-//! and the roof's overhang, each held to what a program allows. Taste is behaviour state.
+//! and the roof's overhang, and from frame version 3 the front's openings, ornament, finish and
+//! symmetry (M8d slice DD; ADR-0031 §7), each held to what a program allows. Taste is behaviour
+//! state.
 
 use civ_core::{PermanentId, Rng64};
+use civ_grammar::frame::{MAX_OPENING_PERMILLE, MAX_ORNAMENT_DH};
 use civ_grammar::{BuildingSpec, ProgramRules, frame_params, hut_params};
 
 use crate::params::{BuildingDef, StyleParams, Taste};
 
 /// Keyed-randomness purpose of taste: its own streams, so no other draw moves.
 pub const PURPOSE_STYLE: u64 = 0x7374_796c_6530_3031; // "style001"
+/// Keyed-randomness purpose of a commission's front (M8d slice DD): its own stream, so the roof's
+/// draws are as before.
+pub const PURPOSE_FRONT: u64 = 0x7374_796c_6566_7274; // "stylefrt"
 
 /// A household's taste on arriving with band `band`: its band's way of building, drawn once for
 /// the band around the content's, and its own a little apart from it. A founding band is keyed by
@@ -34,7 +40,7 @@ pub fn band_way(params: &StyleParams, seed: u64, band: PermanentId) -> Taste {
     Taste::from_traits(tradition(params, seed, band).map(|x| x as f32))
 }
 
-fn tradition(params: &StyleParams, seed: u64, band: PermanentId) -> [f64; 3] {
+fn tradition(params: &StyleParams, seed: u64, band: PermanentId) -> [f64; Taste::TRAITS] {
     let (mean, band_sd) = (
         params.tradition_mean.traits(),
         params.tradition_spread.traits(),
@@ -45,22 +51,23 @@ fn tradition(params: &StyleParams, seed: u64, band: PermanentId) -> [f64; 3] {
     })
 }
 
-/// The mean and spread of the three traits over some households or buildings (M5b slice AR):
-/// pitch in hundredths of a degree, eaves and overhang in centimetres.
+/// The mean and spread of the traits over some households or buildings (M5b slice AR): pitch in
+/// hundredths of a degree, eaves and overhang in centimetres, then the front's four (M8d slice DD)
+/// in their units.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Spread {
     /// How many.
     pub n: usize,
     /// Each trait's mean.
-    pub mean: [f64; 3],
+    pub mean: [f64; Taste::TRAITS],
     /// Each trait's standard deviation.
-    pub sd: [f64; 3],
+    pub sd: [f64; Taste::TRAITS],
 }
 
 impl Spread {
     /// The spread of `list`.
     pub fn of(list: impl IntoIterator<Item = Taste>) -> Spread {
-        let list: Vec<[f64; 3]> = list
+        let list: Vec<[f64; Taste::TRAITS]> = list
             .into_iter()
             .map(|t| t.traits().map(f64::from))
             .collect();
@@ -68,7 +75,7 @@ impl Spread {
         if n == 0 {
             return Spread::default();
         }
-        let mean: [f64; 3] =
+        let mean: [f64; Taste::TRAITS] =
             std::array::from_fn(|k| list.iter().map(|x| x[k]).sum::<f64>() / n as f64);
         let sd = std::array::from_fn(|k| {
             (list.iter().map(|x| (x[k] - mean[k]).powi(2)).sum::<f64>() / n as f64).sqrt()
@@ -104,7 +111,7 @@ pub struct Clocks {
 
 /// The mean of `tastes`, trait by trait (`None` for none).
 pub fn mean_taste<'a>(tastes: impl IntoIterator<Item = &'a Taste>) -> Option<Taste> {
-    let (mut sum, mut n) = ([0.0f64; 3], 0usize);
+    let (mut sum, mut n) = ([0.0f64; Taste::TRAITS], 0usize);
     for t in tastes {
         for (s, x) in sum.iter_mut().zip(t.traits()) {
             *s += f64::from(x);
@@ -128,22 +135,49 @@ pub fn couple_taste(
     )
 }
 
-/// What program `def` allows of each trait, least and most: pitch, eaves and overhang.
-pub fn allowed(def: &BuildingDef) -> [(f32, f32); 3] {
+/// What program `def` allows of each trait, least and most: pitch, eaves and overhang, then the
+/// front's four, which only a frame designed under version 3 has (ADR-0031 §7), and a store no
+/// openings.
+pub fn allowed(def: &BuildingDef) -> [(f32, f32); Taste::TRAITS] {
     let pair = |(lo, hi): (i32, i32)| (lo as f32, hi as f32);
+    let none = (0.0, 0.0);
     match &def.rules {
         ProgramRules::Hut(r) => [
             pair(r.pitch_centideg),
             pair(r.eave_cm),
             (r.roof_overhang_cm as f32, r.roof_overhang_cm as f32),
+            none,
+            none,
+            none,
+            none,
         ],
-        ProgramRules::Frame(r) => [pair(r.pitch_centideg), pair(r.eave_cm), pair(r.overhang_cm)],
+        ProgramRules::Frame(r) => {
+            let front = civ_grammar::FRAME_DESIGN_VERSION >= 3;
+            let openings = front && def.use_ != civ_land::PlotUse::Store;
+            [
+                pair(r.pitch_centideg),
+                pair(r.eave_cm),
+                pair(r.overhang_cm),
+                if openings {
+                    pair((0, MAX_OPENING_PERMILLE))
+                } else {
+                    none
+                },
+                if front {
+                    pair((0, MAX_ORNAMENT_DH))
+                } else {
+                    none
+                },
+                if front { (0.0, 2.0) } else { none },
+                if front { (0.0, 1.0) } else { none },
+            ]
+        }
     }
 }
 
 /// `taste` held to what program `def` allows, in whole units: the traits a building of it is
 /// built to.
-pub fn held_to(taste: &Taste, def: &BuildingDef) -> [i32; 3] {
+pub fn held_to(taste: &Taste, def: &BuildingDef) -> [i32; Taste::TRAITS] {
     let t = taste.traits();
     let a = allowed(def);
     std::array::from_fn(|k| {
@@ -155,27 +189,50 @@ pub fn held_to(taste: &Taste, def: &BuildingDef) -> [i32; 3] {
     })
 }
 
-/// The traits building `spec` of program `def` was built to.
+/// The traits building `spec` of program `def` was built to: a frame's front as its ground
+/// storey's openings, ornament, finish and symmetry (all 0 before version 3).
 pub fn traits_of(spec: &BuildingSpec, def: &BuildingDef) -> Taste {
+    use frame_params as fp;
     match &def.rules {
         ProgramRules::Hut(r) => Taste {
             pitch_centideg: spec.params[hut_params::PITCH_CENTIDEG] as f32,
             eave_cm: spec.params[hut_params::EAVE_CM] as f32,
             overhang_cm: r.roof_overhang_cm as f32,
+            ..Taste::default()
         },
         ProgramRules::Frame(_) => Taste {
-            pitch_centideg: spec.params[frame_params::PITCH_CENTIDEG] as f32,
-            eave_cm: spec.params[frame_params::EAVE_CM] as f32,
-            overhang_cm: spec.params[frame_params::OVERHANG_CM] as f32,
+            pitch_centideg: spec.params[fp::PITCH_CENTIDEG] as f32,
+            eave_cm: spec.params[fp::EAVE_CM] as f32,
+            overhang_cm: spec.params[fp::OVERHANG_CM] as f32,
+            openings_permille: spec.params[fp::OPENINGS] as f32,
+            ornament_dh: spec.params[fp::ORNAMENT] as f32,
+            finish: spec.params[fp::FINISH] as f32,
+            symmetry: spec.params[fp::SYMMETRY] as f32,
         },
     }
 }
 
 /// `taste` moved `share` of the way toward `toward`, trait by trait.
 pub fn moved(taste: &Taste, toward: &Taste, share: f64) -> Taste {
+    moved_where(taste, toward, share, [true; Taste::TRAITS])
+}
+
+/// `taste` moved `share` of the way toward `toward` in the traits `which` names, the rest kept.
+pub fn moved_where(
+    taste: &Taste,
+    toward: &Taste,
+    share: f64,
+    which: [bool; Taste::TRAITS],
+) -> Taste {
     let (a, b) = (taste.traits(), toward.traits());
     let share = share.clamp(0.0, 1.0) as f32;
-    Taste::from_traits(std::array::from_fn(|k| a[k] + share * (b[k] - a[k])))
+    Taste::from_traits(std::array::from_fn(|k| {
+        if which[k] {
+            a[k] + share * (b[k] - a[k])
+        } else {
+            a[k]
+        }
+    }))
 }
 
 /// How much more than the least admired a building is admired that stands `rank` of the way from
@@ -187,16 +244,76 @@ pub fn prestige(params: &StyleParams, rank: f64) -> f64 {
 
 /// The traits a household of taste `taste` builds program `def` to, at commission `key` (keyed
 /// draws): its taste held to what the program allows, and now and then, at the style's
-/// `innovation` chance, one trait new to it, anywhere the program allows.
-pub fn commission(params: &StyleParams, taste: &Taste, def: &BuildingDef, key: &[u64]) -> [i32; 3] {
+/// `innovation` chance, one of the roof's three traits new to it, anywhere the program allows;
+/// and, at the same chance drawn apart, one of the front's four (M8d slice DD), so that a
+/// program without a front draws as before.
+pub fn commission(
+    params: &StyleParams,
+    taste: &Taste,
+    def: &BuildingDef,
+    key: &[u64],
+) -> [i32; Taste::TRAITS] {
     let mut traits = held_to(taste, def);
+    let a = allowed(def);
     let mut rng = Rng64::from_key(key);
     if rng.chance(params.innovation) {
-        let a = allowed(def);
-        let k = rng.below(3) as usize;
+        let k = rng.below(Taste::ROOF_TRAITS as u64) as usize;
         traits[k] = rng.range_f64(f64::from(a[k].0), f64::from(a[k].1)).round() as i32;
     }
+    let front = Taste::ROOF_TRAITS..Taste::TRAITS;
+    if front.clone().any(|k| a[k].1 > a[k].0) {
+        let mut key = key.to_vec();
+        key.push(PURPOSE_FRONT);
+        let mut rng = Rng64::from_key(&key);
+        if rng.chance(params.innovation) {
+            let k = Taste::ROOF_TRAITS + rng.below(front.len() as u64) as usize;
+            traits[k] = rng.range_f64(f64::from(a[k].0), f64::from(a[k].1)).round() as i32;
+        }
+    }
     traits
+}
+
+/// How far about a building its neighbours stand whose eaves it must rise over to be seen
+/// farther (M8d slice DD; ADR-0031 §7; a design prior), metres.
+pub const NEIGHBOURS_M: f64 = 30.0;
+/// The least height of the eaves a building is seen over, metres: a person's line of sight
+/// across open ground (a design prior).
+pub const LEAST_EAVES_M: f64 = 2.0;
+/// The most a building's height multiplies how far it is seen (a design prior).
+pub const MOST_SIGHT_SCALE: f64 = 4.0;
+
+/// The height of building `spec`'s eaves above the ground, metres: a hut's walls; a frame's
+/// raised floor and every storey.
+pub fn eaves_m(spec: &BuildingSpec) -> f64 {
+    match spec.footprint {
+        civ_grammar::Footprint::Round { .. } => f64::from(spec.params[hut_params::EAVE_CM]) / 100.0,
+        civ_grammar::Footprint::Rect { .. } => {
+            let p = &spec.params;
+            f64::from(
+                p[frame_params::FLOOR_RAISE_CM]
+                    + p[frame_params::EAVE_CM] * i32::from(spec.storeys.max(1)),
+            ) / 100.0
+        }
+    }
+}
+
+/// How far building `b` is seen, metres, by someone who sees an ordinary building `sight_m` off
+/// (M8d slice DD; ADR-0031 §7): `sight_m` times its eaves' height over the highest eaves of the
+/// standing buildings within [`NEIGHBOURS_M`] of it (never under [`LEAST_EAVES_M`]), from one
+/// to [`MOST_SIGHT_SCALE`] times. A hall or a tower among huts is seen from farther away.
+pub fn seen_from_m(land: &civ_land::Land, b: &civ_land::Building, sight_m: f64) -> f64 {
+    let c = crate::build::centre_m(&b.spec);
+    let around = land
+        .buildings
+        .iter()
+        .filter(|o| o.id != b.id && o.finished() && o.state == civ_land::BuildingState::Standing)
+        .filter(|o| {
+            let d = crate::build::centre_m(&o.spec);
+            f64::from((d.0 - c.0).hypot(d.1 - c.1)) <= NEIGHBOURS_M
+        })
+        .map(|o| eaves_m(&o.spec))
+        .fold(LEAST_EAVES_M, f64::max);
+    sight_m * (eaves_m(&b.spec) / around).clamp(1.0, MOST_SIGHT_SCALE)
 }
 
 /// What frame building `spec` was built with beyond what version 2 builds, in words (ADR-0031
@@ -298,6 +415,82 @@ mod tests {
         }
     }
 
+    /// A commission as M3b made it, before the front was laid out: the roof's three traits held
+    /// to the program, and now and then one of them new.
+    fn commission_as_before(
+        params: &StyleParams,
+        taste: &Taste,
+        def: &BuildingDef,
+        key: &[u64],
+    ) -> [i32; 3] {
+        let held = held_to(taste, def);
+        let mut traits = [held[0], held[1], held[2]];
+        let mut rng = Rng64::from_key(key);
+        if rng.chance(params.innovation) {
+            let a = allowed(def);
+            let k = rng.below(3) as usize;
+            traits[k] = rng.range_f64(f64::from(a[k].0), f64::from(a[k].1)).round() as i32;
+        }
+        traits
+    }
+
+    #[test]
+    fn a_hut_is_commissioned_exactly_as_before_and_has_no_front() {
+        let p = StyleParams {
+            innovation: 0.5,
+            ..params()
+        };
+        let def = crate::build::tests::def();
+        let taste = Taste {
+            openings_permille: 120.0,
+            ornament_dh: 3.0,
+            finish: 1.0,
+            symmetry: 1.0,
+            ..p.tradition_mean
+        };
+        assert!(
+            allowed(&def)[Taste::ROOF_TRAITS..]
+                .iter()
+                .all(|a| *a == (0.0, 0.0))
+        );
+        let mut innovated = 0;
+        for n in 0..400_u64 {
+            let key = [7, n, 3];
+            let now = commission(&p, &taste, &def, &key);
+            let before = commission_as_before(&p, &taste, &def, &key);
+            assert_eq!(now[..3], before, "{n}");
+            assert_eq!(now[3..], [0; 4], "{n}");
+            innovated += usize::from(
+                before
+                    != [
+                        held_to(&taste, &def)[0],
+                        held_to(&taste, &def)[1],
+                        held_to(&taste, &def)[2],
+                    ],
+            );
+        }
+        assert!(innovated > 50, "{innovated}");
+    }
+
+    #[test]
+    fn a_taste_moves_only_in_the_traits_named() {
+        let p = params();
+        let from = p.tradition_mean;
+        let to = Taste {
+            pitch_centideg: 5_000.0,
+            openings_permille: 300.0,
+            ornament_dh: 10.0,
+            ..from
+        };
+        let mut which = [true; Taste::TRAITS];
+        which[4] = false;
+        let m = moved_where(&from, &to, 0.5, which);
+        assert!((m.pitch_centideg - 4_750.0).abs() < 1e-3);
+        assert!((m.openings_permille - 150.0).abs() < 1e-3);
+        assert_eq!(m.ornament_dh, from.ornament_dh, "ornament kept");
+        assert_eq!(moved(&from, &to, 0.5).ornament_dh, 5.0);
+    }
+
     fn params() -> StyleParams {
         StyleParams {
             alpha: 0.1,
@@ -307,16 +500,19 @@ mod tests {
                 pitch_centideg: 4_500.0,
                 eave_cm: 180.0,
                 overhang_cm: 50.0,
+                ..Default::default()
             },
             tradition_spread: Taste {
                 pitch_centideg: 400.0,
                 eave_cm: 15.0,
                 overhang_cm: 10.0,
+                ..Default::default()
             },
             personal_spread: Taste {
                 pitch_centideg: 100.0,
                 eave_cm: 4.0,
                 overhang_cm: 3.0,
+                ..Default::default()
             },
             seen_most: 8,
             sight_m: 200.0,
@@ -354,6 +550,7 @@ mod tests {
             pitch_centideg: 5_100.0,
             eave_cm: 200.0,
             overhang_cm: 60.0,
+            ..Default::default()
         };
         let (taste, admired) = couple_taste((&hers, Some(id(4))), (&his, Some(id(5))));
         assert_eq!(
@@ -362,6 +559,7 @@ mod tests {
                 pitch_centideg: 4_800.0,
                 eave_cm: 190.0,
                 overhang_cm: 55.0,
+                ..Default::default()
             }
         );
         assert_eq!(admired, Some(id(4)), "what her household admired");
@@ -380,6 +578,7 @@ mod tests {
             pitch_centideg: 5_500.0,
             eave_cm: 220.0,
             overhang_cm: 80.0,
+            ..Default::default()
         };
         let m = moved(&from, &to, 0.1);
         assert!((m.pitch_centideg - 4_600.0).abs() < 1e-3);

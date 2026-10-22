@@ -1046,10 +1046,20 @@ const tellOfIdeology = (person: number, ideology: number): Promise<void> =>
 const plague = (person: number, disease: number): Promise<void> =>
   influence(M.plague(person, disease), "Brought");
 
+/** Shakes the ground over the whole map; what fell shows in the snapshot that follows. */
+const shake = (strength: number): Promise<void> => influence(M.shake(strength, 0n), "The ground shook");
+
 /** Holds back the rain, then asks for the weather again at once: the hold shows before the next
  * day is lived. */
 async function drought(months: number, depth: number): Promise<void> {
   await influence(M.drought(months, depth), "The rain is held back");
+  weatherKey = "";
+  void syncWeather();
+}
+
+/** Changes the climate, then asks for the weather again at once (wire 1.96). */
+async function forceClimate(offsetC: number, wetFactor: number, rampYears: number): Promise<void> {
+  await influence(M.forceClimate(offsetC, wetFactor, rampYears), "The climate is changed");
   weatherKey = "";
   void syncWeather();
 }
@@ -1077,6 +1087,7 @@ async function syncIncidents(): Promise<void> {
       incidentPage: null,
       outbreakPage: null,
       conflagrationPage: null,
+      quakePage: null,
     });
   }
   const rev = s.snapshot?.incidentsRev ?? 0;
@@ -1106,6 +1117,8 @@ async function syncIncidents(): Promise<void> {
     if (outbreak) void loadOutbreak(outbreak.id);
     const conflagration = store.state.conflagrationPage;
     if (conflagration) void loadConflagration(conflagration.id);
+    const quake = store.state.quakePage;
+    if (quake) void loadQuake(quake.id);
     void syncIncidents();
   }
 }
@@ -1174,31 +1187,65 @@ async function loadConflagration(id: number): Promise<void> {
   }
 }
 
+async function loadQuake(id: number): Promise<void> {
+  try {
+    const info = await client.quake(id);
+    if (store.state.quakePage?.id === id) {
+      store.update({ quakePage: { id, info, error: null } });
+    }
+  } catch (e) {
+    const page = store.state.quakePage;
+    if (page?.id === id) store.update({ quakePage: { ...page, error: errorText(e) } });
+  }
+}
+
 /** Opens an incident's page in the Incidents panel. */
 function openIncident(kind: number, id: number): void {
   store.update({
     incidentPage: { kind, id, info: null, error: null },
     outbreakPage: null,
     conflagrationPage: null,
+    quakePage: null,
   });
   void loadIncident(kind, id);
 }
 
 /** Opens an outbreak's page in the Incidents panel. */
 function openOutbreak(id: number): void {
-  store.update({ outbreakPage: { id, info: null, error: null }, incidentPage: null, conflagrationPage: null });
+  store.update({
+    outbreakPage: { id, info: null, error: null },
+    incidentPage: null,
+    conflagrationPage: null,
+    quakePage: null,
+  });
   void loadOutbreak(id);
 }
 
 /** Opens a conflagration's page in the Incidents panel (wire 1.68). */
 function openConflagration(id: number): void {
-  store.update({ conflagrationPage: { id, info: null, error: null }, incidentPage: null, outbreakPage: null });
+  store.update({
+    conflagrationPage: { id, info: null, error: null },
+    incidentPage: null,
+    outbreakPage: null,
+    quakePage: null,
+  });
   void loadConflagration(id);
+}
+
+/** Opens a shaking's page in the Incidents panel (wire 1.91). */
+function openQuake(id: number): void {
+  store.update({
+    quakePage: { id, info: null, error: null },
+    incidentPage: null,
+    outbreakPage: null,
+    conflagrationPage: null,
+  });
+  void loadQuake(id);
 }
 
 /** Back to the list of incidents. */
 function closeIncidentPage(): void {
-  store.update({ incidentPage: null, outbreakPage: null, conflagrationPage: null });
+  store.update({ incidentPage: null, outbreakPage: null, conflagrationPage: null, quakePage: null });
 }
 
 /** Opens workshop `id`'s page in the workshops panel, or goes back to the list. */
@@ -1256,6 +1303,12 @@ function select(id: number | null): void {
   map.setSelected(id);
   store.update({ selected: id === null ? null : { id, info: null, error: null } });
   if (id !== null) void refreshPerson(true);
+  // The person selected is the one followed: their settlement is lived in detail.
+  const follow = id ?? 0;
+  if (follow !== resolution.follow) {
+    resolution.follow = follow;
+    if (store.state.snapshot?.clock?.resolutionByFocus) sendResolution(true);
+  }
 }
 
 map.onSelect = (id) => select(id);
@@ -1268,6 +1321,15 @@ function syncMap(): void {
   shownWorld = key;
   if (world) void map.show(world, client);
   else map.clear();
+}
+
+/** The observer's choice of which settlements are lived in detail (wire 1.93, ADR-0032 §6): the
+ * settlement last chosen, those held, and the person followed (the one selected, wire 1.94); the
+ * host keeps whether it is on. */
+const resolution = { focus: 0, pins: new Set<number>(), follow: 0 };
+
+function sendResolution(on: boolean): void {
+  void command(M.setResolution(on, resolution.focus, [...resolution.pins], resolution.follow));
 }
 
 async function command(payload: Uint8Array): Promise<void> {
@@ -1376,7 +1438,16 @@ bindUi(store, {
   focusSettlement: (id) => {
     const s = store.state.snapshot?.settlements.find((x) => x.id === id);
     if (s) lookAt(s.x, s.y, 0.5);
+    resolution.focus = id;
+    if (store.state.snapshot?.clock?.resolutionByFocus) sendResolution(true);
   },
+  setResolutionByFocus: (on) => sendResolution(on),
+  pinSettlement: (id, pinned) => {
+    if (pinned) resolution.pins.add(id);
+    else resolution.pins.delete(id);
+    sendResolution(store.state.snapshot?.clock?.resolutionByFocus ?? false);
+  },
+  resolutionPins: () => [...resolution.pins].sort((a, b) => a - b),
   locate: (xM, yM) => lookAt(xM, yM, 1),
   openFirm,
   setIncidentKind,
@@ -1384,10 +1455,11 @@ bindUi(store, {
   openIncident,
   openOutbreak,
   openConflagration,
+  openQuake,
   closeIncidentPage,
-  runAhead: async (minutes) => {
+  runAhead: async (minutes, skip, stopOn) => {
     const clock = store.state.snapshot?.clock;
-    if (clock) await command(M.runUntil(clock.minute + minutes));
+    if (clock) await command(M.runUntil(clock.minute + minutes, skip, stopOn));
   },
   setPlacing,
   setPlacingDeposit,
@@ -1400,6 +1472,8 @@ bindUi(store, {
   setPlacingWave,
   setPlacingFire,
   drought,
+  forceClimate,
+  shake,
 });
 
 /**
@@ -1573,6 +1647,7 @@ const hooks = {
       people: s.snapshot?.people.length ?? 0,
       settlements:
         s.snapshot?.settlements.map((x) => ({
+          id: x.id,
           name: x.name,
           population: x.population,
           founding: x.founding,
@@ -1581,6 +1656,7 @@ const hooks = {
           contacts: x.contacts,
           coalitions: x.coalitions,
           style: x.style,
+          householdResolved: x.householdResolved,
         })) ?? [],
       fieldsRev: s.snapshot?.fieldsRev ?? 0,
       buildingsRev: s.snapshot?.buildingsRev ?? 0,
@@ -1644,6 +1720,7 @@ const hooks = {
             next: s.incidents.next,
             totals: s.incidents.totals,
             outbreaks: s.incidents.outbreaks,
+            quakes: s.incidents.quakes,
             rows: s.incidents.rows.map((r) => ({
               kind: r.kind,
               id: r.id,
@@ -1653,6 +1730,7 @@ const hooks = {
               polity: r.polity,
               observer: r.observer,
               outbreak: r.outbreak,
+              quake: r.quake,
             })),
           }
         : null,
@@ -1684,6 +1762,14 @@ const hooks = {
             weather: s.conflagrationPage.info.weather,
             fires: s.conflagrationPage.info.fires.length,
             held: s.conflagrationPage.info.held,
+          }
+        : null,
+      quakePage: s.quakePage?.info
+        ? {
+            row: s.quakePage.info.row,
+            cause: s.quakePage.info.cause,
+            summary: s.quakePage.info.summary,
+            incidents: s.quakePage.info.incidents.length,
           }
         : null,
       order: s.order
@@ -1789,6 +1875,7 @@ const hooks = {
         ? {
             id: s.selected.id,
             name: s.selected.info?.name ?? null,
+            settlement: s.selected.info?.settlement ?? null,
             doing: s.selected.info?.doing ?? null,
             untilMinute: s.selected.info?.untilMinute ?? null,
             residence: s.selected.info?.residence ?? null,
@@ -1809,7 +1896,12 @@ const hooks = {
   },
   peopleOnScreen: () => map.peopleOnScreen(),
   briefs: () =>
-    store.state.snapshot?.people.map((p) => ({ id: p.id, sex: p.sex, ageYears: p.ageYears })) ?? [],
+    store.state.snapshot?.people.map((p) => ({
+      id: p.id,
+      sex: p.sex,
+      ageYears: p.ageYears,
+      blockUntilMinute: p.blockUntilMinute,
+    })) ?? [],
   select: (id: number | null) => select(id),
   openFirm: (id: number | null) => openFirm(id),
   openIncident: (kind: number, id: number) => openIncident(kind, id),

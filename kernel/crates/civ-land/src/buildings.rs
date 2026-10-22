@@ -19,18 +19,30 @@ pub enum PlotUse {
     Store,
     /// A workshop.
     Work,
+    /// A hall a polity's gatherings meet in (M8d slice DC).
+    Hall,
+    /// A tower a polity's watch looks out from (M8d slice DC).
+    Tower,
 }
 
 impl PlotUse {
     /// Every use, in a fixed order.
-    pub const ALL: [PlotUse; 3] = [PlotUse::Dwelling, PlotUse::Store, PlotUse::Work];
+    pub const ALL: [PlotUse; 5] = [
+        PlotUse::Dwelling,
+        PlotUse::Store,
+        PlotUse::Work,
+        PlotUse::Hall,
+        PlotUse::Tower,
+    ];
 
-    /// The authored name: `dwelling`, `store` or `work`.
+    /// The authored name: `dwelling`, `store`, `work`, `hall` or `tower`.
     pub fn name(self) -> &'static str {
         match self {
             PlotUse::Dwelling => "dwelling",
             PlotUse::Store => "store",
             PlotUse::Work => "work",
+            PlotUse::Hall => "hall",
+            PlotUse::Tower => "tower",
         }
     }
 
@@ -222,6 +234,9 @@ pub struct Building {
     pub days_wet: u16,
     /// Work on emergency demolition; its last minute guards concurrent crew completions.
     pub demolition: Option<Demolition>,
+    /// The polity that raised and owns it, if any (M8d slice DC, ADR-0031 §6): its work is the
+    /// polity's households', given by choice, and `household` is only the one that keeps it.
+    pub polity: Option<PermanentId>,
 }
 
 /// Physical work on a threatened building, separate from its eventual historical record.
@@ -272,6 +287,7 @@ impl Building {
             last_flood_depth_cm: 0,
             days_wet: 0,
             demolition: None,
+            polity: None,
         }
     }
 

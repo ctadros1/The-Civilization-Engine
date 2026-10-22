@@ -5,6 +5,7 @@
 import { Bless } from '../../tce/wire/bless.js';
 import { CancelTask } from '../../tce/wire/cancel-task.js';
 import { Drought } from '../../tce/wire/drought.js';
+import { ForceClimate } from '../../tce/wire/force-climate.js';
 import { IntroduceTechnique } from '../../tce/wire/introduce-technique.js';
 import { LoadWorld } from '../../tce/wire/load-world.js';
 import { NewWorld } from '../../tce/wire/new-world.js';
@@ -19,6 +20,8 @@ import { SendStorm } from '../../tce/wire/send-storm.js';
 import { SendWave } from '../../tce/wire/send-wave.js';
 import { SetClock } from '../../tce/wire/set-clock.js';
 import { SetFire } from '../../tce/wire/set-fire.js';
+import { SetResolution } from '../../tce/wire/set-resolution.js';
+import { Shake } from '../../tce/wire/shake.js';
 import { SpawnFamily } from '../../tce/wire/spawn-family.js';
 import { TellOfIdeology } from '../../tce/wire/tell-of-ideology.js';
 import { Whisper } from '../../tce/wire/whisper.js';
@@ -45,13 +48,16 @@ export enum CommandBody {
   Drought = 17,
   SetFire = 18,
   RaiseRiver = 19,
-  SendStorm = 20
+  SendStorm = 20,
+  Shake = 21,
+  SetResolution = 22,
+  ForceClimate = 23
 }
 
 export function unionToCommandBody(
   type: CommandBody,
-  accessor: (obj:Bless|CancelTask|Drought|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SpawnFamily|TellOfIdeology|Whisper) => Bless|CancelTask|Drought|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SpawnFamily|TellOfIdeology|Whisper|null
-): Bless|CancelTask|Drought|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SpawnFamily|TellOfIdeology|Whisper|null {
+  accessor: (obj:Bless|CancelTask|Drought|ForceClimate|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SetResolution|Shake|SpawnFamily|TellOfIdeology|Whisper) => Bless|CancelTask|Drought|ForceClimate|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SetResolution|Shake|SpawnFamily|TellOfIdeology|Whisper|null
+): Bless|CancelTask|Drought|ForceClimate|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SetResolution|Shake|SpawnFamily|TellOfIdeology|Whisper|null {
   switch(CommandBody[type]) {
     case 'NONE': return null; 
     case 'NewWorld': return accessor(new NewWorld())! as NewWorld;
@@ -74,15 +80,18 @@ export function unionToCommandBody(
     case 'SetFire': return accessor(new SetFire())! as SetFire;
     case 'RaiseRiver': return accessor(new RaiseRiver())! as RaiseRiver;
     case 'SendStorm': return accessor(new SendStorm())! as SendStorm;
+    case 'Shake': return accessor(new Shake())! as Shake;
+    case 'SetResolution': return accessor(new SetResolution())! as SetResolution;
+    case 'ForceClimate': return accessor(new ForceClimate())! as ForceClimate;
     default: return null;
   }
 }
 
 export function unionListToCommandBody(
   type: CommandBody, 
-  accessor: (index: number, obj:Bless|CancelTask|Drought|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SpawnFamily|TellOfIdeology|Whisper) => Bless|CancelTask|Drought|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SpawnFamily|TellOfIdeology|Whisper|null, 
+  accessor: (index: number, obj:Bless|CancelTask|Drought|ForceClimate|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SetResolution|Shake|SpawnFamily|TellOfIdeology|Whisper) => Bless|CancelTask|Drought|ForceClimate|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SetResolution|Shake|SpawnFamily|TellOfIdeology|Whisper|null, 
   index: number
-): Bless|CancelTask|Drought|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SpawnFamily|TellOfIdeology|Whisper|null {
+): Bless|CancelTask|Drought|ForceClimate|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SetResolution|Shake|SpawnFamily|TellOfIdeology|Whisper|null {
   switch(CommandBody[type]) {
     case 'NONE': return null; 
     case 'NewWorld': return accessor(index, new NewWorld())! as NewWorld;
@@ -105,6 +114,9 @@ export function unionListToCommandBody(
     case 'SetFire': return accessor(index, new SetFire())! as SetFire;
     case 'RaiseRiver': return accessor(index, new RaiseRiver())! as RaiseRiver;
     case 'SendStorm': return accessor(index, new SendStorm())! as SendStorm;
+    case 'Shake': return accessor(index, new Shake())! as Shake;
+    case 'SetResolution': return accessor(index, new SetResolution())! as SetResolution;
+    case 'ForceClimate': return accessor(index, new ForceClimate())! as ForceClimate;
     default: return null;
   }
 }

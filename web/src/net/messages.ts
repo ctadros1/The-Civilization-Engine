@@ -195,6 +195,9 @@ export interface Clock {
   mode: "detailed" | "accelerated";
   /** Today's weather on the valley floor (wire 1.24, ADR-0012); null from an older host. */
   weather: DayWeather | null;
+  /** Settlements away from the observer's focus are lived by household (wire 1.93, ADR-0032
+   * §6), as the observer chose; false: every settlement in detail. */
+  resolutionByFocus: boolean;
 }
 
 /** A day's weather on the valley floor (wire 1.24, M3c slice U). */
@@ -264,6 +267,8 @@ export interface WeatherReport {
   month: number;
   /** The observer's drought while it holds, in words; empty when none holds (wire 1.63). */
   drought: string;
+  /** The observer's forcing on the climate, in words; empty when none was set (wire 1.96). */
+  climate: string;
 }
 
 export interface Task {
@@ -298,6 +303,9 @@ export interface PersonBrief {
   ageYears: number;
   household: number;
   asleep: boolean;
+  /** Wire 1.94 (M9b slice DK, ADR-0032 §6): for someone whose settlement is lived by household,
+   * the minute the block of their day they are in ends, drawn where it is done; 0 when not. */
+  blockUntilMinute: number;
 }
 
 /** Wire 1.74 (M6c slice BJ): a band not yet home or dispersed: who of it are going, the home it
@@ -342,6 +350,9 @@ export interface SettlementBrief {
    * build, its households' taste now, the year's new buildings and its standing ones), in the
    * kernel's words; empty with nothing to say. */
   style: string;
+  /** Wire 1.93 (M9b slice DK, ADR-0032 §1): its day is lived household by household at
+   * midnight, its people at home between; false when it is lived in detail. */
+  householdResolved: boolean;
 }
 
 export interface Snapshot {
@@ -534,7 +545,7 @@ export interface BuildingInfo {
   /** Rendered by the kernel: "walls going up, 40% done; waiting for timber". */
   status: string;
   /** Wire 1.14 (M3b slice O): the grammar that expands it, "hut" or "frame" ("" from an older
-   * host), and what it is for: "dwelling", "store" or "work". */
+   * host), and what it is for: "dwelling", "store", "work", "hall" or "tower". */
   grammar: string;
   purpose: string;
   /** Length and width between the wall lines, metres (a hut: its diameter both ways), and the
@@ -1180,6 +1191,12 @@ export interface PolityLine {
    * kernel's sentences.
    */
   capture: string[];
+  /**
+   * Wire 1.92 (M8d slice DC, ADR-0031 §6): each building its laws raise together, newest first, in
+   * the kernel's sentences: its dates, the hours given, and a stall kept visible ([] from an older
+   * host).
+   */
+  projects: string[];
 }
 
 /** One election of a council (wire 1.77), in the kernel's words. */
@@ -2058,12 +2075,14 @@ export type ResponseBody =
   | { kind: "incident"; incident: IncidentInfo }
   | { kind: "outbreak"; outbreak: OutbreakInfo }
   | { kind: "conflagration"; conflagration: ConflagrationInfo }
+  | { kind: "quake"; quake: QuakeInfo }
   | { kind: "coverage"; coverage: CoverageInfo };
 
 // ---- Incidents (wire 1.64, M6a slice BB, ADR-0015 §8) --------------------------------------
 
-/** 1 a taking, 2 a case of illness, 4 a building's fire (wire 1.68). */
-export type IncidentKind = 1 | 2 | 4;
+/** 1 a taking, 2 a case of illness, 4 a building's fire (wire 1.68), 10 a wait (wire 1.85), 11 a
+ * building that fell or cracked when the ground shook (wire 1.91). */
+export type IncidentKind = 1 | 2 | 4 | 10 | 11;
 
 /** Where a list of incidents goes on from. */
 export interface IncidentKey {
@@ -2097,6 +2116,8 @@ export interface IncidentRow {
   open: boolean;
   /** Wire 1.68: the conflagration a fire is part of (0: none). */
   conflagration: number;
+  /** Wire 1.91: the shaking a building that fell or cracked (kind 11) is part of (0: none). */
+  quake: number;
 }
 
 /** How many incidents of a kind there are, in the scope asked. */
@@ -2137,6 +2158,24 @@ export interface ConflagrationRow {
   words: string;
 }
 
+/** A shaking (wire 1.91): the ground shaken by the observer, and what the buildings it reached
+ * did. */
+export interface QuakeRow {
+  id: number;
+  /** The settlement it was sent to (0: the whole map). */
+  settlement: number;
+  /** When it shook, as a minute. */
+  at: number;
+  /** The share of a building's weight it put on each sideways. */
+  strength: number;
+  reached: number;
+  fell: number;
+  cracked: number;
+  deaths: number;
+  observer: number;
+  words: string;
+}
+
 export interface IncidentsInfo {
   minute: number;
   rows: IncidentRow[];
@@ -2145,6 +2184,8 @@ export interface IncidentsInfo {
   outbreaks: OutbreakRow[];
   /** Wire 1.68: every conflagration in scope, newest first. */
   conflagrations: ConflagrationRow[];
+  /** Wire 1.91: every shaking in scope, newest first. */
+  quakes: QuakeRow[];
 }
 
 /** A step in an incident's chain. */
@@ -2168,7 +2209,10 @@ export type LinkTarget =
   | "illness"
   | "fire"
   | "conflagration"
-  | "building";
+  | "building"
+  | "flood"
+  | "storm"
+  | "quake";
 
 /** A typed link, recorded when it happened. */
 export interface IncidentLink {
@@ -2220,6 +2264,17 @@ export interface ConflagrationInfo {
   weather: string;
   fires: IncidentRow[];
   held: string[];
+}
+
+/** A shaking's page (wire 1.91): who sent it, what it reached, and each building that fell or
+ * cracked. */
+export interface QuakeInfo {
+  row: QuakeRow;
+  cause: string;
+  causeLink: IncidentLink | null;
+  /** Its buildings that fell or cracked, as incidents of kind 11. */
+  incidents: IncidentRow[];
+  summary: string[];
 }
 
 export type ErrorCode =
@@ -2311,6 +2366,31 @@ export function setClock(paused: boolean, speed: number): Uint8Array {
   return command(b, W.CommandBody.SetClock, W.SetClock.createSetClock(b, paused, speed));
 }
 
+/** Settlements away from the observer's focus lived by household, or not (wire 1.93, M9b slice
+ * DK, ADR-0032 §6): `focus` the settlement it centres (0: none), `pins` those it holds in detail,
+ * and `follow` the person it follows (wire 1.94; 0: none), whose settlement is held as the focus
+ * is. */
+export function setResolution(
+  byFocus: boolean,
+  focus: number,
+  pins: number[],
+  follow = 0,
+): Uint8Array {
+  const b = new flatbuffers.Builder(64);
+  const pinned = W.SetResolution.createPinsVector(
+    b,
+    pins.map((p) => BigInt(p)),
+  );
+  const body = W.SetResolution.createSetResolution(
+    b,
+    byFocus,
+    BigInt(focus),
+    pinned,
+    BigInt(follow),
+  );
+  return command(b, W.CommandBody.SetResolution, body);
+}
+
 export function cancelTask(): Uint8Array {
   const b = new flatbuffers.Builder(16);
   W.CancelTask.startCancelTask(b);
@@ -2369,7 +2449,23 @@ export function tellOfIdeology(person: number, ideology: number): Uint8Array {
  * index into Welcome.diseases. They have it as if they took it elsewhere; whether it goes further
  * is the disease's and people's. Refused for someone who already has it.
  */
+/** Shakes the ground under settlement `settlement`, or the whole map when it is 0, with a sideways
+ * share `strength` of every building's weight (god tool, wire 1.90). */
+export function shake(strength: number, settlement: bigint): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  const body = W.Shake.createShake(b, strength, settlement);
+  return command(b, W.CommandBody.Shake, body);
+}
+
 /** Holds back the rain for `months` months, `depth` standard deviations dry (god tool, wire 1.63). */
+/** Changes the climate (wire 1.96, M9c slice DM, ADR-0032 §9): every temperature normal
+ * `offsetC` °C warmer or cooler and every wet day's rain times `wetFactor`, over `rampYears`. */
+export function forceClimate(offsetC: number, wetFactor: number, rampYears: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  const body = W.ForceClimate.createForceClimate(b, offsetC, wetFactor, rampYears);
+  return command(b, W.CommandBody.ForceClimate, body);
+}
+
 export function drought(months: number, depth: number): Uint8Array {
   const b = new flatbuffers.Builder(32);
   const body = W.Drought.createDrought(b, months, depth);
@@ -2431,10 +2527,23 @@ export function bless(person: number, curse: boolean, days: number, share: numbe
   return command(b, W.CommandBody.Bless, body);
 }
 
-/** Runs ahead to a simulation minute, unpaced and in full detail. */
-export function runUntil(minute: number): Uint8Array {
+/** Kinds of chronicle entry that stop a skip (wire 1.95, M9c slice DL): bits of `stopOn`. */
+export const SkipStop = {
+  settlements: 1,
+  hunger: 2,
+  disasters: 4,
+  politics: 8,
+  discoveries: 16,
+  all: 31,
+} as const;
+
+/** Runs ahead to a simulation minute, unpaced at the speed set; or skips there, at the fastest
+ * speed with every settlement lived by household, stopping too at the first chronicle entry of a
+ * kind marked in `stopOn` (wire 1.95, ADR-0032 §7). */
+export function runUntil(minute: number, skip = false, stopOn = 0): Uint8Array {
   const b = new flatbuffers.Builder(32);
-  return command(b, W.CommandBody.RunUntil, W.RunUntil.createRunUntil(b, BigInt(minute)));
+  const body = W.RunUntil.createRunUntil(b, BigInt(minute), skip, stopOn);
+  return command(b, W.CommandBody.RunUntil, body);
 }
 
 export function recoverWorld(accept: boolean): Uint8Array {
@@ -2588,6 +2697,12 @@ export function getOutbreak(id: number, limit: number): Uint8Array {
 export function getConflagration(id: number): Uint8Array {
   const b = new flatbuffers.Builder(32);
   return query(b, W.QueryBody.GetConflagration, W.GetConflagration.createGetConflagration(b, id));
+}
+
+/** One shaking's page (wire 1.91). */
+export function getQuake(id: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  return query(b, W.QueryBody.GetQuake, W.GetQuake.createGetQuake(b, id));
 }
 
 /** A lens over the homes of `settlement` (0: every settlement); lens 1 is water (wire 1.66). */
@@ -2828,6 +2943,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
           speed: clock.speed(),
           mode: clock.mode() === W.ClockMode.Accelerated ? "accelerated" : "detailed",
           weather: dayWeather(clock.weather()),
+          resolutionByFocus: clock.resolutionByFocus(),
         }
       : null,
     task: task
@@ -3248,6 +3364,7 @@ function personBriefs(s: W.Snapshot): PersonBrief[] {
       ageYears: p.ageYears(),
       household: Number(p.household()),
       asleep: p.asleep(),
+      blockUntilMinute: Number(p.blockUntilMinute()),
     });
   }
   return out;
@@ -3275,6 +3392,7 @@ function settlementBriefs(s: W.Snapshot): SettlementBrief[] {
       contacts: t.contacts() ?? "",
       coalitions: Array.from({ length: t.coalitionsLength() }, (_, k) => t.coalitions(k) ?? ""),
       style: t.style() ?? "",
+      householdResolved: t.householdResolved(),
     });
   }
   return out;
@@ -3549,6 +3667,22 @@ function incidentRow(r: W.IncidentRow): IncidentRow {
     outbreak: r.outbreak(),
     open: r.open(),
     conflagration: r.conflagration(),
+    quake: r.quake(),
+  };
+}
+
+function quakeRow(q: W.QuakeRow): QuakeRow {
+  return {
+    id: q.id(),
+    settlement: Number(q.settlement()),
+    at: Number(q.at()),
+    strength: q.strength(),
+    reached: q.reached(),
+    fell: q.fell(),
+    cracked: q.cracked(),
+    deaths: q.deaths(),
+    observer: q.observer(),
+    words: q.words() ?? "",
   };
 }
 
@@ -3593,6 +3727,9 @@ const LINK_TARGETS: LinkTarget[] = [
   "fire",
   "conflagration",
   "building",
+  "flood",
+  "storm",
+  "quake",
 ];
 
 function incidentLink(l: W.IncidentLink): IncidentLink {
@@ -3627,6 +3764,11 @@ function incidentsInfo(f: W.Incidents): IncidentsInfo {
     const c = f.conflagrations(i);
     if (c) conflagrations.push(conflagrationRow(c));
   }
+  const quakes: QuakeRow[] = [];
+  for (let i = 0; i < f.quakesLength(); i++) {
+    const q = f.quakes(i);
+    if (q) quakes.push(quakeRow(q));
+  }
   const n = f.next();
   return {
     minute: Number(f.minute()),
@@ -3635,6 +3777,7 @@ function incidentsInfo(f: W.Incidents): IncidentsInfo {
     totals,
     outbreaks,
     conflagrations,
+    quakes,
   };
 }
 
@@ -3723,6 +3866,25 @@ function conflagrationInfo(f: W.ConflagrationInfo): ConflagrationInfo {
   };
 }
 
+function quakeInfo(f: W.QuakeInfo): QuakeInfo {
+  const row = f.row();
+  const incidents: IncidentRow[] = [];
+  for (let i = 0; i < f.incidentsLength(); i++) {
+    const x = f.incidents(i);
+    if (x) incidents.push(incidentRow(x));
+  }
+  const link = f.causeLink();
+  return {
+    row: row
+      ? quakeRow(row)
+      : { id: 0, settlement: 0, at: 0, strength: 0, reached: 0, fell: 0, cracked: 0, deaths: 0, observer: 0, words: "" },
+    cause: f.cause() ?? "",
+    causeLink: link ? incidentLink(link) : null,
+    incidents,
+    summary: strings(f.summaryLength(), (i) => f.summary(i)),
+  };
+}
+
 function weatherReport(r: W.WeatherReport): WeatherReport {
   const months: WeatherMonth[] = [];
   const m = new W.WeatherMonthInfo();
@@ -3754,6 +3916,7 @@ function weatherReport(r: W.WeatherReport): WeatherReport {
     months,
     month: r.month(),
     drought: r.drought() ?? "",
+    climate: r.climate() ?? "",
   };
 }
 
@@ -4665,6 +4828,7 @@ function governmentInfo(w: W.Government): GovernmentInfo {
         };
       }),
       capture: Array.from({ length: p.captureLength() }, (_, k) => p.capture(k) ?? ""),
+      projects: Array.from({ length: p.projectsLength() }, (_, k) => p.projects(k) ?? ""),
     });
   }
   const sieges: SiegeLine[] = [];
@@ -4905,6 +5069,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.ConflagrationInfo()) as W.ConflagrationInfo | null;
       if (!f) break;
       return { kind: "conflagration", conflagration: conflagrationInfo(f) };
+    }
+    case W.ResponseBody.QuakeInfo: {
+      const f = r.body(new W.QuakeInfo()) as W.QuakeInfo | null;
+      if (!f) break;
+      return { kind: "quake", quake: quakeInfo(f) };
     }
     case W.ResponseBody.Coverage: {
       const f = r.body(new W.Coverage()) as W.Coverage | null;

@@ -174,6 +174,8 @@ fn words(sim: &Sim, p: &Polity, law: PermanentId, built: usize, occupied: usize)
                         civ_land::PlotUse::Dwelling => "homes",
                         civ_land::PlotUse::Store => "stores",
                         civ_land::PlotUse::Work => "workshops",
+                        civ_land::PlotUse::Hall => "halls",
+                        civ_land::PlotUse::Tower => "towers",
                     })
                     .collect();
                 out.push_str(&format!(

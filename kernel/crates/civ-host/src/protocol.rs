@@ -51,10 +51,14 @@ pub enum Request {
         /// How many come together (at least one).
         families: u32,
     },
-    /// Run ahead to a time, unpaced and in full detail.
+    /// Run ahead to a time, unpaced: at the speed set, or as a skip (wire 1.95, ADR-0032 §7).
     RunUntil {
         /// Simulation minute to stop at.
         minute: i64,
+        /// Skip: Accelerated Max with every settlement household-resolved, put back after.
+        skip: bool,
+        /// The kinds of chronicle entry that stop a skip ([`civ_sim::skip::stop`]).
+        stop_on: u8,
     },
     /// A living person comes to know a technique, or only hears of it (god tool, ADR-0008 §6).
     IntroduceTechnique {
@@ -131,6 +135,35 @@ pub enum Request {
     SendStorm {
         wind_speed_ms: f32,
         direction_deg: f32,
+    },
+    /// Have settlements away from the observer's focus household-resolved, or not (wire 1.93,
+    /// M9b slice DK, ADR-0032 §6). A run setting.
+    SetResolution {
+        /// Choose resolutions by the focus.
+        by_focus: bool,
+        /// The settlement the observer follows or centres, or 0 for none.
+        focus: u64,
+        /// The settlements it holds Detailed.
+        pins: Vec<u64>,
+        /// The person it follows, or 0 for none (wire 1.94).
+        follow: u64,
+    },
+    /// Shake the ground under a settlement, or the whole map (god tool, M8d slice DA; ADR-0031
+    /// §4).
+    Shake {
+        /// The lateral share of every building's weight, 0.02 to 0.6.
+        strength: f32,
+        /// The settlement's id, or 0 for the whole map.
+        settlement: u64,
+    },
+    /// Force the background climate (god tool, wire 1.96, M9c slice DM, ADR-0032 §9).
+    ForceClimate {
+        /// °C added to every temperature normal, -10 to 10.
+        offset_c: f32,
+        /// Factor on every wet day's amount, 0.25 to 4.
+        wet_factor: f32,
+        /// Whole years to reach it, 0 to 100.
+        ramp_years: u32,
     },
     /// Hold back the rain over the settlement for a while (god tool, M6a slice BA, ADR-0021 §8).
     Drought {
@@ -263,6 +296,8 @@ pub enum Request {
     GetFlood { id: u32 },
     /// A storm episode's page (wire 1.69).
     GetStorm { id: u32 },
+    /// A shaking's page (wire 1.91).
+    GetQuake { id: u32 },
 }
 
 /// A long-running operation, as the snapshot shows it.
@@ -509,7 +544,11 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                     let b = command
                         .body_as_run_until()
                         .ok_or_else(|| missing("command"))?;
-                    Ok(Request::RunUntil { minute: b.minute() })
+                    Ok(Request::RunUntil {
+                        minute: b.minute(),
+                        skip: b.skip(),
+                        stop_on: b.stop_on(),
+                    })
                 }
                 wire::CommandBody::IntroduceTechnique => {
                     let b = command
@@ -598,6 +637,16 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         depth: b.depth(),
                     })
                 }
+                wire::CommandBody::ForceClimate => {
+                    let b = command
+                        .body_as_force_climate()
+                        .ok_or_else(|| missing("command"))?;
+                    Ok(Request::ForceClimate {
+                        offset_c: b.offset_c(),
+                        wet_factor: b.wet_factor(),
+                        ramp_years: b.ramp_years(),
+                    })
+                }
                 wire::CommandBody::SetFire => {
                     let b = command
                         .body_as_set_fire()
@@ -623,6 +672,24 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                     Ok(Request::SendStorm {
                         wind_speed_ms: b.wind_speed_ms(),
                         direction_deg: b.direction_deg(),
+                    })
+                }
+                wire::CommandBody::Shake => {
+                    let b = command.body_as_shake().ok_or_else(|| missing("command"))?;
+                    Ok(Request::Shake {
+                        strength: b.strength(),
+                        settlement: b.settlement(),
+                    })
+                }
+                wire::CommandBody::SetResolution => {
+                    let b = command
+                        .body_as_set_resolution()
+                        .ok_or_else(|| missing("command"))?;
+                    Ok(Request::SetResolution {
+                        by_focus: b.by_focus(),
+                        focus: b.focus(),
+                        pins: b.pins().map(|v| v.iter().collect()).unwrap_or_default(),
+                        follow: b.follow_person(),
                     })
                 }
                 other => Err(format!("unknown command {}", other.0)),
@@ -741,6 +808,10 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                 wire::QueryBody::GetStorm => {
                     let b = query.body_as_get_storm().ok_or_else(|| missing("query"))?;
                     Ok(Request::GetStorm { id: b.id() })
+                }
+                wire::QueryBody::GetQuake => {
+                    let b = query.body_as_get_quake().ok_or_else(|| missing("query"))?;
+                    Ok(Request::GetQuake { id: b.id() })
                 }
                 other => Err(format!("unknown query {}", other.0)),
             }
@@ -1238,7 +1309,14 @@ mod tests {
             })
         );
         let mut fbb = FlatBufferBuilder::new();
-        let body = wire::RunUntil::create(&mut fbb, &wire::RunUntilArgs { minute: 525_600 });
+        let body = wire::RunUntil::create(
+            &mut fbb,
+            &wire::RunUntilArgs {
+                minute: 525_600,
+                skip: true,
+                stop_on: 5,
+            },
+        );
         let root = wire::Command::create(
             &mut fbb,
             &wire::CommandArgs {
@@ -1248,7 +1326,11 @@ mod tests {
         );
         assert_eq!(
             decode_request(FrameKind::Command, &finish(fbb, root)),
-            Ok(Request::RunUntil { minute: 525_600 })
+            Ok(Request::RunUntil {
+                minute: 525_600,
+                skip: true,
+                stop_on: 5,
+            })
         );
         let mut fbb = FlatBufferBuilder::new();
         let body = wire::Whisper::create(
@@ -1385,6 +1467,79 @@ mod tests {
             Ok(Request::Drought {
                 months: 9,
                 depth: 1.5
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::ForceClimate::create(
+            &mut fbb,
+            &wire::ForceClimateArgs {
+                offset_c: 2.0,
+                wet_factor: 0.8,
+                ramp_years: 10,
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::ForceClimate,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::ForceClimate {
+                offset_c: 2.0,
+                wet_factor: 0.8,
+                ramp_years: 10,
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::Shake::create(
+            &mut fbb,
+            &wire::ShakeArgs {
+                strength: 0.25,
+                settlement: 7,
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::Shake,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::Shake {
+                strength: 0.25,
+                settlement: 7
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let pins = fbb.create_vector(&[3u64, 5]);
+        let body = wire::SetResolution::create(
+            &mut fbb,
+            &wire::SetResolutionArgs {
+                by_focus: true,
+                focus: 7,
+                pins: Some(pins),
+                follow_person: 9,
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::SetResolution,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::SetResolution {
+                by_focus: true,
+                focus: 7,
+                pins: vec![3, 5],
+                follow: 9,
             })
         );
         let mut fbb = FlatBufferBuilder::new();
@@ -1536,6 +1691,32 @@ mod tests {
         assert_eq!(
             decode_request(FrameKind::Query, &finish(fbb, root)),
             Ok(Request::GetConflagration { id: 4 })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::GetStorm::create(&mut fbb, &wire::GetStormArgs { id: 5 });
+        let root = wire::Query::create(
+            &mut fbb,
+            &wire::QueryArgs {
+                body_type: wire::QueryBody::GetStorm,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Query, &finish(fbb, root)),
+            Ok(Request::GetStorm { id: 5 })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::GetQuake::create(&mut fbb, &wire::GetQuakeArgs { id: 3 });
+        let root = wire::Query::create(
+            &mut fbb,
+            &wire::QueryArgs {
+                body_type: wire::QueryBody::GetQuake,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Query, &finish(fbb, root)),
+            Ok(Request::GetQuake { id: 3 })
         );
         let mut fbb = FlatBufferBuilder::new();
         let body = wire::GetCoverage::create(

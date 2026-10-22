@@ -75,6 +75,7 @@ pub fn storm_damage_row(sim: &Sim, sd: &StormDamage) -> Row {
         conflagration: 0,
         flood: 0,
         storm: sd.episode.unwrap_or(0),
+        quake: 0,
         open: false,
     }
 }

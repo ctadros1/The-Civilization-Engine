@@ -227,6 +227,18 @@ table Weather {
   // deviations (0 before).
   wind_along: double (id: 10);
   wind_across: double (id: 11);
+  // Schema 170 (M9c slice DM, ADR-0032 §9): the observer's forcings on the climate, in the order
+  // set (none before).
+  forcings: [ClimateForcing] (id: 12);
+}
+
+// Schema 170: an offset to every temperature normal, °C, and a factor on wet days' amounts, each
+// reached linearly over `ramp_days` from `from_day` and held after.
+table ClimateForcing {
+  from_day: long (id: 0);
+  ramp_days: long (id: 1);
+  offset_c: double (id: 2);
+  wet_factor: double (id: 3);
 }
 
 // Section "settle": settlements.
@@ -483,6 +495,29 @@ table Household {
   // Schema 108 (M6b slice BH): buildings of its settlement it heard gave way, oldest first;
   // absent before.
   gave_way: [GaveWaySave] (id: 24);
+  // Schema 171 (M10a slice DP): batches it started that run unattended, oldest first; absent
+  // before.
+  batches: [BatchSave] (id: 25);
+  // Schema 174 (M10a slice DR): what it had made by water-powered ways' outputs when it last
+  // weighed a mill; absent before its first review.
+  mill_seen: MillSeenSave (id: 26);
+}
+
+// A household's count at a mill review (schema 174): the day and the kilograms it had made in
+// all its years of the goods a water-powered way makes.
+table MillSeenSave {
+  day: long (id: 0);
+  kg: double (id: 1);
+}
+
+// A batch a household started (schema 171, M10a slice DP): its recipe by content id, the units
+// started, the worth of the tools it makes in standard tools each, and the first day it may be
+// opened. Its inputs were taken when it was started.
+table BatchSave {
+  recipe: string (id: 0);
+  units: double (id: 1);
+  quality: double (id: 2);
+  ends_day: long (id: 3);
 }
 
 // A building a household heard gave way (schema 108, M6b slice BH): the day, the building,
@@ -494,6 +529,10 @@ table GaveWaySave {
   own: bool (id: 2);
   wall_kind: ubyte (id: 3);
   hours: float (id: 4);
+  // Its storeys and whether its mass walls were tied at each floor (schema 163, M8d slice DB);
+  // before, a storey untied.
+  storeys: ubyte = 1 (id: 5);
+  tied: bool (id: 6);
 }
 
 // A building a household lost to fire or saw burn (schema 107, M6b slice BH): the day the fire
@@ -726,7 +765,7 @@ table Fields {
 // Section "plots" (schema 5): ground households have claimed (ADR-0004 §3). A plot outlives
 // its building.
 // Schema 15 (M3b slice O, ADR-0009 §7): stores and workshops beside dwellings.
-enum PlotUse : ubyte { Dwelling = 0, Store = 1, Work = 2 }
+enum PlotUse : ubyte { Dwelling = 0, Store = 1, Work = 2, Hall = 3, Tower = 4 }
 
 table Plot {
   id: ulong (id: 0);
@@ -838,6 +877,8 @@ table Building {
   last_flood_depth_cm: ushort (id: 14);
   days_wet: ushort (id: 15);
   demolition: DemolitionSave (id: 16);
+  // Schema 165 (M8d slice DC): the polity that raised and owns it, 0 for none.
+  polity: ulong (id: 17);
 }
 
 // Schema 98: physical demolition work, not inferred from historical interventions.
@@ -995,6 +1036,8 @@ table FirmState {
   // that was seen (0 and 0 in an earlier save).
   most_at_once: ubyte (id: 18);
   most_at_once_day: long (id: 19);
+  // Schema 172 (M10a slice DQ): its batches under way, as a household's (none before).
+  batches: [BatchSave] (id: 20);
 }
 
 table WageOfferState {
@@ -1211,6 +1254,25 @@ table Earth {
   bank_refill: [BankRefillRecord] (id: 6);
   ditches: [DitchRecord] (id: 7);
   ditch_flows: [DitchFlowRecord] (id: 8);
+  // Schema 173 (M10a slice DR): water-power installations, absent while there are none.
+  installations: [InstallationRecord] (id: 9);
+}
+
+// A water-power installation (schema 173, M10a slice DR; ADR-0033 §5): its wheel's place in
+// metres, the reach it takes from, its fall and headrace in metres and m³/s, the wheel's
+// efficiency and rated kilowatts, its owner, and the building it drives (0 for none). Its power is
+// worked out each day and never saved.
+struct InstallationRecord {
+  id: ulong;
+  reach: uint;
+  at_x: double;
+  at_y: double;
+  head_m: double;
+  race_m3s: double;
+  efficiency: double;
+  rated_kw: double;
+  owner: ulong;
+  building: ulong;
 }
 
 // Section "ties" (schema 28): what each person remembers of others (ADR-0014 §1), by holder and
@@ -1489,6 +1551,58 @@ table PolitySave {
   encroachment_seen: [EncroachmentSeenSave] (id: 40);
   // What a finding ordered for each encroachment (schema 161).
   encroachment_orders: [EncroachmentOrderSave] (id: 41);
+  // Schema 164 (M8d slice DC): what its settlements measured of the losses a public building
+  // would answer, a year each, oldest first; absent before.
+  measured: [MeasuredSave] (id: 42);
+  // Schema 165 (M8d slice DC): where its laws would raise a building in common, the hours each
+  // household has given to one, and the storehouse that shelters its common store; absent
+  // before.
+  raises: [RaiseSiteSave] (id: 43);
+  raise_given: [BankShareSave] (id: 44);
+  storehouse: ulong (id: 45);
+  // Schema 166 (M8d slice DC): the hall its gatherings meet in (0 when none), and the losses
+  // measured beside `measured`, a year each, in its order; absent before.
+  hall: ulong (id: 46);
+  measured_losses: [MeasuredLossSave] (id: 47);
+  // Schema 167 (M8d slice DC): the watch tower its watch looks out from (0 when none).
+  tower: ulong (id: 48);
+}
+
+// A year's measured losses beside `MeasuredSave` (schema 166, M8d slice DC): the year, and the
+// hours those who came gave to gatherings in the open that a wet day left without a quorum; from
+// schema 167, the hours of work the fires that burned unseen awhile cost (0 before).
+table MeasuredLossSave {
+  year: long (id: 0);
+  wet_lost_h: double (id: 1);
+  late_fire_h: double (id: 2);
+}
+
+// A building a law would raise in common (schema 165, M8d slice DC): the law, the program by
+// content index, the hours of a capable adult's work it takes, and the building once laid out
+// (0 before).
+table RaiseSiteSave {
+  law: ulong (id: 0);
+  program: ushort (id: 1);
+  labour_h: double (id: 2);
+  building: ulong (id: 3);
+  // Schema 168: when it was laid out, last worked on, first used and finished, and when it
+  // stalled, minutes (-1 for not yet, and before).
+  begun: long = -1 (id: 4);
+  last_work: long = -1 (id: 5);
+  first_use: long = -1 (id: 6);
+  finished: long = -1 (id: 7);
+  stalled: long = -1 (id: 8);
+}
+
+// A year's measured losses (schema 164, M8d slice DC): the year, the food its common store lost
+// to spoiling (kcal), the gatherings it held and how many on a wet day, and the fires that reached
+// a roof.
+struct MeasuredSave {
+  year: long;
+  spoiled_kcal: double;
+  gatherings: uint;
+  wet_gatherings: uint;
+  roof_fires: uint;
 }
 
 // A plan a law lays (schema 156, M8c slice CT, second part; ADR-0030 §2): its version, its
@@ -3212,12 +3326,18 @@ struct WorkedSave {
 }
 
 // A settlement's way of building when it was founded (schema 61): roof pitch in hundredths of a
-// degree, height to the eaves and the roof's overhang in centimetres.
+// degree, height to the eaves and the roof's overhang in centimetres; and its front (schema 169,
+// M8d slice DD; 0 before it): openings in thousandths, ornament in tenths of an hour a square
+// metre, finish (0 bare, 1 daubed, 2 lime-washed) and symmetry.
 table WaySave {
   settlement: ulong (id: 0);
   pitch_centideg: float (id: 1);
   eave_cm: float (id: 2);
   overhang_cm: float (id: 3);
+  openings_permille: float (id: 4);
+  ornament_dh: float (id: 5);
+  finish: float (id: 6);
+  symmetry: float (id: 7);
 }
 
 // The buildings of other settlements `person` has seen, newest first (schema 59).
@@ -3610,4 +3730,34 @@ table TrafficSave {
   travel_goings: [TravelGoingSave] (id: 8);
   // Schema 155 (M8c slice CS, second part); absent before (a save's trips of its day go uncounted).
   travel_going_today: [TravelGoingTodaySave] (id: 9);
+}
+
+// Shaking (schema 162, M8d slice DA; ADR-0031 §4): each time the observer shook the ground and
+// what every building it reached did. `settlement` 0 for the whole map; `outcome` 0 stood, 1
+// cracked, 2 fell; `cracked` the groups that cracked; `z` the building's response draw and `cs`
+// the share of its weight it met sideways.
+table ShakenSave {
+  building: ulong (id: 0);
+  household: ulong (id: 1);
+  settlement: ulong (id: 2);
+  z: float (id: 3);
+  cs: float (id: 4);
+  outcome: ubyte (id: 5);
+  cracked: [uint] (id: 6);
+  deaths: ushort (id: 7);
+}
+
+table QuakeSave {
+  id: uint (id: 0);
+  influence: uint (id: 1);
+  at: long (id: 2);
+  strength: float (id: 3);
+  settlement: ulong (id: 4);
+  origin_known: bool (id: 5);
+  observers: [uint] (id: 6);
+  shaken: [ShakenSave] (id: 7);
+}
+
+table QuakesSave {
+  quakes: [QuakeSave] (id: 0);
 }

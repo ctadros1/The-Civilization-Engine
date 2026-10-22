@@ -299,6 +299,8 @@ mod tests {
     #[test]
     fn a_household_counts_what_would_spoil_of_the_goods_a_problem_names() {
         let food = |id: &str, kcal: f64, half_life: f64, sheltered: f64| GoodDef {
+            fuel: None,
+            power: None,
             money: None,
             id: id.into(),
             name: id.into(),

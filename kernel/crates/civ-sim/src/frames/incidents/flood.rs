@@ -83,6 +83,7 @@ pub fn high_water_row(_sim: &Sim, hw: &HighWater) -> Row {
         conflagration: 0,
         flood: hw.episode.unwrap_or(0),
         storm: 0,
+        quake: 0,
         open: hw.ended.is_none(),
     }
 }

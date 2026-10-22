@@ -1,0 +1,18 @@
+# Cutting bog iron ore out of wet ground with a spade and carrying it home (tuning starting
+# points). Only done while the household needs ore for something it makes.
+kind = "activity"
+id = "core:activity/gather_bog_ore"
+name = "Gather bog ore"
+doing = "cutting bog ore"
+behavior = "gather"
+resource = "iron_ore"
+par = 4.5
+min_age_years = 14.0
+max_age_years = 70.0
+min_minutes = 30
+max_minutes = 180
+daylight_only = true
+max_walk_minutes = 90
+technique = ""
+tools = []
+rate = 1.0

@@ -452,6 +452,34 @@ pub const SCHEMA_V159: u32 = 159;
 /// Encroachments' witnesses and cases' buildings, before plans' bundles took buildings down or let
 /// them stand for a yearly payment.
 pub const SCHEMA_V160: u32 = 160;
+/// Plans' bundles that took buildings down or let them stand, before the ground was shaken.
+pub const SCHEMA_V161: u32 = 161;
+/// The ground shaken, before households remembered the storeys and ties of a building that gave
+/// way.
+pub const SCHEMA_V162: u32 = 162;
+/// Households' storeys and ties of what gave way, before polities measured their losses.
+pub const SCHEMA_V163: u32 = 163;
+/// Polities' measured losses, before buildings kept the polity that raised them.
+pub const SCHEMA_V164: u32 = 164;
+/// Buildings a polity raised and its storehouse, before rain kept people from gatherings in the
+/// open and halls were raised.
+pub const SCHEMA_V165: u32 = 165;
+/// Halls and rain's toll on gatherings in the open, before watch towers and fires seen late.
+pub const SCHEMA_V166: u32 = 166;
+/// Watch towers and fires seen late, before a building raised together kept its dates.
+pub const SCHEMA_V167: u32 = 167;
+/// A building raised together kept its dates, before taste and founding ways had a front.
+pub const SCHEMA_V168: u32 = 168;
+/// Taste and founding ways with a front, before the observer forced the climate.
+pub const SCHEMA_V169: u32 = 169;
+/// The observer's forcings on the climate, before households kept batches.
+pub const SCHEMA_V170: u32 = 170;
+/// Households kept batches, before workshops did.
+pub const SCHEMA_V171: u32 = 171;
+/// Workshops kept batches, before water-power installations.
+pub const SCHEMA_V172: u32 = 172;
+/// Water-power installations, before households counted what they ground for a mill.
+pub const SCHEMA_V173: u32 = 173;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

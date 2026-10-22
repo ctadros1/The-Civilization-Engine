@@ -124,6 +124,19 @@ pub(crate) struct PolicyFile {
     /// For a plan (`plan`, content API 141, M8c slice CT): its grid.
     #[serde(default)]
     pub plan: Option<PlanFile>,
+    /// For a building raised in common (`raise_building`, content API 153, M8d slice DC): what
+    /// is raised.
+    #[serde(default)]
+    pub raise: Option<RaiseFile>,
+}
+
+/// A building raised in common in a policy file (content API 153, M8d slice DC).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct RaiseFile {
+    /// The building program raised, by content id: a store raised by law shelters the common
+    /// store once it stands.
+    pub program: String,
 }
 
 /// A plan's grid in a policy file (content API 141, M8c slice CT; ADR-0030 §2): an orthogonal
@@ -358,7 +371,9 @@ fn more_for() -> String {
 pub(crate) struct RuleFile {
     /// `roofs_unburnt`: a new roof within `within_m` of another building must not burn;
     /// `walls_of_kinds`: new walls must be of one of `walls` (content API 94); `least_gap`: a
-    /// new building must stand `gap_m` from every other (94).
+    /// new building must stand `gap_m` from every other (94); `most_storeys`: a new building
+    /// whose walls are of one of `walls` rises at most `storeys` (152); `tied_walls`: new mass
+    /// walls above a storey are tied at each floor (152).
     pub template: String,
     /// For `roofs_unburnt`: how near another building a roof is bound, metres.
     #[serde(default)]
@@ -375,12 +390,26 @@ pub(crate) struct RuleFile {
     /// open well, metres.
     #[serde(default)]
     pub from_m: f64,
+    /// For `most_storeys` (content API 152): the most storeys a new building whose walls are of
+    /// one of `walls` may rise.
+    #[serde(default)]
+    pub storeys: u8,
     /// The technique a sponsor must know to put it forward (research 11-09 §1.4).
     #[serde(default)]
     pub needs: Option<String>,
 }
 
 impl RuleFile {
+    /// The wall kinds `walls` names, a bit for each.
+    fn wall_kinds(&self) -> u8 {
+        self.walls.iter().fold(0u8, |m, w| {
+            WALL_KINDS
+                .iter()
+                .position(|k| k == w)
+                .map_or(m, |k| m | (1 << k))
+        })
+    }
+
     /// Its template, if the name is one.
     fn template(&self) -> Option<RuleTemplate> {
         match self.template.as_str() {
@@ -388,13 +417,13 @@ impl RuleFile {
                 within_m: self.within_m as f32,
             }),
             "walls_of_kinds" => Some(RuleTemplate::WallsOfKinds {
-                kinds: self.walls.iter().fold(0u8, |m, w| {
-                    WALL_KINDS
-                        .iter()
-                        .position(|k| k == w)
-                        .map_or(m, |k| m | (1 << k))
-                }),
+                kinds: self.wall_kinds(),
             }),
+            "most_storeys" => Some(RuleTemplate::MostStoreys {
+                storeys: self.storeys,
+                kinds: self.wall_kinds(),
+            }),
+            "tied_walls" => Some(RuleTemplate::TiedWalls),
             "least_gap" => Some(RuleTemplate::LeastGap {
                 gap_m: self.gap_m as f32,
             }),
@@ -552,6 +581,8 @@ impl PolicyFile {
             bodies: self.bodies(),
             question: self.question.clone(),
             bears,
+            // The program is found by content id where the policies are compiled.
+            raise: None,
             rule: self.rule.as_ref().and_then(|r| {
                 Some(RuleDef {
                     template: r.template()?,
@@ -1033,6 +1064,15 @@ impl PolicyFile {
             (Some(_), _) => p.push("`medium` is for `does = \"common_store\"`".to_owned()),
             (None, _) => {}
         }
+        // A building raised in common (M8d slice DC): only for `raise_building`, which must
+        // name one.
+        match (&self.raise, PolicyKind::from_name(&self.does)) {
+            (None, Some(PolicyKind::RaiseBuilding)) => {
+                p.push("a `raise_building` template needs a `raise` table".to_owned());
+            }
+            (Some(_), Some(PolicyKind::RaiseBuilding)) | (None, _) => {}
+            (Some(_), _) => p.push("`raise` is for `does = \"raise_building\"`".to_owned()),
+        }
         // Pay for common work (M7d slice CE3a): only for `pay_work`, which must have it.
         match (&self.pay, PolicyKind::from_name(&self.does)) {
             (Some(pay), Some(PolicyKind::PayWork)) => {
@@ -1226,7 +1266,8 @@ impl PolicyFile {
                 | PolicyKind::Mint
                 | PolicyKind::PayWork
                 | PolicyKind::BuildWay
-                | PolicyKind::Plan),
+                | PolicyKind::Plan
+                | PolicyKind::RaiseBuilding),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
                 p.push(format!(
                     "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
@@ -1290,7 +1331,8 @@ impl PolicyFile {
                 | PolicyKind::Mint
                 | PolicyKind::PayWork
                 | PolicyKind::BuildWay
-                | PolicyKind::Plan,
+                | PolicyKind::Plan
+                | PolicyKind::RaiseBuilding,
             )
             | None => {}
         }
@@ -1478,7 +1520,8 @@ impl PolicyFile {
             (Some(PolicyKind::BuildingRule), Some(r)) => match r.template() {
                 None => p.push(format!(
                     "`rule.template` is `{}`; templates are `roofs_unburnt`, `walls_of_kinds`, \
-                     `least_gap`, `fire_from_homes` and `midden_from_wells`",
+                     `least_gap`, `fire_from_homes`, `midden_from_wells`, `most_storeys` and \
+                     `tied_walls`",
                     r.template
                 )),
                 // Research 12-03 §2.2: radiation from a burning dwelling falls from about 36
@@ -1491,18 +1534,16 @@ impl PolicyFile {
                         ));
                     }
                 }
+                // A frame rises at most four storeys (ADR-0031 §1), so a limit is one to three.
+                Some(RuleTemplate::MostStoreys { storeys, .. }) => {
+                    if !(1..=3).contains(&storeys) {
+                        p.push(format!("`rule.storeys` must be 1 to 3 (got {storeys})"));
+                    }
+                    p.extend(walls_named(&r.walls));
+                }
+                Some(RuleTemplate::TiedWalls) => {}
                 Some(RuleTemplate::WallsOfKinds { .. }) => {
-                    if r.walls.is_empty() {
-                        p.push("`rule.walls` must name at least one wall kind".to_owned());
-                    }
-                    for w in &r.walls {
-                        if !WALL_KINDS.contains(&w.as_str()) {
-                            p.push(format!(
-                                "`rule.walls` names `{w}`; wall kinds are `{}`",
-                                WALL_KINDS.join("`, `")
-                            ));
-                        }
-                    }
+                    p.extend(walls_named(&r.walls));
                 }
                 // Research 12-03 §2.2: separation thresholds of about 2.14 and 3.14 m for its
                 // configurations; a gap is authored within a street's width.
@@ -1531,6 +1572,23 @@ impl PolicyFile {
         }
         p
     }
+}
+
+/// What is wrong with a rule's `walls`: none named, or a name that is no wall kind.
+fn walls_named(walls: &[String]) -> Vec<String> {
+    let mut p = Vec::new();
+    if walls.is_empty() {
+        p.push("`rule.walls` must name at least one wall kind".to_owned());
+    }
+    for w in walls {
+        if !WALL_KINDS.contains(&w.as_str()) {
+            p.push(format!(
+                "`rule.walls` names `{w}`; wall kinds are `{}`",
+                WALL_KINDS.join("`, `")
+            ));
+        }
+    }
+    p
 }
 
 #[cfg(test)]
@@ -1570,6 +1628,7 @@ mod tests {
             pay: None,
             medium: None,
             plan: None,
+            raise: None,
         }
     }
 
@@ -1824,6 +1883,7 @@ mod tests {
             walls: Vec::new(),
             gap_m: 0.0,
             from_m: 0.0,
+            storeys: 0,
             needs: Some("core:technique/firing".to_owned()),
         };
         let roofs_with = |r: Option<RuleFile>| PolicyFile {
@@ -1899,6 +1959,7 @@ mod tests {
                 walls: walls.iter().map(|w| (*w).to_owned()).collect(),
                 gap_m,
                 from_m: gap_m,
+                storeys: 0,
                 needs: None,
             }))
         };
@@ -1936,6 +1997,36 @@ mod tests {
         );
         assert!(!other("midden_from_wells", &[], 0.0).problems().is_empty());
         assert!(!other("fire_from_homes", &[], 60.0).problems().is_empty());
+        // A height rule over named wall kinds, and a ties rule (content API 152).
+        let height = |storeys: u8, walls: &[&str]| {
+            roofs_with(Some(RuleFile {
+                template: "most_storeys".to_owned(),
+                within_m: 0.0,
+                walls: walls.iter().map(|w| (*w).to_owned()).collect(),
+                gap_m: 0.0,
+                from_m: 0.0,
+                storeys,
+                needs: None,
+            }))
+        };
+        let low = height(1, &["rubble", "mud_brick"]);
+        assert!(low.problems().is_empty(), "{:?}", low.problems());
+        assert_eq!(
+            low.def(&no_values, &firing).rule.map(|r| r.template),
+            Some(RuleTemplate::MostStoreys {
+                storeys: 1,
+                kinds: 0b0110
+            })
+        );
+        assert!(!height(0, &["rubble"]).problems().is_empty());
+        assert!(!height(4, &["rubble"]).problems().is_empty());
+        assert!(!height(1, &[]).problems().is_empty());
+        let ties = other("tied_walls", &[], 0.0);
+        assert!(ties.problems().is_empty(), "{:?}", ties.problems());
+        assert_eq!(
+            ties.def(&no_values, &firing).rule.map(|r| r.template),
+            Some(RuleTemplate::TiedWalls)
+        );
     }
 
     #[test]

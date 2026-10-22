@@ -123,6 +123,9 @@ pub struct ConsistencyOptions {
     /// The approximations the Accelerated runs make: all Accelerated mode declares, for the gate
     /// itself; fewer to see what each one changes.
     pub approximations: Approximations,
+    /// Gate C (ADR-0032 §5): the Accelerated runs live every settlement household-resolved, and
+    /// are held to the same Detailed runs and tolerances.
+    pub household: bool,
 }
 
 /// One run of a year from a fixture.
@@ -172,6 +175,8 @@ pub struct Comparison {
 pub struct Report {
     /// Whether this was a calibration.
     pub calibration: bool,
+    /// Whether the compared runs were household-resolved (Gate C, ADR-0032 §5).
+    pub household: bool,
     /// People at each fixture's save.
     pub fixture_people: Vec<usize>,
     /// Every run.
@@ -242,6 +247,7 @@ fn run(
     fixture: usize,
     approximations: Option<Approximations>,
     stream: u64,
+    household: bool,
 ) -> Run {
     let accelerated = approximations.is_some();
     let started = Instant::now();
@@ -277,6 +283,11 @@ fn run(
         out.failures
             .push(format!("the run began in {:?} mode", sim.mode()));
         return out;
+    }
+    // Gate C: every settlement lives household-resolved from the fixture's midnight.
+    if accelerated && household {
+        let all: Vec<_> = sim.land().settlements.iter().map(|s| s.id).collect();
+        sim.set_household_resolved(all);
     }
     let mut long = LongRun::begin(&sim);
     let end = SimTime::from_date(RUN_YEAR + 1, 1, 1, 0, 0).map_or(0, |t| t.minutes());
@@ -467,7 +478,14 @@ pub fn run_gate(
                         return;
                     };
                     let approximations = accelerated.then_some(options.approximations);
-                    let r = run(content, &fixtures[f].0, f, approximations, stream);
+                    let r = run(
+                        content,
+                        &fixtures[f].0,
+                        f,
+                        approximations,
+                        stream,
+                        options.household,
+                    );
                     println!(
                         "  fixture {} {} run {}: {:.0} s{}",
                         f + 1,
@@ -524,6 +542,7 @@ pub fn run_gate(
     }
     Ok(Report {
         calibration: options.calibrate,
+        household: options.household,
         fixture_people: fixtures.iter().map(|f| f.1).collect(),
         runs,
         comparisons,
@@ -545,6 +564,11 @@ pub fn print(report: &Report) {
         report.seconds / 60.0,
         failed
     );
+    let compared = if report.household {
+        "Household"
+    } else {
+        "Accelerated"
+    };
     for (f, (preset, seed)) in FIXTURES
         .iter()
         .enumerate()
@@ -562,13 +586,13 @@ pub fn print(report: &Report) {
                 .join(" ")
         };
         println!(
-            "  takings/attempts by run (not graded): Detailed {}; Accelerated {}",
+            "  takings/attempts by run (not graded): Detailed {}; {compared} {}",
             takings(false),
             takings(true)
         );
         println!(
             "  {:<10} {:>18} {:>18} {:>10} {:>10} {:>10}",
-            "aggregate", "Detailed", "Accelerated", "difference", "tolerance", "calibrated"
+            "aggregate", "Detailed", compared, "difference", "tolerance", "calibrated"
         );
         for c in report.comparisons.iter().filter(|c| c.fixture == f) {
             let acc = c
@@ -593,8 +617,14 @@ pub fn print(report: &Report) {
     if report.calibration {
         println!("calibration only: no Accelerated runs, nothing graded");
     } else if report.passed() {
-        println!("Gate B passed");
+        println!(
+            "{} passed",
+            if report.household { "Gate C" } else { "Gate B" }
+        );
     } else {
-        println!("Gate B FAILED");
+        println!(
+            "{} FAILED",
+            if report.household { "Gate C" } else { "Gate B" }
+        );
     }
 }

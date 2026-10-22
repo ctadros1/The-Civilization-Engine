@@ -1,0 +1,19 @@
+# A bloomery smelt: charging a furnace with roasted ore and charcoal and blowing it for a day, then
+# leaving it to cool overnight before the bloom is drawn (a batch of one elapsed day, ADR-0033 §2).
+# 8 kg of ore and 12 kg of charcoal a kilogram of bloom and three hours of work a kilogram (research
+# 07-05 §2.2: 9.1 kg of roasted ore and 20.5 kg of charcoal a kilogram in one experimental run;
+# 5.5 person-hours a kilogram of rough bloom with the furnace built). A charge gives up to 8 kg
+# (the timed run's bloom). Tuning values within those envelopes.
+kind = "recipe"
+id = "core:recipe/smelt_iron"
+name = "Smelt iron"
+skill = "core:skill/smithing"
+technique = "core:technique/bloomery"
+unit_h = 3.0
+session_h = 0.0
+max_units = 8.0
+elapsed_days = 1.0
+tools = []
+inputs = [{ good = "core:good/iron_ore", amount = 8.0 }, { good = "core:good/charcoal", amount = 12.0 }]
+outputs = [{ good = "core:good/iron_bloom", amount = 1.0 }]
+session_inputs = []

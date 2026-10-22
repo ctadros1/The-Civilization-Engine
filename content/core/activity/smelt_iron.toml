@@ -1,0 +1,18 @@
+# Charging and blowing a bloomery through a long session; the bloom is drawn after the furnace
+# has cooled (an elapsed-day batch). Heavy work at the bellows.
+kind = "activity"
+id = "core:activity/smelt_iron"
+name = "Smelt iron"
+doing = "smelting iron"
+behavior = "make"
+recipe = "core:recipe/smelt_iron"
+par = 5.0
+min_age_years = 14.0
+max_age_years = 70.0
+min_minutes = 120
+max_minutes = 600
+daylight_only = false
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

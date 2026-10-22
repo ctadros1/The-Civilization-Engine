@@ -210,6 +210,10 @@ pub enum Reason {
     Cart = 156,
     /// The waiting a passing place would spare their household (M8b slice CQ, second part).
     Way = 157,
+    /// Keeping to the gathering's word on a building their polity raises (M8d slice DC).
+    Raise = 158,
+    /// A batch of it is still burning (M10a slice DP): nothing to do until it is done.
+    Burning = 159,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -221,7 +225,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 91] = [
+    pub const ALL: [Reason; 93] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -313,6 +317,8 @@ impl Reason {
         Reason::Boat,
         Reason::Cart,
         Reason::Way,
+        Reason::Raise,
+        Reason::Burning,
     ];
 
     /// The reason with this code.
@@ -416,6 +422,8 @@ impl Reason {
             Reason::Boat => "the carrying a boat would save",
             Reason::Cart => "the carrying a cart would save",
             Reason::Way => "the waiting a passing place would spare",
+            Reason::Raise => "their share of raising a building together",
+            Reason::Burning => "a batch of it is still burning",
         }
     }
 }
@@ -1497,6 +1505,20 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 Some(crate::influence::InfluenceKind::Storm) => {
                     return vec![Span::Text(format!(
                         "One recorded influence: the observer sent a storm{}",
+                        event.name
+                    ))];
+                }
+                // The climate forced (M9c slice DM): its words are the entry's.
+                Some(crate::influence::InfluenceKind::Climate) => {
+                    return vec![Span::Text(format!(
+                        "One recorded influence: the observer changed the climate{}",
+                        event.name
+                    ))];
+                }
+                // The ground shaken (M8d slice DA): its words are the entry's.
+                Some(crate::influence::InfluenceKind::Earthquake) => {
+                    return vec![Span::Text(format!(
+                        "One recorded influence: the observer shook the ground{}",
                         event.name
                     ))];
                 }

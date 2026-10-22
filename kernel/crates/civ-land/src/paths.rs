@@ -731,6 +731,9 @@ fn thin(cells: &[(i32, i32)]) -> FastSet<(i32, i32)> {
 
 type Cell = (i32, i32);
 
+/// A box of cells: its north-west and south-east corner cells.
+pub type CellBox = ((usize, usize), (usize, usize));
+
 /// Follows a skeleton one cell wide into chains of cells between ends and junctions. Cells link
 /// orthogonally, and diagonally only where no orthogonal neighbour joins them already, so a corner
 /// or a staircase is one line rather than a knot of junctions.

@@ -89,3 +89,7 @@ On Windows, run `tools\run.ps1` in PowerShell. The observer opens at <http://127
 ## License
 
 No license has been added. Until one is chosen, the repository does not grant reuse or redistribution rights.
+
+## CI runner pool
+
+Dedicated Linux VMs on servernode1 and servernode3 provide the [GitHub Actions runner pool](docs/operations/github-runners.md). Trusted push checks and scheduled long runs can use these machines; Windows and pull-request checks retain GitHub-hosted runners. The runner guide covers candidate branches, routing, isolation, and adding an intermittently available servernode4.

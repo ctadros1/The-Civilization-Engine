@@ -41,10 +41,12 @@ env:
 jobs:
   smoke:
     name: Ten-year smoke seeds
-    runs-on: ubuntu-24.04
+    runs-on: ${{ github.event_name != 'pull_request' && github.actor == 'ctadros1' && fromJSON('["self-hosted","Linux","X64","tce-ci","tce-long"]') || 'ubuntu-24.04' }}
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Toolchain (from rust-toolchain.toml)
         run: rustup show active-toolchain
@@ -74,10 +76,12 @@ jobs:
 
   consistency:
     name: Gate B (Accelerated against Detailed)
-    runs-on: ubuntu-24.04
+    runs-on: ${{ github.event_name != 'pull_request' && github.actor == 'ctadros1' && fromJSON('["self-hosted","Linux","X64","tce-ci","tce-long"]') || 'ubuntu-24.04' }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Toolchain (from rust-toolchain.toml)
         run: rustup show active-toolchain
@@ -130,10 +134,12 @@ jobs:
   dashboard:
     name: Sanity dashboard (five worlds, fifty years)
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ github.event_name != 'pull_request' && github.actor == 'ctadros1' && fromJSON('["self-hosted","Linux","X64","tce-ci","tce-long"]') || 'ubuntu-24.04' }}
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Toolchain (from rust-toolchain.toml)
         run: rustup show active-toolchain

@@ -6122,6 +6122,8 @@ and M6a gives rivers a daily flow.
 
 One line each. Don't re-litigate without a reason written next to the entry.
 
+- **Self-hosted CI (2026-10-22, owner request):** dedicated isolated Ubuntu VMs on servernode1 and servernode3; GitHub routes the shared `tce-ci` label, with node3 also carrying `tce-long`. Candidate branches run the full Linux chain; trusted owner push and scheduled Linux work can use the pool. Windows and public pull-request checks remain GitHub-hosted. Runner accounts have no sudo, job tokens are read-only, and a root-owned gate rejects PR events and foreign actors. Servernode4 is optional future capacity; no local load balancer or cross-machine benchmark comparison. Operational and validation evidence: `docs/operations/github-runners.md`.
+
 - **Purpose:** personal/research project built to product polish (UX, save/load, stability); no game-design restrictions.
 - **One-sentence vision:** as realistic as possible; people make their own society, laws and world; scripted as little as possible; must not become a long research project like TGE.
 - **Team:** solo with AI agents doing most of the implementation, including UE work through code and computer control.

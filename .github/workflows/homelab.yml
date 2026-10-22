@@ -1,0 +1,101 @@
+# Only trusted owner pushes/dispatches enter the isolated homelab pool.
+# Public fork PRs keep using GitHub-hosted CI. A host-owned hook also refuses PR events.
+name: Homelab validation
+on:
+  push:
+    branches: ['ci/**', 'codex/actions-runner-pool']
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Checks to run
+        type: choice
+        options: [full, health, long]
+        default: full
+      runner:
+        description: Pool or a specific machine (an offline specific machine queues)
+        type: choice
+        options: [tce-ci, node1, node3]
+        default: tce-ci
+permissions:
+  contents: read
+concurrency:
+  group: homelab-${{ github.ref }}-${{ inputs.suite || 'full' }}
+  cancel-in-progress: true
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: '1'
+jobs:
+  health:
+    if: github.actor == 'ctadros1' && (inputs.suite == 'health' || github.ref == 'refs/heads/codex/actions-runner-pool')
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [node1, node3]
+    runs-on: [self-hosted, Linux, X64, tce-ci, '${{ matrix.node }}']
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify tools, permissions, and capacity
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ $(id -un) == runner ]]
+          if sudo -n true 2>/dev/null; then echo 'Runner must not have sudo'; exit 1; fi
+          rustup show active-toolchain
+          cargo --version
+          node --version
+          flatc --version
+          test "$(flatc --version)" = 'flatc version 25.12.19'
+          test "$(node --version | cut -d. -f1)" = v22
+          df -h .
+          free -h
+          printf '### %s\n\nHost: %s\nCommit: %s\n' "$RUNNER_NAME" "$(hostname)" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+  full:
+    if: github.actor == 'ctadros1' && (github.event_name == 'push' || inputs.suite == 'full')
+    runs-on: [self-hosted, Linux, X64, tce-ci, '${{ inputs.runner || ''tce-ci'' }}']
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Full Linux chain
+        run: tools/ci/full-chain.sh
+      - name: Browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: homelab-playwright-${{ runner.name }}
+          path: web/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+  long:
+    if: github.actor == 'ctadros1' && inputs.suite == 'long'
+    runs-on: [self-hosted, Linux, X64, tce-ci, tce-long]
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and run the long gates
+        shell: bash
+        working-directory: kernel
+        run: |
+          set -euo pipefail
+          cargo build --locked --release -p civ-host
+          target/release/civ-host smoke --years 10
+          target/release/civ-host consistency --json "$RUNNER_TEMP/consistency.json"
+          target/release/civ-host notables --json "$RUNNER_TEMP/notables.json"
+          target/release/civ-host dashboard --json "$RUNNER_TEMP/dashboard.json"
+      - name: Keep gate reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: homelab-long-reports
+          path: |
+            ${{ runner.temp }}/consistency.json
+            ${{ runner.temp }}/notables.json
+            ${{ runner.temp }}/dashboard.json
+          if-no-files-found: ignore
+          retention-days: 14

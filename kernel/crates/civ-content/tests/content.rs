@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 159
+kernel_content_api = 160
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -382,6 +382,60 @@ fn a_fuel_says_what_it_gives_burned() {
         let report = load_fixture(&[
             ("worldgen/river_valley.toml", &real_preset()),
             ("good/firewood.toml", &body),
+        ]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(
+            report.diagnostics[0].message.contains(needle),
+            "{needle}: {}",
+            report.diagnostics[0].message
+        );
+    }
+}
+
+#[test]
+fn a_wheel_says_the_power_it_delivers_and_a_recipe_the_power_it_takes() {
+    // M10a slice DR (content API 160): a fixed tool may carry a `[power]` table, in range; a
+    // recipe may take kilowatt-hours a unit.
+    let wheel = format!(
+        "{}\n[power]\nsource = \"water\"\nrated_kw = 3.0\nefficiency = 0.5\n",
+        real("good/kiln.toml")
+    );
+    let fine = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        ("good/kiln.toml", &wheel),
+    ]);
+    assert!(fine.diagnostics.is_empty(), "{:?}", fine.diagnostics);
+    let axe = format!(
+        "{}\n[power]\nsource = \"water\"\nrated_kw = 3.0\nefficiency = 0.5\n",
+        real("good/axe.toml")
+    );
+    let recipe = real("recipe/grind_grain_rotary.toml");
+    for (path, body, needle) in [
+        (
+            "good/kiln.toml",
+            wheel.replace("source = \"water\"", "source = \"steam\""),
+            "power.source",
+        ),
+        (
+            "good/kiln.toml",
+            wheel.replace("rated_kw = 3.0", "rated_kw = 0.0"),
+            "power.rated_kw",
+        ),
+        (
+            "good/kiln.toml",
+            wheel.replace("efficiency = 0.5", "efficiency = 1.5"),
+            "power.efficiency",
+        ),
+        ("good/axe.toml", axe.clone(), "only a fixed tool"),
+        (
+            "recipe/grind_grain_rotary.toml",
+            format!("{recipe}\nkwh_per_unit = -1.0\n"),
+            "kwh_per_unit",
+        ),
+    ] {
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &real_preset()),
+            (path, &body),
         ]);
         assert_eq!(codes(&report), vec!["E3001"], "{needle}");
         assert!(

@@ -476,6 +476,8 @@ pub const SCHEMA_V169: u32 = 169;
 pub const SCHEMA_V170: u32 = 170;
 /// Households kept batches, before workshops did.
 pub const SCHEMA_V171: u32 = 171;
+/// Workshops kept batches, before water-power installations.
+pub const SCHEMA_V172: u32 = 172;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

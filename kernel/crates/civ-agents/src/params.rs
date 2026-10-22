@@ -414,6 +414,27 @@ pub struct GoodDef {
     /// What it gives burned (M10a slice DP, ADR-0033 §1; content API 158): `None` for a good not
     /// burned for heat.
     pub fuel: Option<GoodFuel>,
+    /// The power it delivers as a station (M10a slice DR, ADR-0033 §5; content API 160): `None`
+    /// for a good that is not a wheel or an engine.
+    pub power: Option<GoodPower>,
+}
+
+/// What drives a powered station (M10a slice DR).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PowerSource {
+    /// Falling water at an installation (ADR-0033 §5).
+    Water,
+    /// A fuel burned in it (an engine, slice DS).
+    Fuel,
+}
+
+/// The power a wheel or an engine delivers (M10a slice DR; research 07-06 §2.2): its source, the
+/// most it delivers and the share of its source's power it turns into work.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GoodPower {
+    pub source: PowerSource,
+    pub rated_kw: f64,
+    pub efficiency: f64,
 }
 
 /// What a good gives burned (M10a slice DP, ADR-0033 §1): heat, and the smoke that comes with it.
@@ -641,6 +662,10 @@ pub struct RecipeDef {
     /// taken when the batch is started and its outputs given when it is opened, on a visit once
     /// its days are past.
     pub elapsed_days: f64,
+    /// Kilowatt-hours a unit takes from a powered station (M10a slice DR, ADR-0033 §5; content
+    /// API 160): a session makes no more than the station's power over its hours allows. 0 for
+    /// work done by hand.
+    pub kwh_per_unit: f64,
 }
 
 /// A technique: a practical capability people know, learn and can lose (ADR-0008 §1). What it

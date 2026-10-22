@@ -5908,8 +5908,28 @@ and M6a gives rivers a daily flow.
         ore and charcoal, keeps the batch through a save and load to the byte, opens the bloom
         into its own stores the next day, and forges bar from its own blooms with only its
         owners' charcoal put in.
+      - *Closed (2026-10-22):* the mill's toll moves to DR (its fourth part): a toll is what a
+        mill that grinds without the miller's hands takes for the grinding, and before DR no
+        station grinds without hands, so the channel would have nothing to carry.
     - **DR**: water power at a site (installations, daily kilowatts from discharge, `kwh_per_unit`,
       the water mill) and techniques that answer needs in hours.
+      - *As built, first part (2026-10-22): installations and their power.* An installation
+        (`civ_land::power::Installation`, `Land::installations`) is a record of where its wheel
+        stands, the reach its intake takes from, its fall at the wheel, what its headrace carries
+        running full, the wheel's efficiency and rated kilowatts, its owner and the building it
+        drives; it is saved in the earth section (schema 173, absent while there are none, so a
+        world without one saves the same bytes). Its power is worked out from the day's
+        discharge and never saved (`Land::installation_kw`): Q is the least of its headrace and
+        a ditch's share of the reach (ADR-0022 §11's `max_share`), P = 9.81 Q H η, no more than
+        its rating; the water goes back at the tail, so a wheel takes nothing from the reaches
+        below. Content API 160: a fixed tool's `[power]` table (`source` water or fuel,
+        `rated_kw`, `efficiency`) and a recipe's `kwh_per_unit`. Nothing builds one yet (part 3)
+        and nothing reads a recipe's power (part 2), so every bench world is unchanged but for
+        `meta` and the pack's `content`. **Tested:** the brief's 4.9 kW from 0.5 m³/s through
+        2 m at 50 %, a low river's share and a dry one's nothing, a flood capped by the headrace
+        and the rating, broken records refused; the content's ranges and the fixed-tool rule;
+        and an installation in a lived village taking its power from the day's river, saved and
+        loaded to the byte.
     - **DS**: coal and coke, pits that flood below the ground-water head, bailing and pumping, the
       atmospheric engine at the pit head.
     - **DT**: the works: machines with crews, shifts by daylight, the household-resolved block.

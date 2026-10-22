@@ -33,6 +33,7 @@ pub mod enclosures;
 pub mod fields;
 pub mod paths;
 pub mod plans;
+pub mod power;
 pub mod soil;
 pub mod water;
 pub mod ways;
@@ -396,6 +397,9 @@ pub struct Land {
     pub banks: Vec<banks::BankSegment>,
     /// Irrigation ditches, linked to their earthwork, in the order begun (M6b slice BG). Saved.
     pub ditches: Vec<ditches::DitchSegment>,
+    /// Water-power installations, in the order built (M10a slice DR; ADR-0033 §5). Saved; their
+    /// power is worked out from the day's discharge ([`Land::installation_kw`]) and never saved.
+    pub installations: Vec<power::Installation>,
     /// Today's water the ditches took from their reaches and returned below them, as changes to
     /// a reach's flow passed on down the river, m³/s (M6b slice BG). Saved.
     pub ditch_flows: Vec<(u32, f32)>,
@@ -641,6 +645,7 @@ impl Land {
             earthworks: Vec::new(),
             banks: Vec::new(),
             ditches: Vec::new(),
+            installations: Vec::new(),
             ditch_flows: Vec::new(),
             ground: earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
             crossings: crossings::Crossings::default(),
@@ -880,8 +885,28 @@ impl Land {
         n
     }
 
+    /// Installation `i`'s power today, kilowatts: from what its reach carries today, its intake
+    /// taking no more than a ditch's share of it (M10a slice DR; ADR-0033 §5). Nothing for an
+    /// installation the land does not have.
+    pub fn installation_kw(&self, params: &LandParams, i: usize) -> f64 {
+        let Some(x) = self.installations.get(i) else {
+            return 0.0;
+        };
+        let q = self
+            .reach_discharges
+            .get(x.reach as usize)
+            .copied()
+            .map_or(0.0, f64::from);
+        x.power_kw(q, params.ditches.max_share)
+    }
+
     pub fn problems(&self, map: &WorldMap, habitats: usize, next_id: u64) -> Vec<String> {
         let mut out = self.crossings.problems();
+        for x in &self.installations {
+            if !x.valid() {
+                out.push(format!("installation {} is not whole", x.id));
+            }
+        }
         out.extend(self.ways.problems(map.width * map.height));
         out.extend(self.water.problems());
         out.extend(self.wells.problems(usize::MAX));

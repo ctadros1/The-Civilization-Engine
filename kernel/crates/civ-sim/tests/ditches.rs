@@ -383,3 +383,60 @@ fn a_household_whose_crop_thirsted_digs_a_ditch_to_its_field_and_opens_it_in_a_d
         assert!(a.bytes == b.bytes, "section `{}` differs", a.tag);
     }
 }
+
+#[test]
+fn a_wheel_takes_its_power_from_the_days_river_and_its_installation_saves_exactly() {
+    // M10a slice DR, ADR-0033 §5: an installation's power is worked out from the day's
+    // discharge of its reach, its intake taking no more than a ditch's share, and is never saved;
+    // the installation itself is saved and loaded to the byte, and a world without one saves as
+    // before (no record at all).
+    let mut sim = village();
+    let (_, reach, at, _) = sown_field(&sim);
+    let owner = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h.id)
+        .next()
+        .expect("a household");
+    let id = PermanentId::from_raw(9_000_001).expect("id");
+    sim.land_mut_for_tests()
+        .installations
+        .push(civ_land::power::Installation {
+            id,
+            reach,
+            at,
+            head_m: 2.0,
+            race_m3s: 0.5,
+            efficiency: 0.5,
+            rated_kw: 3.0,
+            owner,
+            building: None,
+        });
+    let params = sim.rules().land.clone();
+    let q = f64::from(sim.land().reach_discharges[reach as usize]);
+    let kw = sim.land().installation_kw(&params, 0);
+    let want = (9.81 * (q * params.ditches.max_share).min(0.5) * 2.0 * 0.5).min(3.0);
+    assert!(
+        (kw - want).abs() < 1e-9,
+        "{kw} against {want} from {q} m³/s"
+    );
+    // A dry reach turns no wheel.
+    sim.land_mut_for_tests().reach_discharges[reach as usize] = 0.0;
+    assert_eq!(sim.land().installation_kw(&params, 0), 0.0);
+    sim.land_mut_for_tests().reach_discharges[reach as usize] = q as f32;
+    assert!(sim.land().problems(sim.map(), 5, u64::MAX).is_empty());
+    // Saved and loaded, the installation is as it was, to the byte.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "wheel").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.land().installations, sim.land().installations);
+    let (a, b) = (
+        persist::encode_sections(&sim),
+        persist::encode_sections(&loaded),
+    );
+    for (x, y) in a.iter().zip(&b) {
+        assert!(x.bytes == y.bytes, "section `{}` differs", x.tag);
+    }
+}

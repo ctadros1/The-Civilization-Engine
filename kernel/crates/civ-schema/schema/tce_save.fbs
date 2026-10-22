@@ -1244,6 +1244,25 @@ table Earth {
   bank_refill: [BankRefillRecord] (id: 6);
   ditches: [DitchRecord] (id: 7);
   ditch_flows: [DitchFlowRecord] (id: 8);
+  // Schema 173 (M10a slice DR): water-power installations, absent while there are none.
+  installations: [InstallationRecord] (id: 9);
+}
+
+// A water-power installation (schema 173, M10a slice DR; ADR-0033 §5): its wheel's place in
+// metres, the reach it takes from, its fall and headrace in metres and m³/s, the wheel's
+// efficiency and rated kilowatts, its owner, and the building it drives (0 for none). Its power is
+// worked out each day and never saved.
+struct InstallationRecord {
+  id: ulong;
+  reach: uint;
+  at_x: double;
+  at_y: double;
+  head_m: double;
+  race_m3s: double;
+  efficiency: double;
+  rated_kw: double;
+  owner: ulong;
+  building: ulong;
 }
 
 // Section "ties" (schema 28): what each person remembers of others (ADR-0014 §1), by holder and

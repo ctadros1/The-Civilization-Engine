@@ -417,6 +417,7 @@ mod tests {
     fn good(id: &str, purpose: GoodUse, kcal: f64, eaten: Eaten) -> GoodDef {
         GoodDef {
             fuel: None,
+            power: None,
             money: None,
             id: id.into(),
             name: id.into(),
@@ -485,6 +486,7 @@ mod tests {
     fn grind() -> RecipeDef {
         RecipeDef {
             elapsed_days: 0.0,
+            kwh_per_unit: 0.0,
             id: "grind".into(),
             name: "Grind".into(),
             inputs: vec![(0, 1.0)],
@@ -502,6 +504,7 @@ mod tests {
     fn oven_bake() -> RecipeDef {
         RecipeDef {
             elapsed_days: 0.0,
+            kwh_per_unit: 0.0,
             id: "bake".into(),
             name: "Bake".into(),
             inputs: vec![(2, 1.0), (4, 0.1)],
@@ -522,17 +525,20 @@ mod tests {
         let meat = goods.len();
         goods.push(GoodDef {
             fuel: None,
+            power: None,
             half_life_days: 3.0,
             ..good("meat", GoodUse::Food, 1500.0, Eaten::Cooked)
         });
         let dried = goods.len();
         goods.push(GoodDef {
             fuel: None,
+            power: None,
             half_life_days: 180.0,
             ..good("dried", GoodUse::Food, 3750.0, Eaten::Raw)
         });
         let dry = RecipeDef {
             elapsed_days: 0.0,
+            kwh_per_unit: 0.0,
             inputs: vec![(meat, 1.0)],
             outputs: vec![(dried, 0.4)],
             ..grind()
@@ -545,6 +551,7 @@ mod tests {
         );
         let barely = RecipeDef {
             elapsed_days: 0.0,
+            kwh_per_unit: 0.0,
             outputs: vec![(meat, 1.0)],
             ..dry.clone()
         };
@@ -623,6 +630,7 @@ mod tests {
         assert_eq!(stores[5], 0.0);
         let make_quern = RecipeDef {
             elapsed_days: 0.0,
+            kwh_per_unit: 0.0,
             id: "q".into(),
             name: "q".into(),
             inputs: Vec::new(),
@@ -645,6 +653,7 @@ mod tests {
     fn recipe(id: &str, out: usize, inputs: Vec<(usize, f64)>, unit_h: f64) -> RecipeDef {
         RecipeDef {
             elapsed_days: 0.0,
+            kwh_per_unit: 0.0,
             id: id.to_owned(),
             name: id.to_owned(),
             inputs,

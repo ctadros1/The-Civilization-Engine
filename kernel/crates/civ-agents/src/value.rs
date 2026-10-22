@@ -207,6 +207,7 @@ mod tests {
     fn good(id: &str, purpose: GoodUse, tool: Option<f64>) -> GoodDef {
         GoodDef {
             fuel: None,
+            power: None,
             money: None,
             id: id.into(),
             name: id.into(),
@@ -241,6 +242,7 @@ mod tests {
             ],
             recipes: vec![RecipeDef {
                 elapsed_days: 0.0,
+                kwh_per_unit: 0.0,
                 id: "make_sickle".into(),
                 name: "Make a sickle".into(),
                 inputs: vec![(0, 0.3), (1, 0.5)],

@@ -1607,3 +1607,11 @@ come when someone of the household opens it on a later session, once its days ar
 one of that recipe is under way the household does not start another. Charcoal is the first:
 `good/charcoal` (a material, 29.5 MJ a kilogram), `technique/charcoal_burning` (found from firing),
 `recipe/burn_charcoal` (5 kg of wood a kilogram, ten days) and `activity/burn_charcoal`.
+
+Content API 160 (M10a slice DR) gives a fixed tool a `[power]` table and a recipe
+`kwh_per_unit` (0–100, default 0). `[power]` names its `source` (`water`, a wheel at an
+installation, or `fuel`, an engine), `rated_kw` (above 0, at most 1000) and `efficiency` (above 0,
+at most 1; research 07-06 §2.2: simple wheels 20–40 %, overshot 50–70 %); only a fixed tool may
+carry one. A recipe's `kwh_per_unit` is the power a unit takes from a powered station; a session
+makes no more than the station's power over its hours allows. An installation's power is worked
+out each day from its river reach's discharge, P = 9.81 Q H η, and is never saved.

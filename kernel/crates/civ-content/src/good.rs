@@ -2,7 +2,8 @@
 //! gathers, stores or eats is decided by people at run time.
 
 use civ_agents::params::{
-    Eaten, GoodDef, GoodFire, GoodFuel, GoodUse, MoneyDef, StoreDef, ToolDef,
+    Eaten, GoodDef, GoodFire, GoodFuel, GoodPower, GoodUse, MoneyDef, PowerSource, StoreDef,
+    ToolDef,
 };
 use civ_agents::structure::Timber;
 use serde::Deserialize;
@@ -44,6 +45,22 @@ pub(crate) struct GoodFile {
     /// Content API 158 (M10a slice DP): what it gives burned; a fuel must have one.
     #[serde(default)]
     pub fuel: Option<FuelFile>,
+    /// Content API 160 (M10a slice DR): the power it delivers as a station; only a fixed tool.
+    #[serde(default)]
+    pub power: Option<PowerFile>,
+}
+
+/// The power a wheel or an engine delivers (M10a slice DR, ADR-0033 §5).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PowerFile {
+    /// `water` (a wheel at an installation) or `fuel` (an engine).
+    pub source: String,
+    /// The most it delivers, kilowatts.
+    pub rated_kw: f64,
+    /// The share of its source's power it turns into work, above 0 and at most 1 (research
+    /// 07-06 §2.2).
+    pub efficiency: f64,
 }
 
 /// What a good gives burned (M10a slice DP, ADR-0033 §1).
@@ -170,6 +187,15 @@ impl GoodFile {
                 mj_per_kg: f.mj_per_kg,
                 smoke: f.smoke,
             }),
+            power: self.power.as_ref().map(|w| GoodPower {
+                source: if w.source == "fuel" {
+                    PowerSource::Fuel
+                } else {
+                    PowerSource::Water
+                },
+                rated_kw: w.rated_kw,
+                efficiency: w.efficiency,
+            }),
         })
     }
 
@@ -204,6 +230,32 @@ impl GoodFile {
                     "`fuel.smoke` must be between 0 and 10 (got {})",
                     f.smoke
                 ));
+            }
+        }
+        if let Some(w) = &self.power {
+            if !matches!(w.source.as_str(), "water" | "fuel") {
+                p.push(format!(
+                    "unknown `power.source` `{}` (known: water, fuel)",
+                    w.source
+                ));
+            }
+            if !(w.rated_kw.is_finite() && w.rated_kw > 0.0 && w.rated_kw <= 1000.0) {
+                p.push(format!(
+                    "`power.rated_kw` must be above 0 and at most 1000 (got {})",
+                    w.rated_kw
+                ));
+            }
+            if !(w.efficiency.is_finite() && w.efficiency > 0.0 && w.efficiency <= 1.0) {
+                p.push(format!(
+                    "`power.efficiency` must be above 0 and at most 1 (got {})",
+                    w.efficiency
+                ));
+            }
+            if !self.tool.as_ref().is_some_and(|t| t.fixed) {
+                p.push(
+                    "only a fixed tool delivers power: `[power]` needs `[tool] fixed = true`"
+                        .to_owned(),
+                );
             }
         }
         if let Some(f) = &self.fire {

@@ -1558,6 +1558,7 @@ mod tests {
     fn good(name: &str, kcal_per_kg: f64, kept_back: bool) -> GoodDef {
         GoodDef {
             fuel: None,
+            power: None,
             money: None,
             id: name.into(),
             name: name.into(),

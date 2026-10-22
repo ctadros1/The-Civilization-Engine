@@ -36,6 +36,10 @@ pub(crate) struct RecipeFile {
     /// given when it is opened after them; 0 (and absent) for outputs at the session's end.
     #[serde(default)]
     pub elapsed_days: f64,
+    /// Content API 160 (M10a slice DR): kilowatt-hours a unit takes from a powered station; 0
+    /// (and absent) for work done by hand.
+    #[serde(default)]
+    pub kwh_per_unit: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -97,6 +101,7 @@ impl RecipeFile {
             skill,
             technique,
             elapsed_days: self.elapsed_days,
+            kwh_per_unit: self.kwh_per_unit,
         })
     }
 
@@ -116,6 +121,12 @@ impl RecipeFile {
             p.push(format!(
                 "`elapsed_days` must be between 0 and 60 (got {})",
                 self.elapsed_days
+            ));
+        }
+        if !(self.kwh_per_unit.is_finite() && (0.0..=100.0).contains(&self.kwh_per_unit)) {
+            p.push(format!(
+                "`kwh_per_unit` must be between 0 and 100 (got {})",
+                self.kwh_per_unit
             ));
         }
         if self.unit_h <= 0.0 && self.session_h <= 0.0 {

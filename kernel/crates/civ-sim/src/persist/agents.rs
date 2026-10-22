@@ -126,8 +126,8 @@ use super::{
     SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, SCHEMA_V152,
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
     SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
-    SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, finish, section, section_root,
-    single_chunk, unreadable,
+    SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, finish, section,
+    section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -873,8 +873,9 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V168 => Schema::V168,
         // The observer's forcings (schema 170) changed no people or land.
         SCHEMA_V169 | SCHEMA_V170 => Schema::V169,
-        // Workshops' batches (schema 172) changed no people or land.
-        SCHEMA_V171 | SAVE_SCHEMA_VERSION => Schema::V171,
+        // Workshops' batches (schema 172) changed no people or land; installations (schema 173)
+        // are read wherever saved.
+        SCHEMA_V171 | SCHEMA_V172 | SAVE_SCHEMA_VERSION => Schema::V171,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -3464,6 +3465,26 @@ fn encode_earth(land: &Land) -> Vec<u8> {
         .map(|&(r, q)| save::DitchFlowRecord::new(r, q))
         .collect();
     let ditch_flows = fbb.create_vector(&ditch_flows);
+    // Water-power installations (schema 173), absent while there are none.
+    let installations: Vec<_> = land
+        .installations
+        .iter()
+        .map(|x| {
+            save::InstallationRecord::new(
+                x.id.get(),
+                x.reach,
+                x.at[0],
+                x.at[1],
+                x.head_m,
+                x.race_m3s,
+                x.efficiency,
+                x.rated_kw,
+                x.owner.get(),
+                x.building.map_or(0, PermanentId::get),
+            )
+        })
+        .collect();
+    let installations = (!installations.is_empty()).then(|| fbb.create_vector(&installations));
     let root = save::Earth::create(
         &mut fbb,
         &save::EarthArgs {
@@ -3476,6 +3497,7 @@ fn encode_earth(land: &Land) -> Vec<u8> {
             bank_refill: Some(refill),
             ditches: Some(ditches),
             ditch_flows: Some(ditch_flows),
+            installations,
         },
     );
     finish(fbb, root)
@@ -3641,6 +3663,27 @@ fn decode_earth(bytes: &[u8], land: &mut Land, schema: Schema) -> Result<(), Loa
         .flatten()
         .map(|f| (f.reach(), f.m3s()))
         .collect();
+    // Water-power installations (schema 173); before, none.
+    for x in root.installations().iter().flatten() {
+        let record = civ_land::power::Installation {
+            id: required(x.id(), "an installation")?,
+            reach: x.reach(),
+            at: [x.at_x(), x.at_y()],
+            head_m: x.head_m(),
+            race_m3s: x.race_m3s(),
+            efficiency: x.efficiency(),
+            rated_kw: x.rated_kw(),
+            owner: required(x.owner(), "an installation's owner")?,
+            building: PermanentId::from_raw(x.building()),
+        };
+        if !record.valid() {
+            return Err(LoadError::Malformed(format!(
+                "installation {} is not whole",
+                record.id
+            )));
+        }
+        land.installations.push(record);
+    }
     // Schema 21: what each pit and heap is linked to.
     for l in root.links().iter().flatten() {
         let work = land
@@ -4403,6 +4446,7 @@ fn decode_land(
         banks: Vec::new(),
         ditches: Vec::new(),
         ditch_flows: Vec::new(),
+        installations: Vec::new(),
         ground: civ_land::earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
         // Read from its own section (schema 68 on).
         crossings: Default::default(),

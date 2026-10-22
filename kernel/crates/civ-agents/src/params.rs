@@ -352,6 +352,9 @@ pub struct ToolDef {
     /// The tool whose work it does as well, by good index (a copper axe for an axe): work that
     /// needs that tool may be done with this one (M7d slice CE).
     pub serves: Option<usize>,
+    /// The fewest hands that must be at it together for it to run (M10a slice DT; ADR-0033 §8):
+    /// 1 for a tool one person works; more for a machine, which a missing hand idles.
+    pub crew: u8,
 }
 
 /// What a good paid by weight as money adds to being a good (M7d slice CD, ADR-0027 §5).
@@ -1852,6 +1855,9 @@ pub struct FirmParams {
     pub wage_max_change: f64,
     /// Most hours of work a workshop hires between two of its reviews.
     pub max_hire_hours: f64,
+    /// Hours of a works' shift from its bell, by daylight (M10a slice DT; ADR-0033 §8): a
+    /// workshop whose machines need a crew rings a bell at sunrise and hires for the shift.
+    pub shift_h: f64,
 }
 
 /// What households build (ADR-0009 §1, §7).

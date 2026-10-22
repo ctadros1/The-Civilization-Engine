@@ -32,6 +32,8 @@ pub struct Facts {
     pub dark: bool,
     /// Minutes of daylight left today (0 in the dark).
     pub daylight_left_min: f64,
+    /// The minute of the day now, 0-1439 (M10a slice DT: a works' bell is rung at one).
+    pub clock_min: f64,
     /// Evening: the hours after sunset when people sit together, 0–1.
     pub evening: f64,
     /// Minutes until the next sunrise.
@@ -556,6 +558,9 @@ pub enum TradeWorth {
     Sale { share: f64 },
 }
 
+/// The longest a hand goes ahead of a works' bell to wait for it, minutes (a design prior).
+const BELL_EARLY_MIN: f64 = 60.0;
+
 /// Paid work at a workshop of another household (slice J): where, for how long, and what the
 /// pay brings the worker's household.
 #[derive(Clone, Copy, Debug)]
@@ -570,6 +575,9 @@ pub struct JobOption {
     pub minutes: f64,
     /// What the pay brings the household.
     pub worth: TradeWorth,
+    /// Its works' bell, the minute of the day its shift begins and the shift's minutes, when it
+    /// has one (M10a slice DT): the work is taken only for the shift.
+    pub bell: Option<(u16, u16)>,
 }
 
 /// A session of trying toward a technique (ADR-0008 §3): which, and what it is worth.
@@ -1640,7 +1648,24 @@ pub fn candidates(
                     excluded.push((id, Reason::Unreachable));
                     continue;
                 }
-                let minutes = j.minutes.min(f64::from(def.max_minutes)).max(1.0);
+                // At a works with a bell the work is its shift (M10a slice DT): a hand goes no
+                // sooner than an hour before the bell, waits for it, and stays to the shift's
+                // end, so its hands are at its machines together.
+                let (minutes, wait) = match j.bell {
+                    None => (j.minutes.min(f64::from(def.max_minutes)).max(1.0), 0.0),
+                    Some((bell, len)) => {
+                        let arrive = f.clock_min + j.walk_min;
+                        let (start, end) = (f64::from(bell), f64::from(bell) + f64::from(len));
+                        if arrive < start - BELL_EARLY_MIN
+                            || arrive > end - f64::from(def.min_minutes)
+                        {
+                            excluded.push((id, Reason::NoWork));
+                            continue;
+                        }
+                        let minutes = (end - arrive.max(start)).min(j.minutes).max(1.0);
+                        (minutes, (start - arrive).max(0.0))
+                    }
+                };
                 match j.worth {
                     TradeWorth::Tool { need } => {
                         term(&mut terms, Reason::Wages, w.w_tools * need.clamp(0.0, 1.0));
@@ -1680,13 +1705,16 @@ pub fn candidates(
                     Reason::Effort,
                     -w.w_effort * (def.par - 1.0).max(0.0) * minutes / 60.0 * f.sleep_pressure,
                 );
-                let steps = vec![
-                    Step::Walk { to: j.at },
-                    Step::Work {
-                        minutes: minutes.round().max(1.0) as u32,
-                    },
-                    Step::Walk { to: f.home },
-                ];
+                let mut steps = vec![Step::Walk { to: j.at }];
+                if wait >= 1.0 {
+                    steps.push(Step::Wait {
+                        minutes: wait.round() as u32,
+                    });
+                }
+                steps.push(Step::Work {
+                    minutes: minutes.round().max(1.0) as u32,
+                });
+                steps.push(Step::Walk { to: f.home });
                 out.push(finish(id, Target::Firm(j.firm), terms, steps));
             }
             Behavior::Try => {
@@ -2539,6 +2567,7 @@ mod tests {
             loneliness: 0.2,
             dark: false,
             daylight_left_min: 600.0,
+            clock_min: 720.0,
             evening: 0.0,
             until_sunrise_min: 900.0,
             food_days: 50.0,
@@ -2781,6 +2810,7 @@ mod tests {
         // Not set out on when dark would fall before they got there, nor with nowhere to go.
         let dusk = Facts {
             daylight_left_min: 50.0,
+            clock_min: 720.0,
             ..facts()
         };
         let (cands, excluded) = run(&dusk, vec![there(60.0, 6.0)]);
@@ -2909,6 +2939,81 @@ mod tests {
         let chosen: Vec<u16> = cands.iter().map(|c| c.scored.def).collect();
         assert!(chosen.contains(&1) && !chosen.contains(&0), "{chosen:?}");
         assert!(excluded.contains(&(0, Reason::NoTool)));
+    }
+
+    #[test]
+    fn hired_work_at_a_works_with_a_bell_is_its_shift() {
+        // M10a slice DT, ADR-0033 §8: a hand goes no sooner than an hour before the bell, waits
+        // for it, and works to the end of the shift, so the works' hands are at it together.
+        let mut hire = activity("hired_work", Behavior::Hire, Vec::new(), 1.0);
+        hire.min_minutes = 60;
+        hire.max_minutes = 180;
+        hire.max_walk_minutes = 30;
+        let defs = vec![hire];
+        let firm = PermanentId::from_raw(9).expect("nonzero");
+        let job = |bell: Option<(u16, u16)>| JobOption {
+            firm,
+            walk_min: 20.0,
+            at: (5.0, 5.0),
+            minutes: 600.0,
+            worth: TradeWorth::Goods { hours: 4.0 },
+            bell,
+        };
+        let none = |_: usize| false;
+        let make = |_: usize, _: &[usize]| Err((Reason::NoInputs, None));
+        let shop = Workshop {
+            free_tools: &[],
+            held_tools: &[],
+            best_make: &make,
+            makes_tool: &none,
+            knows: &|_| true,
+        };
+        let at = |clock: f64, j: JobOption| {
+            let mut f = facts();
+            f.clock_min = clock;
+            candidates(
+                &defs,
+                &weights(),
+                &f,
+                &limits(),
+                &|_| None,
+                &|_| Ok(field()),
+                None,
+                &|| None,
+                &|| None,
+                &|| Err(Reason::NoReport),
+                &|| Some(j),
+                Err(Reason::Built),
+                &shop,
+                &|| Err(Reason::NoProblem),
+                &|| Err(Reason::WouldNotTake),
+                &Vec::new,
+            )
+        };
+        // The bell at 6:00 for a ten-hour shift. Setting off at 5:20, a 20-minute walk: twenty
+        // minutes' wait, then the whole shift.
+        let (cands, _) = at(320.0, job(Some((360, 600))));
+        assert_eq!(
+            cands[0].steps,
+            vec![
+                Step::Walk { to: (5.0, 5.0) },
+                Step::Wait { minutes: 20 },
+                Step::Work { minutes: 600 },
+                Step::Walk { to: facts().home },
+            ]
+        );
+        // Setting off at 9:00: to the shift's end at 16:00.
+        let (cands, _) = at(540.0, job(Some((360, 600))));
+        assert_eq!(cands[0].steps[1], Step::Work { minutes: 400 });
+        // Long before the bell, or with under a session of the shift left: no work.
+        for clock in [200.0, 920.0] {
+            let (cands, excluded) = at(clock, job(Some((360, 600))));
+            assert!(cands.is_empty(), "at {clock}");
+            assert!(excluded.iter().any(|&(_, r)| r == Reason::NoWork));
+        }
+        // Without a bell, a session as long as at home, at any hour.
+        let (cands, _) = at(200.0, job(None));
+        assert_eq!(cands[0].steps[1], Step::Work { minutes: 180 });
     }
 
     #[test]
@@ -3079,6 +3184,7 @@ mod tests {
             let f = Facts {
                 dark,
                 daylight_left_min: 300.0,
+                clock_min: 720.0,
                 until_sunrise_min: 800.0,
                 water_days,
                 ..facts()
@@ -3155,6 +3261,7 @@ mod tests {
             well: Some(wf),
             dark: false,
             daylight_left_min: 600.0,
+            clock_min: 720.0,
             ..facts()
         };
         let (cands, _) = run(&f, None);
@@ -3253,6 +3360,7 @@ mod tests {
             enclosure: Some(ef),
             dark: false,
             daylight_left_min: 600.0,
+            clock_min: 720.0,
             ..facts()
         };
         let (cands, _) = run(&f);

@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 163
+kernel_content_api = 164
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -382,6 +382,43 @@ fn a_fuel_says_what_it_gives_burned() {
         let report = load_fixture(&[
             ("worldgen/river_valley.toml", &real_preset()),
             ("good/firewood.toml", &body),
+        ]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(
+            report.diagnostics[0].message.contains(needle),
+            "{needle}: {}",
+            report.diagnostics[0].message
+        );
+    }
+}
+
+#[test]
+fn a_machine_says_the_crew_it_wants() {
+    // M10a slice DT (content API 164): a fixed tool may ask for more than one hand at it; a tool
+    // carried about may not, and a crew is 1 to 20.
+    let kiln = real("good/kiln.toml").replace("fixed = true", "fixed = true\ncrew = 2");
+    let fine = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        ("good/kiln.toml", &kiln),
+    ]);
+    assert!(fine.diagnostics.is_empty(), "{:?}", fine.diagnostics);
+    let axe = real("good/axe.toml").replace("fixed = false", "fixed = false\ncrew = 2");
+    for (path, body, needle) in [
+        ("good/axe.toml", axe, "only a fixed tool needs a crew"),
+        (
+            "good/kiln.toml",
+            kiln.replace("crew = 2", "crew = 0"),
+            "tool.crew",
+        ),
+        (
+            "good/kiln.toml",
+            kiln.replace("crew = 2", "crew = 21"),
+            "tool.crew",
+        ),
+    ] {
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &real_preset()),
+            (path, &body),
         ]);
         assert_eq!(codes(&report), vec!["E3001"], "{needle}");
         assert!(

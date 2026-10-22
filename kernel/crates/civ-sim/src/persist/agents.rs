@@ -127,7 +127,8 @@ use super::{
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
     SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
     SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
-    SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, finish, section, section_root,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -874,10 +875,10 @@ pub(super) fn decode<R: Read + Seek>(
         // The observer's forcings (schema 170) changed no people or land.
         SCHEMA_V169 | SCHEMA_V170 => Schema::V169,
         // Workshops' batches (schema 172) changed no people or land; installations (schema 173),
-        // households' mill counts (schema 174), pits' water (schema 175), engines (schema 176)
-        // and pits' bailing (schema 177) are read wherever saved.
+        // households' mill counts (schema 174), pits' water (schema 175), engines (schema 176),
+        // pits' bailing (schema 177) and works' bells (schema 178) are read wherever saved.
         SCHEMA_V171 | SCHEMA_V172 | SCHEMA_V173 | SCHEMA_V174 | SCHEMA_V175 | SCHEMA_V176
-        | SAVE_SCHEMA_VERSION => Schema::V171,
+        | SCHEMA_V177 | SAVE_SCHEMA_VERSION => Schema::V171,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -8503,6 +8504,8 @@ fn encode_firms(
                         hours: w.hours,
                         taken: w.taken,
                         reviewed: w.reviewed,
+                        bell_min: w.bell_min,
+                        shift_min: w.shift_min,
                     },
                 )
             });
@@ -8688,6 +8691,9 @@ fn decode_firms(bytes: &[u8], rules: &Rules) -> Result<Vec<Firm>, LoadError> {
                             hours: w.hours(),
                             taken: w.taken(),
                             reviewed: w.reviewed(),
+                            // Before schema 178 no works rang a bell.
+                            bell_min: w.bell_min(),
+                            shift_min: w.shift_min(),
                         }),
                         _ => None,
                     }

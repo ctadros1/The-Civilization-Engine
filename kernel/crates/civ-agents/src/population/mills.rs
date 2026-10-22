@@ -616,14 +616,15 @@ fn bank(map: &civ_world::WorldMap, c: u32, home: [f64; 2]) -> Option<u32> {
     best.map(|(_, n)| n)
 }
 
-/// The ways of making by falling water in the catalog: recipes that ask power and name a fixed
-/// tool that turns on water, with that tool and its power.
+/// The ways of making by falling water in the catalog that a household works at its own mill:
+/// recipes that ask power and name a fixed tool that turns on water, with that tool and its
+/// power, leaving out those whose machine wants a crew, which only a works works (M10a slice DT).
 fn powered_ways(catalog: &crate::params::Catalog) -> Vec<PoweredWay> {
     catalog
         .recipes
         .iter()
         .enumerate()
-        .filter(|(_, r)| r.kwh_per_unit > 0.0)
+        .filter(|(_, r)| r.kwh_per_unit > 0.0 && super::crew_of(&catalog.goods, r) <= 1)
         .filter_map(|(i, r)| {
             r.tools.iter().find_map(|&t| {
                 let power = catalog.goods.get(t)?.power?;

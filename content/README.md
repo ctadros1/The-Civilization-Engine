@@ -1648,3 +1648,11 @@ either: a household wants an engine only for a pit it has chosen to set one at, 
 it bails there against the engine and its fuel; `technique/atmospheric_engine`,
 `recipe/build_atmospheric_engine` and `activity/build_atmospheric_engine` are the first way of
 making one.
+
+Content API 164 (M10a slice DT) lets a tool's `[tool]` table name its `crew` (1-20, default 1):
+the fewest hands at it together for it to run. Only a fixed tool asks more than one; a session
+of a recipe that needs it makes nothing without its crew, and a household works such a recipe
+only at a works. The people profile's `[firm]` gains `shift_h` (1-16, default 10): the hours of a
+works' shift from its bell at sunrise, cut at sunset. The first machine is `good/tilt_hammer`
+(crew 2), with `technique/water_hammer`, `recipe/build_tilt_hammer` and
+`recipe/forge_bar_by_hammer` and their activities.

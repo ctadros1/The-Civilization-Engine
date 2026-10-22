@@ -1,0 +1,21 @@
+# A hammer and bellows worked by a water wheel's shaft through cams (research 07-06 §4.1: turning
+# rotation into the hammer's lift and the bellows' stroke; §6.5's hammering and blowing family).
+# It takes two at it together, one to hold and turn the bloom under the hammer and one to work the
+# hearth and its feed (a design prior; 07-12 §4.2: a machine runs only while its crew is there). It
+# stands where it is built and lasts 20,000 hours of working (a tuning value).
+kind = "good"
+id = "core:good/tilt_hammer"
+name = "Tilt hammer"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 20000.0
+per_worker = 0.1
+fixed = true
+crew = 2

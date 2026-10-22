@@ -37641,6 +37641,8 @@ impl<'a> WageOfferState<'a> {
   pub const VT_HOURS: ::flatbuffers::VOffsetT = 12;
   pub const VT_TAKEN: ::flatbuffers::VOffsetT = 14;
   pub const VT_REVIEWED: ::flatbuffers::VOffsetT = 16;
+  pub const VT_BELL_MIN: ::flatbuffers::VOffsetT = 18;
+  pub const VT_SHIFT_MIN: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -37659,6 +37661,8 @@ impl<'a> WageOfferState<'a> {
     builder.add_per_hour(args.per_hour);
     builder.add_pay(args.pay);
     builder.add_activity(args.activity);
+    builder.add_shift_min(args.shift_min);
+    builder.add_bell_min(args.bell_min);
     builder.finish()
   }
 
@@ -37712,6 +37716,20 @@ impl<'a> WageOfferState<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(WageOfferState::VT_REVIEWED, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn bell_min(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(WageOfferState::VT_BELL_MIN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn shift_min(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(WageOfferState::VT_SHIFT_MIN, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WageOfferState<'_> {
@@ -37727,6 +37745,8 @@ impl ::flatbuffers::Verifiable for WageOfferState<'_> {
      .visit_field::<f32>("hours", Self::VT_HOURS, false)?
      .visit_field::<f32>("taken", Self::VT_TAKEN, false)?
      .visit_field::<i64>("reviewed", Self::VT_REVIEWED, false)?
+     .visit_field::<u16>("bell_min", Self::VT_BELL_MIN, false)?
+     .visit_field::<u16>("shift_min", Self::VT_SHIFT_MIN, false)?
      .finish();
     Ok(())
   }
@@ -37739,6 +37759,8 @@ pub struct WageOfferStateArgs {
     pub hours: f32,
     pub taken: f32,
     pub reviewed: i64,
+    pub bell_min: u16,
+    pub shift_min: u16,
 }
 impl<'a> Default for WageOfferStateArgs {
   #[inline]
@@ -37751,6 +37773,8 @@ impl<'a> Default for WageOfferStateArgs {
       hours: 0.0,
       taken: 0.0,
       reviewed: 0,
+      bell_min: 0,
+      shift_min: 0,
     }
   }
 }
@@ -37789,6 +37813,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WageOfferStateBuilder<'a, 'b,
     self.fbb_.push_slot::<i64>(WageOfferState::VT_REVIEWED, reviewed, 0);
   }
   #[inline]
+  pub fn add_bell_min(&mut self, bell_min: u16) {
+    self.fbb_.push_slot::<u16>(WageOfferState::VT_BELL_MIN, bell_min, 0);
+  }
+  #[inline]
+  pub fn add_shift_min(&mut self, shift_min: u16) {
+    self.fbb_.push_slot::<u16>(WageOfferState::VT_SHIFT_MIN, shift_min, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WageOfferStateBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WageOfferStateBuilder {
@@ -37813,6 +37845,8 @@ impl ::core::fmt::Debug for WageOfferState<'_> {
       ds.field("hours", &self.hours());
       ds.field("taken", &self.taken());
       ds.field("reviewed", &self.reviewed());
+      ds.field("bell_min", &self.bell_min());
+      ds.field("shift_min", &self.shift_min());
       ds.finish()
   }
 }

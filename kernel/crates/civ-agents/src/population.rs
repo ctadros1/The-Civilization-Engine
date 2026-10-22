@@ -3558,6 +3558,7 @@ impl Population {
             loneliness: 1.0 - f64::from(p.relatedness),
             dark,
             daylight_left_min: if dark { 0.0 } else { (sun.1 - minute) as f64 },
+            clock_min: minute as f64,
             evening,
             until_sunrise_min: until_sunrise as f64,
             food_days: stock / kcal_day.max(1.0),
@@ -4446,6 +4447,11 @@ impl Population {
             }
             if from_inputs <= 1e-6 {
                 return Err((Reason::NoInputs, None));
+            }
+            // A machine that wants a crew is worked only at a works, whose bell brings its hands
+            // together (M10a slice DT; ADR-0033 §8).
+            if shop.is_none() && crew_of(goods, r) > 1 {
+                return Err((Reason::NoCrew, None));
             }
             if let Some(&t) = r.tools.iter().find(|&&t| {
                 free_tools.get(t).copied().unwrap_or(0.0) < decide::MIN_TOOL
@@ -5895,6 +5901,10 @@ impl Population {
         // session (M10a slice DR; ADR-0033 §5).
         if recipe.kwh_per_unit > 0.0 {
             units = units.min(power_kw_of(ctx, household) * hours / recipe.kwh_per_unit);
+        }
+        // A machine its crew left idles (M10a slice DT).
+        if !self.crewed(ctx, h, crew_of(goods, recipe)) {
+            units = 0.0;
         }
         // Coin is struck from the metal brought to the mint the worker keeps, in the polity's
         // store, and nobody else strikes it (M7d slice CE2b).
@@ -7429,6 +7439,18 @@ pub(crate) fn power_kw_of(ctx: &Ctx, holder: PermanentId) -> f64 {
         .filter(|(_, x)| x.owner == holder)
         .map(|(i, _)| ctx.land.installation_kw(ctx.land_params, i))
         .sum()
+}
+
+/// The crew recipe `recipe`'s tools need: the most hands any of them wants at it together (M10a
+/// slice DT; ADR-0033 §8), 1 for a recipe of hand tools.
+pub(crate) fn crew_of(goods: &[GoodDef], recipe: &crate::params::RecipeDef) -> u8 {
+    recipe
+        .tools
+        .iter()
+        .filter_map(|&t| goods.get(t)?.tool.as_ref().map(|x| x.crew))
+        .max()
+        .unwrap_or(1)
+        .max(1)
 }
 
 /// Caps `holder`'s want of each powered tool at the places it has to set one: a wheel at the

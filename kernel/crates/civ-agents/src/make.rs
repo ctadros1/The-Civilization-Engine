@@ -445,6 +445,7 @@ mod tests {
             per_worker: 0.5,
             fixed: false,
             serves: None,
+            crew: 1,
         });
         let mut oven = good("oven", GoodUse::Tool, 0.0, Eaten::Never);
         oven.tool = Some(ToolDef {
@@ -452,6 +453,7 @@ mod tests {
             per_worker: 0.0,
             fixed: true,
             serves: None,
+            crew: 1,
         });
         vec![
             good("grain", GoodUse::Food, 3340.0, Eaten::Never),
@@ -678,6 +680,7 @@ mod tests {
             per_worker: 0.5,
             fixed: false,
             serves: None,
+            crew: 1,
         });
         let mut copper = good("copper_axe", GoodUse::Tool, 0.0, Eaten::Never);
         copper.tool = Some(ToolDef {
@@ -685,6 +688,7 @@ mod tests {
             per_worker: 0.5,
             fixed: false,
             serves: Some(1),
+            crew: 1,
         });
         crate::params::Catalog {
             goods: vec![stone, axe, copper],

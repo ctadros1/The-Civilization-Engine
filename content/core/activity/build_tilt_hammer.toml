@@ -1,0 +1,17 @@
+# Building a tilt hammer at the wheel that will drive it, in daylight sessions.
+kind = "activity"
+id = "core:activity/build_tilt_hammer"
+name = "Build a tilt hammer"
+doing = "building a tilt hammer"
+behavior = "make"
+recipe = "core:recipe/build_tilt_hammer"
+par = 4.0
+min_age_years = 14.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 480
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

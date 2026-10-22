@@ -1,0 +1,19 @@
+# Working a hammer and bellows by a water wheel (research 07-06 §4.1, §6.5: hammering and blowing
+# by cams on a wheel's shaft, beside the hand-hammered bloom). It needs forging and the water mill's
+# wheel. Found by those who forge bar, with blooms and charcoal at home; half of them would need
+# 200,000 qualified hours (a far technique, as the water mill is). Learnt in 300 hours beside a
+# knower. Founders do not bring it.
+kind = "technique"
+id = "core:technique/water_hammer"
+name = "The water hammer"
+can = "work a hammer and bellows by a water wheel"
+domain = "core:skill/smithing"
+requires = [["core:technique/forging", "core:technique/water_wheel"]]
+tried_in = ["core:activity/forge_bar"]
+needs = ["core:good/iron_bloom", "core:good/charcoal"]
+e50_h = 200000.0
+learn_h = 300.0
+upbringing = true
+
+[answers]
+spoilage = []

@@ -1050,6 +1050,10 @@ table WageOfferState {
   hours: float (id: 4);
   taken: float (id: 5);
   reviewed: long (id: 6);
+  // Schema 178 (M10a slice DT): its works' bell, the minute of the day its shift begins and the
+  // shift's minutes (0 and 0, no bell, before).
+  bell_min: ushort (id: 7);
+  shift_min: ushort (id: 8);
 }
 
 table Firms {

@@ -139,6 +139,14 @@ pub(crate) struct Tool {
     pub fixed: bool,
     #[serde(default)]
     pub serves: String,
+    /// Content API 164 (M10a slice DT): the fewest hands at it for it to run; only a fixed tool
+    /// asks more than one.
+    #[serde(default = "one_hand")]
+    pub crew: u32,
+}
+
+fn one_hand() -> u32 {
+    1
 }
 
 impl GoodFile {
@@ -161,6 +169,7 @@ impl GoodFile {
                 per_worker: t.per_worker,
                 fixed: t.fixed,
                 serves: None,
+                crew: t.crew.clamp(1, 20) as u8,
             }),
             timber: self.timber.as_ref().map(|t| Timber {
                 bending_pa: t.bending_mpa * 1e6,
@@ -333,6 +342,17 @@ impl GoodFile {
                         "`tool.per_worker` must be between 0 and 10 (got {})",
                         t.per_worker
                     ));
+                }
+                if !(1..=20).contains(&t.crew) {
+                    p.push(format!(
+                        "`tool.crew` must be between 1 and 20 (got {})",
+                        t.crew
+                    ));
+                } else if t.crew > 1 && !t.fixed {
+                    p.push(
+                        "only a fixed tool needs a crew: `crew` above 1 needs `fixed = true`"
+                            .to_owned(),
+                    );
                 }
             }
             (Some(_), Some(_)) => p.push("only a tool takes a `[tool]` table".to_owned()),

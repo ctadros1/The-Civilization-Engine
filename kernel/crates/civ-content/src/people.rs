@@ -2069,6 +2069,13 @@ pub(crate) struct Firm {
     pub wage_review_days: u32,
     pub wage_max_change: f64,
     pub max_hire_hours: f64,
+    /// Content API 164 (M10a slice DT): hours of a works' shift from its bell, by daylight.
+    #[serde(default = "shift_h")]
+    pub shift_h: f64,
+}
+
+fn shift_h() -> f64 {
+    10.0
 }
 
 #[derive(Debug, Deserialize)]
@@ -2622,6 +2629,7 @@ impl PeopleFile {
                 wage_review_days: self.firm.wage_review_days,
                 wage_max_change: self.firm.wage_max_change,
                 max_hire_hours: self.firm.max_hire_hours,
+                shift_h: self.firm.shift_h,
             },
             knowledge: KnowledgeParams {
                 founders,
@@ -3457,6 +3465,12 @@ impl PeopleFile {
         unit("firm.wage_share", self.firm.wage_share, &mut p);
         unit("firm.wage_max_change", self.firm.wage_max_change, &mut p);
         non_negative("firm.max_hire_hours", self.firm.max_hire_hours, &mut p);
+        if !(self.firm.shift_h.is_finite() && (1.0..=16.0).contains(&self.firm.shift_h)) {
+            p.push(format!(
+                "`firm.shift_h` must be between 1 and 16 (got {})",
+                self.firm.shift_h
+            ));
+        }
         let m = &self.mortality;
         for (name, v) in [("a", m.a), ("b", m.b), ("c", m.c), ("d", m.d), ("e", m.e)] {
             non_negative(&format!("mortality.{name}"), v, &mut p);

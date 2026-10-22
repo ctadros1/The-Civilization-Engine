@@ -6097,6 +6097,36 @@ and M6a gives rivers a daily flow.
         pumping by a wheel, and an engine pumping for a wheel (the brief's complement), are a §9
         entry for the works.
     - **DT**: the works: machines with crews, shifts by daylight, the household-resolved block.
+      - *As built, first part (2026-10-22): crews and the bell.* A tool may name its `crew`, the
+        fewest hands at it together for it to run (content API 164; only a fixed tool asks more
+        than one). A session of a recipe whose tools want a crew makes nothing unless, with the
+        person, that many were at the same work for the same works (or, at home, the same
+        household's) when the session began and are still: a hand who came later, or left
+        before the end, does not count, so two hands working one shift run the machine once,
+        not twice. A household does not take up such a recipe at home (`Reason::NoCrew`), nor
+        weigh a mill of its own for one; only a works, whose bell brings its hands together,
+        works one. A works holding a machine
+        that wants a crew hires for the way that uses it, and rings a bell at sunrise: its wage
+        offer names the bell's minute and the shift (the profile's `[firm] shift_h`, 10 hours,
+        cut at sunset; saves 178), a hand goes no sooner than an hour before the bell, waits for
+        it, and works to the shift's end, so the hands are at the machine together. A works
+        with no such machine hires as before, at any hour. The first machine is the tilt
+        hammer (`good/tilt_hammer`, crew 2), with `technique/water_hammer` (forging and the
+        water mill first; found forging bar with blooms and charcoal at home) and
+        `recipe/forge_bar_by_hammer` (an hour and a half and 5 kg of charcoal a kilogram of
+        bar against six and 8 by hand, 1 kWh a kilogram from the works' wheel). The
+        household-resolved block, where a works' day is its workers' summed blocks, is the
+        next part: until then a crew is met only in Detailed mode. **Proved:** against DS's fourth part, the three
+        bench worlds of DO keep the same chronicle and every count and summary line; the
+        sections holding goods, techniques or recipes by index differ by the shifted positions
+        only.
+        **Tested:** a two-hand hammer idles with one hand, forges with two who were there since
+        the session began, and a later hand makes the later session's crew but not the earlier
+        one's; a works with a hammer hires for the hammer's way from a bell at sunrise for a
+        shift that ends by daylight, and one without hires for the hand's way with no bell; a
+        save keeps the bell to the byte; a hand setting off before the bell waits for it and
+        works the shift out, and none goes long before it or with too little left; a content
+        tool asks a crew of 1 to 20, and only a fixed one more than 1.
   - **M10b, rail and gas light** (ADR-0034).
     - **DU**: light before gas: lamps burning fuel for hours of light, places dark or lit, dark
       sight (equal to day sight until a world has lamps), what light changes in the evening.
@@ -7526,6 +7556,14 @@ One line each. Don't re-litigate without a reason written next to the entry.
   to dig. With these an engine repays only some thousands of hours of bailing a year, several
   hands bailing most days: Newcomen's niche, the deep pit where drainage limits. Revisited if the
   M10 demo shows engines set nowhere coal pits are bailed for years, or at every wet pit.
+- **Design priors for crews and the bell (2026-10-22, M10a slice DT):** NUDGE: a tilt hammer
+  takes two at it (one at the bloom, one at the hearth); a works' bell rings at sunrise and its
+  shift is ten hours, cut at sunset (07-12 §4.2 gives long shifts and the bell, not a number); a
+  hand goes no sooner than an hour before it; a crew counts those at the same work since the
+  session began and still there. The hammer forges bar in an hour and a half and 5 kg of
+  charcoal a kilogram, at 1 kWh, lasting 20,000 hours (07-05 §2.3 and 07-06 §4.1 give the hand
+  figures and the mechanism, not the hammer's). Revisited with the works' block and when the
+  M10 demo shows whether any works rings a bell.
 - **Pumping by a wheel, and coke, deferred to the works (2026-10-22, M10a slice DS):** ADR-0033
   §7 names three ways a flooded pit is drained: by hand, by a wheel, or by an engine. DS built hand
   and engine; a wheel pumping a pit, and an engine pumping water back to a wheel (the brief's

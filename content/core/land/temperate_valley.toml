@@ -515,6 +515,11 @@ exposed_share = 0.4
 density_kg_m3 = 1300.0           # bituminous coal in place, about 1,300 kg/m³
 dig_h_per_m3 = 8.0               # softer than stone, harder than earth (tuning)
 working = "pit"
+# Coal measures pass water through their joints and sandstones (research 03-02's starting priors:
+# weathered or fractured bedrock 0.001-10 m/day as a bulk value); a pit dug below the water table
+# fills toward it at this conductivity (M10a slice DS). The other bodies give none, so their pits
+# stay dry, as before (intact clay passes 10^-7-10^-4 m/day). A tuning value within the prior.
+k_m_day = 0.3
 keyed_ids = true
 
 [banks]

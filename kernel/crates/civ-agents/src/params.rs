@@ -1900,6 +1900,14 @@ pub struct Digging {
     pub h_per_m3: f64,
     /// The side of a pit, and of the spoil heap beside it, metres.
     pub pit_side_m: f64,
+    /// A person's sustained power lifting water out of a pit by hand, watts (M10a slice DS;
+    /// research 07-06 §1.3: 50-100 W, 75 W the FAO example).
+    pub bail_w: f64,
+    /// The share of that power that lifts water, bucket and rope (07-06 §2.2's 50 %).
+    pub bail_efficiency: f64,
+    /// The distance from a pit at which the water it takes in no longer draws down the water
+    /// table, metres (03-02 §1.4's radius of influence, as a well's).
+    pub influence_m: f64,
 }
 
 /// A taste in building, or the traits of a building (M3b slice R): the roof pitch, the height to

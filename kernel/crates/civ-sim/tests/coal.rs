@@ -243,3 +243,89 @@ fn a_world_with_seams_saves_and_loads_to_the_byte() {
         assert!(x.bytes == y.bytes, "section `{}` differs", x.tag);
     }
 }
+
+#[test]
+fn water_standing_in_a_coal_pit_is_lifted_out_before_coal_is_dug() {
+    let mut sim = world(3);
+    let coal = good(&sim, "core:good/coal");
+    let (_, members) = first_household(&sim);
+    let burning = technique(&sim, "core:technique/coal_burning");
+    teach(&mut sim, &members, burning);
+    let seam = coal_by_the_hearth(&mut sim);
+    let taken = |sim: &Sim| {
+        sim.land()
+            .deposits
+            .iter()
+            .find(|d| d.id == seam)
+            .map_or(0.0, |d| d.taken_kg)
+    };
+    let pit = |sim: &Sim| {
+        sim.land()
+            .earthworks
+            .iter()
+            .find(|w| w.kind == civ_land::earth::EarthKind::Pit && w.deposit == Some(seam))
+            .map(|w| w.id)
+    };
+    let water = |sim: &Sim, work| {
+        sim.land()
+            .pit_water
+            .iter()
+            .find(|p| p.work == work)
+            .map_or(0.0, |p| p.water_m3)
+    };
+    // Until a pit is open on the seam.
+    for _ in 0..60 * 24 {
+        if pit(&sim).is_some() {
+            break;
+        }
+        sim.advance_minutes(60).expect("advances");
+    }
+    let work = pit(&sim).expect("a pit on the seam");
+    // A flood stands in it: 30 m³, more than an hour's bailing.
+    let now = sim.now();
+    sim.land_mut_for_tests().set_pit_water(work, 30.0, now);
+    let mut bailed = false;
+    let mut dug_after = false;
+    for _ in 0..60 * 24 {
+        let (before_kg, before_m3) = (taken(&sim), water(&sim, work));
+        sim.advance_minutes(60).expect("advances");
+        let (after_kg, after_m3) = (taken(&sim), water(&sim, work));
+        if after_m3 < before_m3 - 1e-9 {
+            bailed = true;
+        }
+        // Coal is dug only from a pit bailed dry.
+        if after_kg > before_kg {
+            assert!(after_m3 <= 1e-9, "dug with {after_m3} m³ standing");
+            if bailed {
+                dug_after = true;
+                break;
+            }
+        }
+    }
+    assert!(bailed, "the water was lifted out");
+    assert!(dug_after, "and coal dug once it was dry");
+    // Only pits in a body that passes water keep a record of it.
+    for p in &sim.land().pit_water {
+        let w = sim
+            .land()
+            .earthworks
+            .iter()
+            .find(|w| w.id == p.work)
+            .expect("its pit");
+        let d = sim
+            .land()
+            .deposits
+            .iter()
+            .find(|d| Some(d.id) == w.deposit)
+            .expect("its deposit");
+        assert_eq!(usize::from(d.body.good), coal);
+    }
+    // And a save keeps it to the byte.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = civ_sim::persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "wet")
+        .expect("saves");
+    let loaded = civ_sim::persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.land().pit_water, sim.land().pit_water);
+}

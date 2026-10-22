@@ -1256,6 +1256,16 @@ table Earth {
   ditch_flows: [DitchFlowRecord] (id: 8);
   // Schema 173 (M10a slice DR): water-power installations, absent while there are none.
   installations: [InstallationRecord] (id: 9);
+  // Schema 175 (M10a slice DS): water standing in pits, absent while no pit has taken any in.
+  pit_water: [PitWaterRecord] (id: 10);
+}
+
+// Water standing in a pit when last worked out (schema 175, M10a slice DS; ADR-0033 §7): the pit
+// by earthwork id, cubic metres, and when (minutes).
+struct PitWaterRecord {
+  work: ulong;
+  water_m3: double;
+  at: long;
 }
 
 // A water-power installation (schema 173, M10a slice DR; ADR-0033 §5): its wheel's place in

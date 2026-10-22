@@ -3964,7 +3964,16 @@ impl Population {
                     };
                     let walk = f64::from(secs) / 60.0;
                     let rates = digging::rates(ctx.land_params, &d.body, params.digging.h_per_m3);
-                    let kg_per_hour = digging::dig_kg_per_hour(&d.body, rates);
+                    // Less where water standing in the pit must be lifted out first (M10a
+                    // slice DS).
+                    let kg_per_hour = digging::dig_kg_per_hour(&d.body, rates)
+                        * digging::dry_share(
+                            (ctx.land, map, ctx.land_params),
+                            &params.digging,
+                            d,
+                            now,
+                            hours,
+                        );
                     if walk > f64::from(a.max_walk_minutes) || kg_per_hour <= 0.0 {
                         continue;
                     }

@@ -387,6 +387,13 @@ max_hire_hours = 21.0
 # A pit is 3 m square, its spoil heaped on a square beside it (tuning values).
 h_per_m3 = 8.0
 pit_side_m = 3.0
+# Water standing in a pit dug below the water table is lifted out by hand before digging goes on
+# (M10a slice DS; ADR-0033 §7): a person's sustained power (research 07-06 §1.3: 50-100 W, 75 W
+# the FAO example), the share of it bucket and rope turn into lifting (07-06 §2.2's 50 %), and a
+# pit's radius of influence on the water table, as the core's wells'.
+bail_w = 75.0
+bail_efficiency = 0.5
+influence_m = 50.0
 
 [style]
 # Taste in building and how it moves (M3b slice R; research 11-02 §1.1, §2.2). A household's taste

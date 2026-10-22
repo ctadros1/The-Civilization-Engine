@@ -32,6 +32,7 @@ pub mod earth;
 pub mod enclosures;
 pub mod fields;
 pub mod paths;
+pub mod pits;
 pub mod plans;
 pub mod power;
 pub mod soil;
@@ -400,6 +401,9 @@ pub struct Land {
     /// Water-power installations, in the order built (M10a slice DR; ADR-0033 §5). Saved; their
     /// power is worked out from the day's discharge ([`Land::installation_kw`]) and never saved.
     pub installations: Vec<power::Installation>,
+    /// Water standing in pits, as last worked out, by pit (M10a slice DS; ADR-0033 §7). Saved;
+    /// a pit with none has no record.
+    pub pit_water: Vec<pits::PitWater>,
     /// Today's water the ditches took from their reaches and returned below them, as changes to
     /// a reach's flow passed on down the river, m³/s (M6b slice BG). Saved.
     pub ditch_flows: Vec<(u32, f32)>,
@@ -646,6 +650,7 @@ impl Land {
             banks: Vec::new(),
             ditches: Vec::new(),
             installations: Vec::new(),
+            pit_water: Vec::new(),
             ditch_flows: Vec::new(),
             ground: earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
             crossings: crossings::Crossings::default(),
@@ -894,6 +899,88 @@ impl Land {
         n
     }
 
+    /// The water standing in pit `work` at `now`, and how it stands (M10a slice DS; ADR-0033
+    /// §7): from what was last worked out, toward the water table's head under it, at the rate
+    /// its body lets water in ([`pits::inflow_rate`], the land profile's `k_m_day` for the good
+    /// of the deposit it is dug for, over `influence_m`). `None` for an earthwork that is not a
+    /// pit, or a pit in a body that passes no water.
+    pub fn pit_water_now(
+        &self,
+        map: &WorldMap,
+        params: &LandParams,
+        influence_m: f64,
+        work: civ_core::PermanentId,
+        now: civ_core::SimTime,
+    ) -> Option<pits::PitState> {
+        let w = self
+            .earthworks
+            .iter()
+            .find(|w| w.id == work && w.kind == earth::EarthKind::Pit)?;
+        let good = self
+            .deposits
+            .iter()
+            .find(|d| Some(d.id) == w.deposit)
+            .map(|d| usize::from(d.body.good))?;
+        let k = params
+            .deposits
+            .iter()
+            .find(|r| r.good == good)
+            .map_or(0.0, |r| r.k_m_day);
+        if k <= 0.0 {
+            return None;
+        }
+        let area = f64::from(w.rect.w.max(0)) * f64::from(w.rect.h.max(0)) / 10_000.0;
+        if area <= 0.0 {
+            return None;
+        }
+        let floor_m = w.level_m() - w.depth_m();
+        let (x, y) = w.rect.centre_m();
+        let c = map.cell_size_m;
+        let cx = ((x / c).floor().max(0.0) as u32).min(map.width.saturating_sub(1));
+        let cy = ((y / c).floor().max(0.0) as u32).min(map.height.saturating_sub(1));
+        let cell = (cy * map.width + cx) as usize;
+        let (head_m, _) = self.ground_water(cell, map.width, 1.0, influence_m);
+        let head_m = if head_m.is_finite() { head_m } else { floor_m };
+        let rate = pits::inflow_rate(k, head_m - floor_m, area, influence_m);
+        let (water0, at) = self
+            .pit_water
+            .iter()
+            .find(|p| p.work == work)
+            .map_or((0.0, now), |p| (p.water_m3, p.at));
+        let days = (now.minutes() - at.minutes()) as f64 / 1_440.0;
+        let level = pits::settle(floor_m + water0 / area, head_m.max(floor_m), rate, days);
+        Some(pits::PitState {
+            water_m3: ((level - floor_m) * area).max(0.0),
+            floor_m,
+            ground_m: w.level_m(),
+            head_m,
+            area_m2: area,
+            rate_per_day: rate,
+        })
+    }
+
+    /// Records `water_m3` standing in pit `work` at `now`: none, when it was just bailed dry, is
+    /// recorded too, so what comes in after is counted from then.
+    pub fn set_pit_water(
+        &mut self,
+        work: civ_core::PermanentId,
+        water_m3: f64,
+        now: civ_core::SimTime,
+    ) {
+        let water_m3 = water_m3.max(0.0);
+        match self.pit_water.iter_mut().find(|p| p.work == work) {
+            Some(p) => {
+                p.water_m3 = water_m3;
+                p.at = now;
+            }
+            None => self.pit_water.push(pits::PitWater {
+                work,
+                water_m3,
+                at: now,
+            }),
+        }
+    }
+
     /// Whether installation `i` can turn: its headrace, the earthwork sharing its id, is dug (an
     /// installation laid without one stands ready).
     pub fn installation_ready(&self, i: usize) -> bool {
@@ -973,6 +1060,17 @@ impl Land {
             }
             if !(s.harvest_kg.is_finite() && s.harvest_kg >= 0.0) {
                 out.push(format!("settlement {} has an invalid harvest", s.id));
+            }
+        }
+        // Water stands only in pits, one record each (M10a slice DS).
+        let mut wet = civ_core::FastSet::default();
+        for p in &self.pit_water {
+            let pit = self
+                .earthworks
+                .iter()
+                .any(|e| e.id == p.work && e.kind == earth::EarthKind::Pit);
+            if !pit || !wet.insert(p.work) || !(p.water_m3.is_finite() && p.water_m3 >= 0.0) {
+                out.push(format!("pit water {} is not of one pit", p.work));
             }
         }
         let (w_cm, h_cm) = (f64::from(w) * 100.0, f64::from(h) * 100.0);
@@ -1980,6 +2078,7 @@ mod tests {
             density_kg_m3: 1_800.0,
             dig_h_per_m3: 0.0,
             working: "pit".to_owned(),
+            k_m_day: 0.0,
             keyed_ids,
         };
         let placed = |rules: Vec<deposits::DepositRule>| {

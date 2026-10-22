@@ -1630,3 +1630,12 @@ hearth (the hearth's measure stays the first fuel that asks none); and a techniq
 `needs_known` lists goods its finder's settlement must know a deposit of, with some left. The
 first of each is coal: `good/coal`, the coal rule of `land/temperate_valley`,
 `activity/dig_coal` and `technique/coal_burning`.
+
+Content API 163 (M10a slice DS, second part) lets a deposit rule give `k_m_day` (0–100, default
+0), the hydraulic conductivity of the body and the ground it lies in: a pit dug below the water
+table takes in water toward the table's head at the rate a wide well of its area would (research
+03-02 §1.4), and what stands in it is lifted out by hand before digging below it goes on. A rule
+giving none keeps its pits dry. The people profile's `[digging]` gains `bail_w` (a person's
+sustained power, watts; default 75), `bail_efficiency` (the share of it that lifts water, above 0
+and at most 1; default 0.5) and `influence_m` (a pit's radius of influence, metres; default 50).
+The core's coal rule gives 0.3 m/day; its other bodies none.

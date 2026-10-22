@@ -480,6 +480,8 @@ pub const SCHEMA_V171: u32 = 171;
 pub const SCHEMA_V172: u32 = 172;
 /// Water-power installations, before households counted what they ground for a mill.
 pub const SCHEMA_V173: u32 = 173;
+/// Households counted what they ground for a mill, before pits held water.
+pub const SCHEMA_V174: u32 = 174;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

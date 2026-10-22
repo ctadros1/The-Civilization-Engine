@@ -70,6 +70,40 @@ fn open_pit(land: &Land, d: &Deposit) -> Option<usize> {
     })
 }
 
+/// The share of a session of `hours` at deposit `d` that would go to digging rather than to
+/// lifting out the water standing in its open pit and what comes in meanwhile (M10a slice DS):
+/// 1 for a dry pit, a body that passes no water, or none yet open.
+pub(super) fn dry_share(
+    ctx_land: (&Land, &WorldMap, &LandParams),
+    rules: &crate::params::Digging,
+    d: &Deposit,
+    now: SimTime,
+    hours: f64,
+) -> f64 {
+    let (land, map, params) = ctx_land;
+    let wet = params
+        .deposits
+        .iter()
+        .any(|r| r.good == usize::from(d.body.good) && r.k_m_day > 0.0);
+    if !wet {
+        return 1.0;
+    }
+    let Some(p) = open_pit(land, d) else {
+        return 1.0;
+    };
+    let Some(state) =
+        land.pit_water_now(map, params, rules.influence_m, land.earthworks[p].id, now)
+    else {
+        return 1.0;
+    };
+    let m3 = state.water_m3 + state.inflow_m3_day() * hours / 24.0;
+    let bail = civ_land::pits::bail_hours(m3, state.lift_m(), rules.bail_w, rules.bail_efficiency);
+    if hours <= 0.0 {
+        return 1.0;
+    }
+    ((hours - bail) / hours).clamp(0.0, 1.0)
+}
+
 /// A square of side `side` metres centred at `at` metres.
 fn square(at: (f64, f64), side: f64) -> RectCm {
     let half = side / 2.0;
@@ -232,6 +266,28 @@ pub(super) fn dig_at(
             (ctx.land.earthworks.len() - 2, ctx.land.earthworks.len() - 1)
         }
     };
+    // Water standing in it is lifted out before digging below it goes on (M10a slice DS;
+    // ADR-0033 §7): the work goes to bailing first, and none is dug until it is dry.
+    let mut effort_h = effort_h;
+    let pit_id = ctx.land.earthworks[pit_i].id;
+    if let Some(state) =
+        ctx.land
+            .pit_water_now(ctx.map, ctx.land_params, rules.influence_m, pit_id, ctx.now)
+    {
+        let bail = civ_land::pits::bail_hours(
+            state.water_m3,
+            state.lift_m(),
+            rules.bail_w,
+            rules.bail_efficiency,
+        );
+        if bail > effort_h {
+            let left = state.water_m3 * (1.0 - effort_h / bail);
+            ctx.land.set_pit_water(pit_id, left, ctx.now);
+            return 0.0;
+        }
+        effort_h -= bail;
+        ctx.land.set_pit_water(pit_id, 0.0, ctx.now);
+    }
     let mut pit = ctx.land.earthworks[pit_i];
     let mut heap = ctx.land.earthworks[heap_i];
     let area = f64::from(pit.rect.w) * f64::from(pit.rect.h) / 10_000.0;

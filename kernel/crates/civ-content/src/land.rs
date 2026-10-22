@@ -263,6 +263,11 @@ pub(crate) struct DepositFile {
     /// What a working of it is called (content API 21): "pit", the default, or "quarry".
     #[serde(default = "pit")]
     pub working: String,
+    /// Content API 163 (M10a slice DS): the hydraulic conductivity of the body and the ground it
+    /// lies in, metres a day, by which a pit dug below the water table takes in water; 0, the
+    /// default, for one that passes none.
+    #[serde(default)]
+    pub k_m_day: f64,
     /// Content API 162 (M10a slice DS): whether its bodies take ids of their own, so adding the
     /// rule moves no other id in any world (`civ_land::deposits::keyed_id`). False by default.
     #[serde(default)]
@@ -676,6 +681,7 @@ impl LandFile {
                         density_kg_m3: d.density_kg_m3,
                         dig_h_per_m3: d.dig_h_per_m3,
                         working: d.working.clone(),
+                        k_m_day: d.k_m_day,
                         keyed_ids: d.keyed_ids,
                     })
                 })
@@ -756,6 +762,9 @@ impl LandFile {
                 p.push(format!(
                     "deposit {n}'s `density_kg_m3` must be between 100 and 10000"
                 ));
+            }
+            if !(d.k_m_day.is_finite() && (0.0..=100.0).contains(&d.k_m_day)) {
+                p.push(format!("deposit {n}'s `k_m_day` must be between 0 and 100"));
             }
             if !(d.dig_h_per_m3.is_finite() && (0.0..=1_000.0).contains(&d.dig_h_per_m3)) {
                 p.push(format!(

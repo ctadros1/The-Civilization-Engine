@@ -45,6 +45,10 @@ pub struct DepositRule {
     pub dig_h_per_m3: f64,
     /// What a working of it is called: "pit", "quarry".
     pub working: String,
+    /// The hydraulic conductivity of the body and the ground it lies in, metres a day: how fast
+    /// a pit dug below the water table takes in water (M10a slice DS; 0 for a body that passes
+    /// none, whose pit stays dry).
+    pub k_m_day: f64,
     /// Whether its bodies take ids of their own ([`keyed_id`]) rather than the world's next
     /// (M10a slice DS): a rule added to a land profile then moves no other id in any world.
     pub keyed_ids: bool,
@@ -199,6 +203,7 @@ mod tests {
             density_kg_m3: 1_800.0,
             dig_h_per_m3: 0.0,
             working: "pit".to_owned(),
+            k_m_day: 0.0,
             keyed_ids: false,
         }
     }

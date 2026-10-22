@@ -127,7 +127,7 @@ use super::{
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
     SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
     SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
-    finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V174, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -873,9 +873,10 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V168 => Schema::V168,
         // The observer's forcings (schema 170) changed no people or land.
         SCHEMA_V169 | SCHEMA_V170 => Schema::V169,
-        // Workshops' batches (schema 172) changed no people or land; installations (schema 173)
-        // and households' mill counts (schema 174) are read wherever saved.
-        SCHEMA_V171 | SCHEMA_V172 | SCHEMA_V173 | SAVE_SCHEMA_VERSION => Schema::V171,
+        // Workshops' batches (schema 172) changed no people or land; installations (schema 173),
+        // households' mill counts (schema 174) and pits' water (schema 175) are read wherever
+        // saved.
+        SCHEMA_V171 | SCHEMA_V172 | SCHEMA_V173 | SCHEMA_V174 | SAVE_SCHEMA_VERSION => Schema::V171,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -3485,6 +3486,13 @@ fn encode_earth(land: &Land) -> Vec<u8> {
         })
         .collect();
     let installations = (!installations.is_empty()).then(|| fbb.create_vector(&installations));
+    // Water standing in pits (schema 175), absent while no pit has taken any in.
+    let pit_water: Vec<_> = land
+        .pit_water
+        .iter()
+        .map(|p| save::PitWaterRecord::new(p.work.get(), p.water_m3, p.at.minutes()))
+        .collect();
+    let pit_water = (!pit_water.is_empty()).then(|| fbb.create_vector(&pit_water));
     let root = save::Earth::create(
         &mut fbb,
         &save::EarthArgs {
@@ -3498,6 +3506,7 @@ fn encode_earth(land: &Land) -> Vec<u8> {
             ditches: Some(ditches),
             ditch_flows: Some(ditch_flows),
             installations,
+            pit_water,
         },
     );
     finish(fbb, root)
@@ -3683,6 +3692,20 @@ fn decode_earth(bytes: &[u8], land: &mut Land, schema: Schema) -> Result<(), Loa
             )));
         }
         land.installations.push(record);
+    }
+    // Water standing in pits (schema 175); before, none.
+    for p in root.pit_water().iter().flatten() {
+        let work = required(p.work(), "a pit's water")?;
+        if !(p.water_m3().is_finite() && p.water_m3() >= 0.0) {
+            return Err(LoadError::Malformed(format!(
+                "pit {work} holds an invalid amount of water"
+            )));
+        }
+        land.pit_water.push(civ_land::pits::PitWater {
+            work,
+            water_m3: p.water_m3(),
+            at: SimTime::from_minutes(p.at()),
+        });
     }
     // Schema 21: what each pit and heap is linked to.
     for l in root.links().iter().flatten() {
@@ -4449,6 +4472,7 @@ fn decode_land(
         ditches: Vec::new(),
         ditch_flows: Vec::new(),
         installations: Vec::new(),
+        pit_water: Vec::new(),
         ground: civ_land::earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
         // Read from its own section (schema 68 on).
         crossings: Default::default(),

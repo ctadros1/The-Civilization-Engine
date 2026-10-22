@@ -6037,6 +6037,25 @@ and M6a gives rivers a daily flow.
         how to burn it, then the same heat as its firewood; burning coal is found only once coal
         is known; those who know it dig coal from a seam and carry it home; and a world with seams saves and
         loads to the byte (a save's deposit ids may be the world's or keyed).
+      - *As built, second part (2026-10-22): pits that flood, bailed by hand.* A deposit rule may
+        give the conductivity of its body and the ground it lies in (`k_m_day`, content API 163;
+        coal 0.3 m/day, research 03-02's prior for fractured bedrock; the other bodies none, so
+        their pits stay dry). A pit dug below the water table's head then fills toward it as a
+        well of its area's radius does (03-02 §1.4's `2πT/ln(R/r)`, `T = k b` over the depth it
+        reaches below the head; `civ_land::pits`), worked out when the pit is worked or looked at
+        from the water last found in it and when (`Land::pit_water`, saves 175, absent while no
+        pit has taken any in). Digging there bails first: the work goes to lifting the water
+        out by hand (`ρgVH` over a person's 75 W at half of it lifting, 07-06 §1.3 and §2.2; the
+        profile's `[digging]` gains `bail_w`, `bail_efficiency` and `influence_m`), and nothing is
+        dug until the pit is dry; a household weighing a trip to dig counts only the hours left
+        after bailing what stands and what comes in meanwhile. The observer's words for a pit say
+        how much water stands in it. Pumping by wheel or engine is the next part. **Proved:** the
+        three bench worlds of DO differ from the first part's only in `meta` and `content`.
+        **Tested:** water rises toward the head and no further, the same over one step or two;
+        lifting by hand is its work over a person's useful power (36.7 m³ through 5 m in 13.3
+        hours); a body that passes no water lets none in; in a world, water standing in a coal
+        pit is lifted out before any coal is dug, only coal pits hold water, and a save keeps it
+        to the byte.
     - **DT**: the works: machines with crews, shifts by daylight, the household-resolved block.
   - **M10b, rail and gas light** (ADR-0034).
     - **DU**: light before gas: lamps burning fuel for hours of light, places dark or lit, dark
@@ -7444,6 +7463,13 @@ One line each. Don't re-litigate without a reason written next to the entry.
   known (cheap where coal shows, ADR-0033 §1) and is learned in 20 hours; coal smokes twice as
   much as wood. The research gives none of these. Each revisited if the M10 demo shows coal
   burned nowhere a seam shows, or everywhere within a year.
+- **Design priors for pits that flood (2026-10-22, M10a slice DS):** NUDGE: a coal seam and the
+  ground it lies in pass 0.3 m of water a day (within research 03-02's 0.001-10 m/day for fractured
+  bedrock); the other bodies none, so clay, stone and flint pits stay dry as before (intact clay
+  passes 10^-7-10^-4 m/day); a pit fills as a well of its area's radius with a 50 m radius of
+  influence; a person bails at 75 W, half of it lifting water (07-06 §1.3, §2.2); water coming in
+  during a session is counted from its end. Revisited when pumping by wheel or engine (DS's next
+  part) is weighed against bailing.
 - **Design priors for the household day (2026-10-20, M9a slice DG, ADR-0032 §2):** NUDGE: the
   day is scored once at sunrise; waking minutes are the day less the middle of the content's
   sleep range and three meals; a walk's length in the day's sharing is reckoned straight off trail

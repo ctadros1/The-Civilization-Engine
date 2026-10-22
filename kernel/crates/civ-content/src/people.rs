@@ -2003,6 +2003,30 @@ pub(crate) struct DiggingFile {
     pub h_per_m3: f64,
     /// The side of a pit, and of the spoil heap beside it, metres.
     pub pit_side_m: f64,
+    /// Content API 163 (M10a slice DS): a person's sustained power bailing a pit by hand, watts.
+    #[serde(default = "bail_w")]
+    pub bail_w: f64,
+    /// Content API 163: the share of it that lifts water (bucket and rope).
+    #[serde(default = "bail_efficiency")]
+    pub bail_efficiency: f64,
+    /// Content API 163: a pit's radius of influence on the water table, metres.
+    #[serde(default = "pit_influence_m")]
+    pub influence_m: f64,
+}
+
+/// A person's sustained power, watts, when a profile gives none (research 07-06 §1.3: 75 W).
+fn bail_w() -> f64 {
+    75.0
+}
+
+/// Bucket and rope's share of it that lifts water, when a profile gives none (07-06 §2.2).
+fn bail_efficiency() -> f64 {
+    0.5
+}
+
+/// A pit's radius of influence, metres, when a profile gives none (as the core's wells').
+fn pit_influence_m() -> f64 {
+    50.0
 }
 
 /// What founders know and how people learn (ADR-0008).
@@ -2612,6 +2636,9 @@ impl PeopleFile {
             digging: civ_agents::params::Digging {
                 h_per_m3: self.digging.h_per_m3,
                 pit_side_m: self.digging.pit_side_m,
+                bail_w: self.digging.bail_w,
+                bail_efficiency: self.digging.bail_efficiency,
+                influence_m: self.digging.influence_m,
             },
             style: civ_agents::params::StyleParams {
                 alpha: self.style.alpha,
@@ -2714,6 +2741,14 @@ impl PeopleFile {
     pub fn problems(&self) -> Vec<String> {
         let mut p = Vec::new();
         positive("digging.h_per_m3", self.digging.h_per_m3, &mut p);
+        positive("digging.bail_w", self.digging.bail_w, &mut p);
+        positive("digging.influence_m", self.digging.influence_m, &mut p);
+        if !(self.digging.bail_efficiency > 0.0 && self.digging.bail_efficiency <= 1.0) {
+            p.push(format!(
+                "`digging.bail_efficiency` must be above 0 and at most 1 (got {})",
+                self.digging.bail_efficiency
+            ));
+        }
         self.ties.problems(&mut p);
         self.polity.problems(&mut p);
         self.crime.problems(&mut p);

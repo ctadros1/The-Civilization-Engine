@@ -1,0 +1,17 @@
+# Stacking and covering a charcoal mound, or opening one whose burn is done.
+kind = "activity"
+id = "core:activity/burn_charcoal"
+name = "Burn charcoal"
+doing = "burning charcoal"
+behavior = "make"
+recipe = "core:recipe/burn_charcoal"
+par = 3.5
+min_age_years = 14.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 480
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

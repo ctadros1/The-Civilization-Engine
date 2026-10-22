@@ -126,7 +126,8 @@ use super::{
     SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, SCHEMA_V152,
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
     SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
-    SCHEMA_V167, SCHEMA_V168, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, finish, section, section_root,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -230,6 +231,12 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         .map(|a| a.id.as_str())
         .collect();
     let goods: Vec<&str> = rules.catalog.goods.iter().map(|g| g.id.as_str()).collect();
+    let recipes: Vec<&str> = rules
+        .catalog
+        .recipes
+        .iter()
+        .map(|r| r.id.as_str())
+        .collect();
     let resources: Vec<&str> = rules.land.resources.iter().map(|r| r.id.as_str()).collect();
     let skills: Vec<&str> = rules.catalog.skills.iter().map(|k| k.id.as_str()).collect();
     let techniques: Vec<&str> = rules
@@ -249,7 +256,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         section(
             SECTION_HOUSES,
             0,
-            encode_households(&sim.people, &goods, &resources),
+            encode_households(&sim.people, &goods, &resources, &recipes),
         ),
         section(SECTION_HISTORY, 0, encode_history(&sim.people)),
         section(
@@ -679,6 +686,8 @@ enum Schema {
     V167,
     V168,
     V169,
+    /// Households keep batches that run unattended (M10a slice DP).
+    V171,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -862,7 +871,9 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V166 => Schema::V166,
         SCHEMA_V167 => Schema::V167,
         SCHEMA_V168 => Schema::V168,
-        SAVE_SCHEMA_VERSION => Schema::V169,
+        // The observer's forcings (schema 170) changed no people or land.
+        SCHEMA_V169 | SCHEMA_V170 => Schema::V169,
+        SAVE_SCHEMA_VERSION => Schema::V171,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -5205,7 +5216,8 @@ fn carried(
         | Schema::V166
         | Schema::V167
         | Schema::V168
-        | Schema::V169 => {
+        | Schema::V169
+        | Schema::V171 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5231,7 +5243,12 @@ fn carried(
 
 // ---- houses ------------------------------------------------------------------------------------
 
-fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Vec<u8> {
+fn encode_households(
+    pop: &Population,
+    goods: &[&str],
+    resources: &[&str],
+    recipes: &[&str],
+) -> Vec<u8> {
     let mut households: Vec<&Household> = pop.households.iter().map(|(_, h)| h).collect();
     households.sort_by_key(|h| h.id);
     let mut fbb = FlatBufferBuilder::new();
@@ -5310,6 +5327,24 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
                 })
                 .collect();
             let gave_way = (!gave_way.is_empty()).then(|| fbb.create_vector(&gave_way));
+            // Its batches under way (schema 171), each by its recipe's content id.
+            let batches: Vec<_> = h
+                .batches
+                .iter()
+                .filter_map(|b| {
+                    let recipe = fbb.create_string(recipes.get(b.recipe)?);
+                    Some(save::BatchSave::create(
+                        &mut fbb,
+                        &save::BatchSaveArgs {
+                            recipe: Some(recipe),
+                            units: b.units,
+                            quality: b.quality,
+                            ends_day: b.ends_day,
+                        },
+                    ))
+                })
+                .collect();
+            let batches = (!batches.is_empty()).then(|| fbb.create_vector(&batches));
             save::Household::create(
                 &mut fbb,
                 &save::HouseholdArgs {
@@ -5338,6 +5373,7 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
                     ditch_worth: h.ditch_worth,
                     fire_losses,
                     gave_way,
+                    batches,
                 },
             )
         })
@@ -5549,7 +5585,8 @@ fn decode_households(
             | Schema::V166
             | Schema::V167
             | Schema::V168
-            | Schema::V169 => {
+            | Schema::V169
+            | Schema::V171 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5790,6 +5827,41 @@ fn decode_households(
                         // Its storeys and ties (schema 163); before, a storey untied.
                         storeys: l.storeys(),
                         tied: l.tied(),
+                    });
+                }
+                out
+            },
+            // Its batches under way (schema 171); before, none. One of a recipe the content no
+            // longer has is dropped, its inputs with it.
+            batches: {
+                let mut out: Vec<civ_agents::person::Batch> = Vec::new();
+                let saved = h.batches();
+                if schema < Schema::V171 && saved.is_some() {
+                    return Err(LoadError::Malformed(format!(
+                        "household {hh_id} keeps batches in a save before schema 171"
+                    )));
+                }
+                for b in saved.iter().flatten() {
+                    let ok = b.units().is_finite()
+                        && b.units() > 0.0
+                        && b.quality().is_finite()
+                        && b.quality() >= 0.0;
+                    if !ok {
+                        return Err(LoadError::Malformed(format!(
+                            "household {hh_id} keeps a batch of no units or quality"
+                        )));
+                    }
+                    let Some(recipe) = b
+                        .recipe()
+                        .and_then(|id| rules.catalog.recipes.iter().position(|r| r.id == id))
+                    else {
+                        continue;
+                    };
+                    out.push(civ_agents::person::Batch {
+                        recipe,
+                        units: b.units(),
+                        quality: b.quality(),
+                        ends_day: b.ends_day(),
                     });
                 }
                 out

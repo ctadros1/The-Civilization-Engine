@@ -5823,6 +5823,34 @@ and M6a gives rivers a daily flow.
         DO, every section but `meta` and `content`, the pack's own hash). Burning the cheapest fuel by a household's own hours waits
         for a second fuel a hearth may hold (coal and peat, DS); until then a made fuel (charcoal)
         is a material, as the brief says, so the hearth never eats the smith's charcoal.
+      - *As built, second part (2026-10-22): batches in elapsed days, and charcoal.* A recipe may
+        name `elapsed_days` (content API 159). A session of it takes its inputs and starts a
+        batch, a saved record of the household's (`Household::batches`: recipe, units, the
+        quality of tools it makes, and the first day it may be opened; schema 171, the recipe by
+        content id, dropped on load if the content no longer has it); the outputs are given when
+        a later session of the same recipe opens it, once its days are past, and that session
+        starts the next. While one is under way a household does not choose the work (a new
+        reason, `Burning`); one finished waits to be opened and counts as made units when the
+        work is weighed. `make::apply` is now `start` and `give`, the same arithmetic. Charcoal is
+        the first batch: `good/charcoal` a material of 29.5 MJ a kilogram, `technique/charcoal_
+        burning` found from firing, lime burning and smelting copper with wood at home (E50
+        50,000 h), and `recipe/burn_charcoal` at 5 kg of wood a kilogram (20 % yield), 0.06 h a
+        kilogram and 2 h a session (60 h a tonne and the mound), for ten days. NUDGE: the ten
+        days are a small mound's carbonising and cooling (an earth mound's whole cycle 24 days,
+        07-05 §2.1); revisit if the iron chain (part 4) finds charcoal the bottleneck. Nothing
+        yet wants charcoal, so no world makes it until iron does. Firms do not batch (their
+        stations are slice DQ). Saves of schema 169 load again (no decoder had named them since
+        170). **Discovery draws keyed by content id:** a find's draw was keyed by the technique's
+        index in the catalogue, so a technique added before others in id order moved their
+        draws (the bench worlds found `jointed_frame` on other days); it is now keyed by a hash
+        of the technique's content id (`found::content_key`), so content added beside it moves
+        no draw. A one-time change of every world's finds against the slice before. **Proved:**
+        the three bench worlds of DO with and without the four charcoal files give the same
+        chronicle (`history` digest), counts and knowledge records; the sections that hold
+        stores or catalogue indices differ by the new columns and shifted positions only.
+        **Tested:** a burn takes five kilograms of wood a kilogram when stacked, gives
+        nothing while it burns, blocks a second mound, saves and loads to the byte, and gives its
+        charcoal exactly when opened after its days.
     - **DQ**: the firm's own stations and stages (ADR-0006 §5 as decided), several lines with goods
       in progress, a mill's toll on an appended channel.
     - **DR**: water power at a site (installations, daily kilowatts from discharge, `kwh_per_unit`,

@@ -470,6 +470,10 @@ pub const SCHEMA_V166: u32 = 166;
 pub const SCHEMA_V167: u32 = 167;
 /// A building raised together kept its dates, before taste and founding ways had a front.
 pub const SCHEMA_V168: u32 = 168;
+/// Taste and founding ways with a front, before the observer forced the climate.
+pub const SCHEMA_V169: u32 = 169;
+/// The observer's forcings on the climate, before households kept batches.
+pub const SCHEMA_V170: u32 = 170;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

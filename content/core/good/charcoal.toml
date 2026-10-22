@@ -1,0 +1,18 @@
+# Charcoal: wood charred in a covered mound or pit, keeping about a third of the wood's heat in a
+# fifth of its weight (research 07-06 §2.3; 07-05 §2.1). A material, not a hearth's fuel, until a
+# household weighs fuels by their cost in its own hours (M10a slice DP): a hearth must not eat the
+# smith's charcoal. It keeps dry under a roof.
+kind = "good"
+id = "core:good/charcoal"
+name = "Charcoal"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[fuel]
+mj_per_kg = 29.5
+smoke = 0.2

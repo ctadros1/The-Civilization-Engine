@@ -720,6 +720,21 @@ impl Flows {
     }
 }
 
+/// A batch a household started that runs unattended for its recipe's `elapsed_days` (M10a slice
+/// DP, ADR-0033 §2): its inputs were taken when it was started; its outputs are given when someone
+/// of the household opens it, on a session of the same recipe once `ends_day` is reached.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Batch {
+    /// The recipe, by index in the catalog's recipes.
+    pub recipe: usize,
+    /// Units started.
+    pub units: f64,
+    /// Worth of the tools it makes, in standard tools each (1 for other goods).
+    pub quality: f64,
+    /// The first day it may be opened.
+    pub ends_day: i64,
+}
+
 /// People who live and eat together.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Household {
@@ -781,6 +796,9 @@ pub struct Household {
     /// Buildings of its settlement its people heard gave way (M6b slice BH), oldest first, kept
     /// for the years its people remember.
     pub gave_way: Vec<GaveWay>,
+    /// Batches it has started that run unattended (a charcoal burn; M10a slice DP, ADR-0033 §2),
+    /// oldest first: their inputs were taken when started, their outputs come when opened.
+    pub batches: Vec<Batch>,
 }
 
 /// A building of a household's settlement that gave way, as its people heard it told (M6b slice
@@ -1325,6 +1343,7 @@ mod tests {
             ditch_worth: 0.0,
             fire_losses: Vec::new(),
             gave_way: Vec::new(),
+            batches: Vec::new(),
         }
     }
 

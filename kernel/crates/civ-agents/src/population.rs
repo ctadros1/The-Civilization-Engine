@@ -35,8 +35,8 @@ use crate::params::{
     RegimeDef, interpolate,
 };
 use crate::person::{
-    Activity, Flow, Flows, Household, KnownPatch, Load, Person, Step, Target, Trip, food_kcal,
-    fuel_kg, reserve_food_kcal, stock_kcal,
+    Activity, Batch, Flow, Flows, Household, KnownPatch, Load, Person, Step, Target, Trip,
+    food_kcal, fuel_kg, reserve_food_kcal, stock_kcal,
 };
 
 mod boating;
@@ -4271,7 +4271,20 @@ impl Population {
                 });
             }
             let have = |g: usize| make::available(&stores, goods, g, reserve_ok, protected);
-            let from_inputs = make::units_from_inputs(r, &have);
+            // A batch runs unattended (M10a slice DP, ADR-0033 §2): while one of this recipe is
+            // under way there is nothing to do; once its days are past, a session opens it, worth
+            // what making its units would be.
+            let mut waiting = 0.0;
+            if r.elapsed_days > 0.0 {
+                let today = ctx.now.day_index();
+                for b in hh.batches.iter().filter(|b| a.recipe == Some(b.recipe)) {
+                    if b.ends_day > today {
+                        return Err((Reason::Burning, None));
+                    }
+                    waiting += b.units;
+                }
+            }
+            let from_inputs = make::units_from_inputs(r, &have) + waiting;
             // What making it is worth, and how much of it is wanted.
             let (worth, wanted) = if let Some(_tool) = &out_good.tool {
                 // Its need is the need of the tool it serves for, made the way the household
@@ -5784,6 +5797,23 @@ impl Population {
             .add_changes(&before, &x.stores, Flow::Made, Flow::Worn);
     }
 
+    /// `minutes` of `who`'s work at activity `def` (a making), as their session would do: for
+    /// tests.
+    #[doc(hidden)]
+    pub fn make_work_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        who: PermanentId,
+        def: usize,
+        minutes: u32,
+    ) {
+        let (Some(&h), Some(d)) = (self.index.get(&who), ctx.catalog.activities.get(def)) else {
+            return;
+        };
+        let d = d.clone();
+        self.make_work(ctx, h, &d, minutes);
+    }
+
     /// Applies `minutes` of person `h` working the recipe of make activity `def` at home: what
     /// their skill and age let them make in that time, from what the household holds (seed only
     /// in hunger, and never the seed for the ground already cropped), the recipe's tools worn by
@@ -5856,15 +5886,52 @@ impl Population {
             x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
             x.stores.resize(goods.len(), 0.0);
             let before = x.stores.clone();
-            make::apply(
-                recipe,
-                &mut x.stores,
-                goods,
-                units,
-                quality,
-                reserve_ok,
-                protected,
-            );
+            match def.recipe.filter(|_| recipe.elapsed_days > 0.0) {
+                // A batch (M10a slice DP, ADR-0033 §2): open those of this recipe whose days are
+                // past, and start another unless one is still under way.
+                Some(ri) => {
+                    let today = now.day_index();
+                    let mut running = false;
+                    let mut opened = Vec::new();
+                    x.batches.retain(|b| {
+                        if b.recipe != ri {
+                            true
+                        } else if b.ends_day <= today {
+                            opened.push((b.units, b.quality));
+                            false
+                        } else {
+                            running = true;
+                            true
+                        }
+                    });
+                    for (u, q) in opened {
+                        make::give(recipe, &mut x.stores, goods, u, q);
+                    }
+                    if !running {
+                        let started =
+                            make::start(recipe, &mut x.stores, goods, units, reserve_ok, protected);
+                        if started > 0.0 {
+                            x.batches.push(Batch {
+                                recipe: ri,
+                                units: started,
+                                quality,
+                                ends_day: today + recipe.elapsed_days.ceil() as i64,
+                            });
+                        }
+                    }
+                }
+                None => {
+                    make::apply(
+                        recipe,
+                        &mut x.stores,
+                        goods,
+                        units,
+                        quality,
+                        reserve_ok,
+                        protected,
+                    );
+                }
+            }
             x.flows
                 .add_changes(&before, &x.stores, Flow::Made, Flow::Used);
             let before = x.stores.clone();

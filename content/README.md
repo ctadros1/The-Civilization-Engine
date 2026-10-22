@@ -1600,3 +1600,10 @@ strict `[fuel]` table with `mj_per_kg` (1–60; firewood 15.6, charcoal 29.5, co
 07-06 §2.3) and `smoke` (0–10, against firewood's 1). A household's hearth need stays in
 kilograms of the first fuel in the catalogue (firewood); any other fuel burns by its heat, once
 the fuels before it are gone. Which fuel a recipe takes is the recipe's, not the table's.
+
+Content API 159 (M10a slice DP) gives a recipe `elapsed_days` (0–60, default 0): a batch that
+runs unattended once started. A session of it takes the inputs and starts a batch; the outputs
+come when someone of the household opens it on a later session, once its days are past; while
+one of that recipe is under way the household does not start another. Charcoal is the first:
+`good/charcoal` (a material, 29.5 MJ a kilogram), `technique/charcoal_burning` (found from firing),
+`recipe/burn_charcoal` (5 kg of wood a kilogram, ten days) and `activity/burn_charcoal`.

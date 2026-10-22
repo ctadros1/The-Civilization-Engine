@@ -32,6 +32,14 @@ pub const PURPOSE_SPAWN: u64 = 0x7370_6177_6e30_3031; // "spawn001"
 pub const PURPOSE_KNOW: u64 = 0x6b6e_6f77_3030_3031; // "know0001"
 /// Keys the draw of a find at the end of a session (ADR-0008 §3).
 pub const PURPOSE_FIND: u64 = 0x6669_6e64_3030_3031; // "find0001"
+
+/// A draw key for content id `id` that stays the same whatever else the catalog holds (FNV-1a;
+/// M10a slice DP): a draw keyed by it is not moved when content is added beside it.
+pub fn content_key(id: &str) -> u64 {
+    id.bytes().fold(0xcbf2_9ce4_8422_2325, |h, b| {
+        (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
+    })
+}
 /// Keyed-randomness purpose of the skills a founder brings: its own stream, so a skill added to
 /// the content changes none of the other founding draws.
 pub const PURPOSE_SKILLS: u64 = 0x736b_696c_6c73_3031; // "skills01"
@@ -753,6 +761,7 @@ fn add_family(
         ditch_worth: 0.0,
         fire_losses: Vec::new(),
         gave_way: Vec::new(),
+        batches: Vec::new(),
     });
     // One who comes alone has no partner; a family's first two are its couple.
     let couple = (family.len() >= 2).then(|| founding_couple(params, family, now, d));

@@ -240,6 +240,7 @@ mod tests {
                 good("axe", GoodUse::Tool, Some(200.0)),
             ],
             recipes: vec![RecipeDef {
+                elapsed_days: 0.0,
                 id: "make_sickle".into(),
                 name: "Make a sickle".into(),
                 inputs: vec![(0, 0.3), (1, 0.5)],

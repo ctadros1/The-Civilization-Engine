@@ -1,0 +1,18 @@
+# Charring wood in a covered mound or pit, the fire starved of air for days (research 07-05 §2.1:
+# 15-25 % yield by weight; an earth mound's cycle of loading, carbonising, cooling and unloading).
+# It is found by those who already hold a fire hot and controlled (firing, lime burning, smelting)
+# with wood at home. Founders do not bring it.
+kind = "technique"
+id = "core:technique/charcoal_burning"
+name = "Burning charcoal"
+can = "char wood into charcoal in a covered mound"
+domain = "core:skill/pottery"
+requires = [["core:technique/firing"]]
+tried_in = ["core:activity/burn_lime", "core:activity/fire_bricks", "core:activity/smelt_copper"]
+needs = ["core:good/firewood"]
+e50_h = 50000.0
+learn_h = 200.0
+upbringing = true
+
+[answers]
+spoilage = []

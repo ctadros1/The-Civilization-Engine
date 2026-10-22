@@ -449,6 +449,7 @@ mod tests {
                 ditch_worth: 0.0,
                 fire_losses: Vec::new(),
                 gave_way: Vec::new(),
+                batches: Vec::new(),
             });
         }
         pop

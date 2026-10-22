@@ -495,6 +495,19 @@ table Household {
   // Schema 108 (M6b slice BH): buildings of its settlement it heard gave way, oldest first;
   // absent before.
   gave_way: [GaveWaySave] (id: 24);
+  // Schema 171 (M10a slice DP): batches it started that run unattended, oldest first; absent
+  // before.
+  batches: [BatchSave] (id: 25);
+}
+
+// A batch a household started (schema 171, M10a slice DP): its recipe by content id, the units
+// started, the worth of the tools it makes in standard tools each, and the first day it may be
+// opened. Its inputs were taken when it was started.
+table BatchSave {
+  recipe: string (id: 0);
+  units: double (id: 1);
+  quality: double (id: 2);
+  ends_day: long (id: 3);
 }
 
 // A building a household heard gave way (schema 108, M6b slice BH): the day, the building,

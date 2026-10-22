@@ -636,6 +636,11 @@ pub struct RecipeDef {
     pub skill: Option<usize>,
     /// The technique working it needs, by index in the techniques (ADR-0008 §1).
     pub technique: Option<usize>,
+    /// Days a batch runs once started, unattended (a charcoal burn, a smelt): 0 for a recipe
+    /// whose outputs come at the end of the session (M10a slice DP, ADR-0033 §2). Its inputs are
+    /// taken when the batch is started and its outputs given when it is opened, on a visit once
+    /// its days are past.
+    pub elapsed_days: f64,
 }
 
 /// A technique: a practical capability people know, learn and can lose (ADR-0008 §1). What it

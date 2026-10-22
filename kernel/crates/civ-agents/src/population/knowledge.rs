@@ -234,7 +234,8 @@ impl Population {
     /// `started` (ADR-0008 §3). A session of trying counts all its hours toward the technique it
     /// was aimed at, the more for someone already aware of it; routine work counts the share of
     /// its hours given to experiment toward each technique its practice can find. Each is a
-    /// draw, keyed by person, technique and session, against the chance those hours find it,
+    /// draw, keyed by person, technique (by its content id, so content added beside it moves no
+    /// draw) and session, against the chance those hours find it,
     /// for a technique they could find: not known, a route of what it needs known, its goods at
     /// home. The finder knows it at once, and the chronicle says what kind of find it was.
     pub(crate) fn discover(
@@ -289,7 +290,7 @@ impl Population {
                 ctx.seed,
                 crate::found::PURPOSE_FIND,
                 who.get(),
-                t as u64,
+                crate::found::content_key(&d.id),
                 started.minutes() as u64,
             ];
             let u = Rng64::from_key(&key).next_f64();

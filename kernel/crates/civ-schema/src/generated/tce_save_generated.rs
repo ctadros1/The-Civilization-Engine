@@ -29167,6 +29167,7 @@ impl<'a> Household<'a> {
   pub const VT_DITCH_WORTH: ::flatbuffers::VOffsetT = 48;
   pub const VT_FIRE_LOSSES: ::flatbuffers::VOffsetT = 50;
   pub const VT_GAVE_WAY: ::flatbuffers::VOffsetT = 52;
+  pub const VT_BATCHES: ::flatbuffers::VOffsetT = 54;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -29189,6 +29190,7 @@ impl<'a> Household<'a> {
     builder.add_food_kcal(args.food_kcal);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.batches { builder.add_batches(x); }
     if let Some(x) = args.gave_way { builder.add_gave_way(x); }
     if let Some(x) = args.fire_losses { builder.add_fire_losses(x); }
     builder.add_ditch_worth(args.ditch_worth);
@@ -29382,6 +29384,13 @@ impl<'a> Household<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GaveWaySave>>>>(Household::VT_GAVE_WAY, None)}
   }
+  #[inline]
+  pub fn batches(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BatchSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BatchSave>>>>(Household::VT_BATCHES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Household<'_> {
@@ -29415,6 +29424,7 @@ impl ::flatbuffers::Verifiable for Household<'_> {
      .visit_field::<f32>("ditch_worth", Self::VT_DITCH_WORTH, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<FireLossSave>>>>("fire_losses", Self::VT_FIRE_LOSSES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GaveWaySave>>>>("gave_way", Self::VT_GAVE_WAY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BatchSave>>>>("batches", Self::VT_BATCHES, false)?
      .finish();
     Ok(())
   }
@@ -29445,6 +29455,7 @@ pub struct HouseholdArgs<'a> {
     pub ditch_worth: f32,
     pub fire_losses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FireLossSave<'a>>>>>,
     pub gave_way: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GaveWaySave<'a>>>>>,
+    pub batches: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BatchSave<'a>>>>>,
 }
 impl<'a> Default for HouseholdArgs<'a> {
   #[inline]
@@ -29475,6 +29486,7 @@ impl<'a> Default for HouseholdArgs<'a> {
       ditch_worth: 0.0,
       fire_losses: None,
       gave_way: None,
+      batches: None,
     }
   }
 }
@@ -29585,6 +29597,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HouseholdBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_GAVE_WAY, gave_way);
   }
   #[inline]
+  pub fn add_batches(&mut self, batches: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<BatchSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_BATCHES, batches);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HouseholdBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HouseholdBuilder {
@@ -29627,6 +29643,154 @@ impl ::core::fmt::Debug for Household<'_> {
       ds.field("ditch_worth", &self.ditch_worth());
       ds.field("fire_losses", &self.fire_losses());
       ds.field("gave_way", &self.gave_way());
+      ds.field("batches", &self.batches());
+      ds.finish()
+  }
+}
+pub enum BatchSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct BatchSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for BatchSave<'a> {
+  type Inner = BatchSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> BatchSave<'a> {
+  pub const VT_RECIPE: ::flatbuffers::VOffsetT = 4;
+  pub const VT_UNITS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_QUALITY: ::flatbuffers::VOffsetT = 8;
+  pub const VT_ENDS_DAY: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    BatchSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args BatchSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<BatchSave<'bldr>> {
+    let mut builder = BatchSaveBuilder::new(_fbb);
+    builder.add_ends_day(args.ends_day);
+    builder.add_quality(args.quality);
+    builder.add_units(args.units);
+    if let Some(x) = args.recipe { builder.add_recipe(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn recipe(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BatchSave::VT_RECIPE, None)}
+  }
+  #[inline]
+  pub fn units(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(BatchSave::VT_UNITS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn quality(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(BatchSave::VT_QUALITY, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn ends_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(BatchSave::VT_ENDS_DAY, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for BatchSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("recipe", Self::VT_RECIPE, false)?
+     .visit_field::<f64>("units", Self::VT_UNITS, false)?
+     .visit_field::<f64>("quality", Self::VT_QUALITY, false)?
+     .visit_field::<i64>("ends_day", Self::VT_ENDS_DAY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct BatchSaveArgs<'a> {
+    pub recipe: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub units: f64,
+    pub quality: f64,
+    pub ends_day: i64,
+}
+impl<'a> Default for BatchSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    BatchSaveArgs {
+      recipe: None,
+      units: 0.0,
+      quality: 0.0,
+      ends_day: 0,
+    }
+  }
+}
+
+pub struct BatchSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BatchSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_recipe(&mut self, recipe: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BatchSave::VT_RECIPE, recipe);
+  }
+  #[inline]
+  pub fn add_units(&mut self, units: f64) {
+    self.fbb_.push_slot::<f64>(BatchSave::VT_UNITS, units, 0.0);
+  }
+  #[inline]
+  pub fn add_quality(&mut self, quality: f64) {
+    self.fbb_.push_slot::<f64>(BatchSave::VT_QUALITY, quality, 0.0);
+  }
+  #[inline]
+  pub fn add_ends_day(&mut self, ends_day: i64) {
+    self.fbb_.push_slot::<i64>(BatchSave::VT_ENDS_DAY, ends_day, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BatchSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    BatchSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<BatchSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for BatchSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("BatchSave");
+      ds.field("recipe", &self.recipe());
+      ds.field("units", &self.units());
+      ds.field("quality", &self.quality());
+      ds.field("ends_day", &self.ends_day());
       ds.finish()
   }
 }

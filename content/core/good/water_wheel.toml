@@ -15,7 +15,7 @@ reserve_for = ""
 
 [tool]
 life_h = 40000.0
-per_worker = 1.0
+per_worker = 0.1
 fixed = true
 
 [power]

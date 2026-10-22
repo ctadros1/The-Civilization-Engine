@@ -480,7 +480,14 @@ impl Population {
     /// What a household's goods cost it, hours of its own work per unit, at its best member's
     /// skills and from what it knows of the land.
     pub(crate) fn own_costs_of(&self, ctx: &Ctx, hh: &Household) -> Vec<Option<f64>> {
-        self.own_costs_with(ctx.catalog, ctx.params, ctx.land_params, hh, ctx.now)
+        self.own_costs_with(
+            ctx.catalog,
+            ctx.params,
+            ctx.land_params,
+            ctx.land,
+            hh,
+            ctx.now,
+        )
     }
 
     /// [`Population::own_costs_of`], from the rules alone (for measures read outside a step).
@@ -489,13 +496,28 @@ impl Population {
         catalog: &Catalog,
         params: &PeopleParams,
         land_params: &LandParams,
+        land: &civ_land::Land,
         hh: &Household,
         now: SimTime,
     ) -> Vec<Option<f64>> {
         let members: Vec<&Person> = hh.members.iter().filter_map(|m| self.person(*m)).collect();
+        // A way that needs power is no way for a household without a working installation of its
+        // own (M10a slice DR): it cannot grind by a wheel it has no headrace for.
+        let powered = std::cell::OnceCell::new();
+        let powered = || {
+            *powered.get_or_init(|| {
+                land.installations
+                    .iter()
+                    .enumerate()
+                    .any(|(i, x)| x.owner == hh.id && land.installation_ready(i))
+            })
+        };
         // Each recipe at the skill of the best of the members who know it (ADR-0008: knowing is
         // the gate, skill is how well), or of them all if it needs no technique.
         let level = |r: &RecipeDef| -> Option<f64> {
+            if r.kwh_per_unit > 0.0 && !powered() {
+                return None;
+            }
             let skill = |p: &&Person| r.skill.map_or(0.0, |k| p.skill(k));
             match r.technique {
                 None => Some(members.iter().map(skill).fold(0.0, f64::max)),
@@ -578,7 +600,8 @@ impl Population {
             .map(|p| p.age_years(ctx.now))
             .collect();
         let knows = |t: usize| self.household_knows(&hh.members, t);
-        let wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
+        let mut wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
+        super::cap_water_wants(ctx, hh.id, &mut wants);
         let can_work = |r: &crate::params::RecipeDef| self.can_work_way(ctx, hh, stores, r);
         let costs_once = std::cell::OnceCell::new();
         let costs = || {

@@ -451,6 +451,7 @@ mod tests {
                 fire_losses: Vec::new(),
                 gave_way: Vec::new(),
                 batches: Vec::new(),
+                mill_seen: None,
             });
         }
         pop

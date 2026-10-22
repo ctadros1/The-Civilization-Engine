@@ -762,6 +762,7 @@ fn add_family(
         fire_losses: Vec::new(),
         gave_way: Vec::new(),
         batches: Vec::new(),
+        mill_seen: None,
     });
     // One who comes alone has no partner; a family's first two are its couple.
     let couple = (family.len() >= 2).then(|| founding_couple(params, family, now, d));

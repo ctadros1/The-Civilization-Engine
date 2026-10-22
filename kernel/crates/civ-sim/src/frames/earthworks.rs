@@ -110,6 +110,18 @@ fn words(sim: &Sim, w: &Earthwork, building: Option<&Building>) -> String {
         }
         EarthKind::Ditch => {
             let ditch = sim.land.ditches.iter().find(|d| d.work == w.id);
+            // A headrace: a ditch whose work a water-power installation shares (M10a slice DR).
+            if let Some(x) = sim.land.installations.iter().find(|x| x.id == w.id) {
+                let whose = eldest_name(sim, w.household)
+                    .map_or_else(|| "a".to_owned(), |name| format!("{name}'s household's"));
+                let length = ditch.map_or(0.0, |d| d.length_m());
+                return format!(
+                    "{whose} headrace, {length:.0} m from the river to a mill's wheel with a fall of \
+                     {:.1} m, {:.0}% dug",
+                    x.head_m,
+                    f64::from(w.done) * 100.0
+                );
+            }
             return ditch.map_or_else(
                 || "ditch geometry unavailable".into(),
                 |d| {

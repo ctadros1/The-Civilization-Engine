@@ -66,6 +66,7 @@ mod levees;
 mod life;
 mod loads;
 mod market;
+mod mills;
 mod mint;
 mod moving;
 mod norm;
@@ -3695,7 +3696,8 @@ impl Population {
             .map(|q| q.age_years(now))
             .collect();
         let knows = |t: usize| self.household_knows(&hh.members, t);
-        let wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
+        let mut wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
+        cap_water_wants(ctx, hh.id, &mut wants);
         let me = self.people.get(h).map(|p| p.id);
         let mut free_tools: Vec<f64> = stores
             .iter()
@@ -7195,6 +7197,8 @@ impl Population {
         // And the ditches (M6b slice BG): the households whose day it is weigh one, and every
         // ditch's intake is opened or shut for the day.
         self.ditches_day(ctx, day);
+        // And the mills (M10a slice DR): the households whose day it is weigh one.
+        self.mills_day(ctx, day);
         // A month ended: its asks and prices per pair of settlements are recorded (M5b slice AQ).
         self.record_convergence(ctx);
         // Households whose day it is review what they offer and on what terms.
@@ -7393,6 +7397,30 @@ pub(crate) fn power_kw_of(ctx: &Ctx, holder: PermanentId) -> f64 {
         .filter(|(_, x)| x.owner == holder)
         .map(|(i, _)| ctx.land.installation_kw(ctx.land_params, i))
         .sum()
+}
+
+/// Caps `holder`'s want of each water-powered tool at the installations it owns whose headraces
+/// are dug (M10a slice DR): a wheel is wanted only where one can be set.
+pub(crate) fn cap_water_wants(ctx: &Ctx, holder: PermanentId, wants: &mut [f64]) {
+    let mut sites = None;
+    for (g, want) in wants.iter_mut().enumerate() {
+        let water = ctx.catalog.goods.get(g).is_some_and(|x| {
+            x.power
+                .as_ref()
+                .is_some_and(|p| p.source == crate::params::PowerSource::Water)
+        });
+        if water {
+            let n = *sites.get_or_insert_with(|| {
+                ctx.land
+                    .installations
+                    .iter()
+                    .enumerate()
+                    .filter(|&(i, x)| x.owner == holder && ctx.land.installation_ready(i))
+                    .count()
+            });
+            *want = want.min(n as f64);
+        }
+    }
 }
 
 #[cfg(test)]

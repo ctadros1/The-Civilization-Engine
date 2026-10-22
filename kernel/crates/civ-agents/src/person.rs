@@ -799,6 +799,17 @@ pub struct Household {
     /// Batches it has started that run unattended (a charcoal burn; M10a slice DP, ADR-0033 §2),
     /// oldest first: their inputs were taken when started, their outputs come when opened.
     pub batches: Vec<Batch>,
+    /// What it had made by water-powered ways' outputs when it last weighed a mill (M10a slice
+    /// DR), so the next review reads a year's making from the change; none until its first.
+    pub mill_seen: Option<MillSeen>,
+}
+
+/// A household's count, at a review, of the goods it has made that a water-powered way would
+/// make (M10a slice DR): the day and the kilograms made in all its years by then.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MillSeen {
+    pub day: i64,
+    pub kg: f64,
 }
 
 /// A building of a household's settlement that gave way, as its people heard it told (M6b slice
@@ -1344,6 +1355,7 @@ mod tests {
             fire_losses: Vec::new(),
             gave_way: Vec::new(),
             batches: Vec::new(),
+            mill_seen: None,
         }
     }
 

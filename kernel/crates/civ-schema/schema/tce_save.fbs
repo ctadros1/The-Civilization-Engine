@@ -498,6 +498,16 @@ table Household {
   // Schema 171 (M10a slice DP): batches it started that run unattended, oldest first; absent
   // before.
   batches: [BatchSave] (id: 25);
+  // Schema 174 (M10a slice DR): what it had made by water-powered ways' outputs when it last
+  // weighed a mill; absent before its first review.
+  mill_seen: MillSeenSave (id: 26);
+}
+
+// A household's count at a mill review (schema 174): the day and the kilograms it had made in
+// all its years of the goods a water-powered way makes.
+table MillSeenSave {
+  day: long (id: 0);
+  kg: double (id: 1);
 }
 
 // A batch a household started (schema 171, M10a slice DP): its recipe by content id, the units

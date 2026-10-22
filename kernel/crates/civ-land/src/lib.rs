@@ -885,13 +885,27 @@ impl Land {
         n
     }
 
+    /// Whether installation `i` can turn: its headrace, the earthwork sharing its id, is dug (an
+    /// installation laid without one stands ready).
+    pub fn installation_ready(&self, i: usize) -> bool {
+        self.installations.get(i).is_some_and(|x| {
+            self.earthworks
+                .iter()
+                .find(|e| e.id == x.id)
+                .is_none_or(|e| e.done >= 1.0)
+        })
+    }
+
     /// Installation `i`'s power today, kilowatts: from what its reach carries today, its intake
     /// taking no more than a ditch's share of it (M10a slice DR; ADR-0033 §5). Nothing for an
-    /// installation the land does not have.
+    /// installation the land does not have or whose headrace is not yet dug.
     pub fn installation_kw(&self, params: &LandParams, i: usize) -> f64 {
         let Some(x) = self.installations.get(i) else {
             return 0.0;
         };
+        if !self.installation_ready(i) {
+            return 0.0;
+        }
         let q = self
             .reach_discharges
             .get(x.reach as usize)

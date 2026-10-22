@@ -126,8 +126,8 @@ use super::{
     SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, SCHEMA_V152,
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
     SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
-    SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, finish, section,
-    section_root, single_chunk, unreadable,
+    SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
+    finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -874,8 +874,8 @@ pub(super) fn decode<R: Read + Seek>(
         // The observer's forcings (schema 170) changed no people or land.
         SCHEMA_V169 | SCHEMA_V170 => Schema::V169,
         // Workshops' batches (schema 172) changed no people or land; installations (schema 173)
-        // are read wherever saved.
-        SCHEMA_V171 | SCHEMA_V172 | SAVE_SCHEMA_VERSION => Schema::V171,
+        // and households' mill counts (schema 174) are read wherever saved.
+        SCHEMA_V171 | SCHEMA_V172 | SCHEMA_V173 | SAVE_SCHEMA_VERSION => Schema::V171,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -5390,6 +5390,16 @@ fn encode_households(
                 })
                 .collect();
             let batches = (!batches.is_empty()).then(|| fbb.create_vector(&batches));
+            // What it had made for a mill review (schema 174), absent before its first.
+            let mill_seen = h.mill_seen.map(|m| {
+                save::MillSeenSave::create(
+                    &mut fbb,
+                    &save::MillSeenSaveArgs {
+                        day: m.day,
+                        kg: m.kg,
+                    },
+                )
+            });
             save::Household::create(
                 &mut fbb,
                 &save::HouseholdArgs {
@@ -5419,6 +5429,7 @@ fn encode_households(
                     fire_losses,
                     gave_way,
                     batches,
+                    mill_seen,
                 },
             )
         })
@@ -5910,6 +5921,21 @@ fn decode_households(
                     });
                 }
                 out
+            },
+            // What it had made for a mill review (schema 174); before, none.
+            mill_seen: match h.mill_seen() {
+                Some(m) if m.kg().is_finite() && m.kg() >= 0.0 => {
+                    Some(civ_agents::person::MillSeen {
+                        day: m.day(),
+                        kg: m.kg(),
+                    })
+                }
+                Some(_) => {
+                    return Err(LoadError::Malformed(format!(
+                        "household {hh_id} counts no kilograms for a mill"
+                    )));
+                }
+                None => None,
             },
         });
     }

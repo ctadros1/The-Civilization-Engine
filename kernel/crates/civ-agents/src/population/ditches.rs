@@ -270,10 +270,15 @@ impl Population {
             let e = ctx.land.earthworks.iter().find(|e| e.id == d.work)?;
             (e.household == x.id && e.kind == EarthKind::Ditch && e.done < 1.0).then_some((d, e))
         })?;
-        let at = (
-            ((d.a[0] + d.b[0]) / 2.0) as f32,
-            ((d.a[1] + d.b[1]) / 2.0) as f32,
-        );
+        // A ditch is dug from its middle; a headrace from its wheel, on the bank (M10a slice DR).
+        let at = if ctx.land.installations.iter().any(|x| x.id == d.work) {
+            (d.b[0] as f32, d.b[1] as f32)
+        } else {
+            (
+                ((d.a[0] + d.b[0]) / 2.0) as f32,
+                ((d.a[1] + d.b[1]) / 2.0) as f32,
+            )
+        };
         let walk_s = self
             .homes
             .get(&field_key)?
@@ -324,11 +329,22 @@ impl Population {
             return;
         }
         e.cut_m3 = total as f32;
-        let sentence = format!(
-            "{} finished digging a ditch {:.0} m long from the river to their household's field.",
-            self.name_of(who),
-            d.length_m()
-        );
+        // A headrace is a ditch whose work an installation shares (M10a slice DR).
+        let sentence = if ctx.land.installations.iter().any(|x| x.id == ditch) {
+            format!(
+                "{} finished digging a headrace {:.0} m long from the river to their household's \
+                 mill.",
+                self.name_of(who),
+                d.length_m()
+            )
+        } else {
+            format!(
+                "{} finished digging a ditch {:.0} m long from the river to their household's \
+                 field.",
+                self.name_of(who),
+                d.length_m()
+            )
+        };
         let at = (
             ((d.a[0] + d.b[0]) / 2.0) as f32,
             ((d.a[1] + d.b[1]) / 2.0) as f32,
@@ -370,7 +386,7 @@ impl Population {
 }
 
 /// Whether a ditch's line from `a` to `b` crosses no field but `field`, no plot and no well.
-fn line_clear(ctx: &Ctx, field: PermanentId, a: [f64; 2], b: [f64; 2]) -> bool {
+pub(super) fn line_clear(ctx: &Ctx, field: PermanentId, a: [f64; 2], b: [f64; 2]) -> bool {
     let length = (a[0] - b[0]).hypot(a[1] - b[1]);
     let steps = (length / LINE_STEP_M).ceil().max(1.0) as u32;
     (0..=steps).all(|i| {

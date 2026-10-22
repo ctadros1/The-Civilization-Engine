@@ -29551,6 +29551,7 @@ impl<'a> Household<'a> {
   pub const VT_FIRE_LOSSES: ::flatbuffers::VOffsetT = 50;
   pub const VT_GAVE_WAY: ::flatbuffers::VOffsetT = 52;
   pub const VT_BATCHES: ::flatbuffers::VOffsetT = 54;
+  pub const VT_MILL_SEEN: ::flatbuffers::VOffsetT = 56;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -29573,6 +29574,7 @@ impl<'a> Household<'a> {
     builder.add_food_kcal(args.food_kcal);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.mill_seen { builder.add_mill_seen(x); }
     if let Some(x) = args.batches { builder.add_batches(x); }
     if let Some(x) = args.gave_way { builder.add_gave_way(x); }
     if let Some(x) = args.fire_losses { builder.add_fire_losses(x); }
@@ -29774,6 +29776,13 @@ impl<'a> Household<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BatchSave>>>>(Household::VT_BATCHES, None)}
   }
+  #[inline]
+  pub fn mill_seen(&self) -> Option<MillSeenSave<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<MillSeenSave>>(Household::VT_MILL_SEEN, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Household<'_> {
@@ -29808,6 +29817,7 @@ impl ::flatbuffers::Verifiable for Household<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<FireLossSave>>>>("fire_losses", Self::VT_FIRE_LOSSES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GaveWaySave>>>>("gave_way", Self::VT_GAVE_WAY, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BatchSave>>>>("batches", Self::VT_BATCHES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<MillSeenSave>>("mill_seen", Self::VT_MILL_SEEN, false)?
      .finish();
     Ok(())
   }
@@ -29839,6 +29849,7 @@ pub struct HouseholdArgs<'a> {
     pub fire_losses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FireLossSave<'a>>>>>,
     pub gave_way: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GaveWaySave<'a>>>>>,
     pub batches: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BatchSave<'a>>>>>,
+    pub mill_seen: Option<::flatbuffers::WIPOffset<MillSeenSave<'a>>>,
 }
 impl<'a> Default for HouseholdArgs<'a> {
   #[inline]
@@ -29870,6 +29881,7 @@ impl<'a> Default for HouseholdArgs<'a> {
       fire_losses: None,
       gave_way: None,
       batches: None,
+      mill_seen: None,
     }
   }
 }
@@ -29984,6 +29996,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HouseholdBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_BATCHES, batches);
   }
   #[inline]
+  pub fn add_mill_seen(&mut self, mill_seen: ::flatbuffers::WIPOffset<MillSeenSave<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<MillSeenSave>>(Household::VT_MILL_SEEN, mill_seen);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HouseholdBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HouseholdBuilder {
@@ -30027,6 +30043,120 @@ impl ::core::fmt::Debug for Household<'_> {
       ds.field("fire_losses", &self.fire_losses());
       ds.field("gave_way", &self.gave_way());
       ds.field("batches", &self.batches());
+      ds.field("mill_seen", &self.mill_seen());
+      ds.finish()
+  }
+}
+pub enum MillSeenSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct MillSeenSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for MillSeenSave<'a> {
+  type Inner = MillSeenSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> MillSeenSave<'a> {
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_KG: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    MillSeenSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args MillSeenSaveArgs
+  ) -> ::flatbuffers::WIPOffset<MillSeenSave<'bldr>> {
+    let mut builder = MillSeenSaveBuilder::new(_fbb);
+    builder.add_kg(args.kg);
+    builder.add_day(args.day);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(MillSeenSave::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(MillSeenSave::VT_KG, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for MillSeenSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<f64>("kg", Self::VT_KG, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct MillSeenSaveArgs {
+    pub day: i64,
+    pub kg: f64,
+}
+impl<'a> Default for MillSeenSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    MillSeenSaveArgs {
+      day: 0,
+      kg: 0.0,
+    }
+  }
+}
+
+pub struct MillSeenSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MillSeenSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(MillSeenSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_kg(&mut self, kg: f64) {
+    self.fbb_.push_slot::<f64>(MillSeenSave::VT_KG, kg, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> MillSeenSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    MillSeenSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<MillSeenSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for MillSeenSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("MillSeenSave");
+      ds.field("day", &self.day());
+      ds.field("kg", &self.kg());
       ds.finish()
   }
 }

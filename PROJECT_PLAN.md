@@ -5945,6 +5945,33 @@ and M6a gives rivers a daily flow.
         the new rows). **Tested:** a mill's flour over ten hours is its wheel's kilowatts over
         0.06 kWh a kilogram at a full river and at a low one's share, nothing on a dry one, its
         wheel worn on its own books.
+      - *As built, third part (2026-10-22): a mill set by choice.* On its day of the year a
+        household one of whose people knows a way of making by falling water counts what it has
+        made of that way's goods (`Household.mill_seen`, saves 174) and reads a year's making
+        from its last count. Each kilogram saves what the good costs it now (by its other ways:
+        a household without a dug installation of its own no longer prices a powered way into
+        its own costs, so knowing the mill does not make flour cheap) less the wheel's way's
+        hours and inputs; ADR-0033 §6's answer is read from the recipes, not authored. It seeks a
+        site within a ditch's longest of home: an intake on a reach, the wheel on the bank beside
+        a river cell further down, joined by a headrace at a ditch's least fall that leaves the
+        wheel at least 0.5 m (a prior), crosses no field, plot or well, and stands 50 m (a prior)
+        from any other wheel; power at the reach's mean flow, eight grinding hours a day (a
+        prior). It sets the site whose gain over a ditch's 20 years most exceeds digging the race
+        and the wheel's own cost: the race is a ditch whose field is its own work (it never
+        irrigates), dug by the ditch work from the wheel's end, and the installation shares its
+        id and turns nothing until it is dug; only then is a water wheel wanted, one to an
+        installation (`water_wheel` now `per_worker` 0.1, as an oven). One mill to a household,
+        none while it digs. *Limitations:* the mill is minded from home; every household that
+        grinds weighs its own mill, so a village that knows the mill sets several until the toll
+        (part 4) lets a household grind at a neighbour's. *Measured:* on seed 3's village with
+        every household knowing the mill and grinding 600 kg a year, all six set one, at falls of
+        0.5-1.0 m over races of 8-24 m (one to three cells: the valley's steep cells, a wheel at a
+        rapid). **Proved:** the three bench worlds' digests match the second part's
+        in every section but meta (schema 174) and content (the wheel's `per_worker`). **Tested:** a household that knows no water way neither counts
+        nor weighs; one that does sets a mill whose race, earthwork and fall are as described,
+        turning nothing until dug, one to a household; the race is dug by the ditch work and the
+        chronicle names a headrace; dug, grinding by the wheel is its cheapest flour; counts and
+        mills save and load to the byte.
     - **DS**: coal and coke, pits that flood below the ground-water head, bailing and pumping, the
       atmospheric engine at the pit head.
     - **DT**: the works: machines with crews, shifts by daylight, the household-resolved block.

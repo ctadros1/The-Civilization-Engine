@@ -5732,6 +5732,23 @@ and M6a gives rivers a daily flow.
         thrown away whenever walking costs anywhere change. The next levers, in order: landmarks
         over each settlement's own walked ground, what a household-resolved decision reads kept
         by settlement, household days planned on every core (DI's second part), then cohorts.
+      - *As built, third part (2026-10-21): the demo.* `civ-sim --example m9_world <saves> 10
+        200 10 2048` (`demos/m9/m9-demo.txt`): ten groups of 200, the observer following one
+        person of the first settlement (resolution by focus, ADR-0032 §6) and every other
+        settlement household-resolved, the climate forced 3 °C warmer and wet days' rain ×0.8
+        over twenty years from the first day, a decade lived at Max. Nothing was nudged. 2,000
+        people became 2,576 in 623 households; the people founded an eleventh settlement in the
+        third year; the followed founder lived the decade in full detail; three people of
+        household-resolved settlements opened at the end each have their record and the block of
+        the day they are in; the 28.2 MB save loads with every person. 4.22 s a day on average
+        (p50 2.67 s, p95 13.67 s), 0.039 years a minute; the slow days are route landmarks rebuilt
+        for the one Detailed settlement over all walked ground (the gate's next lever). **Cut to
+        a decade:** the twenty-year run was lost at its seventh year when the container
+        restarted, and the rerun, identical line for line, was time-boxed to ten years. **Seen:**
+        the chronicle's flood entries are one per river reach overtopped and receded on the whole
+        map, inhabited or not (every year a multiple of 236): a skip that stops at disasters
+        stops for floods nobody saw; and the year's mean temperature swings about 0.6 °C, as much
+        as the forcing's ramp over a decade. Slice DN is closed, and with it **M9c** and **M9**.
 
 **Post-v1 (ordered, not sized):**
 - **M9, Aggregate LOD & scale:** planned above (ADR-0032).

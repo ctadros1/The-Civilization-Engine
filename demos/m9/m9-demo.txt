@@ -1,0 +1,64 @@
+# The M9 demo (civ-sim --example m9_world <saves> 10 200 10 2048, release, 2026-10-21; ADR-0032 §8,
+# plan §7): ten groups of 200 founded on a map of 2048 cells, the observer following one person of
+# the first settlement in full detail and every other settlement household-resolved by its focus
+# (ADR-0032 §6), the climate forced from the first day (3 °C warmer and wet days' rain x0.8, reached
+# over twenty years; ADR-0032 §9), lived ten years at Max, of a fixed identity. The observer's acts
+# are logged FOLLOWED and FORCED; nothing was nudged. The first run, for twenty years, was lost at
+# its seventh year when the container restarted; this rerun lived the same seven years line for line
+# and is cut to one decade within the time box (the plan asks for decades, the M8 precedent applies).
+# Read with care:
+# - Flood entries come one for each river reach a high water overtops and one as it recedes, on
+#   every reach of the map whether anyone lives there or not (every year's count is a multiple of
+#   236); they measure the map, not the settlements.
+# - The year's mean temperature has year-to-year swings of about 0.6 °C, as large as the forcing's
+#   ramp over these ten years (0.075 °C in the first, 1.4 °C in the tenth); the forcing itself is
+#   proven by slice DM's twin worlds, not by this line.
+# - The eleventh settlement, Oakmere, was founded by its people in the third year (a splinter
+#   founding, M5a slice AO); under the focus policy it was household-resolved from its first
+#   midnight.
+# - Speed: the household-resolved days are cheap; the slow days (p95 13.7 s) are route landmarks
+#   rebuilt over all the walked ground of the map for the one Detailed settlement (the gate's
+#   amendment, ADR-0032).
+# <saves> stands for the run's scratch folder.
+
+world (seed 1, 2048 cells): 2000 people in 10 settlements, founded in 29.4 s
+day 59: FOLLOWED (observer): Fara (person 11), 53, of Fara's household at Wrenfield; child of founders unrecorded; knows 15 techniques; eating
+day 59: FORCED (observer): the climate +3 °C and wet days' rain ×0.8, over 20 years (Reached { id: 1, repeat: false, holds: true, fit: 0.0, chance: 0.0 })
+the founding day lived in full detail to midnight in 8.0 s
+year 1: 2119 people in 452 households; 9 of 10 settlements household-resolved; 452 buildings, 3024 fields; the year 10.0 °C on average, 699 mm of rain and snow; chronicle: 2 CustomAmended, 21 DepositFound, 2 ElectionHeld, 708 Flood, 401 LawDecided, 1 TechniqueFound; 3.09 s a day
+  followed: Fara (person 11), 54, of Fara's household at Wrenfield; child of founders unrecorded; knows 15 techniques; sleeping
+year 2: 2182 people in 491 households; 9 of 10 settlements household-resolved; 492 buildings, 3464 fields; the year 10.4 °C on average, 891 mm of rain and snow; chronicle: 1 BuildingFailed, 34 DepositFound, 1 ElectionHeld, 1180 Flood, 468 LawDecided, 1 TechniqueFound; 3.89 s a day
+  followed: Fara (person 11), 55, of Fara's household at Wrenfield; child of founders unrecorded; knows 15 techniques; sleeping
+year 3: 2215 people in 514 households; 10 of 11 settlements household-resolved; 521 buildings, 3873 fields; the year 9.4 °C on average, 754 mm of rain and snow; chronicle: 3 CustomAmended, 7 DepositFound, 4 ElectionHeld, 236 Flood, 521 LawDecided; 3.79 s a day
+  followed: Fara (person 11), 56, of Fara's household at Wrenfield; child of founders unrecorded; knows 15 techniques; sleeping
+year 4: 2276 people in 527 households; 10 of 11 settlements household-resolved; 534 buildings, 4299 fields; the year 10.5 °C on average, 716 mm of rain and snow; chronicle: 4 CustomAmended, 2 DepositFound, 3 ElectionHeld, 1180 Flood, 526 LawDecided, 2 TechniqueFound; 4.49 s a day
+  followed: Fara (person 11), 57, of Fara's household at Wrenfield; child of founders unrecorded; knows 15 techniques; sleeping
+year 5: 2328 people in 539 households; 10 of 11 settlements household-resolved; 551 buildings, 4915 fields; the year 10.1 °C on average, 635 mm of rain and snow; chronicle: 3 DepositFound, 1 ElectionHeld, 944 Flood, 518 LawDecided, 1 TechniqueFound; 4.41 s a day
+  followed: Fara (person 11), 58, of Fara's household at Wrenfield; child of founders unrecorded; knows 15 techniques; sleeping
+year 6: 2397 people in 555 households; 10 of 11 settlements household-resolved; 568 buildings, 5166 fields; the year 9.2 °C on average, 634 mm of rain and snow; chronicle: 3 CustomAmended, 8 DepositFound, 2 ElectionHeld, 944 Flood, 517 LawDecided; 4.21 s a day
+  followed: Fara (person 11), 59, of Fara's household at Wrenfield; child of founders unrecorded; knows 15 techniques; sleeping
+year 7: 2457 people in 563 households; 10 of 11 settlements household-resolved; 586 buildings, 5365 fields; the year 10.5 °C on average, 550 mm of rain and snow; chronicle: 1 DepositFound, 1 ElectionHeld, 1 Fire, 479 LawDecided, 1 TechniqueFound; 3.47 s a day
+  followed: Fara (person 11), 60, of Fara's household at Wrenfield; child of founders unrecorded; knows 15 techniques; sleeping
+year 8: 2493 people in 570 households; 10 of 11 settlements household-resolved; 596 buildings, 5497 fields; the year 10.4 °C on average, 693 mm of rain and snow; chronicle: 1 BuildingFailed, 1 ElectionHeld, 4 Fire, 1180 Flood, 473 LawDecided; 5.04 s a day
+  followed: Fara (person 11), 61, of Fara's household at Wrenfield; child of founders unrecorded; knows 15 techniques; sleeping
+year 9: 2532 people in 596 households; 10 of 11 settlements household-resolved; 622 buildings, 5718 fields; the year 10.6 °C on average, 796 mm of rain and snow; chronicle: 1 BuildingFailed, 1 CustomAmended, 2 ElectionHeld, 1 Fire, 708 Flood, 484 LawDecided; 5.20 s a day
+  followed: Fara (person 11), 62, of Fara's household at Wrenfield; child of founders unrecorded; knows 15 techniques; sleeping
+year 10: 2576 people in 623 households; 10 of 11 settlements household-resolved; 649 buildings, 6023 fields; the year 11.2 °C on average, 625 mm of rain and snow; chronicle: 1 BuildingFailed, 1 CustomAmended, 1 DepositFound, 1 ElectionHeld, 236 Flood, 507 LawDecided, 3 TechniqueFound; 4.62 s a day
+  followed: Fara (person 11), 63, of Fara's household at Wrenfield; child of founders unrecorded; knows 15 techniques; sleeping
+lived 3650 days, to day 3710; 2576 people
+Wrenfield: 272 residents, Detailed
+Oakbrook: 262 residents, household-resolved
+Heronhollow: 228 residents, household-resolved
+Sedgebank: 252 residents, household-resolved
+Sedgefield: 252 residents, household-resolved
+Heronstead: 245 residents, household-resolved
+Stonemere: 252 residents, household-resolved
+Sedgemere: 270 residents, household-resolved
+Fernbank: 253 residents, household-resolved
+Willowbrook: 259 residents, household-resolved
+Oakmere: 31 residents, household-resolved
+opened: Kaia (person 359), 45, of Kaia's household at Oakbrook; child of founders unrecorded; knows 14 techniques; their day lived by household: asleep, sleeping until 06:36
+opened: Ash (person 649), 67, of Ash's household at Heronhollow; child of founders unrecorded; knows 14 techniques; their day lived by household: asleep, sleeping until 06:36
+opened: Liss (person 733), 35, of Liss's household at Sedgebank; child of founders unrecorded; knows 14 techniques; their day lived by household: asleep, sleeping until 06:36
+speed: 4.22 s a day on average (p50 2.67 s, p95 13.67 s), 0.039 simulated years a real minute
+saved (28.2 MB) and loaded: 2576 people against 2576; the people opened are all there

@@ -80,4 +80,4 @@ No license has been added. Until one is chosen, the repository does not grant re
 
 ## CI runner pool
 
-Dedicated Linux VMs on servernode1 and servernode3 provide the [GitHub Actions runner pool](docs/operations/github-runners.md). Trusted push checks and scheduled long runs can use these machines; Windows and pull-request checks retain GitHub-hosted runners. The runner guide covers candidate branches, routing, isolation, and adding an intermittently available servernode4.
+Dedicated Linux VMs on servernode1 and servernode3, with optional capacity on servernode4, provide the [GitHub Actions runner pool](docs/operations/github-runners.md). Trusted push checks and scheduled long runs can use these machines; Windows and pull-request checks retain GitHub-hosted runners. The runner guide covers candidate branches, routing, isolation, and safely stopping the optional runner before switching servernode4 to Windows.

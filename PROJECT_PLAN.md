@@ -6104,6 +6104,8 @@ and M6a gives rivers a daily flow.
 
 ## 9. Decisions log
 
+- **2026-10-22 — Optional Actions capacity (owner request):** add an isolated Ubuntu runner VM on servernode4 with shared `tce-ci`, automatic guest/service startup, and explicit `node4` dispatch. Keep it outside the default permanent health matrix and scheduled `tce-long` work; GitHub routes pooled jobs to available runners. Drain before shutdown or switching to Windows.
+
 One line each. Don't re-litigate without a reason written next to the entry.
 
 - **Self-hosted CI (2026-10-22, owner request):** dedicated isolated Ubuntu VMs on servernode1 and servernode3; GitHub routes the shared `tce-ci` label, with node3 also carrying `tce-long`. Candidate branches run the full Linux chain; trusted owner push and scheduled Linux work can use the pool. Windows and public pull-request checks remain GitHub-hosted. Runner accounts have no sudo, job tokens are read-only, and a root-owned gate rejects PR events and foreign actors. Servernode4 is optional future capacity; no local load balancer or cross-machine benchmark comparison. Operational and validation evidence: `docs/operations/github-runners.md`.

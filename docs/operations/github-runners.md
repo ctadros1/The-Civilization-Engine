@@ -1,13 +1,14 @@
 # GitHub Actions runners
 
-The repository has two dedicated Ubuntu 24.04 VMs, each running one job at a time:
+The repository has two permanent Ubuntu 24.04 runner VMs and optional capacity on servernode4, each running one job at a time:
 
 | Runner | Host | vCPUs | RAM | Disk | Labels |
 | --- | --- | ---: | ---: | ---: | --- |
 | `tce-ci-node1` | servernode1 | 4 | 4 GiB | 160 GiB | `tce-ci`, `tce-build`, `tce-fast`, `node1` |
 | `tce-ci-node3` | servernode3 | 12 | 16 GiB | 200 GiB | `tce-ci`, `tce-build`, `tce-long`, `node3` |
+| `tce-ci-node4` (optional) | servernode4 | 16 | 24 GiB | 240 GiB | `tce-ci`, `tce-build`, `tce-fast`, `node4` |
 
-Rust compilation and test concurrency are limited to 2 on node1 and 6 on node3. These are initial allocations that leave memory for existing guests; host core count is not runner parallelism. The installed tools are Rust 1.97.0 with rustfmt/clippy, Node 22, flatc 25.12.19, C/C++ build tools, and Chromium's system dependencies. The repository lockfile selects the Playwright browser installed by a job.
+Rust compilation and test concurrency are limited to 2 on node1, 6 on node3, and 8 on node4. These are initial allocations that leave memory for existing guests; host core count is not runner parallelism. The installed tools are Rust 1.97.0 with rustfmt/clippy, Node 22, flatc 25.12.19, C/C++ build tools, and Chromium's system dependencies. The repository lockfile selects the Playwright browser installed by a job.
 
 ## Routing and use
 
@@ -16,10 +17,10 @@ GitHub routes `[self-hosted, Linux, X64, tce-ci]` to any matching online, idle r
 `Homelab validation` runs the full Linux chain on pushes to `ci/*`. It can also be dispatched from Actions with:
 
 - `suite=full`: commons/kernel formatting, clippy and tests; content and smoke; generated schema; web build/unit tests; host release build and browser tests.
-- `suite=health`: check both permanent runners explicitly, their tools, and lack of sudo.
+- `suite=health`: check both permanent runners, or only node4 when explicitly selected; verify tools and lack of sudo.
 - `suite=long`: ten-year smoke, consistency, notables, and fifty-year dashboard on `tce-long`.
 
-The full-chain runner choice defaults to `tce-ci` (the available pool); `node1` and `node3` explicitly pin it. Health checks deliberately address both permanent nodes. Neither full nor long jobs depend on both health jobs. Scheduled long jobs use node3; PR versions keep their GitHub-hosted Linux lane. Each runner processes only one job at a time, so long jobs queue rather than compete inside a VM.
+The full-chain runner choice defaults to `tce-ci` (the available pool); `node1`, `node3`, and `node4` explicitly pin it. Health checks address both permanent nodes by default; explicitly choosing node4 checks only that optional runner. Neither full nor long jobs depend on both health jobs. Scheduled long jobs use node3; PR versions keep their GitHub-hosted Linux lane. Each runner processes only one job at a time, so long jobs queue rather than compete inside a VM.
 
 A push to `ci/candidate` is an ordinary branch push, never an automatic merge. Logs and reports are visible in Actions. Job tokens have `contents: read`, and checkouts do not persist their credentials.
 
@@ -33,9 +34,9 @@ GitHub runner self-updates are disabled for the unprivileged account. A daily ro
 
 Provisioning, bootstrap, VM addresses, firewall details, and recovery commands live in the private `homelab-infrastructure` operational record. The VM build disks are excluded from backup because they are rebuildable; there is no claim of a tested backup/restore. Source and durable evidence belong in GitHub, not only on a runner.
 
-## Adding servernode4 later
+## Optional servernode4
 
-Register an isolated runner with the shared `tce-ci` label when servernode4 can be provisioned. It can add capacity while online without making ordinary pool jobs depend on it. Do not add it to the permanent health matrix or give it the sole `tce-long` label. Before shutting it down or switching operating systems, stop accepting new jobs and let the current job finish. Abrupt loss during execution interrupts that job; the shared pool does not resume a half-finished process. Queued jobs can use an available matching runner, while an explicitly node4-pinned job waits for it.
+Servernode4 has an isolated VM with the shared `tce-ci` label. It adds capacity while Proxmox is online without making ordinary pool jobs depend on it. Guest and runner autostart are enabled; it is offline while the PC is off or running Windows. It is excluded from the default permanent health matrix and has no `tce-long` label. Before shutting it down or switching operating systems, stop accepting new jobs and let the current job finish. Abrupt loss during execution interrupts that job; the shared pool does not resume a half-finished process. Queued pool jobs use an available matching runner, while an explicitly node4-pinned job waits for it. Its private guest network uses host NAT, so location changes require no guest IP or GitHub registration changes. The home location remains physically untested.
 
 Benchmarks must be pinned to one machine with a baseline measured on that same VM, CPU allocation, profile, and workload. No performance improvement or 10% budget comparison is claimed from installing runners.
 

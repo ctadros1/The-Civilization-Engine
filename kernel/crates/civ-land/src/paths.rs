@@ -504,6 +504,78 @@ impl Wear {
         })
     }
 
+    /// The ground people have walked as last surveyed, in separate regions (ADR-0028 §4, M10a
+    /// slice DO): tiles within `join` tiles of one another fall in one region. Each region is the
+    /// north-west and south-east corner cells of its tiles, in the order of its first tile.
+    pub fn walked_regions(&self, join: u32) -> Vec<CellBox> {
+        let tx = self.tiles_x;
+        let tiles: FastMap<u32, usize> = self
+            .view_index
+            .iter()
+            .enumerate()
+            .map(|(k, &index)| (index, k))
+            .collect();
+        // Union-find over the walked tiles by their order in the view.
+        let mut parent: Vec<usize> = (0..self.view_index.len()).collect();
+        fn root(parent: &mut [usize], mut k: usize) -> usize {
+            while parent[k] != k {
+                parent[k] = parent[parent[k]];
+                k = parent[k];
+            }
+            k
+        }
+        let join = i64::from(join);
+        let rows = i64::from(self.height.div_ceil(TILE));
+        for (k, &index) in self.view_index.iter().enumerate() {
+            let (x, y) = (i64::from(index % tx), i64::from(index / tx));
+            for dy in -join..=join {
+                for dx in -join..=join {
+                    let (nx, ny) = (x + dx, y + dy);
+                    if (dx, dy) == (0, 0) || nx < 0 || ny < 0 || nx >= i64::from(tx) || ny >= rows {
+                        continue;
+                    }
+                    if let Some(&j) = tiles.get(&((ny * i64::from(tx) + nx) as u32)) {
+                        let (a, b) = (root(&mut parent, k), root(&mut parent, j));
+                        if a != b {
+                            parent[a.max(b)] = a.min(b);
+                        }
+                    }
+                }
+            }
+        }
+        // Each region's tile bounds, keyed by its least tile index.
+        let mut bounds: std::collections::BTreeMap<usize, (u32, u32, u32, u32, u32)> =
+            std::collections::BTreeMap::new();
+        for (k, &index) in self.view_index.iter().enumerate() {
+            let r = root(&mut parent, k);
+            let (x, y) = (index % tx, index / tx);
+            let b = bounds.entry(r).or_insert((x, y, x, y, index));
+            *b = (
+                b.0.min(x),
+                b.1.min(y),
+                b.2.max(x),
+                b.3.max(y),
+                b.4.min(index),
+            );
+        }
+        let (w, h, tile) = (self.width as usize, self.height as usize, TILE as usize);
+        let mut regions: Vec<(u32, CellBox)> = bounds
+            .into_values()
+            .map(|(x0, y0, x1, y1, first)| {
+                let (x0, y0, x1, y1) = (x0 as usize, y0 as usize, x1 as usize, y1 as usize);
+                (
+                    first,
+                    (
+                        (x0 * tile, y0 * tile),
+                        (((x1 + 1) * tile).min(w) - 1, ((y1 + 1) * tile).min(h) - 1),
+                    ),
+                )
+            })
+            .collect();
+        regions.sort_unstable_by_key(|r| r.0);
+        regions.into_iter().map(|r| r.1).collect()
+    }
+
     /// What is wrong with saved wear for its map, if anything.
     pub fn problems(&self) -> Vec<String> {
         let mut out = Vec::new();
@@ -730,6 +802,9 @@ fn thin(cells: &[(i32, i32)]) -> FastSet<(i32, i32)> {
 }
 
 type Cell = (i32, i32);
+
+/// A box of cells: its north-west and south-east corner cells.
+pub type CellBox = ((usize, usize), (usize, usize));
 
 /// Follows a skeleton one cell wide into chains of cells between ends and junctions. Cells link
 /// orthogonally, and diagonally only where no orthogonal neighbour joins them already, so a corner
@@ -1075,5 +1150,32 @@ mod tests {
         // The cells walked after the survey are not yet on it.
         assert_eq!(restored.factor(other[10] as usize), 0.0);
         assert_eq!(restored.tiles(), wear.tiles());
+    }
+
+    #[test]
+    fn walked_ground_falls_in_separate_regions_by_distance() {
+        // A map of 10 x 6 tiles: tiles walked at (1,1), (2,1) and (3,2) near one another, and
+        // at (8,4) far off; with joins of one tile they make two regions, with joins of five one.
+        let view = |x: u32, y: u32| ViewTile {
+            index: y * 10 + x,
+            cells: vec![200; TILE_CELLS],
+            trail: vec![0; TILE_CELLS / 64],
+        };
+        let wear = Wear::new(10 * TILE - 7, 6 * TILE, 8.0)
+            .with_view(1, vec![view(8, 4), view(2, 1), view(1, 1), view(3, 2)]);
+        let t = TILE as usize;
+        assert_eq!(
+            wear.walked_regions(1),
+            vec![
+                ((t, t), (4 * t - 1, 3 * t - 1)),
+                ((8 * t, 4 * t), (9 * t - 1, 5 * t - 1)),
+            ]
+        );
+        assert_eq!(
+            wear.walked_regions(5),
+            vec![((t, t), (9 * t - 1, 5 * t - 1))]
+        );
+        assert_eq!(wear.walked_area(), Some(((t, t), (9 * t - 1, 5 * t - 1))));
+        assert!(Wear::new(64, 64, 8.0).walked_regions(1).is_empty());
     }
 }

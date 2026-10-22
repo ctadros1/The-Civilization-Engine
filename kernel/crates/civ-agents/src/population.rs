@@ -12,7 +12,7 @@ use std::sync::Arc;
 use civ_core::time::{DAYS_PER_YEAR, MINUTES_PER_DAY};
 use civ_core::{FastMap, GenTable, Handle, IdAllocator, PermanentId, Rng64, SimTime};
 use civ_grammar::{BuildingSpec, Expansion, Stage, StageNeeds};
-use civ_land::paths::cells_along;
+use civ_land::paths::{CellBox, cells_along};
 use civ_land::{
     Building, CropParams, Field, FieldSoil, FieldStage, FieldTask, Land, LandParams, Party, Plot,
 };
@@ -153,6 +153,17 @@ const WAIT_AFTER_FAILURE_MIN: u32 = 10;
 /// Cells beyond the ground people have walked that route searches are bounded by landmarks
 /// over ([`civ_world::nav::NavGrid::landmarks`]): half a wear tile, 256 m on 8 m cells.
 const LANDMARK_MARGIN_CELLS: usize = 32;
+
+/// Landmarks by region of walked ground (ADR-0028 §4): the regions as last surveyed (each with
+/// its margin), and each region's landmarks once a search has asked for them, with the box of
+/// cells they read ([`NavGrid::landmark_reach`]). Derived.
+#[derive(Debug, Default)]
+struct RegionLandmarks {
+    /// The paths survey the regions were drawn from ([`civ_land::paths::Wear::rev`]).
+    wear_rev: u32,
+    regions: Vec<CellBox>,
+    built: Vec<Option<(std::sync::Arc<civ_world::nav::Landmarks>, CellBox)>>,
+}
 /// Fewest routes the route cache keeps in each of its two generations: when the newer is full it
 /// becomes the older, and the older is let go. A route found again is the route let go (the same
 /// paths, the same search), so its size changes how fast the world lives, never what happens.
@@ -492,9 +503,14 @@ pub struct Population {
     /// none, and the times every view was let go after goods moved between households (M8a slice
     /// CL's measurement). Not saved.
     pub view_counts: (u64, u64, u64),
-    /// Lower bounds for route searches on the paths as surveyed ([`NavGrid::landmarks`]),
-    /// built at the first search after a survey once people have walked anywhere. Derived.
-    landmarks: Option<Option<std::sync::Arc<civ_world::nav::Landmarks>>>,
+    /// Lower bounds for route searches on the paths as surveyed ([`NavGrid::landmarks`]), by
+    /// region of walked ground, each built at the first search after a survey to a cell in it.
+    /// Derived.
+    landmarks: Option<RegionLandmarks>,
+    /// What walking reads in each wear tile at `routes_rev` ([`NavGrid::tile_digests`]): where
+    /// a new revision leaves a tile's digest as it was, fields and landmarks that read only such
+    /// tiles are kept (M10a slice DO). Derived.
+    route_tiles: Vec<u64>,
     /// Per activity, what a trip is expected to bring from each patch today.
     priors: Vec<Prior>,
     /// Per household, the new ground it would mark out for a field, as found on a day against the
@@ -1227,6 +1243,7 @@ impl Population {
         self.at_hearth = None;
         self.known_pruned.clear();
         self.landmarks = None;
+        self.route_tiles.clear();
         self.fields_moved();
     }
 
@@ -1917,7 +1934,68 @@ impl Population {
         (f64::from(max_min) * 60.0 * 1.2) as f32
     }
 
+    /// Brings route caches to the paths survey and walking ground as they stand
+    /// ([`civ_land::Land::route_revision`]). On a new revision the routes found are let go, as
+    /// before; walking fields and landmarks are kept where every wear tile they read has the
+    /// digest it had (M10a slice DO, ADR-0034 §1): walking costs there are as they were, so
+    /// they are what working them out again would give. A kept field's day's facts are drawn
+    /// again at its next use, as for a new one.
+    fn sync_routes(&mut self, ctx: &Ctx) {
+        let revision = ctx.land.route_revision(ctx.nav.travel_revision());
+        if revision == self.routes_rev && !self.route_tiles.is_empty() {
+            return;
+        }
+        if revision != self.routes_rev {
+            self.route_counts.0 += 1;
+        }
+        self.routes.clear();
+        self.routes_old.clear();
+        self.routes_rev = revision;
+        let wear = &ctx.land.wear;
+        let tile = civ_land::paths::TILE as usize;
+        let digests = ctx
+            .nav
+            .tile_digests(tile, &ctx.map.elevation, &|c| wear.factor(c));
+        let tiles_x = (ctx.map.width as usize).div_ceil(tile);
+        let changed: Vec<(usize, usize)> = if digests.len() == self.route_tiles.len() {
+            digests
+                .iter()
+                .zip(&self.route_tiles)
+                .enumerate()
+                .filter(|(_, (a, b))| a != b)
+                .map(|(k, _)| (k % tiles_x, k / tiles_x))
+                .collect()
+        } else {
+            (0..digests.len())
+                .map(|k| (k % tiles_x, k / tiles_x))
+                .collect()
+        };
+        let untouched = |((x0, y0), (x1, y1)): CellBox| {
+            !changed.iter().any(|&(tx, ty)| {
+                tx * tile <= x1 && x0 < (tx + 1) * tile && ty * tile <= y1 && y0 < (ty + 1) * tile
+            })
+        };
+        self.homes
+            .retain(|_, f| f.reach.reach_box().is_some_and(untouched));
+        for f in self.homes.values_mut() {
+            f.rev = revision;
+            f.day = i64::MIN;
+        }
+        match self.landmarks.as_mut() {
+            Some(by_region) if by_region.wear_rev == wear.rev() => {
+                for built in &mut by_region.built {
+                    if built.as_ref().is_some_and(|(_, reach)| !untouched(*reach)) {
+                        *built = None;
+                    }
+                }
+            }
+            _ => self.landmarks = None,
+        }
+        self.route_tiles = digests;
+    }
+
     fn home_field(&mut self, ctx: &Ctx, key: PermanentId, origin: (f32, f32)) {
+        self.sync_routes(ctx);
         let cell = cell_of(ctx.map, origin);
         let day = ctx.now.day_index();
         let rev = ctx.land.route_revision(ctx.nav.travel_revision());
@@ -4958,6 +5036,7 @@ impl Population {
     }
 
     fn start_walk(&mut self, ctx: &mut Ctx, h: Handle<Person>, to: (f32, f32)) -> bool {
+        self.sync_routes(ctx);
         let now = ctx.now;
         let params = ctx.params;
         let cache_max = ROUTE_CACHE_MAX.max(ROUTE_CACHE_PER_PERSON * self.people.len());
@@ -4968,14 +5047,6 @@ impl Population {
         let to_cell = cell_of(ctx.map, to);
         let speed = interpolate(&params.walk_speed_by_age, p.age_years(now)).max(0.05);
         let wear = &ctx.land.wear;
-        let revision = ctx.land.route_revision(ctx.nav.travel_revision());
-        if revision != self.routes_rev {
-            self.route_counts.0 += 1;
-            self.routes.clear();
-            self.routes_old.clear();
-            self.landmarks = None;
-            self.routes_rev = revision;
-        }
         let (points, minutes): (Vec<(f32, f32)>, Vec<f32>) = if from_cell == to_cell {
             let d = ((to.0 - p.pos.0).powi(2) + (to.1 - p.pos.1).powi(2)).sqrt();
             let surface = params.nav.offtrail_factor
@@ -5000,23 +5071,41 @@ impl Population {
                     // Planned on the paths as last surveyed; with no worn ground the search can
                     // assume off-trail walking everywhere and stays tight. Where people walk,
                     // landmarks bound it more tightly still (M5a slice AL).
-                    let landmarks = self
-                        .landmarks
-                        .get_or_insert_with(|| {
-                            let ((x0, y0), (x1, y1)) = wear.walked_area()?;
-                            let m = LANDMARK_MARGIN_CELLS;
-                            let area = (
-                                (x0.saturating_sub(m), y0.saturating_sub(m)),
-                                (x1 + m, y1 + m),
-                            );
-                            let trail = |c| wear.factor(c);
-                            Some(std::sync::Arc::new(ctx.nav.landmarks(
-                                &ctx.map.elevation,
-                                &trail,
-                                area,
-                            )))
-                        })
-                        .as_deref();
+                    // By the region of walked ground the walk ends in (ADR-0028 §4): built
+                    // round that region alone, so ground walked elsewhere costs it nothing.
+                    let by_region = self.landmarks.get_or_insert_with(|| {
+                        let m = LANDMARK_MARGIN_CELLS;
+                        let regions: Vec<CellBox> = wear
+                            .walked_area()
+                            .into_iter()
+                            .map(|((x0, y0), (x1, y1))| {
+                                (
+                                    (x0.saturating_sub(m), y0.saturating_sub(m)),
+                                    (x1 + m, y1 + m),
+                                )
+                            })
+                            .collect();
+                        RegionLandmarks {
+                            wear_rev: wear.rev(),
+                            built: vec![None; regions.len()],
+                            regions,
+                        }
+                    });
+                    let width = ctx.map.width as usize;
+                    let (tx, ty) = (to_cell % width, to_cell / width);
+                    let region = by_region.regions.iter().position(|&((x0, y0), (x1, y1))| {
+                        (x0..=x1).contains(&tx) && (y0..=y1).contains(&ty)
+                    });
+                    let landmarks = region.map(|k| {
+                        let area = by_region.regions[k];
+                        &*by_region.built[k]
+                            .get_or_insert_with(|| {
+                                let trail = |c| wear.factor(c);
+                                let built = ctx.nav.landmarks(&ctx.map.elevation, &trail, area);
+                                (std::sync::Arc::new(built), ctx.nav.landmark_reach(area))
+                            })
+                            .0
+                    });
                     let routed = ctx.nav.route_with(
                         &ctx.map.elevation,
                         (from_cell, to_cell),

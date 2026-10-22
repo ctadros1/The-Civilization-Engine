@@ -251,6 +251,36 @@ impl TravelField {
         Some((y - self.y0) * self.w + (x - self.x0))
     }
 
+    /// The cells what it holds was read from, as the north-west and south-east corner cells of a
+    /// box: the reached cells and those a cell beside them (a step from a reached cell reads only
+    /// the cells around it), within the box it was worked out over. A change to the walking
+    /// ground, heights or trails outside it changes nothing it holds (M10a slice DO): a quicker
+    /// way to a reached cell would have to step from a reached cell onto a changed one. None for
+    /// an empty field.
+    pub fn reach_box(&self) -> Option<((usize, usize), (usize, usize))> {
+        if self.map_width == 0 || self.w == 0 || self.h == 0 {
+            return None;
+        }
+        let mut cells = self.reached.iter().map(|&c| {
+            let c = c as usize;
+            (c % self.map_width, c / self.map_width)
+        });
+        let first = cells.next()?;
+        let ((x0, y0), (x1, y1)) = cells.fold((first, first), |((a, b), (c, d)), (x, y)| {
+            ((a.min(x), b.min(y)), (c.max(x), d.max(y)))
+        });
+        Some((
+            (
+                x0.saturating_sub(1).max(self.x0),
+                y0.saturating_sub(1).max(self.y0),
+            ),
+            (
+                (x1 + 1).min(self.x0 + self.w - 1),
+                (y1 + 1).min(self.y0 + self.h - 1),
+            ),
+        ))
+    }
+
     /// Seconds to reach `cell`, if it is within the field's limit.
     pub fn seconds_to(&self, cell: usize) -> Option<f32> {
         let s = self.seconds[self.slot(cell)?];
@@ -917,17 +947,12 @@ impl NavGrid {
         area: ((usize, usize), (usize, usize)),
     ) -> Landmarks {
         let n = self.width * self.height;
-        let ((ax, ay), (bx, by)) = area;
-        let (x0, y0) = (ax.min(self.width - 1), ay.min(self.height - 1));
-        let (x1, y1) = (bx.clamp(x0, self.width - 1), by.clamp(y0, self.height - 1));
+        let ((x0, y0), (x1, y1)) = self.clip(area);
         let (w, h) = (x1 - x0 + 1, y1 - y0 + 1);
         let sites = self.landmark_cells((x0, y0), (x1, y1));
         let k = sites.len();
         let mut seconds = vec![f32::INFINITY; w * h * 2 * k];
-        // As far as walking three times across the area off the trails takes.
-        let across = (w as f64).hypot(h as f64) * self.cell_m;
-        let slow = self.params.tobler_ms(0.0) * self.params.offtrail_factor;
-        let cap = (3.0 * across / slow.max(1e-6)) as f32;
+        let cap = self.landmark_cap(w, h);
         let area = (x0, y0, w, h);
         let jobs: Vec<(usize, bool)> = sites
             .iter()
@@ -988,6 +1013,74 @@ impl NavGrid {
             count: k,
             seconds,
         }
+    }
+
+    /// `area` clipped to the grid, as [`NavGrid::landmarks`] reads it.
+    fn clip(&self, area: ((usize, usize), (usize, usize))) -> ((usize, usize), (usize, usize)) {
+        let ((ax, ay), (bx, by)) = area;
+        let (x0, y0) = (ax.min(self.width - 1), ay.min(self.height - 1));
+        let (x1, y1) = (bx.clamp(x0, self.width - 1), by.clamp(y0, self.height - 1));
+        ((x0, y0), (x1, y1))
+    }
+
+    /// How far landmarks' searches over an area of `w` × `h` cells go: as far as walking three
+    /// times across it off the trails takes, seconds.
+    fn landmark_cap(&self, w: usize, h: usize) -> f32 {
+        let across = (w as f64).hypot(h as f64) * self.cell_m;
+        let slow = self.params.tobler_ms(0.0) * self.params.offtrail_factor;
+        (3.0 * across / slow.max(1e-6)) as f32
+    }
+
+    /// The cells landmarks over `area` ([`NavGrid::landmarks`]) read, as the north-west and
+    /// south-east corner cells of a box: their searches stop at their cap, and no step is faster
+    /// than the top speed, so nothing outside the box changes them (M10a slice DO). A step reads
+    /// the cells diagonally beside it, so the box has a cell more.
+    pub fn landmark_reach(
+        &self,
+        area: ((usize, usize), (usize, usize)),
+    ) -> ((usize, usize), (usize, usize)) {
+        let ((x0, y0), (x1, y1)) = self.clip(area);
+        let cap = f64::from(self.landmark_cap(x1 - x0 + 1, y1 - y0 + 1));
+        let r = (cap * self.params.top_speed_ms() / self.cell_m).ceil();
+        let r = if r.is_finite() && r < (self.width.max(self.height) as f64) {
+            r as usize + 2
+        } else {
+            self.width.max(self.height)
+        };
+        (
+            (x0.saturating_sub(r), y0.saturating_sub(r)),
+            ((x1 + r).min(self.width - 1), (y1 + r).min(self.height - 1)),
+        )
+    }
+
+    /// A digest of what walking reads in each square of `tile` × `tile` cells, row by row: each
+    /// cell's ground, height and `trail` factor (M10a slice DO). Where two grids' digests of a
+    /// square agree, walking costs within it are the same on both.
+    pub fn tile_digests(
+        &self,
+        tile: usize,
+        elevation: &[f32],
+        trail: &dyn Fn(usize) -> f32,
+    ) -> Vec<u64> {
+        let tile = tile.max(1);
+        let (tx, ty) = (self.width.div_ceil(tile), self.height.div_ceil(tile));
+        let mut out = vec![0xcbf2_9ce4_8422_2325u64; tx * ty];
+        for y in 0..self.height {
+            let row = (y / tile) * tx;
+            for x in 0..self.width {
+                let c = y * self.width + x;
+                let d = &mut out[row + x / tile];
+                for v in [
+                    self.ground[c].to_bits(),
+                    elevation.get(c).map_or(0, |e| e.to_bits()),
+                    trail(c).to_bits(),
+                ] {
+                    *d ^= u64::from(v);
+                    *d = d.wrapping_mul(0x0100_0000_01b3);
+                }
+            }
+        }
+        out
     }
 
     /// Where the landmarks stand: for each corner of the area and the middle of each side, the
@@ -1803,6 +1896,76 @@ mod tests {
             bounded < plain,
             "{bounded} cells with landmarks, {plain} without"
         );
+    }
+
+    #[test]
+    fn walking_outside_a_fields_box_or_landmarks_reach_changes_neither() {
+        // Hills and trails; a field and landmarks worked out, then ground changed outside the
+        // boxes they read (M10a slice DO): both come out the same to the bit, and the change
+        // shows in the digest of its own tile only.
+        const N: usize = 192;
+        let mut map = flat(N as u32, N as u32);
+        let mut rng = Rng64::seed_from_u64(5);
+        for (c, z) in map.elevation.iter_mut().enumerate() {
+            let (x, y) = ((c % N) as f32, (c / N) as f32);
+            *z = 100.0 + 6.0 * (x / 8.0).sin() * (y / 11.0).cos() + (rng.next_f64() * 2.0) as f32;
+        }
+        let trail = |c: usize| if (c % N) % 7 == 2 { 1.0 } else { 0.0 };
+        let nav = NavGrid::new(&map, params());
+        let from = 20 * N + 20;
+        let field = nav.travel_field(&map.elevation, from, 120.0, &trail);
+        let area = ((10, 10), (13, 13));
+        let lm = nav.landmarks(&map.elevation, &trail, area);
+        let ((fx0, fy0), (fx1, fy1)) = field.reach_box().expect("a field");
+        let ((_, _), (lx1, ly1)) = nav.landmark_reach(area);
+        assert!(
+            fx1 + 1 < N && lx1 < N - 1,
+            "boxes short of the map's edge: {fx1}, {lx1}"
+        );
+        // Every cell of the ring just outside the field's box made unwalkable and raised, on a
+        // fresh grid (its own step-speed table): the field is the same.
+        let mut changed = NavGrid::new(&map, params());
+        let mut raised = map.elevation.clone();
+        for y in fy0.saturating_sub(1)..=fy1 + 1 {
+            for x in fx0.saturating_sub(1)..=fx1 + 1 {
+                if x < fx0 || x > fx1 || y < fy0 || y > fy1 {
+                    changed.ground[y * N + x] = 0.0;
+                    raised[y * N + x] += 9.0;
+                }
+            }
+        }
+        let field2 = changed.travel_field(&raised, from, 120.0, &trail);
+        assert_eq!(field.seconds, field2.seconds);
+        assert_eq!(field.reached, field2.reached);
+        // The border of the reached cells' own box made unwalkable changes it: the box is no
+        // wider than it must be.
+        let mut inner = NavGrid::new(&map, params());
+        let ((rx0, ry0), (rx1, ry1)) = ((fx0 + 1, fy0 + 1), (fx1 - 1, fy1 - 1));
+        for y in ry0..=ry1 {
+            for x in rx0..=rx1 {
+                if x == rx0 || x == rx1 || y == ry0 || y == ry1 {
+                    inner.ground[y * N + x] = 0.0;
+                }
+            }
+        }
+        let field3 = inner.travel_field(&map.elevation, from, 120.0, &trail);
+        assert_ne!(field.reached, field3.reached);
+        // The far corner made unwalkable: landmarks are the same, and only its tile's digest moves.
+        let mut far_off = NavGrid::new(&map, params());
+        let far = (N - 1) * N + N - 1;
+        assert!(far % N > fx1.max(lx1) && far / N > fy1.max(ly1));
+        far_off.ground[far] = 0.0;
+        let lm2 = far_off.landmarks(&map.elevation, &trail, area);
+        assert_eq!(
+            lm.seconds.iter().map(|t| t.to_bits()).collect::<Vec<_>>(),
+            lm2.seconds.iter().map(|t| t.to_bits()).collect::<Vec<_>>()
+        );
+        let before = nav.tile_digests(64, &map.elevation, &trail);
+        let after = far_off.tile_digests(64, &map.elevation, &trail);
+        let differ: Vec<usize> = (0..before.len())
+            .filter(|&k| before[k] != after[k])
+            .collect();
+        assert_eq!(differ, vec![8], "only the far corner's tile of 3 x 3");
     }
 
     #[test]

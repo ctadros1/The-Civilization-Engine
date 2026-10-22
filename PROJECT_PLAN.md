@@ -5771,6 +5771,30 @@ and M6a gives rivers a daily flow.
     - **DO**: routing groundwork: landmarks per settlement over its own walked ground (ADR-0028 §4
       as decided) and ways' wear by mode; route times unchanged, measured on the many-settlement
       bench.
+      - *As built, first part (2026-10-22): route caches kept where nothing they read changed.*
+        **Profiled** first (release `bench_village`, seed 1, ten settlements of 60 on 2,048 cells,
+        household-resolved, 40 days: 983 ms a day, p95 3.6 s): the slow days are the ones the
+        route revision moves (floods and the monthly wear survey, six a run), when every home's
+        travel field was worked out again; landmarks over one box per settlement saved little
+        (983 to 960 ms a day), so they wait for the second part. **What a field reads:**
+        `TravelField::reach_box` is the reached cells' box and a cell more (a step from a reached
+        cell reads only the cells around it); a quicker way to a reached cell would have to step
+        from one onto a changed cell, so no change outside it alters the field. A field's search
+        box is no guide: it is sized by the top speed over the walk's limit and covers the map.
+        **What changed:** `NavGrid::tile_digests` hashes ground, heights and trails per 64-cell
+        tile; on a new revision `Population::sync_routes` compares them with the last, keeps every
+        home field whose reach box no changed tile touches (refreshing only the day's land and
+        source facts), and keeps landmarks whose reach (`NavGrid::landmark_reach`, their searches'
+        cap at the top speed) is untouched while the wear survey stands. Routes found are still
+        let go. `paths::walked_regions` groups walked ground into regions (for the second part);
+        `Ways::holds` counts only ways open to walkers (all are today). **Proved:** a unit test
+        changes the ring of cells just outside a field's reach box (made unwalkable and raised)
+        and gets the field to the bit, and the same ring on the reached cells' own border changes
+        it; three worlds (A: the run above; B: a village of 500 for 90 days; C: three settlements
+        of 400 for 60 days, two household-resolved) give every save section's digest but `meta`
+        unchanged. **Measured** (same run): four or five of ten home fields kept at each local
+        change (all at the 140-tile survey), 868 ms a day (from 983), the worst day 9.0 s (from
+        12.4 s).
     - **DP**: fuel by heat (`[fuel]`, hearths burning megajoules), batches in elapsed days,
       charcoal, iron ore, the bloomery, forging and smithing, iron tools that serve.
     - **DQ**: the firm's own stations and stages (ADR-0006 §5 as decided), several lines with goods

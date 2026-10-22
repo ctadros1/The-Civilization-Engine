@@ -351,12 +351,15 @@ impl Ways {
         }
     }
 
-    /// What each way holds its cells' wear at on `day`, ahead of the survey: its condition, cell
-    /// by cell (the greatest where ways meet), in cell order.
+    /// What each way people walk holds its cells' wear at on `day`, ahead of the survey: its
+    /// condition, cell by cell (the greatest where ways meet), in cell order.
     pub fn holds(&self, day: i64, params: &PathParams) -> Vec<(u32, f32)> {
         let mut out: Vec<(u32, f32)> = self
             .list
             .iter()
+            // Only a way people walk holds walking ground (ADR-0034 §1): track for wheels alone
+            // is not a footpath.
+            .filter(|w| w.modes & WALK != 0)
             .flat_map(|w| {
                 w.segments.iter().flat_map(move |s| {
                     let c = s.condition(day, params);
@@ -537,6 +540,11 @@ mod tests {
         assert!((wear.factor(8) - 1.0).abs() < 1e-2 && wear.is_trail(8));
         assert!((wear.factor(7) - 0.5).abs() < 1e-2 && wear.is_trail(7));
         assert_eq!(wear.factor(3), 0.0);
+        // A way for wheels alone holds no walking ground (ADR-0034 §1).
+        let mut wheels = way(7, vec![segment(vec![3, 4], 1.5, 120)]);
+        wheels.modes = CART;
+        ways.add(wheels);
+        assert_eq!(ways.holds(120, &params()), holds);
     }
 
     #[test]

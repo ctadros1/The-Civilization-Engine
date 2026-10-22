@@ -2,6 +2,10 @@
 # Linux counterpart of CI's Windows lane, plus the web and schema checks.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+if (( $(df -Pk . | awk 'NR == 2 {print $4}') < 20 * 1024 * 1024 )); then
+  echo 'The full chain needs at least 20 GiB free in its work directory.' >&2
+  exit 1
+fi
 for workspace in commons kernel; do
   (
     cd "$workspace"

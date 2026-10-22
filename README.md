@@ -6,6 +6,18 @@
 
 <p align="center"><strong>A living-world simulator where people build their own communities, economies and institutions.</strong></p>
 
+<p align="center">People make a living, raise families, trade, learn, build and govern. Their choices shape the societies that emerge.</p>
+
+<p align="center">
+  <a href="#the-project">Project</a> · <a href="#project-status">Status</a> · <a href="demos/README.md">Demo gallery</a> · <a href="#technical-highlights">Technical highlights</a> · <a href="#run-it">Run it</a> · <a href="#documentation">Documentation</a>
+</p>
+<p align="center">
+  <a href="#project-status"><img src="https://img.shields.io/badge/M0%E2%80%93M9-complete-39785b?style=flat-square" alt="Milestones M0 through M9 complete"></a>
+  <a href="#project-status"><img src="https://img.shields.io/badge/M10a-in%20progress-b57932?style=flat-square" alt="Milestone M10a in progress"></a>
+  <a href="#technical-highlights"><img src="https://img.shields.io/badge/kernel-Rust-315f55?style=flat-square" alt="Simulation kernel: Rust"></a>
+  <a href="#technical-highlights"><img src="https://img.shields.io/badge/observer-TypeScript%20%2B%20PixiJS-526c83?style=flat-square" alt="Observer: TypeScript and PixiJS"></a>
+</p>
+
 The Civilization Engine (TCE) is a long-running simulation project. It models people, households and settlements from the ground up: how they find food, learn skills, build, trade, make rules and respond to events. The engine supplies the materials and social mechanisms; it does not script a civilization's story or destination.
 
 The current playable world is an early farming society. The project roadmap reaches industrial and modern civilization, but those systems are still being built. The Unreal client is also future work.

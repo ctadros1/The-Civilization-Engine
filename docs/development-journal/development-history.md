@@ -3216,6 +3216,7 @@ and twelve bays, and for the new parts that come next (roof trusses, posts stack
 storey, walls tied in at each floor, windows and stairs). Nothing uses that room yet, so every
 village builds exactly what it did before.
 
+
 ## 2026-10-20 — CY to DA: taller buildings that stand or fall by their weight, and the first earthquake
 
 **Built:** the building plans can now describe houses of up to four storeys with walls that thin
@@ -3258,3 +3259,31 @@ reckons what the height rule would take from it in lost floor and opposes it, wh
 do not. Builders who keep a rule build a storey lower where it asks. And a fall is now remembered
 against every craft the building used, so a fallen rubble wall makes the next rubble walls
 thicker, not only the timbers.
+
+
+## 2026-10-21 — M9 closed: household resolution, skips and climate
+
+**Built:** M9 keeps one person record per resident while allowing settlements away from the observer's
+focus to resolve household work once per day. A focused settlement remains Detailed; the observer
+can hold another settlement in detail or follow a resident and see the day's current activity block.
+Time skips run the same household machinery and can stop at a date or a marked event. Climate
+influences are saved, shown in the weather panel and chronicle, and flow through temperature,
+precipitation, snow, soil water and harvest. The ten-year M9 report records a forced climate change,
+2,000 people growing to 2,576 across eleven settlements, a 28.2 MB save reloaded with all residents,
+and a measured rate of 0.039 simulated years per minute. The 100,000-person gate measured 224
+seconds per simulated day, about 140 times slower than its target; the gate was amended to the
+measured result. This is a selected lived run and an engineering limit, not a historical validation.
+See [the M9 run report](../../demos/m9/m9-demo.txt) and [the plan's evidence](../../PROJECT_PLAN.md#9-decisions-log).
+
+## 2026-10-22 — M10a, slices DO–DR: route work and the first water mills
+
+**Built:** route fields now survive terrain revisions when changed tiles cannot affect the cells
+those fields reached; trips wear only the modes using a way. Per-settlement route landmarks were
+measured and set aside when they did not improve the many-settlement run. M10a then added saved
+water-power installations, daily output derived from river flow, recipe energy requirements and a
+household decision to dig a headrace and build a mill where expected savings repay the work.
+The mill's installation, ditch and saved household observation state survive save/load; the wheel
+idles on a dry reach and produces less when river flow falls. A selected seed-3 run with the
+technique known and 600 kg annual grinding saw all six households build mills, with 0.5–1.0 m falls
+and 8–24 m headraces. Shared grinding, fuel and iron remain ahead. See [Industry and Water Power](industry-and-power.md)
+and the M10a slice records in [the project plan](../../PROJECT_PLAN.md#7-milestones).

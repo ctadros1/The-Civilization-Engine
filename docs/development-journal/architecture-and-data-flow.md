@@ -1,6 +1,6 @@
 # Architecture and Data Flow
 
-This guide follows the integrated `main` tree as of 2026-10-11. The kernel owns simulation state and decisions. The web observer renders that state and forwards user commands; it does not determine outcomes.
+This guide follows the integrated `main` tree as of 2026-10-22. The kernel owns simulation state and decisions. The web observer renders that state and forwards user commands; it does not determine outcomes.
 
 ## Runtime shape
 
@@ -53,7 +53,7 @@ The stream distinguishes replaceable snapshots from ordered records. A slow clie
 
 The frame is a view, not the authority. It may include derived settlement labels, standing summaries, observed market prices or weather panels; the kernel rebuilds derived facts as needed and accepts only explicit commands back from the observer.
 
-M5 extends that flow across settlements. Household reports guide market trips, but sellers' current terms settle each trade. Inter-polity agreements become effective only after both settlements ratify them under their own law and hear the decision. Public crossings are kernel records built through household choices or polity law; the observer displays them and forwards commands without deciding whether a crossing or agreement is worthwhile.
+M5 extends that flow across settlements. Household reports guide market trips, but sellers' current terms settle each trade. Inter-polity agreements become effective only after both settlements ratify them under their own law and hear the decision. Public crossings are kernel records built through household choices or polity law. M6 adds hazards and conflict, M7 adds deeper political, organizational and credit systems, and M8 adds transport, planning, land and structural response. M9 keeps people as individual records while allowing distant settlements' household work to resolve in daily batches; M10a adds installations whose water power is derived from the day's river flow and consumed by powered recipes. Each follows the same ownership path: domain state and rules in Rust, composition and persistence in `civ-sim`, kernel-authored frames across the versioned boundary, and a web observer that displays state and forwards commands.
 
 ## Save and resume flow
 

@@ -4,21 +4,45 @@ This is the guide to the project's demonstrations across milestones. The watchab
 opening titles and on-screen explanations; their source captures are kept for production history.
 A screenshot or demo run shows one build and one world, not an outcome every world will produce.
 
-## Newest available demo: M6a, water and sickness
+## Newest completed milestone: M9, many settlements
 
-The latest complete milestone demo starts an early-farming village, gives cholera to one person,
-then follows the outbreak through the water system. In this captured run, 65 people took cholera,
-55 cases came through water, 17 became ill and three died. The observer traces cases to household
-wells; residents did not identify those wells as a cause, and no law named them. The observer keeps
-modeled routes, residents' knowledge and the polity's response visible as separate layers. Outcomes
-vary between runs.
+M9 keeps each person as an individual record while settlements away from the observer's focus are
+lived by household. The full lived report is a ten-year run: ten founding groups became eleven
+settlements, the population grew from 2,000 to 2,576, and the saved world reloaded with all people
+present. Its measured rate was 0.039 simulated years per real minute; the 100,000-person gate was
+not met. See the [plan](../PROJECT_PLAN.md#7-milestones) for the limit and run conditions.
 
-M6b fire response and hazard repairs are in development; no completed M6b lived capture is available yet. The M6a capture remains the newest available milestone demo.
+The titled 1080p video is a separate, 29-second observer capture prepared to show the map,
+focus-based resolution labels and climate state. It is not the ten-year report run. The video
+records the observer after a one-year, 500-person lived run, with ten settlements. Focus-based
+resolution is a session setting rather than a save field, so the capture turns it on after loading
+and advances one day to show its effect. The edit trims the initial loading and run-ahead dialog;
+it does not present those screens as simulation behavior.
 
-The captures below are from that live observer run. The complete version history is in the table
-that follows.
+<p align="center"><a href="m9/m9-overview.mp4"><img src="m9/m9-overview-poster.png" alt="M9 live demo: many settlements and household resolution" width="900"></a></p>
 
-<p align="center"><a href="m6a/m6a-overview.mp4"><img src="m6a/m6a-overview-poster.png" alt="Watch the M6a overview: a close view of the village, with chapter captions" width="900"></a></p>
+- [Titled M9 demo video](m9/m9-overview.mp4)
+- [Settlement-resolution screenshot](m9/m9-settlements.png)
+- [Climate screenshot](m9/m9-climate.png)
+- [One-year video capture run report](m9/m9-capture-run.txt)
+- [Ten-year M9 run report](m9/m9-demo.txt)
+- [M9 capture runner](../web/e2e/m9-demo.spec.ts)
+- [Video production project and refresh steps](m6a/production/README.md)
+- [Aggregate resolution technical guide](../docs/development-journal/simulation-model.md#multiple-settlements-and-contact)
+
+## Current development: M10a, water power
+
+M10a is in progress. Water-powered recipes, saved river installations and household-built mills
+are implemented through DR part 3; shared grinding, fuel and iron works remain ahead. There is no
+M10a milestone video yet. See the [industry and water-power guide](../docs/development-journal/industry-and-power.md).
+
+## Earlier titled observer video: M6a, water and sickness
+
+The M6a video follows cholera through household wells and separates the modeled water routes from
+residents' beliefs and the polity's response. The gallery keeps its screenshots, source recording
+and run log together.
+
+<p align="center"><a href="m6a/m6a-overview.mp4"><img src="m6a/m6a-overview-poster.png" alt="M6a live demo: a close view of the village, with chapter captions" width="900"></a></p>
 
 - [Incidents panel](m6a/m6a-incidents.png)
 - [Outbreak evidence and public response](m6a/m6a-outbreak.png)
@@ -27,10 +51,6 @@ that follows.
 - [Recorded demo narration and observed outcome](m6a/m6a-demo.txt)
 - [M6a demo runner](../web/e2e/m6a-demo.spec.ts)
 - [Video production project and refresh steps](m6a/production/README.md)
-- [Water, sickness and fire technical guide](../docs/development-journal/hazards-and-health.md)
-
-M6b fire behavior is in progress, but its milestone demo is not complete yet. M6a is therefore the
-newest complete, runnable milestone demonstration in this repository.
 
 ## Demos by milestone
 
@@ -48,8 +68,15 @@ newest complete, runnable milestone demonstration in this repository.
 | M5b · Trade and diffusion | The original connected-village demo no longer qualifies after corrected river routing separated its villages; a replacement lived demo remains open | [Development record](../docs/development-journal/development-history.md#2026-10-10--m5b-slice-as-the-m5b-demo) |
 | M5c · Relations and public works | Agreements and crossings are covered by lived runs and test worlds; no standalone observer recording is committed | [Project plan evidence](../PROJECT_PLAN.md#9-decisions-log) |
 | M6a · Water and sickness | Cholera, water sources, resident knowledge and the Water lens | [Watch the titled 1080p overview](m6a/m6a-overview.mp4) · [screenshots and run log](m6a/) · [demo runner](../web/e2e/m6a-demo.spec.ts) |
-| M6b · Fire, masonry and floods | Fire behavior is in progress; the milestone demonstration is planned | [Current status and evidence](../PROJECT_PLAN.md#7-milestones) |
+| M6b · Fire, masonry and floods | Fire response, masonry, floods, banks, ditches, storms and building rules | [Screenshots and run report](m6b/) · [M6b status and evidence](../PROJECT_PLAN.md#7-milestones) |
 | M6c · War and conquest | Two villages of 100 raid each other; one gathering raises a palisade, makes a law against raiding and sends bands by law, until a band holds the other village (screenshots of the siege page, the map and the Government panel, with the run log; two priors nudged, both logged) | [Screenshots and run log](m6c/) · [demo runner](../web/e2e/m6c-demo.spec.ts) |
+| M7a · Councils and elections | A village changes its custom and elects a council in the selected run | [Screenshots and run record](m7a/) · [demo runner](../web/e2e/m7a-demo.spec.ts) |
+| M7b · Courts and precedent | Court, precedent and review mechanics; no titled observer video is committed | [Run record](m7b/) · [demo runner](../web/e2e/m7b-demo.spec.ts) |
+| M7c · Organizations and trade policy | Duties and embargoes passed in the recorded run; no organization emerged at that scale | [Run record](m7c/) |
+| M7d · Credit before coin | Four-year run, three villages; loans emerge, no copper or coin in the featured seed | [Run report](m7d/m7d-demo.txt) · [demo runner](../web/e2e/m7d-demo.spec.ts); observer recording not captured yet |
+| M8 · Growing city and structural response | Completed: transport, planning, structural behavior and public buildings; engineering/run evidence, no standalone observer video | [Current status and evidence](../PROJECT_PLAN.md#7-milestones) |
+| M9 · Aggregate LOD and scale | Ten-settlement lived run and titled observer video; the 100,000-person speed target was missed and amended | [M9 video, report and runner](m9/) · [run details](../PROJECT_PLAN.md#9-decisions-log) |
+| M10a · Power and the works | In progress: water-power installations, powered recipes and household-built mills; no milestone video | [Technical guide](../docs/development-journal/industry-and-power.md) · [current plan](../PROJECT_PLAN.md#7-milestones) |
 
 Some milestone demo scripts intentionally explore emergent outcomes and can take a long time. They
 run only when requested with `TCE_DEMO=1`; they may try more than one world and report what
@@ -65,30 +92,29 @@ captures under `demos/<milestone>/`, keep prior milestone media and links in thi
 concept art separately from screenshots. Do not describe an unfinished milestone's design as a
 demo.
 
-For example, from `web/`, after building the web app and `civ-host`, capture M6a with:
+From `web/`, prepare and record the M9 observer demo with:
 
 ```sh
-mkdir -p ../demos/m6a
-TCE_DEMO=1 TCE_DEMO_VIDEO=1 TCE_SHOTS_DIR=../demos/m6a npm run test:e2e -- m6a-demo.spec.ts
+TCE_DEMO=1 TCE_DEMO_VIDEO=1 TCE_SHOTS_DIR=../demos/m9 npm run test:e2e -- m9-demo.spec.ts
 ```
 
-The demo runner writes the raw 1920×1080 observer recording, screenshots and text log directly to
-`demos/m6a/`. Preview and render the title-and-caption version with the [M6a video project](m6a/production/README.md).
+The runner creates a one-year, ten-settlement lived save, then records the loaded observer at
+1920×1080 and writes screenshots into `demos/m9/`; the capture run report is saved as
+`m9-capture-run.txt`. For the titled edition, copy the raw source into the Remotion project's
+ignored `public/` directory and render from `demos/m6a/production/`:
 
-M6b is in progress: masonry and flood/storm mechanics are implemented, with controlled crew-demolition, named-account and fire-help checks and the published ignition sensitivity run, while the fire-to-building-rule lived demo remains planned. M6a is still the newest completed lived demo.
+```sh
+cp ../../m9/m9-demo.webm public/m9-source.webm
+npm run render:m9
+```
 
+Keep the ten-year lived report `demos/m9/m9-demo.txt` distinct from the short video capture's
+`m9-capture-run.txt`; do not overwrite the longer report when refreshing the video.
 
-The BG `bank_fixture` runner is a controlled geometry/snapshot fixture, not a lived M6b demo:
-`cd kernel && cargo run --release -p civ-sim --example bank_fixture -- <save-folder>`.
-Load its save in the observer to inspect the bank centre-line and borrow-earth account.
-Voluntary bank work and the M6b lived demonstration remain planned.
+Keep a newer demo feature here and in the top-level README only after a lived observer recording
+has been captured. Engineering fixtures, benchmark reports and milestone plans are valuable
+evidence, but do not count as observer demos.
 
-The bank fixture's saved ground also supplies bank and borrow-pit flood storage. Its role
-remains a controlled engineering/snapshot check; it demonstrates neither chosen bank labour
-nor a lived M6b outcome.
-
-The bank panel now reports soil washed into sediment stock when a saved bank has overtopped.
-The ordinary fixture remains a construction example, without a lived flood or public work.
 
 ## M8 (2026-10-20)
 

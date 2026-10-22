@@ -30,6 +30,21 @@ type Film = {
 
 const films: Film[] = [
   {
+    id: "M9ManySettlements",
+    source: "m9-source.webm",
+    // The first half of the raw browser recording includes startup and the run-ahead
+    // dialog. Begin after it clears, then include the later climate-panel view.
+    sourceStart: 35 * FPS,
+    sourceFrames: 23 * FPS,
+    title: "One world, many hearths",
+    subtitle: "Keep one settlement in full detail while households carry on across the map.",
+    edition: "M9 · MANY SETTLEMENTS",
+    chapters: [
+      { from: 0, duration: 12 * FPS, number: "01", title: "Resolution follows the observer", body: "The selected settlement runs in detail while its neighbours continue through household-level simulation." },
+      { from: 13 * FPS, duration: 9 * FPS, number: "02", title: "Climate is part of the saved world", body: "Inspect the climate record: the observer's influence changes weather and the conditions people live with." },
+    ],
+  },
+  {
     id: "M3aEconomy",
     source: "m3a-source.webm",
     sourceStart: 100,

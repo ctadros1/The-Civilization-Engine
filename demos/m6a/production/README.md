@@ -1,7 +1,7 @@
 # Demo video production
 
-This Remotion project adds a title card, explanatory chapter captions, and an end card to the M6a
-recording and the observer captures from M0, M1, M3a–M3c, M4a–M4b and M5a. Final videos are
+This Remotion project adds a title card, explanatory chapter captions, and an end card to the M9
+and M6a recordings and the observer captures from M0, M1, M3a–M3c, M4a–M4b and M5a. Final videos are
 1920×1080 H.264. Original recordings remain unchanged in their milestone folders; copies used for
 rendering are ignored under `public/`.
 
@@ -47,6 +47,17 @@ Capture a milestone from `web/` with `TCE_DEMO=1 TCE_DEMO_VIDEO=1` and set
 `TCE_SHOTS_DIR=../demos/<milestone>/recording`; the recording context starts after the simulation
 has been prepared, at 1920×1080. Some milestone runs take several minutes. M5a lives thirty years
 and can take much longer.
+
+For the M9 showcase, the runner stores the raw recording and captures in `demos/m9/`. From this
+folder, copy the raw observer recording into `public/` and render the titled video. The M9 edit
+skips the initial loading and run-ahead dialog, then shows the household-resolution and climate
+views in a 29-second 1920×1080 H.264 video:
+
+```sh
+cp ../../m9/m9-demo.webm public/m9-source.webm
+npm run render:m9
+npx remotion still src/index.ts M9ManySettlements ../../m9/m9-overview-poster.png --frame=210
+```
 
 Run these commands from this folder. `npm run dev -- --no-open` opens the Remotion preview.
 The M0 recovery source is an early short capture of the recovery prompt; its edit explicitly says

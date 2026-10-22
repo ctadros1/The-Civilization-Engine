@@ -19,7 +19,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: homelab-${{ github.ref }}-${{ inputs.suite || 'full' }}
+  group: homelab-${{ github.ref }}-${{ github.event_name }}-${{ inputs.suite || 'full' }}-${{ inputs.runner || 'tce-ci' }}
   cancel-in-progress: true
 env:
   CARGO_TERM_COLOR: always

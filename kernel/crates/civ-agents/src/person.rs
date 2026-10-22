@@ -68,6 +68,9 @@ pub enum Target {
     /// A way a household is working on, by its permanent id: a passing place being cleared (M8b
     /// slice CQ, second part).
     Way(PermanentId),
+    /// A neighbour's water mill, by its installation's permanent id: the one ground at (M10a
+    /// slice DR, fourth part).
+    Mill(PermanentId),
 }
 
 /// Water for a fire drawn from the household's store at home, not a source (see

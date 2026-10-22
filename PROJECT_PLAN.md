@@ -5966,12 +5966,36 @@ and M6a gives rivers a daily flow.
         (part 4) lets a household grind at a neighbour's. *Measured:* on seed 3's village with
         every household knowing the mill and grinding 600 kg a year, all six set one, at falls of
         0.5-1.0 m over races of 8-24 m (one to three cells: the valley's steep cells, a wheel at a
-        rapid). **Proved:** the three bench worlds' digests match the second part's
-        in every section but meta (schema 174) and content (the wheel's `per_worker`). **Tested:** a household that knows no water way neither counts
-        nor weighs; one that does sets a mill whose race, earthwork and fall are as described,
+        rapid). **Proved:** the three bench worlds' digests match the second part's in every
+        section but meta (schema 174) and content (the wheel's `per_worker`). **Tested:** a
+        household that knows no water way neither counts nor weighs; one that does sets a mill
+        whose race, earthwork and fall are as described,
         turning nothing until dug, one to a household; the race is dug by the ditch work and the
         chronicle names a headrace; dug, grinding by the wheel is its cheapest flour; counts and
         mills save and load to the byte.
+      - *As built, fourth part (2026-10-22): toll milling.* A household without a working mill of
+        its own that wants flour (below its `processed_food_days` of flour) and holds grain sees
+        the nearest working mill of another household of its settlement by its people's walk (a
+        dug race, a wheel in the owner's store, a river turning it today): `MillFacts`, scored as
+        a ditch's session is (`Reason::Mill`). One of them carries a load (`carry_kg`) there
+        (behavior `mill`, content API 161, `activity/carry_grain_to_mill`; `Target::Mill`, saves'
+        `TargetKind.Mill`), grinds it by the mill's way at its power, and keeps the flour but a
+        sixteenth (a prior), which goes to the owner by the ledger (`Channel::Toll`, appended);
+        the owner's wheel wears by the hours it turned. The yearly mill review now weighs a mill
+        of its own against grinding at the nearest working one for its toll and a round trip a
+        load, and a mill's choice is charged 100 hours a year of upkeep (a NUDGE, §9): so a
+        household near a working mill builds none. Toll milling is not taken while a settlement
+        is household-resolved (a journey, as a fetch). Since every review weighs only mills
+        already working, households that weigh in the same season may each set one, as in the
+        third part's measurement. **Proved:** without the new activity the three bench worlds'
+        digests match the third part's but for meta and content, so the code changes nothing where
+        no mill stands; with it they differ in people, receipts and firms alone (the household
+        views keep a cell per activity and receipts list the activities ruled out), every other
+        section and the summaries equal. **Tested:** a neighbour sees the mill, a
+        load's grinding and the hours it spares; the owner sees none; a session grinds no more
+        than a load, the customer keeps fifteen sixteenths of the flour and the owner the rest,
+        and the owner's wheel wears; a customer that knows the mill and grinds 600 kg a year sets
+        none of its own beside a working one.
     - **DS**: coal and coke, pits that flood below the ground-water head, bailing and pumping, the
       atmospheric engine at the pit head.
     - **DT**: the works: machines with crews, shifts by daylight, the household-resolved block.
@@ -7366,6 +7390,13 @@ One line each. Don't re-litigate without a reason written next to the entry.
   evaluations of Gate C (each about five minutes) took the household day from leisure +75 %, sleep
   −100 % and food +17–30 % to every aggregate within a few points of its tolerance; the rest is
   time-boxed here and recorded above (plan §7, DI). Tolerances were not touched.
+- **Design priors for water mills (2026-10-22, M10a slice DR):** NUDGE: a wheel is set at half a
+  metre of fall or more and 50 m from any other, grinds eight hours a day and is reckoned to ask
+  100 hours a year of upkeep (dressing the stones, clearing the race) in its owner's choice,
+  though that upkeep is not yet worked; the toll is a sixteenth of the flour. Without the upkeep
+  a household grinding 600 kg a year beside a working mill would set a second for the toll it
+  saves. Each revisited if the M10 demo shows mills nowhere where grain is ground by hand at
+  scale, or one beside every household.
 - **Design priors for the household day (2026-10-20, M9a slice DG, ADR-0032 §2):** NUDGE: the
   day is scored once at sunrise; waking minutes are the day less the middle of the content's
   sleep range and three meals; a walk's length in the day's sharing is reckoned straight off trail

@@ -101,6 +101,9 @@ pub struct Facts {
     pub raise: Option<RaiseFacts>,
     /// The irrigation ditch their household is digging to its field, if any (M6b slice BG).
     pub ditch: Option<DitchFacts>,
+    /// The nearest neighbour's water mill their household could grind its grain at, if any
+    /// (M10a slice DR, fourth part).
+    pub mill: Option<MillFacts>,
     /// The palisade their polity is raising, if they may work on it (M6c slice BK).
     pub enclosure: Option<EnclosureFacts>,
     /// A band they joined that musters within the day, if any (M6c slice BJ).
@@ -296,6 +299,19 @@ pub struct EnclosureFacts {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DitchFacts {
     pub ditch: PermanentId,
+    pub at: (f32, f32),
+    pub walk_min: f64,
+    pub left_h: f64,
+    pub saves_per_hour: f64,
+}
+
+/// A neighbour's water mill someone's household could grind at (M10a slice DR, fourth part): its
+/// installation, where its wheel stands, the walk there from home, the hours the grain they would
+/// carry takes to grind there, and the hours of grinding at home each hour there spares the
+/// household, its toll paid.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MillFacts {
+    pub mill: PermanentId,
     pub at: (f32, f32),
     pub walk_min: f64,
     pub left_h: f64,
@@ -992,6 +1008,11 @@ pub fn candidates(
         }
         // And digging a ditch to all but those whose household is digging one (M6b slice BG).
         if def.behavior == Behavior::Ditch && f.ditch.is_none() {
+            continue;
+        }
+        // And grinding at a neighbour's mill to all but those whose household has grain to grind
+        // and a mill within reach (M10a slice DR, fourth part).
+        if def.behavior == Behavior::Mill && f.mill.is_none() {
             continue;
         }
         // And tending to all but those with someone ill at home still owed care (M6a slice AZ,
@@ -2021,6 +2042,25 @@ pub fn candidates(
                     Err(why) => excluded.push((id, why)),
                 }
             }
+            Behavior::Mill => {
+                // Grinding the household's grain at a neighbour's mill (M10a slice DR, fourth
+                // part): a walk with the grain, the grinding, and home with the flour.
+                let Some(c) = f.mill else {
+                    continue;
+                };
+                let site = Site {
+                    at: c.at,
+                    walk_min: c.walk_min,
+                    left_h: c.left_h,
+                    saves_per_hour: c.saves_per_hour,
+                    duty: 0.0,
+                    full: false,
+                };
+                match session_at_site(def, w, f, light, &site, Reason::Mill, &mut terms) {
+                    Ok(steps) => out.push(finish(id, Target::Mill(c.mill), terms, steps)),
+                    Err(why) => excluded.push((id, why)),
+                }
+            }
             Behavior::Band => {
                 // A band they said they would go with (M6c slice BJ, ADR-0023 §3): to the hearth
                 // for the muster, the walk there at the band's hour, the stay, and home.
@@ -2522,6 +2562,7 @@ mod tests {
             raise: None,
             enclosure: None,
             ditch: None,
+            mill: None,
             band: None,
         }
     }

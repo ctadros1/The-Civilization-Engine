@@ -197,10 +197,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for Terminus {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_TARGET_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_TARGET_KIND: u8 = 21;
+pub const ENUM_MAX_TARGET_KIND: u8 = 22;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 22] = [
+pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 23] = [
   TargetKind::None,
   TargetKind::Home,
   TargetKind::Hearth,
@@ -223,6 +223,7 @@ pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 22] = [
   TargetKind::Enclosure,
   TargetKind::Boat,
   TargetKind::Way,
+  TargetKind::Mill,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -252,9 +253,10 @@ impl TargetKind {
   pub const Enclosure: Self = Self(19);
   pub const Boat: Self = Self(20);
   pub const Way: Self = Self(21);
+  pub const Mill: Self = Self(22);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 21;
+  pub const ENUM_MAX: u8 = 22;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::None,
     Self::Home,
@@ -278,6 +280,7 @@ impl TargetKind {
     Self::Enclosure,
     Self::Boat,
     Self::Way,
+    Self::Mill,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -304,6 +307,7 @@ impl TargetKind {
       Self::Enclosure => Some("Enclosure"),
       Self::Boat => Some("Boat"),
       Self::Way => Some("Way"),
+      Self::Mill => Some("Mill"),
       _ => None,
     }
   }

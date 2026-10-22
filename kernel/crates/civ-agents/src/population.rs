@@ -3588,6 +3588,7 @@ impl Population {
             raise: self.raise_facts(ctx, &hh, p.id, dark),
             enclosure: self.enclosure_facts(ctx, &hh, p.id, field_key, dark),
             ditch: self.ditch_facts(ctx, &hh, field_key, dark),
+            mill: self.mill_facts(ctx, &hh, field_key, dark),
             band: band_facts,
             hurt: self
                 .order
@@ -5364,6 +5365,7 @@ impl Population {
                 | Behavior::Levee
                 | Behavior::Palisade
                 | Behavior::Ditch
+                | Behavior::Mill
                 | Behavior::Douse
                 | Behavior::Strip
                 | Behavior::Pull
@@ -5680,6 +5682,11 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.ditch_work(ctx, who, household, ditch, hours);
+                    }
+                }
+                Some(Behavior::Mill) => {
+                    if let Target::Mill(mill) = p.act.target {
+                        self.mill_grind(ctx, h, mill, minutes);
                     }
                 }
                 Some(Behavior::Hire) => {

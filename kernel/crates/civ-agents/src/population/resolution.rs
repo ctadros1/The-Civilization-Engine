@@ -104,9 +104,10 @@ const SHARED: [Behavior; 27] = [
 ];
 
 /// Behaviours never taken while household-resolved (ADR-0032 §2): journeys to another place
-/// (a visit, a fetch, carrying dues, a band) and the fire behaviours, as no fire starts there and
-/// a burning settlement is held Detailed. Sleep, meals and water are lived apart from the shares.
-pub const NOT_TAKEN: [Behavior; 8] = [
+/// (a visit, a fetch, carrying dues, a band, grain to a mill) and the fire behaviours, as no fire
+/// starts there and a burning settlement is held Detailed. Sleep, meals and water are lived apart
+/// from the shares.
+pub const NOT_TAKEN: [Behavior; 9] = [
     Behavior::Visit,
     Behavior::Fetch,
     Behavior::Carry,
@@ -115,6 +116,7 @@ pub const NOT_TAKEN: [Behavior; 8] = [
     Behavior::Strip,
     Behavior::Salvage,
     Behavior::Pull,
+    Behavior::Mill,
 ];
 
 /// Behaviours taken at most once a day: a claim on someone else's goods or work, a round of the

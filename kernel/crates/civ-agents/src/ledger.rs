@@ -71,11 +71,13 @@ pub enum Channel {
     GroundFee = 25,
     /// A year's ground rent paid a polity's store for a plan's parcel (M8c slice CU, ADR-0030 §4).
     GroundRent = 26,
+    /// The share of what was ground that a mill's owner keeps for grinding (M10a slice DR).
+    Toll = 27,
 }
 
 impl Channel {
     /// Every channel, in code order.
-    pub const ALL: [Channel; 26] = [
+    pub const ALL: [Channel; 27] = [
         Channel::Gift,
         Channel::Share,
         Channel::Allocation,
@@ -102,6 +104,7 @@ impl Channel {
         Channel::Carried,
         Channel::GroundFee,
         Channel::GroundRent,
+        Channel::Toll,
     ];
 
     /// The channel with this code.
@@ -138,6 +141,7 @@ impl Channel {
             Channel::Carried => "carried home",
             Channel::GroundFee => "ground fee",
             Channel::GroundRent => "ground rent",
+            Channel::Toll => "toll",
         }
     }
 }

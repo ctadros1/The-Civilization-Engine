@@ -3,6 +3,8 @@
 //! against digging a headrace and building the wheel, sets one where a race along a reach near
 //! home leaves the wheel a fall, digs the race as a ditch is dug, and only then grinds cheaper;
 //! the count it weighs from is saved; and a household that knows no water way never weighs one.
+//! A household near a neighbour's working mill carries its grain there and grinds it for a toll
+//! (the fourth part), and weighs a mill of its own against that.
 
 use civ_agents::person::{Flow, MillSeen};
 use civ_content::ContentRegistry;
@@ -204,4 +206,119 @@ fn a_household_that_grinds_by_hand_sets_a_mill_where_a_race_falls_and_turns_it_o
     {
         assert!(x.bytes == y.bytes, "section `{}` differs", x.tag);
     }
+}
+
+#[test]
+fn a_household_grinds_at_a_neighbours_mill_for_its_toll_and_builds_none_of_its_own() {
+    let mut sim = village();
+    let (grain, flour, wheel) = (
+        good(&sim, "grain"),
+        good(&sim, "flour"),
+        good(&sim, "water_wheel"),
+    );
+    let households = grown(&sim);
+    assert!(households.len() >= 2);
+    let (owner, _) = households[0];
+    let (customer, carrier) = households
+        .iter()
+        .copied()
+        .find(|&(h, _)| {
+            h != owner
+                && sim.people().household(h).expect("h").settlement
+                    == sim.people().household(owner).expect("o").settlement
+        })
+        .expect("a neighbour of the same settlement");
+    // The owner's mill: a ready installation (no race to dig) at its home on the reach that
+    // carries most today, its wheel in the owner's store.
+    let reach = (0..sim.land().reach_discharges.len())
+        .max_by(|&a, &b| sim.land().reach_discharges[a].total_cmp(&sim.land().reach_discharges[b]))
+        .expect("a reach") as u32;
+    let home = sim.people().household(owner).expect("o").home;
+    let mill = PermanentId::from_raw(9_000_002).expect("id");
+    sim.land_mut_for_tests()
+        .installations
+        .push(civ_land::power::Installation {
+            id: mill,
+            reach,
+            at: [f64::from(home.0), f64::from(home.1)],
+            head_m: 2.0,
+            race_m3s: 0.5,
+            efficiency: 0.3,
+            rated_kw: 3.0,
+            owner,
+            building: None,
+        });
+    let n = sim.rules().catalog.goods.len();
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        x.stores.resize(x.stores.len().max(n), 0.0);
+        if x.id == owner {
+            x.stores[wheel] = 1.0;
+        }
+        if x.id == customer {
+            x.stores[grain] = 60.0;
+            x.stores[flour] = 0.0;
+        }
+    }
+    let params = sim.rules().land.clone();
+    let kw = sim.land().installation_kw(&params, 0);
+    assert!(kw > 0.0, "the river turns the wheel");
+    // The neighbour sees the mill: a load's grinding, and hours spared.
+    let facts = sim
+        .with_ctx_for_tests(|pop, ctx| pop.mill_facts_for_tests(ctx, carrier))
+        .expect("a mill to grind at");
+    assert_eq!(facts.mill, mill);
+    assert!(facts.left_h > 0.0 && facts.saves_per_hour > 0.0);
+    // The owner grinds at home: it sees no neighbour's mill.
+    let owner_person = households[0].1;
+    assert!(
+        sim.with_ctx_for_tests(|pop, ctx| pop.mill_facts_for_tests(ctx, owner_person))
+            .is_none()
+    );
+    let stores = |sim: &Sim, h: PermanentId| {
+        let x = sim.people().household(h).expect("household");
+        civ_agents::population::stores_now(
+            x,
+            sim.now(),
+            &sim.rules().people,
+            &sim.rules().catalog.goods,
+        )
+    };
+    let (c0, o0) = (stores(&sim, customer), stores(&sim, owner));
+    sim.with_ctx_for_tests(|pop, ctx| pop.mill_grind_for_tests(ctx, carrier, mill, 120));
+    let (c1, o1) = (stores(&sim, customer), stores(&sim, owner));
+    let ground = c0[grain] - c1[grain];
+    assert!(ground > 0.0, "grain was ground");
+    assert!(
+        ground <= sim.rules().people.household.carry_kg + 1e-9,
+        "{ground} kg is no more than a load"
+    );
+    // The flour is the customer's but a sixteenth, which is the owner's toll.
+    let made = ground * 0.98;
+    assert!((c1[flour] - c0[flour] - made * 15.0 / 16.0).abs() < 1e-6);
+    assert!((o1[flour] - o0[flour] - made / 16.0).abs() < 1e-6);
+    // The owner's wheel wore by the hours it turned.
+    assert!(o1[wheel] < o0[wheel]);
+    // A customer that knows the mill and grinds 600 kg a year weighs its own against the toll
+    // and, with a working mill this near, sets none.
+    for t in [
+        "core:technique/rotary_quern",
+        "core:technique/jointed_frame",
+        "core:technique/water_wheel",
+    ] {
+        sim.introduce_technique(carrier, t, false)
+            .expect("introduced");
+    }
+    let today = sim.now().day_index();
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == customer {
+            let made = x.flows.get(Flow::Made, flour);
+            x.flows.add(Flow::Made, flour, 600.0);
+            x.mill_seen = Some(MillSeen {
+                day: today - 365,
+                kg: made,
+            });
+        }
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_mill_for_tests(ctx, customer));
+    assert_eq!(sim.land().installations.len(), 1, "no second mill");
 }

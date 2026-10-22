@@ -4072,6 +4072,7 @@ fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
         Target::Enclosure(e) => (save::TargetKind::Enclosure, 0, e.get()),
         Target::Boat(b) => (save::TargetKind::Boat, 0, b.get()),
         Target::Way(w) => (save::TargetKind::Way, 0, w.get()),
+        Target::Mill(m) => (save::TargetKind::Mill, 0, m.get()),
     }
 }
 
@@ -4117,6 +4118,7 @@ fn target_of(
         save::TargetKind::Enclosure => Target::Enclosure(required(id, "a palisade target")?),
         save::TargetKind::Boat => Target::Boat(required(id, "a boat target")?),
         save::TargetKind::Way => Target::Way(required(id, "a way target")?),
+        save::TargetKind::Mill => Target::Mill(required(id, "a mill target")?),
         other => {
             return Err(LoadError::Malformed(format!(
                 "an activity has target kind {}",

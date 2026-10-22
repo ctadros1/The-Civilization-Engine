@@ -958,6 +958,14 @@ pub fn describe_target(
             }
             None => "a flood bank".to_owned(),
         },
+        // A neighbour's water mill (M10a slice DR, fourth part): "the mill south of home".
+        Target::Mill(id) => match sim.land.installations.iter().find(|m| m.id == id) {
+            Some(m) => format!(
+                "the mill {} of home",
+                bearing(home, (m.at[0] as f32, m.at[1] as f32))
+            ),
+            None => "a mill".to_owned(),
+        },
         // An irrigation ditch (M6b slice BG): "the ditch south of home".
         Target::Ditch(id) => match sim.land.ditches.iter().find(|d| d.work == id) {
             Some(d) => {
@@ -1198,6 +1206,8 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
                 Target::Bank(_) => format!("building {place}"),
                 // "digging the ditch south of home" (M6b slice BG).
                 Target::Ditch(_) => format!("digging {place}"),
+                // "grinding grain at the mill south of home" (M10a slice DR).
+                Target::Mill(_) => format!("grinding grain at {place}"),
                 // "setting posts on the palisade round Ashford" (M6c slice BK).
                 Target::Enclosure(_) => format!("setting posts on {place}"),
                 // Another settlement's hearth (M5a slice AM): "visiting the hearth of Ashford".

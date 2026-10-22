@@ -1615,3 +1615,15 @@ at most 1; research 07-06 §2.2: simple wheels 20–40 %, overshot 50–70 %); o
 carry one. A recipe's `kwh_per_unit` is the power a unit takes from a powered station; a session
 makes no more than the station's power over its hours allows. An installation's power is worked
 out each day from its river reach's discharge, P = 9.81 Q H η, and is never saved.
+
+Content API 161 (M10a slice DR, fourth part) adds the behavior `mill`: carry a load of the
+household's grain to a working water mill of another household of its settlement, grind it there
+by the way the mill's wheel turns, and carry the flour home, the mill's owner keeping a toll of it
+(a sixteenth, a tuning value). Its activity names no recipe; the way is the mill's. The first is
+`activity/carry_grain_to_mill`.
+
+Content API 161 (M10a slice DR, fourth part) adds the behavior `mill`: carry a load of the
+household's grain to a working water mill of another household of its settlement, grind it there
+by the way the mill's wheel turns, and carry the flour home, the mill's owner keeping a toll of it
+(a sixteenth, a tuning value). Its activity names no recipe; the way is the mill's. The first is
+`activity/carry_grain_to_mill`.

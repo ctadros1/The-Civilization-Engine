@@ -1026,6 +1026,8 @@ table FirmState {
   // that was seen (0 and 0 in an earlier save).
   most_at_once: ubyte (id: 18);
   most_at_once_day: long (id: 19);
+  // Schema 172 (M10a slice DQ): its batches under way, as a household's (none before).
+  batches: [BatchSave] (id: 20);
 }
 
 table WageOfferState {

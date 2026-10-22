@@ -4277,14 +4277,25 @@ impl Population {
             let mut waiting = 0.0;
             if r.elapsed_days > 0.0 {
                 let today = ctx.now.day_index();
-                for b in hh.batches.iter().filter(|b| a.recipe == Some(b.recipe)) {
+                // Its workshop's batches of it as well as its own (M10a slice DQ).
+                let shop = self
+                    .workshop_of(hh_id, out)
+                    .and_then(|f| self.firm(f))
+                    .map(|f| f.batches.as_slice())
+                    .unwrap_or_default();
+                for b in hh
+                    .batches
+                    .iter()
+                    .chain(shop)
+                    .filter(|b| a.recipe == Some(b.recipe))
+                {
                     if b.ends_day > today {
                         return Err((Reason::Burning, None));
                     }
                     waiting += b.units;
                 }
             }
-            let from_inputs = make::units_from_inputs(r, &have) + waiting;
+            let mut from_inputs = make::units_from_inputs(r, &have) + waiting;
             // What making it is worth, and how much of it is wanted.
             let (worth, wanted) = if let Some(_tool) = &out_good.tool {
                 // Its need is the need of the tool it serves for, made the way the household
@@ -4398,14 +4409,22 @@ impl Population {
             } else {
                 return Err((Reason::NotNeeded, None));
             };
-            if from_inputs <= 1e-6 {
-                return Err((Reason::NoInputs, None));
-            }
-            // Made for sale, its workshop's stations do the work they can (M10a slice DQ).
+            // Made for sale, its workshop's goods in progress (what another of its lines made) go
+            // in before the household's, and its stations do the work they can (M10a slice DQ).
             let shop = match worth {
                 MakeWorth::Sale { .. } => self.workshop_of(hh_id, out),
                 _ => None,
             };
+            if let Some(f) = shop
+                .and_then(|f| self.firm(f))
+                .filter(|f| f.lines.len() > 1)
+            {
+                let with = |g: usize| have(g) + f.in_progress(g, out);
+                from_inputs = make::units_from_inputs(r, &with) + waiting;
+            }
+            if from_inputs <= 1e-6 {
+                return Err((Reason::NoInputs, None));
+            }
             if let Some(&t) = r.tools.iter().find(|&&t| {
                 free_tools.get(t).copied().unwrap_or(0.0) < decide::MIN_TOOL
                     && shop.is_none_or(|f| self.station_for(goods, f, t) < decide::MIN_TOOL)

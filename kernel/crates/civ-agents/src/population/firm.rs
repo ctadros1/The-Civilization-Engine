@@ -350,15 +350,58 @@ impl Population {
         let members = x.members.len().max(1);
         x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
         x.stores.resize(goods.len(), 0.0);
-        let before = x.stores.clone();
+        // Goods in progress (M10a slice DQ): what another of its lines made is taken from its own
+        // stock before its owners put any in.
+        let output = recipe.outputs.first().map_or(usize::MAX, |&(g, _)| g);
+        let wip: Vec<f64> = match self.firm(id) {
+            Some(f) => (0..goods.len()).map(|g| f.in_progress(g, output)).collect(),
+            None => vec![0.0; goods.len()],
+        };
+        // A batch (ADR-0033 §2), as a household's: those of this recipe whose days are past are
+        // opened into its stores, and another is started unless one is still under way.
+        let today = now.day_index();
+        let batch = def.recipe.filter(|_| recipe.elapsed_days > 0.0);
+        let (opened, running): (Vec<(f64, f64)>, bool) = match (batch, self.firm(id)) {
+            (Some(ri), Some(f)) => (
+                f.batches
+                    .iter()
+                    .filter(|b| b.recipe == ri && b.ends_day <= today)
+                    .map(|b| (b.units, b.quality))
+                    .collect(),
+                f.batches
+                    .iter()
+                    .any(|b| b.recipe == ri && b.ends_day > today),
+            ),
+            _ => (Vec::new(), false),
+        };
+        let Some(x) = self.households.get_mut(hd) else {
+            return;
+        };
+        let before: Vec<f64> = x.stores.iter().zip(&wip).map(|(h, w)| h + w).collect();
         let mut after = before.clone();
-        make::apply(recipe, &mut after, goods, units, quality, false, None);
-        let taken: Vec<(usize, f64)> = before
+        let mut started = 0.0;
+        if batch.is_some() {
+            for &(u, q) in &opened {
+                make::give(recipe, &mut after, goods, u, q);
+            }
+            if !running {
+                started = make::start(recipe, &mut after, goods, units, false, None);
+            }
+        } else {
+            make::apply(recipe, &mut after, goods, units, quality, false, None);
+        }
+        let used: Vec<(usize, f64)> = before
             .iter()
             .zip(&after)
             .enumerate()
             .filter(|(_, (b, a))| *b > *a)
             .map(|(g, (b, a))| (g, b - a))
+            .collect();
+        // What its owners put in: what was used beyond its own goods in progress.
+        let taken: Vec<(usize, f64)> = used
+            .iter()
+            .map(|&(g, kg)| (g, kg - kg.min(wip[g])))
+            .filter(|&(_, kg)| kg > 0.0)
             .collect();
         let made: Vec<(usize, f64)> = before
             .iter()
@@ -380,20 +423,39 @@ impl Population {
         let worth = self.worth_to(ctx, owner);
         let keep = params.firm.book_entries;
         if let Some(f) = self.firm_mut(id) {
-            if put_in && !made.is_empty() {
-                for &(g, amount) in &taken {
+            if put_in && let Some(ri) = batch {
+                f.batches
+                    .retain(|b| !(b.recipe == ri && b.ends_day <= today));
+                if started > 0.0 {
+                    f.batches.push(crate::person::Batch {
+                        recipe: ri,
+                        units: started,
+                        quality,
+                        ends_day: today + recipe.elapsed_days.ceil() as i64,
+                    });
+                }
+            }
+            if put_in && (!made.is_empty() || started > 0.0) {
+                for &(g, amount) in &used {
+                    let theirs = taken.iter().find(|t| t.0 == g).map_or(0.0, |t| t.1);
                     f.stores[g] -= amount;
                     f.flows.add(Flow::Used, g, amount);
-                    let entry = |kind| Entry {
+                    let entry = |kind, amount: f64, other| Entry {
                         at: now,
                         kind,
                         good: g as u16,
                         amount: amount as f32,
-                        other: Some(owner),
+                        other,
                     };
-                    f.books.record(entry(BookKind::PutIn), 0.0, keep);
-                    f.books
-                        .record(entry(BookKind::Used), amount * worth[g], keep);
+                    if theirs > 0.0 {
+                        f.books
+                            .record(entry(BookKind::PutIn, theirs, Some(owner)), 0.0, keep);
+                    }
+                    f.books.record(
+                        entry(BookKind::Used, amount, (theirs > 0.0).then_some(owner)),
+                        amount * worth[g],
+                        keep,
+                    );
                 }
                 for &(g, amount) in &made {
                     f.stores[g] += amount;
@@ -592,6 +654,8 @@ impl Population {
     /// all of it: hired work always pays the workshop.
     /// It is paid in the settlement's money, or else in what neighbours most accept of what it or
     /// its owners can spare (never a tool), for as many hours as that covers.
+    /// A workshop of several lines (M10a slice DQ) hires for the line with the most work wanted,
+    /// the first on a tie.
     fn plan_wage(
         &self,
         ctx: &Ctx,
@@ -600,9 +664,30 @@ impl Population {
         holding: &super::market::Holding,
         owner_stores: &[f64],
     ) -> Option<WageOffer> {
+        let mut best: Option<WageOffer> = None;
+        for &line in &f.lines {
+            let offer = self.plan_wage_for(ctx, f, usize::from(line), costs, holding, owner_stores);
+            if let Some(o) = offer
+                && best.is_none_or(|b| o.hours > b.hours)
+            {
+                best = Some(o);
+            }
+        }
+        best
+    }
+
+    /// The wage workshop `f` would offer for work on its line `line`, as [`Self::plan_wage`].
+    fn plan_wage_for(
+        &self,
+        ctx: &Ctx,
+        f: &Firm,
+        line: usize,
+        costs: &[Option<f64>],
+        holding: &super::market::Holding,
+        owner_stores: &[f64],
+    ) -> Option<WageOffer> {
         let (params, catalog) = (ctx.params, ctx.catalog);
         let fp = &params.firm;
-        let line = usize::from(*f.lines.first()?);
         let (activity, recipe) = catalog.activities.iter().enumerate().find_map(|(i, a)| {
             let r = catalog.recipes.get(a.recipe?)?;
             (a.behavior == Behavior::Make && r.outputs.first().is_some_and(|&(g, _)| g == line))

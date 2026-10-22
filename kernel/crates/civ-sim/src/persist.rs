@@ -474,6 +474,8 @@ pub const SCHEMA_V168: u32 = 168;
 pub const SCHEMA_V169: u32 = 169;
 /// The observer's forcings on the climate, before households kept batches.
 pub const SCHEMA_V170: u32 = 170;
+/// Households kept batches, before workshops did.
+pub const SCHEMA_V171: u32 = 171;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

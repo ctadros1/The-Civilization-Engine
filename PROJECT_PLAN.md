@@ -5892,6 +5892,22 @@ and M6a gives rivers a daily flow.
         section but `meta`. **Tested:** a kiln put in, worn by firing bricks for the workshop on
         its books with the owners' stores untouched, every good accounted for, saved and loaded
         to the station, and drawn back on closing; an axe is refused as a station.
+      - *As built, second part (2026-10-22): several lines, goods in progress and a works'
+        batches.* A firm's lines may be several (`Firm::add_line`). Work on one line takes from
+        the firm's own stock first what another of its lines made (`Firm::in_progress`: bloom
+        for bar), and from its owners the rest (on its books as used, put in only for their
+        part); its owners, deciding to make for sale, count that stock as inputs; and it hires
+        for the line with the most work wanted (`plan_wage` over its lines, the first on a tie).
+        A recipe of elapsed days worked for it runs as a batch of its own (`Firm::batches`, saves
+        schema 172, `FirmState.batches` by recipe id; DP part 2 had left firms giving a batch's
+        outputs at once), opened into its stores by a later session, and a household's choice of
+        the work waits while its workshop's batch of it burns. A firm of one line takes nothing
+        from its own stock and plans as before, and nothing yet gives a firm a second line (the
+        works of slice DT will), so the three bench worlds are unchanged in every section but
+        `meta`. **Tested:** a works with bloom and bar for lines smelts a batch from its owners'
+        ore and charcoal, keeps the batch through a save and load to the byte, opens the bloom
+        into its own stores the next day, and forges bar from its own blooms with only its
+        owners' charcoal put in.
     - **DR**: water power at a site (installations, daily kilowatts from discharge, `kwh_per_unit`,
       the water mill) and techniques that answer needs in hours.
     - **DS**: coal and coke, pits that flood below the ground-water head, bailing and pumping, the

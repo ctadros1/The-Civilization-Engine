@@ -126,7 +126,7 @@ use super::{
     SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, SCHEMA_V152,
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
     SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
-    SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, finish, section, section_root,
+    SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, finish, section, section_root,
     single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
@@ -273,7 +273,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         section(
             SECTION_FIRMS,
             0,
-            encode_firms(&sim.people, &goods, &activities),
+            encode_firms(&sim.people, &goods, &activities, &recipes),
         ),
         section(SECTION_WEALTH, 0, encode_wealth(&sim.people)),
         section(SECTION_KNOW, 0, encode_knowledge(&sim.people, &techniques)),
@@ -873,7 +873,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V168 => Schema::V168,
         // The observer's forcings (schema 170) changed no people or land.
         SCHEMA_V169 | SCHEMA_V170 => Schema::V169,
-        SAVE_SCHEMA_VERSION => Schema::V171,
+        // Workshops' batches (schema 172) changed no people or land.
+        SCHEMA_V171 | SAVE_SCHEMA_VERSION => Schema::V171,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -8273,7 +8274,12 @@ fn encode_offer<'a>(fbb: &mut FlatBufferBuilder<'a>, o: &Offer) -> WIPOffset<sav
     )
 }
 
-fn encode_firms(pop: &Population, goods: &[&str], activities: &[&str]) -> Vec<u8> {
+fn encode_firms(
+    pop: &Population,
+    goods: &[&str],
+    activities: &[&str],
+    recipes: &[&str],
+) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let good_dictionary = strings(&mut fbb, goods);
     let activity_dictionary = strings(&mut fbb, activities);
@@ -8346,6 +8352,24 @@ fn encode_firms(pop: &Population, goods: &[&str], activities: &[&str]) -> Vec<u8
                     },
                 )
             });
+            // Its batches under way (schema 172), each by its recipe's content id.
+            let batches: Vec<_> = f
+                .batches
+                .iter()
+                .filter_map(|b| {
+                    let recipe = fbb.create_string(recipes.get(b.recipe)?);
+                    Some(save::BatchSave::create(
+                        &mut fbb,
+                        &save::BatchSaveArgs {
+                            recipe: Some(recipe),
+                            units: b.units,
+                            quality: b.quality,
+                            ends_day: b.ends_day,
+                        },
+                    ))
+                })
+                .collect();
+            let batches = (!batches.is_empty()).then(|| fbb.create_vector(&batches));
             save::FirmState::create(
                 &mut fbb,
                 &save::FirmStateArgs {
@@ -8369,6 +8393,7 @@ fn encode_firms(pop: &Population, goods: &[&str], activities: &[&str]) -> Vec<u8
                     wage,
                     most_at_once: f.most_at_once,
                     most_at_once_day: f.most_at_once_day,
+                    batches,
                 },
             )
         })
@@ -8521,6 +8546,36 @@ fn decode_firms(bytes: &[u8], rules: &Rules) -> Result<Vec<Firm>, LoadError> {
             // Before schema 16 nobody was counted: none at once, long ago.
             most_at_once: f.most_at_once(),
             most_at_once_day: f.most_at_once_day(),
+            // Its batches under way (schema 172); before, none. One of a recipe the content no
+            // longer has is dropped, its inputs with it.
+            batches: {
+                let mut out: Vec<civ_agents::person::Batch> = Vec::new();
+                for b in f.batches().iter().flatten() {
+                    let ok = b.units().is_finite()
+                        && b.units() > 0.0
+                        && b.quality().is_finite()
+                        && b.quality() >= 0.0;
+                    if !ok {
+                        return Err(LoadError::Malformed(format!(
+                            "{} keeps a batch of no units or quality",
+                            what()
+                        )));
+                    }
+                    let Some(recipe) = b
+                        .recipe()
+                        .and_then(|id| rules.catalog.recipes.iter().position(|r| r.id == id))
+                    else {
+                        continue;
+                    };
+                    out.push(civ_agents::person::Batch {
+                        recipe,
+                        units: b.units(),
+                        quality: b.quality(),
+                        ends_day: b.ends_day(),
+                    });
+                }
+                out
+            },
         });
     }
     Ok(out)

@@ -36160,6 +36160,7 @@ impl<'a> FirmState<'a> {
   pub const VT_WAGE: ::flatbuffers::VOffsetT = 38;
   pub const VT_MOST_AT_ONCE: ::flatbuffers::VOffsetT = 40;
   pub const VT_MOST_AT_ONCE_DAY: ::flatbuffers::VOffsetT = 42;
+  pub const VT_BATCHES: ::flatbuffers::VOffsetT = 44;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -36181,6 +36182,7 @@ impl<'a> FirmState<'a> {
     builder.add_owner_since(args.owner_since);
     builder.add_owner(args.owner);
     builder.add_id(args.id);
+    if let Some(x) = args.batches { builder.add_batches(x); }
     if let Some(x) = args.wage { builder.add_wage(x); }
     if let Some(x) = args.months { builder.add_months(x); }
     if let Some(x) = args.entries { builder.add_entries(x); }
@@ -36335,6 +36337,13 @@ impl<'a> FirmState<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(FirmState::VT_MOST_AT_ONCE_DAY, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn batches(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BatchSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BatchSave>>>>(FirmState::VT_BATCHES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FirmState<'_> {
@@ -36363,6 +36372,7 @@ impl ::flatbuffers::Verifiable for FirmState<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<WageOfferState>>("wage", Self::VT_WAGE, false)?
      .visit_field::<u8>("most_at_once", Self::VT_MOST_AT_ONCE, false)?
      .visit_field::<i64>("most_at_once_day", Self::VT_MOST_AT_ONCE_DAY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BatchSave>>>>("batches", Self::VT_BATCHES, false)?
      .finish();
     Ok(())
   }
@@ -36388,6 +36398,7 @@ pub struct FirmStateArgs<'a> {
     pub wage: Option<::flatbuffers::WIPOffset<WageOfferState<'a>>>,
     pub most_at_once: u8,
     pub most_at_once_day: i64,
+    pub batches: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BatchSave<'a>>>>>,
 }
 impl<'a> Default for FirmStateArgs<'a> {
   #[inline]
@@ -36413,6 +36424,7 @@ impl<'a> Default for FirmStateArgs<'a> {
       wage: None,
       most_at_once: 0,
       most_at_once_day: 0,
+      batches: None,
     }
   }
 }
@@ -36503,6 +36515,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FirmStateBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<i64>(FirmState::VT_MOST_AT_ONCE_DAY, most_at_once_day, 0);
   }
   #[inline]
+  pub fn add_batches(&mut self, batches: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<BatchSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FirmState::VT_BATCHES, batches);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FirmStateBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FirmStateBuilder {
@@ -36540,6 +36556,7 @@ impl ::core::fmt::Debug for FirmState<'_> {
       ds.field("wage", &self.wage());
       ds.field("most_at_once", &self.most_at_once());
       ds.field("most_at_once_day", &self.most_at_once_day());
+      ds.field("batches", &self.batches());
       ds.finish()
   }
 }

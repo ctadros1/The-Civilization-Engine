@@ -1699,3 +1699,7 @@ to hew and lay a metre), `earth_h_m3` (hours to dig or place a cubic metre in gr
 line is laid over before its bed is graded). The core lays timber at 50 kg and 1.5 hours a metre,
 grades at 2.3 hours a cubic metre, on a bed 0.5 m wider than the gauge each side, over ground no
 steeper than 5 %. A profile that leaves it out lays no track.
+
+From DV's third part the core's `[track] search_grade` is 0.4: a line is cut across ground up to 40
+% between cells, its grading's earth weighed against going round, and goes round only what is
+steeper. The field's meaning is unchanged; content API 169 still.

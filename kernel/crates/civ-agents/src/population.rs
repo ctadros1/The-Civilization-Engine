@@ -73,6 +73,7 @@ mod moving;
 mod norm;
 mod opinion;
 mod payments;
+mod wagons;
 mod war;
 mod way_works;
 pub use crime::TakeProbe;
@@ -5576,18 +5577,27 @@ impl Population {
                         && let Some(good) = d.digs
                     {
                         let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * d.rate;
-                        let effort_h = f64::from(minutes) / 60.0 * eff;
-                        let settlement = self
+                        let hh = self
                             .hh_index
                             .get(&household)
-                            .and_then(|&x| self.households.get(x))
-                            .and_then(|x| x.settlement);
+                            .and_then(|&x| self.households.get(x));
+                        let (settlement, home) =
+                            (hh.and_then(|x| x.settlement), hh.map_or(p.pos, |x| x.home));
                         let toward = settlement
                             .and_then(|s| ctx.land.settlements.iter().find(|x| x.id == s))
                             .map_or(p.pos, |x| x.hearth_m);
                         let toward = (f64::from(toward.0), f64::from(toward.1));
-                        let carry = params.household.carry_kg;
-                        let kg = digging::dig_at(ctx, household, toward, deposit, effort_h, carry);
+                        // By the household's wagon, where its line runs from the pit home (M10b
+                        // slice DV, third part); else what one person carries.
+                        let kg = Self::dig_and_bring(
+                            ctx,
+                            household,
+                            home,
+                            toward,
+                            deposit,
+                            f64::from(minutes),
+                            eff,
+                        );
                         if kg > 0.0 {
                             p.carrying.good = Some(good as u16);
                             p.carrying.kg = kg as f32;

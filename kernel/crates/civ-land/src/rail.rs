@@ -13,13 +13,18 @@
 //! §1.1: "grading is a prerequisite"). Laying it takes hours for the earth moved and for each
 //! metre of sleepers and rails, and timber for them ([`TrackParams`]); the plan is a [`Track`]
 //! kept with its way.
+//!
+//! The third part: a wagon is pushed along its line's bed, its speed on each step its pusher's
+//! power over the pull there ([`push_seconds`]), and it carries no more than its pusher can take
+//! up the steepest rise it meets ([`most_load`]): on a pushed wagonway the ruling grade sets the
+//! load.
 
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
 
 use civ_world::WATER_LAND;
 
-use crate::carting::Terrain;
+use crate::carting::{Terrain, Wheels};
 
 /// The eight directions from a cell, clockwise from east, as steps in columns and rows.
 const DIRS: [(i64, i64); 8] = [
@@ -93,6 +98,23 @@ impl Terrain<'_> {
         ruling_grade: f64,
         max_cells: usize,
     ) -> Option<Vec<u32>> {
+        self.cut_track(from, to, ruling_grade, ruling_grade, 0.0, max_cells)
+    }
+
+    /// The cheapest line of track from cell `from` to cell `to` that turns at most 45° a cell
+    /// and crosses no ground steeper than `steepest` between neighbouring cells (M10b slice DV,
+    /// third part): each step costs its run, metres, and `earth_m` metres more for each square
+    /// metre of rise beyond `ruling_grade` times its run, the earth a bed graded to that grade
+    /// would move there; `None` if there is none within `max_cells` cells searched.
+    pub fn cut_track(
+        &self,
+        from: u32,
+        to: u32,
+        ruling_grade: f64,
+        steepest: f64,
+        earth_m: f64,
+        max_cells: usize,
+    ) -> Option<Vec<u32>> {
         let (w, h) = (i64::from(self.width), i64::from(self.height));
         let xy = |c: u32| (i64::from(c) % w, i64::from(c) / w);
         self.track_height(from)?;
@@ -155,10 +177,11 @@ impl Terrain<'_> {
                 } else {
                     self.cell_m
                 };
-                if f64::from((nz - z).abs()) / run > ruling_grade {
+                let rise = f64::from((nz - z).abs());
+                if rise / run > steepest.max(ruling_grade) {
                     continue;
                 }
-                let ng = g + run;
+                let ng = g + run + earth_m * (rise - ruling_grade * run).max(0.0) * run;
                 if ng < best.get(&(next, d)).copied().unwrap_or(f64::INFINITY) {
                     best.insert((next, d), ng);
                     came.insert((next, d), (cell, dir));
@@ -267,8 +290,10 @@ pub fn earth_m3(ground: &[f32], bed: &[f32], runs: &[f64], width: f64) -> (f64, 
 
 impl Terrain<'_> {
     /// A line of track of gauge `gauge_m` from cell `from` to cell `to` (`max_cells` searched at
-    /// most): its cells, laid over ground no steeper than `params.search_grade`, and its bed
-    /// graded to `ruling` with what that and its sleepers and rails take.
+    /// most): its cells, the cheapest in hours over ground no steeper than `params.search_grade`
+    /// (a step's earth beyond the ruling grade reckoned as half its excess rise times its run
+    /// across the bed, at `earth_h_m3` against `lay_h_m` a metre), and its bed graded to `ruling`
+    /// with what that and its sleepers and rails take.
     pub fn plan_track(
         &self,
         from: u32,
@@ -278,14 +303,15 @@ impl Terrain<'_> {
         params: &TrackParams,
         max_cells: usize,
     ) -> Option<(Vec<u32>, Track)> {
-        let cells = self.lay_track(from, to, params.search_grade.max(ruling), max_cells)?;
+        let width = f64::from(gauge_m + 2.0 * params.shoulder_m);
+        let earth_m = params.earth_h_m3 * width / (2.0 * params.lay_h_m.max(1e-9));
+        let cells = self.cut_track(from, to, ruling, params.search_grade, earth_m, max_cells)?;
         let ground: Vec<f32> = cells
             .iter()
             .map(|&c| self.track_height(c))
             .collect::<Option<_>>()?;
         let runs = runs(&cells, self.width, self.cell_m);
         let bed = bed_profile(&ground, &runs, ruling);
-        let width = f64::from(gauge_m + 2.0 * params.shoulder_m);
         let (cut, fill) = earth_m3(&ground, &bed, &runs, width);
         let length: f64 = runs.iter().sum();
         let track = Track {
@@ -298,6 +324,60 @@ impl Terrain<'_> {
         };
         Some((cells, track))
     }
+}
+
+/// The grade of each step along a bed (`runs` apart, as [`runs`] gives), rise over run, going
+/// from its first cell to its last, or from its last to its first when `back`.
+fn step_grades(bed: &[f32], runs: &[f64], back: bool) -> Vec<f64> {
+    let mut grades: Vec<f64> = bed
+        .windows(2)
+        .zip(&runs[1.min(runs.len())..])
+        .map(|(p, &run)| f64::from(p[1] - p[0]) / run.max(1e-9))
+        .collect();
+    if back {
+        grades.reverse();
+        grades.iter_mut().for_each(|g| *g = -*g);
+    }
+    grades
+}
+
+/// The steepest rise met going along a bed that way, rise over run: 0 where it never climbs.
+pub fn steepest_rise(bed: &[f32], runs: &[f64], back: bool) -> f64 {
+    step_grades(bed, runs, back).into_iter().fold(0.0, f64::max)
+}
+
+/// The seconds to push `wheels` along a bed that way on rails of rolling resistance `c`: each
+/// step at its pusher's power over the pull there, no faster than they walk; `None` where it
+/// stalls on a rise or cannot be held back on a fall.
+pub fn push_seconds(bed: &[f32], runs: &[f64], wheels: &Wheels, c: f64, back: bool) -> Option<f64> {
+    let mut steps: Vec<f64> = runs.get(1..).unwrap_or(&[]).to_vec();
+    if back {
+        steps.reverse();
+    }
+    step_grades(bed, runs, back)
+        .into_iter()
+        .zip(steps)
+        .map(|(grade, run)| wheels.speed(c, grade).map(|v| run / v))
+        .sum()
+}
+
+/// The most a wagon of its own mass `tare_kg` carries along a bed that way on rails of rolling
+/// resistance `c`, no more than `payload_kg`: what a pusher's `pull_n` takes up the steepest rise
+/// it meets, `M·g·(C + s) ≤ pull`.
+pub fn most_load(
+    bed: &[f32],
+    runs: &[f64],
+    back: bool,
+    tare_kg: f64,
+    payload_kg: f64,
+    c: f64,
+    pull_n: f64,
+) -> f64 {
+    let per_kg = crate::carting::pull_n(1.0, c, steepest_rise(bed, runs, back));
+    if per_kg <= 0.0 {
+        return payload_kg;
+    }
+    (pull_n / per_kg - tare_kg).clamp(0.0, payload_kg)
 }
 
 /// The sharpest turn, in eighths of a full turn, between consecutive steps of `cells` on a map
@@ -484,10 +564,81 @@ mod tests {
     }
 
     #[test]
+    fn the_ruling_grade_sets_a_pushed_wagons_load_and_its_time() {
+        let w = wagon();
+        // A bed level for 80 m, then rising 0.2 m over 40 m (0.5 %), on 8 m steps.
+        let bed: Vec<f32> = (0..16)
+            .map(|i| if i <= 10 { 0.0 } else { 0.04 * (i - 10) as f32 })
+            .collect();
+        let runs: Vec<f64> = (0..16).map(|i| if i == 0 { 0.0 } else { 8.0 }).collect();
+        assert!((steepest_rise(&bed, &runs, false) - 0.005).abs() < 1e-6);
+        assert_eq!(steepest_rise(&bed, &runs, true), 0.0);
+        // Up the rise one person's 200 N moves 2,039 kg in all: 1,539 kg aboard a 500 kg wagon.
+        let up = most_load(&bed, &runs, false, 500.0, 2_000.0, 0.005, 200.0);
+        assert!((up - (200.0 / (9.81 * 0.01) - 500.0)).abs() < 0.01, "{up}");
+        // The other way it is level or downhill: a full load.
+        assert_eq!(
+            most_load(&bed, &runs, true, 500.0, 2_000.0, 0.005, 200.0),
+            2_000.0
+        );
+        // Loaded downhill the full 2 t goes at 75 W over its pull on the level stretch.
+        let full = push_seconds(&bed, &runs, &w, 0.005, true).expect("runs downhill");
+        let level = 80.0 / w.speed(0.005, 0.0).expect("level");
+        assert!(full > level, "{full} {level}");
+        // Uphill with the full load it stalls on the rise; with the most it climbs it runs.
+        assert_eq!(push_seconds(&bed, &runs, &w, 0.005, false), None);
+        let light = Wheels {
+            mass_kg: 500.0 + up,
+            ..w
+        };
+        assert!(push_seconds(&bed, &runs, &light, 0.005, false).is_some());
+    }
+
+    #[test]
+    fn a_line_cuts_through_a_ridge_when_going_round_costs_more_than_the_earth() {
+        let (w, h) = (30u32, 16u32);
+        let (mut z, water) = flat(w, h);
+        // A ridge 0.6 m high across columns 12–14 but for a gap at rows 0–1.
+        for y in 2..h {
+            for x in 12..15u32 {
+                z[(y * w + x) as usize] = if x == 13 { 0.6 } else { 0.3 };
+            }
+        }
+        let t = Terrain {
+            elevation: &z,
+            water: &water,
+            decks: &[],
+            width: w,
+            height: h,
+            cell_m: 8.0,
+        };
+        let (from, to) = (10 * w + 4, 10 * w + 24);
+        // Earth dear: round by the gap. Earth cheap: straight through. Ground too steep to cut:
+        // round again, whatever the earth costs.
+        let round = t
+            .cut_track(from, to, 0.003, 0.4, 100.0, 1_000_000)
+            .expect("round");
+        assert!(round.iter().any(|&c| c / w < 2));
+        let through = t
+            .cut_track(from, to, 0.003, 0.4, 0.01, 1_000_000)
+            .expect("through");
+        assert!(through.iter().all(|&c| c / w == 10), "{through:?}");
+        let cliff = t
+            .cut_track(from, to, 0.003, 0.02, 0.01, 1_000_000)
+            .expect("round");
+        assert!(cliff.iter().any(|&c| c / w < 2));
+        // With no earth to weigh and the steepest at the ruling grade it is `lay_track`.
+        assert_eq!(
+            t.cut_track(from, to, 0.01, 0.01, 0.0, 1_000_000),
+            t.lay_track(from, to, 0.01, 1_000_000)
+        );
+    }
+
+    #[test]
     fn a_planned_line_reckons_its_timber_and_hours_by_length_and_earth() {
         let (w, h) = (24u32, 8u32);
         let (mut z, water) = flat(w, h);
-        // A rise of 0.2 m at column 10 (2.5 % on 8 m cells), within the searching grade.
+        // A rise of 0.2 m at column 10 (2.5 % on 8 m cells), within the steepest ground cut.
         z[(4 * w + 10) as usize] = 0.2;
         let t = Terrain {
             elevation: &z,

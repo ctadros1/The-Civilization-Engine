@@ -2376,7 +2376,7 @@ fn a_lamp_names_the_fuel_it_burns() {
 fn a_land_profile_says_what_laying_track_takes_and_its_good_must_exist() {
     // M10b slice DV, second part (content API 169): the core lays timber track at 50 kg and 1.5
     // hours a metre, grading at 2.3 hours a cubic metre over a bed 0.5 m wider than the gauge
-    // each side, over ground no steeper than 5 %.
+    // each side, cut across ground up to 40 % (M10b slice DV, third part).
     let reg = registry(load(&repo_content()));
     let t = reg.land.params.track.expect("the core lays track");
     let timber = reg
@@ -2394,7 +2394,7 @@ fn a_land_profile_says_what_laying_track_takes_and_its_good_must_exist() {
             t.shoulder_m,
             t.search_grade
         ),
-        (50.0, 1.5, 2.3, 0.5, 0.05)
+        (50.0, 1.5, 2.3, 0.5, 0.4)
     );
     let preset = real_preset();
     let land = real("land/temperate_valley.toml").replace(

@@ -205,3 +205,122 @@ fn a_line_is_laid_by_its_keepers_work_and_timber_and_carries_wagons_once_whole()
     assert!((timber_held(&sim, household) - 100.0).abs() < 1.0);
     saves_alike(&mut sim);
 }
+
+/// The wagon content's index.
+fn wagon_vehicle(sim: &Sim) -> usize {
+    sim.rules()
+        .catalog
+        .vehicles
+        .iter()
+        .position(|v| v.id == "core:vehicle/wagon")
+        .expect("the wagon")
+}
+
+#[test]
+fn a_wagon_on_a_line_from_the_pit_brings_home_what_the_work_digs() {
+    let mut sim = village(3);
+    let household = first_household(&sim);
+    let home = sim.people().household(household).expect("household").home;
+    let carry = sim.rules().people.household.carry_kg;
+    // Coal showing about 100 m from home along ground a pushed wagonway can keep to: the first
+    // direction round from east in which a line at a 0.3 % ruling grade joins the two.
+    let params = sim.rules().land.track.expect("the core lays track");
+    let along = {
+        let map = sim.map();
+        let decks = sim.land().cart_decks(map);
+        let t = sim.land().cart_terrain(map, &decks);
+        let home_cell = civ_agents::population::cell_of(map, home) as u32;
+        (0..16)
+            .map(|k| f32::from(k as u8) * std::f32::consts::PI / 8.0)
+            .map(|a| (home.0 + 100.0 * a.cos(), home.1 + 100.0 * a.sin()))
+            .find(|&at| {
+                let cell = civ_agents::population::cell_of(map, at) as u32;
+                t.plan_track(home_cell, cell, 1.0, 0.003, &params, 200_000)
+                    .is_some()
+            })
+            .expect("a direction a line can keep to")
+    };
+    let seam = sim
+        .place_deposit(
+            (
+                home.0 + (along.0 - home.0) * 1.12,
+                home.1 + (along.1 - home.1) * 1.12,
+            ),
+            "core:good/coal",
+            12.0,
+            true,
+        )
+        .expect("laid down");
+    // A session without a wagon opens the pit and brings what one person carries.
+    let dig = |sim: &mut Sim, minutes: f64| {
+        sim.with_ctx_for_tests(|pop, ctx| {
+            pop.dig_and_bring_for_tests(ctx, household, seam, minutes)
+        })
+    };
+    let mut by_hand = 0.0;
+    for _ in 0..20 {
+        by_hand = dig(&mut sim, 180.0);
+        if by_hand > 0.0 {
+            break;
+        }
+    }
+    assert!(by_hand > 0.0 && by_hand <= carry + 1e-9, "{by_hand}");
+    let pit = sim
+        .land()
+        .earthworks
+        .iter()
+        .find(|e| e.kind == civ_land::earth::EarthKind::Pit && e.deposit == Some(seam))
+        .map(|e| e.rect.centre_m())
+        .expect("a pit");
+    // A whole line from beside the pit to beside home, and a wagon at its pit end.
+    let cell_of = |at: (f32, f32)| civ_agents::population::cell_of(sim.map(), at) as u32;
+    let (pit_cell, home_cell) = (cell_of(pit), cell_of(home));
+    let id = sim
+        .with_ctx_for_tests(|_, ctx| {
+            civ_agents::population::Population::begin_track_for_tests(
+                ctx, household, pit_cell, home_cell, 1.0, 0.003,
+            )
+        })
+        .expect("a line from the pit home");
+    let need = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|x| x.id == id)
+        .and_then(|x| x.track.clone())
+        .expect("its track");
+    set_timber(&mut sim, household, f64::from(need.good_kg) + 1.0);
+    sim.with_ctx_for_tests(|pop, ctx| {
+        pop.way_work_for_tests(ctx, household, id, f64::from(need.labour_h) + 1.0)
+    });
+    let vehicle = wagon_vehicle(&sim);
+    let wagon = sim.with_ctx_for_tests(|_, ctx| {
+        civ_agents::population::Population::add_wagon_for_tests(ctx, household, vehicle, pit_cell)
+    });
+    // Now a session brings what its work digs, far more than a person carries, and the wagon
+    // is left at the home end.
+    let by_wagon = dig(&mut sim, 180.0);
+    assert!(by_wagon > 2.0 * carry, "{by_wagon} against {carry} by hand");
+    let at = sim
+        .land()
+        .wagons
+        .list
+        .iter()
+        .find(|x| x.id == wagon)
+        .expect("the wagon")
+        .at;
+    assert_eq!(at, home_cell);
+    // From the home end it goes out empty with the next digger and comes back loaded.
+    assert!(dig(&mut sim, 180.0) > 2.0 * carry);
+    // Saved and loaded, the wagon stands where it was left.
+    saves_alike(&mut sim);
+    // A wagon of another gauge carries nothing on this line: one person's load again.
+    for x in &mut sim.land_mut_for_tests().ways.list {
+        if let Some(t) = x.track.as_mut() {
+            t.gauge_m = 1.5;
+        }
+    }
+    let again = dig(&mut sim, 180.0);
+    assert!(again <= carry + 1e-9, "{again}");
+}

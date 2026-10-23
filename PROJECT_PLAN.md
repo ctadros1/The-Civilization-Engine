@@ -6295,6 +6295,28 @@ and M6a gives rivers a daily flow.
       its timber goes, half its timber laying half of it, not usable until whole, saved and loaded
       alike part laid and whole; the core's `[track]` names a good that must exist and hours above
       zero.
+      *As built, third part (2026-10-23): wagons bring a pit's coal home.* Wagons are records of the
+      boat's shape in a store of their own (saves 181), aged as carts are, each standing at an end
+      of a line. Someone digging at a pit where their household's whole line, kept by it alone, runs
+      from within 40 m of the pit to within 40 m of home, with a made wagon of the line's gauge
+      standing at either end, loads the wagon rather than carrying one person's 20 kg: as much as
+      the session digs, up to what one person's 200 N moves up the steepest rise homeward on the
+      graded bed, `M·g·(C + s) ≤ pull`, at most the wagon's payload. The loaded push home at the
+      pusher's power over the pull on each step takes longer than the walk, and that time comes out
+      of the session's work; the wagon is left at the line's home end, and goes out empty with the
+      next digger. A line is no longer searched only over ground within a grade: it is cut across
+      ground up to `[track] search_grade` (now 40 %, steeper being a cliff it goes round), each
+      step's earth beyond the ruling grade weighed against going round in hours of laying, since the
+      core's villages sit on valley sides where every step from a home climbs 7 to 14 %. Nobody
+      makes a wagon or begins a line yet, so no world changes. A fix landed with it: saves of schema
+      179 load again (the bump to 180 had left them no decoder), and a test loads a save under every
+      schema from 171. **Tested:** the ruling grade sets a pushed wagon's load and its time (1,539
+      kg up 0.5 %, the full 2 t the other way, stalling loaded uphill); a line cuts through a ridge
+      when going round costs more than its earth, and goes round ground too steep to cut; in a
+      village a line along the contour from home to a coal pit, laid and with a wagon at the pit,
+      brings home more than twice one person's carry in a session and leaves the wagon at home, does
+      so again from the home end, is saved and loaded alike, and a wagon of another gauge carries
+      nothing there.
     - **DW**: engines on rails and train runs: block sections, single track and loops.
     - **DX**: stations, timetables set at review, fares and freight as posted terms, consignments
       of many owners, rides as household-day blocks, who builds and owns a line.
@@ -7732,6 +7754,13 @@ One line each. Don't re-litigate without a reason written next to the entry.
   pump's half, its other work (a mill's, a hammer's) taken in the same daylight and not netted
   off; nobody sets a wheel for a pit's sake, so a wheel pumps only where one already stands near
   its holder's pit. Revisited when the M10 demo shows a pit beside a mill.
+- **Design priors for wagons on a line (2026-10-23, M10b slice DV, third part):** NUDGE: a pushed
+  wagon is loaded to what one person moves up the line's steepest rise homeward and no further, so a
+  line's ruling grade sets its load; one person pushes it loaded and walks it back empty with the
+  next session; its ends serve a pit and a home within 40 m (a cart's door leg). Lines are cut
+  across ground up to 40 % between cells, weighing a step's earth beyond the ruling grade as half
+  its excess rise times its run across the bed. None is measured; the 5 % search of the second part
+  found no line out of the core's hillside villages. Revisited when the M10 demo shows a line laid.
 - **Design priors for laying track (2026-10-23, M10b slice DV, second part):** NUDGE: timber track
   takes 50 kg of timber a metre (rails and sleepers of about 0.07 m³) and 1.5 hours to hew and lay,
   on a bed half a metre wider than the gauge each side; grading moves earth at 10-07 §2.2's 2.3

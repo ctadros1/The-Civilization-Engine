@@ -428,6 +428,9 @@ pub struct Land {
     /// Carts, oldest first (M8b slice CP, ADR-0029 §2): records of the boat's shape, each
     /// standing on the cell where it was left. Saved.
     pub carts: boats::Boats,
+    /// Wagons, oldest first (M10b slice DV, ADR-0034 §3): records of the boat's shape, each
+    /// standing at an end of a line. Saved.
+    pub wagons: boats::Boats,
     /// Water under the ground and the rivers' runoff store (M6a slice AY, ADR-0021 §1–§2): the
     /// heads and the store saved, the aquifer derived.
     pub water: Water,
@@ -667,6 +670,7 @@ impl Land {
             ways: ways::Ways::default(),
             boats: boats::Boats::default(),
             carts: boats::Boats::default(),
+            wagons: boats::Boats::default(),
             enclosures: enclosures::Enclosures::default(),
             water: Water::default(),
             wells: wells::Wells::default(),

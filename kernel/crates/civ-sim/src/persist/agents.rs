@@ -127,8 +127,8 @@ use super::{
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
     SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
     SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
-    SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, finish, section,
-    section_root, single_chunk, unreadable,
+    SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, SCHEMA_V180,
+    finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -203,6 +203,8 @@ pub const SECTION_WAYS: SectionTag = SectionTag::new("ways");
 pub const SECTION_BOATS: SectionTag = SectionTag::new("boats");
 /// Section: carts (schema 145, M8b slice CP), records of the boats' shape.
 pub const SECTION_CARTS: SectionTag = SectionTag::new("carts");
+/// Section: wagons (schema 181, M10b slice DV), records of the boats' shape.
+pub const SECTION_WAGONS: SectionTag = SectionTag::new("wagons");
 /// Section: goods in transit by boat (schema 143, M8b slice CO).
 pub const SECTION_CONSIGNMENTS: SectionTag = SectionTag::new("consigns");
 /// Section: wells (schema 74, M6a slice AY, step three).
@@ -330,6 +332,11 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         section(SECTION_WAYS, 0, encode_ways(&sim.land)),
         section(SECTION_BOATS, 0, encode_boats(&sim.land.boats, &sim.rules)),
         section(SECTION_CARTS, 0, encode_boats(&sim.land.carts, &sim.rules)),
+        section(
+            SECTION_WAGONS,
+            0,
+            encode_boats(&sim.land.wagons, &sim.rules),
+        ),
         section(
             SECTION_CONSIGNMENTS,
             0,
@@ -689,6 +696,8 @@ enum Schema {
     V169,
     /// Households keep batches that run unattended (M10a slice DP).
     V171,
+    /// Wagons (M10b slice DV: the `wagons` section).
+    V181,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -879,7 +888,8 @@ pub(super) fn decode<R: Read + Seek>(
         // pits' bailing (schema 177), works' bells (schema 178), the first lamp lit (schema 179)
         // and ways' track (schema 180) are read wherever saved.
         SCHEMA_V171 | SCHEMA_V172 | SCHEMA_V173 | SCHEMA_V174 | SCHEMA_V175 | SCHEMA_V176
-        | SCHEMA_V177 | SCHEMA_V178 | SCHEMA_V179 | SAVE_SCHEMA_VERSION => Schema::V171,
+        | SCHEMA_V177 | SCHEMA_V178 | SCHEMA_V179 | SCHEMA_V180 => Schema::V171,
+        SAVE_SCHEMA_VERSION => Schema::V181,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1141,6 +1151,11 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V145 {
         let bytes = single_chunk(reader, SECTION_CARTS)?;
         land.carts = decode_boats(&bytes, SECTION_CARTS, rules, map, schema)?;
+    }
+    // Wagons (schema 181); before, none.
+    if schema >= Schema::V181 {
+        let bytes = single_chunk(reader, SECTION_WAGONS)?;
+        land.wagons = decode_boats(&bytes, SECTION_WAGONS, rules, map, schema)?;
     }
     // Goods in transit (schema 143); before, none.
     if schema >= Schema::V143 {
@@ -4542,6 +4557,7 @@ fn decode_land(
         // Read from its own section (schema 142 on).
         boats: Default::default(),
         carts: Default::default(),
+        wagons: Default::default(),
         // The heads and the store below (schema 72 on); the aquifer derived.
         water: Default::default(),
         // Read from its own section (schema 74 on).
@@ -5348,7 +5364,8 @@ fn carried(
         | Schema::V167
         | Schema::V168
         | Schema::V169
-        | Schema::V171 => {
+        | Schema::V171
+        | Schema::V181 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5728,7 +5745,8 @@ fn decode_households(
             | Schema::V167
             | Schema::V168
             | Schema::V169
-            | Schema::V171 => {
+            | Schema::V171
+            | Schema::V181 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

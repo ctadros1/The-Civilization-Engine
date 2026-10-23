@@ -1870,6 +1870,11 @@ impl Sim {
                 }
             })
             .map_err(SimError::Schedule)?;
+        // Train runs move on to the minute reached (M10b slice DW): each leg ends and each
+        // section is entered at its own minute, however the clock was stepped.
+        if !self.land.runs.list.is_empty() {
+            self.land.runs.advance(target.minutes());
+        }
         self.dirty = true;
         Ok(advance)
     }

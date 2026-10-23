@@ -258,6 +258,119 @@ fn line_seen(sim: &Sim, id: PermanentId) -> (f32, f32, f32, String) {
     )
 }
 
+/// The locomotive content's index.
+fn engine_vehicle(sim: &Sim) -> usize {
+    sim.rules()
+        .catalog
+        .vehicles
+        .iter()
+        .position(|v| v.id == "core:vehicle/locomotive")
+        .expect("the locomotive")
+}
+
+#[test]
+fn runs_on_a_laid_line_are_timed_by_its_bed_meet_at_its_loop_and_are_saved_where_they_are() {
+    use civ_land::trains::{self, Run, RunState, Train};
+    let mut sim = village(3);
+    let household = first_household(&sim);
+    let (from, to) = ends_from_hearth(&sim, 16);
+    let id = sim
+        .with_ctx_for_tests(|_, ctx| {
+            civ_agents::population::Population::begin_track_for_tests(
+                ctx, household, from, to, 1.0, 0.003,
+            )
+        })
+        .expect("a line begun");
+    let way = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|w| w.id == id)
+        .cloned()
+        .expect("the line");
+    let track = way.track.clone().expect("its track");
+    let cells = &way.segments[0].cells;
+    let map = sim.map();
+    let runs = civ_land::rail::runs(cells, map.width, f64::from(map.cell_size_m));
+    // The core's locomotive with 10 t behind it.
+    let def = sim.rules().catalog.vehicles[engine_vehicle(&sim)].clone();
+    let engine = def.engine.expect("an engine");
+    let train = Train {
+        power_w: def.power_w,
+        pull_n: def.pull_n,
+        top_m_s: engine.top_speed_m_s,
+        mass_kg: def.tare_kg + 10_000.0,
+        c: def.rail_resistance,
+    };
+    // A loop halfway: two block sections.
+    let half = (cells.len() / 2) as u32;
+    sim.land_mut_for_tests().runs.add_loop(id, half);
+    let sections = trains::sections(sim.land().runs.loops_of(id), cells.len());
+    assert_eq!(sections.len(), 2);
+    let out = trains::step_seconds(&track.bed, &runs, &train, false).expect("it runs out");
+    let home = trains::step_seconds(&track.bed, &runs, &train, true).expect("and back");
+    // On a bed within 0.3 %, the train runs the whole way at its top speed.
+    let length: f64 = runs.iter().sum();
+    assert!((out.iter().sum::<f64>() - length / 2.2).abs() < 1e-6);
+    let start = sim.now().minutes();
+    let make = |sim: &mut Sim, back: bool, secs: &[f64]| {
+        let run_id = sim.allocate_id_for_tests();
+        let run = Run {
+            id: run_id,
+            way: id,
+            back,
+            engine: sim.allocate_id_for_tests(),
+            owner: household,
+            legs: trains::legs(secs, &sections, back),
+            leg: 0,
+            state: RunState::Arrived { at: 0 },
+            load_kg: 5_000.0,
+        };
+        sim.land_mut_for_tests().runs.depart(run, start);
+        run_id
+    };
+    let a = make(&mut sim, false, &out);
+    let b = make(&mut sim, true, &home);
+    // Each half of so short a line takes them a minute: setting off, each holds the section at
+    // its end; a minute on, they have met at the loop and each holds the other's.
+    let legs: Vec<_> = sim
+        .land()
+        .runs
+        .list
+        .iter()
+        .map(|r| r.legs.clone())
+        .collect();
+    assert_eq!(legs, vec![vec![(0, 1), (1, 1)], vec![(1, 1), (0, 1)]]);
+    sim.land_mut_for_tests().runs.advance(start);
+    assert_eq!(sim.land().runs.held_by(id, 0), Some(a));
+    assert_eq!(sim.land().runs.held_by(id, 1), Some(b));
+    sim.advance_minutes(1).expect("advances");
+    let land = sim.land();
+    assert_eq!(land.runs.held_by(id, 0), Some(b));
+    assert_eq!(land.runs.held_by(id, 1), Some(a));
+    // Saved and loaded while both are out, both are where they were.
+    saves_alike(&mut sim);
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "runs").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.land().runs, sim.land().runs);
+    // An hour on, they have met at the loop, passed one at a time, and arrived; neither is gone.
+    sim.advance_minutes(60).expect("advances");
+    let runs = &sim.land().runs;
+    assert_eq!(runs.list.len(), 2);
+    assert!(
+        runs.list
+            .iter()
+            .all(|r| matches!(r.state, RunState::Arrived { .. })),
+        "{:?}",
+        runs.list
+    );
+}
+
 /// The wagon content's index.
 fn wagon_vehicle(sim: &Sim) -> usize {
     sim.rules()

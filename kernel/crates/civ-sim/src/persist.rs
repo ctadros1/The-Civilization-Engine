@@ -494,6 +494,8 @@ pub const SCHEMA_V178: u32 = 178;
 pub const SCHEMA_V179: u32 = 179;
 /// Ways kept their track, before wagons.
 pub const SCHEMA_V180: u32 = 180;
+/// Wagons stood on their lines, before train runs.
+pub const SCHEMA_V181: u32 = 181;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

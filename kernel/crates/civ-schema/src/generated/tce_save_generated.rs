@@ -62354,6 +62354,515 @@ impl ::core::fmt::Debug for BoatsSave<'_> {
       ds.finish()
   }
 }
+pub enum RailLineSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RailLineSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for RailLineSave<'a> {
+  type Inner = RailLineSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> RailLineSave<'a> {
+  pub const VT_WAY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_LOOPS: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    RailLineSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args RailLineSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<RailLineSave<'bldr>> {
+    let mut builder = RailLineSaveBuilder::new(_fbb);
+    builder.add_way(args.way);
+    if let Some(x) = args.loops { builder.add_loops(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn way(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RailLineSave::VT_WAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn loops(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(RailLineSave::VT_LOOPS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for RailLineSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("way", Self::VT_WAY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("loops", Self::VT_LOOPS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RailLineSaveArgs<'a> {
+    pub way: u64,
+    pub loops: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+}
+impl<'a> Default for RailLineSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    RailLineSaveArgs {
+      way: 0,
+      loops: None,
+    }
+  }
+}
+
+pub struct RailLineSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RailLineSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_way(&mut self, way: u64) {
+    self.fbb_.push_slot::<u64>(RailLineSave::VT_WAY, way, 0);
+  }
+  #[inline]
+  pub fn add_loops(&mut self, loops: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RailLineSave::VT_LOOPS, loops);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RailLineSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    RailLineSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<RailLineSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for RailLineSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("RailLineSave");
+      ds.field("way", &self.way());
+      ds.field("loops", &self.loops());
+      ds.finish()
+  }
+}
+pub enum RunSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RunSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for RunSave<'a> {
+  type Inner = RunSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> RunSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_WAY: ::flatbuffers::VOffsetT = 6;
+  pub const VT_BACK: ::flatbuffers::VOffsetT = 8;
+  pub const VT_ENGINE: ::flatbuffers::VOffsetT = 10;
+  pub const VT_OWNER: ::flatbuffers::VOffsetT = 12;
+  pub const VT_SECTIONS: ::flatbuffers::VOffsetT = 14;
+  pub const VT_MINUTES: ::flatbuffers::VOffsetT = 16;
+  pub const VT_LEG: ::flatbuffers::VOffsetT = 18;
+  pub const VT_STATE: ::flatbuffers::VOffsetT = 20;
+  pub const VT_TIME: ::flatbuffers::VOffsetT = 22;
+  pub const VT_LOAD_KG: ::flatbuffers::VOffsetT = 24;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    RunSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args RunSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<RunSave<'bldr>> {
+    let mut builder = RunSaveBuilder::new(_fbb);
+    builder.add_time(args.time);
+    builder.add_owner(args.owner);
+    builder.add_engine(args.engine);
+    builder.add_way(args.way);
+    builder.add_id(args.id);
+    builder.add_load_kg(args.load_kg);
+    if let Some(x) = args.minutes { builder.add_minutes(x); }
+    if let Some(x) = args.sections { builder.add_sections(x); }
+    builder.add_leg(args.leg);
+    builder.add_state(args.state);
+    builder.add_back(args.back);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RunSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn way(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RunSave::VT_WAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn back(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(RunSave::VT_BACK, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn engine(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RunSave::VT_ENGINE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn owner(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RunSave::VT_OWNER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn sections(&self) -> Option<::flatbuffers::Vector<'a, u16>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u16>>>(RunSave::VT_SECTIONS, None)}
+  }
+  #[inline]
+  pub fn minutes(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(RunSave::VT_MINUTES, None)}
+  }
+  #[inline]
+  pub fn leg(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(RunSave::VT_LEG, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn state(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(RunSave::VT_STATE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn time(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RunSave::VT_TIME, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn load_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(RunSave::VT_LOAD_KG, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for RunSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("way", Self::VT_WAY, false)?
+     .visit_field::<bool>("back", Self::VT_BACK, false)?
+     .visit_field::<u64>("engine", Self::VT_ENGINE, false)?
+     .visit_field::<u64>("owner", Self::VT_OWNER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u16>>>("sections", Self::VT_SECTIONS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("minutes", Self::VT_MINUTES, false)?
+     .visit_field::<u16>("leg", Self::VT_LEG, false)?
+     .visit_field::<u8>("state", Self::VT_STATE, false)?
+     .visit_field::<i64>("time", Self::VT_TIME, false)?
+     .visit_field::<f32>("load_kg", Self::VT_LOAD_KG, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RunSaveArgs<'a> {
+    pub id: u64,
+    pub way: u64,
+    pub back: bool,
+    pub engine: u64,
+    pub owner: u64,
+    pub sections: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u16>>>,
+    pub minutes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub leg: u16,
+    pub state: u8,
+    pub time: i64,
+    pub load_kg: f32,
+}
+impl<'a> Default for RunSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    RunSaveArgs {
+      id: 0,
+      way: 0,
+      back: false,
+      engine: 0,
+      owner: 0,
+      sections: None,
+      minutes: None,
+      leg: 0,
+      state: 0,
+      time: 0,
+      load_kg: 0.0,
+    }
+  }
+}
+
+pub struct RunSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RunSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(RunSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_way(&mut self, way: u64) {
+    self.fbb_.push_slot::<u64>(RunSave::VT_WAY, way, 0);
+  }
+  #[inline]
+  pub fn add_back(&mut self, back: bool) {
+    self.fbb_.push_slot::<bool>(RunSave::VT_BACK, back, false);
+  }
+  #[inline]
+  pub fn add_engine(&mut self, engine: u64) {
+    self.fbb_.push_slot::<u64>(RunSave::VT_ENGINE, engine, 0);
+  }
+  #[inline]
+  pub fn add_owner(&mut self, owner: u64) {
+    self.fbb_.push_slot::<u64>(RunSave::VT_OWNER, owner, 0);
+  }
+  #[inline]
+  pub fn add_sections(&mut self, sections: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u16>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RunSave::VT_SECTIONS, sections);
+  }
+  #[inline]
+  pub fn add_minutes(&mut self, minutes: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RunSave::VT_MINUTES, minutes);
+  }
+  #[inline]
+  pub fn add_leg(&mut self, leg: u16) {
+    self.fbb_.push_slot::<u16>(RunSave::VT_LEG, leg, 0);
+  }
+  #[inline]
+  pub fn add_state(&mut self, state: u8) {
+    self.fbb_.push_slot::<u8>(RunSave::VT_STATE, state, 0);
+  }
+  #[inline]
+  pub fn add_time(&mut self, time: i64) {
+    self.fbb_.push_slot::<i64>(RunSave::VT_TIME, time, 0);
+  }
+  #[inline]
+  pub fn add_load_kg(&mut self, load_kg: f32) {
+    self.fbb_.push_slot::<f32>(RunSave::VT_LOAD_KG, load_kg, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RunSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    RunSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<RunSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for RunSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("RunSave");
+      ds.field("id", &self.id());
+      ds.field("way", &self.way());
+      ds.field("back", &self.back());
+      ds.field("engine", &self.engine());
+      ds.field("owner", &self.owner());
+      ds.field("sections", &self.sections());
+      ds.field("minutes", &self.minutes());
+      ds.field("leg", &self.leg());
+      ds.field("state", &self.state());
+      ds.field("time", &self.time());
+      ds.field("load_kg", &self.load_kg());
+      ds.finish()
+  }
+}
+pub enum RunsSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RunsSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for RunsSave<'a> {
+  type Inner = RunsSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> RunsSave<'a> {
+  pub const VT_LINES: ::flatbuffers::VOffsetT = 4;
+  pub const VT_LIST: ::flatbuffers::VOffsetT = 6;
+  pub const VT_REVISION: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    RunsSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args RunsSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<RunsSave<'bldr>> {
+    let mut builder = RunsSaveBuilder::new(_fbb);
+    builder.add_revision(args.revision);
+    if let Some(x) = args.list { builder.add_list(x); }
+    if let Some(x) = args.lines { builder.add_lines(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn lines(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RailLineSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RailLineSave>>>>(RunsSave::VT_LINES, None)}
+  }
+  #[inline]
+  pub fn list(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RunSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RunSave>>>>(RunsSave::VT_LIST, None)}
+  }
+  #[inline]
+  pub fn revision(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RunsSave::VT_REVISION, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for RunsSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RailLineSave>>>>("lines", Self::VT_LINES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RunSave>>>>("list", Self::VT_LIST, false)?
+     .visit_field::<u32>("revision", Self::VT_REVISION, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RunsSaveArgs<'a> {
+    pub lines: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RailLineSave<'a>>>>>,
+    pub list: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RunSave<'a>>>>>,
+    pub revision: u32,
+}
+impl<'a> Default for RunsSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    RunsSaveArgs {
+      lines: None,
+      list: None,
+      revision: 0,
+    }
+  }
+}
+
+pub struct RunsSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RunsSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_lines(&mut self, lines: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<RailLineSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RunsSave::VT_LINES, lines);
+  }
+  #[inline]
+  pub fn add_list(&mut self, list: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<RunSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RunsSave::VT_LIST, list);
+  }
+  #[inline]
+  pub fn add_revision(&mut self, revision: u32) {
+    self.fbb_.push_slot::<u32>(RunsSave::VT_REVISION, revision, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RunsSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    RunsSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<RunsSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for RunsSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("RunsSave");
+      ds.field("lines", &self.lines());
+      ds.field("list", &self.list());
+      ds.field("revision", &self.revision());
+      ds.finish()
+  }
+}
 pub enum ConsignedGoodSaveOffset {}
 #[derive(Copy, Clone, PartialEq)]
 

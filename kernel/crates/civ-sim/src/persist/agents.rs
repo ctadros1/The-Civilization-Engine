@@ -128,7 +128,7 @@ use super::{
     SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
     SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
     SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, SCHEMA_V180,
-    finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V181, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -205,6 +205,8 @@ pub const SECTION_BOATS: SectionTag = SectionTag::new("boats");
 pub const SECTION_CARTS: SectionTag = SectionTag::new("carts");
 /// Section: wagons (schema 181, M10b slice DV), records of the boats' shape.
 pub const SECTION_WAGONS: SectionTag = SectionTag::new("wagons");
+/// Section: lines' passing loops and train runs (schema 182, M10b slice DW).
+pub const SECTION_RUNS: SectionTag = SectionTag::new("runs");
 /// Section: goods in transit by boat (schema 143, M8b slice CO).
 pub const SECTION_CONSIGNMENTS: SectionTag = SectionTag::new("consigns");
 /// Section: wells (schema 74, M6a slice AY, step three).
@@ -337,6 +339,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             0,
             encode_boats(&sim.land.wagons, &sim.rules),
         ),
+        section(SECTION_RUNS, 0, encode_runs(&sim.land.runs)),
         section(
             SECTION_CONSIGNMENTS,
             0,
@@ -698,6 +701,8 @@ enum Schema {
     V171,
     /// Wagons (M10b slice DV: the `wagons` section).
     V181,
+    /// Train runs (M10b slice DW: the `runs` section).
+    V182,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -889,7 +894,8 @@ pub(super) fn decode<R: Read + Seek>(
         // and ways' track (schema 180) are read wherever saved.
         SCHEMA_V171 | SCHEMA_V172 | SCHEMA_V173 | SCHEMA_V174 | SCHEMA_V175 | SCHEMA_V176
         | SCHEMA_V177 | SCHEMA_V178 | SCHEMA_V179 | SCHEMA_V180 => Schema::V171,
-        SAVE_SCHEMA_VERSION => Schema::V181,
+        SCHEMA_V181 => Schema::V181,
+        SAVE_SCHEMA_VERSION => Schema::V182,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1156,6 +1162,11 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V181 {
         let bytes = single_chunk(reader, SECTION_WAGONS)?;
         land.wagons = decode_boats(&bytes, SECTION_WAGONS, rules, map, schema)?;
+    }
+    // Lines' loops and train runs (schema 182); before, none.
+    if schema >= Schema::V182 {
+        let bytes = single_chunk(reader, SECTION_RUNS)?;
+        land.runs = decode_runs(&bytes, SECTION_RUNS)?;
     }
     // Goods in transit (schema 143); before, none.
     if schema >= Schema::V143 {
@@ -4558,6 +4569,7 @@ fn decode_land(
         boats: Default::default(),
         carts: Default::default(),
         wagons: Default::default(),
+        runs: Default::default(),
         // The heads and the store below (schema 72 on); the aquifer derived.
         water: Default::default(),
         // Read from its own section (schema 74 on).
@@ -5365,7 +5377,8 @@ fn carried(
         | Schema::V168
         | Schema::V169
         | Schema::V171
-        | Schema::V181 => {
+        | Schema::V181
+        | Schema::V182 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5746,7 +5759,8 @@ fn decode_households(
             | Schema::V168
             | Schema::V169
             | Schema::V171
-            | Schema::V181 => {
+            | Schema::V181
+            | Schema::V182 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -12257,6 +12271,112 @@ fn encode_boats(boats: &civ_land::boats::Boats, rules: &Rules) -> Vec<u8> {
 
 /// The boats, or carts, saved in `bytes` of section `tag`. One of a vehicle the loaded content
 /// no longer has is dropped; one at a cell off the map, or out of order, is malformed.
+/// Lines' passing loops and train runs (schema 182, M10b slice DW).
+fn encode_runs(runs: &civ_land::trains::Runs) -> Vec<u8> {
+    use civ_land::trains::RunState;
+    let mut fbb = FlatBufferBuilder::new();
+    let lines: Vec<_> = runs
+        .lines
+        .iter()
+        .map(|l| {
+            let loops = fbb.create_vector(&l.loops);
+            save::RailLineSave::create(
+                &mut fbb,
+                &save::RailLineSaveArgs {
+                    way: l.way.get(),
+                    loops: Some(loops),
+                },
+            )
+        })
+        .collect();
+    let list: Vec<_> = runs
+        .list
+        .iter()
+        .map(|r| {
+            let sections: Vec<u16> = r.legs.iter().map(|l| l.0).collect();
+            let minutes: Vec<u32> = r.legs.iter().map(|l| l.1).collect();
+            let sections = fbb.create_vector(&sections);
+            let minutes = fbb.create_vector(&minutes);
+            let (state, time) = match r.state {
+                RunState::Waiting { since } => (0, since),
+                RunState::Running { until } => (1, until),
+                RunState::Arrived { at } => (2, at),
+            };
+            save::RunSave::create(
+                &mut fbb,
+                &save::RunSaveArgs {
+                    id: r.id.get(),
+                    way: r.way.get(),
+                    back: r.back,
+                    engine: r.engine.get(),
+                    owner: r.owner.get(),
+                    sections: Some(sections),
+                    minutes: Some(minutes),
+                    leg: r.leg,
+                    state,
+                    time,
+                    load_kg: r.load_kg,
+                },
+            )
+        })
+        .collect();
+    let lines = fbb.create_vector(&lines);
+    let list = fbb.create_vector(&list);
+    let root = save::RunsSave::create(
+        &mut fbb,
+        &save::RunsSaveArgs {
+            lines: Some(lines),
+            list: Some(list),
+            revision: runs.revision(),
+        },
+    );
+    finish(fbb, root)
+}
+
+/// Reads [`encode_runs`]'s section.
+fn decode_runs(bytes: &[u8], tag: SectionTag) -> Result<civ_land::trains::Runs, LoadError> {
+    use civ_land::trains::{Line, Run, RunState, Runs};
+    let root = section_root::<save::RunsSave>(bytes).map_err(|e| unreadable(tag, &e))?;
+    let mut lines = Vec::new();
+    for l in root.lines().iter().flatten() {
+        lines.push(Line {
+            way: required(l.way(), "a line")?,
+            loops: l.loops().map(|v| v.iter().collect()).unwrap_or_default(),
+        });
+    }
+    let mut list = Vec::new();
+    for r in root.list().iter().flatten() {
+        let id = required(r.id(), "a run")?;
+        let sections: Vec<u16> = r.sections().map(|v| v.iter().collect()).unwrap_or_default();
+        let minutes: Vec<u32> = r.minutes().map(|v| v.iter().collect()).unwrap_or_default();
+        if sections.len() != minutes.len() || usize::from(r.leg()) >= sections.len().max(1) {
+            return Err(LoadError::Malformed(format!("run {id} has broken legs")));
+        }
+        let state = match r.state() {
+            0 => RunState::Waiting { since: r.time() },
+            1 => RunState::Running { until: r.time() },
+            2 => RunState::Arrived { at: r.time() },
+            other => {
+                return Err(LoadError::Malformed(format!(
+                    "run {id} is in an unknown state {other}"
+                )));
+            }
+        };
+        list.push(Run {
+            id,
+            way: required(r.way(), "a run's line")?,
+            back: r.back(),
+            engine: required(r.engine(), "a run's engine")?,
+            owner: required(r.owner(), "a run's owner")?,
+            legs: sections.into_iter().zip(minutes).collect(),
+            leg: r.leg(),
+            state,
+            load_kg: r.load_kg(),
+        });
+    }
+    Ok(Runs::from_saved(lines, list, root.revision()))
+}
+
 fn decode_boats(
     bytes: &[u8],
     tag: SectionTag,

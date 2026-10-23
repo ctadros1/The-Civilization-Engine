@@ -6371,6 +6371,23 @@ and M6a gives rivers a daily flow.
       coal, its pull, power and tare, made only under its technique, and is no wagon while the
       wagon is one; an engine too efficient, a top speed of nothing, a fuel that is not burned for
       heat and an engine on a cart are each refused.
+      *As built, second part (2026-10-23): runs, block sections and loops.* A train is timed step
+      by step along its line's graded bed: its engine's power over the pull the step needs,
+      `M·g·(C + s)`, no faster than its top speed, at its top speed where a fall needs no pull,
+      and stalled where the pull is more than its driven wheels hold. A line's passing loops split
+      it into block sections; a run is its legs, one a section, each its whole minutes (at least
+      one). Runs are the line's own records (saves 182, the `runs` section): one holds a section
+      at a time; the others wait at the loop or end before it, the one waiting longest first, and
+      enter the minute it clears; a run that arrives stays at its end until taken off. Runs move
+      on to the minute the clock reaches at the end of every step, each leg ending and each
+      section entered at its own minute however the clock was stepped. Nobody runs a train yet,
+      so no world changes. **Tested:** the core's locomotive with 20 t behind runs the level at
+      its top speed, climbs 1 % at 2.04 m/s, stalls at 4 %, and its wheels hold 66.7 t up 1 %; a
+      line splits at its loops and a run's legs come in its own order; two runs meeting on single
+      track pass at the loop one at a time, the later waiting there, and neither is despawned; a
+      run behind a slow one waits at the loop and enters the minute it clears; on a laid line two
+      runs timed by its bed hold the sections at their ends, pass at the loop a minute on, are
+      saved and loaded where they are, and arrive.
     - **DX**: stations, timetables set at review, fares and freight as posted terms, consignments
       of many owners, rides as household-day blocks, who builds and owns a line.
     - **DY**: the gas chain: gasworks, holders, mains, connections by district capacity,
@@ -7807,6 +7824,10 @@ One line each. Don't re-litigate without a reason written next to the entry.
   pump's half, its other work (a mill's, a hammer's) taken in the same daylight and not netted
   off; nobody sets a wheel for a pit's sake, so a wheel pumps only where one already stands near
   its holder's pit. Revisited when the M10 demo shows a pit beside a mill.
+- **Design priors for train runs (2026-10-23, M10b slice DW, second part):** NUDGE: a passing loop
+  holds any number of waiting runs; a leg is rounded up to whole minutes; a train runs down any
+  fall at its top speed, its braking not yet modelled; one run holds a section whatever its
+  direction. None is measured. Revisited when runs meet on a busy line.
 - **Design priors for the locomotive (2026-10-23, M10b slice DW, first part):** NUDGE: an engine
   on rails of 5 t, 7.5 kW and 2.2 m/s near the first engines on plateways (research 07-08 §5.5,
   Trevithick's 1804 Penydarren, whose power no report gives), its most pull μ·m·g at the rail

@@ -37,6 +37,7 @@ pub mod plans;
 pub mod power;
 pub mod rail;
 pub mod soil;
+pub mod trains;
 pub mod water;
 pub mod ways;
 pub mod weather;
@@ -431,6 +432,9 @@ pub struct Land {
     /// Wagons, oldest first (M10b slice DV, ADR-0034 §3): records of the boat's shape, each
     /// standing at an end of a line. Saved.
     pub wagons: boats::Boats,
+    /// Lines' passing loops and train runs (M10b slice DW, ADR-0034 §4): each run its line's own
+    /// event chain, moved on with the clock. Saved.
+    pub runs: trains::Runs,
     /// Water under the ground and the rivers' runoff store (M6a slice AY, ADR-0021 §1–§2): the
     /// heads and the store saved, the aquifer derived.
     pub water: Water,
@@ -671,6 +675,7 @@ impl Land {
             boats: boats::Boats::default(),
             carts: boats::Boats::default(),
             wagons: boats::Boats::default(),
+            runs: Default::default(),
             enclosures: enclosures::Enclosures::default(),
             water: Water::default(),
             wells: wells::Wells::default(),

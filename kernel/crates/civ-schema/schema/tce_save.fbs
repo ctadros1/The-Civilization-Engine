@@ -3626,6 +3626,36 @@ table BoatsSave {
   revision: uint (id: 1);
 }
 
+// A line's passing loops (schema 182, M10b slice DW): cell indexes along its way.
+table RailLineSave {
+  way: ulong (id: 0);
+  loops: [uint] (id: 1);
+}
+
+// A train run (schema 182): its line and direction, its engine and owner, its legs (each
+// section's index along the line and its minutes, in the order run), the leg it is on, where it
+// is (0 waiting since `time`, 1 running until `time`, 2 arrived at `time`, minutes) and the goods
+// it carries, kg.
+table RunSave {
+  id: ulong (id: 0);
+  way: ulong (id: 1);
+  back: bool (id: 2);
+  engine: ulong (id: 3);
+  owner: ulong (id: 4);
+  sections: [ushort] (id: 5);
+  minutes: [uint] (id: 6);
+  leg: ushort (id: 7);
+  state: ubyte (id: 8);
+  time: long (id: 9);
+  load_kg: float (id: 10);
+}
+
+table RunsSave {
+  lines: [RailLineSave] (id: 0);
+  list: [RunSave] (id: 1);
+  revision: uint (id: 2);
+}
+
 // Goods in transit (schema 143, M8b slice CO; ADR-0029 §3): each load's owner household, carrier
 // and boat, the settlements it is from and bound for, when it was loaded and when what it holds
 // was last brought up to date, and what it holds by good content id.

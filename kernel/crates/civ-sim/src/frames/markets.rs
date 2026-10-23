@@ -704,6 +704,7 @@ mod tests {
         GoodDef {
             fuel: None,
             power: None,
+            light: None,
             money: None,
             id: format!("core:good/{}", name.to_lowercase()),
             name: name.into(),

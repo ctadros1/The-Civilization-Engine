@@ -1,0 +1,16 @@
+# Rendering tallow: the fat cut from game meat heated slowly and strained, 20 kg of meat to a
+# kilogram of tallow (tuning: lean game carries some 5 % fat), half an hour a kilogram and an hour
+# to set up the fire, which burns 4 kg of wood a session (tuning values; the research gives no
+# rates). The lean meat is spoiled for eating in the rendering here (a simplification).
+kind = "recipe"
+id = "core:recipe/render_tallow"
+name = "Render tallow"
+skill = ""
+technique = "core:technique/lamps"
+unit_h = 0.5
+session_h = 1.0
+max_units = 5.0
+tools = []
+inputs = [{ good = "core:good/meat", amount = 20.0 }]
+outputs = [{ good = "core:good/tallow", amount = 1.0 }]
+session_inputs = [{ good = "core:good/firewood", amount = 4.0 }]

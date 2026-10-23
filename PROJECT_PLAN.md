@@ -6188,6 +6188,19 @@ and M6a gives rivers a daily flow.
   - **M10b, rail and gas light** (ADR-0034).
     - **DU**: light before gas: lamps burning fuel for hours of light, places dark or lit, dark
       sight (equal to day sight until a world has lamps), what light changes in the evening.
+      - *As built, first part (2026-10-23): the lamp as vocabulary.* A tool may carry a `[light]`
+        table: the good it burns and how much an hour (content API 165; ADR-0034 §9; the
+        brief's open question 4 answered yes, so gas has a lamp to be compared with). The first
+        lamp is a fat lamp, a clay dish of tallow burning 8 g an hour, about a candle's light
+        (research 11-13 §2.2: 13 lumens, 1 lux at a metre). Tallow is rendered from game meat,
+        20 kg to a kilogram; the lamp is made of 0.3 kg of clay. Lamps, the technique, needs
+        pottery and is found drying meat with meat at home (E50 20,000 hours); founders do not
+        bring it, and no household wants a lamp for its own sake yet, so nothing a world does
+        changes. **Proved:** the three bench worlds of DO keep the same chronicle and every
+        count and summary line; the sections holding goods, techniques or activities by index
+        differ by the shifted positions only. **Tested:** a lamp names its fuel and burn,
+        which resolve to the tallow and 8 g an hour; a burn of 0 or above 1 kg, light on a good
+        that is not a tool, and a fuel that is no good are each refused.
     - **DV**: wagonways pushed by people: the `RAIL` mode, track by cells with a turn rule and a
       ruling grade, wagons.
     - **DW**: engines on rails and train runs: block sections, single track and loops.

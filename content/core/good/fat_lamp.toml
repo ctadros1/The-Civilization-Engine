@@ -1,0 +1,26 @@
+# A fat lamp: a small fired-clay dish with a wick of rush or fibre lying in tallow (M10b slice DU;
+# ADR-0034 §9: light is vocabulary before gas). It gives a little light close to it, about a
+# candle's (research 11-13 §2.2: a candle about 13 lumens, 1 lux at a metre), burning 8 g of tallow
+# an hour (a tuning value: a tallow candle burns some 8-10 g an hour). Light's cost is that fuel,
+# its tending and the lamp itself by the hour it burns (11-13 §2.2). A dish lasts 3,000 hours lit
+# before it cracks (a tuning value). No household wants one for its own sake: one is wanted only
+# for the evening hours it would give (`per_worker = 0`), which a later part of slice DU weighs.
+kind = "good"
+id = "core:good/fat_lamp"
+name = "Fat lamp"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 3000.0
+per_worker = 0.0
+fixed = false
+
+[light]
+fuel = "core:good/tallow"
+kg_per_hour = 0.008

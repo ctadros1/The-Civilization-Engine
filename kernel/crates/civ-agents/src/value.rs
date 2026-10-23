@@ -208,6 +208,7 @@ mod tests {
         GoodDef {
             fuel: None,
             power: None,
+            light: None,
             money: None,
             id: id.into(),
             name: id.into(),

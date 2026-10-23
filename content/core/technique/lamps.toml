@@ -1,0 +1,19 @@
+# Rendering fat and burning it in a dish with a wick for light (M10b slice DU; ADR-0034 §9; the
+# brief's open question 4: a lamp before gas, so that gas is compared with something). It needs
+# pottery for the dish. Found by those drying meat over a fire, with meat at home; half of them
+# would need 20,000 qualified hours (a tuning value). Learnt in 20 hours beside a knower. Founders
+# do not bring it, so no world changes until someone finds it.
+kind = "technique"
+id = "core:technique/lamps"
+name = "Lamps"
+can = "render fat and burn it in a clay dish for light"
+domain = ""
+requires = [["core:technique/pottery"]]
+tried_in = ["core:activity/dry_meat"]
+needs = ["core:good/meat"]
+e50_h = 20000.0
+learn_h = 20.0
+upbringing = true
+
+[answers]
+spoilage = []

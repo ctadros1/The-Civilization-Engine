@@ -425,6 +425,9 @@ pub struct GoodDef {
     /// The power it delivers as a station (M10a slice DR, ADR-0033 §5; content API 160): `None`
     /// for a good that is not a wheel or an engine.
     pub power: Option<GoodPower>,
+    /// The light it gives (M10b slice DU, ADR-0034 §9; content API 165): `None` for a good that
+    /// is not a lamp.
+    pub light: Option<GoodLight>,
 }
 
 /// What drives a powered station (M10a slice DR).
@@ -443,6 +446,16 @@ pub struct GoodPower {
     pub source: PowerSource,
     pub rated_kw: f64,
     pub efficiency: f64,
+}
+
+/// The light a lamp gives (M10b slice DU; ADR-0034 §9): the fuel it burns and how fast. Light's
+/// cost is its fuel, its tending and its fixture by the burning hour (research 11-13 §2.2).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GoodLight {
+    /// The good it burns, by index in the goods (resolved once the goods are known).
+    pub fuel: Option<usize>,
+    /// Kilograms of it burned an hour lit.
+    pub kg_per_hour: f64,
 }
 
 /// What a good gives burned (M10a slice DP, ADR-0033 §1): heat, and the smoke that comes with it.

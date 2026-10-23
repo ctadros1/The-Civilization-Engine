@@ -2,8 +2,8 @@
 //! gathers, stores or eats is decided by people at run time.
 
 use civ_agents::params::{
-    Eaten, GoodDef, GoodFire, GoodFuel, GoodPower, GoodUse, MoneyDef, PowerSource, StoreDef,
-    ToolDef,
+    Eaten, GoodDef, GoodFire, GoodFuel, GoodLight, GoodPower, GoodUse, MoneyDef, PowerSource,
+    StoreDef, ToolDef,
 };
 use civ_agents::structure::Timber;
 use serde::Deserialize;
@@ -48,6 +48,19 @@ pub(crate) struct GoodFile {
     /// Content API 160 (M10a slice DR): the power it delivers as a station; only a fixed tool.
     #[serde(default)]
     pub power: Option<PowerFile>,
+    /// Content API 165 (M10b slice DU): the light it gives as a lamp; only a tool.
+    #[serde(default)]
+    pub light: Option<LightFile>,
+}
+
+/// The light a lamp gives (M10b slice DU, ADR-0034 §9).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct LightFile {
+    /// The good it burns, by content id.
+    pub fuel: String,
+    /// Kilograms of it burned an hour lit, above 0 and at most 1.
+    pub kg_per_hour: f64,
 }
 
 /// The power a wheel or an engine delivers (M10a slice DR, ADR-0033 §5).
@@ -211,6 +224,11 @@ impl GoodFile {
                 rated_kw: w.rated_kw,
                 efficiency: w.efficiency,
             }),
+            light: self.light.as_ref().map(|l| GoodLight {
+                // Resolved once the goods are known (`civ_content::compile`).
+                fuel: None,
+                kg_per_hour: l.kg_per_hour,
+            }),
         })
     }
 
@@ -271,6 +289,17 @@ impl GoodFile {
                     "only a fixed tool delivers power: `[power]` needs `[tool] fixed = true`"
                         .to_owned(),
                 );
+            }
+        }
+        if let Some(l) = &self.light {
+            if !(l.kg_per_hour.is_finite() && l.kg_per_hour > 0.0 && l.kg_per_hour <= 1.0) {
+                p.push(format!(
+                    "`light.kg_per_hour` must be above 0 and at most 1 (got {})",
+                    l.kg_per_hour
+                ));
+            }
+            if self.tool.is_none() {
+                p.push("only a tool gives light: `[light]` needs a `[tool]` table".to_owned());
             }
         }
         if let Some(f) = &self.fire {

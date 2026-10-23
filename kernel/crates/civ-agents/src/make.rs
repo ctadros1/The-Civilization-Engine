@@ -418,6 +418,7 @@ mod tests {
         GoodDef {
             fuel: None,
             power: None,
+            light: None,
             money: None,
             id: id.into(),
             name: id.into(),
@@ -528,6 +529,7 @@ mod tests {
         goods.push(GoodDef {
             fuel: None,
             power: None,
+            light: None,
             half_life_days: 3.0,
             ..good("meat", GoodUse::Food, 1500.0, Eaten::Cooked)
         });
@@ -535,6 +537,7 @@ mod tests {
         goods.push(GoodDef {
             fuel: None,
             power: None,
+            light: None,
             half_life_days: 180.0,
             ..good("dried", GoodUse::Food, 3750.0, Eaten::Raw)
         });

@@ -302,6 +302,7 @@ mod tests {
         let food = |id: &str, kcal: f64, half_life: f64, sheltered: f64| GoodDef {
             fuel: None,
             power: None,
+            light: None,
             money: None,
             id: id.into(),
             name: id.into(),

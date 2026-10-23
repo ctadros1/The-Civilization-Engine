@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 164
+kernel_content_api = 165
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2233,4 +2233,69 @@ fn a_cart_names_its_mass_resistances_and_puller_and_no_boat_fields() {
             report.diagnostics
         );
     }
+}
+
+#[test]
+fn a_lamp_names_the_fuel_it_burns() {
+    // M10b slice DU (content API 165): a tool may carry a `[light]` table naming a good it burns
+    // and how much an hour, in range; only a tool gives light, and its fuel must be a good.
+    let lamp = real("good/fat_lamp.toml");
+    let fine = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        ("good/fat_lamp.toml", &lamp),
+    ]);
+    assert!(fine.diagnostics.is_empty(), "{:?}", fine.diagnostics);
+    let catalog = &fine.registry.as_ref().expect("content").catalog;
+    let index = |id: &str| catalog.goods.iter().position(|g| g.id == id);
+    let light = catalog.goods[index("core:good/fat_lamp").expect("a lamp")]
+        .light
+        .expect("it gives light");
+    assert_eq!(light.fuel, index("core:good/tallow"));
+    assert!((light.kg_per_hour - 0.008).abs() < 1e-12);
+    for (body, needle) in [
+        (
+            lamp.replace("kg_per_hour = 0.008", "kg_per_hour = 0.0"),
+            "light.kg_per_hour",
+        ),
+        (
+            lamp.replace("kg_per_hour = 0.008", "kg_per_hour = 2.0"),
+            "light.kg_per_hour",
+        ),
+    ] {
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &real_preset()),
+            ("good/fat_lamp.toml", &body),
+        ]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(report.diagnostics[0].message.contains(needle));
+    }
+    // Light from a good that is not a tool.
+    let tallow = format!(
+        "{}\n[light]\nfuel = \"core:good/tallow\"\nkg_per_hour = 0.01\n",
+        real("good/tallow.toml")
+    );
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        ("good/tallow.toml", &tallow),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("only a tool gives light")
+    );
+    // A fuel that is no good.
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        (
+            "good/fat_lamp.toml",
+            &lamp.replace("\"core:good/tallow\"", "\"core:good/whale_oil\""),
+        ),
+    ]);
+    assert_eq!(codes(&report), vec!["E2006"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("core:good/whale_oil")
+    );
 }

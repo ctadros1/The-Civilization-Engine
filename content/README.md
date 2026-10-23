@@ -1666,3 +1666,10 @@ the water hammer; found smelting iron); blown by a works' wheel it smelts `good/
 ore on charcoal (`recipe/smelt_pig_iron`) or, under `technique/coke_smelting`, on coke
 (`recipe/smelt_pig_iron_with_coke`), and the hammer's two fine the pig to bar
 (`recipe/fine_pig_iron`). Each has its activity; founders bring none of the three techniques.
+
+Content API 165 (M10b slice DU) lets a tool carry a `[light]` table: `fuel`, the good it burns (by
+content id), and `kg_per_hour`, how much of it an hour lit (above 0 and at most 1). Only a tool
+gives light. The first lamp is `good/fat_lamp`, a clay dish burning `good/tallow` (8 g an hour),
+with `technique/lamps` (found drying meat, with meat at home; founders do not bring it),
+`recipe/render_tallow`, `recipe/make_fat_lamp` and their activities. Nobody wants a lamp for
+its own sake (`per_worker = 0`); what light changes comes in DU's later parts.

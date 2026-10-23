@@ -2442,6 +2442,7 @@ mod tests {
             trips: 0.0,
             trips_day: today,
             rank: Rank::Lane,
+            track: None,
         });
         let rev = frames::ways::ways_rev(sim);
         assert_ne!(rev, 0);
@@ -2732,6 +2733,7 @@ mod tests {
             trips: 0.0,
             trips_day: today,
             rank: Rank::Lane,
+            track: None,
         });
         assert_ne!(frames::plans::plans_rev(sim), proposed);
         let payload = read(&mut h);

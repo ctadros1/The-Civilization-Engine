@@ -186,6 +186,8 @@ pub struct LandParams {
     pub ditches: ditches::DitchParams,
     /// What works on ways take (M8b slice CQ).
     pub way_works: ways::WayWorkParams,
+    /// What laying track takes (M10b slice DV, second part); `None` where no track can be laid.
+    pub track: Option<rail::TrackParams>,
     /// How what people shed moves through the ground and water (ADR-0021 §4).
     pub contamination: ContaminationParams,
 }
@@ -2051,6 +2053,7 @@ mod tests {
             banks: banks::BankParams::default(),
             ditches: ditches::DitchParams::default(),
             way_works: ways::WayWorkParams::default(),
+            track: None,
             contamination: ContaminationParams::default(),
         }
     }

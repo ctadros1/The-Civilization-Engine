@@ -51,6 +51,22 @@ pub(crate) struct LandFile {
     /// hold.
     #[serde(default)]
     pub way_works: Option<WayWorksFile>,
+    /// What laying track takes (content API 169, M10b slice DV). A profile that leaves it out
+    /// lays no track.
+    #[serde(default)]
+    pub track: Option<TrackFile>,
+}
+
+/// What laying track takes (content API 169): see [`civ_land::rail::TrackParams`].
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct TrackFile {
+    pub good: String,
+    pub good_kg_m: f64,
+    pub lay_h_m: f64,
+    pub earth_h_m3: f64,
+    pub shoulder_m: f32,
+    pub search_grade: f64,
 }
 
 /// What works on ways take (content API 137): see [`civ_land::ways::WayWorkParams`].
@@ -724,6 +740,17 @@ impl LandFile {
                     passing_life_years: w.passing_life_years,
                 },
             ),
+            track: match &self.track {
+                Some(t) => Some(civ_land::rail::TrackParams {
+                    good: good_index(&t.good)?,
+                    good_kg_m: t.good_kg_m,
+                    lay_h_m: t.lay_h_m,
+                    earth_h_m3: t.earth_h_m3,
+                    shoulder_m: t.shoulder_m,
+                    search_grade: t.search_grade,
+                }),
+                None => None,
+            },
         })
     }
 
@@ -858,6 +885,21 @@ impl LandFile {
             if !(v.passing_life_years.is_finite() && (1.0..=100.0).contains(&v.passing_life_years))
             {
                 p.push("`way_works.passing_life_years` must be 1 to 100".to_owned());
+            }
+        }
+        if let Some(t) = &self.track {
+            for (field, v, lo, hi) in [
+                ("good_kg_m", t.good_kg_m, 0.0, 10_000.0),
+                ("lay_h_m", t.lay_h_m, 0.0, 1_000.0),
+                ("earth_h_m3", t.earth_h_m3, 0.0, 100.0),
+                ("shoulder_m", f64::from(t.shoulder_m), 0.0, 10.0),
+                ("search_grade", t.search_grade, 0.0, 1.0),
+            ] {
+                if !(v.is_finite() && v > lo && v <= hi) {
+                    p.push(format!(
+                        "`track.{field}` must be above {lo} and at most {hi}"
+                    ));
+                }
             }
         }
         if !(w.trail_until > 0.0 && w.trail_until <= w.trail_at && w.trail_at < 1.0) {

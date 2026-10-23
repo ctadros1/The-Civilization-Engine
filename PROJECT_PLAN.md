@@ -6274,6 +6274,27 @@ and M6a gives rivers a daily flow.
       pull and speed on the level and its stop at 1 %; a line round a bend turns at most 45° a cell;
       under a 1 % ruling grade a line goes round a ridge by its gap, at 10 % straight over, never
       across water but over a deck; a wagon's file names no road or boat field.
+      *As built, second part (2026-10-23): track laid by work.* A way may carry a `Track` (saves
+      180): the gauge it is laid to, its bed's height at each cell, the earth its grading cuts and
+      fills, and the timber and hours laying it takes in all. A line is searched over ground no
+      steeper than the land profile's `[track] search_grade` (5 %), and its bed is graded to its
+      ruling grade as the midpoint between the lowest and highest beds that keep that grade from
+      every cell's ground, so ground already within the grade is left as it lies and a hump is cut
+      about as much as its hollows are filled. Laying takes 50 kg of timber and 1.5 hours a metre
+      and 2.3 hours a cubic metre of earth (content API 169); a begun line (`begin_track`) is a way
+      serving wagons alone, of the surface `timber track`, marked out on a bed of its gauge and half
+      a metre each side. Its keeper's hours of work widen the bed as a passing place's do, each
+      taking its share of the timber from the household's store, no more hours than the timber
+      allows; it carries wagons only once whole. Walkers' wear never holds it. Nobody begins a line
+      yet (lines by choice are the fourth part), so no world changes; grading leaves the map's
+      ground as it lies, the bed kept with the track, and any open deck carries it until crossings
+      rated for a wagon's load come. **Tested:** a graded bed keeps its ruling grade, is symmetric
+      over a symmetric hump and moves no earth where the ground already keeps the grade; a planned
+      line reckons its timber by length and its hours by length and earth; a line begun from a
+      village hearth is a way for wagons of timber track, laid by its keeper's work only as far as
+      its timber goes, half its timber laying half of it, not usable until whole, saved and loaded
+      alike part laid and whole; the core's `[track]` names a good that must exist and hours above
+      zero.
     - **DW**: engines on rails and train runs: block sections, single track and loops.
     - **DX**: stations, timetables set at review, fares and freight as posted terms, consignments
       of many owners, rides as household-day blocks, who builds and owns a line.
@@ -7711,6 +7732,13 @@ One line each. Don't re-litigate without a reason written next to the entry.
   pump's half, its other work (a mill's, a hammer's) taken in the same daylight and not netted
   off; nobody sets a wheel for a pit's sake, so a wheel pumps only where one already stands near
   its holder's pit. Revisited when the M10 demo shows a pit beside a mill.
+- **Design priors for laying track (2026-10-23, M10b slice DV, second part):** NUDGE: timber track
+  takes 50 kg of timber a metre (rails and sleepers of about 0.07 m³) and 1.5 hours to hew and lay,
+  on a bed half a metre wider than the gauge each side; grading moves earth at 10-07 §2.2's 2.3
+  hours a cubic metre; lines are searched over ground no steeper than 5 % and graded from there. The
+  bed is the midpoint of the grade's upper and lower envelopes, which balances cut and fill only
+  roughly; spoil and borrow, and grading's change to the map's ground, wait. Revisited when the M10
+  demo shows a line laid.
 - **Design priors for the wagonway (2026-10-23, M10b slice DV, first part):** NUDGE: a wagon on
   timber rails rolls at C = 0.005 (the brief's figure; no report gives rail's resistance), runs on a
   metre's gauge, is held back down 1 % by its pusher, and carries 2 t on 0.5 t; wooden railways are

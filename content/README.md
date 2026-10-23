@@ -1691,3 +1691,11 @@ cart's road resistances; a cart and a boat refuse a wagon's. The core adds `core
 aboard a 0.5 t wagon at 0.005 on timber rails of a metre's gauge, pushed at 200 N and 75 W, held
 back down 1 %) and `core:technique/wooden_railway`, which needs wheels on an axle and is tried in
 digging coal and ore; design priors marked in their files.
+
+Content API 169 (DV's second part) adds a land profile's `[track]`: what laying track takes. It
+names the `good` its sleepers and rails are made of and `good_kg_m` of it a metre, `lay_h_m` (hours
+to hew and lay a metre), `earth_h_m3` (hours to dig or place a cubic metre in grading), `shoulder_m`
+(the bed's width beyond the gauge each side) and `search_grade` (the steepest ground between cells a
+line is laid over before its bed is graded). The core lays timber at 50 kg and 1.5 hours a metre,
+grades at 2.3 hours a cubic metre, on a bed 0.5 m wider than the gauge each side, over ground no
+steeper than 5 %. A profile that leaves it out lays no track.

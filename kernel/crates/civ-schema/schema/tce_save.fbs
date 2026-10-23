@@ -3569,7 +3569,7 @@ table WaySegmentSave {
   kept: long (id: 7);
 }
 
-// A way: the day work on it began; `modes` bits (1 walking, 2 handcarts); its trips, faded as of
+// A way: the day work on it began; `modes` bits (1 walking, 2 handcarts, 4 wagons); its trips, faded as of
 // `trips_day`; `rank` as last surveyed, 0 a lane, 1 a street, 2 a main way, 3 a way between
 // settlements.
 table WayLineSave {
@@ -3580,6 +3580,20 @@ table WayLineSave {
   trips: float (id: 4);
   trips_day: long (id: 5);
   rank: ubyte (id: 6);
+  // Schema 180 (M10b slice DV): its track, for a way that serves wagons.
+  track: WayTrackSave (id: 7);
+}
+
+// A way's track (schema 180, M10b slice DV): the gauge it is laid to, its bed's height at each of
+// its way's cells in order, the earth its grading cuts and fills, and the kilograms of its rails'
+// good and hours of work laying it takes in all.
+table WayTrackSave {
+  gauge_m: float (id: 0);
+  bed: [float] (id: 1);
+  cut_m3: float (id: 2);
+  fill_m3: float (id: 3);
+  good_kg: float (id: 4);
+  labour_h: float (id: 5);
 }
 
 table WaysSave {

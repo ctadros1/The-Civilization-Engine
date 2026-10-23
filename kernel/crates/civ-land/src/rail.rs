@@ -7,6 +7,12 @@
 //! lies on land or on a crossing's deck, never through water.
 //!
 //! A wagon on its track is [`crate::carting::Wheels`] whose ground resistance is the rail's.
+//!
+//! The second part: a line is laid over ground no steeper than a searching grade, and its bed is
+//! graded to the ruling grade by cut and fill ([`bed_profile`]; ADR-0029 §6's grading, the brief
+//! §1.1: "grading is a prerequisite"). Laying it takes hours for the earth moved and for each
+//! metre of sleepers and rails, and timber for them ([`TrackParams`]); the plan is a [`Track`]
+//! kept with its way.
 
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
@@ -169,6 +175,131 @@ impl Terrain<'_> {
     }
 }
 
+/// What laying track takes (M10b slice DV, second part). Authored in content.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TrackParams {
+    /// The good its sleepers and rails are made of (an index into the catalog's goods).
+    pub good: usize,
+    /// Kilograms of that good a metre of track takes.
+    pub good_kg_m: f64,
+    /// Hours of a capable adult's work to hew and lay a metre of sleepers and rails.
+    pub lay_h_m: f64,
+    /// Hours of a capable adult's work to dig or place a cubic metre of earth.
+    pub earth_h_m3: f64,
+    /// The bed's width beyond the gauge on each side, metres.
+    pub shoulder_m: f32,
+    /// The steepest ground between neighbouring cells a line is laid over before its bed is
+    /// graded, rise over run.
+    pub search_grade: f64,
+}
+
+/// A line of track planned or laid: the gauge it is laid to, its bed's height at each of its
+/// way's cells in order, the earth its grading cuts and fills, and what laying it takes in all.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Track {
+    pub gauge_m: f32,
+    pub bed: Vec<f32>,
+    pub cut_m3: f32,
+    pub fill_m3: f32,
+    /// Kilograms of [`TrackParams::good`] it takes.
+    pub good_kg: f32,
+    /// Hours of a capable adult's work it takes.
+    pub labour_h: f32,
+}
+
+/// The distance from each cell of `cells` to the one before it on a map `width` cells wide,
+/// `cell_m` metres a cell (0 for the first).
+pub fn runs(cells: &[u32], width: u32, cell_m: f64) -> Vec<f64> {
+    let w = i64::from(width.max(1));
+    let mut out = Vec::with_capacity(cells.len());
+    out.push(0.0);
+    out.extend(cells.windows(2).map(|p| {
+        let (dx, dy) = (
+            (i64::from(p[1]) % w - i64::from(p[0]) % w).abs(),
+            (i64::from(p[1]) / w - i64::from(p[0]) / w).abs(),
+        );
+        cell_m * (((dx * dx + dy * dy) as f64).sqrt())
+    }));
+    out
+}
+
+/// A bed along a line whose ground is `ground` at each cell (`runs` apart, as [`runs`] gives)
+/// that rises or falls no steeper than `ruling` anywhere: midway between the lowest bed that
+/// stays on or above the ground's every cone of that grade and the highest that stays on or
+/// below it. Where the ground already keeps the grade, the bed is the ground; elsewhere it is
+/// cut into rises and filled over hollows about equally.
+pub fn bed_profile(ground: &[f32], runs: &[f64], ruling: f64) -> Vec<f32> {
+    let n = ground.len();
+    let g: Vec<f64> = ground.iter().map(|&z| f64::from(z)).collect();
+    let (mut upper, mut lower) = (g.clone(), g.clone());
+    for i in 1..n {
+        upper[i] = upper[i].min(upper[i - 1] + ruling * runs[i]);
+        lower[i] = lower[i].max(lower[i - 1] - ruling * runs[i]);
+    }
+    for i in (0..n.saturating_sub(1)).rev() {
+        upper[i] = upper[i].min(upper[i + 1] + ruling * runs[i + 1]);
+        lower[i] = lower[i].max(lower[i + 1] - ruling * runs[i + 1]);
+    }
+    upper
+        .iter()
+        .zip(&lower)
+        .map(|(u, l)| ((u + l) / 2.0) as f32)
+        .collect()
+}
+
+/// The earth cut and filled, cubic metres, to bring a bed `width` metres wide from `ground` to
+/// `bed` along a line whose cells are `runs` apart: each cell's share of the line is half the
+/// run on either side of it.
+pub fn earth_m3(ground: &[f32], bed: &[f32], runs: &[f64], width: f64) -> (f64, f64) {
+    let n = ground.len();
+    let (mut cut, mut fill) = (0.0, 0.0);
+    for i in 0..n {
+        let length = (runs[i] + runs.get(i + 1).copied().unwrap_or(0.0)) / 2.0;
+        let dz = f64::from(bed[i] - ground[i]);
+        if dz > 0.0 {
+            fill += dz * length * width;
+        } else {
+            cut -= dz * length * width;
+        }
+    }
+    (cut, fill)
+}
+
+impl Terrain<'_> {
+    /// A line of track of gauge `gauge_m` from cell `from` to cell `to` (`max_cells` searched at
+    /// most): its cells, laid over ground no steeper than `params.search_grade`, and its bed
+    /// graded to `ruling` with what that and its sleepers and rails take.
+    pub fn plan_track(
+        &self,
+        from: u32,
+        to: u32,
+        gauge_m: f32,
+        ruling: f64,
+        params: &TrackParams,
+        max_cells: usize,
+    ) -> Option<(Vec<u32>, Track)> {
+        let cells = self.lay_track(from, to, params.search_grade.max(ruling), max_cells)?;
+        let ground: Vec<f32> = cells
+            .iter()
+            .map(|&c| self.track_height(c))
+            .collect::<Option<_>>()?;
+        let runs = runs(&cells, self.width, self.cell_m);
+        let bed = bed_profile(&ground, &runs, ruling);
+        let width = f64::from(gauge_m + 2.0 * params.shoulder_m);
+        let (cut, fill) = earth_m3(&ground, &bed, &runs, width);
+        let length: f64 = runs.iter().sum();
+        let track = Track {
+            gauge_m,
+            bed,
+            cut_m3: cut as f32,
+            fill_m3: fill as f32,
+            good_kg: (length * params.good_kg_m) as f32,
+            labour_h: (length * params.lay_h_m + (cut + fill) * params.earth_h_m3) as f32,
+        };
+        Some((cells, track))
+    }
+}
+
 /// The sharpest turn, in eighths of a full turn, between consecutive steps of `cells` on a map
 /// `width` cells wide: at most 1 where the line keeps the turn rule.
 pub fn sharpest_turn(cells: &[u32], width: u32) -> u8 {
@@ -325,5 +456,71 @@ mod tests {
             .lay_track(from, to, 0.10, 1_000_000)
             .expect("over the deck");
         assert!(bridged.contains(&(10 * w + 18)));
+    }
+
+    #[test]
+    fn a_graded_bed_keeps_the_ruling_grade_and_cuts_about_what_it_fills() {
+        // A hump 2 m high over 5 cells of 8 m: 25 % a side, graded to 1 %.
+        let ground = [0.0, 0.0, 0.0, 1.0, 2.0, 1.0, 0.0, 0.0, 0.0f32];
+        let runs = vec![0.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0];
+        let bed = bed_profile(&ground, &runs, 0.01);
+        for i in 1..bed.len() {
+            assert!(
+                f64::from((bed[i] - bed[i - 1]).abs()) <= 0.01 * runs[i] + 1e-6,
+                "{bed:?}"
+            );
+        }
+        // Symmetric ground grades to a bed that is its own mirror, through the hump's middle.
+        for i in 0..bed.len() {
+            assert!((bed[i] - bed[bed.len() - 1 - i]).abs() < 1e-6);
+        }
+        let (cut, fill) = earth_m3(&ground, &bed, &runs, 2.0);
+        assert!(cut > 0.0 && fill > 0.0);
+        // Ground that already keeps the grade is left as it lies: no earth moved.
+        let gentle = [0.0, 0.04, 0.08, 0.06, 0.02f32];
+        let runs = vec![0.0, 8.0, 8.0, 8.0, 8.0];
+        assert_eq!(bed_profile(&gentle, &runs, 0.01), gentle.to_vec());
+        assert_eq!(earth_m3(&gentle, &gentle, &runs, 2.0), (0.0, 0.0));
+    }
+
+    #[test]
+    fn a_planned_line_reckons_its_timber_and_hours_by_length_and_earth() {
+        let (w, h) = (24u32, 8u32);
+        let (mut z, water) = flat(w, h);
+        // A rise of 0.2 m at column 10 (2.5 % on 8 m cells), within the searching grade.
+        z[(4 * w + 10) as usize] = 0.2;
+        let t = Terrain {
+            elevation: &z,
+            water: &water,
+            decks: &[],
+            width: w,
+            height: h,
+            cell_m: 8.0,
+        };
+        let params = TrackParams {
+            good: 0,
+            good_kg_m: 50.0,
+            lay_h_m: 1.5,
+            earth_h_m3: 2.3,
+            shoulder_m: 0.5,
+            search_grade: 0.05,
+        };
+        let (cells, track) = t
+            .plan_track(4 * w + 4, 4 * w + 16, 1.0, 0.003, &params, 100_000)
+            .expect("a line");
+        assert_eq!(cells.len(), 13);
+        assert_eq!(track.bed.len(), cells.len());
+        // 96 m of track: 4,800 kg of timber and 144 hours' laying, and the earth graded at
+        // 2.3 hours a cubic metre over a 2 m bed.
+        assert!((track.good_kg - 4_800.0).abs() < 1e-3);
+        let earth = f64::from(track.cut_m3 + track.fill_m3);
+        assert!(earth > 0.0);
+        assert!((f64::from(track.labour_h) - (144.0 + earth * 2.3)).abs() < 1e-3);
+        assert!(
+            track
+                .bed
+                .windows(2)
+                .all(|p| (p[1] - p[0]).abs() <= 0.003 * 8.0 + 1e-6)
+        );
     }
 }

@@ -61489,6 +61489,7 @@ impl<'a> WayLineSave<'a> {
   pub const VT_TRIPS: ::flatbuffers::VOffsetT = 12;
   pub const VT_TRIPS_DAY: ::flatbuffers::VOffsetT = 14;
   pub const VT_RANK: ::flatbuffers::VOffsetT = 16;
+  pub const VT_TRACK: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -61503,6 +61504,7 @@ impl<'a> WayLineSave<'a> {
     builder.add_trips_day(args.trips_day);
     builder.add_begun(args.begun);
     builder.add_id(args.id);
+    if let Some(x) = args.track { builder.add_track(x); }
     builder.add_trips(args.trips);
     if let Some(x) = args.segments { builder.add_segments(x); }
     builder.add_rank(args.rank);
@@ -61560,6 +61562,13 @@ impl<'a> WayLineSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u8>(WayLineSave::VT_RANK, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn track(&self) -> Option<WayTrackSave<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<WayTrackSave>>(WayLineSave::VT_TRACK, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WayLineSave<'_> {
@@ -61575,6 +61584,7 @@ impl ::flatbuffers::Verifiable for WayLineSave<'_> {
      .visit_field::<f32>("trips", Self::VT_TRIPS, false)?
      .visit_field::<i64>("trips_day", Self::VT_TRIPS_DAY, false)?
      .visit_field::<u8>("rank", Self::VT_RANK, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<WayTrackSave>>("track", Self::VT_TRACK, false)?
      .finish();
     Ok(())
   }
@@ -61587,6 +61597,7 @@ pub struct WayLineSaveArgs<'a> {
     pub trips: f32,
     pub trips_day: i64,
     pub rank: u8,
+    pub track: Option<::flatbuffers::WIPOffset<WayTrackSave<'a>>>,
 }
 impl<'a> Default for WayLineSaveArgs<'a> {
   #[inline]
@@ -61599,6 +61610,7 @@ impl<'a> Default for WayLineSaveArgs<'a> {
       trips: 0.0,
       trips_day: 0,
       rank: 0,
+      track: None,
     }
   }
 }
@@ -61637,6 +61649,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WayLineSaveBuilder<'a, 'b, A>
     self.fbb_.push_slot::<u8>(WayLineSave::VT_RANK, rank, 0);
   }
   #[inline]
+  pub fn add_track(&mut self, track: ::flatbuffers::WIPOffset<WayTrackSave<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<WayTrackSave>>(WayLineSave::VT_TRACK, track);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WayLineSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WayLineSaveBuilder {
@@ -61661,6 +61677,188 @@ impl ::core::fmt::Debug for WayLineSave<'_> {
       ds.field("trips", &self.trips());
       ds.field("trips_day", &self.trips_day());
       ds.field("rank", &self.rank());
+      ds.field("track", &self.track());
+      ds.finish()
+  }
+}
+pub enum WayTrackSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WayTrackSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WayTrackSave<'a> {
+  type Inner = WayTrackSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WayTrackSave<'a> {
+  pub const VT_GAUGE_M: ::flatbuffers::VOffsetT = 4;
+  pub const VT_BED: ::flatbuffers::VOffsetT = 6;
+  pub const VT_CUT_M3: ::flatbuffers::VOffsetT = 8;
+  pub const VT_FILL_M3: ::flatbuffers::VOffsetT = 10;
+  pub const VT_GOOD_KG: ::flatbuffers::VOffsetT = 12;
+  pub const VT_LABOUR_H: ::flatbuffers::VOffsetT = 14;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WayTrackSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WayTrackSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<WayTrackSave<'bldr>> {
+    let mut builder = WayTrackSaveBuilder::new(_fbb);
+    builder.add_labour_h(args.labour_h);
+    builder.add_good_kg(args.good_kg);
+    builder.add_fill_m3(args.fill_m3);
+    builder.add_cut_m3(args.cut_m3);
+    if let Some(x) = args.bed { builder.add_bed(x); }
+    builder.add_gauge_m(args.gauge_m);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn gauge_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WayTrackSave::VT_GAUGE_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn bed(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(WayTrackSave::VT_BED, None)}
+  }
+  #[inline]
+  pub fn cut_m3(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WayTrackSave::VT_CUT_M3, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn fill_m3(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WayTrackSave::VT_FILL_M3, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn good_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WayTrackSave::VT_GOOD_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn labour_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WayTrackSave::VT_LABOUR_H, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WayTrackSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<f32>("gauge_m", Self::VT_GAUGE_M, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("bed", Self::VT_BED, false)?
+     .visit_field::<f32>("cut_m3", Self::VT_CUT_M3, false)?
+     .visit_field::<f32>("fill_m3", Self::VT_FILL_M3, false)?
+     .visit_field::<f32>("good_kg", Self::VT_GOOD_KG, false)?
+     .visit_field::<f32>("labour_h", Self::VT_LABOUR_H, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WayTrackSaveArgs<'a> {
+    pub gauge_m: f32,
+    pub bed: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub cut_m3: f32,
+    pub fill_m3: f32,
+    pub good_kg: f32,
+    pub labour_h: f32,
+}
+impl<'a> Default for WayTrackSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WayTrackSaveArgs {
+      gauge_m: 0.0,
+      bed: None,
+      cut_m3: 0.0,
+      fill_m3: 0.0,
+      good_kg: 0.0,
+      labour_h: 0.0,
+    }
+  }
+}
+
+pub struct WayTrackSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WayTrackSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_gauge_m(&mut self, gauge_m: f32) {
+    self.fbb_.push_slot::<f32>(WayTrackSave::VT_GAUGE_M, gauge_m, 0.0);
+  }
+  #[inline]
+  pub fn add_bed(&mut self, bed: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WayTrackSave::VT_BED, bed);
+  }
+  #[inline]
+  pub fn add_cut_m3(&mut self, cut_m3: f32) {
+    self.fbb_.push_slot::<f32>(WayTrackSave::VT_CUT_M3, cut_m3, 0.0);
+  }
+  #[inline]
+  pub fn add_fill_m3(&mut self, fill_m3: f32) {
+    self.fbb_.push_slot::<f32>(WayTrackSave::VT_FILL_M3, fill_m3, 0.0);
+  }
+  #[inline]
+  pub fn add_good_kg(&mut self, good_kg: f32) {
+    self.fbb_.push_slot::<f32>(WayTrackSave::VT_GOOD_KG, good_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_labour_h(&mut self, labour_h: f32) {
+    self.fbb_.push_slot::<f32>(WayTrackSave::VT_LABOUR_H, labour_h, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WayTrackSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WayTrackSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WayTrackSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WayTrackSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WayTrackSave");
+      ds.field("gauge_m", &self.gauge_m());
+      ds.field("bed", &self.bed());
+      ds.field("cut_m3", &self.cut_m3());
+      ds.field("fill_m3", &self.fill_m3());
+      ds.field("good_kg", &self.good_kg());
+      ds.field("labour_h", &self.labour_h());
       ds.finish()
   }
 }

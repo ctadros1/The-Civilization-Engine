@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 168
+kernel_content_api = 169
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2369,5 +2369,63 @@ fn a_lamp_names_the_fuel_it_burns() {
         report.diagnostics[0]
             .message
             .contains("core:good/whale_oil")
+    );
+}
+
+#[test]
+fn a_land_profile_says_what_laying_track_takes_and_its_good_must_exist() {
+    // M10b slice DV, second part (content API 169): the core lays timber track at 50 kg and 1.5
+    // hours a metre, grading at 2.3 hours a cubic metre over a bed 0.5 m wider than the gauge
+    // each side, over ground no steeper than 5 %.
+    let reg = registry(load(&repo_content()));
+    let t = reg.land.params.track.expect("the core lays track");
+    let timber = reg
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/timber")
+        .expect("timber");
+    assert_eq!(t.good, timber);
+    assert_eq!(
+        (
+            t.good_kg_m,
+            t.lay_h_m,
+            t.earth_h_m3,
+            t.shoulder_m,
+            t.search_grade
+        ),
+        (50.0, 1.5, 2.3, 0.5, 0.05)
+    );
+    let preset = real_preset();
+    let land = real("land/temperate_valley.toml").replace(
+        "[track]\ngood = \"core:good/timber\"",
+        "[track]\ngood = \"core:good/iron_rail\"",
+    );
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert_eq!(codes(&report), vec!["E2006"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("core:good/iron_rail")
+    );
+    let land = real("land/temperate_valley.toml").replace("lay_h_m = 1.5", "lay_h_m = 0.0");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains("`track.lay_h_m` must be above 0")),
+        "{:?}",
+        report
+            .diagnostics
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
     );
 }

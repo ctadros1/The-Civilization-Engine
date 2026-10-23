@@ -1823,6 +1823,7 @@ fn wheels_scene() -> (Scene, usize) {
         trips: 0.0,
         trips_day: today,
         rank: Rank::Lane,
+        track: None,
     });
     (sc, stone)
 }

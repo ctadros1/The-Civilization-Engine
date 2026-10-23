@@ -547,6 +547,21 @@ passing_width_m = 2.0
 clear_h_m2 = 0.34
 passing_life_years = 10.0
 
+# Laying track (M10b slice DV, second part; content API 169; the rail brief §1.1; research 07-08
+# §5.5 P01). Timber rails on sleepers: two rails of about 0.1 × 0.15 m and a sleeper of 0.15 × 0.1
+# × 1.5 m every 0.6 m come to some 0.07 m³ of timber a metre, about 50 kg (design priors). Hewing
+# and laying them takes 1.5 hours a metre (a tuning value). Grading moves earth at 2.3 hours a cubic
+# metre, ILO's 3.5 m³ a worker-day in medium soil (research 10-07 §2.2, as clearing a way). The bed
+# runs half a metre beyond the gauge each side. A line is laid over ground no steeper than 5 %
+# between cells and its bed graded from there to its ruling grade (design priors).
+[track]
+good = "core:good/timber"
+good_kg_m = 50.0
+lay_h_m = 1.5
+earth_h_m3 = 2.3
+shoulder_m = 0.5
+search_grade = 0.05
+
 [ditches]
 # An irrigation ditch's Manning's n clean and densely weeded, s/m^(1/3) (research 11-12 §2.3:
 # 0.025 for an average unlined canal, 0.040 badly kept; §4.4: weeds cut its capacity to 62.5 %).

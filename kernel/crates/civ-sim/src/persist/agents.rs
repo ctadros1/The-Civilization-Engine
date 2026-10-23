@@ -12070,6 +12070,20 @@ fn encode_ways(land: &Land) -> Vec<u8> {
                 })
                 .collect();
             let segments = fbb.create_vector(&segments);
+            let track = w.track.as_ref().map(|t| {
+                let bed = fbb.create_vector(&t.bed);
+                save::WayTrackSave::create(
+                    &mut fbb,
+                    &save::WayTrackSaveArgs {
+                        gauge_m: t.gauge_m,
+                        bed: Some(bed),
+                        cut_m3: t.cut_m3,
+                        fill_m3: t.fill_m3,
+                        good_kg: t.good_kg,
+                        labour_h: t.labour_h,
+                    },
+                )
+            });
             save::WayLineSave::create(
                 &mut fbb,
                 &save::WayLineSaveArgs {
@@ -12080,6 +12094,7 @@ fn encode_ways(land: &Land) -> Vec<u8> {
                     trips: w.trips,
                     trips_day: w.trips_day,
                     rank: w.rank.code(),
+                    track,
                 },
             )
         })
@@ -12270,7 +12285,7 @@ fn decode_boats(
 }
 
 /// The ways saved in `bytes`. One with an unknown surface, keeper or rank, a cell off the map,
-/// or widths out of order is malformed.
+/// widths out of order or a track that does not fit its cells is malformed.
 fn decode_ways(bytes: &[u8], map: &WorldMap) -> Result<civ_land::ways::Ways, LoadError> {
     use civ_land::ways::{Keeper, Rank, Segment, Surface, Way, Ways};
     let root = section_root::<save::WaysSave>(bytes).map_err(|e| unreadable(SECTION_WAYS, &e))?;
@@ -12301,6 +12316,14 @@ fn decode_ways(bytes: &[u8], map: &WorldMap) -> Result<civ_land::ways::Ways, Loa
             trips_day: w.trips_day(),
             rank: Rank::from_code(w.rank())
                 .ok_or_else(|| bad(&format!("rank code {}", w.rank())))?,
+            track: w.track().map(|t| civ_land::rail::Track {
+                gauge_m: t.gauge_m(),
+                bed: t.bed().map(|b| b.iter().collect()).unwrap_or_default(),
+                cut_m3: t.cut_m3(),
+                fill_m3: t.fill_m3(),
+                good_kg: t.good_kg(),
+                labour_h: t.labour_h(),
+            }),
         });
     }
     let ways = Ways::with_revision(list, root.revision());

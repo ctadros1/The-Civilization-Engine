@@ -40348,6 +40348,7 @@ impl<'a> VehicleInfo<'a> {
   pub const VT_OUT_WITH: ::flatbuffers::VOffsetT = 22;
   pub const VT_LOAD_KG: ::flatbuffers::VOffsetT = 24;
   pub const VT_WORDS: ::flatbuffers::VOffsetT = 26;
+  pub const VT_RUN: ::flatbuffers::VOffsetT = 28;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -40370,6 +40371,7 @@ impl<'a> VehicleInfo<'a> {
     builder.add_x(args.x);
     if let Some(x) = args.owner_name { builder.add_owner_name(x); }
     if let Some(x) = args.name { builder.add_name(x); }
+    builder.add_run(args.run);
     builder.add_mode(args.mode);
     builder.finish()
   }
@@ -40459,6 +40461,13 @@ impl<'a> VehicleInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(VehicleInfo::VT_WORDS, None)}
   }
+  #[inline]
+  pub fn run(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(VehicleInfo::VT_RUN, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for VehicleInfo<'_> {
@@ -40479,6 +40488,7 @@ impl ::flatbuffers::Verifiable for VehicleInfo<'_> {
      .visit_field::<u64>("out_with", Self::VT_OUT_WITH, false)?
      .visit_field::<f32>("load_kg", Self::VT_LOAD_KG, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .visit_field::<u8>("run", Self::VT_RUN, false)?
      .finish();
     Ok(())
   }
@@ -40496,6 +40506,7 @@ pub struct VehicleInfoArgs<'a> {
     pub out_with: u64,
     pub load_kg: f32,
     pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub run: u8,
 }
 impl<'a> Default for VehicleInfoArgs<'a> {
   #[inline]
@@ -40513,6 +40524,7 @@ impl<'a> Default for VehicleInfoArgs<'a> {
       out_with: 0,
       load_kg: 0.0,
       words: None,
+      run: 0,
     }
   }
 }
@@ -40571,6 +40583,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> VehicleInfoBuilder<'a, 'b, A>
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(VehicleInfo::VT_WORDS, words);
   }
   #[inline]
+  pub fn add_run(&mut self, run: u8) {
+    self.fbb_.push_slot::<u8>(VehicleInfo::VT_RUN, run, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> VehicleInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     VehicleInfoBuilder {
@@ -40600,6 +40616,7 @@ impl ::core::fmt::Debug for VehicleInfo<'_> {
       ds.field("out_with", &self.out_with());
       ds.field("load_kg", &self.load_kg());
       ds.field("words", &self.words());
+      ds.field("run", &self.run());
       ds.finish()
   }
 }

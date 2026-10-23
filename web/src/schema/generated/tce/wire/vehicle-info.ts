@@ -88,8 +88,13 @@ words(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+run():number {
+  const offset = this.bb!.__offset(this.bb_pos, 28);
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : 0;
+}
+
 static startVehicleInfo(builder:flatbuffers.Builder) {
-  builder.startObject(12);
+  builder.startObject(13);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -140,12 +145,16 @@ static addWords(builder:flatbuffers.Builder, wordsOffset:flatbuffers.Offset) {
   builder.addFieldOffset(11, wordsOffset, 0);
 }
 
+static addRun(builder:flatbuffers.Builder, run:number) {
+  builder.addFieldInt8(12, run, 0);
+}
+
 static endVehicleInfo(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createVehicleInfo(builder:flatbuffers.Builder, id:bigint, mode:number, nameOffset:flatbuffers.Offset, owner:bigint, ownerNameOffset:flatbuffers.Offset, x:number, y:number, made:number, wear:number, outWith:bigint, loadKg:number, wordsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createVehicleInfo(builder:flatbuffers.Builder, id:bigint, mode:number, nameOffset:flatbuffers.Offset, owner:bigint, ownerNameOffset:flatbuffers.Offset, x:number, y:number, made:number, wear:number, outWith:bigint, loadKg:number, wordsOffset:flatbuffers.Offset, run:number):flatbuffers.Offset {
   VehicleInfo.startVehicleInfo(builder);
   VehicleInfo.addId(builder, id);
   VehicleInfo.addMode(builder, mode);
@@ -159,6 +168,7 @@ static createVehicleInfo(builder:flatbuffers.Builder, id:bigint, mode:number, na
   VehicleInfo.addOutWith(builder, outWith);
   VehicleInfo.addLoadKg(builder, loadKg);
   VehicleInfo.addWords(builder, wordsOffset);
+  VehicleInfo.addRun(builder, run);
   return VehicleInfo.endVehicleInfo(builder);
 }
 }

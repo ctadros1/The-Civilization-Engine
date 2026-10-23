@@ -6428,6 +6428,24 @@ and M6a gives rivers a daily flow.
       review begins nothing; at two hundred dig days it begins an engine at the pit end, 3,000 kg
       of iron out of the store, and nothing more when weighed again; saved and loaded it is as it
       was; worked to its 3,000 hours it is made where it stands and the chronicle says so.
+      *As built, fifth part (2026-10-23): the observer of engines and runs.* The vehicles layer
+      tells an engine on rails as a mode of its own (wire 1.101), apart from the wagons it pulls,
+      and says of each engine and wagon whether it is on a run: waiting at a loop or end for the
+      section ahead, running, or arrived. One on a run stands where the run has it: the engine at
+      the share of its leg's section it has run, at the section's start while it waits and at the
+      line's end once arrived, each wagon a wagon's length (4 m) behind along the line's cells; the
+      layer's revision moves as the train does. The run is in the engine's words ("running home
+      with 4 wagons, 380 kg aboard", "out light to the pit with a wagon", "waiting at the loop for
+      the section ahead", "arrived home") and in each wagon's ("in a train running home"). The map
+      draws an engine as an iron box on four wheels with its chimney, a wisp of steam above while
+      it runs. Nobody knows the locomotive, so no world changes. **Slice DW is done.**
+      **Tested:** an engine standing at its line's end shows as an engine and its wagon as a wagon,
+      neither on a run; set off on a ten-minute run home with the wagon, the engine is running at
+      the line's start, its words saying so, and the layer's revision moves; five minutes on it is
+      about halfway along, the wagon a wagon's length behind and nearer the start, in a train
+      running home; its leg run, it has arrived at the far end, "arrived home". The observer
+      decodes an engine on its run and draws it by its iron, apart from wagons, where the kernel
+      places it.
     - **DX**: stations, timetables set at review, fares and freight as posted terms, consignments
       of many owners, rides as household-day blocks, who builds and owns a line.
     - **DY**: the gas chain: gasworks, holders, mains, connections by district capacity,

@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import type { VehicleInfo } from "../src/net/messages.js";
-import { BOAT_COLOUR, CART_COLOUR, WAGON_COLOUR, vehicleAt, vehicleLook, vehiclePosition } from "../src/vehicles.js";
+import {
+  BOAT_COLOUR,
+  CART_COLOUR,
+  ENGINE_COLOUR,
+  WAGON_COLOUR,
+  vehicleAt,
+  vehicleLook,
+  vehiclePosition,
+} from "../src/vehicles.js";
 
 function vehicle(over: Partial<VehicleInfo>): VehicleInfo {
   return {
@@ -17,20 +25,30 @@ function vehicle(over: Partial<VehicleInfo>): VehicleInfo {
     outWith: 0,
     loadKg: 0,
     words: "Ada's household's dugout, made in year 1",
+    run: 0,
     ...over,
   };
 }
 
 describe("vehicles", () => {
   it("draws a boat and a cart by their mode, faint while being made and faded as they wear", () => {
-    expect(vehicleLook(vehicle({}))).toEqual({ colour: BOAT_COLOUR, alpha: 1, boat: true, wagon: false });
+    expect(vehicleLook(vehicle({}))).toEqual({ colour: BOAT_COLOUR, alpha: 1, boat: true, wagon: false, engine: false });
     const cart = vehicleLook(vehicle({ mode: 1, made: 0.3 }));
     expect(cart.colour).toBe(CART_COLOUR);
     expect(cart.boat).toBe(false);
     expect(cart.wagon).toBe(false);
     // A wagon on its line (wire 1.100) by its own boards.
     const wagon = vehicleLook(vehicle({ mode: 2, name: "Wagon" }));
-    expect(wagon).toEqual({ colour: WAGON_COLOUR, alpha: 1, boat: false, wagon: true });
+    expect(wagon).toEqual({ colour: WAGON_COLOUR, alpha: 1, boat: false, wagon: true, engine: false });
+    // An engine on rails (wire 1.101) by its iron, apart from the wagons it pulls.
+    const engine = vehicleLook(vehicle({ mode: 3, name: "Locomotive", made: 0.5 }));
+    expect(engine).toEqual({
+      colour: ENGINE_COLOUR,
+      alpha: expect.closeTo(0.25 + 0.45 * 0.5, 6) as number,
+      boat: false,
+      wagon: false,
+      engine: true,
+    });
     expect(cart.alpha).toBeCloseTo(0.25 + 0.45 * 0.3);
     expect(vehicleLook(vehicle({ mode: 1, made: 0 })).alpha).toBeCloseTo(0.25);
     expect(vehicleLook(vehicle({ wear: 1 })).alpha).toBeCloseTo(0.65);
@@ -42,6 +60,8 @@ describe("vehicles", () => {
     expect(vehiclePosition(vehicle({ outWith: 42 }), positions)).toEqual([5, 6]);
     // One out with someone not drawn stays where it stood.
     expect(vehiclePosition(vehicle({ outWith: 9 }), positions)).toEqual([100, 200]);
+    // An engine on a run is where the kernel has it along its line.
+    expect(vehiclePosition(vehicle({ mode: 3, run: 2, x: 140, y: 210 }), positions)).toEqual([140, 210]);
   });
 
   it("finds the nearest vehicle under the pointer", () => {

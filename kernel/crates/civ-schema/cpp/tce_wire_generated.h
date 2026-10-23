@@ -25672,7 +25672,8 @@ struct VehicleInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_WEAR = 20,
     VT_OUT_WITH = 22,
     VT_LOAD_KG = 24,
-    VT_WORDS = 26
+    VT_WORDS = 26,
+    VT_RUN = 28
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -25710,6 +25711,9 @@ struct VehicleInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *words() const {
     return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
   }
+  uint8_t run() const {
+    return GetField<uint8_t>(VT_RUN, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -25728,6 +25732,7 @@ struct VehicleInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<float>(verifier, VT_LOAD_KG, 4) &&
            VerifyOffset(verifier, VT_WORDS) &&
            verifier.VerifyString(words()) &&
+           VerifyField<uint8_t>(verifier, VT_RUN, 1) &&
            verifier.EndTable();
   }
 };
@@ -25772,6 +25777,9 @@ struct VehicleInfoBuilder {
   void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
     fbb_.AddOffset(VehicleInfo::VT_WORDS, words);
   }
+  void add_run(uint8_t run) {
+    fbb_.AddElement<uint8_t>(VehicleInfo::VT_RUN, run, 0);
+  }
   explicit VehicleInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -25796,7 +25804,8 @@ inline ::flatbuffers::Offset<VehicleInfo> CreateVehicleInfo(
     float wear = 0.0f,
     uint64_t out_with = 0,
     float load_kg = 0.0f,
-    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0,
+    uint8_t run = 0) {
   VehicleInfoBuilder builder_(_fbb);
   builder_.add_out_with(out_with);
   builder_.add_owner(owner);
@@ -25809,6 +25818,7 @@ inline ::flatbuffers::Offset<VehicleInfo> CreateVehicleInfo(
   builder_.add_x(x);
   builder_.add_owner_name(owner_name);
   builder_.add_name(name);
+  builder_.add_run(run);
   builder_.add_mode(mode);
   return builder_.Finish();
 }
@@ -25831,7 +25841,8 @@ inline ::flatbuffers::Offset<VehicleInfo> CreateVehicleInfoDirect(
     float wear = 0.0f,
     uint64_t out_with = 0,
     float load_kg = 0.0f,
-    const char *words = nullptr) {
+    const char *words = nullptr,
+    uint8_t run = 0) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto owner_name__ = owner_name ? _fbb.CreateString(owner_name) : 0;
   auto words__ = words ? _fbb.CreateString(words) : 0;
@@ -25848,7 +25859,8 @@ inline ::flatbuffers::Offset<VehicleInfo> CreateVehicleInfoDirect(
       wear,
       out_with,
       load_kg,
-      words__);
+      words__,
+      run);
 }
 
 struct Vehicles FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

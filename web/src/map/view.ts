@@ -536,9 +536,10 @@ export class MapView {
     return out;
   }
 
-  /** Each boat as a hull about 6 m long, each cart as a box on two wheels about 2 m long and each
-   * wagon as a box on four wheels about 3 m long, never smaller than a few pixels, where it stands
-   * or beside whoever has it out. */
+  /** Each boat as a hull about 6 m long, each cart as a box on two wheels about 2 m long, each
+   * wagon as a box on four wheels about 3 m long and each engine on rails as an iron box on four
+   * wheels with its chimney, never smaller than a few pixels, where it stands, beside whoever has
+   * it out, or where its run has it along the line. */
   private drawVehicles(g: Graphics, positions: Map<number, [number, number]>, pxM: number): void {
     for (const v of this.vehicles) {
       const [x, y] = vehiclePosition(v, positions);
@@ -549,6 +550,22 @@ export class MapView {
         g.poly([x - half, y, x - half * 0.6, y - beam, x + half * 0.6, y - beam, x + half, y, x + half * 0.6, y + beam, x - half * 0.6, y + beam])
           .fill({ color: look.colour, alpha: look.alpha })
           .stroke({ width: pxM, color: 0x14181b, alpha: 0.8 * look.alpha });
+      } else if (look.engine) {
+        const half = Math.max(1.5, 5 * pxM);
+        const tall = Math.max(0.6, 2.4 * pxM);
+        g.rect(x - half, y - tall, 2 * half, 2 * tall)
+          .fill({ color: look.colour, alpha: look.alpha })
+          .stroke({ width: pxM, color: 0x14181b, alpha: 0.8 * look.alpha });
+        for (const dx of [-half * 0.6, half * 0.6]) {
+          for (const dy of [-tall, tall]) {
+            g.circle(x + dx, y + dy, Math.max(0.3, 1.2 * pxM)).fill({ color: 0x14181b, alpha: look.alpha });
+          }
+        }
+        // Its chimney at the front, and a wisp of steam while it runs.
+        g.circle(x + half * 0.55, y, Math.max(0.4, 0.9 * pxM)).fill({ color: 0x0b0d0e, alpha: look.alpha });
+        if (v.run === 2) {
+          g.circle(x + half * 0.55, y - 2.5 * tall, Math.max(0.6, 1.6 * pxM)).fill({ color: 0xe8ecef, alpha: 0.6 });
+        }
       } else if (look.wagon) {
         const half = Math.max(1.5, 4.5 * pxM);
         const tall = Math.max(0.6, 2.6 * pxM);
@@ -1492,7 +1509,17 @@ export class MapView {
         const positions = this.positionsById();
         return this.vehicles.map((v) => {
           const [x, y] = vehiclePosition(v, positions);
-          return { id: v.id, mode: v.mode, x, y, made: v.made, outWith: v.outWith, loadKg: v.loadKg, words: v.words };
+          return {
+            id: v.id,
+            mode: v.mode,
+            x,
+            y,
+            made: v.made,
+            outWith: v.outWith,
+            loadKg: v.loadKg,
+            words: v.words,
+            run: v.run,
+          };
         });
       })(),
       // M8c slice CX: the land map's plots, by what is recorded of each.

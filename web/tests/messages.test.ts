@@ -1252,6 +1252,42 @@ describe("decoders", () => {
     expect(query.bodyType()).toBe(W.QueryBody.GetCrossings);
   });
 
+  it("decodes the vehicles, an engine on its run among them (wire 1.101)", () => {
+    const b = new flatbuffers.Builder(256);
+    const name = b.createString("Locomotive");
+    const owner = b.createString("Ada's household");
+    const words = b.createString(
+      "Ada's household's locomotive, made in year 3; running home with a wagon, 380 kg aboard",
+    );
+    const engine = W.VehicleInfo.createVehicleInfo(b, 71n, 3, name, 7n, owner, 12, 34, 1, 0, 0n, 0, words, 2);
+    const list = W.Vehicles.createVehiclesVector(b, [engine]);
+    const vehicles = W.Vehicles.createVehicles(b, 9n, list);
+    const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Vehicles, vehicles)));
+    expect(body).toEqual({
+      kind: "vehicles",
+      vehicles: {
+        rev: 9,
+        vehicles: [
+          {
+            id: 71,
+            mode: 3,
+            name: "Locomotive",
+            owner: 7,
+            ownerName: "Ada's household",
+            x: 12,
+            y: 34,
+            made: 1,
+            wear: 0,
+            outWith: 0,
+            loadKg: 0,
+            words: "Ada's household's locomotive, made in year 3; running home with a wagon, 380 kg aboard",
+            run: 2,
+          },
+        ],
+      },
+    });
+  });
+
   it("decodes the ways people worked on, and builds their query", () => {
     const b = new flatbuffers.Builder(256);
     const points = W.WaySegmentInfo.createPointsVector(b, [4, 4, 76, 4]);

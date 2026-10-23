@@ -1,10 +1,13 @@
 //! The vehicles layer (wire 1.86, M8b slices CO and CP; ADR-0029 §3, §9): every boat and cart,
-//! and (wire 1.100, M10b slice DV) every wagon on its line, whose it is, where it stands or who of its household has it out, how far it is made, its wear
-//! and the goods aboard. It reads the world and changes nothing.
+//! and (wire 1.100, M10b slice DV) every wagon on its line, whose it is, where it stands or who of
+//! its household has it out, how far it is made, its wear and the goods aboard; and (wire 1.101,
+//! M10b slice DW) every engine on rails, an engine or wagon on a run drawn where the run has it
+//! along its line, the run in its words. It reads the world and changes nothing.
 
 use civ_agents::person::Step;
 use civ_core::PermanentId;
 use civ_land::boats::Boat;
+use civ_land::trains::{Run, RunState};
 use civ_schema::flatbuffers::FlatBufferBuilder;
 use civ_schema::wire;
 
@@ -12,13 +15,18 @@ use super::people::eldest_name;
 use super::response;
 use crate::Sim;
 
-/// A vehicle's mode on the wire: 0 a boat, 1 a cart, 2 a wagon.
+/// A vehicle's mode on the wire: 0 a boat, 1 a cart, 2 a wagon, 3 an engine on rails.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Mode {
     Boat = 0,
     Cart = 1,
     Wagon = 2,
+    Engine = 3,
 }
+
+/// The gap between an engine and its first wagon on a run, and between wagons, metres: about a
+/// wagon's length.
+const CAR_GAP_M: f64 = 4.0;
 
 const MODES: [Mode; 3] = [Mode::Boat, Mode::Cart, Mode::Wagon];
 
@@ -28,8 +36,140 @@ impl Mode {
         match self {
             Mode::Boat => &land.boats.list,
             Mode::Cart => &land.carts.list,
-            Mode::Wagon => &land.wagons.list,
+            Mode::Wagon | Mode::Engine => &land.wagons.list,
         }
+    }
+
+    /// The mode a vehicle of this store shows as: a rail vehicle with an engine is an engine.
+    fn of(self, sim: &Sim, v: &Boat) -> Mode {
+        let engine = sim
+            .rules
+            .catalog
+            .vehicles
+            .get(usize::from(v.vehicle))
+            .is_some_and(|d| d.engine.is_some());
+        if self == Mode::Wagon && engine {
+            Mode::Engine
+        } else {
+            self
+        }
+    }
+}
+
+/// The run vehicle `id` is on, if any, and its place in the train: 0 the engine, then its wagons
+/// in order.
+fn on_run(sim: &Sim, id: PermanentId) -> Option<(&Run, usize)> {
+    sim.land.runs.list.iter().find_map(|r| {
+        if r.engine == id {
+            Some((r, 0))
+        } else {
+            r.cars.iter().position(|&c| c == id).map(|k| (r, k + 1))
+        }
+    })
+}
+
+/// Where the `k`-th of run `run`'s train is now, metres from the map's north-west corner: the
+/// engine at the share of its leg's section it has run (at the section's start while it waits for
+/// it, at the line's end once it has arrived), each wagon `CAR_GAP_M` further behind, along the
+/// line's cells.
+fn run_place(sim: &Sim, run: &Run, k: usize) -> Option<(f32, f32)> {
+    let way = sim.land.ways.list.iter().find(|w| w.id == run.way)?;
+    let cells: Vec<u32> = way
+        .segments
+        .iter()
+        .flat_map(|s| s.cells.iter().copied())
+        .collect();
+    let points: Vec<(f64, f64)> = cells
+        .iter()
+        .map(|&c| {
+            let (x, y) = civ_agents::population::cell_centre(&sim.map, c as usize);
+            (f64::from(x), f64::from(y))
+        })
+        .collect();
+    let mut along = vec![0.0f64; points.len()];
+    for i in 1..points.len() {
+        let (a, b) = (points[i - 1], points[i]);
+        along[i] = along[i - 1] + (b.0 - a.0).hypot(b.1 - a.1);
+    }
+    let total = *along.last()?;
+    let sections = civ_land::trains::sections(sim.land.runs.loops_of(run.way), cells.len());
+    // How far along the line, first cell to last, the engine is.
+    let leg = run.legs.get(usize::from(run.leg));
+    let section = |s: u16| sections.get(usize::from(s)).copied();
+    let s = match run.state {
+        RunState::Arrived { .. } => {
+            if run.back {
+                0.0
+            } else {
+                total
+            }
+        }
+        RunState::Waiting { .. } => {
+            let (a, b) = section(leg?.0)?;
+            if run.back { along[b] } else { along[a] }
+        }
+        RunState::Running { until } => {
+            let &(sec, minutes) = leg?;
+            let (a, b) = section(sec)?;
+            let left = (until - sim.now().minutes()) as f64 / f64::from(minutes.max(1));
+            let done = (1.0 - left).clamp(0.0, 1.0);
+            if run.back {
+                along[b] - done * (along[b] - along[a])
+            } else {
+                along[a] + done * (along[b] - along[a])
+            }
+        }
+    };
+    // The train trails behind the way it runs.
+    let behind = CAR_GAP_M * k as f64;
+    let s = if run.back { s + behind } else { s - behind }.clamp(0.0, total);
+    let i = along
+        .partition_point(|&d| d < s)
+        .clamp(1, points.len().max(2) - 1);
+    if points.len() < 2 {
+        return points.first().map(|&(x, y)| (x as f32, y as f32));
+    }
+    let (a, b) = (points[i - 1], points[i]);
+    let span = (along[i] - along[i - 1]).max(1e-9);
+    let t = ((s - along[i - 1]) / span).clamp(0.0, 1.0);
+    Some((
+        (a.0 + t * (b.0 - a.0)) as f32,
+        (a.1 + t * (b.1 - a.1)) as f32,
+    ))
+}
+
+/// A run on the wire: 1 waiting, 2 running, 3 arrived.
+fn run_code(run: &Run) -> u8 {
+    match run.state {
+        RunState::Waiting { .. } => 1,
+        RunState::Running { .. } => 2,
+        RunState::Arrived { .. } => 3,
+    }
+}
+
+/// A run in words, as its engine tells it: "running home with 4 wagons, 380 kg aboard", "out
+/// light to the pit with a wagon", "waiting at the loop for the section ahead", "arrived home".
+/// Loaded it is bound home, light it is bound for the pit.
+fn run_words(run: &Run) -> String {
+    let home = run.load_kg >= 0.5;
+    let wagons = match run.cars.len() {
+        0 => "no wagons".to_owned(),
+        1 => "a wagon".to_owned(),
+        n => format!("{n} wagons"),
+    };
+    let bound = if home {
+        format!("home with {wagons}, {:.0} kg aboard", run.load_kg)
+    } else {
+        format!("out light to the pit with {wagons}")
+    };
+    match run.state {
+        RunState::Running { .. } => format!("running {bound}"),
+        RunState::Waiting { .. } if run.leg == 0 => {
+            format!("waiting to set off {bound}, the line ahead held")
+        }
+        RunState::Waiting { .. } => format!("waiting at the loop for the section ahead, {bound}"),
+        RunState::Arrived { .. } if home => "arrived home".to_owned(),
+        RunState::Arrived { .. } => "arrived at the pit".to_owned(),
     }
 }
 
@@ -97,6 +237,16 @@ pub fn vehicles_rev(sim: &Sim) -> u64 {
             mix(out_with(sim, v.owner, v.at, mode).map_or(0, PermanentId::get));
         }
     }
+    // A run moves its train along the line as the clock goes (wire 1.101).
+    mix(u64::from(land.runs.revision()));
+    for r in &land.runs.list {
+        mix(r.id.get());
+        mix(u64::from(run_code(r)));
+        if let Some((x, y)) = run_place(sim, r, 0) {
+            mix(u64::from(x.to_bits()));
+            mix(u64::from(y.to_bits()));
+        }
+    }
     for c in &sim.people.consignments {
         mix(c.id.get());
         mix(c.boat.get());
@@ -106,7 +256,8 @@ pub fn vehicles_rev(sim: &Sim) -> u64 {
 }
 
 /// A vehicle in words: "Ada's household's dugout, made in year 2, a tenth worn; out with Bo, 40 kg
-/// aboard", "Ada's household's handcart, being made: 12 of 40 hours' work done".
+/// aboard", "Ada's household's handcart, being made: 12 of 40 hours' work done", "Ada's
+/// household's locomotive, made in year 3; running home with 4 wagons, 380 kg aboard".
 fn words(
     sim: &Sim,
     v: &Boat,
@@ -131,6 +282,17 @@ fn words(
             v.work_h.floor(),
             v.labour_h
         ));
+    }
+    if let Some((run, k)) = on_run(sim, v.id) {
+        if k == 0 {
+            text.push_str(&format!("; {}", run_words(run)));
+        } else {
+            text.push_str(&format!("; in a train {}", run_words(run)));
+            if load >= 0.5 {
+                text.push_str(&format!(", {load:.0} kg on it"));
+            }
+        }
+        return text;
     }
     if let Some(p) = out.and_then(|p| sim.people.person(p)) {
         text.push_str(&format!("; out with {}", p.given));
@@ -162,7 +324,7 @@ fn tenths(n: i32) -> String {
         .map_or_else(|| "all".to_owned(), |w| (*w).to_owned())
 }
 
-/// Every boat, then every cart, then every wagon, each in the order begun.
+/// Every boat, then every cart, then every wagon and engine on rails, each in the order begun.
 pub fn vehicles_response(sim: &Sim) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let land = &sim.land;
@@ -180,7 +342,11 @@ pub fn vehicles_response(sim: &Sim) -> Vec<u8> {
                 .map_or_else(|| "a household".to_owned(), |n| format!("{n}'s household"));
             let out = out_with(sim, v.owner, v.at, mode);
             let load = load_kg(sim, v.id);
-            let (x, y) = if (v.at as usize) < sim.map.water.len() {
+            let run = on_run(sim, v.id);
+            let placed = run.and_then(|(r, k)| run_place(sim, r, k));
+            let (x, y) = if let Some(at) = placed {
+                at
+            } else if (v.at as usize) < sim.map.water.len() {
                 civ_agents::population::cell_centre(&sim.map, v.at as usize)
             } else {
                 (0.0, 0.0)
@@ -197,7 +363,7 @@ pub fn vehicles_response(sim: &Sim) -> Vec<u8> {
                 &mut fbb,
                 &wire::VehicleInfoArgs {
                     id: v.id.get(),
-                    mode: mode as u8,
+                    mode: mode.of(sim, v) as u8,
                     name: Some(name),
                     owner: v.owner.get(),
                     owner_name: Some(owner),
@@ -208,6 +374,7 @@ pub fn vehicles_response(sim: &Sim) -> Vec<u8> {
                     out_with: out.map_or(0, PermanentId::get),
                     load_kg: load as f32,
                     words: Some(text),
+                    run: run.map_or(0, |(r, _)| run_code(r)),
                 },
             ));
         }

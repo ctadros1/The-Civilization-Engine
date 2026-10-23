@@ -2901,7 +2901,7 @@ table Ways {
 }
 
 // Wire 1.86 (M8b slices CO and CP): a boat or a cart: its mode (0 a boat, 1 a cart; 2 a wagon on
-// its line from wire 1.100) and its
+// its line from wire 1.100; 3 an engine on rails from wire 1.101) and its
 // content name ("Dugout"); the household it is of and that household in words ("Ada's
 // household"); where it stands, metres from the map's north-west corner; how far it is made, 0-1
 // (1 made); its wear, 0-1; who of its household has it out now (0 for nobody) and the goods
@@ -2919,9 +2919,14 @@ table VehicleInfo {
   out_with: ulong (id: 9);
   load_kg: float (id: 10);
   words: string (id: 11);
+  // Wire 1.101 (M10b slice DW, fifth part): where an engine or a wagon is on a run along its
+  // line: 0 on none, 1 waiting at a loop or end for the section ahead, 2 running, 3 arrived. A
+  // vehicle on a run is drawn where the run has it, along the line.
+  run: ubyte (id: 12);
 }
 
-// Wire 1.86: every boat, then every cart, then (wire 1.100) every wagon, each in the order begun.
+// Wire 1.86: every boat, then every cart, then (wire 1.100) every wagon and (wire 1.101) every
+// engine on rails, each in the order begun.
 table Vehicles {
   rev: ulong (id: 0);
   vehicles: [VehicleInfo] (id: 1);

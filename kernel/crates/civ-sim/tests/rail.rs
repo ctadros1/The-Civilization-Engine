@@ -1002,3 +1002,119 @@ fn a_household_whose_pushed_loads_fall_short_of_its_digging_weighs_an_engine_and
         "the chronicle tells it"
     );
 }
+
+/// The vehicles layer's entry for vehicle `id`: its mode, run, place and words.
+fn seen_vehicle(sim: &Sim, id: PermanentId) -> (u8, u8, (f32, f32), String) {
+    let bytes = civ_sim::frames::vehicles::vehicles_response(sim);
+    let response =
+        civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&bytes).expect("wire");
+    let list = response.body_as_vehicles().expect("vehicles");
+    let v = list
+        .vehicles()
+        .expect("a list")
+        .iter()
+        .find(|v| v.id() == id.get())
+        .expect("the vehicle");
+    (
+        v.mode(),
+        v.run(),
+        (v.x(), v.y()),
+        v.words().unwrap_or_default().to_owned(),
+    )
+}
+
+#[test]
+fn the_observer_shows_an_engine_as_its_own_mode_and_its_train_moving_along_the_line() {
+    use civ_land::trains::{Run, RunState};
+    let mut sim = village(3);
+    let household = first_household(&sim);
+    let (from, to) = ends_from_hearth(&sim, 16);
+    let id = sim
+        .with_ctx_for_tests(|_, ctx| {
+            civ_agents::population::Population::begin_track_for_tests(
+                ctx, household, from, to, 1.0, 0.003,
+            )
+        })
+        .expect("a line begun");
+    let cells: Vec<u32> = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|w| w.id == id)
+        .expect("the line")
+        .segments
+        .iter()
+        .flat_map(|s| s.cells.clone())
+        .collect();
+    let (first, last) = (cells[0], *cells.last().expect("cells"));
+    let (wagon_v, engine_v) = (wagon_vehicle(&sim), engine_vehicle(&sim));
+    let add = |sim: &mut Sim, v: usize| {
+        sim.with_ctx_for_tests(|_, ctx| {
+            civ_agents::population::Population::add_wagon_for_tests(ctx, household, v, first)
+        })
+    };
+    let wagon = add(&mut sim, wagon_v);
+    let engine = add(&mut sim, engine_v);
+    let centre = |cell: u32| civ_agents::population::cell_centre(sim.map(), cell as usize);
+    let (start, end) = (centre(first), centre(last));
+    // Standing at the line's end, an engine is shown as an engine, a wagon as a wagon, neither on
+    // a run.
+    let (mode, run, at, words) = seen_vehicle(&sim, engine);
+    assert_eq!((mode, run, at), (3, 0, start), "{words}");
+    assert!(words.contains("'s locomotive"), "{words}");
+    assert_eq!(seen_vehicle(&sim, wagon).0, 2);
+    let before = civ_sim::frames::vehicles::vehicles_rev(&sim);
+    // A run of ten minutes along the whole line, with the wagon behind.
+    let now = sim.now().minutes();
+    let run_id = sim.allocate_id_for_tests();
+    sim.land_mut_for_tests().runs.depart(
+        Run {
+            id: run_id,
+            way: id,
+            back: false,
+            engine,
+            owner: household,
+            cars: vec![wagon],
+            legs: vec![(0, 10)],
+            leg: 0,
+            state: RunState::Arrived { at: 0 },
+            load_kg: 380.0,
+        },
+        now,
+    );
+    sim.land_mut_for_tests().runs.advance(now);
+    let (_, run, at, words) = seen_vehicle(&sim, engine);
+    assert_eq!((run, at), (2, start), "{words}");
+    assert!(
+        words.ends_with("; running home with a wagon, 380 kg aboard"),
+        "{words}"
+    );
+    assert_ne!(civ_sim::frames::vehicles::vehicles_rev(&sim), before);
+    // Halfway through its leg it is about halfway along, the wagon a wagon's length behind.
+    let moving = civ_sim::frames::vehicles::vehicles_rev(&sim);
+    sim.advance_minutes(5).expect("advances");
+    let (_, run, (x, y), _) = seen_vehicle(&sim, engine);
+    assert_eq!(run, 2);
+    let from_start = f64::from((x - start.0).hypot(y - start.1));
+    let from_end = f64::from((x - end.0).hypot(y - end.1));
+    assert!(
+        (from_start - from_end).abs() < 0.2 * (from_start + from_end),
+        "{from_start} m from the start and {from_end} from the end"
+    );
+    let (_, car_run, (cx, cy), car_words) = seen_vehicle(&sim, wagon);
+    assert_eq!(car_run, 2);
+    assert!(
+        car_words.contains("; in a train running home"),
+        "{car_words}"
+    );
+    let gap = f64::from((cx - x).hypot(cy - y));
+    assert!(gap > 2.0 && gap <= 4.0 + 1e-3, "{gap}");
+    assert!(f64::from((cx - start.0).hypot(cy - start.1)) < from_start);
+    assert_ne!(civ_sim::frames::vehicles::vehicles_rev(&sim), moving);
+    // Its leg run, it has arrived at the line's far end.
+    sim.advance_minutes(6).expect("advances");
+    let (_, run, at, words) = seen_vehicle(&sim, engine);
+    assert_eq!((run, at), (3, end), "{words}");
+    assert!(words.ends_with("; arrived home"), "{words}");
+}

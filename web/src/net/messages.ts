@@ -1847,11 +1847,11 @@ export interface WaysInfo {
   ways: WayInfo[];
 }
 
-/** A boat or a cart (wire 1.86, M8b slices CO and CP; ADR-0029 §3), or a wagon on its line (wire
- * 1.100, M10b slice DV). */
+/** A boat or a cart (wire 1.86, M8b slices CO and CP; ADR-0029 §3), a wagon on its line (wire
+ * 1.100, M10b slice DV) or an engine on rails (wire 1.101, M10b slice DW). */
 export interface VehicleInfo {
   id: number;
-  /** 0 a boat, 1 a cart, 2 a wagon. */
+  /** 0 a boat, 1 a cart, 2 a wagon, 3 an engine on rails. */
   mode: number;
   /** Its content name: "Dugout". */
   name: string;
@@ -1869,6 +1869,9 @@ export interface VehicleInfo {
   loadKg: number;
   /** In the kernel's words: "Ada's household's dugout, made in year 2; out with Bo, 40 kg aboard". */
   words: string;
+  /** Wire 1.101: an engine's or wagon's run along its line: 0 on none, 1 waiting at a loop or end,
+   * 2 running, 3 arrived; on a run, where it stands is where the run has it now. */
+  run: number;
 }
 
 export interface VehiclesInfo {
@@ -3172,6 +3175,7 @@ function vehicles(w: W.Vehicles): VehiclesInfo {
       outWith: Number(v.outWith()),
       loadKg: v.loadKg(),
       words: v.words() ?? "",
+      run: v.run(),
     });
   }
   return { rev: Number(w.rev()), vehicles: list };

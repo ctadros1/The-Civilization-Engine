@@ -678,6 +678,12 @@ risk_alpha_told = 0.1
 # and a half times `retry_hours` before weighing taking again (12-04 §1.4: an offender may change
 # their timing).
 sight_m = 30.0
+# Once a world has lit a lamp (M10b slice DU; ADR-0034 §9), a taking after sunset is seen only
+# within `dark_sight_m` metres, unless it happens within `lit_m` of a home where a lamp burns for
+# work, whose light restores day sight. Design priors: a figure made out by starlight at about 10
+# m; a fat lamp's 1 lux at a metre lights its doorway to about 3 m (research 11-13 §2.2).
+dark_sight_m = 10.0
+lit_m = 3.0
 notice_chance = 0.7
 retry_hours = 12.0
 guardian_age = 10.0

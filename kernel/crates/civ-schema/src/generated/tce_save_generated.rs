@@ -46326,6 +46326,7 @@ impl<'a> Order<'a> {
   pub const VT_COIN_ISSUES: ::flatbuffers::VOffsetT = 40;
   pub const VT_PURSES: ::flatbuffers::VOffsetT = 42;
   pub const VT_BROUGHT: ::flatbuffers::VOffsetT = 44;
+  pub const VT_LAMP_FIRST_LIT: ::flatbuffers::VOffsetT = 46;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -46337,6 +46338,7 @@ impl<'a> Order<'a> {
     args: &'args OrderArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Order<'bldr>> {
     let mut builder = OrderBuilder::new(_fbb);
+    builder.add_lamp_first_lit(args.lamp_first_lit);
     builder.add_loans_refused(args.loans_refused);
     builder.add_loans_asked(args.loans_asked);
     if let Some(x) = args.brought { builder.add_brought(x); }
@@ -46509,6 +46511,13 @@ impl<'a> Order<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, BroughtSave>>>(Order::VT_BROUGHT, None)}
   }
+  #[inline]
+  pub fn lamp_first_lit(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Order::VT_LAMP_FIRST_LIT, Some(-1)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Order<'_> {
@@ -46538,6 +46547,7 @@ impl ::flatbuffers::Verifiable for Order<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, CoinIssueSave>>>("coin_issues", Self::VT_COIN_ISSUES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, PurseSave>>>("purses", Self::VT_PURSES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, BroughtSave>>>("brought", Self::VT_BROUGHT, false)?
+     .visit_field::<i64>("lamp_first_lit", Self::VT_LAMP_FIRST_LIT, false)?
      .finish();
     Ok(())
   }
@@ -46564,6 +46574,7 @@ pub struct OrderArgs<'a> {
     pub coin_issues: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, CoinIssueSave>>>,
     pub purses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, PurseSave>>>,
     pub brought: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, BroughtSave>>>,
+    pub lamp_first_lit: i64,
 }
 impl<'a> Default for OrderArgs<'a> {
   #[inline]
@@ -46590,6 +46601,7 @@ impl<'a> Default for OrderArgs<'a> {
       coin_issues: None,
       purses: None,
       brought: None,
+      lamp_first_lit: -1,
     }
   }
 }
@@ -46684,6 +46696,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> OrderBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Order::VT_BROUGHT, brought);
   }
   #[inline]
+  pub fn add_lamp_first_lit(&mut self, lamp_first_lit: i64) {
+    self.fbb_.push_slot::<i64>(Order::VT_LAMP_FIRST_LIT, lamp_first_lit, -1);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> OrderBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     OrderBuilder {
@@ -46722,6 +46738,7 @@ impl ::core::fmt::Debug for Order<'_> {
       ds.field("coin_issues", &self.coin_issues());
       ds.field("purses", &self.purses());
       ds.field("brought", &self.brought());
+      ds.field("lamp_first_lit", &self.lamp_first_lit());
       ds.finish()
   }
 }

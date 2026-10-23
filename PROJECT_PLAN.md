@@ -6220,6 +6220,20 @@ and M6a gives rivers a daily flow.
         escape certain catches from the lamp and puts it out, and none catches once its tallow is
         gone; the plan takes up making after dark only with the lamp and its fuel, capped at the
         fuel's minutes.
+      - *As built, third part (2026-10-23): dark sight.* Sight has a dark distance (`[crime]
+        dark_sight_m`, 10 m in the core) and lamplight a reach (`lit_m`, 3 m; content API 167).
+        Until the world first lights a lamp for work, the dark shortens nobody's sight, so no world
+        without lamps changes (ADR-0034 §9; the brief's open question 3); the first lamp lit is
+        remembered for good (saves 179). From then on, someone awake sees a taking after sunset only
+        within `dark_sight_m`, unless it happens within `lit_m` of a home where someone is working
+        by a lamp, whose light restores day sight; the watch on its rounds sees by the same rule,
+        since it is among those about (brief §2.4). A lamp is a place where takers are seen, never a
+        crime rate. Other uses of sight (bands seen, building on reserved ground, fire noticed) keep
+        their own distances. **Proved:** the bench worlds keep every digest but the meta and the
+        content, nobody having lit a lamp. **Tested:** someone 20 m from a store sees a taking there
+        at 23:00 before any lamp is lit, not once one has been, and does again where lamplight
+        falls; making by lamplight after dark remembers the first lamp and making by day does not;
+        the first lamp lit, and its absence, come back from a save.
     - **DV**: wagonways pushed by people: the `RAIL` mode, track by cells with a turn rule and a
       ruling grade, wagons.
     - **DW**: engines on rails and train runs: block sections, single track and loops.
@@ -7659,6 +7673,11 @@ One line each. Don't re-litigate without a reason written next to the entry.
   pump's half, its other work (a mill's, a hammer's) taken in the same daylight and not netted
   off; nobody sets a wheel for a pit's sake, so a wheel pumps only where one already stands near
   its holder's pit. Revisited when the M10 demo shows a pit beside a mill.
+- **Design priors for dark sight (2026-10-23, M10b slice DU, third part):** NUDGE: a figure is made
+  out by starlight at about 10 m (`dark_sight_m`), and a fat lamp's light (1 lux at a metre,
+  research 11-13 §2.2) reaches 3 m from the home it burns in (`lit_m`); neither is measured. Dark
+  sight waits for the world's first lamp lit, as ADR-0034 §9 chose. Revisited when the M10 demo
+  shows takings by night where lamps are lit.
 - **Design priors for work by lamplight (2026-10-23, M10b slice DU, second part):** NUDGE: only
   making at home runs after dark by a lamp (`max_walk_minutes = 0` stands for indoors; building a
   kiln or a furnace at the door counts, a field does not), and a lamp's escape rate is a lit

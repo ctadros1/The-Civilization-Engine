@@ -488,6 +488,8 @@ pub const SCHEMA_V175: u32 = 175;
 pub const SCHEMA_V176: u32 = 176;
 /// Pits tallied the hours bailed at them, before works rang a bell.
 pub const SCHEMA_V177: u32 = 177;
+/// Works rang a bell, before the world remembered its first lamp lit.
+pub const SCHEMA_V178: u32 = 178;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

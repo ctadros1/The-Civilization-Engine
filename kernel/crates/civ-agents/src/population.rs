@@ -5957,6 +5957,7 @@ impl Population {
             }
             return;
         }
+        let mut lit = None;
         if let Some(x) = self
             .hh_index
             .get(&household)
@@ -6026,6 +6027,7 @@ impl Population {
                 if dark_h > 0.0
                     && let Some((lamp, fuel, kg_h, _)) = lamp_of(goods, &x.stores)
                 {
+                    lit = Some(end);
                     let before = x.stores.clone();
                     x.stores[fuel] = (x.stores[fuel] - kg_h * dark_h).max(0.0);
                     x.flows
@@ -6036,6 +6038,11 @@ impl Population {
                         .add_changes(&before, &x.stores, Flow::Made, Flow::Worn);
                 }
             }
+        }
+        // The world's first lamp lit for work is remembered: from then on the dark shortens
+        // sight where no lamp's light falls (ADR-0034 §9).
+        if self.order.lamp_first_lit.is_none() {
+            self.order.lamp_first_lit = lit;
         }
         if let (Some((k, s)), Some(p)) = (skill, self.people.get_mut(h)) {
             let next = s.practised(p.skill(k), hours);
@@ -7515,6 +7522,13 @@ pub(crate) fn dark_minutes(params: &PeopleParams, end: SimTime, minutes: u32) ->
         t = next;
     }
     dark as f64
+}
+
+/// Whether it is dark at `now`, between sunset and sunrise at the profile's latitude.
+pub(crate) fn dark_at(params: &PeopleParams, now: SimTime) -> bool {
+    let sun = needs::daylight(params.latitude_deg, civ_land::day_of_year(now.day_index()));
+    let minute = now.minute_of_day();
+    minute < sun.0 || minute >= sun.1
 }
 
 /// The crew recipe `recipe`'s tools need: the most hands any of them wants at it together (M10a

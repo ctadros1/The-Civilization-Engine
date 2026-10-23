@@ -61,6 +61,12 @@ pub struct CrimeParams {
     pub risk_alpha_told: f64,
     /// Metres within which someone awake sees a taker at a household's store, and the taker them.
     pub sight_m: f64,
+    /// Metres they see in the dark once a lamp has been lit in the world, where no lamp's light
+    /// falls (M10b slice DU; ADR-0034 §9): until then the dark shortens nobody's sight.
+    pub dark_sight_m: f64,
+    /// Metres about a building where a lamp burns for work after dark within which its light
+    /// restores day sight.
+    pub lit_m: f64,
     /// Chance the taker notices each person awake in sight as they come to the store; one noticed
     /// and they turn back, and those they miss see them (research 12-04 §1.4: an offender may
     /// notice a guardian and abandon, or proceed regardless).
@@ -190,6 +196,8 @@ impl CrimeParams {
             risk_alpha: 0.3,
             risk_alpha_told: 0.1,
             sight_m: 30.0,
+            dark_sight_m: 30.0,
+            lit_m: 0.0,
             notice_chance: 0.7,
             retry_hours: 12.0,
             guardian_age: 10.0,
@@ -707,6 +715,9 @@ pub struct Order {
     pub coinage: crate::coin::Coinage,
     /// Asks refused because the giver believed the asker took (a counter, not saved).
     pub refusals: u64,
+    /// When a lamp was first lit for work in the world (M10b slice DU; ADR-0034 §9): from then
+    /// on the dark shortens sight where no lamp's light falls.
+    pub lamp_first_lit: Option<SimTime>,
 }
 
 /// How someone at a household met one of the watch come to take what a gathering's finding owed

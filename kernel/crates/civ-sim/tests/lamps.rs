@@ -1,5 +1,6 @@
 //! Lamps (M10b slice DU; ADR-0034 §9): work at home after dark by lamplight burns the lamp's
-//! fuel by the hour and wears the lamp; work in daylight burns none.
+//! fuel by the hour and wears the lamp; work in daylight burns none; and once a lamp has been
+//! lit, the dark shortens sight where no lamp's light falls.
 
 use std::path::Path;
 use std::sync::OnceLock;
@@ -103,15 +104,17 @@ fn work_at_home_after_dark_burns_the_lamps_tallow_and_none_in_daylight() {
                 .as_ref()
                 .expect("a tool")
                 .life_h,
+            sim.people().order.lamp_first_lit,
         )
     };
     // Two hours of making pots ending at two in the morning: all in the dark, by lamplight.
-    let (burned, worn, life_h) = worked(2 * 60);
+    let (burned, worn, life_h, first) = worked(2 * 60);
     assert!((burned - 2.0 * 0.008).abs() < 1e-9, "burned {burned} kg");
     assert!((worn - 2.0 / life_h).abs() < 1e-9, "wore {worn}");
+    assert!(first.is_some(), "the world's first lamp lit is remembered");
     // The same ending at one in the afternoon: daylight, no lamp lit.
-    let (burned, worn, _) = worked(13 * 60);
-    assert_eq!((burned, worn), (0.0, 0.0));
+    let (burned, worn, _, first) = worked(13 * 60);
+    assert_eq!((burned, worn, first), (0.0, 0.0, None));
 }
 
 /// In a household-resolved settlement (ADR-0032 §2) a day's making is lived at midnight, and a
@@ -183,4 +186,118 @@ fn a_household_resolved_day_burns_tallow_only_for_making_after_dark() {
         lit_day > 0,
         "nobody made anything by daylight to tell the two apart"
     );
+}
+
+/// Sight in the dark (M10b slice DU; ADR-0034 §9): someone awake 20 m from a store sees a taking
+/// there at night by day sight until the world has lit a lamp, not once it has, and again where
+/// a lamp lit for work lights the place.
+#[test]
+fn once_a_lamp_is_lit_a_taking_in_the_dark_is_seen_from_nearer_unless_lamplight_falls_there() {
+    use civ_agents::person::Step;
+    let seen = |lamp_ever: bool, lamplight: bool| -> bool {
+        let mut sim = world();
+        let minute = sim.now().minute_of_day();
+        sim.advance_minutes((23 * 60 - minute).rem_euclid(1440) + 1440)
+            .expect("advances");
+        {
+            let crime = &mut sim.rules_mut_for_tests().expect("rules").people.crime;
+            crime.notice_chance = 0.0;
+            crime.wake_chance = 0.0;
+            if lamplight {
+                crime.lit_m = 100_000.0;
+            }
+        }
+        let (lamp, tallow, food) = (
+            index(&sim, "core:good/fat_lamp"),
+            index(&sim, "core:good/tallow"),
+            index(&sim, "core:good/provisions"),
+        );
+        let axe_making = sim
+            .rules()
+            .catalog
+            .activities
+            .iter()
+            .position(|a| a.id == "core:activity/make_axe")
+            .expect("axe making") as u16;
+        let homes: Vec<(PermanentId, (f32, f32), Vec<PermanentId>)> = sim
+            .people()
+            .households
+            .iter()
+            .filter(|(_, x)| !x.members.is_empty())
+            .map(|(_, x)| (x.id, x.home, x.members.clone()))
+            .collect();
+        assert!(homes.len() >= 4, "{} households", homes.len());
+        let (victim, home, _) = homes[0].clone();
+        let (taker, observer, worker) = (homes[1].2[0], homes[2].2[0], homes[3].2[0]);
+        let lamp_home = homes[3].1;
+        let now = sim.now();
+        let pop = sim.people_mut_for_tests();
+        if lamp_ever {
+            pop.order.lamp_first_lit = Some(now);
+        }
+        for (_, x) in pop.households.iter_mut() {
+            if x.id == victim {
+                x.stores[food] += 50.0;
+            }
+            // The taker's household has nothing to eat, so wants what it can carry.
+            if x.id == homes[1].0 {
+                x.stores.iter_mut().for_each(|kg| *kg = 0.0);
+            }
+            if lamplight && x.id == homes[3].0 {
+                x.stores[lamp] = 1.0;
+                x.stores[tallow] = 1.0;
+            }
+        }
+        for (_, p) in pop.people.iter_mut() {
+            p.asleep = !(p.id == taker || p.id == observer || (lamplight && p.id == worker));
+            if p.id == observer {
+                p.trip = None;
+                p.pos = (home.0 + 20.0, home.1);
+            }
+            if p.id == worker {
+                p.trip = None;
+                p.pos = lamp_home;
+                p.act.def = axe_making;
+                p.act.steps = vec![Step::Work { minutes: 300 }];
+                p.act.step = 0;
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.take_from_for_tests(ctx, taker, victim));
+        let incident = sim.people().order.incidents.last().expect("an incident");
+        assert_eq!(incident.outcome, civ_agents::crime::Outcome::Taken);
+        incident.seen_by.contains(&observer)
+    };
+    assert!(
+        seen(false, false),
+        "day sight in the dark before any lamp is lit"
+    );
+    assert!(!seen(true, false), "dark sight once one has been");
+    assert!(
+        seen(true, true),
+        "lamplight restores day sight where it falls"
+    );
+}
+
+/// The world's first lamp lit is saved (schema 179), and a world that never lit one saves none.
+#[test]
+fn the_first_lamp_lit_is_kept_through_a_save() {
+    use civ_sim::persist;
+    use commons_persist::{SaveDir, SaveKind};
+    let round = |lit: Option<civ_core::time::SimTime>| {
+        let mut sim = world();
+        sim.people_mut_for_tests().order.lamp_first_lit = lit;
+        let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+        let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("save dir");
+        let path = persist::save(&mut sim, &saves, SaveKind::Manual, "lamp")
+            .expect("saves")
+            .path;
+        persist::load(&path, content())
+            .expect("loads")
+            .people()
+            .order
+            .lamp_first_lit
+    };
+    assert_eq!(round(None), None);
+    let at = civ_core::time::SimTime::from_minutes(12_345);
+    assert_eq!(round(Some(at)), Some(at));
 }

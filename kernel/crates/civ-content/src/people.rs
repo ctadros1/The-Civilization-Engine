@@ -1431,6 +1431,12 @@ pub(crate) struct CrimeFile {
     pub risk_alpha: f64,
     pub risk_alpha_told: f64,
     pub sight_m: f64,
+    /// Sight in the dark once a lamp has been lit (content API 167; absent, day sight).
+    #[serde(default)]
+    pub dark_sight_m: Option<f64>,
+    /// Metres about a building where a lamp burns within which its light restores day sight.
+    #[serde(default)]
+    pub lit_m: f64,
     pub notice_chance: f64,
     pub retry_hours: f64,
     pub guardian_age: f64,
@@ -1493,6 +1499,8 @@ impl CrimeFile {
             risk_alpha: self.risk_alpha,
             risk_alpha_told: self.risk_alpha_told,
             sight_m: self.sight_m,
+            dark_sight_m: self.dark_sight_m.unwrap_or(self.sight_m),
+            lit_m: self.lit_m,
             notice_chance: self.notice_chance,
             retry_hours: self.retry_hours,
             guardian_age: self.guardian_age,
@@ -1567,6 +1575,13 @@ impl CrimeFile {
             ("crime.risk_alpha", self.risk_alpha, 0.0, 1.0),
             ("crime.risk_alpha_told", self.risk_alpha_told, 0.0, 1.0),
             ("crime.sight_m", self.sight_m, 0.0, 10_000.0),
+            (
+                "crime.dark_sight_m",
+                self.dark_sight_m.unwrap_or(self.sight_m),
+                0.0,
+                self.sight_m,
+            ),
+            ("crime.lit_m", self.lit_m, 0.0, 100.0),
             ("crime.notice_chance", self.notice_chance, 0.0, 1.0),
             ("crime.retry_hours", self.retry_hours, 0.0, 87_600.0),
             ("crime.guardian_age", self.guardian_age, 0.0, 130.0),

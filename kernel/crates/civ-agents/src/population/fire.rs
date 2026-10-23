@@ -416,7 +416,7 @@ impl Population {
 
     /// Whether person `p` is at daylight-only work at home now, which after dark is done by
     /// lamplight (M10b slice DU).
-    fn works_by_lamp(ctx: &Ctx, p: &Person) -> bool {
+    pub(super) fn works_by_lamp(ctx: &Ctx, p: &Person) -> bool {
         matches!(
             p.act.steps.get(usize::from(p.act.step)),
             Some(crate::person::Step::Work { .. })
@@ -480,12 +480,8 @@ impl Population {
         let (members, settlement) = (x.members.clone(), x.settlement);
         // A lamp lit for work after dark (M10b slice DU): the household holds one and its fuel,
         // and it is dark.
-        let lamp_lit = super::lamp_of(&ctx.catalog.goods, &x.stores).is_some() && {
-            let doy = civ_land::day_of_year(now.day_index());
-            let sun = crate::needs::daylight(ctx.params.latitude_deg, doy);
-            let minute = now.minute_of_day();
-            minute < sun.0 || minute >= sun.1
-        };
+        let lamp_lit = super::lamp_of(&ctx.catalog.goods, &x.stores).is_some()
+            && super::dark_at(ctx.params, now);
         let Some(o) = ctx
             .land
             .plots

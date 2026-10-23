@@ -2285,6 +2285,8 @@ table Order {
   coin_issues: [CoinIssueSave] (id: 18);
   purses: [PurseSave] (id: 19);
   brought: [BroughtSave] (id: 20);
+  // Schema 179 (M10b slice DU): the minute the world's first lamp was lit for work, -1 before.
+  lamp_first_lit: long = -1 (id: 21);
 }
 
 // An issue of coin (schema 136): its number, the polity whose mint struck it, the day, grams a

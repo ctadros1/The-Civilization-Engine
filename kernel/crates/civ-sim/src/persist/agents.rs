@@ -127,7 +127,7 @@ use super::{
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
     SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
     SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
-    SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, finish, section, section_root,
+    SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, finish, section, section_root,
     single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
@@ -876,9 +876,10 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V169 | SCHEMA_V170 => Schema::V169,
         // Workshops' batches (schema 172) changed no people or land; installations (schema 173),
         // households' mill counts (schema 174), pits' water (schema 175), engines (schema 176),
-        // pits' bailing (schema 177) and works' bells (schema 178) are read wherever saved.
+        // pits' bailing (schema 177), works' bells (schema 178) and the first lamp lit (schema
+        // 179) are read wherever saved.
         SCHEMA_V171 | SCHEMA_V172 | SCHEMA_V173 | SCHEMA_V174 | SCHEMA_V175 | SCHEMA_V176
-        | SCHEMA_V177 | SAVE_SCHEMA_VERSION => Schema::V171,
+        | SCHEMA_V177 | SCHEMA_V178 | SAVE_SCHEMA_VERSION => Schema::V171,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -6439,6 +6440,7 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
             coin_issues,
             purses,
             brought,
+            lamp_first_lit: order.lamp_first_lit.map_or(-1, |t| t.minutes()),
         },
     );
     finish(fbb, root)
@@ -6810,6 +6812,10 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
     order.credit.next = root.loans_next();
     order.credit.asked = root.loans_asked();
     order.credit.refused = root.loans_refused();
+    // The world's first lamp lit (schema 179); none before.
+    order.lamp_first_lit = Some(root.lamp_first_lit())
+        .filter(|&m| m >= 0)
+        .map(civ_core::time::SimTime::from_minutes);
     // Coin issues and purses (schema 136); none before.
     for c in root.coin_issues().iter().flatten() {
         order.coinage.cohorts.push(civ_agents::coin::Cohort {

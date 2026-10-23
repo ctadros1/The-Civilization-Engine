@@ -407,6 +407,42 @@ impl Population {
     /// wakes, and they flee seen; otherwise they carry off what they can, and anyone awake in
     /// sight sees them. The incident is recorded as it happened; the taker's sense of the chance
     /// of being seen moves with what happened to them (research 04-09 §5.4).
+    /// How far those about see a taking at `at` now (M10b slice DU; ADR-0034 §9): day sight,
+    /// or, once the world has lit a lamp, dark sight after sunset unless a lamp lit for work at
+    /// a home within `lit_m` lights the place.
+    fn sight_at(&self, ctx: &Ctx, at: (f32, f32)) -> f32 {
+        let cp = &ctx.params.crime;
+        if self.order.lamp_first_lit.is_none() || !super::dark_at(ctx.params, ctx.now) {
+            return cp.sight_m as f32;
+        }
+        let t = ctx.now.minutes() as f64;
+        let lit = self.households.iter().any(|(_, x)| {
+            distance(x.home, at) <= cp.lit_m as f32
+                && super::lamp_of(&ctx.catalog.goods, &x.stores).is_some()
+                && x.members.iter().any(|&m| {
+                    self.person(m).is_some_and(|q| {
+                        !q.asleep
+                            && distance(q.position_at(t), x.home) <= AT_HOME_M
+                            && Self::works_by_lamp(ctx, q)
+                    })
+                })
+        });
+        let sight = if lit {
+            cp.sight_m
+        } else {
+            cp.dark_sight_m.min(cp.sight_m)
+        };
+        sight as f32
+    }
+
+    /// Person `taker` comes to take from household `victim`'s store now: for tests.
+    #[doc(hidden)]
+    pub fn take_from_for_tests(&mut self, ctx: &mut Ctx, taker: PermanentId, victim: PermanentId) {
+        if let Some(&h) = self.index.get(&taker) {
+            self.take_from(ctx, h, victim);
+        }
+    }
+
     pub(super) fn take_from(&mut self, ctx: &mut Ctx, h: Handle<Person>, victim: PermanentId) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let cp = &params.crime;
@@ -449,11 +485,12 @@ impl Population {
         // Those awake in sight of the store: the taker notices each grown enough to stop them with
         // the content's chance, and turns back if they notice anyone; those they miss, and the
         // young, see them (research 12-04 §1.4).
+        let sight = self.sight_at(ctx, home);
         let mut about: Vec<(PermanentId, bool)> = self
             .people
             .iter()
             .filter(|(_, q)| {
-                q.id != taker && !q.asleep && distance(q.position_at(t), home) <= cp.sight_m as f32
+                q.id != taker && !q.asleep && distance(q.position_at(t), home) <= sight
             })
             .map(|(_, q)| (q.id, capable(q)))
             .collect();

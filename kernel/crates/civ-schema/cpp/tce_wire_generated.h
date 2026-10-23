@@ -3682,7 +3682,9 @@ struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_SPEED = 20,
     VT_MODE = 22,
     VT_WEATHER = 24,
-    VT_RESOLUTION_BY_FOCUS = 26
+    VT_RESOLUTION_BY_FOCUS = 26,
+    VT_LIT_HOMES = 28,
+    VT_FIRST_LAMP_MINUTE = 30
   };
   int64_t minute() const {
     return GetField<int64_t>(VT_MINUTE, 0);
@@ -3720,6 +3722,12 @@ struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   bool resolution_by_focus() const {
     return GetField<uint8_t>(VT_RESOLUTION_BY_FOCUS, 0) != 0;
   }
+  uint32_t lit_homes() const {
+    return GetField<uint32_t>(VT_LIT_HOMES, 0);
+  }
+  int64_t first_lamp_minute() const {
+    return GetField<int64_t>(VT_FIRST_LAMP_MINUTE, -1LL);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -3737,6 +3745,8 @@ struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_WEATHER) &&
            verifier.VerifyTable(weather()) &&
            VerifyField<uint8_t>(verifier, VT_RESOLUTION_BY_FOCUS, 1) &&
+           VerifyField<uint32_t>(verifier, VT_LIT_HOMES, 4) &&
+           VerifyField<int64_t>(verifier, VT_FIRST_LAMP_MINUTE, 8) &&
            verifier.EndTable();
   }
 };
@@ -3781,6 +3791,12 @@ struct ClockBuilder {
   void add_resolution_by_focus(bool resolution_by_focus) {
     fbb_.AddElement<uint8_t>(Clock::VT_RESOLUTION_BY_FOCUS, static_cast<uint8_t>(resolution_by_focus), 0);
   }
+  void add_lit_homes(uint32_t lit_homes) {
+    fbb_.AddElement<uint32_t>(Clock::VT_LIT_HOMES, lit_homes, 0);
+  }
+  void add_first_lamp_minute(int64_t first_lamp_minute) {
+    fbb_.AddElement<int64_t>(Clock::VT_FIRST_LAMP_MINUTE, first_lamp_minute, -1LL);
+  }
   explicit ClockBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -3805,10 +3821,14 @@ inline ::flatbuffers::Offset<Clock> CreateClock(
     float speed = 0.0f,
     tce::wire::ClockMode mode = tce::wire::ClockMode::Detailed,
     ::flatbuffers::Offset<tce::wire::DayWeather> weather = 0,
-    bool resolution_by_focus = false) {
+    bool resolution_by_focus = false,
+    uint32_t lit_homes = 0,
+    int64_t first_lamp_minute = -1LL) {
   ClockBuilder builder_(_fbb);
+  builder_.add_first_lamp_minute(first_lamp_minute);
   builder_.add_year(year);
   builder_.add_minute(minute);
+  builder_.add_lit_homes(lit_homes);
   builder_.add_weather(weather);
   builder_.add_speed(speed);
   builder_.add_season(season);
@@ -3840,7 +3860,9 @@ inline ::flatbuffers::Offset<Clock> CreateClockDirect(
     float speed = 0.0f,
     tce::wire::ClockMode mode = tce::wire::ClockMode::Detailed,
     ::flatbuffers::Offset<tce::wire::DayWeather> weather = 0,
-    bool resolution_by_focus = false) {
+    bool resolution_by_focus = false,
+    uint32_t lit_homes = 0,
+    int64_t first_lamp_minute = -1LL) {
   auto season__ = season ? _fbb.CreateString(season) : 0;
   return tce::wire::CreateClock(
       _fbb,
@@ -3855,7 +3877,9 @@ inline ::flatbuffers::Offset<Clock> CreateClockDirect(
       speed,
       mode,
       weather,
-      resolution_by_focus);
+      resolution_by_focus,
+      lit_homes,
+      first_lamp_minute);
 }
 
 struct DayWeather FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -10893,7 +10917,8 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_SEEN_AWAY = 114,
     VT_WATER = 116,
     VT_SICKNESS = 118,
-    VT_SUSPICIONS = 120
+    VT_SUSPICIONS = 120,
+    VT_LIGHT = 122
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -11072,6 +11097,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *suspicions() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_SUSPICIONS);
   }
+  const ::flatbuffers::String *light() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_LIGHT);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -11184,6 +11212,8 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_SUSPICIONS) &&
            verifier.VerifyVector(suspicions()) &&
            verifier.VerifyVectorOfStrings(suspicions()) &&
+           VerifyOffset(verifier, VT_LIGHT) &&
+           verifier.VerifyString(light()) &&
            verifier.EndTable();
   }
 };
@@ -11369,6 +11399,9 @@ struct PersonInfoBuilder {
   void add_suspicions(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> suspicions) {
     fbb_.AddOffset(PersonInfo::VT_SUSPICIONS, suspicions);
   }
+  void add_light(::flatbuffers::Offset<::flatbuffers::String> light) {
+    fbb_.AddOffset(PersonInfo::VT_LIGHT, light);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -11440,7 +11473,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     ::flatbuffers::Offset<::flatbuffers::String> seen_away = 0,
     ::flatbuffers::Offset<::flatbuffers::String> water = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> sickness = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> suspicions = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> suspicions = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> light = 0) {
   PersonInfoBuilder builder_(_fbb);
   builder_.add_household_admired(household_admired);
   builder_.add_left_minute(left_minute);
@@ -11452,6 +11486,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_died_minute(died_minute);
   builder_.add_born_minute(born_minute);
   builder_.add_id(id);
+  builder_.add_light(light);
   builder_.add_suspicions(suspicions);
   builder_.add_sickness(sickness);
   builder_.add_water(water);
@@ -11569,7 +11604,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     const char *seen_away = nullptr,
     const char *water = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *sickness = nullptr,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *suspicions = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *suspicions = nullptr,
+    const char *light = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -11600,6 +11636,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
   auto water__ = water ? _fbb.CreateString(water) : 0;
   auto sickness__ = sickness ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*sickness) : 0;
   auto suspicions__ = suspicions ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*suspicions) : 0;
+  auto light__ = light ? _fbb.CreateString(light) : 0;
   return tce::wire::CreatePersonInfo(
       _fbb,
       id,
@@ -11660,7 +11697,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       seen_away__,
       water__,
       sickness__,
-      suspicions__);
+      suspicions__,
+      light__);
 }
 
 struct NewsLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

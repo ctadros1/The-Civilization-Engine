@@ -416,12 +416,11 @@ impl Population {
 
     /// Whether person `p` is at daylight-only work at home now, which after dark is done by
     /// lamplight (M10b slice DU).
-    pub(super) fn works_by_lamp(ctx: &Ctx, p: &Person) -> bool {
+    pub fn works_by_lamp(catalog: &crate::params::Catalog, p: &Person) -> bool {
         matches!(
             p.act.steps.get(usize::from(p.act.step)),
             Some(crate::person::Step::Work { .. })
-        ) && ctx
-            .catalog
+        ) && catalog
             .activities
             .get(usize::from(p.act.def))
             .is_some_and(|a| {
@@ -504,7 +503,7 @@ impl Population {
             awake = true;
             if Self::works_fire(ctx, m) {
                 workers += 1;
-            } else if lamp_lit && Self::works_by_lamp(ctx, m) {
+            } else if lamp_lit && Self::works_by_lamp(ctx.catalog, m) {
                 lamps += 1;
             }
         }

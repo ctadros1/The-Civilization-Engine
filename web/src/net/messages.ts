@@ -198,6 +198,10 @@ export interface Clock {
   /** Settlements away from the observer's focus are lived by household (wire 1.93, ADR-0032
    * §6), as the observer chose; false: every settlement in detail. */
   resolutionByFocus: boolean;
+  /** Homes where a lamp burns for work now (wire 1.99, M10b slice DU); 0 from an older host. */
+  litHomes: number;
+  /** The minute the world's first lamp was lit for work, or null before (wire 1.99). */
+  firstLampMinute: number | null;
 }
 
 /** A day's weather on the valley floor (wire 1.24, M3c slice U). */
@@ -872,6 +876,9 @@ export interface PersonInfo {
    * of 5 households they know that draw there, 3 had sickness lately, against 0 of 6 that draw
    * elsewhere"). What they believe, which may be wrong. */
   suspicions: string[];
+  /** Wire 1.99 (M10b slice DU): their light ("Working by lamplight at home; their household's
+   * fat lamp has tallow for 12 hours"); empty when their household holds no lamp. */
+  light: string;
 }
 
 /** A claim the observer may whisper (wire 1.47). */
@@ -2979,6 +2986,9 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
           mode: clock.mode() === W.ClockMode.Accelerated ? "accelerated" : "detailed",
           weather: dayWeather(clock.weather()),
           resolutionByFocus: clock.resolutionByFocus(),
+          litHomes: clock.litHomes(),
+          firstLampMinute:
+            Number(clock.firstLampMinute()) >= 0 ? Number(clock.firstLampMinute()) : null,
         }
       : null,
     task: task
@@ -4718,6 +4728,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     water: p.water() ?? "",
     sickness: Array.from({ length: p.sicknessLength() }, (_, k) => p.sickness(k) ?? ""),
     suspicions: Array.from({ length: p.suspicionsLength() }, (_, k) => p.suspicions(k) ?? ""),
+    light: p.light() ?? "",
   };
 }
 

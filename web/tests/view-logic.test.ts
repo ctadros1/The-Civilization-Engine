@@ -7,6 +7,7 @@ import {
   formatKg,
   formatSimMinute,
   formatSpeed,
+  litHomesText,
   simDate,
 } from "../src/format.js";
 import {
@@ -56,6 +57,12 @@ describe("calendar", () => {
     expect(formatDistance(16_384)).toBe("16.4 km");
     expect(formatBytes(15_121_098)).toBe("14.4 MB");
     expect(formatBytes(900)).toBe("900 B");
+  });
+
+  it("notes homes lit by lamps, and nothing when none is", () => {
+    expect(litHomesText(0)).toBe("");
+    expect(litHomesText(1)).toBe(" · 1 home lit");
+    expect(litHomesText(4)).toBe(" · 4 homes lit");
   });
 });
 

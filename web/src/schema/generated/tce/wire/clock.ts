@@ -88,8 +88,18 @@ resolutionByFocus():boolean {
   return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
 }
 
+litHomes():number {
+  const offset = this.bb!.__offset(this.bb_pos, 28);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
+firstLampMinute():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 30);
+  return offset ? this.bb!.readInt64(this.bb_pos + offset) : BigInt('-1');
+}
+
 static startClock(builder:flatbuffers.Builder) {
-  builder.startObject(12);
+  builder.startObject(14);
 }
 
 static addMinute(builder:flatbuffers.Builder, minute:bigint) {
@@ -138,6 +148,14 @@ static addWeather(builder:flatbuffers.Builder, weatherOffset:flatbuffers.Offset)
 
 static addResolutionByFocus(builder:flatbuffers.Builder, resolutionByFocus:boolean) {
   builder.addFieldInt8(11, +resolutionByFocus, +false);
+}
+
+static addLitHomes(builder:flatbuffers.Builder, litHomes:number) {
+  builder.addFieldInt32(12, litHomes, 0);
+}
+
+static addFirstLampMinute(builder:flatbuffers.Builder, firstLampMinute:bigint) {
+  builder.addFieldInt64(13, firstLampMinute, BigInt('-1'));
 }
 
 static endClock(builder:flatbuffers.Builder):flatbuffers.Offset {

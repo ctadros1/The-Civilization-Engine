@@ -6247,6 +6247,17 @@ and M6a gives rivers a daily flow.
         taught lamps, with clay, firewood and game meat, makes a lamp and renders tallow within a
         day. Several of its members may each make one before the first is counted, as with other
         tools.
+      - *As built, fifth part (2026-10-23): the observer's view of light; DU closed.* The clock
+        carries the homes where a lamp burns for work now, counted once the world has lit one, and
+        the minute it first did (wire 1.99); the observer's clock line adds "3 homes lit" when any
+        is. A person's page says whether they are working by lamplight and how many hours of light
+        their household's lamp has left ("Working by lamplight at home; their household's fat lamp
+        has tallow for 12 hours"), or that it holds one with no tallow. The kernel only reads what
+        it holds, so no world changes. **Tested:** a home where someone works by a lamp at 23:00
+        counts as lit only once the world has lit a lamp, and not once they sleep; the person's
+        words follow the tallow; the web decodes both and words the count. **DU is closed.** Lit
+        streets, gas and the lamplighter's rounds wait for DY; what light changes in the
+        evening beyond making (company, sleep) stays a §9 question (brief open question 12).
     - **DV**: wagonways pushed by people: the `RAIL` mode, track by cells with a turn rule and a
       ruling grade, wagons.
     - **DW**: engines on rails and train runs: block sections, single track and loops.

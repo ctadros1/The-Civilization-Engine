@@ -214,6 +214,10 @@ table Clock {
   // Wire 1.93 (M9b slice DK, ADR-0032 §6): settlements away from the observer's focus are
   // household-resolved, as the observer chose; off, every settlement is Detailed.
   resolution_by_focus: bool (id: 11);
+  // Light (wire 1.99, M10b slice DU): homes where a lamp burns for work now, and the minute the
+  // world's first lamp was lit for work, -1 before (until then the dark shortens nobody's sight).
+  lit_homes: uint (id: 12);
+  first_lamp_minute: long = -1 (id: 13);
 }
 
 // Wire 1.24 (M3c slice U, ADR-0012 §1): today's weather on the valley floor, at the height the
@@ -1094,6 +1098,10 @@ table PersonInfo {
   // May of year 2 that the water at Bo's household's well sickens: of 5 households they know
   // that draw there, 3 had sickness lately, against 0 of 6 that draw elsewhere").
   suspicions: [string] (id: 58);
+  // Their light, in words (wire 1.99, M10b slice DU): "Working by lamplight at home; their
+  // household's fat lamp has tallow for 12 hours", "Their household holds a fat lamp, with tallow
+  // for 30 hours of light", or empty when it holds none.
+  light: string (id: 59);
 }
 
 // Wire 1.47 (M4c slice AJ): a claim that may be whispered.

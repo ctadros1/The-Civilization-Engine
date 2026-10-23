@@ -186,6 +186,8 @@ const MIN_BATCH_DAYS: f64 = 0.25;
 /// Hours of light a household holding a lamp keeps fuel for (M10b slice DU; a design prior: a
 /// week of evenings).
 const LAMP_FUEL_HOURS: f64 = 30.0;
+/// Metres from home within which someone counts as at home for a lamp lit there.
+const LAMP_AT_HOME_M: f32 = 2.0;
 /// A settlement's first trail, for the chronicle: at least this long, metres...
 pub const FIRST_TRAIL_M: f32 = 150.0;
 /// ...and passing within this of the settlement's hearth, metres.
@@ -5940,6 +5942,49 @@ impl Population {
     /// their skill and age let them make in that time, from what the household holds (seed only
     /// in hunger, and never the seed for the ground already cropped), the recipe's tools worn by
     /// the time worked, and their skill practised.
+    /// Whether a lamp burns for work at household `household`'s home at `now` (M10b slice DU):
+    /// it holds a whole lamp and its fuel, it is dark, and one of its members awake at home is at
+    /// work kept to daylight.
+    pub fn lamp_lit_home(
+        &self,
+        catalog: &crate::params::Catalog,
+        params: &PeopleParams,
+        now: SimTime,
+        household: PermanentId,
+    ) -> bool {
+        let Some(x) = self.household(household) else {
+            return false;
+        };
+        let t = now.minutes() as f64;
+        dark_at(params, now)
+            && lamp_of(&catalog.goods, &x.stores).is_some()
+            && x.members.iter().any(|&m| {
+                self.person(m).is_some_and(|q| {
+                    let at = q.position_at(t);
+                    !q.asleep
+                        && (at.0 - x.home.0).hypot(at.1 - x.home.1) <= LAMP_AT_HOME_M
+                        && Self::works_by_lamp(catalog, q)
+                })
+            })
+    }
+
+    /// Homes where a lamp burns for work now (M10b slice DU), none until the world's first lamp
+    /// has been lit.
+    pub fn lit_homes(
+        &self,
+        catalog: &crate::params::Catalog,
+        params: &PeopleParams,
+        now: SimTime,
+    ) -> usize {
+        if self.order.lamp_first_lit.is_none() || !dark_at(params, now) {
+            return 0;
+        }
+        self.households
+            .iter()
+            .filter(|(_, x)| self.lamp_lit_home(catalog, params, now, x.id))
+            .count()
+    }
+
     fn make_work(&mut self, ctx: &mut Ctx, h: Handle<Person>, def: &ActivityDef, minutes: u32) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let Some(recipe) = def.recipe.and_then(|r| ctx.catalog.recipes.get(r)) else {
@@ -7539,7 +7584,7 @@ pub(crate) fn power_kw_of(ctx: &Ctx, holder: PermanentId) -> f64 {
 /// §9): of the whole lamps it holds whose fuel it has, the one whose fuel lasts longest, as the
 /// lamp and its fuel by good index, the kilograms it burns an hour and the minutes the fuel
 /// held lasts.
-pub(crate) fn lamp_of(goods: &[GoodDef], stores: &[f64]) -> Option<(usize, usize, f64, f64)> {
+pub fn lamp_of(goods: &[GoodDef], stores: &[f64]) -> Option<(usize, usize, f64, f64)> {
     goods
         .iter()
         .enumerate()
@@ -7576,7 +7621,7 @@ pub(crate) fn dark_minutes(params: &PeopleParams, end: SimTime, minutes: u32) ->
 }
 
 /// Whether it is dark at `now`, between sunset and sunrise at the profile's latitude.
-pub(crate) fn dark_at(params: &PeopleParams, now: SimTime) -> bool {
+pub fn dark_at(params: &PeopleParams, now: SimTime) -> bool {
     let sun = needs::daylight(params.latitude_deg, civ_land::day_of_year(now.day_index()));
     let minute = now.minute_of_day();
     minute < sun.0 || minute >= sun.1

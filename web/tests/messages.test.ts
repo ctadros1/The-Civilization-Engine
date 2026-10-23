@@ -242,6 +242,9 @@ describe("decoders", () => {
     W.Clock.addSpeed(b, Infinity);
     W.Clock.addMode(b, W.ClockMode.Accelerated);
     W.Clock.addWeather(b, weather);
+    // Wire 1.99: homes lit for work now, and the world's first lamp.
+    W.Clock.addLitHomes(b, 3);
+    W.Clock.addFirstLampMinute(b, 4_000n);
     const clock = W.Clock.endClock(b);
     const taskName = b.createString("Loading");
     const stage = b.createString("Reading");
@@ -295,6 +298,8 @@ describe("decoders", () => {
         fuelUsual: 0.125,
         windWords: "a gentle breeze from the west, gusts to 7 m/s; thatch damp",
       },
+      litHomes: 3,
+      firstLampMinute: 4_000,
     });
     expect(snapshot.task).toEqual({
       name: "Loading",

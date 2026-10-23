@@ -477,8 +477,15 @@ suspicionsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+light():string|null
+light(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+light(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 122);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(59);
+  builder.startObject(60);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -956,6 +963,10 @@ static createSuspicionsVector(builder:flatbuffers.Builder, data:flatbuffers.Offs
 
 static startSuspicionsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
+}
+
+static addLight(builder:flatbuffers.Builder, lightOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(59, lightOffset, 0);
 }
 
 static endPersonInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

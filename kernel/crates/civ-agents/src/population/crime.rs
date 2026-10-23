@@ -415,17 +415,9 @@ impl Population {
         if self.order.lamp_first_lit.is_none() || !super::dark_at(ctx.params, ctx.now) {
             return cp.sight_m as f32;
         }
-        let t = ctx.now.minutes() as f64;
         let lit = self.households.iter().any(|(_, x)| {
             distance(x.home, at) <= cp.lit_m as f32
-                && super::lamp_of(&ctx.catalog.goods, &x.stores).is_some()
-                && x.members.iter().any(|&m| {
-                    self.person(m).is_some_and(|q| {
-                        !q.asleep
-                            && distance(q.position_at(t), x.home) <= AT_HOME_M
-                            && Self::works_by_lamp(ctx, q)
-                    })
-                })
+                && self.lamp_lit_home(ctx.catalog, ctx.params, ctx.now, x.id)
         });
         let sight = if lit {
             cp.sight_m

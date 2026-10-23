@@ -16,6 +16,7 @@ import {
   formatSimMinute,
   formatSpeed,
   formatTools,
+  litHomesText,
   formatWhen,
 } from "./format.js";
 import { BUILDING_LEGEND } from "./buildings.js";
@@ -1509,6 +1510,13 @@ export function bindUi(store: Store, actions: Actions): void {
           el("h4", { text: "Suspects the water" }),
           el("ul", {}, ...p.suspicions.map((line) => el("li", { text: `${line}.` }))),
         ),
+      );
+    }
+    // Their light (wire 1.99, M10b slice DU): at work by lamplight, or the lamp their household
+    // holds and how long its fuel lasts.
+    if (p.alive && p.light) {
+      nodes.push(
+        el("div", { className: "light" }, el("h4", { text: "Light" }), el("p", { text: `${p.light}.` })),
       );
     }
     if (p.alive) nodes.push(tiesBlock(state, p), wordBlock(p), opinionBlock(p));
@@ -3318,7 +3326,7 @@ export function bindUi(store: Store, actions: Actions): void {
             minute: clock.minuteOfHour,
           })} · ${clock.season}${clock.weather ? ` · ${clock.weather.words}` : ""}${
             clock.weather?.windWords ? ` · ${clock.weather.windWords}` : ""
-          }`
+          }${litHomesText(clock.litHomes)}`
         : "",
     );
     const run = $<HTMLButtonElement>("btn-run");

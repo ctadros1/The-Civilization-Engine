@@ -5820,6 +5820,8 @@ impl<'a> Clock<'a> {
   pub const VT_MODE: ::flatbuffers::VOffsetT = 22;
   pub const VT_WEATHER: ::flatbuffers::VOffsetT = 24;
   pub const VT_RESOLUTION_BY_FOCUS: ::flatbuffers::VOffsetT = 26;
+  pub const VT_LIT_HOMES: ::flatbuffers::VOffsetT = 28;
+  pub const VT_FIRST_LAMP_MINUTE: ::flatbuffers::VOffsetT = 30;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -5831,8 +5833,10 @@ impl<'a> Clock<'a> {
     args: &'args ClockArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Clock<'bldr>> {
     let mut builder = ClockBuilder::new(_fbb);
+    builder.add_first_lamp_minute(args.first_lamp_minute);
     builder.add_year(args.year);
     builder.add_minute(args.minute);
+    builder.add_lit_homes(args.lit_homes);
     if let Some(x) = args.weather { builder.add_weather(x); }
     builder.add_speed(args.speed);
     if let Some(x) = args.season { builder.add_season(x); }
@@ -5931,6 +5935,20 @@ impl<'a> Clock<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<bool>(Clock::VT_RESOLUTION_BY_FOCUS, Some(false)).unwrap()}
   }
+  #[inline]
+  pub fn lit_homes(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Clock::VT_LIT_HOMES, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn first_lamp_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Clock::VT_FIRST_LAMP_MINUTE, Some(-1)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Clock<'_> {
@@ -5951,6 +5969,8 @@ impl ::flatbuffers::Verifiable for Clock<'_> {
      .visit_field::<ClockMode>("mode", Self::VT_MODE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<DayWeather>>("weather", Self::VT_WEATHER, false)?
      .visit_field::<bool>("resolution_by_focus", Self::VT_RESOLUTION_BY_FOCUS, false)?
+     .visit_field::<u32>("lit_homes", Self::VT_LIT_HOMES, false)?
+     .visit_field::<i64>("first_lamp_minute", Self::VT_FIRST_LAMP_MINUTE, false)?
      .finish();
     Ok(())
   }
@@ -5968,6 +5988,8 @@ pub struct ClockArgs<'a> {
     pub mode: ClockMode,
     pub weather: Option<::flatbuffers::WIPOffset<DayWeather<'a>>>,
     pub resolution_by_focus: bool,
+    pub lit_homes: u32,
+    pub first_lamp_minute: i64,
 }
 impl<'a> Default for ClockArgs<'a> {
   #[inline]
@@ -5985,6 +6007,8 @@ impl<'a> Default for ClockArgs<'a> {
       mode: ClockMode::Detailed,
       weather: None,
       resolution_by_focus: false,
+      lit_homes: 0,
+      first_lamp_minute: -1,
     }
   }
 }
@@ -6043,6 +6067,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ClockBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<bool>(Clock::VT_RESOLUTION_BY_FOCUS, resolution_by_focus, false);
   }
   #[inline]
+  pub fn add_lit_homes(&mut self, lit_homes: u32) {
+    self.fbb_.push_slot::<u32>(Clock::VT_LIT_HOMES, lit_homes, 0);
+  }
+  #[inline]
+  pub fn add_first_lamp_minute(&mut self, first_lamp_minute: i64) {
+    self.fbb_.push_slot::<i64>(Clock::VT_FIRST_LAMP_MINUTE, first_lamp_minute, -1);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ClockBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ClockBuilder {
@@ -6072,6 +6104,8 @@ impl ::core::fmt::Debug for Clock<'_> {
       ds.field("mode", &self.mode());
       ds.field("weather", &self.weather());
       ds.field("resolution_by_focus", &self.resolution_by_focus());
+      ds.field("lit_homes", &self.lit_homes());
+      ds.field("first_lamp_minute", &self.first_lamp_minute());
       ds.finish()
   }
 }
@@ -18733,6 +18767,7 @@ impl<'a> PersonInfo<'a> {
   pub const VT_WATER: ::flatbuffers::VOffsetT = 116;
   pub const VT_SICKNESS: ::flatbuffers::VOffsetT = 118;
   pub const VT_SUSPICIONS: ::flatbuffers::VOffsetT = 120;
+  pub const VT_LIGHT: ::flatbuffers::VOffsetT = 122;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -18754,6 +18789,7 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.light { builder.add_light(x); }
     if let Some(x) = args.suspicions { builder.add_suspicions(x); }
     if let Some(x) = args.sickness { builder.add_sickness(x); }
     if let Some(x) = args.water { builder.add_water(x); }
@@ -19220,6 +19256,13 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PersonInfo::VT_SUSPICIONS, None)}
   }
+  #[inline]
+  pub fn light(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PersonInfo::VT_LIGHT, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -19287,6 +19330,7 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("water", Self::VT_WATER, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("sickness", Self::VT_SICKNESS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("suspicions", Self::VT_SUSPICIONS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("light", Self::VT_LIGHT, false)?
      .finish();
     Ok(())
   }
@@ -19351,6 +19395,7 @@ pub struct PersonInfoArgs<'a> {
     pub water: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub sickness: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub suspicions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub light: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -19415,6 +19460,7 @@ impl<'a> Default for PersonInfoArgs<'a> {
       water: None,
       sickness: None,
       suspicions: None,
+      light: None,
     }
   }
 }
@@ -19661,6 +19707,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_SUSPICIONS, suspicions);
   }
   #[inline]
+  pub fn add_light(&mut self, light: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_LIGHT, light);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -19737,6 +19787,7 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("water", &self.water());
       ds.field("sickness", &self.sickness());
       ds.field("suspicions", &self.suspicions());
+      ds.field("light", &self.light());
       ds.finish()
   }
 }

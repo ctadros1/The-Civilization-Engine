@@ -1669,6 +1669,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         args.errand = Some(fbb.create_string(&super::markets::errand_words(sim, p.household)));
         args.seen_away = Some(fbb.create_string(&seen_away_words(sim, p.id)));
         args.water = Some(fbb.create_string(&super::water::water_words(sim, p.household)));
+        args.light = Some(fbb.create_string(&light_words(sim, p.id)));
     }
     // A person's infections, living or not (wire 1.62).
     let sickness: Vec<_> = super::sickness::sickness_words(sim, pid)
@@ -1684,6 +1685,57 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
     args.suspicions = Some(fbb.create_vector(&suspicions));
     let body = wire::PersonInfo::create(&mut fbb, &args);
     Ok(response(fbb, wire::ResponseBody::PersonInfo, body))
+}
+
+/// Person `id`'s light, in words (wire 1.99, M10b slice DU): at work by lamplight now, or the
+/// lamp their household holds and the hours of light its fuel gives; empty when it holds none.
+pub fn light_words(sim: &Sim, id: PermanentId) -> String {
+    let people = sim.people();
+    let (catalog, params, now) = (&sim.rules().catalog, &sim.rules().people, sim.now());
+    let Some(p) = people.person(id) else {
+        return String::new();
+    };
+    let Some(x) = people.household(p.household) else {
+        return String::new();
+    };
+    let goods = &catalog.goods;
+    // The lamp it holds and its fuel, or a whole lamp with none to burn.
+    let (lamp, hours) = match civ_agents::population::lamp_of(goods, &x.stores) {
+        Some((lamp, _, _, minutes)) => (lamp, minutes / 60.0),
+        None => match goods.iter().enumerate().find(|&(g, d)| {
+            d.light.is_some()
+                && civ_agents::make::in_use(goods, g, x.stores.get(g).copied().unwrap_or(0.0))
+                    >= civ_agents::decide::MIN_TOOL
+        }) {
+            Some((lamp, _)) => (lamp, 0.0),
+            None => return String::new(),
+        },
+    };
+    let name = goods[lamp].name.to_lowercase();
+    let fuel = goods[lamp]
+        .light
+        .as_ref()
+        .and_then(|l| l.fuel)
+        .and_then(|f| goods.get(f))
+        .map_or_else(|| "fuel".to_owned(), |d| d.name.to_lowercase());
+    let left = if hours >= 2.0 {
+        format!("{fuel} for {} hours", hours.floor())
+    } else if hours >= 1.0 {
+        format!("{fuel} for an hour")
+    } else if hours > 0.0 {
+        format!("{fuel} for less than an hour")
+    } else {
+        format!("no {fuel}")
+    };
+    let working = people.lamp_lit_home(catalog, params, now, x.id)
+        && !p.asleep
+        && civ_agents::population::Population::works_by_lamp(catalog, p);
+    if working {
+        format!("Working by lamplight at home; their household's {name} has {left}")
+    } else {
+        let of_light = if hours > 0.0 { " of light" } else { "" };
+        format!("Their household holds a {name}, with {left}{of_light}")
+    }
 }
 
 #[cfg(test)]

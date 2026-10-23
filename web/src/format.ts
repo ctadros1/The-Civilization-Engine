@@ -42,6 +42,12 @@ export function formatSimMinute(minutes: number): string {
   return formatSimDate(simDate(minutes));
 }
 
+/** The clock's note of homes lit by lamps for work now (wire 1.99): " · 3 homes lit", or nothing. */
+export function litHomesText(lit: number): string {
+  if (lit <= 0) return "";
+  return lit === 1 ? " · 1 home lit" : ` · ${lit} homes lit`;
+}
+
 /** "1×", "3×", "10×" for a speed in simulated seconds per real second; "Max" for Max. */
 export function formatSpeed(speed: number, speed1x: number): string {
   if (speed === Infinity) return "Max";

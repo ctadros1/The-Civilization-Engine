@@ -361,3 +361,79 @@ fn a_household_that_knows_lamps_makes_one_and_renders_tallow_for_it() {
         x.stores[clay]
     );
 }
+
+/// The observer's view of light (wire 1.99): homes lit for work now are counted once the world
+/// has lit a lamp, and a person's page says they work by lamplight and how long the fuel lasts.
+#[test]
+fn the_observer_counts_lit_homes_and_says_who_works_by_lamplight() {
+    use civ_agents::person::Step;
+    use civ_sim::frames::people::light_words;
+    let mut sim = world();
+    let minute = sim.now().minute_of_day();
+    sim.advance_minutes((23 * 60 - minute).rem_euclid(1440) + 1440)
+        .expect("advances");
+    let (lamp, tallow) = (
+        index(&sim, "core:good/fat_lamp"),
+        index(&sim, "core:good/tallow"),
+    );
+    let axe_making = sim
+        .rules()
+        .catalog
+        .activities
+        .iter()
+        .position(|a| a.id == "core:activity/make_axe")
+        .expect("axe making") as u16;
+    let (hh, who) = adult(&sim);
+    let lit = |sim: &Sim| {
+        sim.people()
+            .lit_homes(&sim.rules().catalog, &sim.rules().people, sim.now())
+    };
+    assert_eq!(light_words(&sim, who), "", "no lamp held");
+    let home = sim.people().household(hh).expect("household").home;
+    let pop = sim.people_mut_for_tests();
+    for (_, x) in pop.households.iter_mut() {
+        if x.id == hh {
+            x.stores[lamp] = 1.0;
+            x.stores[tallow] = 0.1;
+        }
+    }
+    for (_, p) in pop.people.iter_mut() {
+        if p.id == who {
+            p.asleep = false;
+            p.trip = None;
+            p.pos = home;
+            p.act.def = axe_making;
+            p.act.steps = vec![Step::Work { minutes: 300 }];
+            p.act.step = 0;
+        }
+    }
+    // Until the world has lit a lamp, no home counts as lit.
+    assert_eq!(lit(&sim), 0);
+    let now = sim.now();
+    sim.people_mut_for_tests().order.lamp_first_lit = Some(now);
+    assert_eq!(lit(&sim), 1);
+    assert_eq!(
+        light_words(&sim, who),
+        "Working by lamplight at home; their household's fat lamp has tallow for 12 hours"
+    );
+    // Asleep, they only hold it; with its tallow gone, it has none to burn.
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.id == who {
+            p.asleep = true;
+        }
+    }
+    assert_eq!(lit(&sim), 0);
+    assert_eq!(
+        light_words(&sim, who),
+        "Their household holds a fat lamp, with tallow for 12 hours of light"
+    );
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == hh {
+            x.stores[tallow] = 0.0;
+        }
+    }
+    assert_eq!(
+        light_words(&sim, who),
+        "Their household holds a fat lamp, with no tallow"
+    );
+}

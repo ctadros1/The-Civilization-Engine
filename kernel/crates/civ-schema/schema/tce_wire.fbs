@@ -1641,6 +1641,18 @@ table WageInfo {
   taken: float (id: 5);
   // Rendered by the kernel: "Pays 0.9 kg of grain an hour; wants 6 more hours of work this week."
   text: string (id: 6);
+  // Its bell (wire 1.98, M10a slice DT): the minute of the day it rings and the minutes of the
+  // shift that follows; a shift of 0 is no bell, work at any hour.
+  bell_minute: ushort (id: 7);
+  shift_minutes: ushort (id: 8);
+}
+
+// A machine a works holds (wire 1.98, M10a slice DT): a fixed tool among its stations, how many
+// of it are whole, and the fewest hands it wants at it together.
+struct MachineLine {
+  good: ushort;
+  crew: ubyte;
+  units: float;
 }
 
 // A line of a workshop's books (M3a slice J).
@@ -1699,6 +1711,10 @@ table FirmInfo {
   entries: [BookEntryInfo] (id: 8);
   // Every month of its life, oldest first.
   months: [MonthStatement] (id: 9);
+  // Its machines and fixed tools (wire 1.98).
+  machines: [MachineLine] (id: 10);
+  // The people at work for it now, its owners and hired hands (wire 1.98).
+  at_work: ushort (id: 11);
 }
 
 // How a settlement's wealth measures spread over its people (M3a slice K; ADR-0007 §4). Several

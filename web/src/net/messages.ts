@@ -1499,6 +1499,21 @@ export interface WageInfo {
   taken: number;
   /** Rendered by the kernel: "Pays 0.90 kg of grain an hour; wants 6 more hours of work …". */
   text: string;
+  /**
+   * Its bell (wire 1.98, M10a slice DT): the minute of the day it rings and the minutes of the
+   * shift that follows; a shift of 0 is no bell.
+   */
+  bellMinute: number;
+  shiftMinutes: number;
+}
+
+/** A machine a works holds (wire 1.98, M10a slice DT). */
+export interface MachineLine {
+  /** The good, an index into Welcome.goods; how much of it the works holds. */
+  good: number;
+  units: number;
+  /** The fewest hands it wants at it together. */
+  crew: number;
 }
 
 /** A line of a workshop's books. */
@@ -1553,6 +1568,10 @@ export interface FirmInfo {
   entries: BookEntry[];
   /** Every month of its life, oldest first. */
   months: MonthStatement[];
+  /** Its machines and fixed tools (wire 1.98). */
+  machines: MachineLine[];
+  /** The people at work for it now, owners and hired hands (wire 1.98). */
+  atWork: number;
 }
 
 /**
@@ -4268,6 +4287,12 @@ function firmInfo(f: W.FirmInfo): FirmInfo {
       text: e.text() ?? "",
     });
   }
+  const machines: MachineLine[] = [];
+  const machine = new W.MachineLine();
+  for (let k = 0; k < f.machinesLength(); k++) {
+    const m = f.machines(k, machine);
+    if (m) machines.push({ good: m.good(), units: m.units(), crew: m.crew() });
+  }
   const months: MonthStatement[] = [];
   const month = new W.MonthStatement();
   const line = new W.BookLine();
@@ -4306,10 +4331,14 @@ function firmInfo(f: W.FirmInfo): FirmInfo {
           hours: w.hours(),
           taken: w.taken(),
           text: w.text() ?? "",
+          bellMinute: w.bellMinute(),
+          shiftMinutes: w.shiftMinutes(),
         }
       : null,
     entries,
     months,
+    machines,
+    atWork: f.atWork(),
   };
 }
 

@@ -2677,6 +2677,165 @@ impl<'a> MonthOfTrade {
 
 }
 
+// struct MachineLine, aligned to 4
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct MachineLine(pub [u8; 8]);
+impl Default for MachineLine { 
+  fn default() -> Self { 
+    Self([0; 8])
+  }
+}
+impl ::core::fmt::Debug for MachineLine {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("MachineLine")
+      .field("good", &self.good())
+      .field("crew", &self.crew())
+      .field("units", &self.units())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for MachineLine {}
+impl<'a> ::flatbuffers::Follow<'a> for MachineLine {
+  type Inner = &'a MachineLine;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a MachineLine>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a MachineLine {
+  type Inner = &'a MachineLine;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<MachineLine>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for MachineLine {
+    type Output = MachineLine;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const MachineLine as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(4)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for MachineLine {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> MachineLine {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    good: u16,
+    crew: u8,
+    units: f32,
+  ) -> Self {
+    let mut s = Self([0; 8]);
+    s.set_good(good);
+    s.set_crew(crew);
+    s.set_units(units);
+    s
+  }
+
+  pub fn good(&self) -> u16 {
+    let mut mem = ::core::mem::MaybeUninit::<<u16 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_good(&mut self, x: u16) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn crew(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[2..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_crew(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[2..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn units(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[4..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_units(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[4..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct BookLine, aligned to 4
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -25596,6 +25755,8 @@ impl<'a> WageInfo<'a> {
   pub const VT_HOURS: ::flatbuffers::VOffsetT = 12;
   pub const VT_TAKEN: ::flatbuffers::VOffsetT = 14;
   pub const VT_TEXT: ::flatbuffers::VOffsetT = 16;
+  pub const VT_BELL_MINUTE: ::flatbuffers::VOffsetT = 18;
+  pub const VT_SHIFT_MINUTES: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -25612,6 +25773,8 @@ impl<'a> WageInfo<'a> {
     builder.add_hours(args.hours);
     builder.add_hour_h(args.hour_h);
     builder.add_per_hour(args.per_hour);
+    builder.add_shift_minutes(args.shift_minutes);
+    builder.add_bell_minute(args.bell_minute);
     builder.add_pay(args.pay);
     builder.add_activity(args.activity);
     builder.finish()
@@ -25667,6 +25830,20 @@ impl<'a> WageInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WageInfo::VT_TEXT, None)}
   }
+  #[inline]
+  pub fn bell_minute(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(WageInfo::VT_BELL_MINUTE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn shift_minutes(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(WageInfo::VT_SHIFT_MINUTES, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WageInfo<'_> {
@@ -25682,6 +25859,8 @@ impl ::flatbuffers::Verifiable for WageInfo<'_> {
      .visit_field::<f32>("hours", Self::VT_HOURS, false)?
      .visit_field::<f32>("taken", Self::VT_TAKEN, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("text", Self::VT_TEXT, false)?
+     .visit_field::<u16>("bell_minute", Self::VT_BELL_MINUTE, false)?
+     .visit_field::<u16>("shift_minutes", Self::VT_SHIFT_MINUTES, false)?
      .finish();
     Ok(())
   }
@@ -25694,6 +25873,8 @@ pub struct WageInfoArgs<'a> {
     pub hours: f32,
     pub taken: f32,
     pub text: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub bell_minute: u16,
+    pub shift_minutes: u16,
 }
 impl<'a> Default for WageInfoArgs<'a> {
   #[inline]
@@ -25706,6 +25887,8 @@ impl<'a> Default for WageInfoArgs<'a> {
       hours: 0.0,
       taken: 0.0,
       text: None,
+      bell_minute: 0,
+      shift_minutes: 0,
     }
   }
 }
@@ -25744,6 +25927,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WageInfoBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WageInfo::VT_TEXT, text);
   }
   #[inline]
+  pub fn add_bell_minute(&mut self, bell_minute: u16) {
+    self.fbb_.push_slot::<u16>(WageInfo::VT_BELL_MINUTE, bell_minute, 0);
+  }
+  #[inline]
+  pub fn add_shift_minutes(&mut self, shift_minutes: u16) {
+    self.fbb_.push_slot::<u16>(WageInfo::VT_SHIFT_MINUTES, shift_minutes, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WageInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WageInfoBuilder {
@@ -25768,6 +25959,8 @@ impl ::core::fmt::Debug for WageInfo<'_> {
       ds.field("hours", &self.hours());
       ds.field("taken", &self.taken());
       ds.field("text", &self.text());
+      ds.field("bell_minute", &self.bell_minute());
+      ds.field("shift_minutes", &self.shift_minutes());
       ds.finish()
   }
 }
@@ -26176,6 +26369,8 @@ impl<'a> FirmInfo<'a> {
   pub const VT_WAGE: ::flatbuffers::VOffsetT = 18;
   pub const VT_ENTRIES: ::flatbuffers::VOffsetT = 20;
   pub const VT_MONTHS: ::flatbuffers::VOffsetT = 22;
+  pub const VT_MACHINES: ::flatbuffers::VOffsetT = 24;
+  pub const VT_AT_WORK: ::flatbuffers::VOffsetT = 26;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -26190,6 +26385,7 @@ impl<'a> FirmInfo<'a> {
     builder.add_last_sale_minute(args.last_sale_minute);
     builder.add_owner_since_minute(args.owner_since_minute);
     builder.add_founder(args.founder);
+    if let Some(x) = args.machines { builder.add_machines(x); }
     if let Some(x) = args.months { builder.add_months(x); }
     if let Some(x) = args.entries { builder.add_entries(x); }
     if let Some(x) = args.wage { builder.add_wage(x); }
@@ -26197,6 +26393,7 @@ impl<'a> FirmInfo<'a> {
     if let Some(x) = args.stores { builder.add_stores(x); }
     if let Some(x) = args.founder_name { builder.add_founder_name(x); }
     if let Some(x) = args.brief { builder.add_brief(x); }
+    builder.add_at_work(args.at_work);
     builder.finish()
   }
 
@@ -26271,6 +26468,20 @@ impl<'a> FirmInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MonthStatement>>>>(FirmInfo::VT_MONTHS, None)}
   }
+  #[inline]
+  pub fn machines(&self) -> Option<::flatbuffers::Vector<'a, MachineLine>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, MachineLine>>>(FirmInfo::VT_MACHINES, None)}
+  }
+  #[inline]
+  pub fn at_work(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(FirmInfo::VT_AT_WORK, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FirmInfo<'_> {
@@ -26289,6 +26500,8 @@ impl ::flatbuffers::Verifiable for FirmInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<WageInfo>>("wage", Self::VT_WAGE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BookEntryInfo>>>>("entries", Self::VT_ENTRIES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MonthStatement>>>>("months", Self::VT_MONTHS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, MachineLine>>>("machines", Self::VT_MACHINES, false)?
+     .visit_field::<u16>("at_work", Self::VT_AT_WORK, false)?
      .finish();
     Ok(())
   }
@@ -26304,6 +26517,8 @@ pub struct FirmInfoArgs<'a> {
     pub wage: Option<::flatbuffers::WIPOffset<WageInfo<'a>>>,
     pub entries: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BookEntryInfo<'a>>>>>,
     pub months: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MonthStatement<'a>>>>>,
+    pub machines: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, MachineLine>>>,
+    pub at_work: u16,
 }
 impl<'a> Default for FirmInfoArgs<'a> {
   #[inline]
@@ -26319,6 +26534,8 @@ impl<'a> Default for FirmInfoArgs<'a> {
       wage: None,
       entries: None,
       months: None,
+      machines: None,
+      at_work: 0,
     }
   }
 }
@@ -26369,6 +26586,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FirmInfoBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FirmInfo::VT_MONTHS, months);
   }
   #[inline]
+  pub fn add_machines(&mut self, machines: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , MachineLine>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FirmInfo::VT_MACHINES, machines);
+  }
+  #[inline]
+  pub fn add_at_work(&mut self, at_work: u16) {
+    self.fbb_.push_slot::<u16>(FirmInfo::VT_AT_WORK, at_work, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FirmInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FirmInfoBuilder {
@@ -26396,6 +26621,8 @@ impl ::core::fmt::Debug for FirmInfo<'_> {
       ds.field("wage", &self.wage());
       ds.field("entries", &self.entries());
       ds.field("months", &self.months());
+      ds.field("machines", &self.machines());
+      ds.field("at_work", &self.at_work());
       ds.finish()
   }
 }

@@ -4,7 +4,7 @@
 
 import { formatKg } from "./format.js";
 import { amountText, monthText } from "./market.js";
-import type { BookKind, GoodInfo, MonthStatement, StoreLine } from "./net/messages.js";
+import type { BookKind, GoodInfo, MachineLine, MonthStatement, StoreLine } from "./net/messages.js";
 
 /** Months of statements a workshop's page shows, newest first. */
 export const MONTHS_SHOWN = 12;
@@ -133,4 +133,24 @@ export function lifeText(months: MonthStatement[]): string {
       ? `What it sold brought in ${income.toFixed(1)} h of their own work; its inputs and wages cost ${costs.toFixed(1)} h.`
       : `It has been paid nothing yet; its inputs and wages cost ${costs.toFixed(1)} h of their own work.`;
   return `${work} ${books}`;
+}
+
+/**
+ * A works' machines (M10a slice DT): "1 tilt hammer, worked by 2 hands together · 1 water
+ * wheel", or "none".
+ */
+export function machinesText(goods: GoodInfo[], machines: MachineLine[]): string {
+  const parts = machines
+    .filter((m) => m.units >= 0.005)
+    .map((m) => {
+      const what = amountText(goods[m.good], m.units);
+      return m.crew > 1 ? `${what}, worked by ${m.crew} hands together` : what;
+    });
+  return parts.length > 0 ? parts.join(" · ") : "none";
+}
+
+/** How many are at work for a workshop now: "nobody", "1 person", "3 people". */
+export function atWorkText(n: number): string {
+  if (n <= 0) return "nobody";
+  return n === 1 ? "1 person" : `${n} people`;
 }

@@ -574,7 +574,10 @@ describe("decoders", () => {
     const offer = W.OfferInfo.createOfferInfo(b, 77n, seller, 4, 0, 12, 2, true);
     const offers = W.FirmInfo.createOffersVector(b, [offer]);
     const wageText = b.createString("Pays 0.90 kg of grain an hour; wants 6 more hours of work before its next review.");
-    const wage = W.WageInfo.createWageInfo(b, 12, 0, 0.9, 0.5, 8, 2, wageText);
+    const wage = W.WageInfo.createWageInfo(b, 12, 0, 0.9, 0.5, 8, 2, wageText, 372, 600);
+    W.FirmInfo.startMachinesVector(b, 1);
+    W.MachineLine.createMachineLine(b, 7, 2, 1);
+    const machines = b.endVector();
     const sold = b.createString("Sold a sickle to Bran's household.");
     const entry = W.BookEntryInfo.createBookEntryInfo(b, 2000n, W.BookKind.Sold, 4, 1, 9n, sold);
     const entries = W.FirmInfo.createEntriesVector(b, [entry]);
@@ -595,6 +598,8 @@ describe("decoders", () => {
     W.FirmInfo.addWage(b, wage);
     W.FirmInfo.addEntries(b, entries);
     W.FirmInfo.addMonths(b, months);
+    W.FirmInfo.addMachines(b, machines);
+    W.FirmInfo.addAtWork(b, 3);
     response = W.Response.createResponse(b, W.ResponseBody.FirmInfo, W.FirmInfo.endFirmInfo(b));
     const page = M.decodeResponse(finish(b, response));
     expect(page.kind).toBe("firm");
@@ -609,6 +614,9 @@ describe("decoders", () => {
     expect(f.wage).toMatchObject({ activity: 12, pay: 0, hours: 8, taken: 2 });
     expect(f.wage?.perHour).toBeCloseTo(0.9, 5);
     expect(f.wage?.text).toContain("Pays 0.90 kg of grain");
+    expect([f.wage?.bellMinute, f.wage?.shiftMinutes]).toEqual([372, 600]);
+    expect(f.machines).toEqual([{ good: 7, units: 1, crew: 2 }]);
+    expect(f.atWork).toBe(3);
     expect(f.entries).toEqual([
       { minute: 2000, kind: "sold", good: 4, amount: 1, other: 9, text: "Sold a sickle to Bran's household." },
     ]);
@@ -636,6 +644,7 @@ describe("decoders", () => {
     const fresh = M.decodeResponse(finish(b, response));
     if (fresh.kind !== "firm") throw new Error("expected a workshop");
     expect([fresh.firm.lastSaleMinute, fresh.firm.wage, fresh.firm.entries]).toEqual([-1, null, []]);
+    expect([fresh.firm.machines, fresh.firm.atWork]).toEqual([[], 0]);
   });
 
   it("decodes chronicle links to people, settlements and workshops", () => {

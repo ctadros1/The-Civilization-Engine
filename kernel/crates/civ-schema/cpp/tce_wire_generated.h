@@ -408,6 +408,8 @@ struct FirmsBuilder;
 struct WageInfo;
 struct WageInfoBuilder;
 
+struct MachineLine;
+
 struct BookEntryInfo;
 struct BookEntryInfoBuilder;
 
@@ -2040,6 +2042,45 @@ FLATBUFFERS_STRUCT_END(MonthOfTrade, 20);
 
 struct MonthOfTrade::Traits {
   using type = MonthOfTrade;
+};
+
+FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) MachineLine FLATBUFFERS_FINAL_CLASS {
+ private:
+  uint16_t good_;
+  uint8_t crew_;
+  int8_t padding0__;
+  float units_;
+
+ public:
+  struct Traits;
+  MachineLine()
+      : good_(0),
+        crew_(0),
+        padding0__(0),
+        units_(0) {
+    (void)padding0__;
+  }
+  MachineLine(uint16_t _good, uint8_t _crew, float _units)
+      : good_(::flatbuffers::EndianScalar(_good)),
+        crew_(::flatbuffers::EndianScalar(_crew)),
+        padding0__(0),
+        units_(::flatbuffers::EndianScalar(_units)) {
+    (void)padding0__;
+  }
+  uint16_t good() const {
+    return ::flatbuffers::EndianScalar(good_);
+  }
+  uint8_t crew() const {
+    return ::flatbuffers::EndianScalar(crew_);
+  }
+  float units() const {
+    return ::flatbuffers::EndianScalar(units_);
+  }
+};
+FLATBUFFERS_STRUCT_END(MachineLine, 8);
+
+struct MachineLine::Traits {
+  using type = MachineLine;
 };
 
 FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) BookLine FLATBUFFERS_FINAL_CLASS {
@@ -15679,7 +15720,9 @@ struct WageInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_HOUR_H = 10,
     VT_HOURS = 12,
     VT_TAKEN = 14,
-    VT_TEXT = 16
+    VT_TEXT = 16,
+    VT_BELL_MINUTE = 18,
+    VT_SHIFT_MINUTES = 20
   };
   uint16_t activity() const {
     return GetField<uint16_t>(VT_ACTIVITY, 0);
@@ -15702,6 +15745,12 @@ struct WageInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *text() const {
     return GetPointer<const ::flatbuffers::String *>(VT_TEXT);
   }
+  uint16_t bell_minute() const {
+    return GetField<uint16_t>(VT_BELL_MINUTE, 0);
+  }
+  uint16_t shift_minutes() const {
+    return GetField<uint16_t>(VT_SHIFT_MINUTES, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -15713,6 +15762,8 @@ struct WageInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<float>(verifier, VT_TAKEN, 4) &&
            VerifyOffset(verifier, VT_TEXT) &&
            verifier.VerifyString(text()) &&
+           VerifyField<uint16_t>(verifier, VT_BELL_MINUTE, 2) &&
+           VerifyField<uint16_t>(verifier, VT_SHIFT_MINUTES, 2) &&
            verifier.EndTable();
   }
 };
@@ -15742,6 +15793,12 @@ struct WageInfoBuilder {
   void add_text(::flatbuffers::Offset<::flatbuffers::String> text) {
     fbb_.AddOffset(WageInfo::VT_TEXT, text);
   }
+  void add_bell_minute(uint16_t bell_minute) {
+    fbb_.AddElement<uint16_t>(WageInfo::VT_BELL_MINUTE, bell_minute, 0);
+  }
+  void add_shift_minutes(uint16_t shift_minutes) {
+    fbb_.AddElement<uint16_t>(WageInfo::VT_SHIFT_MINUTES, shift_minutes, 0);
+  }
   explicit WageInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -15761,13 +15818,17 @@ inline ::flatbuffers::Offset<WageInfo> CreateWageInfo(
     float hour_h = 0.0f,
     float hours = 0.0f,
     float taken = 0.0f,
-    ::flatbuffers::Offset<::flatbuffers::String> text = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> text = 0,
+    uint16_t bell_minute = 0,
+    uint16_t shift_minutes = 0) {
   WageInfoBuilder builder_(_fbb);
   builder_.add_text(text);
   builder_.add_taken(taken);
   builder_.add_hours(hours);
   builder_.add_hour_h(hour_h);
   builder_.add_per_hour(per_hour);
+  builder_.add_shift_minutes(shift_minutes);
+  builder_.add_bell_minute(bell_minute);
   builder_.add_pay(pay);
   builder_.add_activity(activity);
   return builder_.Finish();
@@ -15786,7 +15847,9 @@ inline ::flatbuffers::Offset<WageInfo> CreateWageInfoDirect(
     float hour_h = 0.0f,
     float hours = 0.0f,
     float taken = 0.0f,
-    const char *text = nullptr) {
+    const char *text = nullptr,
+    uint16_t bell_minute = 0,
+    uint16_t shift_minutes = 0) {
   auto text__ = text ? _fbb.CreateString(text) : 0;
   return tce::wire::CreateWageInfo(
       _fbb,
@@ -15796,7 +15859,9 @@ inline ::flatbuffers::Offset<WageInfo> CreateWageInfoDirect(
       hour_h,
       hours,
       taken,
-      text__);
+      text__,
+      bell_minute,
+      shift_minutes);
 }
 
 struct BookEntryInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -16060,7 +16125,9 @@ struct FirmInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_OFFERS = 16,
     VT_WAGE = 18,
     VT_ENTRIES = 20,
-    VT_MONTHS = 22
+    VT_MONTHS = 22,
+    VT_MACHINES = 24,
+    VT_AT_WORK = 26
   };
   const tce::wire::FirmBrief *brief() const {
     return GetPointer<const tce::wire::FirmBrief *>(VT_BRIEF);
@@ -16092,6 +16159,12 @@ struct FirmInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MonthStatement>> *months() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MonthStatement>> *>(VT_MONTHS);
   }
+  const ::flatbuffers::Vector<const tce::wire::MachineLine *> *machines() const {
+    return GetPointer<const ::flatbuffers::Vector<const tce::wire::MachineLine *> *>(VT_MACHINES);
+  }
+  uint16_t at_work() const {
+    return GetField<uint16_t>(VT_AT_WORK, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -16115,6 +16188,9 @@ struct FirmInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_MONTHS) &&
            verifier.VerifyVector(months()) &&
            verifier.VerifyVectorOfTables(months()) &&
+           VerifyOffset(verifier, VT_MACHINES) &&
+           verifier.VerifyVector(machines()) &&
+           VerifyField<uint16_t>(verifier, VT_AT_WORK, 2) &&
            verifier.EndTable();
   }
 };
@@ -16153,6 +16229,12 @@ struct FirmInfoBuilder {
   void add_months(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MonthStatement>>> months) {
     fbb_.AddOffset(FirmInfo::VT_MONTHS, months);
   }
+  void add_machines(::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::MachineLine *>> machines) {
+    fbb_.AddOffset(FirmInfo::VT_MACHINES, machines);
+  }
+  void add_at_work(uint16_t at_work) {
+    fbb_.AddElement<uint16_t>(FirmInfo::VT_AT_WORK, at_work, 0);
+  }
   explicit FirmInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -16175,11 +16257,14 @@ inline ::flatbuffers::Offset<FirmInfo> CreateFirmInfo(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::OfferInfo>>> offers = 0,
     ::flatbuffers::Offset<tce::wire::WageInfo> wage = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::BookEntryInfo>>> entries = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MonthStatement>>> months = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MonthStatement>>> months = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::MachineLine *>> machines = 0,
+    uint16_t at_work = 0) {
   FirmInfoBuilder builder_(_fbb);
   builder_.add_last_sale_minute(last_sale_minute);
   builder_.add_owner_since_minute(owner_since_minute);
   builder_.add_founder(founder);
+  builder_.add_machines(machines);
   builder_.add_months(months);
   builder_.add_entries(entries);
   builder_.add_wage(wage);
@@ -16187,6 +16272,7 @@ inline ::flatbuffers::Offset<FirmInfo> CreateFirmInfo(
   builder_.add_stores(stores);
   builder_.add_founder_name(founder_name);
   builder_.add_brief(brief);
+  builder_.add_at_work(at_work);
   return builder_.Finish();
 }
 
@@ -16206,12 +16292,15 @@ inline ::flatbuffers::Offset<FirmInfo> CreateFirmInfoDirect(
     const std::vector<::flatbuffers::Offset<tce::wire::OfferInfo>> *offers = nullptr,
     ::flatbuffers::Offset<tce::wire::WageInfo> wage = 0,
     const std::vector<::flatbuffers::Offset<tce::wire::BookEntryInfo>> *entries = nullptr,
-    const std::vector<::flatbuffers::Offset<tce::wire::MonthStatement>> *months = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::MonthStatement>> *months = nullptr,
+    const std::vector<tce::wire::MachineLine> *machines = nullptr,
+    uint16_t at_work = 0) {
   auto founder_name__ = founder_name ? _fbb.CreateString(founder_name) : 0;
   auto stores__ = stores ? _fbb.CreateVectorOfStructs<tce::wire::StoreLine>(*stores) : 0;
   auto offers__ = offers ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::OfferInfo>>(*offers) : 0;
   auto entries__ = entries ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::BookEntryInfo>>(*entries) : 0;
   auto months__ = months ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::MonthStatement>>(*months) : 0;
+  auto machines__ = machines ? _fbb.CreateVectorOfStructs<tce::wire::MachineLine>(*machines) : 0;
   return tce::wire::CreateFirmInfo(
       _fbb,
       brief,
@@ -16223,7 +16312,9 @@ inline ::flatbuffers::Offset<FirmInfo> CreateFirmInfoDirect(
       offers__,
       wage,
       entries__,
-      months__);
+      months__,
+      machines__,
+      at_work);
 }
 
 struct WealthSpread FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

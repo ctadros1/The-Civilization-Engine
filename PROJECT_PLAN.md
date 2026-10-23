@@ -6140,6 +6140,16 @@ and M6a gives rivers a daily flow.
         in a resolved day one hand at the hammer makes nothing, and two hands' two hours each
         make what two hours of the two together make in Detailed mode, nothing made until the
         day is lived.
+      - *As built, third part (2026-10-23): the observer's works page.* A workshop's page
+        (wire 1.98) carries its bell with its wage, the minute it rings and the shift's
+        minutes, and the kernel's words for its wage name them ("It rings its bell at 06:12
+        for a shift of 10 hours."); every machine and fixed tool it holds as a station, with
+        the crew each wants; and how many are at work for it now, owners and hands. The web's
+        workshop page shows them as "Machines" ("1 tilt hammer, worked by 2 hands together ·
+        1 water wheel") and "At work now". The kernel only reads what it holds, so nothing a
+        world does changes. **Tested:** a works with a hammer shows its bell, its hammer
+        wanting two and its wheel, and the one hand at work; a workshop with no bell says
+        nothing of one; the web decodes the new fields and words the machines and the hands.
   - **M10b, rail and gas light** (ADR-0034).
     - **DU**: light before gas: lamps burning fuel for hours of light, places dark or lit, dark
       sight (equal to day sight until a world has lamps), what light changes in the evening.

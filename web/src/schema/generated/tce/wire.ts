@@ -123,6 +123,7 @@ export { LandPlot } from './wire/land-plot.js';
 export { LawLine } from './wire/law-line.js';
 export { ListSaves } from './wire/list-saves.js';
 export { LoadWorld } from './wire/load-world.js';
+export { MachineLine } from './wire/machine-line.js';
 export { MarketGood } from './wire/market-good.js';
 export { MarketInfo } from './wire/market-info.js';
 export { Markets } from './wire/markets.js';

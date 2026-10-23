@@ -344,3 +344,81 @@ fn in_a_household_resolved_day_a_crew_is_met_in_aggregate() {
         "{two} in aggregate against {detailed} in detail"
     );
 }
+
+#[test]
+fn the_works_page_shows_its_bell_its_machines_and_its_hands_at_work() {
+    // The observer's works page (wire 1.98, M10a slice DT): the bell and shift with its wage, each
+    // machine and the crew it wants, and how many are at work for it now.
+    use civ_schema::{flatbuffers, wire};
+    let mut sim = new_world(3);
+    let (owner, who, firm) = a_hammer_works(&mut sim, true);
+    teach_iron(&mut sim, owner);
+    ask_for_iron(&mut sim, owner, 50.0);
+    let (iron, hammer, wheel) = (
+        good(&sim, "core:good/iron"),
+        good(&sim, "core:good/tilt_hammer"),
+        good(&sim, "core:good/water_wheel"),
+    );
+    let forge = activity(&sim, "core:activity/forge_bar_by_hammer");
+    let wage = sim
+        .with_ctx_for_tests(|pop, ctx| pop.plan_wage_for_tests(ctx, firm, iron))
+        .expect("the works hires");
+    sim.people_mut_for_tests()
+        .firms
+        .iter_mut()
+        .find(|f| f.id == firm)
+        .expect("works")
+        .wage = Some(wage);
+    let start = sim.now();
+    sim.with_ctx_for_tests(|pop, _| pop.at_work_for_tests(who, forge, firm, start));
+    let page =
+        |sim: &Sim| civ_sim::frames::firms::firm_response(sim, firm.get()).expect("its page");
+    let payload = page(&sim);
+    let info = flatbuffers::root::<wire::Response>(&payload)
+        .expect("a response")
+        .body_as_firm_info()
+        .expect("a page");
+    let w = info.wage().expect("its wage");
+    assert_eq!(
+        (w.bell_minute(), w.shift_minutes()),
+        (wage.bell_min, wage.shift_min)
+    );
+    let text = w.text().expect("words");
+    let bell = format!("{:02}:{:02}", wage.bell_min / 60, wage.bell_min % 60);
+    assert!(
+        text.contains(&format!("rings its bell at {bell}")),
+        "{text}"
+    );
+    let machines: Vec<(u16, u8, f32)> = info
+        .machines()
+        .expect("its machines")
+        .iter()
+        .map(|m| (m.good(), m.crew(), m.units()))
+        .collect();
+    assert!(machines.contains(&(hammer as u16, 2, 1.0)), "{machines:?}");
+    assert!(machines.contains(&(wheel as u16, 1, 1.0)), "{machines:?}");
+    assert_eq!(info.at_work(), 1, "one hand at the hammer");
+    // A workshop with no bell says nothing of one, and holds no machine.
+    let mut plain = new_world(3);
+    let (_, _, shop) = a_hammer_works(&mut plain, false);
+    plain
+        .people_mut_for_tests()
+        .firms
+        .iter_mut()
+        .find(|f| f.id == shop)
+        .expect("workshop")
+        .wage = Some(civ_agents::firm::WageOffer {
+        bell_min: 0,
+        shift_min: 0,
+        ..wage
+    });
+    let payload = civ_sim::frames::firms::firm_response(&plain, shop.get()).expect("its page");
+    let info = flatbuffers::root::<wire::Response>(&payload)
+        .expect("a response")
+        .body_as_firm_info()
+        .expect("a page");
+    let w = info.wage().expect("its wage");
+    assert_eq!(w.shift_minutes(), 0);
+    assert!(!w.text().unwrap_or_default().contains("bell"));
+    assert_eq!(info.at_work(), 0);
+}

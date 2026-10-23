@@ -128,6 +128,46 @@ impl Population {
             .sum()
     }
 
+    /// Workshop `id`'s machines and fixed tools (M10a slice DT): each fixed tool among its
+    /// stores, how much of it it holds, and the fewest hands it wants at it together.
+    pub fn machines_of(
+        &self,
+        goods: &[crate::params::GoodDef],
+        id: PermanentId,
+    ) -> Vec<(usize, u8, f64)> {
+        let Some(f) = self.firm(id) else {
+            return Vec::new();
+        };
+        f.stores
+            .iter()
+            .enumerate()
+            .filter(|&(g, &held)| is_fixed(goods, g) && held > 1e-9)
+            .map(|(g, &held)| {
+                let crew = goods[g].tool.as_ref().map_or(1, |t| t.crew.max(1));
+                (g, crew, held)
+            })
+            .collect()
+    }
+
+    /// The people at work for workshop `id` now (M10a slice DT): its owners making for it and
+    /// its hired hands, each in a step of work there.
+    pub fn at_work_for(&self, catalog: &crate::params::Catalog, id: PermanentId) -> usize {
+        self.people
+            .iter()
+            .filter(|(_, q)| {
+                q.act.target == Target::Firm(id)
+                    && matches!(
+                        q.act.steps.get(usize::from(q.act.step)),
+                        Some(Step::Work { .. })
+                    )
+                    && catalog
+                        .activities
+                        .get(usize::from(q.act.def))
+                        .is_some_and(|a| matches!(a.behavior, Behavior::Make | Behavior::Hire))
+            })
+            .count()
+    }
+
     /// Household `owner`'s fixed tool `good`, `amount` of it, put into its open workshop `id` as
     /// a station (the `owner` channel): the workshop's recipes wear it on its books from then on,
     /// and it is drawn back with the rest of its stores when it closes. False if it is not a

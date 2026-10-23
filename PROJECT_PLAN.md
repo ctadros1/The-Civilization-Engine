@@ -6260,6 +6260,20 @@ and M6a gives rivers a daily flow.
         evening beyond making (company, sleep) stays a §9 question (brief open question 12).
     - **DV**: wagonways pushed by people: the `RAIL` mode, track by cells with a turn rule and a
       ruling grade, wagons.
+      *As built, first part (2026-10-23): the wagonway as vocabulary.* The vehicle mode `rail`
+      (content API 168): a wagon names `rail_resistance` and `gauge_m` beside a cart's mass, puller
+      and brake, and refuses a boat's and a road's fields. The core's `core:vehicle/wagon` carries
+      2,000 kg on a 500 kg wagon at C = 0.005 on timber rails of a metre's gauge, so one person's
+      200 N moves it on the level at about 0.61 m/s and a 1 % rise stops it (the brief §1.2);
+      `core:technique/wooden_railway` needs wheels on an axle and is found by those who dig coal or
+      ore, at an e50 of 100,000 hours, so in practice it comes by the observer's introduction. The
+      way kind `RAIL` is reserved, and `civ_land::rail` lays track: an A* over a cell and its
+      heading that turns at most 45° a cell (ADR-0034 §2's turn rule) and climbs no steeper than a
+      ruling grade between neighbouring cells, on land or a crossing's deck, never through water.
+      Nothing lays track or makes a wagon yet, so no world changes. **Tested:** a pushed wagon's
+      pull and speed on the level and its stop at 1 %; a line round a bend turns at most 45° a cell;
+      under a 1 % ruling grade a line goes round a ridge by its gap, at 10 % straight over, never
+      across water but over a deck; a wagon's file names no road or boat field.
     - **DW**: engines on rails and train runs: block sections, single track and loops.
     - **DX**: stations, timetables set at review, fares and freight as posted terms, consignments
       of many owners, rides as household-day blocks, who builds and owns a line.
@@ -7697,6 +7711,12 @@ One line each. Don't re-litigate without a reason written next to the entry.
   pump's half, its other work (a mill's, a hammer's) taken in the same daylight and not netted
   off; nobody sets a wheel for a pit's sake, so a wheel pumps only where one already stands near
   its holder's pit. Revisited when the M10 demo shows a pit beside a mill.
+- **Design priors for the wagonway (2026-10-23, M10b slice DV, first part):** NUDGE: a wagon on
+  timber rails rolls at C = 0.005 (the brief's figure; no report gives rail's resistance), runs on a
+  metre's gauge, is held back down 1 % by its pusher, and carries 2 t on 0.5 t; wooden railways are
+  found at an e50 of 100,000 hours, as far techniques are. Track turns at most 45° a cell, ADR-0034
+  §2's rule standing for a curve's least radius at the grid's scale. Revisited when the M10 demo
+  shows a line laid.
 - **Design priors for the lamp by choice (2026-10-23, M10b slice DU, fourth part):** NUDGE: an hour
   lit is worth an hour of home making to a household that can make a lamp, and it keeps fuel for 30
   hours of light (a week of evenings). Neither is measured; 12-09 §3.1 has light as a purchased

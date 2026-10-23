@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 167
+kernel_content_api = 168
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2206,7 +2206,7 @@ fn a_cart_names_its_mass_resistances_and_puller_and_no_boat_fields() {
             dugout.as_str(),
             "mode = \"boat\"",
             "mode = \"sledge\"",
-            "`boat` or `cart`",
+            "`boat`, `cart` or `rail`",
         ),
     ] {
         let broken = file.replacen(from, to, 1);
@@ -2233,6 +2233,78 @@ fn a_cart_names_its_mass_resistances_and_puller_and_no_boat_fields() {
             report.diagnostics
         );
     }
+}
+
+#[test]
+fn a_wagon_runs_on_rails_of_its_gauge_and_names_no_road_or_boat_fields() {
+    // M10b slice DV (content API 168): a vehicle of mode `rail` names its rolling resistance on
+    // track and its gauge, with a cart's mass and puller; never a cart's road resistances or a
+    // boat's draft.
+    let preset = real_preset();
+    let wagon = real("vehicle/wagon.toml");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("vehicle/wagon.toml", &wagon),
+    ]);
+    assert!(report.diagnostics.is_empty(), "{:?}", report.diagnostics);
+    let catalog = &report.registry.expect("loads").catalog;
+    let w = catalog
+        .vehicles
+        .iter()
+        .find(|v| v.id == "core:vehicle/wagon")
+        .expect("the wagon");
+    assert_eq!(w.mode, civ_agents::params::VehicleMode::Rail);
+    assert_eq!((w.rail_resistance, w.gauge_m), (0.005, 1.0));
+    let wheels = w.rail_wheels(2000.0, 1.4);
+    assert_eq!(
+        (wheels.mass_kg, wheels.way_c, wheels.pull_n),
+        (2500.0, 0.005, 200.0)
+    );
+    assert!(w.technique.is_some(), "made only under wooden railways");
+    for (from, to, says) in [
+        (
+            "gauge_m = 1.0",
+            "gauge_m = 1.0\nway_resistance = 0.02",
+            "`way_resistance` is a cart's",
+        ),
+        (
+            "gauge_m = 1.0",
+            "gauge_m = 1.0\ndraft_m = 0.3",
+            "`draft_m` is a boat's",
+        ),
+        ("gauge_m = 1.0\n", "", "`gauge_m` must be between"),
+        (
+            "rail_resistance = 0.005",
+            "rail_resistance = 0.5",
+            "`rail_resistance` must be",
+        ),
+    ] {
+        let broken = wagon.replacen(from, to, 1);
+        assert_ne!(broken, wagon, "the edit applies");
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("vehicle/wagon.toml", &broken),
+        ]);
+        assert!(
+            report.diagnostics.iter().any(|d| d.message.contains(says)),
+            "{says}: {:?}",
+            report.diagnostics
+        );
+    }
+    // A cart with a gauge is refused.
+    let cart = HANDCART.replacen("brake_grade = 0.15", "brake_grade = 0.15\ngauge_m = 1.0", 1);
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("vehicle/test_handcart.toml", &cart),
+    ]);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains("`gauge_m` is a wagon's")),
+        "{:?}",
+        report.diagnostics
+    );
 }
 
 #[test]

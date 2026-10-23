@@ -23,6 +23,8 @@ use crate::paths::PathParams;
 pub const WALK: u8 = 1;
 /// Handcarts (M8b slice CP).
 pub const CART: u8 = 2;
+/// Wagons on track (M10b slice DV; ADR-0034 §2).
+pub const RAIL: u8 = 4;
 
 /// A segment's surface. Codes are part of saves: append only.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

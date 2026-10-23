@@ -35,6 +35,7 @@ pub mod paths;
 pub mod pits;
 pub mod plans;
 pub mod power;
+pub mod rail;
 pub mod soil;
 pub mod water;
 pub mod ways;

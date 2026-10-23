@@ -1,0 +1,22 @@
+# Wooden railways (research 07-08 §5.5 P01: "wheel/axle craft + track construction + rights of
+# way"; the rail brief §1.1): wagons on timber rails, pushed by people from a pit, a quarry or a
+# landing to where the goods are used (ADR-0034 §3: the only traction the world has is people).
+# Track must be laid level, since a pushed wagon stops on a 1 % rise (the brief §1.2). Woodwork
+# that moves loads counts toward finding it; half of those who try would need 100,000 qualified
+# hours, a far technique that in practice comes from elsewhere, as the observer's introduction
+# (07-01 §2.3; a tuning value). Learnt in 120 hours beside a knower, and at home by children who
+# work wood (07-02 §2.3, a tuning value).
+kind = "technique"
+id = "core:technique/wooden_railway"
+name = "Wooden railways"
+can = "lay timber rails and push wagons of a ton or two along them"
+domain = "core:skill/woodworking"
+requires = [["core:technique/wheel_and_axle"]]
+tried_in = ["core:activity/dig_coal", "core:activity/dig_ore"]
+needs = ["core:good/timber"]
+e50_h = 100000.0
+learn_h = 120.0
+upbringing = true
+
+[answers]
+spoilage = []

@@ -956,6 +956,8 @@ pub enum VehicleMode {
     Boat,
     /// On wheels, pulled by a person (M8b slice CP).
     Cart,
+    /// On track, pushed by people (M10b slice DV; ADR-0034 §3).
+    Rail,
 }
 
 impl VehicleMode {
@@ -964,6 +966,7 @@ impl VehicleMode {
         match self {
             VehicleMode::Boat => "boat",
             VehicleMode::Cart => "cart",
+            VehicleMode::Rail => "rail",
         }
     }
 
@@ -972,6 +975,7 @@ impl VehicleMode {
         match name {
             "boat" => Some(VehicleMode::Boat),
             "cart" => Some(VehicleMode::Cart),
+            "rail" => Some(VehicleMode::Rail),
             _ => None,
         }
     }
@@ -1021,6 +1025,10 @@ pub struct VehicleDef {
     pub power_w: f64,
     /// The steepest grade down, rise over run, a cart's puller can hold it back on.
     pub brake_grade: f64,
+    /// A wagon's rolling resistance on its track, and the gauge of track it runs on, metres
+    /// (M10b slice DV; 0 for a boat or cart).
+    pub rail_resistance: f64,
+    pub gauge_m: f64,
 }
 
 impl VehicleDef {
@@ -1032,6 +1040,21 @@ impl VehicleDef {
             width_m: self.width_m,
             way_c: self.way_resistance,
             trail_c: self.trail_resistance,
+            pull_n: self.pull_n,
+            power_w: self.power_w,
+            walk_m_s,
+            brake_grade: self.brake_grade,
+        }
+    }
+
+    /// How its track sees a wagon of this vehicle carrying `load_kg`, pushed by someone who
+    /// walks at `walk_m_s` (M10b slice DV): wheels whose ground is the rail's.
+    pub fn rail_wheels(&self, load_kg: f64, walk_m_s: f64) -> civ_land::carting::Wheels {
+        civ_land::carting::Wheels {
+            mass_kg: self.tare_kg + load_kg.max(0.0),
+            width_m: self.width_m,
+            way_c: self.rail_resistance,
+            trail_c: self.rail_resistance,
             pull_n: self.pull_n,
             power_w: self.power_w,
             walk_m_s,

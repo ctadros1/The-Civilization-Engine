@@ -1683,3 +1683,11 @@ Content API 167 (DU's third part) adds `[crime] dark_sight_m` and `lit_m`. Once 
 lit for work anywhere in the world, a taking after sunset is seen only within `dark_sight_m`
 (core 10 m) unless it is within `lit_m` (core 3 m) of a home where a lamp burns for work. Until
 then the dark shortens nobody's sight.
+
+Content API 168 (M10b slice DV) appends the vehicle mode `rail`: a wagon on track. A wagon names
+`rail_resistance` (its rolling resistance on its track) and `gauge_m` (the track it runs on, metres)
+beside a cart's `tare_kg`, `pull_n`, `power_w` and `brake_grade`, and refuses a boat's fields and a
+cart's road resistances; a cart and a boat refuse a wagon's. The core adds `core:vehicle/wagon` (2 t
+aboard a 0.5 t wagon at 0.005 on timber rails of a metre's gauge, pushed at 200 N and 75 W, held
+back down 1 %) and `core:technique/wooden_railway`, which needs wheels on an axle and is tried in
+digging coal and ore; design priors marked in their files.

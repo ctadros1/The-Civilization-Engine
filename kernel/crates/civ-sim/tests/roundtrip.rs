@@ -3184,3 +3184,19 @@ fn slice_q_saves_load_with_each_household_s_taste_drawn_as_its_band_s() {
         );
     }
 }
+
+#[test]
+fn every_schema_since_171_loads_with_the_current_sections() {
+    // Schemas 171 onward share one people-and-land decoder (each added a field read wherever
+    // saved): a save of any of them loads. Schema 179 once had no arm, so saves made between the
+    // first lamp lit and ways' track would not load.
+    let sim = load_first();
+    let sections = persist::encode_sections(&sim);
+    for version in persist::SCHEMA_V171..=SAVE_SCHEMA_VERSION {
+        let mut info = fixture().first_info.clone();
+        info.schema_version = version;
+        let path = republish(&format!("schema-{version}"), &info, &sections);
+        persist::load(&path, content())
+            .unwrap_or_else(|e| panic!("schema {version} does not load: {e:?}"));
+    }
+}

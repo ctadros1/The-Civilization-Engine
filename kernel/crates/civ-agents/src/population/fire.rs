@@ -408,6 +408,27 @@ impl Population {
 
     /// Whether person `p` is working a fire: making with a recipe that burns fuel (baking,
     /// firing pots).
+    /// A candidate ignition at home `building` comes due now: for tests.
+    #[doc(hidden)]
+    pub fn ignite_for_tests(&mut self, ctx: &mut Ctx, building: PermanentId) {
+        self.ignite(ctx, building);
+    }
+
+    /// Whether person `p` is at daylight-only work at home now, which after dark is done by
+    /// lamplight (M10b slice DU).
+    fn works_by_lamp(ctx: &Ctx, p: &Person) -> bool {
+        matches!(
+            p.act.steps.get(usize::from(p.act.step)),
+            Some(crate::person::Step::Work { .. })
+        ) && ctx
+            .catalog
+            .activities
+            .get(usize::from(p.act.def))
+            .is_some_and(|a| {
+                a.daylight_only && a.behavior == Behavior::Make && a.max_walk_minutes == 0
+            })
+    }
+
     fn works_fire(ctx: &Ctx, p: &Person) -> bool {
         let catalog = ctx.catalog;
         let Some(r) = catalog
@@ -457,6 +478,14 @@ impl Population {
             return;
         };
         let (members, settlement) = (x.members.clone(), x.settlement);
+        // A lamp lit for work after dark (M10b slice DU): the household holds one and its fuel,
+        // and it is dark.
+        let lamp_lit = super::lamp_of(&ctx.catalog.goods, &x.stores).is_some() && {
+            let doy = civ_land::day_of_year(now.day_index());
+            let sun = crate::needs::daylight(ctx.params.latitude_deg, doy);
+            let minute = now.minute_of_day();
+            minute < sun.0 || minute >= sun.1
+        };
         let Some(o) = ctx
             .land
             .plots
@@ -468,7 +497,7 @@ impl Population {
             return;
         };
         let t = now.minutes() as f64;
-        let (mut awake, mut workers) = (false, 0usize);
+        let (mut awake, mut workers, mut lamps) = (false, 0usize, 0usize);
         for id in &members {
             let Some(m) = self.person(*id) else {
                 continue;
@@ -477,7 +506,11 @@ impl Population {
                 continue;
             }
             awake = true;
-            workers += usize::from(Self::works_fire(ctx, m));
+            if Self::works_fire(ctx, m) {
+                workers += 1;
+            } else if lamp_lit && Self::works_by_lamp(ctx, m) {
+                lamps += 1;
+            }
         }
         let hearth = if awake {
             p.hearth_lit_per_hour
@@ -485,6 +518,9 @@ impl Population {
             p.hearth_banked_per_hour
         };
         let worked = workers as f64 * p.worked_per_hour;
+        // A member working by lamplight takes their share of the bound as one working a fire
+        // would, so the bound holds whatever the lamp's own rate (ADR-0022 §3's thinning).
+        let lamp = lamps as f64 * p.lamp_lit_per_hour.min(p.worked_per_hour);
         let bound = ignition_bound(&p, members.len());
         let mut rng = Rng64::from_key(&[
             ctx.seed,
@@ -493,10 +529,12 @@ impl Population {
             now.minutes() as u64,
         ]);
         let u = rng.next_f64() * bound;
-        if bound.is_nan() || bound <= 0.0 || u >= hearth + worked {
+        if bound.is_nan() || bound <= 0.0 || u >= hearth + worked + lamp {
             return;
         }
-        let kind = if u >= hearth {
+        let kind = if u >= hearth + worked {
+            Hearth::Lamp
+        } else if u >= hearth {
             Hearth::Worked
         } else if awake {
             Hearth::Lit

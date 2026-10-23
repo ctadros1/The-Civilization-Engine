@@ -81,6 +81,9 @@ pub struct FireParams {
     pub hearth_banked_per_hour: f64,
     /// Ignitions per hour of each fire worked at home: someone baking or firing pots.
     pub worked_per_hour: f64,
+    /// Ignitions per hour of a lamp lit at home for work after dark (M10b slice DU; ADR-0034 §9:
+    /// burners are ignitions as hearths are).
+    pub lamp_lit_per_hour: f64,
     /// How near the building, metres, someone awake must be to put an ignition out at once.
     pub beside_m: f64,
     /// The least and most minutes an escape left alone grows inside before it reaches the
@@ -155,6 +158,7 @@ impl FireParams {
             hearth_lit_per_hour: 2.0e-6,
             hearth_banked_per_hour: 1.0e-6,
             worked_per_hour: 4.0e-6,
+            lamp_lit_per_hour: 2.0e-6,
             beside_m: 3.0,
             grow_minutes: [2.0, 15.0],
             wake_minutes: [5.0, 30.0],
@@ -436,6 +440,8 @@ pub enum Hearth {
     Banked = 1,
     /// A fire worked at home: baking or firing pots.
     Worked = 2,
+    /// A lamp lit at home for work after dark (M10b slice DU).
+    Lamp = 3,
 }
 
 impl Hearth {
@@ -445,6 +451,7 @@ impl Hearth {
             0 => Some(Hearth::Lit),
             1 => Some(Hearth::Banked),
             2 => Some(Hearth::Worked),
+            3 => Some(Hearth::Lamp),
             _ => None,
         }
     }

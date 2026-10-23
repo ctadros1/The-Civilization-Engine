@@ -1206,6 +1206,10 @@ infill_loss = 0.5
 hearth_lit_per_hour = 2.0e-6
 hearth_banked_per_hour = 1.0e-6
 worked_per_hour = 4.0e-6
+# A lamp lit at home for work after dark is a small open flame, as likely to escape as a lit
+# hearth (M10b slice DU; ADR-0034 §9; a tuning value: 12-03 §1.1 separates lighting from cooking
+# and heating but gives no rate).
+lamp_lit_per_hour = 2.0e-6
 beside_m = 3.0
 # An escape left alone grows inside before it reaches the covering (12-03 §1.2: ignition, then
 # locally controlled or growing, then the building involved). No source gives how long for an

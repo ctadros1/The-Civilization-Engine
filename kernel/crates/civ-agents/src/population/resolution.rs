@@ -562,6 +562,7 @@ impl Population {
                         for (i, reps) in shares(ctx, part, minutes_to_share, hh.home) {
                             let cand = &part.cands[i];
                             let lasts = option_minutes(ctx, cand, hh.home) * f64::from(reps);
+                            let start = t;
                             let end = (t + lasts.round() as i64).min(to);
                             if end > t {
                                 blocks.push(DayBlock {
@@ -590,9 +591,15 @@ impl Population {
                                     .map_or(minutes, |a| a.min_minutes.max(1));
                                 company.push((m, minutes, (minutes / session.max(1)).max(1)));
                             }
-                            for _ in 0..reps {
+                            // Each repetition is enacted now, its making's dark minutes
+                            // counted to when it would have ended in the day.
+                            let each = lasts / f64::from(reps.max(1));
+                            for k in 0..reps {
+                                let ends = start + (each * f64::from(k + 1)).round() as i64;
+                                self.enact_end = Some(midnight.plus_minutes(ends));
                                 self.enact(ctx, h, cand, part.site, &hh);
                             }
+                            self.enact_end = None;
                         }
                         if t < to {
                             blocks.push(DayBlock {

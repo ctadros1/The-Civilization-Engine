@@ -116,6 +116,7 @@ fn cause_words(sim: &Sim, f: &Fire) -> String {
                 }
                 Some(Hearth::Lit) => "caught from its hearth",
                 Some(Hearth::Worked) => "caught from a fire worked at home",
+                Some(Hearth::Lamp) => "caught from a lamp lit at home",
                 None => "caught from a fire in use",
             };
             match g {

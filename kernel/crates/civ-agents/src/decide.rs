@@ -38,6 +38,9 @@ pub struct Facts {
     pub evening: f64,
     /// Minutes until the next sunrise.
     pub until_sunrise_min: f64,
+    /// Minutes of lamplight at home the household can burn now: a whole lamp it holds and the
+    /// fuel for it (M10b slice DU; ADR-0034 §9); 0 for a household without one.
+    pub lamp_min: f64,
     /// Household's food, days.
     pub food_days: f64,
     /// Days of food the household tries to keep.
@@ -721,6 +724,14 @@ fn night_water(
 /// The daylight work may use: all that is left, but while what is at home would not last until
 /// morning, less the trip to water and a meal, so whoever works by daylight is home while the trip
 /// can still be made, and the last of the light decides it, not the dusk.
+/// Whether daylight-only work `def` may run by lamplight now (M10b slice DU): making at home,
+/// with no walk, for at least its shortest session by the household's lamp.
+fn lit_at_home(def: &ActivityDef, f: &Facts) -> bool {
+    def.behavior == Behavior::Make
+        && def.max_walk_minutes == 0
+        && f.lamp_min >= f64::from(def.min_minutes).max(1.0)
+}
+
 fn work_light(
     defs: &[ActivityDef],
     f: &Facts,
@@ -1039,7 +1050,9 @@ pub fn candidates(
             excluded.push((id, Reason::TooOld));
             continue;
         }
-        if def.daylight_only && f.dark {
+        // Work at home may run by lamplight after dark (M10b slice DU); fields and walks stay
+        // dark.
+        if def.daylight_only && f.dark && !lit_at_home(def, f) {
             excluded.push((id, Reason::NotInDark));
             continue;
         }
@@ -2265,6 +2278,12 @@ pub fn candidates(
                     }
                 };
                 let minutes = option.minutes.min(f64::from(def.max_minutes)).max(1.0);
+                // After dark, no longer than the lamp's fuel lasts.
+                let minutes = if def.daylight_only && f.dark {
+                    minutes.min(f.lamp_min).max(1.0)
+                } else {
+                    minutes
+                };
                 let hours = minutes / 60.0;
                 match option.worth {
                     MakeWorth::Food {
@@ -2570,6 +2589,7 @@ mod tests {
             clock_min: 720.0,
             evening: 0.0,
             until_sunrise_min: 900.0,
+            lamp_min: 0.0,
             food_days: 50.0,
             food_target_days: 5.0,
             food_outlook_days: 0.0,
@@ -2942,6 +2962,85 @@ mod tests {
     }
 
     #[test]
+    fn work_at_home_runs_by_lamplight_after_dark_as_long_as_the_fuel_lasts() {
+        // M10b slice DU (ADR-0034 §9): daylight-only making at home may run after dark by the
+        // household's lamp, no longer than its fuel lasts; work with a walk stays dark.
+        let mut pots = activity("make_pots", Behavior::Make, Vec::new(), 1.0);
+        pots.max_walk_minutes = 0;
+        pots.min_minutes = 30;
+        let mut away = activity("make_away", Behavior::Make, Vec::new(), 1.0);
+        away.max_walk_minutes = 30;
+        away.min_minutes = 30;
+        let defs = vec![pots, away];
+        let none = |_: usize| false;
+        let make = |_: usize, _: &[usize]| {
+            Ok(MakeOption {
+                units: 1.0,
+                minutes: 180.0,
+                worth: MakeWorth::Tool { tool: 0, need: 0.5 },
+                firm: None,
+                site: None,
+            })
+        };
+        let shop = Workshop {
+            free_tools: &[],
+            held_tools: &[],
+            best_make: &make,
+            makes_tool: &none,
+            knows: &|_| true,
+        };
+        let at = |lamp_min: f64| {
+            let mut f = facts();
+            f.dark = true;
+            f.daylight_left_min = 0.0;
+            f.lamp_min = lamp_min;
+            candidates(
+                &defs,
+                &weights(),
+                &f,
+                &limits(),
+                &|_| None,
+                &|_| Ok(field()),
+                None,
+                &|| None,
+                &|| None,
+                &|| Err(Reason::NoReport),
+                &|| None,
+                Err(Reason::Built),
+                &shop,
+                &|| Err(Reason::NoProblem),
+                &|| Err(Reason::WouldNotTake),
+                &Vec::new,
+            )
+        };
+        // No lamp: both wait for daylight.
+        let (cands, excluded) = at(0.0);
+        assert!(cands.iter().all(|c| c.scored.def > 1), "{cands:?}");
+        assert!(excluded.contains(&(0, Reason::NotInDark)));
+        assert!(excluded.contains(&(1, Reason::NotInDark)));
+        // Fuel for 20 minutes is less than a session: still dark.
+        let (_, excluded) = at(20.0);
+        assert!(excluded.contains(&(0, Reason::NotInDark)));
+        // Fuel for 90 minutes: the work at home runs by lamplight, for 90 minutes; the work
+        // away stays dark.
+        let (cands, excluded) = at(90.0);
+        let lit = cands
+            .iter()
+            .find(|c| c.scored.def == 0)
+            .expect("work at home by lamplight");
+        let worked: u32 = lit
+            .steps
+            .iter()
+            .map(|s| match s {
+                Step::Work { minutes } => *minutes,
+                _ => 0,
+            })
+            .sum();
+        assert_eq!(worked, 90, "{:?}", lit.steps);
+        assert!(excluded.contains(&(1, Reason::NotInDark)));
+    }
+
+    #[test]
     fn hired_work_at_a_works_with_a_bell_is_its_shift() {
         // M10a slice DT, ADR-0033 §8: a hand goes no sooner than an hour before the bell, waits
         // for it, and works to the end of the shift, so the works' hands are at it together.
@@ -3124,6 +3223,7 @@ mod tests {
                 dark: false,
                 daylight_left_min,
                 until_sunrise_min: 800.0,
+                lamp_min: 0.0,
                 water_days,
                 ..facts()
             };
@@ -3186,6 +3286,7 @@ mod tests {
                 daylight_left_min: 300.0,
                 clock_min: 720.0,
                 until_sunrise_min: 800.0,
+                lamp_min: 0.0,
                 water_days,
                 ..facts()
             };

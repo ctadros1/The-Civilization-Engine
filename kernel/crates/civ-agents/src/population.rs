@@ -545,6 +545,9 @@ pub struct Population {
     /// (ADR-0032 §2): set and taken within [`Self::live_household_days`] only.
     planning: bool,
     planned: Option<resolution::Planned>,
+    /// When the making a household-resolved day enacts at midnight would have ended in its day
+    /// (M10b slice DU): its minutes after dark are counted from there, not from midnight.
+    enact_end: Option<SimTime>,
     /// Sessions at a works' machine that wants a crew, lived in a household-resolved day (M10a
     /// slice DT; ADR-0032 §2, crews met in aggregate): held while the settlement's day is lived,
     /// then the machine runs for their summed minutes over its crew if as many hands as it
@@ -3571,6 +3574,7 @@ impl Population {
             clock_min: minute as f64,
             evening,
             until_sunrise_min: until_sunrise as f64,
+            lamp_min: lamp_of(goods, &stores).map_or(0.0, |l| l.3),
             food_days: stock / kcal_day.max(1.0),
             food_target_days: params.household.food_target_days,
             food_outlook_days,
@@ -6014,6 +6018,24 @@ impl Population {
             make::wear(&mut x.stores, goods, &recipe.tools, hours);
             x.flows
                 .add_changes(&before, &x.stores, Flow::Made, Flow::Worn);
+            // Work after dark by lamplight burns the lamp's fuel and wears the lamp (M10b slice
+            // DU; research 11-13 §2.2: light's cost is its fuel and fixture by the hour lit).
+            if def.daylight_only {
+                let end = self.enact_end.unwrap_or(now);
+                let dark_h = dark_minutes(params, end, minutes) / 60.0;
+                if dark_h > 0.0
+                    && let Some((lamp, fuel, kg_h, _)) = lamp_of(goods, &x.stores)
+                {
+                    let before = x.stores.clone();
+                    x.stores[fuel] = (x.stores[fuel] - kg_h * dark_h).max(0.0);
+                    x.flows
+                        .add_changes(&before, &x.stores, Flow::Made, Flow::Used);
+                    let before = x.stores.clone();
+                    make::wear(&mut x.stores, goods, &[lamp], dark_h);
+                    x.flows
+                        .add_changes(&before, &x.stores, Flow::Made, Flow::Worn);
+                }
+            }
         }
         if let (Some((k, s)), Some(p)) = (skill, self.people.get_mut(h)) {
             let next = s.practised(p.skill(k), hours);
@@ -7453,6 +7475,46 @@ pub(crate) fn power_kw_of(ctx: &Ctx, holder: PermanentId) -> f64 {
         .filter(|(_, x)| x.owner == holder)
         .map(|(i, _)| ctx.land.installation_kw(ctx.land_params, i))
         .sum()
+}
+
+/// The lamp a household holding `stores` lights for work after dark (M10b slice DU; ADR-0034
+/// §9): of the whole lamps it holds whose fuel it has, the one whose fuel lasts longest, as the
+/// lamp and its fuel by good index, the kilograms it burns an hour and the minutes the fuel
+/// held lasts.
+pub(crate) fn lamp_of(goods: &[GoodDef], stores: &[f64]) -> Option<(usize, usize, f64, f64)> {
+    goods
+        .iter()
+        .enumerate()
+        .filter_map(|(g, d)| {
+            let light = d.light?;
+            let fuel = light.fuel?;
+            let held = stores.get(g).copied().unwrap_or(0.0);
+            if light.kg_per_hour <= 0.0 || make::in_use(goods, g, held) < decide::MIN_TOOL {
+                return None;
+            }
+            let kg = stores.get(fuel).copied().unwrap_or(0.0).max(0.0);
+            (kg > 0.0).then_some((g, fuel, light.kg_per_hour, kg / light.kg_per_hour * 60.0))
+        })
+        .max_by(|a, b| a.3.total_cmp(&b.3).then(b.0.cmp(&a.0)))
+}
+
+/// Minutes of the `minutes` before `end` that fell in the dark, sunrise and sunset taken day by
+/// day at the profile's latitude (M10b slice DU).
+pub(crate) fn dark_minutes(params: &PeopleParams, end: SimTime, minutes: u32) -> f64 {
+    let end = end.minutes();
+    let mut t = end - i64::from(minutes);
+    let mut dark = 0i64;
+    let overlap = |a: i64, b: i64, lo: i64, hi: i64| (b.min(hi) - a.max(lo)).max(0);
+    while t < end {
+        let day = t.div_euclid(MINUTES_PER_DAY);
+        let start = day * MINUTES_PER_DAY;
+        let next = (start + MINUTES_PER_DAY).min(end);
+        let sun = needs::daylight(params.latitude_deg, civ_land::day_of_year(day));
+        dark += overlap(t, next, start, start + sun.0)
+            + overlap(t, next, start + sun.1, start + MINUTES_PER_DAY);
+        t = next;
+    }
+    dark as f64
 }
 
 /// The crew recipe `recipe`'s tools need: the most hands any of them wants at it together (M10a

@@ -1465,7 +1465,7 @@ content's comments cite a measurement; the planned ignition sweep remains separa
 | `exposure_minutes`, `catch_per_minute`, `extinction_moisture`, `reference_moisture` | Accumulated heat, catching hazard and fuel moisture. |
 | `involve_minutes`, `involved_minutes`, `covering_minutes` | Building-fire stages and covering consumption. |
 | `char_mm_first_hour`, `char_exponent`, `infill_loss` | Loss of timber section and wall infill during burning. |
-| `hearth_lit_per_hour`, `hearth_banked_per_hour`, `worked_per_hour` | Escapes per hour of the fires actually in use, scaled by dryness. |
+| `hearth_lit_per_hour`, `hearth_banked_per_hour`, `worked_per_hour`, `lamp_lit_per_hour` | Escapes per hour of the fires actually in use, scaled by dryness; `lamp_lit_per_hour` (content API 166, default 0, 0 to 0.1) is a lamp lit at home for work after dark, counted only as far as `worked_per_hour`. |
 | `beside_m`, `grow_minutes`, `wake_minutes`, `sight_m`, `earshot_m` | Finding and controlling an escape, growth and waking intervals, sight and alarms. |
 | `water_stays`, `wet_drains_per_minute` | Delivered water retained on roofs and its subsequent loss; a carrier must obtain and deliver each load. |
 | `w_save`, `kin_share`, `neighbour_share` | The actor's stakes in saving a threatened roof. |
@@ -1673,3 +1673,8 @@ gives light. The first lamp is `good/fat_lamp`, a clay dish burning `good/tallow
 with `technique/lamps` (found drying meat, with meat at home; founders do not bring it),
 `recipe/render_tallow`, `recipe/make_fat_lamp` and their activities. Nobody wants a lamp for
 its own sake (`per_worker = 0`); what light changes comes in DU's later parts.
+
+Content API 166 (DU's second part) adds `[fire] lamp_lit_per_hour` to a people profile: the
+escapes an hour of each person working at home by a lamp after dark (core 2.0e-6, as a lit
+hearth). A household holding a whole lamp and fuel for it may make at home after dark, for no
+longer than its fuel lasts; work away from home stays to daylight.

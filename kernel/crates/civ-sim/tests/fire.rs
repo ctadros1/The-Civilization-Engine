@@ -2208,3 +2208,82 @@ fn knowing_a_fire_does_not_offer_help_at_an_unknown_distant_fire() {
         expected
     );
 }
+
+#[test]
+fn a_lamp_lit_for_work_after_dark_may_catch_and_is_put_out_by_those_awake() {
+    // M10b slice DU (ADR-0034 §9; brief §2.5): a lamp lit at home for work after dark is an
+    // ignition as a hearth is. With the hearth's rate at nothing and everyone of the household
+    // at their work by lamplight, the lamp is what catches; without fuel nothing is lit.
+    use civ_agents::fire::Hearth;
+    use civ_agents::person::Step;
+    let (mut sim, _, huts) = hearth_worlds(9, 1, 0.0);
+    let hut_id = huts[0];
+    {
+        let fire = &mut sim
+            .rules_mut_for_tests()
+            .expect("rules of its own")
+            .people
+            .fire;
+        fire.worked_per_hour = 1.0;
+        fire.lamp_lit_per_hour = 1.0;
+    }
+    // Late in the evening.
+    let minute = sim.now().minute_of_day();
+    sim.advance_minutes((23 * 60 - minute).rem_euclid(1440))
+        .expect("advances");
+    let catalog = &sim.rules().catalog;
+    let index = |id: &str| catalog.goods.iter().position(|g| g.id == id).expect(id);
+    let (lamp, tallow) = (index("core:good/fat_lamp"), index("core:good/tallow"));
+    let axe_making = catalog
+        .activities
+        .iter()
+        .position(|a| a.id == "core:activity/make_axe")
+        .expect("axe making") as u16;
+    let household = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.id == hut_id)
+        .map(|b| b.household)
+        .expect("the hut");
+    let home = sim.people().household(household).expect("household").home;
+    let members = sim
+        .people()
+        .household(household)
+        .expect("household")
+        .members
+        .clone();
+    let set = |sim: &mut Sim, tallow_kg: f64| {
+        let pop = sim.people_mut_for_tests();
+        for (_, x) in pop.households.iter_mut() {
+            if x.id == household {
+                x.stores[lamp] = 1.0;
+                x.stores[tallow] = tallow_kg;
+            }
+        }
+        for (_, p) in pop.people.iter_mut() {
+            if members.contains(&p.id) {
+                p.asleep = false;
+                p.pos = home;
+                p.act.def = axe_making;
+                p.act.steps = vec![Step::Work { minutes: 300 }];
+                p.act.step = 0;
+            }
+        }
+    };
+    set(&mut sim, 1.0);
+    let before = sim.people().fires.ignitions.len();
+    sim.with_ctx_for_tests(|pop, ctx| pop.ignite_for_tests(ctx, hut_id));
+    let ignitions = &sim.people().fires.ignitions;
+    assert_eq!(ignitions.len(), before + 1, "the lamp caught");
+    let g = ignitions.last().expect("an ignition");
+    assert_eq!(g.hearth, Hearth::Lamp);
+    assert_eq!(g.ended, Some(g.at), "put out at once by someone awake");
+    assert!(g.put_out_by.is_some());
+    // No fuel, no lamp lit: nothing catches.
+    sim.advance_minutes(1).expect("advances");
+    set(&mut sim, 0.0);
+    let before = sim.people().fires.ignitions.len();
+    sim.with_ctx_for_tests(|pop, ctx| pop.ignite_for_tests(ctx, hut_id));
+    assert_eq!(sim.people().fires.ignitions.len(), before);
+}

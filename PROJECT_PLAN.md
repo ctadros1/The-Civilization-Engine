@@ -6201,6 +6201,25 @@ and M6a gives rivers a daily flow.
         differ by the shifted positions only. **Tested:** a lamp names its fuel and burn,
         which resolve to the tallow and 8 g an hour; a burn of 0 or above 1 kg, light on a good
         that is not a tool, and a fuel that is no good are each refused.
+      - *As built, second part (2026-10-23): work by lamplight.* A household holding a whole lamp
+        and fuel for it may take up making at home after dark (an activity kept to daylight whose
+        maker does not walk), for no longer than the lamp's fuel lasts (brief §2.3); fields,
+        gathering and errands stay dark. When the making ends, each of its minutes after sunset
+        burns the lamp's fuel by the hour (8 g of tallow) and wears the lamp an hour's part of its
+        life, recorded as used and worn; in a household-resolved settlement, whose day is lived at
+        midnight, each repetition's dark minutes are counted to when it would have ended in the day.
+        A lamp lit for work is a small open flame: each person working at home by it after dark adds
+        `lamp_lit_per_hour` (2.0e-6, as a lit hearth; content API 166) to the building's escapes,
+        taken within the hazard's existing bound so a world without lamps draws as before, and
+        caught at once by those awake; an incident caught from one says so. **Proved:** the three
+        bench worlds keep every digest of the first part's but the meta and the content (its new
+        parameter), nobody holding a lamp. **Tested:** two hours of making that end at 02:00 burn 16
+        g of tallow and wear the lamp two hours, the same ending at 13:00 nothing; a
+        household-resolved day burns tallow only for its members' blocks of making after sunset (a
+        day burned 62 g for none before the fix); a household working by a lamp at 23:00 with every
+        escape certain catches from the lamp and puts it out, and none catches once its tallow is
+        gone; the plan takes up making after dark only with the lamp and its fuel, capped at the
+        fuel's minutes.
     - **DV**: wagonways pushed by people: the `RAIL` mode, track by cells with a turn rule and a
       ruling grade, wagons.
     - **DW**: engines on rails and train runs: block sections, single track and loops.
@@ -7640,6 +7659,12 @@ One line each. Don't re-litigate without a reason written next to the entry.
   pump's half, its other work (a mill's, a hammer's) taken in the same daylight and not netted
   off; nobody sets a wheel for a pit's sake, so a wheel pumps only where one already stands near
   its holder's pit. Revisited when the M10 demo shows a pit beside a mill.
+- **Design priors for work by lamplight (2026-10-23, M10b slice DU, second part):** NUDGE: only
+  making at home runs after dark by a lamp (`max_walk_minutes = 0` stands for indoors; building a
+  kiln or a furnace at the door counts, a field does not), and a lamp's escape rate is a lit
+  hearth's, 2.0e-6 an hour a person, capped at `worked_per_hour` so it stays within the hazard's
+  existing bound. 12-03 gives no rate for lighting apart. Revisited when the M10 demo shows
+  households holding lamps and their fires.
 - **Pumping by a wheel, and coke, deferred to the works (2026-10-22, M10a slice DS):** Both since
   built in slice DT (coke and the blast furnace its fourth part, wheels at pits its fifth); an
   engine pumping water back up to a wheel stays deferred, as no wheel yet wants for water. ADR-0033

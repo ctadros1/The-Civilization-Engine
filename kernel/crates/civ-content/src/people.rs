@@ -762,6 +762,9 @@ pub(crate) struct FireFile {
     pub hearth_lit_per_hour: f64,
     pub hearth_banked_per_hour: f64,
     pub worked_per_hour: f64,
+    /// Content API 166 (M10b slice DU): ignitions per hour of a lamp lit at home.
+    #[serde(default)]
+    pub lamp_lit_per_hour: f64,
     pub beside_m: f64,
     pub grow_minutes: [f64; 2],
     pub wake_minutes: [f64; 2],
@@ -800,6 +803,7 @@ impl FireFile {
             hearth_lit_per_hour: self.hearth_lit_per_hour,
             hearth_banked_per_hour: self.hearth_banked_per_hour,
             worked_per_hour: self.worked_per_hour,
+            lamp_lit_per_hour: self.lamp_lit_per_hour,
             beside_m: self.beside_m,
             grow_minutes: self.grow_minutes,
             wake_minutes: self.wake_minutes,
@@ -873,6 +877,7 @@ impl FireFile {
                 0.1,
             ),
             ("fire.worked_per_hour", self.worked_per_hour, 0.0, 0.1),
+            ("fire.lamp_lit_per_hour", self.lamp_lit_per_hour, 0.0, 0.1),
             ("fire.beside_m", self.beside_m, 0.0, 50.0),
             ("fire.grow_minutes[0]", self.grow_minutes[0], 0.0, 600.0),
             ("fire.grow_minutes[1]", self.grow_minutes[1], 0.0, 600.0),

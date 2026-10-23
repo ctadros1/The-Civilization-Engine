@@ -21,6 +21,18 @@ use civ_land::ways::{Keeper, RAIL};
 /// The minute of the day an engine sets off along its line.
 const DEPART_MIN: i64 = 6 * 60;
 
+/// What an engine on its line would spare a household a year and cost, as it reckons it (M10b
+/// slice DW, fourth part): the line's pit end, where it would stand; the hours a year it spares;
+/// the hours a year its coal costs at the household's own cost; and what making it takes, hours
+/// (its iron at the household's own cost).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct EngineReckoning {
+    pub pit_end: u32,
+    pub saves_h_year: f64,
+    pub coal_h_year: f64,
+    pub cost_h: f64,
+}
+
 /// A household's engine on its whole line between a pit and home.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct EngineLine {
@@ -51,6 +63,35 @@ impl Population {
         if ctx.land.wagons.list.is_empty() {
             return None;
         }
+        Self::own_lines(ctx, household, home, pit)
+            .into_iter()
+            .find_map(|mut line| {
+                let (first, last) = (line.cells[0], *line.cells.last()?);
+                let (engine, vehicle) = ctx.land.wagons.made_of(household).find_map(|w| {
+                    let v = usize::from(w.vehicle);
+                    let def = ctx.catalog.vehicles.get(v)?;
+                    (def.engine.is_some()
+                        && (w.at == first || w.at == last)
+                        && (def.gauge_m - f64::from(line.track.gauge_m)).abs() < 1e-3
+                        && !ctx.land.runs.aboard(w.id))
+                    .then_some((w.id, v))
+                })?;
+                line.engine = engine;
+                line.vehicle = vehicle;
+                Some(line)
+            })
+    }
+
+    /// Household `household`'s whole lines from a pit at `pit` (any pit, where `None`) to home at
+    /// `home`, in the order begun: kept by it alone, serving wagons, one end within
+    /// [`DOOR_LEG_M`] of home and the other of the pit; each with no engine yet named.
+    fn own_lines(
+        ctx: &Ctx,
+        household: PermanentId,
+        home: (f32, f32),
+        pit: Option<(f32, f32)>,
+    ) -> Vec<EngineLine> {
+        let mut out = Vec::new();
         let near = |cell: u32, at: (f32, f32)| {
             let c = cell_centre(ctx.map, cell as usize);
             f64::from((c.0 - at.0).hypot(c.1 - at.1)) <= DOOR_LEG_M
@@ -83,18 +124,7 @@ impl Population {
             } else {
                 (last, first)
             };
-            let Some((engine, vehicle)) = ctx.land.wagons.made_of(household).find_map(|w| {
-                let v = usize::from(w.vehicle);
-                let def = ctx.catalog.vehicles.get(v)?;
-                (def.engine.is_some()
-                    && (w.at == first || w.at == last)
-                    && (def.gauge_m - f64::from(track.gauge_m)).abs() < 1e-3
-                    && !ctx.land.runs.aboard(w.id))
-                .then_some((w.id, v))
-            }) else {
-                continue;
-            };
-            return Some(EngineLine {
+            out.push(EngineLine {
                 way: way.id,
                 cells: way
                     .segments
@@ -105,11 +135,11 @@ impl Population {
                 pit_end,
                 home_end,
                 home_back,
-                engine,
-                vehicle,
+                engine: way.id,
+                vehicle: usize::MAX,
             });
         }
-        None
+        out
     }
 
     /// Household `household`'s made wagons of gauge `gauge_m` standing at cell `at` and not out
@@ -137,7 +167,12 @@ impl Population {
     /// wheels hold up the steepest rise homeward, less its own and the wagons' mass, and no more
     /// than the wagons carry.
     fn train_room(ctx: &Ctx, line: &EngineLine, cars: &[PermanentId]) -> f64 {
-        let Some(def) = ctx.catalog.vehicles.get(line.vehicle) else {
+        Self::room_of(ctx, line, line.vehicle, cars)
+    }
+
+    /// As [`Population::train_room`], for an engine of vehicle `vehicle`.
+    fn room_of(ctx: &Ctx, line: &EngineLine, vehicle: usize, cars: &[PermanentId]) -> f64 {
+        let Some(def) = ctx.catalog.vehicles.get(vehicle) else {
             return 0.0;
         };
         let runs = rail::runs(&line.cells, ctx.map.width, f64::from(ctx.map.cell_size_m));
@@ -460,6 +495,145 @@ impl Population {
             load_kg: load as f32,
         };
         ctx.land.runs.depart(run, day * 1_440 + DEPART_MIN);
+    }
+
+    /// The engine the content makes, if any: the first rail vehicle with an engine.
+    fn engine_vehicle(ctx: &Ctx) -> Option<usize> {
+        ctx.catalog.vehicles.iter().position(|v| v.engine.is_some())
+    }
+
+    /// What an engine of vehicle `vehicle` on household `household`'s line from the pit it digs
+    /// most would spare it, if it has such a line with wagons on it (M10b slice DW, fourth part):
+    /// a dig day there brings home what one person pushes (or carries, with no wagon to push) in
+    /// a session's work and walks, and with an engine what the session digs, up to what the
+    /// train holds; so to bring as much a year, the train spares the share of each dig day's
+    /// hours that the smaller load costs. Against that, the coal its runs burn (one home loaded
+    /// and one out light each dig day) a year, at the household's own cost of coal or, where the
+    /// pit yields it, the hours it takes to dig; and what the engine takes: its labour and its
+    /// iron at the household's own cost, nothing more for iron it holds and cannot make.
+    fn engine_reckoning(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        vehicle: usize,
+    ) -> Option<EngineReckoning> {
+        let x = self.household(household)?;
+        let def = ctx.catalog.vehicles.get(vehicle)?;
+        let p = self.dig_profile(ctx, household)?;
+        let line = Self::own_lines(ctx, household, x.home, Some(p.pit))
+            .into_iter()
+            .find(|l| (def.gauge_m - f64::from(l.track.gauge_m)).abs() < 1e-3)?;
+        let (first, last) = (line.cells[0], *line.cells.last()?);
+        let mut cars = Self::wagons_at(ctx, household, first, line.track.gauge_m);
+        cars.extend(Self::wagons_at(ctx, household, last, line.track.gauge_m));
+        if cars.is_empty() {
+            return None;
+        }
+        let carry = ctx.params.household.carry_kg;
+        let dug = p.kg_h * p.session_h;
+        let by_now = Self::wagon_haul(ctx, household, x.home, p.pit).map_or(carry, |h| {
+            h.load_kg
+                .min(p.kg_h * (p.session_h - h.extra_min / 60.0).max(0.0))
+        });
+        let by_train = dug.min(Self::room_of(ctx, &line, vehicle, &cars));
+        if by_train <= by_now || by_now <= 0.0 {
+            return None;
+        }
+        let saves_h_year = p.days_year * (p.session_h + 2.0 * p.walk_h) * (1.0 - by_now / by_train);
+        // The coal a dig day's two runs burn: home with the load, out light.
+        let runs = rail::runs(&line.cells, ctx.map.width, f64::from(ctx.map.cell_size_m));
+        let cars_tare: f64 = cars
+            .iter()
+            .filter_map(|&c| ctx.land.wagons.list.iter().find(|w| w.id == c))
+            .filter_map(|w| ctx.catalog.vehicles.get(usize::from(w.vehicle)))
+            .map(|d| d.tare_kg)
+            .sum();
+        let light = def.tare_kg + cars_tare;
+        let (fuel, home_kg) = Self::fuel_kg(
+            ctx,
+            vehicle,
+            &line.track.bed,
+            &runs,
+            light + by_train,
+            line.home_back,
+        )?;
+        let (_, out_kg) =
+            Self::fuel_kg(ctx, vehicle, &line.track.bed, &runs, light, !line.home_back)?;
+        let costs = self.own_costs_of(ctx, x);
+        // Its coal at the household's own cost, or what the pit yields where that is the fuel,
+        // at the hours it takes to dig (an engine at a pit head burns its own fuel, 07-06 §2.4).
+        let at_pit = (usize::from(p.deposit.body.good) == fuel).then(|| 1.0 / p.kg_h);
+        let coal_h = [costs.get(fuel).copied().flatten(), at_pit]
+            .into_iter()
+            .flatten()
+            .reduce(f64::min)?;
+        // Its iron at the household's own cost; iron it holds and cannot make costs it nothing
+        // more.
+        let iron_h = match costs.get(def.good).copied().flatten() {
+            Some(h) => h,
+            None if x.stores.get(def.good).copied().unwrap_or(0.0) >= def.material_kg => 0.0,
+            None => return None,
+        };
+        // As many trains a year as it takes to bring what it brings now.
+        let trains_year = p.days_year * by_now / by_train;
+        Some(EngineReckoning {
+            pit_end: line.pit_end,
+            saves_h_year,
+            coal_h_year: trains_year * (home_kg + out_kg) * coal_h,
+            cost_h: def.labour_h + def.material_kg * iron_h,
+        })
+    }
+
+    /// Household `household`, with its line and wagons, weighs an engine (M10b slice DW, fourth
+    /// part): where one of it knows how to make one, it has none, and the hours an engine would
+    /// spare it beyond its coal over the engine's life come to more than the engine takes, it
+    /// begins one at the line's pit end, its iron from the store.
+    pub(super) fn review_locomotive(&mut self, ctx: &mut Ctx, household: PermanentId) {
+        let Some(vehicle) = Self::engine_vehicle(ctx) else {
+            return;
+        };
+        let Some(x) = self.household(household) else {
+            return;
+        };
+        let Some(def) = ctx.catalog.vehicles.get(vehicle) else {
+            return;
+        };
+        if x.members.is_empty()
+            || def
+                .technique
+                .is_some_and(|t| !self.household_knows(&x.members, t))
+            || ctx.land.wagons.of(household).any(|w| {
+                ctx.catalog
+                    .vehicles
+                    .get(usize::from(w.vehicle))
+                    .is_some_and(|d| d.engine.is_some())
+            })
+        {
+            return;
+        }
+        let Some(r) = self.engine_reckoning(ctx, household, vehicle) else {
+            return;
+        };
+        if (r.saves_h_year - r.coal_h_year) * def.life_years <= r.cost_h {
+            return;
+        }
+        self.begin_wagon(ctx, household, vehicle, r.pit_end, r.saves_h_year);
+    }
+
+    /// What an engine would spare household `household`, as its review reckons it: for tests.
+    #[doc(hidden)]
+    pub fn engine_reckoning_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+    ) -> Option<EngineReckoning> {
+        self.engine_reckoning(ctx, household, Self::engine_vehicle(ctx)?)
+    }
+
+    /// Household `household` weighs an engine now, whatever its day of the year: for tests.
+    #[doc(hidden)]
+    pub fn review_locomotive_for_tests(&mut self, ctx: &mut Ctx, household: PermanentId) {
+        self.review_locomotive(ctx, household);
     }
 
     /// Household `household`'s trains brought to account as on day `day`: for tests.

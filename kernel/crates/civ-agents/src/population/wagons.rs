@@ -35,6 +35,19 @@ pub struct LineReckoning {
     pub cost_h: f64,
 }
 
+/// How a household digs at the deposit it digs most, as its reviews reckon it: the deposit and
+/// its pit's place, the dig days a year it holds there, a session's hours and what it digs an
+/// hour, and the walk each way, hours.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) struct DigProfile {
+    pub deposit: civ_land::deposits::Deposit,
+    pub pit: (f32, f32),
+    pub days_year: f64,
+    pub session_h: f64,
+    pub kg_h: f64,
+    pub walk_h: f64,
+}
+
 /// A haul by wagon from a pit home: the wagon, the line's cell beside home, the most it carries
 /// home, and the minutes the loaded push home takes beyond the walk.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -217,7 +230,11 @@ impl Population {
                     .line_reckoning(ctx, household, vehicle)
                     .map_or(0.0, |r| r.saves_h_year);
                 self.begin_wagon(ctx, household, vehicle, home_end, saves);
+                return;
             }
+            // With its line and wagons, an engine where it knows how and one would repay itself
+            // (M10b slice DW, fourth part).
+            self.review_locomotive(ctx, household);
             return;
         }
         let Some(r) = self.line_reckoning(ctx, household, vehicle) else {
@@ -255,41 +272,14 @@ impl Population {
         let x = self.household(household)?;
         let def = ctx.catalog.vehicles.get(vehicle)?;
         let params = ctx.land_params.track?;
-        let day = ctx.now.day_index();
-        let half = ctx.params.places.use_half_life_days;
-        // The deposit it digs most, by its dig days a year.
-        let (d, days_year) = ctx
-            .land
-            .deposits
-            .iter()
-            .filter_map(|d| {
-                let u = self
-                    .uses
-                    .held(household, crate::uses::Place::Deposit(d.id), day, half)?;
-                Some((*d, crate::uses::per_year(f64::from(u.days), half)))
-            })
-            .filter(|(_, n)| *n > 0.0)
-            .max_by(|a, b| a.1.total_cmp(&b.1).then(b.0.id.cmp(&a.0.id)))?;
-        let good = usize::from(d.body.good);
-        let act = ctx
-            .catalog
-            .activities
-            .iter()
-            .find(|a| a.behavior == Behavior::Dig && a.digs == Some(good))?;
-        let toward = x
-            .settlement
-            .and_then(|s| ctx.land.settlements.iter().find(|y| y.id == s))
-            .map_or((f64::from(x.home.0), f64::from(x.home.1)), |y| {
-                (f64::from(y.hearth_m.0), f64::from(y.hearth_m.1))
-            });
-        let side = ctx.params.digging.pit_side_m;
-        let pit = super::digging::dig_place(ctx.land, ctx.map, &d, toward, side)?;
-        let rates = super::digging::rates(ctx.land_params, &d.body, ctx.params.digging.h_per_m3);
-        let kg_h = super::digging::dig_kg_per_hour(&d.body, rates);
-        let session_h = f64::from(act.max_minutes) / 60.0;
-        let pace = ctx.params.nav.tobler_ms(0.0) * ctx.params.nav.offtrail_factor;
-        let walk_h =
-            f64::from((pit.0 - x.home.0).hypot(pit.1 - x.home.1)) / pace.max(1e-6) / 3600.0;
+        let DigProfile {
+            deposit: d,
+            pit,
+            days_year,
+            session_h,
+            kg_h,
+            walk_h,
+        } = self.dig_profile(ctx, household)?;
         // The steepest grade a full wagon is pushed up, and no gentler than a pusher holds back.
         let ruling = (def.pull_n / ((def.tare_kg + def.payload_kg) * civ_land::carting::G)
             - def.rail_resistance)
@@ -332,10 +322,61 @@ impl Population {
         })
     }
 
+    /// How household `household` digs at the deposit it digs most, by its dig days a year, if
+    /// it digs anywhere: the pit's place there, a session's hours (the dig activity's longest),
+    /// what it digs an hour, and the walk from home, hours at off-trail pace.
+    pub(super) fn dig_profile(&self, ctx: &Ctx, household: PermanentId) -> Option<DigProfile> {
+        let x = self.household(household)?;
+        let day = ctx.now.day_index();
+        let half = ctx.params.places.use_half_life_days;
+        // The deposit it digs most, by its dig days a year.
+        let (d, days_year) = ctx
+            .land
+            .deposits
+            .iter()
+            .filter_map(|d| {
+                let u = self
+                    .uses
+                    .held(household, crate::uses::Place::Deposit(d.id), day, half)?;
+                Some((*d, crate::uses::per_year(f64::from(u.days), half)))
+            })
+            .filter(|(_, n)| *n > 0.0)
+            .max_by(|a, b| a.1.total_cmp(&b.1).then(b.0.id.cmp(&a.0.id)))?;
+        let good = usize::from(d.body.good);
+        let act = ctx
+            .catalog
+            .activities
+            .iter()
+            .find(|a| a.behavior == Behavior::Dig && a.digs == Some(good))?;
+        let toward = x
+            .settlement
+            .and_then(|s| ctx.land.settlements.iter().find(|y| y.id == s))
+            .map_or((f64::from(x.home.0), f64::from(x.home.1)), |y| {
+                (f64::from(y.hearth_m.0), f64::from(y.hearth_m.1))
+            });
+        let side = ctx.params.digging.pit_side_m;
+        let pit = super::digging::dig_place(ctx.land, ctx.map, &d, toward, side)?;
+        let rates = super::digging::rates(ctx.land_params, &d.body, ctx.params.digging.h_per_m3);
+        let kg_h = super::digging::dig_kg_per_hour(&d.body, rates);
+        let session_h = f64::from(act.max_minutes) / 60.0;
+        let pace = ctx.params.nav.tobler_ms(0.0) * ctx.params.nav.offtrail_factor;
+        let walk_h =
+            f64::from((pit.0 - x.home.0).hypot(pit.1 - x.home.1)) / pace.max(1e-6) / 3600.0;
+        Some(DigProfile {
+            deposit: d,
+            pit,
+            days_year,
+            session_h,
+            kg_h,
+            walk_h,
+        })
+    }
+
     /// Household `household` begins a wagon of vehicle `vehicle` at cell `at`, the home end of its
     /// line, if it holds the wagon's timber: taken from its store as it is begun, as a cart's is,
-    /// the wagon then made by the household's work on it.
-    fn begin_wagon(
+    /// the wagon then made by the household's work on it. An engine is begun the same way, at the
+    /// line's pit end and of its iron (M10b slice DW, fourth part).
+    pub(super) fn begin_wagon(
         &mut self,
         ctx: &mut Ctx,
         household: PermanentId,

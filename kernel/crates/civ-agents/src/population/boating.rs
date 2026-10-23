@@ -718,7 +718,18 @@ impl Population {
         let name = def.name.to_lowercase();
         let settlement = self.household(household).and_then(|x| x.settlement);
         let wagon = kind == 2;
-        let (kind, at, sentence) = if wagon {
+        let (kind, at, sentence) = if wagon && def.engine.is_some() {
+            // An engine stands where it was made, at the pit end (M10b slice DW, fourth part).
+            (
+                ChronicleKind::CartMade,
+                cell_centre(ctx.map, cell as usize),
+                format!(
+                    "{}'s household finished a {name} and stood it at the pit end of its line, \
+                     ready to draw its wagons.",
+                    self.name_of(who)
+                ),
+            )
+        } else if wagon {
             (
                 ChronicleKind::CartMade,
                 cell_centre(ctx.map, cell as usize),
@@ -748,5 +759,27 @@ impl Population {
             )
         };
         self.chronicle_push(now, kind, vec![who], settlement, Some(at), 0.0, sentence);
+    }
+
+    /// `hours` of work by the first of household `household` on the boat, cart, wagon or engine
+    /// `boat` it is making: for tests.
+    #[doc(hidden)]
+    pub fn vehicle_work_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        household: PermanentId,
+        boat: PermanentId,
+        hours: f64,
+    ) {
+        let Some(who) = self
+            .household(household)
+            .and_then(|x| x.members.first().copied())
+        else {
+            return;
+        };
+        let Some(h) = self.index.get(&who).copied() else {
+            return;
+        };
+        self.boat_work(ctx, (h, who), household, boat, hours);
     }
 }

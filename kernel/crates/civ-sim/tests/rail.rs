@@ -798,3 +798,207 @@ fn a_household_that_digs_often_weighs_a_line_home_and_begins_it_and_its_wagon() 
     );
     saves_alike(&mut sim);
 }
+
+/// A whole line laid from beside a pit at `seam`, opened by a session's digging, to beside
+/// household `household`'s home at `home`: its id and its pit and home cells.
+fn laid_line(
+    sim: &mut Sim,
+    household: PermanentId,
+    home: (f32, f32),
+    seam: PermanentId,
+) -> (PermanentId, u32, u32) {
+    for _ in 0..20 {
+        let kg = sim.with_ctx_for_tests(|pop, ctx| {
+            pop.dig_and_bring_for_tests(ctx, household, seam, 180.0)
+        });
+        if kg > 0.0 {
+            break;
+        }
+    }
+    let pit = sim
+        .land()
+        .earthworks
+        .iter()
+        .find(|e| e.kind == civ_land::earth::EarthKind::Pit && e.deposit == Some(seam))
+        .map(|e| e.rect.centre_m())
+        .expect("a pit");
+    let cell_of = |at: (f32, f32)| civ_agents::population::cell_of(sim.map(), at) as u32;
+    let (pit_cell, home_cell) = (cell_of(pit), cell_of(home));
+    let id = sim
+        .with_ctx_for_tests(|_, ctx| {
+            civ_agents::population::Population::begin_track_for_tests(
+                ctx, household, pit_cell, home_cell, 1.0, 0.003,
+            )
+        })
+        .expect("a line from the pit home");
+    let need = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|x| x.id == id)
+        .and_then(|x| x.track.clone())
+        .expect("its track");
+    set_timber(sim, household, f64::from(need.good_kg) + 1.0);
+    sim.with_ctx_for_tests(|pop, ctx| {
+        pop.way_work_for_tests(ctx, household, id, f64::from(need.labour_h) + 1.0)
+    });
+    (id, pit_cell, home_cell)
+}
+
+/// Household `household`'s dig days at deposit `seam` set as if it dug there `per_year` days a
+/// year (they fade, so it holds fewer).
+fn set_dig_days(sim: &mut Sim, household: PermanentId, seam: PermanentId, per_year: f64) {
+    let half = sim.rules().people.places.use_half_life_days;
+    let held = (per_year * half / (365.0 * std::f64::consts::LN_2)) as f32;
+    let day = sim.now().day_index();
+    let place = civ_agents::uses::Place::Deposit(seam);
+    let list = sim
+        .people_mut_for_tests()
+        .uses
+        .households
+        .entry(household)
+        .or_default();
+    list.retain(|u| u.place != place);
+    list.push(civ_agents::uses::PlaceUse {
+        place,
+        days: held,
+        kcal: 0.0,
+        outsiders: Vec::new(),
+        seen: Vec::new(),
+        day,
+        recent: 0,
+    });
+    list.sort_by_key(|a| a.place);
+}
+
+/// Every member of household `household` learns technique `id`.
+fn teach(sim: &mut Sim, household: PermanentId, id: &str) {
+    let t = sim
+        .rules()
+        .catalog
+        .techniques
+        .iter()
+        .position(|t| t.id == id)
+        .expect("a technique");
+    let learn_h = sim.rules().catalog.techniques[t].learn_h;
+    let members = sim
+        .people()
+        .household(household)
+        .expect("household")
+        .members
+        .clone();
+    let now = sim.now();
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if members.contains(&p.id) {
+            p.learn(t, learn_h, members[0], learn_h, now);
+        }
+    }
+}
+
+#[test]
+fn a_household_whose_pushed_loads_fall_short_of_its_digging_weighs_an_engine_and_begins_one() {
+    let mut sim = village(3);
+    let household = first_household(&sim);
+    let home = sim.people().household(household).expect("household").home;
+    let seam = contour_seam(&mut sim, home);
+    let (_, pit_cell, _) = laid_line(&mut sim, household, home, seam);
+    let (wagon_v, engine_v) = (wagon_vehicle(&sim), engine_vehicle(&sim));
+    let add = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|_, ctx| {
+            civ_agents::population::Population::add_wagon_for_tests(
+                ctx, household, wagon_v, pit_cell,
+            )
+        })
+    };
+    for _ in 0..4 {
+        add(&mut sim);
+    }
+    set_store(&mut sim, household, "core:good/iron", 3_200.0);
+    set_dig_days(&mut sim, household, seam, 200.0);
+    let reckon = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.engine_reckoning_for_tests(ctx, household))
+    };
+    // The core's wagon holds a ton or two, more than a session digs, so one person pushes home
+    // all the work digs and an engine would spare nothing.
+    assert_eq!(reckon(&mut sim), None);
+    // With tubs of 100 kg, a session digs more than one is pushed home with: a train of four
+    // brings it all, sparing the share of each dig day's hours the push leaves undug.
+    sim.rules_mut_for_tests().expect("rules").catalog.vehicles[wagon_v].payload_kg = 100.0;
+    let r = reckon(&mut sim).expect("an engine weighed");
+    assert!(r.saves_h_year > 0.0 && r.coal_h_year > 0.0, "{r:?}");
+    // Its coal is dug at the pit it serves, so costs a trifle; it holds the iron and cannot
+    // make it, so the engine costs its labour.
+    assert!(r.coal_h_year < 0.01 * r.saves_h_year, "{r:?}");
+    let def = sim.rules().catalog.vehicles[engine_v].clone();
+    assert!((r.cost_h - def.labour_h).abs() < 1e-9, "{r:?}");
+    assert_eq!(r.pit_end, pit_cell);
+    // The hours it spares go with the dig days.
+    set_dig_days(&mut sim, household, seam, 100.0);
+    let half = reckon(&mut sim).expect("weighed");
+    assert!(
+        (half.saves_h_year - r.saves_h_year / 2.0).abs() < 0.01 * r.saves_h_year,
+        "{half:?} against {r:?}"
+    );
+    // Knowing wooden railways but not the locomotive, its line review begins nothing.
+    teach(&mut sim, household, "core:technique/wooden_railway");
+    let review = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_line_for_tests(ctx, household));
+    };
+    let engines = |sim: &Sim| {
+        sim.land()
+            .wagons
+            .list
+            .iter()
+            .filter(|w| usize::from(w.vehicle) == engine_v)
+            .cloned()
+            .collect::<Vec<_>>()
+    };
+    set_dig_days(&mut sim, household, seam, 200.0);
+    review(&mut sim);
+    assert!(engines(&sim).is_empty());
+    // Knowing it, a day a week does not repay its 3,000 hours over its 20 years.
+    teach(&mut sim, household, "core:technique/locomotive");
+    set_dig_days(&mut sim, household, seam, 52.0);
+    let few = reckon(&mut sim).expect("weighed");
+    assert!(
+        (few.saves_h_year - few.coal_h_year) * def.life_years < few.cost_h,
+        "{few:?}"
+    );
+    review(&mut sim);
+    assert!(engines(&sim).is_empty());
+    // Two hundred do: it begins an engine at the pit end of its line, its iron from the store.
+    set_dig_days(&mut sim, household, seam, 200.0);
+    let r = reckon(&mut sim).expect("weighed");
+    assert!((r.saves_h_year - r.coal_h_year) * def.life_years > r.cost_h);
+    review(&mut sim);
+    let begun = engines(&sim);
+    assert_eq!(begun.len(), 1, "an engine begun");
+    let e = &begun[0];
+    assert_eq!((e.owner, e.at), (household, pit_cell));
+    assert!(!e.made() && (f64::from(e.labour_h) - def.labour_h).abs() < 1e-3);
+    assert!((f64::from(e.saves_h_year) - r.saves_h_year).abs() < 1e-3);
+    assert!((stores_of(&sim, household, "core:good/iron") - 200.0).abs() < 1e-6);
+    // Weighed again, nothing more is begun.
+    review(&mut sim);
+    assert_eq!(engines(&sim).len(), 1);
+    // Saved and loaded while it is being made, it stands as it was.
+    saves_alike(&mut sim);
+    // Its people work on it as on a wagon; once its labour is done it is made where it stands,
+    // and the chronicle says so.
+    let id = e.id;
+    let work = |sim: &mut Sim, hours: f64| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.vehicle_work_for_tests(ctx, household, id, hours));
+    };
+    work(&mut sim, def.labour_h / 2.0);
+    assert!(!engines(&sim)[0].made());
+    work(&mut sim, def.labour_h);
+    let made = engines(&sim)[0].clone();
+    assert!(made.made() && made.at == pit_cell, "{made:?}");
+    assert!(
+        sim.people().chronicle.iter().any(|c| {
+            c.kind == civ_agents::ChronicleKind::CartMade && c.name.contains("pit end of its line")
+        }),
+        "the chronicle tells it"
+    );
+}

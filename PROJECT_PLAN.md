@@ -6408,6 +6408,26 @@ and M6a gives rivers a daily flow.
       waiting to go it is the same; arrived, the next accounting leaves the engine and wagon at
       home, puts the load in the store and sends the engine back out light; at the pit end again
       with nothing aboard, it waits.
+      *As built, fourth part (2026-10-23): engines by choice.* A household that keeps a whole line
+      from the pit it digs most to home, with wagons on it, weighs an engine at its yearly line
+      review once one of it knows the locomotive and it has none. A dig day brings home what one
+      person pushes in a session's work (or carries, with no wagon), and with an engine what the
+      session digs, up to what the train of all its wagons on the line holds; so the engine spares
+      the share of each dig day's session and walks that the smaller load leaves undone. Against
+      that, its coal (a run home loaded and one out light for each train that brings as much) at
+      the household's own cost or, where the pit yields it, the hours it takes to dig; and its
+      making: its labour and its iron at the household's own cost, nothing more for iron held and
+      not made. Where what it spares beyond its coal over the engine's life is more, the household
+      begins one at the pit end, its iron taken from the store, made by the household's work as a
+      wagon is and chronicled when finished. With the core's wagon, which holds more than a
+      session digs, one person pushes home all the work digs, so an engine spares a household
+      nothing and none is begun: the engine waits on loads no pusher moves. Nobody knows the
+      locomotive, so no world changes. **Tested:** with the core's wagon nothing is weighed; with
+      tubs of 100 kg and four on the line, the engine spares hours in proportion to dig days and
+      its pit's coal costs a trifle; knowing wooden railways alone, or digging a day a week, the
+      review begins nothing; at two hundred dig days it begins an engine at the pit end, 3,000 kg
+      of iron out of the store, and nothing more when weighed again; saved and loaded it is as it
+      was; worked to its 3,000 hours it is made where it stands and the chronicle says so.
     - **DX**: stations, timetables set at review, fares and freight as posted terms, consignments
       of many owners, rides as household-day blocks, who builds and owns a line.
     - **DY**: the gas chain: gasworks, holders, mains, connections by district capacity,
@@ -7844,6 +7864,16 @@ One line each. Don't re-litigate without a reason written next to the entry.
   pump's half, its other work (a mill's, a hammer's) taken in the same daylight and not netted
   off; nobody sets a wheel for a pit's sake, so a wheel pumps only where one already stands near
   its holder's pit. Revisited when the M10 demo shows a pit beside a mill.
+- **Design priors for engines by choice (2026-10-23, M10b slice DW, fourth part):** NUDGE: a
+  household weighs an engine only at its yearly line review, for the line from the pit it digs
+  most; a dig day is one session, so a household that sends several diggers the same day is
+  reckoned as one; iron held and not made is priced at nothing more; its coal is priced at the
+  hours to dig it where the pit yields it. **Found:** with the core's wagon (2 t) and a session's
+  digging (about 380 kg in three hours at the core's coal seam), one person pushes home all a
+  session digs on a short line, so no household's engine ever pays and none is begun. The engine's
+  case wants output beyond one pusher (several hewers, a works) or a line too long or steep to
+  push, which slice DX's lines of many owners may bring. Revisited when the M10 demo shows a
+  line in use.
 - **Design priors for a household's engine (2026-10-23, M10b slice DW, third part):** NUDGE: an
   engine sets off at six and runs home whenever its wagons hold anything, however little; its
   driver's time is not yet taken from them; it burns coal only for the work of pulling, none to

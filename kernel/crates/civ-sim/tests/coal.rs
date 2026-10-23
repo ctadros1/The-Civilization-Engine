@@ -570,3 +570,74 @@ fn a_little_bailing_or_no_way_to_build_one_sets_no_engine() {
     sim.with_ctx_for_tests(|pop, ctx| pop.review_engine_for_tests(ctx, owner));
     assert!(sim.land().engines.is_empty());
 }
+
+/// A water wheel of `owner`'s, `metres` east of pit `work`, its reach running full.
+fn a_wheel_by(sim: &mut Sim, work: PermanentId, owner: PermanentId, metres: f64, id: u64) {
+    let (x, y) = sim
+        .land()
+        .earthworks
+        .iter()
+        .find(|w| w.id == work)
+        .map(|w| w.rect.centre_m())
+        .expect("the pit");
+    let land = sim.land_mut_for_tests();
+    land.installations.push(civ_land::power::Installation {
+        id: PermanentId::from_raw(id).expect("id"),
+        reach: 0,
+        at: [f64::from(x) + metres, f64::from(y)],
+        head_m: 2.0,
+        race_m3s: 0.5,
+        efficiency: 0.3,
+        rated_kw: 3.0,
+        owner,
+        building: None,
+    });
+    if let Some(q) = land.reach_discharges.first_mut() {
+        *q = 5.0;
+    }
+}
+
+#[test]
+fn a_wheel_by_its_holders_flooded_pit_pumps_it_and_no_other_wheel_does() {
+    // M10a slice DT, fifth part (ADR-0033 §7, "by a wheel"): a working wheel within its rods'
+    // reach of a pit its holder dug lifts its water out, at no fuel; a wheel too far off, or
+    // another household's, lifts none.
+    let water = |sim: &Sim, work: PermanentId| {
+        sim.land()
+            .pit_water
+            .iter()
+            .find(|p| p.work == work)
+            .map_or(0.0, |p| p.water_m3)
+    };
+    let pumped = |metres: f64, theirs: bool| {
+        let mut sim = world(3);
+        let (_, work, owner) = a_coal_pit(&mut sim);
+        let holder = if theirs {
+            owner
+        } else {
+            sim.people()
+                .households
+                .iter()
+                .map(|(_, h)| h.id)
+                .find(|&h| h != owner)
+                .expect("another household")
+        };
+        a_wheel_by(&mut sim, work, holder, metres, 9_100_001);
+        let now = sim.now();
+        sim.land_mut_for_tests().set_pit_water(work, 30.0, now);
+        sim.with_ctx_for_tests(|pop, ctx| pop.wheels_day_for_tests(ctx));
+        water(&sim, work)
+    };
+    assert!(
+        pumped(100.0, true) < 1e-9,
+        "a near wheel of its own pumps it dry"
+    );
+    assert!(
+        (pumped(1_000.0, true) - 30.0).abs() < 1e-9,
+        "too far for its rods"
+    );
+    assert!(
+        (pumped(100.0, false) - 30.0).abs() < 1e-9,
+        "another household's wheel"
+    );
+}

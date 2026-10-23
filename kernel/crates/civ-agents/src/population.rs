@@ -7248,6 +7248,10 @@ impl Population {
         // And the engines at pits pump them (M10a slice DS, third part); the households whose
         // day it is weigh one (its fourth part).
         self.engine_reviews(ctx, day);
+        // Water wheels pump their holders' pits near them first (M10a slice DT, fifth part).
+        if !ctx.land.installations.is_empty() && !ctx.land.pit_water.is_empty() {
+            self.wheels_day(ctx);
+        }
         if !ctx.land.engines.is_empty() {
             self.engines_day(ctx);
         }

@@ -34,7 +34,72 @@ const PUMP_EFFICIENCY: f64 = 0.5;
 /// its tending is not yet counted in anyone's hours).
 const ENGINE_HOURS_A_DAY: f64 = 12.0;
 
+/// How far a water wheel's work is carried by rods to a pit's pump, metres (M10a slice DT, fifth
+/// part; a design prior: research 07-06 §5 names pumping among a wheel's work but gives no reach).
+const ROD_REACH_M: f64 = 300.0;
+
+/// The hours a day a wheel pumps a pit, as long as an engine is kept going (a design prior: the
+/// wheel's other work, a mill's or a hammer's, is taken in the same daylight and not netted off).
+const WHEEL_PUMP_HOURS: f64 = 12.0;
+
 impl Population {
+    /// Every working water wheel pumps the flooded pits its holder dug within its rods' reach
+    /// (M10a slice DT, fifth part; ADR-0033 §7's "by a wheel"): at the wheel's power today for
+    /// its hours, nearest pit first, before any engine burns fuel at them. A wheel held by a
+    /// workshop pumps its owners' pits.
+    pub(super) fn wheels_day(&mut self, ctx: &mut Ctx) {
+        let (now, params) = (ctx.now, ctx.params);
+        for i in 0..ctx.land.installations.len() {
+            let x = ctx.land.installations[i];
+            let kw = ctx.land.installation_kw(ctx.land_params, i);
+            if kw <= 0.0 {
+                continue;
+            }
+            let holder = self.firm(x.owner).map_or(x.owner, |f| f.owner);
+            let mut pits: Vec<(f64, PermanentId)> = ctx
+                .land
+                .earthworks
+                .iter()
+                .filter(|w| w.kind == EarthKind::Pit && w.household == holder)
+                .filter_map(|w| {
+                    let (cx, cy) = w.rect.centre_m();
+                    let d = (f64::from(cx) - x.at[0]).hypot(f64::from(cy) - x.at[1]);
+                    (d <= ROD_REACH_M).then_some((d, w.id))
+                })
+                .collect();
+            pits.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+            let mut kwh = kw * WHEEL_PUMP_HOURS;
+            for (_, pit) in pits {
+                if kwh <= 1e-12 {
+                    break;
+                }
+                let Some(state) = ctx.land.pit_water_now(
+                    ctx.map,
+                    ctx.land_params,
+                    params.digging.influence_m,
+                    pit,
+                    now,
+                ) else {
+                    continue;
+                };
+                let need = lift_kwh(state.water_m3, state.lift_m(), PUMP_EFFICIENCY);
+                if need <= 0.0 {
+                    continue;
+                }
+                let done = need.min(kwh);
+                kwh -= done;
+                ctx.land
+                    .set_pit_water(pit, state.water_m3 * (1.0 - done / need), now);
+            }
+        }
+    }
+
+    /// Every water wheel pumps its holder's pits now: for tests.
+    #[doc(hidden)]
+    pub fn wheels_day_for_tests(&mut self, ctx: &mut Ctx) {
+        self.wheels_day(ctx);
+    }
+
     /// The households whose day of the year it is weigh an engine (M10a slice DS, fourth part),
     /// where the content has a way of making one at all and one of their people knows it.
     pub(super) fn engine_reviews(&mut self, ctx: &mut Ctx, day: i64) {

@@ -6174,6 +6174,17 @@ and M6a gives rivers a daily flow.
         charcoal and on coke, 3.5 kg of coke a kilogram; the hammer's two fine the works' own
         pig, 1.35 kg a kilogram of bar; a coking heap takes 1.6 kg of coal a kilogram of coke
         when built and gives its coke when drawn after its four days.
+      - *As built, fifth part (2026-10-23): pits pumped by a wheel.* ADR-0033 §7's third way of
+        draining a pit. Each day every working water wheel lifts the water out of the flooded
+        pits its holder dug within its rods' reach (300 m), nearest first, at its power today
+        for twelve hours and the pump's half, burning nothing; a wheel held by a workshop pumps
+        its owners' pits. Wheels pump before engines, which burn fuel only for what is left.
+        No household yet sets a wheel for a pit's sake: a wheel pumps where a mill or a works
+        already stands near a pit its holder dug (§9). **Proved:** the three bench worlds of DO
+        are unchanged against the fourth part but for `meta`. **Tested:** a near wheel of the
+        pit's own household pumps 30 m³ out; one 1,000 m off, or another household's, pumps
+        none. **DT is closed.** An engine pumping water back up to a wheel (the brief's
+        complement) stays a §9 entry.
   - **M10b, rail and gas light** (ADR-0034).
     - **DU**: light before gas: lamps burning fuel for hours of light, places dark or lit, dark
       sight (equal to day sight until a world has lamps), what light changes in the evening.
@@ -7611,7 +7622,14 @@ One line each. Don't re-litigate without a reason written next to the entry.
   charcoal a kilogram, at 1 kWh, lasting 20,000 hours (07-05 §2.3 and 07-06 §4.1 give the hand
   figures and the mechanism, not the hammer's). Revisited with the works' block and when the
   M10 demo shows whether any works rings a bell.
-- **Pumping by a wheel, and coke, deferred to the works (2026-10-22, M10a slice DS):** ADR-0033
+- **Design priors for wheels at pits (2026-10-23, M10a slice DT, fifth part):** NUDGE: a
+  wheel's rods carry its work 300 m to a pit's pump, and it pumps twelve hours a day at the
+  pump's half, its other work (a mill's, a hammer's) taken in the same daylight and not netted
+  off; nobody sets a wheel for a pit's sake, so a wheel pumps only where one already stands near
+  its holder's pit. Revisited when the M10 demo shows a pit beside a mill.
+- **Pumping by a wheel, and coke, deferred to the works (2026-10-22, M10a slice DS):** Both since
+  built in slice DT (coke and the blast furnace its fourth part, wheels at pits its fifth); an
+  engine pumping water back up to a wheel stays deferred, as no wheel yet wants for water. ADR-0033
   §7 names three ways a flooded pit is drained: by hand, by a wheel, or by an engine. DS built hand
   and engine; a wheel pumping a pit, and an engine pumping water back to a wheel (the brief's
   complement, 07-06 §5.5), wait for the works (slice DT), where a powered station drives more

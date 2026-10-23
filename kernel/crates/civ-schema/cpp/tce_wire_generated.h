@@ -25425,7 +25425,10 @@ struct WayInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_MODES = 10,
     VT_TRIPS_A_DAY = 12,
     VT_SEGMENTS = 14,
-    VT_WORDS = 16
+    VT_WORDS = 16,
+    VT_GAUGE_M = 18,
+    VT_RULING = 20,
+    VT_LAID = 22
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -25448,6 +25451,15 @@ struct WayInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *words() const {
     return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
   }
+  float gauge_m() const {
+    return GetField<float>(VT_GAUGE_M, 0.0f);
+  }
+  float ruling() const {
+    return GetField<float>(VT_RULING, 0.0f);
+  }
+  float laid() const {
+    return GetField<float>(VT_LAID, 1.0f);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -25462,6 +25474,9 @@ struct WayInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVectorOfTables(segments()) &&
            VerifyOffset(verifier, VT_WORDS) &&
            verifier.VerifyString(words()) &&
+           VerifyField<float>(verifier, VT_GAUGE_M, 4) &&
+           VerifyField<float>(verifier, VT_RULING, 4) &&
+           VerifyField<float>(verifier, VT_LAID, 4) &&
            verifier.EndTable();
   }
 };
@@ -25491,6 +25506,15 @@ struct WayInfoBuilder {
   void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
     fbb_.AddOffset(WayInfo::VT_WORDS, words);
   }
+  void add_gauge_m(float gauge_m) {
+    fbb_.AddElement<float>(WayInfo::VT_GAUGE_M, gauge_m, 0.0f);
+  }
+  void add_ruling(float ruling) {
+    fbb_.AddElement<float>(WayInfo::VT_RULING, ruling, 0.0f);
+  }
+  void add_laid(float laid) {
+    fbb_.AddElement<float>(WayInfo::VT_LAID, laid, 1.0f);
+  }
   explicit WayInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -25510,9 +25534,15 @@ inline ::flatbuffers::Offset<WayInfo> CreateWayInfo(
     uint8_t modes = 0,
     float trips_a_day = 0.0f,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WaySegmentInfo>>> segments = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0,
+    float gauge_m = 0.0f,
+    float ruling = 0.0f,
+    float laid = 1.0f) {
   WayInfoBuilder builder_(_fbb);
   builder_.add_id(id);
+  builder_.add_laid(laid);
+  builder_.add_ruling(ruling);
+  builder_.add_gauge_m(gauge_m);
   builder_.add_words(words);
   builder_.add_segments(segments);
   builder_.add_trips_a_day(trips_a_day);
@@ -25535,7 +25565,10 @@ inline ::flatbuffers::Offset<WayInfo> CreateWayInfoDirect(
     uint8_t modes = 0,
     float trips_a_day = 0.0f,
     const std::vector<::flatbuffers::Offset<tce::wire::WaySegmentInfo>> *segments = nullptr,
-    const char *words = nullptr) {
+    const char *words = nullptr,
+    float gauge_m = 0.0f,
+    float ruling = 0.0f,
+    float laid = 1.0f) {
   auto rank_name__ = rank_name ? _fbb.CreateString(rank_name) : 0;
   auto segments__ = segments ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::WaySegmentInfo>>(*segments) : 0;
   auto words__ = words ? _fbb.CreateString(words) : 0;
@@ -25547,7 +25580,10 @@ inline ::flatbuffers::Offset<WayInfo> CreateWayInfoDirect(
       modes,
       trips_a_day,
       segments__,
-      words__);
+      words__,
+      gauge_m,
+      ruling,
+      laid);
 }
 
 struct Ways FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

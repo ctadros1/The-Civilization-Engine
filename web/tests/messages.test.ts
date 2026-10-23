@@ -1261,8 +1261,15 @@ describe("decoders", () => {
     const segments = W.WayInfo.createSegmentsVector(b, [segment]);
     const rankName = b.createString("lane");
     const words = b.createString("Lane of 72 m, 1.5 m wide at most; begun in year 1.");
-    const info = W.WayInfo.createWayInfo(b, 61n, 0, rankName, 1, 3, segments, words);
-    const list = W.Ways.createWaysVector(b, [info]);
+    const info = W.WayInfo.createWayInfo(b, 61n, 0, rankName, 1, 3, segments, words, 0, 0, 1);
+    // Wire 1.100: a line of track, its gauge, grade and share laid.
+    const trackWords = b.createString(
+      "Wagonway of 120 m, gauge 1.0 m, graded to 1 in 300 at its steepest, 40% laid; begun in year 2.",
+    );
+    const trackName = b.createString("lane");
+    const noSegments = W.WayInfo.createSegmentsVector(b, []);
+    const line = W.WayInfo.createWayInfo(b, 62n, 0, trackName, 4, 0, noSegments, trackWords, 1, 0.003, 0.4);
+    const list = W.Ways.createWaysVector(b, [info, line]);
     const ways = W.Ways.createWays(b, 5n, list);
     const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Ways, ways)));
     expect(body.kind).toBe("ways");
@@ -1292,6 +1299,21 @@ describe("decoders", () => {
             },
           ],
           words: "Lane of 72 m, 1.5 m wide at most; begun in year 1.",
+          gaugeM: 0,
+          ruling: 0,
+          laid: 1,
+        },
+        {
+          id: 62,
+          rank: 0,
+          rankName: "lane",
+          modes: 4,
+          tripsADay: 0,
+          segments: [],
+          words: "Wagonway of 120 m, gauge 1.0 m, graded to 1 in 300 at its steepest, 40% laid; begun in year 2.",
+          gaugeM: 1,
+          ruling: expect.closeTo(0.003, 6) as number,
+          laid: expect.closeTo(0.4, 6) as number,
         },
       ],
     });

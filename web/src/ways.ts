@@ -7,6 +7,26 @@ import type { WayInfo, WaySegmentInfo } from "./net/messages.js";
 export const EARTH_COLOUR = 0xb59a6a;
 export const GRAVEL_COLOUR = 0xc8c2b0;
 export const TIMBER_COLOUR = 0x8a5a2b;
+/** A line of track's graded bed, and its timber rails (M10b slice DV). */
+export const BED_COLOUR = 0x9b8461;
+export const RAIL_COLOUR = 0x4a3220;
+
+/** How a stretch of a line of track is drawn: its graded bed the width of its corridor, fainter
+ * the less of it is laid (never fainter than about a quarter, so a line marked out shows), and
+ * its rails at its gauge once the whole line is laid. */
+export function lineLook(
+  way: WayInfo,
+  s: WaySegmentInfo,
+): { colour: number; alpha: number; widthM: number; railColour: number; gaugeM: number | null } {
+  const laid = Math.min(1, Math.max(0, way.laid));
+  return {
+    colour: BED_COLOUR,
+    alpha: 0.25 + 0.6 * laid,
+    widthM: Math.max(0.5, s.corridorM),
+    railColour: RAIL_COLOUR,
+    gaugeM: laid >= 1 ? way.gaugeM : null,
+  };
+}
 
 /** How a stretch is drawn: its usable width, coloured by its surface, more solid the better its
  * condition (never fainter than about a third, so an untended way still shows where it ran). A way
@@ -36,7 +56,9 @@ export function wayAt(
         const [x0, y0] = p[i]!;
         const [x1, y1] = p[Math.min(i + 1, p.length - 1)]!;
         const d = distanceToSegment(xM, yM, x0, y0, x1, y1);
-        if (d <= segment.usableM / 2 + slackM && d < bestD) {
+        // A line of track is found over its bed, the rest over the width usable today.
+        const half = (way.gaugeM > 0 ? segment.corridorM : segment.usableM) / 2;
+        if (d <= half + slackM && d < bestD) {
           best = { way, segment };
           bestD = d;
         }
@@ -55,9 +77,14 @@ function distanceToSegment(px: number, py: number, x0: number, y0: number, x1: n
 }
 
 /** A stretch in words for the pointer: the way in the kernel's words, then "This stretch gravel,
- * 3.0 m of a 6.0 m corridor, kept by Ada's household, in good condition." */
+ * 3.0 m of a 6.0 m corridor, kept by Ada's household, in good condition." A line of track: its
+ * words, then "Timber track on a 2.0 m bed, kept by Ada's household." */
 export function wayWords(way: WayInfo, s: WaySegmentInfo): string {
-  const condition = s.condition >= 0.75 ? "good" : s.condition >= 0.4 ? "fair" : "poor";
   const kept = s.keeper ? `, kept by ${s.keeper}` : ", kept by nobody";
+  if (way.gaugeM > 0) {
+    const surface = s.surface.charAt(0).toUpperCase() + s.surface.slice(1);
+    return `${way.words} ${surface} on a ${s.corridorM.toFixed(1)} m bed${kept}.`;
+  }
+  const condition = s.condition >= 0.75 ? "good" : s.condition >= 0.4 ? "fair" : "poor";
   return `${way.words} This stretch ${s.surface}, ${s.usableM.toFixed(1)} m of a ${s.corridorM.toFixed(1)} m corridor${kept}, in ${condition} condition.`;
 }

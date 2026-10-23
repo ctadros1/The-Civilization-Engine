@@ -107,6 +107,7 @@ pub use loads::{
 mod plans;
 mod quakes;
 pub use plans::ParcelOffer;
+pub use way_works::LAID_FROM_M;
 mod raising;
 pub use raising::{
     AT_TOWER_M, LATE_NOTICE_MIN, RAISE_WITHIN_M, SEEN_GIVERS, STALL_DAYS, TOWER_SIGHT_M,

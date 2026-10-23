@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { VehicleInfo } from "../src/net/messages.js";
-import { BOAT_COLOUR, CART_COLOUR, vehicleAt, vehicleLook, vehiclePosition } from "../src/vehicles.js";
+import { BOAT_COLOUR, CART_COLOUR, WAGON_COLOUR, vehicleAt, vehicleLook, vehiclePosition } from "../src/vehicles.js";
 
 function vehicle(over: Partial<VehicleInfo>): VehicleInfo {
   return {
@@ -23,10 +23,14 @@ function vehicle(over: Partial<VehicleInfo>): VehicleInfo {
 
 describe("vehicles", () => {
   it("draws a boat and a cart by their mode, faint while being made and faded as they wear", () => {
-    expect(vehicleLook(vehicle({}))).toEqual({ colour: BOAT_COLOUR, alpha: 1, boat: true });
+    expect(vehicleLook(vehicle({}))).toEqual({ colour: BOAT_COLOUR, alpha: 1, boat: true, wagon: false });
     const cart = vehicleLook(vehicle({ mode: 1, made: 0.3 }));
     expect(cart.colour).toBe(CART_COLOUR);
     expect(cart.boat).toBe(false);
+    expect(cart.wagon).toBe(false);
+    // A wagon on its line (wire 1.100) by its own boards.
+    const wagon = vehicleLook(vehicle({ mode: 2, name: "Wagon" }));
+    expect(wagon).toEqual({ colour: WAGON_COLOUR, alpha: 1, boat: false, wagon: true });
     expect(cart.alpha).toBeCloseTo(0.25 + 0.45 * 0.3);
     expect(vehicleLook(vehicle({ mode: 1, made: 0 })).alpha).toBeCloseTo(0.25);
     expect(vehicleLook(vehicle({ wear: 1 })).alpha).toBeCloseTo(0.65);

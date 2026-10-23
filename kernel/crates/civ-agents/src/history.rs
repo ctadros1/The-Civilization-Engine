@@ -905,6 +905,10 @@ pub enum ChronicleKind {
     /// second part): `people` is its household's elder, `settlement` its, `place` where it
     /// stood, and `name` the sentence.
     TakenDown,
+    /// A household finished laying a line of track (M10b slice DV, fifth part): `people` is its
+    /// elder, `settlement` the household's, `place` the line's first cell, and `name` the
+    /// sentence.
+    LineLaid,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1580,7 +1584,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::CoinStruck
         | ChronicleKind::BoatMade
         | ChronicleKind::CartMade
-        | ChronicleKind::TakenDown => {
+        | ChronicleKind::TakenDown
+        | ChronicleKind::LineLaid => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

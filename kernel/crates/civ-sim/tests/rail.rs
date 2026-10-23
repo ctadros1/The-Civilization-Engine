@@ -197,13 +197,65 @@ fn a_line_is_laid_by_its_keepers_work_and_timber_and_carries_wagons_once_whole()
     );
     // Saved and loaded part laid, it is the same line.
     saves_alike(&mut sim);
+    // The observer is shown it as a wagonway of its gauge and grade, half laid.
+    let (gauge, grade, laid, words) = line_seen(&sim, id);
+    assert!(
+        (gauge - 1.0).abs() < 1e-6 && f64::from(grade) <= ruling + 1e-4,
+        "{grade}"
+    );
+    assert!((laid - 0.5).abs() < 0.01, "{laid}");
+    assert!(
+        words.starts_with("Wagonway of ")
+            && words.contains("gauge 1.0 m")
+            && words.contains("% laid"),
+        "{words}"
+    );
+    let laid_entries = |sim: &Sim| {
+        sim.people()
+            .chronicle
+            .iter()
+            .filter(|e| e.kind == civ_agents::ChronicleKind::LineLaid)
+            .count()
+    };
+    assert_eq!(laid_entries(&sim), 0);
     // The rest of its timber and hours finish it, and then it carries wagons.
     set_timber(&mut sim, household, half + 100.0);
     work(&mut sim, f64::from(track.labour_h));
     let (b, u) = built(&sim);
     assert!((b - 2.0).abs() < 1e-3 && (u - 2.0).abs() < 1e-3, "{b} {u}");
     assert!((timber_held(&sim, household) - 100.0).abs() < 1.0);
+    // Finished, it is chronicled once and shown laid.
+    assert_eq!(laid_entries(&sim), 1);
+    work(&mut sim, 5.0);
+    assert_eq!(laid_entries(&sim), 1);
+    let (_, _, laid, words) = line_seen(&sim, id);
+    assert!(
+        (laid - 1.0).abs() < 1e-6 && words.contains(", laid;"),
+        "{words}"
+    );
     saves_alike(&mut sim);
+}
+
+/// Line `id` as the observer's ways layer shows it: its gauge, grade, share laid and words.
+fn line_seen(sim: &Sim, id: PermanentId) -> (f32, f32, f32, String) {
+    let bytes = civ_sim::frames::ways::ways_response(sim);
+    let response =
+        civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&bytes).expect("wire");
+    let way = response
+        .body_as_ways()
+        .expect("ways")
+        .ways()
+        .expect("a list")
+        .iter()
+        .find(|w| w.id() == id.get())
+        .expect("the line");
+    assert_eq!(way.modes(), RAIL);
+    (
+        way.gauge_m(),
+        way.ruling(),
+        way.laid(),
+        way.words().unwrap_or_default().to_owned(),
+    )
 }
 
 /// The wagon content's index.
@@ -270,6 +322,27 @@ fn a_wagon_on_a_line_from_the_pit_brings_home_what_the_work_digs() {
     let wagon = sim.with_ctx_for_tests(|_, ctx| {
         civ_agents::population::Population::add_wagon_for_tests(ctx, household, vehicle, pit_cell)
     });
+    // The observer is shown the wagon, of its own mode, standing at the pit end.
+    let bytes = civ_sim::frames::vehicles::vehicles_response(&sim);
+    let response =
+        civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&bytes).expect("wire");
+    let list = response.body_as_vehicles().expect("vehicles");
+    assert_eq!(list.rev(), civ_sim::frames::vehicles::vehicles_rev(&sim));
+    let seen = list
+        .vehicles()
+        .expect("a list")
+        .iter()
+        .find(|v| v.id() == wagon.get())
+        .expect("the wagon");
+    assert_eq!((seen.mode(), seen.out_with()), (2, 0));
+    let centre = civ_agents::population::cell_centre(sim.map(), pit_cell as usize);
+    assert_eq!((seen.x(), seen.y()), centre);
+    assert!(
+        seen.words().unwrap_or_default().contains("'s wagon"),
+        "{:?}",
+        seen.words()
+    );
+    let before = civ_sim::frames::vehicles::vehicles_rev(&sim);
     // Now a session brings what its work digs, far more than a person carries, and the wagon
     // is left at the home end.
     let by_wagon = dig(&mut sim, 180.0);
@@ -283,6 +356,7 @@ fn a_wagon_on_a_line_from_the_pit_brings_home_what_the_work_digs() {
         .expect("the wagon")
         .at;
     assert_eq!(at, home_cell);
+    assert_ne!(civ_sim::frames::vehicles::vehicles_rev(&sim), before);
     // From the home end it goes out empty with the next digger and comes back loaded.
     assert!(dig(&mut sim, 180.0) > 2.0 * carry);
     // Saved and loaded, the wagon stands where it was left.

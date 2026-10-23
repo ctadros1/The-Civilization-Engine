@@ -36,8 +36,60 @@ fn keeper(sim: &Sim, k: Keeper) -> String {
     }
 }
 
+/// A line of track's gauge, metres, its bed's steepest grade either way, rise over run, and the
+/// share of it laid, 0-1; `None` for a way with no track. `width` cells to a map row, `cell_m`
+/// metres a cell.
+fn track_facts(way: &Way, width: u32, cell_m: f64) -> Option<(f32, f32, f32)> {
+    let t = way.track.as_ref()?;
+    let cells: Vec<u32> = way
+        .segments
+        .iter()
+        .flat_map(|s| s.cells.iter().copied())
+        .collect();
+    let runs = civ_land::rail::runs(&cells, width, cell_m);
+    let ruling = civ_land::rail::steepest_rise(&t.bed, &runs, false)
+        .max(civ_land::rail::steepest_rise(&t.bed, &runs, true)) as f32;
+    let from = civ_agents::population::LAID_FROM_M;
+    let (done, whole) = way.segments.iter().fold((0.0f32, 0.0f32), |(d, w), s| {
+        let n = s.cells.len() as f32;
+        (
+            d + n * (s.built_m - from).max(0.0),
+            w + n * (s.corridor_m - from).max(0.0),
+        )
+    });
+    let laid = if whole > 0.0 {
+        (done / whole).clamp(0.0, 1.0)
+    } else {
+        1.0
+    };
+    Some((t.gauge_m, ruling, laid))
+}
+
 /// A way in words: "Street of 240 m, 3.0 m wide at most, about 12 trips a day; begun in year 2."
-fn words(way: &Way, day: i64, length_m: f32) -> String {
+/// A line of track: "Wagonway of 240 m, gauge 1.0 m, graded to 1 in 120 at its steepest, a third
+/// laid; begun in year 2."
+fn words(way: &Way, day: i64, length_m: f32, track: Option<(f32, f32, f32)>) -> String {
+    if let Some((gauge, ruling, laid)) = track {
+        let mut out = format!("Wagonway of {length_m:.0} m, gauge {gauge:.1} m");
+        if ruling > 1e-4 {
+            out.push_str(&format!(
+                ", graded to 1 in {:.0} at its steepest",
+                1.0 / ruling
+            ));
+        } else {
+            out.push_str(", level");
+        }
+        if laid >= 1.0 - 1e-3 {
+            out.push_str(", laid");
+        } else {
+            out.push_str(&format!(", {:.0}% laid", (laid * 100.0).floor()));
+        }
+        out.push_str(&format!(
+            "; begun in year {}.",
+            super::crossings::year_of(way.begun)
+        ));
+        return out;
+    }
     let rank = way.rank.name();
     let mut out = format!(
         "{}{} of {:.0} m, {:.1} m wide at most",
@@ -65,6 +117,7 @@ pub fn ways_response(sim: &Sim) -> Vec<u8> {
     let paths = &sim.rules.land.paths;
     let mut list = Vec::with_capacity(sim.land.ways.list.len());
     for way in &sim.land.ways.list {
+        let track = track_facts(way, map.width, f64::from(map.cell_size_m));
         let mut length_m = 0.0f32;
         let mut segments = Vec::with_capacity(way.segments.len());
         for s in &way.segments {
@@ -100,7 +153,8 @@ pub fn ways_response(sim: &Sim) -> Vec<u8> {
         }
         let segments = fbb.create_vector(&segments);
         let rank_name = fbb.create_string(way.rank.name());
-        let text = fbb.create_string(&words(way, day, length_m));
+        let text = fbb.create_string(&words(way, day, length_m, track));
+        let (gauge_m, ruling, laid) = track.unwrap_or((0.0, 0.0, 1.0));
         list.push(wire::WayInfo::create(
             &mut fbb,
             &wire::WayInfoArgs {
@@ -111,6 +165,9 @@ pub fn ways_response(sim: &Sim) -> Vec<u8> {
                 trips_a_day: way.trips_a_day(day),
                 segments: Some(segments),
                 words: Some(text),
+                gauge_m,
+                ruling,
+                laid,
             },
         ));
     }

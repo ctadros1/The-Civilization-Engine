@@ -69,8 +69,23 @@ words(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+gaugeM():number {
+  const offset = this.bb!.__offset(this.bb_pos, 18);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+ruling():number {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+laid():number {
+  const offset = this.bb!.__offset(this.bb_pos, 22);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 1.0;
+}
+
 static startWayInfo(builder:flatbuffers.Builder) {
-  builder.startObject(7);
+  builder.startObject(10);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -113,12 +128,24 @@ static addWords(builder:flatbuffers.Builder, wordsOffset:flatbuffers.Offset) {
   builder.addFieldOffset(6, wordsOffset, 0);
 }
 
+static addGaugeM(builder:flatbuffers.Builder, gaugeM:number) {
+  builder.addFieldFloat32(7, gaugeM, 0.0);
+}
+
+static addRuling(builder:flatbuffers.Builder, ruling:number) {
+  builder.addFieldFloat32(8, ruling, 0.0);
+}
+
+static addLaid(builder:flatbuffers.Builder, laid:number) {
+  builder.addFieldFloat32(9, laid, 1.0);
+}
+
 static endWayInfo(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createWayInfo(builder:flatbuffers.Builder, id:bigint, rank:number, rankNameOffset:flatbuffers.Offset, modes:number, tripsADay:number, segmentsOffset:flatbuffers.Offset, wordsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createWayInfo(builder:flatbuffers.Builder, id:bigint, rank:number, rankNameOffset:flatbuffers.Offset, modes:number, tripsADay:number, segmentsOffset:flatbuffers.Offset, wordsOffset:flatbuffers.Offset, gaugeM:number, ruling:number, laid:number):flatbuffers.Offset {
   WayInfo.startWayInfo(builder);
   WayInfo.addId(builder, id);
   WayInfo.addRank(builder, rank);
@@ -127,6 +154,9 @@ static createWayInfo(builder:flatbuffers.Builder, id:bigint, rank:number, rankNa
   WayInfo.addTripsADay(builder, tripsADay);
   WayInfo.addSegments(builder, segmentsOffset);
   WayInfo.addWords(builder, wordsOffset);
+  WayInfo.addGaugeM(builder, gaugeM);
+  WayInfo.addRuling(builder, ruling);
+  WayInfo.addLaid(builder, laid);
   return WayInfo.endWayInfo(builder);
 }
 }

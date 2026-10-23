@@ -1828,12 +1828,18 @@ export interface WayInfo {
   /** 0 a lane, 1 a street, 2 a main way, 3 a way between settlements: derived, shown only. */
   rank: number;
   rankName: string;
-  /** Bits: 1 walking, 2 handcarts. */
+  /** Bits: 1 walking, 2 handcarts, 4 wagons on track. */
   modes: number;
   tripsADay: number;
   segments: WaySegmentInfo[];
   /** In the kernel's words: "Street of 240 m, 3.0 m wide at most; begun in year 2." */
   words: string;
+  /** Wire 1.100 (M10b slice DV): a line of track's gauge, metres (0 for a way with none), its
+   * bed's steepest grade, rise over run, and the share of it laid, 0–1 (1 for a way with no
+   * track). */
+  gaugeM: number;
+  ruling: number;
+  laid: number;
 }
 
 export interface WaysInfo {
@@ -1841,10 +1847,11 @@ export interface WaysInfo {
   ways: WayInfo[];
 }
 
-/** A boat or a cart (wire 1.86, M8b slices CO and CP; ADR-0029 §3). */
+/** A boat or a cart (wire 1.86, M8b slices CO and CP; ADR-0029 §3), or a wagon on its line (wire
+ * 1.100, M10b slice DV). */
 export interface VehicleInfo {
   id: number;
-  /** 0 a boat, 1 a cart. */
+  /** 0 a boat, 1 a cart, 2 a wagon. */
   mode: number;
   /** Its content name: "Dugout". */
   name: string;
@@ -3139,6 +3146,9 @@ function ways(w: W.Ways): WaysInfo {
       tripsADay: v.tripsADay(),
       segments,
       words: v.words() ?? "",
+      gaugeM: v.gaugeM(),
+      ruling: v.ruling(),
+      laid: v.laid(),
     });
   }
   return { rev: Number(w.rev()), ways: list };

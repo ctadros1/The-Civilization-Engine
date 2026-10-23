@@ -6333,6 +6333,21 @@ and M6a gives rivers a daily flow.
       not worth it (151 hours a year over fifteen years against 2,704) and nothing is begun though
       it knows how; at 104 days it begins the line and a wagon at the home end with the wagon's
       timber from its store, a second review adds nothing, and both are saved and loaded alike.
+      *As built, fifth part (2026-10-23): the observer of lines and wagons.* The ways layer tells a
+      line of track by its gauge, its bed's steepest grade and the share of it laid (wire 1.100):
+      "Wagonway of 240 m, gauge 1.0 m, graded to 1 in 300 at its steepest, 40% laid; begun in year
+      2." The map draws a line as its graded bed the width of its corridor, faint while marked out
+      and firmer as it is laid, with two rails at its gauge once it is whole, and the pointer finds
+      it across its bed and tells its keeper. Wagons join the vehicles layer as a third mode, drawn
+      as a box on four wheels where they stand, told by the pointer as boats and carts are; a
+      wagon is pushed within a dig, so it is never shown out with anyone. A line made whole is
+      chronicled ("Ada's household finished laying its line of track, 240 m, and wagons can run on
+      it."), placed at its pit end. **Tested:** half laid, a line is shown as a wagonway of its
+      gauge within its ruling grade, half laid, and nothing is chronicled; whole, it is chronicled
+      once and shown laid; a wagon is listed as a wagon where it stands and the layer's revision
+      moves when it is pushed home; the observer decodes the new fields, draws a line by how much
+      of it is laid, finds it across its bed, and draws a wagon by its own boards. **Slice DV is
+      done.**
     - **DW**: engines on rails and train runs: block sections, single track and loops.
     - **DX**: stations, timetables set at review, fares and freight as posted terms, consignments
       of many owners, rides as household-day blocks, who builds and owns a line.

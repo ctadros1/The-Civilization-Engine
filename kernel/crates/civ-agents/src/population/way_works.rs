@@ -638,6 +638,8 @@ impl Population {
             timber = Some((p.good, kg_h, short.then_some(hours)));
         }
         let mut used = None;
+        // A line of track made whole by this work: its first cell and its length, metres.
+        let mut finished = None;
         for s in &mut w.segments {
             let ours = match s.keeper {
                 Keeper::Household(h) => h == household,
@@ -658,6 +660,10 @@ impl Population {
                 s.usable_m = s.built_m;
             }
             s.kept = day;
+            if timber.is_some() && before + 1e-3 < s.corridor_m && s.built_m + 1e-3 >= s.corridor_m
+            {
+                finished = s.cells.first().map(|&c| (c, area));
+            }
             let took = f64::from(s.built_m - before) * area * rate_h_m2;
             used = Some((s.keeper, took.min(hours)));
             break;
@@ -676,6 +682,26 @@ impl Population {
             };
         }
         ctx.land.ways.changed();
+        if let Some((cell, length_m)) = finished
+            && let Some(who) = self.elder_of(household, ctx.now, ctx.params)
+        {
+            let settlement = self.household(household).and_then(|x| x.settlement);
+            let sentence = format!(
+                "{}'s household finished laying its line of track, {length_m:.0} m, and wagons can \
+                 run on it.",
+                self.name_of(who)
+            );
+            let at = cell_centre(ctx.map, cell as usize);
+            self.chronicle_push(
+                ctx.now,
+                ChronicleKind::LineLaid,
+                vec![who],
+                settlement,
+                Some(at),
+                0.0,
+                sentence,
+            );
+        }
         if let Keeper::Polity(p) = keeper
             && let Some(pi) = self.polities.iter().position(|q| q.id == p)
             && let Some(law) = self.polities[pi]

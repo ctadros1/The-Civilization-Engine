@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { WayInfo, WaySegmentInfo } from "../src/net/messages.js";
-import { EARTH_COLOUR, GRAVEL_COLOUR, wayAt, wayLook, wayWords } from "../src/ways.js";
+import { BED_COLOUR, EARTH_COLOUR, GRAVEL_COLOUR, lineLook, wayAt, wayLook, wayWords } from "../src/ways.js";
 
 function segment(over: Partial<WaySegmentInfo> = {}): WaySegmentInfo {
   return {
@@ -29,6 +29,9 @@ function way(over: Partial<WayInfo> = {}): WayInfo {
     tripsADay: 4,
     segments: [segment()],
     words: "Lane of 80 m, 2.0 m wide at most, about 4 trips a day; begun in year 1.",
+    gaugeM: 0,
+    ruling: 0,
+    laid: 1,
     ...over,
   };
 }
@@ -60,5 +63,32 @@ describe("ways", () => {
       `${a.words} This stretch cleared ground, 2.0 m of a 6.0 m corridor, kept by Ada's household, in good condition.`,
     );
     expect(wayWords(a, segment({ keeper: "", condition: 0.2 }))).toContain("kept by nobody, in poor condition.");
+  });
+
+  it("draws a line of track as its bed, faint while being laid, with rails once whole", () => {
+    const bed = segment({ surface: "timber track", corridorM: 2, builtM: 1, usableM: 0.05 });
+    const marked = way({ modes: 4, gaugeM: 1, ruling: 0.003, laid: 0, segments: [bed] });
+    const half = lineLook({ ...marked, laid: 0.5 }, bed);
+    expect(half.colour).toBe(BED_COLOUR);
+    expect(half.widthM).toBe(2);
+    expect(half.gaugeM).toBeNull();
+    expect(lineLook(marked, bed).alpha).toBeCloseTo(0.25);
+    expect(half.alpha).toBeLessThan(lineLook({ ...marked, laid: 1 }, bed).alpha);
+    expect(lineLook({ ...marked, laid: 1 }, bed).gaugeM).toBe(1);
+  });
+
+  it("finds a line of track over its bed and tells it with its bed and keeper", () => {
+    const bed = segment({ surface: "timber track", corridorM: 2, builtM: 2, usableM: 2 });
+    const line = way({
+      modes: 4,
+      gaugeM: 1,
+      ruling: 0.003,
+      laid: 0.4,
+      segments: [{ ...bed, usableM: 0.05 }],
+      words: "Wagonway of 80 m, gauge 1.0 m, graded to 1 in 333 at its steepest, 40% laid; begun in year 1.",
+    });
+    // Not yet usable, it is still found across its bed.
+    expect(wayAt([line], 40, 0.9, 0.1)?.way.id).toBe(1);
+    expect(wayWords(line, line.segments[0]!)).toBe(`${line.words} Timber track on a 2.0 m bed, kept by Ada's household.`);
   });
 });

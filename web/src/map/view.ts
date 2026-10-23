@@ -26,7 +26,7 @@ import { Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js
 import { buildingAt, buildingMarks, type Mark } from "../buildings.js";
 import { homeAt, lensMarks, placeAt, type LensLayer } from "../coverage.js";
 import { crossingAt, crossingEnds, crossingLook } from "../crossings.js";
-import { wayAt, wayLook } from "../ways.js";
+import { lineLook, wayAt, wayLook } from "../ways.js";
 import { vehicleAt, vehicleLook, vehiclePosition } from "../vehicles.js";
 import {
   BUILT_COLOUR,
@@ -536,8 +536,9 @@ export class MapView {
     return out;
   }
 
-  /** Each boat as a hull about 6 m long and each cart as a box on two wheels about 2 m long, never
-   * smaller than a few pixels, where it stands or beside whoever has it out. */
+  /** Each boat as a hull about 6 m long, each cart as a box on two wheels about 2 m long and each
+   * wagon as a box on four wheels about 3 m long, never smaller than a few pixels, where it stands
+   * or beside whoever has it out. */
   private drawVehicles(g: Graphics, positions: Map<number, [number, number]>, pxM: number): void {
     for (const v of this.vehicles) {
       const [x, y] = vehiclePosition(v, positions);
@@ -548,6 +549,17 @@ export class MapView {
         g.poly([x - half, y, x - half * 0.6, y - beam, x + half * 0.6, y - beam, x + half, y, x + half * 0.6, y + beam, x - half * 0.6, y + beam])
           .fill({ color: look.colour, alpha: look.alpha })
           .stroke({ width: pxM, color: 0x14181b, alpha: 0.8 * look.alpha });
+      } else if (look.wagon) {
+        const half = Math.max(1.5, 4.5 * pxM);
+        const tall = Math.max(0.6, 2.6 * pxM);
+        g.rect(x - half, y - tall, 2 * half, 2 * tall)
+          .fill({ color: look.colour, alpha: look.alpha })
+          .stroke({ width: pxM, color: 0x14181b, alpha: 0.8 * look.alpha });
+        for (const dx of [-half * 0.6, half * 0.6]) {
+          for (const dy of [-tall, tall]) {
+            g.circle(x + dx, y + dy, Math.max(0.3, 1.1 * pxM)).fill({ color: 0x2b2118, alpha: look.alpha });
+          }
+        }
       } else {
         const half = Math.max(1, 3.5 * pxM);
         const tall = Math.max(0.5, 2.2 * pxM);
@@ -569,7 +581,8 @@ export class MapView {
   }
 
   /** Each stretch of a way along its centre line at its usable width, never thinner than about two
-   * pixels, so a lane shows at any zoom. */
+   * pixels, so a lane shows at any zoom. A line of track is drawn as its bed, with two rails at its
+   * gauge once it is all laid. */
   private drawWays(): void {
     const g = this.waysLayer;
     g.clear();
@@ -579,10 +592,29 @@ export class MapView {
       for (const s of w.segments) {
         const [first, ...rest] = s.points;
         if (!first) continue;
+        const trace = (): void => {
+          g.moveTo(first[0], first[1]);
+          if (rest.length === 0) g.lineTo(first[0] + 0.01, first[1]);
+          for (const [x, y] of rest) g.lineTo(x, y);
+        };
+        if (w.gaugeM > 0) {
+          const line = lineLook(w, s);
+          trace();
+          g.stroke({ width: Math.max(line.widthM, 2 * pxM), color: line.colour, alpha: line.alpha, cap: "round", join: "round" });
+          if (line.gaugeM !== null) {
+            // The rails: a stroke at the gauge's outer edges, its middle drawn over in the bed's
+            // colour, leaving two lines at least a pixel wide.
+            const rail = Math.max(0.12, pxM);
+            const outer = Math.max(line.gaugeM + rail, 3 * pxM);
+            trace();
+            g.stroke({ width: outer, color: line.railColour, alpha: 0.9, cap: "butt", join: "round" });
+            trace();
+            g.stroke({ width: Math.max(outer - 2 * rail, pxM), color: line.colour, alpha: 1, cap: "butt", join: "round" });
+          }
+          continue;
+        }
         const look = wayLook(s, w.rank);
-        g.moveTo(first[0], first[1]);
-        if (rest.length === 0) g.lineTo(first[0] + 0.01, first[1]);
-        for (const [x, y] of rest) g.lineTo(x, y);
+        trace();
         g.stroke({ width: Math.max(look.widthM, 2 * pxM), color: look.colour, alpha: look.alpha, cap: "round", join: "round" });
       }
     }
@@ -1491,6 +1523,8 @@ export class MapView {
         y: w.segments[0]?.points[0]?.[1] ?? 0,
         segments: w.segments.length,
         words: w.words,
+        gaugeM: w.gaugeM,
+        laid: w.laid,
       })),
       // M5c slice AW: crossings over water, where each lies and how far along it is.
       crossings: this.crossings.map((c) => ({

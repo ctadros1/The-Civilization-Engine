@@ -44,8 +44,8 @@ export interface Frame {
   payload: Uint8Array;
 }
 
-/** The schema the web shell speaks: TCE 1.99 (civ-schema WIRE_SCHEMA). */
-export const TCE_SCHEMA: SchemaId = { tag: "TCE\0", major: 1, minor: 99 };
+/** The schema the web shell speaks: TCE 1.100 (civ-schema WIRE_SCHEMA). */
+export const TCE_SCHEMA: SchemaId = { tag: "TCE\0", major: 1, minor: 100 };
 
 export class WireError extends Error {}
 

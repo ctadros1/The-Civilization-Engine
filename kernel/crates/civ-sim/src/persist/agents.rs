@@ -7029,6 +7029,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::BoatMade => 62,
         ChronicleKind::CartMade => 63,
         ChronicleKind::TakenDown => 64,
+        ChronicleKind::LineLaid => 65,
     }
 }
 
@@ -7098,6 +7099,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         62 => Some(ChronicleKind::BoatMade),
         63 => Some(ChronicleKind::CartMade),
         64 => Some(ChronicleKind::TakenDown),
+        65 => Some(ChronicleKind::LineLaid),
         _ => None,
     }
 }

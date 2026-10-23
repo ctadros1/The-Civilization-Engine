@@ -39981,6 +39981,9 @@ impl<'a> WayInfo<'a> {
   pub const VT_TRIPS_A_DAY: ::flatbuffers::VOffsetT = 12;
   pub const VT_SEGMENTS: ::flatbuffers::VOffsetT = 14;
   pub const VT_WORDS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_GAUGE_M: ::flatbuffers::VOffsetT = 18;
+  pub const VT_RULING: ::flatbuffers::VOffsetT = 20;
+  pub const VT_LAID: ::flatbuffers::VOffsetT = 22;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -39993,6 +39996,9 @@ impl<'a> WayInfo<'a> {
   ) -> ::flatbuffers::WIPOffset<WayInfo<'bldr>> {
     let mut builder = WayInfoBuilder::new(_fbb);
     builder.add_id(args.id);
+    builder.add_laid(args.laid);
+    builder.add_ruling(args.ruling);
+    builder.add_gauge_m(args.gauge_m);
     if let Some(x) = args.words { builder.add_words(x); }
     if let Some(x) = args.segments { builder.add_segments(x); }
     builder.add_trips_a_day(args.trips_a_day);
@@ -40052,6 +40058,27 @@ impl<'a> WayInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WayInfo::VT_WORDS, None)}
   }
+  #[inline]
+  pub fn gauge_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WayInfo::VT_GAUGE_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn ruling(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WayInfo::VT_RULING, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn laid(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WayInfo::VT_LAID, Some(1.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WayInfo<'_> {
@@ -40067,6 +40094,9 @@ impl ::flatbuffers::Verifiable for WayInfo<'_> {
      .visit_field::<f32>("trips_a_day", Self::VT_TRIPS_A_DAY, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WaySegmentInfo>>>>("segments", Self::VT_SEGMENTS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .visit_field::<f32>("gauge_m", Self::VT_GAUGE_M, false)?
+     .visit_field::<f32>("ruling", Self::VT_RULING, false)?
+     .visit_field::<f32>("laid", Self::VT_LAID, false)?
      .finish();
     Ok(())
   }
@@ -40079,6 +40109,9 @@ pub struct WayInfoArgs<'a> {
     pub trips_a_day: f32,
     pub segments: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WaySegmentInfo<'a>>>>>,
     pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub gauge_m: f32,
+    pub ruling: f32,
+    pub laid: f32,
 }
 impl<'a> Default for WayInfoArgs<'a> {
   #[inline]
@@ -40091,6 +40124,9 @@ impl<'a> Default for WayInfoArgs<'a> {
       trips_a_day: 0.0,
       segments: None,
       words: None,
+      gauge_m: 0.0,
+      ruling: 0.0,
+      laid: 1.0,
     }
   }
 }
@@ -40129,6 +40165,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WayInfoBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WayInfo::VT_WORDS, words);
   }
   #[inline]
+  pub fn add_gauge_m(&mut self, gauge_m: f32) {
+    self.fbb_.push_slot::<f32>(WayInfo::VT_GAUGE_M, gauge_m, 0.0);
+  }
+  #[inline]
+  pub fn add_ruling(&mut self, ruling: f32) {
+    self.fbb_.push_slot::<f32>(WayInfo::VT_RULING, ruling, 0.0);
+  }
+  #[inline]
+  pub fn add_laid(&mut self, laid: f32) {
+    self.fbb_.push_slot::<f32>(WayInfo::VT_LAID, laid, 1.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WayInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WayInfoBuilder {
@@ -40153,6 +40201,9 @@ impl ::core::fmt::Debug for WayInfo<'_> {
       ds.field("trips_a_day", &self.trips_a_day());
       ds.field("segments", &self.segments());
       ds.field("words", &self.words());
+      ds.field("gauge_m", &self.gauge_m());
+      ds.field("ruling", &self.ruling());
+      ds.field("laid", &self.laid());
       ds.finish()
   }
 }

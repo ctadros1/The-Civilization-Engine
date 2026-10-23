@@ -1,0 +1,18 @@
+# Baking coal into coke in a covered heap, as wood is charred to charcoal (research 07-06 §3: coal
+# carbonization is its own capability; Coalbrookdale, 1709). It needs charcoal burning and burning
+# coal. Found by those who burn charcoal, with coal at home; half of them would need 300,000
+# qualified hours (a far technique). Learnt in 200 hours beside a knower. Founders do not bring it.
+kind = "technique"
+id = "core:technique/coking"
+name = "Coking"
+can = "bake coal into coke"
+domain = "core:skill/pottery"
+requires = [["core:technique/charcoal_burning", "core:technique/coal_burning"]]
+tried_in = ["core:activity/burn_charcoal"]
+needs = ["core:good/coal"]
+e50_h = 300000.0
+learn_h = 200.0
+upbringing = true
+
+[answers]
+spoilage = []

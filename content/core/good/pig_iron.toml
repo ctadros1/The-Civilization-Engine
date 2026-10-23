@@ -1,0 +1,14 @@
+# Pig iron: the molten iron run from a blast furnace and cast in sand, high in carbon and brittle
+# (research 07-05 §1.2, I5: liquid iron from a hotter, taller furnace; 07-12 §2: "coke and
+# mineral-fuel pig-iron recipes"). It must be fined of its carbon under a hammer before it is bar.
+# Weighed by the kilogram. It keeps.
+kind = "good"
+id = "core:good/pig_iron"
+name = "Pig iron"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

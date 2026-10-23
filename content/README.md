@@ -1656,3 +1656,13 @@ only at a works. The people profile's `[firm]` gains `shift_h` (1-16, default 10
 works' shift from its bell at sunrise, cut at sunset. The first machine is `good/tilt_hammer`
 (crew 2), with `technique/water_hammer`, `recipe/build_tilt_hammer` and
 `recipe/forge_bar_by_hammer` and their activities.
+
+M10a slice DT's fourth part adds no field: coke and the blast furnace are content made of what is
+already there. `good/coke` (28.2 MJ a kilogram, a furnace's material as charcoal is) is baked from
+coal in a four-day batch by `recipe/coke_coal` under `technique/coking` (charcoal burning and
+burning coal; found burning charcoal with coal at home). `good/blast_furnace` (crew 4, 40,000
+hours) is built by `recipe/build_blast_furnace` under `technique/blast_furnace` (the bloomery and
+the water hammer; found smelting iron); blown by a works' wheel it smelts `good/pig_iron` from
+ore on charcoal (`recipe/smelt_pig_iron`) or, under `technique/coke_smelting`, on coke
+(`recipe/smelt_pig_iron_with_coke`), and the hammer's two fine the pig to bar
+(`recipe/fine_pig_iron`). Each has its activity; founders bring none of the three techniques.

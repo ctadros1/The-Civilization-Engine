@@ -6150,6 +6150,30 @@ and M6a gives rivers a daily flow.
         world does changes. **Tested:** a works with a hammer shows its bell, its hammer
         wanting two and its wheel, and the one hand at work; a workshop with no bell says
         nothing of one; the web decodes the new fields and words the machines and the hands.
+      - *As built, fourth part (2026-10-23): coke and the blast furnace.* Content only, made of
+        fuels, batches, stations, power and crews already there (no content API change). Coke
+        (28.2 MJ a kilogram, research 07-06 §2.3; a furnace's material, as charcoal is) is baked
+        from coal in a heap, 1.6 kg a kilogram over four days, under coking (charcoal burning and
+        burning coal; found burning charcoal with coal at home). A blast furnace (crew 4, 40,000
+        hours; 3,000 hours, 25 t of stone, 2 t of timber and 200 kg of iron to build) under the
+        blast furnace technique (the bloomery and the water hammer; found smelting iron) is blown
+        by its works' wheel and smelts pig iron from ore: 2 kg of ore and 3 of charcoal a
+        kilogram against the bloomery's 8 and 12 a kilogram of bloom, 0.6 hours and 0.5 kWh; or,
+        under coke smelting (the blast furnace and coking; found at the furnace with coke at
+        home; 07-05 X1, Coalbrookdale 1709), 3.5 kg of coke and 0.7 kWh. The hammer's two fine
+        the pig at a finery to bar, 1.35 kg of pig and 3 of charcoal a kilogram (07-05 I6). The
+        three techniques are far (E50 300,000 to 400,000 hours) and no founder brings them, so
+        most worlds will never smelt pig (ADR-0033 §9). Fining sorts before forging under the
+        hammer and works the same two machines, so a works now hires for a machine's way only
+        if its owners know that way's technique, and never for a way wanting a crew at a
+        machine it cannot work (a hammerless works hires for the hand's way, as before).
+        **Proved:** against the third part, the
+        three bench worlds of DO keep the same chronicle and every count and summary line; the
+        sections holding goods, techniques or activities by index differ by the shifted
+        positions only. **Tested:** three at a blast furnace idle it and four smelt pig, on
+        charcoal and on coke, 3.5 kg of coke a kilogram; the hammer's two fine the works' own
+        pig, 1.35 kg a kilogram of bar; a coking heap takes 1.6 kg of coal a kilogram of coke
+        when built and gives its coke when drawn after its four days.
   - **M10b, rail and gas light** (ADR-0034).
     - **DU**: light before gas: lamps burning fuel for hours of light, places dark or lit, dark
       sight (equal to day sight until a world has lamps), what light changes in the evening.

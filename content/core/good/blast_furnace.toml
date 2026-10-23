@@ -1,0 +1,22 @@
+# A blast furnace: a tall stone stack lined with clay, charged from the top with ore and fuel and
+# blown hard by bellows on a water wheel's shaft until the iron runs liquid (research 07-05 §4, I5;
+# 07-12 §2: "ore, flux, furnace construction, and sustained air blast"). Four at it together: two
+# to charge from the bridge, one at the blast and one to tap and cast (a design prior; 07-12 §4.2:
+# a machine runs only while its crew is there). It stands where it is built and lasts 40,000 hours
+# of working before its hearth and lining must be rebuilt (a tuning value).
+kind = "good"
+id = "core:good/blast_furnace"
+name = "Blast furnace"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 40000.0
+per_worker = 0.05
+fixed = true
+crew = 4

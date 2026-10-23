@@ -1,0 +1,18 @@
+# Coke: coal baked in a closed heap or oven until its tar and gas are driven off, leaving a hard,
+# porous fuel that holds a furnace's charge up as charcoal does (research 07-06 §2.3: coke 28.2 MJ a
+# kilogram; §3: "coal carbonization AND compatible furnace, charge, and blast practice"). A material
+# for the furnace, not a hearth's fuel, as charcoal is: a hearth must not eat the founder's coke.
+kind = "good"
+id = "core:good/coke"
+name = "Coke"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[fuel]
+mj_per_kg = 28.2
+smoke = 0.3                      # tuning: little smoke once its volatiles are gone

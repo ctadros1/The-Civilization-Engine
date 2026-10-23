@@ -887,18 +887,26 @@ impl Population {
                     .then_some((i, r))
             })
         };
-        // A works that holds a machine wanting a crew hires for the way it works (M10a slice DT);
-        // else for the first way of making the line, as before.
+        // A works that holds a machine wanting a crew hires for a way its owners know that works
+        // it (M10a slice DT); else for the first way of making the line, as before.
         let goods = &catalog.goods;
+        let members = self
+            .household(f.owner)
+            .map(|x| x.members.clone())
+            .unwrap_or_default();
         let machine = |r: &crate::params::RecipeDef| {
             super::crew_of(goods, r) > 1
+                && r.technique
+                    .is_none_or(|t| self.household_knows(&members, t))
                 && r.tools.iter().all(|&t| {
                     goods[t].tool.as_ref().is_none_or(|x| x.crew <= 1)
                         || self.station_for(goods, f.id, t) >= crate::decide::MIN_TOOL
                 })
         };
+        // Never a way wanting a crew at a machine it cannot work.
         let (activity, recipe) = ways()
             .find(|&(_, r)| machine(r))
+            .or_else(|| ways().find(|&(_, r)| super::crew_of(goods, r) <= 1))
             .or_else(|| ways().next())?;
         let market = self.market(f.settlement?)?;
         let review = f64::from(params.market.review_days.max(1));

@@ -1,0 +1,18 @@
+# Smelting pig iron in a blast furnace blown by a wheel: 2 kg of ore and 3 kg of charcoal a
+# kilogram of pig against the bloomery's 8 and 12 a kilogram of bloom (a charcoal blast furnace
+# recovers most of the ore's iron and burns two to three times the iron's weight in charcoal, tuning
+# values within 07-05 §2.2's envelope), 0.6 hours of its crew's work a kilogram and 0.5 kWh of the
+# wheel's blast. Four at it together.
+kind = "recipe"
+id = "core:recipe/smelt_pig_iron"
+name = "Smelt pig iron"
+skill = "core:skill/smithing"
+technique = "core:technique/blast_furnace"
+unit_h = 0.6
+session_h = 0.0
+max_units = 0.0
+kwh_per_unit = 0.5
+tools = ["core:good/water_wheel", "core:good/blast_furnace"]
+inputs = [{ good = "core:good/iron_ore", amount = 2.0 }, { good = "core:good/charcoal", amount = 3.0 }]
+outputs = [{ good = "core:good/pig_iron", amount = 1.0 }]
+session_inputs = []

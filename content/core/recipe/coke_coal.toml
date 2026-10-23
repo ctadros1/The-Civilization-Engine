@@ -1,0 +1,17 @@
+# Coking coal in a heap: 1.6 kg of coal a kilogram of coke (a yield of about 60 %, a tuning value:
+# carbonization drives off coal's volatile part, about a third of bituminous coal by weight), 50
+# hours of building, firing, quenching and drawing a tonne, and a burn that runs four days whoever
+# tends it (tuning values, as charcoal's burn; research 07-06 gives no coking hours).
+kind = "recipe"
+id = "core:recipe/coke_coal"
+name = "Coke coal"
+skill = "core:skill/pottery"
+technique = "core:technique/coking"
+unit_h = 0.05
+session_h = 2.0
+max_units = 300.0
+tools = []
+inputs = [{ good = "core:good/coal", amount = 1.6 }]
+outputs = [{ good = "core:good/coke", amount = 1.0 }]
+session_inputs = []
+elapsed_days = 4.0

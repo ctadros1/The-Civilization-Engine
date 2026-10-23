@@ -422,3 +422,98 @@ fn the_works_page_shows_its_bell_its_machines_and_its_hands_at_work() {
     assert!(!w.text().unwrap_or_default().contains("bell"));
     assert_eq!(info.at_work(), 0);
 }
+
+#[test]
+fn a_blast_furnace_wants_four_hands_and_its_pig_is_fined_under_the_hammer() {
+    // M10a slice DT, fourth part: a blast furnace blown by the works' wheel smelts pig iron only
+    // with its four hands at it, on charcoal or on coke, and the hammer's two fine the pig to bar.
+    let mut sim = new_world(3);
+    let (owner, who, firm) = a_hammer_works(&mut sim, true);
+    let (iron, pig, furnace, coke) = (
+        good(&sim, "core:good/iron"),
+        good(&sim, "core:good/pig_iron"),
+        good(&sim, "core:good/blast_furnace"),
+        good(&sim, "core:good/coke"),
+    );
+    set(
+        &mut sim,
+        owner,
+        &[
+            ("core:good/blast_furnace", 1.0),
+            ("core:good/iron_ore", 400.0),
+            ("core:good/coke", 400.0),
+        ],
+    );
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.put_in_station(ctx, firm, furnace, 1.0)));
+    let works = |sim: &mut Sim| {
+        sim.people_mut_for_tests()
+            .firms
+            .iter_mut()
+            .find(|f| f.id == firm)
+            .expect("works")
+            .add_line(pig as u16);
+    };
+    works(&mut sim);
+    let (smelt, smelt_coke, fine) = (
+        activity(&sim, "core:activity/smelt_pig_iron"),
+        activity(&sim, "core:activity/smelt_pig_iron_with_coke"),
+        activity(&sim, "core:activity/fine_pig_iron"),
+    );
+    let hands: Vec<PermanentId> = grown(&sim)
+        .into_iter()
+        .map(|(_, p)| p)
+        .filter(|&p| p != who)
+        .take(3)
+        .collect();
+    assert_eq!(hands.len(), 3, "three more hands");
+    let start = sim.now();
+    let held = |sim: &Sim, g: usize| sim.people().firm(firm).expect("works").stores[g];
+    let made = |sim: &mut Sim, act: usize, g: usize| {
+        let before = held(sim, g);
+        sim.with_ctx_for_tests(|pop, ctx| pop.firm_make_for_tests(ctx, who, act, 120, firm));
+        held(sim, g) - before
+    };
+    // Three at the furnace are one too few: it stands.
+    sim.with_ctx_for_tests(|pop, _| pop.at_work_for_tests(who, smelt, firm, start));
+    for &h in &hands[..2] {
+        sim.with_ctx_for_tests(|pop, _| pop.at_work_for_tests(h, smelt, firm, start));
+    }
+    assert_eq!(
+        made(&mut sim, smelt, pig),
+        0.0,
+        "three hands idle a furnace of four"
+    );
+    // The fourth hand runs it: pig iron, on charcoal and then on coke.
+    sim.with_ctx_for_tests(|pop, _| pop.at_work_for_tests(hands[2], smelt, firm, start));
+    let on_charcoal = made(&mut sim, smelt, pig);
+    assert!(on_charcoal > 0.0, "four hands smelt: {on_charcoal}");
+    for &h in std::iter::once(&who).chain(&hands) {
+        sim.with_ctx_for_tests(|pop, _| pop.at_work_for_tests(h, smelt_coke, firm, start));
+    }
+    let coke_before = sim
+        .people()
+        .household(owner)
+        .map(|x| x.stores[coke])
+        .expect("owner");
+    let on_coke = made(&mut sim, smelt_coke, pig);
+    assert!(on_coke > 0.0, "and on coke: {on_coke}");
+    let coke_after = sim
+        .people()
+        .household(owner)
+        .map(|x| x.stores[coke])
+        .expect("owner");
+    assert!(
+        (coke_before - coke_after - 3.5 * on_coke).abs() < 1e-6,
+        "3.5 kg of coke a kilogram of pig: {coke_before} - {coke_after} for {on_coke}"
+    );
+    // Two at the hammer fine the works' own pig into bar, 1.35 kg of pig a kilogram.
+    sim.with_ctx_for_tests(|pop, _| pop.at_work_for_tests(who, fine, firm, start));
+    sim.with_ctx_for_tests(|pop, _| pop.at_work_for_tests(hands[0], fine, firm, start));
+    let pig_before = held(&sim, pig);
+    let bar = made(&mut sim, fine, iron);
+    assert!(bar > 0.0, "the pig is fined: {bar}");
+    assert!(
+        (pig_before - held(&sim, pig) - 1.35 * bar).abs() < 1e-6,
+        "{pig_before} of pig for {bar} of bar"
+    );
+}

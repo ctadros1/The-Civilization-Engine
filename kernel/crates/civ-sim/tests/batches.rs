@@ -142,3 +142,63 @@ fn a_burn_takes_its_wood_when_stacked_and_gives_its_charcoal_when_opened_after_i
     );
     assert!(next.iter().all(|b| b.ends_day > burn.ends_day));
 }
+
+#[test]
+fn a_coking_heap_takes_its_coal_and_gives_its_coke_after_its_days() {
+    // M10a slice DT, fourth part: coal is baked to coke in a batch as wood is charred.
+    let mut sim = village(3);
+    let catalog = &sim.rules().catalog;
+    let index = |list: Vec<&str>, id: &str| list.iter().position(|&x| x == id).expect(id);
+    let act = index(
+        catalog.activities.iter().map(|a| a.id.as_str()).collect(),
+        "core:activity/coke_coal",
+    );
+    let goods: Vec<&str> = catalog.goods.iter().map(|g| g.id.as_str()).collect();
+    let (coal, coke) = (
+        index(goods.clone(), "core:good/coal"),
+        index(goods, "core:good/coke"),
+    );
+    let days = catalog.recipes[catalog.activities[act].recipe.expect("a recipe")].elapsed_days;
+    let now = sim.now();
+    let (hh, who) = sim
+        .people()
+        .households
+        .iter()
+        .find_map(|(_, h)| {
+            let adult = h.members.iter().copied().find(|&m| {
+                sim.people()
+                    .person(m)
+                    .is_some_and(|p| p.age_years(now) >= 20.0)
+            })?;
+            Some((h.id, adult))
+        })
+        .expect("a household with an adult");
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == hh {
+            x.stores[coal] += 400.0;
+        }
+    }
+    let (before, _) = stores(&sim, hh);
+    sim.with_ctx_for_tests(|pop, ctx| pop.make_work_for_tests(ctx, who, act, 240));
+    let (after, batches) = stores(&sim, hh);
+    assert_eq!(batches.len(), 1, "one heap under way");
+    let heap = batches[0].clone();
+    assert!(heap.units > 0.0);
+    assert!(
+        (before[coal] - after[coal] - 1.6 * heap.units).abs() < 1e-6,
+        "1.6 kg of coal a kilogram of coke"
+    );
+    assert_eq!(after[coke], before[coke], "nothing until it is drawn");
+    sim.advance_minutes(days.ceil() as i64 * DAY)
+        .expect("advances");
+    let (waiting, _) = stores(&sim, hh);
+    sim.with_ctx_for_tests(|pop, ctx| pop.make_work_for_tests(ctx, who, act, 240));
+    let (drawn, _) = stores(&sim, hh);
+    assert!(
+        (drawn[coke] - waiting[coke] - heap.units).abs() < 1e-9,
+        "its coke: {} then {}, a heap of {}",
+        waiting[coke],
+        drawn[coke],
+        heap.units
+    );
+}

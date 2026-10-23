@@ -135,6 +135,8 @@ pub struct Run {
     /// Its engine (a rail vehicle's record) and the household it runs for.
     pub engine: PermanentId,
     pub owner: PermanentId,
+    /// The wagons it pulls (M10b slice DW, third part).
+    pub cars: Vec<PermanentId>,
     /// Its legs in the order run: each section's index along the line and its minutes.
     pub legs: Vec<(u16, u32)>,
     /// The leg it is on or waiting for.
@@ -259,6 +261,14 @@ impl Runs {
             .position(|r| r.id == id && matches!(r.state, RunState::Arrived { .. }))?;
         self.changed();
         Some(self.list.remove(i))
+    }
+
+    /// Whether vehicle `id` is out on a run that has not been taken off: its engine or one of
+    /// its wagons.
+    pub fn aboard(&self, id: PermanentId) -> bool {
+        self.list
+            .iter()
+            .any(|r| r.engine == id || r.cars.contains(&id))
     }
 
     /// The run holding section `section` of line `way` now, if any.
@@ -431,6 +441,7 @@ mod tests {
             back,
             engine: id(100 + n),
             owner: id(200),
+            cars: Vec::new(),
             legs,
             leg: 0,
             state: RunState::Arrived { at: 0 },

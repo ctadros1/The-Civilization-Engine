@@ -496,6 +496,8 @@ pub const SCHEMA_V179: u32 = 179;
 pub const SCHEMA_V180: u32 = 180;
 /// Wagons stood on their lines, before train runs.
 pub const SCHEMA_V181: u32 = 181;
+/// Train runs, before they pulled wagons.
+pub const SCHEMA_V182: u32 = 182;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

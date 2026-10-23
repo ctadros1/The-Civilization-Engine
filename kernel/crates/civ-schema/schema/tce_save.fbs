@@ -3648,6 +3648,8 @@ table RunSave {
   state: ubyte (id: 8);
   time: long (id: 9);
   load_kg: float (id: 10);
+  // Schema 183 (M10b slice DW, third part): the wagons it pulls.
+  cars: [ulong] (id: 11);
 }
 
 table RunsSave {

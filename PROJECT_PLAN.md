@@ -6388,6 +6388,26 @@ and M6a gives rivers a daily flow.
       run behind a slow one waits at the loop and enters the minute it clears; on a laid line two
       runs timed by its bed hold the sections at their ends, pass at the loop a minute on, are
       saved and loaded where they are, and arrive.
+      *As built, third part (2026-10-23): a household's engine runs its pit line.* An engine is
+      kept beside the wagons, at an end of its household's line. Where the whole line runs from
+      beside a pit to beside home with the engine and its wagons at the pit end, a session of
+      digging there loads what the work digs onto the wagons, as goods in transit carried by the
+      wagon itself, up to what the engine's driven wheels hold up the steepest rise homeward less
+      its own and the wagons' mass; nobody carries it home. Each day the household brings its
+      trains to account: a run that has arrived leaves its engine and wagons at that end and is
+      taken off the line, and at the home end the wagons' goods go into the store; an engine at
+      the pit end with loaded wagons sets off home at six, and one at the home end with empty
+      wagons goes back out light, each burning coal by the work it does (the pull of every step
+      that needs it, times its run, at the engine's efficiency, over the coal's heat), taken from
+      the store as it sets off, and only when someone of the household is of an age to drive it.
+      Runs carry the wagons they pull (saves 183). A wagon out on a run is never pushed. Nobody
+      has an engine yet, so no world changes. **Tested:** with an engine and a wagon at the pit
+      end, a session's digging goes onto the wagon, more than twice a carry, and nothing is
+      carried home; with no coal the engine stays; with coal it sets off home with that wagon and
+      burns exactly the work of its train up the bed at 3 % of 25.8 MJ/kg; saved and loaded
+      waiting to go it is the same; arrived, the next accounting leaves the engine and wagon at
+      home, puts the load in the store and sends the engine back out light; at the pit end again
+      with nothing aboard, it waits.
     - **DX**: stations, timetables set at review, fares and freight as posted terms, consignments
       of many owners, rides as household-day blocks, who builds and owns a line.
     - **DY**: the gas chain: gasworks, holders, mains, connections by district capacity,
@@ -7824,6 +7844,11 @@ One line each. Don't re-litigate without a reason written next to the entry.
   pump's half, its other work (a mill's, a hammer's) taken in the same daylight and not netted
   off; nobody sets a wheel for a pit's sake, so a wheel pumps only where one already stands near
   its holder's pit. Revisited when the M10 demo shows a pit beside a mill.
+- **Design priors for a household's engine (2026-10-23, M10b slice DW, third part):** NUDGE: an
+  engine sets off at six and runs home whenever its wagons hold anything, however little; its
+  driver's time is not yet taken from them; it burns coal only for the work of pulling, none to
+  raise steam or stand; a train is loaded to what its wheels hold up the steepest rise. None is
+  measured. Revisited when an engine runs a line in a world.
 - **Design priors for train runs (2026-10-23, M10b slice DW, second part):** NUDGE: a passing loop
   holds any number of waiting runs; a leg is rounded up to whole minutes; a train runs down any
   fall at its top speed, its braking not yet modelled; one run holds a section whatever its

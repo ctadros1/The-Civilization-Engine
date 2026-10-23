@@ -62494,6 +62494,7 @@ impl<'a> RunSave<'a> {
   pub const VT_STATE: ::flatbuffers::VOffsetT = 20;
   pub const VT_TIME: ::flatbuffers::VOffsetT = 22;
   pub const VT_LOAD_KG: ::flatbuffers::VOffsetT = 24;
+  pub const VT_CARS: ::flatbuffers::VOffsetT = 26;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -62510,6 +62511,7 @@ impl<'a> RunSave<'a> {
     builder.add_engine(args.engine);
     builder.add_way(args.way);
     builder.add_id(args.id);
+    if let Some(x) = args.cars { builder.add_cars(x); }
     builder.add_load_kg(args.load_kg);
     if let Some(x) = args.minutes { builder.add_minutes(x); }
     if let Some(x) = args.sections { builder.add_sections(x); }
@@ -62597,6 +62599,13 @@ impl<'a> RunSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(RunSave::VT_LOAD_KG, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn cars(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(RunSave::VT_CARS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for RunSave<'_> {
@@ -62616,6 +62625,7 @@ impl ::flatbuffers::Verifiable for RunSave<'_> {
      .visit_field::<u8>("state", Self::VT_STATE, false)?
      .visit_field::<i64>("time", Self::VT_TIME, false)?
      .visit_field::<f32>("load_kg", Self::VT_LOAD_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("cars", Self::VT_CARS, false)?
      .finish();
     Ok(())
   }
@@ -62632,6 +62642,7 @@ pub struct RunSaveArgs<'a> {
     pub state: u8,
     pub time: i64,
     pub load_kg: f32,
+    pub cars: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
 }
 impl<'a> Default for RunSaveArgs<'a> {
   #[inline]
@@ -62648,6 +62659,7 @@ impl<'a> Default for RunSaveArgs<'a> {
       state: 0,
       time: 0,
       load_kg: 0.0,
+      cars: None,
     }
   }
 }
@@ -62702,6 +62714,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RunSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(RunSave::VT_LOAD_KG, load_kg, 0.0);
   }
   #[inline]
+  pub fn add_cars(&mut self, cars: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RunSave::VT_CARS, cars);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RunSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RunSaveBuilder {
@@ -62730,6 +62746,7 @@ impl ::core::fmt::Debug for RunSave<'_> {
       ds.field("state", &self.state());
       ds.field("time", &self.time());
       ds.field("load_kg", &self.load_kg());
+      ds.field("cars", &self.cars());
       ds.finish()
   }
 }

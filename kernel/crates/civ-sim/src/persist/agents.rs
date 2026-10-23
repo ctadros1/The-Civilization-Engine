@@ -128,7 +128,7 @@ use super::{
     SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
     SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
     SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, SCHEMA_V180,
-    SCHEMA_V181, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V181, SCHEMA_V182, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -895,7 +895,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V171 | SCHEMA_V172 | SCHEMA_V173 | SCHEMA_V174 | SCHEMA_V175 | SCHEMA_V176
         | SCHEMA_V177 | SCHEMA_V178 | SCHEMA_V179 | SCHEMA_V180 => Schema::V171,
         SCHEMA_V181 => Schema::V181,
-        SAVE_SCHEMA_VERSION => Schema::V182,
+        // Runs' wagons (schema 183) are read wherever saved.
+        SCHEMA_V182 | SAVE_SCHEMA_VERSION => Schema::V182,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -12297,6 +12298,8 @@ fn encode_runs(runs: &civ_land::trains::Runs) -> Vec<u8> {
             let minutes: Vec<u32> = r.legs.iter().map(|l| l.1).collect();
             let sections = fbb.create_vector(&sections);
             let minutes = fbb.create_vector(&minutes);
+            let cars: Vec<u64> = r.cars.iter().map(|c| c.get()).collect();
+            let cars = fbb.create_vector(&cars);
             let (state, time) = match r.state {
                 RunState::Waiting { since } => (0, since),
                 RunState::Running { until } => (1, until),
@@ -12316,6 +12319,7 @@ fn encode_runs(runs: &civ_land::trains::Runs) -> Vec<u8> {
                     state,
                     time,
                     load_kg: r.load_kg,
+                    cars: Some(cars),
                 },
             )
         })
@@ -12372,6 +12376,11 @@ fn decode_runs(bytes: &[u8], tag: SectionTag) -> Result<civ_land::trains::Runs, 
             leg: r.leg(),
             state,
             load_kg: r.load_kg(),
+            // Schema 183 (M10b slice DW, third part): the wagons it pulls; before, none.
+            cars: r
+                .cars()
+                .map(|v| v.iter().filter_map(PermanentId::from_raw).collect())
+                .unwrap_or_default(),
         });
     }
     Ok(Runs::from_saved(lines, list, root.revision()))

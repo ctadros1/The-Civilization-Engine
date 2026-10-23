@@ -91,6 +91,7 @@ impl Population {
             let Some((wagon, def)) = ctx.land.wagons.made_of(household).find_map(|w| {
                 let def = ctx.catalog.vehicles.get(usize::from(w.vehicle))?;
                 (def.is_wagon()
+                    && !ctx.land.runs.aboard(w.id)
                     && (w.at == first || w.at == last)
                     && (def.gauge_m - f64::from(track.gauge_m)).abs() < 1e-3)
                     .then_some((w.id, def))
@@ -376,19 +377,23 @@ impl Population {
     /// home what one person carries, or by the household's wagon on its line from the pit
     /// ([`Population::wagon_haul`]) as much as the work digs up to the wagon's load, its loaded
     /// push's extra minutes taken from the work, the wagon then standing at the line's home end.
-    /// Returns the kilograms brought.
+    /// Where the household's engine works the line from the pit (M10b slice DW, third part), what
+    /// the work digs goes onto its wagons there instead, up to the room left on the train
+    /// (`consignments` being what is aboard). Returns the kilograms brought, and the wagon loaded
+    /// and the kilograms put on it.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn dig_and_bring(
         ctx: &mut Ctx,
+        consignments: &[crate::consignments::Consignment],
         household: PermanentId,
         home: (f32, f32),
         toward: (f64, f64),
         deposit: PermanentId,
         minutes: f64,
         eff: f64,
-    ) -> f64 {
+    ) -> (f64, Option<(PermanentId, f64)>) {
         let carry = ctx.params.household.carry_kg;
-        let haul = ctx
+        let pit = ctx
             .land
             .deposits
             .iter()
@@ -397,11 +402,19 @@ impl Population {
             .and_then(|d| {
                 let side = ctx.params.digging.pit_side_m;
                 super::digging::dig_place(ctx.land, ctx.map, &d, toward, side)
-            })
+            });
+        if let Some((wagon, room)) =
+            pit.and_then(|pit| Self::engine_room(ctx, consignments, household, home, pit))
+        {
+            let effort_h = minutes / 60.0 * eff;
+            let kg = super::digging::dig_at(ctx, household, toward, deposit, effort_h, room);
+            return (0.0, Some((wagon, kg)));
+        }
+        let haul = pit
             .and_then(|pit| Self::wagon_haul(ctx, household, home, pit))
             .filter(|h| h.load_kg > carry);
         let Some(h) = haul else {
-            return super::digging::dig_at(
+            let kg = super::digging::dig_at(
                 ctx,
                 household,
                 toward,
@@ -409,6 +422,7 @@ impl Population {
                 minutes / 60.0 * eff,
                 carry,
             );
+            return (kg, None);
         };
         let effort_h = (minutes - h.extra_min).max(0.0) / 60.0 * eff;
         let kg = super::digging::dig_at(ctx, household, toward, deposit, effort_h, h.load_kg);
@@ -418,11 +432,12 @@ impl Population {
             w.at = h.home_end;
             ctx.land.wagons.changed();
         }
-        kg
+        (kg, None)
     }
 
     /// Someone of household `household` digs `minutes` at deposit `deposit` at a capable adult's
-    /// rate, as a session of digging would: for tests.
+    /// rate, as a session of digging would, what they dig onto a train loaded as the session
+    /// would load it: for tests. Returns the kilograms brought home by hand or by wagon.
     #[doc(hidden)]
     pub fn dig_and_bring_for_tests(
         &mut self,
@@ -441,7 +456,26 @@ impl Population {
             .map_or((0.0, 0.0), |y| {
                 (f64::from(y.hearth_m.0), f64::from(y.hearth_m.1))
             });
-        Self::dig_and_bring(ctx, household, home, toward, deposit, minutes, 1.0)
+        let (kg, loaded) = Self::dig_and_bring(
+            ctx,
+            &self.consignments,
+            household,
+            home,
+            toward,
+            deposit,
+            minutes,
+            1.0,
+        );
+        let good = ctx
+            .land
+            .deposits
+            .iter()
+            .find(|d| d.id == deposit)
+            .map(|d| usize::from(d.body.good));
+        if let (Some((wagon, kg)), Some(good)) = (loaded, good) {
+            self.load_wagon(ctx, household, wagon, good, kg);
+        }
+        kg
     }
 
     /// Gives household `household` a made wagon of vehicle `vehicle` standing at cell `at`: for

@@ -73,6 +73,7 @@ mod moving;
 mod norm;
 mod opinion;
 mod payments;
+mod trains;
 mod wagons;
 mod war;
 mod way_works;
@@ -5588,10 +5589,12 @@ impl Population {
                             .and_then(|s| ctx.land.settlements.iter().find(|x| x.id == s))
                             .map_or(p.pos, |x| x.hearth_m);
                         let toward = (f64::from(toward.0), f64::from(toward.1));
-                        // By the household's wagon, where its line runs from the pit home (M10b
-                        // slice DV, third part); else what one person carries.
-                        let kg = Self::dig_and_bring(
+                        // Onto the household's train, where its engine works the line from the pit
+                        // (M10b slice DW, third part); by its wagon, where its line runs from the
+                        // pit home (M10b slice DV, third part); else what one person carries.
+                        let (kg, loaded) = Self::dig_and_bring(
                             ctx,
+                            &self.consignments,
                             household,
                             home,
                             toward,
@@ -5602,6 +5605,9 @@ impl Population {
                         if kg > 0.0 {
                             p.carrying.good = Some(good as u16);
                             p.carrying.kg = kg as f32;
+                        }
+                        if let Some((wagon, kg)) = loaded {
+                            self.load_wagon(ctx, household, wagon, good, kg);
                         }
                         let place = crate::uses::Place::Deposit(deposit);
                         self.log_work(place, household, who, now, 0.0);

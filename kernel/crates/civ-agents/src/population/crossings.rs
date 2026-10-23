@@ -233,6 +233,7 @@ impl Population {
         self.forget_traffic(ctx, day);
         self.way_work_reviews(ctx, day);
         self.line_reviews(ctx, day);
+        self.engine_runs(ctx, day);
         if ctx.catalog.bridges.is_empty() {
             return;
         }

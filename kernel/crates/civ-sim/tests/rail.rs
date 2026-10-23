@@ -322,6 +322,7 @@ fn runs_on_a_laid_line_are_timed_by_its_bed_meet_at_its_loop_and_are_saved_where
             back,
             engine: sim.allocate_id_for_tests(),
             owner: household,
+            cars: Vec::new(),
             legs: trains::legs(secs, &sections, back),
             leg: 0,
             state: RunState::Arrived { at: 0 },
@@ -482,6 +483,177 @@ fn a_wagon_on_a_line_from_the_pit_brings_home_what_the_work_digs() {
     }
     let again = dig(&mut sim, 180.0);
     assert!(again <= carry + 1e-9, "{again}");
+}
+
+fn stores_of(sim: &Sim, household: PermanentId, id: &str) -> f64 {
+    let g = sim.rules().catalog.good_index(id).expect("a good");
+    sim.people().household(household).expect("household").stores[g]
+}
+
+fn set_store(sim: &mut Sim, household: PermanentId, id: &str, kg: f64) {
+    let g = sim.rules().catalog.good_index(id).expect("a good");
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == household {
+            x.stores[g] = kg;
+        }
+    }
+}
+
+#[test]
+fn an_engine_brings_a_pit_s_digging_home_by_train_burning_coal_by_its_work() {
+    use civ_land::trains::RunState;
+    let mut sim = village(3);
+    let household = first_household(&sim);
+    let home = sim.people().household(household).expect("household").home;
+    let carry = sim.rules().people.household.carry_kg;
+    let seam = contour_seam(&mut sim, home);
+    let dig = |sim: &mut Sim, minutes: f64| {
+        sim.with_ctx_for_tests(|pop, ctx| {
+            pop.dig_and_bring_for_tests(ctx, household, seam, minutes)
+        })
+    };
+    for _ in 0..20 {
+        if dig(&mut sim, 180.0) > 0.0 {
+            break;
+        }
+    }
+    let pit = sim
+        .land()
+        .earthworks
+        .iter()
+        .find(|e| e.kind == civ_land::earth::EarthKind::Pit && e.deposit == Some(seam))
+        .map(|e| e.rect.centre_m())
+        .expect("a pit");
+    // A whole line from beside the pit to beside home, with an engine and a wagon at the pit.
+    let cell_of = |at: (f32, f32)| civ_agents::population::cell_of(sim.map(), at) as u32;
+    let (pit_cell, home_cell) = (cell_of(pit), cell_of(home));
+    let id = sim
+        .with_ctx_for_tests(|_, ctx| {
+            civ_agents::population::Population::begin_track_for_tests(
+                ctx, household, pit_cell, home_cell, 1.0, 0.003,
+            )
+        })
+        .expect("a line from the pit home");
+    let need = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|x| x.id == id)
+        .and_then(|x| x.track.clone())
+        .expect("its track");
+    set_timber(&mut sim, household, f64::from(need.good_kg) + 1.0);
+    sim.with_ctx_for_tests(|pop, ctx| {
+        pop.way_work_for_tests(ctx, household, id, f64::from(need.labour_h) + 1.0)
+    });
+    let (wagon_v, engine_v) = (wagon_vehicle(&sim), engine_vehicle(&sim));
+    let add = |sim: &mut Sim, v: usize| {
+        sim.with_ctx_for_tests(|_, ctx| {
+            civ_agents::population::Population::add_wagon_for_tests(ctx, household, v, pit_cell)
+        })
+    };
+    let wagon = add(&mut sim, wagon_v);
+    let engine = add(&mut sim, engine_v);
+    // A session's digging goes onto the wagon, more than a person carries, and nobody carries
+    // it home.
+    assert_eq!(dig(&mut sim, 180.0), 0.0, "nothing carried");
+    let aboard = |sim: &Sim| {
+        sim.people()
+            .consignments
+            .iter()
+            .filter(|c| c.boat == wagon)
+            .map(|c| c.stores.iter().sum::<f64>())
+            .sum::<f64>()
+    };
+    let loaded = aboard(&sim);
+    assert!(
+        loaded > 2.0 * carry,
+        "{loaded} aboard against {carry} by hand"
+    );
+    // With no coal the engine stays.
+    set_store(&mut sim, household, "core:good/coal", 0.0);
+    let day = sim.now().day_index();
+    let account = |sim: &mut Sim, day: i64| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.engine_runs_for_tests(ctx, household, day));
+    };
+    account(&mut sim, day);
+    assert!(sim.land().runs.list.is_empty(), "no coal, no run");
+    // With coal it sets off home at six, burning what its work takes: the train's weight up
+    // each rise of the bed homeward and its rolling resistance, at 3 % of coal's 25.8 MJ/kg.
+    set_store(&mut sim, household, "core:good/coal", 50.0);
+    account(&mut sim, day);
+    let run = sim.land().runs.list.first().cloned().expect("a run home");
+    assert_eq!((run.engine, run.cars.clone()), (engine, vec![wagon]));
+    assert!((f64::from(run.load_kg) - loaded).abs() < 1e-3);
+    let way = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|w| w.id == id)
+        .cloned()
+        .expect("line");
+    let cells: Vec<u32> = way.segments.iter().flat_map(|s| s.cells.clone()).collect();
+    let map = sim.map();
+    let runs = civ_land::rail::runs(&cells, map.width, f64::from(map.cell_size_m));
+    let defs = &sim.rules().catalog.vehicles;
+    let mass = defs[engine_v].tare_kg + defs[wagon_v].tare_kg + loaded;
+    let mut steps: Vec<f64> = runs[1..].to_vec();
+    if run.back {
+        steps.reverse();
+    }
+    let work: f64 = civ_land::rail::step_grades(&need.bed, &runs, run.back)
+        .iter()
+        .zip(&steps)
+        .map(|(g, r)| (mass * 9.81 * (0.005 + g)).max(0.0) * r)
+        .sum();
+    let burned = 50.0 - stores_of(&sim, household, "core:good/coal");
+    assert!(
+        (burned - work / 0.03 / 25.8e6).abs() < 1e-9,
+        "{burned} burned against {work} J of work"
+    );
+    // Saved and loaded with the run waiting to go, it is the same run.
+    saves_alike(&mut sim);
+    // By an hour after six it has arrived home; the next accounting unloads the wagon into the
+    // store and sends the engine back out light.
+    let now = sim.now().minutes();
+    let after = (day * 1_440 + 7 * 60 - now).max(1);
+    sim.advance_minutes(after).expect("advances");
+    assert!(matches!(
+        sim.land().runs.list.first().map(|r| r.state),
+        Some(RunState::Arrived { .. })
+    ));
+    let coal_before = stores_of(&sim, household, "core:good/coal");
+    account(&mut sim, day);
+    let at = |sim: &Sim, id| {
+        sim.land()
+            .wagons
+            .list
+            .iter()
+            .find(|w| w.id == id)
+            .expect("there")
+            .at
+    };
+    assert_eq!((at(&sim, engine), at(&sim, wagon)), (home_cell, home_cell));
+    assert!(aboard(&sim) < 1e-9, "unloaded");
+    let coal_after = stores_of(&sim, household, "core:good/coal");
+    assert!(
+        coal_after > coal_before + loaded - 5.0,
+        "the load came into the store: {coal_before} -> {coal_after}"
+    );
+    let out = sim
+        .land()
+        .runs
+        .list
+        .first()
+        .cloned()
+        .expect("a run back out");
+    assert!(out.back != run.back && out.load_kg == 0.0);
+    // Out at the pit end again, it waits there for the next digging.
+    sim.advance_minutes(60).expect("advances");
+    account(&mut sim, day);
+    assert_eq!((at(&sim, engine), at(&sim, wagon)), (pit_cell, pit_cell));
+    assert!(sim.land().runs.list.is_empty(), "nothing to bring");
 }
 
 /// Coal showing about 100 m from `home` along ground a pushed wagonway can keep to: the first

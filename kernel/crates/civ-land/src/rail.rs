@@ -328,7 +328,7 @@ impl Terrain<'_> {
 
 /// The grade of each step along a bed (`runs` apart, as [`runs`] gives), rise over run, going
 /// from its first cell to its last, or from its last to its first when `back`.
-pub(crate) fn step_grades(bed: &[f32], runs: &[f64], back: bool) -> Vec<f64> {
+pub fn step_grades(bed: &[f32], runs: &[f64], back: bool) -> Vec<f64> {
     let mut grades: Vec<f64> = bed
         .windows(2)
         .zip(&runs[1.min(runs.len())..])

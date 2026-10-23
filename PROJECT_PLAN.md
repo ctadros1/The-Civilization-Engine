@@ -6234,6 +6234,19 @@ and M6a gives rivers a daily flow.
         at 23:00 before any lamp is lit, not once one has been, and does again where lamplight
         falls; making by lamplight after dark remembers the first lamp and making by day does not;
         the first lamp lit, and its absence, come back from a save.
+      - *As built, fourth part (2026-10-23): the lamp by choice.* A household that knows how to make
+        a light (its recipe's technique) wants one when an hour lit costs it less than an hour of
+        its own work: the fuel an hour burns at its own cost of the fuel, and the lamp's own cost
+        spread over its life where it can put a figure on it (brief §2.3; its clay may lie in a pit
+        it has not found). For the fat lamp that is 8 g of tallow at the hours rendering it from
+        game meat takes, about 0.09 h an hour in the world tested, so a household that knows
+        lamps wants one. A household holding a whole lamp keeps fuel for 30 hours of light
+        (`LAMP_FUEL_HOURS`), rendered as a tool's material is made, for the lamp. Both are weighed
+        as tools are, so a lamp competes with what else the household would do. **Proved:** the
+        bench worlds keep every digest but the meta, nobody knowing lamps. **Tested:** a household
+        taught lamps, with clay, firewood and game meat, makes a lamp and renders tallow within a
+        day. Several of its members may each make one before the first is counted, as with other
+        tools.
     - **DV**: wagonways pushed by people: the `RAIL` mode, track by cells with a turn rule and a
       ruling grade, wagons.
     - **DW**: engines on rails and train runs: block sections, single track and loops.
@@ -7673,6 +7686,11 @@ One line each. Don't re-litigate without a reason written next to the entry.
   pump's half, its other work (a mill's, a hammer's) taken in the same daylight and not netted
   off; nobody sets a wheel for a pit's sake, so a wheel pumps only where one already stands near
   its holder's pit. Revisited when the M10 demo shows a pit beside a mill.
+- **Design priors for the lamp by choice (2026-10-23, M10b slice DU, fourth part):** NUDGE: an hour
+  lit is worth an hour of home making to a household that can make a lamp, and it keeps fuel for 30
+  hours of light (a week of evenings). Neither is measured; 12-09 §3.1 has light as a purchased
+  service, which waits for a market in tallow. Revisited when the M10 demo shows households with
+  lamps.
 - **Design priors for dark sight (2026-10-23, M10b slice DU, third part):** NUDGE: a figure is made
   out by starlight at about 10 m (`dark_sight_m`), and a fat lamp's light (1 lux at a metre,
   research 11-13 §2.2) reaches 3 m from the home it burns in (`lit_m`); neither is measured. Dark

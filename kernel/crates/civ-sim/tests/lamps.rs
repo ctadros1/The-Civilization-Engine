@@ -301,3 +301,63 @@ fn the_first_lamp_lit_is_kept_through_a_save() {
     let at = civ_core::time::SimTime::from_minutes(12_345);
     assert_eq!(round(Some(at)), Some(at));
 }
+
+/// The lamp by choice (M10b slice DU, fourth part): a household that knows how to make a lamp,
+/// for which an hour lit costs fewer of its hours than the hour of home work it gives, makes
+/// one, and then renders tallow to burn in it.
+#[test]
+fn a_household_that_knows_lamps_makes_one_and_renders_tallow_for_it() {
+    let mut sim = world();
+    let (hh, _) = adult(&sim);
+    let grown: Vec<PermanentId> = {
+        let now = sim.now();
+        let x = sim.people().household(hh).expect("household");
+        x.members
+            .iter()
+            .copied()
+            .filter(|&m| {
+                sim.people()
+                    .person(m)
+                    .is_some_and(|p| p.age_years(now) >= 15.0)
+            })
+            .collect()
+    };
+    for &p in &grown {
+        // Founders know pottery; lamps is new to them.
+        sim.introduce_technique(p, "core:technique/lamps", false)
+            .expect("introduced");
+    }
+    let (lamp, tallow, clay, wood, meat) = (
+        index(&sim, "core:good/fat_lamp"),
+        index(&sim, "core:good/tallow"),
+        index(&sim, "core:good/clay"),
+        index(&sim, "core:good/firewood"),
+        index(&sim, "core:good/meat"),
+    );
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == hh {
+            x.stores[clay] += 50.0;
+            x.stores[wood] += 100.0;
+            x.stores[meat] += 100.0;
+        }
+    }
+    let (mut made_lamp, mut rendered) = (false, false);
+    for _ in 0..30 {
+        sim.advance_minutes(1440).expect("advances");
+        let x = sim.people().household(hh).expect("household");
+        made_lamp |= x.stores[lamp] > 0.0;
+        rendered |= x.stores[tallow] > 0.0;
+        if made_lamp && rendered {
+            break;
+        }
+    }
+    let x = sim.people().household(hh).expect("household");
+    assert!(
+        made_lamp && rendered,
+        "lamp {made_lamp} ({:.2}), tallow {rendered} ({:.3} kg), meat {:.1} kg, clay {:.1} kg",
+        x.stores[lamp],
+        x.stores[tallow],
+        x.stores[meat],
+        x.stores[clay]
+    );
+}

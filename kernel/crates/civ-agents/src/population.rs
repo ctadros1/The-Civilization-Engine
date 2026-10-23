@@ -183,6 +183,9 @@ const FIRST_HOME_SHIFT_M: f64 = 120.0;
 /// Least food a household makes ready in one go, in days of its needs: below this it waits until
 /// it needs more (a tuning value).
 const MIN_BATCH_DAYS: f64 = 0.25;
+/// Hours of light a household holding a lamp keeps fuel for (M10b slice DU; a design prior: a
+/// week of evenings).
+const LAMP_FUEL_HOURS: f64 = 30.0;
 /// A settlement's first trail, for the chronicle: at least this long, metres...
 pub const FIRST_TRAIL_M: f32 = 150.0;
 /// ...and passing within this of the settlement's hearth, metres.
@@ -3715,6 +3718,41 @@ impl Population {
         let knows = |t: usize| self.household_knows(&hh.members, t);
         let mut wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
         cap_power_wants(ctx, hh.id, &mut wants);
+        let costs_once = OnceCell::new();
+        let costs = || {
+            costs_once
+                .get_or_init(|| self.own_costs_of(ctx, &hh))
+                .clone()
+        };
+        // A light it knows how to make is wanted where an hour lit costs it less of its own
+        // hours, in fuel and in the lamp's wear, than the hour of making at home it gives after
+        // dark (M10b slice DU; brief §2.3).
+        for (g, d) in goods.iter().enumerate() {
+            let Some(light) = d.light.as_ref() else {
+                continue;
+            };
+            let known = catalog
+                .recipes
+                .iter()
+                .any(|r| r.outputs.iter().any(|&(o, _)| o == g) && r.technique.is_none_or(&knows));
+            if !known || ages.iter().all(|&a| a < params.family.independent_age) {
+                continue;
+            }
+            // Its fuel decides: the lamp's own hours, spread over its life, count where the
+            // household can put a figure on them (its clay may come from a pit it has not found).
+            let c = costs();
+            let life = make::life_of(goods, g);
+            let Some(fuel) = light.fuel.and_then(|f| c.get(f).copied().flatten()) else {
+                continue;
+            };
+            let lamp = c.get(g).copied().flatten().unwrap_or(0.0);
+            let per_hour = light.kg_per_hour * fuel + if life > 0.0 { lamp / life } else { 0.0 };
+            if per_hour < 1.0
+                && let Some(w) = wants.get_mut(g)
+            {
+                *w = w.max(1.0);
+            }
+        }
         let me = self.people.get(h).map(|p| p.id);
         let mut free_tools: Vec<f64> = stores
             .iter()
@@ -3788,12 +3826,6 @@ impl Population {
         // need that it makes itself (copper for a copper axe): the tool each is for, and how
         // much of it.
         let can_work = |r: &crate::params::RecipeDef| self.can_work_way(ctx, &hh, &stores, r);
-        let costs_once = OnceCell::new();
-        let costs = || {
-            costs_once
-                .get_or_init(|| self.own_costs_of(ctx, &hh))
-                .clone()
-        };
         let ways: Vec<Option<usize>> = (0..goods.len())
             .map(|t| {
                 if goods[t].tool.is_none() {
@@ -3847,6 +3879,25 @@ impl Population {
                     if blocked && let Some(b) = tool_material_blocked.get_mut(i) {
                         *b = true;
                     }
+                }
+            }
+        }
+        // A whole lamp it holds wants its fuel, to `LAMP_FUEL_HOURS` of light: made as a tool's
+        // material is, for the lamp (M10b slice DU).
+        if let Some((lamp, fuel, kg_h)) = goods.iter().enumerate().find_map(|(g, d)| {
+            let l = d.light.as_ref()?;
+            (make::in_use(goods, g, held_of(g)) >= decide::MIN_TOOL).then_some((
+                g,
+                l.fuel?,
+                l.kg_per_hour,
+            ))
+        }) {
+            let reserve = kg_h * LAMP_FUEL_HOURS;
+            let short = (reserve - held_of(fuel)).max(0.0);
+            if short > 0.0 && reserve > 0.0 {
+                made_for[fuel] = Some((lamp, short / reserve));
+                if let Some(m) = tool_material.get_mut(fuel) {
+                    *m += short;
                 }
             }
         }

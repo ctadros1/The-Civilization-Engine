@@ -545,6 +545,16 @@ pub struct Population {
     /// (ADR-0032 §2): set and taken within [`Self::live_household_days`] only.
     planning: bool,
     planned: Option<resolution::Planned>,
+    /// Sessions at a works' machine that wants a crew, lived in a household-resolved day (M10a
+    /// slice DT; ADR-0032 §2, crews met in aggregate): held while the settlement's day is lived,
+    /// then the machine runs for their summed minutes over its crew if as many hands as it
+    /// wants worked it ([`Self::run_held_crews`]). Filled and emptied within
+    /// [`Self::live_household_days`] only, never saved.
+    crew_held: Vec<firm::HeldSession>,
+    /// Whether a household-resolved day is being lived, and whether a held crew's run is under
+    /// way (its crew already counted).
+    resolving: bool,
+    crew_run: bool,
     /// Per parked person, the blocks of the household-resolved day last lived and that day's
     /// index (ADR-0032 §6): what the observer is shown, never read by the simulation, never saved.
     day_blocks: FastMap<PermanentId, Vec<resolution::DayBlock>>,

@@ -6114,9 +6114,8 @@ and M6a gives rivers a daily flow.
         hammer (`good/tilt_hammer`, crew 2), with `technique/water_hammer` (forging and the
         water mill first; found forging bar with blooms and charcoal at home) and
         `recipe/forge_bar_by_hammer` (an hour and a half and 5 kg of charcoal a kilogram of
-        bar against six and 8 by hand, 1 kWh a kilogram from the works' wheel). The
-        household-resolved block, where a works' day is its workers' summed blocks, is the
-        next part: until then a crew is met only in Detailed mode. **Proved:** against DS's fourth part, the three
+        bar against six and 8 by hand, 1 kWh a kilogram from the works' wheel). In a
+        household-resolved settlement a crew is met in aggregate (the second part, below). **Proved:** against DS's fourth part, the three
         bench worlds of DO keep the same chronicle and every count and summary line; the
         sections holding goods, techniques or recipes by index differ by the shifted positions
         only.
@@ -6127,6 +6126,20 @@ and M6a gives rivers a daily flow.
         save keeps the bell to the byte; a hand setting off before the bell waits for it and
         works the shift out, and none goes long before it or with too little left; a content
         tool asks a crew of 1 to 20, and only a fixed one more than 1.
+      - *As built, second part (2026-10-23): crews in the household-resolved day.* A
+        household-resolved settlement lives each person's blocks one after another (ADR-0032
+        §2), so nobody is at a machine together with anyone. Its works' sessions at a machine
+        wanting a crew are held while the settlement's day is lived; then, for each works and
+        way, if as many different hands as the machine wants worked it that day, it runs once
+        for their summed minutes over its crew, at the first hand's speed, as one shift of them
+        together would, and else it stood idle (ADR-0032 §2's crews met in aggregate; held
+        sessions are never saved, as the day is lived between midnights). Hands are paid for
+        their hours either way. **Proved:** the three bench worlds of DO (two of them
+        Detailed, none with a works) differ from the first part in `meta` only. Gate C is not rerun: no world of Gate B's
+        fixtures holds a machine that wants a crew, so nothing it measures can move. **Tested:**
+        in a resolved day one hand at the hammer makes nothing, and two hands' two hours each
+        make what two hours of the two together make in Detailed mode, nothing made until the
+        day is lived.
   - **M10b, rail and gas light** (ADR-0034).
     - **DU**: light before gas: lamps burning fuel for hours of light, places dark or lit, dark
       sight (equal to day sight until a world has lamps), what light changes in the evening.

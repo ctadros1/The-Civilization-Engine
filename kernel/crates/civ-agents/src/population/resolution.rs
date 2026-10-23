@@ -479,6 +479,7 @@ impl Population {
             .copied()
             .filter(|s| !self.held.contains(s))
             .collect();
+        self.resolving = true;
         for s in settlements {
             let mut company: Vec<(PermanentId, u32, u32)> = Vec::new();
             let households: Vec<PermanentId> = self.households_in(s).map(|x| x.id).collect();
@@ -627,6 +628,8 @@ impl Population {
                     }
                 }
             }
+            // The works' machines whose crews came today run (M10a slice DT).
+            self.run_held_crews(ctx);
             // Company at the hearth: each who kept it meets those of the pool (ADR-0032 §2).
             let mut pool: Vec<PermanentId> = company.iter().map(|c| c.0).collect();
             pool.sort_unstable();
@@ -635,6 +638,7 @@ impl Population {
                 self.keep_company(ctx, me, &pool, minutes, sessions);
             }
         }
+        self.resolving = false;
     }
 
     /// Person `h` scored as they would stand at `at`, in the evening, with their needs then put

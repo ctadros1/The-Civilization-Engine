@@ -293,3 +293,54 @@ fn a_bell_is_saved_and_loaded() {
         civ_sim::persist::encode_sections(&loaded)
     );
 }
+
+#[test]
+fn in_a_household_resolved_day_a_crew_is_met_in_aggregate() {
+    // ADR-0032 §2 (M10a slice DT): sessions at a machine wanting a crew are held while the day is
+    // lived, then it runs once for their summed minutes over its crew if as many hands came.
+    let detailed = {
+        let mut sim = new_world(3);
+        let (owner, who, firm) = a_hammer_works(&mut sim, true);
+        let iron = good(&sim, "core:good/iron");
+        let forge = activity(&sim, "core:activity/forge_bar_by_hammer");
+        let hand = grown(&sim)
+            .into_iter()
+            .find(|&(h, _)| h != owner)
+            .map(|(_, p)| p)
+            .expect("a hand");
+        let start = sim.now();
+        sim.with_ctx_for_tests(|pop, _| pop.at_work_for_tests(who, forge, firm, start));
+        sim.with_ctx_for_tests(|pop, _| pop.at_work_for_tests(hand, forge, firm, start));
+        sim.with_ctx_for_tests(|pop, ctx| pop.firm_make_for_tests(ctx, who, forge, 120, firm));
+        sim.people().firm(firm).expect("works").stores[iron]
+    };
+    let resolved = |hands: usize| {
+        let mut sim = new_world(3);
+        let (owner, who, firm) = a_hammer_works(&mut sim, true);
+        let iron = good(&sim, "core:good/iron");
+        let forge = activity(&sim, "core:activity/forge_bar_by_hammer");
+        let hand = grown(&sim)
+            .into_iter()
+            .find(|&(h, _)| h != owner)
+            .map(|(_, p)| p)
+            .expect("a hand");
+        sim.with_ctx_for_tests(|pop, ctx| pop.resolving_for_tests(ctx, true));
+        sim.with_ctx_for_tests(|pop, ctx| pop.firm_make_for_tests(ctx, who, forge, 120, firm));
+        if hands > 1 {
+            sim.with_ctx_for_tests(|pop, ctx| pop.firm_make_for_tests(ctx, hand, forge, 120, firm));
+        }
+        // Nothing is made while the day is lived.
+        assert_eq!(sim.people().firm(firm).expect("works").stores[iron], 0.0);
+        sim.with_ctx_for_tests(|pop, ctx| pop.resolving_for_tests(ctx, false));
+        sim.people().firm(firm).expect("works").stores[iron]
+    };
+    assert!(detailed > 0.0);
+    // One hand came: the hammer stood idle all day.
+    assert_eq!(resolved(1), 0.0);
+    // Two came for two hours each: two hours of the hammer, as a shift of them together.
+    let two = resolved(2);
+    assert!(
+        (two - detailed).abs() < 1e-9,
+        "{two} in aggregate against {detailed} in detail"
+    );
+}

@@ -18,6 +18,16 @@ use crate::make;
 use crate::params::{ActivityDef, Behavior, GoodUse, interpolate};
 use crate::person::{Flow, Household, Person, Step, Target, stock_kcal};
 
+/// A session at a works' machine that wants a crew, held in a household-resolved day (M10a slice
+/// DT): the works, the make activity worked, the person and the minutes.
+#[derive(Clone, Debug)]
+pub(crate) struct HeldSession {
+    works: PermanentId,
+    def: ActivityDef,
+    who: Handle<Person>,
+    minutes: u32,
+}
+
 impl Population {
     /// A firm, open or closed.
     pub fn firm(&self, id: PermanentId) -> Option<&Firm> {
@@ -317,6 +327,50 @@ impl Population {
             .count()
     }
 
+    /// Runs the machines of the sessions held in a household-resolved day (M10a slice DT;
+    /// ADR-0032 §2, crews met in aggregate): for each works and way, if as many different hands
+    /// as its machine wants worked it, it runs once for their summed minutes over its crew, at
+    /// the first hand's speed, as one shift of them together would; else it stood idle.
+    pub(super) fn run_held_crews(&mut self, ctx: &mut Ctx) {
+        let held = std::mem::take(&mut self.crew_held);
+        let mut done: Vec<(PermanentId, &str)> = Vec::new();
+        for s in &held {
+            if done.contains(&(s.works, s.def.id.as_str())) {
+                continue;
+            }
+            done.push((s.works, s.def.id.as_str()));
+            let same: Vec<&HeldSession> = held
+                .iter()
+                .filter(|x| x.works == s.works && x.def.id == s.def.id)
+                .collect();
+            let mut hands: Vec<Handle<Person>> = same.iter().map(|x| x.who).collect();
+            hands.sort_unstable();
+            hands.dedup();
+            let crew = s
+                .def
+                .recipe
+                .and_then(|r| ctx.catalog.recipes.get(r))
+                .map_or(1, |r| super::crew_of(&ctx.catalog.goods, r));
+            if hands.len() < usize::from(crew) {
+                continue;
+            }
+            let minutes: u32 = same.iter().map(|x| x.minutes).sum::<u32>() / u32::from(crew);
+            self.crew_run = true;
+            self.firm_make(ctx, s.who, &s.def, minutes, s.works);
+            self.crew_run = false;
+        }
+    }
+
+    /// Sessions at works' machines that want a crew, as a household-resolved day would hold
+    /// them (`on`), and their run: for tests.
+    #[doc(hidden)]
+    pub fn resolving_for_tests(&mut self, ctx: &mut Ctx, on: bool) {
+        self.resolving = on;
+        if !on {
+            self.run_held_crews(ctx);
+        }
+    }
+
     /// Whether the session of person `h` now ending had the crew of `crew` its machine wants
     /// (M10a slice DT; ADR-0033 §8): the others at the same work, for the same works or at the
     /// same household's, who were at it when this session began and are still, are with this
@@ -421,8 +475,19 @@ impl Population {
             units = units.min(super::power_kw_of(ctx, id) * hours / recipe.kwh_per_unit);
         }
         // A machine runs only while its crew is at it (M10a slice DT; ADR-0033 §8): a missing
-        // hand idles it.
-        if !self.crewed(ctx, h, super::crew_of(&ctx.catalog.goods, recipe)) {
+        // hand idles it. In a household-resolved day the session is held, and the day's crew is
+        // counted once the settlement's day is lived (ADR-0032 §2).
+        let crew = super::crew_of(&ctx.catalog.goods, recipe);
+        if crew > 1 && self.resolving && !self.crew_run {
+            self.crew_held.push(HeldSession {
+                works: id,
+                def: def.clone(),
+                who: h,
+                minutes,
+            });
+            return;
+        }
+        if !self.crew_run && !self.crewed(ctx, h, crew) {
             units = 0.0;
         }
         // What the recipe takes from the owners' stores for what can be made in the time (never

@@ -1703,3 +1703,12 @@ steeper than 5 %. A profile that leaves it out lays no track.
 From DV's third part the core's `[track] search_grade` is 0.4: a line is cut across ground up to 40
 % between cells, its grading's earth weighed against going round, and goes round only what is
 steeper. The field's meaning is unchanged; content API 169 still.
+
+Content API 170 (M10b slice DW) lets a rail vehicle name an `[engine]`: the `fuel` it burns (a good
+with `[fuel]`), the `efficiency` with which it turns that fuel's heat into work (0.001-0.5) and its
+`top_speed_m_s` (0.1-50). Its `pull_n` and `power_w` are then the engine's: the most its driven
+wheels hold before they slip, and its power. Only a rail vehicle may have one; a rail vehicle
+without one is a wagon pushed by people. The core adds `core:vehicle/locomotive` (5 t, 7.5 kW,
+9,810 N, 2.2 m/s, burning coal at 3 %) and `core:technique/locomotive`, which needs the atmospheric
+engine, wooden railways and forging and is tried in digging coal; design priors marked in their
+files.

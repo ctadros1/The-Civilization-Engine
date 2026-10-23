@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 169;
+pub const KERNEL_CONTENT_API: u32 = 170;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1292,6 +1292,29 @@ fn resolve(
         let technique = resolve(c, "technique", &d.file.technique, &technique_index);
         let skill = resolve(c, "skill", &d.file.skill, &skill_index);
         let tool = resolve(c, "tool", &d.file.tool, &good_index);
+        // An engine's fuel must be a good burned for heat (content API 170).
+        let fuel = match &d.file.engine {
+            None => Some(None),
+            Some(e) => {
+                let f = resolve(c, "engine.fuel", &e.fuel, &good_index);
+                if let Some(Some(g)) = f
+                    && goods[g].fuel.is_none()
+                {
+                    c.push(
+                        "E3001",
+                        &d.rel,
+                        None,
+                        format!(
+                            "`engine.fuel` must name a good with `[fuel]`; `{}` has none",
+                            e.fuel
+                        ),
+                    );
+                    None
+                } else {
+                    f
+                }
+            }
+        };
         if let Some(Some(t)) = tool
             && goods[t].tool.is_none()
         {
@@ -1305,11 +1328,11 @@ fn resolve(
                 ),
             );
         }
-        if let (Some(mode), Some(g), Some(t), Some(k), Some(tool)) =
-            (d.file.mode(), good, technique, skill, tool)
+        if let (Some(mode), Some(g), Some(t), Some(k), Some(tool), Some(fuel)) =
+            (d.file.mode(), good, technique, skill, tool, fuel)
             && tool.is_none_or(|t| goods[t].tool.is_some())
         {
-            vehicles.push(d.file.def(mode, g, t, k, tool));
+            vehicles.push(d.file.def(mode, g, t, k, tool, fuel));
         }
     }
     vehicles.sort_by(|a, b| a.id.cmp(&b.id));

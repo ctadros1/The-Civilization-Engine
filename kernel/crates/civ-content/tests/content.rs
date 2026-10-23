@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 169
+kernel_content_api = 170
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2302,6 +2302,89 @@ fn a_wagon_runs_on_rails_of_its_gauge_and_names_no_road_or_boat_fields() {
             .diagnostics
             .iter()
             .any(|d| d.message.contains("`gauge_m` is a wagon's")),
+        "{:?}",
+        report.diagnostics
+    );
+}
+
+#[test]
+fn a_locomotive_is_a_rail_vehicle_with_an_engine_burning_a_fuel() {
+    // M10b slice DW (content API 170): a rail vehicle may name an `[engine]`: a good it burns
+    // with `[fuel]`, the share of its heat turned to work and its top speed, in range. A wagon
+    // has none; a cart with one is refused.
+    let preset = real_preset();
+    let engine = real("vehicle/locomotive.toml");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("vehicle/locomotive.toml", &engine),
+        ("vehicle/wagon.toml", &real("vehicle/wagon.toml")),
+    ]);
+    assert!(report.diagnostics.is_empty(), "{:?}", report.diagnostics);
+    let catalog = &report.registry.expect("loads").catalog;
+    let find = |id: &str| {
+        catalog
+            .vehicles
+            .iter()
+            .find(|v| v.id == id)
+            .expect("the vehicle")
+    };
+    let l = find("core:vehicle/locomotive");
+    assert_eq!(l.mode, civ_agents::params::VehicleMode::Rail);
+    let e = l.engine.expect("it has an engine");
+    let coal = catalog.goods.iter().position(|g| g.id == "core:good/coal");
+    assert_eq!(Some(e.fuel), coal);
+    assert_eq!((e.efficiency, e.top_speed_m_s), (0.03, 2.2));
+    assert_eq!(
+        (l.pull_n, l.power_w, l.tare_kg, l.gauge_m),
+        (9810.0, 7500.0, 5000.0, 1.0)
+    );
+    assert!(!l.is_wagon() && find("core:vehicle/wagon").is_wagon());
+    assert!(
+        l.technique.is_some(),
+        "made only by those who know the locomotive"
+    );
+    for (from, to, says) in [
+        (
+            "efficiency = 0.03",
+            "efficiency = 0.9",
+            "`engine.efficiency` must be between",
+        ),
+        (
+            "top_speed_m_s = 2.2",
+            "top_speed_m_s = 0.0",
+            "`engine.top_speed_m_s` must be between",
+        ),
+        (
+            "fuel = \"core:good/coal\"",
+            "fuel = \"core:good/iron\"",
+            "`engine.fuel` must name a good with `[fuel]`",
+        ),
+    ] {
+        let broken = engine.replacen(from, to, 1);
+        assert_ne!(broken, engine, "the edit applies");
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("vehicle/locomotive.toml", &broken),
+        ]);
+        assert!(
+            report.diagnostics.iter().any(|d| d.message.contains(says)),
+            "{says}: {:?}",
+            report.diagnostics
+        );
+    }
+    // A cart with an engine is refused.
+    let cart = format!(
+        "{HANDCART}\n[engine]\nfuel = \"core:good/coal\"\nefficiency = 0.03\ntop_speed_m_s = 2.2\n"
+    );
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("vehicle/test_handcart.toml", &cart),
+    ]);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains("`[engine]` is a rail vehicle's")),
         "{:?}",
         report.diagnostics
     );

@@ -1,0 +1,20 @@
+# Engines on rails (research 07-08 §5.5 P02: "P01 + boilers/engines + precision metalworking +
+# fuel/water services"; 07-06 §4: higher-pressure steam, "stronger, better-made boilers"): an
+# engine light and strong enough to stand on its own wheels and pull wagons along a line. It needs
+# the atmospheric engine, wooden railways and forging together, and is found by those who dig coal
+# where a line already runs. Half of them would need 600,000 qualified hours (a far technique, a
+# tuning value). Learnt in 600 hours beside a knower. Founders do not bring it.
+kind = "technique"
+id = "core:technique/locomotive"
+name = "The locomotive"
+can = "build an engine that pulls wagons along a line by the steam of its coal"
+domain = "core:skill/smithing"
+requires = [["core:technique/atmospheric_engine", "core:technique/wooden_railway", "core:technique/forging"]]
+tried_in = ["core:activity/dig_coal"]
+needs = ["core:good/coal", "core:good/iron"]
+e50_h = 600000.0
+learn_h = 600.0
+upbringing = true
+
+[answers]
+spoilage = []

@@ -1029,6 +1029,20 @@ pub struct VehicleDef {
     /// (M10b slice DV; 0 for a boat or cart).
     pub rail_resistance: f64,
     pub gauge_m: f64,
+    /// A rail vehicle's engine (M10b slice DW; content API 170): `None` for a wagon pushed by
+    /// people, and for every boat and cart.
+    pub engine: Option<RailEngine>,
+}
+
+/// The engine of a rail vehicle that pulls (M10b slice DW; ADR-0034 §3, ADR-0033 §7): the fuel it
+/// burns, by good index, the share of the fuel's heat it turns into work at the wheels, and the
+/// fastest it runs, metres a second. Its pull and power are the vehicle's `pull_n` (the most its
+/// driven wheels hold before they slip) and `power_w`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RailEngine {
+    pub fuel: usize,
+    pub efficiency: f64,
+    pub top_speed_m_s: f64,
 }
 
 impl VehicleDef {
@@ -1073,6 +1087,11 @@ impl VehicleDef {
 }
 
 impl VehicleDef {
+    /// Whether it is a wagon: a rail vehicle with no engine, pushed by people (M10b slice DW).
+    pub fn is_wagon(&self) -> bool {
+        self.mode == VehicleMode::Rail && self.engine.is_none()
+    }
+
     /// Days it lasts, at 365.25 a year.
     pub fn life_days(&self) -> f64 {
         self.life_years * 365.25

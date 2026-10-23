@@ -90,7 +90,7 @@ impl Population {
             let home_end = if back { first } else { last };
             let Some((wagon, def)) = ctx.land.wagons.made_of(household).find_map(|w| {
                 let def = ctx.catalog.vehicles.get(usize::from(w.vehicle))?;
-                (def.mode == crate::params::VehicleMode::Rail
+                (def.is_wagon()
                     && (w.at == first || w.at == last)
                     && (def.gauge_m - f64::from(track.gauge_m)).abs() < 1e-3)
                     .then_some((w.id, def))
@@ -132,12 +132,12 @@ impl Population {
         None
     }
 
-    /// The rail vehicle the content makes, if any: the first of mode `rail`.
+    /// The wagon the content makes, if any: the first rail vehicle with no engine.
     fn wagon_vehicle(ctx: &Ctx) -> Option<usize> {
         ctx.catalog
             .vehicles
             .iter()
-            .position(|v| v.mode == crate::params::VehicleMode::Rail)
+            .position(crate::params::VehicleDef::is_wagon)
     }
 
     /// Households whose day of the year it is weigh a line from a pit home (M10b slice DV, fourth

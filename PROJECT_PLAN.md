@@ -6348,7 +6348,29 @@ and M6a gives rivers a daily flow.
       moves when it is pushed home; the observer decodes the new fields, draws a line by how much
       of it is laid, finds it across its bed, and draws a wagon by its own boards. **Slice DV is
       done.**
-    - **DW**: engines on rails and train runs: block sections, single track and loops.
+    - **DW**: engines on rails and train runs: block sections, single track and loops. Planned
+      (2026-10-23) in five parts, each leaving worlds where nobody knows the new technique as
+      they were: (1) the locomotive as vocabulary, a rail vehicle with an engine that burns a fuel
+      for its power, pulling up to what its driven wheels hold; (2) runs as a line's own event
+      chain, timed step by step by the engine's power over the train's pull and no faster than its
+      top speed, holding block sections of single track between passing loops, first come first
+      served, waiting at the last loop and never despawned (a pure module in `civ-land` and a saved
+      store of runs); (3) a household's engine runs its pit line, its crew from the household and
+      its coal burned by the work done, bringing the pit's stock home in loads no pusher moves; (4)
+      engines by choice, weighed as a line's wagon was; (5) the observer of runs and engines.
+      *As built, first part (2026-10-23): the locomotive as vocabulary.* A rail vehicle may name an
+      `[engine]` (content API 170): the fuel it burns, a good burned for heat, the share of that
+      heat it turns into work and its top speed; its pull and power are the vehicle's own, its
+      pull what its driven wheels hold before they slip. The core's locomotive is 5 t of engine on
+      a metre's gauge, 7.5 kW and 9,810 N, running at most 2.2 m/s and turning 3 % of its coal's
+      heat into work, made of 3,000 kg of iron in 3,000 hours by smiths who know the locomotive,
+      which needs the atmospheric engine, wooden railways and forging together and is tried by
+      those who dig coal. A wagon is now a rail vehicle with no engine, so the line's reviews and
+      hauls never take an engine for a wagon. Nobody knows the locomotive, so no world changes but
+      by the catalog's new entries. **Tested:** the core's locomotive loads with its engine burning
+      coal, its pull, power and tare, made only under its technique, and is no wagon while the
+      wagon is one; an engine too efficient, a top speed of nothing, a fuel that is not burned for
+      heat and an engine on a cart are each refused.
     - **DX**: stations, timetables set at review, fares and freight as posted terms, consignments
       of many owners, rides as household-day blocks, who builds and owns a line.
     - **DY**: the gas chain: gasworks, holders, mains, connections by district capacity,
@@ -7785,6 +7807,13 @@ One line each. Don't re-litigate without a reason written next to the entry.
   pump's half, its other work (a mill's, a hammer's) taken in the same daylight and not netted
   off; nobody sets a wheel for a pit's sake, so a wheel pumps only where one already stands near
   its holder's pit. Revisited when the M10 demo shows a pit beside a mill.
+- **Design priors for the locomotive (2026-10-23, M10b slice DW, first part):** NUDGE: an engine
+  on rails of 5 t, 7.5 kW and 2.2 m/s near the first engines on plateways (research 07-08 §5.5,
+  Trevithick's 1804 Penydarren, whose power no report gives), its most pull μ·m·g at the rail
+  brief's μ = 0.2, turning 3 % of its coal's heat into work (07-06 §2.3's 2-5 % for improved
+  steam), so some 35 kg of coal an hour at full power; it runs on the wagon's timber track at C =
+  0.005 though so heavy an engine would want iron rails. Made of 3,000 kg of iron in 3,000 hours
+  (tuning values). Revisited when an engine runs a line.
 - **Design priors for lines by choice (2026-10-23, M10b slice DV, fourth part):** NUDGE: a
   household weighs one line a year, from the deposit it digs most to home; a session is the dig's
   longest, walked both ways at off-trail pace; the line's timber and the wagon's are priced at the

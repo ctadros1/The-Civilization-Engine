@@ -232,6 +232,7 @@ impl Population {
             .forget(day, half, LEAST_WADES, |h| hh.contains_key(&h));
         self.forget_traffic(ctx, day);
         self.way_work_reviews(ctx, day);
+        self.line_reviews(ctx, day);
         if ctx.catalog.bridges.is_empty() {
             return;
         }

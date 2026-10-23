@@ -273,10 +273,38 @@ impl Population {
         ruling: f64,
     ) -> Option<PermanentId> {
         let params = ctx.land_params.track?;
+        let (cells, track) = Self::plan_line(ctx, from, to, gauge_m, ruling)?;
+        Some(Self::lay_line(ctx, keeper, cells, track, params.shoulder_m))
+    }
+
+    /// The line of track of gauge `gauge_m` from cell `from` to cell `to` graded to `ruling`, as
+    /// [`civ_land::rail::Terrain::plan_track`] plans it over today's land, searching a map's
+    /// width of cells; `None` where the land profile lays no track or no line joins them.
+    pub(super) fn plan_line(
+        ctx: &Ctx,
+        from: u32,
+        to: u32,
+        gauge_m: f32,
+        ruling: f64,
+    ) -> Option<(Vec<u32>, civ_land::rail::Track)> {
+        let params = ctx.land_params.track?;
         let decks = ctx.land.cart_decks(ctx.map);
         let terrain = ctx.land.cart_terrain(ctx.map, &decks);
         let budget = (ctx.map.width.max(ctx.map.height) as usize).pow(2) * 8;
-        let (cells, track) = terrain.plan_track(from, to, gauge_m, ruling, &params, budget)?;
+        terrain.plan_track(from, to, gauge_m, ruling, &params, budget)
+    }
+
+    /// Marks out planned line `cells` with track `track`, kept by `keeper`, on a bed `shoulder_m`
+    /// wider than its gauge each side: a way serving wagons alone, nothing yet laid. Returns its
+    /// id.
+    pub(super) fn lay_line(
+        ctx: &mut Ctx,
+        keeper: Keeper,
+        cells: Vec<u32>,
+        track: civ_land::rail::Track,
+        shoulder_m: f32,
+    ) -> PermanentId {
+        let gauge_m = track.gauge_m;
         let day = ctx.now.day_index();
         let id = ctx.ids.allocate();
         ctx.land.ways.add(Way {
@@ -284,7 +312,7 @@ impl Population {
             begun: day,
             segments: vec![Segment {
                 cells,
-                corridor_m: gauge_m + 2.0 * params.shoulder_m,
+                corridor_m: gauge_m + 2.0 * shoulder_m,
                 built_m: LAID_FROM_M,
                 usable_m: LAID_FROM_M,
                 surface: Surface::Track,
@@ -297,7 +325,7 @@ impl Population {
             rank: Rank::Lane,
             track: Some(track),
         });
-        Some(id)
+        id
     }
 
     /// Begins a line of track kept by household `household`: for tests.
@@ -483,20 +511,32 @@ impl Population {
                 )
             };
             let (at, walk_min) = walk_of(cell);
-            // Track's hours left are its share of the whole not yet laid.
-            let left_h = match &w.track {
+            // Track's hours left are its share of the whole not yet laid, and each hour of its
+            // laying spares the hours its wagon was reckoned to spare over its life, spread over
+            // the line's and the wagon's labour (M10b slice DV, fourth part).
+            let (left_h, saves_per_hour) = match &w.track {
                 Some(t) => {
-                    f64::from(t.labour_h) * f64::from((s.corridor_m - s.built_m).max(0.0))
-                        / f64::from((s.corridor_m - LAID_FROM_M).max(1e-3))
+                    let wagon = ctx.land.wagons.of(x.id).next().and_then(|c| {
+                        let def = ctx.catalog.vehicles.get(usize::from(c.vehicle))?;
+                        Some(
+                            f64::from(c.saves_h_year) * def.life_years
+                                / (f64::from(t.labour_h) + f64::from(c.labour_h)).max(1.0),
+                        )
+                    });
+                    (
+                        f64::from(t.labour_h) * f64::from((s.corridor_m - s.built_m).max(0.0))
+                            / f64::from((s.corridor_m - LAID_FROM_M).max(1e-3)),
+                        wagon.unwrap_or(0.0),
+                    )
                 }
-                None => left_of(s),
+                None => (left_of(s), saved_h / labour_h),
             };
             return Some(WayFacts {
                 way: w.id,
                 at,
                 walk_min,
                 left_h,
-                saves_per_hour: saved_h / labour_h,
+                saves_per_hour,
                 duty: 0.0,
                 full: false,
             });

@@ -6317,6 +6317,22 @@ and M6a gives rivers a daily flow.
       brings home more than twice one person's carry in a session and leaves the wagon at home, does
       so again from the home end, is saved and loaded alike, and a wagon of another gauge carries
       nothing there.
+      *As built, fourth part (2026-10-23): lines and wagons by choice.* Once a year, on a day of its
+      own, a household that knows the wagon's technique weighs a line from the deposit it digs most
+      (its held use of the place, in days a year) to home: the hours a year it would spare are its
+      dig days times a session's hours and the walk both ways, times one less what one person
+      carries over what the wagon brings in a session. The line is planned from the pit to home at
+      the ruling grade a full wagon is pushed up by one person, and when those hours over the
+      wagon's life come to more than the line's labour, the wagon's and their timber at the
+      household's own cost of it, it begins the line and a wagon at the home end, the wagon's
+      timber taken from its store. A wagon being made is worked as a cart is (its kind of work
+      carries the wagon's), and finished it is chronicled as a cart is. A household whose line
+      stands but has no wagon begins one. A track's way work counts the hours its wagon saves over
+      the line and wagon's labour. Nobody knows the wagon's technique yet, so no world changes.
+      **Tested:** a household that never digs weighs no line; digging 52 days a year the line is
+      not worth it (151 hours a year over fifteen years against 2,704) and nothing is begun though
+      it knows how; at 104 days it begins the line and a wagon at the home end with the wagon's
+      timber from its store, a second review adds nothing, and both are saved and loaded alike.
     - **DW**: engines on rails and train runs: block sections, single track and loops.
     - **DX**: stations, timetables set at review, fares and freight as posted terms, consignments
       of many owners, rides as household-day blocks, who builds and owns a line.
@@ -7754,6 +7770,17 @@ One line each. Don't re-litigate without a reason written next to the entry.
   pump's half, its other work (a mill's, a hammer's) taken in the same daylight and not netted
   off; nobody sets a wheel for a pit's sake, so a wheel pumps only where one already stands near
   its holder's pit. Revisited when the M10 demo shows a pit beside a mill.
+- **Design priors for lines by choice (2026-10-23, M10b slice DV, fourth part):** NUDGE: a
+  household weighs one line a year, from the deposit it digs most to home; a session is the dig's
+  longest, walked both ways at off-trail pace; the line's timber and the wagon's are priced at the
+  household's own cost of timber; the ruling grade is the one a full wagon is pushed up by one
+  person; and a line is worth it when the hours spared over the wagon's life exceed its labour and
+  the wagon's. None is measured. Revisited when the M10 demo shows a line laid.
+- **Smoke draws a different world each run (2026-10-23):** the smoke command creates each world
+  with a fresh identity, and the identity orders same-instant events, so a rare draw can fail a
+  check one run in many (once, river valley seed 2: a household without water at the instant
+  checked; 60 fixed identities probed afterwards were all watered). Whether that check should
+  pass a household mid-refill is left open until it recurs.
 - **Design priors for wagons on a line (2026-10-23, M10b slice DV, third part):** NUDGE: a pushed
   wagon is loaded to what one person moves up the line's steepest rise homeward and no further, so a
   line's ruling grade sets its load; one person pushes it loaded and walks it back empty with the

@@ -222,35 +222,7 @@ fn a_wagon_on_a_line_from_the_pit_brings_home_what_the_work_digs() {
     let household = first_household(&sim);
     let home = sim.people().household(household).expect("household").home;
     let carry = sim.rules().people.household.carry_kg;
-    // Coal showing about 100 m from home along ground a pushed wagonway can keep to: the first
-    // direction round from east in which a line at a 0.3 % ruling grade joins the two.
-    let params = sim.rules().land.track.expect("the core lays track");
-    let along = {
-        let map = sim.map();
-        let decks = sim.land().cart_decks(map);
-        let t = sim.land().cart_terrain(map, &decks);
-        let home_cell = civ_agents::population::cell_of(map, home) as u32;
-        (0..16)
-            .map(|k| f32::from(k as u8) * std::f32::consts::PI / 8.0)
-            .map(|a| (home.0 + 100.0 * a.cos(), home.1 + 100.0 * a.sin()))
-            .find(|&at| {
-                let cell = civ_agents::population::cell_of(map, at) as u32;
-                t.plan_track(home_cell, cell, 1.0, 0.003, &params, 200_000)
-                    .is_some()
-            })
-            .expect("a direction a line can keep to")
-    };
-    let seam = sim
-        .place_deposit(
-            (
-                home.0 + (along.0 - home.0) * 1.12,
-                home.1 + (along.1 - home.1) * 1.12,
-            ),
-            "core:good/coal",
-            12.0,
-            true,
-        )
-        .expect("laid down");
+    let seam = contour_seam(&mut sim, home);
     // A session without a wagon opens the pit and brings what one person carries.
     let dig = |sim: &mut Sim, minutes: f64| {
         sim.with_ctx_for_tests(|pop, ctx| {
@@ -323,4 +295,147 @@ fn a_wagon_on_a_line_from_the_pit_brings_home_what_the_work_digs() {
     }
     let again = dig(&mut sim, 180.0);
     assert!(again <= carry + 1e-9, "{again}");
+}
+
+/// Coal showing about 100 m from `home` along ground a pushed wagonway can keep to: the first
+/// direction round from east in which a line at a 0.3 % ruling grade joins the two.
+fn contour_seam(sim: &mut Sim, home: (f32, f32)) -> PermanentId {
+    let params = sim.rules().land.track.expect("the core lays track");
+    let along = {
+        let map = sim.map();
+        let decks = sim.land().cart_decks(map);
+        let t = sim.land().cart_terrain(map, &decks);
+        let home_cell = civ_agents::population::cell_of(map, home) as u32;
+        (0..16)
+            .map(|k| f32::from(k as u8) * std::f32::consts::PI / 8.0)
+            .map(|a| (home.0 + 100.0 * a.cos(), home.1 + 100.0 * a.sin()))
+            .find(|&at| {
+                let cell = civ_agents::population::cell_of(map, at) as u32;
+                t.plan_track(home_cell, cell, 1.0, 0.003, &params, 200_000)
+                    .is_some()
+            })
+            .expect("a direction a line can keep to")
+    };
+    sim.place_deposit(
+        (
+            home.0 + (along.0 - home.0) * 1.12,
+            home.1 + (along.1 - home.1) * 1.12,
+        ),
+        "core:good/coal",
+        12.0,
+        true,
+    )
+    .expect("laid down")
+}
+
+#[test]
+fn a_household_that_digs_often_weighs_a_line_home_and_begins_it_and_its_wagon() {
+    let mut sim = village(3);
+    let household = first_household(&sim);
+    let home = sim.people().household(household).expect("household").home;
+    let seam = contour_seam(&mut sim, home);
+    // A session opens the pit.
+    for _ in 0..20 {
+        let kg = sim.with_ctx_for_tests(|pop, ctx| {
+            pop.dig_and_bring_for_tests(ctx, household, seam, 180.0)
+        });
+        if kg > 0.0 {
+            break;
+        }
+    }
+    let reckon = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.line_reckoning_for_tests(ctx, household))
+    };
+    // Digging there no day yet: nothing to weigh.
+    assert_eq!(reckon(&mut sim), None);
+    // It has dug there about a day a week, as it holds its dig days (fading).
+    let half = sim.rules().people.places.use_half_life_days;
+    let held = |per_year: f64| (per_year * half / (365.0 * std::f64::consts::LN_2)) as f32;
+    let set_days = |sim: &mut Sim, per_year: f64| {
+        let day = sim.now().day_index();
+        let place = civ_agents::uses::Place::Deposit(seam);
+        let list = sim
+            .people_mut_for_tests()
+            .uses
+            .households
+            .entry(household)
+            .or_default();
+        list.retain(|u| u.place != place);
+        list.push(civ_agents::uses::PlaceUse {
+            place,
+            days: held(per_year),
+            kcal: 0.0,
+            outsiders: Vec::new(),
+            seen: Vec::new(),
+            day,
+            recent: 0,
+        });
+        list.sort_by_key(|a| a.place);
+    };
+    set_days(&mut sim, 52.0);
+    let r = reckon(&mut sim).expect("a line weighed");
+    assert_eq!(r.deposit, seam);
+    // Each dig day spares most of its session and walks: one person carries 20 kg, a wagon what
+    // the work digs.
+    assert!(r.saves_h_year > 52.0, "{r:?}");
+    assert!(r.cost_h > f64::from(r.track.labour_h), "{r:?}");
+    // Not knowing how to make a wagon, it begins nothing.
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_line_for_tests(ctx, household));
+    assert!(sim.land().ways.list.is_empty());
+    assert!(sim.land().wagons.list.is_empty());
+    // Knowing wooden railways and holding the wagon's timber, it marks out the line and begins
+    // the wagon at its home end, when the line repays itself over the wagon's life.
+    let railway = sim
+        .rules()
+        .catalog
+        .techniques
+        .iter()
+        .position(|t| t.id == "core:technique/wooden_railway")
+        .expect("wooden railways");
+    let learn_h = sim.rules().catalog.techniques[railway].learn_h;
+    let members = sim
+        .people()
+        .household(household)
+        .expect("household")
+        .members
+        .clone();
+    let now = sim.now();
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if members.contains(&p.id) {
+            p.learn(railway, learn_h, members[0], learn_h, now);
+        }
+    }
+    set_timber(&mut sim, household, 1_000.0);
+    let life = sim.rules().catalog.vehicles[wagon_vehicle(&sim)].life_years;
+    // A day a week does not repay a line's 1,900 hours and a wagon's 120 over its 15 years.
+    assert!(r.saves_h_year * life < r.cost_h, "{r:?}");
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_line_for_tests(ctx, household));
+    assert!(sim.land().ways.list.is_empty());
+    // Two days a week does.
+    set_days(&mut sim, 104.0);
+    let r = reckon(&mut sim).expect("a line weighed");
+    assert!(r.saves_h_year * life > r.cost_h, "{r:?}");
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_line_for_tests(ctx, household));
+    let line = sim.land().ways.list.first().cloned().expect("a line begun");
+    assert_eq!(line.modes, RAIL);
+    let (_, home_end) = line.ends().expect("ends");
+    assert_eq!(home_end, *r.cells.last().expect("cells"));
+    let wagon = sim
+        .land()
+        .wagons
+        .list
+        .first()
+        .cloned()
+        .expect("a wagon begun");
+    assert_eq!((wagon.owner, wagon.at), (household, home_end));
+    assert!(!wagon.made() && wagon.labour_h > 0.0);
+    // Its timber came out of the store.
+    assert!((timber_held(&sim, household) - 700.0).abs() < 1e-6);
+    // Weighed again, nothing more is begun.
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_line_for_tests(ctx, household));
+    assert_eq!(
+        (sim.land().ways.list.len(), sim.land().wagons.list.len()),
+        (1, 1)
+    );
+    saves_alike(&mut sim);
 }

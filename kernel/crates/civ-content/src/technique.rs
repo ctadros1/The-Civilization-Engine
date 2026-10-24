@@ -39,6 +39,23 @@ pub(crate) struct TechniqueFile {
     pub upbringing: bool,
     /// The household problem it answers, which draws people to try toward it.
     pub answers: Answers,
+    /// Content API 179 (M10c slice EA): the share of each complication's deaths in childbirth an
+    /// attendant who knows it prevents; none by default.
+    #[serde(default)]
+    pub birth: Option<BirthEffect>,
+}
+
+/// What a technique of birth care prevents (M10c slice EA): the share of each complication's
+/// deaths, 0-1.
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct BirthEffect {
+    #[serde(default)]
+    pub bleeding: f64,
+    #[serde(default)]
+    pub infection: f64,
+    #[serde(default)]
+    pub obstructed: f64,
 }
 
 /// The household problem a technique answers (ADR-0008 §3).
@@ -98,6 +115,10 @@ impl TechniqueFile {
                 .iter()
                 .map(|g| good_index(g))
                 .collect::<Option<Vec<_>>>()?,
+            birth: self
+                .birth
+                .as_ref()
+                .map_or([0.0; 3], |b| [b.bleeding, b.infection, b.obstructed]),
         })
     }
 
@@ -122,6 +143,17 @@ impl TechniqueFile {
         }
         if self.requires.iter().flatten().any(|t| *t == self.id) {
             p.push("a technique cannot require itself".to_owned());
+        }
+        if let Some(b) = &self.birth {
+            for (name, v) in [
+                ("bleeding", b.bleeding),
+                ("infection", b.infection),
+                ("obstructed", b.obstructed),
+            ] {
+                if !(v.is_finite() && (0.0..=1.0).contains(&v)) {
+                    p.push(format!("`birth.{name}` must be between 0 and 1 (got {v})"));
+                }
+            }
         }
         p
     }

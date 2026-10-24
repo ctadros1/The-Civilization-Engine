@@ -14,7 +14,7 @@ use crate::Cause;
 use crate::contagion::Node;
 use crate::decide::{CallFacts, TendFacts};
 use crate::influence::InfluenceKind;
-use crate::params::DiseaseRoute;
+use crate::params::{COMPLICATIONS, Complication, DiseaseRoute};
 use crate::sickness::{Acquired, CareCall, Outcome, SickDraw, course, sickness_rng};
 
 /// An outbreak is over only once less than this much of its disease is left with its
@@ -469,6 +469,8 @@ impl Population {
             self.sickness
                 .tend(i, day, who, hours / ill.len() as f64, rr);
         }
+        // Their hands were on the ill today (M10c slice EA).
+        self.sickness.tended.insert(who, day);
         treatments.sort_unstable();
         treatments.dedup();
         for t in treatments {
@@ -752,10 +754,86 @@ impl Population {
         }
     }
 
+    /// Who would attend mother `mother`'s birth on `day` (M10c slice EA; ADR-0035 §3): of those
+    /// of her household and her close kin living in her settlement, well and of tending age, one
+    /// who knows a technique of birth care, the one whose techniques prevent the most of the
+    /// deaths, by their shares (the lower id of two alike); with the share of each
+    /// complication's deaths they prevent, and whether they come fresh from the ill without a
+    /// technique against infection. `None` where nobody there knows any.
+    pub(super) fn birth_attendant(
+        &mut self,
+        ctx: &Ctx,
+        mother: PermanentId,
+        day: i64,
+    ) -> Option<(PermanentId, [f64; COMPLICATIONS], bool)> {
+        if !ctx
+            .catalog
+            .techniques
+            .iter()
+            .any(|t| t.birth.iter().any(|&e| e > 0.0))
+        {
+            return None;
+        }
+        let m = self.person(mother)?;
+        let home = m.household;
+        let settlement = self.household(home)?.settlement;
+        self.refresh_kin();
+        let mut near: Vec<PermanentId> = self.household(home)?.members.clone();
+        near.extend(self.close_kin(mother).into_iter().filter(|&k| {
+            self.person(k)
+                .and_then(|q| self.household(q.household))
+                .is_some_and(|x| x.settlement == settlement)
+        }));
+        near.sort_unstable();
+        near.dedup();
+        let min_age = ctx
+            .catalog
+            .activities
+            .iter()
+            .find(|a| a.behavior == Behavior::Tend)
+            .map_or(10.0, |a| a.min_age_years);
+        let birth = &ctx.params.mortality.birth;
+        let mut best: Option<(f64, PermanentId, [f64; COMPLICATIONS])> = None;
+        for q in near.into_iter().filter(|&q| q != mother) {
+            let Some(p) = self.person(q) else {
+                continue;
+            };
+            if p.age_years(ctx.now) < min_age || self.sickness.ill(q, day) {
+                continue;
+            }
+            let mut e = [0.0; COMPLICATIONS];
+            for (t, def) in ctx.catalog.techniques.iter().enumerate() {
+                if p.knows(t) {
+                    for (x, &b) in e.iter_mut().zip(&def.birth) {
+                        *x = f64::max(*x, b);
+                    }
+                }
+            }
+            if e.iter().all(|&x| x <= 0.0) {
+                continue;
+            }
+            let prevents: f64 = (0..COMPLICATIONS).map(|c| birth.shares[c] * e[c]).sum();
+            if best.is_none_or(|(b, _, _)| prevents > b) {
+                best = Some((prevents, q, e));
+            }
+        }
+        let (_, who, e) = best?;
+        let harmed = e[Complication::Infection as usize] <= 0.0
+            && self
+                .sickness
+                .tended
+                .get(&who)
+                .is_some_and(|&d| day - d <= birth.fever_harm_days);
+        Some((who, e, harmed))
+    }
+
     /// Calls for carers lapse at the day's turn (M10c slice DZ, second part): once nobody of the
     /// household that called is ill, once it or the household it called is no more, or once the
-    /// word's spell has passed since it called.
+    /// word's spell has passed since it called. Who tended the ill is forgotten once it no longer
+    /// matters to a birth (M10c slice EA).
     fn lapse_calls(&mut self, ctx: &Ctx, day: i64) {
+        let days = ctx.params.mortality.birth.fever_harm_days;
+        self.sickness.tended.retain(|_, d| day - *d <= days);
         if self.sickness.calls.is_empty() {
             return;
         }

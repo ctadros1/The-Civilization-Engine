@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 178;
+pub const KERNEL_CONTENT_API: u32 = 179;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -82,7 +82,7 @@ pub enum Severity {
 /// | E3002 | The `kind` is unknown, or missing |
 /// | E3003 | Not exactly one world-generation preset is marked `default = true` |
 /// | E3004 | Not exactly one people profile, or not exactly one land profile |
-/// | E3005 | A technique gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know |
+/// | E3005 | A technique gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know, nor does it prevent deaths in childbirth |
 /// | E3006 | Techniques' prerequisites form a cycle |
 /// | E3007 | A recipe can never be worked: an input or tool comes only from recipes that need it |
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -1567,14 +1567,17 @@ fn knowledge_problems(
                 .diseases
                 .iter()
                 .flat_map(|d| &d.file.treatment)
-                .any(|x| x.technique == def.id);
+                .any(|x| x.technique == def.id)
+            // Or the deaths in childbirth it prevents at a birth its knower attends (M10c slice
+            // EA).
+            || def.birth.iter().any(|&e| e > 0.0);
         if !gated {
             c.push(
                 "E3005",
                 &rel_of(&def.id),
                 None,
                 format!(
-                    "technique `{}` gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know",
+                    "technique `{}` gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know, nor does it prevent deaths in childbirth",
                     def.id
                 ),
             );

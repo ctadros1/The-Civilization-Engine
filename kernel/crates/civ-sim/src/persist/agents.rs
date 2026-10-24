@@ -129,7 +129,7 @@ use super::{
     SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
     SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, SCHEMA_V180,
     SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, SCHEMA_V187,
-    SCHEMA_V188, SCHEMA_V189, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -906,7 +906,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V182 | SCHEMA_V183 | SCHEMA_V184 | SCHEMA_V185 => Schema::V182,
         // Mains' lengths laid (schema 187), their worth (188) and street lamps (189) are read
         // wherever saved.
-        SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SAVE_SCHEMA_VERSION => Schema::V186,
+        SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SCHEMA_V190
+        | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -12798,12 +12799,20 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
         .map(|c| save::CareCallSave::new(c.caller.get(), c.carer.get(), c.fee_kcal, c.day, c.paid))
         .collect();
     let calls = fbb.create_vector(&calls);
+    let tended: Vec<_> = people
+        .sickness
+        .tended
+        .iter()
+        .map(|(p, &d)| save::TendedSave::new(p.get(), d))
+        .collect();
+    let tended = fbb.create_vector(&tended);
     let root = save::SicknessSave::create(
         &mut fbb,
         &save::SicknessSaveArgs {
             episodes: Some(list),
             outbreaks: Some(outbreaks),
             calls: Some(calls),
+            tended: Some(tended),
         },
     );
     finish(fbb, root)
@@ -13770,6 +13779,12 @@ fn decode_sickness(
             day: c.day(),
             paid: c.paid(),
         });
+    }
+    // Who tended the ill lately (schema 191, M10c slice EA): none in older saves.
+    for t in root.tended().iter().flatten() {
+        if let Some(p) = PermanentId::from_raw(t.person()) {
+            sickness.tended.insert(p, t.day());
+        }
     }
     Ok(sickness)
 }

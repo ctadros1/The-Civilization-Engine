@@ -241,6 +241,7 @@ mod tests {
             learn_h: 50.0,
             upbringing,
             answers_spoilage: Vec::new(),
+            birth: [0.0; 3],
         };
         Catalog {
             activities: vec![activity("sow", 10.0, 0), activity("weave", 12.0, 1)],

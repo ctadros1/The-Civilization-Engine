@@ -294,6 +294,9 @@ pub struct Sickness {
     outbreaks: Vec<Outbreak>,
     /// Calls for carers that stand, in the order made (M10c slice DZ).
     pub calls: Vec<CareCall>,
+    /// The last day each person tended someone ill, while it is recent enough to matter to a
+    /// birth they attend (M10c slice EA).
+    pub tended: BTreeMap<PermanentId, i64>,
     /// Episodes that run, by index, in order.
     running: Vec<usize>,
     /// Each person's episodes, by index, in order.

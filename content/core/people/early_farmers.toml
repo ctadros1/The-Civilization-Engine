@@ -266,6 +266,19 @@ exhaustion_power = 20.0
 # 1,050 to 500 across 1700-1850).
 maternal_death_per_birth = 0.0075
 
+[mortality.birth]                # M10c slice EA (content API 179; ADR-0035 §3)
+# How those deaths divide among their causes (05-05 §1.5 asks for the split; design priors, as the
+# brief has them: puerperal fever the largest share, then bleeding and labours that would not end).
+# The rate above is taken as the rate with nobody attending who knows a technique of birth care.
+bleeding = 0.3
+infection = 0.4
+obstructed = 0.3
+# An attendant who tended someone ill within a week and knows nothing against infection makes
+# fever after the birth twice as likely (05-05 §1.6, §2.1: Semmelweis's wards, 11.3 % against
+# 2.0 % once hands were washed; a design prior).
+fever_harm = 2.0
+fever_harm_days = 7
+
 [fertility]                      # a reproductive state machine (research 05-01 §1.4-1.5, 04-08 §1.5)
 # Chance a fecund woman living with her partner conceives in a month at her most fecund ages
 # (04-08 §2.3: start at 0.20, explore 0.10-0.30). With the spacing below, 0.10 brings a band's

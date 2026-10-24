@@ -1,0 +1,25 @@
+# Birth attending: helping a mother through a hard birth, turning a child that lies wrong, easing
+# out the afterbirth and stanching bleeding (M10c slice EA; ADR-0035 §3; research 05-05 §2.1:
+# doubling Sweden's trained midwives went with 20-40 % fewer maternal deaths, a population figure
+# taken here as the ceiling of what one attendant prevents of bleeding and obstructed labour).
+# Nobody brings it. Tending the sick counts toward finding it, slowly (a far technique; a tuning
+# value); it is learnt in 200 hours beside someone who knows it, and children brought up where it
+# is known learn it at home, as midwives' daughters did.
+kind = "technique"
+id = "core:technique/birth_attending"
+name = "Birth attending"
+can = "help a mother through a hard birth: turn a child lying wrong, ease the afterbirth, stanch bleeding"
+domain = ""
+requires = []
+tried_in = ["core:activity/work_tending_the_sick"]
+needs = []
+e50_h = 50000.0
+learn_h = 200.0
+upbringing = true
+
+[answers]
+spoilage = []
+
+[birth]
+bleeding = 0.3
+obstructed = 0.3

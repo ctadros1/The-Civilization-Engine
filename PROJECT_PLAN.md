@@ -6871,7 +6871,40 @@ and M6a gives rivers a daily flow.
       esteem for their craft, and the carer's page says whom they tended and that they lived; on
       the web, a person's care decodes and shows. **Slice DZ is done.**
     - **EA**: birth care: the maternal draw split by complication and rescaled by births attended,
-      birth attending and clean hands.
+      birth attending and clean hands. Planned (2026-10-24) in two parts, each leaving worlds
+      where nobody attends a birth as they were (brief `docs/briefs/m10-services.md` §2.2, §6.2):
+      (1) the split draw and the techniques: the maternal rate divided among complications,
+      techniques that prevent a share of each, the attendant from the mother's household or close
+      kin, and the harm of one fresh from the fevered; (2) calling an attendant to a birth due,
+      and the observer of births attended.
+      *As built, first part (2026-10-24): the split draw.* A people profile divides mothers'
+      deaths in childbirth among bleeding, fever after the birth and labours that would not end
+      (`[mortality.birth]`, 0.3, 0.4 and 0.3; design priors), and a technique may carry a `[birth]`
+      table, the share of each complication's deaths an attendant who knows it prevents (content
+      API 179). `birth_attending` prevents 30 % of bleeding and obstructed labour (05-05 §2.1's
+      20–40 % for doubled Swedish midwives taken as a ceiling), learnt in 200 hours beside a knower
+      or at home as a child; `clean_hands` prevents 82 % of fever after the birth (§2.1's 11.3 %
+      against 2.0 % in Semmelweis's wards), learnt in 10 hours; both are found tending the sick,
+      very slowly, and nobody brings them. A technique with a birth effect gates work (E3005). The
+      authored maternal rate is read as the rate with nobody attending who knows a technique of
+      birth care (a declared reading: the brief's reference coverage, rescaling it by an
+      assumed share attended, would change every world), and the birth's one draw is as ever:
+      unattended, the mother dies below the rate, exactly as before, and her death is chronicled
+      as childbirth. Attended by the person of her household or close kin of her settlement, well
+      and of tending age, who knows a technique of birth care and whose techniques prevent the
+      most, she dies only below what is left of each complication's part of the rate; one who
+      tended someone ill within a week (`fever_harm_days`, saves 191: the last day each person
+      tended the ill, kept while it matters) and knows nothing against infection makes fever
+      after the birth twice as likely (`fever_harm`; 05-05 §1.6), never more than certain. A
+      death where someone attended is chronicled with the complication they saw
+      ("childbirth:infection"). No world changes until someone knows a technique of birth care.
+      **Tested:** the draw unattended is the rate exactly at every point; an attendant who
+      prevents all bleeding and obstruction leaves fever's part, twice it fresh from the fevered;
+      a birth unattended kills where the rate is certain and is chronicled as childbirth; with a
+      member who knows birth attending she lives where the rate is all bleeding and obstruction
+      and dies of fever where it is all fever, chronicled so; where half of births kill by fever,
+      an attendant fresh from tending the ill kills her, and one who also knows clean hands
+      does not; who tended the ill saves and loads.
     - **EB**: teaching and study settled at midnight, working alongside recorded the same way (the
       parked-learning claim checked first), schools and `keep_a_school`.
     - **EC**: letters and records: reading, writing and reckoning as techniques, written records as

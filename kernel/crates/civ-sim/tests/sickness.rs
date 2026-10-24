@@ -1011,3 +1011,131 @@ fn a_household_calls_the_carer_whose_tended_it_saw_live_and_remembers_what_came_
         assert!(words.ends_with(" lived"), "{words}");
     }
 }
+
+/// A woman of the largest household with someone else of her household in it, made pregnant and
+/// due today, so that she gives birth at the next day's turn (M10c slice EA): returns her and
+/// another adult of her household.
+fn due_today(sim: &mut Sim) -> (PermanentId, PermanentId) {
+    use civ_agents::Repro;
+    let now = sim.now();
+    let (mother, other) = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .filter(|x| x.members.len() >= 2)
+        .find_map(|x| {
+            let adult = |m: &PermanentId| {
+                sim.people()
+                    .person(*m)
+                    .is_some_and(|p| (18.0..40.0).contains(&p.age_years(now)))
+            };
+            let mother = x.members.iter().copied().find(|m| {
+                adult(m)
+                    && sim.people().person(*m).is_some_and(|p| {
+                        p.sex == civ_agents::Sex::Female && matches!(p.repro, Repro::Open)
+                    })
+            })?;
+            let other = x
+                .members
+                .iter()
+                .copied()
+                .find(|&m| m != mother && adult(&m))?;
+            Some((mother, other))
+        })
+        .expect("a woman with another adult at home");
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.id == mother {
+            p.repro = Repro::Pregnant {
+                conceived: now.plus_minutes(-270 * DAY),
+                due: now,
+                father: None,
+                loss: false,
+            };
+        }
+    }
+    (mother, other)
+}
+
+/// The chronicle's name for `who`'s death, if they died.
+fn death_named(sim: &Sim, who: PermanentId) -> Option<String> {
+    sim.people()
+        .chronicle
+        .iter()
+        .rev()
+        .find(|c| c.kind == ChronicleKind::Died && c.people.first() == Some(&who))
+        .map(|c| c.name.clone())
+}
+
+#[test]
+fn a_birth_attended_by_one_who_knows_birth_care_is_survived_and_one_fresh_from_the_fevered_harms() {
+    const ATTENDING: &str = "core:technique/birth_attending";
+    // Every birth kills unattended; birth attending (made to prevent all bleeding and obstructed
+    // labour here) leaves fever after the birth, all of the rate's share here; clean hands
+    // prevents all of that.
+    let set = |sim: &mut Sim, rate: f64, shares: [f64; 3]| {
+        let rules = sim.rules_mut_for_tests().expect("the rules are not shared");
+        rules.people.mortality.maternal_death_per_birth = rate;
+        rules.people.mortality.birth.shares = shares;
+        let t = rules.catalog.technique_index(ATTENDING).expect("content");
+        rules.catalog.techniques[t].birth = [1.0, 0.0, 1.0];
+        let c = rules
+            .catalog
+            .technique_index("core:technique/clean_hands")
+            .expect("content");
+        rules.catalog.techniques[c].birth = [0.0, 1.0, 0.0];
+    };
+    // Nobody attends: she dies, and the chronicle names childbirth as ever.
+    let mut sim = village(3);
+    to_morning(&mut sim, 9 * 60);
+    set(&mut sim, 1.0, [0.3, 0.4, 0.3]);
+    let (mother, _) = due_today(&mut sim);
+    to_morning(&mut sim, 1);
+    assert!(sim.people().person(mother).is_none(), "died unattended");
+    assert_eq!(death_named(&sim, mother).as_deref(), Some("childbirth"));
+    // Someone of her household knows birth attending and nothing of fever: she lives where the
+    // rate is all bleeding and obstruction, and dies of fever where it is all fever.
+    for (shares, lives) in [([0.5, 0.0, 0.5], true), ([0.0, 1.0, 0.0], false)] {
+        let mut sim = village(3);
+        to_morning(&mut sim, 9 * 60);
+        set(&mut sim, 1.0, shares);
+        let (mother, attendant) = due_today(&mut sim);
+        sim.introduce_technique(attendant, ATTENDING, false)
+            .expect("taught");
+        to_morning(&mut sim, 1);
+        assert_eq!(sim.people().person(mother).is_some(), lives, "{shares:?}");
+        if !lives {
+            assert_eq!(
+                death_named(&sim, mother).as_deref(),
+                Some("childbirth:infection")
+            );
+        }
+    }
+    // Half the births kill by fever: an attendant fresh from tending the ill without clean hands
+    // doubles it, so she dies; knowing clean hands, she lives.
+    for clean in [false, true] {
+        let mut sim = village(3);
+        to_morning(&mut sim, 9 * 60);
+        set(&mut sim, 0.5, [0.0, 1.0, 0.0]);
+        let (mother, attendant) = due_today(&mut sim);
+        sim.introduce_technique(attendant, ATTENDING, false)
+            .expect("taught");
+        if clean {
+            sim.introduce_technique(attendant, "core:technique/clean_hands", false)
+                .expect("taught");
+        }
+        let day = sim.now().day_index();
+        sim.people_mut_for_tests()
+            .sickness
+            .tended
+            .insert(attendant, day);
+        to_morning(&mut sim, 1);
+        assert_eq!(
+            sim.people().person(mother).is_some(),
+            clean,
+            "clean hands {clean}"
+        );
+        // Who tended the ill saves and loads with the rest.
+        reloaded(&mut sim);
+    }
+}

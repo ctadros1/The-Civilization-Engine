@@ -752,6 +752,9 @@ pub struct TechniqueDef {
     /// The household problem it answers, which draws people to try toward it (ADR-0008 §3):
     /// goods lost to spoilage, by index in the goods.
     pub answers_spoilage: Vec<usize>,
+    /// The share of each complication's deaths in childbirth an attendant who knows it prevents
+    /// (M10c slice EA; content API 179), by [`Complication`]; all nought for most.
+    pub birth: [f64; COMPLICATIONS],
 }
 
 /// The authored activities, goods and crops.
@@ -1728,8 +1731,93 @@ pub struct MortalityParams {
     pub exhaustion_per_day: f64,
     /// How steeply that hazard rises toward the end of the reserve: `exhaustion_per_day · d^power`.
     pub exhaustion_power: f64,
-    /// Mothers' deaths per live birth.
+    /// Mothers' deaths per live birth, with nobody attending who knows a technique of birth
+    /// care.
     pub maternal_death_per_birth: f64,
+    /// How those deaths divide among the complications, and the harm of an attendant fresh from
+    /// the fevered (M10c slice EA).
+    pub birth: BirthParams,
+}
+
+/// The complications that kill a mother in childbirth (M10c slice EA; ADR-0035 §3; research
+/// 05-05 §1.5: maternal deaths split by cause, each answered by different care).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Complication {
+    Bleeding = 0,
+    Infection = 1,
+    Obstructed = 2,
+}
+
+/// Number of complications.
+pub const COMPLICATIONS: usize = 3;
+
+impl Complication {
+    /// Every complication, in order.
+    pub const ALL: [Complication; COMPLICATIONS] = [
+        Complication::Bleeding,
+        Complication::Infection,
+        Complication::Obstructed,
+    ];
+
+    /// Its key, as content and the chronicle name it.
+    pub fn key(self) -> &'static str {
+        match self {
+            Complication::Bleeding => "bleeding",
+            Complication::Infection => "infection",
+            Complication::Obstructed => "obstructed",
+        }
+    }
+
+    /// In words: "bleeding", "fever after the birth", "a labour that would not end".
+    pub fn words(self) -> &'static str {
+        match self {
+            Complication::Bleeding => "bleeding",
+            Complication::Infection => "fever after the birth",
+            Complication::Obstructed => "a labour that would not end",
+        }
+    }
+}
+
+/// How mothers' deaths in childbirth divide among the complications, shares summing to one, and
+/// how many times as likely an attendant who tended someone ill within `fever_harm_days` and
+/// knows nothing against infection makes fever after the birth (M10c slice EA; research 05-05
+/// §1.6: care can harm through its own routes).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct BirthParams {
+    pub shares: [f64; COMPLICATIONS],
+    pub fever_harm: f64,
+    pub fever_harm_days: i64,
+}
+
+impl MortalityParams {
+    /// Whether a mother dies in childbirth by draw `u` (uniform in [0, 1)), and of what: with
+    /// nobody attending (`care` `None`), below the maternal rate, as ever; attended by someone
+    /// whose techniques prevent the share `e` of each complication's deaths, and `harmed` if
+    /// they come fresh from the fevered without a technique against infection, below what is
+    /// left of each complication's part of the rate, fever's multiplied by the harm, never more
+    /// than certain (M10c slice EA). The complication is the part the draw falls in.
+    pub fn childbirth(
+        &self,
+        u: f64,
+        care: Option<([f64; COMPLICATIONS], bool)>,
+    ) -> Option<Complication> {
+        let p = self.maternal_death_per_birth;
+        let (e, harmed) = care.unwrap_or(([0.0; COMPLICATIONS], false));
+        let mut below = 0.0;
+        for c in Complication::ALL {
+            let i = c as usize;
+            let mut width = p * self.birth.shares[i] * (1.0 - e[i].clamp(0.0, 1.0));
+            if harmed && c == Complication::Infection {
+                width *= self.birth.fever_harm.max(1.0);
+            }
+            below = (below + width).min(1.0);
+            if u < below {
+                // With nobody attending, death is the authored rate exactly, as it always was.
+                return (care.is_some() || u < p).then_some(c);
+            }
+        }
+        (care.is_none() && u < p).then_some(Complication::Obstructed)
+    }
 }
 
 impl MortalityParams {

@@ -512,6 +512,8 @@ pub const SCHEMA_V187: u32 = 187;
 pub const SCHEMA_V188: u32 = 188;
 /// Street lamps, before calls for carers.
 pub const SCHEMA_V189: u32 = 189;
+/// Calls for carers, before who tended the ill was kept for births.
+pub const SCHEMA_V190: u32 = 190;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

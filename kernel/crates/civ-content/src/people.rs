@@ -2316,6 +2316,20 @@ pub(crate) struct Mortality {
     pub exhaustion_per_day: f64,
     pub exhaustion_power: f64,
     pub maternal_death_per_birth: f64,
+    /// Content API 179 (M10c slice EA): how mothers' deaths in childbirth divide among the
+    /// complications, and an attendant's harm fresh from the fevered.
+    pub birth: BirthFile,
+}
+
+/// How mothers' deaths in childbirth divide among the complications (M10c slice EA).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct BirthFile {
+    pub bleeding: f64,
+    pub infection: f64,
+    pub obstructed: f64,
+    pub fever_harm: f64,
+    pub fever_harm_days: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2595,6 +2609,11 @@ impl PeopleFile {
                 exhaustion_per_day: m.exhaustion_per_day,
                 exhaustion_power: m.exhaustion_power,
                 maternal_death_per_birth: m.maternal_death_per_birth,
+                birth: civ_agents::params::BirthParams {
+                    shares: [m.birth.bleeding, m.birth.infection, m.birth.obstructed],
+                    fever_harm: m.birth.fever_harm,
+                    fever_harm_days: m.birth.fever_harm_days,
+                },
             },
             fertility: {
                 let f = &self.fertility;
@@ -3520,6 +3539,26 @@ impl PeopleFile {
             m.maternal_death_per_birth,
             &mut p,
         );
+        let b = &m.birth;
+        for (name, v) in [
+            ("bleeding", b.bleeding),
+            ("infection", b.infection),
+            ("obstructed", b.obstructed),
+        ] {
+            unit(&format!("mortality.birth.{name}"), v, &mut p);
+        }
+        if ((b.bleeding + b.infection + b.obstructed) - 1.0).abs() > 1e-6 {
+            p.push("`mortality.birth`'s shares must sum to 1".to_owned());
+        }
+        if !(b.fever_harm.is_finite() && b.fever_harm >= 1.0) {
+            p.push(format!(
+                "`mortality.birth.fever_harm` must be at least 1 (got {})",
+                b.fever_harm
+            ));
+        }
+        if b.fever_harm_days < 0 {
+            p.push("`mortality.birth.fever_harm_days` must not be negative".to_owned());
+        }
         let f = &self.fertility;
         unit(
             "fertility.conception_per_month",

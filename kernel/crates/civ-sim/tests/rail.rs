@@ -1228,6 +1228,128 @@ fn a_neighbour_s_digging_goes_home_on_another_household_s_train_for_a_tenth_in_f
 }
 
 #[test]
+fn a_household_s_engine_on_its_polity_s_line_carries_a_neighbour_s_digging_to_the_hearth() {
+    use civ_land::trains::RunState;
+    let mut sim = village(3);
+    // The settlement's polity is founded at its first midnight.
+    sim.advance_minutes(24 * 60).expect("advances");
+    let operator = first_household(&sim);
+    let settlement = sim
+        .people()
+        .household(operator)
+        .and_then(|x| x.settlement)
+        .expect("a settlement");
+    let hearth = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|s| s.id == settlement)
+        .expect("the settlement")
+        .hearth_m;
+    let polity = sim
+        .people()
+        .polities
+        .iter()
+        .find(|p| p.holds(Some(settlement)))
+        .map(|p| p.id)
+        .expect("its polity");
+    let neighbour = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .find(|x| x.id != operator && x.settlement == Some(settlement) && !x.members.is_empty())
+        .map(|x| x.id)
+        .expect("a neighbour");
+    // A line from a pit to the hearth, the polity's: laid, then kept by it.
+    let carry = sim.rules().people.household.carry_kg;
+    let seam = contour_seam(&mut sim, hearth);
+    let (way, pit_cell, hearth_cell) = laid_line(&mut sim, operator, hearth, seam);
+    for w in sim.land_mut_for_tests().ways.list.iter_mut() {
+        if w.id == way {
+            for s in &mut w.segments {
+                s.keeper = civ_land::ways::Keeper::Polity(polity);
+            }
+        }
+    }
+    let dig = |sim: &mut Sim, who: PermanentId| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.dig_and_bring_for_tests(ctx, who, seam, 180.0))
+    };
+    // With no engine on the line and no wagon of its own, the neighbour carries what one person
+    // carries.
+    let by_hand = dig(&mut sim, neighbour);
+    assert!(by_hand > 0.0 && by_hand <= carry + 1e-9, "{by_hand}");
+    // With the operator's engine and wagon at the pit end, the neighbour's digging goes onto the
+    // wagon, far more than a carry.
+    let (wagon_v, engine_v) = (wagon_vehicle(&sim), engine_vehicle(&sim));
+    let add = |sim: &mut Sim, v: usize| {
+        sim.with_ctx_for_tests(|_, ctx| {
+            civ_agents::population::Population::add_wagon_for_tests(ctx, operator, v, pit_cell)
+        })
+    };
+    let wagon = add(&mut sim, wagon_v);
+    let engine = add(&mut sim, engine_v);
+    assert_eq!(dig(&mut sim, neighbour), 0.0, "nothing carried");
+    let theirs = |sim: &Sim| {
+        sim.people()
+            .consignments
+            .iter()
+            .filter(|c| c.boat == wagon && c.owner == neighbour)
+            .map(|c| c.stores.iter().sum::<f64>())
+            .sum::<f64>()
+    };
+    let loaded = theirs(&sim);
+    assert!(
+        loaded * 0.9 > 2.0 * carry,
+        "{loaded} aboard against {carry}"
+    );
+    // The operator's train takes it to the hearth with the operator's coal, and there the
+    // neighbour's goods go into its store less a tenth, which the operator keeps as freight.
+    set_store(&mut sim, operator, "core:good/coal", 50.0);
+    set_store(&mut sim, neighbour, "core:good/coal", 0.0);
+    let day = sim.now().day_index();
+    let account = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.engine_runs_for_tests(ctx, operator, day));
+    };
+    account(&mut sim);
+    let run = sim
+        .land()
+        .runs
+        .list
+        .first()
+        .cloned()
+        .expect("a run to the hearth");
+    assert_eq!(
+        (run.engine, run.cars.clone(), run.way),
+        (engine, vec![wagon], way)
+    );
+    let now = sim.now().minutes();
+    sim.advance_minutes((day * 1_440 + 7 * 60 - now).max(1))
+        .expect("advances");
+    assert!(matches!(
+        sim.land().runs.list.first().map(|r| r.state),
+        Some(RunState::Arrived { .. })
+    ));
+    let before = stores_of(&sim, neighbour, "core:good/coal");
+    account(&mut sim);
+    assert!(theirs(&sim) < 1e-9, "unloaded");
+    let got = stores_of(&sim, neighbour, "core:good/coal") - before;
+    assert!((got - 0.9 * loaded).abs() < 1.0, "{got} of {loaded}");
+    let at = sim
+        .land()
+        .wagons
+        .list
+        .iter()
+        .find(|w| w.id == wagon)
+        .expect("the wagon")
+        .at;
+    assert_eq!(at, hearth_cell);
+    // Its first run opened the line's stations.
+    assert!(sim.land().runs.line(way).is_some_and(|l| l.stations));
+    saves_alike(&mut sim);
+}
+
+#[test]
 fn a_line_opens_stations_with_its_first_run_keeps_goods_waiting_and_runs_by_its_timetable() {
     use civ_land::trains::RunState;
     let mut sim = village(3);

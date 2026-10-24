@@ -63,15 +63,16 @@ impl Population {
     /// Whether way `way` is a whole line household `household`, at home at `home`, may run its
     /// wagons on from a pit at `pit` home: one it keeps alone, or one a polity keeps that ends
     /// beside `hearth`, its settlement's hearth (M10b slice DX, third part), whose end there
-    /// counts as home; serving wagons, one end within [`DOOR_LEG_M`] of the pit and the other of
-    /// home. Whether homeward runs from its last cell to its first, and its cell beside home.
+    /// counts as home; serving wagons, one end within [`DOOR_LEG_M`] of the pit (any pit, where
+    /// `None`) and the other of home. Whether homeward runs from its last cell to its first, and
+    /// its cell beside home.
     pub(super) fn line_home(
         ctx: &Ctx,
         way: &civ_land::ways::Way,
         household: PermanentId,
         home: (f32, f32),
         hearth: Option<(f32, f32)>,
-        pit: (f32, f32),
+        pit: Option<(f32, f32)>,
     ) -> Option<(bool, u32)> {
         way.track.as_ref()?;
         if way.modes & RAIL == 0 || way.segments.iter().any(|s| s.built_m + 1e-3 < s.corridor_m) {
@@ -96,11 +97,12 @@ impl Population {
             let c = cell_centre(ctx.map, cell as usize);
             f64::from((c.0 - at.0).hypot(c.1 - at.1)) <= DOOR_LEG_M
         };
+        let at_pit = |cell: u32| pit.is_none_or(|p| near(cell, p));
         let (first, last) = way.ends()?;
         // Homeward is first to last when the first end lies by the pit.
-        if near(first, pit) && near(last, home) {
+        if at_pit(first) && near(last, home) {
             Some((false, last))
-        } else if near(last, pit) && near(first, home) {
+        } else if at_pit(last) && near(first, home) {
             Some((true, first))
         } else {
             None
@@ -124,7 +126,8 @@ impl Population {
         let walk = ctx.params.nav.tobler_ms(0.0);
         let cell_m = f64::from(ctx.map.cell_size_m);
         for way in &ctx.land.ways.list {
-            let Some((back, home_end)) = Self::line_home(ctx, way, household, home, hearth, pit)
+            let Some((back, home_end)) =
+                Self::line_home(ctx, way, household, home, hearth, Some(pit))
             else {
                 continue;
             };
@@ -276,11 +279,16 @@ impl Population {
         // part): no line of its own beside it, but a wagon of its own on it where the hours the
         // wagon spares over its life are more than it takes.
         if let Some((home_end, saves_h_year, cost_h)) = self.public_wagon(ctx, household, vehicle) {
-            if ctx.land.wagons.of(household).next().is_none()
-                && saves_h_year * def.life_years > cost_h
-            {
-                self.begin_wagon(ctx, household, vehicle, home_end, saves_h_year);
+            if ctx.land.wagons.of(household).next().is_none() {
+                if saves_h_year * def.life_years > cost_h {
+                    self.begin_wagon(ctx, household, vehicle, home_end, saves_h_year);
+                }
+                return;
             }
+            // With its wagons on the line, an engine of its own there, and its timetable, as on
+            // a line of its own.
+            self.review_locomotive(ctx, household);
+            self.review_timetable(ctx, household);
             return;
         }
         let Some(r) = self.line_reckoning(ctx, household, vehicle) else {
@@ -341,7 +349,8 @@ impl Population {
             if !polity || !gauge {
                 return None;
             }
-            let (back, home_end) = Self::line_home(ctx, w, household, x.home, Some(hearth), p.pit)?;
+            let (back, home_end) =
+                Self::line_home(ctx, w, household, x.home, Some(hearth), Some(p.pit))?;
             Some((w, back, home_end))
         })?;
         let track = way.track.as_ref()?;
@@ -803,7 +812,7 @@ impl Population {
                 super::digging::dig_place(ctx.land, ctx.map, &d, toward, side)
             });
         if let Some((wagon, room)) =
-            pit.and_then(|pit| Self::engine_room(ctx, consignments, household, home, pit))
+            pit.and_then(|pit| Self::engine_room(ctx, consignments, household, home, hearth, pit))
         {
             let effort_h = minutes / 60.0 * eff;
             let kg = super::digging::dig_at(ctx, household, toward, deposit, effort_h, room);
@@ -814,7 +823,7 @@ impl Population {
         // wagon or a carry brings.
         if let Some(pit) = pit
             && let Some((_, wagon, room)) =
-                Self::freight_room(ctx, consignments, household, home, pit)
+                Self::freight_room(ctx, consignments, household, home, hearth, pit)
             && let Some(d) = ctx.land.deposits.iter().find(|d| d.id == deposit)
         {
             let rates =
@@ -836,7 +845,8 @@ impl Population {
         // second part), where what comes home after any freight is more than the household's
         // own wagon or a carry brings.
         if let Some(pit) = pit
-            && let Some((keeper, way, room)) = Self::station_room(ctx, consignments, home, pit)
+            && let Some((keeper, way, room)) =
+                Self::station_room(ctx, consignments, home, hearth, pit)
             && let Some(d) = ctx.land.deposits.iter().find(|d| d.id == deposit)
         {
             let rates =

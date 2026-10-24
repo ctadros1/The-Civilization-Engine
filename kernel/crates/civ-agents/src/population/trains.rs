@@ -13,10 +13,10 @@
 
 use super::*;
 use crate::consignments::Consignment;
-use civ_land::carting::{DOOR_LEG_M, pull_n};
+use civ_land::carting::pull_n;
 use civ_land::rail;
 use civ_land::trains::{self, Run, RunState, Train};
-use civ_land::ways::{Keeper, RAIL};
+use civ_land::ways::RAIL;
 
 /// The minute of the day an engine sets off along its line.
 const DEPART_MIN: i64 = 6 * 60;
@@ -61,19 +61,20 @@ pub(super) struct EngineLine {
 
 impl Population {
     /// Household `household`'s engine line from a pit at `pit` (any pit, where `None`) to home at
-    /// `home`, if any: a whole line kept by it alone, serving wagons, one end within
-    /// [`DOOR_LEG_M`] of home and the other of the pit, with a made engine of its gauge standing
-    /// at either end and not out on a run. The first such line, in the order lines were begun.
+    /// `home`, its settlement's hearth at `hearth`, if any: a line it may run its wagons on
+    /// ([`Population::line_home`]), with a made engine of its own of the line's gauge standing at
+    /// either end and not out on a run. The first such line, in the order lines were begun.
     pub(super) fn engine_line(
         ctx: &Ctx,
         household: PermanentId,
         home: (f32, f32),
+        hearth: Option<(f32, f32)>,
         pit: Option<(f32, f32)>,
     ) -> Option<EngineLine> {
         if ctx.land.wagons.list.is_empty() {
             return None;
         }
-        Self::own_lines(ctx, household, home, pit)
+        Self::own_lines(ctx, household, home, hearth, pit)
             .into_iter()
             .find_map(|mut line| {
                 let (first, last) = (line.cells[0], *line.cells.last()?);
@@ -92,48 +93,31 @@ impl Population {
             })
     }
 
-    /// Household `household`'s whole lines from a pit at `pit` (any pit, where `None`) to home at
-    /// `home`, in the order begun: kept by it alone, serving wagons, one end within
-    /// [`DOOR_LEG_M`] of home and the other of the pit; each with no engine yet named.
+    /// Household `household`'s lines from a pit at `pit` (any pit, where `None`) to home at
+    /// `home`, its settlement's hearth at `hearth`, in the order begun: those it may run its
+    /// wagons on ([`Population::line_home`]), its own or its polity's (M10b slice DX, third
+    /// part); each with no engine yet named.
     fn own_lines(
         ctx: &Ctx,
         household: PermanentId,
         home: (f32, f32),
+        hearth: Option<(f32, f32)>,
         pit: Option<(f32, f32)>,
     ) -> Vec<EngineLine> {
         let mut out = Vec::new();
-        let near = |cell: u32, at: (f32, f32)| {
-            let c = cell_centre(ctx.map, cell as usize);
-            f64::from((c.0 - at.0).hypot(c.1 - at.1)) <= DOOR_LEG_M
-        };
         for way in &ctx.land.ways.list {
             let Some(track) = &way.track else {
                 continue;
             };
-            if way.modes & RAIL == 0
-                || !way.segments.iter().all(|s| {
-                    s.keeper == Keeper::Household(household) && s.built_m + 1e-3 >= s.corridor_m
-                })
-            {
+            let Some((home_back, home_end)) =
+                Self::line_home(ctx, way, household, home, hearth, pit)
+            else {
                 continue;
-            }
+            };
             let Some((first, last)) = way.ends() else {
                 continue;
             };
-            let at_pit = |cell: u32| pit.is_none_or(|p| near(cell, p));
-            // Homeward is last to first when the first end lies by home.
-            let home_back = if near(first, home) && at_pit(last) {
-                true
-            } else if near(last, home) && at_pit(first) {
-                false
-            } else {
-                continue;
-            };
-            let (home_end, pit_end) = if home_back {
-                (first, last)
-            } else {
-                (last, first)
-            };
+            let pit_end = if home_end == first { last } else { first };
             out.push(EngineLine {
                 way: way.id,
                 cells: way
@@ -215,9 +199,10 @@ impl Population {
         consignments: &[Consignment],
         household: PermanentId,
         home: (f32, f32),
+        hearth: Option<(f32, f32)>,
         pit: (f32, f32),
     ) -> Option<(PermanentId, f64)> {
-        let line = Self::engine_line(ctx, household, home, Some(pit))?;
+        let line = Self::engine_line(ctx, household, home, hearth, Some(pit))?;
         let engine_at = ctx
             .land
             .wagons
@@ -234,95 +219,100 @@ impl Population {
         (room > 0.0).then_some((first, room))
     }
 
-    /// Where a session's digging by someone of household `household`, at home at `home`, at a
-    /// pit at `pit` goes when another household's engine works a line from there to beside its
-    /// home (M10b slice DX, first part): that household, the line's keeper; the first of its
-    /// wagons at the pit end; and the room left on its train. Keepers are tried in the order their
-    /// lines were begun.
+    /// Where a session's digging by someone of household `household`, at home at `home`, its
+    /// settlement's hearth at `hearth`, at a pit at `pit` goes when another household's engine
+    /// works a line from there to beside its home (M10b slice DX, first part), or to its hearth on
+    /// a line its polity keeps (third part): that household, the train's operator; the first of
+    /// its wagons at the pit end; and the room left on its train. Operators are tried in the
+    /// order their engines were begun.
     pub(super) fn freight_room(
         ctx: &Ctx,
         consignments: &[Consignment],
         household: PermanentId,
         home: (f32, f32),
+        hearth: Option<(f32, f32)>,
         pit: (f32, f32),
     ) -> Option<(PermanentId, PermanentId, f64)> {
-        if ctx.land.wagons.list.is_empty() {
-            return None;
-        }
-        let mut tried = Vec::new();
-        for way in &ctx.land.ways.list {
-            if way.modes & RAIL == 0 {
-                continue;
-            }
-            let Some(Keeper::Household(keeper)) = way.segments.first().map(|s| s.keeper) else {
-                continue;
-            };
-            if keeper == household || tried.contains(&keeper) {
-                continue;
-            }
-            tried.push(keeper);
-            if let Some((wagon, room)) = Self::engine_room(ctx, consignments, keeper, home, pit) {
-                return Some((keeper, wagon, room));
-            }
-        }
-        None
+        Self::operators(ctx)
+            .into_iter()
+            .filter(|&o| o != household)
+            .find_map(|o| {
+                let (wagon, room) = Self::engine_room(ctx, consignments, o, home, hearth, pit)?;
+                Some((o, wagon, room))
+            })
     }
 
-    /// The pit station a session's digging by someone at home at `home`, at a pit at `pit`, may
-    /// wait at for a train (M10b slice DX, second part): a line with
-    /// its stations open running from beside the pit to beside home, kept by this household or
-    /// another with an engine on it; that household, the line, and the room left there: what all
-    /// the keeper's wagons on the line hold, less what already waits.
+    /// The households with a made engine, in the order their engines were begun.
+    fn operators(ctx: &Ctx) -> Vec<PermanentId> {
+        let mut out: Vec<PermanentId> = Vec::new();
+        for w in &ctx.land.wagons.list {
+            let engine = w.made()
+                && ctx
+                    .catalog
+                    .vehicles
+                    .get(usize::from(w.vehicle))
+                    .is_some_and(|d| d.engine.is_some());
+            if engine && !out.contains(&w.owner) {
+                out.push(w.owner);
+            }
+        }
+        out
+    }
+
+    /// The pit station a session's digging by someone at home at `home`, their settlement's
+    /// hearth at `hearth`, at a pit at `pit`, may wait at for a train (M10b slice DX, second
+    /// part): a line with its stations open running from beside the pit to beside home (or to
+    /// the hearth, on a line a polity keeps), on which a household with an engine runs its
+    /// trains; that household, the line, and the room left there: what all the household's
+    /// wagons on the line hold, less what already waits. Lines are tried in the order begun, and
+    /// each line's operators in the order their engines were begun.
     pub(super) fn station_room(
         ctx: &Ctx,
         consignments: &[Consignment],
         home: (f32, f32),
+        hearth: Option<(f32, f32)>,
         pit: (f32, f32),
     ) -> Option<(PermanentId, PermanentId, f64)> {
         if ctx.land.runs.lines.iter().all(|l| !l.stations) {
             return None;
         }
         let vehicle = Self::engine_vehicle(ctx)?;
-        let mut tried = Vec::new();
+        let operators = Self::operators(ctx);
         for way in &ctx.land.ways.list {
             if way.modes & RAIL == 0 || !ctx.land.runs.line(way.id).is_some_and(|l| l.stations) {
                 continue;
             }
-            let Some(Keeper::Household(keeper)) = way.segments.first().map(|s| s.keeper) else {
-                continue;
-            };
-            if tried.contains(&(keeper, way.id)) {
-                continue;
-            }
-            tried.push((keeper, way.id));
-            let Some(line) = Self::own_lines(ctx, keeper, home, Some(pit))
-                .into_iter()
-                .find(|l| l.way == way.id)
-            else {
-                continue;
-            };
-            let cars: Vec<PermanentId> = ctx
-                .land
-                .wagons
-                .made_of(keeper)
-                .filter(|w| {
-                    ctx.catalog
-                        .vehicles
-                        .get(usize::from(w.vehicle))
-                        .is_some_and(|d| {
-                            d.is_wagon() && (d.gauge_m - f64::from(line.track.gauge_m)).abs() < 1e-3
-                        })
-                })
-                .map(|w| w.id)
-                .collect();
-            let waiting: f64 = consignments
-                .iter()
-                .filter(|c| c.boat == way.id)
-                .map(|c| c.stores.iter().sum::<f64>())
-                .sum();
-            let room = Self::room_of(ctx, &line, vehicle, &cars) - waiting;
-            if room > 0.0 {
-                return Some((keeper, way.id, room));
+            for &keeper in &operators {
+                let Some(line) = Self::own_lines(ctx, keeper, home, hearth, Some(pit))
+                    .into_iter()
+                    .find(|l| l.way == way.id)
+                else {
+                    continue;
+                };
+                let cars: Vec<PermanentId> = ctx
+                    .land
+                    .wagons
+                    .made_of(keeper)
+                    .filter(|w| {
+                        ctx.catalog
+                            .vehicles
+                            .get(usize::from(w.vehicle))
+                            .is_some_and(|d| {
+                                d.is_wagon()
+                                    && (d.gauge_m - f64::from(line.track.gauge_m)).abs() < 1e-3
+                            })
+                    })
+                    .map(|w| w.id)
+                    .collect();
+                let waiting: f64 = consignments
+                    .iter()
+                    .filter(|c| c.boat == way.id)
+                    .map(|c| c.stores.iter().sum::<f64>())
+                    .sum();
+                let room = Self::room_of(ctx, &line, vehicle, &cars) - waiting;
+                if room > 0.0 {
+                    return Some((keeper, way.id, room));
+                }
             }
         }
         None
@@ -486,10 +476,13 @@ impl Population {
         ctx.land.runs.advance(now);
         for household in owners {
             self.settle_runs(ctx, household);
-            let Some(home) = self.household(household).map(|x| x.home) else {
+            let Some((home, hearth)) = self
+                .household(household)
+                .map(|x| (x.home, Self::hearth_of(ctx, x)))
+            else {
                 continue;
             };
-            let runs = Self::engine_line(ctx, household, home, None)
+            let runs = Self::engine_line(ctx, household, home, hearth, None)
                 .and_then(|l| ctx.land.runs.line(l.way).map(|r| r.runs_a_day))
                 .unwrap_or(1);
             if departures(runs.clamp(1, MOST_RUNS_A_DAY)).contains(&minute) {
@@ -499,8 +492,8 @@ impl Population {
     }
 
     /// Household `household`'s runs that have arrived, taken off their line: their engine and
-    /// wagons left at the end they reached, and the wagons' goods unloaded into its store where
-    /// that end is beside home.
+    /// wagons left at the end they reached, and the wagons' goods unloaded where that end is the
+    /// line's home end ([`Population::line_home`]).
     fn settle_runs(&mut self, ctx: &mut Ctx, household: PermanentId) {
         let arrived: Vec<PermanentId> = ctx
             .land
@@ -510,32 +503,29 @@ impl Population {
             .filter(|r| r.owner == household && matches!(r.state, RunState::Arrived { .. }))
             .map(|r| r.id)
             .collect();
-        let home = self.household(household).map(|x| x.home);
+        let (home, hearth) = self
+            .household(household)
+            .map_or(((0.0, 0.0), None), |x| (x.home, Self::hearth_of(ctx, x)));
         for id in arrived {
             let Some(run) = ctx.land.runs.take_off(id) else {
                 continue;
             };
-            let Some((first, last)) = ctx
-                .land
-                .ways
-                .list
-                .iter()
-                .find(|w| w.id == run.way)
-                .and_then(|w| w.ends())
-            else {
+            let Some(way) = ctx.land.ways.list.iter().find(|w| w.id == run.way) else {
+                continue;
+            };
+            let Some((first, last)) = way.ends() else {
                 continue;
             };
             let end = if run.back { first } else { last };
+            let other = cell_centre(ctx.map, (if run.back { last } else { first }) as usize);
+            let by_home = Self::line_home(ctx, way, household, home, hearth, Some(other))
+                .is_some_and(|(_, h)| h == end);
             for w in &mut ctx.land.wagons.list {
                 if w.id == run.engine || run.cars.contains(&w.id) {
                     w.at = end;
                 }
             }
             ctx.land.wagons.changed();
-            let by_home = home.is_some_and(|h| {
-                let c = cell_centre(ctx.map, end as usize);
-                f64::from((c.0 - h.0).hypot(c.1 - h.1)) <= DOOR_LEG_M
-            });
             if by_home {
                 self.unload_wagons(ctx, household, &run.cars, run.way);
             }
@@ -612,10 +602,13 @@ impl Population {
     /// from the pit end with its loaded wagons, or back out light from the home end, when the
     /// household holds the coal the run burns and someone of it is of an age to drive it.
     fn set_off(&mut self, ctx: &mut Ctx, household: PermanentId, at: i64) {
-        let Some(home) = self.household(household).map(|x| x.home) else {
+        let Some((home, hearth)) = self
+            .household(household)
+            .map(|x| (x.home, Self::hearth_of(ctx, x)))
+        else {
             return;
         };
-        let Some(line) = Self::engine_line(ctx, household, home, None) else {
+        let Some(line) = Self::engine_line(ctx, household, home, hearth, None) else {
             return;
         };
         if self.elder_of(household, ctx.now, ctx.params).is_none() {
@@ -742,14 +735,17 @@ impl Population {
     /// as all its wagons make them, at least one and at most [`MOST_RUNS_A_DAY`]; the tally then
     /// begins again.
     pub(super) fn review_timetable(&mut self, ctx: &mut Ctx, household: PermanentId) {
-        let Some(home) = self.household(household).map(|x| x.home) else {
+        let Some((home, hearth)) = self
+            .household(household)
+            .map(|x| (x.home, Self::hearth_of(ctx, x)))
+        else {
             return;
         };
         let Some(vehicle) = Self::engine_vehicle(ctx) else {
             return;
         };
         let day = ctx.now.day_index();
-        for line in Self::own_lines(ctx, household, home, None) {
+        for line in Self::own_lines(ctx, household, home, hearth, None) {
             let Some(record) = ctx.land.runs.line(line.way).filter(|r| r.stations) else {
                 continue;
             };
@@ -808,7 +804,8 @@ impl Population {
         let x = self.household(household)?;
         let def = ctx.catalog.vehicles.get(vehicle)?;
         let p = self.dig_profile(ctx, household)?;
-        let line = Self::own_lines(ctx, household, x.home, Some(p.pit))
+        let hearth = Self::hearth_of(ctx, x);
+        let line = Self::own_lines(ctx, household, x.home, hearth, Some(p.pit))
             .into_iter()
             .find(|l| (def.gauge_m - f64::from(l.track.gauge_m)).abs() < 1e-3)?;
         let (first, last) = (line.cells[0], *line.cells.last()?);
@@ -819,7 +816,6 @@ impl Population {
         }
         let carry = ctx.params.household.carry_kg;
         let dug = p.kg_h * p.session_h;
-        let hearth = Self::hearth_of(ctx, x);
         let by_now = Self::wagon_haul(ctx, household, x.home, hearth, p.pit).map_or(carry, |h| {
             h.load_kg
                 .min(p.kg_h * (p.session_h - h.extra_min / 60.0).max(0.0))

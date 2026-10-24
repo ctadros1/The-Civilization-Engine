@@ -6531,6 +6531,22 @@ and M6a gives rivers a daily flow.
       the hearth end and lays nothing; a household with a made wagon on the line brings home more
       than twice a carry from the pit, its wagon left at the hearth end; saved and loaded, the
       world goes on alike.
+      *As built, third part, third step (2026-10-24): engines and trains on a line laid
+      together.* A household's engine runs on its polity's line as on a line of its own: the
+      lines it may run trains on are those it may run wagons on, its own or one its polity keeps
+      ending at its hearth, the hearth end counting as home. Trains are run by their engine's
+      owner, its operator, who drives and burns its own coal; a neighbour's digging goes aboard
+      the first operator's train at the pit end (operators tried in the order their engines were
+      begun), or waits at the pit station, and comes off at the end that is home to the
+      operator, going into the neighbour's store less the operator's tenth in freight. A household
+      with its wagons on its polity's line weighs an engine there and sets the line's timetable at
+      its yearly review, as on a line of its own. Nobody knows the locomotive, so no world changes.
+      **Tested:** on a line from a pit to the hearth kept by the polity, a neighbour with no wagon
+      carries what one person carries until an operator's engine and wagon stand at the pit end;
+      then its digging goes aboard, the operator's train runs it to the hearth with the
+      operator's coal, it reaches the neighbour's store less a tenth, the wagon stands at the
+      hearth end, and the run opened the line's stations; saved and loaded, the world goes on
+      alike.
     - **DY**: the gas chain: gasworks, holders, mains, connections by district capacity,
       interruptions by cause, street lighting as a public work.
   - **M10c, services and letters** (ADR-0035 §1–§7).
@@ -7965,6 +7981,12 @@ One line each. Don't re-litigate without a reason written next to the entry.
   pump's half, its other work (a mill's, a hammer's) taken in the same daylight and not netted
   off; nobody sets a wheel for a pit's sake, so a wheel pumps only where one already stands near
   its holder's pit. Revisited when the M10 demo shows a pit beside a mill.
+- **Design priors for engines on a line laid together (2026-10-24, M10b slice DX, third part,
+  third step):** NUDGE: any household of the settlement may run its engine on its polity's line,
+  paying the polity nothing; several operators share one line's freight tally and timetable, the
+  last to review it setting its runs a day; a neighbour's goods board the operator whose engine
+  was begun first that has room. None is measured. Revisited with rides and when a polity's line
+  carries trains in a world.
 - **Design priors for wagons on a line laid together (2026-10-24, M10b slice DX, third part,
   second step):** NUDGE: any household of the settlement at whose hearth a polity's line ends may
   run its own wagons on it, unasked and paying nothing; what a wagon brings goes from the hearth

@@ -6232,6 +6232,10 @@ impl Population {
             make::wear(&mut x.stores, goods, &recipe.tools, hours);
             x.flows
                 .add_changes(&before, &x.stores, Flow::Made, Flow::Worn);
+            // Gas made beyond its holders' room goes to the air (M10b slice DY, ADR-0034 §8).
+            for (g, kg) in make::keep_to_holders(goods, &mut x.stores) {
+                x.flows.add(Flow::Spoiled, g, kg);
+            }
             // Work after dark by lamplight burns the lamp's fuel and wears the lamp (M10b slice
             // DU; research 11-13 §2.2: light's cost is its fuel and fixture by the hour lit).
             if def.daylight_only {

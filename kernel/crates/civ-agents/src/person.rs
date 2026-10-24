@@ -1214,6 +1214,8 @@ impl Household {
                 burned -= take * per_kg;
             }
         }
+        // Gas beyond its holders' room is lost to the air (M10b slice DY).
+        crate::make::keep_to_holders(goods, &mut out);
         out
     }
 

@@ -6633,6 +6633,19 @@ and M6a gives rivers a daily flow.
       40 MJ a kilogram and the core's recipe makes it from coal with coke left over; a holder of 0
       kg or above 100,000, a holder on a tool that is not fixed, and a held good that is no good
       are each refused.
+      *As built, second part (2026-10-24): the works.* Gas keeps only in a holder: a household's
+      coal gas is kept to the room of the whole holders it holds (150 kg each in the core), and
+      what a session at the retort makes beyond that room, or all of it where it holds no holder,
+      goes to the air at once, counted as spoiled; its stores settle to the same room. The
+      holder's gas is its kilograms by its heat, 6,000 MJ full. A retort session's first two
+      hours fire it and make nothing (the recipe's session hours); after them each 0.015 hours
+      charges a kilogram of coal. Nobody knows gas making, so no world changes. **Tested:** with
+      no holder a session's gas all goes to the air, counted as spoiled, while its coke (0.65 kg
+      a kilogram of coal) stays and its coal is spent; with a holder an hour's making past the
+      firing is kept, 0.14 kg a kilogram of coal; long sessions fill it to 150 kg exactly, 6,000
+      MJ, the rest lost; a day on the gas is still there; saved and loaded the world is alike; two
+      whole holders hold 300 kg, a good no holder keeps is untouched, and a holder short of whole
+      holds nothing.
   - **M10c, services and letters** (ADR-0035 §1–§7).
     - **DZ**: care beyond the household: a call, tending another home, kin unasked, the `Fee`
       channel, reputation from claims.

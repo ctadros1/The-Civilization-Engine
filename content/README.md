@@ -1737,3 +1737,7 @@ main takes. `good` is the good its pipe is made of, `good_kg_m` how many kilogra
 `lay_h_m` the hours to dig, lay, joint and fill in a metre, and `capacity_kg_h` the most gas a main
 of its bore carries an hour (each above 0). A profile that leaves it out lays no main. The core
 lays cast-iron mains of 25 kg and 3 hours a metre, carrying 6 kg an hour.
+
+Content API 174 (M10b slice DY, fourth part) adds `life_years` to `[gas_main]`: the years a main
+laid serves (above 0 and at most 1,000), over which a gasworks reckons whether the homes along a
+main it might lay would repay it. The core's serves 50 years.

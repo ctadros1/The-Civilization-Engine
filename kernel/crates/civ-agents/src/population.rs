@@ -3982,6 +3982,24 @@ impl Population {
                 }
             }
         }
+        // A works laying a gas main wants the pipe the rest of it takes, as a tool's material is
+        // wanted (M10b slice DY, fourth part).
+        if let Some(p) = ctx.land_params.gas_main
+            && let Some(m) = ctx
+                .land
+                .gas
+                .mains
+                .iter()
+                .find(|m| m.works == hh.id && !m.whole())
+        {
+            let need = f64::from(m.length_m - m.laid_m).max(0.0) * p.good_kg_m;
+            let short = (need - held_of(p.good)).max(0.0);
+            if short > 0.0
+                && let Some(t) = tool_material.get_mut(p.good)
+            {
+                *t += short;
+            }
+        }
         // And what the pots it would gain from are made of, a session's worth at most.
         for (t, &(want, _)) in pots.iter().enumerate() {
             let Some((r, per_unit)) = catalog.recipes.iter().find_map(|r| {
@@ -7513,6 +7531,8 @@ impl Population {
         // where someone had).
         self.line_reviews(ctx, day);
         self.engine_runs(ctx, day);
+        // Gas mains weighed by the works whose day it is (M10b slice DY, fourth part).
+        self.main_reviews(ctx, day);
         // And the wells (M6a slice AY, step three): what was drawn taken from the water table, a
         // month's rot on their linings, then the households whose day it is weigh one.
         if !ctx.land.wells.list.is_empty() {

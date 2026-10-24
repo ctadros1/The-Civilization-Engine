@@ -61,7 +61,8 @@ pub(crate) struct LandFile {
     pub gas_main: Option<GasMainFile>,
 }
 
-/// What laying a gas main takes (content API 173): see [`civ_land::gas::MainParams`].
+/// What laying a gas main takes (content API 173) and how long one lasts (174): see
+/// [`civ_land::gas::MainParams`].
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct GasMainFile {
@@ -69,6 +70,7 @@ pub(crate) struct GasMainFile {
     pub good_kg_m: f64,
     pub lay_h_m: f64,
     pub capacity_kg_h: f32,
+    pub life_years: f64,
 }
 
 /// What laying track takes (content API 169): see [`civ_land::rail::TrackParams`].
@@ -771,6 +773,7 @@ impl LandFile {
                     good_kg_m: g.good_kg_m,
                     lay_h_m: g.lay_h_m,
                     capacity_kg_h: g.capacity_kg_h,
+                    life_years: g.life_years,
                 }),
                 None => None,
             },
@@ -930,6 +933,7 @@ impl LandFile {
                 ("good_kg_m", g.good_kg_m, 0.0, 10_000.0),
                 ("lay_h_m", g.lay_h_m, 0.0, 1_000.0),
                 ("capacity_kg_h", f64::from(g.capacity_kg_h), 0.0, 10_000.0),
+                ("life_years", g.life_years, 0.0, 1_000.0),
             ] {
                 if !(v.is_finite() && v > lo && v <= hi) {
                     p.push(format!(

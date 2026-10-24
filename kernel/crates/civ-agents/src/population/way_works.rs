@@ -541,6 +541,10 @@ impl Population {
                 full: false,
             });
         }
+        // A gas main its works is laying (M10b slice DY, fourth part), as its own way work.
+        if let Some(f) = self.main_facts(ctx, x) {
+            return Some(f);
+        }
         let pi = self.polity_of(x.settlement?)?;
         let polity = &self.polities[pi];
         let (law, site, way, left_h) = polity.ways.iter().find_map(|(l, site)| {
@@ -627,6 +631,11 @@ impl Population {
         way: PermanentId,
         hours: f64,
     ) {
+        // A gas main is laid by its works' own work (M10b slice DY, fourth part).
+        if ctx.land.gas.mains.iter().any(|m| m.id == way) {
+            self.main_work(ctx, household, way, hours);
+            return;
+        }
         let works = ctx.land_params.way_works;
         let cell_m = f64::from(ctx.map.cell_size_m);
         let day = ctx.now.day_index();

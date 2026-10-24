@@ -26,6 +26,8 @@ pub struct MainParams {
     pub lay_h_m: f64,
     /// The most gas a main of its bore carries an hour, kg.
     pub capacity_kg_h: f32,
+    /// The years a main laid serves, over which its works reckons what it repays (the fourth part).
+    pub life_years: f64,
 }
 
 /// Why a connection's burners did or did not light on an evening (research 12-09 §1.5:
@@ -70,8 +72,9 @@ impl Cause {
 }
 
 /// A main: the household whose works feeds it, the cells it runs along from the works, the most
-/// gas it carries an hour, kg, whether it is broken, and its length and how much of it is laid,
-/// metres.
+/// gas it carries an hour, kg, whether it is broken, its length and how much of it is laid,
+/// metres, and the hours a year its works reckoned the homes along it would repay when it began
+/// it (the fourth part; 0 for one begun otherwise).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Main {
     pub id: PermanentId,
@@ -81,6 +84,7 @@ pub struct Main {
     pub broken: bool,
     pub length_m: f32,
     pub laid_m: f32,
+    pub worth_h: f32,
 }
 
 impl Main {
@@ -288,6 +292,7 @@ mod tests {
                 broken: false,
                 length_m: 30.0,
                 laid_m: 30.0,
+                worth_h: 0.0,
             }],
             connections: burners
                 .iter()

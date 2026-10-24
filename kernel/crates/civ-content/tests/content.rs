@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 173
+kernel_content_api = 174
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2545,6 +2545,8 @@ fn a_land_profile_says_what_laying_a_gas_main_takes_and_its_good_must_exist() {
         .expect("iron");
     assert_eq!(g.good, iron);
     assert_eq!((g.good_kg_m, g.lay_h_m, g.capacity_kg_h), (25.0, 3.0, 6.0));
+    // And serves fifty years once laid (content API 174).
+    assert_eq!(g.life_years, 50.0);
     let preset = real_preset();
     let land = real("land/temperate_valley.toml").replace(
         "[gas_main]\ngood = \"core:good/iron\"",

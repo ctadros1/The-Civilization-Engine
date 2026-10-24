@@ -6714,6 +6714,29 @@ and M6a gives rivers a daily flow.
       makes half a burner (tools made are worth their maker's quality), and half a fixed tool
       serves for nothing; the works made no second half in four days. Left for 4b to watch, as a
       works' own people learn smithing as they work.
+      *As built, fourth part, second step (2026-10-24): mains where demand repays.* Once a year,
+      on a day of its own, a household holding a gasworks (a whole holder of some gas and the
+      whole retort of a recipe making it), knowing gas making and laying no main yet, weighs a
+      main to each home of its settlement it can reach along ways with leave, as the third part
+      routes one. The homes along a route, its end's among them, not yet connected and that would
+      have gas light at the meter's price (the fourth part's own weighing), would each repay a
+      burner's evenings a year at the works' gain on a kilogram of gas sold: the meter gives back
+      the coal its retort charged, so its gain is the coke that charge leaves, at its own cost of
+      it or its heat in firewood, less the stoking. Against that it sets the main's digging and
+      laying and its pipe at its own cost (pipe it holds counts as in hand where it can put no
+      figure on iron) and a burner each; it begins the main that repays it most where the homes
+      would repay more over the main's life (a land profile's `life_years`, content API 174; the
+      core's 50) than that takes, marked out with what it reckoned they repay a year (saves 188).
+      A main it is laying is its people's way work, each hour worth that reckoning over the
+      main's life spread over its laying, offered while a metre's pipe is in hand and laid a metre
+      at a time as the third part lays it; the works wants the pipe the rest of the main takes as
+      a tool's material is wanted. Nobody knows gas making, so no world changes. **Tested:** a
+      works that does not know gas making weighs no main; knowing it, a main to a home some cells
+      off along a way kept by nobody is reckoned to repay that home's evenings, its cost its
+      laying alone with the pipe in hand, and more over fifty years than that; its review begins
+      the best, marked with its reckoning, and a second begins nothing while it is laid; left to
+      the clock, the works' people lay it as way work within six days, 25 kg of iron a metre
+      taken; saved and loaded every section comes back alike.
   - **M10c, services and letters** (ADR-0035 §1–§7).
     - **DZ**: care beyond the household: a call, tending another home, kin unasked, the `Fee`
       channel, reputation from claims.

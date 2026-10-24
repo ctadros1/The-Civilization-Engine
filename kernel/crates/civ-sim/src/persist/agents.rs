@@ -128,8 +128,8 @@ use super::{
     SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
     SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
     SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, SCHEMA_V180,
-    SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, finish, section,
-    section_root, single_chunk, unreadable,
+    SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, SCHEMA_V187,
+    finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -904,8 +904,8 @@ pub(super) fn decode<R: Read + Seek>(
         // Runs' wagons (schema 183), lines' stations and timetables (schema 184) and rides and
         // fares (schema 185) are read wherever saved; gas mains (schema 186) have their section.
         SCHEMA_V182 | SCHEMA_V183 | SCHEMA_V184 | SCHEMA_V185 => Schema::V182,
-        // Mains' lengths laid (schema 187) are read wherever saved.
-        SCHEMA_V186 | SAVE_SCHEMA_VERSION => Schema::V186,
+        // Mains' lengths laid (schema 187) and their worth (188) are read wherever saved.
+        SCHEMA_V186 | SCHEMA_V187 | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -12445,6 +12445,7 @@ fn encode_gas(gas: &civ_land::gas::Gas) -> Vec<u8> {
                     broken: m.broken,
                     length_m: m.length_m,
                     laid_m: m.laid_m,
+                    worth_h: m.worth_h,
                 },
             )
         })
@@ -12496,6 +12497,8 @@ fn decode_gas(bytes: &[u8], tag: SectionTag) -> Result<civ_land::gas::Gas, LoadE
             // Schema 187: before, a main had no length and was whole.
             length_m: m.length_m(),
             laid_m: m.laid_m(),
+            // Schema 188: before, no worth was reckoned.
+            worth_h: m.worth_h(),
         });
     }
     for c in root.connections().iter().flatten() {

@@ -3684,6 +3684,9 @@ table GasMainSave {
   // metres; before, both 0, whole.
   length_m: float (id: 5);
   laid_m: float (id: 6);
+  // Schema 188 (M10b slice DY, fourth part, second step): the hours a year its works reckoned
+  // the homes along it would repay when it began it; before, 0.
+  worth_h: float (id: 7);
 }
 
 table GasConnectionSave {

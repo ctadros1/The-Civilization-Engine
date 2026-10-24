@@ -266,6 +266,7 @@ fn a_main_lights_its_connections_at_dusk_from_its_works_gas_and_names_why_not() 
             broken: false,
             length_m: 0.0,
             laid_m: 0.0,
+            worth_h: 0.0,
         });
         land.gas
             .connections
@@ -626,5 +627,116 @@ fn a_home_along_a_main_connects_where_gas_light_costs_it_less_and_pays_by_the_me
         made |= held(&sim, works, burner) >= 1.0;
     }
     assert!(made, "the works made a burner");
+    saves_alike(&mut sim);
+}
+
+#[test]
+fn a_works_begins_a_main_where_the_homes_along_it_repay_it_and_its_people_lay_it() {
+    use civ_land::ways::{Keeper, Rank, Segment, Surface, WALK, Way};
+    let mut sim = world();
+    let at = to_dusk(&sim, 30);
+    sim.advance_minutes(at).expect("advances");
+    let (retort, holder, iron, coal, lamp) = (
+        index(&sim, "core:good/gas_retort"),
+        index(&sim, "core:good/gas_holder"),
+        index(&sim, "core:good/iron"),
+        index(&sim, "core:good/coal"),
+        index(&sim, "core:good/fat_lamp"),
+    );
+    let map = sim.map().clone();
+    let cell = |at: (f32, f32)| civ_agents::population::cell_of(&map, at) as u32;
+    let homes: Vec<(PermanentId, u32)> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| (h.id, cell(h.home)))
+        .collect();
+    // Two households of one settlement whose homes lie some cells apart, the first the works,
+    // with a way kept by nobody between them.
+    let settled = |h: PermanentId| sim.people().household(h).expect("household").settlement;
+    let built = |h: PermanentId| sim.land().buildings.iter().any(|b| b.household == h);
+    let w = i64::from(map.width);
+    let apart = |a: u32, b: u32| {
+        (i64::from(a) % w - i64::from(b) % w)
+            .abs()
+            .max((i64::from(a) / w - i64::from(b) / w).abs())
+    };
+    let ((works, from), (consumer, to)) = homes
+        .iter()
+        .flat_map(|&a| homes.iter().map(move |&b| (a, b)))
+        .find(|&((a, ca), (b, cb))| {
+            a != b && settled(a) == settled(b) && apart(ca, cb) >= 3 && built(b)
+        })
+        .expect("two homes of one settlement some cells apart");
+    let cells = line(map.width, from, to);
+    let way = sim.allocate_id_for_tests();
+    let today = sim.now().day_index();
+    sim.land_mut_for_tests().ways.add(Way {
+        id: way,
+        begun: today,
+        segments: vec![Segment {
+            cells: cells[1..cells.len() - 1].to_vec(),
+            corridor_m: 4.0,
+            built_m: 4.0,
+            usable_m: 4.0,
+            surface: Surface::Cleared,
+            keeper: Keeper::Nobody,
+            kept: today,
+        }],
+        modes: WALK,
+        trips: 0.0,
+        trips_day: today,
+        rank: Rank::Lane,
+        track: None,
+    });
+    // The works holds a retort and a holder, and iron enough for a main; the consumer coal and
+    // no lamp.
+    set(&mut sim, works, retort, 1.0);
+    set(&mut sim, works, holder, 1.0);
+    set(&mut sim, works, iron, 5_000.0);
+    set(&mut sim, consumer, coal, 1_000.0);
+    set(&mut sim, consumer, lamp, 0.0);
+    let reckon = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.main_reckonings_for_tests(ctx, works))
+    };
+    // Not knowing gas making, it weighs no main, and none is begun.
+    assert!(reckon(&mut sim).is_empty());
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_main_for_tests(ctx, works));
+    assert!(sim.land().gas.mains.is_empty());
+    // Knowing it, the main to the consumer's home is reckoned: its home along it would repay
+    // its evenings' gain, against its laying.
+    teach(&mut sim, works, "core:technique/gas_making");
+    let r = reckon(&mut sim)
+        .into_iter()
+        .find(|r| r.to == to)
+        .expect("a main to the consumer reckoned");
+    assert!(r.homes >= 1 && r.worth_h_year > 0.0, "{r:?}");
+    assert!(
+        (r.cost_h - r.length_m * 3.0).abs() < 1e-6,
+        "its pipe in hand, the cost is its laying: {r:?}"
+    );
+    assert!(r.worth_h_year * 50.0 > r.cost_h, "{r:?}");
+    // At its review it begins the best, marked out with what it reckoned.
+    let best = reckon(&mut sim).into_iter().next().expect("a best");
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_main_for_tests(ctx, works));
+    let m = sim.land().gas.mains[0].clone();
+    assert_eq!(m.works, works);
+    assert_eq!(m.cells.last(), Some(&best.to));
+    assert!((f64::from(m.worth_h) - best.worth_h_year).abs() < 1e-3);
+    assert!(m.laid_m == 0.0 && !m.whole());
+    // A second review begins nothing while it is being laid.
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_main_for_tests(ctx, works));
+    assert_eq!(sim.land().gas.mains.len(), 1);
+    // Left to the clock, its people lay it as way work, a metre of pipe at a time.
+    for _ in 0..6 {
+        sim.advance_minutes(1_440).expect("advances");
+    }
+    let laid = sim.land().gas.mains[0].laid_m;
+    assert!(laid > 0.0, "{laid}");
+    let left = sim.people().household(works).expect("works").stores[iron];
+    assert!(
+        (5_000.0 - left - f64::from(laid) * 25.0).abs() < 1e-2,
+        "{left} {laid}"
+    );
     saves_alike(&mut sim);
 }

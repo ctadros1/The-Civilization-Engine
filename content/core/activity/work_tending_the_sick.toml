@@ -3,7 +3,9 @@
 # session sits with them, bringing water and food; its hours are shared among those ill there, and
 # a day's care counts once its disease's `care_h_per_day` is given. Light work about the home (a
 # PAR between resting and chores; 05-05 gives none). Ages and session lengths are tuning values.
-# Its id sorts after every older activity's: activities are kept in id order.
+# Its id sorts after every older activity's: activities are kept in id order. Close kin may walk to
+# tend the sick of another home whose sickness they have heard of (M10c slice DZ; ADR-0035 §3), as
+# far as half an hour's walk (a tuning value, as farming's).
 kind = "activity"
 id = "core:activity/work_tending_the_sick"
 name = "Tend the sick"
@@ -15,7 +17,7 @@ max_age_years = 130.0
 min_minutes = 60
 max_minutes = 120
 daylight_only = false
-max_walk_minutes = 0
+max_walk_minutes = 30
 technique = ""
 tools = []
 rate = 1.0

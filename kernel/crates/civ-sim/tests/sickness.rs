@@ -678,3 +678,113 @@ fn kin_elsewhere_learn_of_a_death_by_sickness() {
     let (died, _) = pop.records[&dying].died.expect("dead");
     assert_eq!(h.last, died.day_index(), "{h:?}");
 }
+
+/// A household of the village all brought cholera that keeps them severely ill for three days from
+/// the day after next without killing them, each shedding `hazard` to those about them at home,
+/// and an adult of another household made, by the records, the child of one of its members:
+/// close kin living apart (M10c slice DZ). Returns the sick household, the kin and the first day
+/// they are ill.
+fn kin_apart_all_abed(sim: &mut Sim, hazard: f64) -> (PermanentId, PermanentId, i64) {
+    set_cholera(sim, |d| {
+        d.household_hazard = hazard;
+        d.symptomatic = 1.0;
+        d.severe_by_age = vec![(0.0, 1.0)];
+        d.severe_death_per_day = 0.0;
+        d.incubation = civ_agents::params::Days { mean: 2.0, sd: 0.0 };
+        d.ill = civ_agents::params::Days { mean: 3.0, sd: 0.0 };
+    });
+    to_morning(sim, 9 * 60);
+    let now = sim.now();
+    let (sick, members) = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| (x.id, x.members.clone()))
+        .min_by_key(|(id, m)| (m.len(), *id))
+        .expect("a household");
+    let kin = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.id != sick)
+        .flat_map(|(_, x)| x.members.iter().copied())
+        .find(|&m| {
+            sim.people()
+                .person(m)
+                .is_some_and(|p| p.age_years(now) >= 20.0)
+        })
+        .expect("an adult elsewhere");
+    let pop = sim.people_mut_for_tests();
+    pop.records.get_mut(&kin).expect("a record").mother = Some(members[0]);
+    pop.forget_kin();
+    for &m in &members {
+        sim.plague(m, CHOLERA).expect("brought");
+    }
+    let ill_from = sim.people().sickness.episodes()[0].course.ill_from;
+    (sick, kin, ill_from)
+}
+
+#[test]
+fn kin_who_hear_of_a_home_all_abed_walk_there_to_tend_it_and_are_exposed_there() {
+    // In both resolutions (ADR-0032 §2): Tend at another home is a block like Tend at home.
+    for resolved in [false, true] {
+        for heard in [false, true] {
+            let mut sim = village(3);
+            if resolved {
+                sim.advance_to_midnight().expect("advances");
+                let settlements: Vec<_> = sim.land().settlements.iter().map(|s| s.id).collect();
+                sim.set_household_resolved(settlements);
+            }
+            let (sick, kin, ill_from) = kin_apart_all_abed(&mut sim, 0.0);
+            to_day(&mut sim, ill_from);
+            // The home's own see them abed; the kin hear of it, or not.
+            let claim = sim.people().word.sickness(sick).expect("seen abed").id;
+            if heard {
+                sim.people_mut_for_tests()
+                    .word
+                    .hear(kin, claim, ill_from, None, None);
+            }
+            to_day(&mut sim, ill_from + 1);
+            let by_kin = sim
+                .people()
+                .sickness
+                .episodes()
+                .iter()
+                .filter(|e| e.care.first.is_some_and(|(_, by)| by == kin))
+                .count();
+            assert_eq!(
+                by_kin > 0,
+                heard,
+                "resolved {resolved}, heard {heard}: {by_kin} tended by kin"
+            );
+            let tended = sim
+                .people()
+                .sickness
+                .episodes()
+                .iter()
+                .filter(|e| e.care.first.is_some())
+                .count();
+            assert_eq!(tended > 0, heard, "nobody else tends a home all abed");
+        }
+    }
+    // Where the sick shed it, the kin who sat with them may take it there, recorded as from that
+    // home; a carer who never came does not.
+    let mut sim = village(3);
+    let (sick, kin, ill_from) = kin_apart_all_abed(&mut sim, 50.0);
+    to_day(&mut sim, ill_from);
+    let claim = sim.people().word.sickness(sick).expect("seen abed").id;
+    sim.people_mut_for_tests()
+        .word
+        .hear(kin, claim, ill_from, None, None);
+    to_day(&mut sim, ill_from + 1);
+    let e = sim
+        .people()
+        .sickness
+        .episodes()
+        .iter()
+        .find(|e| e.person == kin)
+        .copied()
+        .expect("the kin took it");
+    assert_eq!(e.acquired, Acquired::Household { household: sick });
+    assert_eq!(e.infected, ill_from, "taken the day they came");
+}

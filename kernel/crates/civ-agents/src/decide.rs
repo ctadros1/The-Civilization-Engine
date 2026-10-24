@@ -140,10 +140,15 @@ pub struct Facts {
 
 /// Members of someone's household ill at home and still owed care today (M6a slice AZ, step
 /// three; ADR-0021 §5): the share of a day's care owed, summed over them (each counts at most
-/// one), the severely ill whole and the others half.
+/// one), the severely ill whole and the others half. With none owed at home, the home of close
+/// kin elsewhere whose sickness they have heard of (M10c slice DZ; ADR-0035 §3: kin may tend
+/// unasked): which household, where its home is and the minutes' walk there.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TendFacts {
     pub owed: f64,
+    pub household: Option<PermanentId>,
+    pub at: (f32, f32),
+    pub walk_min: f64,
 }
 
 /// How a load can be brought to a threatened roof.
@@ -2271,15 +2276,31 @@ pub fn candidates(
                 out.push(finish(id, Target::Building(t.building), terms, steps));
             }
             Behavior::Tend => {
-                // Sitting with the household's sick at home, as long as care is owed them.
+                // Sitting with the household's sick at home, as long as care is owed them, or
+                // with close kin's at theirs (M10c slice DZ), less the walk there and back.
                 let Some(t) = f.tend else {
                     continue;
                 };
                 term(&mut terms, Reason::Tend, w.w_tend * t.owed);
-                let mut steps = walk_home_first(f);
-                steps.push(Step::Work {
+                let work = Step::Work {
                     minutes: def.min_minutes.max(1),
-                });
+                };
+                if let Some(household) = t.household {
+                    if t.walk_min > f64::from(def.max_walk_minutes) {
+                        excluded.push((id, Reason::Unreachable));
+                        continue;
+                    }
+                    term(
+                        &mut terms,
+                        Reason::Walking,
+                        -w.w_walk_hour * 2.0 * t.walk_min / 60.0,
+                    );
+                    let steps = vec![Step::Walk { to: t.at }, work, Step::Walk { to: f.home }];
+                    out.push(finish(id, Target::Household(household), terms, steps));
+                    continue;
+                }
+                let mut steps = walk_home_first(f);
+                steps.push(work);
                 out.push(finish(id, Target::Home, terms, steps));
             }
             Behavior::Rest => {

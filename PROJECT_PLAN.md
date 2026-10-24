@@ -6806,7 +6806,29 @@ and M6a gives rivers a daily flow.
       **Slice DY is done.**
   - **M10c, services and letters** (ADR-0035 §1–§7).
     - **DZ**: care beyond the household: a call, tending another home, kin unasked, the `Fee`
-      channel, reputation from claims.
+      channel, reputation from claims. Planned (2026-10-24) in three parts, each leaving worlds
+      nobody falls ill in as they were (brief `docs/briefs/m10-services.md` §2.1, §6.1): (1) kin
+      tend unasked: close kin living apart who have heard a home's sickness walk there to tend it,
+      exposed there as its members are; (2) a call: a household short of care sends someone to a
+      carer's door leaving a request with a fee, the carer tending on the request and paid through
+      an appended `Fee` channel, kin and ties asking none; (3) reputation from what clients saw,
+      claims of those a carer tended who lived or died weighing whom a household calls, and the
+      observer: care given and received in words.
+      *As built, first part (2026-10-24): kin tend unasked.* Where nobody of a person's own home
+      is owed care, the home of close kin living apart (a parent, child, brother or sister) whose
+      sickness they heard of within the word's spell (`word.sickness_spell_days`, the core's 14)
+      and whose ill are still owed care is one they may tend, the most owed first and the nearer
+      of two alike, within the tending activity's walk (now half an hour, as farming's; a tuning
+      value): the walk there and back counts against it as asking's does, and the session's hours
+      go to that home's ill as a member's would, recorded as care by them. A carer come from
+      another home is exposed there to each disease passing by the household route that its
+      members shed that day, at a member's hazard, by a draw of their own for the day
+      (`SickDraw::Visit`), taken as from that home. Nothing is saved anew. The same holds in a
+      household-resolved day, where tending another home is a block as tending one's own is. A
+      world where nobody falls ill is unchanged. **Tested:** a home all abed, and an adult of
+      another home made a member's child by the records: having heard of the sickness they come
+      and tend it, in both resolutions, and not having heard nobody does; where its sick shed,
+      the kin who sat with them takes it that day, recorded as from that home.
     - **EA**: birth care: the maternal draw split by complication and rescaled by births attended,
       birth attending and clean hands.
     - **EB**: teaching and study settled at midnight, working alongside recorded the same way (the

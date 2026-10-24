@@ -3687,7 +3687,7 @@ impl Population {
             ill: self.sickness.ill(p.id, now.day_index()),
             home_afire: self.knows_home_afire(p.id, p.household, now, params),
             fire: fire_facts,
-            tend: self.tend_facts(ctx, p.id, &hh),
+            tend: self.tend_facts(ctx, p.id, &hh, field_key),
             home_flooded: ctx
                 .land
                 .flood_depths
@@ -5949,7 +5949,12 @@ impl Population {
                     }
                 }
                 Some(Behavior::Tend) => {
-                    let (who, household, def) = (p.id, p.household, p.act.def);
+                    // At home, or at close kin's home (M10c slice DZ).
+                    let household = match p.act.target {
+                        Target::Household(h) => h,
+                        _ => p.household,
+                    };
+                    let (who, def) = (p.id, p.act.def);
                     self.tended(ctx, who, household, def, minutes);
                 }
                 Some(Behavior::Make) => {

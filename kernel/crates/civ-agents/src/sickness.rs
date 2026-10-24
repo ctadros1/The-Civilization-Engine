@@ -22,6 +22,8 @@ pub enum SickDraw {
     Course = 2,
     /// Whether someone severely ill dies today.
     Death = 3,
+    /// Whether someone tending another home today takes what its sick shed (M10c slice DZ).
+    Visit = 4,
 }
 
 /// The generator for `person`'s draw of `what` about disease `disease` on `day`.

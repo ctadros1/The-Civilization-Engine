@@ -326,39 +326,95 @@ impl Population {
     }
 
     /// What person `who` of household `x` sees owed to its members ill at home today (step
-    /// three): see [`TendFacts`].
+    /// three), or failing any, to those of the home of close kin elsewhere whose sickness they
+    /// heard of within the word's spell (M10c slice DZ; ADR-0035 §3), the walk there counted from
+    /// `field_key`'s travel field: the kin home owed most, the nearer of two alike. See
+    /// [`TendFacts`].
     pub(super) fn tend_facts(
         &self,
         ctx: &Ctx,
         who: PermanentId,
         x: &Household,
+        field_key: PermanentId,
     ) -> Option<TendFacts> {
         if self.sickness.quiet() {
             return None;
         }
         let day = ctx.now.day_index();
-        let mut owed = 0.0;
-        for &m in x.members.iter().filter(|&&m| m != who) {
-            for i in self.sickness.ill_with(m, day) {
-                let Some(e) = self.sickness.get(i) else {
-                    continue;
-                };
-                let Some(def) = ctx.catalog.diseases.get(usize::from(e.disease)) else {
-                    continue;
-                };
-                let need = def.care_h_per_day.max(1e-6);
-                let left = ((need - self.sickness.cared(i, day)) / need).clamp(0.0, 1.0);
-                owed += left * if e.course.severe { 1.0 } else { 0.5 };
+        let owed_by = |members: &[PermanentId]| {
+            let mut owed = 0.0;
+            for &m in members.iter().filter(|&&m| m != who) {
+                for i in self.sickness.ill_with(m, day) {
+                    let Some(e) = self.sickness.get(i) else {
+                        continue;
+                    };
+                    let Some(def) = ctx.catalog.diseases.get(usize::from(e.disease)) else {
+                        continue;
+                    };
+                    let need = def.care_h_per_day.max(1e-6);
+                    let left = ((need - self.sickness.cared(i, day)) / need).clamp(0.0, 1.0);
+                    owed += left * if e.course.severe { 1.0 } else { 0.5 };
+                }
+            }
+            owed
+        };
+        let owed = owed_by(&x.members);
+        if owed > 1e-9 {
+            return Some(TendFacts {
+                owed,
+                household: None,
+                at: x.home,
+                walk_min: 0.0,
+            });
+        }
+        // Close kin elsewhere, whose sickness they heard of lately.
+        let spell = i64::from(ctx.params.word.sickness_spell_days);
+        let heard = self.word.heard_by(who);
+        let reach = &self.homes.get(&field_key)?.reach;
+        let mut best: Option<TendFacts> = None;
+        for k in self.close_kin(who) {
+            let Some(y) = self
+                .person(k)
+                .filter(|q| q.household != x.id)
+                .and_then(|q| self.household(q.household))
+            else {
+                continue;
+            };
+            let Some(c) = self.word.sickness(y.id) else {
+                continue;
+            };
+            if day - c.day > spell || !heard.iter().any(|h| h.claim == c.id) {
+                continue;
+            }
+            let owed = owed_by(&y.members);
+            if owed <= 1e-9 {
+                continue;
+            }
+            let Some(secs) = reach.seconds_to(cell_of(ctx.map, y.home)) else {
+                continue;
+            };
+            let walk_min = f64::from(secs) / 60.0;
+            if best.is_none_or(|b| {
+                owed > b.owed + 1e-9 || ((owed - b.owed).abs() <= 1e-9 && walk_min < b.walk_min)
+            }) {
+                best = Some(TendFacts {
+                    owed,
+                    household: Some(y.id),
+                    at: y.home,
+                    walk_min,
+                });
             }
         }
-        (owed > 1e-9).then_some(TendFacts { owed })
+        best
     }
 
-    /// Person `who` of household `household` sat `minutes` with its members ill at home, at
-    /// activity `def` (step three): the hours are shared among them, each episode recording who
-    /// came and the least relative risk of dying a treatment the carer knows brings. The carer
-    /// practises each treatment they know, and one who does not know it learns it from a member
-    /// who does (ADR-0008 §4).
+    /// Person `who` sat `minutes` with the members of household `household` ill at home (their
+    /// own, or close kin's, M10c slice DZ), at activity `def` (step three): the hours are shared
+    /// among them, each episode recording who came and the least relative risk of dying a
+    /// treatment the carer knows brings. The carer practises each treatment they know, and one
+    /// who does not know it learns it from a member of their own household who does (ADR-0008
+    /// §4). One come from another home is exposed there as its members are, by a draw of their
+    /// own for the day.
     pub(super) fn tended(
         &mut self,
         ctx: &mut Ctx,
@@ -371,6 +427,7 @@ impl Population {
         let (Some(x), Some(carer)) = (self.household(household), self.person(who)) else {
             return;
         };
+        let visiting = carer.household != household;
         let ill: Vec<usize> = x
             .members
             .iter()
@@ -408,6 +465,39 @@ impl Population {
         treatments.dedup();
         for t in treatments {
             self.practise(ctx, who, t, def, Target::Home, hours);
+        }
+        if visiting {
+            self.visit_exposure(ctx, who, household, day);
+        }
+    }
+
+    /// Person `who`, come to tend household `household` on `day` (M10c slice DZ), is exposed to
+    /// each disease passing by the household route that its members shed today, at a member's
+    /// hazard, by one draw a disease a day of their own: a carer coming twice in a day draws
+    /// alike. Taken, it is recorded as coming from that household.
+    fn visit_exposure(&mut self, ctx: &Ctx, who: PermanentId, household: PermanentId, day: i64) {
+        let Some(x) = self.household(household) else {
+            return;
+        };
+        let mut shedders: BTreeMap<u16, u32> = BTreeMap::new();
+        for &m in &x.members {
+            for e in self.sickness.of(m).filter(|e| e.runs() && e.shedding(day)) {
+                *shedders.entry(e.disease).or_default() += 1;
+            }
+        }
+        for (disease, n) in shedders {
+            let Some(def) = ctx.catalog.diseases.get(usize::from(disease)) else {
+                continue;
+            };
+            if !def.passes_by(DiseaseRoute::Household) || self.sickness.protected(who, disease, day)
+            {
+                continue;
+            }
+            let hazard = def.household_hazard.max(0.0) * f64::from(n);
+            let u = sickness_rng(ctx.seed, who, day, disease, SickDraw::Visit).next_f64();
+            if u < 1.0 - (-hazard).exp() {
+                self.infect(ctx, who, disease, day, Acquired::Household { household });
+            }
         }
     }
 

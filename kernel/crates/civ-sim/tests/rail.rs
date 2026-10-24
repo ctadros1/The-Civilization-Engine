@@ -1118,3 +1118,111 @@ fn the_observer_shows_an_engine_as_its_own_mode_and_its_train_moving_along_the_l
     assert_eq!((run, at), (3, end), "{words}");
     assert!(words.ends_with("; arrived home"), "{words}");
 }
+
+#[test]
+fn a_neighbour_s_digging_goes_home_on_another_household_s_train_for_a_tenth_in_freight() {
+    use civ_land::trains::RunState;
+    let mut sim = village(3);
+    let keeper = first_household(&sim);
+    let (home, settlement) = {
+        let x = sim.people().household(keeper).expect("household");
+        (x.home, x.settlement)
+    };
+    // A neighbour of the same settlement, living at the keeper's door.
+    let neighbour = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .find(|x| x.id != keeper && x.settlement == settlement && !x.members.is_empty())
+        .map(|x| x.id)
+        .expect("a neighbour");
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == neighbour {
+            x.home = home;
+        }
+    }
+    let carry = sim.rules().people.household.carry_kg;
+    let seam = contour_seam(&mut sim, home);
+    let (_, pit_cell, home_cell) = laid_line(&mut sim, keeper, home, seam);
+    let dig = |sim: &mut Sim, who: PermanentId| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.dig_and_bring_for_tests(ctx, who, seam, 180.0))
+    };
+    // With no engine on the line, the neighbour carries what one person carries.
+    let by_hand = dig(&mut sim, neighbour);
+    assert!(by_hand > 0.0 && by_hand <= carry + 1e-9, "{by_hand}");
+    // With the keeper's engine and wagon at the pit end, the neighbour's digging goes onto the
+    // wagon as its own goods, far more than a carry, and nothing is carried home.
+    let (wagon_v, engine_v) = (wagon_vehicle(&sim), engine_vehicle(&sim));
+    let add = |sim: &mut Sim, v: usize| {
+        sim.with_ctx_for_tests(|_, ctx| {
+            civ_agents::population::Population::add_wagon_for_tests(ctx, keeper, v, pit_cell)
+        })
+    };
+    let wagon = add(&mut sim, wagon_v);
+    let engine = add(&mut sim, engine_v);
+    assert_eq!(dig(&mut sim, neighbour), 0.0, "nothing carried");
+    let theirs = |sim: &Sim| {
+        sim.people()
+            .consignments
+            .iter()
+            .filter(|c| c.boat == wagon && c.owner == neighbour)
+            .map(|c| c.stores.iter().sum::<f64>())
+            .sum::<f64>()
+    };
+    let loaded = theirs(&sim);
+    assert!(
+        loaded * 0.9 > 2.0 * carry,
+        "{loaded} aboard against {carry} by hand"
+    );
+    // The keeper's train takes it home with its own coal; at home the neighbour's goods go into
+    // its store less a tenth, which the keeper keeps as freight.
+    set_store(&mut sim, keeper, "core:good/coal", 50.0);
+    set_store(&mut sim, neighbour, "core:good/coal", 0.0);
+    let day = sim.now().day_index();
+    let account = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.engine_runs_for_tests(ctx, keeper, day));
+    };
+    account(&mut sim);
+    let run = sim.land().runs.list.first().cloned().expect("a run home");
+    assert_eq!((run.engine, run.cars.clone()), (engine, vec![wagon]));
+    assert!((f64::from(run.load_kg) - loaded).abs() < 1e-3);
+    let now = sim.now().minutes();
+    sim.advance_minutes((day * 1_440 + 7 * 60 - now).max(1))
+        .expect("advances");
+    assert!(matches!(
+        sim.land().runs.list.first().map(|r| r.state),
+        Some(RunState::Arrived { .. })
+    ));
+    let keeper_before = stores_of(&sim, keeper, "core:good/coal");
+    let neighbour_before = stores_of(&sim, neighbour, "core:good/coal");
+    account(&mut sim);
+    assert!(theirs(&sim) < 1e-9, "unloaded");
+    let got = stores_of(&sim, neighbour, "core:good/coal") - neighbour_before;
+    let kept = stores_of(&sim, keeper, "core:good/coal") - keeper_before;
+    assert!((got - 0.9 * loaded).abs() < 1.0, "{got} of {loaded}");
+    // The keeper's store gains the freight, less what it burns sending the engine back out.
+    assert!(
+        kept > 0.1 * loaded - 1.0 && kept < 0.1 * loaded + 1e-6,
+        "{kept}"
+    );
+    // It is counted as freight, apart from the goods carried home.
+    let coal = sim
+        .rules()
+        .catalog
+        .good_index("core:good/coal")
+        .expect("coal");
+    let moved = |c| sim.people().transfers.get(c, coal);
+    let freight = moved(civ_agents::ledger::Channel::Freight);
+    assert!((freight - 0.1 * loaded).abs() < 1e-6, "{freight}");
+    assert!(moved(civ_agents::ledger::Channel::Carried) >= 0.9 * loaded - 1e-6);
+    let at = sim
+        .land()
+        .wagons
+        .list
+        .iter()
+        .find(|w| w.id == wagon)
+        .expect("the wagon")
+        .at;
+    assert_eq!(at, home_cell);
+}

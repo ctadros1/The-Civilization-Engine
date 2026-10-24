@@ -6447,7 +6447,30 @@ and M6a gives rivers a daily flow.
       decodes an engine on its run and draws it by its iron, apart from wagons, where the kernel
       places it.
     - **DX**: stations, timetables set at review, fares and freight as posted terms, consignments
-      of many owners, rides as household-day blocks, who builds and owns a line.
+      of many owners, rides as household-day blocks, who builds and owns a line. Planned
+      (2026-10-24) in five parts, each leaving worlds where nobody knows the locomotive as they
+      were, and led by what slice DW found: an engine waits on loads no pusher moves, which one
+      household's digging never makes, so a line first carries others' goods. (1) Freight on a
+      household's line: a neighbour whose pit lies by the line's pit end and whose home lies by its
+      home end puts its digging on the keeper's train for a share in kind, as a mill takes its
+      toll; (2) stations and timetables: a line's ends as stations with goods waiting at them, and
+      runs a day set at the keeper's review from the last period's freight; (3) rides: a ride as a
+      person's trip and a household-day block, its fare a posted term against walking; (4) who
+      builds and owns a line: an organization by stake and a polity's `build_line` as a public
+      work between settlements, a franchise over a route as a privilege (ADR-0026); (5) the
+      observer of stations, terms and freight.
+      *As built, first part (2026-10-24): freight on a household's line.* Where another household's
+      engine works a whole line from beside the pit a household digs to beside its home, a session
+      of its digging there goes onto the keeper's wagons at the pit end, as its own goods in
+      transit carried by the wagon, up to the room left on the train, when what comes home after
+      the freight is more than its own wagon or a carry brings; the keeper's train takes it home
+      with its own, and at the home end each owner's goods go into its store, a tenth of another
+      household's kept by the keeper as freight (a new ledger channel, `freight`). Nobody has an
+      engine, so no world changes. **Tested:** a neighbour at the keeper's door carries what one
+      person carries while the line has no engine; with the keeper's engine and wagon at the pit
+      end, its session goes onto the wagon, more than twice a carry after freight, and nothing is
+      carried home; the keeper's train runs it home with the keeper's coal, and there nine tenths
+      go into the neighbour's store and a tenth into the keeper's, counted as freight.
     - **DY**: the gas chain: gasworks, holders, mains, connections by district capacity,
       interruptions by cause, street lighting as a public work.
   - **M10c, services and letters** (ADR-0035 §1–§7).
@@ -7882,6 +7905,13 @@ One line each. Don't re-litigate without a reason written next to the entry.
   pump's half, its other work (a mill's, a hammer's) taken in the same daylight and not netted
   off; nobody sets a wheel for a pit's sake, so a wheel pumps only where one already stands near
   its holder's pit. Revisited when the M10 demo shows a pit beside a mill.
+- **Design priors for freight on a household's line (2026-10-24, M10b slice DX, first part):**
+  NUDGE: the keeper keeps a tenth of another household's goods for carrying them, a share in
+  kind as the mill's sixteenth is, whatever the haul's length; a neighbour's goods go from the
+  home end into its store with no walk from the station taken; any household whose home lies by
+  the line's home end may load, the keeper asked nothing; neighbours load in the order they dig,
+  the train's room first come first served. None is measured. Revisited with stations and
+  timetables (DX's second part) and when a line carries freight in a world.
 - **Design priors for engines by choice (2026-10-23, M10b slice DW, fourth part):** NUDGE: a
   household weighs an engine only at its yearly line review, for the line from the pit it digs
   most; a dig day is one session, so a household that sends several diggers the same day is

@@ -451,6 +451,29 @@ impl Population {
             let kg = super::digging::dig_at(ctx, household, toward, deposit, effort_h, room);
             return (0.0, Some((wagon, kg)));
         }
+        // Another household's train from this pit to beside home carries it for freight (M10b
+        // slice DX, first part), where what comes home after the freight is more than its own
+        // wagon or a carry brings.
+        if let Some(pit) = pit
+            && let Some((_, wagon, room)) =
+                Self::freight_room(ctx, consignments, household, home, pit)
+            && let Some(d) = ctx.land.deposits.iter().find(|d| d.id == deposit)
+        {
+            let rates =
+                super::digging::rates(ctx.land_params, &d.body, ctx.params.digging.h_per_m3);
+            let kg_h = super::digging::dig_kg_per_hour(&d.body, rates);
+            let own = Self::wagon_haul(ctx, household, home, pit)
+                .filter(|h| h.load_kg > carry)
+                .map_or(carry, |h| {
+                    h.load_kg
+                        .min(kg_h * (minutes - h.extra_min).max(0.0) / 60.0 * eff)
+                });
+            let effort_h = minutes / 60.0 * eff;
+            if room.min(kg_h * effort_h) * (1.0 - super::trains::FREIGHT_SHARE) > own {
+                let kg = super::digging::dig_at(ctx, household, toward, deposit, effort_h, room);
+                return (0.0, Some((wagon, kg)));
+            }
+        }
         let haul = pit
             .and_then(|pit| Self::wagon_haul(ctx, household, home, pit))
             .filter(|h| h.load_kg > carry);

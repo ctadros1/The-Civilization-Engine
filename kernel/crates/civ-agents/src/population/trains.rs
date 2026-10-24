@@ -21,6 +21,11 @@ use civ_land::ways::{Keeper, RAIL};
 /// The minute of the day an engine sets off along its line.
 const DEPART_MIN: i64 = 6 * 60;
 
+/// The share of another household's goods a line's keeper keeps for carrying them home on its
+/// train (M10b slice DX, first part): a design prior, as the mill's toll is (research 07-08 §1.6
+/// counts a carrier's fees but gives no share for so short a haul).
+pub(crate) const FREIGHT_SHARE: f64 = 1.0 / 10.0;
+
 /// What an engine on its line would spare a household a year and cost, as it reckons it (M10b
 /// slice DW, fourth part): the line's pit end, where it would stand; the hours a year it spares;
 /// the hours a year its coal costs at the household's own cost; and what making it takes, hours
@@ -224,8 +229,43 @@ impl Population {
         (room > 0.0).then_some((first, room))
     }
 
-    /// Loads `kg` of good `good`, dug by household `household`, onto its wagon `wagon`: into the
-    /// goods in transit aboard it, begun if there are none.
+    /// Where a session's digging by someone of household `household`, at home at `home`, at a
+    /// pit at `pit` goes when another household's engine works a line from there to beside its
+    /// home (M10b slice DX, first part): that household, the line's keeper; the first of its
+    /// wagons at the pit end; and the room left on its train. Keepers are tried in the order their
+    /// lines were begun.
+    pub(super) fn freight_room(
+        ctx: &Ctx,
+        consignments: &[Consignment],
+        household: PermanentId,
+        home: (f32, f32),
+        pit: (f32, f32),
+    ) -> Option<(PermanentId, PermanentId, f64)> {
+        if ctx.land.wagons.list.is_empty() {
+            return None;
+        }
+        let mut tried = Vec::new();
+        for way in &ctx.land.ways.list {
+            if way.modes & RAIL == 0 {
+                continue;
+            }
+            let Some(Keeper::Household(keeper)) = way.segments.first().map(|s| s.keeper) else {
+                continue;
+            };
+            if keeper == household || tried.contains(&keeper) {
+                continue;
+            }
+            tried.push(keeper);
+            if let Some((wagon, room)) = Self::engine_room(ctx, consignments, keeper, home, pit) {
+                return Some((keeper, wagon, room));
+            }
+        }
+        None
+    }
+
+    /// Loads `kg` of good `good`, dug by household `household`, onto wagon `wagon` (its own, or
+    /// another household's carrying it for freight): into the goods in transit of its aboard,
+    /// begun if there are none.
     pub(super) fn load_wagon(
         &mut self,
         ctx: &mut Ctx,
@@ -380,24 +420,46 @@ impl Population {
     fn unload_wagons(&mut self, ctx: &Ctx, household: PermanentId, cars: &[PermanentId]) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let aboard: Vec<usize> = (0..self.consignments.len())
-            .filter(|&i| {
-                self.consignments[i].owner == household && cars.contains(&self.consignments[i].boat)
-            })
+            .filter(|&i| cars.contains(&self.consignments[i].boat))
             .collect();
         for i in aboard.into_iter().rev() {
             let c = &mut self.consignments[i];
             c.settle_stores(now, goods);
             let (id, owner) = (c.id, c.owner);
-            let legs: Vec<Leg> = c
+            // Another household's goods pay the keeper its freight first (M10b slice DX, first
+            // part), the rest going into their owner's store.
+            let share = if owner == household {
+                0.0
+            } else {
+                FREIGHT_SHARE
+            };
+            let held: Vec<(usize, f64)> = c
                 .stores
                 .iter()
                 .enumerate()
                 .filter(|&(_, &kg)| kg > 0.0)
-                .map(|(good, &amount)| Leg {
+                .map(|(good, &kg)| (good, kg))
+                .collect();
+            let freight: Vec<Leg> = held
+                .iter()
+                .filter(|_| share > 0.0)
+                .map(|&(good, kg)| Leg {
+                    from: id,
+                    to: household,
+                    good,
+                    amount: kg * share,
+                })
+                .collect();
+            if !freight.is_empty() {
+                self.transfer(now, params, goods, &freight, Channel::Freight);
+            }
+            let legs: Vec<Leg> = held
+                .iter()
+                .map(|&(good, kg)| Leg {
                     from: id,
                     to: owner,
                     good,
-                    amount,
+                    amount: kg * (1.0 - share),
                 })
                 .collect();
             let moved =

@@ -128,7 +128,7 @@ use super::{
     SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
     SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
     SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, SCHEMA_V180,
-    SCHEMA_V181, SCHEMA_V182, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -895,8 +895,9 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V171 | SCHEMA_V172 | SCHEMA_V173 | SCHEMA_V174 | SCHEMA_V175 | SCHEMA_V176
         | SCHEMA_V177 | SCHEMA_V178 | SCHEMA_V179 | SCHEMA_V180 => Schema::V171,
         SCHEMA_V181 => Schema::V181,
-        // Runs' wagons (schema 183) are read wherever saved.
-        SCHEMA_V182 | SAVE_SCHEMA_VERSION => Schema::V182,
+        // Runs' wagons (schema 183) and lines' stations and timetables (schema 184) are read
+        // wherever saved.
+        SCHEMA_V182 | SCHEMA_V183 | SAVE_SCHEMA_VERSION => Schema::V182,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -7045,6 +7046,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::CartMade => 63,
         ChronicleKind::TakenDown => 64,
         ChronicleKind::LineLaid => 65,
+        ChronicleKind::StationsOpened => 66,
     }
 }
 
@@ -7115,6 +7117,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         63 => Some(ChronicleKind::CartMade),
         64 => Some(ChronicleKind::TakenDown),
         65 => Some(ChronicleKind::LineLaid),
+        66 => Some(ChronicleKind::StationsOpened),
         _ => None,
     }
 }
@@ -9080,6 +9083,7 @@ fn encode_events(sim: &Sim) -> Vec<u8> {
                 }
                 SimEvent::Agent(AgentEvent::BandLook) => (save::EventKind::BandLook, 0, 0, 0),
                 SimEvent::Agent(AgentEvent::Gates) => (save::EventKind::Gates, 0, 0, 0),
+                SimEvent::Agent(AgentEvent::Trains) => (save::EventKind::Trains, 0, 0, 0),
                 SimEvent::Agent(AgentEvent::Pass {
                     person,
                     version,
@@ -9127,6 +9131,7 @@ fn decode_events(bytes: &[u8]) -> Result<Vec<PendingEvent<SimEvent>>, LoadError>
             }),
             save::EventKind::BandLook => SimEvent::Agent(AgentEvent::BandLook),
             save::EventKind::Gates => SimEvent::Agent(AgentEvent::Gates),
+            save::EventKind::Trains => SimEvent::Agent(AgentEvent::Trains),
             save::EventKind::Pass => SimEvent::Agent(AgentEvent::Pass {
                 person: required(e.person(), "a passage's walker")?,
                 version: e.version(),
@@ -12286,6 +12291,10 @@ fn encode_runs(runs: &civ_land::trains::Runs) -> Vec<u8> {
                 &save::RailLineSaveArgs {
                     way: l.way.get(),
                     loops: Some(loops),
+                    stations: l.stations,
+                    runs_a_day: l.runs_a_day,
+                    freight_kg: l.freight_kg,
+                    freight_since: l.freight_since,
                 },
             )
         })
@@ -12346,6 +12355,11 @@ fn decode_runs(bytes: &[u8], tag: SectionTag) -> Result<civ_land::trains::Runs, 
         lines.push(Line {
             way: required(l.way(), "a line")?,
             loops: l.loops().map(|v| v.iter().collect()).unwrap_or_default(),
+            // Schema 184 (M10b slice DX, second part): before, no stations and a run a day.
+            stations: l.stations(),
+            runs_a_day: l.runs_a_day().max(1),
+            freight_kg: l.freight_kg(),
+            freight_since: l.freight_since(),
         });
     }
     let mut list = Vec::new();

@@ -227,6 +227,10 @@ pub enum AgentEvent {
     /// Gates are kept (M6c slice BK, step three): at first light each is opened, and at dusk the
     /// household nearest each chooses whether to shut it for the night.
     Gates,
+    /// Trains are due (M10b slice DX, second part): each household with an engine brings its
+    /// arrived trains to account and sets off where its line's timetable has a run now. Pending
+    /// at each of the day's departures while any engine is made.
+    Trains,
     /// A walker reaches a bottleneck on their walk (M8b slice CN, ADR-0029 §4).
     Pass {
         /// Who.
@@ -1769,6 +1773,7 @@ impl Population {
             AgentEvent::Ignite { building } => self.ignite(ctx, building),
             AgentEvent::BandLook => self.band_look(ctx),
             AgentEvent::Gates => self.keep_gates(ctx),
+            AgentEvent::Trains => self.trains_due(ctx),
             AgentEvent::Pass {
                 person,
                 version,
@@ -7373,6 +7378,11 @@ impl Population {
         if !self.fords.households.is_empty() {
             self.crossing_reviews(ctx, day);
         }
+        // Lines of track weighed and trains timetabled (M10b slices DV and DW), every day
+        // whether or not anyone has waded (M10b slice DX, second part: they had been weighed only
+        // where someone had).
+        self.line_reviews(ctx, day);
+        self.engine_runs(ctx, day);
         // And the wells (M6a slice AY, step three): what was drawn taken from the water table, a
         // month's rot on their linings, then the households whose day it is weigh one.
         if !ctx.land.wells.list.is_empty() {

@@ -20,6 +20,11 @@ use civ_land::ways::{Keeper, RAIL};
 
 /// The minute of the day an engine sets off along its line.
 const DEPART_MIN: i64 = 6 * 60;
+/// The span of the day a line's timetable spreads its runs over, minutes from `DEPART_MIN`
+/// (M10b slice DX, second part): a design prior.
+const TIMETABLE_SPAN_MIN: i64 = 12 * 60;
+/// The most runs a day a timetable sets (a design prior).
+const MOST_RUNS_A_DAY: u8 = 4;
 
 /// The share of another household's goods a line's keeper keeps for carrying them home on its
 /// train (M10b slice DX, first part): a design prior, as the mill's toll is (research 07-08 §1.6
@@ -263,9 +268,70 @@ impl Population {
         None
     }
 
+    /// The pit station a session's digging by someone at home at `home`, at a pit at `pit`, may
+    /// wait at for a train (M10b slice DX, second part): a line with
+    /// its stations open running from beside the pit to beside home, kept by this household or
+    /// another with an engine on it; that household, the line, and the room left there: what all
+    /// the keeper's wagons on the line hold, less what already waits.
+    pub(super) fn station_room(
+        ctx: &Ctx,
+        consignments: &[Consignment],
+        home: (f32, f32),
+        pit: (f32, f32),
+    ) -> Option<(PermanentId, PermanentId, f64)> {
+        if ctx.land.runs.lines.iter().all(|l| !l.stations) {
+            return None;
+        }
+        let vehicle = Self::engine_vehicle(ctx)?;
+        let mut tried = Vec::new();
+        for way in &ctx.land.ways.list {
+            if way.modes & RAIL == 0 || !ctx.land.runs.line(way.id).is_some_and(|l| l.stations) {
+                continue;
+            }
+            let Some(Keeper::Household(keeper)) = way.segments.first().map(|s| s.keeper) else {
+                continue;
+            };
+            if tried.contains(&(keeper, way.id)) {
+                continue;
+            }
+            tried.push((keeper, way.id));
+            let Some(line) = Self::own_lines(ctx, keeper, home, Some(pit))
+                .into_iter()
+                .find(|l| l.way == way.id)
+            else {
+                continue;
+            };
+            let cars: Vec<PermanentId> = ctx
+                .land
+                .wagons
+                .made_of(keeper)
+                .filter(|w| {
+                    ctx.catalog
+                        .vehicles
+                        .get(usize::from(w.vehicle))
+                        .is_some_and(|d| {
+                            d.is_wagon() && (d.gauge_m - f64::from(line.track.gauge_m)).abs() < 1e-3
+                        })
+                })
+                .map(|w| w.id)
+                .collect();
+            let waiting: f64 = consignments
+                .iter()
+                .filter(|c| c.boat == way.id)
+                .map(|c| c.stores.iter().sum::<f64>())
+                .sum();
+            let room = Self::room_of(ctx, &line, vehicle, &cars) - waiting;
+            if room > 0.0 {
+                return Some((keeper, way.id, room));
+            }
+        }
+        None
+    }
+
     /// Loads `kg` of good `good`, dug by household `household`, onto wagon `wagon` (its own, or
-    /// another household's carrying it for freight): into the goods in transit of its aboard,
-    /// begun if there are none.
+    /// another household's carrying it for freight), or leaves it at the pit station of the line
+    /// of that id to wait for a train: into the goods in transit of its there, begun if there are
+    /// none.
     pub(super) fn load_wagon(
         &mut self,
         ctx: &mut Ctx,
@@ -366,9 +432,69 @@ impl Population {
             .collect();
         owners.sort_unstable();
         owners.dedup();
+        if owners.is_empty() {
+            return;
+        }
+        // Today's departures (M10b slice DX, second part): every minute any line's timetable
+        // runs a train, each a time trains are due.
+        let most = ctx
+            .land
+            .runs
+            .lines
+            .iter()
+            .map(|l| l.runs_a_day)
+            .max()
+            .unwrap_or(1);
+        let start = day * 1_440;
+        let mut minutes: Vec<i64> = (1..=most.clamp(1, MOST_RUNS_A_DAY))
+            .flat_map(departures)
+            .collect();
+        minutes.sort_unstable();
+        minutes.dedup();
+        for m in minutes {
+            if start + m > ctx.now.minutes() {
+                ctx.schedule
+                    .push((SimTime::from_minutes(start + m), AgentEvent::Trains));
+            }
+        }
+    }
+
+    /// Trains are due now (M10b slice DX, second part): each household with a made engine brings
+    /// its arrived trains to account, then sets off where its line's timetable has a run at this
+    /// minute of the day.
+    pub(super) fn trains_due(&mut self, ctx: &mut Ctx) {
+        let mut owners: Vec<PermanentId> = ctx
+            .land
+            .wagons
+            .list
+            .iter()
+            .filter(|w| {
+                w.made()
+                    && ctx
+                        .catalog
+                        .vehicles
+                        .get(usize::from(w.vehicle))
+                        .is_some_and(|d| d.engine.is_some())
+            })
+            .map(|w| w.owner)
+            .collect();
+        owners.sort_unstable();
+        owners.dedup();
+        let now = ctx.now.minutes();
+        let minute = now.rem_euclid(1_440);
+        // Runs move on to this minute first: the clock may be stepping past it in one stride.
+        ctx.land.runs.advance(now);
         for household in owners {
             self.settle_runs(ctx, household);
-            self.set_off(ctx, household, day);
+            let Some(home) = self.household(household).map(|x| x.home) else {
+                continue;
+            };
+            let runs = Self::engine_line(ctx, household, home, None)
+                .and_then(|l| ctx.land.runs.line(l.way).map(|r| r.runs_a_day))
+                .unwrap_or(1);
+            if departures(runs.clamp(1, MOST_RUNS_A_DAY)).contains(&minute) {
+                self.set_off(ctx, household, now);
+            }
         }
     }
 
@@ -411,14 +537,21 @@ impl Population {
                 f64::from((c.0 - h.0).hypot(c.1 - h.1)) <= DOOR_LEG_M
             });
             if by_home {
-                self.unload_wagons(ctx, household, &run.cars);
+                self.unload_wagons(ctx, household, &run.cars, run.way);
             }
         }
     }
 
     /// The goods aboard household `household`'s wagons `cars` go into its store.
-    fn unload_wagons(&mut self, ctx: &Ctx, household: PermanentId, cars: &[PermanentId]) {
+    fn unload_wagons(
+        &mut self,
+        ctx: &mut Ctx,
+        household: PermanentId,
+        cars: &[PermanentId],
+        way: PermanentId,
+    ) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let mut brought = 0.0;
         let aboard: Vec<usize> = (0..self.consignments.len())
             .filter(|&i| cars.contains(&self.consignments[i].boat))
             .collect();
@@ -440,6 +573,7 @@ impl Population {
                 .filter(|&(_, &kg)| kg > 0.0)
                 .map(|(good, &kg)| (good, kg))
                 .collect();
+            brought += held.iter().map(|&(_, kg)| kg).sum::<f64>();
             let freight: Vec<Leg> = held
                 .iter()
                 .filter(|_| share > 0.0)
@@ -469,12 +603,15 @@ impl Population {
                 self.consigned_flows.absorb(&c.flows);
             }
         }
+        if brought > 0.0 {
+            ctx.land.runs.tally_freight(way, brought);
+        }
     }
 
-    /// Household `household`'s engine sets off along its line on day `day`, if it should: home
+    /// Household `household`'s engine sets off along its line at minute `at`, if it should: home
     /// from the pit end with its loaded wagons, or back out light from the home end, when the
     /// household holds the coal the run burns and someone of it is of an age to drive it.
-    fn set_off(&mut self, ctx: &mut Ctx, household: PermanentId, day: i64) {
+    fn set_off(&mut self, ctx: &mut Ctx, household: PermanentId, at: i64) {
         let Some(home) = self.household(household).map(|x| x.home) else {
             return;
         };
@@ -495,9 +632,26 @@ impl Population {
             return;
         };
         let cars = Self::wagons_at(ctx, household, engine_at, line.track.gauge_m);
+        let homeward = engine_at == line.pit_end;
+        // At the pit end, what waits at the station goes aboard as far as the train has room
+        // (M10b slice DX, second part).
+        if homeward && let Some(&first) = cars.first() {
+            let mut room =
+                Self::train_room(ctx, &line, &cars) - Self::aboard_kg(&self.consignments, &cars);
+            for c in &mut self.consignments {
+                if c.boat != line.way {
+                    continue;
+                }
+                let kg: f64 = c.stores.iter().sum();
+                if kg <= room {
+                    c.boat = first;
+                    c.carrier = first;
+                    room -= kg;
+                }
+            }
+        }
         let load = Self::aboard_kg(&self.consignments, &cars);
         // Home with a load, or out light; never home empty nor out loaded.
-        let homeward = engine_at == line.pit_end;
         if homeward != (load > 0.0) {
             return;
         }
@@ -556,7 +710,79 @@ impl Population {
             state: RunState::Arrived { at: 0 },
             load_kg: load as f32,
         };
-        ctx.land.runs.depart(run, day * 1_440 + DEPART_MIN);
+        ctx.land.runs.depart(run, at);
+        // Its first run opens the line's ends as stations (M10b slice DX, second part).
+        if ctx.land.runs.open_stations(line.way) {
+            let day = ctx.now.day_index();
+            ctx.land.runs.line_mut(line.way).freight_since = day;
+            let elder = self.elder_of(household, ctx.now, ctx.params);
+            let settlement = self.household(household).and_then(|x| x.settlement);
+            if let Some(who) = elder {
+                let sentence = format!(
+                    "{}'s household opened stations at both ends of its line, its engine running \
+                     trains between them.",
+                    self.name_of(who)
+                );
+                let at = cell_centre(ctx.map, line.cells[0] as usize);
+                self.chronicle_push(
+                    ctx.now,
+                    ChronicleKind::StationsOpened,
+                    vec![who],
+                    settlement,
+                    Some(at),
+                    0.0,
+                    sentence,
+                );
+            }
+        }
+    }
+
+    /// Household `household` sets its line's runs a day at its review (M10b slice DX, second
+    /// part): as many as it takes to bring a day's goods since the last review in trains as full
+    /// as all its wagons make them, at least one and at most [`MOST_RUNS_A_DAY`]; the tally then
+    /// begins again.
+    pub(super) fn review_timetable(&mut self, ctx: &mut Ctx, household: PermanentId) {
+        let Some(home) = self.household(household).map(|x| x.home) else {
+            return;
+        };
+        let Some(vehicle) = Self::engine_vehicle(ctx) else {
+            return;
+        };
+        let day = ctx.now.day_index();
+        for line in Self::own_lines(ctx, household, home, None) {
+            let Some(record) = ctx.land.runs.line(line.way).filter(|r| r.stations) else {
+                continue;
+            };
+            let days = (day - record.freight_since).max(1) as f64;
+            let kg_day = f64::from(record.freight_kg) / days;
+            let cars: Vec<PermanentId> = ctx
+                .land
+                .wagons
+                .made_of(household)
+                .filter(|w| {
+                    ctx.catalog
+                        .vehicles
+                        .get(usize::from(w.vehicle))
+                        .is_some_and(|d| {
+                            d.is_wagon() && (d.gauge_m - f64::from(line.track.gauge_m)).abs() < 1e-3
+                        })
+                })
+                .map(|w| w.id)
+                .collect();
+            let room = Self::room_of(ctx, &line, vehicle, &cars);
+            let runs = if room > 0.0 {
+                (kg_day / room)
+                    .ceil()
+                    .clamp(1.0, f64::from(MOST_RUNS_A_DAY)) as u8
+            } else {
+                1
+            };
+            let r = ctx.land.runs.line_mut(line.way);
+            r.runs_a_day = runs;
+            r.freight_kg = 0.0;
+            r.freight_since = day;
+            ctx.land.runs.changed();
+        }
     }
 
     /// The engine the content makes, if any: the first rail vehicle with an engine.
@@ -702,6 +928,22 @@ impl Population {
     #[doc(hidden)]
     pub fn engine_runs_for_tests(&mut self, ctx: &mut Ctx, household: PermanentId, day: i64) {
         self.settle_runs(ctx, household);
-        self.set_off(ctx, household, day);
+        self.set_off(ctx, household, day * 1_440 + DEPART_MIN);
     }
+
+    /// Household `household` sets its line's timetable now, whatever its day of the year: for
+    /// tests.
+    #[doc(hidden)]
+    pub fn review_timetable_for_tests(&mut self, ctx: &mut Ctx, household: PermanentId) {
+        self.review_timetable(ctx, household);
+    }
+}
+
+/// The minutes of the day a line running `runs` trains a day sets them off (M10b slice DX, second
+/// part): the first at [`DEPART_MIN`], the rest spread evenly over the timetable's span.
+fn departures(runs: u8) -> Vec<i64> {
+    let n = i64::from(runs.max(1));
+    (0..n)
+        .map(|k| DEPART_MIN + k * TIMETABLE_SPAN_MIN / n)
+        .collect()
 }

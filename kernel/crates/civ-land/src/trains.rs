@@ -161,11 +161,31 @@ impl Run {
     }
 }
 
-/// A line's passing loops: cell indexes along it where two runs may pass.
+/// A line's passing loops: cell indexes along it where two runs may pass; and (M10b slice DX,
+/// second part) whether its ends are stations, the runs a day its timetable sets, and the goods
+/// its trains have brought since day `freight_since`, kg.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Line {
     pub way: PermanentId,
     pub loops: Vec<u32>,
+    pub stations: bool,
+    pub runs_a_day: u8,
+    pub freight_kg: f32,
+    pub freight_since: i64,
+}
+
+impl Line {
+    /// A line with no loops, no stations, a run a day and nothing brought yet.
+    pub fn new(way: PermanentId) -> Line {
+        Line {
+            way,
+            loops: Vec::new(),
+            stations: false,
+            runs_a_day: 1,
+            freight_kg: 0.0,
+            freight_since: 0,
+        }
+    }
 }
 
 /// What happened to a run as it advanced, at a minute.
@@ -224,19 +244,44 @@ impl Runs {
             .map_or(&[], |l| l.loops.as_slice())
     }
 
-    /// Lays a passing loop at cell index `at` along line `way`.
-    pub fn add_loop(&mut self, way: PermanentId, at: u32) {
+    /// Line `way`'s record, begun if it has none.
+    pub fn line_mut(&mut self, way: PermanentId) -> &mut Line {
         let i = match self.lines.iter().position(|l| l.way == way) {
             Some(i) => i,
             None => {
-                self.lines.push(Line {
-                    way,
-                    loops: Vec::new(),
-                });
+                self.lines.push(Line::new(way));
                 self.lines.len() - 1
             }
         };
-        let loops = &mut self.lines[i].loops;
+        &mut self.lines[i]
+    }
+
+    /// Line `way`'s record, if it has one.
+    pub fn line(&self, way: PermanentId) -> Option<&Line> {
+        self.lines.iter().find(|l| l.way == way)
+    }
+
+    /// Opens stations at line `way`'s ends (M10b slice DX, second part): whether they were not
+    /// open before.
+    pub fn open_stations(&mut self, way: PermanentId) -> bool {
+        let line = self.line_mut(way);
+        if line.stations {
+            return false;
+        }
+        line.stations = true;
+        self.changed();
+        true
+    }
+
+    /// Counts `kg` of goods brought along line `way`.
+    pub fn tally_freight(&mut self, way: PermanentId, kg: f64) {
+        let line = self.line_mut(way);
+        line.freight_kg += kg as f32;
+    }
+
+    /// Lays a passing loop at cell index `at` along line `way`.
+    pub fn add_loop(&mut self, way: PermanentId, at: u32) {
+        let loops = &mut self.line_mut(way).loops;
         if let Err(p) = loops.binary_search(&at) {
             loops.insert(p, at);
             self.changed();

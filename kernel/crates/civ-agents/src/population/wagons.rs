@@ -233,8 +233,10 @@ impl Population {
                 return;
             }
             // With its line and wagons, an engine where it knows how and one would repay itself
-            // (M10b slice DW, fourth part).
+            // (M10b slice DW, fourth part), and its timetable set from the freight its trains
+            // brought (slice DX, second part).
             self.review_locomotive(ctx, household);
+            self.review_timetable(ctx, household);
             return;
         }
         let Some(r) = self.line_reckoning(ctx, household, vehicle) else {
@@ -472,6 +474,33 @@ impl Population {
             if room.min(kg_h * effort_h) * (1.0 - super::trains::FREIGHT_SHARE) > own {
                 let kg = super::digging::dig_at(ctx, household, toward, deposit, effort_h, room);
                 return (0.0, Some((wagon, kg)));
+            }
+        }
+        // A line's pit station, its train away, takes the digging to wait for it (M10b slice DX,
+        // second part), where what comes home after any freight is more than the household's
+        // own wagon or a carry brings.
+        if let Some(pit) = pit
+            && let Some((keeper, way, room)) = Self::station_room(ctx, consignments, home, pit)
+            && let Some(d) = ctx.land.deposits.iter().find(|d| d.id == deposit)
+        {
+            let rates =
+                super::digging::rates(ctx.land_params, &d.body, ctx.params.digging.h_per_m3);
+            let kg_h = super::digging::dig_kg_per_hour(&d.body, rates);
+            let own = Self::wagon_haul(ctx, household, home, pit)
+                .filter(|h| h.load_kg > carry)
+                .map_or(carry, |h| {
+                    h.load_kg
+                        .min(kg_h * (minutes - h.extra_min).max(0.0) / 60.0 * eff)
+                });
+            let effort_h = minutes / 60.0 * eff;
+            let share = if keeper == household {
+                0.0
+            } else {
+                super::trains::FREIGHT_SHARE
+            };
+            if room.min(kg_h * effort_h) * (1.0 - share) > own {
+                let kg = super::digging::dig_at(ctx, household, toward, deposit, effort_h, room);
+                return (0.0, Some((way, kg)));
             }
         }
         let haul = pit

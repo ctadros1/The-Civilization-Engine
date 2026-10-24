@@ -6471,6 +6471,26 @@ and M6a gives rivers a daily flow.
       end, its session goes onto the wagon, more than twice a carry after freight, and nothing is
       carried home; the keeper's train runs it home with the keeper's coal, and there nine tenths
       go into the neighbour's store and a tenth into the keeper's, counted as freight.
+      *As built, second part (2026-10-24): stations and timetables.* A line's first run opens its
+      ends as stations (chronicled), and from then a session's digging at its pit while the train
+      is away waits at the pit station, as goods in transit held there, up to what all the
+      keeper's wagons on the line hold, when what comes home after any freight is more than the
+      household's own wagon or a carry brings; at the pit end the train takes aboard what waits as
+      far as it has room. Trains run by a timetable: each day the departures of every line's runs
+      a day (the first at six, the rest spread over the next twelve hours) are the times trains
+      are due, and at each the households with engines bring their arrived trains to account and
+      set off where their line runs one then. What the trains bring home is tallied on the line,
+      and at the keeper's yearly line review its runs a day are set to as many as a day's goods
+      since the last review fill, at least one and at most four, the tally then begun again
+      (saves 184: a line's stations, runs a day and tally; a pending `Trains` event). Lines are
+      now weighed and trains timetabled every day, where before they were only in a world where
+      someone had waded. Nobody knows the locomotive, so no world changes. **Tested:** the first
+      run opens stations and the chronicle tells it; digging with the train away waits at the pit
+      station, more than twice a carry, and goes aboard when the train is next at the pit end;
+      the goods brought home are tallied; the review sets one run a day for a little and four for
+      a great deal, then clears the tally; saved and loaded the line is as it was; left to the
+      clock, the trains run by the timetable and the waiting goods reach the store by the next
+      evening.
     - **DY**: the gas chain: gasworks, holders, mains, connections by district capacity,
       interruptions by cause, street lighting as a public work.
   - **M10c, services and letters** (ADR-0035 §1–§7).
@@ -7905,6 +7925,12 @@ One line each. Don't re-litigate without a reason written next to the entry.
   pump's half, its other work (a mill's, a hammer's) taken in the same daylight and not netted
   off; nobody sets a wheel for a pit's sake, so a wheel pumps only where one already stands near
   its holder's pit. Revisited when the M10 demo shows a pit beside a mill.
+- **Design priors for stations and timetables (2026-10-24, M10b slice DX, second part):** NUDGE:
+  a line's ends become stations with its first run, unbidden; a timetable's runs leave at six and
+  evenly over the twelve hours after, at most four a day; goods wait at the pit station up to one
+  train's room, in the order dug, and board whole or not at all; runs a day follow the goods
+  brought since the last yearly review, not what waits. None is measured. Revisited when a line
+  carries freight in a world.
 - **Design priors for freight on a household's line (2026-10-24, M10b slice DX, first part):**
   NUDGE: the keeper keeps a tenth of another household's goods for carrying them, a share in
   kind as the mill's sixteenth is, whatever the haul's length; a neighbour's goods go from the

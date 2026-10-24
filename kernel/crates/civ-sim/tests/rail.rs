@@ -1226,3 +1226,114 @@ fn a_neighbour_s_digging_goes_home_on_another_household_s_train_for_a_tenth_in_f
         .at;
     assert_eq!(at, home_cell);
 }
+
+#[test]
+fn a_line_opens_stations_with_its_first_run_keeps_goods_waiting_and_runs_by_its_timetable() {
+    use civ_land::trains::RunState;
+    let mut sim = village(3);
+    let household = first_household(&sim);
+    let home = sim.people().household(household).expect("household").home;
+    let carry = sim.rules().people.household.carry_kg;
+    let seam = contour_seam(&mut sim, home);
+    let (way, pit_cell, home_cell) = laid_line(&mut sim, household, home, seam);
+    let (wagon_v, engine_v) = (wagon_vehicle(&sim), engine_vehicle(&sim));
+    let add = |sim: &mut Sim, v: usize| {
+        sim.with_ctx_for_tests(|_, ctx| {
+            civ_agents::population::Population::add_wagon_for_tests(ctx, household, v, pit_cell)
+        })
+    };
+    let wagon = add(&mut sim, wagon_v);
+    let engine = add(&mut sim, engine_v);
+    let dig = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.dig_and_bring_for_tests(ctx, household, seam, 180.0))
+    };
+    let goods_on = |sim: &Sim, boat: PermanentId| {
+        sim.people()
+            .consignments
+            .iter()
+            .filter(|c| c.boat == boat)
+            .map(|c| c.stores.iter().sum::<f64>())
+            .sum::<f64>()
+    };
+    // No station before the first run: digging goes onto the wagon at the pit.
+    assert_eq!(dig(&mut sim), 0.0);
+    let first_load = goods_on(&sim, wagon);
+    assert!(first_load > 2.0 * carry);
+    assert!(sim.land().runs.line(way).is_none_or(|l| !l.stations));
+    set_store(&mut sim, household, "core:good/coal", 50.0);
+    let day = sim.now().day_index();
+    sim.with_ctx_for_tests(|pop, ctx| pop.engine_runs_for_tests(ctx, household, day));
+    // The first run opens the line's ends as stations, and the chronicle says so.
+    let line = sim.land().runs.line(way).cloned().expect("a line record");
+    assert!(line.stations && line.runs_a_day == 1, "{line:?}");
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|c| c.kind == civ_agents::ChronicleKind::StationsOpened),
+        "the chronicle tells it"
+    );
+    // With the train away, a session's digging waits at the pit station, nothing carried.
+    assert_eq!(dig(&mut sim), 0.0);
+    let waiting = goods_on(&sim, way);
+    assert!(waiting > 2.0 * carry, "{waiting}");
+    // Home, the train is unloaded and what it brought is tallied on the line; it goes back out
+    // light, and at the pit end what waited at the station goes aboard for the next run home.
+    let now = sim.now().minutes();
+    sim.advance_minutes((day * 1_440 + 7 * 60 - now).max(1))
+        .expect("advances");
+    sim.with_ctx_for_tests(|pop, ctx| pop.engine_runs_for_tests(ctx, household, day));
+    let tallied = sim.land().runs.line(way).expect("line").freight_kg;
+    assert!((f64::from(tallied) - first_load).abs() < 1e-2, "{tallied}");
+    sim.advance_minutes(60).expect("advances");
+    sim.with_ctx_for_tests(|pop, ctx| pop.engine_runs_for_tests(ctx, household, day));
+    let run = sim
+        .land()
+        .runs
+        .list
+        .iter()
+        .find(|r| r.engine == engine)
+        .cloned()
+        .expect("a run home");
+    assert!((f64::from(run.load_kg) - waiting).abs() < 1e-3, "{run:?}");
+    assert!(goods_on(&sim, way) < 1e-9, "nothing left waiting");
+    // At its review the timetable is set from the freight brought: one run a day for a little,
+    // the most for a great deal.
+    let review = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_timetable_for_tests(ctx, household));
+    };
+    review(&mut sim);
+    let line = sim.land().runs.line(way).cloned().expect("line");
+    assert_eq!((line.runs_a_day, line.freight_kg), (1, 0.0));
+    sim.land_mut_for_tests().runs.line_mut(way).freight_kg = 1.0e7;
+    review(&mut sim);
+    assert_eq!(sim.land().runs.line(way).expect("line").runs_a_day, 4);
+    // Saved and loaded, the line's stations and timetable are as they were.
+    saves_alike(&mut sim);
+    // Left to the clock, its trains run by their timetable: by the next evening the run home
+    // has been brought to account and the waiting goods are in the store.
+    let coal_before = stores_of(&sim, household, "core:good/coal");
+    let next = (day + 1) * 1_440 + 20 * 60;
+    let now = sim.now().minutes();
+    sim.advance_minutes(next - now).expect("advances");
+    let coal_after = stores_of(&sim, household, "core:good/coal");
+    assert!(
+        coal_after > coal_before + waiting - 10.0,
+        "{coal_before} -> {coal_after} of {waiting}"
+    );
+    let at = sim
+        .land()
+        .wagons
+        .list
+        .iter()
+        .find(|w| w.id == engine)
+        .expect("the engine")
+        .at;
+    assert!(at == pit_cell || at == home_cell);
+    assert!(
+        sim.land().runs.list.iter().all(|r| r.engine != engine
+            || !matches!(r.state, RunState::Arrived { .. })
+            || r.load_kg == 0.0),
+        "no loaded run left standing"
+    );
+}

@@ -2642,7 +2642,7 @@ table FactionsSave {
 // Schema 88 (M6b slice BC): FireStep, a minute of every fire burning, pending whenever one burns.
 // Schema 89 (M6b slice BD): Ignite, a home's fires in use may escape (`person` holds the
 // building's id).
-enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2, BandLook = 3, Gates = 4, Pass = 5 }
+enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2, BandLook = 3, Gates = 4, Pass = 5, Trains = 6 }
 
 table PendingEvent {
   at: long (id: 0);
@@ -3630,6 +3630,12 @@ table BoatsSave {
 table RailLineSave {
   way: ulong (id: 0);
   loops: [uint] (id: 1);
+  // Schema 184 (M10b slice DX, second part): whether its ends are stations, the runs a day its
+  // timetable sets, and the goods its trains brought since day `freight_since`, kg.
+  stations: bool (id: 2);
+  runs_a_day: ubyte = 1 (id: 3);
+  freight_kg: float (id: 4);
+  freight_since: long (id: 5);
 }
 
 // A train run (schema 182): its line and direction, its engine and owner, its legs (each

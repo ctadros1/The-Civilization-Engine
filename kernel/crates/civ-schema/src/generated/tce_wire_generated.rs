@@ -39984,6 +39984,11 @@ impl<'a> WayInfo<'a> {
   pub const VT_GAUGE_M: ::flatbuffers::VOffsetT = 18;
   pub const VT_RULING: ::flatbuffers::VOffsetT = 20;
   pub const VT_LAID: ::flatbuffers::VOffsetT = 22;
+  pub const VT_STATIONS: ::flatbuffers::VOffsetT = 24;
+  pub const VT_RUNS_A_DAY: ::flatbuffers::VOffsetT = 26;
+  pub const VT_FARE_KG: ::flatbuffers::VOffsetT = 28;
+  pub const VT_RIDERS: ::flatbuffers::VOffsetT = 30;
+  pub const VT_FREIGHT_KG_DAY: ::flatbuffers::VOffsetT = 32;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -39996,6 +40001,9 @@ impl<'a> WayInfo<'a> {
   ) -> ::flatbuffers::WIPOffset<WayInfo<'bldr>> {
     let mut builder = WayInfoBuilder::new(_fbb);
     builder.add_id(args.id);
+    builder.add_freight_kg_day(args.freight_kg_day);
+    builder.add_riders(args.riders);
+    builder.add_fare_kg(args.fare_kg);
     builder.add_laid(args.laid);
     builder.add_ruling(args.ruling);
     builder.add_gauge_m(args.gauge_m);
@@ -40003,6 +40011,8 @@ impl<'a> WayInfo<'a> {
     if let Some(x) = args.segments { builder.add_segments(x); }
     builder.add_trips_a_day(args.trips_a_day);
     if let Some(x) = args.rank_name { builder.add_rank_name(x); }
+    builder.add_runs_a_day(args.runs_a_day);
+    builder.add_stations(args.stations);
     builder.add_modes(args.modes);
     builder.add_rank(args.rank);
     builder.finish()
@@ -40079,6 +40089,41 @@ impl<'a> WayInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(WayInfo::VT_LAID, Some(1.0)).unwrap()}
   }
+  #[inline]
+  pub fn stations(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(WayInfo::VT_STATIONS, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn runs_a_day(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(WayInfo::VT_RUNS_A_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn fare_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WayInfo::VT_FARE_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn riders(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WayInfo::VT_RIDERS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn freight_kg_day(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WayInfo::VT_FREIGHT_KG_DAY, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WayInfo<'_> {
@@ -40097,6 +40142,11 @@ impl ::flatbuffers::Verifiable for WayInfo<'_> {
      .visit_field::<f32>("gauge_m", Self::VT_GAUGE_M, false)?
      .visit_field::<f32>("ruling", Self::VT_RULING, false)?
      .visit_field::<f32>("laid", Self::VT_LAID, false)?
+     .visit_field::<bool>("stations", Self::VT_STATIONS, false)?
+     .visit_field::<u8>("runs_a_day", Self::VT_RUNS_A_DAY, false)?
+     .visit_field::<f32>("fare_kg", Self::VT_FARE_KG, false)?
+     .visit_field::<u32>("riders", Self::VT_RIDERS, false)?
+     .visit_field::<f32>("freight_kg_day", Self::VT_FREIGHT_KG_DAY, false)?
      .finish();
     Ok(())
   }
@@ -40112,6 +40162,11 @@ pub struct WayInfoArgs<'a> {
     pub gauge_m: f32,
     pub ruling: f32,
     pub laid: f32,
+    pub stations: bool,
+    pub runs_a_day: u8,
+    pub fare_kg: f32,
+    pub riders: u32,
+    pub freight_kg_day: f32,
 }
 impl<'a> Default for WayInfoArgs<'a> {
   #[inline]
@@ -40127,6 +40182,11 @@ impl<'a> Default for WayInfoArgs<'a> {
       gauge_m: 0.0,
       ruling: 0.0,
       laid: 1.0,
+      stations: false,
+      runs_a_day: 0,
+      fare_kg: 0.0,
+      riders: 0,
+      freight_kg_day: 0.0,
     }
   }
 }
@@ -40177,6 +40237,26 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WayInfoBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(WayInfo::VT_LAID, laid, 1.0);
   }
   #[inline]
+  pub fn add_stations(&mut self, stations: bool) {
+    self.fbb_.push_slot::<bool>(WayInfo::VT_STATIONS, stations, false);
+  }
+  #[inline]
+  pub fn add_runs_a_day(&mut self, runs_a_day: u8) {
+    self.fbb_.push_slot::<u8>(WayInfo::VT_RUNS_A_DAY, runs_a_day, 0);
+  }
+  #[inline]
+  pub fn add_fare_kg(&mut self, fare_kg: f32) {
+    self.fbb_.push_slot::<f32>(WayInfo::VT_FARE_KG, fare_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_riders(&mut self, riders: u32) {
+    self.fbb_.push_slot::<u32>(WayInfo::VT_RIDERS, riders, 0);
+  }
+  #[inline]
+  pub fn add_freight_kg_day(&mut self, freight_kg_day: f32) {
+    self.fbb_.push_slot::<f32>(WayInfo::VT_FREIGHT_KG_DAY, freight_kg_day, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WayInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WayInfoBuilder {
@@ -40204,6 +40284,11 @@ impl ::core::fmt::Debug for WayInfo<'_> {
       ds.field("gauge_m", &self.gauge_m());
       ds.field("ruling", &self.ruling());
       ds.field("laid", &self.laid());
+      ds.field("stations", &self.stations());
+      ds.field("runs_a_day", &self.runs_a_day());
+      ds.field("fare_kg", &self.fare_kg());
+      ds.field("riders", &self.riders());
+      ds.field("freight_kg_day", &self.freight_kg_day());
       ds.finish()
   }
 }

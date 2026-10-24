@@ -1297,14 +1297,15 @@ describe("decoders", () => {
     const segments = W.WayInfo.createSegmentsVector(b, [segment]);
     const rankName = b.createString("lane");
     const words = b.createString("Lane of 72 m, 1.5 m wide at most; begun in year 1.");
-    const info = W.WayInfo.createWayInfo(b, 61n, 0, rankName, 1, 3, segments, words, 0, 0, 1);
-    // Wire 1.100: a line of track, its gauge, grade and share laid.
+    const info = W.WayInfo.createWayInfo(b, 61n, 0, rankName, 1, 3, segments, words, 0, 0, 1, false, 0, 0, 0, 0);
+    // Wire 1.100: a line of track, its gauge, grade and share laid; wire 1.102, its stations open,
+    // two trains a day, a fare of 0.6 kg, 14 rides and 380 kg brought a day.
     const trackWords = b.createString(
       "Wagonway of 120 m, gauge 1.0 m, graded to 1 in 300 at its steepest, 40% laid; begun in year 2.",
     );
     const trackName = b.createString("lane");
     const noSegments = W.WayInfo.createSegmentsVector(b, []);
-    const line = W.WayInfo.createWayInfo(b, 62n, 0, trackName, 4, 0, noSegments, trackWords, 1, 0.003, 0.4);
+    const line = W.WayInfo.createWayInfo(b, 62n, 0, trackName, 4, 0, noSegments, trackWords, 1, 0.003, 0.4, true, 2, 0.6, 14, 380);
     const list = W.Ways.createWaysVector(b, [info, line]);
     const ways = W.Ways.createWays(b, 5n, list);
     const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Ways, ways)));
@@ -1338,6 +1339,11 @@ describe("decoders", () => {
           gaugeM: 0,
           ruling: 0,
           laid: 1,
+          stations: false,
+          runsADay: 0,
+          fareKg: 0,
+          riders: 0,
+          freightKgDay: 0,
         },
         {
           id: 62,
@@ -1350,6 +1356,11 @@ describe("decoders", () => {
           gaugeM: 1,
           ruling: expect.closeTo(0.003, 6) as number,
           laid: expect.closeTo(0.4, 6) as number,
+          stations: true,
+          runsADay: 2,
+          fareKg: expect.closeTo(0.6, 6) as number,
+          riders: 14,
+          freightKgDay: 380,
         },
       ],
     });

@@ -1840,6 +1840,14 @@ export interface WayInfo {
   gaugeM: number;
   ruling: number;
   laid: number;
+  /** Wire 1.102 (M10b slice DX): for a line, whether its ends are stations, the runs a day its
+   * timetable sets, the fare a ride costs (kg of its engines' fuel), and since its last review the
+   * rides taken and the goods its trains brought a day, kg. */
+  stations: boolean;
+  runsADay: number;
+  fareKg: number;
+  riders: number;
+  freightKgDay: number;
 }
 
 export interface WaysInfo {
@@ -3152,6 +3160,11 @@ function ways(w: W.Ways): WaysInfo {
       gaugeM: v.gaugeM(),
       ruling: v.ruling(),
       laid: v.laid(),
+      stations: v.stations(),
+      runsADay: v.runsADay(),
+      fareKg: v.fareKg(),
+      riders: v.riders(),
+      freightKgDay: v.freightKgDay(),
     });
   }
   return { rev: Number(w.rev()), ways: list };

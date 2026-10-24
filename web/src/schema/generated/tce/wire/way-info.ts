@@ -84,8 +84,33 @@ laid():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 1.0;
 }
 
+stations():boolean {
+  const offset = this.bb!.__offset(this.bb_pos, 24);
+  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
+}
+
+runsADay():number {
+  const offset = this.bb!.__offset(this.bb_pos, 26);
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : 0;
+}
+
+fareKg():number {
+  const offset = this.bb!.__offset(this.bb_pos, 28);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+riders():number {
+  const offset = this.bb!.__offset(this.bb_pos, 30);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
+freightKgDay():number {
+  const offset = this.bb!.__offset(this.bb_pos, 32);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
 static startWayInfo(builder:flatbuffers.Builder) {
-  builder.startObject(10);
+  builder.startObject(15);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -140,12 +165,32 @@ static addLaid(builder:flatbuffers.Builder, laid:number) {
   builder.addFieldFloat32(9, laid, 1.0);
 }
 
+static addStations(builder:flatbuffers.Builder, stations:boolean) {
+  builder.addFieldInt8(10, +stations, +false);
+}
+
+static addRunsADay(builder:flatbuffers.Builder, runsADay:number) {
+  builder.addFieldInt8(11, runsADay, 0);
+}
+
+static addFareKg(builder:flatbuffers.Builder, fareKg:number) {
+  builder.addFieldFloat32(12, fareKg, 0.0);
+}
+
+static addRiders(builder:flatbuffers.Builder, riders:number) {
+  builder.addFieldInt32(13, riders, 0);
+}
+
+static addFreightKgDay(builder:flatbuffers.Builder, freightKgDay:number) {
+  builder.addFieldFloat32(14, freightKgDay, 0.0);
+}
+
 static endWayInfo(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createWayInfo(builder:flatbuffers.Builder, id:bigint, rank:number, rankNameOffset:flatbuffers.Offset, modes:number, tripsADay:number, segmentsOffset:flatbuffers.Offset, wordsOffset:flatbuffers.Offset, gaugeM:number, ruling:number, laid:number):flatbuffers.Offset {
+static createWayInfo(builder:flatbuffers.Builder, id:bigint, rank:number, rankNameOffset:flatbuffers.Offset, modes:number, tripsADay:number, segmentsOffset:flatbuffers.Offset, wordsOffset:flatbuffers.Offset, gaugeM:number, ruling:number, laid:number, stations:boolean, runsADay:number, fareKg:number, riders:number, freightKgDay:number):flatbuffers.Offset {
   WayInfo.startWayInfo(builder);
   WayInfo.addId(builder, id);
   WayInfo.addRank(builder, rank);
@@ -157,6 +202,11 @@ static createWayInfo(builder:flatbuffers.Builder, id:bigint, rank:number, rankNa
   WayInfo.addGaugeM(builder, gaugeM);
   WayInfo.addRuling(builder, ruling);
   WayInfo.addLaid(builder, laid);
+  WayInfo.addStations(builder, stations);
+  WayInfo.addRunsADay(builder, runsADay);
+  WayInfo.addFareKg(builder, fareKg);
+  WayInfo.addRiders(builder, riders);
+  WayInfo.addFreightKgDay(builder, freightKgDay);
   return WayInfo.endWayInfo(builder);
 }
 }

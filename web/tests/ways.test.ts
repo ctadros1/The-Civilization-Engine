@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { WayInfo, WaySegmentInfo } from "../src/net/messages.js";
-import { BED_COLOUR, EARTH_COLOUR, GRAVEL_COLOUR, lineLook, wayAt, wayLook, wayWords } from "../src/ways.js";
+import { BED_COLOUR, EARTH_COLOUR, GRAVEL_COLOUR, lineLook, stationEnds, wayAt, wayLook, wayWords } from "../src/ways.js";
 
 function segment(over: Partial<WaySegmentInfo> = {}): WaySegmentInfo {
   return {
@@ -32,6 +32,11 @@ function way(over: Partial<WayInfo> = {}): WayInfo {
     gaugeM: 0,
     ruling: 0,
     laid: 1,
+    stations: false,
+    runsADay: 0,
+    fareKg: 0,
+    riders: 0,
+    freightKgDay: 0,
     ...over,
   };
 }
@@ -65,6 +70,19 @@ describe("ways", () => {
     expect(wayWords(a, segment({ keeper: "", condition: 0.2 }))).toContain("kept by nobody, in poor condition.");
   });
 
+  it("marks a line's stations at its two ends once they are open, and none before", () => {
+    const first = segment({ points: [[0, 0], [40, 0]] });
+    const second = segment({ points: [[40, 0], [80, 10]] });
+    const line = way({ modes: 4, gaugeM: 1, segments: [first, second] });
+    expect(stationEnds(line)).toEqual([]);
+    expect(stationEnds({ ...line, stations: true })).toEqual([
+      [0, 0],
+      [80, 10],
+    ]);
+    // A way that is not a line has none.
+    expect(stationEnds(way({ stations: true }))).toEqual([]);
+  });
+
   it("draws a line of track as its bed, faint while being laid, with rails once whole", () => {
     const bed = segment({ surface: "timber track", corridorM: 2, builtM: 1, usableM: 0.05 });
     const marked = way({ modes: 4, gaugeM: 1, ruling: 0.003, laid: 0, segments: [bed] });
@@ -90,5 +108,25 @@ describe("ways", () => {
     // Not yet usable, it is still found across its bed.
     expect(wayAt([line], 40, 0.9, 0.1)?.way.id).toBe(1);
     expect(wayWords(line, line.segments[0]!)).toBe(`${line.words} Timber track on a 2.0 m bed, kept by Ada's household.`);
+  });
+
+  it("reads out a line's timetable, fare and freight as the kernel words them", () => {
+    const bed = segment({ surface: "timber track", corridorM: 2, builtM: 2, usableM: 2 });
+    const line = way({
+      modes: 4,
+      gaugeM: 1,
+      laid: 1,
+      segments: [bed],
+      stations: true,
+      runsADay: 2,
+      fareKg: 0.6,
+      riders: 14,
+      freightKgDay: 380,
+      words:
+        "Wagonway of 80 m, gauge 1.0 m, laid; begun in year 1. Stations at both ends; 2 trains a day; a ride costs 0.6 kg of coal; 14 rides and 380 kg brought a day since its review.",
+    });
+    const readout = wayWords(line, bed);
+    expect(readout).toContain("2 trains a day; a ride costs 0.6 kg of coal; 14 rides and 380 kg brought a day");
+    expect(readout.endsWith("Timber track on a 2.0 m bed, kept by Ada's household.")).toBe(true);
   });
 });

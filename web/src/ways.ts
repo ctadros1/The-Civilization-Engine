@@ -10,6 +10,18 @@ export const TIMBER_COLOUR = 0x8a5a2b;
 /** A line of track's graded bed, and its timber rails (M10b slice DV). */
 export const BED_COLOUR = 0x9b8461;
 export const RAIL_COLOUR = 0x4a3220;
+/** A line's station at each of its ends, once its stations are open (M10b slice DX). */
+export const STATION_COLOUR = 0x6b4f3a;
+
+/** Where a line's stations stand, once open (M10b slice DX): the first point of its first stretch
+ * and the last of its last; none for a way that is not a line or whose stations are shut. */
+export function stationEnds(way: WayInfo): Array<[number, number]> {
+  if (way.gaugeM <= 0 || !way.stations) return [];
+  const first = way.segments[0]?.points[0];
+  const lastSeg = way.segments[way.segments.length - 1];
+  const last = lastSeg?.points[lastSeg.points.length - 1];
+  return [first, last].filter((p): p is [number, number] => p !== undefined);
+}
 
 /** How a stretch of a line of track is drawn: its graded bed the width of its corridor, fainter
  * the less of it is laid (never fainter than about a quarter, so a line marked out shows), and

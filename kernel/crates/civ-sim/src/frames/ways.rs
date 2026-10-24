@@ -11,13 +11,89 @@ use super::response;
 use crate::Sim;
 
 /// The ways' revision: the land's, which changes whenever a way is begun or changed and at each
-/// survey while there are any; 0 when the world has none.
+/// survey while there are any, mixed with what each line's record shows (its stations,
+/// timetable, fare and tallies, M10b slice DX); 0 when the world has none.
 pub fn ways_rev(sim: &Sim) -> u64 {
     if sim.land.ways.list.is_empty() {
-        0
-    } else {
-        u64::from(sim.land.ways.revision())
+        return 0;
     }
+    let base = u64::from(sim.land.ways.revision());
+    if sim.land.runs.lines.is_empty() {
+        return base;
+    }
+    // FNV-1a over the lines' records, which the ways' revision does not follow.
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut mix = |v: u64| {
+        for b in v.to_le_bytes() {
+            h ^= u64::from(b);
+            h = h.wrapping_mul(0x0100_0000_01b3);
+        }
+    };
+    mix(base);
+    for l in &sim.land.runs.lines {
+        mix(l.way.get());
+        mix(u64::from(l.stations));
+        mix(u64::from(l.runs_a_day));
+        mix(u64::from(l.fare_kg.to_bits()));
+        mix(u64::from(l.riders));
+        mix(u64::from(l.freight_kg.to_bits()));
+        mix(l.freight_since as u64);
+    }
+    h.max(1)
+}
+
+/// What a line's record shows (M10b slice DX): whether its ends are stations, its runs a day, its
+/// fare, kg, and since its last review its rides and the goods brought a day, kg.
+fn line_facts(sim: &Sim, way: &Way) -> (bool, u8, f32, u32, f32) {
+    let Some(l) = sim.land.runs.line(way.id) else {
+        return (false, 0, 0.0, 0, 0.0);
+    };
+    let days = (sim.now().day_index() - l.freight_since).max(1) as f32;
+    (
+        l.stations,
+        l.runs_a_day,
+        l.fare_kg,
+        l.riders,
+        l.freight_kg / days,
+    )
+}
+
+/// A line's stations, timetable and terms in words (M10b slice DX): " Stations at both ends; 2
+/// trains a day; a ride costs 0.6 kg of coal; 14 rides and 380 kg brought a day since its
+/// review." Nothing for a line whose stations are not open.
+fn line_words(
+    sim: &Sim,
+    (stations, runs, fare, riders, freight): (bool, u8, f32, u32, f32),
+) -> String {
+    if !stations {
+        return String::new();
+    }
+    let fuel = sim
+        .rules
+        .catalog
+        .vehicles
+        .iter()
+        .find_map(|v| v.engine)
+        .and_then(|e| sim.rules.catalog.goods.get(e.fuel))
+        .map_or_else(|| "fuel".to_owned(), |g| g.name.to_lowercase());
+    let trains = if runs == 1 {
+        "1 train a day".to_owned()
+    } else {
+        format!("{runs} trains a day")
+    };
+    let fare = if fare > 0.0 {
+        format!("a ride costs {fare:.1} kg of {fuel}")
+    } else {
+        "no fare posted yet".to_owned()
+    };
+    let rides = if riders == 1 {
+        "1 ride".to_owned()
+    } else {
+        format!("{riders} rides")
+    };
+    format!(
+        " Stations at both ends; {trains}; {fare}; {rides} and {freight:.0} kg brought a day since its review."
+    )
 }
 
 /// Who keeps a stretch, in words: "Ada's household", "Ashford", "" for nobody.
@@ -153,8 +229,12 @@ pub fn ways_response(sim: &Sim) -> Vec<u8> {
         }
         let segments = fbb.create_vector(&segments);
         let rank_name = fbb.create_string(way.rank.name());
-        let text = fbb.create_string(&words(way, day, length_m, track));
+        let line = line_facts(sim, way);
+        let mut said = words(way, day, length_m, track);
+        said.push_str(&line_words(sim, line));
+        let text = fbb.create_string(&said);
         let (gauge_m, ruling, laid) = track.unwrap_or((0.0, 0.0, 1.0));
+        let (stations, runs_a_day, fare_kg, riders, freight_kg_day) = line;
         list.push(wire::WayInfo::create(
             &mut fbb,
             &wire::WayInfoArgs {
@@ -168,6 +248,11 @@ pub fn ways_response(sim: &Sim) -> Vec<u8> {
                 gauge_m,
                 ruling,
                 laid,
+                stations,
+                runs_a_day,
+                fare_kg,
+                riders,
+                freight_kg_day,
             },
         ));
     }

@@ -258,6 +258,30 @@ fn line_seen(sim: &Sim, id: PermanentId) -> (f32, f32, f32, String) {
     )
 }
 
+/// Line `id`'s terms as the observer's ways layer shows them (M10b slice DX): whether its ends are
+/// stations, its runs a day, fare, kg, rides and goods brought a day, and its words.
+fn line_terms_seen(sim: &Sim, id: PermanentId) -> (bool, u8, f32, u32, f32, String) {
+    let bytes = civ_sim::frames::ways::ways_response(sim);
+    let response =
+        civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&bytes).expect("wire");
+    let way = response
+        .body_as_ways()
+        .expect("ways")
+        .ways()
+        .expect("a list")
+        .iter()
+        .find(|w| w.id() == id.get())
+        .expect("the line");
+    (
+        way.stations(),
+        way.runs_a_day(),
+        way.fare_kg(),
+        way.riders(),
+        way.freight_kg_day(),
+        way.words().unwrap_or_default().to_owned(),
+    )
+}
+
 /// The locomotive content's index.
 fn engine_vehicle(sim: &Sim) -> usize {
     sim.rules()
@@ -1554,6 +1578,9 @@ fn a_line_opens_stations_with_its_first_run_keeps_goods_waiting_and_runs_by_its_
     let first_load = goods_on(&sim, wagon);
     assert!(first_load > 2.0 * carry);
     assert!(sim.land().runs.line(way).is_none_or(|l| !l.stations));
+    let (open, _, _, _, _, words) = line_terms_seen(&sim, way);
+    assert!(!open && !words.contains("Stations"), "{words}");
+    let rev_before = civ_sim::frames::ways::ways_rev(&sim);
     set_store(&mut sim, household, "core:good/coal", 50.0);
     let day = sim.now().day_index();
     sim.with_ctx_for_tests(|pop, ctx| pop.engine_runs_for_tests(ctx, household, day));
@@ -1567,6 +1594,34 @@ fn a_line_opens_stations_with_its_first_run_keeps_goods_waiting_and_runs_by_its_
             .any(|c| c.kind == civ_agents::ChronicleKind::StationsOpened),
         "the chronicle tells it"
     );
+    // The observer shows the stations open, the timetable and no fare yet.
+    let (open, runs, fare, riders, _, words) = line_terms_seen(&sim, way);
+    assert!(open && runs == 1 && fare == 0.0 && riders == 0, "{words}");
+    assert!(
+        words.contains("Stations at both ends; 1 train a day; no fare posted yet; 0 rides"),
+        "{words}"
+    );
+    assert_ne!(civ_sim::frames::ways::ways_rev(&sim), rev_before);
+    // A posted fare and a tally of rides and goods are shown, the goods by the day.
+    let rev_open = civ_sim::frames::ways::ways_rev(&sim);
+    let today = sim.now().day_index();
+    let saved = sim.land().runs.line(way).cloned().expect("line");
+    {
+        let l = sim.land_mut_for_tests().runs.line_mut(way);
+        l.fare_kg = 0.6;
+        l.riders = 14;
+        l.freight_kg = 760.0;
+        l.freight_since = today - 2;
+    }
+    let (_, _, fare, riders, per_day, words) = line_terms_seen(&sim, way);
+    assert!((fare - 0.6).abs() < 1e-6 && riders == 14, "{words}");
+    assert!((per_day - 380.0).abs() < 1e-3, "{per_day}");
+    assert!(
+        words.contains("a ride costs 0.6 kg of coal; 14 rides and 380 kg brought a day"),
+        "{words}"
+    );
+    assert_ne!(civ_sim::frames::ways::ways_rev(&sim), rev_open);
+    *sim.land_mut_for_tests().runs.line_mut(way) = saved;
     // With the train away, a session's digging waits at the pit station, nothing carried.
     assert_eq!(dig(&mut sim), 0.0);
     let waiting = goods_on(&sim, way);

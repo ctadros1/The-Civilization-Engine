@@ -2892,6 +2892,14 @@ table WayInfo {
   gauge_m: float (id: 7);
   ruling: float (id: 8);
   laid: float = 1.0 (id: 9);
+  // Wire 1.102 (M10b slice DX, fifth part): for a line, whether its ends are stations, the runs a
+  // day its timetable sets, the fare a ride costs, kg of its engines' fuel, and since its last
+  // review the rides taken and the goods its trains brought a day, kg.
+  stations: bool (id: 10);
+  runs_a_day: ubyte (id: 11);
+  fare_kg: float (id: 12);
+  riders: uint (id: 13);
+  freight_kg_day: float (id: 14);
 }
 
 // Wire 1.84: every way, in the order begun.

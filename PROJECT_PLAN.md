@@ -6577,6 +6577,25 @@ and M6a gives rivers a daily flow.
       changes. **Tested:** at midnight, a ride set off then is refused, the morning's train hours
       off, while the day's ride takes its seat, pays the fare posted at the review to the
       operator, counts on the line and ends at the pit end.
+      *As built, fifth part (2026-10-24): the observer of stations, terms and freight.* The ways
+      layer carries each line's terms (wire 1.102): whether its ends are open as stations, its
+      runs a day, its posted fare in kilograms of fuel, and since its last review the rides taken
+      and the goods brought a day; the layer's revision follows a line's record as well as the
+      land's. A line with open stations tells them in its words ("Stations at both ends; 2 trains a
+      day; a ride costs 0.6 kg of coal; 14 rides and 380 kg brought a day since its review."), so
+      the pointer's readout over a line gives its timetable, fare and freight. The map draws a
+      small square at each end of a line whose stations are open. The kernel's words are the line's
+      page; a page of its own waits for a line with more than two stations. Nothing in a world
+      changes. **Tested:** before its first run a line shows no stations and its words name none;
+      after it, the layer shows its stations open, one train a day and no fare, its words say so
+      and its revision moves; with a fare of 0.6 kg posted, 14 rides and 760 kg brought over two
+      days, it shows the fare, the rides and 380 kg a day in its fields and words, the revision
+      moving again. The observer decodes the new fields, marks a line's two ends once its
+      stations are open and none before, and reads out its timetable, fare and freight.
+      **Slice DX is done.** Of its plan, an organization by stake owning a line and a franchise
+      over a route (ADR-0026) are not built: a line is kept by a household or by its polity, and
+      no line yet joins two settlements, so neither has anything to answer. They wait for a line
+      between settlements, which no household or polity yet weighs.
     - **DY**: the gas chain: gasworks, holders, mains, connections by district capacity,
       interruptions by cause, street lighting as a public work.
   - **M10c, services and letters** (ADR-0035 §1–§7).

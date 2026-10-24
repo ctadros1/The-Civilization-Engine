@@ -26,7 +26,7 @@ import { Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js
 import { buildingAt, buildingMarks, type Mark } from "../buildings.js";
 import { homeAt, lensMarks, placeAt, type LensLayer } from "../coverage.js";
 import { crossingAt, crossingEnds, crossingLook } from "../crossings.js";
-import { lineLook, wayAt, wayLook } from "../ways.js";
+import { lineLook, STATION_COLOUR, stationEnds, wayAt, wayLook } from "../ways.js";
 import { vehicleAt, vehicleLook, vehiclePosition } from "../vehicles.js";
 import {
   BUILT_COLOUR,
@@ -633,6 +633,13 @@ export class MapView {
         const look = wayLook(s, w.rank);
         trace();
         g.stroke({ width: Math.max(look.widthM, 2 * pxM), color: look.colour, alpha: look.alpha, cap: "round", join: "round" });
+      }
+      // A line's stations, once open (M10b slice DX): a square at each end, never smaller than a
+      // few pixels.
+      const side = Math.max(3, 6 * pxM);
+      for (const [x, y] of stationEnds(w)) {
+        g.rect(x - side / 2, y - side / 2, side, side);
+        g.fill({ color: STATION_COLOUR, alpha: 0.95 });
       }
     }
   }

@@ -1543,4 +1543,40 @@ fn a_line_the_gathering_asks_for_is_laid_by_the_households_shares_from_a_pit_to_
     );
     // With it laid, no other line is weighed there.
     assert_eq!(public(&mut sim), None);
+    // A digger with no line of its own weighs a wagon of its own on the polity's line rather than
+    // a line beside it, and begins the wagon at the line's end by the hearth.
+    set_timber(&mut sim, first, 1_000.0);
+    let ways = sim.land().ways.list.len();
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_line_for_tests(ctx, first));
+    assert_eq!(sim.land().ways.list.len(), ways, "no line of its own");
+    let begun = sim
+        .land()
+        .wagons
+        .list
+        .iter()
+        .find(|w| w.owner == first)
+        .cloned()
+        .expect("a wagon begun");
+    assert_eq!(begun.at, hearth_cell);
+    assert!(!begun.made());
+    // A household with a made wagon on the line brings home from the pit what the wagon carries,
+    // more than a carry, and the wagon stands at the hearth end.
+    let carry = sim.rules().people.household.carry_kg;
+    let v = wagon_vehicle(&sim);
+    let wagon = sim.with_ctx_for_tests(|_, ctx| {
+        civ_agents::population::Population::add_wagon_for_tests(ctx, second, v, cell)
+    });
+    let kg =
+        sim.with_ctx_for_tests(|pop, ctx| pop.dig_and_bring_for_tests(ctx, second, seam, 180.0));
+    assert!(kg > 2.0 * carry, "{kg}");
+    let at = |sim: &Sim| {
+        sim.land()
+            .wagons
+            .list
+            .iter()
+            .find(|w| w.id == wagon)
+            .map(|w| w.at)
+    };
+    assert_eq!(at(&sim), Some(hearth_cell));
+    saves_alike(&mut sim);
 }

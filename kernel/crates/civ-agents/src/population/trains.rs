@@ -819,7 +819,8 @@ impl Population {
         }
         let carry = ctx.params.household.carry_kg;
         let dug = p.kg_h * p.session_h;
-        let by_now = Self::wagon_haul(ctx, household, x.home, p.pit).map_or(carry, |h| {
+        let hearth = Self::hearth_of(ctx, x);
+        let by_now = Self::wagon_haul(ctx, household, x.home, hearth, p.pit).map_or(carry, |h| {
             h.load_kg
                 .min(p.kg_h * (p.session_h - h.extra_min / 60.0).max(0.0))
         });

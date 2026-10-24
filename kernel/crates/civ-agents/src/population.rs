@@ -5590,9 +5590,10 @@ impl Population {
                             .and_then(|&x| self.households.get(x));
                         let (settlement, home) =
                             (hh.and_then(|x| x.settlement), hh.map_or(p.pos, |x| x.home));
-                        let toward = settlement
+                        let hearth = settlement
                             .and_then(|s| ctx.land.settlements.iter().find(|x| x.id == s))
-                            .map_or(p.pos, |x| x.hearth_m);
+                            .map(|x| x.hearth_m);
+                        let toward = hearth.unwrap_or(p.pos);
                         let toward = (f64::from(toward.0), f64::from(toward.1));
                         // Onto the household's train, where its engine works the line from the pit
                         // (M10b slice DW, third part); by its wagon, where its line runs from the
@@ -5602,6 +5603,7 @@ impl Population {
                             &self.consignments,
                             household,
                             home,
+                            hearth,
                             toward,
                             deposit,
                             f64::from(minutes),

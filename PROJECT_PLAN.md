@@ -6462,9 +6462,9 @@ and M6a gives rivers a daily flow.
       between places people live, and every line so far runs from one household's pit to its
       home, so who builds and owns a line comes third and rides fourth: (3a) a polity's
       `build_line`, a line from a pit several of its households dig to its hearth, laid by their
-      shares of work as its passing places are; (3b) the polity's engine and trains on its line,
-      with stations at the settlement carrying any household's goods; (4) rides; (5) the
-      observer.
+      shares of work as its passing places are; (3b) its households' own wagons on it; (3c)
+      engines and trains on a polity's line, with stations at the settlement carrying any
+      household's goods; (4) rides; (5) the observer.
       *As built, first part (2026-10-24): freight on a household's line.* Where another household's
       engine works a whole line from beside the pit a household digs to beside its home, a session
       of its digging there goes onto the keeper's wagons at the pit end, as its own goods in
@@ -6518,6 +6518,19 @@ and M6a gives rivers a daily flow.
       from the pit's cell to the hearth's; saved and loaded it is as it was; the two households'
       shares lay it, each counted toward its share, the chronicle tells it laid together, and no
       further line is weighed while it stands.
+      *As built, third part, second step (2026-10-24): wagons on a line laid together.* A line a
+      polity keeps serves the households of the settlement at whose hearth it ends, its end there
+      counting as their home: a household's own made wagon of the line's gauge standing at either
+      end carries home from the pit what a session digs, as on a line of its own, its goods going
+      from the hearth end into its store, the wagon left standing there. At its yearly line review
+      a household that keeps no line of its own and digs most at a pit such a line runs from
+      weighs a wagon on it rather than a line of its own, and begins one at the hearth end where
+      the hours it spares over its life are more than its making takes. Engines and trains still
+      run only on a household's own line. Nobody knows the wooden railway, so no world changes.
+      **Tested:** after the line laid together, a digger with no line of its own begins a wagon at
+      the hearth end and lays nothing; a household with a made wagon on the line brings home more
+      than twice a carry from the pit, its wagon left at the hearth end; saved and loaded, the
+      world goes on alike.
     - **DY**: the gas chain: gasworks, holders, mains, connections by district capacity,
       interruptions by cause, street lighting as a public work.
   - **M10c, services and letters** (ADR-0035 §1–§7).
@@ -7952,6 +7965,12 @@ One line each. Don't re-litigate without a reason written next to the entry.
   pump's half, its other work (a mill's, a hammer's) taken in the same daylight and not netted
   off; nobody sets a wheel for a pit's sake, so a wheel pumps only where one already stands near
   its holder's pit. Revisited when the M10 demo shows a pit beside a mill.
+- **Design priors for wagons on a line laid together (2026-10-24, M10b slice DX, third part,
+  second step):** NUDGE: any household of the settlement at whose hearth a polity's line ends may
+  run its own wagons on it, unasked and paying nothing; what a wagon brings goes from the hearth
+  end into the household's store with no walk from there taken, as freight's goods do; a
+  household weighs a wagon on such a line only where it keeps no line of its own. None is
+  measured. Revisited with engines on a polity's line and when a line is laid together in a world.
 - **Design priors for a line laid together (2026-10-24, M10b slice DX, third part, first step):**
   NUDGE: a polity weighs a line only from a pit two or more of its households dig, to its
   hearth, one at a time; what a household would spare is its walk and carrying a year beyond what

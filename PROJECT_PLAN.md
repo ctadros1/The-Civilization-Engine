@@ -6568,6 +6568,15 @@ and M6a gives rivers a daily flow.
       rider, and the ride waits until six and ends at the pit end, aboard; saved and loaded the
       world goes on alike; at the operator's review the fare is posted from the light run's coal
       and the tally begins again.
+      *As built, fourth part, second step (2026-10-24): rides in a household-resolved day.* A ride
+      is a block (ADR-0034 §7): a household-resolved person's day lived at midnight may now take
+      up a dig with a ride out, and the ride takes its seat on a run of the day's timetable and
+      its fare as an event-driven ride does, the person then at the line's end; with no train
+      that day, an engine away from the station, or no fare held, the ride is left out and the
+      walk after it goes on from where they stand. Nobody knows the locomotive, so no world
+      changes. **Tested:** at midnight, a ride set off then is refused, the morning's train hours
+      off, while the day's ride takes its seat, pays the fare posted at the review to the
+      operator, counts on the line and ends at the pit end.
     - **DY**: the gas chain: gasworks, holders, mains, connections by district capacity,
       interruptions by cause, street lighting as a public work.
   - **M10c, services and letters** (ADR-0035 §1–§7).
@@ -8008,8 +8017,9 @@ One line each. Don't re-litigate without a reason written next to the entry.
   engine stands at the station); the wait weighed is half the time between runs, the wait taken
   the real one up to 90 minutes; the fare is the light run's coal over its riders, paid in that
   coal, and a household weighs it at its own cost of coal; a ride is weighed only for the deposit
-  chosen by its walk. Rides are not yet counted in the dashboard's travel. None is measured.
-  Revisited with the household-day block and when a line carries riders in a world.
+  chosen by its walk. Rides are not yet counted in the dashboard's travel. In a household-resolved
+  day a ride takes the day's first run whatever hour the dig is taken up, its wait not counted.
+  None is measured. Revisited when a line carries riders in a world.
 - **Design priors for engines on a line laid together (2026-10-24, M10b slice DX, third part,
   third step):** NUDGE: any household of the settlement may run its engine on its polity's line,
   paying the polity nothing; several operators share one line's freight tally and timetable, the

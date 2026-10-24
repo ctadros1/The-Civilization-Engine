@@ -888,6 +888,47 @@ impl Population {
         None
     }
 
+    /// Takes a seat for household `household`'s member on a ride from the station at cell `from`
+    /// to the line's end at cell `to`, the timetable read from `minute` of the day and the wait
+    /// no longer than `most_wait` minutes: the fare paid to the operator in its fuel and the ride
+    /// counted on the line. `None` where no train would take them, or the household cannot pay.
+    fn board(
+        &mut self,
+        ctx: &mut Ctx,
+        household: PermanentId,
+        (from, to): (u32, u32),
+        minute: i64,
+        most_wait: i64,
+    ) -> Option<Ride> {
+        let (now, params) = (ctx.now, ctx.params);
+        let ride = Self::ride_from(ctx, from, to, minute)?;
+        if ride.wait_min > most_wait {
+            return None;
+        }
+        // The fare, in the engines' fuel, from the household's store to the operator's.
+        if ride.fare_kg > 0.0 && household != ride.operator {
+            let held = self
+                .household(household)
+                .and_then(|x| x.stores.get(ride.fuel).copied())
+                .unwrap_or(0.0);
+            if held < ride.fare_kg {
+                return None;
+            }
+            let leg = Leg {
+                from: household,
+                to: ride.operator,
+                good: ride.fuel,
+                amount: ride.fare_kg,
+            };
+            if !self.transfer(now, params, &ctx.catalog.goods, &[leg], Channel::Fare) {
+                return None;
+            }
+        }
+        ctx.land.runs.line_mut(ride.way).riders += 1;
+        ctx.land.runs.changed();
+        Some(ride)
+    }
+
     /// Sets out on a ride from the station `h` stands at to the line's end at cell `to`
     /// ([`Step::Ride`]): waiting there for the next train the timetable sets off, paying its
     /// operator the fare in its fuel, and riding to the end. False where no train would take them
@@ -899,31 +940,10 @@ impl Population {
         };
         let (household, pos) = (p.household, p.pos);
         let from = cell_of(ctx.map, pos) as u32;
-        let Some(ride) = Self::ride_from(ctx, from, to, now.minutes().rem_euclid(1_440)) else {
+        let minute = now.minutes().rem_euclid(1_440);
+        let Some(ride) = self.board(ctx, household, (from, to), minute, MOST_RIDE_WAIT_MIN) else {
             return false;
         };
-        if ride.wait_min > MOST_RIDE_WAIT_MIN {
-            return false;
-        }
-        // The fare, in the engines' fuel, from the household's store to the operator's.
-        if ride.fare_kg > 0.0 && household != ride.operator {
-            let held = self
-                .household(household)
-                .and_then(|x| x.stores.get(ride.fuel).copied())
-                .unwrap_or(0.0);
-            if held < ride.fare_kg {
-                return false;
-            }
-            let leg = Leg {
-                from: household,
-                to: ride.operator,
-                good: ride.fuel,
-                amount: ride.fare_kg,
-            };
-            if !self.transfer(now, params, &ctx.catalog.goods, &[leg], Channel::Fare) {
-                return false;
-            }
-        }
         // Waiting at the station, then along the line at the train's pace.
         let wait = ride.wait_min as f32;
         let mut points = vec![pos, pos];
@@ -955,8 +975,29 @@ impl Population {
         p.act.step_ends = now.plus_minutes(duration as i64);
         let (id, version, ends) = (p.id, p.act.version, p.act.step_ends);
         ctx.schedule_step(ends, id, version);
-        ctx.land.runs.line_mut(ride.way).riders += 1;
-        ctx.land.runs.changed();
+        true
+    }
+
+    /// A ride lived in a household-resolved day (M10b slice DX, fourth part; ADR-0034 §7): from
+    /// the station `h` stands at to the line's end at cell `to`, a seat on a run of the day's
+    /// timetable and its fare, the person then at the line's end. False where no train runs that
+    /// day, or their household cannot pay.
+    pub(super) fn ride_in_block(&mut self, ctx: &mut Ctx, h: Handle<Person>, to: u32) -> bool {
+        let Some(p) = self.people.get(h) else {
+            return false;
+        };
+        let (household, from) = (p.household, cell_of(ctx.map, p.pos) as u32);
+        if self
+            .board(ctx, household, (from, to), 0, i64::MAX)
+            .is_none()
+        {
+            return false;
+        }
+        let end = cell_centre(ctx.map, to as usize);
+        if let Some(p) = self.people.get_mut(h) {
+            p.pos = end;
+            p.trip = None;
+        }
         true
     }
 

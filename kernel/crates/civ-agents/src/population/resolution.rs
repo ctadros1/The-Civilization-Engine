@@ -172,13 +172,13 @@ fn option_minutes(ctx: &Ctx, c: &decide::Candidate, home: (f32, f32)) -> f64 {
 /// count, [`ONCE`] at most once, and an option that lays claim to new ground, a home or a
 /// workshop once. Counts are rounded by largest remainder, ties to the earlier option.
 fn shares(ctx: &Ctx, plan: &Planned, waking: f64, home: (f32, f32)) -> Vec<(usize, u32)> {
-    // Options moved by a boat, a cart or a train wait for the journeys they make (slice DH lists
-    // them; a ride, M10b slice DX, fourth part).
+    // Options moved by a boat or a cart wait for the journeys they make (slice DH lists them); a
+    // ride on a line's train is lived in the block (M10b slice DX, fourth part).
     let moved = |c: &decide::Candidate| {
         c.steps.iter().any(|s| {
             matches!(
                 s,
-                Step::Paddle { .. } | Step::Haul { .. } | Step::Handle { .. } | Step::Ride { .. }
+                Step::Paddle { .. } | Step::Haul { .. } | Step::Handle { .. }
             )
         })
     };
@@ -753,10 +753,20 @@ impl Population {
                     self.end_step(ctx, h);
                 }
                 Step::Deposit => self.deposit(ctx, h),
+                // A ride (M10b slice DX, fourth part) takes its seat and fare on a run of the day's
+                // timetable and ends at the line's end; with no train to take, it is left out and
+                // the walk after it goes on from where the person stands.
+                Step::Ride { to } => {
+                    if !self.ride_in_block(ctx, h, to) {
+                        if let Some(p) = self.people.get_mut(h) {
+                            p.act.steps.remove(i);
+                        }
+                        continue;
+                    }
+                }
                 Step::Wait { .. }
                 | Step::Paddle { .. }
                 | Step::Haul { .. }
-                | Step::Ride { .. }
                 | Step::Handle { .. } => {}
             }
             i += 1;

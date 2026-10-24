@@ -1488,6 +1488,36 @@ fn a_rider_waits_at_the_station_pays_the_fare_in_coal_and_rides_out_to_the_pit()
     let line = sim.land().runs.line(way).cloned().expect("the line");
     assert_eq!(line.riders, 0, "the tally begun again");
     assert!(line.fare_kg > 0.0, "{line:?}");
+    // At midnight, when a household-resolved day is lived, the next train is hours off: a ride
+    // set off now would not wait for it, but the day's ride takes its seat on the morning's run,
+    // pays the fare and ends at the pit end.
+    let now = sim.now().minutes();
+    sim.advance_minutes((now / 1_440 + 1) * 1_440 - now)
+        .expect("advances");
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.id == who {
+            p.pos = station;
+        }
+    }
+    set_store(&mut sim, rider, "core:good/coal", 10.0);
+    set_store(&mut sim, operator, "core:good/coal", 0.0);
+    // The engine stands at the hearth end again, its runs over.
+    {
+        let land = sim.land_mut_for_tests();
+        land.runs.list.clear();
+        for w in land.wagons.list.iter_mut() {
+            if w.id == engine {
+                w.at = hearth_cell;
+            }
+        }
+    }
+    assert!(!ride(&mut sim), "too long a wait");
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.ride_in_block_for_tests(ctx, who, pit_cell)));
+    let paid = stores_of(&sim, operator, "core:good/coal");
+    assert!((paid - f64::from(line.fare_kg)).abs() < 1e-4, "{paid}");
+    let at = sim.people().person(who).map(|p| p.pos).expect("the rider");
+    assert!((at.0 - pit_end.0).abs() < 1e-3 && (at.1 - pit_end.1).abs() < 1e-3);
+    assert_eq!(sim.land().runs.line(way).map(|l| l.riders), Some(1));
     let _ = engine;
 }
 

@@ -1832,6 +1832,17 @@ impl Population {
         self.start_ride(ctx, h, to)
     }
 
+    /// A ride for `id` from the station where they stand to the line's end at cell `to`, as a
+    /// household-resolved day lives it (tests): `false` when no train runs that day or their
+    /// household cannot pay.
+    #[doc(hidden)]
+    pub fn ride_in_block_for_tests(&mut self, ctx: &mut Ctx, id: PermanentId, to: u32) -> bool {
+        let Some(&h) = self.index.get(&id) else {
+            return false;
+        };
+        self.ride_in_block(ctx, h, to)
+    }
+
     /// The ride household `household` could take out to a pit at `pit`, its walk to the station
     /// reckoned in a straight line (tests): the line's end it rides to, the minutes one way, and
     /// the fare.

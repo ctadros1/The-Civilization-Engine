@@ -1,0 +1,19 @@
+# A gasworks' retort bench: closed fireclay retorts set in a brick furnace, fired from below, with
+# the hydraulic main and purifiers that take the gas off clean (M10b slice DY; ADR-0034 §8; research
+# 12-09 §1.4). It stays where it was built. It lasts 20,000 hours of work before its retorts are
+# burned out (a tuning value). No household wants one for its own sake.
+kind = "good"
+id = "core:good/gas_retort"
+name = "Gas retort"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 20000.0
+per_worker = 0.0
+fixed = true

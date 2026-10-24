@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 171;
+pub const KERNEL_CONTENT_API: u32 = 172;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1429,6 +1429,20 @@ fn resolve(
             lamps.push((g, f));
         }
     }
+    // The good a holder keeps (M10b slice DY).
+    let mut holders: Vec<(usize, Option<usize>)> = Vec::new();
+    for d in &parsed.goods {
+        let Some(id) = d.file.holder.as_ref().map(|h| h.good.as_str()) else {
+            continue;
+        };
+        let held = good_index(id);
+        if held.is_none() {
+            missing(c, parsed, &d.rel, "holder.good", id);
+        }
+        if let Some(g) = good_index(&d.file.id) {
+            holders.push((g, held));
+        }
+    }
     for (g, metal, assay) in resolved {
         if let Some(m) = goods[g].money.as_mut() {
             m.metal = metal;
@@ -1443,6 +1457,11 @@ fn resolve(
     for (g, f) in lamps {
         if let Some(l) = goods[g].light.as_mut() {
             l.fuel = f;
+        }
+    }
+    for (g, held) in holders {
+        if let Some(h) = goods[g].holder.as_mut() {
+            h.good = held;
         }
     }
     let catalog = Catalog {

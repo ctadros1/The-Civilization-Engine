@@ -1,0 +1,20 @@
+# Making gas from coal in a closed retort, keeping it in a holder and burning it for light (M10b
+# slice DY; ADR-0034 §8; research 12-09 §1.4; Murdoch's gas light, 1792, from coal heated shut
+# away). It needs coking, coal baked until its gas is driven off, and lamps, light burned for the
+# evening. Found by those coking coal, with coal at home; half of them would need 500,000 qualified
+# hours (a far technique, beyond coking's 300,000). Learnt in 300 hours beside a knower. Founders do
+# not bring it, so no world changes until someone finds it.
+kind = "technique"
+id = "core:technique/gas_making"
+name = "Gas making"
+can = "make gas from coal in a closed retort, keep it in a holder and burn it for light"
+domain = "core:skill/pottery"
+requires = [["core:technique/coking", "core:technique/lamps"]]
+tried_in = ["core:activity/coke_coal"]
+needs = ["core:good/coal"]
+e50_h = 500000.0
+learn_h = 300.0
+upbringing = true
+
+[answers]
+spoilage = []

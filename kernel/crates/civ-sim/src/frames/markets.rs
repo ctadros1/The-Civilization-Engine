@@ -705,6 +705,7 @@ mod tests {
             fuel: None,
             power: None,
             light: None,
+            holder: None,
             money: None,
             id: format!("core:good/{}", name.to_lowercase()),
             name: name.into(),

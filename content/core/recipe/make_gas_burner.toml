@@ -1,0 +1,14 @@
+# Making a gas burner: an iron jet and its tap, drilled and fitted, half a kilogram of iron and two
+# hours (tuning values).
+kind = "recipe"
+id = "core:recipe/make_gas_burner"
+name = "Make a gas burner"
+skill = "core:skill/smithing"
+technique = "core:technique/gas_making"
+unit_h = 2.0
+session_h = 0.0
+max_units = 1.0
+tools = []
+inputs = [{ good = "core:good/iron", amount = 0.5 }, { good = "core:good/charcoal", amount = 1.0 }]
+outputs = [{ good = "core:good/gas_burner", amount = 1.0 }]
+session_inputs = []

@@ -428,6 +428,19 @@ pub struct GoodDef {
     /// The light it gives (M10b slice DU, ADR-0034 §9; content API 165): `None` for a good that
     /// is not a lamp.
     pub light: Option<GoodLight>,
+    /// What it holds as a gas holder (M10b slice DY, ADR-0034 §8; content API 172): `None` for a
+    /// good that holds nothing apart.
+    pub holder: Option<GoodHolder>,
+}
+
+/// What a holder keeps (M10b slice DY; ADR-0034 §8): a good that keeps only in it, and how many
+/// kilograms it holds. Gas is accounted by its energy, its kilograms times its heat (brief §2.1).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GoodHolder {
+    /// The good it holds, by index in the goods (resolved once the goods are known).
+    pub good: Option<usize>,
+    /// Kilograms of it held when full.
+    pub kg: f64,
 }
 
 /// What drives a powered station (M10a slice DR).
@@ -456,6 +469,9 @@ pub struct GoodLight {
     pub fuel: Option<usize>,
     /// Kilograms of it burned an hour lit.
     pub kg_per_hour: f64,
+    /// Content API 172 (M10b slice DY): its fuel comes by a main, not from its holder's stores, so
+    /// it is no lamp a household fills (ADR-0034 §8).
+    pub piped: bool,
 }
 
 /// What a good gives burned (M10a slice DP, ADR-0033 §1): heat, and the smoke that comes with it.

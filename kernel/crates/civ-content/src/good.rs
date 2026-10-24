@@ -2,8 +2,8 @@
 //! gathers, stores or eats is decided by people at run time.
 
 use civ_agents::params::{
-    Eaten, GoodDef, GoodFire, GoodFuel, GoodLight, GoodPower, GoodUse, MoneyDef, PowerSource,
-    StoreDef, ToolDef,
+    Eaten, GoodDef, GoodFire, GoodFuel, GoodHolder, GoodLight, GoodPower, GoodUse, MoneyDef,
+    PowerSource, StoreDef, ToolDef,
 };
 use civ_agents::structure::Timber;
 use serde::Deserialize;
@@ -51,6 +51,19 @@ pub(crate) struct GoodFile {
     /// Content API 165 (M10b slice DU): the light it gives as a lamp; only a tool.
     #[serde(default)]
     pub light: Option<LightFile>,
+    /// Content API 172 (M10b slice DY): what it holds as a gas holder; only a fixed tool.
+    #[serde(default)]
+    pub holder: Option<HolderFile>,
+}
+
+/// What a holder keeps (M10b slice DY, ADR-0034 §8).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct HolderFile {
+    /// The good it holds, by content id.
+    pub good: String,
+    /// Kilograms of it held when full, above 0 and at most 100,000.
+    pub kg: f64,
 }
 
 /// The light a lamp gives (M10b slice DU, ADR-0034 §9).
@@ -61,6 +74,10 @@ pub(crate) struct LightFile {
     pub fuel: String,
     /// Kilograms of it burned an hour lit, above 0 and at most 1.
     pub kg_per_hour: f64,
+    /// Content API 172 (M10b slice DY): its fuel comes by a main, not from stores; false, the
+    /// default, for a lamp its household fills.
+    #[serde(default)]
+    pub piped: bool,
 }
 
 /// The power a wheel or an engine delivers (M10a slice DR, ADR-0033 §5).
@@ -228,6 +245,12 @@ impl GoodFile {
                 // Resolved once the goods are known (`civ_content::compile`).
                 fuel: None,
                 kg_per_hour: l.kg_per_hour,
+                piped: l.piped,
+            }),
+            holder: self.holder.as_ref().map(|h| GoodHolder {
+                // Resolved once the goods are known (`civ_content::compile`).
+                good: None,
+                kg: h.kg,
             }),
         })
     }
@@ -300,6 +323,20 @@ impl GoodFile {
             }
             if self.tool.is_none() {
                 p.push("only a tool gives light: `[light]` needs a `[tool]` table".to_owned());
+            }
+        }
+        if let Some(h) = &self.holder {
+            if !(h.kg.is_finite() && h.kg > 0.0 && h.kg <= 100_000.0) {
+                p.push(format!(
+                    "`holder.kg` must be above 0 and at most 100000 (got {})",
+                    h.kg
+                ));
+            }
+            if !self.tool.as_ref().is_some_and(|t| t.fixed) {
+                p.push(
+                    "only a fixed tool holds apart: `[holder]` needs `[tool] fixed = true`"
+                        .to_owned(),
+                );
             }
         }
         if let Some(f) = &self.fire {

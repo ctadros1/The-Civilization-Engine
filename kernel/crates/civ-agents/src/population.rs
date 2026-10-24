@@ -3785,7 +3785,8 @@ impl Population {
         // hours, in fuel and in the lamp's wear, than the hour of making at home it gives after
         // dark (M10b slice DU; brief §2.3).
         for (g, d) in goods.iter().enumerate() {
-            let Some(light) = d.light.as_ref() else {
+            // A piped burner's light comes by a main, not from what the household makes.
+            let Some(light) = d.light.as_ref().filter(|l| !l.piped) else {
                 continue;
             };
             let known = catalog
@@ -3942,7 +3943,7 @@ impl Population {
         // A whole lamp it holds wants its fuel, to `LAMP_FUEL_HOURS` of light: made as a tool's
         // material is, for the lamp (M10b slice DU).
         if let Some((lamp, fuel, kg_h)) = goods.iter().enumerate().find_map(|(g, d)| {
-            let l = d.light.as_ref()?;
+            let l = d.light.as_ref().filter(|l| !l.piped)?;
             (make::in_use(goods, g, held_of(g)) >= decide::MIN_TOOL).then_some((
                 g,
                 l.fuel?,
@@ -7702,7 +7703,8 @@ pub(crate) fn power_kw_of(ctx: &Ctx, holder: PermanentId) -> f64 {
 }
 
 /// The lamp a household holding `stores` lights for work after dark (M10b slice DU; ADR-0034
-/// §9): of the whole lamps it holds whose fuel it has, the one whose fuel lasts longest, as the
+/// §9): of the whole lamps it holds whose fuel it has (a piped burner is none: its gas comes by a
+/// main, M10b slice DY), the one whose fuel lasts longest, as the
 /// lamp and its fuel by good index, the kilograms it burns an hour and the minutes the fuel
 /// held lasts.
 pub fn lamp_of(goods: &[GoodDef], stores: &[f64]) -> Option<(usize, usize, f64, f64)> {
@@ -7710,7 +7712,7 @@ pub fn lamp_of(goods: &[GoodDef], stores: &[f64]) -> Option<(usize, usize, f64, 
         .iter()
         .enumerate()
         .filter_map(|(g, d)| {
-            let light = d.light?;
+            let light = d.light.filter(|l| !l.piped)?;
             let fuel = light.fuel?;
             let held = stores.get(g).copied().unwrap_or(0.0);
             if light.kg_per_hour <= 0.0 || make::in_use(goods, g, held) < decide::MIN_TOOL {
@@ -7867,6 +7869,7 @@ mod tests {
             fuel: None,
             power: None,
             light: None,
+            holder: None,
             money: None,
             id: id.into(),
             name: id.into(),

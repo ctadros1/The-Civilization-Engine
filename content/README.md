@@ -1719,3 +1719,15 @@ line laid together from it to beside the hearth would spare them, over a wagon's
 its laying and timber, once someone of the settlement knows how to make a wagon. Under
 `build_line` the polity marks the line out from the pit to the hearth, and each household is asked
 an equal share of laying it. The core adds `core:policy/yourselves_work_a_line_to_the_pit`.
+
+Content API 172 (M10b slice DY) lets a fixed tool carry a `[holder]` table: `good`, the good it
+keeps apart (by content id), and `kg`, how many kilograms of it it holds full (above 0 and at most
+100,000); and a `[light]` may be `piped` (default false), its fuel coming by a main rather than
+from its household's stores, so it is no lamp a household fills. The core adds `good/coal_gas` (40
+MJ a kilogram, a material, not a hearth's fuel), `good/gas_retort` and `good/gas_holder` (fixed;
+the holder keeps 150 kg of coal gas), `good/gas_burner` (piped, 0.071 kg an hour), the technique
+`technique/gas_making` (needs coking and lamps, found coking coal with coal at home; founders do
+not bring it), `recipe/make_gas` (a kilogram of coal into 0.14 kg of gas and 0.65 kg of coke at the
+retort), `recipe/build_gas_retort`, `recipe/build_gas_holder`, `recipe/make_gas_burner` and their
+activities. Nobody wants any of them for its own sake (`per_worker = 0`); what gas does comes in
+DY's later parts.

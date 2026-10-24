@@ -1,0 +1,17 @@
+# Making a gas burner at the forge.
+kind = "activity"
+id = "core:activity/make_gas_burner"
+name = "Make a gas burner"
+doing = "making a gas burner"
+behavior = "make"
+recipe = "core:recipe/make_gas_burner"
+par = 3.5
+min_age_years = 14.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 480
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

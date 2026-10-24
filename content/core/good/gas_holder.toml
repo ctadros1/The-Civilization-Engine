@@ -1,0 +1,24 @@
+# A gas holder: an iron bell rising and falling in a tank of water, which keeps the gas a works makes
+# steadily for the evening's burning (M10b slice DY; ADR-0034 §8; research 12-09 §1.4: "do not treat
+# gas as entirely instantaneous: gas holders ... can buffer supply"). It holds 150 kg of coal gas,
+# some 300 cubic metres and 6,000 MJ (a tuning value for a small early holder), and lasts 50,000
+# hours (a tuning value). It stays where it was built.
+kind = "good"
+id = "core:good/gas_holder"
+name = "Gas holder"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 50000.0
+per_worker = 0.0
+fixed = true
+
+[holder]
+good = "core:good/coal_gas"
+kg = 150.0

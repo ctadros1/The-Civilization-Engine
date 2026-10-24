@@ -1713,7 +1713,7 @@ pub fn light_words(sim: &Sim, id: PermanentId) -> String {
     let (lamp, hours) = match civ_agents::population::lamp_of(goods, &x.stores) {
         Some((lamp, _, _, minutes)) => (lamp, minutes / 60.0),
         None => match goods.iter().enumerate().find(|&(g, d)| {
-            d.light.is_some()
+            d.light.is_some_and(|l| !l.piped)
                 && civ_agents::make::in_use(goods, g, x.stores.get(g).copied().unwrap_or(0.0))
                     >= civ_agents::decide::MIN_TOOL
         }) {

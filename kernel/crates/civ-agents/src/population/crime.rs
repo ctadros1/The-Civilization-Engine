@@ -1589,6 +1589,7 @@ mod tests {
             fuel: None,
             power: None,
             light: None,
+            holder: None,
             money: None,
             id: name.into(),
             name: name.into(),

@@ -1,0 +1,17 @@
+# Building a gas holder, its tank and its bell.
+kind = "activity"
+id = "core:activity/build_gas_holder"
+name = "Build a gas holder"
+doing = "building a gas holder"
+behavior = "make"
+recipe = "core:recipe/build_gas_holder"
+par = 4.0
+min_age_years = 14.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 480
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

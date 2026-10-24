@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 171
+kernel_content_api = 172
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2452,6 +2452,82 @@ fn a_lamp_names_the_fuel_it_burns() {
         report.diagnostics[0]
             .message
             .contains("core:good/whale_oil")
+    );
+}
+
+#[test]
+fn a_holder_names_the_gas_it_keeps_and_a_burner_its_piped_gas() {
+    // M10b slice DY (content API 172): a fixed tool may carry a `[holder]` table naming a good it
+    // keeps and how many kilograms, in range; a light may be `piped`, its fuel coming by a main.
+    let holder = real("good/gas_holder.toml");
+    let burner = real("good/gas_burner.toml");
+    let fine = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        ("good/gas_holder.toml", &holder),
+        ("good/gas_burner.toml", &burner),
+    ]);
+    assert!(fine.diagnostics.is_empty(), "{:?}", fine.diagnostics);
+    let catalog = &fine.registry.as_ref().expect("content").catalog;
+    let index = |id: &str| catalog.goods.iter().position(|g| g.id == id);
+    let gas = index("core:good/coal_gas");
+    let held = catalog.goods[index("core:good/gas_holder").expect("a holder")]
+        .holder
+        .expect("it holds");
+    assert_eq!(held.good, gas);
+    assert!((held.kg - 150.0).abs() < 1e-12);
+    let light = catalog.goods[index("core:good/gas_burner").expect("a burner")]
+        .light
+        .expect("it gives light");
+    assert_eq!(light.fuel, gas);
+    assert!(light.piped && (light.kg_per_hour - 0.071).abs() < 1e-12);
+    // The fat lamp's light is not piped.
+    let lamp = catalog.goods[index("core:good/fat_lamp").expect("a lamp")]
+        .light
+        .expect("it gives light");
+    assert!(!lamp.piped);
+    // Gas burns at 40 MJ a kilogram; the core makes it from coal with coke left over.
+    let gas_def = &catalog.goods[gas.expect("coal gas")];
+    assert!((gas_def.fuel.expect("a fuel").mj_per_kg - 40.0).abs() < 1e-12);
+    let coal = index("core:good/coal").expect("coal");
+    let coke = index("core:good/coke").expect("coke");
+    let make = catalog
+        .recipes
+        .iter()
+        .find(|r| r.outputs.iter().any(|&(o, _)| Some(o) == gas))
+        .expect("a recipe makes gas");
+    assert!(make.inputs.iter().any(|&(i, _)| i == coal));
+    assert!(make.outputs.iter().any(|&(o, _)| o == coke));
+    for (body, needle) in [
+        (holder.replace("kg = 150.0", "kg = 0.0"), "holder.kg"),
+        (holder.replace("kg = 150.0", "kg = 200000.0"), "holder.kg"),
+        (
+            holder.replace("fixed = true", "fixed = false"),
+            "only a fixed tool holds apart",
+        ),
+    ] {
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &real_preset()),
+            ("good/gas_holder.toml", &body),
+        ]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(report.diagnostics[0].message.contains(needle));
+    }
+    // A held good that is no good.
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        (
+            "good/gas_holder.toml",
+            &holder.replace(
+                "good = \"core:good/coal_gas\"",
+                "good = \"core:good/marsh_gas\"",
+            ),
+        ),
+    ]);
+    assert_eq!(codes(&report), vec!["E2006"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("core:good/marsh_gas")
     );
 }
 

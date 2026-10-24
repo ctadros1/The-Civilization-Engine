@@ -6597,7 +6597,42 @@ and M6a gives rivers a daily flow.
       no line yet joins two settlements, so neither has anything to answer. They wait for a line
       between settlements, which no household or polity yet weighs.
     - **DY**: the gas chain: gasworks, holders, mains, connections by district capacity,
-      interruptions by cause, street lighting as a public work.
+      interruptions by cause, street lighting as a public work. Planned (2026-10-24) in five
+      parts, each leaving worlds where nobody knows gas lighting as they were (ADR-0034 §8–§9;
+      brief §2): (1) gas as vocabulary: coal gas, a good accounted by its energy content, made
+      from coal in a gasworks' retort with coke left over, kept in a holder that holds so many
+      kilograms of it, and burned in a fitted burner whose light is piped rather than carried, under
+      a technique found by those coking coal who know lamps; (2) the works: a gasworks makes gas by
+      its holder, gas made beyond the holder's room or with no holder lost to the air, the holder's
+      gas recorded by energy; (3) mains and connections: a main laid by work along ways from the
+      works with each stretch's keeper's leave, burners connected in buildings, and each evening a
+      check by district of the holder's gas and the main's capacity against the burners lit,
+      delivered or interrupted by a named cause (no gas, a main overloaded, a main broken, an
+      account cut off), a connected home lit where it burns; (4) by choice: the works' holder
+      sells gas by the meter (a new ledger channel), households connect where an hour of gas light
+      costs them less than their lamp or their work, the works lays mains where connected demand
+      repays them, and a polity may light its streets by law, lamps on its ways lit and put out on
+      a lamplighter's rounds, lit streets restoring sight as lamplight does; (5) the observer:
+      works, holders, mains and lit streets on the map, a building's service in words.
+      *As built, first part (2026-10-24): gas as vocabulary.* A fixed tool may carry a `[holder]`
+      table, the good it keeps apart and how many kilograms full, and a light may be `piped`, its
+      fuel coming by a main rather than from its household's stores (content API 172). Coal gas is
+      a material accounted by its energy, 40 MJ a kilogram (some 20 MJ a cubic metre at half a
+      kilogram a cubic metre; tuning values, research 12-09 gives none and warns that made gases
+      differ), which no hearth burns. A gasworks' retort, a fixed tool built of 6,000 kg of brick,
+      500 kg of clay and 600 kg of iron in 800 hours, makes 0.14 kg of gas and 0.65 kg of coke from
+      a kilogram of coal (some 280 cubic metres a tonne; tuning values) for 0.015 hours' stoking. A
+      gas holder of 8,000 kg of stone, 500 kg of timber and 2,500 kg of iron keeps 150 kg of gas,
+      some 6,000 MJ. A gas burner, half a kilogram of iron, burns 0.071 kg an hour (0.142 cubic
+      metres, 12-09 §2.3), piped. Gas making needs coking and lamps and is found coking coal with
+      coal at home (E50 500,000 hours); founders do not bring it, and nobody wants a retort, a
+      holder or a burner for its own sake. A piped burner is no lamp: a household holding one
+      neither works by it nor keeps fuel for it, so its light waits for mains (the third part).
+      Nobody knows gas making, so no world changes. **Tested:** the holder names coal gas and 150
+      kg and the burner its piped gas at 0.071 kg an hour, the fat lamp not piped; coal gas gives
+      40 MJ a kilogram and the core's recipe makes it from coal with coke left over; a holder of 0
+      kg or above 100,000, a holder on a tool that is not fixed, and a held good that is no good
+      are each refused.
   - **M10c, services and letters** (ADR-0035 §1–§7).
     - **DZ**: care beyond the household: a call, tending another home, kin unasked, the `Fee`
       channel, reputation from claims.

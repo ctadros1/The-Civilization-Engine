@@ -1,0 +1,22 @@
+# Coal gas: the gas driven off coal heated in a closed retort, cleaned and kept in a holder to be
+# piped to burners (M10b slice DY; ADR-0034 §8; research 12-09 §1.4: "feedstock -> gasworks ->
+# purification -> gas holder -> street mains -> meter -> compatible burner"). It is accounted by its
+# energy, its kilograms times its heat (12-09 §2.3: "store gas energy content explicitly"): about 40
+# MJ a kilogram, some 20 MJ a cubic metre at half a kilogram a cubic metre (tuning values; the
+# research gives no calorific value, only the warning that manufactured gases differ). A material,
+# not a hearth's fuel: it keeps only in a holder and goes out by a main, which later parts of slice
+# DY build.
+kind = "good"
+id = "core:good/coal_gas"
+name = "Coal gas"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[fuel]
+mj_per_kg = 40.0
+smoke = 0.0                      # tuning: a clean gas flame

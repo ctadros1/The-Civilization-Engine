@@ -6851,6 +6851,25 @@ and M6a gives rivers a daily flow.
       someone the child knows by a trade, the child calls a household it knows for half a day of
       the household's food, someone of it comes, and the day's fee is paid in food through `Fee`;
       the call saves and loads with the rest and lapses once nobody is ill.
+      *As built, third part (2026-10-24): a carer's repute, and the observer of care.* When an
+      illness ends that someone of another household was first to tend, the living members of the
+      bearer's household see what came of it, a tie act each: `tended_lived`, good evidence of the
+      carer's craft (with a little familiarity and warmth), or `tended_died`, bad evidence of it
+      (content API 178; tuning values). A carer's repute to a household is the most net good
+      evidence in craft any of its members holds of anyone of the carer's household, beyond the
+      prior; it is what clients saw, never the treatment's worth, so a carer whose tended happened
+      to live is sought whatever their remedy did. A household calling someone not of its kin now
+      weighs the households of anyone any of its members has a tie with, the nearest less ten
+      minutes' walk for each unit of repute (`REPUTE_WALK_MIN`, a tuning value); kin still come
+      first. A person's page says their care of other homes (wire 1.104): the sick of other homes
+      they were first to tend and what came of it, and the calls their household was asked to
+      answer or made, with their fee; an infection taken tending another home reads as taken
+      there. Nothing is saved anew (ties keep evidence by domain). A world where nobody falls ill
+      is unchanged. **Tested:** a child calling for a home all abed calls the nearest household
+      it knows, then, where the household has seen the sick an adult of another household tended
+      live, that household instead; once the sick are well, those at home hold the carer in
+      esteem for their craft, and the carer's page says whom they tended and that they lived; on
+      the web, a person's care decodes and shows. **Slice DZ is done.**
     - **EA**: birth care: the maternal draw split by complication and rescaled by births attended,
       birth attending and clean hands.
     - **EB**: teaching and study settled at midnight, working alongside recorded the same way (the

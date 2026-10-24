@@ -883,6 +883,10 @@ export interface PersonInfo {
   /** Wire 1.99 (M10b slice DU): their light ("Working by lamplight at home; their household's
    * fat lamp has tallow for 12 hours"); empty when their household holds no lamp. */
   light: string;
+  /** Wire 1.104 (M10c slice DZ): their care of other homes ("First to tend 3 of the sick of other
+   * homes: 2 lived, 1 died; Their household is called to tend the sick of Ada's household, for
+   * 2100 kcal of food a day"); empty for none. */
+  care: string;
 }
 
 /** A claim the observer may whisper (wire 1.47). */
@@ -4818,6 +4822,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     sickness: Array.from({ length: p.sicknessLength() }, (_, k) => p.sickness(k) ?? ""),
     suspicions: Array.from({ length: p.suspicionsLength() }, (_, k) => p.suspicions(k) ?? ""),
     light: p.light() ?? "",
+    care: p.care() ?? "",
   };
 }
 

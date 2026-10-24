@@ -568,6 +568,11 @@ acts = [
   { act = "raised_well", familiarity = 0.02, warmth = 0.0, domain = "craft", good = 0.5, bad = 0.0 },
   { act = "raised_as_proposed", familiarity = 0.0, warmth = 0.0, domain = "counsel", good = 1.0, bad = 0.0 },
   { act = "proposal_stalled", familiarity = 0.0, warmth = 0.0, domain = "counsel", good = 0.0, bad = 1.0 },
+  # M10c slice DZ, third part (content API 178): a carer of another household first to tend one of
+  # the holder's through a sickness they lived through or died of; a carer's craft as clients saw
+  # it (05-05 §1.2: a prestigious carer of a useless remedy can still be sought).
+  { act = "tended_lived", familiarity = 0.05, warmth = 0.05, domain = "craft", good = 1.0, bad = 0.0 },
+  { act = "tended_died", familiarity = 0.0, warmth = 0.0, domain = "craft", good = 0.0, bad = 1.0 },
 ]
 
 [standing]                       # standing and notables (ADR-0014 §3-4); tuning values

@@ -1680,6 +1680,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         args.seen_away = Some(fbb.create_string(&seen_away_words(sim, p.id)));
         args.water = Some(fbb.create_string(&super::water::water_words(sim, p.household)));
         args.light = Some(fbb.create_string(&light_words(sim, p.id)));
+        args.care = Some(fbb.create_string(&super::sickness::care_words(sim, p.id)));
     }
     // A person's infections, living or not (wire 1.62).
     let sickness: Vec<_> = super::sickness::sickness_words(sim, pid)

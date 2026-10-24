@@ -10924,7 +10924,8 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_WATER = 116,
     VT_SICKNESS = 118,
     VT_SUSPICIONS = 120,
-    VT_LIGHT = 122
+    VT_LIGHT = 122,
+    VT_CARE = 124
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -11106,6 +11107,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *light() const {
     return GetPointer<const ::flatbuffers::String *>(VT_LIGHT);
   }
+  const ::flatbuffers::String *care() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_CARE);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -11220,6 +11224,8 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVectorOfStrings(suspicions()) &&
            VerifyOffset(verifier, VT_LIGHT) &&
            verifier.VerifyString(light()) &&
+           VerifyOffset(verifier, VT_CARE) &&
+           verifier.VerifyString(care()) &&
            verifier.EndTable();
   }
 };
@@ -11408,6 +11414,9 @@ struct PersonInfoBuilder {
   void add_light(::flatbuffers::Offset<::flatbuffers::String> light) {
     fbb_.AddOffset(PersonInfo::VT_LIGHT, light);
   }
+  void add_care(::flatbuffers::Offset<::flatbuffers::String> care) {
+    fbb_.AddOffset(PersonInfo::VT_CARE, care);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -11480,7 +11489,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     ::flatbuffers::Offset<::flatbuffers::String> water = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> sickness = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> suspicions = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> light = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> light = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> care = 0) {
   PersonInfoBuilder builder_(_fbb);
   builder_.add_household_admired(household_admired);
   builder_.add_left_minute(left_minute);
@@ -11492,6 +11502,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_died_minute(died_minute);
   builder_.add_born_minute(born_minute);
   builder_.add_id(id);
+  builder_.add_care(care);
   builder_.add_light(light);
   builder_.add_suspicions(suspicions);
   builder_.add_sickness(sickness);
@@ -11611,7 +11622,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     const char *water = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *sickness = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *suspicions = nullptr,
-    const char *light = nullptr) {
+    const char *light = nullptr,
+    const char *care = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -11643,6 +11655,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
   auto sickness__ = sickness ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*sickness) : 0;
   auto suspicions__ = suspicions ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*suspicions) : 0;
   auto light__ = light ? _fbb.CreateString(light) : 0;
+  auto care__ = care ? _fbb.CreateString(care) : 0;
   return tce::wire::CreatePersonInfo(
       _fbb,
       id,
@@ -11704,7 +11717,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       water__,
       sickness__,
       suspicions__,
-      light__);
+      light__,
+      care__);
 }
 
 struct NewsLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

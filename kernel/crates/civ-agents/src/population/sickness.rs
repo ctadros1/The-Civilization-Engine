@@ -27,6 +27,11 @@ pub const OUTBREAK_LEFT_DOSES: f64 = 1.0;
 /// in money, not in a household's food).
 pub const CALL_FEE_FOOD_DAYS: f64 = 0.5;
 
+/// Minutes of walking a unit of repute for tending is worth to a household choosing whom to call
+/// (M10c slice DZ, third part; a tuning value: a carer whose tended lived twice is worth a
+/// twenty-minute longer walk than one nobody has seen tend).
+pub const REPUTE_WALK_MIN: f64 = 10.0;
+
 impl Population {
     /// The day's turn for infections (see the module documentation).
     pub(super) fn sickness_day(&mut self, ctx: &mut Ctx, day: i64) {
@@ -76,6 +81,7 @@ impl Population {
                     let kin = self.close_kin(e.person);
                     self.sickness.end(i, day, Outcome::Died);
                     self.die_named(ctx, e.person, Cause::Disease, name);
+                    self.note_tended(ctx, &e, false);
                     if let Some((household, settlement)) = home {
                         let claim = self.sickness_claim(household, settlement, lived, None);
                         for k in kin {
@@ -91,6 +97,7 @@ impl Population {
             }
             if e.run_by(day) {
                 self.sickness.end(i, day, Outcome::Recovered);
+                self.note_tended(ctx, &e, true);
             }
         }
         // What people shed moves through the ground and water (step two).
@@ -497,6 +504,49 @@ impl Population {
         owed
     }
 
+    /// An episode `e` ended, its bearer having `lived` or not (M10c slice DZ, third part): where
+    /// the first to tend them was of another household, the living members of the bearer's
+    /// household see what came of that carer's care, a tie act each ([`Act::TendedLived`] or
+    /// [`Act::TendedDied`]): the carer's repute, as their clients saw it.
+    fn note_tended(&mut self, ctx: &Ctx, e: &crate::sickness::Episode, lived: bool) {
+        let Some((_, carer)) = e.care.first else {
+            return;
+        };
+        let Some(home) = e
+            .household
+            .or_else(|| self.person(e.person).map(|p| p.household))
+        else {
+            return;
+        };
+        if self.person(carer).is_none_or(|c| c.household == home) {
+            return;
+        }
+        let Some(members) = self.household(home).map(|x| x.members.clone()) else {
+            return;
+        };
+        let act = if lived {
+            crate::ties::Act::TendedLived
+        } else {
+            crate::ties::Act::TendedDied
+        };
+        for m in members.into_iter().filter(|&m| m != e.person) {
+            self.note_tie(ctx, m, carer, act, 1.0, 0.0);
+        }
+    }
+
+    /// The repute for tending the sick that the members of `members` hold of anyone of
+    /// `household` on `day` (M10c slice DZ, third part): the most net good evidence in craft any
+    /// of them holds of any of its people, beyond the prior.
+    fn care_repute(&self, ctx: &Ctx, members: &[PermanentId], household: &Household) -> f64 {
+        let (day, params) = (ctx.now.day_index(), &ctx.params.ties);
+        members
+            .iter()
+            .flat_map(|&m| self.ties.of(m))
+            .filter(|t| household.members.contains(&t.to))
+            .map(|t| t.at(day, params).esteem(crate::ties::Domain::Craft, params))
+            .fold(0.0, f64::max)
+    }
+
     /// Who of `members` could tend today: not ill, and of the tending activity's age.
     fn able_carers(&self, ctx: &Ctx, members: &[PermanentId]) -> usize {
         let day = ctx.now.day_index();
@@ -523,9 +573,11 @@ impl Population {
     /// Whom person `who` of household `x` would call to tend its ill (M10c slice DZ, second part;
     /// ADR-0035 §2): only where the care owed at home is more than its well members of tending
     /// age can give, each at most one, and it has no call standing. Kin of any of its members
-    /// first, asking no fee, then those `who` has ties with, for [`CALL_FEE_FOOD_DAYS`] of the
-    /// household's food a day, which it must hold; of each, a household with someone able to tend,
-    /// the nearest, the walk counted from `field_key`'s travel field.
+    /// first, asking no fee, the nearest; then the households of those `who` or any of its
+    /// household has ties with, for [`CALL_FEE_FOOD_DAYS`] of the household's food a day, which
+    /// it must hold, the nearest less [`REPUTE_WALK_MIN`] for each unit of repute for tending its
+    /// members hold of someone there (the third part); of each, a household with someone able to
+    /// tend, the walk counted from `field_key`'s travel field.
     pub(super) fn call_facts(
         &self,
         ctx: &Ctx,
@@ -554,9 +606,9 @@ impl Population {
         kin.sort_unstable();
         kin.dedup();
         let mut tied: Vec<PermanentId> = if pays {
-            self.ties
-                .of(who)
-                .iter()
+            std::iter::once(who)
+                .chain(x.members.iter().copied())
+                .flat_map(|m| self.ties.of(m))
                 .filter_map(|t| self.person(t.to).map(|q| q.household))
                 .filter(|h| kin.binary_search(h).is_err())
                 .collect()
@@ -565,7 +617,7 @@ impl Population {
         };
         tied.sort_unstable();
         tied.dedup();
-        let mut best: Option<(bool, CallFacts)> = None;
+        let mut best: Option<(bool, f64, CallFacts)> = None;
         for (asks_fee, h) in kin
             .into_iter()
             .map(|h| (false, h))
@@ -581,9 +633,16 @@ impl Population {
                 continue;
             };
             let walk_min = f64::from(secs) / 60.0;
-            if best.is_none_or(|(f, b)| (asks_fee, walk_min) < (f, b.walk_min)) {
+            // Those not kin weighed by what the household saw of their care against the walk.
+            let key = if asks_fee {
+                walk_min - REPUTE_WALK_MIN * self.care_repute(ctx, &x.members, y)
+            } else {
+                walk_min
+            };
+            if best.is_none_or(|(f, k, _)| (asks_fee, key) < (f, k)) {
                 best = Some((
                     asks_fee,
+                    key,
                     CallFacts {
                         carer: y.id,
                         at: y.home,
@@ -593,7 +652,7 @@ impl Population {
                 ));
             }
         }
-        best.map(|(_, c)| c)
+        best.map(|(_, _, c)| c)
     }
 
     /// The food household `x` offers for a day of care by someone not of its kin, kcal.

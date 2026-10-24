@@ -1519,6 +1519,11 @@ export function bindUi(store: Store, actions: Actions): void {
         el("div", { className: "light" }, el("h4", { text: "Light" }), el("p", { text: `${p.light}.` })),
       );
     }
+    // Their care of other homes (wire 1.104, M10c slice DZ): the sick they were first to tend and
+    // what came of it, and the calls for carers their household stands in.
+    if (p.alive && p.care) {
+      nodes.push(el("div", { className: "care" }, el("h4", { text: "Care" }), el("p", { text: `${p.care}.` })));
+    }
     if (p.alive) nodes.push(tiesBlock(state, p), wordBlock(p), opinionBlock(p));
     if (p.alive) nodes.push(observerBlock(welcome, p));
     if (p.kin.length > 0 || p.family.length > 0) {

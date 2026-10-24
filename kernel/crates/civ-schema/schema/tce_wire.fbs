@@ -1102,6 +1102,11 @@ table PersonInfo {
   // household's fat lamp has tallow for 12 hours", "Their household holds a fat lamp, with tallow
   // for 30 hours of light", or empty when it holds none.
   light: string (id: 59);
+  // Their care of other homes, in words (wire 1.104, M10c slice DZ): the sick of other homes they
+  // were first to tend and what came of it, and the calls for carers their household stands in
+  // ("First to tend 3 of the sick of other homes: 2 lived, 1 died; Their household is called to
+  // tend the sick of Ada's household, for 2100 kcal of food a day"); empty for none.
+  care: string (id: 60);
 }
 
 // Wire 1.47 (M4c slice AJ): a claim that may be whispered.

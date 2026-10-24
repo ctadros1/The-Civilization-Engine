@@ -182,6 +182,13 @@ pub(crate) fn episode_words(sim: &Sim, e: &Episode) -> String {
         Acquired::Observer { .. } => {
             "brought by the observer, as if they took it elsewhere".to_owned()
         }
+        // Taken where they tended another home (M10c slice DZ).
+        Acquired::Household { household } if e.household.is_some_and(|h| h != household) => {
+            format!(
+                "took it tending the sick of {}",
+                super::people::household_name(sim, household)
+            )
+        }
         Acquired::Household { .. } => "took it from those who shed it at home".to_owned(),
         Acquired::Water { source } => {
             format!("took it in water drawn at {}", source_words(sim, source))
@@ -250,6 +257,76 @@ pub fn suspicion_words(sim: &Sim, person: PermanentId) -> Vec<String> {
             )
         })
         .collect()
+}
+
+/// Person `person`'s care of other homes, in words (wire 1.104, M10c slice DZ): the sick of other
+/// homes they were first to tend and what came of it ("First to tend 3 of the sick of other
+/// homes: 2 lived, 1 died"), and the calls standing that ask their household to tend another's
+/// ("Their household is called to tend the sick of Ada's household, for 2100 kcal of food a day")
+/// or that their household made; empty for none.
+pub fn care_words(sim: &Sim, person: PermanentId) -> String {
+    let people = &sim.people;
+    let Some(home) = people.person(person).map(|p| p.household) else {
+        return String::new();
+    };
+    let mut said = Vec::new();
+    let (mut lived, mut died, mut ill) = (0u32, 0u32, 0u32);
+    for e in people.sickness.episodes() {
+        if e.care.first.is_some_and(|(_, by)| by == person)
+            && e.household.is_some_and(|h| h != home)
+        {
+            match e.ended {
+                Some((_, Outcome::Died)) => died += 1,
+                Some(_) => lived += 1,
+                None => ill += 1,
+            }
+        }
+    }
+    let tended = lived + died + ill;
+    if tended > 0 {
+        let sick = if tended == 1 {
+            "1 of the sick".to_owned()
+        } else {
+            format!("{tended} of the sick")
+        };
+        let mut came = Vec::new();
+        if lived > 0 {
+            came.push(format!("{lived} lived"));
+        }
+        if died > 0 {
+            came.push(format!("{died} died"));
+        }
+        if ill > 0 {
+            came.push(format!("{ill} still ill"));
+        }
+        said.push(format!(
+            "First to tend {sick} of other homes: {}",
+            came.join(", ")
+        ));
+    }
+    let fee = |kcal: f32| {
+        if kcal > 0.0 {
+            format!("for {kcal:.0} kcal of food a day")
+        } else {
+            "asking nothing".to_owned()
+        }
+    };
+    for c in &people.sickness.calls {
+        if c.carer == home {
+            said.push(format!(
+                "Their household is called to tend the sick of {}, {}",
+                super::people::household_name(sim, c.caller),
+                fee(c.fee_kcal)
+            ));
+        } else if c.caller == home {
+            said.push(format!(
+                "Their household called {} to tend its sick, {}",
+                super::people::household_name(sim, c.carer),
+                fee(c.fee_kcal)
+            ));
+        }
+    }
+    said.join("; ")
 }
 
 /// `person`'s infections in words, the latest first, at most five.

@@ -923,3 +923,91 @@ fn a_household_short_of_care_calls_kin_or_someone_it_knows_and_pays_those_not_ki
         assert!(sim.people().sickness.call_of(sick).is_none());
     }
 }
+
+#[test]
+fn a_household_calls_the_carer_whose_tended_it_saw_live_and_remembers_what_came_of_their_care() {
+    use civ_agents::ties::{Act, Domain};
+    // The child knows an adult of every other household; first nobody's care has been seen, then
+    // the household has seen the sick an adult of one of them tended live five times.
+    let mut first: Option<PermanentId> = None;
+    for seen in [false, true] {
+        let mut sim = village(3);
+        let (sick, child, ill_from) = abed_but_a_child(&mut sim);
+        let now = sim.now();
+        let day = now.day_index();
+        let adults: Vec<(PermanentId, PermanentId)> = sim
+            .people()
+            .households
+            .iter()
+            .filter(|(_, x)| x.id != sick)
+            .filter_map(|(_, x)| {
+                let a = x.members.iter().copied().find(|&m| {
+                    sim.people()
+                        .person(m)
+                        .is_some_and(|p| p.age_years(now) >= 20.0)
+                })?;
+                Some((x.id, a))
+            })
+            .collect();
+        let params = sim.rules().people.ties.clone();
+        let members = sim.people().household(sick).expect("home").members.clone();
+        // The household seen tending well: any other than the one called when none was.
+        let reputed = first.and_then(|f| adults.iter().find(|(h, _)| *h != f).copied());
+        let pop = sim.people_mut_for_tests();
+        for &(_, a) in &adults {
+            pop.ties
+                .record(child, a, Act::Traded, 1.0, 0.0, day, &params);
+        }
+        if seen {
+            let (_, a) = reputed.expect("another household");
+            for &m in &members {
+                pop.ties
+                    .record(m, a, Act::TendedLived, 5.0, 0.0, day, &params);
+            }
+        }
+        to_day(&mut sim, ill_from + 1);
+        let call = *sim.people().sickness.call_of(sick).expect("called");
+        if seen {
+            assert_eq!(
+                Some(call.carer),
+                reputed.map(|(h, _)| h),
+                "the household whose care they saw"
+            );
+        } else {
+            first = Some(call.carer);
+        }
+        // Once the sick are well, those at home remember what came of the care, and the carer's
+        // page says it.
+        let carers = sim
+            .people()
+            .household(call.carer)
+            .expect("the carer's household")
+            .members
+            .clone();
+        to_day(&mut sim, ill_from + 5);
+        let tended_by = sim
+            .people()
+            .sickness
+            .episodes()
+            .iter()
+            .filter_map(|e| e.care.first.map(|(_, by)| by))
+            .find(|by| carers.contains(by))
+            .expect("tended by the household called");
+        let day = sim.now().day_index();
+        let esteem = sim
+            .people()
+            .ties
+            .of(child)
+            .iter()
+            .find(|t| t.to == tended_by)
+            .map(|t| t.at(day, &params).esteem(Domain::Craft, &params))
+            .expect("the child knows the carer now");
+        assert!(esteem > 0.5, "the tended lived: {esteem}");
+        let words = civ_sim::frames::sickness::care_words(&sim, tended_by);
+        assert!(
+            words.starts_with("First to tend ") && words.contains(" of the sick of other homes: "),
+            "{words}"
+        );
+        assert!(words.ends_with(" lived"), "{words}");
+    }
+}

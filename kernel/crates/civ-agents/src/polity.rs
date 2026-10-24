@@ -161,11 +161,16 @@ pub enum PolicyKind {
     /// near the hearth (or on a plan's square), each household asked an equal share of its work,
     /// payable by `pay_work`; the polity owns it.
     RaiseBuilding,
+    /// A line of track laid together (M10b slice DX, third part), shaped as `build_way`: from a
+    /// pit many of the settlement's households dig to beside its hearth, where their dig days
+    /// would repay its laying over a wagon's life, each household asked an equal share of its
+    /// work and timber; the polity keeps it.
+    BuildLine,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 32] = [
+    pub const ALL: [PolicyKind; 33] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -198,6 +203,7 @@ impl PolicyKind {
         PolicyKind::BuildWay,
         PolicyKind::Plan,
         PolicyKind::RaiseBuilding,
+        PolicyKind::BuildLine,
     ];
 
     /// The authored name.
@@ -235,6 +241,7 @@ impl PolicyKind {
             PolicyKind::BuildWay => "build_way",
             PolicyKind::Plan => "plan",
             PolicyKind::RaiseBuilding => "raise_building",
+            PolicyKind::BuildLine => "build_line",
         }
     }
 
@@ -347,11 +354,15 @@ pub enum IssueKind {
     /// its watch keeps watch and no tower of the polity's stands or is being raised (M8d slice
     /// DC): what raising one answers.
     FiresUnseen,
+    /// Several of the settlement's households dig one pit and carry what they dig home by hand
+    /// or push it alone, where a line laid together would spare them more than its laying (M10b
+    /// slice DX, third part): what `build_line` answers.
+    LoadsCarried,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 31] = [
+    pub const ALL: [IssueKind; 32] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -383,6 +394,7 @@ impl IssueKind {
         IssueKind::StoreSpoils,
         IssueKind::RainedOff,
         IssueKind::FiresUnseen,
+        IssueKind::LoadsCarried,
     ];
 
     /// The authored name.
@@ -419,6 +431,7 @@ impl IssueKind {
             IssueKind::StoreSpoils => "store_spoils",
             IssueKind::RainedOff => "rained_off",
             IssueKind::FiresUnseen => "fires_unseen",
+            IssueKind::LoadsCarried => "loads_carried",
         }
     }
 
@@ -475,6 +488,9 @@ impl IssueKind {
             }
             IssueKind::FiresUnseen => {
                 "a fire burned awhile before anyone saw it, with no tower to watch from"
+            }
+            IssueKind::LoadsCarried => {
+                "they carried home what they dug at a pit many of them dig, with no line to it"
             }
         }
     }
@@ -1740,6 +1756,12 @@ pub fn law_words(
                 of the work"
             .to_owned();
     }
+    // Without the site at hand (see [`Polity::words_of`]), only what it is.
+    if def.is_some_and(|d| d.kind == PolicyKind::BuildLine) {
+        return "a line of track laid together from a pit to the hearth, each household doing its \
+                share of the work"
+            .to_owned();
+    }
     // Without the site at hand (see [`Polity::words_of`]), only what it is (M8d slice DC).
     if let Some(d) = def.filter(|d| d.kind == PolicyKind::RaiseBuilding) {
         return format!(
@@ -1887,6 +1909,7 @@ pub fn ending_words(
         Some(PolicyKind::BuildBank) => "the work on a flood bank".to_owned(),
         Some(PolicyKind::BuildWay) => "the work on a passing place".to_owned(),
         Some(PolicyKind::RaiseBuilding) => "the raising of a building together".to_owned(),
+        Some(PolicyKind::BuildLine) => "the work on a line of track".to_owned(),
         Some(PolicyKind::Plan) => "the plan of streets and parcels".to_owned(),
         Some(PolicyKind::KeepBank) => "the keeping of a flood bank".to_owned(),
         Some(PolicyKind::BuildingRule) => "the rule for building".to_owned(),
@@ -3121,6 +3144,16 @@ impl Polity {
             return format!(
                 "a passing place cleared where carts wait, each household doing its share of {:.0} \
                  hours of work",
+                site.labour_h
+            );
+        }
+        // A line laid together says the work it asks (M10b slice DX, third part).
+        if kind == Some(PolicyKind::BuildLine)
+            && let Some(site) = self.way_site_of(law.id)
+        {
+            return format!(
+                "a line of track laid together from a pit to the hearth, each household doing its \
+                 share of {:.0} hours of work",
                 site.labour_h
             );
         }

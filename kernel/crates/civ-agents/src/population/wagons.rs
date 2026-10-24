@@ -16,6 +16,7 @@
 //! end; a household with a line and no wagon begins one once it holds the timber.
 
 use super::*;
+use crate::polity::PolicyKind;
 use civ_land::carting::DOOR_LEG_M;
 use civ_land::rail;
 use civ_land::ways::{Keeper, RAIL};
@@ -147,7 +148,7 @@ impl Population {
     }
 
     /// The wagon the content makes, if any: the first rail vehicle with no engine.
-    fn wagon_vehicle(ctx: &Ctx) -> Option<usize> {
+    pub(super) fn wagon_vehicle(ctx: &Ctx) -> Option<usize> {
         ctx.catalog
             .vehicles
             .iter()
@@ -282,10 +283,7 @@ impl Population {
             kg_h,
             walk_h,
         } = self.dig_profile(ctx, household)?;
-        // The steepest grade a full wagon is pushed up, and no gentler than a pusher holds back.
-        let ruling = (def.pull_n / ((def.tare_kg + def.payload_kg) * civ_land::carting::G)
-            - def.rail_resistance)
-            .clamp(0.0005, def.brake_grade.max(0.0005));
+        let ruling = push_ruling(def);
         let (pit_cell, home_cell) = (
             cell_of(ctx.map, pit) as u32,
             cell_of(ctx.map, x.home) as u32,
@@ -322,6 +320,245 @@ impl Population {
             saves_h_year,
             cost_h,
         })
+    }
+
+    /// Where the settlement's people could lay a line together (M10b slice DX, third part), if
+    /// anywhere: from a pit at a deposit two or more of its households dig to beside its hearth,
+    /// where someone of it knows how to make the wagon and none of its polity's lines is being
+    /// laid. Each digging household is reckoned to spare a year its dig days' share of a session
+    /// and its walks that carrying one person's load costs, at what a wagon would bring, less its
+    /// own wagon's labour and timber over the wagon's life; the deposit chosen is the one whose
+    /// pooled hours spared over a wagon's life most exceed the line's labour and timber. As a
+    /// passing place: the pit's cell, the line's labour, a wagon's life, what it spares each of
+    /// those households, and the settlement's households who would share its work.
+    pub(crate) fn public_line(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+        households: &[PermanentId],
+    ) -> Option<super::way_works::PublicWay> {
+        let params = ctx.land_params.track?;
+        if ctx.land.deposits.is_empty()
+            || !ctx
+                .catalog
+                .policies
+                .iter()
+                .any(|d| d.kind == PolicyKind::BuildLine)
+        {
+            return None;
+        }
+        let vehicle = Self::wagon_vehicle(ctx)?;
+        let def = ctx.catalog.vehicles.get(vehicle)?;
+        let ours: Vec<&Household> = households
+            .iter()
+            .filter_map(|&h| self.household(h))
+            .filter(|x| x.settlement == Some(settlement) && !x.members.is_empty())
+            .collect();
+        if !ours.iter().any(|x| {
+            def.technique
+                .is_none_or(|t| self.household_knows(&x.members, t))
+        }) {
+            return None;
+        }
+        // One line at a time: none of the polity's being laid.
+        if let Some(pi) = self.polity_of(settlement) {
+            let p = self.polities[pi].id;
+            if ctx.land.ways.list.iter().any(|w| {
+                w.segments
+                    .iter()
+                    .any(|s| s.keeper == Keeper::Polity(p) && s.built_m + 1e-3 < s.corridor_m)
+            }) {
+                return None;
+            }
+        }
+        let hearth = ctx
+            .land
+            .settlements
+            .iter()
+            .find(|y| y.id == settlement)?
+            .hearth_m;
+        let hearth_cell = cell_of(ctx.map, hearth) as u32;
+        let toward = (f64::from(hearth.0), f64::from(hearth.1));
+        let day = ctx.now.day_index();
+        let half = ctx.params.places.use_half_life_days;
+        let carry = ctx.params.household.carry_kg;
+        let ruling = push_ruling(def);
+        let side = ctx.params.digging.pit_side_m;
+        let pace = ctx.params.nav.tobler_ms(0.0) * ctx.params.nav.offtrail_factor;
+        let mut best: Option<(f64, super::way_works::PublicWay)> = None;
+        for d in &ctx.land.deposits {
+            let diggers: Vec<(&Household, f64)> = ours
+                .iter()
+                .filter_map(|x| {
+                    let u = self
+                        .uses
+                        .held(x.id, crate::uses::Place::Deposit(d.id), day, half)?;
+                    let n = crate::uses::per_year(f64::from(u.days), half);
+                    (n > 0.0).then_some((*x, n))
+                })
+                .collect();
+            if diggers.len() < 2 {
+                continue;
+            }
+            let good = usize::from(d.body.good);
+            let Some(act) = ctx
+                .catalog
+                .activities
+                .iter()
+                .find(|a| a.behavior == Behavior::Dig && a.digs == Some(good))
+            else {
+                continue;
+            };
+            let Some(pit) = super::digging::dig_place(ctx.land, ctx.map, d, toward, side) else {
+                continue;
+            };
+            let pit_cell = cell_of(ctx.map, pit) as u32;
+            // Not where a line already runs from beside the pit.
+            if ctx.land.ways.list.iter().any(|w| {
+                w.modes & RAIL != 0
+                    && w.ends().is_some_and(|(a, b)| {
+                        [a, b].iter().any(|&c| {
+                            let at = cell_centre(ctx.map, c as usize);
+                            f64::from((at.0 - pit.0).hypot(at.1 - pit.1)) <= DOOR_LEG_M
+                        })
+                    })
+            }) {
+                continue;
+            }
+            let Some((cells, track)) =
+                Self::plan_line(ctx, pit_cell, hearth_cell, def.gauge_m as f32, ruling)
+            else {
+                continue;
+            };
+            let runs = rail::runs(&cells, ctx.map.width, f64::from(ctx.map.cell_size_m));
+            let load = rail::most_load(
+                &track.bed,
+                &runs,
+                false,
+                def.tare_kg,
+                def.payload_kg,
+                def.rail_resistance,
+                def.pull_n,
+            );
+            let rates =
+                super::digging::rates(ctx.land_params, &d.body, ctx.params.digging.h_per_m3);
+            let kg_h = super::digging::dig_kg_per_hour(&d.body, rates);
+            let session_h = f64::from(act.max_minutes) / 60.0;
+            let by_wagon = load.min(kg_h * session_h);
+            if by_wagon <= carry {
+                continue;
+            }
+            // Timber at the cheapest any of the diggers can have it.
+            let Some(timber_h) = diggers
+                .iter()
+                .filter_map(|(x, _)| {
+                    self.own_costs_of(ctx, x)
+                        .get(params.good)
+                        .copied()
+                        .flatten()
+                })
+                .reduce(f64::min)
+            else {
+                continue;
+            };
+            let wagon_year = (def.labour_h + def.material_kg * timber_h) / def.life_years.max(1.0);
+            let mut saves: Vec<(PermanentId, f64)> = diggers
+                .iter()
+                .filter_map(|(x, days)| {
+                    let walk_h = f64::from((pit.0 - x.home.0).hypot(pit.1 - x.home.1))
+                        / pace.max(1e-6)
+                        / 3600.0;
+                    let s =
+                        days * (session_h + 2.0 * walk_h) * (1.0 - carry / by_wagon) - wagon_year;
+                    (s > 0.0).then_some((x.id, s))
+                })
+                .collect();
+            if saves.len() < 2 {
+                continue;
+            }
+            saves.sort_unstable_by_key(|s| s.0);
+            let line = super::way_works::PublicWay {
+                cell: pit_cell,
+                labour_h: f64::from(track.labour_h),
+                life: def.life_years,
+                saves,
+                households: ours.len(),
+            };
+            let net = line.pooled_net_h() - f64::from(track.good_kg) * timber_h;
+            if net > 0.0 && best.as_ref().is_none_or(|(b, _)| net > *b) {
+                best = Some((net, line));
+            }
+        }
+        best.map(|b| b.1)
+    }
+
+    /// Where the settlement's people could lay a line together, as its pit's cell, the line's
+    /// labour and what it would spare each household a year: for tests.
+    #[doc(hidden)]
+    #[allow(clippy::type_complexity)]
+    pub fn public_line_for_tests(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+    ) -> Option<(u32, f64, Vec<(PermanentId, f64)>)> {
+        let mut households: Vec<PermanentId> = self.households.iter().map(|(_, x)| x.id).collect();
+        households.sort_unstable();
+        self.public_line(ctx, settlement, &households)
+            .map(|p| (p.cell, p.labour_h, p.saves))
+    }
+
+    /// The line law `law` of polity `pi` passed names is marked out at once from its pit to
+    /// beside the hearth, the polity's (M10b slice DX, third part), its track planned as the
+    /// settlement's people would lay it now.
+    pub(super) fn begin_public_line(&mut self, ctx: &mut Ctx, pi: usize, law: PermanentId) {
+        let Some(params) = ctx.land_params.track else {
+            return;
+        };
+        let polity = &self.polities[pi];
+        let Some(site) = polity
+            .ways
+            .iter()
+            .find(|s| s.0 == law)
+            .map(|s| s.1)
+            .filter(|s| s.work.is_none())
+        else {
+            return;
+        };
+        let (polity_id, settlement) = (polity.id, polity.settlement);
+        let Some(hearth) = ctx
+            .land
+            .settlements
+            .iter()
+            .find(|y| y.id == settlement)
+            .map(|y| y.hearth_m)
+        else {
+            return;
+        };
+        let Some(def) = Self::wagon_vehicle(ctx).and_then(|v| ctx.catalog.vehicles.get(v)) else {
+            return;
+        };
+        let (gauge, ruling) = (def.gauge_m as f32, push_ruling(def));
+        let hearth_cell = cell_of(ctx.map, hearth) as u32;
+        let Some((cells, track)) = Self::plan_line(ctx, site.cell, hearth_cell, gauge, ruling)
+        else {
+            return;
+        };
+        let id = Self::lay_line(
+            ctx,
+            Keeper::Polity(polity_id),
+            cells,
+            track,
+            params.shoulder_m,
+        );
+        if let Some(s) = self.polities[pi].ways.iter_mut().find(|s| s.0 == law) {
+            s.1.work = Some(id);
+        }
+    }
+
+    /// The line law `law` of polity `pi` passed names is marked out: for tests.
+    #[doc(hidden)]
+    pub fn begin_public_line_for_tests(&mut self, ctx: &mut Ctx, pi: usize, law: PermanentId) {
+        self.begin_public_line(ctx, pi, law);
     }
 
     /// How household `household` digs at the deposit it digs most, by its dig days a year, if
@@ -597,4 +834,11 @@ impl Population {
         ctx.land.wagons.changed();
         id
     }
+}
+
+/// The steepest grade a full wagon of `def` is pushed up by one person, and no gentler than a
+/// pusher holds it back on.
+fn push_ruling(def: &crate::params::VehicleDef) -> f64 {
+    (def.pull_n / ((def.tare_kg + def.payload_kg) * civ_land::carting::G) - def.rail_resistance)
+        .clamp(0.0005, def.brake_grade.max(0.0005))
 }

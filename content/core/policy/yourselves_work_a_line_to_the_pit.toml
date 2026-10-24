@@ -1,0 +1,27 @@
+# A line of track laid together (M10b slice DX, third part; ADR-0034 §6, shaped as `build_way`;
+# research 07-08 §5.1: a carrier's line is a network others use). When two or more of the
+# settlement's households dig at one pit and carry home what they dig, and a wooden railway laid
+# from the pit to beside the hearth would spare them together more over a wagon's life than its
+# laying and timber (the issue `loads_carried`), anyone may propose that the polity lay it, once
+# someone of the settlement knows how to make a wagon. A household weighs it by the hours a year
+# it reckons the line would spare its digging, less its own wagon's work and timber over the
+# wagon's life, against its share of the line's work spread over that life, each hour worth the
+# food an hour of its own work brings; a household that does not dig there gains nothing and is
+# still asked its share. Once passed, the polity marks the line out from the pit to the hearth,
+# and each household is asked an equal share of the laying: its people give it as they choose,
+# from their own timber, and nothing follows a share not given. Whether anyone proposes one,
+# whether it passes, and whether it is finished, is people's choice. Its id sorts after every
+# older template's: hearth talk about a question is keyed by a template's place in id order
+# ("yourselves work": each household's share of the line).
+kind = "policy"
+id = "core:policy/yourselves_work_a_line_to_the_pit"
+name = "Line laid together"
+description = "The polity lays a line of track from a pit many households dig to beside the hearth, and each household is asked an equal share of the work."
+does = "build_line"
+answers = ["loads_carried"]
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement, as for a passing place cleared together: a share of
+# every household's hours is asked.
+[bears]
+"core:value/autonomy" = -0.5

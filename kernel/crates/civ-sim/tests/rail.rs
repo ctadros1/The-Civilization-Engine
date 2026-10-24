@@ -1337,3 +1337,210 @@ fn a_line_opens_stations_with_its_first_run_keeps_goods_waiting_and_runs_by_its_
         "no loaded run left standing"
     );
 }
+
+#[test]
+fn a_line_the_gathering_asks_for_is_laid_by_the_households_shares_from_a_pit_to_the_hearth() {
+    use civ_agents::polity::{IssueKind, LawStatus, Outcome, PolicyKind};
+    let mut sim = village(3);
+    // The settlement's polity is founded at its first midnight.
+    sim.advance_minutes(24 * 60).expect("advances");
+    let first = first_household(&sim);
+    let settlement = sim
+        .people()
+        .household(first)
+        .and_then(|x| x.settlement)
+        .expect("a settlement");
+    let hearth = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|s| s.id == settlement)
+        .expect("the settlement")
+        .hearth_m;
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    // Coal shows where a line from the hearth can keep its grade, and two households dig it
+    // most days.
+    let seam = contour_seam(&mut sim, hearth);
+    let second = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .find(|x| x.id != first && x.settlement == Some(settlement) && !x.members.is_empty())
+        .map(|x| x.id)
+        .expect("a second household");
+    for _ in 0..20 {
+        let kg =
+            sim.with_ctx_for_tests(|pop, ctx| pop.dig_and_bring_for_tests(ctx, first, seam, 180.0));
+        if kg > 0.0 {
+            break;
+        }
+    }
+    for h in [first, second] {
+        set_dig_days(&mut sim, h, seam, 200.0);
+        set_timber(&mut sim, h, 5_000.0);
+    }
+    let public = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.public_line_for_tests(ctx, settlement))
+    };
+    // Nobody knows how to make a wagon: no line is weighed.
+    assert_eq!(public(&mut sim), None);
+    teach(&mut sim, first, "core:technique/wooden_railway");
+    // Now the settlement's people could lay one from the pit to the hearth, sparing both.
+    let (cell, labour_h, saves) = public(&mut sim).expect("a line to lay together");
+    let pit = sim
+        .land()
+        .earthworks
+        .iter()
+        .find(|e| e.kind == civ_land::earth::EarthKind::Pit && e.deposit == Some(seam))
+        .map(|e| e.rect.centre_m())
+        .expect("a pit");
+    assert_eq!(cell, civ_agents::population::cell_of(sim.map(), pit) as u32);
+    assert!(labour_h > 100.0, "{labour_h}");
+    let mut diggers: Vec<PermanentId> = saves.iter().map(|s| s.0).collect();
+    diggers.sort_unstable();
+    let mut both = vec![first, second];
+    both.sort_unstable();
+    assert_eq!(diggers, both, "{saves:?}");
+    // A law to lay it would bring the diggers more than a household that does not dig there.
+    let gains = sim.with_ctx_for_tests(|pop, ctx| {
+        pop.site_gains_for_tests(ctx, settlement, PolicyKind::BuildLine, cell)
+    });
+    let gain = |h: PermanentId| gains.iter().find(|g| g.0 == h).map_or(0.0, |g| g.1);
+    assert!(
+        gains
+            .iter()
+            .filter(|g| g.0 != first && g.0 != second)
+            .all(|g| g.1 < gain(first)),
+        "{gains:?}"
+    );
+    // Someone proposes that the polity lay it, for they carry home what they dig there.
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    let mut proposed = None;
+    for _ in 0..12 {
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[pi].gathering = None;
+            for l in &mut pop.polities[pi].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        match sim.people().polities[pi].agenda().cloned() {
+            Some(l) if l.kind == PolicyKind::BuildLine => {
+                proposed = Some(l);
+                break;
+            }
+            Some(_) => continue,
+            None => break,
+        }
+    }
+    let law = proposed.expect("a line proposed");
+    assert_eq!(law.issue, IssueKind::LoadsCarried);
+    let id = law.id;
+    let site = sim.people().polities[pi]
+        .way_site_of(id)
+        .expect("its site recorded");
+    assert_eq!((site.cell, site.work), (cell, None));
+    assert!(sim.people().polities[pi].way_saves_of(id, second) > 0.0);
+    // Passed and known, the polity marks the line out from the pit to the hearth.
+    let today = sim.now().day_index();
+    let adults: Vec<PermanentId> = sim
+        .people()
+        .people
+        .iter()
+        .filter(|(_, p)| {
+            p.age_years(sim.now()) >= 16.0
+                && sim
+                    .people()
+                    .household(p.household)
+                    .is_some_and(|x| x.settlement == Some(settlement))
+        })
+        .map(|(_, p)| p.id)
+        .collect();
+    {
+        let pop = sim.people_mut_for_tests();
+        pop.every_adult_deliberates = false;
+        let p = &mut pop.polities[pi];
+        p.gathering = None;
+        let l = p.laws.iter_mut().find(|l| l.id == id).expect("the law");
+        l.status = LawStatus::InForce;
+        l.outcome = Some(Outcome::Passed);
+        l.known = adults.iter().map(|&a| (a, today)).collect();
+    }
+    let words = sim.people().polities[pi].words_of(
+        &sim.people().polities[pi]
+            .laws
+            .iter()
+            .find(|l| l.id == id)
+            .expect("the law")
+            .clone(),
+        &sim.rules().catalog.policies,
+        &|_| String::new(),
+    );
+    assert!(words.contains("line of track laid together"), "{words}");
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_public_line_for_tests(ctx, pi, id));
+    let polity = sim.people().polities[pi].id;
+    let line = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|w| {
+            w.modes & RAIL != 0
+                && w.segments
+                    .iter()
+                    .all(|s| s.keeper == civ_land::ways::Keeper::Polity(polity))
+        })
+        .cloned()
+        .expect("the polity's line marked out");
+    let hearth_cell = civ_agents::population::cell_of(sim.map(), hearth) as u32;
+    assert_eq!(line.ends(), Some((cell, hearth_cell)));
+    assert_eq!(
+        sim.people().polities[pi]
+            .way_site_of(id)
+            .and_then(|s| s.work),
+        Some(line.id)
+    );
+    // Saved and loaded while it is marked out, the world goes on alike.
+    saves_alike(&mut sim);
+    // The households' shares lay it, each from its own timber, and the last length is
+    // chronicled; what each gave is counted toward its share.
+    let track = line.track.clone().expect("its track");
+    for h in [first, second] {
+        sim.with_ctx_for_tests(|pop, ctx| {
+            pop.way_work_for_tests(ctx, h, line.id, f64::from(track.labour_h) / 2.0 + 1.0)
+        });
+    }
+    let laid = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|w| w.id == line.id)
+        .cloned()
+        .expect("the line");
+    assert!(
+        laid.segments
+            .iter()
+            .all(|s| s.built_m + 1e-3 >= s.corridor_m),
+        "{laid:?}"
+    );
+    let given = |h| sim.people().polities[pi].way_given_by(id, h);
+    assert!(given(first) > 0.0 && given(second) > 0.0);
+    assert!(
+        sim.people().chronicle.iter().any(|c| {
+            c.kind == civ_agents::ChronicleKind::LineLaid && c.name.contains("laid together")
+        }),
+        "the chronicle tells it"
+    );
+    // With it laid, no other line is weighed there.
+    assert_eq!(public(&mut sim), None);
+}

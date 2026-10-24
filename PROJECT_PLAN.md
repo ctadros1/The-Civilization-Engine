@@ -6458,7 +6458,13 @@ and M6a gives rivers a daily flow.
       person's trip and a household-day block, its fare a posted term against walking; (4) who
       builds and owns a line: an organization by stake and a polity's `build_line` as a public
       work between settlements, a franchise over a route as a privilege (ADR-0026); (5) the
-      observer of stations, terms and freight.
+      observer of stations, terms and freight. *Reordered (2026-10-24):* a ride wants a line
+      between places people live, and every line so far runs from one household's pit to its
+      home, so who builds and owns a line comes third and rides fourth: (3a) a polity's
+      `build_line`, a line from a pit several of its households dig to its hearth, laid by their
+      shares of work as its passing places are; (3b) the polity's engine and trains on its line,
+      with stations at the settlement carrying any household's goods; (4) rides; (5) the
+      observer.
       *As built, first part (2026-10-24): freight on a household's line.* Where another household's
       engine works a whole line from beside the pit a household digs to beside its home, a session
       of its digging there goes onto the keeper's wagons at the pit end, as its own goods in
@@ -6491,6 +6497,27 @@ and M6a gives rivers a daily flow.
       a great deal, then clears the tally; saved and loaded the line is as it was; left to the
       clock, the trains run by the timetable and the waiting goods reach the store by the next
       evening.
+      *As built, third part, first step (2026-10-24): a line laid together by law.* A new policy
+      kind, `build_line`, answers a new issue, `loads_carried` (content API 171: template
+      `core:policy/yourselves_work_a_line_to_the_pit`). At its review a polity whose catalog has
+      such a template and among whose people someone knows how to make a wagon, with no line of
+      its own still being laid, looks at each pit two or more of its households dig: it plans a
+      line from the pit to the hearth, and reckons for each digger the hours a year a wagon on it
+      would spare it (its dig days times a session and the walk there and back, times the share of
+      a carry the wagon makes needless, less a wagon's making spread over its life). Where what
+      they would spare together over the wagon's life exceeds the line's labour and its timber
+      reckoned in hours, its loads carried are an issue, its diggers deliberate, and a member may
+      propose the line, named by the pit's cell. Passed, the polity marks it out as its own line,
+      kept by the polity, and its households work their shares of it from their own timber, as a
+      passing place by law is; its last length is chronicled as laid together. Wagons and an engine
+      on it come in the next step. Nobody knows the wooden railway, so no world changes.
+      **Tested:** with two households digging a coal pit two hundred days a year, no line is
+      weighed until one of them knows the wooden railway; then the line from the pit to the hearth
+      would spare both, and a law for it would bring them more than any household that does not
+      dig there; a review raises the issue and proposes it; passed and known, the polity's line runs
+      from the pit's cell to the hearth's; saved and loaded it is as it was; the two households'
+      shares lay it, each counted toward its share, the chronicle tells it laid together, and no
+      further line is weighed while it stands.
     - **DY**: the gas chain: gasworks, holders, mains, connections by district capacity,
       interruptions by cause, street lighting as a public work.
   - **M10c, services and letters** (ADR-0035 §1–§7).
@@ -7925,6 +7952,14 @@ One line each. Don't re-litigate without a reason written next to the entry.
   pump's half, its other work (a mill's, a hammer's) taken in the same daylight and not netted
   off; nobody sets a wheel for a pit's sake, so a wheel pumps only where one already stands near
   its holder's pit. Revisited when the M10 demo shows a pit beside a mill.
+- **Design priors for a line laid together (2026-10-24, M10b slice DX, third part, first step):**
+  NUDGE: a polity weighs a line only from a pit two or more of its households dig, to its
+  hearth, one at a time; what a household would spare is its walk and carrying a year beyond what
+  a wagon brings, less a wagon's making over its life, as if every digger would have a wagon on
+  the line; the line's timber counts against it in the pooled reckoning (in hours at the
+  settlement's hour) but not in each household's forecast of the law, which weighs only its share
+  of the labour. None is measured. Revisited with the polity's trains (DX's third part, second
+  step) and when a line is laid together in a world.
 - **Design priors for stations and timetables (2026-10-24, M10b slice DX, second part):** NUDGE:
   a line's ends become stations with its first run, unbidden; a timetable's runs leave at six and
   evenly over the twelve hours after, at most four a day; goods wait at the pit station up to one

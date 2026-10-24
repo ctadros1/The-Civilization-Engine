@@ -1712,3 +1712,10 @@ without one is a wagon pushed by people. The core adds `core:vehicle/locomotive`
 9,810 N, 2.2 m/s, burning coal at 3 %) and `core:technique/locomotive`, which needs the atmospheric
 engine, wooden railways and forging and is tried in digging coal; design priors marked in their
 files.
+
+Content API 171 (M10b slice DX, third part) brings the policy kind `build_line` and the issue
+`loads_carried`. The issue opens when two or more of a settlement's households dig one pit and a
+line laid together from it to beside the hearth would spare them, over a wagon's life, more than
+its laying and timber, once someone of the settlement knows how to make a wagon. Under
+`build_line` the polity marks the line out from the pit to the hearth, and each household is asked
+an equal share of laying it. The core adds `core:policy/yourselves_work_a_line_to_the_pit`.

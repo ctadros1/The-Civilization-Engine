@@ -547,7 +547,7 @@ impl Population {
             let law = polity.laws.iter().find(|k| {
                 k.id == *l
                     && k.status == LawStatus::InForce
-                    && k.kind == PolicyKind::BuildWay
+                    && (k.kind == PolicyKind::BuildWay || k.kind == PolicyKind::BuildLine)
                     && k.knows(person)
             })?;
             let w = ctx
@@ -559,7 +559,15 @@ impl Population {
             let s = w.segments.iter().find(|s| {
                 s.keeper == Keeper::Polity(polity.id) && s.built_m + 1e-3 < s.corridor_m
             })?;
-            Some((law, *site, w.id, left_of(s)))
+            // A line's hours left are its track's share not yet laid (M10b slice DX, third part).
+            let left = match &w.track {
+                Some(t) => {
+                    f64::from(t.labour_h) * f64::from((s.corridor_m - s.built_m).max(0.0))
+                        / f64::from((s.corridor_m - LAID_FROM_M).max(1e-3))
+                }
+                None => left_of(s),
+            };
+            Some((law, *site, w.id, left))
         })?;
         let households = self
             .households
@@ -588,7 +596,15 @@ impl Population {
             at,
             walk_min,
             left_h,
-            saves_per_hour: f64::from(polity.way_saves_of(law.id, x.id)) * works.passing_life_years
+            saves_per_hour: f64::from(polity.way_saves_of(law.id, x.id))
+                * if law.kind == PolicyKind::BuildLine {
+                    // A line's spared hours last a wagon's life (M10b slice DX, third part).
+                    Self::wagon_vehicle(ctx)
+                        .and_then(|v| ctx.catalog.vehicles.get(v))
+                        .map_or(works.passing_life_years, |d| d.life_years)
+                } else {
+                    works.passing_life_years
+                }
                 / site.labour_h.max(1e-6),
             duty,
             full: false,
@@ -686,11 +702,21 @@ impl Population {
             && let Some(who) = self.elder_of(household, ctx.now, ctx.params)
         {
             let settlement = self.household(household).and_then(|x| x.settlement);
-            let sentence = format!(
-                "{}'s household finished laying its line of track, {length_m:.0} m, and wagons can \
-                 run on it.",
-                self.name_of(who)
-            );
+            // A line laid together is the polity's, finished by whoever laid its last length
+            // (M10b slice DX, third part).
+            let sentence = if matches!(keeper, Keeper::Polity(_)) {
+                format!(
+                    "{} laid the last of the line of track laid together from the pit to the \
+                     hearth, {length_m:.0} m, and wagons can run on it.",
+                    self.name_of(who)
+                )
+            } else {
+                format!(
+                    "{}'s household finished laying its line of track, {length_m:.0} m, and wagons \
+                     can run on it.",
+                    self.name_of(who)
+                )
+            };
             let at = cell_centre(ctx.map, cell as usize);
             self.chronicle_push(
                 ctx.now,

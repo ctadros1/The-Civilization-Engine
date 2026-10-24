@@ -60,6 +60,10 @@ pub(super) struct Forecasts {
     /// Where the settlement's people could clear a passing place together, if anywhere (M8b
     /// slice CQ, third part).
     pub(super) way: Option<super::way_works::PublicWay>,
+    /// Where the settlement's people could lay a line of track together from a pit many of them
+    /// dig, if anywhere (M10b slice DX, third part): its pit cell, work, a wagon's life and what
+    /// it would spare each household a year.
+    pub(super) line: Option<super::way_works::PublicWay>,
     /// What raising each building its templates name would bring, where its loss is measured
     /// (M8d slice DC).
     pub(super) raises: Vec<super::raising::PublicRaise>,
@@ -444,8 +448,16 @@ impl Forecasts {
             // A passing place cleared together (M8b slice CQ, third part), as a bank: the food a
             // year the waiting it would spare the household could bring, less what its share of
             // the work, spread over the place's life, could.
-            Some(PolicyKind::BuildWay) => {
-                let Some(p) = self.way.as_ref() else {
+            Some(kind @ (PolicyKind::BuildWay | PolicyKind::BuildLine)) => {
+                // A line laid together (M10b slice DX, third part) as a passing place: what it
+                // would spare the household a year against its share of the work over a wagon's
+                // life.
+                let p = if kind == PolicyKind::BuildLine {
+                    self.line.as_ref()
+                } else {
+                    self.way.as_ref()
+                };
+                let Some(p) = p else {
                     return 0.0;
                 };
                 let kcal = self
@@ -1516,9 +1528,30 @@ impl Population {
         self.with_enclosure(ctx, &mut fc, settlement, households);
         let way = self.public_way(ctx, settlement, households);
         self.with_way(ctx, &mut fc, way, households);
+        let line = self.public_line(ctx, settlement, households);
+        self.with_line(ctx, &mut fc, line, households);
         let raises = self.public_raises(ctx, pi, households);
         self.with_raises(ctx, &mut fc, raises, households);
         fc
+    }
+
+    /// Adds to forecasts `fc` the line `line` the settlement's people could lay together from a
+    /// pit (M10b slice DX, third part), with what an hour of each household's work brings it if
+    /// it was not reckoned already.
+    fn with_line(
+        &self,
+        ctx: &Ctx,
+        fc: &mut Forecasts,
+        line: Option<super::way_works::PublicWay>,
+        households: &[PermanentId],
+    ) {
+        if line.is_some() && fc.hour_kcal.is_empty() {
+            fc.hour_kcal = households
+                .iter()
+                .filter_map(|&h| Some((h, self.hour_kcal(ctx, self.household(h)?))))
+                .collect();
+        }
+        fc.line = line;
     }
 
     /// Adds to forecasts `fc` the passing place `way` the settlement's people could clear
@@ -1697,6 +1730,7 @@ impl Population {
             bank,
             worn,
             way: None,
+            line: None,
             raises: Vec::new(),
             plans: Vec::new(),
             enclosure: None,
@@ -2607,6 +2641,16 @@ impl Population {
         if way.is_some() {
             issues.push(IssueKind::CartsWait);
         }
+        // Several of its households carry home what they dig at a pit where a line laid together
+        // would repay its laying (M10b slice DX, third part).
+        let line = self.public_line(ctx, settlement, &households);
+        let line_diggers: Vec<PermanentId> = line
+            .as_ref()
+            .map(|p| p.saves.iter().map(|s| s.0).collect())
+            .unwrap_or_default();
+        if line.is_some() {
+            issues.push(IssueKind::LoadsCarried);
+        }
         // What it saw of its ground within memory (M8c slice CT, second part): a household that
         // found no ground for its home, a trail built over, a home beyond the built edge.
         let (ground, ground_homes) = self.ground_issues(ctx, pi, settlement);
@@ -2650,6 +2694,7 @@ impl Population {
                         | PolicyKind::KeepBank
                         | PolicyKind::Enclose
                         | PolicyKind::BuildWay
+                        | PolicyKind::BuildLine
                         | PolicyKind::RaiseBuilding
                 )
         });
@@ -2731,7 +2776,7 @@ impl Population {
                 }
                 // Another passing place once none is being cleared (M8b slice CQ, third part:
                 // `public_way` holds to one at a time).
-                if d.kind == PolicyKind::BuildWay {
+                if d.kind == PolicyKind::BuildWay || d.kind == PolicyKind::BuildLine {
                     return true;
                 }
                 // Another building raised together, of a program none is raised of
@@ -2805,6 +2850,7 @@ impl Population {
         let mut fc = self.forecasts_with(ctx, pi, &households, &adults, sites, well, bank);
         self.with_enclosure(ctx, &mut fc, settlement, &households);
         self.with_way(ctx, &mut fc, way, &households);
+        self.with_line(ctx, &mut fc, line, &households);
         let raises = self.public_raises(ctx, pi, &households);
         self.with_raises(ctx, &mut fc, raises, &households);
         // The plans a sponsor could lay, for each plan template open (M8c slice CT, second part).
@@ -2859,6 +2905,9 @@ impl Population {
                             // And households whose carts waited where a passing place would
                             // repay its work (M8b slice CQ, third part).
                             .chain(&carts_waited)
+                            // And those who dig where a line would repay its laying (M10b
+                            // slice DX, third part).
+                            .chain(&line_diggers)
                             .filter_map(|&h| self.elder_of(h, now, params)),
                     )
                     // And whoever holds that a source sickens (M6a slice BA).
@@ -3434,6 +3483,17 @@ impl Population {
                     // (M8b slice CQ, third part), named by its cell.
                     PolicyKind::BuildWay => {
                         if let Some(p) = &fc.way {
+                            moves.push(MoveOption {
+                                site: Some(p.cell),
+                                target: None,
+                                ..blank
+                            });
+                        }
+                    }
+                    // A line laid together from a pit (M10b slice DX, third part), named by the
+                    // pit's cell.
+                    PolicyKind::BuildLine => {
+                        if let Some(p) = &fc.line {
                             moves.push(MoveOption {
                                 site: Some(p.cell),
                                 target: None,
@@ -4044,7 +4104,7 @@ impl Population {
         }
         // A passing place names its cell, as the settlement's people would clear it now, and
         // keeps what each household reckoned it would spare it (M8b slice CQ, third part).
-        if def.kind == PolicyKind::BuildWay
+        if (def.kind == PolicyKind::BuildWay || def.kind == PolicyKind::BuildLine)
             && let Some(cell) = m.site
         {
             let settlement = self.polities[pi].settlement;
@@ -4055,10 +4115,14 @@ impl Population {
                 .map(|(_, x)| x.id)
                 .collect();
             households.sort_unstable();
-            if let Some(p) = self
-                .public_way(ctx, settlement, &households)
-                .filter(|p| p.cell == cell)
-            {
+            // A line names its pit's cell as a passing place names its own (M10b slice DX, third
+            // part).
+            let found = if def.kind == PolicyKind::BuildLine {
+                self.public_line(ctx, settlement, &households)
+            } else {
+                self.public_way(ctx, settlement, &households)
+            };
+            if let Some(p) = found.filter(|p| p.cell == cell) {
                 let polity = &mut self.polities[pi];
                 polity.ways.push((
                     id,
@@ -4416,6 +4480,11 @@ impl Population {
         // A passing place passed is laid out at once, the polity's (M8b slice CQ, third part).
         if outcome == Outcome::Passed && kind == PolicyKind::BuildWay {
             self.begin_public_way(ctx, pi, law_id);
+        }
+        // A line passed is marked out at once from its pit to the hearth, the polity's (M10b
+        // slice DX, third part).
+        if outcome == Outcome::Passed && kind == PolicyKind::BuildLine {
+            self.begin_public_line(ctx, pi, law_id);
         }
         // A building raised together is laid out at once, the polity's (M8d slice DC).
         if outcome == Outcome::Passed && kind == PolicyKind::RaiseBuilding {

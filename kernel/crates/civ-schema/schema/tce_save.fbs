@@ -3680,6 +3680,10 @@ table GasMainSave {
   cells: [uint] (id: 2);
   capacity_kg_h: float (id: 3);
   broken: bool (id: 4);
+  // Schema 187 (M10b slice DY, third part, second step): its length and how much of it is laid,
+  // metres; before, both 0, whole.
+  length_m: float (id: 5);
+  laid_m: float (id: 6);
 }
 
 table GasConnectionSave {

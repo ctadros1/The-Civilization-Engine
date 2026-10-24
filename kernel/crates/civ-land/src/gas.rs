@@ -3,8 +3,30 @@
 //! rate; each evening its district is checked, the works' gas and the main's capacity against the
 //! burners to be lit, and each connection is served or interrupted by a cause kept apart. Not a
 //! flow solver: a capacity check per district (brief §2.1).
+//!
+//! A main is laid by work along ways from its works (the third part's second step): its route
+//! keeps to the cells of ways whose stretches' keepers give leave ([`plan_main`]), and it carries
+//! gas only once its whole length is laid, a metre of pipe at a time ([`MainParams`]).
+
+use std::collections::VecDeque;
 
 use civ_core::PermanentId;
+
+use crate::ways::{Keeper, Ways};
+
+/// What laying a main takes (M10b slice DY, third part, second step; research 12-09 §1.3: mains
+/// are assets built of pipe, digging and restoring the street). Authored in content.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MainParams {
+    /// The good its pipe is made of (an index into the catalog's goods).
+    pub good: usize,
+    /// Kilograms of that good a metre of main takes.
+    pub good_kg_m: f64,
+    /// Hours of a capable adult's work to dig, lay, joint and fill in a metre of main.
+    pub lay_h_m: f64,
+    /// The most gas a main of its bore carries an hour, kg.
+    pub capacity_kg_h: f32,
+}
 
 /// Why a connection's burners did or did not light on an evening (research 12-09 §1.5:
 /// interruptions keep four causes apart).
@@ -47,8 +69,9 @@ impl Cause {
     }
 }
 
-/// A main: the household whose works feeds it, the cells it runs along from the works, and the
-/// most gas it carries an hour, kg.
+/// A main: the household whose works feeds it, the cells it runs along from the works, the most
+/// gas it carries an hour, kg, whether it is broken, and its length and how much of it is laid,
+/// metres.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Main {
     pub id: PermanentId,
@@ -56,6 +79,82 @@ pub struct Main {
     pub cells: Vec<u32>,
     pub capacity_kg_h: f32,
     pub broken: bool,
+    pub length_m: f32,
+    pub laid_m: f32,
+}
+
+impl Main {
+    /// Whether its whole length is laid, so that it carries gas.
+    pub fn whole(&self) -> bool {
+        self.laid_m + 1e-3 >= self.length_m
+    }
+}
+
+/// The route of a main from cell `from` (its works) to cell `to` (a building) on a map `width`
+/// cells wide: through cells of ways whose stretch's keeper `may` give leave, each step to one of
+/// the eight neighbours, cells in order from `from` to `to` (both kept, as the pipe leaves the
+/// works and enters the building); the fewest cells, ties broken by the order the neighbours are
+/// tried, so the same land plans the same route. `None` where no such route joins them.
+pub fn plan_main(
+    ways: &Ways,
+    width: u32,
+    from: u32,
+    to: u32,
+    may: impl Fn(Keeper) -> bool,
+) -> Option<Vec<u32>> {
+    let mut open: Vec<u32> = ways
+        .list
+        .iter()
+        .flat_map(|w| w.segments.iter())
+        .filter(|s| may(s.keeper))
+        .flat_map(|s| s.cells.iter().copied())
+        .collect();
+    open.push(from);
+    open.push(to);
+    open.sort_unstable();
+    open.dedup();
+    let w = i64::from(width.max(1));
+    let mut came: Vec<(u32, u32)> = vec![(from, from)];
+    let mut queue = VecDeque::from([from]);
+    while let Some(c) = queue.pop_front() {
+        if c == to {
+            let mut path = vec![to];
+            let mut at = to;
+            while at != from {
+                at = came[came.binary_search_by_key(&at, |&(k, _)| k).ok()?].1;
+                path.push(at);
+            }
+            path.reverse();
+            return Some(path);
+        }
+        let (x, y) = (i64::from(c) % w, i64::from(c) / w);
+        for (dx, dy) in [
+            (1, 0),
+            (0, 1),
+            (-1, 0),
+            (0, -1),
+            (1, 1),
+            (-1, 1),
+            (-1, -1),
+            (1, -1),
+        ] {
+            let (nx, ny) = (x + dx, y + dy);
+            if nx < 0 || ny < 0 || nx >= w {
+                continue;
+            }
+            let Ok(n) = u32::try_from(ny * w + nx) else {
+                continue;
+            };
+            if open.binary_search(&n).is_err() {
+                continue;
+            }
+            if let Err(i) = came.binary_search_by_key(&n, |&(k, _)| k) {
+                came.insert(i, (n, c));
+                queue.push_back(n);
+            }
+        }
+    }
+    None
 }
 
 /// A building's burners on a main, the household that keeps it, whether its account is cut off,
@@ -137,7 +236,8 @@ impl Gas {
         held_kg: f64,
         kg_h: f64,
     ) -> f64 {
-        let Some(m) = self.mains.iter().find(|m| m.id == main) else {
+        // A main not yet laid whole carries nothing, and its connections are not checked.
+        let Some(m) = self.mains.iter().find(|m| m.id == main && m.whole()) else {
             return 0.0;
         };
         let (broken, capacity) = (m.broken, f64::from(m.capacity_kg_h));
@@ -186,6 +286,8 @@ mod tests {
                 cells: vec![0, 1, 2],
                 capacity_kg_h,
                 broken: false,
+                length_m: 30.0,
+                laid_m: 30.0,
             }],
             connections: burners
                 .iter()
@@ -193,6 +295,47 @@ mod tests {
                 .map(|(i, &b)| Connection::new(id(100 + i as u64), id(200 + i as u64), id(1), b))
                 .collect(),
         }
+    }
+
+    #[test]
+    fn a_main_keeps_to_ways_whose_keepers_give_leave() {
+        use crate::ways::{Rank, Segment, Surface, WALK, Way};
+        let way = |n: u64, cells: Vec<u32>, keeper: Keeper| Way {
+            id: id(n),
+            begun: 0,
+            segments: vec![Segment {
+                cells,
+                corridor_m: 4.0,
+                built_m: 4.0,
+                usable_m: 4.0,
+                surface: Surface::Cleared,
+                keeper,
+                kept: 0,
+            }],
+            modes: WALK,
+            trips: 0.0,
+            trips_day: 0,
+            rank: Rank::Lane,
+            track: None,
+        };
+        // A row of a map ten cells wide: the works at cell 0, a building at cell 9, a way kept by
+        // nobody over cells 1-5 and one kept by household 7 over cells 6-8.
+        let mut ways = Ways::default();
+        ways.add(way(1, vec![1, 2, 3, 4, 5], Keeper::Nobody));
+        ways.add(way(2, vec![6, 7, 8], Keeper::Household(id(7))));
+        let leave = |granted: u64| {
+            move |k: Keeper| match k {
+                Keeper::Nobody => true,
+                Keeper::Household(h) => h == id(granted),
+                Keeper::Polity(_) => false,
+            }
+        };
+        assert_eq!(
+            plan_main(&ways, 10, 0, 9, leave(7)),
+            Some((0..10).collect::<Vec<u32>>())
+        );
+        // Household 7 not giving leave, no route keeps to ways.
+        assert_eq!(plan_main(&ways, 10, 0, 9, leave(8)), None);
     }
 
     #[test]
@@ -218,6 +361,11 @@ mod tests {
         let causes: Vec<Cause> = g.connections.iter().map(|c| c.cause).collect();
         assert_eq!(causes, [Cause::CutOff, Cause::Broken, Cause::Broken]);
         assert!(!g.lit(id(200), 4_100));
+        // A main laid only in part carries nothing.
+        g.mains[0].broken = false;
+        g.mains[0].laid_m = 20.0;
+        assert_eq!(g.evening(id(1), 8, 5_520, 4.0, 10.0, 0.071), 0.0);
+        assert_eq!(g.connections[1].evening, 7, "not checked");
         for c in [
             Cause::Served,
             Cause::NoGas,

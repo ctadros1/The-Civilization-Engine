@@ -563,6 +563,17 @@ earth_h_m3 = 2.3
 shoulder_m = 0.5
 search_grade = 0.4
 
+# Laying a gas main (M10b slice DY, third part; content API 173; research 12-09 §1.3: a main's cost
+# is its digging, its pipe and restoring the street). A cast-iron main of some 75 mm bore weighs
+# about 25 kg a metre; digging its trench, laying and jointing the pipe and filling it in takes 3
+# hours a metre; and it carries 6 kg of gas an hour, some 12 cubic metres, about eighty burners at
+# 0.071 kg an hour (tuning values: the research gives no bore or rate).
+[gas_main]
+good = "core:good/iron"
+good_kg_m = 25.0
+lay_h_m = 3.0
+capacity_kg_h = 6.0
+
 [ditches]
 # An irrigation ditch's Manning's n clean and densely weeded, s/m^(1/3) (research 11-12 §2.3:
 # 0.025 for an average unlined canal, 0.040 badly kept; §4.4: weeds cut its capacity to 62.5 %).

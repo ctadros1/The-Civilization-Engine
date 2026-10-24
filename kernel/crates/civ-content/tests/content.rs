@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 172
+kernel_content_api = 173
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2528,6 +2528,51 @@ fn a_holder_names_the_gas_it_keeps_and_a_burner_its_piped_gas() {
         report.diagnostics[0]
             .message
             .contains("core:good/marsh_gas")
+    );
+}
+
+#[test]
+fn a_land_profile_says_what_laying_a_gas_main_takes_and_its_good_must_exist() {
+    // M10b slice DY, third part (content API 173): the core lays cast-iron mains at 25 kg and 3
+    // hours a metre, carrying 6 kg of gas an hour.
+    let reg = registry(load(&repo_content()));
+    let g = reg.land.params.gas_main.expect("the core lays mains");
+    let iron = reg
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/iron")
+        .expect("iron");
+    assert_eq!(g.good, iron);
+    assert_eq!((g.good_kg_m, g.lay_h_m, g.capacity_kg_h), (25.0, 3.0, 6.0));
+    let preset = real_preset();
+    let land = real("land/temperate_valley.toml").replace(
+        "[gas_main]\ngood = \"core:good/iron\"",
+        "[gas_main]\ngood = \"core:good/lead_pipe\"",
+    );
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert_eq!(codes(&report), vec!["E2006"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("core:good/lead_pipe")
+    );
+    let land =
+        real("land/temperate_valley.toml").replace("capacity_kg_h = 6.0", "capacity_kg_h = 0.0");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains("gas_main.capacity_kg_h")),
+        "{:?}",
+        report.diagnostics
     );
 }
 

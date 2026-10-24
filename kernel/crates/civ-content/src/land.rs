@@ -55,6 +55,20 @@ pub(crate) struct LandFile {
     /// lays no track.
     #[serde(default)]
     pub track: Option<TrackFile>,
+    /// What laying a gas main takes (content API 173, M10b slice DY). A profile that leaves it
+    /// out lays no main.
+    #[serde(default)]
+    pub gas_main: Option<GasMainFile>,
+}
+
+/// What laying a gas main takes (content API 173): see [`civ_land::gas::MainParams`].
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct GasMainFile {
+    pub good: String,
+    pub good_kg_m: f64,
+    pub lay_h_m: f64,
+    pub capacity_kg_h: f32,
 }
 
 /// What laying track takes (content API 169): see [`civ_land::rail::TrackParams`].
@@ -751,6 +765,15 @@ impl LandFile {
                 }),
                 None => None,
             },
+            gas_main: match &self.gas_main {
+                Some(g) => Some(civ_land::gas::MainParams {
+                    good: good_index(&g.good)?,
+                    good_kg_m: g.good_kg_m,
+                    lay_h_m: g.lay_h_m,
+                    capacity_kg_h: g.capacity_kg_h,
+                }),
+                None => None,
+            },
         })
     }
 
@@ -898,6 +921,19 @@ impl LandFile {
                 if !(v.is_finite() && v > lo && v <= hi) {
                     p.push(format!(
                         "`track.{field}` must be above {lo} and at most {hi}"
+                    ));
+                }
+            }
+        }
+        if let Some(g) = &self.gas_main {
+            for (field, v, lo, hi) in [
+                ("good_kg_m", g.good_kg_m, 0.0, 10_000.0),
+                ("lay_h_m", g.lay_h_m, 0.0, 1_000.0),
+                ("capacity_kg_h", f64::from(g.capacity_kg_h), 0.0, 10_000.0),
+            ] {
+                if !(v.is_finite() && v > lo && v <= hi) {
+                    p.push(format!(
+                        "`gas_main.{field}` must be above {lo} and at most {hi}"
                     ));
                 }
             }

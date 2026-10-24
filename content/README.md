@@ -1731,3 +1731,9 @@ not bring it), `recipe/make_gas` (a kilogram of coal into 0.14 kg of gas and 0.6
 retort), `recipe/build_gas_retort`, `recipe/build_gas_holder`, `recipe/make_gas_burner` and their
 activities. Nobody wants any of them for its own sake (`per_worker = 0`); what gas does comes in
 DY's later parts.
+
+Content API 173 (M10b slice DY, third part) adds a land profile's `[gas_main]`: what laying a gas
+main takes. `good` is the good its pipe is made of, `good_kg_m` how many kilograms a metre takes,
+`lay_h_m` the hours to dig, lay, joint and fill in a metre, and `capacity_kg_h` the most gas a main
+of its bore carries an hour (each above 0). A profile that leaves it out lays no main. The core
+lays cast-iron mains of 25 kg and 3 hours a metre, carrying 6 kg an hour.

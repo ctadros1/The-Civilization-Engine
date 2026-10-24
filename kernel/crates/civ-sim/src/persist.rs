@@ -504,6 +504,8 @@ pub const SCHEMA_V183: u32 = 183;
 pub const SCHEMA_V184: u32 = 184;
 /// Rides and fares, before gas mains.
 pub const SCHEMA_V185: u32 = 185;
+/// Gas mains, before they were laid by work.
+pub const SCHEMA_V186: u32 = 186;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

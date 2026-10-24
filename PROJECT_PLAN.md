@@ -6669,6 +6669,25 @@ and M6a gives rivers a daily flow.
       lit evening burns no tallow and is the world's first light; too little gas, too small a
       main, a broken main and a cut-off account each leave the home dark by their cause; left to
       the clock the next dusk lights it again; saved and loaded every section comes back alike.
+      *As built, third part, second step (2026-10-24): mains laid by work.* A main is begun from
+      its works' household's home to a building's cell, routed along the cells of ways whose
+      stretches' keepers give leave (research 12-09 §1.3: a main under a way needs its keeper's
+      leave): stretches kept by nobody, by the works' own household or by its polity; the fewest
+      cells by the eight neighbours, so the same land routes the same main. Its length is marked
+      out and nothing laid. A land profile's `[gas_main]` says what laying it takes (content API
+      173): the core's cast-iron main takes 25 kg of iron and 3 hours a metre to dig, lay, joint
+      and fill in, and carries 6 kg of gas an hour (tuning values). Only its works' own household
+      lays it, each hour's metres taking their pipe from its store, no more than the pipe held
+      allows; a main carries gas, and its connections are checked at dusk, only once its whole
+      length is laid (saves 187: a main's length and length laid). Who begins one, and when, comes
+      with gas by choice (the fourth part). Nobody knows gas making, so no world changes.
+      **Tested:** a route keeps to ways whose keepers give leave and finds none where a keeper
+      gives none; begun along a way kept by another household no main is begun, along one kept by
+      nobody it runs from the works to the building at the core's bore; half the pipe lays half
+      of it, and laid in part it is not checked at dusk; another household's work lays none of
+      it; the rest of the pipe makes it whole, and at dusk it lights the building; the core's
+      `[gas_main]` names a good that must exist and a rate above zero; saved and loaded every
+      section comes back alike.
   - **M10c, services and letters** (ADR-0035 §1–§7).
     - **DZ**: care beyond the household: a call, tending another home, kin unasked, the `Fee`
       channel, reputation from claims.

@@ -63015,6 +63015,8 @@ impl<'a> GasMainSave<'a> {
   pub const VT_CELLS: ::flatbuffers::VOffsetT = 8;
   pub const VT_CAPACITY_KG_H: ::flatbuffers::VOffsetT = 10;
   pub const VT_BROKEN: ::flatbuffers::VOffsetT = 12;
+  pub const VT_LENGTH_M: ::flatbuffers::VOffsetT = 14;
+  pub const VT_LAID_M: ::flatbuffers::VOffsetT = 16;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -63028,6 +63030,8 @@ impl<'a> GasMainSave<'a> {
     let mut builder = GasMainSaveBuilder::new(_fbb);
     builder.add_works(args.works);
     builder.add_id(args.id);
+    builder.add_laid_m(args.laid_m);
+    builder.add_length_m(args.length_m);
     builder.add_capacity_kg_h(args.capacity_kg_h);
     if let Some(x) = args.cells { builder.add_cells(x); }
     builder.add_broken(args.broken);
@@ -63070,6 +63074,20 @@ impl<'a> GasMainSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<bool>(GasMainSave::VT_BROKEN, Some(false)).unwrap()}
   }
+  #[inline]
+  pub fn length_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(GasMainSave::VT_LENGTH_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn laid_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(GasMainSave::VT_LAID_M, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for GasMainSave<'_> {
@@ -63083,6 +63101,8 @@ impl ::flatbuffers::Verifiable for GasMainSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("cells", Self::VT_CELLS, false)?
      .visit_field::<f32>("capacity_kg_h", Self::VT_CAPACITY_KG_H, false)?
      .visit_field::<bool>("broken", Self::VT_BROKEN, false)?
+     .visit_field::<f32>("length_m", Self::VT_LENGTH_M, false)?
+     .visit_field::<f32>("laid_m", Self::VT_LAID_M, false)?
      .finish();
     Ok(())
   }
@@ -63093,6 +63113,8 @@ pub struct GasMainSaveArgs<'a> {
     pub cells: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
     pub capacity_kg_h: f32,
     pub broken: bool,
+    pub length_m: f32,
+    pub laid_m: f32,
 }
 impl<'a> Default for GasMainSaveArgs<'a> {
   #[inline]
@@ -63103,6 +63125,8 @@ impl<'a> Default for GasMainSaveArgs<'a> {
       cells: None,
       capacity_kg_h: 0.0,
       broken: false,
+      length_m: 0.0,
+      laid_m: 0.0,
     }
   }
 }
@@ -63133,6 +63157,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GasMainSaveBuilder<'a, 'b, A>
     self.fbb_.push_slot::<bool>(GasMainSave::VT_BROKEN, broken, false);
   }
   #[inline]
+  pub fn add_length_m(&mut self, length_m: f32) {
+    self.fbb_.push_slot::<f32>(GasMainSave::VT_LENGTH_M, length_m, 0.0);
+  }
+  #[inline]
+  pub fn add_laid_m(&mut self, laid_m: f32) {
+    self.fbb_.push_slot::<f32>(GasMainSave::VT_LAID_M, laid_m, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GasMainSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     GasMainSaveBuilder {
@@ -63155,6 +63187,8 @@ impl ::core::fmt::Debug for GasMainSave<'_> {
       ds.field("cells", &self.cells());
       ds.field("capacity_kg_h", &self.capacity_kg_h());
       ds.field("broken", &self.broken());
+      ds.field("length_m", &self.length_m());
+      ds.field("laid_m", &self.laid_m());
       ds.finish()
   }
 }

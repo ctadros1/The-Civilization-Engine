@@ -261,6 +261,8 @@ fn a_main_lights_its_connections_at_dusk_from_its_works_gas_and_names_why_not() 
             cells: Vec::new(),
             capacity_kg_h: 1.0,
             broken: false,
+            length_m: 0.0,
+            laid_m: 0.0,
         });
         land.gas
             .connections
@@ -325,5 +327,134 @@ fn a_main_lights_its_connections_at_dusk_from_its_works_gas_and_names_why_not() 
     assert_eq!((c.cause, c.evening), (Cause::Served, sim.now().day_index()));
     assert!(sim.land().gas.lit(consumer, sim.now().minutes()));
     // Saved and loaded, every section (the gas records among them) comes back alike.
+    saves_alike(&mut sim);
+}
+
+/// Cells in order from cell `a` to cell `b` on a map `width` cells wide, each one step of the
+/// eight toward `b`.
+fn line(width: u32, a: u32, b: u32) -> Vec<u32> {
+    let w = i64::from(width);
+    let (mut x, mut y) = (i64::from(a) % w, i64::from(a) / w);
+    let (bx, by) = (i64::from(b) % w, i64::from(b) / w);
+    let mut cells = vec![a];
+    while (x, y) != (bx, by) {
+        x += (bx - x).signum();
+        y += (by - y).signum();
+        cells.push((y * w + x) as u32);
+    }
+    cells
+}
+
+#[test]
+fn a_main_is_laid_along_ways_with_leave_by_its_works_pipe_and_carries_gas_once_whole() {
+    use civ_land::gas::{Cause, Connection};
+    use civ_land::ways::{Keeper, Rank, Segment, Surface, WALK, Way};
+    let mut sim = world();
+    let at = to_dusk(&sim, 30);
+    sim.advance_minutes(at).expect("advances");
+    let (gas, holder, iron) = (
+        index(&sim, "core:good/coal_gas"),
+        index(&sim, "core:good/gas_holder"),
+        index(&sim, "core:good/iron"),
+    );
+    let map = sim.map().clone();
+    let cell = |at: (f32, f32)| civ_agents::population::cell_of(&map, at) as u32;
+    let homes: Vec<(PermanentId, u32)> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| (h.id, cell(h.home)))
+        .collect();
+    let (works, from) = homes[0];
+    // A household whose home lies some cells off, with a building of its own.
+    let (consumer, to, home) = homes
+        .iter()
+        .find_map(|&(h, c)| {
+            let w = i64::from(map.width);
+            let d = (i64::from(c) % w - i64::from(from) % w)
+                .abs()
+                .max((i64::from(c) / w - i64::from(from) / w).abs());
+            let b = sim.land().buildings.iter().find(|b| b.household == h)?;
+            (h != works && d >= 3).then_some((h, c, b.id))
+        })
+        .expect("a household some cells off");
+    let other = homes
+        .iter()
+        .map(|&(h, _)| h)
+        .find(|&h| h != works && h != consumer)
+        .expect("a third household");
+    // A way between them, kept by a third household.
+    let cells = line(map.width, from, to);
+    let way = sim.allocate_id_for_tests();
+    let today = sim.now().day_index();
+    sim.land_mut_for_tests().ways.add(Way {
+        id: way,
+        begun: today,
+        segments: vec![Segment {
+            cells: cells[1..cells.len() - 1].to_vec(),
+            corridor_m: 4.0,
+            built_m: 4.0,
+            usable_m: 4.0,
+            surface: Surface::Cleared,
+            keeper: Keeper::Household(other),
+            kept: today,
+        }],
+        modes: WALK,
+        trips: 0.0,
+        trips_day: today,
+        rank: Rank::Lane,
+        track: None,
+    });
+    let begin =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.begin_main_for_tests(ctx, works, to));
+    // Its keeper gives no leave: no main.
+    assert_eq!(begin(&mut sim), None);
+    // Kept by nobody, the main runs along it from the works to the building.
+    sim.land_mut_for_tests()
+        .ways
+        .list
+        .last_mut()
+        .expect("the way")
+        .segments[0]
+        .keeper = Keeper::Nobody;
+    let main = begin(&mut sim).expect("a main");
+    let m = sim.land().gas.mains[0].clone();
+    assert_eq!(m.id, main);
+    assert_eq!((m.cells.first(), m.cells.last()), (Some(&from), Some(&to)));
+    assert!(m.length_m > 0.0 && m.laid_m == 0.0 && !m.whole());
+    assert_eq!(m.capacity_kg_h, 6.0, "the core's bore");
+    let need = f64::from(m.length_m) * 25.0;
+    sim.land_mut_for_tests()
+        .gas
+        .connections
+        .push(Connection::new(home, consumer, main, 2));
+    set(&mut sim, works, holder, 1.0);
+    set(&mut sim, works, gas, 100.0);
+    let work = |sim: &mut Sim, who: PermanentId| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.main_work_for_tests(ctx, who, main, 10_000.0));
+        sim.land().gas.mains[0].laid_m
+    };
+    // Half the pipe lays half the main, and a main laid in part carries nothing.
+    set(&mut sim, works, iron, need / 2.0);
+    let laid = work(&mut sim, works);
+    assert!(
+        (f64::from(laid) - f64::from(m.length_m) / 2.0).abs() < 1e-2,
+        "{laid}"
+    );
+    assert!(sim.people().household(works).expect("works").stores[iron] < 1e-6);
+    sim.with_ctx_for_tests(|pop, ctx| pop.gas_evening_for_tests(ctx));
+    assert_eq!(sim.land().gas.connections[0].evening, -1, "not yet checked");
+    // Another household's work lays none of it.
+    set(&mut sim, consumer, iron, need);
+    assert_eq!(work(&mut sim, consumer), laid);
+    // The rest of the pipe lays the rest; whole, it lights the building at dusk.
+    set(&mut sim, works, iron, need);
+    let laid = work(&mut sim, works);
+    assert_eq!(laid, m.length_m);
+    let left = sim.people().household(works).expect("works").stores[iron];
+    assert!((left - need / 2.0).abs() < 1e-2, "{left}");
+    sim.with_ctx_for_tests(|pop, ctx| pop.gas_evening_for_tests(ctx));
+    assert_eq!(sim.land().gas.connections[0].cause, Cause::Served);
+    assert!(sim.land().gas.lit(consumer, sim.now().minutes()));
     saves_alike(&mut sim);
 }

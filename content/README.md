@@ -1741,3 +1741,9 @@ lays cast-iron mains of 25 kg and 3 hours a metre, carrying 6 kg an hour.
 Content API 174 (M10b slice DY, fourth part) adds `life_years` to `[gas_main]`: the years a main
 laid serves (above 0 and at most 1,000), over which a gasworks reckons whether the homes along a
 main it might lay would repay it. The core's serves 50 years.
+
+Content API 175 (M10b slice DY, fourth part) adds the policy kind `light_streets` (an office, its
+holder the lamplighter) and the issue `dark_takings` it answers, and a people profile's
+`crime.lit_guard`: the share of takings after dark a household believes those about would see by
+lit streets, what it weighs such a law by (0 to 1; the core's 0.3). The core adds
+`policy/yourselves_work_the_street_lamps`.

@@ -364,6 +364,12 @@ impl Forecasts {
             // A watcher guards what the others leave unguarded (M4c slice AI): one more beside
             // `n` others adds `g(1 - g)^n` of the guard `g` one alone gives. The others are those
             // who keep it now but the one it names and the one whose law it would end.
+            // Lit streets (M10b slice DY, fourth part) as a watch: a taker seen by those about
+            // where lamps burn, at the share `lit_guard` of what was taken.
+            Some(PolicyKind::LightStreets) => {
+                let (recover, owe) = known().watched(params.crime.lit_guard);
+                crate::polity::against_gain(o, recover, owe, pp)
+            }
             Some(PolicyKind::KeepWatch) => {
                 let g = params.crime.watch_guard.clamp(0.0, 1.0);
                 let others = self
@@ -1090,6 +1096,7 @@ impl Population {
                 });
             let office = match kind {
                 PolicyKind::KeepWatch => "keeps watch",
+                PolicyKind::LightStreets => "lights the streets",
                 PolicyKind::HearCases => "hears cases",
                 PolicyKind::Mint => "strikes coin",
                 _ => "keeps the common store",
@@ -2651,6 +2658,11 @@ impl Population {
         if line.is_some() {
             issues.push(IssueKind::LoadsCarried);
         }
+        // Something taken from its households after dark that nobody saw, where someone knows how
+        // to make a light and lamps could stand on its ways (M10b slice DY, fourth part).
+        if self.dark_takings(ctx, pi, &households) {
+            issues.push(IssueKind::DarkTakings);
+        }
         // What it saw of its ground within memory (M8c slice CT, second part): a household that
         // found no ground for its home, a trail built over, a home beyond the built edge.
         let (ground, ground_homes) = self.ground_issues(ctx, pi, settlement);
@@ -3353,7 +3365,10 @@ impl Population {
                     }
                     // An office filled by lot names nobody: the lot draws among those who put
                     // their names in once it passes (M7a slice BN).
-                    PolicyKind::KeepStore | PolicyKind::KeepWatch | PolicyKind::Mint
+                    PolicyKind::KeepStore
+                    | PolicyKind::KeepWatch
+                    | PolicyKind::Mint
+                    | PolicyKind::LightStreets
                         if def.tenure.is_some_and(|t| t.by_lot) =>
                     {
                         moves.push(blank);
@@ -3649,6 +3664,29 @@ impl Population {
                         let pick = adults
                             .iter()
                             .filter(|&&(c, _)| !watching.contains(&c) && Some(c) != barred)
+                            .map(|&(c, _)| {
+                                let r = if c == d {
+                                    1.0
+                                } else {
+                                    self.ties.regard(d, c, day, tp).clamp(0.0, 1.0)
+                                };
+                                (r, c)
+                            })
+                            .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)));
+                        if let Some((_, c)) = pick {
+                            moves.push(MoveOption {
+                                nominee: Some(c),
+                                ..blank
+                            });
+                        }
+                    }
+                    // A lamplighter (M10b slice DY, fourth part, third step), named as a watch
+                    // is: the adult they regard most, themselves at full regard.
+                    PolicyKind::LightStreets => {
+                        let barred = self.term_barred(pi, k, day, def);
+                        let pick = adults
+                            .iter()
+                            .filter(|&&(c, _)| Some(c) != barred)
                             .map(|&(c, _)| {
                                 let r = if c == d {
                                     1.0
@@ -4452,7 +4490,10 @@ impl Population {
         if outcome == Outcome::Passed
             && matches!(
                 kind,
-                PolicyKind::KeepStore | PolicyKind::KeepWatch | PolicyKind::Mint
+                PolicyKind::KeepStore
+                    | PolicyKind::KeepWatch
+                    | PolicyKind::Mint
+                    | PolicyKind::LightStreets
             )
         {
             self.fill_term(ctx, pi, law_id);
@@ -4485,6 +4526,11 @@ impl Population {
         // slice DX, third part).
         if outcome == Outcome::Passed && kind == PolicyKind::BuildLine {
             self.begin_public_line(ctx, pi, law_id);
+        }
+        // Streets lit by law have their lamps set at once, unlit until the lamplighter's round
+        // (M10b slice DY, fourth part).
+        if outcome == Outcome::Passed && kind == PolicyKind::LightStreets {
+            self.begin_street_lamps(ctx, pi, law_id);
         }
         // A building raised together is laid out at once, the polity's (M8d slice DC).
         if outcome == Outcome::Passed && kind == PolicyKind::RaiseBuilding {

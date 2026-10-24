@@ -6737,6 +6737,30 @@ and M6a gives rivers a daily flow.
       the best, marked with its reckoning, and a second begins nothing while it is laid; left to
       the clock, the works' people lay it as way work within six days, 25 kg of iron a metre
       taken; saved and loaded every section comes back alike.
+      *Split (2026-10-24):* the third step, streets lit by law, in two: (4c1) the law and its
+      lamps, (4c2) the lamplighter's rounds and lit streets restoring sight.
+      *As built, fourth part, third step, first half (2026-10-24): streets lit by law.* A new
+      policy kind, `light_streets`, and the issue it answers, `dark_takings`: within the year
+      something was taken from a household of the settlement after dark, its people found it
+      missing and nobody saw who took it, someone of the settlement knows how to make a light (a
+      recipe making a lamp whose technique one of them knows), and a lamp could stand beside a
+      home on a public way (one kept by nobody or by the polity). The household taken from is
+      among those who may propose it. It names an office as a watch does, its holder the
+      lamplighter, the adult the sponsor regards most, themselves at full regard; held for a
+      term, filled by lot where its template says, and lapsing as an office does. A household
+      weighs it as a watch, by a people profile's `crime.lit_guard` of what was taken (the share it
+      believes those about would see by lit streets; the core's 0.3, below a watch's 0.5: lamps see
+      nothing themselves; content API 175). Passed, the polity sets a lamp at once beside each home
+      of its settlement, on the public way's cell nearest it within a cell, each cell once, unlit
+      (saves 189: the gas section's street lamps, each its cell, polity, law and the minute it burns
+      until). The core's template is `policy/yourselves_work_the_street_lamps`. The rounds that
+      light them, and what lit streets let people see, are the second half. Nobody knows lamps at
+      the founding, so no world changes. **Tested:** with nothing taken, no issue; a taking at one
+      in the morning that nobody saw and its household found is the issue once someone knows lamps;
+      the lamps would stand on the way beside the homes; someone proposes it against takings in
+      the dark, naming a lamplighter; passed, the lamps stand there unlit, the polity's by that
+      law, its lamplighter holds the office, and no more are wanted; a lamp lights the cells about
+      it while it burns; saved and loaded every section comes back alike.
   - **M10c, services and letters** (ADR-0035 §1–§7).
     - **DZ**: care beyond the household: a call, tending another home, kin unasked, the `Fee`
       channel, reputation from claims.

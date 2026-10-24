@@ -3701,9 +3701,20 @@ table GasConnectionSave {
   cause: ubyte (id: 8);
 }
 
+// A street lamp a polity set on its ways by law (schema 189, M10b slice DY, fourth part, third
+// step): its cell, polity, law, and the minute it burns until once lit (-1 never lit).
+table StreetLampSave {
+  cell: uint (id: 0);
+  polity: ulong (id: 1);
+  law: ulong (id: 2);
+  lit_until: long = -1 (id: 3);
+}
+
 table GasSave {
   mains: [GasMainSave] (id: 0);
   connections: [GasConnectionSave] (id: 1);
+  // Schema 189: its street lamps; before, none.
+  lamps: [StreetLampSave] (id: 2);
 }
 
 // Goods in transit (schema 143, M8b slice CO; ADR-0029 §3): each load's owner household, carrier

@@ -129,7 +129,7 @@ use super::{
     SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
     SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, SCHEMA_V180,
     SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, SCHEMA_V187,
-    finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V188, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -904,8 +904,9 @@ pub(super) fn decode<R: Read + Seek>(
         // Runs' wagons (schema 183), lines' stations and timetables (schema 184) and rides and
         // fares (schema 185) are read wherever saved; gas mains (schema 186) have their section.
         SCHEMA_V182 | SCHEMA_V183 | SCHEMA_V184 | SCHEMA_V185 => Schema::V182,
-        // Mains' lengths laid (schema 187) and their worth (188) are read wherever saved.
-        SCHEMA_V186 | SCHEMA_V187 | SAVE_SCHEMA_VERSION => Schema::V186,
+        // Mains' lengths laid (schema 187), their worth (188) and street lamps (189) are read
+        // wherever saved.
+        SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2350,6 +2351,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::RainedOff => 29,
         IssueKind::FiresUnseen => 30,
         IssueKind::LoadsCarried => 31,
+        IssueKind::DarkTakings => 32,
     }
 }
 
@@ -2488,6 +2490,7 @@ fn decode_polities(
                 29 => IssueKind::RainedOff,
                 30 => IssueKind::FiresUnseen,
                 31 => IssueKind::LoadsCarried,
+                32 => IssueKind::DarkTakings,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -12470,13 +12473,30 @@ fn encode_gas(gas: &civ_land::gas::Gas) -> Vec<u8> {
             )
         })
         .collect();
+    let lamps: Vec<_> = gas
+        .lamps
+        .iter()
+        .map(|l| {
+            save::StreetLampSave::create(
+                &mut fbb,
+                &save::StreetLampSaveArgs {
+                    cell: l.cell,
+                    polity: l.polity.get(),
+                    law: l.law.get(),
+                    lit_until: l.lit_until,
+                },
+            )
+        })
+        .collect();
     let mains = fbb.create_vector(&mains);
     let connections = fbb.create_vector(&connections);
+    let lamps = fbb.create_vector(&lamps);
     let root = save::GasSave::create(
         &mut fbb,
         &save::GasSaveArgs {
             mains: Some(mains),
             connections: Some(connections),
+            lamps: Some(lamps),
         },
     );
     finish(fbb, root)
@@ -12484,7 +12504,7 @@ fn encode_gas(gas: &civ_land::gas::Gas) -> Vec<u8> {
 
 /// Reads [`encode_gas`]'s section.
 fn decode_gas(bytes: &[u8], tag: SectionTag) -> Result<civ_land::gas::Gas, LoadError> {
-    use civ_land::gas::{Cause, Connection, Gas, Main};
+    use civ_land::gas::{Cause, Connection, Gas, Main, StreetLamp};
     let root = section_root::<save::GasSave>(bytes).map_err(|e| unreadable(tag, &e))?;
     let mut gas = Gas::default();
     for m in root.mains().iter().flatten() {
@@ -12512,6 +12532,15 @@ fn decode_gas(bytes: &[u8], tag: SectionTag) -> Result<civ_land::gas::Gas, LoadE
             lit_from: c.lit_from(),
             lit_until: c.lit_until(),
             cause: Cause::from_code(c.cause()),
+        });
+    }
+    // Schema 189: before, no street lamps.
+    for l in root.lamps().iter().flatten() {
+        gas.lamps.push(StreetLamp {
+            cell: l.cell(),
+            polity: required(l.polity(), "a street lamp's polity")?,
+            law: required(l.law(), "a street lamp's law")?,
+            lit_until: l.lit_until(),
         });
     }
     Ok(gas)

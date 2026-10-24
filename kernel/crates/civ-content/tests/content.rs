@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 174
+kernel_content_api = 175
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2634,4 +2634,23 @@ fn a_land_profile_says_what_laying_track_takes_and_its_good_must_exist() {
             .map(ToString::to_string)
             .collect::<Vec<_>>()
     );
+}
+
+#[test]
+fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_takings() {
+    // M10b slice DY, fourth part (content API 175): the template answers takings after dark and
+    // names an office; a household weighs it by `lit_guard`.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/yourselves_work_the_street_lamps")
+        .expect("the street lamps template");
+    assert_eq!(def.kind, PolicyKind::LightStreets);
+    assert_eq!(def.answers, vec![IssueKind::DarkTakings]);
+    // Its id sorts after every other template's.
+    assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
+    assert_eq!(reg.people.params.crime.lit_guard, 0.3);
 }

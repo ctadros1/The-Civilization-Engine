@@ -740,3 +740,177 @@ fn a_works_begins_a_main_where_the_homes_along_it_repay_it_and_its_people_lay_it
     );
     saves_alike(&mut sim);
 }
+
+#[test]
+fn a_taking_unseen_in_the_dark_puts_streets_lit_by_a_lamplighter_before_the_gathering() {
+    use civ_agents::crime::{Incident, KnownAmount, Outcome};
+    use civ_agents::polity::{IssueKind, LawStatus, PolicyKind};
+    use civ_land::ways::{Keeper, Rank, Segment, Surface, WALK, Way};
+    let mut sim = world();
+    // The settlement's polity is founded at its first midnight.
+    sim.advance_minutes(24 * 60).expect("advances");
+    let (victim, _) = adult(&sim);
+    let settlement = sim
+        .people()
+        .household(victim)
+        .and_then(|x| x.settlement)
+        .expect("a settlement");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    // A way kept by nobody passing beside each home of the settlement, a cell east of it.
+    let map = sim.map().clone();
+    let mut beside: Vec<u32> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+        .map(|(_, x)| civ_agents::population::cell_of(&map, x.home) as u32 + 1)
+        .collect();
+    beside.sort_unstable();
+    beside.dedup();
+    let way = sim.allocate_id_for_tests();
+    let today = sim.now().day_index();
+    sim.land_mut_for_tests().ways.add(Way {
+        id: way,
+        begun: today,
+        segments: vec![Segment {
+            cells: beside.clone(),
+            corridor_m: 4.0,
+            built_m: 4.0,
+            usable_m: 4.0,
+            surface: Surface::Cleared,
+            keeper: Keeper::Nobody,
+            kept: today,
+        }],
+        modes: WALK,
+        trips: 0.0,
+        trips_day: today,
+        rank: Rank::Lane,
+        track: None,
+    });
+    let issue =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.dark_takings_for_tests(ctx, pi));
+    // Nothing taken: no issue.
+    assert!(!issue(&mut sim));
+    // Grain taken from the victim's store at one in the morning, nobody seeing who took it, and
+    // the loss found.
+    let (taker, _) = sim
+        .people()
+        .households
+        .iter()
+        .find_map(|(_, x)| (x.id != victim).then(|| (x.members[0], x.id)))
+        .expect("another household");
+    let night = civ_core::SimTime::from_minutes(today * 1440 + 60);
+    let home = sim.people().household(victim).expect("victim").home;
+    let taker_household = sim.people().person(taker).expect("taker").household;
+    {
+        let order = &mut sim.people_mut_for_tests().order;
+        let id = order.incidents.len() as u32 + 1;
+        order.incidents.push(Incident {
+            id,
+            at: night,
+            actor: taker,
+            actor_household: taker_household,
+            target: victim,
+            place: home,
+            outcome: Outcome::Taken,
+            goods: Vec::new(),
+            kcal: 2_000.0,
+            seen_by: Vec::new(),
+            noticed: true,
+            food_days: f32::NAN,
+            richer: f32::NAN,
+            across: None,
+        });
+        order.amounts.push(KnownAmount {
+            household: victim,
+            incident: id,
+            kcal: 2_000.0,
+            lost: true,
+            day: today,
+        });
+    }
+    // Nobody of the settlement knows how to make a light: still no issue. Taught lamps, there is.
+    let knows = sim.people().households.iter().any(|(_, x)| {
+        x.settlement == Some(settlement) && {
+            let t = sim
+                .rules()
+                .catalog
+                .techniques
+                .iter()
+                .position(|t| t.id == "core:technique/lamps")
+                .expect("lamps");
+            x.members
+                .iter()
+                .any(|&m| sim.people().person(m).is_some_and(|p| p.knows(t)))
+        }
+    });
+    if !knows {
+        assert!(!issue(&mut sim), "nobody knows how to make a light");
+    }
+    teach(&mut sim, victim, "core:technique/lamps");
+    assert!(issue(&mut sim));
+    // Its lamps would stand beside its homes, on the way.
+    let sites = sim.with_ctx_for_tests(|pop, ctx| pop.street_lamp_sites_for_tests(ctx, pi));
+    assert!(
+        !sites.is_empty() && sites.iter().all(|c| beside.contains(c)),
+        "{sites:?}"
+    );
+    // Someone proposes that a lamplighter light the streets, against takings in the dark.
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    let mut proposed = None;
+    for _ in 0..24 {
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[pi].gathering = None;
+            for l in &mut pop.polities[pi].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        match sim.people().polities[pi].agenda().cloned() {
+            Some(l) if l.kind == PolicyKind::LightStreets => {
+                proposed = Some(l);
+                break;
+            }
+            Some(_) => continue,
+            None => break,
+        }
+    }
+    let law = proposed.expect("streets lit proposed");
+    assert_eq!(law.issue, IssueKind::DarkTakings);
+    let lamplighter = law.holder.expect("a lamplighter named");
+    // Passed, the polity sets its lamps beside the homes at once, unlit, and the one named holds
+    // the office.
+    {
+        let pop = sim.people_mut_for_tests();
+        pop.every_adult_deliberates = false;
+        let p = &mut pop.polities[pi];
+        p.gathering = None;
+        let l = p.laws.iter_mut().find(|l| l.id == law.id).expect("the law");
+        l.status = LawStatus::InForce;
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_street_lamps_for_tests(ctx, pi, law.id));
+    let lamps = sim.land().gas.lamps.clone();
+    assert_eq!(lamps.iter().map(|l| l.cell).collect::<Vec<_>>(), sites);
+    let polity = sim.people().polities[pi].id;
+    assert!(
+        lamps
+            .iter()
+            .all(|l| l.polity == polity && l.law == law.id && l.lit_until == -1)
+    );
+    assert_eq!(
+        sim.people().polities[pi].lamplighter().map(|(h, _)| h),
+        Some(lamplighter)
+    );
+    // Its lamps stand where it would set them, so no more are wanted.
+    let again = sim.with_ctx_for_tests(|pop, ctx| pop.street_lamp_sites_for_tests(ctx, pi));
+    assert!(again.is_empty(), "{again:?}");
+    saves_alike(&mut sim);
+}

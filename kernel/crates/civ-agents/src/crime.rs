@@ -119,6 +119,9 @@ pub struct CrimeParams {
     /// The share of takings a household believes a watch would stop or see (M4b slice AC): what
     /// it weighs a law naming a watch by.
     pub watch_guard: f64,
+    /// The share of takings after dark a household believes lit streets would let those about see
+    /// (M10b slice DY, fourth part): what it weighs a law to light the streets by.
+    pub lit_guard: f64,
     /// Points for walking a round of the watch one keeps, the night's first; less for each round
     /// walked since.
     pub w_watch: f64,
@@ -218,6 +221,7 @@ impl CrimeParams {
             w_comply_found: 2.0,
             exile_days: 60.0,
             watch_guard: 0.5,
+            lit_guard: 0.3,
             w_watch: 6.0,
             rounds_per_night: 3,
             round_stops: 6,

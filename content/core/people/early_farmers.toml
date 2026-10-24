@@ -737,6 +737,10 @@ exile_days = 60.0
 # watch at each for the activity's minutes (12-04 §2.3: 11-15 minute visits, a modern patrol
 # finding, here only a scale).
 watch_guard = 0.5
+# Lit streets (M10b slice DY, fourth part; content API 175): a household weighs a law to light the
+# streets as a watch, by `lit_guard` of what was taken: the share it believes those about would
+# see by the lamps (a tuning value, below a watch's: lamps see nothing themselves).
+lit_guard = 0.3
 w_watch = 6.0
 rounds_per_night = 3
 round_stops = 6

@@ -508,6 +508,8 @@ pub const SCHEMA_V185: u32 = 185;
 pub const SCHEMA_V186: u32 = 186;
 /// Gas mains laid by work, before their works reckoned what they repay.
 pub const SCHEMA_V187: u32 = 187;
+/// Gas mains reckoned, before street lamps.
+pub const SCHEMA_V188: u32 = 188;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

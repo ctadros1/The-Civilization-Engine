@@ -199,14 +199,38 @@ impl Connection {
     }
 }
 
-/// Every main and connection, in the order made.
+/// A street lamp a polity set on one of its ways by law (M10b slice DY, fourth part, third step):
+/// the cell it stands on, the polity whose it is and the law that set it, and the minute it burns
+/// until once lit (-1 never lit).
+#[derive(Clone, Debug, PartialEq)]
+pub struct StreetLamp {
+    pub cell: u32,
+    pub polity: PermanentId,
+    pub law: PermanentId,
+    pub lit_until: i64,
+}
+
+/// Every main, connection and street lamp, in the order made.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Gas {
     pub mains: Vec<Main>,
     pub connections: Vec<Connection>,
+    pub lamps: Vec<StreetLamp>,
 }
 
 impl Gas {
+    /// Whether a street lamp lit at minute `minute` stands within `cells` cells (each way, the
+    /// eight neighbours' measure) of cell `cell` on a map `width` cells wide.
+    pub fn street_lit(&self, cell: u32, width: u32, cells: i64, minute: i64) -> bool {
+        let w = i64::from(width.max(1));
+        let (x, y) = (i64::from(cell) % w, i64::from(cell) / w);
+        self.lamps.iter().any(|l| {
+            minute < l.lit_until
+                && (i64::from(l.cell) % w - x).abs() <= cells
+                && (i64::from(l.cell) / w - y).abs() <= cells
+        })
+    }
+
     /// Whether household `household`'s burners are lit at minute `minute`.
     pub fn lit(&self, household: PermanentId, minute: i64) -> bool {
         self.lit_until(household, minute).is_some()
@@ -299,7 +323,27 @@ mod tests {
                 .enumerate()
                 .map(|(i, &b)| Connection::new(id(100 + i as u64), id(200 + i as u64), id(1), b))
                 .collect(),
+            lamps: Vec::new(),
         }
+    }
+
+    #[test]
+    fn a_street_lamp_lights_the_cells_about_it_while_it_burns() {
+        let mut g = gas(1.0, &[]);
+        // On a map 10 cells wide, a lamp on cell 55 (5, 5), lit until minute 600.
+        g.lamps.push(StreetLamp {
+            cell: 55,
+            polity: id(7),
+            law: id(8),
+            lit_until: 600,
+        });
+        assert!(g.street_lit(55, 10, 1, 599));
+        assert!(g.street_lit(66, 10, 1, 0), "a neighbour cell");
+        assert!(!g.street_lit(77, 10, 1, 0), "two cells off");
+        assert!(g.street_lit(77, 10, 2, 0), "within two");
+        assert!(!g.street_lit(55, 10, 1, 600), "out at its minute");
+        g.lamps[0].lit_until = -1;
+        assert!(!g.street_lit(55, 10, 1, 0), "never lit");
     }
 
     #[test]

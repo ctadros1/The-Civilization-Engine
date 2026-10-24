@@ -63,6 +63,7 @@ mod holds;
 mod ideology;
 mod influence;
 mod knowledge;
+mod lamps;
 mod land;
 mod levees;
 mod life;

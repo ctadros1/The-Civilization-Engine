@@ -63441,6 +63441,153 @@ impl ::core::fmt::Debug for GasConnectionSave<'_> {
       ds.finish()
   }
 }
+pub enum StreetLampSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct StreetLampSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for StreetLampSave<'a> {
+  type Inner = StreetLampSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> StreetLampSave<'a> {
+  pub const VT_CELL: ::flatbuffers::VOffsetT = 4;
+  pub const VT_POLITY: ::flatbuffers::VOffsetT = 6;
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 8;
+  pub const VT_LIT_UNTIL: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    StreetLampSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args StreetLampSaveArgs
+  ) -> ::flatbuffers::WIPOffset<StreetLampSave<'bldr>> {
+    let mut builder = StreetLampSaveBuilder::new(_fbb);
+    builder.add_lit_until(args.lit_until);
+    builder.add_law(args.law);
+    builder.add_polity(args.polity);
+    builder.add_cell(args.cell);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn cell(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(StreetLampSave::VT_CELL, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn polity(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(StreetLampSave::VT_POLITY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(StreetLampSave::VT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn lit_until(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(StreetLampSave::VT_LIT_UNTIL, Some(-1)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for StreetLampSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("cell", Self::VT_CELL, false)?
+     .visit_field::<u64>("polity", Self::VT_POLITY, false)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<i64>("lit_until", Self::VT_LIT_UNTIL, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct StreetLampSaveArgs {
+    pub cell: u32,
+    pub polity: u64,
+    pub law: u64,
+    pub lit_until: i64,
+}
+impl<'a> Default for StreetLampSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    StreetLampSaveArgs {
+      cell: 0,
+      polity: 0,
+      law: 0,
+      lit_until: -1,
+    }
+  }
+}
+
+pub struct StreetLampSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> StreetLampSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_cell(&mut self, cell: u32) {
+    self.fbb_.push_slot::<u32>(StreetLampSave::VT_CELL, cell, 0);
+  }
+  #[inline]
+  pub fn add_polity(&mut self, polity: u64) {
+    self.fbb_.push_slot::<u64>(StreetLampSave::VT_POLITY, polity, 0);
+  }
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(StreetLampSave::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn add_lit_until(&mut self, lit_until: i64) {
+    self.fbb_.push_slot::<i64>(StreetLampSave::VT_LIT_UNTIL, lit_until, -1);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> StreetLampSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    StreetLampSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<StreetLampSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for StreetLampSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("StreetLampSave");
+      ds.field("cell", &self.cell());
+      ds.field("polity", &self.polity());
+      ds.field("law", &self.law());
+      ds.field("lit_until", &self.lit_until());
+      ds.finish()
+  }
+}
 pub enum GasSaveOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -63459,6 +63606,7 @@ impl<'a> ::flatbuffers::Follow<'a> for GasSave<'a> {
 impl<'a> GasSave<'a> {
   pub const VT_MAINS: ::flatbuffers::VOffsetT = 4;
   pub const VT_CONNECTIONS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_LAMPS: ::flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -63470,6 +63618,7 @@ impl<'a> GasSave<'a> {
     args: &'args GasSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<GasSave<'bldr>> {
     let mut builder = GasSaveBuilder::new(_fbb);
+    if let Some(x) = args.lamps { builder.add_lamps(x); }
     if let Some(x) = args.connections { builder.add_connections(x); }
     if let Some(x) = args.mains { builder.add_mains(x); }
     builder.finish()
@@ -63490,6 +63639,13 @@ impl<'a> GasSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GasConnectionSave>>>>(GasSave::VT_CONNECTIONS, None)}
   }
+  #[inline]
+  pub fn lamps(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StreetLampSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StreetLampSave>>>>(GasSave::VT_LAMPS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for GasSave<'_> {
@@ -63500,6 +63656,7 @@ impl ::flatbuffers::Verifiable for GasSave<'_> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GasMainSave>>>>("mains", Self::VT_MAINS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GasConnectionSave>>>>("connections", Self::VT_CONNECTIONS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<StreetLampSave>>>>("lamps", Self::VT_LAMPS, false)?
      .finish();
     Ok(())
   }
@@ -63507,6 +63664,7 @@ impl ::flatbuffers::Verifiable for GasSave<'_> {
 pub struct GasSaveArgs<'a> {
     pub mains: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GasMainSave<'a>>>>>,
     pub connections: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GasConnectionSave<'a>>>>>,
+    pub lamps: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StreetLampSave<'a>>>>>,
 }
 impl<'a> Default for GasSaveArgs<'a> {
   #[inline]
@@ -63514,6 +63672,7 @@ impl<'a> Default for GasSaveArgs<'a> {
     GasSaveArgs {
       mains: None,
       connections: None,
+      lamps: None,
     }
   }
 }
@@ -63530,6 +63689,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GasSaveBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_connections(&mut self, connections: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<GasConnectionSave<'b >>>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(GasSave::VT_CONNECTIONS, connections);
+  }
+  #[inline]
+  pub fn add_lamps(&mut self, lamps: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<StreetLampSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(GasSave::VT_LAMPS, lamps);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GasSaveBuilder<'a, 'b, A> {
@@ -63551,6 +63714,7 @@ impl ::core::fmt::Debug for GasSave<'_> {
     let mut ds = f.debug_struct("GasSave");
       ds.field("mains", &self.mains());
       ds.field("connections", &self.connections());
+      ds.field("lamps", &self.lamps());
       ds.finish()
   }
 }

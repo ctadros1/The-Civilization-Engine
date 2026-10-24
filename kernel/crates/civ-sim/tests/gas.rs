@@ -1128,3 +1128,187 @@ fn the_lamplighter_lights_the_street_lamps_after_dark_and_where_they_burn_takers
     assert!(burning > 0, "the lamplighter lit them by choice");
     saves_alike(&mut sim);
 }
+
+/// A main as seen: buildings connected, lit now, share laid and words.
+type MainSeen = (u32, u32, f32, String);
+
+/// The ways layer's mains and street lamps as the observer reads them (wire 1.103): each main's
+/// buildings connected, those lit now and its words; each lamp's burning and words.
+fn gas_seen(sim: &Sim) -> (u64, Vec<MainSeen>, Vec<(bool, String)>) {
+    let bytes = civ_sim::frames::ways::ways_response(sim);
+    let response =
+        civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&bytes).expect("wire");
+    let ways = response.body_as_ways().expect("ways");
+    let mains = ways
+        .mains()
+        .expect("mains")
+        .iter()
+        .map(|m| {
+            (
+                m.homes(),
+                m.lit(),
+                m.laid(),
+                m.words().unwrap_or_default().to_owned(),
+            )
+        })
+        .collect();
+    let lamps = ways
+        .lamps()
+        .expect("lamps")
+        .iter()
+        .map(|l| (l.lit(), l.words().unwrap_or_default().to_owned()))
+        .collect();
+    (ways.rev(), mains, lamps)
+}
+
+/// Building `id`'s gas in words as the observer reads them (wire 1.103).
+fn gas_words_seen(sim: &Sim, id: PermanentId) -> String {
+    let bytes = civ_sim::frames::buildings::buildings_response(sim);
+    let response =
+        civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&bytes).expect("wire");
+    response
+        .body_as_buildings()
+        .expect("buildings")
+        .buildings()
+        .expect("a list")
+        .iter()
+        .find(|b| b.id() == id.get())
+        .expect("the building")
+        .gas()
+        .unwrap_or_default()
+        .to_owned()
+}
+
+#[test]
+fn the_observer_sees_mains_street_lamps_and_each_buildings_gas_in_words() {
+    use civ_land::gas::{Connection, Main, StreetLamp};
+    let mut sim = world();
+    let at = to_dusk(&sim, 30);
+    sim.advance_minutes(at).expect("advances");
+    // The works and a home: the first buildings of two households.
+    let mut firsts: Vec<(PermanentId, PermanentId)> = Vec::new();
+    for b in &sim.land().buildings {
+        if !firsts.iter().any(|&(_, h)| h == b.household) {
+            firsts.push((b.id, b.household));
+        }
+    }
+    let [(works_at, works), (home, consumer), ..] = firsts[..] else {
+        panic!("two households with buildings");
+    };
+    let (gas, holder, retort, coal) = (
+        index(&sim, "core:good/coal_gas"),
+        index(&sim, "core:good/gas_holder"),
+        index(&sim, "core:good/gas_retort"),
+        index(&sim, "core:good/coal"),
+    );
+    // Nothing of gas yet: no words, and the ways layer lists none.
+    assert_eq!(gas_words_seen(&sim, home), "");
+    assert_eq!(gas_words_seen(&sim, works_at), "");
+    set(&mut sim, works, holder, 1.0);
+    set(&mut sim, works, retort, 1.0);
+    set(&mut sim, works, gas, 100.0);
+    set(&mut sim, consumer, coal, 1_000.0);
+    let words = gas_words_seen(&sim, works_at);
+    assert!(
+        words.starts_with("Gasworks: a gas retort and a gas holder with 100 kg of coal gas of"),
+        "{words}"
+    );
+    let main = PermanentId::from_raw(990_101).expect("id");
+    let width = sim.map().width;
+    {
+        let land = sim.land_mut_for_tests();
+        land.gas.mains.push(Main {
+            id: main,
+            works,
+            cells: vec![width * 10 + 10, width * 10 + 11, width * 10 + 12],
+            capacity_kg_h: 1.0,
+            broken: false,
+            length_m: 60.0,
+            laid_m: 30.0,
+            worth_h: 0.0,
+        });
+        land.gas
+            .connections
+            .push(Connection::new(home, consumer, main, 2));
+    }
+    // Half laid: the main in words by its share, the home waiting for it.
+    let (rev_half, mains, lamps) = gas_seen(&sim);
+    assert!(rev_half != 0);
+    assert!(lamps.is_empty());
+    let (homes, lit, laid, words) = &mains[0];
+    assert_eq!((*homes, *lit), (1, 0));
+    assert!((laid - 0.5).abs() < 1e-6);
+    assert!(words.starts_with("Gas main of 60 m from ") && words.ends_with(", 50% laid."));
+    let words = gas_words_seen(&sim, home);
+    assert!(
+        words.starts_with("Gas: 2 burners on ")
+            && words.ends_with("'s main; waiting for the main to be laid"),
+        "{words}"
+    );
+    // Laid whole and its evening come: lit until four hours on, the main showing it.
+    sim.land_mut_for_tests().gas.mains[0].laid_m = 60.0;
+    let rev_whole = gas_seen(&sim).0;
+    assert_ne!(rev_whole, rev_half);
+    assert!(gas_words_seen(&sim, home).ends_with("; not yet lit"));
+    sim.with_ctx_for_tests(|pop, ctx| pop.gas_evening_for_tests(ctx));
+    let (rev_lit, mains, _) = gas_seen(&sim);
+    assert_ne!(rev_lit, rev_whole);
+    let (homes, lit, laid, words) = &mains[0];
+    assert_eq!((*homes, *lit, *laid), (1, 1, 1.0));
+    assert!(
+        words.ends_with(
+            ", laid, carrying up to 1.0 kg of coal gas an hour; 1 home connected, 1 lit now."
+        ),
+        "{words}"
+    );
+    let until = sim.land().gas.connections[0].lit_until;
+    let clock = format!("{:02}:{:02}", until % 1_440 / 60, until % 1_440 % 60);
+    assert!(
+        gas_words_seen(&sim, home).ends_with(&format!("; lit until {clock}")),
+        "{}",
+        gas_words_seen(&sim, home)
+    );
+    assert!(
+        gas_words_seen(&sim, works_at).ends_with("; feeds 1 main, 1 home connected"),
+        "{}",
+        gas_words_seen(&sim, works_at)
+    );
+    // Someone of the home, awake or asleep, has their light in words by the gas.
+    let member = sim.people().household(consumer).expect("home").members[0];
+    let light = civ_sim::frames::people::light_words(&sim, member);
+    assert!(
+        light == "Working by gaslight at home"
+            || light == format!("Their home is lit by gas until {clock}"),
+        "{light}"
+    );
+    // Each way it is left dark reads by its cause.
+    sim.land_mut_for_tests().gas.mains[0].capacity_kg_h = 0.1;
+    sim.with_ctx_for_tests(|pop, ctx| pop.gas_evening_for_tests(ctx));
+    assert!(
+        gas_words_seen(&sim, home)
+            .ends_with("; not lit on its last evening: the main could not carry its burners")
+    );
+    assert_eq!(gas_seen(&sim).1[0].1, 0, "none lit now");
+    sim.land_mut_for_tests().gas.connections[0].cut_off = true;
+    assert!(gas_words_seen(&sim, home).ends_with("; cut off: its account went unpaid"));
+    // A street lamp of a polity's, burning and then out.
+    let polity = PermanentId::from_raw(990_102).expect("id");
+    let now = sim.now().minutes();
+    sim.land_mut_for_tests().gas.lamps.push(StreetLamp {
+        cell: width * 10 + 11,
+        polity,
+        law: polity,
+        lit_until: now + 60,
+    });
+    let (rev_lamp, _, lamps) = gas_seen(&sim);
+    assert!(lamps[0].0);
+    assert!(
+        lamps[0].1.starts_with("Street lamp of ") && lamps[0].1.contains("; burning until "),
+        "{}",
+        lamps[0].1
+    );
+    sim.land_mut_for_tests().gas.lamps[0].lit_until = now;
+    let (rev_dark, _, lamps) = gas_seen(&sim);
+    assert_ne!(rev_dark, rev_lamp);
+    assert!(!lamps[0].0 && lamps[0].1.ends_with("; dark now."));
+}

@@ -6781,6 +6781,29 @@ and M6a gives rivers a daily flow.
       holds tallow; where a lamp burns sight is day sight, far from any light dark sight; left to
       the clock with the lamps out, the lamplighter lights them at the next dusk by choice; saved
       and loaded every section comes back alike.
+      *As built, fifth part (2026-10-24): the observer of gas.* The ways layer lists every gas
+      main and street lamp (wire 1.103): a main by its route from its works, its length and share
+      laid, the gas it carries an hour, whether it is broken, the buildings connected to it and
+      those lit now, and in words ("Gas main of 120 m from Ada's gasworks, laid, carrying up to
+      1.0 kg of coal gas an hour; 2 homes connected, 1 lit now"); a lamp where it stands, whether
+      it burns, and whose ("Street lamp of Ashford, set by its law to light the streets; burning
+      until 05:42"). The ways' revision follows each main's laying, each connection's last
+      evening and whether its burners burn, and each lamp's. A building's page says its gas: its
+      burners on a main and how its last evening went, lit until when or dark by its cause
+      (waiting for the main to be laid, the works' gas short, the main overloaded or broken, its
+      account cut off), and the first building of a household holding a gas holder reads as its
+      gasworks, its retort and holder, the gas held and the mains it feeds. A person whose home
+      burns gas now reads as working by gaslight, or lit by gas until its burners go out; the
+      clock's lit homes already count homes lit by gas (third part). The map draws a main as an
+      iron line along its route, fainter while it is laid and red once broken, and a lamp as a
+      dot, warm and haloed while it burns, and the pointer reads either out. **Tested:** a main
+      half laid reads by its share and its home waits for it; laid whole, the home is not yet lit
+      until its evening, then lit until four hours on, the main showing one home lit and the
+      works feeding one main; the person of the home reads gaslight; a main too small and an
+      account cut off read by their cause; a street lamp reads burning, then dark, the revision
+      following each; on the web, the decoding of mains, lamps and a building's gas, how a main
+      and a lamp are drawn and found under the pointer, and on a fresh world there are none.
+      **Slice DY is done.**
   - **M10c, services and letters** (ADR-0035 §1–§7).
     - **DZ**: care beyond the household: a call, tending another home, kin unasked, the `Fee`
       channel, reputation from claims.

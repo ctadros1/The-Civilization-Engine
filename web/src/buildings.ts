@@ -59,7 +59,9 @@ export function buildingWords(b: BuildingInfo): string {
   const style = b.style ? `; ${b.style}` : "";
   // Wire 1.87: why its household built it there.
   const site = b.site ? `; ${b.site}` : "";
-  return `${shapeWords(b)}: ${b.status}${fire}${shows}${upkeep}${kept}${style}${site}`;
+  // Wire 1.103: its gas, connected to a main or a gasworks.
+  const gas = b.gas ? `; ${b.gas}` : "";
+  return `${shapeWords(b)}: ${b.status}${fire}${shows}${upkeep}${kept}${style}${site}${gas}`;
 }
 
 /** A building's program and shape: "hut of 30 m², room for 5", or a frame building's bays,

@@ -708,6 +708,7 @@ describe("decoders", () => {
     const style = b.createString("roof pitched 49°, walls 1.9 m to the eaves, after Bo's hut");
     const fireWords = b.createString("fully involved since 02:15, set alight by the observer (one recorded influence)");
     const site = b.createString("chosen over 5 others: 34 hours less walking and levelling over 5 years than the next best");
+    const gas = b.createString("Gas: 1 burner on Ada's main; lit until 22:40");
     const group = W.GroupInfo.createGroupInfo(
       b,
       0x0700,
@@ -760,6 +761,7 @@ describe("decoders", () => {
     W.BuildingInfo.addFireId(b, 3);
     W.BuildingInfo.addFireWords(b, fireWords);
     W.BuildingInfo.addSite(b, site);
+    W.BuildingInfo.addGas(b, gas);
     const info = W.BuildingInfo.endBuildingInfo(b);
     const list = W.Buildings.createBuildingsVector(b, [info]);
     const buildings = W.Buildings.createBuildings(b, 77n, list);
@@ -832,6 +834,7 @@ describe("decoders", () => {
           fireId: 3,
           fireWords: "fully involved since 02:15, set alight by the observer (one recorded influence)",
           site: "chosen over 5 others: 34 hours less walking and levelling over 5 years than the next best",
+          gas: "Gas: 1 burner on Ada's main; lit until 22:40",
         },
       ],
     });
@@ -1307,7 +1310,15 @@ describe("decoders", () => {
     const noSegments = W.WayInfo.createSegmentsVector(b, []);
     const line = W.WayInfo.createWayInfo(b, 62n, 0, trackName, 4, 0, noSegments, trackWords, 1, 0.003, 0.4, true, 2, 0.6, 14, 380);
     const list = W.Ways.createWaysVector(b, [info, line]);
-    const ways = W.Ways.createWays(b, 5n, list);
+    // Wire 1.103: a gas main half laid, and a street lamp burning.
+    const mainPoints = W.GasMainInfo.createPointsVector(b, [10, 10, 70, 10]);
+    const mainWords = b.createString("Gas main of 60 m from Ada's gasworks, 50% laid.");
+    const main = W.GasMainInfo.createGasMainInfo(b, 81n, 7n, mainPoints, 60, 0.5, 1, false, 1, 0, mainWords);
+    const mains = W.Ways.createMainsVector(b, [main]);
+    const lampWords = b.createString("Street lamp of Ashford, set by its law to light the streets; burning until 05:42.");
+    const lamp = W.StreetLampInfo.createStreetLampInfo(b, 30, 12, true, lampWords);
+    const lamps = W.Ways.createLampsVector(b, [lamp]);
+    const ways = W.Ways.createWays(b, 5n, list, mains, lamps);
     const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Ways, ways)));
     expect(body.kind).toBe("ways");
     if (body.kind !== "ways") return;
@@ -1361,6 +1372,31 @@ describe("decoders", () => {
           fareKg: expect.closeTo(0.6, 6) as number,
           riders: 14,
           freightKgDay: 380,
+        },
+      ],
+      mains: [
+        {
+          id: 81,
+          works: 7,
+          points: [
+            [10, 10],
+            [70, 10],
+          ],
+          lengthM: 60,
+          laid: 0.5,
+          capacityKgH: 1,
+          broken: false,
+          homes: 1,
+          lit: 0,
+          words: "Gas main of 60 m from Ada's gasworks, 50% laid.",
+        },
+      ],
+      lamps: [
+        {
+          x: 30,
+          y: 12,
+          lit: true,
+          words: "Street lamp of Ashford, set by its law to light the streets; burning until 05:42.",
         },
       ],
     });

@@ -25,7 +25,8 @@ use crate::Sim;
 /// A number that changes whenever ground is claimed for a building, work on one moves on, a
 /// workshop changes firm or a building's condition changes (0 = no buildings): per building, when
 /// its stage began plus one, its stage, the minutes of work done on that stage, its firm, its
-/// state, its groups' loss in ten-thousandths and states, and the minutes of upkeep done, summed.
+/// state, its groups' loss in ten-thousandths and states, and the minutes of upkeep done, summed,
+/// over each gas connection's last evening and whether its burners are lit (wire 1.103).
 pub fn buildings_rev(sim: &Sim) -> u64 {
     // A building's fire changes how it stands by the minute while anything burns (wire 1.68).
     let fires = &sim.people.fires;
@@ -38,7 +39,16 @@ pub fn buildings_rev(sim: &Sim) -> u64 {
         .wrapping_mul(31)
         .wrapping_add(fires.list.iter().filter(|f| f.ended.is_some()).count() as u64)
         .wrapping_add(burning);
-    sim.land.buildings.iter().fold(fire, |rev, b| {
+    // A building's gas (wire 1.103): each connection's last evening, its cause and account.
+    let now = sim.now().minutes();
+    let gas = sim.land.gas.connections.iter().fold(fire, |rev, c| {
+        rev.wrapping_mul(31)
+            .wrapping_add(c.evening as u64)
+            .wrapping_add(u64::from(c.cause.code()) << 8)
+            .wrapping_add(u64::from(c.cut_off) << 12)
+            .wrapping_add(u64::from(c.lit_from <= now && now < c.lit_until) << 13)
+    });
+    sim.land.buildings.iter().fold(gas, |rev, b| {
         let condition = b.condition.iter().fold(0u64, |sum, c| {
             sum.wrapping_add((f64::from(c.loss) * 1e4).round().max(0.0) as u64)
                 .wrapping_add(group_state(c.state) as u64)
@@ -562,6 +572,7 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                 })
                 .unwrap_or_default();
             let site = fbb.create_string(&site);
+            let gas = fbb.create_string(&gas_words(sim, b));
             wire::BuildingInfo::create(
                 &mut fbb,
                 &wire::BuildingInfoArgs {
@@ -615,6 +626,7 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                     fire_id,
                     fire_words: Some(fire_words),
                     site: Some(site),
+                    gas: Some(gas),
                 },
             )
         })
@@ -632,6 +644,117 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
         wire::ResponseBody::Buildings,
         buildings.as_union_value(),
     )
+}
+
+/// Building `b`'s gas in words (wire 1.103, M10b slice DY, fifth part): connected to a main, its
+/// burners and how its last evening went ("Gas: 1 burner on Ada's main; lit until 22:40"; "not
+/// lit on its last evening: the main could not carry its burners"; "cut off: its account went
+/// unpaid"); the first building of a household holding a gas holder, the gasworks ("Gasworks:
+/// a retort and a gas holder with 12 kg of coal gas of 40; feeds 1 main, 3 homes connected").
+/// Empty for neither.
+pub(crate) fn gas_words(sim: &Sim, b: &Building) -> String {
+    use civ_land::gas::Cause;
+    let gas = &sim.land.gas;
+    let now = sim.now().minutes();
+    let mut said = Vec::new();
+    if let Some(c) = gas.connections.iter().find(|c| c.building == b.id) {
+        let burners = if c.burners == 1 {
+            "1 burner".to_owned()
+        } else {
+            format!("{} burners", c.burners)
+        };
+        let main = gas.mains.iter().find(|m| m.id == c.main);
+        let works = main.map_or_else(
+            || "a gasworks".to_owned(),
+            |m| super::ways::keeper(sim, civ_land::ways::Keeper::Household(m.works)),
+        );
+        let works = works.trim_end_matches("'s household");
+        let state = if c.cut_off {
+            "cut off: its account went unpaid".to_owned()
+        } else if main.is_some_and(|m| !m.whole()) {
+            "waiting for the main to be laid".to_owned()
+        } else if c.evening < 0 {
+            "not yet lit".to_owned()
+        } else {
+            match c.cause {
+                Cause::Served if c.lit_from <= now && now < c.lit_until => {
+                    format!("lit until {}", super::ways::clock_at(c.lit_until))
+                }
+                Cause::Served => "lit on its last evening".to_owned(),
+                Cause::NoGas => {
+                    "not lit on its last evening: the works had too little gas".to_owned()
+                }
+                Cause::Overloaded => {
+                    "not lit on its last evening: the main could not carry its burners".to_owned()
+                }
+                Cause::Broken => "not lit on its last evening: the main is broken".to_owned(),
+                Cause::CutOff => "cut off: its account went unpaid".to_owned(),
+            }
+        };
+        said.push(format!("Gas: {burners} on {works}'s main; {state}"));
+    }
+    let is_first = sim
+        .land
+        .buildings
+        .iter()
+        .find(|o| o.household == b.household)
+        .is_some_and(|o| o.id == b.id);
+    let catalog = &sim.rules.catalog;
+    if is_first && let Some(x) = sim.people.household(b.household) {
+        let held = |g: usize| x.stores.get(g).copied().unwrap_or(0.0);
+        let whole = |g: usize| held(g) >= 1.0 - 1e-9;
+        let holder = catalog.goods.iter().enumerate().find_map(|(h, d)| {
+            let keeps = d.holder?;
+            whole(h).then_some((h, keeps.good?, keeps.kg))
+        });
+        if let Some((h, g, kg)) = holder {
+            let mut parts: Vec<String> = catalog
+                .recipes
+                .iter()
+                .find(|r| r.outputs.iter().any(|&(o, _)| o == g) && !r.tools.is_empty())
+                .filter(|r| r.tools.iter().all(|&t| whole(t)))
+                .map(|r| {
+                    r.tools
+                        .iter()
+                        .map(|&t| format!("a {}", catalog.goods[t].name.to_lowercase()))
+                        .collect()
+                })
+                .unwrap_or_default();
+            parts.push(format!(
+                "a {} with {:.0} kg of {} of {:.0}",
+                catalog.goods[h].name.to_lowercase(),
+                held(g),
+                catalog.goods[g].name.to_lowercase(),
+                kg
+            ));
+            let mut out = format!("Gasworks: {}", parts.join(" and "));
+            let mains: Vec<_> = gas
+                .mains
+                .iter()
+                .filter(|m| m.works == b.household)
+                .collect();
+            if !mains.is_empty() {
+                let homes = gas
+                    .connections
+                    .iter()
+                    .filter(|c| mains.iter().any(|m| m.id == c.main))
+                    .count();
+                let feeds = if mains.len() == 1 {
+                    "1 main".to_owned()
+                } else {
+                    format!("{} mains", mains.len())
+                };
+                let homes = if homes == 1 {
+                    "1 home connected".to_owned()
+                } else {
+                    format!("{homes} homes connected")
+                };
+                out.push_str(&format!("; feeds {feeds}, {homes}"));
+            }
+            said.push(out);
+        }
+    }
+    said.join(". ")
 }
 
 /// Why a household chose a plot, from its receipt (M8c slice CS, third part): over how many others

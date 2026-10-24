@@ -4,6 +4,8 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { GasMainInfo } from '../../tce/wire/gas-main-info.js';
+import { StreetLampInfo } from '../../tce/wire/street-lamp-info.js';
 import { WayInfo } from '../../tce/wire/way-info.js';
 
 
@@ -40,8 +42,28 @@ waysLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+mains(index: number, obj?:GasMainInfo):GasMainInfo|null {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? (obj || new GasMainInfo()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+mainsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+lamps(index: number, obj?:StreetLampInfo):StreetLampInfo|null {
+  const offset = this.bb!.__offset(this.bb_pos, 10);
+  return offset ? (obj || new StreetLampInfo()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+lampsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 10);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startWays(builder:flatbuffers.Builder) {
-  builder.startObject(2);
+  builder.startObject(4);
 }
 
 static addRev(builder:flatbuffers.Builder, rev:bigint) {
@@ -64,15 +86,49 @@ static startWaysVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addMains(builder:flatbuffers.Builder, mainsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(2, mainsOffset, 0);
+}
+
+static createMainsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startMainsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addLamps(builder:flatbuffers.Builder, lampsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(3, lampsOffset, 0);
+}
+
+static createLampsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startLampsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endWays(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createWays(builder:flatbuffers.Builder, rev:bigint, waysOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createWays(builder:flatbuffers.Builder, rev:bigint, waysOffset:flatbuffers.Offset, mainsOffset:flatbuffers.Offset, lampsOffset:flatbuffers.Offset):flatbuffers.Offset {
   Ways.startWays(builder);
   Ways.addRev(builder, rev);
   Ways.addWays(builder, waysOffset);
+  Ways.addMains(builder, mainsOffset);
+  Ways.addLamps(builder, lampsOffset);
   return Ways.endWays(builder);
 }
 }

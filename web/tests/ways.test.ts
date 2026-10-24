@@ -1,7 +1,24 @@
 import { describe, expect, it } from "vitest";
 
-import type { WayInfo, WaySegmentInfo } from "../src/net/messages.js";
-import { BED_COLOUR, EARTH_COLOUR, GRAVEL_COLOUR, lineLook, stationEnds, wayAt, wayLook, wayWords } from "../src/ways.js";
+import type { GasMainInfo, StreetLampInfo, WayInfo, WaySegmentInfo } from "../src/net/messages.js";
+import {
+  BED_COLOUR,
+  BROKEN_MAIN_COLOUR,
+  EARTH_COLOUR,
+  GRAVEL_COLOUR,
+  LAMP_DARK_COLOUR,
+  LAMP_LIT_COLOUR,
+  MAIN_COLOUR,
+  lampAt,
+  lampLook,
+  lineLook,
+  mainAt,
+  mainLook,
+  stationEnds,
+  wayAt,
+  wayLook,
+  wayWords,
+} from "../src/ways.js";
 
 function segment(over: Partial<WaySegmentInfo> = {}): WaySegmentInfo {
   return {
@@ -128,5 +145,38 @@ describe("ways", () => {
     const readout = wayWords(line, bed);
     expect(readout).toContain("2 trains a day; a ride costs 0.6 kg of coal; 14 rides and 380 kg brought a day");
     expect(readout.endsWith("Timber track on a 2.0 m bed, kept by Ada's household.")).toBe(true);
+  });
+
+  it("draw a gas main fainter while it is laid and red once broken, and street lamps by whether they burn (M10b slice DY)", () => {
+    const main = (over: Partial<GasMainInfo> = {}): GasMainInfo => ({
+      id: 81,
+      works: 7,
+      points: [
+        [10, 10],
+        [70, 10],
+      ],
+      lengthM: 60,
+      laid: 1,
+      capacityKgH: 1,
+      broken: false,
+      homes: 1,
+      lit: 1,
+      words: "Gas main of 60 m from Ada's gasworks, laid, carrying up to 1.0 kg of coal gas an hour; 1 home connected, 1 lit now.",
+      ...over,
+    });
+    const whole = mainLook(main());
+    const marked = mainLook(main({ laid: 0 }));
+    expect(whole.colour).toBe(MAIN_COLOUR);
+    expect(marked.alpha).toBeLessThan(whole.alpha);
+    expect(marked.alpha).toBeGreaterThan(0.2);
+    expect(mainLook(main({ broken: true })).colour).toBe(BROKEN_MAIN_COLOUR);
+    const lamp = (lit: boolean): StreetLampInfo => ({ x: 40, y: 12, lit, words: lit ? "burning" : "dark" });
+    expect(lampLook(lamp(true))).toEqual({ colour: LAMP_LIT_COLOUR, haloM: 6 });
+    expect(lampLook(lamp(false))).toEqual({ colour: LAMP_DARK_COLOUR, haloM: 0 });
+    // Found under the pointer: the main along its route, the lamp at its post.
+    expect(mainAt([main()], 40, 11, 2)?.id).toBe(81);
+    expect(mainAt([main()], 40, 20, 2)).toBeNull();
+    expect(lampAt([lamp(true)], 41, 12, 2)?.words).toBe("burning");
+    expect(lampAt([lamp(true)], 40, 20, 2)).toBeNull();
   });
 });

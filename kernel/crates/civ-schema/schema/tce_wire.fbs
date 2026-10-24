@@ -1453,6 +1453,12 @@ table BuildingInfo {
   // the plot's receipt ("chosen over 5 others: 34 hours less walking and levelling over five
   // years than the next best"); empty where nothing was weighed (built before plots kept why).
   site: string (id: 48);
+  // Wire 1.103 (M10b slice DY, fifth part): its gas in words: a building connected to a main, its
+  // burners and how its last evening went, lit or not and why ("2 burners on Ada's household's
+  // main; not lit this evening: the main could not carry them"); the gasworks of the household
+  // that keeps it, its retort, holder and the gas held ("Gasworks: a gas holder with 12 kg of
+  // coal gas of 40; feeds 1 main, 3 homes connected"); empty for neither.
+  gas: string (id: 49);
 }
 
 table Buildings {
@@ -2902,10 +2908,41 @@ table WayInfo {
   freight_kg_day: float (id: 14);
 }
 
+// Wire 1.103 (M10b slice DY, fifth part; ADR-0034 §8): a gas main: the household whose works
+// feeds it; its centre line from the works, metres from the map's north-west corner, as x, y
+// pairs; its length, metres, and the share of it laid, 0-1; the most gas it carries an hour, kg;
+// whether it is broken; the buildings connected to it and those whose burners are lit now; and
+// the main in words.
+table GasMainInfo {
+  id: ulong (id: 0);
+  works: ulong (id: 1);
+  points: [float] (id: 2);
+  length_m: float (id: 3);
+  laid: float (id: 4);
+  capacity_kg_h: float (id: 5);
+  broken: bool (id: 6);
+  homes: uint (id: 7);
+  lit: uint (id: 8);
+  words: string (id: 9);
+}
+
+// Wire 1.103: a street lamp a polity set by law: where it stands, metres from the map's
+// north-west corner; whether it burns now; and in words ("A street lamp of Ashford's, lit until
+// dawn").
+table StreetLampInfo {
+  x: float (id: 0);
+  y: float (id: 1);
+  lit: bool (id: 2);
+  words: string (id: 3);
+}
+
 // Wire 1.84: every way, in the order begun.
 table Ways {
   rev: ulong (id: 0);
   ways: [WayInfo] (id: 1);
+  // Wire 1.103 (M10b slice DY, fifth part): every gas main and street lamp, in the order made.
+  mains: [GasMainInfo] (id: 2);
+  lamps: [StreetLampInfo] (id: 3);
 }
 
 // Wire 1.86 (M8b slices CO and CP): a boat or a cart: its mode (0 a boat, 1 a cart; 2 a wagon on

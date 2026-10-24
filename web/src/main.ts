@@ -1363,6 +1363,8 @@ map.onPointer = (info: PointerInfo | null) => {
   const earthwork = info.earthwork ? ` · ${info.earthwork.words}` : "";
   const crossing = info.crossing ? ` · ${info.crossing.words}` : "";
   const way = info.way && !info.crossing ? ` · ${wayWords(info.way.way, info.way.segment)}` : "";
+  // M10b slice DY: the street lamp, else the gas main, under the pointer.
+  const gas = info.lamp ? ` · ${info.lamp.words}` : info.main ? ` · ${info.main.words}` : "";
   const vehicle = info.vehicle ? ` · ${info.vehicle.words}` : "";
   const plan = info.plan ? ` · ${planWords(info.plan)}` : "";
   const land = info.land ? ` · ${landWords(info.land)}` : "";
@@ -1380,7 +1382,7 @@ map.onPointer = (info: PointerInfo | null) => {
         : "";
   readout.textContent =
     `${formatDistance(info.xM)} E, ${formatDistance(info.yM)} S · cell ${info.cellX}, ${info.cellY}` +
-    `${height} · ${info.water ?? ""}${flowing}${home}${place}${vehicle}${crossing}${way}${plan}${land}${mill}${source}${path}${field}${building}${earthwork}${deposit}`;
+    `${height} · ${info.water ?? ""}${flowing}${home}${place}${vehicle}${crossing}${way}${gas}${plan}${land}${mill}${source}${path}${field}${building}${earthwork}${deposit}`;
 };
 
 const scaleBar = byId("scalebar-bar");

@@ -351,8 +351,15 @@ site(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+gas():string|null
+gas(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+gas(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 102);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startBuildingInfo(builder:flatbuffers.Builder) {
-  builder.startObject(49);
+  builder.startObject(50);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -628,6 +635,10 @@ static addFireWords(builder:flatbuffers.Builder, fireWordsOffset:flatbuffers.Off
 
 static addSite(builder:flatbuffers.Builder, siteOffset:flatbuffers.Offset) {
   builder.addFieldOffset(48, siteOffset, 0);
+}
+
+static addGas(builder:flatbuffers.Builder, gasOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(49, gasOffset, 0);
 }
 
 static endBuildingInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

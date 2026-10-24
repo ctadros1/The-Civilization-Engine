@@ -1,7 +1,7 @@
 // Ways people have worked on (M8b slice CM; ADR-0029 §1, §9): how a way's stretches are drawn and
 // which way the pointer is on. The kernel decides everything, the rank included; this only shows it.
 
-import type { WayInfo, WaySegmentInfo } from "./net/messages.js";
+import type { GasMainInfo, StreetLampInfo, WayInfo, WaySegmentInfo } from "./net/messages.js";
 
 /** Bare earth and shaped earth, gravel, and a timber causeway. */
 export const EARTH_COLOUR = 0xb59a6a;
@@ -12,6 +12,59 @@ export const BED_COLOUR = 0x9b8461;
 export const RAIL_COLOUR = 0x4a3220;
 /** A line's station at each of its ends, once its stations are open (M10b slice DX). */
 export const STATION_COLOUR = 0x6b4f3a;
+
+/** A gas main's iron pipe, and one broken (M10b slice DY). */
+export const MAIN_COLOUR = 0x3d4a5c;
+export const BROKEN_MAIN_COLOUR = 0xa03a2a;
+/** A street lamp burning, and one dark (M10b slice DY). */
+export const LAMP_LIT_COLOUR = 0xffd27a;
+export const LAMP_DARK_COLOUR = 0x4a4a48;
+
+/** How a gas main is drawn (M10b slice DY): a narrow line along its route, fainter the less of it
+ * is laid (never fainter than about a quarter, so a main marked out shows), and red if broken. */
+export function mainLook(m: GasMainInfo): { colour: number; alpha: number; widthM: number } {
+  const laid = Math.min(1, Math.max(0, m.laid));
+  return { colour: m.broken ? BROKEN_MAIN_COLOUR : MAIN_COLOUR, alpha: 0.25 + 0.65 * laid, widthM: 0.6 };
+}
+
+/** How a street lamp is drawn (M10b slice DY): warm and with a halo while it burns, a dark post
+ * otherwise. */
+export function lampLook(l: StreetLampInfo): { colour: number; haloM: number } {
+  return l.lit ? { colour: LAMP_LIT_COLOUR, haloM: 6 } : { colour: LAMP_DARK_COLOUR, haloM: 0 };
+}
+
+/** The gas main whose route passes within `slackM` of the point, the nearest. */
+export function mainAt(list: GasMainInfo[], xM: number, yM: number, slackM: number): GasMainInfo | null {
+  let best: GasMainInfo | null = null;
+  let bestD = Infinity;
+  for (const m of list) {
+    const p = m.points;
+    for (let i = 0; i < p.length; i++) {
+      const [x0, y0] = p[i]!;
+      const [x1, y1] = p[Math.min(i + 1, p.length - 1)]!;
+      const d = distanceToSegment(xM, yM, x0, y0, x1, y1);
+      if (d <= slackM && d < bestD) {
+        best = m;
+        bestD = d;
+      }
+    }
+  }
+  return best;
+}
+
+/** The street lamp within `slackM` of the point, the nearest. */
+export function lampAt(list: StreetLampInfo[], xM: number, yM: number, slackM: number): StreetLampInfo | null {
+  let best: StreetLampInfo | null = null;
+  let bestD = Infinity;
+  for (const l of list) {
+    const d = Math.hypot(l.x - xM, l.y - yM);
+    if (d <= slackM && d < bestD) {
+      best = l;
+      bestD = d;
+    }
+  }
+  return best;
+}
 
 /** Where a line's stations stand, once open (M10b slice DX): the first point of its first stretch
  * and the last of its last; none for a way that is not a line or whose stations are shut. */

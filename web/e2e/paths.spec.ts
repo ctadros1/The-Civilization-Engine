@@ -52,6 +52,10 @@ test("a village shows the trails its people wore", async ({ page }) => {
     // Worn ground is not a way: nobody has worked on one, so there is none to draw (M8b slice CM).
     expect(await page.evaluate(() => window.__TCE__.state().waysRev)).toBe(0);
     expect((await page.evaluate(() => window.__TCE__.map())).ways).toEqual([]);
+    // Nobody keeps a gasworks or has lit a street, so there is no main or lamp to draw (M10b
+    // slice DY).
+    expect((await page.evaluate(() => window.__TCE__.map())).mains).toEqual([]);
+    expect((await page.evaluate(() => window.__TCE__.map())).lamps).toEqual([]);
     // Nobody has made a boat or a cart yet, so there is none to draw (M8b slice CP).
     expect(await page.evaluate(() => window.__TCE__.state().vehiclesRev)).toBe(0);
     expect((await page.evaluate(() => window.__TCE__.map())).vehicles).toEqual([]);

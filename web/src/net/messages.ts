@@ -602,6 +602,10 @@ export interface BuildingInfo {
    * ("chosen over 5 others: 34 hours less walking and levelling over 5 years than the next best");
    * empty where nothing was weighed. */
   site: string;
+  /** Wire 1.103 (M10b slice DY): its gas in the kernel's words: connected to a main, its burners
+   * and how its last evening went ("Gas: 1 burner on Ada's main; lit until 22:40"), or the
+   * gasworks its household keeps; empty for neither. */
+  gas: string;
 }
 
 /** How a building stands to its latest fire (wire 1.68). */
@@ -1850,9 +1854,41 @@ export interface WayInfo {
   freightKgDay: number;
 }
 
+/** A gas main (wire 1.103, M10b slice DY; ADR-0034 §8). */
+export interface GasMainInfo {
+  id: number;
+  /** The household whose works feeds it. */
+  works: number;
+  /** Its centre line from the works, metres from the map's north-west corner. */
+  points: [number, number][];
+  lengthM: number;
+  /** The share of it laid, 0–1; it carries gas only once whole. */
+  laid: number;
+  capacityKgH: number;
+  broken: boolean;
+  /** The buildings connected to it, and those whose burners are lit now. */
+  homes: number;
+  lit: number;
+  /** In the kernel's words: "Gas main of 120 m from Ada's gasworks, 40% laid." */
+  words: string;
+}
+
+/** A street lamp a polity set by law (wire 1.103). */
+export interface StreetLampInfo {
+  x: number;
+  y: number;
+  /** Whether it burns now. */
+  lit: boolean;
+  /** In the kernel's words: "Street lamp of Ashford, set by its law to light the streets; dark now." */
+  words: string;
+}
+
 export interface WaysInfo {
   rev: number;
   ways: WayInfo[];
+  /** Wire 1.103 (M10b slice DY): every gas main and street lamp, in the order made. */
+  mains: GasMainInfo[];
+  lamps: StreetLampInfo[];
 }
 
 /** A boat or a cart (wire 1.86, M8b slices CO and CP; ADR-0029 §3), a wagon on its line (wire
@@ -3167,7 +3203,32 @@ function ways(w: W.Ways): WaysInfo {
       freightKgDay: v.freightKgDay(),
     });
   }
-  return { rev: Number(w.rev()), ways: list };
+  const mains: GasMainInfo[] = [];
+  for (let i = 0; i < w.mainsLength(); i++) {
+    const m = w.mains(i);
+    if (!m) continue;
+    const points: [number, number][] = [];
+    for (let k = 0; k + 1 < m.pointsLength(); k += 2) points.push([m.points(k) ?? 0, m.points(k + 1) ?? 0]);
+    mains.push({
+      id: Number(m.id()),
+      works: Number(m.works()),
+      points,
+      lengthM: m.lengthM(),
+      laid: m.laid(),
+      capacityKgH: m.capacityKgH(),
+      broken: m.broken(),
+      homes: m.homes(),
+      lit: m.lit(),
+      words: m.words() ?? "",
+    });
+  }
+  const lamps: StreetLampInfo[] = [];
+  for (let i = 0; i < w.lampsLength(); i++) {
+    const l = w.lamps(i);
+    if (!l) continue;
+    lamps.push({ x: l.x(), y: l.y(), lit: l.lit(), words: l.words() ?? "" });
+  }
+  return { rev: Number(w.rev()), ways: list, mains, lamps };
 }
 
 function vehicles(w: W.Vehicles): VehiclesInfo {
@@ -4118,6 +4179,7 @@ function buildings(f: W.Buildings): { rev: number; buildings: BuildingInfo[] } {
       fireId: x.fireId(),
       fireWords: x.fireWords() ?? "",
       site: x.site() ?? "",
+      gas: x.gas() ?? "",
     });
   }
   return { rev: Number(f.rev()), buildings: out };

@@ -131,6 +131,9 @@ pub struct Facts {
     /// Members of their household ill at home and still owed care today, if any (M6a slice AZ,
     /// step three).
     pub tend: Option<TendFacts>,
+    /// A household of kin or a tie to call to tend the household's ill (M10c slice DZ, second
+    /// part), where they are owed more care than its well members can give.
+    pub call: Option<CallFacts>,
     /// Whether their home is flooded today (M6b slice BF): they leave wet homes for kin or
     /// hearth until the flood recedes.
     pub home_flooded: bool,
@@ -149,6 +152,17 @@ pub struct TendFacts {
     pub household: Option<PermanentId>,
     pub at: (f32, f32),
     pub walk_min: f64,
+}
+
+/// A carer a household short of care would call (M10c slice DZ, second part; ADR-0035 §2): the
+/// household asked, where its home is and the minutes' walk there, and the care owed at home
+/// beyond what the household's well members can give (each gives at most one).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CallFacts {
+    pub carer: PermanentId,
+    pub at: (f32, f32),
+    pub walk_min: f64,
+    pub short: f64,
 }
 
 /// How a load can be brought to a threatened roof.
@@ -1059,6 +1073,11 @@ pub fn candidates(
         // And tending to all but those with someone ill at home still owed care (M6a slice AZ,
         // step three).
         if def.behavior == Behavior::Tend && f.tend.is_none() {
+            continue;
+        }
+        // And calling a carer to all but those whose ill at home are owed more care than its
+        // well members can give, with someone to call (M10c slice DZ, second part).
+        if def.behavior == Behavior::Call && f.call.is_none() {
             continue;
         }
         if f.age < def.min_age_years {
@@ -2303,6 +2322,31 @@ pub fn candidates(
                 steps.push(work);
                 out.push(finish(id, Target::Home, terms, steps));
             }
+            Behavior::Call => {
+                // To a carer's door and back (M10c slice DZ, second part), for the care the
+                // household's well cannot give, less the walk.
+                let Some(c) = f.call else {
+                    continue;
+                };
+                if c.walk_min > f64::from(def.max_walk_minutes) {
+                    excluded.push((id, Reason::Unreachable));
+                    continue;
+                }
+                term(&mut terms, Reason::Tend, w.w_tend * c.short);
+                term(
+                    &mut terms,
+                    Reason::Walking,
+                    -w.w_walk_hour * 2.0 * c.walk_min / 60.0,
+                );
+                let steps = vec![
+                    Step::Walk { to: c.at },
+                    Step::Work {
+                        minutes: def.min_minutes.max(1),
+                    },
+                    Step::Walk { to: f.home },
+                ];
+                out.push(finish(id, Target::Household(c.carer), terms, steps));
+            }
             Behavior::Rest => {
                 term(&mut terms, Reason::Rest, w.w_rest);
                 let (target, mut steps) = if f.home_flooded {
@@ -2639,6 +2683,7 @@ mod tests {
             home_afire: false,
             fire: None,
             tend: None,
+            call: None,
             home_flooded: false,
             shelter: None,
             age: 30.0,

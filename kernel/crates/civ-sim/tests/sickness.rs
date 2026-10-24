@@ -788,3 +788,138 @@ fn kin_who_hear_of_a_home_all_abed_walk_there_to_tend_it_and_are_exposed_there()
     assert_eq!(e.acquired, Acquired::Household { household: sick });
     assert_eq!(e.infected, ill_from, "taken the day they came");
 }
+
+/// A household of the village all brought cholera that keeps them severely ill without killing
+/// them, but its youngest, made eight years old (old enough to go for help, too young to tend):
+/// returns the household, that child and the first day the rest are ill (M10c slice DZ, second
+/// part).
+fn abed_but_a_child(sim: &mut Sim) -> (PermanentId, PermanentId, i64) {
+    set_cholera(sim, |d| {
+        d.household_hazard = 0.0;
+        d.symptomatic = 1.0;
+        d.severe_by_age = vec![(0.0, 1.0)];
+        d.severe_death_per_day = 0.0;
+        d.incubation = civ_agents::params::Days { mean: 2.0, sd: 0.0 };
+        d.ill = civ_agents::params::Days { mean: 3.0, sd: 0.0 };
+    });
+    to_morning(sim, 9 * 60);
+    let now = sim.now();
+    let (sick, members) = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| (x.id, x.members.clone()))
+        .filter(|(_, m)| m.len() >= 2)
+        .min_by_key(|(id, m)| (m.len(), *id))
+        .expect("a household of two or more");
+    let child = *members.last().expect("a member");
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.id == child {
+            p.born = now.plus_minutes(-8 * civ_core::time::MINUTES_PER_YEAR);
+        }
+    }
+    for &m in members.iter().filter(|&&m| m != child) {
+        sim.plague(m, CHOLERA).expect("brought");
+    }
+    let ill_from = sim.people().sickness.episodes()[0].course.ill_from;
+    (sick, child, ill_from)
+}
+
+#[test]
+fn a_household_short_of_care_calls_kin_or_someone_it_knows_and_pays_those_not_kin_a_fee() {
+    use civ_agents::ledger::Channel;
+    for kin in [true, false] {
+        let mut sim = village(3);
+        let (sick, child, ill_from) = abed_but_a_child(&mut sim);
+        let now = sim.now();
+        // An adult of another household: by the records a grown son of one of those abed, or
+        // someone the child knows by a trade.
+        let (other, adult) = sim
+            .people()
+            .households
+            .iter()
+            .filter(|(_, x)| x.id != sick)
+            .find_map(|(_, x)| {
+                let a = x.members.iter().copied().find(|&m| {
+                    sim.people()
+                        .person(m)
+                        .is_some_and(|p| p.age_years(now) >= 20.0)
+                })?;
+                Some((x.id, a))
+            })
+            .expect("an adult elsewhere");
+        let params = sim.rules().people.ties.clone();
+        let day = now.day_index();
+        let parent = sim.people().household(sick).expect("home").members[0];
+        let pop = sim.people_mut_for_tests();
+        if kin {
+            pop.records.get_mut(&adult).expect("a record").mother = Some(parent);
+            pop.forget_kin();
+        } else {
+            pop.ties.record(
+                child,
+                adult,
+                civ_agents::ties::Act::Traded,
+                1.0,
+                0.0,
+                day,
+                &params,
+            );
+        }
+        to_day(&mut sim, ill_from + 1);
+        let call = *sim
+            .people()
+            .sickness
+            .call_of(sick)
+            .expect("the child called someone");
+        assert_eq!(call.day, ill_from, "called the first day they lay ill");
+        let fee = 0.5
+            * sim.people().household(sick).expect("home").members.len() as f64
+            * sim.rules().people.household.daily_kcal_per_person;
+        if kin {
+            assert_eq!(call.carer, other, "kin first");
+            assert_eq!(call.fee_kcal, 0.0, "kin ask no fee");
+        } else {
+            assert_ne!(call.carer, sick);
+            assert!(
+                (f64::from(call.fee_kcal) - fee).abs() < 1e-3,
+                "{}",
+                call.fee_kcal
+            );
+        }
+        // Someone of the household called came and tended them, and was paid that day.
+        let carers = sim
+            .people()
+            .household(call.carer)
+            .expect("the carer's household")
+            .members
+            .clone();
+        assert!(
+            sim.people()
+                .sickness
+                .episodes()
+                .iter()
+                .any(|e| e.care.first.is_some_and(|(_, by)| carers.contains(&by))),
+            "kin {kin}: tended by the household called"
+        );
+        assert_eq!(call.paid, ill_from);
+        let goods = &sim.rules().catalog.goods;
+        let fees: f64 = (0..goods.len())
+            .map(|g| sim.people().transfers.get(Channel::Fee, g) * goods[g].kcal_per_kg)
+            .sum();
+        if kin {
+            assert_eq!(fees, 0.0);
+        } else {
+            assert!(
+                (fees - fee).abs() < 1.0,
+                "a day's fee paid in food: {fees} kcal"
+            );
+        }
+        // The call saves and loads with the rest.
+        let loaded = reloaded(&mut sim);
+        assert_eq!(loaded.people().sickness.calls, sim.people().sickness.calls);
+        // Once nobody of the household is ill, the call lapses.
+        to_day(&mut sim, ill_from + 5);
+        assert!(sim.people().sickness.call_of(sick).is_none());
+    }
+}

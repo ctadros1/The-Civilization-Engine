@@ -12,19 +12,25 @@
 use super::*;
 use crate::Cause;
 use crate::contagion::Node;
-use crate::decide::TendFacts;
+use crate::decide::{CallFacts, TendFacts};
 use crate::influence::InfluenceKind;
 use crate::params::DiseaseRoute;
-use crate::sickness::{Acquired, Outcome, SickDraw, course, sickness_rng};
+use crate::sickness::{Acquired, CareCall, Outcome, SickDraw, course, sickness_rng};
 
 /// An outbreak is over only once less than this much of its disease is left with its
 /// settlement's households, doses: drunk whole, less than a dose is a hazard under one (a design
 /// prior).
 pub const OUTBREAK_LEFT_DOSES: f64 = 1.0;
 
+/// The food a household offers someone not of its kin for each day of tending its ill, in days of
+/// its own food (M10c slice DZ, second part; a tuning value: research 05-05 gives a healer's fee
+/// in money, not in a household's food).
+pub const CALL_FEE_FOOD_DAYS: f64 = 0.5;
+
 impl Population {
     /// The day's turn for infections (see the module documentation).
     pub(super) fn sickness_day(&mut self, ctx: &mut Ctx, day: i64) {
+        self.lapse_calls(ctx, day);
         if self.sickness.quiet() && self.contagion.is_empty() && !self.sickness.outbreak_open() {
             return;
         }
@@ -341,23 +347,7 @@ impl Population {
             return None;
         }
         let day = ctx.now.day_index();
-        let owed_by = |members: &[PermanentId]| {
-            let mut owed = 0.0;
-            for &m in members.iter().filter(|&&m| m != who) {
-                for i in self.sickness.ill_with(m, day) {
-                    let Some(e) = self.sickness.get(i) else {
-                        continue;
-                    };
-                    let Some(def) = ctx.catalog.diseases.get(usize::from(e.disease)) else {
-                        continue;
-                    };
-                    let need = def.care_h_per_day.max(1e-6);
-                    let left = ((need - self.sickness.cared(i, day)) / need).clamp(0.0, 1.0);
-                    owed += left * if e.course.severe { 1.0 } else { 0.5 };
-                }
-            }
-            owed
-        };
+        let owed_by = |members: &[PermanentId]| self.care_owed(ctx, members, Some(who));
         let owed = owed_by(&x.members);
         if owed > 1e-9 {
             return Some(TendFacts {
@@ -367,25 +357,36 @@ impl Population {
                 walk_min: 0.0,
             });
         }
-        // Close kin elsewhere, whose sickness they heard of lately.
+        // Close kin elsewhere, whose sickness they heard of lately, and the households that
+        // called theirs to tend them (the second part).
         let spell = i64::from(ctx.params.word.sickness_spell_days);
         let heard = self.word.heard_by(who);
         let reach = &self.homes.get(&field_key)?.reach;
+        let mut homes: Vec<PermanentId> = self
+            .close_kin(who)
+            .into_iter()
+            .filter_map(|k| self.person(k).map(|q| q.household))
+            .filter(|&h| {
+                h != x.id
+                    && self.word.sickness(h).is_some_and(|c| {
+                        day - c.day <= spell && heard.iter().any(|h| h.claim == c.id)
+                    })
+            })
+            .collect();
+        homes.extend(
+            self.sickness
+                .calls
+                .iter()
+                .filter(|c| c.carer == x.id && c.caller != x.id)
+                .map(|c| c.caller),
+        );
+        homes.sort_unstable();
+        homes.dedup();
         let mut best: Option<TendFacts> = None;
-        for k in self.close_kin(who) {
-            let Some(y) = self
-                .person(k)
-                .filter(|q| q.household != x.id)
-                .and_then(|q| self.household(q.household))
-            else {
+        for h in homes {
+            let Some(y) = self.household(h) else {
                 continue;
             };
-            let Some(c) = self.word.sickness(y.id) else {
-                continue;
-            };
-            if day - c.day > spell || !heard.iter().any(|h| h.claim == c.id) {
-                continue;
-            }
             let owed = owed_by(&y.members);
             if owed <= 1e-9 {
                 continue;
@@ -468,7 +469,250 @@ impl Population {
         }
         if visiting {
             self.visit_exposure(ctx, who, household, day);
+            let carer_home = self.person(who).map(|p| p.household);
+            if let Some(home) = carer_home {
+                self.pay_care_fee(ctx, household, home, day);
+            }
         }
+    }
+
+    /// The care owed today to those of `members` ill, but `except` (step three): the share of a
+    /// day's care still owed each, the severely ill whole and the others half.
+    fn care_owed(&self, ctx: &Ctx, members: &[PermanentId], except: Option<PermanentId>) -> f64 {
+        let day = ctx.now.day_index();
+        let mut owed = 0.0;
+        for &m in members.iter().filter(|&&m| Some(m) != except) {
+            for i in self.sickness.ill_with(m, day) {
+                let Some(e) = self.sickness.get(i) else {
+                    continue;
+                };
+                let Some(def) = ctx.catalog.diseases.get(usize::from(e.disease)) else {
+                    continue;
+                };
+                let need = def.care_h_per_day.max(1e-6);
+                let left = ((need - self.sickness.cared(i, day)) / need).clamp(0.0, 1.0);
+                owed += left * if e.course.severe { 1.0 } else { 0.5 };
+            }
+        }
+        owed
+    }
+
+    /// Who of `members` could tend today: not ill, and of the tending activity's age.
+    fn able_carers(&self, ctx: &Ctx, members: &[PermanentId]) -> usize {
+        let day = ctx.now.day_index();
+        let Some(min_age) = ctx
+            .catalog
+            .activities
+            .iter()
+            .find(|a| a.behavior == Behavior::Tend)
+            .map(|a| a.min_age_years)
+        else {
+            return 0;
+        };
+        members
+            .iter()
+            .filter(|&&m| {
+                !self.sickness.ill(m, day)
+                    && self
+                        .person(m)
+                        .is_some_and(|q| q.age_years(ctx.now) >= min_age)
+            })
+            .count()
+    }
+
+    /// Whom person `who` of household `x` would call to tend its ill (M10c slice DZ, second part;
+    /// ADR-0035 §2): only where the care owed at home is more than its well members of tending
+    /// age can give, each at most one, and it has no call standing. Kin of any of its members
+    /// first, asking no fee, then those `who` has ties with, for [`CALL_FEE_FOOD_DAYS`] of the
+    /// household's food a day, which it must hold; of each, a household with someone able to tend,
+    /// the nearest, the walk counted from `field_key`'s travel field.
+    pub(super) fn call_facts(
+        &self,
+        ctx: &Ctx,
+        who: PermanentId,
+        x: &Household,
+        field_key: PermanentId,
+    ) -> Option<CallFacts> {
+        if self.sickness.quiet() || self.sickness.call_of(x.id).is_some() {
+            return None;
+        }
+        let short =
+            self.care_owed(ctx, &x.members, None) - self.able_carers(ctx, &x.members) as f64;
+        if short <= 1e-9 {
+            return None;
+        }
+        let reach = &self.homes.get(&field_key)?.reach;
+        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let fee = self.call_fee(ctx, x);
+        let pays = stock_kcal(&stores_now(x, now, params, goods), goods) >= fee;
+        let mut kin: Vec<PermanentId> = x
+            .members
+            .iter()
+            .flat_map(|&m| self.close_kin(m))
+            .filter_map(|k| self.person(k).map(|q| q.household))
+            .collect();
+        kin.sort_unstable();
+        kin.dedup();
+        let mut tied: Vec<PermanentId> = if pays {
+            self.ties
+                .of(who)
+                .iter()
+                .filter_map(|t| self.person(t.to).map(|q| q.household))
+                .filter(|h| kin.binary_search(h).is_err())
+                .collect()
+        } else {
+            Vec::new()
+        };
+        tied.sort_unstable();
+        tied.dedup();
+        let mut best: Option<(bool, CallFacts)> = None;
+        for (asks_fee, h) in kin
+            .into_iter()
+            .map(|h| (false, h))
+            .chain(tied.into_iter().map(|h| (true, h)))
+        {
+            let Some(y) = self.household(h).filter(|y| y.id != x.id) else {
+                continue;
+            };
+            if self.able_carers(ctx, &y.members) == 0 {
+                continue;
+            }
+            let Some(secs) = reach.seconds_to(cell_of(ctx.map, y.home)) else {
+                continue;
+            };
+            let walk_min = f64::from(secs) / 60.0;
+            if best.is_none_or(|(f, b)| (asks_fee, walk_min) < (f, b.walk_min)) {
+                best = Some((
+                    asks_fee,
+                    CallFacts {
+                        carer: y.id,
+                        at: y.home,
+                        walk_min,
+                        short,
+                    },
+                ));
+            }
+        }
+        best.map(|(_, c)| c)
+    }
+
+    /// The food household `x` offers for a day of care by someone not of its kin, kcal.
+    fn call_fee(&self, ctx: &Ctx, x: &Household) -> f64 {
+        CALL_FEE_FOOD_DAYS * x.members.len() as f64 * ctx.params.household.daily_kcal_per_person
+    }
+
+    /// Someone of household `caller` left a call at household `carer`'s door (M10c slice DZ,
+    /// second part): it stands from today, asking no fee where someone of the caller is close
+    /// kin of someone of the carer, else [`Population::call_fee`]. A household has one call
+    /// standing at most.
+    pub(super) fn call_carer(&mut self, ctx: &Ctx, caller: PermanentId, carer: PermanentId) {
+        if self.sickness.call_of(caller).is_some() {
+            return;
+        }
+        self.refresh_kin();
+        let (Some(x), Some(y)) = (self.household(caller), self.household(carer)) else {
+            return;
+        };
+        let kin = x
+            .members
+            .iter()
+            .any(|&m| self.close_kin(m).iter().any(|k| y.members.contains(k)));
+        let fee_kcal = if kin {
+            0.0
+        } else {
+            self.call_fee(ctx, x) as f32
+        };
+        self.sickness.calls.push(CareCall {
+            caller,
+            carer,
+            fee_kcal,
+            day: ctx.now.day_index(),
+            paid: -1,
+        });
+    }
+
+    /// Household `caller` pays household `carer` the day's fee of its call for care on `day`
+    /// (M10c slice DZ, second part), once a day, in food through the [`Channel::Fee`] channel,
+    /// the least keeping first. One that cannot pay it all pays what it holds, and its call
+    /// lapses.
+    fn pay_care_fee(&mut self, ctx: &Ctx, caller: PermanentId, carer: PermanentId, day: i64) {
+        let Some(i) = self
+            .sickness
+            .calls
+            .iter()
+            .position(|c| c.caller == caller && c.carer == carer && c.paid < day)
+        else {
+            return;
+        };
+        self.sickness.calls[i].paid = day;
+        let mut want = f64::from(self.sickness.calls[i].fee_kcal);
+        if want <= 0.0 {
+            return;
+        }
+        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let Some(x) = self.household(caller) else {
+            return;
+        };
+        let stores = stores_now(x, now, params, goods);
+        let mut order: Vec<usize> = (0..goods.len())
+            .filter(|&g| {
+                goods[g].purpose == GoodUse::Food
+                    && goods[g].kcal_per_kg > 0.0
+                    && !goods[g].kept_back()
+            })
+            .collect();
+        let keeps = |g: usize| match goods[g].half_life_days {
+            h if h > 0.0 => h,
+            _ => f64::INFINITY,
+        };
+        order.sort_by(|&a, &b| keeps(a).total_cmp(&keeps(b)).then(a.cmp(&b)));
+        let mut legs = Vec::new();
+        for g in order {
+            if want <= 1e-9 {
+                break;
+            }
+            let kg =
+                (want / goods[g].kcal_per_kg).min(stores.get(g).copied().unwrap_or(0.0).max(0.0));
+            if kg <= 0.0 {
+                continue;
+            }
+            legs.push(Leg {
+                from: caller,
+                to: carer,
+                good: g,
+                amount: kg,
+            });
+            want -= kg * goods[g].kcal_per_kg;
+        }
+        if !legs.is_empty() && self.transfer(now, params, goods, &legs, Channel::Fee) {
+            self.changed(caller);
+            self.changed(carer);
+        }
+        if want > 1e-6 {
+            self.sickness.calls.retain(|c| c.caller != caller);
+        }
+    }
+
+    /// Calls for carers lapse at the day's turn (M10c slice DZ, second part): once nobody of the
+    /// household that called is ill, once it or the household it called is no more, or once the
+    /// word's spell has passed since it called.
+    fn lapse_calls(&mut self, ctx: &Ctx, day: i64) {
+        if self.sickness.calls.is_empty() {
+            return;
+        }
+        let spell = i64::from(ctx.params.word.sickness_spell_days);
+        let calls = std::mem::take(&mut self.sickness.calls);
+        let kept = calls
+            .into_iter()
+            .filter(|c| {
+                day - c.day <= spell
+                    && self.household(c.carer).is_some()
+                    && self
+                        .household(c.caller)
+                        .is_some_and(|x| x.members.iter().any(|&m| self.sickness.ill(m, day)))
+            })
+            .collect();
+        self.sickness.calls = kept;
     }
 
     /// Person `who`, come to tend household `household` on `day` (M10c slice DZ), is exposed to

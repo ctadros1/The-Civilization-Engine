@@ -6829,6 +6829,28 @@ and M6a gives rivers a daily flow.
       another home made a member's child by the records: having heard of the sickness they come
       and tend it, in both resolutions, and not having heard nobody does; where its sick shed,
       the kin who sat with them takes it that day, recorded as from that home.
+      *As built, second part (2026-10-24): a call for a carer.* A new behaviour, `call` (content
+      API 177, `activity/call_a_carer`, from seven years old, ten minutes at the door, as far as
+      half an hour's walk): where the care owed to a household's ill (each severely ill one whole,
+      the rest half, less what was given today) is more than its well members of tending age can
+      give, one each, and it has no call standing, someone well of it walks to the door of a
+      household with someone able to tend and leaves a call: close kin of any of its members
+      first, asking no fee, else the nearest household of someone the caller has a tie with, for
+      a fee of half a day of the household's food for each day of care (`CALL_FEE_FOOD_DAYS`, a
+      tuning value; research 05-05 prices a healer in money, not food), which it must hold to ask.
+      So a child old enough to run an errand goes for help for a home all abed. The call stands
+      (saves 190, in the sickness section) until nobody of the household is ill, either household
+      is no more, or the word's spell has passed; someone of the household called may tend its
+      ill as close kin who heard of it would (the first part), and the first session each day the
+      caller pays the day's fee in food, the least keeping first, through a new ledger channel,
+      `Fee` ("fee for care"); one that cannot pay it all pays what it holds and its call lapses.
+      Calling is a once-a-day block in a household-resolved day, as asking for food is. The
+      reason for tending now reads "someone ill needs tending". A world where nobody falls ill is
+      unchanged. **Tested:** a home all abed but a child of eight: with a grown son of one of them
+      living apart, the child calls him the first day, asking no fee, and he comes; with only
+      someone the child knows by a trade, the child calls a household it knows for half a day of
+      the household's food, someone of it comes, and the day's fee is paid in food through `Fee`;
+      the call saves and loads with the rest and lapses once nobody is ill.
     - **EA**: birth care: the maternal draw split by complication and rescaled by births attended,
       birth attending and clean hands.
     - **EB**: teaching and study settled at midnight, working alongside recorded the same way (the

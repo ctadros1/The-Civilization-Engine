@@ -3036,9 +3036,21 @@ table OutbreakSave {
 
 // Every infection, in the order they came (schema 75), and every outbreak, in the order they
 // began (schema 77).
+// Schema 190 (M10c slice DZ, second part; ADR-0035 §2): a household's call for someone of
+// another to tend its ill: the household that called and the one it asked, the food offered a day
+// of care, kcal (0 from kin), the day it called and the last day it paid (-1 not yet).
+struct CareCallSave {
+  caller: ulong;
+  carer: ulong;
+  fee_kcal: float;
+  day: long;
+  paid: long;
+}
+
 table SicknessSave {
   episodes: [EpisodeSave] (id: 0);
   outbreaks: [OutbreakSave] (id: 1);
+  calls: [CareCallSave] (id: 2);
 }
 
 // Section "fires" (schema 88, M6b slice BC; ADR-0022 §13): a building's fire, from its covering

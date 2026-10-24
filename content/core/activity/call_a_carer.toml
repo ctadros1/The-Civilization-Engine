@@ -1,0 +1,21 @@
+# Calling someone of another household to come and tend the household's ill (M10c slice DZ, second
+# part; ADR-0035 §2; research 05-05 §1.1: care beyond the household is someone else's labour,
+# asked for): a walk to the door of kin or of someone they know, leaving a call that stands while
+# the household's ill are owed care, with a fee in food for each day of care from those not kin.
+# Only where the ill at home are owed more care than its well members of tending age can give, so
+# a child old enough to run an errand may go for help. Session length and ages are tuning values.
+kind = "activity"
+id = "core:activity/call_a_carer"
+name = "Call someone to tend the sick"
+doing = "calling someone to tend the sick"
+behavior = "call"
+par = 1.5
+min_age_years = 7.0
+max_age_years = 90.0
+min_minutes = 10                 # telling what is wrong at the door
+max_minutes = 10
+daylight_only = false
+max_walk_minutes = 30
+technique = ""
+tools = []
+rate = 1.0

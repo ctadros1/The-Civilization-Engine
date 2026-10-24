@@ -21093,6 +21093,229 @@ impl<'a> WellShareSave {
 
 }
 
+// struct CareCallSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct CareCallSave(pub [u8; 40]);
+impl Default for CareCallSave { 
+  fn default() -> Self { 
+    Self([0; 40])
+  }
+}
+impl ::core::fmt::Debug for CareCallSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("CareCallSave")
+      .field("caller", &self.caller())
+      .field("carer", &self.carer())
+      .field("fee_kcal", &self.fee_kcal())
+      .field("day", &self.day())
+      .field("paid", &self.paid())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for CareCallSave {}
+impl<'a> ::flatbuffers::Follow<'a> for CareCallSave {
+  type Inner = &'a CareCallSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a CareCallSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a CareCallSave {
+  type Inner = &'a CareCallSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<CareCallSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for CareCallSave {
+    type Output = CareCallSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const CareCallSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for CareCallSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> CareCallSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    caller: u64,
+    carer: u64,
+    fee_kcal: f32,
+    day: i64,
+    paid: i64,
+  ) -> Self {
+    let mut s = Self([0; 40]);
+    s.set_caller(caller);
+    s.set_carer(carer);
+    s.set_fee_kcal(fee_kcal);
+    s.set_day(day);
+    s.set_paid(paid);
+    s
+  }
+
+  pub fn caller(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_caller(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn carer(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_carer(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn fee_kcal(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_fee_kcal(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn day(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[24..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_day(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[24..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn paid(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[32..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_paid(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[32..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct NodeSave, aligned to 8
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -54457,6 +54680,7 @@ impl<'a> ::flatbuffers::Follow<'a> for SicknessSave<'a> {
 impl<'a> SicknessSave<'a> {
   pub const VT_EPISODES: ::flatbuffers::VOffsetT = 4;
   pub const VT_OUTBREAKS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_CALLS: ::flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -54468,6 +54692,7 @@ impl<'a> SicknessSave<'a> {
     args: &'args SicknessSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<SicknessSave<'bldr>> {
     let mut builder = SicknessSaveBuilder::new(_fbb);
+    if let Some(x) = args.calls { builder.add_calls(x); }
     if let Some(x) = args.outbreaks { builder.add_outbreaks(x); }
     if let Some(x) = args.episodes { builder.add_episodes(x); }
     builder.finish()
@@ -54488,6 +54713,13 @@ impl<'a> SicknessSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OutbreakSave>>>>(SicknessSave::VT_OUTBREAKS, None)}
   }
+  #[inline]
+  pub fn calls(&self) -> Option<::flatbuffers::Vector<'a, CareCallSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, CareCallSave>>>(SicknessSave::VT_CALLS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for SicknessSave<'_> {
@@ -54498,6 +54730,7 @@ impl ::flatbuffers::Verifiable for SicknessSave<'_> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<EpisodeSave>>>>("episodes", Self::VT_EPISODES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<OutbreakSave>>>>("outbreaks", Self::VT_OUTBREAKS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, CareCallSave>>>("calls", Self::VT_CALLS, false)?
      .finish();
     Ok(())
   }
@@ -54505,6 +54738,7 @@ impl ::flatbuffers::Verifiable for SicknessSave<'_> {
 pub struct SicknessSaveArgs<'a> {
     pub episodes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<EpisodeSave<'a>>>>>,
     pub outbreaks: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OutbreakSave<'a>>>>>,
+    pub calls: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, CareCallSave>>>,
 }
 impl<'a> Default for SicknessSaveArgs<'a> {
   #[inline]
@@ -54512,6 +54746,7 @@ impl<'a> Default for SicknessSaveArgs<'a> {
     SicknessSaveArgs {
       episodes: None,
       outbreaks: None,
+      calls: None,
     }
   }
 }
@@ -54528,6 +54763,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SicknessSaveBuilder<'a, 'b, A
   #[inline]
   pub fn add_outbreaks(&mut self, outbreaks: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<OutbreakSave<'b >>>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SicknessSave::VT_OUTBREAKS, outbreaks);
+  }
+  #[inline]
+  pub fn add_calls(&mut self, calls: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , CareCallSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SicknessSave::VT_CALLS, calls);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SicknessSaveBuilder<'a, 'b, A> {
@@ -54549,6 +54788,7 @@ impl ::core::fmt::Debug for SicknessSave<'_> {
     let mut ds = f.debug_struct("SicknessSave");
       ds.field("episodes", &self.episodes());
       ds.field("outbreaks", &self.outbreaks());
+      ds.field("calls", &self.calls());
       ds.finish()
   }
 }

@@ -414,7 +414,7 @@ impl Reason {
             Reason::Crowded => "as many as there is room for are already at work on it today",
             Reason::Well => "the walking a well would save",
             Reason::Ill => "illness keeps them abed",
-            Reason::Tend => "someone ill at home needs tending",
+            Reason::Tend => "someone ill needs tending",
             Reason::HomeAfire => "a fire burns at home",
             Reason::FireThreatens => "a fire threatens a roof",
             Reason::HomeFlooded => "home is flooded",

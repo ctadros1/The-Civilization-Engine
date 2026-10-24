@@ -81,11 +81,14 @@ pub enum Channel {
     /// What a household pays a gasworks for the gas its burners burned, by the meter (M10b slice
     /// DY, fourth part).
     Gas = 30,
+    /// What a household pays someone of another for tending its ill on its call, a day's fee
+    /// for each day of care (M10c slice DZ, second part; ADR-0035 §2).
+    Fee = 31,
 }
 
 impl Channel {
     /// Every channel, in code order.
-    pub const ALL: [Channel; 30] = [
+    pub const ALL: [Channel; 31] = [
         Channel::Gift,
         Channel::Share,
         Channel::Allocation,
@@ -116,6 +119,7 @@ impl Channel {
         Channel::Freight,
         Channel::Fare,
         Channel::Gas,
+        Channel::Fee,
     ];
 
     /// The channel with this code.
@@ -156,6 +160,7 @@ impl Channel {
             Channel::Freight => "freight",
             Channel::Fare => "fare",
             Channel::Gas => "gas by the meter",
+            Channel::Fee => "fee for care",
         }
     }
 }

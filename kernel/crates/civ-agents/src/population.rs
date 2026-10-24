@@ -3688,6 +3688,7 @@ impl Population {
             home_afire: self.knows_home_afire(p.id, p.household, now, params),
             fire: fire_facts,
             tend: self.tend_facts(ctx, p.id, &hh, field_key),
+            call: self.call_facts(ctx, p.id, &hh, field_key),
             home_flooded: ctx
                 .land
                 .flood_depths
@@ -5588,6 +5589,7 @@ impl Population {
                 | Behavior::Take
                 | Behavior::Watch
                 | Behavior::Light
+                | Behavior::Call
                 | Behavior::Carry
                 | Behavior::Bridge
                 | Behavior::Boat
@@ -5821,6 +5823,13 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.field_work(ctx, who, household, field, task, hours);
+                    }
+                }
+                // A call left at a carer's door (M10c slice DZ, second part).
+                Some(Behavior::Call) => {
+                    if let Target::Household(carer) = p.act.target {
+                        let household = p.household;
+                        self.call_carer(ctx, household, carer);
                     }
                 }
                 Some(Behavior::Ask) => {

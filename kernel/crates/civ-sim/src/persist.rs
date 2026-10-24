@@ -510,6 +510,8 @@ pub const SCHEMA_V186: u32 = 186;
 pub const SCHEMA_V187: u32 = 187;
 /// Gas mains reckoned, before street lamps.
 pub const SCHEMA_V188: u32 = 188;
+/// Street lamps, before calls for carers.
+pub const SCHEMA_V189: u32 = 189;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

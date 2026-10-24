@@ -8014,6 +8014,13 @@ One line each. Don't re-litigate without a reason written next to the entry.
   heard from being proposed, since its gathering now passed one, and a case's time to pay
   reopened the loan, before the pledged field lay between crops (the courts have their own
   tests).
+- **The smoke's dry household again, and a failing world's identity (2026-10-24, found by slice
+  DY part 4b's chain):** the smoke failed once, "1 households have no water" in `ria_coast` seed 3,
+  and passed on rerunning the same build; no smoke world knows gas making, so DY's changes nothing
+  there reads. A probe lived that seed's 30 days under 40 fixed identities and found no dry
+  household. The cause stays open: the smoke drew the identity and never printed it, so the world
+  could not be replayed. **Changed:** a failing smoke world now prints its identity among its notes
+  (`identity <hex>`), so the next one can be lived again exactly with that identity.
 - **M8d design (2026-10-19, plan §7):** from the building brief (`docs/briefs/m8-building.md`),
   one ADR, [ADR-0031](decisions/0031-tall-public-buildings-and-shaking.md). **The brief's open
   questions, answered:** (1) `trussed_roof`, `storeyed_frame` and `tied_masonry`, none known to

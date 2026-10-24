@@ -128,7 +128,8 @@ use super::{
     SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
     SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
     SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, SCHEMA_V180,
-    SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, finish, section, section_root,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -897,7 +898,7 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V181 => Schema::V181,
         // Runs' wagons (schema 183) and lines' stations and timetables (schema 184) are read
         // wherever saved.
-        SCHEMA_V182 | SCHEMA_V183 | SAVE_SCHEMA_VERSION => Schema::V182,
+        SCHEMA_V182 | SCHEMA_V183 | SCHEMA_V184 | SAVE_SCHEMA_VERSION => Schema::V182,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -4753,6 +4754,7 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
                 Step::Wait { minutes } => (save::StepKind::Wait, none, minutes, 0, false),
                 Step::Paddle { to } => (save::StepKind::Paddle, none, 0, to, false),
                 Step::Haul { to } => (save::StepKind::Haul, to, 0, 0, false),
+                Step::Ride { to } => (save::StepKind::Ride, none, 0, to, false),
                 Step::Handle { minutes, unload } => {
                     (save::StepKind::Handle, none, minutes, 0, unload)
                 }
@@ -4969,6 +4971,7 @@ fn decode_people(
                 },
                 save::StepKind::Paddle => Step::Paddle { to: s.cell() },
                 save::StepKind::Haul => Step::Haul { to: xy(s.to()) },
+                save::StepKind::Ride => Step::Ride { to: s.cell() },
                 save::StepKind::Handle => Step::Handle {
                     minutes: s.minutes(),
                     unload: s.unload(),
@@ -12297,6 +12300,8 @@ fn encode_runs(runs: &civ_land::trains::Runs) -> Vec<u8> {
                     runs_a_day: l.runs_a_day,
                     freight_kg: l.freight_kg,
                     freight_since: l.freight_since,
+                    riders: l.riders,
+                    fare_kg: l.fare_kg,
                 },
             )
         })
@@ -12362,6 +12367,9 @@ fn decode_runs(bytes: &[u8], tag: SectionTag) -> Result<civ_land::trains::Runs, 
             runs_a_day: l.runs_a_day().max(1),
             freight_kg: l.freight_kg(),
             freight_since: l.freight_since(),
+            // Schema 185 (M10b slice DX, fourth part): before, no rides and no fare.
+            riders: l.riders(),
+            fare_kg: l.fare_kg(),
         });
     }
     let mut list = Vec::new();

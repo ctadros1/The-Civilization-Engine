@@ -1350,6 +1350,148 @@ fn a_household_s_engine_on_its_polity_s_line_carries_a_neighbour_s_digging_to_th
 }
 
 #[test]
+fn a_rider_waits_at_the_station_pays_the_fare_in_coal_and_rides_out_to_the_pit() {
+    let mut sim = village(3);
+    sim.advance_minutes(24 * 60).expect("advances");
+    let operator = first_household(&sim);
+    let settlement = sim
+        .people()
+        .household(operator)
+        .and_then(|x| x.settlement)
+        .expect("a settlement");
+    let hearth = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|s| s.id == settlement)
+        .expect("the settlement")
+        .hearth_m;
+    let polity = sim
+        .people()
+        .polities
+        .iter()
+        .find(|p| p.holds(Some(settlement)))
+        .map(|p| p.id)
+        .expect("its polity");
+    let rider = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .find(|x| x.id != operator && x.settlement == Some(settlement) && !x.members.is_empty())
+        .map(|x| x.id)
+        .expect("a neighbour");
+    // The polity's line from a pit to the hearth, its stations open, the operator's engine
+    // standing at the hearth end.
+    let seam = contour_seam(&mut sim, hearth);
+    let (way, pit_cell, hearth_cell) = laid_line(&mut sim, operator, hearth, seam);
+    let pit = sim
+        .land()
+        .earthworks
+        .iter()
+        .find(|e| e.kind == civ_land::earth::EarthKind::Pit && e.deposit == Some(seam))
+        .map(|e| e.rect.centre_m())
+        .expect("a pit");
+    {
+        let land = sim.land_mut_for_tests();
+        for w in land.ways.list.iter_mut() {
+            if w.id == way {
+                for s in &mut w.segments {
+                    s.keeper = civ_land::ways::Keeper::Polity(polity);
+                }
+            }
+        }
+    }
+    let legs =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.ride_legs_for_tests(ctx, rider, pit));
+    // No train, no ride.
+    assert_eq!(legs(&mut sim), None);
+    let engine_v = engine_vehicle(&sim);
+    let engine = sim.with_ctx_for_tests(|_, ctx| {
+        civ_agents::population::Population::add_wagon_for_tests(
+            ctx,
+            operator,
+            engine_v,
+            hearth_cell,
+        )
+    });
+    assert_eq!(legs(&mut sim), None, "stations not yet open");
+    sim.land_mut_for_tests().runs.open_stations(way);
+    let (to, minutes, fare) = legs(&mut sim).expect("a ride out to the pit");
+    assert_eq!(to, pit_cell);
+    assert!(minutes > 0.0 && fare == 0.0, "{minutes} {fare}");
+    // A fare posted, the rider at the station half an hour before the next morning's train.
+    sim.land_mut_for_tests().runs.line_mut(way).fare_kg = 2.0;
+    let now = sim.now().minutes();
+    let day = sim.now().day_index() + 1;
+    sim.advance_minutes(day * 1_440 + 5 * 60 + 30 - now)
+        .expect("advances");
+    let who = sim.people().household(rider).expect("rider").members[0];
+    let station = {
+        let map = sim.map();
+        let w = map.width as usize;
+        let c = hearth_cell as usize;
+        (
+            ((c % w) as f32 + 0.5) * map.cell_size_m,
+            ((c / w) as f32 + 0.5) * map.cell_size_m,
+        )
+    };
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.id == who {
+            p.pos = station;
+        }
+    }
+    let ride =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.ride_for_tests(ctx, who, pit_cell));
+    // Without the fare's coal, no ride.
+    set_store(&mut sim, rider, "core:good/coal", 1.0);
+    assert!(!ride(&mut sim), "the fare not held");
+    set_store(&mut sim, rider, "core:good/coal", 10.0);
+    set_store(&mut sim, operator, "core:good/coal", 0.0);
+    assert!(ride(&mut sim));
+    // The rider's store gave the fare (and what its hearth burned since it was last reckoned).
+    assert!(stores_of(&sim, rider, "core:good/coal") <= 8.0 + 1e-6);
+    assert!((stores_of(&sim, operator, "core:good/coal") - 2.0).abs() < 1e-6);
+    let coal = sim
+        .rules()
+        .catalog
+        .good_index("core:good/coal")
+        .expect("coal");
+    let fares = sim
+        .people()
+        .transfers
+        .get(civ_agents::ledger::Channel::Fare, coal);
+    assert!((fares - 2.0).abs() < 1e-6, "{fares}");
+    assert_eq!(sim.land().runs.line(way).map(|l| l.riders), Some(1));
+    // Waiting until six, then along the line to the pit end.
+    let trip = sim
+        .people()
+        .person(who)
+        .and_then(|p| p.trip.clone())
+        .expect("the ride");
+    assert!((trip.minutes[1] - 30.0).abs() < 1e-3, "{:?}", trip.minutes);
+    assert!(trip.afloat, "aboard, wearing no ground");
+    let end = *trip.points.last().expect("points");
+    let pit_end = {
+        let map = sim.map();
+        let w = map.width as usize;
+        let c = pit_cell as usize;
+        (
+            ((c % w) as f32 + 0.5) * map.cell_size_m,
+            ((c / w) as f32 + 0.5) * map.cell_size_m,
+        )
+    };
+    assert!((end.0 - pit_end.0).abs() < 1e-3 && (end.1 - pit_end.1).abs() < 1e-3);
+    saves_alike(&mut sim);
+    // At the operator's review the fare is posted from the light run's coal and the riders.
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_timetable_for_tests(ctx, operator));
+    let line = sim.land().runs.line(way).cloned().expect("the line");
+    assert_eq!(line.riders, 0, "the tally begun again");
+    assert!(line.fare_kg > 0.0, "{line:?}");
+    let _ = engine;
+}
+
+#[test]
 fn a_line_opens_stations_with_its_first_run_keeps_goods_waiting_and_runs_by_its_timetable() {
     use civ_land::trains::RunState;
     let mut sim = village(3);

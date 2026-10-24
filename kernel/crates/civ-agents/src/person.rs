@@ -109,6 +109,12 @@ pub enum Step {
         /// The door, metres.
         to: (f32, f32),
     },
+    /// Ride a line's train from its station where one stands to its end at cell `to` (M10b slice
+    /// DX, fourth part; ADR-0034 §5): waiting there for the next run the timetable sets off.
+    Ride {
+        /// The line's end cell to alight at.
+        to: u32,
+    },
     /// Load a boat at a bank or a cart at a door, or unload it (`unload`) and carry the load up
     /// (ADR-0029 §5: handling is people's work).
     Handle {

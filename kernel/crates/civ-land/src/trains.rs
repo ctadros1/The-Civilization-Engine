@@ -172,10 +172,14 @@ pub struct Line {
     pub runs_a_day: u8,
     pub freight_kg: f32,
     pub freight_since: i64,
+    /// The rides taken on it since `freight_since` (M10b slice DX, fourth part).
+    pub riders: u32,
+    /// What a ride costs, kilograms of its engines' fuel, as its review last posted it.
+    pub fare_kg: f32,
 }
 
 impl Line {
-    /// A line with no loops, no stations, a run a day and nothing brought yet.
+    /// A line with no loops, no stations, a run a day, nothing brought yet and no fare.
     pub fn new(way: PermanentId) -> Line {
         Line {
             way,
@@ -184,6 +188,8 @@ impl Line {
             runs_a_day: 1,
             freight_kg: 0.0,
             freight_since: 0,
+            riders: 0,
+            fare_kg: 0.0,
         }
     }
 }

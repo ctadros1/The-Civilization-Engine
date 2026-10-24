@@ -405,6 +405,17 @@ pub struct PatchOption {
     pub at: (f32, f32),
     /// For digging: the deposit dug at, in place of a patch (M3b slice Q).
     pub deposit: Option<PermanentId>,
+    /// For digging: a ride out to the pit on a line's train, where it is quicker for its fare
+    /// than walking there (M10b slice DX, fourth part).
+    pub by_ride: Option<RideLegs>,
+}
+
+/// A ride out on a line's train (M10b slice DX, fourth part): the station to walk to, and the
+/// line's end cell to ride to.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RideLegs {
+    pub station: (f32, f32),
+    pub to: u32,
 }
 
 /// Field work a person could do: on which field, where, and what it is worth.
@@ -1296,14 +1307,26 @@ pub fn candidates(
                     Reason::Effort,
                     -w.w_effort * (def.par - 1.0).max(0.0) * hours * f.sleep_pressure,
                 );
-                let steps = vec![
-                    Step::Walk { to: patch.at },
-                    Step::Work {
-                        minutes: minutes.round() as u32,
-                    },
-                    Step::Walk { to: f.home },
-                    Step::Deposit,
-                ];
+                let work = Step::Work {
+                    minutes: minutes.round() as u32,
+                };
+                let steps = match patch.by_ride {
+                    // To the station, out on the train, on to the pit; home on foot.
+                    Some(r) => vec![
+                        Step::Walk { to: r.station },
+                        Step::Ride { to: r.to },
+                        Step::Walk { to: patch.at },
+                        work,
+                        Step::Walk { to: f.home },
+                        Step::Deposit,
+                    ],
+                    None => vec![
+                        Step::Walk { to: patch.at },
+                        work,
+                        Step::Walk { to: f.home },
+                        Step::Deposit,
+                    ],
+                };
                 let target = patch
                     .deposit
                     .map_or(Target::Patch(patch.patch), Target::Deposit);
@@ -2913,6 +2936,7 @@ mod tests {
                 tool_blocked: false,
                 at: (50.0, 0.0),
                 deposit: None,
+                by_ride: None,
             })
         };
         let none = |_: usize| false;

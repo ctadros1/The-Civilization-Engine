@@ -274,7 +274,8 @@ table Settlements {
 // or 4294967295 the household's store), `id` the building it is thrown on.
 enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15, Douse = 16, Bank = 17, Ditch = 18, Enclosure = 19, Boat = 20, Way = 21, Mill = 22 }
 
-enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3, Paddle = 4, Handle = 5, Haul = 6 }
+// Schema 185 (M10b slice DX, fourth part): Ride, a ride on a line's train to its end at `cell`.
+enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3, Paddle = 4, Handle = 5, Haul = 6, Ride = 7 }
 
 table Step {
   kind: StepKind (id: 0);
@@ -3636,6 +3637,10 @@ table RailLineSave {
   runs_a_day: ubyte = 1 (id: 3);
   freight_kg: float (id: 4);
   freight_since: long (id: 5);
+  // Schema 185 (M10b slice DX, fourth part): the rides taken since `freight_since`, and the fare
+  // a ride costs, kg of its engines' fuel.
+  riders: uint (id: 6);
+  fare_kg: float (id: 7);
 }
 
 // A train run (schema 182): its line and direction, its engine and owner, its legs (each

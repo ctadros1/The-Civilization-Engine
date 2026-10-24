@@ -1168,6 +1168,16 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
         // By the household's boat (M8b slice CO) or cart (M8b slice CP).
         Some(Step::Paddle { .. }) => format!("paddling the household's boat ({what})"),
         Some(Step::Haul { .. }) => format!("pulling the household's handcart ({what})"),
+        // On a line's train, or waiting at its station for one (M10b slice DX, fourth part).
+        Some(Step::Ride { .. }) => match p.trip.as_ref() {
+            Some(t)
+                if f64::from(t.minutes.get(1).copied().unwrap_or(0.0))
+                    > (sim.now().minutes() - t.depart.minutes()) as f64 =>
+            {
+                format!("waiting at the station for the train ({what})")
+            }
+            _ => format!("riding the train ({what})"),
+        },
         Some(Step::Handle { unload, .. }) => {
             let cart = p.act.steps.iter().any(|s| matches!(s, Step::Haul { .. }));
             match (unload, cart) {

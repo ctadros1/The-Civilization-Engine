@@ -76,11 +76,13 @@ pub enum Channel {
     /// The share of another household's goods a line's keeper keeps for carrying them on its
     /// train (M10b slice DX).
     Freight = 28,
+    /// What a rider pays a train's operator for a ride (M10b slice DX, fourth part).
+    Fare = 29,
 }
 
 impl Channel {
     /// Every channel, in code order.
-    pub const ALL: [Channel; 28] = [
+    pub const ALL: [Channel; 29] = [
         Channel::Gift,
         Channel::Share,
         Channel::Allocation,
@@ -109,6 +111,7 @@ impl Channel {
         Channel::GroundRent,
         Channel::Toll,
         Channel::Freight,
+        Channel::Fare,
     ];
 
     /// The channel with this code.
@@ -147,6 +150,7 @@ impl Channel {
             Channel::GroundRent => "ground rent",
             Channel::Toll => "toll",
             Channel::Freight => "freight",
+            Channel::Fare => "fare",
         }
     }
 }

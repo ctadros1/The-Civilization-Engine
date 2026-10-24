@@ -6547,6 +6547,27 @@ and M6a gives rivers a daily flow.
       operator's coal, it reaches the neighbour's store less a tenth, the wagon stands at the
       hearth end, and the run opened the line's stations; saved and loaded, the world goes on
       alike.
+      *As built, fourth part, first step (2026-10-24): rides out to the pit.* A ride is a step of
+      a person's activity: from a line's station to its other end, waiting there for the next
+      run its timetable sets off (up to an hour and a half; past that, or with no engine standing
+      at the station, they walk on instead), then along the line at a light engine's pace, aboard
+      and wearing no ground (ADR-0034 §5). Its fare is a posted term: at the operator's yearly
+      review the line's fare is set to the coal a light run out burns, shared among a run's riders
+      since the last review (one at least), and the rider's household pays it to the operator in
+      the engines' fuel as it boards (a new ledger channel, `fare`); a household that cannot pay
+      walks. Someone setting off to dig weighs a ride out to the pit on a line it may run wagons
+      on, from its home or hearth end to its pit end: the walk to the station, half the time
+      between the timetable's runs, the ride and the walk from the pit end, with the fare at its
+      own cost of the fuel, against walking there; where the ride is quicker it walks to the
+      station, rides out, digs, and walks home (saves 185: a ride step, a line's riders and fare).
+      Household-resolved settlements leave a ride out of their day for now (the next step). Nobody
+      knows the locomotive, so no world changes. **Tested:** a household on its polity's line
+      sees no ride while no engine stands at the station or the stations are shut, and then one
+      to the pit end; at the station before the morning's train, without the fare's coal it is
+      refused, with it the fare goes to the operator and is counted as a fare, the line counts the
+      rider, and the ride waits until six and ends at the pit end, aboard; saved and loaded the
+      world goes on alike; at the operator's review the fare is posted from the light run's coal
+      and the tally begins again.
     - **DY**: the gas chain: gasworks, holders, mains, connections by district capacity,
       interruptions by cause, street lighting as a public work.
   - **M10c, services and letters** (ADR-0035 §1–§7).
@@ -7981,6 +8002,14 @@ One line each. Don't re-litigate without a reason written next to the entry.
   pump's half, its other work (a mill's, a hammer's) taken in the same daylight and not netted
   off; nobody sets a wheel for a pit's sake, so a wheel pumps only where one already stands near
   its holder's pit. Revisited when the M10 demo shows a pit beside a mill.
+- **Design priors for rides (2026-10-24, M10b slice DX, fourth part, first step):** NUDGE: a
+  ride is out to the pit only, home on foot; a rider does not take a seat on the run the
+  operator sets off, only its timing (the train is assumed to go when the timetable says and an
+  engine stands at the station); the wait weighed is half the time between runs, the wait taken
+  the real one up to 90 minutes; the fare is the light run's coal over its riders, paid in that
+  coal, and a household weighs it at its own cost of coal; a ride is weighed only for the deposit
+  chosen by its walk. Rides are not yet counted in the dashboard's travel. None is measured.
+  Revisited with the household-day block and when a line carries riders in a world.
 - **Design priors for engines on a line laid together (2026-10-24, M10b slice DX, third part,
   third step):** NUDGE: any household of the settlement may run its engine on its polity's line,
   paying the polity nothing; several operators share one line's freight tally and timetable, the

@@ -172,12 +172,13 @@ fn option_minutes(ctx: &Ctx, c: &decide::Candidate, home: (f32, f32)) -> f64 {
 /// count, [`ONCE`] at most once, and an option that lays claim to new ground, a home or a
 /// workshop once. Counts are rounded by largest remainder, ties to the earlier option.
 fn shares(ctx: &Ctx, plan: &Planned, waking: f64, home: (f32, f32)) -> Vec<(usize, u32)> {
-    // Options moved by a boat or a cart wait for the journeys they make (slice DH lists them).
+    // Options moved by a boat, a cart or a train wait for the journeys they make (slice DH lists
+    // them; a ride, M10b slice DX, fourth part).
     let moved = |c: &decide::Candidate| {
         c.steps.iter().any(|s| {
             matches!(
                 s,
-                Step::Paddle { .. } | Step::Haul { .. } | Step::Handle { .. }
+                Step::Paddle { .. } | Step::Haul { .. } | Step::Handle { .. } | Step::Ride { .. }
             )
         })
     };
@@ -755,6 +756,7 @@ impl Population {
                 Step::Wait { .. }
                 | Step::Paddle { .. }
                 | Step::Haul { .. }
+                | Step::Ride { .. }
                 | Step::Handle { .. } => {}
             }
             i += 1;

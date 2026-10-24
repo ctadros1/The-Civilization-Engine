@@ -13,6 +13,7 @@
 
 use super::*;
 use crate::consignments::Consignment;
+use crate::decide::RideLegs;
 use civ_land::carting::pull_n;
 use civ_land::rail;
 use civ_land::trains::{self, Run, RunState, Train};
@@ -25,6 +26,9 @@ const DEPART_MIN: i64 = 6 * 60;
 const TIMETABLE_SPAN_MIN: i64 = 12 * 60;
 /// The most runs a day a timetable sets (a design prior).
 const MOST_RUNS_A_DAY: u8 = 4;
+/// The longest a rider waits at a station for a train, minutes (M10b slice DX, fourth part): a
+/// design prior; past it they walk.
+const MOST_RIDE_WAIT_MIN: i64 = 90;
 
 /// The share of another household's goods a line's keeper keeps for carrying them home on its
 /// train (M10b slice DX, first part): a design prior, as the mill's toll is (research 07-08 §1.6
@@ -57,6 +61,17 @@ pub(super) struct EngineLine {
     /// The engine, by record and by vehicle index.
     pub engine: PermanentId,
     pub vehicle: usize,
+}
+
+/// A ride a train would give (M10b slice DX, fourth part; see [`Population::ride_from`]).
+struct Ride {
+    way: PermanentId,
+    operator: PermanentId,
+    wait_min: i64,
+    cells: Vec<u32>,
+    minutes: Vec<f64>,
+    fuel: usize,
+    fare_kg: f64,
 }
 
 impl Population {
@@ -773,12 +788,233 @@ impl Population {
             } else {
                 1
             };
+            // Its fare (M10b slice DX, fourth part): the fuel a light run out burns, shared among
+            // a run's riders since the last review, one at least.
+            let light = ctx.catalog.vehicles.get(vehicle).map_or(0.0, |d| d.tare_kg);
+            let cells = rail::runs(&line.cells, ctx.map.width, f64::from(ctx.map.cell_size_m));
+            let out_kg = Self::fuel_kg(
+                ctx,
+                vehicle,
+                &line.track.bed,
+                &cells,
+                light,
+                !line.home_back,
+            )
+            .map_or(0.0, |f| f.1);
+            let runs_since = days * f64::from(record.runs_a_day.max(1));
+            let per_run = f64::from(record.riders) / runs_since.max(1.0);
+            let fare = out_kg / per_run.max(1.0);
             let r = ctx.land.runs.line_mut(line.way);
             r.runs_a_day = runs;
             r.freight_kg = 0.0;
             r.freight_since = day;
+            r.riders = 0;
+            r.fare_kg = fare as f32;
             ctx.land.runs.changed();
         }
+    }
+
+    /// A ride on a line from its station at cell `from` to its end at cell `to` (M10b slice DX,
+    /// fourth part), if a train would take one: a line with its stations open ending at both, a
+    /// made engine of its gauge standing at `from` and not out on a run, and a departure of its
+    /// timetable still to come today at `minute` of the day or later. The line, the engine's
+    /// owner (the operator), the minutes to wait, the cells and the minutes after setting off at
+    /// each, the fuel and the fare.
+    fn ride_from(ctx: &Ctx, from: u32, to: u32, minute: i64) -> Option<Ride> {
+        if ctx.land.runs.lines.iter().all(|l| !l.stations) {
+            return None;
+        }
+        let vehicle = Self::engine_vehicle(ctx)?;
+        let def = ctx.catalog.vehicles.get(vehicle)?;
+        let engine = def.engine?;
+        for way in &ctx.land.ways.list {
+            let Some(record) = ctx.land.runs.line(way.id).filter(|l| l.stations) else {
+                continue;
+            };
+            let (Some(track), Some((first, last))) = (&way.track, way.ends()) else {
+                continue;
+            };
+            if way.modes & RAIL == 0
+                || !((first, last) == (from, to) || (last, first) == (from, to))
+            {
+                continue;
+            }
+            let Some(operator) = ctx.land.wagons.list.iter().find_map(|w| {
+                let d = ctx.catalog.vehicles.get(usize::from(w.vehicle))?;
+                (w.made()
+                    && w.at == from
+                    && d.engine.is_some()
+                    && (d.gauge_m - f64::from(track.gauge_m)).abs() < 1e-3
+                    && !ctx.land.runs.aboard(w.id))
+                .then_some(w.owner)
+            }) else {
+                continue;
+            };
+            let depart = departures(record.runs_a_day.clamp(1, MOST_RUNS_A_DAY))
+                .into_iter()
+                .find(|&m| m >= minute)?;
+            let mut cells: Vec<u32> = way
+                .segments
+                .iter()
+                .flat_map(|s| s.cells.iter().copied())
+                .collect();
+            let runs = rail::runs(&cells, ctx.map.width, f64::from(ctx.map.cell_size_m));
+            let back = from == last;
+            let train = Train {
+                power_w: def.power_w,
+                pull_n: def.pull_n,
+                top_m_s: engine.top_speed_m_s,
+                mass_kg: def.tare_kg,
+                c: def.rail_resistance,
+            };
+            let secs = trains::step_seconds(&track.bed, &runs, &train, back)?;
+            if back {
+                cells.reverse();
+            }
+            let mut minutes = vec![0.0f64];
+            for s in secs {
+                minutes.push(minutes.last().copied().unwrap_or(0.0) + s / 60.0);
+            }
+            return Some(Ride {
+                way: way.id,
+                operator,
+                wait_min: depart - minute,
+                cells,
+                minutes,
+                fuel: engine.fuel,
+                fare_kg: f64::from(record.fare_kg),
+            });
+        }
+        None
+    }
+
+    /// Sets out on a ride from the station `h` stands at to the line's end at cell `to`
+    /// ([`Step::Ride`]): waiting there for the next train the timetable sets off, paying its
+    /// operator the fare in its fuel, and riding to the end. False where no train would take them
+    /// within [`MOST_RIDE_WAIT_MIN`], or their household cannot pay.
+    pub(super) fn start_ride(&mut self, ctx: &mut Ctx, h: Handle<Person>, to: u32) -> bool {
+        let (now, params) = (ctx.now, ctx.params);
+        let Some(p) = self.people.get(h) else {
+            return false;
+        };
+        let (household, pos) = (p.household, p.pos);
+        let from = cell_of(ctx.map, pos) as u32;
+        let Some(ride) = Self::ride_from(ctx, from, to, now.minutes().rem_euclid(1_440)) else {
+            return false;
+        };
+        if ride.wait_min > MOST_RIDE_WAIT_MIN {
+            return false;
+        }
+        // The fare, in the engines' fuel, from the household's store to the operator's.
+        if ride.fare_kg > 0.0 && household != ride.operator {
+            let held = self
+                .household(household)
+                .and_then(|x| x.stores.get(ride.fuel).copied())
+                .unwrap_or(0.0);
+            if held < ride.fare_kg {
+                return false;
+            }
+            let leg = Leg {
+                from: household,
+                to: ride.operator,
+                good: ride.fuel,
+                amount: ride.fare_kg,
+            };
+            if !self.transfer(now, params, &ctx.catalog.goods, &[leg], Channel::Fare) {
+                return false;
+            }
+        }
+        // Waiting at the station, then along the line at the train's pace.
+        let wait = ride.wait_min as f32;
+        let mut points = vec![pos, pos];
+        let mut minutes = vec![0.0f32, wait];
+        for (&c, &m) in ride.cells.iter().zip(&ride.minutes) {
+            points.push(cell_centre(ctx.map, c as usize));
+            minutes.push(wait + m as f32);
+        }
+        let duration = f64::from(minutes.last().copied().unwrap_or(0.0))
+            .ceil()
+            .max(1.0);
+        let Some(p) = self.people.get_mut(h) else {
+            return false;
+        };
+        self.next_trip += 1;
+        p.trip = Some(Trip {
+            id: self.next_trip,
+            rev: 0,
+            depart: now,
+            points,
+            minutes,
+            ahead: None,
+            afloat: true,
+        });
+        settle(p, now, params);
+        p.burn_kcal_min = burn_rate(p, now, params, params.energy.idle_par);
+        p.asleep = false;
+        p.act.step_started = now;
+        p.act.step_ends = now.plus_minutes(duration as i64);
+        let (id, version, ends) = (p.id, p.act.version, p.act.step_ends);
+        ctx.schedule_step(ends, id, version);
+        ctx.land.runs.line_mut(ride.way).riders += 1;
+        ctx.land.runs.changed();
+        true
+    }
+
+    /// The ride household `household`, at home at `home` with its settlement's hearth at
+    /// `hearth`, could take to a pit at `pit` (M10b slice DX, fourth part), if any: on a line it
+    /// may run wagons on ([`Population::line_home`]) with its stations open and a made engine
+    /// standing at its home end, from that end to its pit end. The station's place, the pit end,
+    /// the minutes it takes, one way: the walk to the station (`walk_to`, minutes, if it can be
+    /// walked), half the time between the timetable's runs waiting, the light run's minutes and
+    /// the walk from the pit end to the pit; and the fare, kilograms of the engines' fuel.
+    pub(super) fn ride_legs(
+        ctx: &Ctx,
+        household: PermanentId,
+        home: (f32, f32),
+        hearth: Option<(f32, f32)>,
+        pit: (f32, f32),
+        walk_to: &dyn Fn((f32, f32)) -> Option<f64>,
+    ) -> Option<(RideLegs, f64, usize, f64)> {
+        if ctx.land.runs.lines.iter().all(|l| !l.stations) {
+            return None;
+        }
+        let pace = ctx.params.nav.tobler_ms(0.0) * ctx.params.nav.offtrail_factor;
+        for way in &ctx.land.ways.list {
+            let Some((_, home_end)) = Self::line_home(ctx, way, household, home, hearth, Some(pit))
+            else {
+                continue;
+            };
+            let Some((first, last)) = way.ends() else {
+                continue;
+            };
+            let pit_end = if home_end == first { last } else { first };
+            let Some(record) = ctx.land.runs.line(way.id).filter(|l| l.stations) else {
+                continue;
+            };
+            // As though setting off at the first departure: its wait is reckoned apart.
+            let Some(ride) = Self::ride_from(ctx, home_end, pit_end, 0) else {
+                continue;
+            };
+            let station = cell_centre(ctx.map, home_end as usize);
+            let Some(to_station) = walk_to(station) else {
+                continue;
+            };
+            let end = cell_centre(ctx.map, pit_end as usize);
+            let from_end = f64::from((end.0 - pit.0).hypot(end.1 - pit.1)) / pace.max(1e-6) / 60.0;
+            let runs = f64::from(record.runs_a_day.clamp(1, MOST_RUNS_A_DAY));
+            let wait = TIMETABLE_SPAN_MIN as f64 / (2.0 * runs);
+            let ride_min = ride.minutes.last().copied().unwrap_or(0.0);
+            return Some((
+                RideLegs {
+                    station,
+                    to: pit_end,
+                },
+                to_station + wait + ride_min + from_end,
+                ride.fuel,
+                ride.fare_kg,
+            ));
+        }
+        None
     }
 
     /// The engine the content makes, if any: the first rail vehicle with an engine.

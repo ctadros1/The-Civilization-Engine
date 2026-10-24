@@ -365,10 +365,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for TargetKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_STEP_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_STEP_KIND: u8 = 6;
+pub const ENUM_MAX_STEP_KIND: u8 = 7;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_STEP_KIND: [StepKind; 7] = [
+pub const ENUM_VALUES_STEP_KIND: [StepKind; 8] = [
   StepKind::Walk,
   StepKind::Work,
   StepKind::Deposit,
@@ -376,6 +376,7 @@ pub const ENUM_VALUES_STEP_KIND: [StepKind; 7] = [
   StepKind::Paddle,
   StepKind::Handle,
   StepKind::Haul,
+  StepKind::Ride,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -390,9 +391,10 @@ impl StepKind {
   pub const Paddle: Self = Self(4);
   pub const Handle: Self = Self(5);
   pub const Haul: Self = Self(6);
+  pub const Ride: Self = Self(7);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 6;
+  pub const ENUM_MAX: u8 = 7;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Walk,
     Self::Work,
@@ -401,6 +403,7 @@ impl StepKind {
     Self::Paddle,
     Self::Handle,
     Self::Haul,
+    Self::Ride,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -412,6 +415,7 @@ impl StepKind {
       Self::Paddle => Some("Paddle"),
       Self::Handle => Some("Handle"),
       Self::Haul => Some("Haul"),
+      Self::Ride => Some("Ride"),
       _ => None,
     }
   }
@@ -62380,6 +62384,8 @@ impl<'a> RailLineSave<'a> {
   pub const VT_RUNS_A_DAY: ::flatbuffers::VOffsetT = 10;
   pub const VT_FREIGHT_KG: ::flatbuffers::VOffsetT = 12;
   pub const VT_FREIGHT_SINCE: ::flatbuffers::VOffsetT = 14;
+  pub const VT_RIDERS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_FARE_KG: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -62393,6 +62399,8 @@ impl<'a> RailLineSave<'a> {
     let mut builder = RailLineSaveBuilder::new(_fbb);
     builder.add_freight_since(args.freight_since);
     builder.add_way(args.way);
+    builder.add_fare_kg(args.fare_kg);
+    builder.add_riders(args.riders);
     builder.add_freight_kg(args.freight_kg);
     if let Some(x) = args.loops { builder.add_loops(x); }
     builder.add_runs_a_day(args.runs_a_day);
@@ -62443,6 +62451,20 @@ impl<'a> RailLineSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(RailLineSave::VT_FREIGHT_SINCE, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn riders(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RailLineSave::VT_RIDERS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn fare_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(RailLineSave::VT_FARE_KG, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for RailLineSave<'_> {
@@ -62457,6 +62479,8 @@ impl ::flatbuffers::Verifiable for RailLineSave<'_> {
      .visit_field::<u8>("runs_a_day", Self::VT_RUNS_A_DAY, false)?
      .visit_field::<f32>("freight_kg", Self::VT_FREIGHT_KG, false)?
      .visit_field::<i64>("freight_since", Self::VT_FREIGHT_SINCE, false)?
+     .visit_field::<u32>("riders", Self::VT_RIDERS, false)?
+     .visit_field::<f32>("fare_kg", Self::VT_FARE_KG, false)?
      .finish();
     Ok(())
   }
@@ -62468,6 +62492,8 @@ pub struct RailLineSaveArgs<'a> {
     pub runs_a_day: u8,
     pub freight_kg: f32,
     pub freight_since: i64,
+    pub riders: u32,
+    pub fare_kg: f32,
 }
 impl<'a> Default for RailLineSaveArgs<'a> {
   #[inline]
@@ -62479,6 +62505,8 @@ impl<'a> Default for RailLineSaveArgs<'a> {
       runs_a_day: 1,
       freight_kg: 0.0,
       freight_since: 0,
+      riders: 0,
+      fare_kg: 0.0,
     }
   }
 }
@@ -62513,6 +62541,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RailLineSaveBuilder<'a, 'b, A
     self.fbb_.push_slot::<i64>(RailLineSave::VT_FREIGHT_SINCE, freight_since, 0);
   }
   #[inline]
+  pub fn add_riders(&mut self, riders: u32) {
+    self.fbb_.push_slot::<u32>(RailLineSave::VT_RIDERS, riders, 0);
+  }
+  #[inline]
+  pub fn add_fare_kg(&mut self, fare_kg: f32) {
+    self.fbb_.push_slot::<f32>(RailLineSave::VT_FARE_KG, fare_kg, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RailLineSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RailLineSaveBuilder {
@@ -62536,6 +62572,8 @@ impl ::core::fmt::Debug for RailLineSave<'_> {
       ds.field("runs_a_day", &self.runs_a_day());
       ds.field("freight_kg", &self.freight_kg());
       ds.field("freight_since", &self.freight_since());
+      ds.field("riders", &self.riders());
+      ds.field("fare_kg", &self.fare_kg());
       ds.finish()
   }
 }

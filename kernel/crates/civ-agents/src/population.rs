@@ -1817,6 +1817,42 @@ impl Population {
         self.start_haul(ctx, h, to)
     }
 
+    /// Sends `id` riding a line's train from the station where they stand to its end at cell `to`
+    /// at once, as a step of their activity would (tests): `false` when no train would take them.
+    #[doc(hidden)]
+    pub fn ride_for_tests(&mut self, ctx: &mut Ctx, id: PermanentId, to: u32) -> bool {
+        let Some(&h) = self.index.get(&id) else {
+            return false;
+        };
+        if let Some(p) = self.people.get_mut(h) {
+            p.act.steps = vec![Step::Ride { to }];
+            p.act.step = 0;
+            p.act.version += 1;
+        }
+        self.start_ride(ctx, h, to)
+    }
+
+    /// The ride household `household` could take out to a pit at `pit`, its walk to the station
+    /// reckoned in a straight line (tests): the line's end it rides to, the minutes one way, and
+    /// the fare.
+    #[doc(hidden)]
+    pub fn ride_legs_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        pit: (f32, f32),
+    ) -> Option<(u32, f64, f64)> {
+        let x = self.household(household)?;
+        let hearth = Self::hearth_of(ctx, x);
+        let pace = ctx.params.nav.tobler_ms(0.0) * ctx.params.nav.offtrail_factor;
+        let home = x.home;
+        let walk = |at: (f32, f32)| {
+            Some(f64::from((at.0 - home.0).hypot(at.1 - home.1)) / pace.max(1e-6) / 60.0)
+        };
+        let (legs, minutes, _, fare) = Self::ride_legs(ctx, household, home, hearth, pit, &walk)?;
+        Some((legs.to, minutes, fare))
+    }
+
     /// Drops a person's activity so they decide again when an event of the returned version
     /// fires (used when a loaded world's content no longer has their activity). The caller
     /// schedules that event.
@@ -4076,11 +4112,38 @@ impl Population {
                                     .unwrap_or(false),
                                 at,
                                 deposit: Some(d.id),
+                                by_ride: None,
                             },
                         ));
                     }
                 }
-                best.map(|(_, o)| o)
+                let mut o = best.map(|(_, o)| o)?;
+                // Out to the pit on a line's train (M10b slice DX, fourth part), where the ride's
+                // minutes and its fare, at the household's own cost of the fuel it is paid in,
+                // come to less than the walk; home on foot.
+                let walk_to = |at: (f32, f32)| {
+                    reach
+                        .seconds_to(cell_of(map, at))
+                        .map(|s| f64::from(s) / 60.0)
+                };
+                if let Some((legs, ride_min, fuel, fare_kg)) =
+                    Self::ride_legs(ctx, hh.id, hh.home, hearth, o.at, &walk_to)
+                {
+                    let fare_min = if fare_kg > 0.0 {
+                        self.own_costs_of(ctx, &hh)
+                            .get(fuel)
+                            .copied()
+                            .flatten()
+                            .map_or(f64::INFINITY, |h| h * fare_kg * 60.0)
+                    } else {
+                        0.0
+                    };
+                    if ride_min + fare_min < o.walk_min {
+                        o.walk_min = (ride_min + o.walk_min) / 2.0;
+                        o.by_ride = Some(legs);
+                    }
+                }
+                Some(o)
             }
         };
         let find_patch = |def: usize| -> Option<PatchOption> {
@@ -4176,6 +4239,7 @@ impl Population {
                             tool_blocked,
                             at: cell_centre(map, cell as usize),
                             deposit: None,
+                            by_ride: None,
                         },
                     ));
                 }
@@ -5147,6 +5211,18 @@ impl Population {
                     // No boat here, or no way by water today: home on foot instead.
                     self.cannot_paddle(h);
                 }
+                Step::Ride { to } => {
+                    if self.start_ride(ctx, h, to) {
+                        return;
+                    }
+                    // No train to take soon: on foot instead, the rest as planned.
+                    if let Some(p) = self.people.get_mut(h) {
+                        let at = usize::from(p.act.step);
+                        if at < p.act.steps.len() {
+                            p.act.steps.remove(at);
+                        }
+                    }
+                }
                 Step::Haul { to } => {
                     if self.start_haul(ctx, h, to) {
                         return;
@@ -5855,15 +5931,20 @@ impl Population {
                     }
                 }
             }
+            // Off the train at the line's end (M10b slice DX, fourth part): aboard, no ground worn.
+            Some(Step::Ride { to }) => {
+                p.pos = cell_centre(ctx.map, to as usize);
+                p.trip = None;
+            }
             Some(Step::Handle { unload: true, .. }) => self.unloaded(ctx, who),
             Some(Step::Wait { .. } | Step::Deposit | Step::Handle { .. }) | None => {}
         }
         // The time the step took.
         let took = (now.minutes() - started.minutes()).max(0) as f64;
         match step {
-            Some(Step::Walk { .. } | Step::Paddle { .. } | Step::Haul { .. }) => {
-                self.time_use.walking += took
-            }
+            Some(
+                Step::Walk { .. } | Step::Paddle { .. } | Step::Haul { .. } | Step::Ride { .. },
+            ) => self.time_use.walking += took,
             Some(Step::Wait { .. } | Step::Handle { .. }) => self.time_use.waiting += took,
             Some(Step::Work { .. }) => {
                 let b = def.as_ref().map(|d| d.behavior);

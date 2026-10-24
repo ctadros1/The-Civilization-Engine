@@ -500,6 +500,8 @@ pub const SCHEMA_V181: u32 = 181;
 pub const SCHEMA_V182: u32 = 182;
 /// Runs pulled wagons, before lines had stations and timetables.
 pub const SCHEMA_V183: u32 = 183;
+/// Lines had stations and timetables, before rides and fares.
+pub const SCHEMA_V184: u32 = 184;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

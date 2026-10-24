@@ -115,11 +115,14 @@ pub enum Behavior {
     /// Carry grain to a neighbour's water mill, grind it there and carry the flour home, leaving
     /// the mill's toll (M10a slice DR, fourth part): the activity's numbers, its recipe's.
     Mill,
+    /// Walk the round of the street lamps their polity's law sets, lighting each until dawn, and
+    /// walk home (M10b slice DY, fourth part): only for the lamplighter it names, after dark.
+    Light,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 39] = [
+    pub const ALL: [Behavior; 40] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -159,6 +162,7 @@ impl Behavior {
         Behavior::Way,
         Behavior::Raise,
         Behavior::Mill,
+        Behavior::Light,
     ];
 
     /// The authored name of a behavior.
@@ -203,6 +207,7 @@ impl Behavior {
             Behavior::Way => "way",
             Behavior::Raise => "raise",
             Behavior::Mill => "mill",
+            Behavior::Light => "light",
         }
     }
 

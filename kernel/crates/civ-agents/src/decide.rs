@@ -83,6 +83,9 @@ pub struct Facts {
     pub campaign: f64,
     /// The round of the watch they keep, if they keep one and may walk it now (M4b slice AC).
     pub watch: Option<WatchFacts>,
+    /// The round of the street lamps they light, if their polity names them its lamplighter and
+    /// lamps of it stand unlit now (M10b slice DY, fourth part).
+    pub light: Option<WatchFacts>,
     /// A payment an agreement owes that they are to carry, set aside and waiting, if they can
     /// walk it there and back in the day (M5c slice AV).
     pub carry: Option<CarryFacts>,
@@ -1910,6 +1913,22 @@ pub fn candidates(
                 steps.push(Step::Walk { to: f.home });
                 out.push(finish(id, Target::None, terms, steps));
             }
+            Behavior::Light => {
+                // The round of the street lamps (M10b slice DY, fourth part), as a watch's: a
+                // stand at each unlit lamp to light it, the activity's least minutes each.
+                let Some(round) = f.light.as_ref() else {
+                    continue;
+                };
+                term(&mut terms, Reason::Duty, round.points);
+                let stand = def.min_minutes.max(1);
+                let mut steps = Vec::with_capacity(round.stops.len() * 2 + 1);
+                for &at in &round.stops {
+                    steps.push(Step::Walk { to: at });
+                    steps.push(Step::Work { minutes: stand });
+                }
+                steps.push(Step::Walk { to: f.home });
+                out.push(finish(id, Target::None, terms, steps));
+            }
             Behavior::Carry => {
                 // A payment an agreement owes (M5c slice AV): taken up where the store keeps it,
                 // walked to the other hearth and handed over, home the same day. Nothing is said
@@ -2629,6 +2648,7 @@ mod tests {
             hearth: None,
             gathering: None,
             watch: None,
+            light: None,
             carry: None,
             crossing: None,
             well: None,

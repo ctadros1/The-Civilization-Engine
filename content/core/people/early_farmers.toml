@@ -741,6 +741,9 @@ watch_guard = 0.5
 # streets as a watch, by `lit_guard` of what was taken: the share it believes those about would
 # see by the lamps (a tuning value, below a watch's: lamps see nothing themselves).
 lit_guard = 0.3
+# The lamplighter a law names walks the round of its street lamps after dark as a choice, worth
+# `w_light` points, lighting each until dawn (content API 176; a tuning value, as a watch's round).
+w_light = 6.0
 w_watch = 6.0
 rounds_per_night = 3
 round_stops = 6

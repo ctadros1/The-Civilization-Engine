@@ -1,0 +1,20 @@
+# The lamplighter's round (M10b slice DY, fourth part; research 12-09 §2.3: lamps on posts lit at
+# dusk and put out at dawn on a lamplighter's rounds): only for the one a law to light the streets
+# names, only after dark, while lamps of it stand unlit. The round passes the polity's street
+# lamps in the order they were set, a stand of `min_minutes` at each to light it until dawn, the
+# night's fuel for it from the polity's store, the rest from the lamplighter's household's.
+kind = "activity"
+id = "core:activity/light_lamps"
+name = "Light the street lamps"
+doing = "lighting the street lamps"
+behavior = "light"
+par = 2.5
+min_age_years = 14.0
+max_age_years = 130.0
+min_minutes = 2                  # each stand
+max_minutes = 2
+daylight_only = false
+max_walk_minutes = 30
+technique = ""
+tools = []
+rate = 1.0

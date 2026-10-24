@@ -1747,3 +1747,8 @@ holder the lamplighter) and the issue `dark_takings` it answers, and a people pr
 `crime.lit_guard`: the share of takings after dark a household believes those about would see by
 lit streets, what it weighs such a law by (0 to 1; the core's 0.3). The core adds
 `policy/yourselves_work_the_street_lamps`.
+
+Content API 176 (M10b slice DY, fourth part) adds the behaviour `light` (the lamplighter's round of
+the street lamps, after dark, a stand of the activity's least minutes at each) and a people
+profile's `crime.w_light`, the points the round is worth to the lamplighter (0 to 100; the core's
+6, as a watch's round). The core adds `activity/light_lamps`.

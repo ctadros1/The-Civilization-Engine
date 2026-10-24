@@ -6761,6 +6761,26 @@ and M6a gives rivers a daily flow.
       the dark, naming a lamplighter; passed, the lamps stand there unlit, the polity's by that
       law, its lamplighter holds the office, and no more are wanted; a lamp lights the cells about
       it while it burns; saved and loaded every section comes back alike.
+      *As built, fourth part, third step, second half (2026-10-24): the lamplighter's rounds.* A
+      new behaviour, `light` (content API 176, `activity/light_lamps`): after dark, while lamps of
+      the law naming them stand unlit and a night's fuel for one lies in the polity's store or
+      their household's, the lamplighter may walk a round of them in the order they were set, a
+      two-minute stand at each, worth a people profile's `crime.w_light` points (the core's 6, as
+      a watch's round). Standing at a lamp they light it until the next sunrise, its night's
+      fuel at the first household light's rate (the fat lamp's 8 g of tallow an hour) taken from
+      the polity's store and the rest from their own household's; a lamp whose fuel is not there
+      stays dark, and the world's first lamp lit is remembered as a lamp lit at home is. A lamp
+      goes out at dawn by itself (the putting out is not walked). It is taken once a day, and
+      shared out in a household-resolved day as a watch's round is. Where a street lamp burns
+      within as many cells of a place as `lit_m` reaches, those about see a taker there as by day,
+      as by a lamp lit at home. Street lamps on mains, lit by gas, are left for later: the core's
+      lamps burn tallow. Nobody knows lamps at the founding, so no world changes. **Tested:** by
+      day no round; after dark with no tallow in the store or at home none either; with tallow at
+      home the round passes every unlit lamp; the lamplighter standing at one lights it until the
+      next sunrise from the household's tallow, 8 g an hour, and the store pays first where it
+      holds tallow; where a lamp burns sight is day sight, far from any light dark sight; left to
+      the clock with the lamps out, the lamplighter lights them at the next dusk by choice; saved
+      and loaded every section comes back alike.
   - **M10c, services and letters** (ADR-0035 §1–§7).
     - **DZ**: care beyond the household: a call, tending another home, kin unasked, the `Fee`
       channel, reputation from claims.

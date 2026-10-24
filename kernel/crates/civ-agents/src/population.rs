@@ -3667,6 +3667,7 @@ impl Population {
             poll: self.poll_facts(ctx, p.id, age, &hh, minute, evening_start),
             campaign: self.campaign_points(ctx, p.id),
             watch: self.watch_facts(ctx, p.id, &hh, dark),
+            light: self.light_facts(ctx, p.id, &hh, dark),
             carry: self.carry_facts(ctx, p.id, field_key, dark),
             crossing: self.crossing_facts(ctx, &hh, p.id, field_key, dark),
             well: self.well_facts(ctx, &hh, p.id, dark),
@@ -4847,6 +4848,7 @@ impl Population {
                     matches!(
                         a.behavior,
                         Behavior::Watch
+                            | Behavior::Light
                             | Behavior::Attend
                             | Behavior::Douse
                             | Behavior::Strip
@@ -5585,6 +5587,7 @@ impl Population {
                 | Behavior::Build
                 | Behavior::Take
                 | Behavior::Watch
+                | Behavior::Light
                 | Behavior::Carry
                 | Behavior::Bridge
                 | Behavior::Boat
@@ -5834,6 +5837,11 @@ impl Population {
                 Some(Behavior::Watch) => {
                     let who = p.id;
                     self.stood_watch(who, minutes);
+                }
+                // A street lamp lit where the lamplighter stands (M10b slice DY, fourth part).
+                Some(Behavior::Light) => {
+                    let (who, pos) = (p.id, p.pos);
+                    self.light_lamp(ctx, who, pos);
                 }
                 Some(Behavior::Carry) => {
                     // Handed over at the other hearth; at the store, taking it up moves nothing

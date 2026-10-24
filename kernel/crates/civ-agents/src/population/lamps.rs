@@ -6,6 +6,7 @@
 
 use super::*;
 use crate::crime::Outcome;
+use crate::decide::WatchFacts;
 use civ_land::gas::StreetLamp;
 use civ_land::ways::Keeper;
 
@@ -131,6 +132,140 @@ impl Population {
         }
     }
 
+    /// The round of its street lamps the lamplighter `person` of household `hh` could walk now
+    /// (M10b slice DY, fourth part, third step's second half): after dark, while lamps of the law
+    /// naming them stand unlit, and a night's fuel for one of them lies in the polity's store or
+    /// their household's. Each unlit lamp is a stop, in the order set; the round is worth
+    /// `w_light` points.
+    pub(super) fn light_facts(
+        &self,
+        ctx: &Ctx,
+        person: PermanentId,
+        hh: &Household,
+        dark: bool,
+    ) -> Option<WatchFacts> {
+        if !dark || ctx.land.gas.lamps.is_empty() {
+            return None;
+        }
+        let pi = self.polity_of(hh.settlement?)?;
+        let polity = &self.polities[pi];
+        let (holder, law) = polity.lamplighter()?;
+        if holder != person {
+            return None;
+        }
+        let now = ctx.now.minutes();
+        let (fuel, kg_h) = street_fuel(&ctx.catalog.goods)?;
+        let night_kg = kg_h * (dawn_after(ctx.params, ctx.now) - now) as f64 / 60.0;
+        let held = polity.stores.get(fuel).copied().unwrap_or(0.0)
+            + hh.stores.get(fuel).copied().unwrap_or(0.0);
+        if held + 1e-9 < night_kg {
+            return None;
+        }
+        let stops: Vec<(f32, f32)> = ctx
+            .land
+            .gas
+            .lamps
+            .iter()
+            .filter(|l| l.polity == polity.id && l.law == law.id && l.lit_until <= now)
+            .map(|l| cell_centre(ctx.map, l.cell as usize))
+            .collect();
+        if stops.is_empty() {
+            return None;
+        }
+        Some(WatchFacts {
+            stops,
+            points: ctx.params.crime.w_light,
+        })
+    }
+
+    /// The lamplighter `who`, standing at `pos`, lights the unlit lamp of their polity's law
+    /// there until dawn (M10b slice DY, fourth part): its fuel for the night at a lamp's rate,
+    /// from the polity's store, the rest from their own household's; a lamp whose night's fuel
+    /// is not there stays dark. The world's first lamp lit is remembered, as a lamp lit at home
+    /// is.
+    pub(super) fn light_lamp(&mut self, ctx: &mut Ctx, who: PermanentId, pos: (f32, f32)) {
+        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let Some(household) = self.person(who).map(|p| p.household) else {
+            return;
+        };
+        let Some(pi) = self
+            .household(household)
+            .and_then(|x| x.settlement)
+            .and_then(|s| self.polity_of(s))
+        else {
+            return;
+        };
+        let Some((polity, law)) = self.polities[pi]
+            .lamplighter()
+            .filter(|(h, _)| *h == who)
+            .map(|(_, l)| (self.polities[pi].id, l.id))
+        else {
+            return;
+        };
+        let Some((fuel, kg_h)) = street_fuel(goods) else {
+            return;
+        };
+        let cell = cell_of(ctx.map, pos) as u32;
+        let Some(i) = ctx.land.gas.lamps.iter().position(|l| {
+            l.cell == cell && l.polity == polity && l.law == law && l.lit_until <= now.minutes()
+        }) else {
+            return;
+        };
+        let until = dawn_after(params, now);
+        let need = kg_h * (until - now.minutes()) as f64 / 60.0;
+        // The polity's store first, then the lamplighter's household's.
+        let sheltered = self.polity_sheltered(pi);
+        let p = &mut self.polities[pi];
+        p.settle_stores(now, goods, sheltered);
+        p.stores.resize(goods.len(), 0.0);
+        let from_polity = p.stores[fuel].max(0.0).min(need);
+        let held = match self.household_mut(household) {
+            Some(x) => {
+                let members = x.members.len().max(1);
+                x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
+                x.stores.resize(goods.len(), 0.0);
+                x.stores[fuel].max(0.0)
+            }
+            None => 0.0,
+        };
+        if from_polity + held + 1e-9 < need {
+            return;
+        }
+        let from_home = need - from_polity;
+        let p = &mut self.polities[pi];
+        p.stores[fuel] -= from_polity;
+        p.flows.add(Flow::Used, fuel, from_polity);
+        if from_home > 0.0
+            && let Some(x) = self.household_mut(household)
+        {
+            x.stores[fuel] = (x.stores[fuel] - from_home).max(0.0);
+            x.flows.add(Flow::Used, fuel, from_home);
+        }
+        ctx.land.gas.lamps[i].lit_until = until;
+        if self.order.lamp_first_lit.is_none() {
+            self.order.lamp_first_lit = Some(now);
+        }
+    }
+
+    /// The round of the street lamps `person` of household `household` could walk now: for
+    /// tests.
+    #[doc(hidden)]
+    pub fn light_facts_for_tests(
+        &self,
+        ctx: &Ctx,
+        person: PermanentId,
+        household: PermanentId,
+    ) -> Option<WatchFacts> {
+        let hh = self.household(household)?;
+        self.light_facts(ctx, person, hh, dark_at(ctx.params, ctx.now))
+    }
+
+    /// The lamplighter `who` standing at `pos` lights the lamp there: for tests.
+    #[doc(hidden)]
+    pub fn light_lamp_for_tests(&mut self, ctx: &mut Ctx, who: PermanentId, pos: (f32, f32)) {
+        self.light_lamp(ctx, who, pos);
+    }
+
     /// Whether polity `pi`'s settlement has the issue `dark_takings` now: for tests.
     #[doc(hidden)]
     pub fn dark_takings_for_tests(&self, ctx: &Ctx, pi: usize) -> bool {
@@ -156,5 +291,28 @@ impl Population {
     #[doc(hidden)]
     pub fn begin_street_lamps_for_tests(&mut self, ctx: &mut Ctx, pi: usize, law: PermanentId) {
         self.begin_street_lamps(ctx, pi, law);
+    }
+}
+
+/// The fuel a street lamp burns and its kilograms an hour (M10b slice DY, fourth part): those of
+/// the first light the catalog lists that a household fills (the fat lamp in the core).
+fn street_fuel(goods: &[crate::params::GoodDef]) -> Option<(usize, f64)> {
+    goods.iter().find_map(|d| {
+        let l = d.light.filter(|l| !l.piped && l.kg_per_hour > 0.0)?;
+        Some((l.fuel?, l.kg_per_hour))
+    })
+}
+
+/// The minute of the next sunrise after `now`, at the profile's latitude: today's while it is
+/// before today's, else tomorrow's.
+fn dawn_after(params: &PeopleParams, now: SimTime) -> i64 {
+    let day = now.day_index();
+    let today = needs::daylight(params.latitude_deg, civ_land::day_of_year(day)).0;
+    let minute = now.minutes().rem_euclid(MINUTES_PER_DAY);
+    if minute < today {
+        day * MINUTES_PER_DAY + today
+    } else {
+        let tomorrow = needs::daylight(params.latitude_deg, civ_land::day_of_year(day + 1)).0;
+        (day + 1) * MINUTES_PER_DAY + tomorrow
     }
 }

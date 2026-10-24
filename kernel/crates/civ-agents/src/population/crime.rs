@@ -409,13 +409,20 @@ impl Population {
     /// of being seen moves with what happened to them (research 04-09 §5.4).
     /// How far those about see a taking at `at` now (M10b slice DU; ADR-0034 §9): day sight,
     /// or, once the world has lit a lamp, dark sight after sunset unless a lamp lit for work at
-    /// a home within `lit_m` lights the place.
+    /// a home within `lit_m` lights the place, or a street lamp burning within as many cells of
+    /// it as `lit_m` reaches (M10b slice DY, fourth part).
     fn sight_at(&self, ctx: &Ctx, at: (f32, f32)) -> f32 {
         let cp = &ctx.params.crime;
         if self.order.lamp_first_lit.is_none() || !super::dark_at(ctx.params, ctx.now) {
             return cp.sight_m as f32;
         }
-        let lit = self.households.iter().any(|(_, x)| {
+        let reach = (cp.lit_m / f64::from(ctx.map.cell_size_m).max(1e-6)).ceil() as i64;
+        let lit = ctx.land.gas.street_lit(
+            super::cell_of(ctx.map, at) as u32,
+            ctx.map.width,
+            reach,
+            ctx.now.minutes(),
+        ) || self.households.iter().any(|(_, x)| {
             distance(x.home, at) <= cp.lit_m as f32
                 && self.lamp_lit_home(ctx.catalog, ctx.params, &ctx.land.gas, ctx.now, x.id)
         });
@@ -425,6 +432,12 @@ impl Population {
             cp.dark_sight_m.min(cp.sight_m)
         };
         sight as f32
+    }
+
+    /// How far those about see a taking at `at` now: for tests.
+    #[doc(hidden)]
+    pub fn sight_at_for_tests(&self, ctx: &Ctx, at: (f32, f32)) -> f32 {
+        self.sight_at(ctx, at)
     }
 
     /// Person `taker` comes to take from household `victim`'s store now: for tests.

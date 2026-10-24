@@ -6688,6 +6688,32 @@ and M6a gives rivers a daily flow.
       it; the rest of the pipe makes it whole, and at dusk it lights the building; the core's
       `[gas_main]` names a good that must exist and a rate above zero; saved and loaded every
       section comes back alike.
+      *Split (2026-10-24):* the fourth part in three, as DX's was: (4a) gas sold by the meter and
+      homes connecting by choice, (4b) the works laying mains where connected demand repays it,
+      (4c) streets lit by law on a lamplighter's rounds.
+      *As built, fourth part, first step (2026-10-24): gas by the meter.* At dusk, before a main
+      laid whole and not broken is checked, households whose home lies on it or beside it weigh
+      connecting: one not yet connected, not its works, that holds an evening's price connects
+      where an hour of gas light at the meter costs it fewer of its own hours than an hour of its
+      work, or than an hour of a lamp it holds whole (the lamp's hour, its fuel and its wear, is
+      the reckoning the lamp by choice made, now shared). The meter's price is the coal a retort
+      charges for the gas, the first input of the recipe that makes it over the gas it makes (7.1
+      kg of coal a kilogram in the core; a tuning choice, research 12-09 gives no tariff), and a
+      household that has no figure of its own for coal reckons it by its heat in firewood at its
+      own cost of that. The works fits it a burner the works holds whole, at the works' own cost,
+      and the works of a main laid whole keeps one by it, made as a tool is. Each household
+      served pays the works after the evening, its burners' gas at the meter's price by a new
+      ledger channel (`Gas`, "gas by the meter"); one that cannot pay it all pays what it holds
+      and is cut off, dark by that cause, until it holds an evening's price again. Nobody knows gas
+      making, so no world changes. **Tested:** with no burner at the works nobody connects; with
+      one, the home at the main's end is fitted and lit, and pays 2.03 kg of coal (four hours of
+      0.071 kg at 7.1), counted by the channel and received by the works; short of coal it is lit
+      that evening, pays what it holds and is cut off, dark by that cause the next, and restored
+      once it holds the price; the works, its burner fitted and its people smiths, makes another;
+      saved and loaded every section comes back alike. *Observed:* an unskilled smith's session
+      makes half a burner (tools made are worth their maker's quality), and half a fixed tool
+      serves for nothing; the works made no second half in four days. Left for 4b to watch, as a
+      works' own people learn smithing as they work.
   - **M10c, services and letters** (ADR-0035 §1–§7).
     - **DZ**: care beyond the household: a call, tending another home, kin unasked, the `Fee`
       channel, reputation from claims.

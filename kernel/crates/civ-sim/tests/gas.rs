@@ -252,6 +252,9 @@ fn a_main_lights_its_connections_at_dusk_from_its_works_gas_and_names_why_not() 
         .expect("an adult");
     set(&mut sim, works, holder, 1.0);
     set(&mut sim, works, gas, 100.0);
+    // Coal enough to pay for its gas by the meter (the fourth part).
+    let coal = index(&sim, "core:good/coal");
+    set(&mut sim, consumer, coal, 1_000.0);
     let main = PermanentId::from_raw(990_001).expect("id");
     {
         let land = sim.land_mut_for_tests();
@@ -456,5 +459,172 @@ fn a_main_is_laid_along_ways_with_leave_by_its_works_pipe_and_carries_gas_once_w
     sim.with_ctx_for_tests(|pop, ctx| pop.gas_evening_for_tests(ctx));
     assert_eq!(sim.land().gas.connections[0].cause, Cause::Served);
     assert!(sim.land().gas.lit(consumer, sim.now().minutes()));
+    saves_alike(&mut sim);
+}
+
+#[test]
+fn a_home_along_a_main_connects_where_gas_light_costs_it_less_and_pays_by_the_meter() {
+    use civ_agents::ledger::Channel;
+    use civ_land::gas::Cause;
+    use civ_land::ways::{Keeper, Rank, Segment, Surface, WALK, Way};
+    let mut sim = world();
+    let at = to_dusk(&sim, 30);
+    sim.advance_minutes(at).expect("advances");
+    let (gas, holder, burner, coal, lamp) = (
+        index(&sim, "core:good/coal_gas"),
+        index(&sim, "core:good/gas_holder"),
+        index(&sim, "core:good/gas_burner"),
+        index(&sim, "core:good/coal"),
+        index(&sim, "core:good/fat_lamp"),
+    );
+    let map = sim.map().clone();
+    let cell = |at: (f32, f32)| civ_agents::population::cell_of(&map, at) as u32;
+    let homes: Vec<(PermanentId, u32)> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| (h.id, cell(h.home)))
+        .collect();
+    let (works, from) = homes[0];
+    // A household whose home lies some cells off, and a way kept by nobody between them.
+    let (consumer, to) = homes
+        .iter()
+        .copied()
+        .find(|&(h, c)| {
+            let w = i64::from(map.width);
+            let d = (i64::from(c) % w - i64::from(from) % w)
+                .abs()
+                .max((i64::from(c) / w - i64::from(from) / w).abs());
+            h != works && d >= 3 && sim.land().buildings.iter().any(|b| b.household == h)
+        })
+        .expect("a household some cells off");
+    let cells = line(map.width, from, to);
+    let way = sim.allocate_id_for_tests();
+    let today = sim.now().day_index();
+    sim.land_mut_for_tests().ways.add(Way {
+        id: way,
+        begun: today,
+        segments: vec![Segment {
+            cells: cells[1..cells.len() - 1].to_vec(),
+            corridor_m: 4.0,
+            built_m: 4.0,
+            usable_m: 4.0,
+            surface: Surface::Cleared,
+            keeper: Keeper::Nobody,
+            kept: today,
+        }],
+        modes: WALK,
+        trips: 0.0,
+        trips_day: today,
+        rank: Rank::Lane,
+        track: None,
+    });
+    let main = sim
+        .with_ctx_for_tests(|pop, ctx| pop.begin_main_for_tests(ctx, works, to))
+        .expect("a main");
+    {
+        let m = &mut sim.land_mut_for_tests().gas.mains[0];
+        m.laid_m = m.length_m;
+    }
+    // Only the consumer holds coal, and no lamp.
+    let all: Vec<PermanentId> = homes.iter().map(|&(h, _)| h).collect();
+    for &h in &all {
+        set(&mut sim, h, coal, 0.0);
+    }
+    set(&mut sim, consumer, coal, 1_000.0);
+    set(&mut sim, consumer, lamp, 0.0);
+    set(&mut sim, works, holder, 1.0);
+    set(&mut sim, works, gas, 100.0);
+    set(&mut sim, works, burner, 0.0);
+    let costs = sim.with_ctx_for_tests(|pop, ctx| pop.own_costs_for_tests(ctx, consumer));
+    // It puts a figure on coal by its heat in firewood, and gas light at the meter costs it less
+    // than an hour of its work.
+    let wood = index(&sim, "core:good/firewood");
+    let ratio = civ_agents::params::fuel_ratio(&sim.rules().catalog.goods, coal);
+    let coal_h = costs[coal].unwrap_or(costs[wood].expect("firewood's cost") * ratio);
+    assert!(0.071 / 0.14 * coal_h < 1.0, "{coal_h}");
+    let evening = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.gas_evening_for_tests(ctx));
+        sim.land()
+            .gas
+            .connections
+            .iter()
+            .find(|c| c.household == consumer)
+            .cloned()
+    };
+    let held = |sim: &Sim, h: PermanentId, g: usize| {
+        sim.people().household(h).expect("household").stores[g]
+    };
+    // With no burner at the works to fit, nobody connects.
+    assert!(evening(&mut sim).is_none());
+    // A burner held whole, it is fitted at the consumer's home, lit, and paid for by the meter
+    // in coal: four hours of a burner's gas at the coal a retort charges for it.
+    set(&mut sim, works, burner, 1.0);
+    let works_coal = held(&sim, works, coal);
+    let c = evening(&mut sim).expect("connected");
+    assert_eq!(
+        (c.main, c.burners, c.cause, c.cut_off),
+        (main, 1, Cause::Served, false)
+    );
+    assert!(held(&sim, works, burner) < 1e-9, "its burner fitted");
+    let owed = 0.071 * 4.0 / 0.14;
+    assert!(held(&sim, consumer, coal) <= 1_000.0 - owed + 1e-6);
+    assert!((held(&sim, works, coal) - works_coal - owed).abs() < 1e-6);
+    let metered = sim.people().transfers.get(Channel::Gas, coal);
+    assert!((metered - owed).abs() < 1e-6, "{metered}");
+    assert_eq!(
+        sim.land()
+            .gas
+            .connections
+            .iter()
+            .filter(|c| c.household == consumer)
+            .count(),
+        1,
+        "one connection"
+    );
+    // Short of coal, it is lit tonight, pays what it holds and is cut off; the next evening it
+    // stays dark by that cause.
+    set(&mut sim, consumer, coal, 1.0);
+    let c = evening(&mut sim).expect("connected");
+    assert!(c.cause == Cause::Served && c.cut_off);
+    assert!(held(&sim, consumer, coal) < 1e-9);
+    assert_eq!(evening(&mut sim).expect("connected").cause, Cause::CutOff);
+    // Holding an evening's price again, it is restored.
+    set(&mut sim, consumer, coal, 1_000.0);
+    let c = evening(&mut sim).expect("connected");
+    assert!(c.cause == Cause::Served && !c.cut_off);
+    // The works of a main laid whole, its burner fitted, makes another to fit the next home (its
+    // people smiths enough that a session's burner is a whole one).
+    teach(&mut sim, works, "core:technique/gas_making");
+    let smithing = sim
+        .rules()
+        .catalog
+        .skills
+        .iter()
+        .position(|k| k.id == "core:skill/smithing")
+        .expect("smithing");
+    let members = sim
+        .people()
+        .household(works)
+        .expect("works")
+        .members
+        .clone();
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if members.contains(&p.id) {
+            p.set_skill(smithing, 0.5);
+        }
+    }
+    let (iron, charcoal) = (
+        index(&sim, "core:good/iron"),
+        index(&sim, "core:good/charcoal"),
+    );
+    set(&mut sim, works, iron, 10.0);
+    set(&mut sim, works, charcoal, 10.0);
+    let mut made = false;
+    for _ in 0..4 {
+        sim.advance_minutes(1_440).expect("advances");
+        made |= held(&sim, works, burner) >= 1.0;
+    }
+    assert!(made, "the works made a burner");
     saves_alike(&mut sim);
 }

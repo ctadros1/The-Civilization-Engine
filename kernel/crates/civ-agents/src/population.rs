@@ -3797,8 +3797,7 @@ impl Population {
         // hours, in fuel and in the lamp's wear, than the hour of making at home it gives after
         // dark (M10b slice DU; brief §2.3).
         for (g, d) in goods.iter().enumerate() {
-            // A piped burner's light comes by a main, not from what the household makes.
-            let Some(light) = d.light.as_ref().filter(|l| !l.piped) else {
+            let Some(light) = d.light.as_ref() else {
                 continue;
             };
             let known = catalog
@@ -3808,15 +3807,27 @@ impl Population {
             if !known || ages.iter().all(|&a| a < params.family.independent_age) {
                 continue;
             }
+            // A piped burner's light comes by a main, not from what the household makes: the works
+            // of a main laid whole keeps one by it to fit the next home that connects (M10b slice
+            // DY, fourth part).
+            if light.piped {
+                if ctx
+                    .land
+                    .gas
+                    .mains
+                    .iter()
+                    .any(|m| m.works == hh.id && m.whole() && !m.broken)
+                    && let Some(w) = wants.get_mut(g)
+                {
+                    *w = w.max(1.0);
+                }
+                continue;
+            }
             // Its fuel decides: the lamp's own hours, spread over its life, count where the
             // household can put a figure on them (its clay may come from a pit it has not found).
-            let c = costs();
-            let life = make::life_of(goods, g);
-            let Some(fuel) = light.fuel.and_then(|f| c.get(f).copied().flatten()) else {
+            let Some(per_hour) = light_hour_cost(goods, &costs(), g) else {
                 continue;
             };
-            let lamp = c.get(g).copied().flatten().unwrap_or(0.0);
-            let per_hour = light.kg_per_hour * fuel + if life > 0.0 { lamp / life } else { 0.0 };
             if per_hour < 1.0
                 && let Some(w) = wants.get_mut(g)
             {
@@ -7746,6 +7757,18 @@ pub fn lamp_of(goods: &[GoodDef], stores: &[f64]) -> Option<(usize, usize, f64, 
             (kg > 0.0).then_some((g, fuel, light.kg_per_hour, kg / light.kg_per_hour * 60.0))
         })
         .max_by(|a, b| a.3.total_cmp(&b.3).then(b.0.cmp(&a.0)))
+}
+
+/// What an hour of light good `g` costs a household whose own costs, hours a unit, are `costs`
+/// (M10b slice DU, fourth part; brief §2.3): the fuel it burns at the household's cost of it, and
+/// the light's own cost spread over its life where the household can put a figure on it. `None`
+/// where it is no light, or the household can put no figure on its fuel.
+pub(crate) fn light_hour_cost(goods: &[GoodDef], costs: &[Option<f64>], g: usize) -> Option<f64> {
+    let light = goods.get(g)?.light?;
+    let fuel = light.fuel.and_then(|f| costs.get(f).copied().flatten())?;
+    let life = make::life_of(goods, g);
+    let own = costs.get(g).copied().flatten().unwrap_or(0.0);
+    Some(light.kg_per_hour * fuel + if life > 0.0 { own / life } else { 0.0 })
 }
 
 /// Minutes of the `minutes` before `end` that fell in the dark, sunrise and sunset taken day by

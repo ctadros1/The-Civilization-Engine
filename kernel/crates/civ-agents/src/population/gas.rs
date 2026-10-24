@@ -3,11 +3,29 @@
 //! against the burners connected to it, lit for the evening's hours, and the gas served is drawn
 //! from the works' household. A connection lit is light at its home after dark, as a lamp is.
 
+//!
+//! By choice (the fourth part): households along a main laid whole connect where gas light costs
+//! them less than their lamp or their work, and pay its works by the meter for the gas served.
+
 use civ_core::PermanentId;
-use civ_land::gas::Main;
+use civ_land::gas::{Cause, Connection, Main};
 use civ_land::ways::Keeper;
 
 use super::{AgentEvent, Ctx, Flow, Population, cell_of, fuel_per_day};
+use crate::ledger::{Channel, Leg};
+use crate::params::{Catalog, GoodUse};
+use crate::{decide, make};
+
+/// The meter's price of gas `gas` (M10b slice DY, fourth part): the good it is paid in and how
+/// much of it a kilogram of gas costs, the coal a retort charges for it (the first input of the
+/// recipe that makes it, over the gas that recipe makes). `None` where no recipe makes it.
+pub fn meter_price(catalog: &Catalog, gas: usize) -> Option<(usize, f64)> {
+    catalog.recipes.iter().find_map(|r| {
+        let made = r.outputs.iter().find(|&&(o, _)| o == gas)?.1;
+        let &(coal, kg) = r.inputs.first()?;
+        (made > 0.0 && kg > 0.0).then_some((coal, kg / made))
+    })
+}
 
 /// The hours a connection's burners burn of an evening (research 12-09 §2.3: house lamps lit
 /// some four hours a day).
@@ -26,22 +44,28 @@ impl Population {
             .push((start.plus_minutes(set.max(rise + 1)), AgentEvent::Gas));
     }
 
-    /// The evening's gas (M10b slice DY): each main in turn lights its connections for
-    /// [`GAS_EVENING_H`] from now, as far as the main carries their burners and its works' gas
-    /// lasts, and the gas served is drawn from the works' household's stores.
+    /// The evening's gas (M10b slice DY): each main in turn, households along it weigh connecting
+    /// (the fourth part), then its connections are lit for [`GAS_EVENING_H`] from now, as far as
+    /// the main carries their burners and its works' gas lasts, the gas served is drawn from the
+    /// works' household's stores, and each household served pays the works for it by the meter.
     pub(super) fn gas_evening(&mut self, ctx: &mut Ctx) {
         let goods = &ctx.catalog.goods;
         // The piped burner and the gas it burns.
-        let Some((gas, kg_h)) = goods.iter().find_map(|d| {
+        let Some((burner, gas, kg_h)) = goods.iter().enumerate().find_map(|(g, d)| {
             let l = d.light.filter(|l| l.piped)?;
-            Some((l.fuel?, l.kg_per_hour))
+            Some((g, l.fuel?, l.kg_per_hour))
         }) else {
             return;
         };
         let (now, params) = (ctx.now, ctx.params);
         let day = now.day_index();
+        let price = meter_price(ctx.catalog, gas);
         let mains: Vec<_> = ctx.land.gas.mains.iter().map(|m| (m.id, m.works)).collect();
         for (main, works) in mains {
+            if let Some(price) = price {
+                self.gas_connect(ctx, main, burner, kg_h, price);
+            }
+            let goods = &ctx.catalog.goods;
             let held = match self
                 .hh_index
                 .get(&works)
@@ -67,6 +91,178 @@ impl Population {
             {
                 x.stores[gas] = (x.stores[gas] - drawn).max(0.0);
                 x.flows.add(Flow::Used, gas, drawn);
+            }
+            if let Some(price) = price {
+                self.gas_pay(ctx, main, works, kg_h, price);
+            }
+        }
+    }
+
+    /// Households along main `main` weigh connecting (M10b slice DY, fourth part; brief §2): one
+    /// whose home lies on the main or beside it, not its works and not yet connected, connects
+    /// where an hour of gas light at the meter's `price` costs it fewer of its own hours than an
+    /// hour of its work, or than an hour of a lamp it holds whole, and it holds an evening's
+    /// price; the works fits it a burner the works holds, at its own cost. One cut off is
+    /// restored once it holds an evening's price again. Only a main laid whole and not broken is
+    /// weighed.
+    fn gas_connect(
+        &mut self,
+        ctx: &mut Ctx,
+        main: PermanentId,
+        burner: usize,
+        kg_h: f64,
+        (coal, coal_per_kg): (usize, f64),
+    ) {
+        let goods = &ctx.catalog.goods;
+        let Some(m) = ctx
+            .land
+            .gas
+            .mains
+            .iter()
+            .find(|m| m.id == main && m.whole() && !m.broken)
+        else {
+            return;
+        };
+        let works = m.works;
+        let w = i64::from(ctx.map.width.max(1));
+        let near = |cell: usize| {
+            let (x, y) = (cell as i64 % w, cell as i64 / w);
+            m.cells.iter().any(|&c| {
+                let (cx, cy) = (i64::from(c) % w, i64::from(c) / w);
+                (cx - x).abs() <= 1 && (cy - y).abs() <= 1
+            })
+        };
+        let mut along: Vec<PermanentId> = self
+            .households
+            .iter()
+            .filter(|(_, x)| x.id != works && near(cell_of(ctx.map, x.home)))
+            .map(|(_, x)| x.id)
+            .collect();
+        along.sort_unstable();
+        // An evening's gas for a burner at the meter, in coal.
+        let evening = kg_h * GAS_EVENING_H * coal_per_kg;
+        for h in along {
+            let Some(x) = self.household(h) else {
+                continue;
+            };
+            let coal_held = x.stores.get(coal).copied().unwrap_or(0.0);
+            if let Some(c) = ctx
+                .land
+                .gas
+                .connections
+                .iter_mut()
+                .find(|c| c.household == h && c.main == main && c.cut_off)
+            {
+                if coal_held >= evening * f64::from(c.burners) {
+                    c.cut_off = false;
+                }
+                continue;
+            }
+            if coal_held < evening || ctx.land.gas.connections.iter().any(|c| c.household == h) {
+                continue;
+            }
+            let costs = self.own_costs_of(ctx, x);
+            // What a kilogram of the coal costs it: its own figure, or a fuel's heat in the
+            // hearth's measure (firewood) at its own cost of that.
+            let Some(coal_h) = costs.get(coal).copied().flatten().or_else(|| {
+                let measure = goods.iter().position(|d| {
+                    d.purpose == GoodUse::Fuel && d.fuel.is_none_or(|f| f.technique.is_none())
+                })?;
+                let per_kg = costs.get(measure).copied().flatten()?;
+                goods[coal]
+                    .fuel
+                    .map(|_| per_kg * crate::params::fuel_ratio(goods, coal))
+            }) else {
+                continue;
+            };
+            // Its work's hour, or its lamp's where it holds one whole.
+            let lamp_hour = goods
+                .iter()
+                .enumerate()
+                .filter(|&(g, d)| {
+                    d.light.is_some_and(|l| !l.piped)
+                        && make::in_use(goods, g, x.stores.get(g).copied().unwrap_or(0.0))
+                            >= decide::MIN_TOOL
+                })
+                .filter_map(|(g, _)| super::light_hour_cost(goods, &costs, g))
+                .fold(1.0f64, f64::min);
+            if kg_h * coal_per_kg * coal_h >= lamp_hour {
+                continue;
+            }
+            let Some(building) = ctx
+                .land
+                .buildings
+                .iter()
+                .find(|b| b.household == h)
+                .map(|b| b.id)
+            else {
+                continue;
+            };
+            // The works fits a burner it holds whole.
+            let Some(f) = self.household_mut(works) else {
+                return;
+            };
+            if f.stores.get(burner).copied().unwrap_or(0.0) < 1.0 - 1e-9 {
+                return;
+            }
+            f.stores[burner] -= 1.0;
+            f.flows.add(Flow::Used, burner, 1.0);
+            ctx.land
+                .gas
+                .connections
+                .push(Connection::new(building, h, main, 1));
+        }
+    }
+
+    /// Each household served this evening on main `main` pays its works by the meter (M10b
+    /// slice DY, fourth part): its burners' gas at the meter's `price`, by the `Gas` channel. One
+    /// that cannot pay it all pays what it holds and is cut off.
+    fn gas_pay(
+        &mut self,
+        ctx: &mut Ctx,
+        main: PermanentId,
+        works: PermanentId,
+        kg_h: f64,
+        (coal, coal_per_kg): (usize, f64),
+    ) {
+        let (now, params) = (ctx.now, ctx.params);
+        let (goods, day) = (&ctx.catalog.goods, now.day_index());
+        let served: Vec<(usize, PermanentId, f64)> = ctx
+            .land
+            .gas
+            .connections
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| {
+                c.main == main
+                    && c.household != works
+                    && c.evening == day
+                    && c.cause == Cause::Served
+            })
+            .map(|(i, c)| {
+                let owed = f64::from(c.burners) * kg_h * GAS_EVENING_H * coal_per_kg;
+                (i, c.household, owed)
+            })
+            .collect();
+        for (i, household, owed) in served {
+            let held = match self.household_mut(household) {
+                Some(x) => {
+                    let members = x.members.len().max(1);
+                    x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
+                    x.stores.get(coal).copied().unwrap_or(0.0).max(0.0)
+                }
+                None => 0.0,
+            };
+            let pay = owed.min(held);
+            let leg = Leg {
+                from: household,
+                to: works,
+                good: coal,
+                amount: pay,
+            };
+            let paid = pay > 0.0 && self.transfer(now, params, goods, &[leg], Channel::Gas);
+            if !paid || pay + 1e-9 < owed {
+                ctx.land.gas.connections[i].cut_off = true;
             }
         }
     }

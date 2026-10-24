@@ -1737,7 +1737,7 @@ pub fn light_words(sim: &Sim, id: PermanentId) -> String {
     } else {
         format!("no {fuel}")
     };
-    let working = people.lamp_lit_home(catalog, params, now, x.id)
+    let working = people.lamp_lit_home(catalog, params, &sim.land.gas, now, x.id)
         && !p.asleep
         && civ_agents::population::Population::works_by_lamp(catalog, p);
     if working {

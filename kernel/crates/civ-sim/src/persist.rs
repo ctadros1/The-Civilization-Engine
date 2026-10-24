@@ -502,6 +502,8 @@ pub const SCHEMA_V182: u32 = 182;
 pub const SCHEMA_V183: u32 = 183;
 /// Lines had stations and timetables, before rides and fares.
 pub const SCHEMA_V184: u32 = 184;
+/// Rides and fares, before gas mains.
+pub const SCHEMA_V185: u32 = 185;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

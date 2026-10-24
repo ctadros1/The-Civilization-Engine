@@ -1457,10 +1457,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for TradeChannel {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_EVENT_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_EVENT_KIND: u8 = 6;
+pub const ENUM_MAX_EVENT_KIND: u8 = 7;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_EVENT_KIND: [EventKind; 7] = [
+pub const ENUM_VALUES_EVENT_KIND: [EventKind; 8] = [
   EventKind::AgentStep,
   EventKind::FireStep,
   EventKind::Ignite,
@@ -1468,6 +1468,7 @@ pub const ENUM_VALUES_EVENT_KIND: [EventKind; 7] = [
   EventKind::Gates,
   EventKind::Pass,
   EventKind::Trains,
+  EventKind::Gas,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1482,9 +1483,10 @@ impl EventKind {
   pub const Gates: Self = Self(4);
   pub const Pass: Self = Self(5);
   pub const Trains: Self = Self(6);
+  pub const Gas: Self = Self(7);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 6;
+  pub const ENUM_MAX: u8 = 7;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::AgentStep,
     Self::FireStep,
@@ -1493,6 +1495,7 @@ impl EventKind {
     Self::Gates,
     Self::Pass,
     Self::Trains,
+    Self::Gas,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1504,6 +1507,7 @@ impl EventKind {
       Self::Gates => Some("Gates"),
       Self::Pass => Some("Pass"),
       Self::Trains => Some("Trains"),
+      Self::Gas => Some("Gas"),
       _ => None,
     }
   }
@@ -62987,6 +62991,515 @@ impl ::core::fmt::Debug for RunsSave<'_> {
       ds.field("lines", &self.lines());
       ds.field("list", &self.list());
       ds.field("revision", &self.revision());
+      ds.finish()
+  }
+}
+pub enum GasMainSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GasMainSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GasMainSave<'a> {
+  type Inner = GasMainSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GasMainSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_WORKS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_CELLS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_CAPACITY_KG_H: ::flatbuffers::VOffsetT = 10;
+  pub const VT_BROKEN: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GasMainSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GasMainSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<GasMainSave<'bldr>> {
+    let mut builder = GasMainSaveBuilder::new(_fbb);
+    builder.add_works(args.works);
+    builder.add_id(args.id);
+    builder.add_capacity_kg_h(args.capacity_kg_h);
+    if let Some(x) = args.cells { builder.add_cells(x); }
+    builder.add_broken(args.broken);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(GasMainSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn works(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(GasMainSave::VT_WORKS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn cells(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(GasMainSave::VT_CELLS, None)}
+  }
+  #[inline]
+  pub fn capacity_kg_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(GasMainSave::VT_CAPACITY_KG_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn broken(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(GasMainSave::VT_BROKEN, Some(false)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for GasMainSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("works", Self::VT_WORKS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("cells", Self::VT_CELLS, false)?
+     .visit_field::<f32>("capacity_kg_h", Self::VT_CAPACITY_KG_H, false)?
+     .visit_field::<bool>("broken", Self::VT_BROKEN, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GasMainSaveArgs<'a> {
+    pub id: u64,
+    pub works: u64,
+    pub cells: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub capacity_kg_h: f32,
+    pub broken: bool,
+}
+impl<'a> Default for GasMainSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    GasMainSaveArgs {
+      id: 0,
+      works: 0,
+      cells: None,
+      capacity_kg_h: 0.0,
+      broken: false,
+    }
+  }
+}
+
+pub struct GasMainSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GasMainSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(GasMainSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_works(&mut self, works: u64) {
+    self.fbb_.push_slot::<u64>(GasMainSave::VT_WORKS, works, 0);
+  }
+  #[inline]
+  pub fn add_cells(&mut self, cells: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(GasMainSave::VT_CELLS, cells);
+  }
+  #[inline]
+  pub fn add_capacity_kg_h(&mut self, capacity_kg_h: f32) {
+    self.fbb_.push_slot::<f32>(GasMainSave::VT_CAPACITY_KG_H, capacity_kg_h, 0.0);
+  }
+  #[inline]
+  pub fn add_broken(&mut self, broken: bool) {
+    self.fbb_.push_slot::<bool>(GasMainSave::VT_BROKEN, broken, false);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GasMainSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GasMainSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GasMainSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GasMainSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GasMainSave");
+      ds.field("id", &self.id());
+      ds.field("works", &self.works());
+      ds.field("cells", &self.cells());
+      ds.field("capacity_kg_h", &self.capacity_kg_h());
+      ds.field("broken", &self.broken());
+      ds.finish()
+  }
+}
+pub enum GasConnectionSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GasConnectionSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GasConnectionSave<'a> {
+  type Inner = GasConnectionSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GasConnectionSave<'a> {
+  pub const VT_BUILDING: ::flatbuffers::VOffsetT = 4;
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 6;
+  pub const VT_MAIN: ::flatbuffers::VOffsetT = 8;
+  pub const VT_BURNERS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_CUT_OFF: ::flatbuffers::VOffsetT = 12;
+  pub const VT_EVENING: ::flatbuffers::VOffsetT = 14;
+  pub const VT_LIT_FROM: ::flatbuffers::VOffsetT = 16;
+  pub const VT_LIT_UNTIL: ::flatbuffers::VOffsetT = 18;
+  pub const VT_CAUSE: ::flatbuffers::VOffsetT = 20;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GasConnectionSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GasConnectionSaveArgs
+  ) -> ::flatbuffers::WIPOffset<GasConnectionSave<'bldr>> {
+    let mut builder = GasConnectionSaveBuilder::new(_fbb);
+    builder.add_lit_until(args.lit_until);
+    builder.add_lit_from(args.lit_from);
+    builder.add_evening(args.evening);
+    builder.add_main(args.main);
+    builder.add_household(args.household);
+    builder.add_building(args.building);
+    builder.add_cause(args.cause);
+    builder.add_cut_off(args.cut_off);
+    builder.add_burners(args.burners);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn building(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(GasConnectionSave::VT_BUILDING, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(GasConnectionSave::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn main(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(GasConnectionSave::VT_MAIN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn burners(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(GasConnectionSave::VT_BURNERS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn cut_off(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(GasConnectionSave::VT_CUT_OFF, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn evening(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(GasConnectionSave::VT_EVENING, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn lit_from(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(GasConnectionSave::VT_LIT_FROM, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn lit_until(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(GasConnectionSave::VT_LIT_UNTIL, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn cause(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(GasConnectionSave::VT_CAUSE, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for GasConnectionSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("building", Self::VT_BUILDING, false)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<u64>("main", Self::VT_MAIN, false)?
+     .visit_field::<u8>("burners", Self::VT_BURNERS, false)?
+     .visit_field::<bool>("cut_off", Self::VT_CUT_OFF, false)?
+     .visit_field::<i64>("evening", Self::VT_EVENING, false)?
+     .visit_field::<i64>("lit_from", Self::VT_LIT_FROM, false)?
+     .visit_field::<i64>("lit_until", Self::VT_LIT_UNTIL, false)?
+     .visit_field::<u8>("cause", Self::VT_CAUSE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GasConnectionSaveArgs {
+    pub building: u64,
+    pub household: u64,
+    pub main: u64,
+    pub burners: u8,
+    pub cut_off: bool,
+    pub evening: i64,
+    pub lit_from: i64,
+    pub lit_until: i64,
+    pub cause: u8,
+}
+impl<'a> Default for GasConnectionSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    GasConnectionSaveArgs {
+      building: 0,
+      household: 0,
+      main: 0,
+      burners: 0,
+      cut_off: false,
+      evening: -1,
+      lit_from: -1,
+      lit_until: -1,
+      cause: 0,
+    }
+  }
+}
+
+pub struct GasConnectionSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GasConnectionSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_building(&mut self, building: u64) {
+    self.fbb_.push_slot::<u64>(GasConnectionSave::VT_BUILDING, building, 0);
+  }
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(GasConnectionSave::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_main(&mut self, main: u64) {
+    self.fbb_.push_slot::<u64>(GasConnectionSave::VT_MAIN, main, 0);
+  }
+  #[inline]
+  pub fn add_burners(&mut self, burners: u8) {
+    self.fbb_.push_slot::<u8>(GasConnectionSave::VT_BURNERS, burners, 0);
+  }
+  #[inline]
+  pub fn add_cut_off(&mut self, cut_off: bool) {
+    self.fbb_.push_slot::<bool>(GasConnectionSave::VT_CUT_OFF, cut_off, false);
+  }
+  #[inline]
+  pub fn add_evening(&mut self, evening: i64) {
+    self.fbb_.push_slot::<i64>(GasConnectionSave::VT_EVENING, evening, -1);
+  }
+  #[inline]
+  pub fn add_lit_from(&mut self, lit_from: i64) {
+    self.fbb_.push_slot::<i64>(GasConnectionSave::VT_LIT_FROM, lit_from, -1);
+  }
+  #[inline]
+  pub fn add_lit_until(&mut self, lit_until: i64) {
+    self.fbb_.push_slot::<i64>(GasConnectionSave::VT_LIT_UNTIL, lit_until, -1);
+  }
+  #[inline]
+  pub fn add_cause(&mut self, cause: u8) {
+    self.fbb_.push_slot::<u8>(GasConnectionSave::VT_CAUSE, cause, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GasConnectionSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GasConnectionSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GasConnectionSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GasConnectionSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GasConnectionSave");
+      ds.field("building", &self.building());
+      ds.field("household", &self.household());
+      ds.field("main", &self.main());
+      ds.field("burners", &self.burners());
+      ds.field("cut_off", &self.cut_off());
+      ds.field("evening", &self.evening());
+      ds.field("lit_from", &self.lit_from());
+      ds.field("lit_until", &self.lit_until());
+      ds.field("cause", &self.cause());
+      ds.finish()
+  }
+}
+pub enum GasSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GasSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GasSave<'a> {
+  type Inner = GasSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GasSave<'a> {
+  pub const VT_MAINS: ::flatbuffers::VOffsetT = 4;
+  pub const VT_CONNECTIONS: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GasSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GasSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<GasSave<'bldr>> {
+    let mut builder = GasSaveBuilder::new(_fbb);
+    if let Some(x) = args.connections { builder.add_connections(x); }
+    if let Some(x) = args.mains { builder.add_mains(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn mains(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GasMainSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GasMainSave>>>>(GasSave::VT_MAINS, None)}
+  }
+  #[inline]
+  pub fn connections(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GasConnectionSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GasConnectionSave>>>>(GasSave::VT_CONNECTIONS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for GasSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GasMainSave>>>>("mains", Self::VT_MAINS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GasConnectionSave>>>>("connections", Self::VT_CONNECTIONS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GasSaveArgs<'a> {
+    pub mains: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GasMainSave<'a>>>>>,
+    pub connections: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GasConnectionSave<'a>>>>>,
+}
+impl<'a> Default for GasSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    GasSaveArgs {
+      mains: None,
+      connections: None,
+    }
+  }
+}
+
+pub struct GasSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GasSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_mains(&mut self, mains: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<GasMainSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(GasSave::VT_MAINS, mains);
+  }
+  #[inline]
+  pub fn add_connections(&mut self, connections: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<GasConnectionSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(GasSave::VT_CONNECTIONS, connections);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GasSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GasSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GasSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GasSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GasSave");
+      ds.field("mains", &self.mains());
+      ds.field("connections", &self.connections());
       ds.finish()
   }
 }

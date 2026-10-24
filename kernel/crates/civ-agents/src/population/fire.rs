@@ -478,8 +478,9 @@ impl Population {
         };
         let (members, settlement) = (x.members.clone(), x.settlement);
         // A lamp lit for work after dark (M10b slice DU): the household holds one and its fuel,
-        // and it is dark.
-        let lamp_lit = super::lamp_of(&ctx.catalog.goods, &x.stores).is_some()
+        // or its burners are lit by gas (M10b slice DY), and it is dark.
+        let lamp_lit = (super::lamp_of(&ctx.catalog.goods, &x.stores).is_some()
+            || ctx.land.gas.lit(b.household, now.minutes()))
             && super::dark_at(ctx.params, now);
         let Some(o) = ctx
             .land

@@ -58,6 +58,7 @@ mod firm;
 mod floods;
 mod force;
 mod founding;
+mod gas;
 mod holds;
 mod ideology;
 mod influence;
@@ -231,6 +232,9 @@ pub enum AgentEvent {
     /// arrived trains to account and sets off where its line's timetable has a run now. Pending
     /// at each of the day's departures while any engine is made.
     Trains,
+    /// Gas is lit at dusk (M10b slice DY, third part): each main's evening is checked and its
+    /// connections lit or not. Pending each day while any main is laid.
+    Gas,
     /// A walker reaches a bottleneck on their walk (M8b slice CN, ADR-0029 §4).
     Pass {
         /// Who.
@@ -1774,6 +1778,7 @@ impl Population {
             AgentEvent::BandLook => self.band_look(ctx),
             AgentEvent::Gates => self.keep_gates(ctx),
             AgentEvent::Trains => self.trains_due(ctx),
+            AgentEvent::Gas => self.gas_evening(ctx),
             AgentEvent::Pass {
                 person,
                 version,
@@ -3634,7 +3639,14 @@ impl Population {
             clock_min: minute as f64,
             evening,
             until_sunrise_min: until_sunrise as f64,
-            lamp_min: lamp_of(goods, &stores).map_or(0.0, |l| l.3),
+            // Light for the evening: the lamp's fuel, or the burners' gas lit until they go out
+            // (M10b slice DY).
+            lamp_min: lamp_of(goods, &stores).map_or(0.0, |l| l.3).max(
+                ctx.land
+                    .gas
+                    .lit_until(hh_id, now.minutes())
+                    .map_or(0.0, |u| (u - now.minutes()) as f64),
+            ),
             food_days: stock / kcal_day.max(1.0),
             food_target_days: params.household.food_target_days,
             food_outlook_days,
@@ -6060,12 +6072,13 @@ impl Population {
     /// in hunger, and never the seed for the ground already cropped), the recipe's tools worn by
     /// the time worked, and their skill practised.
     /// Whether a lamp burns for work at household `household`'s home at `now` (M10b slice DU):
-    /// it holds a whole lamp and its fuel, it is dark, and one of its members awake at home is at
-    /// work kept to daylight.
+    /// it holds a whole lamp and its fuel, or its burners are lit by gas (`gas`, M10b slice DY),
+    /// it is dark, and one of its members awake at home is at work kept to daylight.
     pub fn lamp_lit_home(
         &self,
         catalog: &crate::params::Catalog,
         params: &PeopleParams,
+        gas: &civ_land::gas::Gas,
         now: SimTime,
         household: PermanentId,
     ) -> bool {
@@ -6074,7 +6087,7 @@ impl Population {
         };
         let t = now.minutes() as f64;
         dark_at(params, now)
-            && lamp_of(&catalog.goods, &x.stores).is_some()
+            && (lamp_of(&catalog.goods, &x.stores).is_some() || gas.lit(household, now.minutes()))
             && x.members.iter().any(|&m| {
                 self.person(m).is_some_and(|q| {
                     let at = q.position_at(t);
@@ -6091,6 +6104,7 @@ impl Population {
         &self,
         catalog: &crate::params::Catalog,
         params: &PeopleParams,
+        gas: &civ_land::gas::Gas,
         now: SimTime,
     ) -> usize {
         if self.order.lamp_first_lit.is_none() || !dark_at(params, now) {
@@ -6098,7 +6112,7 @@ impl Population {
         }
         self.households
             .iter()
-            .filter(|(_, x)| self.lamp_lit_home(catalog, params, now, x.id))
+            .filter(|(_, x)| self.lamp_lit_home(catalog, params, gas, now, x.id))
             .count()
     }
 
@@ -6241,7 +6255,11 @@ impl Population {
             if def.daylight_only {
                 let end = self.enact_end.unwrap_or(now);
                 let dark_h = dark_minutes(params, end, minutes) / 60.0;
-                if dark_h > 0.0
+                if dark_h > 0.0 && ctx.land.gas.lit(household, end.minutes() - 1) {
+                    // Burners lit by gas burn none of the household's fuel: it came by the main
+                    // (M10b slice DY).
+                    lit = Some(end);
+                } else if dark_h > 0.0
                     && let Some((lamp, fuel, kg_h, _)) = lamp_of(goods, &x.stores)
                 {
                     lit = Some(end);
@@ -7325,6 +7343,8 @@ impl Population {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         // Gates are opened at first light and kept at dusk (M6c slice BK).
         self.schedule_gates(ctx);
+        // Gas is lit at dusk where mains are laid (M10b slice DY).
+        self.schedule_gas(ctx);
         // Households see their options afresh each day (ADR-0011 §4), and a leisure block that
         // runs past midnight ends in a decision made afresh: nobody decides between midnight's
         // day of work and the day's first event, so a save there loses nothing.

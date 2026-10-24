@@ -417,7 +417,7 @@ impl Population {
         }
         let lit = self.households.iter().any(|(_, x)| {
             distance(x.home, at) <= cp.lit_m as f32
-                && self.lamp_lit_home(ctx.catalog, ctx.params, ctx.now, x.id)
+                && self.lamp_lit_home(ctx.catalog, ctx.params, &ctx.land.gas, ctx.now, x.id)
         });
         let sight = if lit {
             cp.sight_m

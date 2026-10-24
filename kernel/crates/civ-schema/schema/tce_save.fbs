@@ -2643,7 +2643,7 @@ table FactionsSave {
 // Schema 88 (M6b slice BC): FireStep, a minute of every fire burning, pending whenever one burns.
 // Schema 89 (M6b slice BD): Ignite, a home's fires in use may escape (`person` holds the
 // building's id).
-enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2, BandLook = 3, Gates = 4, Pass = 5, Trains = 6 }
+enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2, BandLook = 3, Gates = 4, Pass = 5, Trains = 6, Gas = 7 }
 
 table PendingEvent {
   at: long (id: 0);
@@ -3667,6 +3667,36 @@ table RunsSave {
   lines: [RailLineSave] (id: 0);
   list: [RunSave] (id: 1);
   revision: uint (id: 2);
+}
+
+// Gas mains and connections (schema 186, M10b slice DY, third part; ADR-0034 §8): each main's
+// works household, the cells it runs along, the most gas it carries an hour, kg, and whether it is
+// broken; each connection's building, household, main, burners and whether cut off, and its last
+// evening: the day checked and the minutes lit from and until (-1 none), and why it lit or not (0
+// served, 1 no gas, 2 overloaded, 3 broken, 4 cut off).
+table GasMainSave {
+  id: ulong (id: 0);
+  works: ulong (id: 1);
+  cells: [uint] (id: 2);
+  capacity_kg_h: float (id: 3);
+  broken: bool (id: 4);
+}
+
+table GasConnectionSave {
+  building: ulong (id: 0);
+  household: ulong (id: 1);
+  main: ulong (id: 2);
+  burners: ubyte (id: 3);
+  cut_off: bool (id: 4);
+  evening: long = -1 (id: 5);
+  lit_from: long = -1 (id: 6);
+  lit_until: long = -1 (id: 7);
+  cause: ubyte (id: 8);
+}
+
+table GasSave {
+  mains: [GasMainSave] (id: 0);
+  connections: [GasConnectionSave] (id: 1);
 }
 
 // Goods in transit (schema 143, M8b slice CO; ADR-0029 §3): each load's owner household, carrier

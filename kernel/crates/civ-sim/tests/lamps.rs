@@ -385,8 +385,12 @@ fn the_observer_counts_lit_homes_and_says_who_works_by_lamplight() {
         .expect("axe making") as u16;
     let (hh, who) = adult(&sim);
     let lit = |sim: &Sim| {
-        sim.people()
-            .lit_homes(&sim.rules().catalog, &sim.rules().people, sim.now())
+        sim.people().lit_homes(
+            &sim.rules().catalog,
+            &sim.rules().people,
+            &sim.land().gas,
+            sim.now(),
+        )
     };
     assert_eq!(light_words(&sim, who), "", "no lamp held");
     let home = sim.people().household(hh).expect("household").home;

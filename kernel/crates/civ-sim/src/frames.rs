@@ -166,10 +166,12 @@ pub fn clock<'a>(fbb: &mut FlatBufferBuilder<'a>, sim: &Sim) -> WIPOffset<wire::
             },
             weather: Some(weather),
             resolution_by_focus: sim.focus_policy().is_some(),
-            lit_homes: sim
-                .people()
-                .lit_homes(&sim.rules().catalog, &sim.rules().people, sim.now())
-                as u32,
+            lit_homes: sim.people().lit_homes(
+                &sim.rules().catalog,
+                &sim.rules().people,
+                &sim.land.gas,
+                sim.now(),
+            ) as u32,
             first_lamp_minute: sim
                 .people()
                 .order

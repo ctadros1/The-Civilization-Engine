@@ -128,7 +128,7 @@ use super::{
     SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
     SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
     SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, SCHEMA_V180,
-    SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, finish, section, section_root,
+    SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, finish, section, section_root,
     single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
@@ -208,6 +208,8 @@ pub const SECTION_CARTS: SectionTag = SectionTag::new("carts");
 pub const SECTION_WAGONS: SectionTag = SectionTag::new("wagons");
 /// Section: lines' passing loops and train runs (schema 182, M10b slice DW).
 pub const SECTION_RUNS: SectionTag = SectionTag::new("runs");
+/// Section: gas mains and connections (schema 186, M10b slice DY).
+pub const SECTION_GAS: SectionTag = SectionTag::new("gas");
 /// Section: goods in transit by boat (schema 143, M8b slice CO).
 pub const SECTION_CONSIGNMENTS: SectionTag = SectionTag::new("consigns");
 /// Section: wells (schema 74, M6a slice AY, step three).
@@ -341,6 +343,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             encode_boats(&sim.land.wagons, &sim.rules),
         ),
         section(SECTION_RUNS, 0, encode_runs(&sim.land.runs)),
+        section(SECTION_GAS, 0, encode_gas(&sim.land.gas)),
         section(
             SECTION_CONSIGNMENTS,
             0,
@@ -704,6 +707,8 @@ enum Schema {
     V181,
     /// Train runs (M10b slice DW: the `runs` section).
     V182,
+    /// Gas mains and connections (M10b slice DY: the `gas` section).
+    V186,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -896,9 +901,10 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V171 | SCHEMA_V172 | SCHEMA_V173 | SCHEMA_V174 | SCHEMA_V175 | SCHEMA_V176
         | SCHEMA_V177 | SCHEMA_V178 | SCHEMA_V179 | SCHEMA_V180 => Schema::V171,
         SCHEMA_V181 => Schema::V181,
-        // Runs' wagons (schema 183) and lines' stations and timetables (schema 184) are read
-        // wherever saved.
-        SCHEMA_V182 | SCHEMA_V183 | SCHEMA_V184 | SAVE_SCHEMA_VERSION => Schema::V182,
+        // Runs' wagons (schema 183), lines' stations and timetables (schema 184) and rides and
+        // fares (schema 185) are read wherever saved; gas mains (schema 186) have their section.
+        SCHEMA_V182 | SCHEMA_V183 | SCHEMA_V184 | SCHEMA_V185 => Schema::V182,
+        SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1170,6 +1176,11 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V182 {
         let bytes = single_chunk(reader, SECTION_RUNS)?;
         land.runs = decode_runs(&bytes, SECTION_RUNS)?;
+    }
+    // Gas mains and connections (schema 186); before, none.
+    if schema >= Schema::V186 {
+        let bytes = single_chunk(reader, SECTION_GAS)?;
+        land.gas = decode_gas(&bytes, SECTION_GAS)?;
     }
     // Goods in transit (schema 143); before, none.
     if schema >= Schema::V143 {
@@ -4575,6 +4586,7 @@ fn decode_land(
         carts: Default::default(),
         wagons: Default::default(),
         runs: Default::default(),
+        gas: Default::default(),
         // The heads and the store below (schema 72 on); the aquifer derived.
         water: Default::default(),
         // Read from its own section (schema 74 on).
@@ -5385,7 +5397,8 @@ fn carried(
         | Schema::V169
         | Schema::V171
         | Schema::V181
-        | Schema::V182 => {
+        | Schema::V182
+        | Schema::V186 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5767,7 +5780,8 @@ fn decode_households(
             | Schema::V169
             | Schema::V171
             | Schema::V181
-            | Schema::V182 => {
+            | Schema::V182
+            | Schema::V186 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -9089,6 +9103,7 @@ fn encode_events(sim: &Sim) -> Vec<u8> {
                 SimEvent::Agent(AgentEvent::BandLook) => (save::EventKind::BandLook, 0, 0, 0),
                 SimEvent::Agent(AgentEvent::Gates) => (save::EventKind::Gates, 0, 0, 0),
                 SimEvent::Agent(AgentEvent::Trains) => (save::EventKind::Trains, 0, 0, 0),
+                SimEvent::Agent(AgentEvent::Gas) => (save::EventKind::Gas, 0, 0, 0),
                 SimEvent::Agent(AgentEvent::Pass {
                     person,
                     version,
@@ -9137,6 +9152,7 @@ fn decode_events(bytes: &[u8]) -> Result<Vec<PendingEvent<SimEvent>>, LoadError>
             save::EventKind::BandLook => SimEvent::Agent(AgentEvent::BandLook),
             save::EventKind::Gates => SimEvent::Agent(AgentEvent::Gates),
             save::EventKind::Trains => SimEvent::Agent(AgentEvent::Trains),
+            save::EventKind::Gas => SimEvent::Agent(AgentEvent::Gas),
             save::EventKind::Pass => SimEvent::Agent(AgentEvent::Pass {
                 person: required(e.person(), "a passage's walker")?,
                 version: e.version(),
@@ -12408,6 +12424,88 @@ fn decode_runs(bytes: &[u8], tag: SectionTag) -> Result<civ_land::trains::Runs, 
         });
     }
     Ok(Runs::from_saved(lines, list, root.revision()))
+}
+
+/// Gas mains and connections (schema 186, M10b slice DY).
+fn encode_gas(gas: &civ_land::gas::Gas) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let mains: Vec<_> = gas
+        .mains
+        .iter()
+        .map(|m| {
+            let cells = fbb.create_vector(&m.cells);
+            save::GasMainSave::create(
+                &mut fbb,
+                &save::GasMainSaveArgs {
+                    id: m.id.get(),
+                    works: m.works.get(),
+                    cells: Some(cells),
+                    capacity_kg_h: m.capacity_kg_h,
+                    broken: m.broken,
+                },
+            )
+        })
+        .collect();
+    let connections: Vec<_> = gas
+        .connections
+        .iter()
+        .map(|c| {
+            save::GasConnectionSave::create(
+                &mut fbb,
+                &save::GasConnectionSaveArgs {
+                    building: c.building.get(),
+                    household: c.household.get(),
+                    main: c.main.get(),
+                    burners: c.burners,
+                    cut_off: c.cut_off,
+                    evening: c.evening,
+                    lit_from: c.lit_from,
+                    lit_until: c.lit_until,
+                    cause: c.cause.code(),
+                },
+            )
+        })
+        .collect();
+    let mains = fbb.create_vector(&mains);
+    let connections = fbb.create_vector(&connections);
+    let root = save::GasSave::create(
+        &mut fbb,
+        &save::GasSaveArgs {
+            mains: Some(mains),
+            connections: Some(connections),
+        },
+    );
+    finish(fbb, root)
+}
+
+/// Reads [`encode_gas`]'s section.
+fn decode_gas(bytes: &[u8], tag: SectionTag) -> Result<civ_land::gas::Gas, LoadError> {
+    use civ_land::gas::{Cause, Connection, Gas, Main};
+    let root = section_root::<save::GasSave>(bytes).map_err(|e| unreadable(tag, &e))?;
+    let mut gas = Gas::default();
+    for m in root.mains().iter().flatten() {
+        gas.mains.push(Main {
+            id: required(m.id(), "a gas main")?,
+            works: required(m.works(), "a gas main's works")?,
+            cells: m.cells().map(|v| v.iter().collect()).unwrap_or_default(),
+            capacity_kg_h: m.capacity_kg_h(),
+            broken: m.broken(),
+        });
+    }
+    for c in root.connections().iter().flatten() {
+        gas.connections.push(Connection {
+            building: required(c.building(), "a gas connection's building")?,
+            household: required(c.household(), "a gas connection's household")?,
+            main: required(c.main(), "a gas connection's main")?,
+            burners: c.burners(),
+            cut_off: c.cut_off(),
+            evening: c.evening(),
+            lit_from: c.lit_from(),
+            lit_until: c.lit_until(),
+            cause: Cause::from_code(c.cause()),
+        });
+    }
+    Ok(gas)
 }
 
 fn decode_boats(

@@ -204,3 +204,126 @@ fn a_retort_makes_gas_into_its_holder_and_what_has_no_room_goes_to_the_air() {
     assert!((settled[gas] - 150.0).abs() < 1e-9, "{} gas", settled[gas]);
     saves_alike(&mut sim);
 }
+
+/// Minutes from now to `after` minutes past the next dusk.
+fn to_dusk(sim: &Sim, after: i64) -> i64 {
+    let now = sim.now();
+    let doy = civ_land::day_of_year(now.day_index() + 1);
+    let (_, set) = civ_agents::needs::daylight(sim.rules().people.latitude_deg, doy);
+    (now.day_index() + 1) * 1_440 + set + after - now.minutes()
+}
+
+#[test]
+fn a_main_lights_its_connections_at_dusk_from_its_works_gas_and_names_why_not() {
+    use civ_land::gas::{Cause, Connection, Main};
+    let mut sim = world();
+    let at = to_dusk(&sim, 30);
+    sim.advance_minutes(at).expect("advances");
+    let (gas, holder, tallow, lamp, clay, wood) = (
+        index(&sim, "core:good/coal_gas"),
+        index(&sim, "core:good/gas_holder"),
+        index(&sim, "core:good/tallow"),
+        index(&sim, "core:good/fat_lamp"),
+        index(&sim, "core:good/clay"),
+        index(&sim, "core:good/firewood"),
+    );
+    let (works, _) = adult(&sim);
+    // A household of another building, and an adult of it.
+    let (home, consumer) = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.household != works)
+        .map(|b| (b.id, b.household))
+        .expect("another household's building");
+    let now = sim.now();
+    let maker = sim
+        .people()
+        .household(consumer)
+        .expect("household")
+        .members
+        .iter()
+        .copied()
+        .find(|&m| {
+            sim.people()
+                .person(m)
+                .is_some_and(|p| p.age_years(now) >= 20.0)
+        })
+        .expect("an adult");
+    set(&mut sim, works, holder, 1.0);
+    set(&mut sim, works, gas, 100.0);
+    let main = PermanentId::from_raw(990_001).expect("id");
+    {
+        let land = sim.land_mut_for_tests();
+        land.gas.mains.push(Main {
+            id: main,
+            works,
+            cells: Vec::new(),
+            capacity_kg_h: 1.0,
+            broken: false,
+        });
+        land.gas
+            .connections
+            .push(Connection::new(home, consumer, main, 2));
+    }
+    let evening = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.gas_evening_for_tests(ctx));
+        sim.land().gas.connections[0].clone()
+    };
+    let held = |sim: &Sim| sim.people().household(works).expect("works").stores[gas];
+    // Lit from now for four hours, two burners' gas drawn from the works.
+    let c = evening(&mut sim);
+    let t = sim.now().minutes();
+    assert_eq!(
+        (c.cause, c.lit_from, c.lit_until),
+        (Cause::Served, t, t + 240)
+    );
+    assert!(
+        (held(&sim) - (100.0 - 2.0 * 0.071 * 4.0)).abs() < 1e-9,
+        "{}",
+        held(&sim)
+    );
+    assert!(sim.land().gas.lit(consumer, t + 239) && !sim.land().gas.lit(works, t));
+    // Work at home after dark by the burners burns none of the household's tallow, and is the
+    // world's first light.
+    set(&mut sim, consumer, lamp, 1.0);
+    set(&mut sim, consumer, tallow, 1.0);
+    set(&mut sim, consumer, clay, 100.0);
+    set(&mut sim, consumer, wood, 100.0);
+    let pots = sim
+        .rules()
+        .catalog
+        .activities
+        .iter()
+        .position(|a| a.id == "core:activity/make_pots")
+        .expect("pots");
+    // Half an hour into the lit evening, 25 minutes of making ending now.
+    sim.advance_minutes(30).expect("advances");
+    sim.with_ctx_for_tests(|pop, ctx| pop.make_work_for_tests(ctx, maker, pots, 25));
+    let x = sim.people().household(consumer).expect("household");
+    assert_eq!(x.stores[tallow], 1.0, "no tallow burned under gas light");
+    assert!(sim.people().order.lamp_first_lit.is_some());
+    // Too little gas, too small a main, a broken main and a cut-off account each leave it dark,
+    // by their cause.
+    set(&mut sim, works, gas, 0.1);
+    assert_eq!(evening(&mut sim).cause, Cause::NoGas);
+    assert!(!sim.land().gas.lit(consumer, sim.now().minutes()));
+    set(&mut sim, works, gas, 100.0);
+    sim.land_mut_for_tests().gas.mains[0].capacity_kg_h = 0.1;
+    assert_eq!(evening(&mut sim).cause, Cause::Overloaded);
+    sim.land_mut_for_tests().gas.mains[0].capacity_kg_h = 1.0;
+    sim.land_mut_for_tests().gas.mains[0].broken = true;
+    assert_eq!(evening(&mut sim).cause, Cause::Broken);
+    sim.land_mut_for_tests().gas.mains[0].broken = false;
+    sim.land_mut_for_tests().gas.connections[0].cut_off = true;
+    assert_eq!(evening(&mut sim).cause, Cause::CutOff);
+    sim.land_mut_for_tests().gas.connections[0].cut_off = false;
+    // Left to the clock, the next dusk lights it again.
+    let at = to_dusk(&sim, 5);
+    sim.advance_minutes(at).expect("advances");
+    let c = sim.land().gas.connections[0].clone();
+    assert_eq!((c.cause, c.evening), (Cause::Served, sim.now().day_index()));
+    assert!(sim.land().gas.lit(consumer, sim.now().minutes()));
+    // Saved and loaded, every section (the gas records among them) comes back alike.
+    saves_alike(&mut sim);
+}

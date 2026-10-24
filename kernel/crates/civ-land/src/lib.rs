@@ -31,6 +31,7 @@ pub mod ditches;
 pub mod earth;
 pub mod enclosures;
 pub mod fields;
+pub mod gas;
 pub mod paths;
 pub mod pits;
 pub mod plans;
@@ -435,6 +436,9 @@ pub struct Land {
     /// Lines' passing loops and train runs (M10b slice DW, ADR-0034 §4): each run its line's own
     /// event chain, moved on with the clock. Saved.
     pub runs: trains::Runs,
+    /// Gas mains and the buildings connected to them (M10b slice DY, third part; ADR-0034 §8),
+    /// with each connection's last evening. Saved.
+    pub gas: gas::Gas,
     /// Water under the ground and the rivers' runoff store (M6a slice AY, ADR-0021 §1–§2): the
     /// heads and the store saved, the aquifer derived.
     pub water: Water,
@@ -676,6 +680,7 @@ impl Land {
             carts: boats::Boats::default(),
             wagons: boats::Boats::default(),
             runs: Default::default(),
+            gas: Default::default(),
             enclosures: enclosures::Enclosures::default(),
             water: Water::default(),
             wells: wells::Wells::default(),

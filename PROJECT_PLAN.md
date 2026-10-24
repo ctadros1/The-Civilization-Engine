@@ -6646,6 +6646,29 @@ and M6a gives rivers a daily flow.
       MJ, the rest lost; a day on the gas is still there; saved and loaded the world is alike; two
       whole holders hold 300 kg, a good no holder keeps is untouched, and a holder short of whole
       holds nothing.
+      *Split (2026-10-24):* the third part in two, as DX's third was: (3a) mains and connections
+      as records with the evening's check, (3b) mains laid by work along ways with each stretch's
+      keeper's leave.
+      *As built, third part, first step (2026-10-24): mains, connections and the evening.* A main
+      is a record: the household whose works feeds it, the cells it runs along, the most gas it
+      carries an hour and whether it is broken; a connection is a building's burners on a main,
+      its household, whether its account is cut off, and its last evening (saves 186: a `gas`
+      section and a pending `Gas` event). At dusk each day while any main is laid, each main's
+      district is checked (research 12-09 §5.2, a capacity check, not a flow solver): its
+      connections, in the order made, are lit for four hours (12-09 §2.3) while the main carries
+      their burners at 0.071 kg an hour each and its works' gas lasts, the gas served drawn from
+      the works' household's stores; the rest are not, each by its cause kept apart (§1.5): no
+      gas, the main overloaded, the main broken, the account cut off. A home whose burners are lit
+      is lit as a lamp lights it: making at home after dark there burns none of the household's
+      fuel, it is planned for as long as the burners burn, a lit home restores day sight to those
+      about and its members working by it add the lamp's escapes. A household-resolved day, lived
+      at midnight before its evening is checked, still lights by its lamp. Nobody knows gas
+      making, so no world changes. **Tested:** a main's connections are served while its
+      capacity and its works' gas last and the next is overloaded or without gas; lit from dusk
+      for four hours, two burners' gas (0.568 kg) is drawn from the works; making at home in the
+      lit evening burns no tallow and is the world's first light; too little gas, too small a
+      main, a broken main and a cut-off account each leave the home dark by their cause; left to
+      the clock the next dusk lights it again; saved and loaded every section comes back alike.
   - **M10c, services and letters** (ADR-0035 §1–§7).
     - **DZ**: care beyond the household: a call, tending another home, kin unasked, the `Fee`
       channel, reputation from claims.

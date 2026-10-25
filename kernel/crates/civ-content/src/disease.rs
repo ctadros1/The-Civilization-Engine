@@ -50,6 +50,20 @@ pub(crate) struct DiseaseFile {
     /// Techniques a carer may know that bring that relative risk lower still.
     #[serde(default)]
     pub treatment: Vec<TreatmentFile>,
+    /// Content API 185 (M10c slice ED): how it may be given on purpose, mildly, if it may.
+    #[serde(default)]
+    pub inoculation: Option<InoculationFile>,
+}
+
+/// An `[inoculation]` of a disease (M10c slice ED, second part): the technique that gives it, by
+/// content id; the share of a natural course's severe share an inoculated course has; and the
+/// chance a household believes its people would take it where it is near.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct InoculationFile {
+    pub technique: String,
+    pub deaths: f64,
+    pub believed_take: f64,
 }
 
 /// A `[[treatment]]` of a disease: a technique, by content id, and the relative risk of dying on
@@ -79,6 +93,14 @@ impl DiseaseFile {
             .iter()
             .map(|r| DiseaseRoute::from_key(r))
             .collect::<Option<Vec<_>>>()?;
+        let inoculation = match &self.inoculation {
+            Some(i) => Some(civ_agents::params::InoculationDef {
+                technique: technique(&i.technique)?,
+                deaths: i.deaths,
+                believed_take: i.believed_take,
+            }),
+            None => None,
+        };
         Some(DiseaseDef {
             id: self.id.clone(),
             name: self.name.clone(),
@@ -94,6 +116,7 @@ impl DiseaseFile {
             immunity_years: self.immunity_years,
             household_hazard: self.household_hazard,
             company_hazard: self.company_hazard,
+            inoculation,
             shed_ill_per_day: self.shed_ill_per_day,
             shed_silent_per_day: self.shed_silent_per_day,
             decay_per_day: self.decay_per_day,
@@ -147,6 +170,15 @@ impl DiseaseFile {
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        if let Some(i) = &self.inoculation {
+            for (name, v) in [("deaths", i.deaths), ("believed_take", i.believed_take)] {
+                if !(v.is_finite() && (0.0..=1.0).contains(&v)) {
+                    p.push(format!(
+                        "`inoculation.{name}` must be between 0 and 1 (got {v})"
+                    ));
+                }
             }
         }
         for t in &self.treatment {

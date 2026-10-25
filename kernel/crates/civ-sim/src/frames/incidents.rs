@@ -430,6 +430,9 @@ fn illness_happened(sim: &Sim, e: &Episode) -> String {
         Acquired::Water { source } => {
             format!(" in water drawn at {}", source_words(sim, source))
         }
+        Acquired::Inoculated { by } => {
+            format!(", inoculated by {}", sim.people().name_of(by))
+        }
         Acquired::Company { person } => {
             format!(
                 " in company at the hearth with {}",
@@ -1158,6 +1161,12 @@ fn caught_link(sim: &Sim, e: &Episode) -> Link {
                 super::people::household_name(sim, household)
             ),
         ),
+        Acquired::Inoculated { by } => Link(
+            CAUSED_BY,
+            TO_PERSON,
+            by.get(),
+            format!("inoculated by {}", sim.people().name_of(by)),
+        ),
         Acquired::Company { person } => Link(
             CAUSED_BY,
             TO_PERSON,
@@ -1754,6 +1763,7 @@ pub fn outbreak_response(sim: &Sim, id: u32, limit: usize) -> Option<Vec<u8>> {
             Acquired::Observer { .. } => (0, "brought by the observer".to_owned()),
             Acquired::Household { .. } => (1, "at home, from those who shed it".to_owned()),
             Acquired::Company { .. } => (3, "in company at the hearth".to_owned()),
+            Acquired::Inoculated { .. } => (4, "inoculated".to_owned()),
             Acquired::Water { source } => (
                 2,
                 format!("in water drawn at {}", source_words(sim, source)),

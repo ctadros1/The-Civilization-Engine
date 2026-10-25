@@ -1496,3 +1496,119 @@ fn smallpox_passes_in_company_at_the_hearth_to_those_of_other_homes() {
         assert!(other_homes, "resolved {resolved}: of another home");
     }
 }
+
+/// Where someone died of smallpox, a household with ties to them believes it near and calls one
+/// its members know who knows variolation; they come, and its people not protected take a mild
+/// course of it from them, inoculated; the call saves and loads (M10c slice ED, second part).
+#[test]
+fn a_household_that_believes_smallpox_near_calls_a_variolator_and_its_people_are_inoculated() {
+    let mut sim = village(1);
+    to_morning(&mut sim, 8 * 60);
+    let (index, _) = someone_with_family(&sim);
+    sim.plague(index, SMALLPOX).expect("brought");
+    let disease = sim
+        .rules()
+        .catalog
+        .disease_index(SMALLPOX)
+        .expect("smallpox") as u16;
+    let variolation = sim
+        .rules()
+        .catalog
+        .technique_index("core:technique/variolation")
+        .expect("variolation");
+    // Live until someone dies of it.
+    let mut dead = None;
+    for _ in 0..80 {
+        sim.advance_minutes(DAY).expect("lives");
+        dead = sim
+            .people()
+            .sickness
+            .episodes()
+            .iter()
+            .find(|e| e.disease == disease && matches!(e.ended, Some((_, Outcome::Died))))
+            .map(|e| e.person);
+        if dead.is_some() {
+            break;
+        }
+    }
+    let dead = dead.expect("someone died of smallpox");
+    let day = sim.now().day_index();
+    // A household of people tied to the dead, with someone of it not protected, and someone its
+    // members have ties with, of another household, alive and well, to learn variolation.
+    let people = sim.people();
+    let (home, member, variolator) = people
+        .households
+        .iter()
+        .find_map(|(_, x)| {
+            let tied = x
+                .members
+                .iter()
+                .any(|&m| people.ties.of(m).iter().any(|t| t.to == dead));
+            if !tied
+                || !x
+                    .members
+                    .iter()
+                    .any(|&m| !people.sickness.protected(m, disease, day))
+            {
+                return None;
+            }
+            x.members.iter().find_map(|&m| {
+                let v = people.ties.of(m).iter().map(|t| t.to).find(|&v| {
+                    people.person(v).is_some_and(|p| {
+                        p.household != x.id
+                            && !people.sickness.ill(v, day)
+                            && people
+                                .household(p.household)
+                                .is_some_and(|y| y.settlement == x.settlement)
+                    })
+                })?;
+                Some((x.id, m, v))
+            })
+        })
+        .expect("a household tied to the dead, and a variolator they know");
+    let now = sim.now();
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.id == variolator {
+            p.come_to_know(variolation, civ_agents::person::KnowSource::Observer, now);
+        }
+    }
+    let theirs = sim.people().person(variolator).expect("alive").household;
+    let called =
+        sim.with_ctx_for_tests(|pop, ctx| pop.inoculation_call_for_tests(ctx, member, home));
+    assert_eq!(
+        called,
+        Some(theirs),
+        "they would call the variolator's household"
+    );
+    // They call, and the variolator comes: its people not protected take it, inoculated by them.
+    let mut saved = false;
+    let mut inoculated = Vec::new();
+    for _ in 0..14 {
+        sim.advance_minutes(DAY / 4).expect("lives");
+        if !saved && !sim.people().sickness.inoculation_calls.is_empty() {
+            let loaded = reloaded(&mut sim);
+            assert_eq!(
+                loaded.people().sickness.inoculation_calls,
+                sim.people().sickness.inoculation_calls
+            );
+            saved = true;
+        }
+        inoculated = sim
+            .people()
+            .sickness
+            .episodes()
+            .iter()
+            .filter(|e| e.acquired == civ_agents::sickness::Acquired::Inoculated { by: variolator })
+            .map(|e| (e.person, e.household))
+            .collect();
+        if !inoculated.is_empty() {
+            break;
+        }
+    }
+    assert!(saved, "the call stood at a quarter-day");
+    assert!(!inoculated.is_empty(), "someone was inoculated");
+    assert!(
+        inoculated.iter().all(|&(_, h)| h == Some(home)),
+        "{inoculated:?}"
+    );
+}

@@ -1781,3 +1781,10 @@ Content API 184 (M10c slice ED, first part) adds the disease route `company` (in
 hearth with someone shedding it) and a disease's `company_hazard`, the hazard an hour in company
 with one shedding it puts on each met (0 to 10; default 0). The core adds `disease/smallpox`,
 passing at home and in company, which no world has until the observer brings it.
+
+Content API 185 (M10c slice ED, second part) adds a disease's `[inoculation]`: the `technique`
+that gives it on purpose (by content id), `deaths` (the share of a natural course's severe share an
+inoculated course has, 0 to 1) and `believed_take` (the chance a household believes its people
+would take it where it is near, 0 to 1; it calls an inoculator only where `deaths` is below it).
+The technique gates work (E3005). The core gives smallpox variolation at 0.127 (Jurin's 2.1/16.6)
+and 0.5, and adds `technique/variolation`.

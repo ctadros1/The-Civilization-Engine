@@ -7,7 +7,7 @@ settlements. M9's 100,000-person performance target was not met; see §7 and §9
 result and amended gate. **M10a, power and the works, and M10b, rail and gas light, are
 implemented** (slices DO–DY). **M10c, services and letters, is in progress:** care beyond the
 household (DZ), birth care (EA), teaching (EB) and letters and records (EC) are implemented;
-inoculation (ED) has begun, and the health office remains ahead. M2's portable kernel library and C interface are
+inoculation (ED) is under way (smallpox, variolation), and the health office remains ahead. M2's portable kernel library and C interface are
 implemented; the Unreal client remains future work. Modern civilization remains future scope. See
 §7 for milestone scope and §9 for implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
@@ -7100,6 +7100,26 @@ and M6a gives rivers a daily flow.
       to people of other homes, in both resolutions; by the third evening the day's company is
       kept, and saves and loads alike; the content's routes and that no other disease passes in
       company.
+      *As built, second part (2026-10-25): variolation.* A disease may name how it is given on
+      purpose (`[inoculation]`, content API 185): the technique that gives it, the share of a
+      natural course's severe share an inoculated one has, and the chance a household believes
+      its people would take it where it is near (a design prior). Smallpox's is variolation
+      (`core:technique/variolation`, nobody brings it, tending counting toward finding it as for
+      fluid replacement, learnt in 50 hours beside a knower), at Jurin's 2.1/16.6 (05-05 §2.1),
+      and a half. An inoculated course (`Inoculated`, by whom) is the disease's own with that
+      share severe, and sheds and can pass as any. While such a disease runs, a household that
+      believes it near (someone its members have ties or kin with died of it within the sickness
+      spell: the cause of a death is read as known to those close to the dead, as the chronicle
+      names it; claims of sickness name no disease) and weighs the inoculated course's deaths
+      below the chance it believes its people would take it, with members not protected, calls
+      someone it knows who knows the technique, kin asking nothing and others the call's fee
+      (saves 199: calls to inoculate, apart from calls to tend). They come as to tend, and at
+      the session each member not protected and not ill takes the mild course from them, the fee
+      is paid and the call answered; a call lapses after a fortnight or once nothing is wanted.
+      The weighing is the household's, not each member's own. **Tested:** an inoculated course
+      is severe the disease's share less often (20,000 draws); where someone died of smallpox,
+      a household tied to them calls a variolator its member knows, the call saves and loads,
+      and within days its people take smallpox inoculated by them; the content.
     - **EE**: the health office and the sickhouse: register and rounds, `keep_apart`,
       `clear_middens`, the sickhouse's pool and capacity; the observer's service views. From EC:
       an office whose holder must know a technique (the register's keeper, writing), and a

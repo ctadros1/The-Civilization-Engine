@@ -58,6 +58,9 @@ pub enum Acquired {
     Water { source: crate::contagion::Node },
     /// From company at the hearth with someone shedding it (M10c slice ED): that person.
     Company { person: PermanentId },
+    /// Given on purpose to protect from it, a mild course (M10c slice ED, second part): by
+    /// whom.
+    Inoculated { by: PermanentId },
 }
 
 impl Acquired {
@@ -67,6 +70,7 @@ impl Acquired {
             Acquired::Observer { influence } => (0, u64::from(influence)),
             Acquired::Household { household } => (1, household.get()),
             Acquired::Company { person } => (32, person.get()),
+            Acquired::Inoculated { by } => (33, by.get()),
             Acquired::Water { source } => match source {
                 crate::contagion::Node::Well(w) => (2, w.get()),
                 crate::contagion::Node::Reach(r) => (3, u64::from(r)),
@@ -92,6 +96,9 @@ impl Acquired {
             }),
             32 => Some(Acquired::Company {
                 person: PermanentId::from_raw(n)?,
+            }),
+            33 => Some(Acquired::Inoculated {
+                by: PermanentId::from_raw(n)?,
             }),
             c @ 4.. => Some(Acquired::Water {
                 source: crate::contagion::Node::from_code(c - 4, n)?,
@@ -141,6 +148,18 @@ pub struct Course {
 
 /// The course of an infection of `def` taken on day `day` by someone `age` years old.
 pub fn course(def: &DiseaseDef, age: f64, day: i64, rng: &mut Rng64) -> Course {
+    course_with(def, age, day, rng, 1.0)
+}
+
+/// The course of an infection, its share severely ill times `severe_factor` (an inoculated
+/// course's, M10c slice ED).
+pub fn course_with(
+    def: &DiseaseDef,
+    age: f64,
+    day: i64,
+    rng: &mut Rng64,
+    severe_factor: f64,
+) -> Course {
     let days = |x: f64| x.round().max(0.0) as i64;
     let onset = day + days(def.incubation.at(normal(rng))).max(1);
     let symptomatic = rng.next_f64() < def.symptomatic;
@@ -154,7 +173,8 @@ pub fn course(def: &DiseaseDef, age: f64, day: i64, rng: &mut Rng64) -> Course {
     let shed_len = days(def.shed.at(normal(rng))).max(1);
     let after = days(def.shed_after.at(normal(rng)));
     let shed_until = (shed_from + shed_len).max(if symptomatic { ill_until + after } else { 0 });
-    let severe = symptomatic && rng.next_f64() < interpolate(&def.severe_by_age, age);
+    let severe =
+        symptomatic && rng.next_f64() < interpolate(&def.severe_by_age, age) * severe_factor;
     let [lo, hi] = def.immunity_years;
     let years = lo + rng.next_f64() * (hi - lo).max(0.0);
     let immune_until = shed_until.max(ill_until) + (years * 365.0).round() as i64;
@@ -323,6 +343,9 @@ pub struct Sickness {
     outbreaks: Vec<Outbreak>,
     /// Calls for carers that stand, in the order made (M10c slice DZ).
     pub calls: Vec<CareCall>,
+    /// Calls for someone to inoculate a household's people that stand, in the order made (M10c
+    /// slice ED, second part).
+    pub inoculation_calls: Vec<CareCall>,
     /// The last day each person tended someone ill, while it is recent enough to matter to a
     /// birth they attend (M10c slice EA).
     pub tended: BTreeMap<PermanentId, i64>,
@@ -563,6 +586,7 @@ mod tests {
             immunity_years: [3.0, 10.0],
             household_hazard: 0.03,
             company_hazard: 0.0,
+            inoculation: None,
             shed_ill_per_day: 1000.0,
             shed_silent_per_day: 10.0,
             decay_per_day: 0.2,
@@ -595,6 +619,28 @@ mod tests {
         assert!(
             (c.rr(&d, 5) - 0.05).abs() < 1e-6,
             "a treatment a carer knew"
+        );
+    }
+
+    #[test]
+    fn an_inoculated_course_is_severe_the_disease_s_share_less_often() {
+        // M10c slice ED, second part: Jurin's 2.1/16.6 of a natural course's severe share.
+        let d = cholera();
+        let (mut natural, mut inoculated) = (0, 0);
+        let n = 20_000;
+        for i in 0..n {
+            let mut rng = Rng64::from_key(&[7, i]);
+            natural += usize::from(course(&d, 30.0, 0, &mut rng).severe);
+            let mut rng = Rng64::from_key(&[7, i]);
+            inoculated += usize::from(course_with(&d, 30.0, 0, &mut rng, 0.127).severe);
+        }
+        let share = |k: usize| k as f64 / n as f64;
+        let severe = d.symptomatic * interpolate(&d.severe_by_age, 30.0);
+        assert!((share(natural) - severe).abs() < 0.01, "{}", share(natural));
+        assert!(
+            (share(inoculated) - severe * 0.127).abs() < 0.005,
+            "{}",
+            share(inoculated)
         );
     }
 

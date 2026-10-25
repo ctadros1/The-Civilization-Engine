@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 184;
+pub const KERNEL_CONTENT_API: u32 = 185;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1394,6 +1394,12 @@ fn resolve(
                 missing(c, parsed, &d.rel, "technique", &t.technique);
             }
         }
+        // And the technique that gives it on purpose (M10c slice ED).
+        if let Some(i) = &d.file.inoculation
+            && technique_index(&i.technique).is_none()
+        {
+            missing(c, parsed, &d.rel, "inoculation.technique", &i.technique);
+        }
         if let Some(def) = d.file.def(technique_index) {
             diseases.push(def);
         }
@@ -1589,6 +1595,12 @@ fn knowledge_problems(
                 .diseases
                 .iter()
                 .flat_map(|d| &d.file.treatment)
+                .any(|x| x.technique == def.id)
+            // Or the disease it gives on purpose (M10c slice ED).
+            || parsed
+                .diseases
+                .iter()
+                .filter_map(|d| d.file.inoculation.as_ref())
                 .any(|x| x.technique == def.id)
             // Or the deaths in childbirth it prevents at a birth its knower attends (M10c slice
             // EA).

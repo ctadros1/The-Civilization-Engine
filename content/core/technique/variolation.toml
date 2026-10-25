@@ -1,0 +1,22 @@
+# Variolation: giving someone a little matter from a smallpox sore, scratched into the skin, so that
+# they take a mild course of it and are protected after (M10c slice ED, second part; ADR-0035 §4;
+# research 05-05 §2.1: Jurin's 2.1% died after inoculation against 16.6% of natural cases; §4:
+# written of in China by 1549, with Ottoman and African traditions besides). Nobody brings it.
+# Tending counts 1 % of its hours toward finding it, half of those needing 100,000 qualified hours:
+# a far technique, as fluid replacement is (a tuning value). One who knows it practises it as they
+# inoculate, and one who does not learns it in 50 hours beside a member of their household who does
+# (a design prior inside 07-02 §2.3's 20-200 for a narrow procedure); children learn it at home.
+kind = "technique"
+id = "core:technique/variolation"
+name = "Variolation"
+can = "give someone a mild smallpox from a sore's matter, so that they are protected after"
+domain = ""
+requires = []
+tried_in = ["core:activity/work_tending_the_sick"]
+needs = []
+e50_h = 100000.0
+learn_h = 50.0
+upbringing = true
+
+[answers]
+spoilage = []

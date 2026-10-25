@@ -62,6 +62,7 @@ mod gas;
 mod holds;
 mod ideology;
 mod influence;
+mod inoculation;
 mod knowledge;
 mod lamps;
 mod land;

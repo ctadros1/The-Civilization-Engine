@@ -529,6 +529,8 @@ pub const SCHEMA_V195: u32 = 195;
 pub const SCHEMA_V196: u32 = 196;
 /// Deaths in unknowing paid care, before the day's company kept for a disease passing by it.
 pub const SCHEMA_V197: u32 = 197;
+/// The day's company kept, before calls to inoculate.
+pub const SCHEMA_V198: u32 = 198;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

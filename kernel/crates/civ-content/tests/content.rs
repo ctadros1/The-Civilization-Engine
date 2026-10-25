@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 184
+kernel_content_api = 185
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2781,5 +2781,32 @@ fn the_core_has_smallpox_passing_at_home_and_in_company() {
             .iter()
             .filter(|x| x.id != d.id)
             .all(|x| !x.passes_by(DiseaseRoute::Company) && x.company_hazard == 0.0)
+    );
+}
+
+#[test]
+fn smallpox_may_be_given_by_variolation_which_nobody_brings() {
+    // M10c slice ED, second part (content API 185): Jurin's 2.1/16.6, a technique tending finds.
+    let reg = registry(load(&repo_content()));
+    let c = &reg.catalog;
+    let d = &c.diseases[c.disease_index("core:disease/smallpox").expect("smallpox")];
+    let i = d.inoculation.expect("its inoculation");
+    assert_eq!(c.techniques[i.technique].id, "core:technique/variolation");
+    assert!((i.deaths - 2.1 / 16.6).abs() < 0.001, "{}", i.deaths);
+    assert!(i.deaths < i.believed_take);
+    assert!(
+        !reg.people
+            .params
+            .knowledge
+            .founders
+            .iter()
+            .any(|&(t, _)| t == i.technique)
+    );
+    // No other disease may be given on purpose.
+    assert!(
+        c.diseases
+            .iter()
+            .filter(|x| x.id != d.id)
+            .all(|x| x.inoculation.is_none())
     );
 }

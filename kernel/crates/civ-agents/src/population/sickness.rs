@@ -14,7 +14,7 @@ use crate::contagion::Node;
 use crate::decide::{CallFacts, TendFacts};
 use crate::influence::InfluenceKind;
 use crate::params::{COMPLICATIONS, Complication, DiseaseRoute};
-use crate::sickness::{Acquired, CareCall, Outcome, SickDraw, course, sickness_rng};
+use crate::sickness::{Acquired, CareCall, Outcome, SickDraw, course_with, sickness_rng};
 use crate::{Cause, Repro};
 
 /// An outbreak is over only once less than this much of its disease is left with its
@@ -451,7 +451,8 @@ impl Population {
                 });
             }
         }
-        best
+        // Else a household that called theirs to inoculate its people (M10c slice ED).
+        best.or_else(|| self.inoculation_tend(ctx, who, x, field_key))
     }
 
     /// Person `who` sat `minutes` with the members of household `household` ill at home (their
@@ -469,6 +470,10 @@ impl Population {
         def: u16,
         minutes: u32,
     ) {
+        // Come to inoculate (M10c slice ED, second part).
+        if self.inoculate_at(ctx, who, household, def, minutes) {
+            return;
+        }
         let day = ctx.now.day_index();
         let (Some(x), Some(carer)) = (self.household(household), self.person(who)) else {
             return;
@@ -626,6 +631,7 @@ impl Population {
     ) -> Option<CallFacts> {
         self.care_call_facts(ctx, who, x, field_key)
             .or_else(|| self.birth_call_facts(ctx, who, x, field_key))
+            .or_else(|| self.inoculation_call_facts(ctx, who, x, field_key))
     }
 
     /// The care owed household `x`'s ill today beyond what its well members of tending age can
@@ -675,7 +681,7 @@ impl Population {
     }
 
     /// The households of those person `who` or any of household `x` has ties with.
-    fn tie_households(&self, who: PermanentId, x: &Household) -> Vec<PermanentId> {
+    pub(super) fn tie_households(&self, who: PermanentId, x: &Household) -> Vec<PermanentId> {
         let mut tied: Vec<PermanentId> = std::iter::once(who)
             .chain(x.members.iter().copied())
             .flat_map(|m| self.ties.of(m))
@@ -692,7 +698,7 @@ impl Population {
     /// for tending `x`'s members hold of someone there. The walk is counted from `field_key`'s
     /// travel field; `short` and `birth` are what the call is for.
     #[allow(clippy::too_many_arguments)]
-    fn choose_carer(
+    pub(super) fn choose_carer(
         &self,
         ctx: &Ctx,
         x: &Household,
@@ -844,6 +850,8 @@ impl Population {
         {
             true
         } else {
+            // Else to inoculate its people (M10c slice ED, second part).
+            self.call_inoculator(ctx, caller, carer);
             return;
         };
         let kin = x
@@ -1085,6 +1093,7 @@ impl Population {
     fn lapse_calls(&mut self, ctx: &Ctx, day: i64) {
         let days = ctx.params.mortality.birth.fever_harm_days;
         self.sickness.tended.retain(|_, d| day - *d <= days);
+        self.lapse_inoculation_calls(ctx, day);
         if self.sickness.calls.is_empty() {
             return;
         }
@@ -1175,7 +1184,7 @@ impl Population {
     }
 
     /// `person` takes `disease` on `day`, as `acquired` says: their course is drawn now.
-    fn infect(
+    pub(super) fn infect(
         &mut self,
         ctx: &Ctx,
         person: PermanentId,
@@ -1188,7 +1197,12 @@ impl Population {
         let (age, given) = (p.age_years(ctx.now), p.given.clone());
         let settlement = self.household(p.household).and_then(|x| x.settlement);
         let mut rng = sickness_rng(ctx.seed, person, day, disease, SickDraw::Course);
-        let c = course(def, age, day, &mut rng);
+        // An inoculated course is milder by the disease's inoculation (M10c slice ED).
+        let factor = match (acquired, def.inoculation) {
+            (Acquired::Inoculated { .. }, Some(i)) => i.deaths,
+            _ => 1.0,
+        };
+        let c = course_with(def, age, day, &mut rng, factor);
         let home = p.household;
         let i = self
             .sickness

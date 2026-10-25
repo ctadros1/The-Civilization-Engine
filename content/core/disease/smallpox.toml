@@ -44,3 +44,13 @@ decay_per_day = 1.0
 # Care as for any illness: two hours a day, 0.95 as deadly (05-05 §2.2, a low-confidence prior).
 care_h_per_day = 2.0
 care_rr = 0.95
+
+# Variolation (M10c slice ED, second part; content API 185; 05-05 §2.1): given on purpose by one
+# who knows it, a course whose share severely ill is 2.1/16.6 of a natural one's (Jurin's
+# eighteenth-century figures: 2.1% died after inoculation against 16.6% of natural cases), which
+# sheds and can pass as any. A household weighs its people's inoculated deaths against the chance
+# it believes they would take it where it is near, a half (a design prior).
+[inoculation]
+technique = "core:technique/variolation"
+deaths = 0.127
+believed_take = 0.5

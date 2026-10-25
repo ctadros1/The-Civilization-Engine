@@ -130,7 +130,8 @@ use super::{
     SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, SCHEMA_V180,
     SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, SCHEMA_V187,
     SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, SCHEMA_V194,
-    SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, finish, section, section_root,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -908,11 +909,11 @@ pub(super) fn decode<R: Read + Seek>(
         // Mains' lengths laid (schema 187), their worth (188) and street lamps (189) are read
         // wherever saved, as are calls for carers (190), who tended the ill (191), births
         // attended (192), enrolments to learn (193), households untaught (194), written records
-        // (195), where each is kept (196), deaths in unknowing paid care (197) and the day's
-        // company kept (198).
+        // (195), where each is kept (196), deaths in unknowing paid care (197), the day's
+        // company kept (198) and calls to inoculate (199).
         SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SCHEMA_V190 | SCHEMA_V191
         | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SCHEMA_V196 | SCHEMA_V197
-        | SAVE_SCHEMA_VERSION => Schema::V186,
+        | SCHEMA_V198 | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -12966,6 +12967,14 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
     };
     let calls = fbb.create_vector(&calls_of(false));
     let birth_calls = fbb.create_vector(&calls_of(true));
+    // Calls to inoculate (schema 199, M10c slice ED).
+    let inoculation_calls: Vec<_> = people
+        .sickness
+        .inoculation_calls
+        .iter()
+        .map(|c| save::CareCallSave::new(c.caller.get(), c.carer.get(), c.fee_kcal, c.day, c.paid))
+        .collect();
+    let inoculation_calls = fbb.create_vector(&inoculation_calls);
     let attended: Vec<_> = people
         .sickness
         .attended
@@ -13022,6 +13031,7 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
             attended: Some(attended),
             unknowing: Some(unknowing),
             met: Some(met),
+            inoculation_calls: Some(inoculation_calls),
         },
     );
     finish(fbb, root)
@@ -14026,6 +14036,25 @@ fn decode_sickness(
             day: a.day(),
             lived: a.lived(),
         });
+    }
+    // Calls to inoculate (schema 199): none in older saves.
+    for c in root.inoculation_calls().into_iter().flatten() {
+        let (Some(caller), Some(carer)) = (
+            PermanentId::from_raw(c.caller()),
+            PermanentId::from_raw(c.carer()),
+        ) else {
+            continue;
+        };
+        sickness
+            .inoculation_calls
+            .push(civ_agents::sickness::CareCall {
+                caller,
+                carer,
+                fee_kcal: c.fee_kcal(),
+                day: c.day(),
+                paid: c.paid(),
+                birth: false,
+            });
     }
     // Deaths in unknowing paid care (schema 197): none in older saves; one of a disease the
     // loaded content no longer has is let go.

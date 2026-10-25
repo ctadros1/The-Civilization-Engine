@@ -56240,6 +56240,7 @@ impl<'a> SicknessSave<'a> {
   pub const VT_ATTENDED: ::flatbuffers::VOffsetT = 14;
   pub const VT_UNKNOWING: ::flatbuffers::VOffsetT = 16;
   pub const VT_MET: ::flatbuffers::VOffsetT = 18;
+  pub const VT_INOCULATION_CALLS: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -56251,6 +56252,7 @@ impl<'a> SicknessSave<'a> {
     args: &'args SicknessSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<SicknessSave<'bldr>> {
     let mut builder = SicknessSaveBuilder::new(_fbb);
+    if let Some(x) = args.inoculation_calls { builder.add_inoculation_calls(x); }
     if let Some(x) = args.met { builder.add_met(x); }
     if let Some(x) = args.unknowing { builder.add_unknowing(x); }
     if let Some(x) = args.attended { builder.add_attended(x); }
@@ -56319,6 +56321,13 @@ impl<'a> SicknessSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, CompanySave>>>(SicknessSave::VT_MET, None)}
   }
+  #[inline]
+  pub fn inoculation_calls(&self) -> Option<::flatbuffers::Vector<'a, CareCallSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, CareCallSave>>>(SicknessSave::VT_INOCULATION_CALLS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for SicknessSave<'_> {
@@ -56335,6 +56344,7 @@ impl ::flatbuffers::Verifiable for SicknessSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, AttendedSave>>>("attended", Self::VT_ATTENDED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<UnknowingSave>>>>("unknowing", Self::VT_UNKNOWING, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, CompanySave>>>("met", Self::VT_MET, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, CareCallSave>>>("inoculation_calls", Self::VT_INOCULATION_CALLS, false)?
      .finish();
     Ok(())
   }
@@ -56348,6 +56358,7 @@ pub struct SicknessSaveArgs<'a> {
     pub attended: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, AttendedSave>>>,
     pub unknowing: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<UnknowingSave<'a>>>>>,
     pub met: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, CompanySave>>>,
+    pub inoculation_calls: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, CareCallSave>>>,
 }
 impl<'a> Default for SicknessSaveArgs<'a> {
   #[inline]
@@ -56361,6 +56372,7 @@ impl<'a> Default for SicknessSaveArgs<'a> {
       attended: None,
       unknowing: None,
       met: None,
+      inoculation_calls: None,
     }
   }
 }
@@ -56403,6 +56415,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SicknessSaveBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SicknessSave::VT_MET, met);
   }
   #[inline]
+  pub fn add_inoculation_calls(&mut self, inoculation_calls: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , CareCallSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SicknessSave::VT_INOCULATION_CALLS, inoculation_calls);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SicknessSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SicknessSaveBuilder {
@@ -56428,6 +56444,7 @@ impl ::core::fmt::Debug for SicknessSave<'_> {
       ds.field("attended", &self.attended());
       ds.field("unknowing", &self.unknowing());
       ds.field("met", &self.met());
+      ds.field("inoculation_calls", &self.inoculation_calls());
       ds.finish()
   }
 }

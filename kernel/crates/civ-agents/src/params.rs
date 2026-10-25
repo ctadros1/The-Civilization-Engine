@@ -931,6 +931,18 @@ impl DiseaseRoute {
     }
 }
 
+/// Inoculation with a disease (M10c slice ED, second part; research 05-05 §2.1): the technique
+/// that gives it, by index in the catalog's techniques; the share of a natural infection's severe
+/// share an inoculated course has (Jurin's 2.1% against 16.6% died); and the chance a household
+/// believes those of it would take it where it is near (a design prior), against which it weighs
+/// the inoculated course's deaths.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct InoculationDef {
+    pub technique: usize,
+    pub deaths: f64,
+    pub believed_take: f64,
+}
+
 /// A duration a disease's clock draws, days: lognormal with this arithmetic mean and standard
 /// deviation (research 05-03 §7.3); a standard deviation of 0 is the mean exactly.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -988,6 +1000,9 @@ pub struct DiseaseDef {
     /// The hazard an hour in company at the hearth with one shedding it puts on each they meet
     /// (M10c slice ED; content API 184), summed with the day's other hazards.
     pub company_hazard: f64,
+    /// How it may be given on purpose to protect from it, mildly (M10c slice ED, second part;
+    /// content API 185), if it may.
+    pub inoculation: Option<InoculationDef>,
     /// What someone sheds of it a day while ill, and while shedding without symptoms, in doses: a
     /// dose drunk is a hazard of 1 (12-02 §5.4's exponential dose-response with its rate folded
     /// into the unit).

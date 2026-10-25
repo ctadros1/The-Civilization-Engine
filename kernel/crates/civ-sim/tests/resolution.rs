@@ -673,3 +673,98 @@ fn a_skip_stops_at_the_first_entry_of_a_kind_marked() {
         "nothing marked stops nothing"
     );
 }
+
+/// In a household-resolved settlement, an adult who does not know a craft a member of their
+/// household knows works beside them at it and learns it, as in a Detailed day (M10c slice EB,
+/// first part; ADR-0035 §5): learning beside a household member was closed there, every other
+/// member being parked while one was planned. A variant of the core content in which knapping is
+/// learnt only beside a knapper, quickly enough for a test; a household of two grown knappers, one
+/// of whom forgets it, with no sickles and flint and wood to make them.
+#[test]
+fn a_household_resolved_day_lets_someone_learn_beside_a_knower_of_their_household() {
+    for resolved in [false, true] {
+        let mut variant = content().clone();
+        let knapping = variant
+            .catalog
+            .technique_index("core:technique/knapping")
+            .expect("knapping");
+        variant.catalog.techniques[knapping].upbringing = false;
+        variant.catalog.techniques[knapping].learn_h = 2.0;
+        let mut sim = Sim::create_for_tests(
+            &NewWorld {
+                name: "Resolutions".to_owned(),
+                seed: 3,
+                preset_id: "core:worldgen/river_valley".to_owned(),
+                size_cells: 768,
+                band_size: 30,
+                neighbours: Vec::new(),
+                neighbours_known: true,
+                regime_id: String::new(),
+            },
+            &variant,
+            [7; 16],
+        )
+        .expect("generates");
+        let now = sim.now();
+        let pop = sim.people();
+        let (household, learner) = pop
+            .households
+            .iter()
+            .map(|(_, h)| h)
+            .filter_map(|h| {
+                let grown: Vec<_> = h
+                    .members
+                    .iter()
+                    .filter_map(|m| pop.person(*m))
+                    .filter(|p| p.age_years(now) >= 16.0 && p.knows(knapping))
+                    .collect();
+                (grown.len() >= 2).then(|| (h.id, grown[1].id))
+            })
+            .min_by_key(|(h, _)| *h)
+            .expect("a household with two grown knappers");
+        let goods = sim.rules().catalog.goods.clone();
+        let good = |id: &str| goods.iter().position(|g| g.id == id).expect(id);
+        let (sickle, toolstone, timber) = (
+            good("core:good/sickle"),
+            good("core:good/toolstone"),
+            good("core:good/timber"),
+        );
+        if resolved {
+            sim.advance_to_midnight().expect("advances");
+            let settlements: Vec<_> = sim.land().settlements.iter().map(|s| s.id).collect();
+            sim.set_household_resolved(settlements);
+            sim.advance_minutes(1).expect("advances");
+            sim.advance_to_midnight().expect("advances");
+            assert!(!sim.household_resolved().is_empty(), "household-resolved");
+        }
+        let pop = sim.people_mut_for_tests();
+        for (_, p) in pop.people.iter_mut() {
+            if p.id == learner {
+                p.knows.retain(|k| usize::from(k.technique) != knapping);
+            }
+        }
+        for (_, h) in pop.households.iter_mut() {
+            if h.id == household {
+                h.stores[sickle] = 0.0;
+                h.stores[toolstone] += 20.0;
+                h.stores[timber] += 20.0;
+            }
+        }
+        let mut learnt = false;
+        for _ in 0..60 {
+            sim.advance_minutes(MINUTES_PER_DAY).expect("advances");
+            if sim
+                .people()
+                .person(learner)
+                .is_some_and(|p| p.knows(knapping))
+            {
+                learnt = true;
+                break;
+            }
+        }
+        assert!(
+            learnt,
+            "resolved {resolved}: the learner learnt knapping beside a knapper"
+        );
+    }
+}

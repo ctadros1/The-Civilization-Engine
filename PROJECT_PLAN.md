@@ -1,12 +1,13 @@
 # The Civilization Engine: Project Plan
 
 Status: plan of record, written 2026-09-27 from the planning interview.
-Implementation status (2026-10-22): **M0–M9 are implemented**, from early settlements and their
+Implementation status (2026-10-25): **M0–M9 are implemented**, from early settlements and their
 institutions through large cities, transport, planning, land and household resolution across many
 settlements. M9's 100,000-person performance target was not met; see §7 and §9 for the measured
-result and amended gate. **M10a, power and the works, is in progress:** river-powered installations,
-powered recipes and household-built water mills are implemented through slice DR part 3; shared
-mill services, fuel and iron works remain ahead. M2's portable kernel library and C interface are
+result and amended gate. **M10a, power and the works, and M10b, rail and gas light, are
+implemented** (slices DO–DY). **M10c, services and letters, is in progress:** care beyond the
+household (DZ) and birth care (EA) are implemented; teaching (EB) has begun, and letters,
+inoculation and the health office remain ahead. M2's portable kernel library and C interface are
 implemented; the Unreal client remains future work. Modern civilization remains future scope. See
 §7 for milestone scope and §9 for implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
@@ -6910,7 +6911,28 @@ and M6a gives rivers a daily flow.
       for her craft, and the attendant's page says two births attended, every mother living.
       **Slice EA is done.**
     - **EB**: teaching and study settled at midnight, working alongside recorded the same way (the
-      parked-learning claim checked first), schools and `keep_a_school`.
+      parked-learning claim checked first), schools and `keep_a_school`. Planned (2026-10-25) in
+      three parts: (1) working alongside in a household-resolved day; (2) teaching and study for
+      others than one's household, enrolment and fees; (3) schools kept by law and the observer.
+      *The finding, checked by running (2026-10-25):* in a household-resolved day every member is
+      parked while another is planned, and learning beside a household member opened only while
+      that member was at the same work now, so it never opened there. A world in which knapping is
+      learnt only beside a knapper, a household of two grown knappers one of whom forgets it, with
+      no sickles and flint and wood to make them: Detailed, the forgetful one learns it again
+      within days; household-resolved, in sixty days never.
+      *As built, first part (2026-10-25): working alongside in a household-resolved day.* While a
+      household-resolved day is lived, someone who does not know a technique may take up work
+      that needs it where a member of their household knows it and the household's knowers have
+      room for another learner (`knowledge.max_learners` each); whether that knower works at it
+      that day is settled as the day is lived. Their hours at it are held rather than credited
+      at once, as are the hours the household's knowers give it; when the settlement's day has
+      been lived, each learner is credited the hours they gave it, up to their share of what the
+      knowers gave times the learners each may have, from the household's most skilled knower,
+      whom they saw at the craft (ADR-0035 §5's credit settled with the day, amending ADR-0008
+      §4; nothing is saved, the day being lived at once at midnight). Detailed days are as they
+      were. This changes worlds where a household-resolved settlement has an adult who lacks a
+      technique a member of their household knows, as it was meant to. **Tested:** the finding's
+      world learns knapping again in both resolutions.
     - **EC**: letters and records: reading, writing and reckoning as techniques, written records as
       saved entities, office requirements, licences as privileges.
     - **ED**: inoculation: the `Company` route, smallpox by the observer's hand, variolation and

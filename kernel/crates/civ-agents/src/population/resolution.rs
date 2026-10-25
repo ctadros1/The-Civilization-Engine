@@ -642,6 +642,9 @@ impl Population {
             }
             // The works' machines whose crews came today run (M10a slice DT).
             self.run_held_crews(ctx);
+            // Those who worked beside a knower of their household learn by the hours both gave
+            // (M10c slice EB).
+            self.credit_alongside(ctx);
             // Company at the hearth: each who kept it meets those of the pool (ADR-0032 §2).
             let mut pool: Vec<PermanentId> = company.iter().map(|c| c.0).collect();
             pool.sort_unstable();

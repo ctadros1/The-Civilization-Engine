@@ -121,6 +121,72 @@ impl Population {
         self.knower_in(ctx, who.household, t, Some(who.id), None)
     }
 
+    /// Whether person `who`, of household `household`, may learn technique `t` beside a member
+    /// of it in a household-resolved day (M10c slice EB, first part; ADR-0035 §5): someone of
+    /// it knows it, and fewer of it are learning it today than its knowers' room for learners.
+    /// The most skilled knower is named; whether they work at it is settled when the day is
+    /// lived.
+    fn alongside_teacher(
+        &self,
+        ctx: &Ctx,
+        who: PermanentId,
+        household: PermanentId,
+        t: usize,
+    ) -> Option<PermanentId> {
+        let hh = self.household(household)?;
+        let knowers = hh
+            .members
+            .iter()
+            .filter(|&&m| m != who)
+            .filter_map(|&m| self.person(m))
+            .filter(|q| q.knows(t))
+            .count();
+        let learning = self.alongside.learners(household, t, who);
+        let room = knowers * ctx.params.knowledge.max_learners as usize;
+        (learning < room)
+            .then(|| self.knower_in(ctx, household, t, Some(who), None))
+            .flatten()
+    }
+
+    /// Those who worked beside a knower of their household in the household-resolved day just
+    /// lived (M10c slice EB, first part; ADR-0035 §5, amending ADR-0008 §4): each learner of a
+    /// technique at a household is credited the hours they gave it, up to their share of what
+    /// its knowers there gave it times the learners each may have; learnt so, they know it from
+    /// that household's most skilled knower, whom they saw at the craft.
+    pub(super) fn credit_alongside(&mut self, ctx: &mut Ctx) {
+        let held = std::mem::take(&mut self.alongside);
+        let max = f64::from(ctx.params.knowledge.max_learners);
+        let now = ctx.now;
+        for (household, t, learners) in held.groups() {
+            let given = held.held(household, t);
+            if given <= 0.0 || learners.is_empty() {
+                continue;
+            }
+            let share = given * max / learners.len() as f64;
+            for (who, hours) in learners {
+                let credit = hours.min(share);
+                let Some(teacher) = self.knower_in(ctx, household, t, Some(who), None) else {
+                    continue;
+                };
+                let learn_h = ctx.catalog.techniques.get(t).map_or(1.0, |d| d.learn_h);
+                let learnt = self
+                    .person_mut_by_id(who)
+                    .is_some_and(|p| !p.knows(t) && p.learn(t, credit, teacher, learn_h, now));
+                self.note_tie(
+                    ctx,
+                    who,
+                    teacher,
+                    crate::ties::Act::LearnedFrom,
+                    credit,
+                    0.0,
+                );
+                if learnt {
+                    self.on_known(ctx, who, t, KnowSource::Taught(teacher));
+                }
+            }
+        }
+    }
+
     /// Whether person `who` may do activity `def` aimed at `target`, which needs technique `t`
     /// (ADR-0008 §4). A child who has reached the age of a work learnt in upbringing does it as
     /// their household does, and comes to know it at once. Someone who does not know it may work
@@ -140,6 +206,13 @@ impl Population {
             return self
                 .firm(f)
                 .and_then(|firm| self.knower_in(ctx, firm.owner, t, Some(who.id), None))
+                .map_or(Gate::Closed, Gate::Learner);
+        }
+        // In a household-resolved day every other member is parked while one is planned: a
+        // knower of the household stands in for one at the work (M10c slice EB, first part).
+        if self.resolving {
+            return self
+                .alongside_teacher(ctx, who.id, who.household, t)
                 .map_or(Gate::Closed, Gate::Learner);
         }
         let Some(hh) = self.household(who.household) else {
@@ -187,6 +260,12 @@ impl Population {
             return;
         };
         if p.knows(t) {
+            // In a household-resolved day, hours a knower gives it there are what those beside
+            // them learn by (M10c slice EB, first part).
+            if self.resolving {
+                let household = p.household;
+                self.alongside.give(household, t, hours);
+            }
             if let Some(p) = self.person_mut_by_id(who) {
                 p.practised(t, now);
             }
@@ -208,6 +287,16 @@ impl Population {
             .activities
             .get(usize::from(def))
             .is_some_and(|a| a.behavior == Behavior::Hire);
+        // Beside a knower of their household in a household-resolved day, the hours are held
+        // until the day is lived (M10c slice EB, first part).
+        if self.resolving && !hired {
+            if self.alongside.is_learning(household, t, who)
+                || self.alongside_teacher(ctx, who, household, t).is_some()
+            {
+                self.alongside.attend(household, t, who, hours);
+            }
+            return;
+        }
         let teacher = match (hired, target) {
             (true, Target::Firm(f)) => self
                 .firm(f)
@@ -1083,4 +1172,65 @@ fn working(q: &Person, def: u16, target: Target) -> bool {
             q.act.steps.get(q.act.step as usize),
             Some(Step::Work { .. })
         )
+}
+
+/// Those learning a technique at a household, each with the hours they gave it.
+type Learners = Vec<(PermanentId, f64)>;
+
+/// Hours given a technique in a household-resolved day, by household (M10c slice EB, first part):
+/// by those learning it there, each, and by those knowing it there, together.
+#[derive(Debug, Default)]
+pub(crate) struct Alongside {
+    learning: std::collections::BTreeMap<(PermanentId, usize), Learners>,
+    held: std::collections::BTreeMap<(PermanentId, usize), f64>,
+}
+
+impl Alongside {
+    /// How many of household `household` other than `who` are learning technique `t` today.
+    pub(crate) fn learners(&self, household: PermanentId, t: usize, who: PermanentId) -> usize {
+        self.learning
+            .get(&(household, t))
+            .map_or(0, |l| l.iter().filter(|(q, _)| *q != who).count())
+    }
+
+    /// Whether `who` of household `household` is learning technique `t` today.
+    pub(crate) fn is_learning(&self, household: PermanentId, t: usize, who: PermanentId) -> bool {
+        self.learning
+            .get(&(household, t))
+            .is_some_and(|l| l.iter().any(|(q, _)| *q == who))
+    }
+
+    /// `who` of household `household` gave `hours` to learning technique `t`.
+    pub(crate) fn attend(
+        &mut self,
+        household: PermanentId,
+        t: usize,
+        who: PermanentId,
+        hours: f64,
+    ) {
+        let list = self.learning.entry((household, t)).or_default();
+        match list.iter_mut().find(|(q, _)| *q == who) {
+            Some((_, h)) => *h += hours,
+            None => list.push((who, hours)),
+        }
+    }
+
+    /// A knower of household `household` gave `hours` to technique `t`.
+    pub(crate) fn give(&mut self, household: PermanentId, t: usize, hours: f64) {
+        *self.held.entry((household, t)).or_default() += hours;
+    }
+
+    /// The hours household `household`'s knowers gave technique `t`.
+    pub(crate) fn held(&self, household: PermanentId, t: usize) -> f64 {
+        self.held.get(&(household, t)).copied().unwrap_or(0.0)
+    }
+
+    /// Each household and technique learnt there today, with its learners and their hours, in
+    /// order.
+    pub(crate) fn groups(&self) -> Vec<(PermanentId, usize, Learners)> {
+        self.learning
+            .iter()
+            .map(|(&(h, t), l)| (h, t, l.clone()))
+            .collect()
+    }
 }

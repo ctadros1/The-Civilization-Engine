@@ -571,6 +571,11 @@ pub struct Population {
     /// wants worked it ([`Self::run_held_crews`]). Filled and emptied within
     /// [`Self::live_household_days`] only, never saved.
     crew_held: Vec<firm::HeldSession>,
+    /// Hours worked beside a household's knowers in a household-resolved day (M10c slice EB,
+    /// first part; ADR-0035 §5): by those learning a technique, and by those knowing it, at each
+    /// household, credited when the day is lived ([`Self::credit_alongside`]). Filled and emptied
+    /// within [`Self::live_household_days`] only, never saved.
+    alongside: knowledge::Alongside,
     /// Whether a household-resolved day is being lived, and whether a held crew's run is under
     /// way (its crew already counted).
     resolving: bool,

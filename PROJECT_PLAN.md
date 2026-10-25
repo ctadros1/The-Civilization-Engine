@@ -6889,6 +6889,26 @@ and M6a gives rivers a daily flow.
       and dies of fever where it is all fever, chronicled so; where half of births kill by fever,
       an attendant fresh from tending the ill kills her, and one who also knows clean hands
       does not; who tended the ill saves and loads.
+      *As built, second part (2026-10-24): calling an attendant.* Every birth someone attends is
+      kept: who attended, the mother's household, the day and whether she lived (saves 192). A
+      household with a woman due within a week (`BIRTH_CALL_DAYS`, a tuning value) and nobody of
+      its own or her close kin nearby who knows a technique of birth care calls, with the `call`
+      behaviour, the household of someone it knows attended a birth, in its own home or the home
+      of someone its members have ties with: kin asking no fee, others the fee for a day of care,
+      weighed by repute against the walk as a carer is. The call stands (apart from calls to tend
+      the ill, saved apart) until the birth, while someone of the household is with child, for at
+      most two weeks. At the birth someone of the household called who knows birth care may
+      attend her as kin of hers would; the fee is paid then, through `Fee`, the call answered, and
+      the mother's household see what came of the attendant's care as of a carer's
+      (`tended_lived`, `tended_died`). A person's care words say the births they attended and how
+      the mothers fared, and the calls to attend a birth their household made or answers. A world
+      where nobody knows birth care is unchanged. **Tested:** a household whose mother is due in
+      three days, with nobody to attend her, calls the household of an adult it saw attend a
+      birth in its home, for a day's fee; the call saves and loads; at the birth, which kills
+      every mother unattended here, that adult attends and she lives; it is kept as the
+      attendant's, the fee is paid, the call answered, the mother holds the attendant in esteem
+      for her craft, and the attendant's page says two births attended, every mother living.
+      **Slice EA is done.**
     - **EB**: teaching and study settled at midnight, working alongside recorded the same way (the
       parked-learning claim checked first), schools and `keep_a_school`.
     - **EC**: letters and records: reading, writing and reckoning as techniques, written records as

@@ -10,12 +10,12 @@
 //! household had sickness from a day, told as any word is (M6a slice BA, ADR-0021 §6).
 
 use super::*;
-use crate::Cause;
 use crate::contagion::Node;
 use crate::decide::{CallFacts, TendFacts};
 use crate::influence::InfluenceKind;
 use crate::params::{COMPLICATIONS, Complication, DiseaseRoute};
 use crate::sickness::{Acquired, CareCall, Outcome, SickDraw, course, sickness_rng};
+use crate::{Cause, Repro};
 
 /// An outbreak is over only once less than this much of its disease is left with its
 /// settlement's households, doses: drunk whole, less than a dose is a hazard under one (a design
@@ -31,6 +31,10 @@ pub const CALL_FEE_FOOD_DAYS: f64 = 0.5;
 /// (M10c slice DZ, third part; a tuning value: a carer whose tended lived twice is worth a
 /// twenty-minute longer walk than one nobody has seen tend).
 pub const REPUTE_WALK_MIN: f64 = 10.0;
+
+/// Days before a birth is due within which a household with nobody to attend it calls an
+/// attendant (M10c slice EA, second part; a tuning value: a due date is known to within weeks).
+pub const BIRTH_CALL_DAYS: i64 = 7;
 
 impl Population {
     /// The day's turn for infections (see the module documentation).
@@ -480,7 +484,7 @@ impl Population {
             self.visit_exposure(ctx, who, household, day);
             let carer_home = self.person(who).map(|p| p.household);
             if let Some(home) = carer_home {
-                self.pay_care_fee(ctx, household, home, day);
+                self.pay_care_fee(ctx, household, home, day, false);
             }
         }
     }
@@ -572,6 +576,28 @@ impl Population {
             .count()
     }
 
+    /// Whom person `who` of household `x` would call (M10c slice DZ, second part; ADR-0035 §2):
+    /// someone to tend its ill, else someone to attend a birth due (slice EA, second part).
+    pub(super) fn call_facts(
+        &self,
+        ctx: &Ctx,
+        who: PermanentId,
+        x: &Household,
+        field_key: PermanentId,
+    ) -> Option<CallFacts> {
+        self.care_call_facts(ctx, who, x, field_key)
+            .or_else(|| self.birth_call_facts(ctx, who, x, field_key))
+    }
+
+    /// The care owed household `x`'s ill today beyond what its well members of tending age can
+    /// give, each at most one.
+    fn care_short(&self, ctx: &Ctx, x: &Household) -> f64 {
+        if self.sickness.quiet() {
+            return 0.0;
+        }
+        self.care_owed(ctx, &x.members, None) - self.able_carers(ctx, &x.members) as f64
+    }
+
     /// Whom person `who` of household `x` would call to tend its ill (M10c slice DZ, second part;
     /// ADR-0035 §2): only where the care owed at home is more than its well members of tending
     /// age can give, each at most one, and it has no call standing. Kin of any of its members
@@ -580,25 +606,20 @@ impl Population {
     /// it must hold, the nearest less [`REPUTE_WALK_MIN`] for each unit of repute for tending its
     /// members hold of someone there (the third part); of each, a household with someone able to
     /// tend, the walk counted from `field_key`'s travel field.
-    pub(super) fn call_facts(
+    fn care_call_facts(
         &self,
         ctx: &Ctx,
         who: PermanentId,
         x: &Household,
         field_key: PermanentId,
     ) -> Option<CallFacts> {
-        if self.sickness.quiet() || self.sickness.call_of(x.id).is_some() {
+        if self.sickness.call_of(x.id).is_some() {
             return None;
         }
-        let short =
-            self.care_owed(ctx, &x.members, None) - self.able_carers(ctx, &x.members) as f64;
+        let short = self.care_short(ctx, x);
         if short <= 1e-9 {
             return None;
         }
-        let reach = &self.homes.get(&field_key)?.reach;
-        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
-        let fee = self.call_fee(ctx, x);
-        let pays = stock_kcal(&stores_now(x, now, params, goods), goods) >= fee;
         let mut kin: Vec<PermanentId> = x
             .members
             .iter()
@@ -607,28 +628,56 @@ impl Population {
             .collect();
         kin.sort_unstable();
         kin.dedup();
-        let mut tied: Vec<PermanentId> = if pays {
-            std::iter::once(who)
-                .chain(x.members.iter().copied())
-                .flat_map(|m| self.ties.of(m))
-                .filter_map(|t| self.person(t.to).map(|q| q.household))
-                .filter(|h| kin.binary_search(h).is_err())
-                .collect()
-        } else {
-            Vec::new()
-        };
+        let tied = self.tie_households(who, x);
+        let able = |y: &Household| self.able_carers(ctx, &y.members) > 0;
+        self.choose_carer(ctx, x, field_key, &kin, &tied, &able, short, false)
+    }
+
+    /// The households of those person `who` or any of household `x` has ties with.
+    fn tie_households(&self, who: PermanentId, x: &Household) -> Vec<PermanentId> {
+        let mut tied: Vec<PermanentId> = std::iter::once(who)
+            .chain(x.members.iter().copied())
+            .flat_map(|m| self.ties.of(m))
+            .filter_map(|t| self.person(t.to).map(|q| q.household))
+            .collect();
         tied.sort_unstable();
         tied.dedup();
+        tied
+    }
+
+    /// Of the households `kin` (asking no fee) and then `tied` (asking [`Population::call_fee`],
+    /// which household `x` must hold), other than `x` and those `able` refuses, the one to call:
+    /// kin first, the nearest; then the nearest less [`REPUTE_WALK_MIN`] for each unit of repute
+    /// for tending `x`'s members hold of someone there. The walk is counted from `field_key`'s
+    /// travel field; `short` and `birth` are what the call is for.
+    #[allow(clippy::too_many_arguments)]
+    fn choose_carer(
+        &self,
+        ctx: &Ctx,
+        x: &Household,
+        field_key: PermanentId,
+        kin: &[PermanentId],
+        tied: &[PermanentId],
+        able: &dyn Fn(&Household) -> bool,
+        short: f64,
+        birth: bool,
+    ) -> Option<CallFacts> {
+        let reach = &self.homes.get(&field_key)?.reach;
+        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let pays = stock_kcal(&stores_now(x, now, params, goods), goods) >= self.call_fee(ctx, x);
+        let tied = tied
+            .iter()
+            .filter(|h| pays && kin.binary_search(h).is_err());
         let mut best: Option<(bool, f64, CallFacts)> = None;
-        for (asks_fee, h) in kin
-            .into_iter()
+        for (asks_fee, &h) in kin
+            .iter()
             .map(|h| (false, h))
-            .chain(tied.into_iter().map(|h| (true, h)))
+            .chain(tied.map(|h| (true, h)))
         {
             let Some(y) = self.household(h).filter(|y| y.id != x.id) else {
                 continue;
             };
-            if self.able_carers(ctx, &y.members) == 0 {
+            if !able(y) {
                 continue;
             }
             let Some(secs) = reach.seconds_to(cell_of(ctx.map, y.home)) else {
@@ -650,11 +699,87 @@ impl Population {
                         at: y.home,
                         walk_min,
                         short,
+                        birth,
                     },
                 ));
             }
         }
         best.map(|(_, _, c)| c)
+    }
+
+    /// Whether a woman of household `x` is due to give birth within [`BIRTH_CALL_DAYS`] and
+    /// nobody of her household or her close kin of her settlement knows a technique of birth
+    /// care to attend her (M10c slice EA, second part).
+    fn birth_due_unattended(&self, ctx: &Ctx, x: &Household) -> bool {
+        let soon = ctx
+            .now
+            .plus_minutes(BIRTH_CALL_DAYS * civ_core::time::MINUTES_PER_DAY);
+        let knows = |q: PermanentId| {
+            self.person(q).is_some_and(|p| {
+                ctx.catalog
+                    .techniques
+                    .iter()
+                    .enumerate()
+                    .any(|(t, d)| p.knows(t) && d.birth.iter().any(|&e| e > 0.0))
+            })
+        };
+        x.members.iter().any(|&m| {
+            self.person(m).is_some_and(
+                |p| matches!(p.repro, Repro::Pregnant { due, loss: false, .. } if due <= soon),
+            ) && !x.members.iter().any(|&q| q != m && knows(q))
+                && !self.close_kin(m).into_iter().any(|k| {
+                    knows(k)
+                        && self
+                            .person(k)
+                            .and_then(|q| self.household(q.household))
+                            .is_some_and(|y| y.settlement == x.settlement)
+                })
+        })
+    }
+
+    /// Whom person `who` of household `x` would call to attend a birth due (M10c slice EA,
+    /// second part; ADR-0035 §2-§3): where a woman of it is due within [`BIRTH_CALL_DAYS`] with
+    /// nobody of her own or her close kin nearby who knows birth care, and it has no such call
+    /// standing, the household of someone the household knows attended a birth, in its own home
+    /// or the home of someone its members have ties with: kin asking no fee, others the fee for
+    /// a day of care, paid at the birth.
+    fn birth_call_facts(
+        &self,
+        ctx: &Ctx,
+        who: PermanentId,
+        x: &Household,
+        field_key: PermanentId,
+    ) -> Option<CallFacts> {
+        if self.sickness.attended.is_empty()
+            || self.sickness.birth_call_of(x.id).is_some()
+            || !self.birth_due_unattended(ctx, x)
+        {
+            return None;
+        }
+        let tied = self.tie_households(who, x);
+        let day = ctx.now.day_index();
+        // Attendants it has heard of, living and well, by their households now.
+        let mut known: Vec<PermanentId> = self
+            .sickness
+            .attended
+            .iter()
+            .filter(|a| a.household == x.id || tied.binary_search(&a.household).is_ok())
+            .filter(|a| !self.sickness.ill(a.attendant, day))
+            .filter_map(|a| self.person(a.attendant).map(|q| q.household))
+            .collect();
+        known.sort_unstable();
+        known.dedup();
+        let mut kin: Vec<PermanentId> = x
+            .members
+            .iter()
+            .flat_map(|&m| self.close_kin(m))
+            .filter_map(|k| self.person(k).map(|q| q.household))
+            .filter(|h| known.binary_search(h).is_ok())
+            .collect();
+        kin.sort_unstable();
+        kin.dedup();
+        let any = |_: &Household| true;
+        self.choose_carer(ctx, x, field_key, &kin, &known, &any, 1.0, true)
     }
 
     /// The food household `x` offers for a day of care by someone not of its kin, kcal.
@@ -667,11 +792,17 @@ impl Population {
     /// kin of someone of the carer, else [`Population::call_fee`]. A household has one call
     /// standing at most.
     pub(super) fn call_carer(&mut self, ctx: &Ctx, caller: PermanentId, carer: PermanentId) {
-        if self.sickness.call_of(caller).is_some() {
-            return;
-        }
         self.refresh_kin();
         let (Some(x), Some(y)) = (self.household(caller), self.household(carer)) else {
+            return;
+        };
+        // For its ill where they are short of care, else for a birth due (M10c slice EA).
+        let birth = if self.sickness.call_of(caller).is_none() && self.care_short(ctx, x) > 1e-9 {
+            false
+        } else if self.sickness.birth_call_of(caller).is_none() && self.birth_due_unattended(ctx, x)
+        {
+            true
+        } else {
             return;
         };
         let kin = x
@@ -689,6 +820,7 @@ impl Population {
             fee_kcal,
             day: ctx.now.day_index(),
             paid: -1,
+            birth,
         });
     }
 
@@ -696,13 +828,17 @@ impl Population {
     /// (M10c slice DZ, second part), once a day, in food through the [`Channel::Fee`] channel,
     /// the least keeping first. One that cannot pay it all pays what it holds, and its call
     /// lapses.
-    fn pay_care_fee(&mut self, ctx: &Ctx, caller: PermanentId, carer: PermanentId, day: i64) {
-        let Some(i) = self
-            .sickness
-            .calls
-            .iter()
-            .position(|c| c.caller == caller && c.carer == carer && c.paid < day)
-        else {
+    fn pay_care_fee(
+        &mut self,
+        ctx: &Ctx,
+        caller: PermanentId,
+        carer: PermanentId,
+        day: i64,
+        birth: bool,
+    ) {
+        let Some(i) = self.sickness.calls.iter().position(|c| {
+            c.caller == caller && c.carer == carer && c.paid < day && c.birth == birth
+        }) else {
             return;
         };
         self.sickness.calls[i].paid = day;
@@ -750,7 +886,9 @@ impl Population {
             self.changed(carer);
         }
         if want > 1e-6 {
-            self.sickness.calls.retain(|c| c.caller != caller);
+            self.sickness
+                .calls
+                .retain(|c| c.caller != caller || c.birth != birth);
         }
     }
 
@@ -779,6 +917,16 @@ impl Population {
         let settlement = self.household(home)?.settlement;
         self.refresh_kin();
         let mut near: Vec<PermanentId> = self.household(home)?.members.clone();
+        // And the household it called to attend (the second part).
+        let called: Vec<PermanentId> = self
+            .sickness
+            .calls
+            .iter()
+            .filter(|c| c.birth && c.caller == home)
+            .filter_map(|c| self.household(c.carer))
+            .flat_map(|y| y.members.iter().copied())
+            .collect();
+        near.extend(called);
         near.extend(self.close_kin(mother).into_iter().filter(|&k| {
             self.person(k)
                 .and_then(|q| self.household(q.household))
@@ -827,10 +975,57 @@ impl Population {
         Some((who, e, harmed))
     }
 
+    /// Person `attendant` attended a birth in household `home` on `day`, the mother having `lived`
+    /// or not (M10c slice EA, second part): it is kept as their record; the household's call for
+    /// an attendant is answered, its fee paid where the attendant came on it; and where the
+    /// attendant is of another household, its members see what came of their care, as of a
+    /// carer's ([`Population::note_tended`]).
+    pub(super) fn birth_attended(
+        &mut self,
+        ctx: &Ctx,
+        attendant: PermanentId,
+        home: PermanentId,
+        day: i64,
+        lived: bool,
+    ) {
+        self.sickness.attended.push(crate::sickness::BirthAttended {
+            attendant,
+            household: home,
+            day,
+            lived,
+        });
+        let Some(theirs) = self.person(attendant).map(|p| p.household) else {
+            return;
+        };
+        if theirs == home {
+            self.sickness
+                .calls
+                .retain(|c| !(c.birth && c.caller == home));
+            return;
+        }
+        self.pay_care_fee(ctx, home, theirs, day, true);
+        self.sickness
+            .calls
+            .retain(|c| !(c.birth && c.caller == home));
+        let act = if lived {
+            crate::ties::Act::TendedLived
+        } else {
+            crate::ties::Act::TendedDied
+        };
+        let members = self
+            .household(home)
+            .map(|x| x.members.clone())
+            .unwrap_or_default();
+        for m in members {
+            self.note_tie(ctx, m, attendant, act, 1.0, 0.0);
+        }
+    }
+
     /// Calls for carers lapse at the day's turn (M10c slice DZ, second part): once nobody of the
-    /// household that called is ill, once it or the household it called is no more, or once the
-    /// word's spell has passed since it called. Who tended the ill is forgotten once it no longer
-    /// matters to a birth (M10c slice EA).
+    /// household that called is ill (for a birth, once nobody of it is with child), once it or
+    /// the household it called is no more, or once the word's spell has passed since it called
+    /// (for a birth, twice the days it calls before one is due). Who tended the ill is forgotten
+    /// once it no longer matters to a birth (M10c slice EA).
     fn lapse_calls(&mut self, ctx: &Ctx, day: i64) {
         let days = ctx.params.mortality.birth.fever_harm_days;
         self.sickness.tended.retain(|_, d| day - *d <= days);
@@ -842,11 +1037,20 @@ impl Population {
         let kept = calls
             .into_iter()
             .filter(|c| {
-                day - c.day <= spell
+                let wanted = |m: PermanentId| {
+                    if c.birth {
+                        self.person(m)
+                            .is_some_and(|p| matches!(p.repro, Repro::Pregnant { .. }))
+                    } else {
+                        self.sickness.ill(m, day)
+                    }
+                };
+                let lasts = if c.birth { 2 * BIRTH_CALL_DAYS } else { spell };
+                day - c.day <= lasts
                     && self.household(c.carer).is_some()
                     && self
                         .household(c.caller)
-                        .is_some_and(|x| x.members.iter().any(|&m| self.sickness.ill(m, day)))
+                        .is_some_and(|x| x.members.iter().any(|&m| wanted(m)))
             })
             .collect();
         self.sickness.calls = kept;

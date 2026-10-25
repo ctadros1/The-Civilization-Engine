@@ -130,7 +130,7 @@ use super::{
     SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, SCHEMA_V180,
     SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, SCHEMA_V187,
     SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, SCHEMA_V194,
-    SCHEMA_V195, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V195, SCHEMA_V196, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -908,11 +908,10 @@ pub(super) fn decode<R: Read + Seek>(
         // Mains' lengths laid (schema 187), their worth (188) and street lamps (189) are read
         // wherever saved, as are calls for carers (190), who tended the ill (191), births
         // attended (192), enrolments to learn (193), households untaught (194), written records
-        // (195) and where each is kept (196).
+        // (195), where each is kept (196) and deaths in unknowing paid care (197).
         SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SCHEMA_V190 | SCHEMA_V191
-        | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SAVE_SCHEMA_VERSION => {
-            Schema::V186
-        }
+        | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SCHEMA_V196
+        | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2361,6 +2360,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::LoadsCarried => 31,
         IssueKind::DarkTakings => 32,
         IssueKind::Untaught => 33,
+        IssueKind::UnknowingCare => 34,
     }
 }
 
@@ -2501,6 +2501,7 @@ fn decode_polities(
                 31 => IssueKind::LoadsCarried,
                 32 => IssueKind::DarkTakings,
                 33 => IssueKind::Untaught,
+                34 => IssueKind::UnknowingCare,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -12977,6 +12978,30 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
         .map(|(p, &d)| save::TendedSave::new(p.get(), d))
         .collect();
     let tended = fbb.create_vector(&tended);
+    // Deaths in unknowing paid care (schema 197, M10c slice EC, third part).
+    let unknowing: Vec<_> = people
+        .sickness
+        .unknowing
+        .iter()
+        .map(|u| {
+            let disease = fbb.create_string(
+                rules
+                    .catalog
+                    .diseases
+                    .get(usize::from(u.disease))
+                    .map_or("", |d| d.id.as_str()),
+            );
+            save::UnknowingSave::create(
+                &mut fbb,
+                &save::UnknowingSaveArgs {
+                    household: u.household.get(),
+                    disease: Some(disease),
+                    day: u.day,
+                },
+            )
+        })
+        .collect();
+    let unknowing = fbb.create_vector(&unknowing);
     let root = save::SicknessSave::create(
         &mut fbb,
         &save::SicknessSaveArgs {
@@ -12986,6 +13011,7 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
             tended: Some(tended),
             birth_calls: Some(birth_calls),
             attended: Some(attended),
+            unknowing: Some(unknowing),
         },
     );
     finish(fbb, root)
@@ -13971,6 +13997,23 @@ fn decode_sickness(
             day: a.day(),
             lived: a.lived(),
         });
+    }
+    // Deaths in unknowing paid care (schema 197): none in older saves; one of a disease the
+    // loaded content no longer has is let go.
+    for u in root.unknowing().iter().flatten() {
+        let (Some(household), Some(disease)) = (
+            PermanentId::from_raw(u.household()),
+            rules.catalog.disease_index(u.disease().unwrap_or_default()),
+        ) else {
+            continue;
+        };
+        sickness
+            .unknowing
+            .push(civ_agents::sickness::UnknowingCare {
+                household,
+                disease: disease as u16,
+                day: u.day(),
+            });
     }
     // Who tended the ill lately (schema 191, M10c slice EA): none in older saves.
     for t in root.tended().iter().flatten() {

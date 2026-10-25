@@ -535,6 +535,11 @@ impl Population {
         } else {
             crate::ties::Act::TendedDied
         };
+        // A death in the care of one paid, not kin, who knew no treatment of it, is remembered a
+        // year (M10c slice EC, third part).
+        if !lived {
+            self.note_unknowing(ctx, e, carer, home, &members);
+        }
         for m in members.into_iter().filter(|&m| m != e.person) {
             self.note_tie(ctx, m, carer, act, 1.0, 0.0);
         }
@@ -628,7 +633,9 @@ impl Population {
             .collect();
         kin.sort_unstable();
         kin.dedup();
-        let tied = self.tie_households(who, x);
+        let mut tied = self.tie_households(who, x);
+        // Under a licence, only those who know its technique are paid to tend (M10c slice EC).
+        tied.retain(|&h| self.household(h).is_none_or(|y| self.licensed(ctx, x, y)));
         let able = |y: &Household| self.able_carers(ctx, &y.members) > 0;
         self.choose_carer(ctx, x, field_key, &kin, &tied, &able, short, false)
     }

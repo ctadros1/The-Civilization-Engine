@@ -7,8 +7,8 @@ settlements. M9's 100,000-person performance target was not met; see §7 and §9
 result and amended gate. **M10a, power and the works, and M10b, rail and gas light, are
 implemented** (slices DO–DY). **M10c, services and letters, is in progress:** care beyond the
 household (DZ), birth care (EA) and teaching (EB) are implemented; letters (EC) are under way
-(techniques, records written, read, kept, burned and copied), and inoculation and the health
-office remain ahead. M2's portable kernel library and C interface are
+(techniques, records written, read, kept, burned and copied, licences to practise care), and
+inoculation and the health office remain ahead. M2's portable kernel library and C interface are
 implemented; the Unreal client remains future work. Modern civilization remains future scope. See
 §7 for milestone scope and §9 for implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
@@ -7042,6 +7042,26 @@ and M6a gives rivers a daily flow.
       chronicled; saved and loaded with where each is kept; the kin household joining the
       writer's, its copy passes to the writer's. Not tested on its own: a household that is no
       more leaving its records behind.
+      *As built, third part (2026-10-25): licences to practise care.* When someone dies in the
+      care of a carer of another household who is kin of none of theirs, and so was paid, and who
+      knew no treatment of the disease, the household remembers it a year (saves 197, in the
+      sickness section). Where a household of a polity holds such a memory and someone grown of
+      the settlement knows a treatment of that disease, anyone may propose a licence, a new
+      policy kind `licence` answering the issue `unknowing_care` (content API 183: a template's
+      `[licence] technique`): only those who know its technique may be paid to tend the sick
+      (ADR-0035 §6; ADR-0026 §3; research 05-05 §2's licensed midwives). A household weighs it by
+      the deaths it remembers whose disease that technique treats, each as a death avoided
+      (`suspicion.w_death` days of work at what an hour of its work brings, as for closing a
+      source). In force, a household calling for someone to tend its ill for a fee calls only a
+      household where someone knows the technique; kin, who ask none, are called as before. The
+      core's `policy/yourselves_work_with_carers_who_know` asks fluid replacement. A licence for
+      attending births is not built: a birth call already goes only to someone who knows a
+      technique of birth care. Office requirements and why a household sends a child to learn
+      letters remain for the fourth part. **Tested:** a household's remembered death in
+      unknowing paid care puts nothing before the gathering while nobody knows a treatment, and,
+      once a neighbour knows fluid replacement, a licence that asks it, answering the issue; in
+      force, the household may pay only a household where someone knows it; the memory saves and
+      loads. Not tested on its own: the memory's making at a death in paid care.
     - **ED**: inoculation: the `Company` route, smallpox by the observer's hand, variolation and
       vaccination with protection records.
     - **EE**: the health office and the sickhouse: register and rounds, `keep_apart`,

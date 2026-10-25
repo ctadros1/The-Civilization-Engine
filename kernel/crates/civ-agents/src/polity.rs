@@ -174,11 +174,15 @@ pub enum PolicyKind {
     /// children of the polity's households to learn a technique they know without a fee, and is
     /// paid for the hours taught where work is paid.
     KeepSchool,
+    /// A licence to practise (M10c slice EC, third part; ADR-0035 §6; ADR-0026 §3; brief
+    /// m10-services §3.4): only those who know its technique may be paid to tend the sick; kin,
+    /// who ask no fee, are untouched.
+    Licence,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 35] = [
+    pub const ALL: [PolicyKind; 36] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -214,6 +218,7 @@ impl PolicyKind {
         PolicyKind::BuildLine,
         PolicyKind::LightStreets,
         PolicyKind::KeepSchool,
+        PolicyKind::Licence,
     ];
 
     /// The authored name.
@@ -254,6 +259,7 @@ impl PolicyKind {
             PolicyKind::BuildLine => "build_line",
             PolicyKind::LightStreets => "light_streets",
             PolicyKind::KeepSchool => "keep_a_school",
+            PolicyKind::Licence => "licence",
         }
     }
 
@@ -378,11 +384,15 @@ pub enum IssueKind {
     /// it lacked within a year, and someone of the settlement knows it (M10c slice EB, third
     /// part): what `keep_a_school` answers.
     Untaught,
+    /// Within the year someone of a household of the polity died in the care of one it paid who
+    /// knew no treatment of their sickness, and someone grown of the settlement knows one (M10c
+    /// slice EC, third part): what `licence` answers.
+    UnknowingCare,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 34] = [
+    pub const ALL: [IssueKind; 35] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -417,6 +427,7 @@ impl IssueKind {
         IssueKind::LoadsCarried,
         IssueKind::DarkTakings,
         IssueKind::Untaught,
+        IssueKind::UnknowingCare,
     ];
 
     /// The authored name.
@@ -456,6 +467,7 @@ impl IssueKind {
             IssueKind::LoadsCarried => "loads_carried",
             IssueKind::DarkTakings => "dark_takings",
             IssueKind::Untaught => "untaught",
+            IssueKind::UnknowingCare => "unknowing_care",
         }
     }
 
@@ -521,6 +533,9 @@ impl IssueKind {
             }
             IssueKind::Untaught => {
                 "a child of theirs could not be sent to learn a craft for want of the fee"
+            }
+            IssueKind::UnknowingCare => {
+                "one of theirs died in the care of someone they paid who knew no cure for it"
             }
         }
     }
@@ -656,6 +671,8 @@ pub struct PolicyDef {
     pub medium: Option<MediumDef>,
     /// For a plan: its template (M8c slice CT, second part).
     pub plan: Option<PlanDef>,
+    /// For a licence to practise: the technique it asks (M10c slice EC, third part).
+    pub licence: Option<LicenceDef>,
 }
 
 /// A money a common store's levy may be paid in, in place of grain (M7d slice CE3b, ADR-0027 §6;
@@ -667,6 +684,14 @@ pub struct MediumDef {
     pub good: usize,
     /// Units of it that pay for a kilogram of the grain owed.
     pub per_kg: f32,
+}
+
+/// What a licence to practise asks of those paid to tend the sick (M10c slice EC, third part):
+/// a technique, by index in the catalog's techniques, and its name in words.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LicenceDef {
+    pub technique: usize,
+    pub what: String,
 }
 
 /// What the store pays for an hour given to the polity's common works under a law of pay for
@@ -1863,6 +1888,15 @@ pub fn law_words(
             None => "someone as keeper of the common store".to_owned(),
         };
     }
+    if let Some(l) = def
+        .filter(|d| d.kind == PolicyKind::Licence)
+        .and_then(|d| d.licence.as_ref())
+    {
+        return format!(
+            "that only those who know {} may be paid to tend the sick",
+            l.what
+        );
+    }
     if def.is_some_and(|d| d.kind == PolicyKind::KeepSchool) {
         return match law.holder {
             Some(h) => format!("{} to keep the school{instead}", name_of(h)),
@@ -1939,6 +1973,7 @@ pub fn ending_words(
         Some(PolicyKind::KeepWatch) => who("watch over the stores at night"),
         Some(PolicyKind::LightStreets) => who("lighting of the streets"),
         Some(PolicyKind::KeepSchool) => who("keeping of the school"),
+        Some(PolicyKind::Licence) => "the licence to tend the sick for pay".to_owned(),
         Some(PolicyKind::AgainstTaking) => "the law against taking".to_owned(),
         Some(PolicyKind::Curfew) => format!(
             "the curfew from {}:00 to {}:00",
@@ -3711,6 +3746,7 @@ pub(crate) mod tests {
             pay: None,
             medium: None,
             plan: None,
+            licence: None,
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -3831,6 +3867,7 @@ pub(crate) mod tests {
             pay: None,
             medium: None,
             plan: None,
+            licence: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -4059,6 +4096,7 @@ pub(crate) mod tests {
             pay: None,
             medium: None,
             plan: None,
+            licence: None,
         }];
         assert!(
             law_words(&law, &policies, &|_| "Ada".to_owned())

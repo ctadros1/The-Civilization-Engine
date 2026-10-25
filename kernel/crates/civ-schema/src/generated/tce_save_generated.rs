@@ -55927,6 +55927,136 @@ impl ::core::fmt::Debug for OutbreakSave<'_> {
       ds.finish()
   }
 }
+pub enum UnknowingSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct UnknowingSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for UnknowingSave<'a> {
+  type Inner = UnknowingSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> UnknowingSave<'a> {
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 4;
+  pub const VT_DISEASE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    UnknowingSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args UnknowingSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<UnknowingSave<'bldr>> {
+    let mut builder = UnknowingSaveBuilder::new(_fbb);
+    builder.add_day(args.day);
+    builder.add_household(args.household);
+    if let Some(x) = args.disease { builder.add_disease(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(UnknowingSave::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn disease(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(UnknowingSave::VT_DISEASE, None)}
+  }
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(UnknowingSave::VT_DAY, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for UnknowingSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("disease", Self::VT_DISEASE, false)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct UnknowingSaveArgs<'a> {
+    pub household: u64,
+    pub disease: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub day: i64,
+}
+impl<'a> Default for UnknowingSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    UnknowingSaveArgs {
+      household: 0,
+      disease: None,
+      day: 0,
+    }
+  }
+}
+
+pub struct UnknowingSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> UnknowingSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(UnknowingSave::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_disease(&mut self, disease: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(UnknowingSave::VT_DISEASE, disease);
+  }
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(UnknowingSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> UnknowingSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    UnknowingSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<UnknowingSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for UnknowingSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("UnknowingSave");
+      ds.field("household", &self.household());
+      ds.field("disease", &self.disease());
+      ds.field("day", &self.day());
+      ds.finish()
+  }
+}
 pub enum SicknessSaveOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -55949,6 +56079,7 @@ impl<'a> SicknessSave<'a> {
   pub const VT_TENDED: ::flatbuffers::VOffsetT = 10;
   pub const VT_BIRTH_CALLS: ::flatbuffers::VOffsetT = 12;
   pub const VT_ATTENDED: ::flatbuffers::VOffsetT = 14;
+  pub const VT_UNKNOWING: ::flatbuffers::VOffsetT = 16;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -55960,6 +56091,7 @@ impl<'a> SicknessSave<'a> {
     args: &'args SicknessSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<SicknessSave<'bldr>> {
     let mut builder = SicknessSaveBuilder::new(_fbb);
+    if let Some(x) = args.unknowing { builder.add_unknowing(x); }
     if let Some(x) = args.attended { builder.add_attended(x); }
     if let Some(x) = args.birth_calls { builder.add_birth_calls(x); }
     if let Some(x) = args.tended { builder.add_tended(x); }
@@ -56012,6 +56144,13 @@ impl<'a> SicknessSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, AttendedSave>>>(SicknessSave::VT_ATTENDED, None)}
   }
+  #[inline]
+  pub fn unknowing(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<UnknowingSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<UnknowingSave>>>>(SicknessSave::VT_UNKNOWING, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for SicknessSave<'_> {
@@ -56026,6 +56165,7 @@ impl ::flatbuffers::Verifiable for SicknessSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TendedSave>>>("tended", Self::VT_TENDED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, CareCallSave>>>("birth_calls", Self::VT_BIRTH_CALLS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, AttendedSave>>>("attended", Self::VT_ATTENDED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<UnknowingSave>>>>("unknowing", Self::VT_UNKNOWING, false)?
      .finish();
     Ok(())
   }
@@ -56037,6 +56177,7 @@ pub struct SicknessSaveArgs<'a> {
     pub tended: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TendedSave>>>,
     pub birth_calls: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, CareCallSave>>>,
     pub attended: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, AttendedSave>>>,
+    pub unknowing: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<UnknowingSave<'a>>>>>,
 }
 impl<'a> Default for SicknessSaveArgs<'a> {
   #[inline]
@@ -56048,6 +56189,7 @@ impl<'a> Default for SicknessSaveArgs<'a> {
       tended: None,
       birth_calls: None,
       attended: None,
+      unknowing: None,
     }
   }
 }
@@ -56082,6 +56224,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SicknessSaveBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SicknessSave::VT_ATTENDED, attended);
   }
   #[inline]
+  pub fn add_unknowing(&mut self, unknowing: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<UnknowingSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SicknessSave::VT_UNKNOWING, unknowing);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SicknessSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SicknessSaveBuilder {
@@ -56105,6 +56251,7 @@ impl ::core::fmt::Debug for SicknessSave<'_> {
       ds.field("tended", &self.tended());
       ds.field("birth_calls", &self.birth_calls());
       ds.field("attended", &self.attended());
+      ds.field("unknowing", &self.unknowing());
       ds.finish()
   }
 }

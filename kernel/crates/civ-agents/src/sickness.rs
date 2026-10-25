@@ -299,6 +299,16 @@ pub struct BirthAttended {
     pub lived: bool,
 }
 
+/// Someone of a household died in the care of a carer it paid who knew no treatment of their
+/// disease (M10c slice EC, third part): the household, the disease, by index, and the day. Kept a
+/// year; saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct UnknowingCare {
+    pub household: PermanentId,
+    pub disease: u16,
+    pub day: i64,
+}
+
 /// Every infection there has been, in the order they came, every outbreak, and the calls for
 /// carers standing. Saved; the indexes are derived.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -312,6 +322,9 @@ pub struct Sickness {
     pub tended: BTreeMap<PermanentId, i64>,
     /// Every birth someone attended, in the order attended (M10c slice EA, second part).
     pub attended: Vec<BirthAttended>,
+    /// Deaths in the care of paid carers who knew no treatment, within the year, oldest first
+    /// (M10c slice EC, third part).
+    pub unknowing: Vec<UnknowingCare>,
     /// Episodes that run, by index, in order.
     running: Vec<usize>,
     /// Each person's episodes, by index, in order.

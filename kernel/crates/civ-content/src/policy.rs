@@ -117,6 +117,10 @@ pub(crate) struct PolicyFile {
     /// paid.
     #[serde(default)]
     pub pay: Option<PayFile>,
+    /// For a licence to practise (`licence`, content API 183, M10c slice EC): the technique it
+    /// asks of those paid to tend the sick.
+    #[serde(default)]
+    pub licence: Option<LicenceFile>,
     /// For a common store (`common_store`, content API 129, M7d slice CE3b): a money its levy
     /// may be paid in.
     #[serde(default)]
@@ -233,6 +237,14 @@ pub struct MediumFile {
     pub good: String,
     /// Units of it that pay for a kilogram of the grain owed.
     pub per_kg: f64,
+}
+
+/// What a licence to practise asks in a policy file (content API 183, M10c slice EC, third part).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct LicenceFile {
+    /// The technique, by content id, those paid to tend the sick must know.
+    pub technique: String,
 }
 
 /// What an hour given to the common works is paid in a policy file (content API 128, M7d slice
@@ -618,6 +630,8 @@ impl PolicyFile {
             mint: None,
             pay: None,
             medium: None,
+            // Resolved apart, with the technique's name.
+            licence: None,
             plan: self.plan.as_ref().map(|g| civ_agents::polity::PlanDef {
                 grid: civ_land::plans::Grid {
                     block_m: (g.block_m[0] as f32, g.block_m[1] as f32),
@@ -1073,6 +1087,15 @@ impl PolicyFile {
             (Some(_), Some(PolicyKind::RaiseBuilding)) | (None, _) => {}
             (Some(_), _) => p.push("`raise` is for `does = \"raise_building\"`".to_owned()),
         }
+        // A licence's technique (M10c slice EC, third part): only for `licence`, which must
+        // name one.
+        match (&self.licence, PolicyKind::from_name(&self.does)) {
+            (None, Some(PolicyKind::Licence)) => {
+                p.push("a `licence` template needs a `licence` table".to_owned());
+            }
+            (Some(_), Some(PolicyKind::Licence)) | (None, _) => {}
+            (Some(_), _) => p.push("`licence` is for `does = \"licence\"`".to_owned()),
+        }
         // Pay for common work (M7d slice CE3a): only for `pay_work`, which must have it.
         match (&self.pay, PolicyKind::from_name(&self.does)) {
             (Some(pay), Some(PolicyKind::PayWork)) => {
@@ -1269,6 +1292,7 @@ impl PolicyFile {
                 | PolicyKind::BuildLine
                 | PolicyKind::LightStreets
                 | PolicyKind::KeepSchool
+                | PolicyKind::Licence
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
@@ -1337,6 +1361,7 @@ impl PolicyFile {
                 | PolicyKind::BuildLine
                 | PolicyKind::LightStreets
                 | PolicyKind::KeepSchool
+                | PolicyKind::Licence
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding,
             )
@@ -1635,6 +1660,7 @@ mod tests {
             medium: None,
             plan: None,
             raise: None,
+            licence: None,
         }
     }
 

@@ -1,0 +1,27 @@
+# A licence to practise (M10c slice EC, third part; ADR-0035 §6: a licence to practise is a
+# privilege, ADR-0026 §3; research 05-05 §2: in Sweden, 1830-1894, more licensed midwives meant
+# fewer mothers dying). Where someone of a household of the polity died within the year in the care
+# of a carer it paid, not kin, who knew no treatment of their sickness (the issue `unknowing_care`),
+# and someone grown of the settlement knows fluid replacement, anyone may propose that only those
+# who know it be paid to tend the sick. Under it, a household calls to tend its ill, for a fee, only
+# a household where someone knows it; kin, who ask no fee, are called as before. A household weighs
+# it by the deaths it saw in unknowing paid care that fluid replacement treats, as a death avoided.
+# Whether anyone proposes it, and whether the gathering agrees, is people's choice. Its id sorts
+# after every older template's: hearth talk about a question is keyed by a template's place in id
+# order.
+kind = "policy"
+id = "core:policy/yourselves_work_with_carers_who_know"
+name = "Licensed carers"
+description = "Only those who know fluid replacement may be paid to tend the sick; kin tend as before."
+does = "licence"
+answers = ["unknowing_care"]
+question = "whether only those who know fluid replacement may be paid to tend the sick"
+
+[licence]
+technique = "core:technique/fluid_replacement"
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement: the sick are safer, and who may be paid is narrowed.
+[bears]
+"core:value/security" = 0.5
+"core:value/autonomy" = -0.25

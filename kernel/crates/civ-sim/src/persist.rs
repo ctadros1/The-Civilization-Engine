@@ -525,6 +525,8 @@ pub const SCHEMA_V193: u32 = 193;
 pub const SCHEMA_V194: u32 = 194;
 /// Written records, before the building each is kept in.
 pub const SCHEMA_V195: u32 = 195;
+/// Where each written record is kept, before deaths in unknowing paid care.
+pub const SCHEMA_V196: u32 = 196;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

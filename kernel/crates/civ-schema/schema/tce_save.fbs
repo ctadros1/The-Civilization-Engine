@@ -3117,6 +3117,14 @@ struct AttendedSave {
   lived: bool;
 }
 
+// Schema 197 (M10c slice EC, third part): someone of a household died in the care of a carer it
+// paid who knew no treatment of the disease (its content id), and the day.
+table UnknowingSave {
+  household: ulong;
+  disease: string;
+  day: long;
+}
+
 table SicknessSave {
   episodes: [EpisodeSave] (id: 0);
   outbreaks: [OutbreakSave] (id: 1);
@@ -3126,6 +3134,8 @@ table SicknessSave {
   // attended.
   birth_calls: [CareCallSave] (id: 4);
   attended: [AttendedSave] (id: 5);
+  // Schema 197: deaths in unknowing paid care within the year, oldest first.
+  unknowing: [UnknowingSave] (id: 6);
 }
 
 // Section "fires" (schema 88, M6b slice BC; ADR-0022 §13): a building's fire, from its covering

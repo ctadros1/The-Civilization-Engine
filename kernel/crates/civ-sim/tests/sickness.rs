@@ -1250,3 +1250,121 @@ fn a_household_with_a_birth_due_and_nobody_to_attend_calls_one_it_heard_attend_a
     );
     reloaded(&mut sim);
 }
+
+/// A household that lost someone in the care of a carer it paid who knew no treatment, where
+/// someone grown of the settlement knows fluid replacement, puts a licence before the gathering;
+/// in force, it may pay only a household where someone knows it (M10c slice EC, third part).
+#[test]
+fn a_death_in_unknowing_paid_care_puts_a_licence_before_the_gathering() {
+    use civ_agents::polity::{IssueKind, LawStatus, PolicyKind};
+    use civ_agents::sickness::UnknowingCare;
+    let mut sim = village(3);
+    to_morning(&mut sim, 8 * 60);
+    let (someone, _) = someone_with_family(&sim);
+    let home = sim.people().person(someone).expect("alive").household;
+    let settlement = sim
+        .people()
+        .household(home)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    let fluid = sim
+        .rules()
+        .catalog
+        .technique_index("core:technique/fluid_replacement")
+        .expect("fluid replacement");
+    let now = sim.now();
+    let others: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.id != home && x.settlement == Some(settlement))
+        .map(|(_, x)| x.id)
+        .collect();
+    let (knowing, unknowing) = (others[0], others[1]);
+    let healer = sim
+        .people()
+        .household(knowing)
+        .and_then(|x| {
+            x.members.iter().copied().find(|&m| {
+                sim.people()
+                    .person(m)
+                    .is_some_and(|p| p.age_years(now) >= 16.0)
+            })
+        })
+        .expect("a grown member");
+    let day = now.day_index();
+    let cholera = cholera(&sim) as u16;
+    let pop = sim.people_mut_for_tests();
+    for (_, p) in pop.people.iter_mut() {
+        p.knows.retain(|k| usize::from(k.technique) != fluid);
+    }
+    pop.sickness.unknowing.push(UnknowingCare {
+        household: home,
+        disease: cholera,
+        day,
+    });
+    let cures =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.unknowing_care_for_tests(ctx, pi));
+    assert!(cures(&mut sim).is_empty(), "nobody knows a treatment");
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.id == healer {
+            p.come_to_know(fluid, civ_agents::person::KnowSource::Observer, now);
+        }
+    }
+    assert_eq!(cures(&mut sim), vec![fluid]);
+    // Someone proposes the licence, against deaths in unknowing paid care.
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    let mut proposed = None;
+    for _ in 0..24 {
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[pi].gathering = None;
+            for l in &mut pop.polities[pi].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        match sim.people().polities[pi].agenda().cloned() {
+            Some(l) if l.kind == PolicyKind::Licence => {
+                proposed = Some(l);
+                break;
+            }
+            Some(_) => continue,
+            None => break,
+        }
+    }
+    let law = proposed.expect("a licence proposed");
+    assert_eq!(law.issue, IssueKind::UnknowingCare);
+    let licensed = |sim: &mut Sim, y: PermanentId| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.licensed_for_tests(ctx, home, y))
+    };
+    assert!(licensed(&mut sim, unknowing), "no licence yet");
+    {
+        let pop = sim.people_mut_for_tests();
+        pop.every_adult_deliberates = false;
+        let p = &mut pop.polities[pi];
+        p.gathering = None;
+        p.laws
+            .iter_mut()
+            .find(|l| l.id == law.id)
+            .expect("the law")
+            .status = LawStatus::InForce;
+    }
+    // In force: only a household where someone knows fluid replacement may be paid.
+    assert!(!licensed(&mut sim, unknowing));
+    assert!(licensed(&mut sim, knowing));
+    // The record saves and loads alike.
+    let loaded = reloaded(&mut sim);
+    assert_eq!(
+        loaded.people().sickness.unknowing,
+        sim.people().sickness.unknowing
+    );
+}

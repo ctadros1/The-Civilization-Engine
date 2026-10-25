@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 182;
+pub const KERNEL_CONTENT_API: u32 = 183;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1175,6 +1175,12 @@ fn resolve(
         {
             missing(c, parsed, &d.rel, "rule.needs", t);
         }
+        // A licence's (M10c slice EC, third part).
+        if let Some(l) = d.file.licence.as_ref()
+            && technique_index(&l.technique).is_none()
+        {
+            missing(c, parsed, &d.rel, "licence.technique", &l.technique);
+        }
         // And a plan's (M8c slice CT).
         if let Some(t) = d.file.plan.as_ref().and_then(|g| g.needs.as_deref())
             && technique_index(t).is_none()
@@ -1198,6 +1204,18 @@ fn resolve(
                 .mint_def(&|id| recipes.iter().position(|r| r.id == id));
             def.pay = d.file.pay_def(&good_index);
             def.medium = d.file.medium_def(&good_index);
+            def.licence = d.file.licence.as_ref().and_then(|l| {
+                Some(civ_agents::polity::LicenceDef {
+                    technique: technique_index(&l.technique)?,
+                    what: parsed
+                        .techniques
+                        .iter()
+                        .find(|t| t.file.id == l.technique)?
+                        .file
+                        .name
+                        .to_lowercase(),
+                })
+            });
             def.raise = d.file.raise.as_ref().and_then(|r| {
                 Some(civ_agents::polity::RaiseDef {
                     program: buildings.iter().position(|b| b.id == r.program)?,

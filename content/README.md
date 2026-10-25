@@ -1770,3 +1770,9 @@ takes: 0, the default, for heard of there but never learnt, or 1 to 100). A tech
 technique gating work requires now gates work itself (E3005). The core adds the techniques
 `reckoning`, `reading` and `writing`, the activities `write_a_record` and `read_a_record`, and
 makes `laying_out` codified at 2.
+
+Content API 183 (M10c slice EC, third part) adds the policy kind `licence` and the issue
+`unknowing_care` it answers (someone of a household of the polity died within the year in the care
+of a carer it paid who knew no treatment of their disease, and someone grown of the settlement
+knows one). A `licence` template names in `[licence] technique` what those paid to tend the sick
+must know. The core adds `policy/yourselves_work_with_carers_who_know`, asking fluid replacement.

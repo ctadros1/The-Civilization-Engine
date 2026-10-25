@@ -113,6 +113,10 @@ pub(super) struct Forecasts {
     /// What a school would spare each household that could not send a child to learn within the
     /// year, kcal, by household id (M10c slice EB, third part).
     schooling: Vec<(PermanentId, f64)>,
+    /// What each licence template would bring each household that lost someone to a paid
+    /// carer who knew no treatment within the year, kcal, by template index and then household
+    /// id (M10c slice EC, third part).
+    licences: Vec<(u16, Vec<(PermanentId, f64)>)>,
 }
 
 /// What a household weighs a trade law by (M7c slice BV, ADR-0026 §1): its settlement's
@@ -372,6 +376,17 @@ impl Forecasts {
             Some(PolicyKind::LightStreets) => {
                 let (recover, owe) = known().watched(params.crime.lit_guard);
                 crate::polity::against_gain(o, recover, owe, pp)
+            }
+            // A licence (M10c slice EC, third part): the deaths in unknowing paid care it believes
+            // avoided, as food kept for it.
+            Some(PolicyKind::Licence) => {
+                let saved = self
+                    .licences
+                    .iter()
+                    .find(|l| l.0 == m.policy)
+                    .and_then(|l| l.1.iter().find(|s| s.0 == h))
+                    .map_or(0.0, |s| s.1);
+                crate::polity::kept_gain(o, saved, pp)
             }
             // A school (M10c slice EB, third part) spares the fees a household could not hold,
             // as food kept for it.
@@ -1792,6 +1807,7 @@ impl Population {
             count_piece_h,
             pay: self.pay_forecasts(ctx, pi, households),
             schooling: self.schooling(ctx, households, adults),
+            licences: self.licence_forecasts(ctx, households),
             adults: {
                 let mut a = adults.to_vec();
                 a.sort_unstable();
@@ -2682,6 +2698,11 @@ impl Population {
         // it knows (M10c slice EB, third part).
         if self.school_technique(ctx, &households, &adults).is_some() {
             issues.push(IssueKind::Untaught);
+        }
+        // One of its households lost someone to a paid carer who knew no treatment, and someone
+        // grown of it knows one (M10c slice EC, third part).
+        if !self.unknowing_cures(ctx, &households, &adults).is_empty() {
+            issues.push(IssueKind::UnknowingCare);
         }
         // What it saw of its ground within memory (M8c slice CT, second part): a household that
         // found no ground for its home, a trail built over, a home beyond the built edge.
@@ -3722,6 +3743,16 @@ impl Population {
                                 nominee: Some(c),
                                 ..blank
                             });
+                        }
+                    }
+                    // A licence asking a treatment someone of them knows of a disease one of theirs
+                    // died of in unknowing paid care (M10c slice EC, third part).
+                    PolicyKind::Licence => {
+                        let asks = def.licence.as_ref().map(|l| l.technique);
+                        if asks.is_some_and(|t| {
+                            self.unknowing_cures(ctx, &households, &adults).contains(&t)
+                        }) {
+                            moves.push(blank);
                         }
                     }
                     // A schoolteacher (M10c slice EB, third part): of the adults who know the

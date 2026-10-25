@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 182
+kernel_content_api = 183
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2661,7 +2661,10 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
     assert_eq!(def.kind, PolicyKind::LightStreets);
     assert_eq!(def.answers, vec![IssueKind::DarkTakings]);
     // Its id sorts after every older template's (the school's, M10c slice EB, is newer).
-    let newer = ["core:policy/yourselves_work_with_a_teacher"];
+    let newer = [
+        "core:policy/yourselves_work_with_a_teacher",
+        "core:policy/yourselves_work_with_carers_who_know",
+    ];
     assert!(
         reg.catalog
             .policies
@@ -2685,8 +2688,14 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
         .expect("the school template");
     assert_eq!(def.kind, PolicyKind::KeepSchool);
     assert_eq!(def.answers, vec![IssueKind::Untaught]);
-    // Its id sorts after every other template's.
-    assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
+    // Its id sorts after every older template's (the licence's, M10c slice EC, is newer).
+    let newer = ["core:policy/yourselves_work_with_carers_who_know"];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
 }
 
 #[test]
@@ -2724,4 +2733,27 @@ fn letters_and_reckoning_are_techniques_nobody_brings_found_rarely_by_those_who_
             d.id
         );
     }
+}
+
+#[test]
+fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
+    // M10c slice EC, third part (content API 183): the template answers deaths in unknowing paid
+    // care and asks fluid replacement of those paid to tend the sick.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/yourselves_work_with_carers_who_know")
+        .expect("the licence template");
+    assert_eq!(def.kind, PolicyKind::Licence);
+    assert_eq!(def.answers, vec![IssueKind::UnknowingCare]);
+    let licence = def.licence.as_ref().expect("its licence");
+    assert_eq!(
+        reg.catalog.techniques[licence.technique].id,
+        "core:technique/fluid_replacement"
+    );
+    assert_eq!(licence.what, "fluid replacement");
+    assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
 }

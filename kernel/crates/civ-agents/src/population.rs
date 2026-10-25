@@ -67,6 +67,7 @@ mod lamps;
 mod land;
 mod letters;
 mod levees;
+mod licences;
 mod life;
 mod loads;
 mod market;

@@ -56,6 +56,8 @@ pub enum Acquired {
     /// From water drunk: where most of what they drank of it was drawn (step two), a well or a
     /// river reach.
     Water { source: crate::contagion::Node },
+    /// From company at the hearth with someone shedding it (M10c slice ED): that person.
+    Company { person: PermanentId },
 }
 
 impl Acquired {
@@ -64,6 +66,7 @@ impl Acquired {
         match self {
             Acquired::Observer { influence } => (0, u64::from(influence)),
             Acquired::Household { household } => (1, household.get()),
+            Acquired::Company { person } => (32, person.get()),
             Acquired::Water { source } => match source {
                 crate::contagion::Node::Well(w) => (2, w.get()),
                 crate::contagion::Node::Reach(r) => (3, u64::from(r)),
@@ -86,6 +89,9 @@ impl Acquired {
             }),
             3 => Some(Acquired::Water {
                 source: crate::contagion::Node::Reach(u32::try_from(n).ok()?),
+            }),
+            32 => Some(Acquired::Company {
+                person: PermanentId::from_raw(n)?,
             }),
             c @ 4.. => Some(Acquired::Water {
                 source: crate::contagion::Node::from_code(c - 4, n)?,
@@ -556,6 +562,7 @@ mod tests {
             severe_death_per_day: 0.2,
             immunity_years: [3.0, 10.0],
             household_hazard: 0.03,
+            company_hazard: 0.0,
             shed_ill_per_day: 1000.0,
             shed_silent_per_day: 10.0,
             decay_per_day: 0.2,

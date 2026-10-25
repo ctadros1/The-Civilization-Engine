@@ -6,8 +6,8 @@ institutions through large cities, transport, planning, land and household resol
 settlements. M9's 100,000-person performance target was not met; see §7 and §9 for the measured
 result and amended gate. **M10a, power and the works, and M10b, rail and gas light, are
 implemented** (slices DO–DY). **M10c, services and letters, is in progress:** care beyond the
-household (DZ), birth care (EA), teaching (EB) and letters and records (EC) are implemented, and
-inoculation and the health office remain ahead. M2's portable kernel library and C interface are
+household (DZ), birth care (EA), teaching (EB) and letters and records (EC) are implemented;
+inoculation (ED) has begun, and the health office remains ahead. M2's portable kernel library and C interface are
 implemented; the Unreal client remains future work. Modern civilization remains future scope. See
 §7 for milestone scope and §9 for implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
@@ -7078,7 +7078,28 @@ and M6a gives rivers a daily flow.
       the core keeps records yet, and the first that will is the health office's register (brief
       §2.4: holding it needs writing). **Slice EC is done.**
     - **ED**: inoculation: the `Company` route, smallpox by the observer's hand, variolation and
-      vaccination with protection records.
+      vaccination with protection records. Planned (2026-10-25) in four parts: (1) the company
+      route and smallpox; (2) variolation; (3) vaccination; (4) the observer.
+      *As built, first part (2026-10-25): the company route and smallpox.* A disease may pass in
+      company at the hearth (`company`, content API 184, with a disease's `company_hazard`, the
+      hazard an hour with one shedding it puts on each met). While such a disease runs anywhere,
+      who met whom at the hearth and for how long is kept for the day (saves 198, saved since a
+      midnight may fall after a save), in Detailed and household-resolved days alike; at
+      midnight each hour with one who shed it the day before puts the hazard on the other, summed
+      with the day's household and water hazards, and one taken so records whom it came from.
+      Smallpox is content (`core:disease/smallpox`), passing at home and in company: 05-03 §2.1's
+      12 days' incubation, shedding from a day and a half before the ill take to their beds for
+      some 24 days, every infection an illness of some three weeks, severe more in children and
+      the old, lifelong immunity; it enters a world only by the observer's hand (ADR-0035 §4).
+      **Measured** (the ignored probes `smallpox_r0` and `smallpox_fatality`): with 0.02 an hour
+      in company and 0.03 a day at home, the first case brought to each of six villages infected
+      4.3 on average before any of its own shed (05-03 §2.2's R0 of 3.5-6 for a first meeting), a
+      third of them in company (0.05 an hour gave 7.7); over 150 days in four villages 34 of 123
+      ended cases died (28%; 05-03 §3.2's 30%). A world where nobody brings it is unchanged: no
+      company is kept. **Tested:** smallpox brought to one person passes in company at the hearth
+      to people of other homes, in both resolutions; by the third evening the day's company is
+      kept, and saves and loads alike; the content's routes and that no other disease passes in
+      company.
     - **EE**: the health office and the sickhouse: register and rounds, `keep_apart`,
       `clear_middens`, the sickhouse's pool and capacity; the observer's service views. From EC:
       an office whose holder must know a technique (the register's keeper, writing), and a

@@ -230,6 +230,9 @@ impl Population {
                 .and_then(|x| x.settlement)
         };
         let my_home = home_of(self, me);
+        // While a disease passing by company runs, who met whom is kept for midnight (M10c
+        // slice ED).
+        let exposing = self.company_running(ctx);
         for _ in 0..want {
             let pick_new = new.len > 0 && (known.is_empty() || rng.next_f64() < tp.new_share);
             let q = if pick_new {
@@ -248,6 +251,9 @@ impl Population {
                 known.remove(k).1
             };
             self.note_tie(ctx, me, q, Act::Hearth, hours, 0.0);
+            if exposing {
+                self.met.push((me, q, hours as f32));
+            }
             // Word of the laws in force goes round at the hearth among those they bind
             // (ADR-0013 §3, stage 4); with someone from elsewhere, it is talk of another
             // settlement's laws, which nothing here carries yet (M5c).

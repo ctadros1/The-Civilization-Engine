@@ -527,6 +527,8 @@ pub const SCHEMA_V194: u32 = 194;
 pub const SCHEMA_V195: u32 = 195;
 /// Where each written record is kept, before deaths in unknowing paid care.
 pub const SCHEMA_V196: u32 = 196;
+/// Deaths in unknowing paid care, before the day's company kept for a disease passing by it.
+pub const SCHEMA_V197: u32 = 197;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

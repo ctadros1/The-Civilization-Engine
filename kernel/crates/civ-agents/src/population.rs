@@ -648,6 +648,10 @@ pub struct Population {
     /// Written records of techniques, in the order written, and the minutes each writer has
     /// written toward the record they are writing (M10c slice EC; ADR-0035 §6).
     pub writings: Vec<crate::knowledge::Record>,
+    /// Who met whom in company at the hearth today, and for how many hours, kept only while a
+    /// disease passing by company runs (M10c slice ED): the day's company exposure, drawn at
+    /// midnight.
+    pub met: Vec<(PermanentId, PermanentId, f32)>,
     pub written: Vec<crate::knowledge::Session>,
     /// What each settlement has seen of each technique's buildings, in the order first seen
     /// (ADR-0009 §6).

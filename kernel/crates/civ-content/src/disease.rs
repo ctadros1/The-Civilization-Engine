@@ -37,6 +37,9 @@ pub(crate) struct DiseaseFile {
     pub immunity_years: [f64; 2],
     #[serde(default)]
     pub household_hazard: f64,
+    /// Content API 184 (M10c slice ED): the hazard an hour in company with one shedding it.
+    #[serde(default)]
+    pub company_hazard: f64,
     pub shed_ill_per_day: f64,
     pub shed_silent_per_day: f64,
     pub decay_per_day: f64,
@@ -90,6 +93,7 @@ impl DiseaseFile {
             severe_death_per_day: self.severe_death_per_day,
             immunity_years: self.immunity_years,
             household_hazard: self.household_hazard,
+            company_hazard: self.company_hazard,
             shed_ill_per_day: self.shed_ill_per_day,
             shed_silent_per_day: self.shed_silent_per_day,
             decay_per_day: self.decay_per_day,
@@ -107,7 +111,9 @@ impl DiseaseFile {
         }
         for r in &self.routes {
             if DiseaseRoute::from_key(r).is_none() {
-                p.push(format!("unknown route `{r}`: one of `water`, `household`"));
+                p.push(format!(
+                    "unknown route `{r}`: one of `water`, `household`, `company`"
+                ));
             }
         }
         for (name, [mean, sd], lo) in [
@@ -132,6 +138,7 @@ impl DiseaseFile {
             ("symptomatic", self.symptomatic, 0.0, 1.0),
             ("severe_death_per_day", self.severe_death_per_day, 0.0, 1.0),
             ("household_hazard", self.household_hazard, 0.0, 10.0),
+            ("company_hazard", self.company_hazard, 0.0, 10.0),
             ("shed_ill_per_day", self.shed_ill_per_day, 0.0, 1e12),
             ("shed_silent_per_day", self.shed_silent_per_day, 0.0, 1e12),
             ("decay_per_day", self.decay_per_day, 0.0, 1.0),

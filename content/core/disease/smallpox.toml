@@ -1,0 +1,46 @@
+# Smallpox, variola major (M10c slice ED; ADR-0035 §4): it passes between those who share a home
+# and in company at the hearth. Its clocks are research 05-03 §2.1's, its deaths §3.2's; no world
+# has it until the observer brings it, as there is no world beyond the map to bring it (ADR-0035
+# §4). How far it goes, and whom it kills, comes from who meets it.
+kind = "disease"
+id = "core:disease/smallpox"
+name = "Smallpox"
+routes = ["household", "company"]
+# Infection to symptoms: usually 10-14 days, reported 7-19 (05-03 §2.1, high confidence): a
+# lognormal of mean 12 and sd 2 days (a design prior inside that range).
+incubation_days = [12.0, 2.0]
+# Not contagious while incubating; contagious from about the prodrome and rash until the scabs
+# separate, some 3-4 weeks after the rash (05-03 §2.1). Those who fall ill keep to their beds here,
+# so the day and a half before they do, in the prodrome's first fever, is when they are about the
+# hearth shedding it (a design prior), and shedding lasts some 24 days from then.
+shed_lead_days = 1.5
+shed_days = [24.0, 4.0]
+shed_after_days = [0.0, 0.0]
+# Every infection is an illness here (variola major), of some three weeks (05-03 §2.1's timing of
+# the rash and scabs; a design prior).
+symptomatic = 1.0
+ill_days = [22.0, 4.0]
+# Of the ill, the share severely so, more in children and the old (05-03 §3.2: malignant disease is
+# disproportionately associated with children), and a chance a severe day of dying of 0.05, which
+# over some 22 days kills about two thirds of the severe: some 30% of all cases (05-03 §3.2's
+# variola major in the unvaccinated). Design priors set to that benchmark.
+severe_by_age = [[0, 0.55], [15, 0.4], [60, 0.55]]
+severe_death_per_day = 0.05
+# Recovery gives prolonged protection, lifelong a reasonable simplification (05-03 §2.1, P).
+immunity_years = [80.0, 80.0]
+# The hazard a day each shedding member of a household puts on each other member, and an hour in
+# company at the hearth with one shedding it puts on each met: tuning values, set so that a
+# village meeting it for the first time sees a first case infect some 3.5-6 others (05-03 §2.2's
+# R0 for initially susceptible populations, a check). Measured (2026-10-25, the probe `smallpox_r0`,
+# six villages, the first case a member of the largest household): 4.3 infected by the first
+# case within 26 days, before any of its own sheds, a third of them in company; 0.05 an hour gave
+# 7.7. Over 150 days in four villages 34 of 123 ended cases died (28%).
+household_hazard = 0.03
+company_hazard = 0.02
+# It is not carried by water here: nothing shed lies in heaps or wells.
+shed_ill_per_day = 0.0
+shed_silent_per_day = 0.0
+decay_per_day = 1.0
+# Care as for any illness: two hours a day, 0.95 as deadly (05-05 §2.2, a low-confidence prior).
+care_h_per_day = 2.0
+care_rr = 0.95

@@ -1368,3 +1368,131 @@ fn a_death_in_unknowing_paid_care_puts_a_licence_before_the_gathering() {
         sim.people().sickness.unknowing
     );
 }
+
+const SMALLPOX: &str = "core:disease/smallpox";
+
+/// The cases infected within 26 days of the first case of smallpox brought to a village of seed
+/// `seed`, besides it: none of its own cases sheds before then, so they are its first generation
+/// (the slice's probe of R0, 05-03 §2.2: 3.5-6 for a first meeting). And how many took it in
+/// company at the hearth.
+fn smallpox_first_generation(seed: u64) -> (usize, usize) {
+    let mut sim = village(seed);
+    to_morning(&mut sim, 8 * 60);
+    let (index, _) = someone_with_family(&sim);
+    sim.plague(index, SMALLPOX).expect("brought");
+    let start = sim.now().day_index();
+    sim.advance_minutes(28 * DAY).expect("lives");
+    let disease = sim
+        .rules()
+        .catalog
+        .disease_index(SMALLPOX)
+        .expect("smallpox") as u16;
+    let first: Vec<_> = sim
+        .people()
+        .sickness
+        .episodes()
+        .iter()
+        .filter(|e| e.disease == disease && e.person != index && e.infected < start + 26)
+        .collect();
+    let company = first
+        .iter()
+        .filter(|e| matches!(e.acquired, Acquired::Company { .. }))
+        .count();
+    (first.len(), company)
+}
+
+#[test]
+#[ignore = "a probe: cargo test --profile simcheck -p civ-sim --test sickness -- --ignored smallpox_r0 --nocapture"]
+fn smallpox_r0() {
+    let mut all = Vec::new();
+    for seed in 1..=6 {
+        let (n, company) = smallpox_first_generation(seed);
+        eprintln!("seed {seed}: {n} infected by the first case ({company} in company)");
+        all.push(n);
+    }
+    let mean = all.iter().sum::<usize>() as f64 / all.len() as f64;
+    eprintln!("mean first generation {mean:.2}");
+}
+
+#[test]
+#[ignore = "a probe: cargo test --profile simcheck -p civ-sim --test sickness -- --ignored smallpox_fatality --nocapture"]
+fn smallpox_fatality() {
+    let (mut cases, mut died) = (0, 0);
+    for seed in 1..=4 {
+        let mut sim = village(seed);
+        to_morning(&mut sim, 8 * 60);
+        let (index, _) = someone_with_family(&sim);
+        sim.plague(index, SMALLPOX).expect("brought");
+        sim.advance_minutes(150 * DAY).expect("lives");
+        for e in sim.people().sickness.episodes() {
+            if let Some((_, outcome)) = e.ended {
+                cases += 1;
+                died += usize::from(outcome == Outcome::Died);
+            }
+        }
+    }
+    eprintln!("{died} died of {cases} ended cases");
+}
+
+/// Smallpox brought to one person passes to people of other homes they keep company with at the
+/// hearth, in both resolutions; the day's company, kept while it runs, saves mid-day and loads
+/// alike (M10c slice ED, first part).
+#[test]
+fn smallpox_passes_in_company_at_the_hearth_to_those_of_other_homes() {
+    for resolved in [false, true] {
+        let mut sim = village(1);
+        if resolved {
+            sim.advance_to_midnight().expect("advances");
+            let settlements: Vec<_> = sim.land().settlements.iter().map(|s| s.id).collect();
+            sim.set_household_resolved(settlements);
+            sim.advance_minutes(1).expect("advances");
+            sim.advance_to_midnight().expect("advances");
+            assert!(!sim.household_resolved().is_empty(), "household-resolved");
+        }
+        to_morning(&mut sim, 8 * 60);
+        let (index, _) = someone_with_family(&sim);
+        let home = sim.people().person(index).expect("alive").household;
+        sim.plague(index, SMALLPOX).expect("brought");
+        let disease = sim
+            .rules()
+            .catalog
+            .disease_index(SMALLPOX)
+            .expect("smallpox") as u16;
+        if !resolved {
+            // By the third evening, the day's company at the hearth is kept; it saves and loads
+            // alike.
+            sim.advance_minutes(2 * DAY + 12 * 60).expect("lives");
+            assert!(!sim.people().met.is_empty(), "the day's company is kept");
+            let loaded = reloaded(&mut sim);
+            assert_eq!(loaded.people().met, sim.people().met);
+        }
+        // A resolved day meets fewer at the hearth, for shorter: given longer.
+        let days = if resolved { 60 } else { 28 };
+        sim.advance_minutes(days * DAY).expect("lives");
+        let in_company: Vec<_> = sim
+            .people()
+            .sickness
+            .episodes()
+            .iter()
+            .filter(|e| e.disease == disease)
+            .filter_map(|e| match e.acquired {
+                Acquired::Company { person } => Some((e.person, person)),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            !in_company.is_empty(),
+            "resolved {resolved}: someone took it in company at the hearth"
+        );
+        let other_homes = in_company.iter().any(|&(p, _)| {
+            sim.people()
+                .sickness
+                .episodes()
+                .iter()
+                .find(|e| e.person == p && e.disease == disease)
+                .and_then(|e| e.household)
+                != Some(home)
+        });
+        assert!(other_homes, "resolved {resolved}: of another home");
+    }
+}

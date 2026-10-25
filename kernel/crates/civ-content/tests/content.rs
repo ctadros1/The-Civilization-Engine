@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 183
+kernel_content_api = 184
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2756,4 +2756,30 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
     );
     assert_eq!(licence.what, "fluid replacement");
     assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
+}
+
+#[test]
+fn the_core_has_smallpox_passing_at_home_and_in_company() {
+    // M10c slice ED, first part (content API 184): the company route and its hazard.
+    use civ_agents::params::DiseaseRoute;
+    let reg = registry(load(&repo_content()));
+    let i = reg
+        .catalog
+        .disease_index("core:disease/smallpox")
+        .expect("smallpox");
+    let d = &reg.catalog.diseases[i];
+    assert_eq!(
+        d.routes,
+        vec![DiseaseRoute::Household, DiseaseRoute::Company]
+    );
+    assert!(d.company_hazard > 0.0 && d.household_hazard > 0.0);
+    assert_eq!(d.symptomatic, 1.0);
+    // Every other disease passes by no company.
+    assert!(
+        reg.catalog
+            .diseases
+            .iter()
+            .filter(|x| x.id != d.id)
+            .all(|x| !x.passes_by(DiseaseRoute::Company) && x.company_hazard == 0.0)
+    );
 }

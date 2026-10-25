@@ -130,7 +130,7 @@ use super::{
     SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, SCHEMA_V180,
     SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, SCHEMA_V187,
     SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, SCHEMA_V194,
-    SCHEMA_V195, SCHEMA_V196, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -908,9 +908,10 @@ pub(super) fn decode<R: Read + Seek>(
         // Mains' lengths laid (schema 187), their worth (188) and street lamps (189) are read
         // wherever saved, as are calls for carers (190), who tended the ill (191), births
         // attended (192), enrolments to learn (193), households untaught (194), written records
-        // (195), where each is kept (196) and deaths in unknowing paid care (197).
+        // (195), where each is kept (196), deaths in unknowing paid care (197) and the day's
+        // company kept (198).
         SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SCHEMA_V190 | SCHEMA_V191
-        | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SCHEMA_V196
+        | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SCHEMA_V196 | SCHEMA_V197
         | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
@@ -1210,6 +1211,7 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V75 {
         let bytes = single_chunk(reader, SECTION_SICKNESS)?;
         people.sickness = decode_sickness(&bytes, rules)?;
+        people.met = decode_met(&bytes)?;
     }
     // What people shed (schema 76); before, nothing lies anywhere.
     if schema >= Schema::V76 {
@@ -13002,6 +13004,13 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
         })
         .collect();
     let unknowing = fbb.create_vector(&unknowing);
+    // Today's company kept (schema 198, M10c slice ED).
+    let met: Vec<_> = people
+        .met
+        .iter()
+        .map(|&(a, b, h)| save::CompanySave::new(a.get(), b.get(), h))
+        .collect();
+    let met = fbb.create_vector(&met);
     let root = save::SicknessSave::create(
         &mut fbb,
         &save::SicknessSaveArgs {
@@ -13012,6 +13021,7 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
             birth_calls: Some(birth_calls),
             attended: Some(attended),
             unknowing: Some(unknowing),
+            met: Some(met),
         },
     );
     finish(fbb, root)
@@ -13886,6 +13896,25 @@ fn validate_flood_records(
 }
 
 /// An infection of a disease the loaded content no longer has is let go.
+/// Today's company at the hearth kept for a disease passing by it (schema 198, M10c slice ED):
+/// none in older saves; a pair naming nobody is let go.
+fn decode_met(bytes: &[u8]) -> Result<Vec<(PermanentId, PermanentId, f32)>, LoadError> {
+    let root =
+        section_root::<save::SicknessSave>(bytes).map_err(|e| unreadable(SECTION_SICKNESS, &e))?;
+    Ok(root
+        .met()
+        .into_iter()
+        .flatten()
+        .filter_map(|m| {
+            Some((
+                PermanentId::from_raw(m.a())?,
+                PermanentId::from_raw(m.b())?,
+                m.hours(),
+            ))
+        })
+        .collect())
+}
+
 fn decode_sickness(
     bytes: &[u8],
     rules: &Rules,

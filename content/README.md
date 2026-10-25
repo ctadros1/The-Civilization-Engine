@@ -1776,3 +1776,8 @@ Content API 183 (M10c slice EC, third part) adds the policy kind `licence` and t
 of a carer it paid who knew no treatment of their disease, and someone grown of the settlement
 knows one). A `licence` template names in `[licence] technique` what those paid to tend the sick
 must know. The core adds `policy/yourselves_work_with_carers_who_know`, asking fluid replacement.
+
+Content API 184 (M10c slice ED, first part) adds the disease route `company` (in company at the
+hearth with someone shedding it) and a disease's `company_hazard`, the hazard an hour in company
+with one shedding it puts on each met (0 to 10; default 0). The core adds `disease/smallpox`,
+passing at home and in company, which no world has until the observer brings it.

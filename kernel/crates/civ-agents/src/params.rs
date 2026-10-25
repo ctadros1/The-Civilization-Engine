@@ -904,6 +904,9 @@ pub enum DiseaseRoute {
     Water,
     /// Living under one roof with someone shedding it: hands, food and shared vessels.
     Household,
+    /// Company at the hearth with someone shedding it (M10c slice ED; ADR-0035 §4): breath and
+    /// touch among those met.
+    Company,
 }
 
 impl DiseaseRoute {
@@ -912,14 +915,19 @@ impl DiseaseRoute {
         match self {
             DiseaseRoute::Water => "water",
             DiseaseRoute::Household => "household",
+            DiseaseRoute::Company => "company",
         }
     }
 
     /// The route with a key.
     pub fn from_key(key: &str) -> Option<DiseaseRoute> {
-        [DiseaseRoute::Water, DiseaseRoute::Household]
-            .into_iter()
-            .find(|r| r.key() == key)
+        [
+            DiseaseRoute::Water,
+            DiseaseRoute::Household,
+            DiseaseRoute::Company,
+        ]
+        .into_iter()
+        .find(|r| r.key() == key)
     }
 }
 
@@ -977,6 +985,9 @@ pub struct DiseaseDef {
     /// The hazard a day each member shedding it puts on each other member of a household
     /// (05-03 §7.2: summed over routes, drawn once a day).
     pub household_hazard: f64,
+    /// The hazard an hour in company at the hearth with one shedding it puts on each they meet
+    /// (M10c slice ED; content API 184), summed with the day's other hazards.
+    pub company_hazard: f64,
     /// What someone sheds of it a day while ill, and while shedding without symptoms, in doses: a
     /// dose drunk is a hazard of 1 (12-02 §5.4's exponential dose-response with its rate folded
     /// into the unit).

@@ -40,6 +40,8 @@ impl Population {
     /// The day's turn for infections (see the module documentation).
     pub(super) fn sickness_day(&mut self, ctx: &mut Ctx, day: i64) {
         self.lapse_calls(ctx, day);
+        // Yesterday's company at the hearth, kept while a disease passing by company ran.
+        let met = std::mem::take(&mut self.met);
         if self.sickness.quiet() && self.contagion.is_empty() && !self.sickness.outbreak_open() {
             return;
         }
@@ -127,6 +129,38 @@ impl Population {
         }
         // Each person's hazards of each disease, by route.
         let mut exposed: BTreeMap<(PermanentId, u16), Vec<(f64, Acquired)>> = BTreeMap::new();
+        // Company at the hearth yesterday with those who shed then (M10c slice ED): each hour
+        // with one puts the disease's hazard on the other.
+        if !met.is_empty() {
+            let mut shed: BTreeMap<PermanentId, Vec<u16>> = BTreeMap::new();
+            for &i in self.sickness.running() {
+                let Some(e) = self.sickness.get(i) else {
+                    continue;
+                };
+                if e.shedding(day - 1)
+                    && ctx
+                        .catalog
+                        .diseases
+                        .get(usize::from(e.disease))
+                        .is_some_and(|d| d.passes_by(DiseaseRoute::Company))
+                {
+                    shed.entry(e.person).or_default().push(e.disease);
+                }
+            }
+            for (a, b, hours) in met {
+                for (from, to) in [(a, b), (b, a)] {
+                    for &disease in shed.get(&from).into_iter().flatten() {
+                        let Some(def) = ctx.catalog.diseases.get(usize::from(disease)) else {
+                            continue;
+                        };
+                        exposed.entry((to, disease)).or_default().push((
+                            def.company_hazard.max(0.0) * f64::from(hours),
+                            Acquired::Company { person: from },
+                        ));
+                    }
+                }
+            }
+        }
         for ((household, disease), shedders) in shedding {
             let Some(def) = ctx.catalog.diseases.get(usize::from(disease)) else {
                 continue;
@@ -1076,6 +1110,19 @@ impl Population {
             })
             .collect();
         self.sickness.calls = kept;
+    }
+
+    /// Whether an episode of a disease passing by company runs (M10c slice ED): only then is who
+    /// met whom at the hearth kept.
+    pub(super) fn company_running(&self, ctx: &Ctx) -> bool {
+        self.sickness.running().iter().any(|&i| {
+            self.sickness.get(i).is_some_and(|e| {
+                ctx.catalog
+                    .diseases
+                    .get(usize::from(e.disease))
+                    .is_some_and(|d| d.passes_by(DiseaseRoute::Company))
+            })
+        })
     }
 
     /// Person `who`, come to tend household `household` on `day` (M10c slice DZ), is exposed to

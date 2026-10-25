@@ -26,6 +26,7 @@ pub fn disease_infos<'a>(
                 .map(|r| match r {
                     DiseaseRoute::Water => "by water",
                     DiseaseRoute::Household => "between those who share a home",
+                    DiseaseRoute::Company => "in company at the hearth",
                 })
                 .collect();
             let id = fbb.create_string(&d.id);
@@ -190,6 +191,10 @@ pub(crate) fn episode_words(sim: &Sim, e: &Episode) -> String {
             )
         }
         Acquired::Household { .. } => "took it from those who shed it at home".to_owned(),
+        Acquired::Company { person } => format!(
+            "took it in company at the hearth with {}",
+            sim.people().name_of(person)
+        ),
         Acquired::Water { source } => {
             format!("took it in water drawn at {}", source_words(sim, source))
         }

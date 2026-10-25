@@ -1,0 +1,22 @@
+world (seed 1, 2048 cells): 500 people in 10 settlements, founded in 11.7 s
+day 59: FOLLOWED (observer): Dwyn (person 11), 53, of Dwyn's household at Wrenfield; child of founders unrecorded; knows 15 techniques; eating
+day 59: FORCED (observer): the climate +3 °C and wet days' rain ×0.8, over 20 years (Reached { id: 1, repeat: false, holds: true, fit: 0.0, chance: 0.0 })
+the founding day lived in full detail to midnight in 1.6 s
+year 1: 530 people in 117 households; 9 of 10 settlements household-resolved; 117 buildings, 823 fields; the year 10.0 °C on average, 699 mm of rain and snow; chronicle: 1 CustomAmended, 12 DepositFound, 1 ElectionHeld, 708 Flood, 212 LawDecided; 0.89 s a day
+  followed: Dwyn (person 11), 54, of Dwyn's household at Wrenfield; child of founders unrecorded; knows 15 techniques; sleeping
+lived 365 days, to day 425; 530 people
+Wrenfield: 51 residents, Detailed
+Sedgehollow: 53 residents, household-resolved
+Elmwick: 57 residents, household-resolved
+Hazelstead: 53 residents, household-resolved
+Reedholt: 52 residents, household-resolved
+Oakfield: 52 residents, household-resolved
+Rushbank: 56 residents, household-resolved
+Otterbrook: 50 residents, household-resolved
+Rushholt: 53 residents, household-resolved
+Oakstead: 53 residents, household-resolved
+opened: Yara (person 73), 69, of Yara's household at Sedgehollow; child of founders unrecorded; knows 14 techniques; their day lived by household: asleep, sleeping until 06:36
+opened: Wendel (person 130), 42, of Wendel's household at Elmwick; child of founders unrecorded; knows 14 techniques; their day lived by household: asleep, sleeping until 06:36
+opened: Juna (person 211), 39, of Juna's household at Hazelstead; child of founders unrecorded; knows 14 techniques; their day lived by household: asleep, sleeping until 06:36
+speed: 0.89 s a day on average (p50 0.16 s, p95 5.67 s), 0.184 simulated years a real minute
+saved (17.6 MB) and loaded: 530 people against 530; the people opened are all there

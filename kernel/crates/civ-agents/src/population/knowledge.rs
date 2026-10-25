@@ -285,6 +285,19 @@ impl Population {
             if !could_find(catalog, t, &|u| p.knows(u), stores) {
                 continue;
             }
+            // What it needs found in the ground, its settlement must know (M10a slice DS).
+            let settlement = self.household(p.household).and_then(|x| x.settlement);
+            if !d.needs_known.iter().all(|&g| {
+                settlement.is_some_and(|s| {
+                    ctx.land.deposits.iter().any(|x| {
+                        usize::from(x.body.good) == g
+                            && x.left_kg() > 0.0
+                            && self.knows_deposit(s, x.id)
+                    })
+                })
+            }) {
+                continue;
+            }
             let chance = find_chance(hours * share, d.e50_h);
             let key = [
                 ctx.seed,

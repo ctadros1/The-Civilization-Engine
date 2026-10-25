@@ -1,0 +1,23 @@
+# Clean hands: washing hands and cloths before touching a mother in labour (M10c slice EA;
+# ADR-0035 §3; research 05-05 §2.1: in Semmelweis's wards maternal deaths fell from 11.3 % to
+# 2.0 % once hands were washed, taken here as the share of fever after the birth an attendant who
+# knows it prevents, (11.3 - 2.0) / 11.3). Nobody brings it. Tending the sick counts toward
+# finding it, very slowly (a tuning value); it is learnt in 10 hours beside someone who knows it,
+# and children learn it at home.
+kind = "technique"
+id = "core:technique/clean_hands"
+name = "Clean hands"
+can = "wash hands and cloths before touching a mother in labour, so that fever does not follow"
+domain = ""
+requires = []
+tried_in = ["core:activity/work_tending_the_sick"]
+needs = []
+e50_h = 100000.0
+learn_h = 10.0
+upbringing = true
+
+[answers]
+spoilage = []
+
+[birth]
+infection = 0.82

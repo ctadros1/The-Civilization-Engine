@@ -18,6 +18,16 @@ use crate::make;
 use crate::params::{ActivityDef, Behavior, GoodUse, interpolate};
 use crate::person::{Flow, Household, Person, Step, Target, stock_kcal};
 
+/// A session at a works' machine that wants a crew, held in a household-resolved day (M10a slice
+/// DT): the works, the make activity worked, the person and the minutes.
+#[derive(Clone, Debug)]
+pub(crate) struct HeldSession {
+    works: PermanentId,
+    def: ActivityDef,
+    who: Handle<Person>,
+    minutes: u32,
+}
+
 impl Population {
     /// A firm, open or closed.
     pub fn firm(&self, id: PermanentId) -> Option<&Firm> {
@@ -55,6 +65,44 @@ impl Population {
         self.firm_make(ctx, h, &d, minutes, id);
     }
 
+    /// Person `who` has been at the work of make activity `def` for workshop `id` since `since`,
+    /// one step of work: for tests of crews (M10a slice DT).
+    #[doc(hidden)]
+    pub fn at_work_for_tests(
+        &mut self,
+        who: PermanentId,
+        def: usize,
+        id: PermanentId,
+        since: SimTime,
+    ) {
+        if let Some(&h) = self.index.get(&who)
+            && let Some(p) = self.people.get_mut(h)
+        {
+            p.act.def = def as u16;
+            p.act.target = Target::Firm(id);
+            p.act.steps = vec![Step::Work { minutes: 60 }];
+            p.act.step = 0;
+            p.act.step_started = since;
+        }
+    }
+
+    /// The wage workshop `id` would offer for its line `line` now, as its review would plan it:
+    /// for tests of the bell (M10a slice DT).
+    #[doc(hidden)]
+    pub fn plan_wage_for_tests(
+        &self,
+        ctx: &Ctx,
+        id: PermanentId,
+        line: usize,
+    ) -> Option<WageOffer> {
+        let f = self.firm(id)?;
+        let owner = self.household(f.owner)?;
+        let costs = self.own_costs_of(ctx, owner);
+        let stores = stores_now(owner, ctx.now, ctx.params, &ctx.catalog.goods);
+        let holding = self.holding_of(ctx, owner, &stores);
+        self.plan_wage_for(ctx, f, line, &costs, &holding, &stores)
+    }
+
     /// Workshop `id` closes for `why`: for tests.
     #[doc(hidden)]
     pub fn close_firm_for_tests(&mut self, ctx: &Ctx, id: PermanentId, why: Exit) {
@@ -78,6 +126,46 @@ impl Population {
             .filter(|&g| is_fixed(goods, g))
             .map(|g| make::in_use(goods, g, f.stores.get(g).copied().unwrap_or(0.0)))
             .sum()
+    }
+
+    /// Workshop `id`'s machines and fixed tools (M10a slice DT): each fixed tool among its
+    /// stores, how much of it it holds, and the fewest hands it wants at it together.
+    pub fn machines_of(
+        &self,
+        goods: &[crate::params::GoodDef],
+        id: PermanentId,
+    ) -> Vec<(usize, u8, f64)> {
+        let Some(f) = self.firm(id) else {
+            return Vec::new();
+        };
+        f.stores
+            .iter()
+            .enumerate()
+            .filter(|&(g, &held)| is_fixed(goods, g) && held > 1e-9)
+            .map(|(g, &held)| {
+                let crew = goods[g].tool.as_ref().map_or(1, |t| t.crew.max(1));
+                (g, crew, held)
+            })
+            .collect()
+    }
+
+    /// The people at work for workshop `id` now (M10a slice DT): its owners making for it and
+    /// its hired hands, each in a step of work there.
+    pub fn at_work_for(&self, catalog: &crate::params::Catalog, id: PermanentId) -> usize {
+        self.people
+            .iter()
+            .filter(|(_, q)| {
+                q.act.target == Target::Firm(id)
+                    && matches!(
+                        q.act.steps.get(usize::from(q.act.step)),
+                        Some(Step::Work { .. })
+                    )
+                    && catalog
+                        .activities
+                        .get(usize::from(q.act.def))
+                        .is_some_and(|a| matches!(a.behavior, Behavior::Make | Behavior::Hire))
+            })
+            .count()
     }
 
     /// Household `owner`'s fixed tool `good`, `amount` of it, put into its open workshop `id` as
@@ -279,6 +367,89 @@ impl Population {
             .count()
     }
 
+    /// Runs the machines of the sessions held in a household-resolved day (M10a slice DT;
+    /// ADR-0032 §2, crews met in aggregate): for each works and way, if as many different hands
+    /// as its machine wants worked it, it runs once for their summed minutes over its crew, at
+    /// the first hand's speed, as one shift of them together would; else it stood idle.
+    pub(super) fn run_held_crews(&mut self, ctx: &mut Ctx) {
+        let held = std::mem::take(&mut self.crew_held);
+        let mut done: Vec<(PermanentId, &str)> = Vec::new();
+        for s in &held {
+            if done.contains(&(s.works, s.def.id.as_str())) {
+                continue;
+            }
+            done.push((s.works, s.def.id.as_str()));
+            let same: Vec<&HeldSession> = held
+                .iter()
+                .filter(|x| x.works == s.works && x.def.id == s.def.id)
+                .collect();
+            let mut hands: Vec<Handle<Person>> = same.iter().map(|x| x.who).collect();
+            hands.sort_unstable();
+            hands.dedup();
+            let crew = s
+                .def
+                .recipe
+                .and_then(|r| ctx.catalog.recipes.get(r))
+                .map_or(1, |r| super::crew_of(&ctx.catalog.goods, r));
+            if hands.len() < usize::from(crew) {
+                continue;
+            }
+            let minutes: u32 = same.iter().map(|x| x.minutes).sum::<u32>() / u32::from(crew);
+            self.crew_run = true;
+            self.firm_make(ctx, s.who, &s.def, minutes, s.works);
+            self.crew_run = false;
+        }
+    }
+
+    /// Sessions at works' machines that want a crew, as a household-resolved day would hold
+    /// them (`on`), and their run: for tests.
+    #[doc(hidden)]
+    pub fn resolving_for_tests(&mut self, ctx: &mut Ctx, on: bool) {
+        self.resolving = on;
+        if !on {
+            self.run_held_crews(ctx);
+        }
+    }
+
+    /// Whether the session of person `h` now ending had the crew of `crew` its machine wants
+    /// (M10a slice DT; ADR-0033 §8): the others at the same work, for the same works or at the
+    /// same household's, who were at it when this session began and are still, are with this
+    /// person at least `crew`. A hand who came later, or left before the end, does not count.
+    pub(super) fn crewed(&self, ctx: &Ctx, h: Handle<Person>, crew: u8) -> bool {
+        if crew <= 1 {
+            return true;
+        }
+        let Some(p) = self.people.get(h) else {
+            return false;
+        };
+        let at_work = |q: &Person| {
+            matches!(
+                q.act.steps.get(usize::from(q.act.step)),
+                Some(Step::Work { .. })
+            )
+        };
+        let same = |q: &Person| match p.act.target {
+            // At a works, everyone making or hired for it, owners and hands alike.
+            Target::Firm(_) => {
+                q.act.target == p.act.target
+                    && ctx
+                        .catalog
+                        .activities
+                        .get(usize::from(q.act.def))
+                        .is_some_and(|a| matches!(a.behavior, Behavior::Make | Behavior::Hire))
+            }
+            _ => q.household == p.household && q.act.def == p.act.def,
+        };
+        let others = self
+            .people
+            .iter()
+            .filter(|&(k, q)| {
+                k != h && same(q) && at_work(q) && q.act.step_started <= p.act.step_started
+            })
+            .count();
+        others + 1 >= usize::from(crew)
+    }
+
     /// Brings a firm's stores up to now, under its owners' roof when they have one.
     pub(super) fn settle_firm(&mut self, ctx: &Ctx, id: PermanentId) {
         let sheltered = self
@@ -342,6 +513,22 @@ impl Population {
         // slice DR; ADR-0033 §5).
         if recipe.kwh_per_unit > 0.0 {
             units = units.min(super::power_kw_of(ctx, id) * hours / recipe.kwh_per_unit);
+        }
+        // A machine runs only while its crew is at it (M10a slice DT; ADR-0033 §8): a missing
+        // hand idles it. In a household-resolved day the session is held, and the day's crew is
+        // counted once the settlement's day is lived (ADR-0032 §2).
+        let crew = super::crew_of(&ctx.catalog.goods, recipe);
+        if crew > 1 && self.resolving && !self.crew_run {
+            self.crew_held.push(HeldSession {
+                works: id,
+                def: def.clone(),
+                who: h,
+                minutes,
+            });
+            return;
+        }
+        if !self.crew_run && !self.crewed(ctx, h, crew) {
+            units = 0.0;
         }
         // What the recipe takes from the owners' stores for what can be made in the time (never
         // the seed: a workshop's work is not hunger's), and what it gives.
@@ -693,11 +880,34 @@ impl Population {
     ) -> Option<WageOffer> {
         let (params, catalog) = (ctx.params, ctx.catalog);
         let fp = &params.firm;
-        let (activity, recipe) = catalog.activities.iter().enumerate().find_map(|(i, a)| {
-            let r = catalog.recipes.get(a.recipe?)?;
-            (a.behavior == Behavior::Make && r.outputs.first().is_some_and(|&(g, _)| g == line))
-                .then_some((i, r))
-        })?;
+        let ways = || {
+            catalog.activities.iter().enumerate().filter_map(|(i, a)| {
+                let r = catalog.recipes.get(a.recipe?)?;
+                (a.behavior == Behavior::Make && r.outputs.first().is_some_and(|&(g, _)| g == line))
+                    .then_some((i, r))
+            })
+        };
+        // A works that holds a machine wanting a crew hires for a way its owners know that works
+        // it (M10a slice DT); else for the first way of making the line, as before.
+        let goods = &catalog.goods;
+        let members = self
+            .household(f.owner)
+            .map(|x| x.members.clone())
+            .unwrap_or_default();
+        let machine = |r: &crate::params::RecipeDef| {
+            super::crew_of(goods, r) > 1
+                && r.technique
+                    .is_none_or(|t| self.household_knows(&members, t))
+                && r.tools.iter().all(|&t| {
+                    goods[t].tool.as_ref().is_none_or(|x| x.crew <= 1)
+                        || self.station_for(goods, f.id, t) >= crate::decide::MIN_TOOL
+                })
+        };
+        // Never a way wanting a crew at a machine it cannot work.
+        let (activity, recipe) = ways()
+            .find(|&(_, r)| machine(r))
+            .or_else(|| ways().find(|&(_, r)| super::crew_of(goods, r) <= 1))
+            .or_else(|| ways().next())?;
         let market = self.market(f.settlement?)?;
         let review = f64::from(params.market.review_days.max(1));
         let share = 1.0 - 0.5f64.powf(review / params.market.memory_days.max(1e-6));
@@ -765,6 +975,21 @@ impl Population {
         let hours = (wanted * recipe.unit_h)
             .min(fp.max_hire_hours)
             .min(have / per_hour);
+        // A works whose machines want a crew rings a bell at sunrise and hires for its shift, by
+        // daylight (M10a slice DT; ADR-0033 §8).
+        let (bell_min, shift_min) = if super::crew_of(&catalog.goods, recipe) > 1 {
+            let sun = crate::needs::daylight(
+                params.latitude_deg,
+                civ_land::day_of_year(ctx.now.day_index()),
+            );
+            let bell = sun.0.clamp(0, 1439);
+            let shift = ((fp.shift_h * 60.0).round() as i64)
+                .min(sun.1 - bell)
+                .max(0);
+            (bell as u16, shift as u16)
+        } else {
+            (0, 0)
+        };
         (hours >= 1.0).then_some(WageOffer {
             activity: activity as u16,
             pay: pay as u16,
@@ -773,6 +998,8 @@ impl Population {
             hours: hours as f32,
             taken: 0.0,
             reviewed,
+            bell_min,
+            shift_min,
         })
     }
 
@@ -844,7 +1071,10 @@ impl Population {
             else {
                 continue;
             };
-            let minutes = (w.open_hours() * 60.0).min(session_min);
+            // With a bell the session is the shift; else as long as a session at home.
+            let bell = (w.shift_min > 0).then_some((w.bell_min, w.shift_min));
+            let session = bell.map_or(session_min, |(_, len)| f64::from(len));
+            let minutes = (w.open_hours() * 60.0).min(session);
             let units = f64::from(w.per_hour) * minutes / 60.0;
             let p = usize::from(w.pay);
             let Some(d) = goods.get(p) else {
@@ -871,6 +1101,7 @@ impl Population {
                         at,
                         minutes,
                         worth,
+                        bell,
                     },
                 ));
             }

@@ -1,0 +1,17 @@
+# Fining pig iron into bar at a finery hearth blown by the wheel and drawn under its hammer
+# (research 07-05 I6: oxidizing refining decarburizes cast iron; 07-12 §2's refining then hammering):
+# 1.35 kg of pig and 3 kg of charcoal a kilogram of bar, an hour of the hammer's two hands and
+# 1 kWh of the wheel's work (tuning values; the loss to slag is about a quarter).
+kind = "recipe"
+id = "core:recipe/fine_pig_iron"
+name = "Fine pig iron into bar"
+skill = "core:skill/smithing"
+technique = "core:technique/blast_furnace"
+unit_h = 1.0
+session_h = 0.0
+max_units = 0.0
+kwh_per_unit = 1.0
+tools = ["core:good/water_wheel", "core:good/tilt_hammer"]
+inputs = [{ good = "core:good/pig_iron", amount = 1.35 }, { good = "core:good/charcoal", amount = 3.0 }]
+outputs = [{ good = "core:good/iron", amount = 1.0 }]
+session_inputs = []

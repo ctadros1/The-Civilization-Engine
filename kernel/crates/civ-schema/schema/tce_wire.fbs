@@ -214,6 +214,10 @@ table Clock {
   // Wire 1.93 (M9b slice DK, ADR-0032 §6): settlements away from the observer's focus are
   // household-resolved, as the observer chose; off, every settlement is Detailed.
   resolution_by_focus: bool (id: 11);
+  // Light (wire 1.99, M10b slice DU): homes where a lamp burns for work now, and the minute the
+  // world's first lamp was lit for work, -1 before (until then the dark shortens nobody's sight).
+  lit_homes: uint (id: 12);
+  first_lamp_minute: long = -1 (id: 13);
 }
 
 // Wire 1.24 (M3c slice U, ADR-0012 §1): today's weather on the valley floor, at the height the
@@ -1094,6 +1098,15 @@ table PersonInfo {
   // May of year 2 that the water at Bo's household's well sickens: of 5 households they know
   // that draw there, 3 had sickness lately, against 0 of 6 that draw elsewhere").
   suspicions: [string] (id: 58);
+  // Their light, in words (wire 1.99, M10b slice DU): "Working by lamplight at home; their
+  // household's fat lamp has tallow for 12 hours", "Their household holds a fat lamp, with tallow
+  // for 30 hours of light", or empty when it holds none.
+  light: string (id: 59);
+  // Their care of other homes, in words (wire 1.104, M10c slice DZ): the sick of other homes they
+  // were first to tend and what came of it, and the calls for carers their household stands in
+  // ("First to tend 3 of the sick of other homes: 2 lived, 1 died; Their household is called to
+  // tend the sick of Ada's household, for 2100 kcal of food a day"); empty for none.
+  care: string (id: 60);
 }
 
 // Wire 1.47 (M4c slice AJ): a claim that may be whispered.
@@ -1445,6 +1458,12 @@ table BuildingInfo {
   // the plot's receipt ("chosen over 5 others: 34 hours less walking and levelling over five
   // years than the next best"); empty where nothing was weighed (built before plots kept why).
   site: string (id: 48);
+  // Wire 1.103 (M10b slice DY, fifth part): its gas in words: a building connected to a main, its
+  // burners and how its last evening went, lit or not and why ("2 burners on Ada's household's
+  // main; not lit this evening: the main could not carry them"); the gasworks of the household
+  // that keeps it, its retort, holder and the gas held ("Gasworks: a gas holder with 12 kg of
+  // coal gas of 40; feeds 1 main, 3 homes connected"); empty for neither.
+  gas: string (id: 49);
 }
 
 table Buildings {
@@ -1641,6 +1660,18 @@ table WageInfo {
   taken: float (id: 5);
   // Rendered by the kernel: "Pays 0.9 kg of grain an hour; wants 6 more hours of work this week."
   text: string (id: 6);
+  // Its bell (wire 1.98, M10a slice DT): the minute of the day it rings and the minutes of the
+  // shift that follows; a shift of 0 is no bell, work at any hour.
+  bell_minute: ushort (id: 7);
+  shift_minutes: ushort (id: 8);
+}
+
+// A machine a works holds (wire 1.98, M10a slice DT): a fixed tool among its stations, how many
+// of it are whole, and the fewest hands it wants at it together.
+struct MachineLine {
+  good: ushort;
+  crew: ubyte;
+  units: float;
 }
 
 // A line of a workshop's books (M3a slice J).
@@ -1699,6 +1730,10 @@ table FirmInfo {
   entries: [BookEntryInfo] (id: 8);
   // Every month of its life, oldest first.
   months: [MonthStatement] (id: 9);
+  // Its machines and fixed tools (wire 1.98).
+  machines: [MachineLine] (id: 10);
+  // The people at work for it now, its owners and hired hands (wire 1.98).
+  at_work: ushort (id: 11);
 }
 
 // How a settlement's wealth measures spread over its people (M3a slice K; ADR-0007 §4). Several
@@ -2009,6 +2044,24 @@ struct FloodCell {
   depth_m: float;
 }
 
+// A water mill (wire 1.97, M10a slice DR; ADR-0033 §5): where its wheel stands, the fall it
+// takes, the power its river gives it today and the most its wheel delivers, whether its headrace
+// is dug, whose it is, and all of it in words.
+table MillInfo {
+  id: ulong (id: 0);
+  // Its wheel, metres from the map's north-west corner.
+  x: float (id: 1);
+  y: float (id: 2);
+  head_m: float (id: 3);
+  // Kilowatts today (0 while its race is undug or its river dry) and its wheel's rating.
+  kw: float (id: 4);
+  rated_kw: float (id: 5);
+  dug: bool (id: 6);
+  household: ulong (id: 7);
+  // "Ada's household's water mill, a fall of 0.7 m: 0.2 kW today of its 3 kW".
+  words: string (id: 8);
+}
+
 table Water {
   // The snapshot revision this is at.
   rev: ulong (id: 0);
@@ -2020,6 +2073,8 @@ table Water {
   banks: [BankDraw] (id: 4);
   // Flooded cells today with water depth, metres (wire 1.69).
   flooded: [FloodCell] (id: 5);
+  // Every water mill, its race dug or not (wire 1.97).
+  mills: [MillInfo] (id: 6);
 }
 
 // A tile of what earthworks have done to the ground, numbered row by row across the map. Its
@@ -2842,15 +2897,61 @@ table WayInfo {
   trips_a_day: float (id: 4);
   segments: [WaySegmentInfo] (id: 5);
   words: string (id: 6);
+  // Wire 1.100 (M10b slice DV, fifth part): for a line of track, its gauge, metres (0 for a way
+  // with none), its bed's steepest grade, rise over run, and the share of it laid, 0-1 (1 for a
+  // way with no track); `modes` bit 4 is wagons.
+  gauge_m: float (id: 7);
+  ruling: float (id: 8);
+  laid: float = 1.0 (id: 9);
+  // Wire 1.102 (M10b slice DX, fifth part): for a line, whether its ends are stations, the runs a
+  // day its timetable sets, the fare a ride costs, kg of its engines' fuel, and since its last
+  // review the rides taken and the goods its trains brought a day, kg.
+  stations: bool (id: 10);
+  runs_a_day: ubyte (id: 11);
+  fare_kg: float (id: 12);
+  riders: uint (id: 13);
+  freight_kg_day: float (id: 14);
+}
+
+// Wire 1.103 (M10b slice DY, fifth part; ADR-0034 §8): a gas main: the household whose works
+// feeds it; its centre line from the works, metres from the map's north-west corner, as x, y
+// pairs; its length, metres, and the share of it laid, 0-1; the most gas it carries an hour, kg;
+// whether it is broken; the buildings connected to it and those whose burners are lit now; and
+// the main in words.
+table GasMainInfo {
+  id: ulong (id: 0);
+  works: ulong (id: 1);
+  points: [float] (id: 2);
+  length_m: float (id: 3);
+  laid: float (id: 4);
+  capacity_kg_h: float (id: 5);
+  broken: bool (id: 6);
+  homes: uint (id: 7);
+  lit: uint (id: 8);
+  words: string (id: 9);
+}
+
+// Wire 1.103: a street lamp a polity set by law: where it stands, metres from the map's
+// north-west corner; whether it burns now; and in words ("A street lamp of Ashford's, lit until
+// dawn").
+table StreetLampInfo {
+  x: float (id: 0);
+  y: float (id: 1);
+  lit: bool (id: 2);
+  words: string (id: 3);
 }
 
 // Wire 1.84: every way, in the order begun.
 table Ways {
   rev: ulong (id: 0);
   ways: [WayInfo] (id: 1);
+  // Wire 1.103 (M10b slice DY, fifth part): every gas main and street lamp, in the order made.
+  mains: [GasMainInfo] (id: 2);
+  lamps: [StreetLampInfo] (id: 3);
 }
 
-// Wire 1.86 (M8b slices CO and CP): a boat or a cart: its mode (0 a boat, 1 a cart) and its
+// Wire 1.86 (M8b slices CO and CP): a boat or a cart: its mode (0 a boat, 1 a cart; 2 a wagon on
+// its line from wire 1.100; 3 an engine on rails from wire 1.101) and its
 // content name ("Dugout"); the household it is of and that household in words ("Ada's
 // household"); where it stands, metres from the map's north-west corner; how far it is made, 0-1
 // (1 made); its wear, 0-1; who of its household has it out now (0 for nobody) and the goods
@@ -2868,9 +2969,14 @@ table VehicleInfo {
   out_with: ulong (id: 9);
   load_kg: float (id: 10);
   words: string (id: 11);
+  // Wire 1.101 (M10b slice DW, fifth part): where an engine or a wagon is on a run along its
+  // line: 0 on none, 1 waiting at a loop or end for the section ahead, 2 running, 3 arrived. A
+  // vehicle on a run is drawn where the run has it, along the line.
+  run: ubyte (id: 12);
 }
 
-// Wire 1.86: every boat, then every cart, each in the order begun.
+// Wire 1.86: every boat, then every cart, then (wire 1.100) every wagon and (wire 1.101) every
+// engine on rails, each in the order begun.
 table Vehicles {
   rev: ulong (id: 0);
   vehicles: [VehicleInfo] (id: 1);

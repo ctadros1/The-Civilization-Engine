@@ -1,0 +1,19 @@
+# Digging coal from a pit at a seam the settlement knows, and carrying it home for the hearth (M10a
+# slice DS). Done by those who know how to burn it, weighed as a trip for fuel by its heat. Digging
+# is heavy work; ages, session lengths and the walk allowed are tuning values, as for clay.
+kind = "activity"
+id = "core:activity/dig_coal"
+name = "Dig coal"
+doing = "digging coal"
+behavior = "dig"
+digs = "core:good/coal"
+par = 5.0
+min_age_years = 14.0
+max_age_years = 65.0
+min_minutes = 30
+max_minutes = 180
+daylight_only = true
+max_walk_minutes = 60
+technique = "core:technique/coal_burning"
+tools = []
+rate = 1.0

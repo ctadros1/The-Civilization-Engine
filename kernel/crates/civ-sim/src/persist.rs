@@ -480,6 +480,40 @@ pub const SCHEMA_V171: u32 = 171;
 pub const SCHEMA_V172: u32 = 172;
 /// Water-power installations, before households counted what they ground for a mill.
 pub const SCHEMA_V173: u32 = 173;
+/// Households counted what they ground for a mill, before pits held water.
+pub const SCHEMA_V174: u32 = 174;
+/// Pits held water, before engines pumped them.
+pub const SCHEMA_V175: u32 = 175;
+/// Engines pumped pits, before pits tallied the hours bailed at them.
+pub const SCHEMA_V176: u32 = 176;
+/// Pits tallied the hours bailed at them, before works rang a bell.
+pub const SCHEMA_V177: u32 = 177;
+/// Works rang a bell, before the world remembered its first lamp lit.
+pub const SCHEMA_V178: u32 = 178;
+/// The world remembered its first lamp lit, before ways kept their track.
+pub const SCHEMA_V179: u32 = 179;
+/// Ways kept their track, before wagons.
+pub const SCHEMA_V180: u32 = 180;
+/// Wagons stood on their lines, before train runs.
+pub const SCHEMA_V181: u32 = 181;
+/// Train runs, before they pulled wagons.
+pub const SCHEMA_V182: u32 = 182;
+/// Runs pulled wagons, before lines had stations and timetables.
+pub const SCHEMA_V183: u32 = 183;
+/// Lines had stations and timetables, before rides and fares.
+pub const SCHEMA_V184: u32 = 184;
+/// Rides and fares, before gas mains.
+pub const SCHEMA_V185: u32 = 185;
+/// Gas mains, before they were laid by work.
+pub const SCHEMA_V186: u32 = 186;
+/// Gas mains laid by work, before their works reckoned what they repay.
+pub const SCHEMA_V187: u32 = 187;
+/// Gas mains reckoned, before street lamps.
+pub const SCHEMA_V188: u32 = 188;
+/// Street lamps, before calls for carers.
+pub const SCHEMA_V189: u32 = 189;
+/// Calls for carers, before who tended the ill was kept for births.
+pub const SCHEMA_V190: u32 = 190;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

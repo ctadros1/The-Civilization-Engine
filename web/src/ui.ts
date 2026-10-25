@@ -16,6 +16,7 @@ import {
   formatSimMinute,
   formatSpeed,
   formatTools,
+  litHomesText,
   formatWhen,
 } from "./format.js";
 import { BUILDING_LEGEND } from "./buildings.js";
@@ -34,9 +35,11 @@ import {
 import { FIELD_LEGEND } from "./fields.js";
 import {
   ENTRIES_SHOWN,
+  atWorkText,
   holdingsText,
   lifeText,
   linesText,
+  machinesText,
   statementRows,
 } from "./firm.js";
 import { materialGoods } from "./deposits.js";
@@ -1509,6 +1512,18 @@ export function bindUi(store: Store, actions: Actions): void {
         ),
       );
     }
+    // Their light (wire 1.99, M10b slice DU): at work by lamplight, or the lamp their household
+    // holds and how long its fuel lasts.
+    if (p.alive && p.light) {
+      nodes.push(
+        el("div", { className: "light" }, el("h4", { text: "Light" }), el("p", { text: `${p.light}.` })),
+      );
+    }
+    // Their care of other homes (wire 1.104, M10c slice DZ): the sick they were first to tend and
+    // what came of it, and the calls for carers their household stands in.
+    if (p.alive && p.care) {
+      nodes.push(el("div", { className: "care" }, el("h4", { text: "Care" }), el("p", { text: `${p.care}.` })));
+    }
     if (p.alive) nodes.push(tiesBlock(state, p), wordBlock(p), opinionBlock(p));
     if (p.alive) nodes.push(observerBlock(welcome, p));
     if (p.kin.length > 0 || p.family.length > 0) {
@@ -2020,6 +2035,8 @@ export function bindUi(store: Store, actions: Actions): void {
         `${info.wage.text} The work is to ${work}; an hour's pay is worth ${info.wage.hourH.toFixed(1)} h of its owners' own work.`,
       ]);
     }
+    if (info.machines.length > 0) facts.push(["Machines", machinesText(goods, info.machines)]);
+    if (f.open) facts.push(["At work now", atWorkText(info.atWork)]);
     const list = el("dl", { className: "facts" });
     for (const [k, v] of facts) list.append(el("dt", { text: k }), el("dd", { text: v }));
     nodes.push(list);
@@ -3314,7 +3331,7 @@ export function bindUi(store: Store, actions: Actions): void {
             minute: clock.minuteOfHour,
           })} · ${clock.season}${clock.weather ? ` · ${clock.weather.words}` : ""}${
             clock.weather?.windWords ? ` · ${clock.weather.windWords}` : ""
-          }`
+          }${litHomesText(clock.litHomes)}`
         : "",
     );
     const run = $<HTMLButtonElement>("btn-run");

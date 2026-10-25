@@ -6,6 +6,7 @@ import * as flatbuffers from 'flatbuffers';
 
 import { BookEntryInfo } from '../../tce/wire/book-entry-info.js';
 import { FirmBrief } from '../../tce/wire/firm-brief.js';
+import { MachineLine } from '../../tce/wire/machine-line.js';
 import { MonthStatement } from '../../tce/wire/month-statement.js';
 import { OfferInfo } from '../../tce/wire/offer-info.js';
 import { StoreLine } from '../../tce/wire/store-line.js';
@@ -102,8 +103,23 @@ monthsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+machines(index: number, obj?:MachineLine):MachineLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 24);
+  return offset ? (obj || new MachineLine()).__init(this.bb!.__vector(this.bb_pos + offset) + index * 8, this.bb!) : null;
+}
+
+machinesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 24);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+atWork():number {
+  const offset = this.bb!.__offset(this.bb_pos, 26);
+  return offset ? this.bb!.readUint16(this.bb_pos + offset) : 0;
+}
+
 static startFirmInfo(builder:flatbuffers.Builder) {
-  builder.startObject(10);
+  builder.startObject(12);
 }
 
 static addBrief(builder:flatbuffers.Builder, briefOffset:flatbuffers.Offset) {
@@ -184,6 +200,18 @@ static createMonthsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]
 
 static startMonthsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
+}
+
+static addMachines(builder:flatbuffers.Builder, machinesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(10, machinesOffset, 0);
+}
+
+static startMachinesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(8, numElems, 4);
+}
+
+static addAtWork(builder:flatbuffers.Builder, atWork:number) {
+  builder.addFieldInt16(11, atWork, 0);
 }
 
 static endFirmInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

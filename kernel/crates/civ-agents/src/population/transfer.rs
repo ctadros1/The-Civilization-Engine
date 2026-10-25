@@ -394,6 +394,8 @@ mod tests {
         let good = |id: &str, purpose| GoodDef {
             fuel: None,
             power: None,
+            light: None,
+            holder: None,
             money: None,
             id: id.into(),
             name: id.into(),

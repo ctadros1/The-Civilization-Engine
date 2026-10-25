@@ -236,10 +236,12 @@ mod tests {
             requires: Vec::new(),
             tried_in: Vec::new(),
             needs: Vec::new(),
+            needs_known: Vec::new(),
             e50_h: 1000.0,
             learn_h: 50.0,
             upbringing,
             answers_spoilage: Vec::new(),
+            birth: [0.0; 3],
         };
         Catalog {
             activities: vec![activity("sow", 10.0, 0), activity("weave", 12.0, 1)],
@@ -301,6 +303,8 @@ mod tests {
         let food = |id: &str, kcal: f64, half_life: f64, sheltered: f64| GoodDef {
             fuel: None,
             power: None,
+            light: None,
+            holder: None,
             money: None,
             id: id.into(),
             name: id.into(),

@@ -41,6 +41,14 @@ pub fn earthworks_rev(sim: &Sim) -> u64 {
     for w in works {
         let building = building_on(sim, w).map_or(0, |b| b.id.get());
         (w.id.get(), w.done.to_bits(), w.cut_m3.to_bits(), building).hash(&mut hasher);
+        // The water last found standing in a pit (M10a slice DS).
+        if let Some(p) = sim.land.pit_water.iter().find(|p| p.work == w.id) {
+            (p.water_m3.to_bits(), p.at.minutes()).hash(&mut hasher);
+        }
+        // An engine set at it (third part).
+        if let Some(e) = sim.land.engines.iter().find(|e| e.pit == w.id) {
+            e.id.get().hash(&mut hasher);
+        }
         if let Some(b) = sim.land.banks.iter().find(|b| b.work == w.id) {
             (
                 b.settlement_m.to_bits(),
@@ -102,7 +110,30 @@ fn words(sim: &Sim, w: &Earthwork, building: Option<&Building>) -> String {
             let whose = eldest_name(sim, w.household)
                 .map_or_else(|| "a".to_owned(), |name| format!("{name}'s household's"));
             let (good, working) = dug_for(sim, w);
-            return format!("{whose} {good} {working}, {:.1} m deep", w.depth_m());
+            // Water standing in it (M10a slice DS).
+            let wet = sim
+                .land
+                .pit_water_now(
+                    &sim.map,
+                    &sim.rules.land,
+                    sim.rules.people.digging.influence_m,
+                    w.id,
+                    sim.now(),
+                )
+                .filter(|s| s.depth_m() >= 0.05)
+                .map_or_else(String::new, |s| {
+                    format!(", {:.1} m of water standing in it", s.depth_m())
+                });
+            // An engine at its head (M10a slice DS, third part).
+            let engine = if sim.land.engines.iter().any(|e| e.pit == w.id) {
+                ", an engine at its head"
+            } else {
+                ""
+            };
+            return format!(
+                "{whose} {good} {working}, {:.1} m deep{wet}{engine}",
+                w.depth_m()
+            );
         }
         EarthKind::Bank => {
             let bank = sim.land.banks.iter().find(|b| b.work == w.id);

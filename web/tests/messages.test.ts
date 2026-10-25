@@ -242,6 +242,9 @@ describe("decoders", () => {
     W.Clock.addSpeed(b, Infinity);
     W.Clock.addMode(b, W.ClockMode.Accelerated);
     W.Clock.addWeather(b, weather);
+    // Wire 1.99: homes lit for work now, and the world's first lamp.
+    W.Clock.addLitHomes(b, 3);
+    W.Clock.addFirstLampMinute(b, 4_000n);
     const clock = W.Clock.endClock(b);
     const taskName = b.createString("Loading");
     const stage = b.createString("Reading");
@@ -295,6 +298,8 @@ describe("decoders", () => {
         fuelUsual: 0.125,
         windWords: "a gentle breeze from the west, gusts to 7 m/s; thatch damp",
       },
+      litHomes: 3,
+      firstLampMinute: 4_000,
     });
     expect(snapshot.task).toEqual({
       name: "Loading",
@@ -574,7 +579,10 @@ describe("decoders", () => {
     const offer = W.OfferInfo.createOfferInfo(b, 77n, seller, 4, 0, 12, 2, true);
     const offers = W.FirmInfo.createOffersVector(b, [offer]);
     const wageText = b.createString("Pays 0.90 kg of grain an hour; wants 6 more hours of work before its next review.");
-    const wage = W.WageInfo.createWageInfo(b, 12, 0, 0.9, 0.5, 8, 2, wageText);
+    const wage = W.WageInfo.createWageInfo(b, 12, 0, 0.9, 0.5, 8, 2, wageText, 372, 600);
+    W.FirmInfo.startMachinesVector(b, 1);
+    W.MachineLine.createMachineLine(b, 7, 2, 1);
+    const machines = b.endVector();
     const sold = b.createString("Sold a sickle to Bran's household.");
     const entry = W.BookEntryInfo.createBookEntryInfo(b, 2000n, W.BookKind.Sold, 4, 1, 9n, sold);
     const entries = W.FirmInfo.createEntriesVector(b, [entry]);
@@ -595,6 +603,8 @@ describe("decoders", () => {
     W.FirmInfo.addWage(b, wage);
     W.FirmInfo.addEntries(b, entries);
     W.FirmInfo.addMonths(b, months);
+    W.FirmInfo.addMachines(b, machines);
+    W.FirmInfo.addAtWork(b, 3);
     response = W.Response.createResponse(b, W.ResponseBody.FirmInfo, W.FirmInfo.endFirmInfo(b));
     const page = M.decodeResponse(finish(b, response));
     expect(page.kind).toBe("firm");
@@ -609,6 +619,9 @@ describe("decoders", () => {
     expect(f.wage).toMatchObject({ activity: 12, pay: 0, hours: 8, taken: 2 });
     expect(f.wage?.perHour).toBeCloseTo(0.9, 5);
     expect(f.wage?.text).toContain("Pays 0.90 kg of grain");
+    expect([f.wage?.bellMinute, f.wage?.shiftMinutes]).toEqual([372, 600]);
+    expect(f.machines).toEqual([{ good: 7, units: 1, crew: 2 }]);
+    expect(f.atWork).toBe(3);
     expect(f.entries).toEqual([
       { minute: 2000, kind: "sold", good: 4, amount: 1, other: 9, text: "Sold a sickle to Bran's household." },
     ]);
@@ -636,6 +649,7 @@ describe("decoders", () => {
     const fresh = M.decodeResponse(finish(b, response));
     if (fresh.kind !== "firm") throw new Error("expected a workshop");
     expect([fresh.firm.lastSaleMinute, fresh.firm.wage, fresh.firm.entries]).toEqual([-1, null, []]);
+    expect([fresh.firm.machines, fresh.firm.atWork]).toEqual([[], 0]);
   });
 
   it("decodes chronicle links to people, settlements and workshops", () => {
@@ -694,6 +708,7 @@ describe("decoders", () => {
     const style = b.createString("roof pitched 49°, walls 1.9 m to the eaves, after Bo's hut");
     const fireWords = b.createString("fully involved since 02:15, set alight by the observer (one recorded influence)");
     const site = b.createString("chosen over 5 others: 34 hours less walking and levelling over 5 years than the next best");
+    const gas = b.createString("Gas: 1 burner on Ada's main; lit until 22:40");
     const group = W.GroupInfo.createGroupInfo(
       b,
       0x0700,
@@ -746,6 +761,7 @@ describe("decoders", () => {
     W.BuildingInfo.addFireId(b, 3);
     W.BuildingInfo.addFireWords(b, fireWords);
     W.BuildingInfo.addSite(b, site);
+    W.BuildingInfo.addGas(b, gas);
     const info = W.BuildingInfo.endBuildingInfo(b);
     const list = W.Buildings.createBuildingsVector(b, [info]);
     const buildings = W.Buildings.createBuildings(b, 77n, list);
@@ -818,6 +834,7 @@ describe("decoders", () => {
           fireId: 3,
           fireWords: "fully involved since 02:15, set alight by the observer (one recorded influence)",
           site: "chosen over 5 others: 34 hours less walking and levelling over 5 years than the next best",
+          gas: "Gas: 1 burner on Ada's main; lit until 22:40",
         },
       ],
     });
@@ -1238,6 +1255,42 @@ describe("decoders", () => {
     expect(query.bodyType()).toBe(W.QueryBody.GetCrossings);
   });
 
+  it("decodes the vehicles, an engine on its run among them (wire 1.101)", () => {
+    const b = new flatbuffers.Builder(256);
+    const name = b.createString("Locomotive");
+    const owner = b.createString("Ada's household");
+    const words = b.createString(
+      "Ada's household's locomotive, made in year 3; running home with a wagon, 380 kg aboard",
+    );
+    const engine = W.VehicleInfo.createVehicleInfo(b, 71n, 3, name, 7n, owner, 12, 34, 1, 0, 0n, 0, words, 2);
+    const list = W.Vehicles.createVehiclesVector(b, [engine]);
+    const vehicles = W.Vehicles.createVehicles(b, 9n, list);
+    const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Vehicles, vehicles)));
+    expect(body).toEqual({
+      kind: "vehicles",
+      vehicles: {
+        rev: 9,
+        vehicles: [
+          {
+            id: 71,
+            mode: 3,
+            name: "Locomotive",
+            owner: 7,
+            ownerName: "Ada's household",
+            x: 12,
+            y: 34,
+            made: 1,
+            wear: 0,
+            outWith: 0,
+            loadKg: 0,
+            words: "Ada's household's locomotive, made in year 3; running home with a wagon, 380 kg aboard",
+            run: 2,
+          },
+        ],
+      },
+    });
+  });
+
   it("decodes the ways people worked on, and builds their query", () => {
     const b = new flatbuffers.Builder(256);
     const points = W.WaySegmentInfo.createPointsVector(b, [4, 4, 76, 4]);
@@ -1247,9 +1300,25 @@ describe("decoders", () => {
     const segments = W.WayInfo.createSegmentsVector(b, [segment]);
     const rankName = b.createString("lane");
     const words = b.createString("Lane of 72 m, 1.5 m wide at most; begun in year 1.");
-    const info = W.WayInfo.createWayInfo(b, 61n, 0, rankName, 1, 3, segments, words);
-    const list = W.Ways.createWaysVector(b, [info]);
-    const ways = W.Ways.createWays(b, 5n, list);
+    const info = W.WayInfo.createWayInfo(b, 61n, 0, rankName, 1, 3, segments, words, 0, 0, 1, false, 0, 0, 0, 0);
+    // Wire 1.100: a line of track, its gauge, grade and share laid; wire 1.102, its stations open,
+    // two trains a day, a fare of 0.6 kg, 14 rides and 380 kg brought a day.
+    const trackWords = b.createString(
+      "Wagonway of 120 m, gauge 1.0 m, graded to 1 in 300 at its steepest, 40% laid; begun in year 2.",
+    );
+    const trackName = b.createString("lane");
+    const noSegments = W.WayInfo.createSegmentsVector(b, []);
+    const line = W.WayInfo.createWayInfo(b, 62n, 0, trackName, 4, 0, noSegments, trackWords, 1, 0.003, 0.4, true, 2, 0.6, 14, 380);
+    const list = W.Ways.createWaysVector(b, [info, line]);
+    // Wire 1.103: a gas main half laid, and a street lamp burning.
+    const mainPoints = W.GasMainInfo.createPointsVector(b, [10, 10, 70, 10]);
+    const mainWords = b.createString("Gas main of 60 m from Ada's gasworks, 50% laid.");
+    const main = W.GasMainInfo.createGasMainInfo(b, 81n, 7n, mainPoints, 60, 0.5, 1, false, 1, 0, mainWords);
+    const mains = W.Ways.createMainsVector(b, [main]);
+    const lampWords = b.createString("Street lamp of Ashford, set by its law to light the streets; burning until 05:42.");
+    const lamp = W.StreetLampInfo.createStreetLampInfo(b, 30, 12, true, lampWords);
+    const lamps = W.Ways.createLampsVector(b, [lamp]);
+    const ways = W.Ways.createWays(b, 5n, list, mains, lamps);
     const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Ways, ways)));
     expect(body.kind).toBe("ways");
     if (body.kind !== "ways") return;
@@ -1278,6 +1347,56 @@ describe("decoders", () => {
             },
           ],
           words: "Lane of 72 m, 1.5 m wide at most; begun in year 1.",
+          gaugeM: 0,
+          ruling: 0,
+          laid: 1,
+          stations: false,
+          runsADay: 0,
+          fareKg: 0,
+          riders: 0,
+          freightKgDay: 0,
+        },
+        {
+          id: 62,
+          rank: 0,
+          rankName: "lane",
+          modes: 4,
+          tripsADay: 0,
+          segments: [],
+          words: "Wagonway of 120 m, gauge 1.0 m, graded to 1 in 300 at its steepest, 40% laid; begun in year 2.",
+          gaugeM: 1,
+          ruling: expect.closeTo(0.003, 6) as number,
+          laid: expect.closeTo(0.4, 6) as number,
+          stations: true,
+          runsADay: 2,
+          fareKg: expect.closeTo(0.6, 6) as number,
+          riders: 14,
+          freightKgDay: 380,
+        },
+      ],
+      mains: [
+        {
+          id: 81,
+          works: 7,
+          points: [
+            [10, 10],
+            [70, 10],
+          ],
+          lengthM: 60,
+          laid: 0.5,
+          capacityKgH: 1,
+          broken: false,
+          homes: 1,
+          lit: 0,
+          words: "Gas main of 60 m from Ada's gasworks, 50% laid.",
+        },
+      ],
+      lamps: [
+        {
+          x: 30,
+          y: 12,
+          lit: true,
+          words: "Street lamp of Ashford, set by its law to light the streets; burning until 05:42.",
         },
       ],
     });
@@ -1285,7 +1404,7 @@ describe("decoders", () => {
     expect(query.bodyType()).toBe(W.QueryBody.GetWays);
   });
 
-  it("decodes the wells, springs and places drawn at today, and builds their query", () => {
+  it("decodes the wells, springs, places drawn at today and water mills, and builds their query", () => {
     const b = new flatbuffers.Builder(256);
     const system = b.createString("Timber-lined well");
     const words = b.createString("Ada's household's timber-lined well, being dug: 2.0 of 4.5 m");
@@ -1301,7 +1420,10 @@ describe("decoders", () => {
     W.Water.startFloodedVector(b, 1);
     W.FloodCell.createFloodCell(b, 1024, 0.5);
     const flooded = b.endVector();
-    const water = W.Water.createWater(b, 33n, wells, springs, 0.5, banks, flooded);
+    const millWords = b.createString("Ada's household's water mill, a fall of 0.7 m: 0.2 kW today of its 3 kW");
+    const mill = W.MillInfo.createMillInfo(b, 40n, 310, 420, 0.7, 0.25, 3, true, 7n, millWords);
+    const mills = W.Water.createMillsVector(b, [mill]);
+    const water = W.Water.createWater(b, 33n, wells, springs, 0.5, banks, flooded, mills);
     const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Water, water)));
     expect(body.kind).toBe("water");
     if (body.kind !== "water") return;
@@ -1330,6 +1452,19 @@ describe("decoders", () => {
       flow: 0.5,
       banks: [{ x: 120, y: 140, trips: 6 }],
       flooded: [{ cell: 1024, depthM: 0.5 }],
+      mills: [
+        {
+          id: 40,
+          x: 310,
+          y: 420,
+          headM: expect.closeTo(0.7, 5) as number,
+          kw: 0.25,
+          ratedKw: 3,
+          dug: true,
+          household: 7,
+          words: "Ada's household's water mill, a fall of 0.7 m: 0.2 kW today of its 3 kW",
+        },
+      ],
     });
     const query = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getWater()));
     expect(query.bodyType()).toBe(W.QueryBody.GetWater);

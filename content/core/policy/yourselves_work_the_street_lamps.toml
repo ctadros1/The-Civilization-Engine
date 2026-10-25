@@ -1,0 +1,22 @@
+# Streets lit at night (M10b slice DY, fourth part; ADR-0034 §9: street lighting is a public work;
+# research 12-09 §2.3: lamps on posts, lit and put out on a lamplighter's rounds). Where something
+# was taken from a household after dark and nobody saw who took it (the issue `dark_takings`), and
+# someone of the settlement knows how to make a light, anyone may propose that the polity light its
+# streets. The one the gathering names is its lamplighter, an office as the watch is: unpaid, and
+# lapsing when they die or leave. Passed, the polity sets a lamp on a public way beside each home;
+# its lamplighter lights them at dusk and puts them out at dawn, and where they burn those about see
+# a taker as by day. A household weighs it as a watch, by `lit_guard` of what was taken. Whether
+# anyone proposes it, whom, and whether the gathering agrees, is people's choice. Its id sorts after
+# every older template's: hearth talk about a question is keyed by a template's place in id order.
+kind = "policy"
+id = "core:policy/yourselves_work_the_street_lamps"
+name = "Lamplighter"
+description = "The one the gathering names lights lamps set on the ways beside the homes at dusk and puts them out at dawn."
+does = "light_streets"
+answers = ["dark_takings"]
+question = "whether to light the streets at night"
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement, as for a watch.
+[bears]
+"core:value/security" = 1.0

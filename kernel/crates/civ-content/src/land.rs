@@ -51,6 +51,38 @@ pub(crate) struct LandFile {
     /// hold.
     #[serde(default)]
     pub way_works: Option<WayWorksFile>,
+    /// What laying track takes (content API 169, M10b slice DV). A profile that leaves it out
+    /// lays no track.
+    #[serde(default)]
+    pub track: Option<TrackFile>,
+    /// What laying a gas main takes (content API 173, M10b slice DY). A profile that leaves it
+    /// out lays no main.
+    #[serde(default)]
+    pub gas_main: Option<GasMainFile>,
+}
+
+/// What laying a gas main takes (content API 173) and how long one lasts (174): see
+/// [`civ_land::gas::MainParams`].
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct GasMainFile {
+    pub good: String,
+    pub good_kg_m: f64,
+    pub lay_h_m: f64,
+    pub capacity_kg_h: f32,
+    pub life_years: f64,
+}
+
+/// What laying track takes (content API 169): see [`civ_land::rail::TrackParams`].
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct TrackFile {
+    pub good: String,
+    pub good_kg_m: f64,
+    pub lay_h_m: f64,
+    pub earth_h_m3: f64,
+    pub shoulder_m: f32,
+    pub search_grade: f64,
 }
 
 /// What works on ways take (content API 137): see [`civ_land::ways::WayWorkParams`].
@@ -263,6 +295,15 @@ pub(crate) struct DepositFile {
     /// What a working of it is called (content API 21): "pit", the default, or "quarry".
     #[serde(default = "pit")]
     pub working: String,
+    /// Content API 163 (M10a slice DS): the hydraulic conductivity of the body and the ground it
+    /// lies in, metres a day, by which a pit dug below the water table takes in water; 0, the
+    /// default, for one that passes none.
+    #[serde(default)]
+    pub k_m_day: f64,
+    /// Content API 162 (M10a slice DS): whether its bodies take ids of their own, so adding the
+    /// rule moves no other id in any world (`civ_land::deposits::keyed_id`). False by default.
+    #[serde(default)]
+    pub keyed_ids: bool,
 }
 
 /// A working's name when a deposit rule gives none.
@@ -672,6 +713,8 @@ impl LandFile {
                         density_kg_m3: d.density_kg_m3,
                         dig_h_per_m3: d.dig_h_per_m3,
                         working: d.working.clone(),
+                        k_m_day: d.k_m_day,
+                        keyed_ids: d.keyed_ids,
                     })
                 })
                 .collect::<Option<Vec<_>>>()?,
@@ -713,6 +756,27 @@ impl LandFile {
                     passing_life_years: w.passing_life_years,
                 },
             ),
+            track: match &self.track {
+                Some(t) => Some(civ_land::rail::TrackParams {
+                    good: good_index(&t.good)?,
+                    good_kg_m: t.good_kg_m,
+                    lay_h_m: t.lay_h_m,
+                    earth_h_m3: t.earth_h_m3,
+                    shoulder_m: t.shoulder_m,
+                    search_grade: t.search_grade,
+                }),
+                None => None,
+            },
+            gas_main: match &self.gas_main {
+                Some(g) => Some(civ_land::gas::MainParams {
+                    good: good_index(&g.good)?,
+                    good_kg_m: g.good_kg_m,
+                    lay_h_m: g.lay_h_m,
+                    capacity_kg_h: g.capacity_kg_h,
+                    life_years: g.life_years,
+                }),
+                None => None,
+            },
         })
     }
 
@@ -751,6 +815,9 @@ impl LandFile {
                 p.push(format!(
                     "deposit {n}'s `density_kg_m3` must be between 100 and 10000"
                 ));
+            }
+            if !(d.k_m_day.is_finite() && (0.0..=100.0).contains(&d.k_m_day)) {
+                p.push(format!("deposit {n}'s `k_m_day` must be between 0 and 100"));
             }
             if !(d.dig_h_per_m3.is_finite() && (0.0..=1_000.0).contains(&d.dig_h_per_m3)) {
                 p.push(format!(
@@ -844,6 +911,35 @@ impl LandFile {
             if !(v.passing_life_years.is_finite() && (1.0..=100.0).contains(&v.passing_life_years))
             {
                 p.push("`way_works.passing_life_years` must be 1 to 100".to_owned());
+            }
+        }
+        if let Some(t) = &self.track {
+            for (field, v, lo, hi) in [
+                ("good_kg_m", t.good_kg_m, 0.0, 10_000.0),
+                ("lay_h_m", t.lay_h_m, 0.0, 1_000.0),
+                ("earth_h_m3", t.earth_h_m3, 0.0, 100.0),
+                ("shoulder_m", f64::from(t.shoulder_m), 0.0, 10.0),
+                ("search_grade", t.search_grade, 0.0, 1.0),
+            ] {
+                if !(v.is_finite() && v > lo && v <= hi) {
+                    p.push(format!(
+                        "`track.{field}` must be above {lo} and at most {hi}"
+                    ));
+                }
+            }
+        }
+        if let Some(g) = &self.gas_main {
+            for (field, v, lo, hi) in [
+                ("good_kg_m", g.good_kg_m, 0.0, 10_000.0),
+                ("lay_h_m", g.lay_h_m, 0.0, 1_000.0),
+                ("capacity_kg_h", f64::from(g.capacity_kg_h), 0.0, 10_000.0),
+                ("life_years", g.life_years, 0.0, 1_000.0),
+            ] {
+                if !(v.is_finite() && v > lo && v <= hi) {
+                    p.push(format!(
+                        "`gas_main.{field}` must be above {lo} and at most {hi}"
+                    ));
+                }
             }
         }
         if !(w.trail_until > 0.0 && w.trail_until <= w.trail_at && w.trail_at < 1.0) {

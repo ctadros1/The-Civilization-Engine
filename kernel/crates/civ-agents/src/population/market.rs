@@ -552,6 +552,23 @@ impl Population {
         costs
     }
 
+    /// What each good costs household `household` in hours of its own work now
+    /// ([`Self::own_costs_of`]), for tests; nothing for a household that is not there.
+    #[doc(hidden)]
+    pub fn own_costs_for_tests(&self, ctx: &Ctx, household: PermanentId) -> Vec<Option<f64>> {
+        self.household(household)
+            .map_or_else(Vec::new, |hh| self.own_costs_of(ctx, hh))
+    }
+
+    /// What household `household` keeps of each good from its stores now ([`Self::holding_of`]),
+    /// for tests; nothing for a household that is not there.
+    pub fn keep_for_tests(&self, ctx: &Ctx, household: PermanentId) -> Vec<f64> {
+        self.household(household).map_or_else(Vec::new, |hh| {
+            let stores = stores_now(hh, ctx.now, ctx.params, &ctx.catalog.goods);
+            self.holding_of(ctx, hh, &stores).keep
+        })
+    }
+
     /// What a household keeps of each good and how much more of each it wants, from its
     /// `stores`: food to see it to its next harvest and its margin (pooled by energy), the tools
     /// its members' work needs and a spare, what the tools it lacks are made of, its firewood,
@@ -601,7 +618,7 @@ impl Population {
             .collect();
         let knows = |t: usize| self.household_knows(&hh.members, t);
         let mut wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
-        super::cap_water_wants(ctx, hh.id, &mut wants);
+        super::cap_power_wants(ctx, hh.id, &mut wants);
         let can_work = |r: &crate::params::RecipeDef| self.can_work_way(ctx, hh, stores, r);
         let costs_once = std::cell::OnceCell::new();
         let costs = || {
@@ -660,8 +677,10 @@ impl Population {
                 .all(|b| (b.finished() && !mending(b)) || !self.can_build(catalog, &hh.members, b));
         let fuel_day = fuel_per_day(params, members, ctx.now.day_index());
         for (g, d) in goods.iter().enumerate() {
-            if d.purpose == GoodUse::Fuel {
-                // The household's need is in kilograms of the first fuel; another by its heat.
+            // The household's need is in kilograms of the first fuel; another by its heat. A fuel
+            // its hearth would burn only by a technique none of them knows is not kept for it
+            // (M10a slice DS).
+            if d.purpose == GoodUse::Fuel && d.fuel.and_then(|f| f.technique).is_none_or(knows) {
                 keep[g] = params.household.fuel_target_days * fuel_day
                     / crate::params::fuel_ratio(goods, g);
             }

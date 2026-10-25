@@ -1,0 +1,29 @@
+# A wagon on timber rails (M10b slice DV; ADR-0034 §3; the rail brief §1.2, §1.3; research 07-08
+# §5.5 P01): a box of about a cubic metre on four flanged wheels, 2 t aboard a 0.5 t wagon. On
+# timber rails it rolls at C = 0.005 (a design prior: the brief's, no report gives rail's C), so
+# one person's 200 N moves it on the level at 75 W / 123 N ≈ 0.61 m/s, some six times a
+# handcart's load a second; a 1 % rise needs 368 N, more than they give. Track of one metre's
+# gauge (a design prior). Holding it back down: a person's 200 N against 2.5 t's weight, about 1 %
+# downhill at that C. Made of 300 kg of timber in 120 hours by two (tuning values), under wooden
+# railways; lasts 15 years.
+kind = "vehicle"
+id = "core:vehicle/wagon"
+name = "Wagon"
+mode = "rail"
+technique = "core:technique/wooden_railway"
+skill = "core:skill/woodworking"
+tool = "core:good/axe"
+good = "core:good/timber"
+material_kg = 300.0
+labour_h = 120.0
+crew = 2
+payload_kg = 2000.0
+width_m = 1.2
+life_years = 15.0
+handling_kg_min = 10.0
+tare_kg = 500.0
+rail_resistance = 0.005
+gauge_m = 1.0
+pull_n = 200.0
+power_w = 75.0
+brake_grade = 0.01

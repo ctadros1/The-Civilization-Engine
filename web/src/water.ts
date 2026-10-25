@@ -2,7 +2,7 @@
 // water's edge drawn at today are drawn, which one the pointer is on, and their words. The kernel
 // decides everything; this only shows it.
 
-import type { BankDrawInfo, SpringInfo, WellInfo } from "./net/messages.js";
+import type { BankDrawInfo, MillInfo, SpringInfo, WellInfo } from "./net/messages.js";
 
 /** Fresh earth round a shaft being dug. */
 export const DIGGING_COLOUR = 0x9a7b4f;
@@ -39,6 +39,14 @@ export function wellLook(w: WellInfo): { colour: number; alpha: number; radiusM:
 /** The well the pointer is on: the nearest whose shaft is within `slackM` of the point. */
 export function wellAt(list: WellInfo[], xM: number, yM: number, slackM: number): WellInfo | null {
   return nearest(list, xM, yM, (w) => Math.max(0.5, w.radiusM) + slackM);
+}
+
+/** A water mill's wheel (M10a slice DR): turning, or its headrace still being dug. */
+export const MILL_COLOUR = 0x8b5e34;
+
+/** The water mill the pointer is on: the nearest whose wheel is within `slackM` of the point. */
+export function millAt(list: MillInfo[], xM: number, yM: number, slackM: number): MillInfo | null {
+  return nearest(list, xM, yM, () => slackM);
 }
 
 /** The spring the pointer is on: the nearest within `slackM` of the point. */

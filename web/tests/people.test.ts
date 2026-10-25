@@ -103,6 +103,8 @@ describe("the clock estimate", () => {
     mode: "detailed",
     weather: null,
     resolutionByFocus: false,
+    litHomes: 0,
+    firstLampMinute: null,
   };
   it("runs on at the clock's speed and stops while paused", () => {
     expect(estimateMinute(clock, 0, 500)).toBeCloseTo(1008);
@@ -234,6 +236,8 @@ describe("people payloads", () => {
 
   it("decode a person's stores and load, and the goods they refer to", () => {
     const b = new flatbuffers.Builder(256);
+    const light = b.createString("Working by lamplight at home");
+    const care = b.createString("First to tend 3 of the sick of other homes: 2 lived, 1 died");
     const name = b.createString("Ilse");
     W.PersonInfo.startStoresVector(b, 2);
     // Structs are written back to front.
@@ -255,6 +259,8 @@ describe("people payloads", () => {
     W.PersonInfo.addHouseholdReadyDays(b, 1.5);
     W.PersonInfo.addStores(b, stores);
     W.PersonInfo.addSkills(b, skills);
+    W.PersonInfo.addLight(b, light);
+    W.PersonInfo.addCare(b, care);
     const body = W.PersonInfo.endPersonInfo(b);
     b.finish(W.Response.createResponse(b, W.ResponseBody.PersonInfo, body));
     const r = M.decodeResponse(b.asUint8Array());
@@ -266,6 +272,10 @@ describe("people payloads", () => {
     expect([r.person.carryGood, r.person.carryKg, r.person.carryFoodKcal]).toEqual([2, 12.5, 7500]);
     expect(r.person.householdFuelDays).toBe(2.5);
     expect(r.person.householdReadyDays).toBe(1.5);
+    // Wire 1.99: their light, in words.
+    expect(r.person.light).toBe("Working by lamplight at home");
+    // Wire 1.104: their care of other homes, in words.
+    expect(r.person.care).toBe("First to tend 3 of the sick of other homes: 2 lived, 1 died");
     expect(r.person.skills).toEqual([
       { skill: 0, level: 0.75 },
       { skill: 4, level: 0.25 },

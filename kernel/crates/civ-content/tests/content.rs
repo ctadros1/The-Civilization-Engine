@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 160
+kernel_content_api = 179
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -382,6 +382,43 @@ fn a_fuel_says_what_it_gives_burned() {
         let report = load_fixture(&[
             ("worldgen/river_valley.toml", &real_preset()),
             ("good/firewood.toml", &body),
+        ]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(
+            report.diagnostics[0].message.contains(needle),
+            "{needle}: {}",
+            report.diagnostics[0].message
+        );
+    }
+}
+
+#[test]
+fn a_machine_says_the_crew_it_wants() {
+    // M10a slice DT (content API 164): a fixed tool may ask for more than one hand at it; a tool
+    // carried about may not, and a crew is 1 to 20.
+    let kiln = real("good/kiln.toml").replace("fixed = true", "fixed = true\ncrew = 2");
+    let fine = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        ("good/kiln.toml", &kiln),
+    ]);
+    assert!(fine.diagnostics.is_empty(), "{:?}", fine.diagnostics);
+    let axe = real("good/axe.toml").replace("fixed = false", "fixed = false\ncrew = 2");
+    for (path, body, needle) in [
+        ("good/axe.toml", axe, "only a fixed tool needs a crew"),
+        (
+            "good/kiln.toml",
+            kiln.replace("crew = 2", "crew = 0"),
+            "tool.crew",
+        ),
+        (
+            "good/kiln.toml",
+            kiln.replace("crew = 2", "crew = 21"),
+            "tool.crew",
+        ),
+    ] {
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &real_preset()),
+            (path, &body),
         ]);
         assert_eq!(codes(&report), vec!["E3001"], "{needle}");
         assert!(
@@ -2169,7 +2206,7 @@ fn a_cart_names_its_mass_resistances_and_puller_and_no_boat_fields() {
             dugout.as_str(),
             "mode = \"boat\"",
             "mode = \"sledge\"",
-            "`boat` or `cart`",
+            "`boat`, `cart` or `rail`",
         ),
     ] {
         let broken = file.replacen(from, to, 1);
@@ -2196,4 +2233,424 @@ fn a_cart_names_its_mass_resistances_and_puller_and_no_boat_fields() {
             report.diagnostics
         );
     }
+}
+
+#[test]
+fn a_wagon_runs_on_rails_of_its_gauge_and_names_no_road_or_boat_fields() {
+    // M10b slice DV (content API 168): a vehicle of mode `rail` names its rolling resistance on
+    // track and its gauge, with a cart's mass and puller; never a cart's road resistances or a
+    // boat's draft.
+    let preset = real_preset();
+    let wagon = real("vehicle/wagon.toml");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("vehicle/wagon.toml", &wagon),
+    ]);
+    assert!(report.diagnostics.is_empty(), "{:?}", report.diagnostics);
+    let catalog = &report.registry.expect("loads").catalog;
+    let w = catalog
+        .vehicles
+        .iter()
+        .find(|v| v.id == "core:vehicle/wagon")
+        .expect("the wagon");
+    assert_eq!(w.mode, civ_agents::params::VehicleMode::Rail);
+    assert_eq!((w.rail_resistance, w.gauge_m), (0.005, 1.0));
+    let wheels = w.rail_wheels(2000.0, 1.4);
+    assert_eq!(
+        (wheels.mass_kg, wheels.way_c, wheels.pull_n),
+        (2500.0, 0.005, 200.0)
+    );
+    assert!(w.technique.is_some(), "made only under wooden railways");
+    for (from, to, says) in [
+        (
+            "gauge_m = 1.0",
+            "gauge_m = 1.0\nway_resistance = 0.02",
+            "`way_resistance` is a cart's",
+        ),
+        (
+            "gauge_m = 1.0",
+            "gauge_m = 1.0\ndraft_m = 0.3",
+            "`draft_m` is a boat's",
+        ),
+        ("gauge_m = 1.0\n", "", "`gauge_m` must be between"),
+        (
+            "rail_resistance = 0.005",
+            "rail_resistance = 0.5",
+            "`rail_resistance` must be",
+        ),
+    ] {
+        let broken = wagon.replacen(from, to, 1);
+        assert_ne!(broken, wagon, "the edit applies");
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("vehicle/wagon.toml", &broken),
+        ]);
+        assert!(
+            report.diagnostics.iter().any(|d| d.message.contains(says)),
+            "{says}: {:?}",
+            report.diagnostics
+        );
+    }
+    // A cart with a gauge is refused.
+    let cart = HANDCART.replacen("brake_grade = 0.15", "brake_grade = 0.15\ngauge_m = 1.0", 1);
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("vehicle/test_handcart.toml", &cart),
+    ]);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains("`gauge_m` is a wagon's")),
+        "{:?}",
+        report.diagnostics
+    );
+}
+
+#[test]
+fn a_locomotive_is_a_rail_vehicle_with_an_engine_burning_a_fuel() {
+    // M10b slice DW (content API 170): a rail vehicle may name an `[engine]`: a good it burns
+    // with `[fuel]`, the share of its heat turned to work and its top speed, in range. A wagon
+    // has none; a cart with one is refused.
+    let preset = real_preset();
+    let engine = real("vehicle/locomotive.toml");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("vehicle/locomotive.toml", &engine),
+        ("vehicle/wagon.toml", &real("vehicle/wagon.toml")),
+    ]);
+    assert!(report.diagnostics.is_empty(), "{:?}", report.diagnostics);
+    let catalog = &report.registry.expect("loads").catalog;
+    let find = |id: &str| {
+        catalog
+            .vehicles
+            .iter()
+            .find(|v| v.id == id)
+            .expect("the vehicle")
+    };
+    let l = find("core:vehicle/locomotive");
+    assert_eq!(l.mode, civ_agents::params::VehicleMode::Rail);
+    let e = l.engine.expect("it has an engine");
+    let coal = catalog.goods.iter().position(|g| g.id == "core:good/coal");
+    assert_eq!(Some(e.fuel), coal);
+    assert_eq!((e.efficiency, e.top_speed_m_s), (0.03, 2.2));
+    assert_eq!(
+        (l.pull_n, l.power_w, l.tare_kg, l.gauge_m),
+        (9810.0, 7500.0, 5000.0, 1.0)
+    );
+    assert!(!l.is_wagon() && find("core:vehicle/wagon").is_wagon());
+    assert!(
+        l.technique.is_some(),
+        "made only by those who know the locomotive"
+    );
+    for (from, to, says) in [
+        (
+            "efficiency = 0.03",
+            "efficiency = 0.9",
+            "`engine.efficiency` must be between",
+        ),
+        (
+            "top_speed_m_s = 2.2",
+            "top_speed_m_s = 0.0",
+            "`engine.top_speed_m_s` must be between",
+        ),
+        (
+            "fuel = \"core:good/coal\"",
+            "fuel = \"core:good/iron\"",
+            "`engine.fuel` must name a good with `[fuel]`",
+        ),
+    ] {
+        let broken = engine.replacen(from, to, 1);
+        assert_ne!(broken, engine, "the edit applies");
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("vehicle/locomotive.toml", &broken),
+        ]);
+        assert!(
+            report.diagnostics.iter().any(|d| d.message.contains(says)),
+            "{says}: {:?}",
+            report.diagnostics
+        );
+    }
+    // A cart with an engine is refused.
+    let cart = format!(
+        "{HANDCART}\n[engine]\nfuel = \"core:good/coal\"\nefficiency = 0.03\ntop_speed_m_s = 2.2\n"
+    );
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("vehicle/test_handcart.toml", &cart),
+    ]);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains("`[engine]` is a rail vehicle's")),
+        "{:?}",
+        report.diagnostics
+    );
+}
+
+#[test]
+fn a_lamp_names_the_fuel_it_burns() {
+    // M10b slice DU (content API 165): a tool may carry a `[light]` table naming a good it burns
+    // and how much an hour, in range; only a tool gives light, and its fuel must be a good.
+    let lamp = real("good/fat_lamp.toml");
+    let fine = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        ("good/fat_lamp.toml", &lamp),
+    ]);
+    assert!(fine.diagnostics.is_empty(), "{:?}", fine.diagnostics);
+    let catalog = &fine.registry.as_ref().expect("content").catalog;
+    let index = |id: &str| catalog.goods.iter().position(|g| g.id == id);
+    let light = catalog.goods[index("core:good/fat_lamp").expect("a lamp")]
+        .light
+        .expect("it gives light");
+    assert_eq!(light.fuel, index("core:good/tallow"));
+    assert!((light.kg_per_hour - 0.008).abs() < 1e-12);
+    for (body, needle) in [
+        (
+            lamp.replace("kg_per_hour = 0.008", "kg_per_hour = 0.0"),
+            "light.kg_per_hour",
+        ),
+        (
+            lamp.replace("kg_per_hour = 0.008", "kg_per_hour = 2.0"),
+            "light.kg_per_hour",
+        ),
+    ] {
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &real_preset()),
+            ("good/fat_lamp.toml", &body),
+        ]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(report.diagnostics[0].message.contains(needle));
+    }
+    // Light from a good that is not a tool.
+    let tallow = format!(
+        "{}\n[light]\nfuel = \"core:good/tallow\"\nkg_per_hour = 0.01\n",
+        real("good/tallow.toml")
+    );
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        ("good/tallow.toml", &tallow),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("only a tool gives light")
+    );
+    // A fuel that is no good.
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        (
+            "good/fat_lamp.toml",
+            &lamp.replace("\"core:good/tallow\"", "\"core:good/whale_oil\""),
+        ),
+    ]);
+    assert_eq!(codes(&report), vec!["E2006"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("core:good/whale_oil")
+    );
+}
+
+#[test]
+fn a_holder_names_the_gas_it_keeps_and_a_burner_its_piped_gas() {
+    // M10b slice DY (content API 172): a fixed tool may carry a `[holder]` table naming a good it
+    // keeps and how many kilograms, in range; a light may be `piped`, its fuel coming by a main.
+    let holder = real("good/gas_holder.toml");
+    let burner = real("good/gas_burner.toml");
+    let fine = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        ("good/gas_holder.toml", &holder),
+        ("good/gas_burner.toml", &burner),
+    ]);
+    assert!(fine.diagnostics.is_empty(), "{:?}", fine.diagnostics);
+    let catalog = &fine.registry.as_ref().expect("content").catalog;
+    let index = |id: &str| catalog.goods.iter().position(|g| g.id == id);
+    let gas = index("core:good/coal_gas");
+    let held = catalog.goods[index("core:good/gas_holder").expect("a holder")]
+        .holder
+        .expect("it holds");
+    assert_eq!(held.good, gas);
+    assert!((held.kg - 150.0).abs() < 1e-12);
+    let light = catalog.goods[index("core:good/gas_burner").expect("a burner")]
+        .light
+        .expect("it gives light");
+    assert_eq!(light.fuel, gas);
+    assert!(light.piped && (light.kg_per_hour - 0.071).abs() < 1e-12);
+    // The fat lamp's light is not piped.
+    let lamp = catalog.goods[index("core:good/fat_lamp").expect("a lamp")]
+        .light
+        .expect("it gives light");
+    assert!(!lamp.piped);
+    // Gas burns at 40 MJ a kilogram; the core makes it from coal with coke left over.
+    let gas_def = &catalog.goods[gas.expect("coal gas")];
+    assert!((gas_def.fuel.expect("a fuel").mj_per_kg - 40.0).abs() < 1e-12);
+    let coal = index("core:good/coal").expect("coal");
+    let coke = index("core:good/coke").expect("coke");
+    let make = catalog
+        .recipes
+        .iter()
+        .find(|r| r.outputs.iter().any(|&(o, _)| Some(o) == gas))
+        .expect("a recipe makes gas");
+    assert!(make.inputs.iter().any(|&(i, _)| i == coal));
+    assert!(make.outputs.iter().any(|&(o, _)| o == coke));
+    for (body, needle) in [
+        (holder.replace("kg = 150.0", "kg = 0.0"), "holder.kg"),
+        (holder.replace("kg = 150.0", "kg = 200000.0"), "holder.kg"),
+        (
+            holder.replace("fixed = true", "fixed = false"),
+            "only a fixed tool holds apart",
+        ),
+    ] {
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &real_preset()),
+            ("good/gas_holder.toml", &body),
+        ]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(report.diagnostics[0].message.contains(needle));
+    }
+    // A held good that is no good.
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        (
+            "good/gas_holder.toml",
+            &holder.replace(
+                "good = \"core:good/coal_gas\"",
+                "good = \"core:good/marsh_gas\"",
+            ),
+        ),
+    ]);
+    assert_eq!(codes(&report), vec!["E2006"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("core:good/marsh_gas")
+    );
+}
+
+#[test]
+fn a_land_profile_says_what_laying_a_gas_main_takes_and_its_good_must_exist() {
+    // M10b slice DY, third part (content API 173): the core lays cast-iron mains at 25 kg and 3
+    // hours a metre, carrying 6 kg of gas an hour.
+    let reg = registry(load(&repo_content()));
+    let g = reg.land.params.gas_main.expect("the core lays mains");
+    let iron = reg
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/iron")
+        .expect("iron");
+    assert_eq!(g.good, iron);
+    assert_eq!((g.good_kg_m, g.lay_h_m, g.capacity_kg_h), (25.0, 3.0, 6.0));
+    // And serves fifty years once laid (content API 174).
+    assert_eq!(g.life_years, 50.0);
+    let preset = real_preset();
+    let land = real("land/temperate_valley.toml").replace(
+        "[gas_main]\ngood = \"core:good/iron\"",
+        "[gas_main]\ngood = \"core:good/lead_pipe\"",
+    );
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert_eq!(codes(&report), vec!["E2006"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("core:good/lead_pipe")
+    );
+    let land =
+        real("land/temperate_valley.toml").replace("capacity_kg_h = 6.0", "capacity_kg_h = 0.0");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains("gas_main.capacity_kg_h")),
+        "{:?}",
+        report.diagnostics
+    );
+}
+
+#[test]
+fn a_land_profile_says_what_laying_track_takes_and_its_good_must_exist() {
+    // M10b slice DV, second part (content API 169): the core lays timber track at 50 kg and 1.5
+    // hours a metre, grading at 2.3 hours a cubic metre over a bed 0.5 m wider than the gauge
+    // each side, cut across ground up to 40 % (M10b slice DV, third part).
+    let reg = registry(load(&repo_content()));
+    let t = reg.land.params.track.expect("the core lays track");
+    let timber = reg
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/timber")
+        .expect("timber");
+    assert_eq!(t.good, timber);
+    assert_eq!(
+        (
+            t.good_kg_m,
+            t.lay_h_m,
+            t.earth_h_m3,
+            t.shoulder_m,
+            t.search_grade
+        ),
+        (50.0, 1.5, 2.3, 0.5, 0.4)
+    );
+    let preset = real_preset();
+    let land = real("land/temperate_valley.toml").replace(
+        "[track]\ngood = \"core:good/timber\"",
+        "[track]\ngood = \"core:good/iron_rail\"",
+    );
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert_eq!(codes(&report), vec!["E2006"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("core:good/iron_rail")
+    );
+    let land = real("land/temperate_valley.toml").replace("lay_h_m = 1.5", "lay_h_m = 0.0");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains("`track.lay_h_m` must be above 0")),
+        "{:?}",
+        report
+            .diagnostics
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_takings() {
+    // M10b slice DY, fourth part (content API 175): the template answers takings after dark and
+    // names an office; a household weighs it by `lit_guard`.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/yourselves_work_the_street_lamps")
+        .expect("the street lamps template");
+    assert_eq!(def.kind, PolicyKind::LightStreets);
+    assert_eq!(def.answers, vec![IssueKind::DarkTakings]);
+    // Its id sorts after every other template's.
+    assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
+    assert_eq!(reg.people.params.crime.lit_guard, 0.3);
 }

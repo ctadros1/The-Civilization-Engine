@@ -1,0 +1,20 @@
+# Building a blast furnace: a stack of dressed stone some eight metres high with its bridge of
+# timber, its hearth and bosh lined with clay, and the bellows, shaft and fittings of timber and
+# iron. 3,000 hours, 25,000 kg of stone, 2,000 kg of timber and 200 kg of iron (tuning values;
+# research 07-12 §2 names "furnace construction" but no hours).
+kind = "recipe"
+id = "core:recipe/build_blast_furnace"
+name = "Build a blast furnace"
+skill = "core:skill/smithing"
+technique = "core:technique/blast_furnace"
+unit_h = 3000.0
+session_h = 0.0
+max_units = 1.0
+tools = []
+inputs = [
+  { good = "core:good/stone", amount = 25000.0 },
+  { good = "core:good/timber", amount = 2000.0 },
+  { good = "core:good/iron", amount = 200.0 },
+]
+outputs = [{ good = "core:good/blast_furnace", amount = 1.0 }]
+session_inputs = []

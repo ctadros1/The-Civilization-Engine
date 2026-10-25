@@ -622,7 +622,13 @@ impl Population {
         if dark {
             return None;
         }
-        let c = ctx.land.carts.of(x.id).find(|c| !c.made())?;
+        // Or the wagon it is making at the home end of its line (M10b slice DV, fourth part).
+        let c = ctx
+            .land
+            .carts
+            .of(x.id)
+            .find(|c| !c.made())
+            .or_else(|| ctx.land.wagons.of(x.id).find(|c| !c.made()))?;
         let def = ctx.catalog.vehicles.get(usize::from(c.vehicle))?;
         let at = cell_centre(ctx.map, c.at as usize);
         let pace = ctx.params.nav.tobler_ms(0.0).max(1e-6);
@@ -647,6 +653,7 @@ impl Population {
             .list
             .iter_mut()
             .chain(land.carts.list.iter_mut())
+            .chain(land.wagons.list.iter_mut())
             .find(|b| b.id == boat)
         {
             if b.crew.0 != day {
@@ -670,17 +677,22 @@ impl Population {
         hours: f64,
     ) {
         let making = |b: &Boat| b.id == boat && b.owner == household && !b.made();
-        let (cart, i) = match ctx.land.boats.list.iter().position(making) {
-            Some(i) => (false, i),
+        // 0 a boat, 1 a cart, 2 a wagon (M10b slice DV, fourth part).
+        let (kind, i) = match ctx.land.boats.list.iter().position(making) {
+            Some(i) => (0, i),
             None => match ctx.land.carts.list.iter().position(making) {
-                Some(i) => (true, i),
-                None => return,
+                Some(i) => (1, i),
+                None => match ctx.land.wagons.list.iter().position(making) {
+                    Some(i) => (2, i),
+                    None => return,
+                },
             },
         };
-        let list = if cart {
-            &mut ctx.land.carts
-        } else {
-            &mut ctx.land.boats
+        let cart = kind != 0;
+        let list = match kind {
+            0 => &mut ctx.land.boats,
+            1 => &mut ctx.land.carts,
+            _ => &mut ctx.land.wagons,
         };
         let Some(def) = ctx.catalog.vehicles.get(usize::from(list.list[i].vehicle)) else {
             return;
@@ -705,7 +717,29 @@ impl Population {
         list.changed();
         let name = def.name.to_lowercase();
         let settlement = self.household(household).and_then(|x| x.settlement);
-        let (kind, at, sentence) = if cart {
+        let wagon = kind == 2;
+        let (kind, at, sentence) = if wagon && def.engine.is_some() {
+            // An engine stands where it was made, at the pit end (M10b slice DW, fourth part).
+            (
+                ChronicleKind::CartMade,
+                cell_centre(ctx.map, cell as usize),
+                format!(
+                    "{}'s household finished a {name} and stood it at the pit end of its line, \
+                     ready to draw its wagons.",
+                    self.name_of(who)
+                ),
+            )
+        } else if wagon {
+            (
+                ChronicleKind::CartMade,
+                cell_centre(ctx.map, cell as usize),
+                format!(
+                    "{}'s household finished a {name} and stood it at the end of its line, ready \
+                     for the pit.",
+                    self.name_of(who)
+                ),
+            )
+        } else if cart {
             (
                 ChronicleKind::CartMade,
                 cell_centre(ctx.map, cell as usize),
@@ -725,5 +759,27 @@ impl Population {
             )
         };
         self.chronicle_push(now, kind, vec![who], settlement, Some(at), 0.0, sentence);
+    }
+
+    /// `hours` of work by the first of household `household` on the boat, cart, wagon or engine
+    /// `boat` it is making: for tests.
+    #[doc(hidden)]
+    pub fn vehicle_work_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        household: PermanentId,
+        boat: PermanentId,
+        hours: f64,
+    ) {
+        let Some(who) = self
+            .household(household)
+            .and_then(|x| x.members.first().copied())
+        else {
+            return;
+        };
+        let Some(h) = self.index.get(&who).copied() else {
+            return;
+        };
+        self.boat_work(ctx, (h, who), household, boat, hours);
     }
 }

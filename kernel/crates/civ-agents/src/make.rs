@@ -388,6 +388,48 @@ pub fn give(recipe: &RecipeDef, stores: &mut [f64], goods: &[GoodDef], units: f6
 
 /// Wears the tools `tools` by `hours` of use: each loses `hours / life_h` of a standard tool,
 /// and a tool worn out is gone.
+/// The room for good `good` in the whole holders `stores` holds, kilograms (M10b slice DY;
+/// ADR-0034 §8), or `None` for a good no holder keeps.
+pub fn holder_room(goods: &[GoodDef], stores: &[f64], good: usize) -> Option<f64> {
+    let mut room = None;
+    for (h, d) in goods.iter().enumerate() {
+        let Some(x) = d.holder.filter(|x| x.good == Some(good)) else {
+            continue;
+        };
+        let whole = (stores.get(h).copied().unwrap_or(0.0) + 1e-9)
+            .floor()
+            .max(0.0);
+        *room.get_or_insert(0.0) += whole * x.kg;
+    }
+    room
+}
+
+/// Keeps each good that only a holder keeps within the room of the whole holders held for it
+/// (M10b slice DY; ADR-0034 §8: gas is stored, not made on demand): what lies beyond, or all of
+/// it with no holder, is lost to the air. Returns what was lost, by good; nothing in a world
+/// without holders.
+pub fn keep_to_holders(goods: &[GoodDef], stores: &mut [f64]) -> Vec<(usize, f64)> {
+    let mut lost = Vec::new();
+    for d in goods {
+        let Some(g) = d.holder.and_then(|x| x.good) else {
+            continue;
+        };
+        if lost.iter().any(|&(l, _)| l == g) {
+            continue;
+        }
+        let held = stores.get(g).copied().unwrap_or(0.0);
+        if held <= 0.0 {
+            continue;
+        }
+        let room = holder_room(goods, stores, g).unwrap_or(0.0);
+        if held > room + 1e-12 {
+            stores[g] = room;
+            lost.push((g, held - room));
+        }
+    }
+    lost
+}
+
 pub fn wear(stores: &mut [f64], goods: &[GoodDef], tools: &[usize], hours: f64) {
     for &t in tools {
         // The work is done with the longest-lived of the tools at hand that do it (M7d slice CE).
@@ -418,6 +460,8 @@ mod tests {
         GoodDef {
             fuel: None,
             power: None,
+            light: None,
+            holder: None,
             money: None,
             id: id.into(),
             name: id.into(),
@@ -445,6 +489,7 @@ mod tests {
             per_worker: 0.5,
             fixed: false,
             serves: None,
+            crew: 1,
         });
         let mut oven = good("oven", GoodUse::Tool, 0.0, Eaten::Never);
         oven.tool = Some(ToolDef {
@@ -452,6 +497,7 @@ mod tests {
             per_worker: 0.0,
             fixed: true,
             serves: None,
+            crew: 1,
         });
         vec![
             good("grain", GoodUse::Food, 3340.0, Eaten::Never),
@@ -462,6 +508,38 @@ mod tests {
             quern,
             oven,
         ]
+    }
+
+    #[test]
+    fn gas_keeps_to_the_room_of_its_whole_holders_and_the_rest_goes_to_the_air() {
+        let mut holder = good("holder", GoodUse::Tool, 0.0, Eaten::Never);
+        holder.tool = Some(ToolDef {
+            life_h: 50_000.0,
+            per_worker: 0.0,
+            fixed: true,
+            serves: None,
+            crew: 1,
+        });
+        holder.holder = Some(crate::params::GoodHolder {
+            good: Some(0),
+            kg: 150.0,
+        });
+        let goods = vec![
+            good("gas", GoodUse::Material, 0.0, Eaten::Never),
+            holder,
+            good("grain", GoodUse::Food, 3340.0, Eaten::Never),
+        ];
+        // Two whole holders hold 300 kg; grain no holder keeps.
+        let mut stores = vec![400.0, 2.0, 50.0];
+        assert_eq!(holder_room(&goods, &stores, 0), Some(300.0));
+        assert_eq!(holder_room(&goods, &stores, 2), None);
+        assert_eq!(keep_to_holders(&goods, &mut stores), vec![(0, 100.0)]);
+        assert_eq!(stores, vec![300.0, 2.0, 50.0]);
+        // Within the room nothing is lost; a holder short of whole holds nothing.
+        assert!(keep_to_holders(&goods, &mut stores).is_empty());
+        stores[1] = 0.9;
+        assert_eq!(keep_to_holders(&goods, &mut stores), vec![(0, 300.0)]);
+        assert_eq!(stores, vec![0.0, 0.9, 50.0]);
     }
 
     #[test]
@@ -526,6 +604,8 @@ mod tests {
         goods.push(GoodDef {
             fuel: None,
             power: None,
+            light: None,
+            holder: None,
             half_life_days: 3.0,
             ..good("meat", GoodUse::Food, 1500.0, Eaten::Cooked)
         });
@@ -533,6 +613,8 @@ mod tests {
         goods.push(GoodDef {
             fuel: None,
             power: None,
+            light: None,
+            holder: None,
             half_life_days: 180.0,
             ..good("dried", GoodUse::Food, 3750.0, Eaten::Raw)
         });
@@ -678,6 +760,7 @@ mod tests {
             per_worker: 0.5,
             fixed: false,
             serves: None,
+            crew: 1,
         });
         let mut copper = good("copper_axe", GoodUse::Tool, 0.0, Eaten::Never);
         copper.tool = Some(ToolDef {
@@ -685,6 +768,7 @@ mod tests {
             per_worker: 0.5,
             fixed: false,
             serves: Some(1),
+            crew: 1,
         });
         crate::params::Catalog {
             goods: vec![stone, axe, copper],

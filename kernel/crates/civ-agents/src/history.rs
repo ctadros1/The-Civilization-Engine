@@ -214,6 +214,12 @@ pub enum Reason {
     Raise = 158,
     /// A batch of it is still burning (M10a slice DP): nothing to do until it is done.
     Burning = 159,
+    /// The hours grinding at a neighbour's mill would spare the household, for the session's
+    /// walk and wait there (M10a slice DR, fourth part).
+    Mill = 160,
+    /// A machine its work needs that wants more hands at it together than the household has to
+    /// set to it at home: only a works, whose bell brings its crew, works one (M10a slice DT).
+    NoCrew = 161,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -225,7 +231,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 93] = [
+    pub const ALL: [Reason; 95] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -319,6 +325,8 @@ impl Reason {
         Reason::Way,
         Reason::Raise,
         Reason::Burning,
+        Reason::Mill,
+        Reason::NoCrew,
     ];
 
     /// The reason with this code.
@@ -406,7 +414,7 @@ impl Reason {
             Reason::Crowded => "as many as there is room for are already at work on it today",
             Reason::Well => "the walking a well would save",
             Reason::Ill => "illness keeps them abed",
-            Reason::Tend => "someone ill at home needs tending",
+            Reason::Tend => "someone ill needs tending",
             Reason::HomeAfire => "a fire burns at home",
             Reason::FireThreatens => "a fire threatens a roof",
             Reason::HomeFlooded => "home is flooded",
@@ -424,6 +432,8 @@ impl Reason {
             Reason::Way => "the waiting a passing place would spare",
             Reason::Raise => "their share of raising a building together",
             Reason::Burning => "a batch of it is still burning",
+            Reason::Mill => "the grinding a neighbour's mill would spare",
+            Reason::NoCrew => "it needs more hands at it together than come to it at home",
         }
     }
 }
@@ -895,6 +905,14 @@ pub enum ChronicleKind {
     /// second part): `people` is its household's elder, `settlement` its, `place` where it
     /// stood, and `name` the sentence.
     TakenDown,
+    /// A household finished laying a line of track (M10b slice DV, fifth part): `people` is its
+    /// elder, `settlement` the household's, `place` the line's first cell, and `name` the
+    /// sentence.
+    LineLaid,
+    /// A household's line opened its stations (M10b slice DX, second part): `people` is its
+    /// elder, `settlement` the household's, `place` the line's first cell, and `name` the
+    /// sentence.
+    StationsOpened,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1570,7 +1588,9 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::CoinStruck
         | ChronicleKind::BoatMade
         | ChronicleKind::CartMade
-        | ChronicleKind::TakenDown => {
+        | ChronicleKind::TakenDown
+        | ChronicleKind::LineLaid
+        | ChronicleKind::StationsOpened => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

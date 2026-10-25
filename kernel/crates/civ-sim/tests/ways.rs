@@ -89,6 +89,7 @@ fn lay(sim: &mut Sim, cells: Vec<u32>, usable_m: f32, kept: i64) -> civ_core::Pe
         trips: 0.0,
         trips_day: today,
         rank: Rank::Lane,
+        track: None,
     });
     id
 }

@@ -1,0 +1,20 @@
+# Coal dug from a seam (M10a slice DS; ADR-0033 §1, §7). It burns hotter and longer than wood
+# (research 07-06 §2.3: other bituminous coal 25.8 MJ a kilogram, IPCC default; grades vary) and
+# keeps. A hearth burns it by its heat beside firewood, but a household keeps it for its fire only
+# if one of them knows how to burn it (`technique/coal_burning`; 07-06 §3: "coal extraction and
+# combustion" asks an identified deposit and compatible combustion practices).
+kind = "good"
+id = "core:good/coal"
+name = "Coal"
+purpose = "fuel"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[fuel]
+mj_per_kg = 25.8
+smoke = 2.0                      # tuning: a smokier fire than wood's; the research gives no figure
+technique = "core:technique/coal_burning"

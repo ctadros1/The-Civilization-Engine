@@ -762,6 +762,9 @@ pub(crate) struct FireFile {
     pub hearth_lit_per_hour: f64,
     pub hearth_banked_per_hour: f64,
     pub worked_per_hour: f64,
+    /// Content API 166 (M10b slice DU): ignitions per hour of a lamp lit at home.
+    #[serde(default)]
+    pub lamp_lit_per_hour: f64,
     pub beside_m: f64,
     pub grow_minutes: [f64; 2],
     pub wake_minutes: [f64; 2],
@@ -800,6 +803,7 @@ impl FireFile {
             hearth_lit_per_hour: self.hearth_lit_per_hour,
             hearth_banked_per_hour: self.hearth_banked_per_hour,
             worked_per_hour: self.worked_per_hour,
+            lamp_lit_per_hour: self.lamp_lit_per_hour,
             beside_m: self.beside_m,
             grow_minutes: self.grow_minutes,
             wake_minutes: self.wake_minutes,
@@ -873,6 +877,7 @@ impl FireFile {
                 0.1,
             ),
             ("fire.worked_per_hour", self.worked_per_hour, 0.0, 0.1),
+            ("fire.lamp_lit_per_hour", self.lamp_lit_per_hour, 0.0, 0.1),
             ("fire.beside_m", self.beside_m, 0.0, 50.0),
             ("fire.grow_minutes[0]", self.grow_minutes[0], 0.0, 600.0),
             ("fire.grow_minutes[1]", self.grow_minutes[1], 0.0, 600.0),
@@ -1426,6 +1431,12 @@ pub(crate) struct CrimeFile {
     pub risk_alpha: f64,
     pub risk_alpha_told: f64,
     pub sight_m: f64,
+    /// Sight in the dark once a lamp has been lit (content API 167; absent, day sight).
+    #[serde(default)]
+    pub dark_sight_m: Option<f64>,
+    /// Metres about a building where a lamp burns within which its light restores day sight.
+    #[serde(default)]
+    pub lit_m: f64,
     pub notice_chance: f64,
     pub retry_hours: f64,
     pub guardian_age: f64,
@@ -1446,6 +1457,8 @@ pub(crate) struct CrimeFile {
     pub w_comply_found: f64,
     pub exile_days: f64,
     pub watch_guard: f64,
+    pub lit_guard: f64,
+    pub w_light: f64,
     pub w_watch: f64,
     pub rounds_per_night: u32,
     pub round_stops: u32,
@@ -1488,6 +1501,8 @@ impl CrimeFile {
             risk_alpha: self.risk_alpha,
             risk_alpha_told: self.risk_alpha_told,
             sight_m: self.sight_m,
+            dark_sight_m: self.dark_sight_m.unwrap_or(self.sight_m),
+            lit_m: self.lit_m,
             notice_chance: self.notice_chance,
             retry_hours: self.retry_hours,
             guardian_age: self.guardian_age,
@@ -1508,6 +1523,8 @@ impl CrimeFile {
             w_comply_found: self.w_comply_found,
             exile_days: self.exile_days,
             watch_guard: self.watch_guard,
+            lit_guard: self.lit_guard,
+            w_light: self.w_light,
             w_watch: self.w_watch,
             rounds_per_night: self.rounds_per_night,
             round_stops: self.round_stops,
@@ -1562,6 +1579,13 @@ impl CrimeFile {
             ("crime.risk_alpha", self.risk_alpha, 0.0, 1.0),
             ("crime.risk_alpha_told", self.risk_alpha_told, 0.0, 1.0),
             ("crime.sight_m", self.sight_m, 0.0, 10_000.0),
+            (
+                "crime.dark_sight_m",
+                self.dark_sight_m.unwrap_or(self.sight_m),
+                0.0,
+                self.sight_m,
+            ),
+            ("crime.lit_m", self.lit_m, 0.0, 100.0),
             ("crime.notice_chance", self.notice_chance, 0.0, 1.0),
             ("crime.retry_hours", self.retry_hours, 0.0, 87_600.0),
             ("crime.guardian_age", self.guardian_age, 0.0, 130.0),
@@ -1580,6 +1604,8 @@ impl CrimeFile {
             ("crime.w_comply_found", self.w_comply_found, -100.0, 100.0),
             ("crime.exile_days", self.exile_days, 0.0, 3650.0),
             ("crime.watch_guard", self.watch_guard, 0.0, 1.0),
+            ("crime.lit_guard", self.lit_guard, 0.0, 1.0),
+            ("crime.w_light", self.w_light, 0.0, 100.0),
             ("crime.w_watch", self.w_watch, 0.0, 100.0),
             ("crime.w_watch_report", self.w_watch_report, -100.0, 100.0),
             ("crime.ask_days", self.ask_days, 0.0, 365.0),
@@ -2003,6 +2029,30 @@ pub(crate) struct DiggingFile {
     pub h_per_m3: f64,
     /// The side of a pit, and of the spoil heap beside it, metres.
     pub pit_side_m: f64,
+    /// Content API 163 (M10a slice DS): a person's sustained power bailing a pit by hand, watts.
+    #[serde(default = "bail_w")]
+    pub bail_w: f64,
+    /// Content API 163: the share of it that lifts water (bucket and rope).
+    #[serde(default = "bail_efficiency")]
+    pub bail_efficiency: f64,
+    /// Content API 163: a pit's radius of influence on the water table, metres.
+    #[serde(default = "pit_influence_m")]
+    pub influence_m: f64,
+}
+
+/// A person's sustained power, watts, when a profile gives none (research 07-06 §1.3: 75 W).
+fn bail_w() -> f64 {
+    75.0
+}
+
+/// Bucket and rope's share of it that lifts water, when a profile gives none (07-06 §2.2).
+fn bail_efficiency() -> f64 {
+    0.5
+}
+
+/// A pit's radius of influence, metres, when a profile gives none (as the core's wells').
+fn pit_influence_m() -> f64 {
+    50.0
 }
 
 /// What founders know and how people learn (ADR-0008).
@@ -2045,6 +2095,13 @@ pub(crate) struct Firm {
     pub wage_review_days: u32,
     pub wage_max_change: f64,
     pub max_hire_hours: f64,
+    /// Content API 164 (M10a slice DT): hours of a works' shift from its bell, by daylight.
+    #[serde(default = "shift_h")]
+    pub shift_h: f64,
+}
+
+fn shift_h() -> f64 {
+    10.0
 }
 
 #[derive(Debug, Deserialize)]
@@ -2259,6 +2316,20 @@ pub(crate) struct Mortality {
     pub exhaustion_per_day: f64,
     pub exhaustion_power: f64,
     pub maternal_death_per_birth: f64,
+    /// Content API 179 (M10c slice EA): how mothers' deaths in childbirth divide among the
+    /// complications, and an attendant's harm fresh from the fevered.
+    pub birth: BirthFile,
+}
+
+/// How mothers' deaths in childbirth divide among the complications (M10c slice EA).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct BirthFile {
+    pub bleeding: f64,
+    pub infection: f64,
+    pub obstructed: f64,
+    pub fever_harm: f64,
+    pub fever_harm_days: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2538,6 +2609,11 @@ impl PeopleFile {
                 exhaustion_per_day: m.exhaustion_per_day,
                 exhaustion_power: m.exhaustion_power,
                 maternal_death_per_birth: m.maternal_death_per_birth,
+                birth: civ_agents::params::BirthParams {
+                    shares: [m.birth.bleeding, m.birth.infection, m.birth.obstructed],
+                    fever_harm: m.birth.fever_harm,
+                    fever_harm_days: m.birth.fever_harm_days,
+                },
             },
             fertility: {
                 let f = &self.fertility;
@@ -2598,6 +2674,7 @@ impl PeopleFile {
                 wage_review_days: self.firm.wage_review_days,
                 wage_max_change: self.firm.wage_max_change,
                 max_hire_hours: self.firm.max_hire_hours,
+                shift_h: self.firm.shift_h,
             },
             knowledge: KnowledgeParams {
                 founders,
@@ -2612,6 +2689,9 @@ impl PeopleFile {
             digging: civ_agents::params::Digging {
                 h_per_m3: self.digging.h_per_m3,
                 pit_side_m: self.digging.pit_side_m,
+                bail_w: self.digging.bail_w,
+                bail_efficiency: self.digging.bail_efficiency,
+                influence_m: self.digging.influence_m,
             },
             style: civ_agents::params::StyleParams {
                 alpha: self.style.alpha,
@@ -2714,6 +2794,14 @@ impl PeopleFile {
     pub fn problems(&self) -> Vec<String> {
         let mut p = Vec::new();
         positive("digging.h_per_m3", self.digging.h_per_m3, &mut p);
+        positive("digging.bail_w", self.digging.bail_w, &mut p);
+        positive("digging.influence_m", self.digging.influence_m, &mut p);
+        if !(self.digging.bail_efficiency > 0.0 && self.digging.bail_efficiency <= 1.0) {
+            p.push(format!(
+                "`digging.bail_efficiency` must be above 0 and at most 1 (got {})",
+                self.digging.bail_efficiency
+            ));
+        }
         self.ties.problems(&mut p);
         self.polity.problems(&mut p);
         self.crime.problems(&mut p);
@@ -3422,6 +3510,12 @@ impl PeopleFile {
         unit("firm.wage_share", self.firm.wage_share, &mut p);
         unit("firm.wage_max_change", self.firm.wage_max_change, &mut p);
         non_negative("firm.max_hire_hours", self.firm.max_hire_hours, &mut p);
+        if !(self.firm.shift_h.is_finite() && (1.0..=16.0).contains(&self.firm.shift_h)) {
+            p.push(format!(
+                "`firm.shift_h` must be between 1 and 16 (got {})",
+                self.firm.shift_h
+            ));
+        }
         let m = &self.mortality;
         for (name, v) in [("a", m.a), ("b", m.b), ("c", m.c), ("d", m.d), ("e", m.e)] {
             non_negative(&format!("mortality.{name}"), v, &mut p);
@@ -3445,6 +3539,26 @@ impl PeopleFile {
             m.maternal_death_per_birth,
             &mut p,
         );
+        let b = &m.birth;
+        for (name, v) in [
+            ("bleeding", b.bleeding),
+            ("infection", b.infection),
+            ("obstructed", b.obstructed),
+        ] {
+            unit(&format!("mortality.birth.{name}"), v, &mut p);
+        }
+        if ((b.bleeding + b.infection + b.obstructed) - 1.0).abs() > 1e-6 {
+            p.push("`mortality.birth`'s shares must sum to 1".to_owned());
+        }
+        if !(b.fever_harm.is_finite() && b.fever_harm >= 1.0) {
+            p.push(format!(
+                "`mortality.birth.fever_harm` must be at least 1 (got {})",
+                b.fever_harm
+            ));
+        }
+        if b.fever_harm_days < 0 {
+            p.push("`mortality.birth.fever_harm_days` must not be negative".to_owned());
+        }
         let f = &self.fertility;
         unit(
             "fertility.conception_per_month",

@@ -2,8 +2,8 @@
 //! gathers, stores or eats is decided by people at run time.
 
 use civ_agents::params::{
-    Eaten, GoodDef, GoodFire, GoodFuel, GoodPower, GoodUse, MoneyDef, PowerSource, StoreDef,
-    ToolDef,
+    Eaten, GoodDef, GoodFire, GoodFuel, GoodHolder, GoodLight, GoodPower, GoodUse, MoneyDef,
+    PowerSource, StoreDef, ToolDef,
 };
 use civ_agents::structure::Timber;
 use serde::Deserialize;
@@ -48,6 +48,36 @@ pub(crate) struct GoodFile {
     /// Content API 160 (M10a slice DR): the power it delivers as a station; only a fixed tool.
     #[serde(default)]
     pub power: Option<PowerFile>,
+    /// Content API 165 (M10b slice DU): the light it gives as a lamp; only a tool.
+    #[serde(default)]
+    pub light: Option<LightFile>,
+    /// Content API 172 (M10b slice DY): what it holds as a gas holder; only a fixed tool.
+    #[serde(default)]
+    pub holder: Option<HolderFile>,
+}
+
+/// What a holder keeps (M10b slice DY, ADR-0034 §8).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct HolderFile {
+    /// The good it holds, by content id.
+    pub good: String,
+    /// Kilograms of it held when full, above 0 and at most 100,000.
+    pub kg: f64,
+}
+
+/// The light a lamp gives (M10b slice DU, ADR-0034 §9).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct LightFile {
+    /// The good it burns, by content id.
+    pub fuel: String,
+    /// Kilograms of it burned an hour lit, above 0 and at most 1.
+    pub kg_per_hour: f64,
+    /// Content API 172 (M10b slice DY): its fuel comes by a main, not from stores; false, the
+    /// default, for a lamp its household fills.
+    #[serde(default)]
+    pub piped: bool,
 }
 
 /// The power a wheel or an engine delivers (M10a slice DR, ADR-0033 §5).
@@ -71,6 +101,10 @@ pub(crate) struct FuelFile {
     pub mj_per_kg: f64,
     /// Smoke a kilogram makes, against firewood's 1.
     pub smoke: f64,
+    /// Content API 162 (M10a slice DS): the technique a household must know to want it for its
+    /// hearth; none, the default, for a fuel anyone burns.
+    #[serde(default)]
+    pub technique: Option<String>,
 }
 
 /// How a good burns (M6b slice BC; ADR-0022 §4, §5).
@@ -135,6 +169,14 @@ pub(crate) struct Tool {
     pub fixed: bool,
     #[serde(default)]
     pub serves: String,
+    /// Content API 164 (M10a slice DT): the fewest hands at it for it to run; only a fixed tool
+    /// asks more than one.
+    #[serde(default = "one_hand")]
+    pub crew: u32,
+}
+
+fn one_hand() -> u32 {
+    1
 }
 
 impl GoodFile {
@@ -157,6 +199,7 @@ impl GoodFile {
                 per_worker: t.per_worker,
                 fixed: t.fixed,
                 serves: None,
+                crew: t.crew.clamp(1, 20) as u8,
             }),
             timber: self.timber.as_ref().map(|t| Timber {
                 bending_pa: t.bending_mpa * 1e6,
@@ -186,6 +229,8 @@ impl GoodFile {
             fuel: self.fuel.as_ref().map(|f| GoodFuel {
                 mj_per_kg: f.mj_per_kg,
                 smoke: f.smoke,
+                // Resolved once the techniques are known (`civ_content::compile`).
+                technique: None,
             }),
             power: self.power.as_ref().map(|w| GoodPower {
                 source: if w.source == "fuel" {
@@ -195,6 +240,17 @@ impl GoodFile {
                 },
                 rated_kw: w.rated_kw,
                 efficiency: w.efficiency,
+            }),
+            light: self.light.as_ref().map(|l| GoodLight {
+                // Resolved once the goods are known (`civ_content::compile`).
+                fuel: None,
+                kg_per_hour: l.kg_per_hour,
+                piped: l.piped,
+            }),
+            holder: self.holder.as_ref().map(|h| GoodHolder {
+                // Resolved once the goods are known (`civ_content::compile`).
+                good: None,
+                kg: h.kg,
             }),
         })
     }
@@ -254,6 +310,31 @@ impl GoodFile {
             if !self.tool.as_ref().is_some_and(|t| t.fixed) {
                 p.push(
                     "only a fixed tool delivers power: `[power]` needs `[tool] fixed = true`"
+                        .to_owned(),
+                );
+            }
+        }
+        if let Some(l) = &self.light {
+            if !(l.kg_per_hour.is_finite() && l.kg_per_hour > 0.0 && l.kg_per_hour <= 1.0) {
+                p.push(format!(
+                    "`light.kg_per_hour` must be above 0 and at most 1 (got {})",
+                    l.kg_per_hour
+                ));
+            }
+            if self.tool.is_none() {
+                p.push("only a tool gives light: `[light]` needs a `[tool]` table".to_owned());
+            }
+        }
+        if let Some(h) = &self.holder {
+            if !(h.kg.is_finite() && h.kg > 0.0 && h.kg <= 100_000.0) {
+                p.push(format!(
+                    "`holder.kg` must be above 0 and at most 100000 (got {})",
+                    h.kg
+                ));
+            }
+            if !self.tool.as_ref().is_some_and(|t| t.fixed) {
+                p.push(
+                    "only a fixed tool holds apart: `[holder]` needs `[tool] fixed = true`"
                         .to_owned(),
                 );
             }
@@ -327,6 +408,17 @@ impl GoodFile {
                         "`tool.per_worker` must be between 0 and 10 (got {})",
                         t.per_worker
                     ));
+                }
+                if !(1..=20).contains(&t.crew) {
+                    p.push(format!(
+                        "`tool.crew` must be between 1 and 20 (got {})",
+                        t.crew
+                    ));
+                } else if t.crew > 1 && !t.fixed {
+                    p.push(
+                        "only a fixed tool needs a crew: `crew` above 1 needs `fixed = true`"
+                            .to_owned(),
+                    );
                 }
             }
             (Some(_), Some(_)) => p.push("only a tool takes a `[tool]` table".to_owned()),

@@ -51,16 +51,19 @@ mod ditches;
 mod duties;
 mod elections;
 mod enclosures;
+mod engines;
 mod faction;
 mod fire;
 mod firm;
 mod floods;
 mod force;
 mod founding;
+mod gas;
 mod holds;
 mod ideology;
 mod influence;
 mod knowledge;
+mod lamps;
 mod land;
 mod levees;
 mod life;
@@ -72,6 +75,8 @@ mod moving;
 mod norm;
 mod opinion;
 mod payments;
+mod trains;
+mod wagons;
 mod war;
 mod way_works;
 pub use crime::TakeProbe;
@@ -105,6 +110,7 @@ pub use loads::{
 mod plans;
 mod quakes;
 pub use plans::ParcelOffer;
+pub use way_works::LAID_FROM_M;
 mod raising;
 pub use raising::{
     AT_TOWER_M, LATE_NOTICE_MIN, RAISE_WITHIN_M, SEEN_GIVERS, STALL_DAYS, TOWER_SIGHT_M,
@@ -182,6 +188,11 @@ const FIRST_HOME_SHIFT_M: f64 = 120.0;
 /// Least food a household makes ready in one go, in days of its needs: below this it waits until
 /// it needs more (a tuning value).
 const MIN_BATCH_DAYS: f64 = 0.25;
+/// Hours of light a household holding a lamp keeps fuel for (M10b slice DU; a design prior: a
+/// week of evenings).
+const LAMP_FUEL_HOURS: f64 = 30.0;
+/// Metres from home within which someone counts as at home for a lamp lit there.
+const LAMP_AT_HOME_M: f32 = 2.0;
 /// A settlement's first trail, for the chronicle: at least this long, metres...
 pub const FIRST_TRAIL_M: f32 = 150.0;
 /// ...and passing within this of the settlement's hearth, metres.
@@ -218,6 +229,13 @@ pub enum AgentEvent {
     /// Gates are kept (M6c slice BK, step three): at first light each is opened, and at dusk the
     /// household nearest each chooses whether to shut it for the night.
     Gates,
+    /// Trains are due (M10b slice DX, second part): each household with an engine brings its
+    /// arrived trains to account and sets off where its line's timetable has a run now. Pending
+    /// at each of the day's departures while any engine is made.
+    Trains,
+    /// Gas is lit at dusk (M10b slice DY, third part): each main's evening is checked and its
+    /// connections lit or not. Pending each day while any main is laid.
+    Gas,
     /// A walker reaches a bottleneck on their walk (M8b slice CN, ADR-0029 §4).
     Pass {
         /// Who.
@@ -544,6 +562,19 @@ pub struct Population {
     /// (ADR-0032 §2): set and taken within [`Self::live_household_days`] only.
     planning: bool,
     planned: Option<resolution::Planned>,
+    /// When the making a household-resolved day enacts at midnight would have ended in its day
+    /// (M10b slice DU): its minutes after dark are counted from there, not from midnight.
+    enact_end: Option<SimTime>,
+    /// Sessions at a works' machine that wants a crew, lived in a household-resolved day (M10a
+    /// slice DT; ADR-0032 §2, crews met in aggregate): held while the settlement's day is lived,
+    /// then the machine runs for their summed minutes over its crew if as many hands as it
+    /// wants worked it ([`Self::run_held_crews`]). Filled and emptied within
+    /// [`Self::live_household_days`] only, never saved.
+    crew_held: Vec<firm::HeldSession>,
+    /// Whether a household-resolved day is being lived, and whether a held crew's run is under
+    /// way (its crew already counted).
+    resolving: bool,
+    crew_run: bool,
     /// Per parked person, the blocks of the household-resolved day last lived and that day's
     /// index (ADR-0032 §6): what the observer is shown, never read by the simulation, never saved.
     day_blocks: FastMap<PermanentId, Vec<resolution::DayBlock>>,
@@ -1747,6 +1778,8 @@ impl Population {
             AgentEvent::Ignite { building } => self.ignite(ctx, building),
             AgentEvent::BandLook => self.band_look(ctx),
             AgentEvent::Gates => self.keep_gates(ctx),
+            AgentEvent::Trains => self.trains_due(ctx),
+            AgentEvent::Gas => self.gas_evening(ctx),
             AgentEvent::Pass {
                 person,
                 version,
@@ -1788,6 +1821,53 @@ impl Population {
             p.act.step = 0;
         }
         self.start_haul(ctx, h, to)
+    }
+
+    /// Sends `id` riding a line's train from the station where they stand to its end at cell `to`
+    /// at once, as a step of their activity would (tests): `false` when no train would take them.
+    #[doc(hidden)]
+    pub fn ride_for_tests(&mut self, ctx: &mut Ctx, id: PermanentId, to: u32) -> bool {
+        let Some(&h) = self.index.get(&id) else {
+            return false;
+        };
+        if let Some(p) = self.people.get_mut(h) {
+            p.act.steps = vec![Step::Ride { to }];
+            p.act.step = 0;
+            p.act.version += 1;
+        }
+        self.start_ride(ctx, h, to)
+    }
+
+    /// A ride for `id` from the station where they stand to the line's end at cell `to`, as a
+    /// household-resolved day lives it (tests): `false` when no train runs that day or their
+    /// household cannot pay.
+    #[doc(hidden)]
+    pub fn ride_in_block_for_tests(&mut self, ctx: &mut Ctx, id: PermanentId, to: u32) -> bool {
+        let Some(&h) = self.index.get(&id) else {
+            return false;
+        };
+        self.ride_in_block(ctx, h, to)
+    }
+
+    /// The ride household `household` could take out to a pit at `pit`, its walk to the station
+    /// reckoned in a straight line (tests): the line's end it rides to, the minutes one way, and
+    /// the fare.
+    #[doc(hidden)]
+    pub fn ride_legs_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        pit: (f32, f32),
+    ) -> Option<(u32, f64, f64)> {
+        let x = self.household(household)?;
+        let hearth = Self::hearth_of(ctx, x);
+        let pace = ctx.params.nav.tobler_ms(0.0) * ctx.params.nav.offtrail_factor;
+        let home = x.home;
+        let walk = |at: (f32, f32)| {
+            Some(f64::from((at.0 - home.0).hypot(at.1 - home.1)) / pace.max(1e-6) / 60.0)
+        };
+        let (legs, minutes, _, fare) = Self::ride_legs(ctx, household, home, hearth, pit, &walk)?;
+        Some((legs.to, minutes, fare))
     }
 
     /// Drops a person's activity so they decide again when an event of the returned version
@@ -3557,8 +3637,17 @@ impl Population {
             loneliness: 1.0 - f64::from(p.relatedness),
             dark,
             daylight_left_min: if dark { 0.0 } else { (sun.1 - minute) as f64 },
+            clock_min: minute as f64,
             evening,
             until_sunrise_min: until_sunrise as f64,
+            // Light for the evening: the lamp's fuel, or the burners' gas lit until they go out
+            // (M10b slice DY).
+            lamp_min: lamp_of(goods, &stores).map_or(0.0, |l| l.3).max(
+                ctx.land
+                    .gas
+                    .lit_until(hh_id, now.minutes())
+                    .map_or(0.0, |u| (u - now.minutes()) as f64),
+            ),
             food_days: stock / kcal_day.max(1.0),
             food_target_days: params.household.food_target_days,
             food_outlook_days,
@@ -3578,6 +3667,7 @@ impl Population {
             poll: self.poll_facts(ctx, p.id, age, &hh, minute, evening_start),
             campaign: self.campaign_points(ctx, p.id),
             watch: self.watch_facts(ctx, p.id, &hh, dark),
+            light: self.light_facts(ctx, p.id, &hh, dark),
             carry: self.carry_facts(ctx, p.id, field_key, dark),
             crossing: self.crossing_facts(ctx, &hh, p.id, field_key, dark),
             well: self.well_facts(ctx, &hh, p.id, dark),
@@ -3588,6 +3678,7 @@ impl Population {
             raise: self.raise_facts(ctx, &hh, p.id, dark),
             enclosure: self.enclosure_facts(ctx, &hh, p.id, field_key, dark),
             ditch: self.ditch_facts(ctx, &hh, field_key, dark),
+            mill: self.mill_facts(ctx, &hh, field_key, dark),
             band: band_facts,
             hurt: self
                 .order
@@ -3596,7 +3687,8 @@ impl Population {
             ill: self.sickness.ill(p.id, now.day_index()),
             home_afire: self.knows_home_afire(p.id, p.household, now, params),
             fire: fire_facts,
-            tend: self.tend_facts(ctx, p.id, &hh),
+            tend: self.tend_facts(ctx, p.id, &hh, field_key),
+            call: self.call_facts(ctx, p.id, &hh, field_key),
             home_flooded: ctx
                 .land
                 .flood_depths
@@ -3697,7 +3789,54 @@ impl Population {
             .collect();
         let knows = |t: usize| self.household_knows(&hh.members, t);
         let mut wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
-        cap_water_wants(ctx, hh.id, &mut wants);
+        cap_power_wants(ctx, hh.id, &mut wants);
+        let costs_once = OnceCell::new();
+        let costs = || {
+            costs_once
+                .get_or_init(|| self.own_costs_of(ctx, &hh))
+                .clone()
+        };
+        // A light it knows how to make is wanted where an hour lit costs it less of its own
+        // hours, in fuel and in the lamp's wear, than the hour of making at home it gives after
+        // dark (M10b slice DU; brief §2.3).
+        for (g, d) in goods.iter().enumerate() {
+            let Some(light) = d.light.as_ref() else {
+                continue;
+            };
+            let known = catalog
+                .recipes
+                .iter()
+                .any(|r| r.outputs.iter().any(|&(o, _)| o == g) && r.technique.is_none_or(&knows));
+            if !known || ages.iter().all(|&a| a < params.family.independent_age) {
+                continue;
+            }
+            // A piped burner's light comes by a main, not from what the household makes: the works
+            // of a main laid whole keeps one by it to fit the next home that connects (M10b slice
+            // DY, fourth part).
+            if light.piped {
+                if ctx
+                    .land
+                    .gas
+                    .mains
+                    .iter()
+                    .any(|m| m.works == hh.id && m.whole() && !m.broken)
+                    && let Some(w) = wants.get_mut(g)
+                {
+                    *w = w.max(1.0);
+                }
+                continue;
+            }
+            // Its fuel decides: the lamp's own hours, spread over its life, count where the
+            // household can put a figure on them (its clay may come from a pit it has not found).
+            let Some(per_hour) = light_hour_cost(goods, &costs(), g) else {
+                continue;
+            };
+            if per_hour < 1.0
+                && let Some(w) = wants.get_mut(g)
+            {
+                *w = w.max(1.0);
+            }
+        }
         let me = self.people.get(h).map(|p| p.id);
         let mut free_tools: Vec<f64> = stores
             .iter()
@@ -3771,12 +3910,6 @@ impl Population {
         // need that it makes itself (copper for a copper axe): the tool each is for, and how
         // much of it.
         let can_work = |r: &crate::params::RecipeDef| self.can_work_way(ctx, &hh, &stores, r);
-        let costs_once = OnceCell::new();
-        let costs = || {
-            costs_once
-                .get_or_init(|| self.own_costs_of(ctx, &hh))
-                .clone()
-        };
         let ways: Vec<Option<usize>> = (0..goods.len())
             .map(|t| {
                 if goods[t].tool.is_none() {
@@ -3831,6 +3964,43 @@ impl Population {
                         *b = true;
                     }
                 }
+            }
+        }
+        // A whole lamp it holds wants its fuel, to `LAMP_FUEL_HOURS` of light: made as a tool's
+        // material is, for the lamp (M10b slice DU).
+        if let Some((lamp, fuel, kg_h)) = goods.iter().enumerate().find_map(|(g, d)| {
+            let l = d.light.as_ref().filter(|l| !l.piped)?;
+            (make::in_use(goods, g, held_of(g)) >= decide::MIN_TOOL).then_some((
+                g,
+                l.fuel?,
+                l.kg_per_hour,
+            ))
+        }) {
+            let reserve = kg_h * LAMP_FUEL_HOURS;
+            let short = (reserve - held_of(fuel)).max(0.0);
+            if short > 0.0 && reserve > 0.0 {
+                made_for[fuel] = Some((lamp, short / reserve));
+                if let Some(m) = tool_material.get_mut(fuel) {
+                    *m += short;
+                }
+            }
+        }
+        // A works laying a gas main wants the pipe the rest of it takes, as a tool's material is
+        // wanted (M10b slice DY, fourth part).
+        if let Some(p) = ctx.land_params.gas_main
+            && let Some(m) = ctx
+                .land
+                .gas
+                .mains
+                .iter()
+                .find(|m| m.works == hh.id && !m.whole())
+        {
+            let need = f64::from(m.length_m - m.laid_m).max(0.0) * p.good_kg_m;
+            let short = (need - held_of(p.good)).max(0.0);
+            if short > 0.0
+                && let Some(t) = tool_material.get_mut(p.good)
+            {
+                *t += short;
             }
         }
         // And what the pots it would gain from are made of, a session's worth at most.
@@ -3921,6 +4091,11 @@ impl Population {
                 1.0
             }
         };
+        // What a kilogram of a fuel stands for at the hearth (M10a slice DS); 1 for anything else.
+        let heat_of = |g: usize| match catalog.goods.get(g) {
+            Some(d) if d.purpose == GoodUse::Fuel => crate::params::fuel_ratio(&catalog.goods, g),
+            _ => 1.0,
+        };
         let dig = |def: usize| -> Option<PatchOption> {
             {
                 let a = catalog.activities.get(def)?;
@@ -3930,7 +4105,9 @@ impl Population {
                 let good = catalog.goods.get(g)?;
                 let need_kg = build_need.get(g).copied().unwrap_or(0.0);
                 let tool_need_kg = tool_material.get(g).copied().unwrap_or(0.0);
-                let needed = need_kg > 0.0 || tool_need_kg > 0.0;
+                // A fuel is dug for the hearth, so where it would be dug is wanted too (M10a slice
+                // DS).
+                let needed = need_kg > 0.0 || tool_need_kg > 0.0 || good.purpose == GoodUse::Fuel;
                 let hours = f64::from(a.max_minutes) / 60.0;
                 let mut best: Option<(f64, PatchOption)> = None;
                 for d in ctx.land.deposits.iter().filter(|d| {
@@ -3956,7 +4133,16 @@ impl Population {
                     };
                     let walk = f64::from(secs) / 60.0;
                     let rates = digging::rates(ctx.land_params, &d.body, params.digging.h_per_m3);
-                    let kg_per_hour = digging::dig_kg_per_hour(&d.body, rates);
+                    // Less where water standing in the pit must be lifted out first (M10a
+                    // slice DS).
+                    let kg_per_hour = digging::dig_kg_per_hour(&d.body, rates)
+                        * digging::dry_share(
+                            (ctx.land, map, ctx.land_params),
+                            &params.digging,
+                            d,
+                            now,
+                            hours,
+                        );
                     if walk > f64::from(a.max_walk_minutes) || kg_per_hour <= 0.0 {
                         continue;
                     }
@@ -3971,6 +4157,7 @@ impl Population {
                                 kg_per_hour,
                                 purpose: good.purpose,
                                 kcal_per_kg: good.kcal_per_kg,
+                                fuel_ratio: heat_of(g),
                                 stored_days: 0.0,
                                 need_kg,
                                 urgency: build_urgency,
@@ -3981,11 +4168,38 @@ impl Population {
                                     .unwrap_or(false),
                                 at,
                                 deposit: Some(d.id),
+                                by_ride: None,
                             },
                         ));
                     }
                 }
-                best.map(|(_, o)| o)
+                let mut o = best.map(|(_, o)| o)?;
+                // Out to the pit on a line's train (M10b slice DX, fourth part), where the ride's
+                // minutes and its fare, at the household's own cost of the fuel it is paid in,
+                // come to less than the walk; home on foot.
+                let walk_to = |at: (f32, f32)| {
+                    reach
+                        .seconds_to(cell_of(map, at))
+                        .map(|s| f64::from(s) / 60.0)
+                };
+                if let Some((legs, ride_min, fuel, fare_kg)) =
+                    Self::ride_legs(ctx, hh.id, hh.home, hearth, o.at, &walk_to)
+                {
+                    let fare_min = if fare_kg > 0.0 {
+                        self.own_costs_of(ctx, &hh)
+                            .get(fuel)
+                            .copied()
+                            .flatten()
+                            .map_or(f64::INFINITY, |h| h * fare_kg * 60.0)
+                    } else {
+                        0.0
+                    };
+                    if ride_min + fare_min < o.walk_min {
+                        o.walk_min = (ride_min + o.walk_min) / 2.0;
+                        o.by_ride = Some(legs);
+                    }
+                }
+                Some(o)
             }
         };
         let find_patch = |def: usize| -> Option<PatchOption> {
@@ -4073,6 +4287,7 @@ impl Population {
                             kg_per_hour,
                             purpose: good.purpose,
                             kcal_per_kg: good.kcal_per_kg,
+                            fuel_ratio: heat_of(res.good),
                             stored_days,
                             need_kg,
                             urgency,
@@ -4080,6 +4295,7 @@ impl Population {
                             tool_blocked,
                             at: cell_centre(map, cell as usize),
                             deposit: None,
+                            by_ride: None,
                         },
                     ));
                 }
@@ -4427,6 +4643,11 @@ impl Population {
             if from_inputs <= 1e-6 {
                 return Err((Reason::NoInputs, None));
             }
+            // A machine that wants a crew is worked only at a works, whose bell brings its hands
+            // together (M10a slice DT; ADR-0033 §8).
+            if shop.is_none() && crew_of(goods, r) > 1 {
+                return Err((Reason::NoCrew, None));
+            }
             if let Some(&t) = r.tools.iter().find(|&&t| {
                 free_tools.get(t).copied().unwrap_or(0.0) < decide::MIN_TOOL
                     && shop.is_none_or(|f| self.station_for(goods, f, t) < decide::MIN_TOOL)
@@ -4628,6 +4849,7 @@ impl Population {
                     matches!(
                         a.behavior,
                         Behavior::Watch
+                            | Behavior::Light
                             | Behavior::Attend
                             | Behavior::Douse
                             | Behavior::Strip
@@ -5046,6 +5268,18 @@ impl Population {
                     // No boat here, or no way by water today: home on foot instead.
                     self.cannot_paddle(h);
                 }
+                Step::Ride { to } => {
+                    if self.start_ride(ctx, h, to) {
+                        return;
+                    }
+                    // No train to take soon: on foot instead, the rest as planned.
+                    if let Some(p) = self.people.get_mut(h) {
+                        let at = usize::from(p.act.step);
+                        if at < p.act.steps.len() {
+                            p.act.steps.remove(at);
+                        }
+                    }
+                }
                 Step::Haul { to } => {
                     if self.start_haul(ctx, h, to) {
                         return;
@@ -5354,6 +5588,8 @@ impl Population {
                 | Behavior::Build
                 | Behavior::Take
                 | Behavior::Watch
+                | Behavior::Light
+                | Behavior::Call
                 | Behavior::Carry
                 | Behavior::Bridge
                 | Behavior::Boat
@@ -5364,6 +5600,7 @@ impl Population {
                 | Behavior::Levee
                 | Behavior::Palisade
                 | Behavior::Ditch
+                | Behavior::Mill
                 | Behavior::Douse
                 | Behavior::Strip
                 | Behavior::Pull
@@ -5482,21 +5719,37 @@ impl Population {
                         && let Some(good) = d.digs
                     {
                         let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * d.rate;
-                        let effort_h = f64::from(minutes) / 60.0 * eff;
-                        let settlement = self
+                        let hh = self
                             .hh_index
                             .get(&household)
-                            .and_then(|&x| self.households.get(x))
-                            .and_then(|x| x.settlement);
-                        let toward = settlement
+                            .and_then(|&x| self.households.get(x));
+                        let (settlement, home) =
+                            (hh.and_then(|x| x.settlement), hh.map_or(p.pos, |x| x.home));
+                        let hearth = settlement
                             .and_then(|s| ctx.land.settlements.iter().find(|x| x.id == s))
-                            .map_or(p.pos, |x| x.hearth_m);
+                            .map(|x| x.hearth_m);
+                        let toward = hearth.unwrap_or(p.pos);
                         let toward = (f64::from(toward.0), f64::from(toward.1));
-                        let carry = params.household.carry_kg;
-                        let kg = digging::dig_at(ctx, household, toward, deposit, effort_h, carry);
+                        // Onto the household's train, where its engine works the line from the pit
+                        // (M10b slice DW, third part); by its wagon, where its line runs from the
+                        // pit home (M10b slice DV, third part); else what one person carries.
+                        let (kg, loaded) = Self::dig_and_bring(
+                            ctx,
+                            &self.consignments,
+                            household,
+                            home,
+                            hearth,
+                            toward,
+                            deposit,
+                            f64::from(minutes),
+                            eff,
+                        );
                         if kg > 0.0 {
                             p.carrying.good = Some(good as u16);
                             p.carrying.kg = kg as f32;
+                        }
+                        if let Some((wagon, kg)) = loaded {
+                            self.load_wagon(ctx, household, wagon, good, kg);
                         }
                         let place = crate::uses::Place::Deposit(deposit);
                         self.log_work(place, household, who, now, 0.0);
@@ -5572,6 +5825,13 @@ impl Population {
                         self.field_work(ctx, who, household, field, task, hours);
                     }
                 }
+                // A call left at a carer's door (M10c slice DZ, second part).
+                Some(Behavior::Call) => {
+                    if let Target::Household(carer) = p.act.target {
+                        let household = p.household;
+                        self.call_carer(ctx, household, carer);
+                    }
+                }
                 Some(Behavior::Ask) => {
                     if let Target::Household(giver) = p.act.target {
                         let (asker, household) = (p.id, p.household);
@@ -5586,6 +5846,11 @@ impl Population {
                 Some(Behavior::Watch) => {
                     let who = p.id;
                     self.stood_watch(who, minutes);
+                }
+                // A street lamp lit where the lamplighter stands (M10b slice DY, fourth part).
+                Some(Behavior::Light) => {
+                    let (who, pos) = (p.id, p.pos);
+                    self.light_lamp(ctx, who, pos);
                 }
                 Some(Behavior::Carry) => {
                     // Handed over at the other hearth; at the store, taking it up moves nothing
@@ -5682,13 +5947,23 @@ impl Population {
                         self.ditch_work(ctx, who, household, ditch, hours);
                     }
                 }
+                Some(Behavior::Mill) => {
+                    if let Target::Mill(mill) = p.act.target {
+                        self.mill_grind(ctx, h, mill, minutes);
+                    }
+                }
                 Some(Behavior::Hire) => {
                     if let Target::Firm(firm) = p.act.target {
                         self.hired_work(ctx, h, firm, minutes);
                     }
                 }
                 Some(Behavior::Tend) => {
-                    let (who, household, def) = (p.id, p.household, p.act.def);
+                    // At home, or at close kin's home (M10c slice DZ).
+                    let household = match p.act.target {
+                        Target::Household(h) => h,
+                        _ => p.household,
+                    };
+                    let (who, def) = (p.id, p.act.def);
                     self.tended(ctx, who, household, def, minutes);
                 }
                 Some(Behavior::Make) => {
@@ -5732,15 +6007,20 @@ impl Population {
                     }
                 }
             }
+            // Off the train at the line's end (M10b slice DX, fourth part): aboard, no ground worn.
+            Some(Step::Ride { to }) => {
+                p.pos = cell_centre(ctx.map, to as usize);
+                p.trip = None;
+            }
             Some(Step::Handle { unload: true, .. }) => self.unloaded(ctx, who),
             Some(Step::Wait { .. } | Step::Deposit | Step::Handle { .. }) | None => {}
         }
         // The time the step took.
         let took = (now.minutes() - started.minutes()).max(0) as f64;
         match step {
-            Some(Step::Walk { .. } | Step::Paddle { .. } | Step::Haul { .. }) => {
-                self.time_use.walking += took
-            }
+            Some(
+                Step::Walk { .. } | Step::Paddle { .. } | Step::Haul { .. } | Step::Ride { .. },
+            ) => self.time_use.walking += took,
             Some(Step::Wait { .. } | Step::Handle { .. }) => self.time_use.waiting += took,
             Some(Step::Work { .. }) => {
                 let b = def.as_ref().map(|d| d.behavior);
@@ -5843,6 +6123,51 @@ impl Population {
     /// their skill and age let them make in that time, from what the household holds (seed only
     /// in hunger, and never the seed for the ground already cropped), the recipe's tools worn by
     /// the time worked, and their skill practised.
+    /// Whether a lamp burns for work at household `household`'s home at `now` (M10b slice DU):
+    /// it holds a whole lamp and its fuel, or its burners are lit by gas (`gas`, M10b slice DY),
+    /// it is dark, and one of its members awake at home is at work kept to daylight.
+    pub fn lamp_lit_home(
+        &self,
+        catalog: &crate::params::Catalog,
+        params: &PeopleParams,
+        gas: &civ_land::gas::Gas,
+        now: SimTime,
+        household: PermanentId,
+    ) -> bool {
+        let Some(x) = self.household(household) else {
+            return false;
+        };
+        let t = now.minutes() as f64;
+        dark_at(params, now)
+            && (lamp_of(&catalog.goods, &x.stores).is_some() || gas.lit(household, now.minutes()))
+            && x.members.iter().any(|&m| {
+                self.person(m).is_some_and(|q| {
+                    let at = q.position_at(t);
+                    !q.asleep
+                        && (at.0 - x.home.0).hypot(at.1 - x.home.1) <= LAMP_AT_HOME_M
+                        && Self::works_by_lamp(catalog, q)
+                })
+            })
+    }
+
+    /// Homes where a lamp burns for work now (M10b slice DU), none until the world's first lamp
+    /// has been lit.
+    pub fn lit_homes(
+        &self,
+        catalog: &crate::params::Catalog,
+        params: &PeopleParams,
+        gas: &civ_land::gas::Gas,
+        now: SimTime,
+    ) -> usize {
+        if self.order.lamp_first_lit.is_none() || !dark_at(params, now) {
+            return 0;
+        }
+        self.households
+            .iter()
+            .filter(|(_, x)| self.lamp_lit_home(catalog, params, gas, now, x.id))
+            .count()
+    }
+
     fn make_work(&mut self, ctx: &mut Ctx, h: Handle<Person>, def: &ActivityDef, minutes: u32) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let Some(recipe) = def.recipe.and_then(|r| ctx.catalog.recipes.get(r)) else {
@@ -5869,6 +6194,10 @@ impl Population {
         // session (M10a slice DR; ADR-0033 §5).
         if recipe.kwh_per_unit > 0.0 {
             units = units.min(power_kw_of(ctx, household) * hours / recipe.kwh_per_unit);
+        }
+        // A machine its crew left idles (M10a slice DT).
+        if !self.crewed(ctx, h, crew_of(goods, recipe)) {
+            units = 0.0;
         }
         // Coin is struck from the metal brought to the mint the worker keeps, in the polity's
         // store, and nobody else strikes it (M7d slice CE2b).
@@ -5907,6 +6236,7 @@ impl Population {
             }
             return;
         }
+        let mut lit = None;
         if let Some(x) = self
             .hh_index
             .get(&household)
@@ -5968,6 +6298,38 @@ impl Population {
             make::wear(&mut x.stores, goods, &recipe.tools, hours);
             x.flows
                 .add_changes(&before, &x.stores, Flow::Made, Flow::Worn);
+            // Gas made beyond its holders' room goes to the air (M10b slice DY, ADR-0034 §8).
+            for (g, kg) in make::keep_to_holders(goods, &mut x.stores) {
+                x.flows.add(Flow::Spoiled, g, kg);
+            }
+            // Work after dark by lamplight burns the lamp's fuel and wears the lamp (M10b slice
+            // DU; research 11-13 §2.2: light's cost is its fuel and fixture by the hour lit).
+            if def.daylight_only {
+                let end = self.enact_end.unwrap_or(now);
+                let dark_h = dark_minutes(params, end, minutes) / 60.0;
+                if dark_h > 0.0 && ctx.land.gas.lit(household, end.minutes() - 1) {
+                    // Burners lit by gas burn none of the household's fuel: it came by the main
+                    // (M10b slice DY).
+                    lit = Some(end);
+                } else if dark_h > 0.0
+                    && let Some((lamp, fuel, kg_h, _)) = lamp_of(goods, &x.stores)
+                {
+                    lit = Some(end);
+                    let before = x.stores.clone();
+                    x.stores[fuel] = (x.stores[fuel] - kg_h * dark_h).max(0.0);
+                    x.flows
+                        .add_changes(&before, &x.stores, Flow::Made, Flow::Used);
+                    let before = x.stores.clone();
+                    make::wear(&mut x.stores, goods, &[lamp], dark_h);
+                    x.flows
+                        .add_changes(&before, &x.stores, Flow::Made, Flow::Worn);
+                }
+            }
+        }
+        // The world's first lamp lit for work is remembered: from then on the dark shortens
+        // sight where no lamp's light falls (ADR-0034 §9).
+        if self.order.lamp_first_lit.is_none() {
+            self.order.lamp_first_lit = lit;
         }
         if let (Some((k, s)), Some(p)) = (skill, self.people.get_mut(h)) {
             let next = s.practised(p.skill(k), hours);
@@ -7033,6 +7395,8 @@ impl Population {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         // Gates are opened at first light and kept at dusk (M6c slice BK).
         self.schedule_gates(ctx);
+        // Gas is lit at dusk where mains are laid (M10b slice DY).
+        self.schedule_gas(ctx);
         // Households see their options afresh each day (ADR-0011 §4), and a leisure block that
         // runs past midnight ends in a decision made afresh: nobody decides between midnight's
         // day of work and the day's first event, so a save there loses nothing.
@@ -7185,6 +7549,13 @@ impl Population {
         if !self.fords.households.is_empty() {
             self.crossing_reviews(ctx, day);
         }
+        // Lines of track weighed and trains timetabled (M10b slices DV and DW), every day
+        // whether or not anyone has waded (M10b slice DX, second part: they had been weighed only
+        // where someone had).
+        self.line_reviews(ctx, day);
+        self.engine_runs(ctx, day);
+        // Gas mains weighed by the works whose day it is (M10b slice DY, fourth part).
+        self.main_reviews(ctx, day);
         // And the wells (M6a slice AY, step three): what was drawn taken from the water table, a
         // month's rot on their linings, then the households whose day it is weigh one.
         if !ctx.land.wells.list.is_empty() {
@@ -7199,6 +7570,16 @@ impl Population {
         self.ditches_day(ctx, day);
         // And the mills (M10a slice DR): the households whose day it is weigh one.
         self.mills_day(ctx, day);
+        // And the engines at pits pump them (M10a slice DS, third part); the households whose
+        // day it is weigh one (its fourth part).
+        self.engine_reviews(ctx, day);
+        // Water wheels pump their holders' pits near them first (M10a slice DT, fifth part).
+        if !ctx.land.installations.is_empty() && !ctx.land.pit_water.is_empty() {
+            self.wheels_day(ctx);
+        }
+        if !ctx.land.engines.is_empty() {
+            self.engines_day(ctx);
+        }
         // A month ended: its asks and prices per pair of settlements are recorded (M5b slice AQ).
         self.record_convergence(ctx);
         // Households whose day it is review what they offer and on what terms.
@@ -7399,27 +7780,113 @@ pub(crate) fn power_kw_of(ctx: &Ctx, holder: PermanentId) -> f64 {
         .sum()
 }
 
-/// Caps `holder`'s want of each water-powered tool at the installations it owns whose headraces
-/// are dug (M10a slice DR): a wheel is wanted only where one can be set.
-pub(crate) fn cap_water_wants(ctx: &Ctx, holder: PermanentId, wants: &mut [f64]) {
-    let mut sites = None;
+/// The lamp a household holding `stores` lights for work after dark (M10b slice DU; ADR-0034
+/// §9): of the whole lamps it holds whose fuel it has (a piped burner is none: its gas comes by a
+/// main, M10b slice DY), the one whose fuel lasts longest, as the
+/// lamp and its fuel by good index, the kilograms it burns an hour and the minutes the fuel
+/// held lasts.
+pub fn lamp_of(goods: &[GoodDef], stores: &[f64]) -> Option<(usize, usize, f64, f64)> {
+    goods
+        .iter()
+        .enumerate()
+        .filter_map(|(g, d)| {
+            let light = d.light.filter(|l| !l.piped)?;
+            let fuel = light.fuel?;
+            let held = stores.get(g).copied().unwrap_or(0.0);
+            if light.kg_per_hour <= 0.0 || make::in_use(goods, g, held) < decide::MIN_TOOL {
+                return None;
+            }
+            let kg = stores.get(fuel).copied().unwrap_or(0.0).max(0.0);
+            (kg > 0.0).then_some((g, fuel, light.kg_per_hour, kg / light.kg_per_hour * 60.0))
+        })
+        .max_by(|a, b| a.3.total_cmp(&b.3).then(b.0.cmp(&a.0)))
+}
+
+/// What an hour of light good `g` costs a household whose own costs, hours a unit, are `costs`
+/// (M10b slice DU, fourth part; brief §2.3): the fuel it burns at the household's cost of it, and
+/// the light's own cost spread over its life where the household can put a figure on it. `None`
+/// where it is no light, or the household can put no figure on its fuel.
+pub(crate) fn light_hour_cost(goods: &[GoodDef], costs: &[Option<f64>], g: usize) -> Option<f64> {
+    let light = goods.get(g)?.light?;
+    let fuel = light.fuel.and_then(|f| costs.get(f).copied().flatten())?;
+    let life = make::life_of(goods, g);
+    let own = costs.get(g).copied().flatten().unwrap_or(0.0);
+    Some(light.kg_per_hour * fuel + if life > 0.0 { own / life } else { 0.0 })
+}
+
+/// Minutes of the `minutes` before `end` that fell in the dark, sunrise and sunset taken day by
+/// day at the profile's latitude (M10b slice DU).
+pub(crate) fn dark_minutes(params: &PeopleParams, end: SimTime, minutes: u32) -> f64 {
+    let end = end.minutes();
+    let mut t = end - i64::from(minutes);
+    let mut dark = 0i64;
+    let overlap = |a: i64, b: i64, lo: i64, hi: i64| (b.min(hi) - a.max(lo)).max(0);
+    while t < end {
+        let day = t.div_euclid(MINUTES_PER_DAY);
+        let start = day * MINUTES_PER_DAY;
+        let next = (start + MINUTES_PER_DAY).min(end);
+        let sun = needs::daylight(params.latitude_deg, civ_land::day_of_year(day));
+        dark += overlap(t, next, start, start + sun.0)
+            + overlap(t, next, start + sun.1, start + MINUTES_PER_DAY);
+        t = next;
+    }
+    dark as f64
+}
+
+/// Whether it is dark at `now`, between sunset and sunrise at the profile's latitude.
+pub fn dark_at(params: &PeopleParams, now: SimTime) -> bool {
+    let sun = needs::daylight(params.latitude_deg, civ_land::day_of_year(now.day_index()));
+    let minute = now.minute_of_day();
+    minute < sun.0 || minute >= sun.1
+}
+
+/// The crew recipe `recipe`'s tools need: the most hands any of them wants at it together (M10a
+/// slice DT; ADR-0033 §8), 1 for a recipe of hand tools.
+pub(crate) fn crew_of(goods: &[GoodDef], recipe: &crate::params::RecipeDef) -> u8 {
+    recipe
+        .tools
+        .iter()
+        .filter_map(|&t| goods.get(t)?.tool.as_ref().map(|x| x.crew))
+        .max()
+        .unwrap_or(1)
+        .max(1)
+}
+
+/// Caps `holder`'s want of each powered tool at the places it has to set one: a wheel at the
+/// installations it owns whose headraces are dug (M10a slice DR), an engine at the pits it has
+/// chosen to set one at (M10a slice DS, fourth part). A wheel or an engine is wanted only where
+/// one can be set.
+pub(crate) fn cap_power_wants(ctx: &Ctx, holder: PermanentId, wants: &mut [f64]) {
+    use crate::params::PowerSource;
+    let (mut sites, mut pits) = (None, None);
     for (g, want) in wants.iter_mut().enumerate() {
-        let water = ctx.catalog.goods.get(g).is_some_and(|x| {
-            x.power
-                .as_ref()
-                .is_some_and(|p| p.source == crate::params::PowerSource::Water)
-        });
-        if water {
-            let n = *sites.get_or_insert_with(|| {
+        let Some(source) = ctx
+            .catalog
+            .goods
+            .get(g)
+            .and_then(|x| x.power.as_ref())
+            .map(|p| p.source)
+        else {
+            continue;
+        };
+        let n = match source {
+            PowerSource::Water => *sites.get_or_insert_with(|| {
                 ctx.land
                     .installations
                     .iter()
                     .enumerate()
                     .filter(|&(i, x)| x.owner == holder && ctx.land.installation_ready(i))
                     .count()
-            });
-            *want = want.min(n as f64);
-        }
+            }),
+            PowerSource::Fuel => *pits.get_or_insert_with(|| {
+                ctx.land
+                    .engines
+                    .iter()
+                    .filter(|e| e.owner == holder)
+                    .count()
+            }),
+        };
+        *want = want.min(n as f64);
     }
 }
 
@@ -7491,6 +7958,8 @@ mod tests {
         let good = |id: &str, purpose, kcal, half, eaten| GoodDef {
             fuel: None,
             power: None,
+            light: None,
+            holder: None,
             money: None,
             id: id.into(),
             name: id.into(),

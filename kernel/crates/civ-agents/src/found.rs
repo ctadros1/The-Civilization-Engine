@@ -1801,6 +1801,7 @@ pub(crate) mod tests {
                 wage_review_days: 14,
                 wage_max_change: 0.05,
                 max_hire_hours: 21.0,
+                shift_h: 10.0,
             },
             knowledge: crate::params::KnowledgeParams {
                 founders: Vec::new(),
@@ -1815,6 +1816,9 @@ pub(crate) mod tests {
             digging: crate::params::Digging {
                 h_per_m3: 8.0,
                 pit_side_m: 3.0,
+                bail_w: 75.0,
+                bail_efficiency: 0.5,
+                influence_m: 50.0,
             },
             style: crate::params::StyleParams {
                 alpha: 0.1,

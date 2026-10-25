@@ -1,0 +1,21 @@
+# Carrying grain to a neighbour's water mill, grinding it there and carrying the flour home, the
+# mill's owner keeping a toll of it (M10a slice DR, fourth part; research 08-03: "customer-owned
+# inputs processed for a fee or toll"). A load is what one person carries (the people profile's
+# `carry_kg`); the grinding is the mill's water, the walk the person's. Light work; ages, session
+# lengths and the walk allowed are tuning values. It asks no technique: anyone may bring grain to
+# a mill.
+kind = "activity"
+id = "core:activity/carry_grain_to_mill"
+name = "Take grain to the mill"
+doing = "taking grain to the mill"
+behavior = "mill"
+par = 3.0
+min_age_years = 12.0
+max_age_years = 70.0
+min_minutes = 30
+max_minutes = 240
+daylight_only = true
+max_walk_minutes = 45
+technique = ""
+tools = []
+rate = 1.0

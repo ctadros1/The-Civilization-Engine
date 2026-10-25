@@ -408,6 +408,8 @@ struct FirmsBuilder;
 struct WageInfo;
 struct WageInfoBuilder;
 
+struct MachineLine;
+
 struct BookEntryInfo;
 struct BookEntryInfoBuilder;
 
@@ -466,6 +468,9 @@ struct SpringInfo;
 struct BankDraw;
 
 struct FloodCell;
+
+struct MillInfo;
+struct MillInfoBuilder;
 
 struct Water;
 struct WaterBuilder;
@@ -594,6 +599,12 @@ struct WaySegmentInfoBuilder;
 
 struct WayInfo;
 struct WayInfoBuilder;
+
+struct GasMainInfo;
+struct GasMainInfoBuilder;
+
+struct StreetLampInfo;
+struct StreetLampInfoBuilder;
 
 struct Ways;
 struct WaysBuilder;
@@ -2037,6 +2048,45 @@ FLATBUFFERS_STRUCT_END(MonthOfTrade, 20);
 
 struct MonthOfTrade::Traits {
   using type = MonthOfTrade;
+};
+
+FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) MachineLine FLATBUFFERS_FINAL_CLASS {
+ private:
+  uint16_t good_;
+  uint8_t crew_;
+  int8_t padding0__;
+  float units_;
+
+ public:
+  struct Traits;
+  MachineLine()
+      : good_(0),
+        crew_(0),
+        padding0__(0),
+        units_(0) {
+    (void)padding0__;
+  }
+  MachineLine(uint16_t _good, uint8_t _crew, float _units)
+      : good_(::flatbuffers::EndianScalar(_good)),
+        crew_(::flatbuffers::EndianScalar(_crew)),
+        padding0__(0),
+        units_(::flatbuffers::EndianScalar(_units)) {
+    (void)padding0__;
+  }
+  uint16_t good() const {
+    return ::flatbuffers::EndianScalar(good_);
+  }
+  uint8_t crew() const {
+    return ::flatbuffers::EndianScalar(crew_);
+  }
+  float units() const {
+    return ::flatbuffers::EndianScalar(units_);
+  }
+};
+FLATBUFFERS_STRUCT_END(MachineLine, 8);
+
+struct MachineLine::Traits {
+  using type = MachineLine;
 };
 
 FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) BookLine FLATBUFFERS_FINAL_CLASS {
@@ -3638,7 +3688,9 @@ struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_SPEED = 20,
     VT_MODE = 22,
     VT_WEATHER = 24,
-    VT_RESOLUTION_BY_FOCUS = 26
+    VT_RESOLUTION_BY_FOCUS = 26,
+    VT_LIT_HOMES = 28,
+    VT_FIRST_LAMP_MINUTE = 30
   };
   int64_t minute() const {
     return GetField<int64_t>(VT_MINUTE, 0);
@@ -3676,6 +3728,12 @@ struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   bool resolution_by_focus() const {
     return GetField<uint8_t>(VT_RESOLUTION_BY_FOCUS, 0) != 0;
   }
+  uint32_t lit_homes() const {
+    return GetField<uint32_t>(VT_LIT_HOMES, 0);
+  }
+  int64_t first_lamp_minute() const {
+    return GetField<int64_t>(VT_FIRST_LAMP_MINUTE, -1LL);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -3693,6 +3751,8 @@ struct Clock FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_WEATHER) &&
            verifier.VerifyTable(weather()) &&
            VerifyField<uint8_t>(verifier, VT_RESOLUTION_BY_FOCUS, 1) &&
+           VerifyField<uint32_t>(verifier, VT_LIT_HOMES, 4) &&
+           VerifyField<int64_t>(verifier, VT_FIRST_LAMP_MINUTE, 8) &&
            verifier.EndTable();
   }
 };
@@ -3737,6 +3797,12 @@ struct ClockBuilder {
   void add_resolution_by_focus(bool resolution_by_focus) {
     fbb_.AddElement<uint8_t>(Clock::VT_RESOLUTION_BY_FOCUS, static_cast<uint8_t>(resolution_by_focus), 0);
   }
+  void add_lit_homes(uint32_t lit_homes) {
+    fbb_.AddElement<uint32_t>(Clock::VT_LIT_HOMES, lit_homes, 0);
+  }
+  void add_first_lamp_minute(int64_t first_lamp_minute) {
+    fbb_.AddElement<int64_t>(Clock::VT_FIRST_LAMP_MINUTE, first_lamp_minute, -1LL);
+  }
   explicit ClockBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -3761,10 +3827,14 @@ inline ::flatbuffers::Offset<Clock> CreateClock(
     float speed = 0.0f,
     tce::wire::ClockMode mode = tce::wire::ClockMode::Detailed,
     ::flatbuffers::Offset<tce::wire::DayWeather> weather = 0,
-    bool resolution_by_focus = false) {
+    bool resolution_by_focus = false,
+    uint32_t lit_homes = 0,
+    int64_t first_lamp_minute = -1LL) {
   ClockBuilder builder_(_fbb);
+  builder_.add_first_lamp_minute(first_lamp_minute);
   builder_.add_year(year);
   builder_.add_minute(minute);
+  builder_.add_lit_homes(lit_homes);
   builder_.add_weather(weather);
   builder_.add_speed(speed);
   builder_.add_season(season);
@@ -3796,7 +3866,9 @@ inline ::flatbuffers::Offset<Clock> CreateClockDirect(
     float speed = 0.0f,
     tce::wire::ClockMode mode = tce::wire::ClockMode::Detailed,
     ::flatbuffers::Offset<tce::wire::DayWeather> weather = 0,
-    bool resolution_by_focus = false) {
+    bool resolution_by_focus = false,
+    uint32_t lit_homes = 0,
+    int64_t first_lamp_minute = -1LL) {
   auto season__ = season ? _fbb.CreateString(season) : 0;
   return tce::wire::CreateClock(
       _fbb,
@@ -3811,7 +3883,9 @@ inline ::flatbuffers::Offset<Clock> CreateClockDirect(
       speed,
       mode,
       weather,
-      resolution_by_focus);
+      resolution_by_focus,
+      lit_homes,
+      first_lamp_minute);
 }
 
 struct DayWeather FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -10849,7 +10923,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_SEEN_AWAY = 114,
     VT_WATER = 116,
     VT_SICKNESS = 118,
-    VT_SUSPICIONS = 120
+    VT_SUSPICIONS = 120,
+    VT_LIGHT = 122,
+    VT_CARE = 124
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -11028,6 +11104,12 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *suspicions() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_SUSPICIONS);
   }
+  const ::flatbuffers::String *light() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_LIGHT);
+  }
+  const ::flatbuffers::String *care() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_CARE);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -11140,6 +11222,10 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_SUSPICIONS) &&
            verifier.VerifyVector(suspicions()) &&
            verifier.VerifyVectorOfStrings(suspicions()) &&
+           VerifyOffset(verifier, VT_LIGHT) &&
+           verifier.VerifyString(light()) &&
+           VerifyOffset(verifier, VT_CARE) &&
+           verifier.VerifyString(care()) &&
            verifier.EndTable();
   }
 };
@@ -11325,6 +11411,12 @@ struct PersonInfoBuilder {
   void add_suspicions(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> suspicions) {
     fbb_.AddOffset(PersonInfo::VT_SUSPICIONS, suspicions);
   }
+  void add_light(::flatbuffers::Offset<::flatbuffers::String> light) {
+    fbb_.AddOffset(PersonInfo::VT_LIGHT, light);
+  }
+  void add_care(::flatbuffers::Offset<::flatbuffers::String> care) {
+    fbb_.AddOffset(PersonInfo::VT_CARE, care);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -11396,7 +11488,9 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     ::flatbuffers::Offset<::flatbuffers::String> seen_away = 0,
     ::flatbuffers::Offset<::flatbuffers::String> water = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> sickness = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> suspicions = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> suspicions = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> light = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> care = 0) {
   PersonInfoBuilder builder_(_fbb);
   builder_.add_household_admired(household_admired);
   builder_.add_left_minute(left_minute);
@@ -11408,6 +11502,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_died_minute(died_minute);
   builder_.add_born_minute(born_minute);
   builder_.add_id(id);
+  builder_.add_care(care);
+  builder_.add_light(light);
   builder_.add_suspicions(suspicions);
   builder_.add_sickness(sickness);
   builder_.add_water(water);
@@ -11525,7 +11621,9 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     const char *seen_away = nullptr,
     const char *water = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *sickness = nullptr,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *suspicions = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *suspicions = nullptr,
+    const char *light = nullptr,
+    const char *care = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -11556,6 +11654,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
   auto water__ = water ? _fbb.CreateString(water) : 0;
   auto sickness__ = sickness ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*sickness) : 0;
   auto suspicions__ = suspicions ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*suspicions) : 0;
+  auto light__ = light ? _fbb.CreateString(light) : 0;
+  auto care__ = care ? _fbb.CreateString(care) : 0;
   return tce::wire::CreatePersonInfo(
       _fbb,
       id,
@@ -11616,7 +11716,9 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       seen_away__,
       water__,
       sickness__,
-      suspicions__);
+      suspicions__,
+      light__,
+      care__);
 }
 
 struct NewsLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -13676,7 +13778,8 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_FIRE = 94,
     VT_FIRE_ID = 96,
     VT_FIRE_WORDS = 98,
-    VT_SITE = 100
+    VT_SITE = 100,
+    VT_GAS = 102
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -13825,6 +13928,9 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *site() const {
     return GetPointer<const ::flatbuffers::String *>(VT_SITE);
   }
+  const ::flatbuffers::String *gas() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_GAS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -13898,6 +14004,8 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyString(fire_words()) &&
            VerifyOffset(verifier, VT_SITE) &&
            verifier.VerifyString(site()) &&
+           VerifyOffset(verifier, VT_GAS) &&
+           verifier.VerifyString(gas()) &&
            verifier.EndTable();
   }
 };
@@ -14053,6 +14161,9 @@ struct BuildingInfoBuilder {
   void add_site(::flatbuffers::Offset<::flatbuffers::String> site) {
     fbb_.AddOffset(BuildingInfo::VT_SITE, site);
   }
+  void add_gas(::flatbuffers::Offset<::flatbuffers::String> gas) {
+    fbb_.AddOffset(BuildingInfo::VT_GAS, gas);
+  }
   explicit BuildingInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -14114,7 +14225,8 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
     uint8_t fire = 0,
     uint32_t fire_id = 0,
     ::flatbuffers::Offset<::flatbuffers::String> fire_words = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> site = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> site = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> gas = 0) {
   BuildingInfoBuilder builder_(_fbb);
   builder_.add_style_from(style_from);
   builder_.add_firm(firm);
@@ -14122,6 +14234,7 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
   builder_.add_settlement(settlement);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_gas(gas);
   builder_.add_site(site);
   builder_.add_fire_words(fire_words);
   builder_.add_fire_id(fire_id);
@@ -14223,7 +14336,8 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
     uint8_t fire = 0,
     uint32_t fire_id = 0,
     const char *fire_words = nullptr,
-    const char *site = nullptr) {
+    const char *site = nullptr,
+    const char *gas = nullptr) {
   auto program__ = program ? _fbb.CreateString(program) : 0;
   auto stage_name__ = stage_name ? _fbb.CreateString(stage_name) : 0;
   auto outline__ = outline ? _fbb.CreateVectorOfStructs<tce::wire::Vec2>(*outline) : 0;
@@ -14244,6 +14358,7 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
   auto style__ = style ? _fbb.CreateString(style) : 0;
   auto fire_words__ = fire_words ? _fbb.CreateString(fire_words) : 0;
   auto site__ = site ? _fbb.CreateString(site) : 0;
+  auto gas__ = gas ? _fbb.CreateString(gas) : 0;
   return tce::wire::CreateBuildingInfo(
       _fbb,
       id,
@@ -14294,7 +14409,8 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
       fire,
       fire_id,
       fire_words__,
-      site__);
+      site__,
+      gas__);
 }
 
 struct Buildings FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -15676,7 +15792,9 @@ struct WageInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_HOUR_H = 10,
     VT_HOURS = 12,
     VT_TAKEN = 14,
-    VT_TEXT = 16
+    VT_TEXT = 16,
+    VT_BELL_MINUTE = 18,
+    VT_SHIFT_MINUTES = 20
   };
   uint16_t activity() const {
     return GetField<uint16_t>(VT_ACTIVITY, 0);
@@ -15699,6 +15817,12 @@ struct WageInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *text() const {
     return GetPointer<const ::flatbuffers::String *>(VT_TEXT);
   }
+  uint16_t bell_minute() const {
+    return GetField<uint16_t>(VT_BELL_MINUTE, 0);
+  }
+  uint16_t shift_minutes() const {
+    return GetField<uint16_t>(VT_SHIFT_MINUTES, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -15710,6 +15834,8 @@ struct WageInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<float>(verifier, VT_TAKEN, 4) &&
            VerifyOffset(verifier, VT_TEXT) &&
            verifier.VerifyString(text()) &&
+           VerifyField<uint16_t>(verifier, VT_BELL_MINUTE, 2) &&
+           VerifyField<uint16_t>(verifier, VT_SHIFT_MINUTES, 2) &&
            verifier.EndTable();
   }
 };
@@ -15739,6 +15865,12 @@ struct WageInfoBuilder {
   void add_text(::flatbuffers::Offset<::flatbuffers::String> text) {
     fbb_.AddOffset(WageInfo::VT_TEXT, text);
   }
+  void add_bell_minute(uint16_t bell_minute) {
+    fbb_.AddElement<uint16_t>(WageInfo::VT_BELL_MINUTE, bell_minute, 0);
+  }
+  void add_shift_minutes(uint16_t shift_minutes) {
+    fbb_.AddElement<uint16_t>(WageInfo::VT_SHIFT_MINUTES, shift_minutes, 0);
+  }
   explicit WageInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -15758,13 +15890,17 @@ inline ::flatbuffers::Offset<WageInfo> CreateWageInfo(
     float hour_h = 0.0f,
     float hours = 0.0f,
     float taken = 0.0f,
-    ::flatbuffers::Offset<::flatbuffers::String> text = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> text = 0,
+    uint16_t bell_minute = 0,
+    uint16_t shift_minutes = 0) {
   WageInfoBuilder builder_(_fbb);
   builder_.add_text(text);
   builder_.add_taken(taken);
   builder_.add_hours(hours);
   builder_.add_hour_h(hour_h);
   builder_.add_per_hour(per_hour);
+  builder_.add_shift_minutes(shift_minutes);
+  builder_.add_bell_minute(bell_minute);
   builder_.add_pay(pay);
   builder_.add_activity(activity);
   return builder_.Finish();
@@ -15783,7 +15919,9 @@ inline ::flatbuffers::Offset<WageInfo> CreateWageInfoDirect(
     float hour_h = 0.0f,
     float hours = 0.0f,
     float taken = 0.0f,
-    const char *text = nullptr) {
+    const char *text = nullptr,
+    uint16_t bell_minute = 0,
+    uint16_t shift_minutes = 0) {
   auto text__ = text ? _fbb.CreateString(text) : 0;
   return tce::wire::CreateWageInfo(
       _fbb,
@@ -15793,7 +15931,9 @@ inline ::flatbuffers::Offset<WageInfo> CreateWageInfoDirect(
       hour_h,
       hours,
       taken,
-      text__);
+      text__,
+      bell_minute,
+      shift_minutes);
 }
 
 struct BookEntryInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -16057,7 +16197,9 @@ struct FirmInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_OFFERS = 16,
     VT_WAGE = 18,
     VT_ENTRIES = 20,
-    VT_MONTHS = 22
+    VT_MONTHS = 22,
+    VT_MACHINES = 24,
+    VT_AT_WORK = 26
   };
   const tce::wire::FirmBrief *brief() const {
     return GetPointer<const tce::wire::FirmBrief *>(VT_BRIEF);
@@ -16089,6 +16231,12 @@ struct FirmInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MonthStatement>> *months() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MonthStatement>> *>(VT_MONTHS);
   }
+  const ::flatbuffers::Vector<const tce::wire::MachineLine *> *machines() const {
+    return GetPointer<const ::flatbuffers::Vector<const tce::wire::MachineLine *> *>(VT_MACHINES);
+  }
+  uint16_t at_work() const {
+    return GetField<uint16_t>(VT_AT_WORK, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -16112,6 +16260,9 @@ struct FirmInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_MONTHS) &&
            verifier.VerifyVector(months()) &&
            verifier.VerifyVectorOfTables(months()) &&
+           VerifyOffset(verifier, VT_MACHINES) &&
+           verifier.VerifyVector(machines()) &&
+           VerifyField<uint16_t>(verifier, VT_AT_WORK, 2) &&
            verifier.EndTable();
   }
 };
@@ -16150,6 +16301,12 @@ struct FirmInfoBuilder {
   void add_months(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MonthStatement>>> months) {
     fbb_.AddOffset(FirmInfo::VT_MONTHS, months);
   }
+  void add_machines(::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::MachineLine *>> machines) {
+    fbb_.AddOffset(FirmInfo::VT_MACHINES, machines);
+  }
+  void add_at_work(uint16_t at_work) {
+    fbb_.AddElement<uint16_t>(FirmInfo::VT_AT_WORK, at_work, 0);
+  }
   explicit FirmInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -16172,11 +16329,14 @@ inline ::flatbuffers::Offset<FirmInfo> CreateFirmInfo(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::OfferInfo>>> offers = 0,
     ::flatbuffers::Offset<tce::wire::WageInfo> wage = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::BookEntryInfo>>> entries = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MonthStatement>>> months = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MonthStatement>>> months = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::MachineLine *>> machines = 0,
+    uint16_t at_work = 0) {
   FirmInfoBuilder builder_(_fbb);
   builder_.add_last_sale_minute(last_sale_minute);
   builder_.add_owner_since_minute(owner_since_minute);
   builder_.add_founder(founder);
+  builder_.add_machines(machines);
   builder_.add_months(months);
   builder_.add_entries(entries);
   builder_.add_wage(wage);
@@ -16184,6 +16344,7 @@ inline ::flatbuffers::Offset<FirmInfo> CreateFirmInfo(
   builder_.add_stores(stores);
   builder_.add_founder_name(founder_name);
   builder_.add_brief(brief);
+  builder_.add_at_work(at_work);
   return builder_.Finish();
 }
 
@@ -16203,12 +16364,15 @@ inline ::flatbuffers::Offset<FirmInfo> CreateFirmInfoDirect(
     const std::vector<::flatbuffers::Offset<tce::wire::OfferInfo>> *offers = nullptr,
     ::flatbuffers::Offset<tce::wire::WageInfo> wage = 0,
     const std::vector<::flatbuffers::Offset<tce::wire::BookEntryInfo>> *entries = nullptr,
-    const std::vector<::flatbuffers::Offset<tce::wire::MonthStatement>> *months = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::MonthStatement>> *months = nullptr,
+    const std::vector<tce::wire::MachineLine> *machines = nullptr,
+    uint16_t at_work = 0) {
   auto founder_name__ = founder_name ? _fbb.CreateString(founder_name) : 0;
   auto stores__ = stores ? _fbb.CreateVectorOfStructs<tce::wire::StoreLine>(*stores) : 0;
   auto offers__ = offers ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::OfferInfo>>(*offers) : 0;
   auto entries__ = entries ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::BookEntryInfo>>(*entries) : 0;
   auto months__ = months ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::MonthStatement>>(*months) : 0;
+  auto machines__ = machines ? _fbb.CreateVectorOfStructs<tce::wire::MachineLine>(*machines) : 0;
   return tce::wire::CreateFirmInfo(
       _fbb,
       brief,
@@ -16220,7 +16384,9 @@ inline ::flatbuffers::Offset<FirmInfo> CreateFirmInfoDirect(
       offers__,
       wage,
       entries__,
-      months__);
+      months__,
+      machines__,
+      at_work);
 }
 
 struct WealthSpread FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -18468,6 +18634,160 @@ inline ::flatbuffers::Offset<WellInfo> CreateWellInfoDirect(
       fouled__);
 }
 
+struct MillInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef MillInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_X = 6,
+    VT_Y = 8,
+    VT_HEAD_M = 10,
+    VT_KW = 12,
+    VT_RATED_KW = 14,
+    VT_DUG = 16,
+    VT_HOUSEHOLD = 18,
+    VT_WORDS = 20
+  };
+  uint64_t id() const {
+    return GetField<uint64_t>(VT_ID, 0);
+  }
+  float x() const {
+    return GetField<float>(VT_X, 0.0f);
+  }
+  float y() const {
+    return GetField<float>(VT_Y, 0.0f);
+  }
+  float head_m() const {
+    return GetField<float>(VT_HEAD_M, 0.0f);
+  }
+  float kw() const {
+    return GetField<float>(VT_KW, 0.0f);
+  }
+  float rated_kw() const {
+    return GetField<float>(VT_RATED_KW, 0.0f);
+  }
+  bool dug() const {
+    return GetField<uint8_t>(VT_DUG, 0) != 0;
+  }
+  uint64_t household() const {
+    return GetField<uint64_t>(VT_HOUSEHOLD, 0);
+  }
+  const ::flatbuffers::String *words() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_ID, 8) &&
+           VerifyField<float>(verifier, VT_X, 4) &&
+           VerifyField<float>(verifier, VT_Y, 4) &&
+           VerifyField<float>(verifier, VT_HEAD_M, 4) &&
+           VerifyField<float>(verifier, VT_KW, 4) &&
+           VerifyField<float>(verifier, VT_RATED_KW, 4) &&
+           VerifyField<uint8_t>(verifier, VT_DUG, 1) &&
+           VerifyField<uint64_t>(verifier, VT_HOUSEHOLD, 8) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyString(words()) &&
+           verifier.EndTable();
+  }
+};
+
+struct MillInfoBuilder {
+  typedef MillInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint64_t id) {
+    fbb_.AddElement<uint64_t>(MillInfo::VT_ID, id, 0);
+  }
+  void add_x(float x) {
+    fbb_.AddElement<float>(MillInfo::VT_X, x, 0.0f);
+  }
+  void add_y(float y) {
+    fbb_.AddElement<float>(MillInfo::VT_Y, y, 0.0f);
+  }
+  void add_head_m(float head_m) {
+    fbb_.AddElement<float>(MillInfo::VT_HEAD_M, head_m, 0.0f);
+  }
+  void add_kw(float kw) {
+    fbb_.AddElement<float>(MillInfo::VT_KW, kw, 0.0f);
+  }
+  void add_rated_kw(float rated_kw) {
+    fbb_.AddElement<float>(MillInfo::VT_RATED_KW, rated_kw, 0.0f);
+  }
+  void add_dug(bool dug) {
+    fbb_.AddElement<uint8_t>(MillInfo::VT_DUG, static_cast<uint8_t>(dug), 0);
+  }
+  void add_household(uint64_t household) {
+    fbb_.AddElement<uint64_t>(MillInfo::VT_HOUSEHOLD, household, 0);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
+    fbb_.AddOffset(MillInfo::VT_WORDS, words);
+  }
+  explicit MillInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<MillInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<MillInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<MillInfo> CreateMillInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    float x = 0.0f,
+    float y = 0.0f,
+    float head_m = 0.0f,
+    float kw = 0.0f,
+    float rated_kw = 0.0f,
+    bool dug = false,
+    uint64_t household = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+  MillInfoBuilder builder_(_fbb);
+  builder_.add_household(household);
+  builder_.add_id(id);
+  builder_.add_words(words);
+  builder_.add_rated_kw(rated_kw);
+  builder_.add_kw(kw);
+  builder_.add_head_m(head_m);
+  builder_.add_y(y);
+  builder_.add_x(x);
+  builder_.add_dug(dug);
+  return builder_.Finish();
+}
+
+struct MillInfo::Traits {
+  using type = MillInfo;
+  static auto constexpr Create = CreateMillInfo;
+};
+
+inline ::flatbuffers::Offset<MillInfo> CreateMillInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    float x = 0.0f,
+    float y = 0.0f,
+    float head_m = 0.0f,
+    float kw = 0.0f,
+    float rated_kw = 0.0f,
+    bool dug = false,
+    uint64_t household = 0,
+    const char *words = nullptr) {
+  auto words__ = words ? _fbb.CreateString(words) : 0;
+  return tce::wire::CreateMillInfo(
+      _fbb,
+      id,
+      x,
+      y,
+      head_m,
+      kw,
+      rated_kw,
+      dug,
+      household,
+      words__);
+}
+
 struct Water FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef WaterBuilder Builder;
   struct Traits;
@@ -18477,7 +18797,8 @@ struct Water FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_SPRINGS = 8,
     VT_FLOW = 10,
     VT_BANKS = 12,
-    VT_FLOODED = 14
+    VT_FLOODED = 14,
+    VT_MILLS = 16
   };
   uint64_t rev() const {
     return GetField<uint64_t>(VT_REV, 0);
@@ -18497,6 +18818,9 @@ struct Water FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<const tce::wire::FloodCell *> *flooded() const {
     return GetPointer<const ::flatbuffers::Vector<const tce::wire::FloodCell *> *>(VT_FLOODED);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MillInfo>> *mills() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MillInfo>> *>(VT_MILLS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -18511,6 +18835,9 @@ struct Water FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVector(banks()) &&
            VerifyOffset(verifier, VT_FLOODED) &&
            verifier.VerifyVector(flooded()) &&
+           VerifyOffset(verifier, VT_MILLS) &&
+           verifier.VerifyVector(mills()) &&
+           verifier.VerifyVectorOfTables(mills()) &&
            verifier.EndTable();
   }
 };
@@ -18537,6 +18864,9 @@ struct WaterBuilder {
   void add_flooded(::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::FloodCell *>> flooded) {
     fbb_.AddOffset(Water::VT_FLOODED, flooded);
   }
+  void add_mills(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MillInfo>>> mills) {
+    fbb_.AddOffset(Water::VT_MILLS, mills);
+  }
   explicit WaterBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -18555,9 +18885,11 @@ inline ::flatbuffers::Offset<Water> CreateWater(
     ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::SpringInfo *>> springs = 0,
     float flow = 0.0f,
     ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::BankDraw *>> banks = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::FloodCell *>> flooded = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::FloodCell *>> flooded = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MillInfo>>> mills = 0) {
   WaterBuilder builder_(_fbb);
   builder_.add_rev(rev);
+  builder_.add_mills(mills);
   builder_.add_flooded(flooded);
   builder_.add_banks(banks);
   builder_.add_flow(flow);
@@ -18578,11 +18910,13 @@ inline ::flatbuffers::Offset<Water> CreateWaterDirect(
     const std::vector<tce::wire::SpringInfo> *springs = nullptr,
     float flow = 0.0f,
     const std::vector<tce::wire::BankDraw> *banks = nullptr,
-    const std::vector<tce::wire::FloodCell> *flooded = nullptr) {
+    const std::vector<tce::wire::FloodCell> *flooded = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::MillInfo>> *mills = nullptr) {
   auto wells__ = wells ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::WellInfo>>(*wells) : 0;
   auto springs__ = springs ? _fbb.CreateVectorOfStructs<tce::wire::SpringInfo>(*springs) : 0;
   auto banks__ = banks ? _fbb.CreateVectorOfStructs<tce::wire::BankDraw>(*banks) : 0;
   auto flooded__ = flooded ? _fbb.CreateVectorOfStructs<tce::wire::FloodCell>(*flooded) : 0;
+  auto mills__ = mills ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::MillInfo>>(*mills) : 0;
   return tce::wire::CreateWater(
       _fbb,
       rev,
@@ -18590,7 +18924,8 @@ inline ::flatbuffers::Offset<Water> CreateWaterDirect(
       springs__,
       flow,
       banks__,
-      flooded__);
+      flooded__,
+      mills__);
 }
 
 struct Earthworks FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -25124,7 +25459,15 @@ struct WayInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_MODES = 10,
     VT_TRIPS_A_DAY = 12,
     VT_SEGMENTS = 14,
-    VT_WORDS = 16
+    VT_WORDS = 16,
+    VT_GAUGE_M = 18,
+    VT_RULING = 20,
+    VT_LAID = 22,
+    VT_STATIONS = 24,
+    VT_RUNS_A_DAY = 26,
+    VT_FARE_KG = 28,
+    VT_RIDERS = 30,
+    VT_FREIGHT_KG_DAY = 32
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -25147,6 +25490,30 @@ struct WayInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *words() const {
     return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
   }
+  float gauge_m() const {
+    return GetField<float>(VT_GAUGE_M, 0.0f);
+  }
+  float ruling() const {
+    return GetField<float>(VT_RULING, 0.0f);
+  }
+  float laid() const {
+    return GetField<float>(VT_LAID, 1.0f);
+  }
+  bool stations() const {
+    return GetField<uint8_t>(VT_STATIONS, 0) != 0;
+  }
+  uint8_t runs_a_day() const {
+    return GetField<uint8_t>(VT_RUNS_A_DAY, 0);
+  }
+  float fare_kg() const {
+    return GetField<float>(VT_FARE_KG, 0.0f);
+  }
+  uint32_t riders() const {
+    return GetField<uint32_t>(VT_RIDERS, 0);
+  }
+  float freight_kg_day() const {
+    return GetField<float>(VT_FREIGHT_KG_DAY, 0.0f);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -25161,6 +25528,14 @@ struct WayInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVectorOfTables(segments()) &&
            VerifyOffset(verifier, VT_WORDS) &&
            verifier.VerifyString(words()) &&
+           VerifyField<float>(verifier, VT_GAUGE_M, 4) &&
+           VerifyField<float>(verifier, VT_RULING, 4) &&
+           VerifyField<float>(verifier, VT_LAID, 4) &&
+           VerifyField<uint8_t>(verifier, VT_STATIONS, 1) &&
+           VerifyField<uint8_t>(verifier, VT_RUNS_A_DAY, 1) &&
+           VerifyField<float>(verifier, VT_FARE_KG, 4) &&
+           VerifyField<uint32_t>(verifier, VT_RIDERS, 4) &&
+           VerifyField<float>(verifier, VT_FREIGHT_KG_DAY, 4) &&
            verifier.EndTable();
   }
 };
@@ -25190,6 +25565,30 @@ struct WayInfoBuilder {
   void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
     fbb_.AddOffset(WayInfo::VT_WORDS, words);
   }
+  void add_gauge_m(float gauge_m) {
+    fbb_.AddElement<float>(WayInfo::VT_GAUGE_M, gauge_m, 0.0f);
+  }
+  void add_ruling(float ruling) {
+    fbb_.AddElement<float>(WayInfo::VT_RULING, ruling, 0.0f);
+  }
+  void add_laid(float laid) {
+    fbb_.AddElement<float>(WayInfo::VT_LAID, laid, 1.0f);
+  }
+  void add_stations(bool stations) {
+    fbb_.AddElement<uint8_t>(WayInfo::VT_STATIONS, static_cast<uint8_t>(stations), 0);
+  }
+  void add_runs_a_day(uint8_t runs_a_day) {
+    fbb_.AddElement<uint8_t>(WayInfo::VT_RUNS_A_DAY, runs_a_day, 0);
+  }
+  void add_fare_kg(float fare_kg) {
+    fbb_.AddElement<float>(WayInfo::VT_FARE_KG, fare_kg, 0.0f);
+  }
+  void add_riders(uint32_t riders) {
+    fbb_.AddElement<uint32_t>(WayInfo::VT_RIDERS, riders, 0);
+  }
+  void add_freight_kg_day(float freight_kg_day) {
+    fbb_.AddElement<float>(WayInfo::VT_FREIGHT_KG_DAY, freight_kg_day, 0.0f);
+  }
   explicit WayInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -25209,13 +25608,29 @@ inline ::flatbuffers::Offset<WayInfo> CreateWayInfo(
     uint8_t modes = 0,
     float trips_a_day = 0.0f,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WaySegmentInfo>>> segments = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0,
+    float gauge_m = 0.0f,
+    float ruling = 0.0f,
+    float laid = 1.0f,
+    bool stations = false,
+    uint8_t runs_a_day = 0,
+    float fare_kg = 0.0f,
+    uint32_t riders = 0,
+    float freight_kg_day = 0.0f) {
   WayInfoBuilder builder_(_fbb);
   builder_.add_id(id);
+  builder_.add_freight_kg_day(freight_kg_day);
+  builder_.add_riders(riders);
+  builder_.add_fare_kg(fare_kg);
+  builder_.add_laid(laid);
+  builder_.add_ruling(ruling);
+  builder_.add_gauge_m(gauge_m);
   builder_.add_words(words);
   builder_.add_segments(segments);
   builder_.add_trips_a_day(trips_a_day);
   builder_.add_rank_name(rank_name);
+  builder_.add_runs_a_day(runs_a_day);
+  builder_.add_stations(stations);
   builder_.add_modes(modes);
   builder_.add_rank(rank);
   return builder_.Finish();
@@ -25234,7 +25649,15 @@ inline ::flatbuffers::Offset<WayInfo> CreateWayInfoDirect(
     uint8_t modes = 0,
     float trips_a_day = 0.0f,
     const std::vector<::flatbuffers::Offset<tce::wire::WaySegmentInfo>> *segments = nullptr,
-    const char *words = nullptr) {
+    const char *words = nullptr,
+    float gauge_m = 0.0f,
+    float ruling = 0.0f,
+    float laid = 1.0f,
+    bool stations = false,
+    uint8_t runs_a_day = 0,
+    float fare_kg = 0.0f,
+    uint32_t riders = 0,
+    float freight_kg_day = 0.0f) {
   auto rank_name__ = rank_name ? _fbb.CreateString(rank_name) : 0;
   auto segments__ = segments ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::WaySegmentInfo>>(*segments) : 0;
   auto words__ = words ? _fbb.CreateString(words) : 0;
@@ -25246,6 +25669,276 @@ inline ::flatbuffers::Offset<WayInfo> CreateWayInfoDirect(
       modes,
       trips_a_day,
       segments__,
+      words__,
+      gauge_m,
+      ruling,
+      laid,
+      stations,
+      runs_a_day,
+      fare_kg,
+      riders,
+      freight_kg_day);
+}
+
+struct GasMainInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GasMainInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_WORKS = 6,
+    VT_POINTS = 8,
+    VT_LENGTH_M = 10,
+    VT_LAID = 12,
+    VT_CAPACITY_KG_H = 14,
+    VT_BROKEN = 16,
+    VT_HOMES = 18,
+    VT_LIT = 20,
+    VT_WORDS = 22
+  };
+  uint64_t id() const {
+    return GetField<uint64_t>(VT_ID, 0);
+  }
+  uint64_t works() const {
+    return GetField<uint64_t>(VT_WORKS, 0);
+  }
+  const ::flatbuffers::Vector<float> *points() const {
+    return GetPointer<const ::flatbuffers::Vector<float> *>(VT_POINTS);
+  }
+  float length_m() const {
+    return GetField<float>(VT_LENGTH_M, 0.0f);
+  }
+  float laid() const {
+    return GetField<float>(VT_LAID, 0.0f);
+  }
+  float capacity_kg_h() const {
+    return GetField<float>(VT_CAPACITY_KG_H, 0.0f);
+  }
+  bool broken() const {
+    return GetField<uint8_t>(VT_BROKEN, 0) != 0;
+  }
+  uint32_t homes() const {
+    return GetField<uint32_t>(VT_HOMES, 0);
+  }
+  uint32_t lit() const {
+    return GetField<uint32_t>(VT_LIT, 0);
+  }
+  const ::flatbuffers::String *words() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_ID, 8) &&
+           VerifyField<uint64_t>(verifier, VT_WORKS, 8) &&
+           VerifyOffset(verifier, VT_POINTS) &&
+           verifier.VerifyVector(points()) &&
+           VerifyField<float>(verifier, VT_LENGTH_M, 4) &&
+           VerifyField<float>(verifier, VT_LAID, 4) &&
+           VerifyField<float>(verifier, VT_CAPACITY_KG_H, 4) &&
+           VerifyField<uint8_t>(verifier, VT_BROKEN, 1) &&
+           VerifyField<uint32_t>(verifier, VT_HOMES, 4) &&
+           VerifyField<uint32_t>(verifier, VT_LIT, 4) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyString(words()) &&
+           verifier.EndTable();
+  }
+};
+
+struct GasMainInfoBuilder {
+  typedef GasMainInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint64_t id) {
+    fbb_.AddElement<uint64_t>(GasMainInfo::VT_ID, id, 0);
+  }
+  void add_works(uint64_t works) {
+    fbb_.AddElement<uint64_t>(GasMainInfo::VT_WORKS, works, 0);
+  }
+  void add_points(::flatbuffers::Offset<::flatbuffers::Vector<float>> points) {
+    fbb_.AddOffset(GasMainInfo::VT_POINTS, points);
+  }
+  void add_length_m(float length_m) {
+    fbb_.AddElement<float>(GasMainInfo::VT_LENGTH_M, length_m, 0.0f);
+  }
+  void add_laid(float laid) {
+    fbb_.AddElement<float>(GasMainInfo::VT_LAID, laid, 0.0f);
+  }
+  void add_capacity_kg_h(float capacity_kg_h) {
+    fbb_.AddElement<float>(GasMainInfo::VT_CAPACITY_KG_H, capacity_kg_h, 0.0f);
+  }
+  void add_broken(bool broken) {
+    fbb_.AddElement<uint8_t>(GasMainInfo::VT_BROKEN, static_cast<uint8_t>(broken), 0);
+  }
+  void add_homes(uint32_t homes) {
+    fbb_.AddElement<uint32_t>(GasMainInfo::VT_HOMES, homes, 0);
+  }
+  void add_lit(uint32_t lit) {
+    fbb_.AddElement<uint32_t>(GasMainInfo::VT_LIT, lit, 0);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
+    fbb_.AddOffset(GasMainInfo::VT_WORDS, words);
+  }
+  explicit GasMainInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GasMainInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GasMainInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GasMainInfo> CreateGasMainInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    uint64_t works = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<float>> points = 0,
+    float length_m = 0.0f,
+    float laid = 0.0f,
+    float capacity_kg_h = 0.0f,
+    bool broken = false,
+    uint32_t homes = 0,
+    uint32_t lit = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+  GasMainInfoBuilder builder_(_fbb);
+  builder_.add_works(works);
+  builder_.add_id(id);
+  builder_.add_words(words);
+  builder_.add_lit(lit);
+  builder_.add_homes(homes);
+  builder_.add_capacity_kg_h(capacity_kg_h);
+  builder_.add_laid(laid);
+  builder_.add_length_m(length_m);
+  builder_.add_points(points);
+  builder_.add_broken(broken);
+  return builder_.Finish();
+}
+
+struct GasMainInfo::Traits {
+  using type = GasMainInfo;
+  static auto constexpr Create = CreateGasMainInfo;
+};
+
+inline ::flatbuffers::Offset<GasMainInfo> CreateGasMainInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    uint64_t works = 0,
+    const std::vector<float> *points = nullptr,
+    float length_m = 0.0f,
+    float laid = 0.0f,
+    float capacity_kg_h = 0.0f,
+    bool broken = false,
+    uint32_t homes = 0,
+    uint32_t lit = 0,
+    const char *words = nullptr) {
+  auto points__ = points ? _fbb.CreateVector<float>(*points) : 0;
+  auto words__ = words ? _fbb.CreateString(words) : 0;
+  return tce::wire::CreateGasMainInfo(
+      _fbb,
+      id,
+      works,
+      points__,
+      length_m,
+      laid,
+      capacity_kg_h,
+      broken,
+      homes,
+      lit,
+      words__);
+}
+
+struct StreetLampInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef StreetLampInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_X = 4,
+    VT_Y = 6,
+    VT_LIT = 8,
+    VT_WORDS = 10
+  };
+  float x() const {
+    return GetField<float>(VT_X, 0.0f);
+  }
+  float y() const {
+    return GetField<float>(VT_Y, 0.0f);
+  }
+  bool lit() const {
+    return GetField<uint8_t>(VT_LIT, 0) != 0;
+  }
+  const ::flatbuffers::String *words() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<float>(verifier, VT_X, 4) &&
+           VerifyField<float>(verifier, VT_Y, 4) &&
+           VerifyField<uint8_t>(verifier, VT_LIT, 1) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyString(words()) &&
+           verifier.EndTable();
+  }
+};
+
+struct StreetLampInfoBuilder {
+  typedef StreetLampInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_x(float x) {
+    fbb_.AddElement<float>(StreetLampInfo::VT_X, x, 0.0f);
+  }
+  void add_y(float y) {
+    fbb_.AddElement<float>(StreetLampInfo::VT_Y, y, 0.0f);
+  }
+  void add_lit(bool lit) {
+    fbb_.AddElement<uint8_t>(StreetLampInfo::VT_LIT, static_cast<uint8_t>(lit), 0);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
+    fbb_.AddOffset(StreetLampInfo::VT_WORDS, words);
+  }
+  explicit StreetLampInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<StreetLampInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<StreetLampInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<StreetLampInfo> CreateStreetLampInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    float x = 0.0f,
+    float y = 0.0f,
+    bool lit = false,
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+  StreetLampInfoBuilder builder_(_fbb);
+  builder_.add_words(words);
+  builder_.add_y(y);
+  builder_.add_x(x);
+  builder_.add_lit(lit);
+  return builder_.Finish();
+}
+
+struct StreetLampInfo::Traits {
+  using type = StreetLampInfo;
+  static auto constexpr Create = CreateStreetLampInfo;
+};
+
+inline ::flatbuffers::Offset<StreetLampInfo> CreateStreetLampInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    float x = 0.0f,
+    float y = 0.0f,
+    bool lit = false,
+    const char *words = nullptr) {
+  auto words__ = words ? _fbb.CreateString(words) : 0;
+  return tce::wire::CreateStreetLampInfo(
+      _fbb,
+      x,
+      y,
+      lit,
       words__);
 }
 
@@ -25254,13 +25947,21 @@ struct Ways FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   struct Traits;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_REV = 4,
-    VT_WAYS = 6
+    VT_WAYS = 6,
+    VT_MAINS = 8,
+    VT_LAMPS = 10
   };
   uint64_t rev() const {
     return GetField<uint64_t>(VT_REV, 0);
   }
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WayInfo>> *ways() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WayInfo>> *>(VT_WAYS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GasMainInfo>> *mains() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GasMainInfo>> *>(VT_MAINS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StreetLampInfo>> *lamps() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StreetLampInfo>> *>(VT_LAMPS);
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -25269,6 +25970,12 @@ struct Ways FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_WAYS) &&
            verifier.VerifyVector(ways()) &&
            verifier.VerifyVectorOfTables(ways()) &&
+           VerifyOffset(verifier, VT_MAINS) &&
+           verifier.VerifyVector(mains()) &&
+           verifier.VerifyVectorOfTables(mains()) &&
+           VerifyOffset(verifier, VT_LAMPS) &&
+           verifier.VerifyVector(lamps()) &&
+           verifier.VerifyVectorOfTables(lamps()) &&
            verifier.EndTable();
   }
 };
@@ -25282,6 +25989,12 @@ struct WaysBuilder {
   }
   void add_ways(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WayInfo>>> ways) {
     fbb_.AddOffset(Ways::VT_WAYS, ways);
+  }
+  void add_mains(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GasMainInfo>>> mains) {
+    fbb_.AddOffset(Ways::VT_MAINS, mains);
+  }
+  void add_lamps(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StreetLampInfo>>> lamps) {
+    fbb_.AddOffset(Ways::VT_LAMPS, lamps);
   }
   explicit WaysBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -25297,9 +26010,13 @@ struct WaysBuilder {
 inline ::flatbuffers::Offset<Ways> CreateWays(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     uint64_t rev = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WayInfo>>> ways = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WayInfo>>> ways = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GasMainInfo>>> mains = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StreetLampInfo>>> lamps = 0) {
   WaysBuilder builder_(_fbb);
   builder_.add_rev(rev);
+  builder_.add_lamps(lamps);
+  builder_.add_mains(mains);
   builder_.add_ways(ways);
   return builder_.Finish();
 }
@@ -25312,12 +26029,18 @@ struct Ways::Traits {
 inline ::flatbuffers::Offset<Ways> CreateWaysDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     uint64_t rev = 0,
-    const std::vector<::flatbuffers::Offset<tce::wire::WayInfo>> *ways = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::WayInfo>> *ways = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::GasMainInfo>> *mains = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::StreetLampInfo>> *lamps = nullptr) {
   auto ways__ = ways ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::WayInfo>>(*ways) : 0;
+  auto mains__ = mains ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::GasMainInfo>>(*mains) : 0;
+  auto lamps__ = lamps ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::StreetLampInfo>>(*lamps) : 0;
   return tce::wire::CreateWays(
       _fbb,
       rev,
-      ways__);
+      ways__,
+      mains__,
+      lamps__);
 }
 
 struct VehicleInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -25335,7 +26058,8 @@ struct VehicleInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_WEAR = 20,
     VT_OUT_WITH = 22,
     VT_LOAD_KG = 24,
-    VT_WORDS = 26
+    VT_WORDS = 26,
+    VT_RUN = 28
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -25373,6 +26097,9 @@ struct VehicleInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *words() const {
     return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
   }
+  uint8_t run() const {
+    return GetField<uint8_t>(VT_RUN, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -25391,6 +26118,7 @@ struct VehicleInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<float>(verifier, VT_LOAD_KG, 4) &&
            VerifyOffset(verifier, VT_WORDS) &&
            verifier.VerifyString(words()) &&
+           VerifyField<uint8_t>(verifier, VT_RUN, 1) &&
            verifier.EndTable();
   }
 };
@@ -25435,6 +26163,9 @@ struct VehicleInfoBuilder {
   void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
     fbb_.AddOffset(VehicleInfo::VT_WORDS, words);
   }
+  void add_run(uint8_t run) {
+    fbb_.AddElement<uint8_t>(VehicleInfo::VT_RUN, run, 0);
+  }
   explicit VehicleInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -25459,7 +26190,8 @@ inline ::flatbuffers::Offset<VehicleInfo> CreateVehicleInfo(
     float wear = 0.0f,
     uint64_t out_with = 0,
     float load_kg = 0.0f,
-    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0,
+    uint8_t run = 0) {
   VehicleInfoBuilder builder_(_fbb);
   builder_.add_out_with(out_with);
   builder_.add_owner(owner);
@@ -25472,6 +26204,7 @@ inline ::flatbuffers::Offset<VehicleInfo> CreateVehicleInfo(
   builder_.add_x(x);
   builder_.add_owner_name(owner_name);
   builder_.add_name(name);
+  builder_.add_run(run);
   builder_.add_mode(mode);
   return builder_.Finish();
 }
@@ -25494,7 +26227,8 @@ inline ::flatbuffers::Offset<VehicleInfo> CreateVehicleInfoDirect(
     float wear = 0.0f,
     uint64_t out_with = 0,
     float load_kg = 0.0f,
-    const char *words = nullptr) {
+    const char *words = nullptr,
+    uint8_t run = 0) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto owner_name__ = owner_name ? _fbb.CreateString(owner_name) : 0;
   auto words__ = words ? _fbb.CreateString(words) : 0;
@@ -25511,7 +26245,8 @@ inline ::flatbuffers::Offset<VehicleInfo> CreateVehicleInfoDirect(
       wear,
       out_with,
       load_kg,
-      words__);
+      words__,
+      run);
 }
 
 struct Vehicles FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

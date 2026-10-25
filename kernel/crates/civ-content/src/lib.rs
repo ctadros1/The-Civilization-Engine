@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 160;
+pub const KERNEL_CONTENT_API: u32 = 179;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -82,7 +82,7 @@ pub enum Severity {
 /// | E3002 | The `kind` is unknown, or missing |
 /// | E3003 | Not exactly one world-generation preset is marked `default = true` |
 /// | E3004 | Not exactly one people profile, or not exactly one land profile |
-/// | E3005 | A technique gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know |
+/// | E3005 | A technique gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know, nor does it prevent deaths in childbirth |
 /// | E3006 | Techniques' prerequisites form a cycle |
 /// | E3007 | A recipe can never be worked: an input or tool comes only from recipes that need it |
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -726,6 +726,16 @@ fn resolve(
                     );
                 }
             }
+            if let Some(t) = &d.file.track
+                && good_index(&t.good).is_none()
+            {
+                missing(c, parsed, &d.rel, "track good", &t.good);
+            }
+            if let Some(g) = &d.file.gas_main
+                && good_index(&g.good).is_none()
+            {
+                missing(c, parsed, &d.rel, "gas main good", &g.good);
+            }
             d.file.params(&good_index).map(|params| LandProfile {
                 id: d.file.id.clone(),
                 pack: d.pack.clone(),
@@ -1044,6 +1054,11 @@ fn resolve(
                     .map(|g| ("needs", g, good_index(g).is_some())),
             )
             .chain(
+                f.needs_known
+                    .iter()
+                    .map(|g| ("needs_known", g, good_index(g).is_some())),
+            )
+            .chain(
                 f.answers
                     .spoilage
                     .iter()
@@ -1282,6 +1297,29 @@ fn resolve(
         let technique = resolve(c, "technique", &d.file.technique, &technique_index);
         let skill = resolve(c, "skill", &d.file.skill, &skill_index);
         let tool = resolve(c, "tool", &d.file.tool, &good_index);
+        // An engine's fuel must be a good burned for heat (content API 170).
+        let fuel = match &d.file.engine {
+            None => Some(None),
+            Some(e) => {
+                let f = resolve(c, "engine.fuel", &e.fuel, &good_index);
+                if let Some(Some(g)) = f
+                    && goods[g].fuel.is_none()
+                {
+                    c.push(
+                        "E3001",
+                        &d.rel,
+                        None,
+                        format!(
+                            "`engine.fuel` must name a good with `[fuel]`; `{}` has none",
+                            e.fuel
+                        ),
+                    );
+                    None
+                } else {
+                    f
+                }
+            }
+        };
         if let Some(Some(t)) = tool
             && goods[t].tool.is_none()
         {
@@ -1295,11 +1333,11 @@ fn resolve(
                 ),
             );
         }
-        if let (Some(mode), Some(g), Some(t), Some(k), Some(tool)) =
-            (d.file.mode(), good, technique, skill, tool)
+        if let (Some(mode), Some(g), Some(t), Some(k), Some(tool), Some(fuel)) =
+            (d.file.mode(), good, technique, skill, tool, fuel)
             && tool.is_none_or(|t| goods[t].tool.is_some())
         {
-            vehicles.push(d.file.def(mode, g, t, k, tool));
+            vehicles.push(d.file.def(mode, g, t, k, tool, fuel));
         }
     }
     vehicles.sort_by(|a, b| a.id.cmp(&b.id));
@@ -1368,10 +1406,67 @@ fn resolve(
         });
         resolved.push((g, metal, assay));
     }
+    // The technique a fuel asks of the hearths that burn it (M10a slice DS).
+    let mut fuels: Vec<(usize, Option<usize>)> = Vec::new();
+    for d in &parsed.goods {
+        let Some(id) = d.file.fuel.as_ref().and_then(|f| f.technique.as_deref()) else {
+            continue;
+        };
+        let t = technique_index(id);
+        if t.is_none() {
+            missing(c, parsed, &d.rel, "fuel.technique", id);
+        }
+        if let Some(g) = good_index(&d.file.id) {
+            fuels.push((g, t));
+        }
+    }
+    // The fuel a lamp burns (M10b slice DU).
+    let mut lamps: Vec<(usize, Option<usize>)> = Vec::new();
+    for d in &parsed.goods {
+        let Some(id) = d.file.light.as_ref().map(|l| l.fuel.as_str()) else {
+            continue;
+        };
+        let f = good_index(id);
+        if f.is_none() {
+            missing(c, parsed, &d.rel, "light.fuel", id);
+        }
+        if let Some(g) = good_index(&d.file.id) {
+            lamps.push((g, f));
+        }
+    }
+    // The good a holder keeps (M10b slice DY).
+    let mut holders: Vec<(usize, Option<usize>)> = Vec::new();
+    for d in &parsed.goods {
+        let Some(id) = d.file.holder.as_ref().map(|h| h.good.as_str()) else {
+            continue;
+        };
+        let held = good_index(id);
+        if held.is_none() {
+            missing(c, parsed, &d.rel, "holder.good", id);
+        }
+        if let Some(g) = good_index(&d.file.id) {
+            holders.push((g, held));
+        }
+    }
     for (g, metal, assay) in resolved {
         if let Some(m) = goods[g].money.as_mut() {
             m.metal = metal;
             m.assay = assay;
+        }
+    }
+    for (g, t) in fuels {
+        if let Some(f) = goods[g].fuel.as_mut() {
+            f.technique = t;
+        }
+    }
+    for (g, f) in lamps {
+        if let Some(l) = goods[g].light.as_mut() {
+            l.fuel = f;
+        }
+    }
+    for (g, held) in holders {
+        if let Some(h) = goods[g].holder.as_mut() {
+            h.good = held;
         }
     }
     let catalog = Catalog {
@@ -1472,14 +1567,17 @@ fn knowledge_problems(
                 .diseases
                 .iter()
                 .flat_map(|d| &d.file.treatment)
-                .any(|x| x.technique == def.id);
+                .any(|x| x.technique == def.id)
+            // Or the deaths in childbirth it prevents at a birth its knower attends (M10c slice
+            // EA).
+            || def.birth.iter().any(|&e| e > 0.0);
         if !gated {
             c.push(
                 "E3005",
                 &rel_of(&def.id),
                 None,
                 format!(
-                    "technique `{}` gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know",
+                    "technique `{}` gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know, nor does it prevent deaths in childbirth",
                     def.id
                 ),
             );

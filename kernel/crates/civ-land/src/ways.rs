@@ -23,6 +23,8 @@ use crate::paths::PathParams;
 pub const WALK: u8 = 1;
 /// Handcarts (M8b slice CP).
 pub const CART: u8 = 2;
+/// Wagons on track (M10b slice DV; ADR-0034 §2).
+pub const RAIL: u8 = 4;
 
 /// A segment's surface. Codes are part of saves: append only.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -35,6 +37,8 @@ pub enum Surface {
     Gravel,
     /// A timber causeway over soft ground.
     Causeway,
+    /// Timber rails on sleepers over a graded bed (M10b slice DV).
+    Track,
 }
 
 impl Surface {
@@ -50,6 +54,7 @@ impl Surface {
             Surface::Shaped,
             Surface::Gravel,
             Surface::Causeway,
+            Surface::Track,
         ]
         .get(usize::from(code))
         .copied()
@@ -62,6 +67,7 @@ impl Surface {
             Surface::Shaped => "shaped earth",
             Surface::Gravel => "gravel",
             Surface::Causeway => "timber causeway",
+            Surface::Track => "timber track",
         }
     }
 }
@@ -228,6 +234,8 @@ pub struct Way {
     pub trips_day: i64,
     /// Its rank as last surveyed.
     pub rank: Rank,
+    /// Its track, for a way that serves [`RAIL`] (M10b slice DV, second part).
+    pub track: Option<crate::rail::Track>,
 }
 
 impl Way {
@@ -436,6 +444,18 @@ impl Ways {
             if w.modes == 0 {
                 out.push(format!("way {} serves no mode", w.id));
             }
+            if let Some(t) = &w.track {
+                let n: usize = w.segments.iter().map(|s| s.cells.len()).sum();
+                if t.bed.len() != n
+                    || !t.bed.iter().all(|z| z.is_finite())
+                    || !(t.gauge_m.is_finite() && t.gauge_m > 0.0)
+                    || ![t.cut_m3, t.fill_m3, t.good_kg, t.labour_h]
+                        .iter()
+                        .all(|v| v.is_finite() && *v >= 0.0)
+                {
+                    out.push(format!("way {} has its track malformed", w.id));
+                }
+            }
         }
         out
     }
@@ -481,6 +501,7 @@ mod tests {
             trips: 0.0,
             trips_day: 0,
             rank: Rank::Lane,
+            track: None,
         }
     }
 

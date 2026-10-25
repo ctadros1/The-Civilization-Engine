@@ -22,6 +22,8 @@ pub enum SickDraw {
     Course = 2,
     /// Whether someone severely ill dies today.
     Death = 3,
+    /// Whether someone tending another home today takes what its sick shed (M10c slice DZ).
+    Visit = 4,
 }
 
 /// The generator for `person`'s draw of `what` about disease `disease` on `day`.
@@ -271,12 +273,30 @@ impl Episode {
     }
 }
 
-/// Every infection there has been, in the order they came, and every outbreak. Saved; the
-/// indexes are derived.
+/// A household's call for someone of another to tend its ill (M10c slice DZ, second part;
+/// ADR-0035 §2): the household that called and the one it asked, the food it offered for each
+/// day of care, kcal (none from kin), the day it called, and the last day it paid (-1 not yet).
+/// Saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CareCall {
+    pub caller: PermanentId,
+    pub carer: PermanentId,
+    pub fee_kcal: f32,
+    pub day: i64,
+    pub paid: i64,
+}
+
+/// Every infection there has been, in the order they came, every outbreak, and the calls for
+/// carers standing. Saved; the indexes are derived.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Sickness {
     episodes: Vec<Episode>,
     outbreaks: Vec<Outbreak>,
+    /// Calls for carers that stand, in the order made (M10c slice DZ).
+    pub calls: Vec<CareCall>,
+    /// The last day each person tended someone ill, while it is recent enough to matter to a
+    /// birth they attend (M10c slice EA).
+    pub tended: BTreeMap<PermanentId, i64>,
     /// Episodes that run, by index, in order.
     running: Vec<usize>,
     /// Each person's episodes, by index, in order.
@@ -284,6 +304,11 @@ pub struct Sickness {
 }
 
 impl Sickness {
+    /// The call household `caller` made that stands, if any.
+    pub fn call_of(&self, caller: PermanentId) -> Option<&CareCall> {
+        self.calls.iter().find(|c| c.caller == caller)
+    }
+
     /// The store of `episodes`, in the order they came, and `outbreaks`, in the order they began.
     pub fn with(episodes: Vec<Episode>, outbreaks: Vec<Outbreak>) -> Sickness {
         let mut s = Sickness {

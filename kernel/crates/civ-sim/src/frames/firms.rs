@@ -108,13 +108,28 @@ pub fn record_text(sim: &Sim, f: &Firm) -> String {
 pub fn wage_text(sim: &Sim, w: &WageOffer) -> String {
     let pay = of(sim, w.pay, f64::from(w.per_hour));
     let open = w.open_hours();
-    if open >= 0.5 {
+    let wants = if open >= 0.5 {
         format!("Pays {pay} an hour; wants {open:.0} more hours of work before its next review.")
     } else if w.hours > 0.0 {
         format!("Pays {pay} an hour; has hired all the work it wants until its next review.")
     } else {
         format!("Pays {pay} an hour when it hires; it wants no hired work now.")
+    };
+    if w.shift_min == 0 {
+        return wants;
     }
+    // A works whose machine wants a crew rings a bell (M10a slice DT).
+    let shift = f64::from(w.shift_min) / 60.0;
+    let shift = if (shift - shift.round()).abs() < 0.05 {
+        format!("{shift:.0}")
+    } else {
+        format!("{shift:.1}")
+    };
+    format!(
+        "{wants} It rings its bell at {:02}:{:02} for a shift of {shift} hours.",
+        w.bell_min / 60,
+        w.bell_min % 60
+    )
 }
 
 /// A line of a workshop's books in words: "Sold a sickle to Bran's household."
@@ -248,9 +263,19 @@ pub fn firm_response(sim: &Sim, id: u64) -> Result<Vec<u8>, QueryError> {
                 hours: w.hours,
                 taken: w.taken,
                 text: Some(text),
+                bell_minute: w.bell_min,
+                shift_minutes: w.shift_min,
             },
         )
     });
+    let machines: Vec<wire::MachineLine> = sim
+        .people
+        .machines_of(&sim.rules.catalog.goods, f.id)
+        .into_iter()
+        .map(|(g, crew, units)| wire::MachineLine::new(g as u16, crew, units as f32))
+        .collect();
+    let machines = fbb.create_vector(&machines);
+    let at_work = sim.people.at_work_for(&sim.rules.catalog, f.id);
     let entries: Vec<_> = f
         .books
         .entries
@@ -313,6 +338,8 @@ pub fn firm_response(sim: &Sim, id: u64) -> Result<Vec<u8>, QueryError> {
             wage,
             entries: Some(entries),
             months: Some(months),
+            machines: Some(machines),
+            at_work: u16::try_from(at_work).unwrap_or(u16::MAX),
         },
     );
     Ok(response(fbb, wire::ResponseBody::FirmInfo, body))

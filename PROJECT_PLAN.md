@@ -5950,30 +5950,945 @@ and M6a gives rivers a daily flow.
         (part 4) lets a household grind at a neighbour's. *Measured:* on seed 3's village with
         every household knowing the mill and grinding 600 kg a year, all six set one, at falls of
         0.5-1.0 m over races of 8-24 m (one to three cells: the valley's steep cells, a wheel at a
-        rapid). **Proved:** the three bench worlds' digests match the second part's
-        in every section but meta (schema 174) and content (the wheel's `per_worker`). **Tested:** a household that knows no water way neither counts
-        nor weighs; one that does sets a mill whose race, earthwork and fall are as described,
+        rapid). **Proved:** the three bench worlds' digests match the second part's in every
+        section but meta (schema 174) and content (the wheel's `per_worker`). **Tested:** a
+        household that knows no water way neither counts nor weighs; one that does sets a mill
+        whose race, earthwork and fall are as described,
         turning nothing until dug, one to a household; the race is dug by the ditch work and the
         chronicle names a headrace; dug, grinding by the wheel is its cheapest flour; counts and
         mills save and load to the byte.
+      - *As built, fourth part (2026-10-22): toll milling.* A household without a working mill of
+        its own that wants flour (below its `processed_food_days` of flour) and holds grain sees
+        the nearest working mill of another household of its settlement by its people's walk (a
+        dug race, a wheel in the owner's store, a river turning it today): `MillFacts`, scored as
+        a ditch's session is (`Reason::Mill`). One of them carries a load (`carry_kg`) there
+        (behavior `mill`, content API 161, `activity/carry_grain_to_mill`; `Target::Mill`, saves'
+        `TargetKind.Mill`), grinds it by the mill's way at its power, and keeps the flour but a
+        sixteenth (a prior), which goes to the owner by the ledger (`Channel::Toll`, appended);
+        the owner's wheel wears by the hours it turned. The yearly mill review now weighs a mill
+        of its own against grinding at the nearest working one for its toll and a round trip a
+        load, and a mill's choice is charged 100 hours a year of upkeep (a NUDGE, §9): so a
+        household near a working mill builds none. Toll milling is not taken while a settlement
+        is household-resolved (a journey, as a fetch). Since every review weighs only mills
+        already working, households that weigh in the same season may each set one, as in the
+        third part's measurement. **Proved:** without the new activity the three bench worlds'
+        digests match the third part's but for meta and content, so the code changes nothing where
+        no mill stands; with it they differ in people, receipts and firms alone (the household
+        views keep a cell per activity and receipts list the activities ruled out), every other
+        section and the summaries equal. **Tested:** a neighbour sees the mill, a
+        load's grinding and the hours it spares; the owner sees none; a session grinds no more
+        than a load, the customer keeps fifteen sixteenths of the flour and the owner the rest,
+        and the owner's wheel wears; a customer that knows the mill and grinds 600 kg a year sets
+        none of its own beside a working one.
+      - *As built, fifth part (2026-10-22): the observer's view of mills; DR closed.* `GetWater`
+        lists every water mill (wire 1.97, `Water.mills`): its wheel, the fall it takes, its
+        kilowatts today and its wheel's rating, whether its headrace is dug, whose it is, and in
+        words ("Ada's household's water mill, a fall of 0.7 m: 0.2 kW today of its 3 kW", or that
+        its headrace is still being dug). The water revision counts mills, so a world with mills
+        and no wells is fetched. The map's water layer draws each wheel as a small square, faint
+        while its race is undug; the readout under the pointer says what the mill is; the earthwork
+        readout names a headrace as one (third part); a person going to grind elsewhere reads
+        "grinding grain at the mill south of home" (fourth part). Fuel and power rows on the
+        dashboard wait for DS's engines, as nothing burns for power before them. **Tested:** the
+        reply carries a neighbour's mill with its owner, its race dug and the kilowatts its river
+        gives it today, and its words; the web decodes `Water.mills`. No world on the e2e path has
+        a mill, so the e2e is unchanged.
     - **DS**: coal and coke, pits that flood below the ground-water head, bailing and pumping, the
       atmospheric engine at the pit head.
+      - *As built, first part (2026-10-22): coal in the ground and at the hearth.* **Seams** are
+        a deposit rule of the land profile (`good/coal`, 25.8 MJ a kilogram, 07-06 §2.3) on
+        upland slopes; a rule may now say `keyed_ids` (content API 162), and its bodies take ids
+        of their own (`deposits::keyed_id`, from 2^52, below 2^53 so the observer's numbers hold
+        them), so adding coal moves no other id in any world (the bloomery's note above: a new
+        body would move every later id). **Burning coal is a technique of its own** (ADR-0033 §1;
+        07-06 §3): a fuel may name one (`[fuel] technique`), and a household keeps that fuel for
+        its hearth, and wants it in trade, only if one of them knows it; the hearth's measure
+        stays the first fuel that asks none (firewood), though coal comes first in the catalogue.
+        `technique/coal_burning` is found by people gathering wood where their settlement knows
+        coal showing (a technique's `needs_known`: goods its settlement must know a deposit of)
+        and nowhere else; those who know it dig coal (`activity/dig_coal`) at the pit nearest
+        home, a trip for fuel weighed by its heat, and hearths burn it by its heat beside
+        firewood. Domestic coal (the brief's open question 2) is so answered yes, by knowledge.
+        **Proved:** the code alone leaves every section of the three bench worlds of DO but
+        `meta` as it was; with the coal content, a run whose coal rule places nothing gives the
+        same chronicle (`history`) as before, and the sections holding goods or techniques by
+        index (people, houses, receipts, market, firms, know, deposits, polity, order, factions,
+        places) differ by the shifted positions only, every count and summary line equal; with
+        seams placed, only `deposits` and the chronicle of seams found differ further (world A;
+        in B and C no seam was found). **Tested:** a keyed rule beside another moves none of its
+        ids nor the world's next; every seam over six seeds has a keyed id; coal is reckoned
+        against firewood by its heat; a household keeps none for its hearth until a member knows
+        how to burn it, then the same heat as its firewood; burning coal is found only once coal
+        is known; those who know it dig coal from a seam and carry it home; and a world with seams saves and
+        loads to the byte (a save's deposit ids may be the world's or keyed).
+      - *As built, second part (2026-10-22): pits that flood, bailed by hand.* A deposit rule may
+        give the conductivity of its body and the ground it lies in (`k_m_day`, content API 163;
+        coal 0.3 m/day, research 03-02's prior for fractured bedrock; the other bodies none, so
+        their pits stay dry). A pit dug below the water table's head then fills toward it as a
+        well of its area's radius does (03-02 §1.4's `2πT/ln(R/r)`, `T = k b` over the depth it
+        reaches below the head; `civ_land::pits`), worked out when the pit is worked or looked at
+        from the water last found in it and when (`Land::pit_water`, saves 175, absent while no
+        pit has taken any in). Digging there bails first: the work goes to lifting the water
+        out by hand (`ρgVH` over a person's 75 W at half of it lifting, 07-06 §1.3 and §2.2; the
+        profile's `[digging]` gains `bail_w`, `bail_efficiency` and `influence_m`), and nothing is
+        dug until the pit is dry; a household weighing a trip to dig counts only the hours left
+        after bailing what stands and what comes in meanwhile. The observer's words for a pit say
+        how much water stands in it. Pumping by wheel or engine is the next part. **Proved:** the
+        three bench worlds of DO differ from the first part's only in `meta` and `content`.
+        **Tested:** water rises toward the head and no further, the same over one step or two;
+        lifting by hand is its work over a person's useful power (36.7 m³ through 5 m in 13.3
+        hours); a body that passes no water lets none in; in a world, water standing in a coal
+        pit is lifted out before any coal is dug, only coal pits hold water, and a save keeps it
+        to the byte.
+      - *As built, third part (2026-10-22): engines that pump.* `good/atmospheric_engine` is a
+        fixed tool with fuel power (4 kW at 1 %, 40,000 hours; the priors below). An engine set
+        at a pit (`civ_land::power::Engine`: its pit, its owner, its rated power and efficiency;
+        `Land::engines`, saves 176, absent while none is set) pumps each day, after the mills,
+        while its owner holds the engine whole and fuel for it: it lifts what stands in the pit
+        through the lift from the water's middle to the mouth (`lift_kwh`, `ρgVH` at a pump's
+        50 %), at most its rated power for twelve hours, burning the owner's fuels in the
+        catalogue's order by their heat at the engine's efficiency (`fuel_kg`, 07-06 §2.3), and
+        it wears by the hours it ran. Water in a pit now stands no higher than its mouth.
+        Who sets an engine, and why, is the next part. Coke waits for the works' blast furnace:
+        nothing yet uses it. **Proved:** against the second part, the three bench worlds of DO keep the same chronicle
+        (`history`) and every count and summary line; the sections holding goods by index (people,
+        houses, market, firms, deposits, polity, order, factions, places) differ by the new good's
+        shifted position only, as the first part's did. **Tested:** an atmospheric engine burns the
+        brief's coal for its water (at 1 % a kWh of lift takes 14 kg of coal); an engine at a
+        flooded pit pumps it dry with the owner's coal, burning what its work over the lift
+        asks, and wears; an engine whose owner holds no fuel pumps nothing.
+      - *As built, fourth part (2026-10-22): who sets an engine.* `technique/atmospheric_engine`
+        (forging and jointed framing first; found digging coal with coal and bar iron at home;
+        founders do not bring it) and `recipe/build_atmospheric_engine` (sheet copper, bar iron,
+        timber and stone, under smithing, its `activity` a making in daylight; the priors below).
+        Bailing by hand is tallied at its pit (`civ_land::pits::Bailed`, `Land::pit_bailing`,
+        saves 177). On its day of the year a household one of whose people knows a way of making
+        an engine weighs each of its own pits bailed for half a year or more without one: the
+        hours a year it bails there, less the fuel an engine would burn lifting the same water
+        (its cheapest fuel by heat, or the pit's own where that is a fuel it burns, at the hours
+        it takes to dig), over the years the engine's life lasts at that work (at most 20),
+        against the engine's own cost in hours; where that is gained it sets an engine at the pit
+        with the most to gain, and only then wants one, which it makes or buys as any tool (a
+        household wants an engine only for a pit it has set one at, as a wheel only for a dug
+        race). A household that knows no way of making one sets none. **Proved:** against the third part, the three bench worlds of DO keep the same
+        chronicle and every count and summary line; only the sections holding techniques, recipes
+        or activities by index (people, receipts, firms, know) differ, by the shifted positions,
+        and `market` is unchanged, so capping the want of engines changed no trade.
+        **Tested:** bailing by hand is tallied at its pit and a save keeps it to the byte; a
+        household that has bailed 5,000 hours a year sets an engine at its pit, then wants one,
+        and sets no second; fifty hours a year set none, nor do 5,000 where nobody knows how.
+        **DS is closed.** Coke waits for the works' blast furnace (DT), nothing yet using it;
+        pumping by a wheel, and an engine pumping for a wheel (the brief's complement), are a §9
+        entry for the works.
     - **DT**: the works: machines with crews, shifts by daylight, the household-resolved block.
+      - *As built, first part (2026-10-22): crews and the bell.* A tool may name its `crew`, the
+        fewest hands at it together for it to run (content API 164; only a fixed tool asks more
+        than one). A session of a recipe whose tools want a crew makes nothing unless, with the
+        person, that many were at the same work for the same works (or, at home, the same
+        household's) when the session began and are still: a hand who came later, or left
+        before the end, does not count, so two hands working one shift run the machine once,
+        not twice. A household does not take up such a recipe at home (`Reason::NoCrew`), nor
+        weigh a mill of its own for one; only a works, whose bell brings its hands together,
+        works one. A works holding a machine
+        that wants a crew hires for the way that uses it, and rings a bell at sunrise: its wage
+        offer names the bell's minute and the shift (the profile's `[firm] shift_h`, 10 hours,
+        cut at sunset; saves 178), a hand goes no sooner than an hour before the bell, waits for
+        it, and works to the shift's end, so the hands are at the machine together. A works
+        with no such machine hires as before, at any hour. The first machine is the tilt
+        hammer (`good/tilt_hammer`, crew 2), with `technique/water_hammer` (forging and the
+        water mill first; found forging bar with blooms and charcoal at home) and
+        `recipe/forge_bar_by_hammer` (an hour and a half and 5 kg of charcoal a kilogram of
+        bar against six and 8 by hand, 1 kWh a kilogram from the works' wheel). In a
+        household-resolved settlement a crew is met in aggregate (the second part, below). **Proved:** against DS's fourth part, the three
+        bench worlds of DO keep the same chronicle and every count and summary line; the
+        sections holding goods, techniques or recipes by index differ by the shifted positions
+        only.
+        **Tested:** a two-hand hammer idles with one hand, forges with two who were there since
+        the session began, and a later hand makes the later session's crew but not the earlier
+        one's; a works with a hammer hires for the hammer's way from a bell at sunrise for a
+        shift that ends by daylight, and one without hires for the hand's way with no bell; a
+        save keeps the bell to the byte; a hand setting off before the bell waits for it and
+        works the shift out, and none goes long before it or with too little left; a content
+        tool asks a crew of 1 to 20, and only a fixed one more than 1.
+      - *As built, second part (2026-10-23): crews in the household-resolved day.* A
+        household-resolved settlement lives each person's blocks one after another (ADR-0032
+        §2), so nobody is at a machine together with anyone. Its works' sessions at a machine
+        wanting a crew are held while the settlement's day is lived; then, for each works and
+        way, if as many different hands as the machine wants worked it that day, it runs once
+        for their summed minutes over its crew, at the first hand's speed, as one shift of them
+        together would, and else it stood idle (ADR-0032 §2's crews met in aggregate; held
+        sessions are never saved, as the day is lived between midnights). Hands are paid for
+        their hours either way. **Proved:** the three bench worlds of DO (two of them
+        Detailed, none with a works) differ from the first part in `meta` only. Gate C is not rerun: no world of Gate B's
+        fixtures holds a machine that wants a crew, so nothing it measures can move. **Tested:**
+        in a resolved day one hand at the hammer makes nothing, and two hands' two hours each
+        make what two hours of the two together make in Detailed mode, nothing made until the
+        day is lived.
+      - *As built, third part (2026-10-23): the observer's works page.* A workshop's page
+        (wire 1.98) carries its bell with its wage, the minute it rings and the shift's
+        minutes, and the kernel's words for its wage name them ("It rings its bell at 06:12
+        for a shift of 10 hours."); every machine and fixed tool it holds as a station, with
+        the crew each wants; and how many are at work for it now, owners and hands. The web's
+        workshop page shows them as "Machines" ("1 tilt hammer, worked by 2 hands together ·
+        1 water wheel") and "At work now". The kernel only reads what it holds, so nothing a
+        world does changes. **Tested:** a works with a hammer shows its bell, its hammer
+        wanting two and its wheel, and the one hand at work; a workshop with no bell says
+        nothing of one; the web decodes the new fields and words the machines and the hands.
+      - *As built, fourth part (2026-10-23): coke and the blast furnace.* Content only, made of
+        fuels, batches, stations, power and crews already there (no content API change). Coke
+        (28.2 MJ a kilogram, research 07-06 §2.3; a furnace's material, as charcoal is) is baked
+        from coal in a heap, 1.6 kg a kilogram over four days, under coking (charcoal burning and
+        burning coal; found burning charcoal with coal at home). A blast furnace (crew 4, 40,000
+        hours; 3,000 hours, 25 t of stone, 2 t of timber and 200 kg of iron to build) under the
+        blast furnace technique (the bloomery and the water hammer; found smelting iron) is blown
+        by its works' wheel and smelts pig iron from ore: 2 kg of ore and 3 of charcoal a
+        kilogram against the bloomery's 8 and 12 a kilogram of bloom, 0.6 hours and 0.5 kWh; or,
+        under coke smelting (the blast furnace and coking; found at the furnace with coke at
+        home; 07-05 X1, Coalbrookdale 1709), 3.5 kg of coke and 0.7 kWh. The hammer's two fine
+        the pig at a finery to bar, 1.35 kg of pig and 3 of charcoal a kilogram (07-05 I6). The
+        three techniques are far (E50 300,000 to 400,000 hours) and no founder brings them, so
+        most worlds will never smelt pig (ADR-0033 §9). Fining sorts before forging under the
+        hammer and works the same two machines, so a works now hires for a machine's way only
+        if its owners know that way's technique, and never for a way wanting a crew at a
+        machine it cannot work (a hammerless works hires for the hand's way, as before).
+        **Proved:** against the third part, the
+        three bench worlds of DO keep the same chronicle and every count and summary line; the
+        sections holding goods, techniques or activities by index differ by the shifted
+        positions only. **Tested:** three at a blast furnace idle it and four smelt pig, on
+        charcoal and on coke, 3.5 kg of coke a kilogram; the hammer's two fine the works' own
+        pig, 1.35 kg a kilogram of bar; a coking heap takes 1.6 kg of coal a kilogram of coke
+        when built and gives its coke when drawn after its four days.
+      - *As built, fifth part (2026-10-23): pits pumped by a wheel.* ADR-0033 §7's third way of
+        draining a pit. Each day every working water wheel lifts the water out of the flooded
+        pits its holder dug within its rods' reach (300 m), nearest first, at its power today
+        for twelve hours and the pump's half, burning nothing; a wheel held by a workshop pumps
+        its owners' pits. Wheels pump before engines, which burn fuel only for what is left.
+        No household yet sets a wheel for a pit's sake: a wheel pumps where a mill or a works
+        already stands near a pit its holder dug (§9). **Proved:** the three bench worlds of DO
+        are unchanged against the fourth part but for `meta`. **Tested:** a near wheel of the
+        pit's own household pumps 30 m³ out; one 1,000 m off, or another household's, pumps
+        none. **DT is closed.** An engine pumping water back up to a wheel (the brief's
+        complement) stays a §9 entry.
   - **M10b, rail and gas light** (ADR-0034).
     - **DU**: light before gas: lamps burning fuel for hours of light, places dark or lit, dark
       sight (equal to day sight until a world has lamps), what light changes in the evening.
+      - *As built, first part (2026-10-23): the lamp as vocabulary.* A tool may carry a `[light]`
+        table: the good it burns and how much an hour (content API 165; ADR-0034 §9; the
+        brief's open question 4 answered yes, so gas has a lamp to be compared with). The first
+        lamp is a fat lamp, a clay dish of tallow burning 8 g an hour, about a candle's light
+        (research 11-13 §2.2: 13 lumens, 1 lux at a metre). Tallow is rendered from game meat,
+        20 kg to a kilogram; the lamp is made of 0.3 kg of clay. Lamps, the technique, needs
+        pottery and is found drying meat with meat at home (E50 20,000 hours); founders do not
+        bring it, and no household wants a lamp for its own sake yet, so nothing a world does
+        changes. **Proved:** the three bench worlds of DO keep the same chronicle and every
+        count and summary line; the sections holding goods, techniques or activities by index
+        differ by the shifted positions only. **Tested:** a lamp names its fuel and burn,
+        which resolve to the tallow and 8 g an hour; a burn of 0 or above 1 kg, light on a good
+        that is not a tool, and a fuel that is no good are each refused.
+      - *As built, second part (2026-10-23): work by lamplight.* A household holding a whole lamp
+        and fuel for it may take up making at home after dark (an activity kept to daylight whose
+        maker does not walk), for no longer than the lamp's fuel lasts (brief §2.3); fields,
+        gathering and errands stay dark. When the making ends, each of its minutes after sunset
+        burns the lamp's fuel by the hour (8 g of tallow) and wears the lamp an hour's part of its
+        life, recorded as used and worn; in a household-resolved settlement, whose day is lived at
+        midnight, each repetition's dark minutes are counted to when it would have ended in the day.
+        A lamp lit for work is a small open flame: each person working at home by it after dark adds
+        `lamp_lit_per_hour` (2.0e-6, as a lit hearth; content API 166) to the building's escapes,
+        taken within the hazard's existing bound so a world without lamps draws as before, and
+        caught at once by those awake; an incident caught from one says so. **Proved:** the three
+        bench worlds keep every digest of the first part's but the meta and the content (its new
+        parameter), nobody holding a lamp. **Tested:** two hours of making that end at 02:00 burn 16
+        g of tallow and wear the lamp two hours, the same ending at 13:00 nothing; a
+        household-resolved day burns tallow only for its members' blocks of making after sunset (a
+        day burned 62 g for none before the fix); a household working by a lamp at 23:00 with every
+        escape certain catches from the lamp and puts it out, and none catches once its tallow is
+        gone; the plan takes up making after dark only with the lamp and its fuel, capped at the
+        fuel's minutes.
+      - *As built, third part (2026-10-23): dark sight.* Sight has a dark distance (`[crime]
+        dark_sight_m`, 10 m in the core) and lamplight a reach (`lit_m`, 3 m; content API 167).
+        Until the world first lights a lamp for work, the dark shortens nobody's sight, so no world
+        without lamps changes (ADR-0034 §9; the brief's open question 3); the first lamp lit is
+        remembered for good (saves 179). From then on, someone awake sees a taking after sunset only
+        within `dark_sight_m`, unless it happens within `lit_m` of a home where someone is working
+        by a lamp, whose light restores day sight; the watch on its rounds sees by the same rule,
+        since it is among those about (brief §2.4). A lamp is a place where takers are seen, never a
+        crime rate. Other uses of sight (bands seen, building on reserved ground, fire noticed) keep
+        their own distances. **Proved:** the bench worlds keep every digest but the meta and the
+        content, nobody having lit a lamp. **Tested:** someone 20 m from a store sees a taking there
+        at 23:00 before any lamp is lit, not once one has been, and does again where lamplight
+        falls; making by lamplight after dark remembers the first lamp and making by day does not;
+        the first lamp lit, and its absence, come back from a save.
+      - *As built, fourth part (2026-10-23): the lamp by choice.* A household that knows how to make
+        a light (its recipe's technique) wants one when an hour lit costs it less than an hour of
+        its own work: the fuel an hour burns at its own cost of the fuel, and the lamp's own cost
+        spread over its life where it can put a figure on it (brief §2.3; its clay may lie in a pit
+        it has not found). For the fat lamp that is 8 g of tallow at the hours rendering it from
+        game meat takes, about 0.09 h an hour in the world tested, so a household that knows
+        lamps wants one. A household holding a whole lamp keeps fuel for 30 hours of light
+        (`LAMP_FUEL_HOURS`), rendered as a tool's material is made, for the lamp. Both are weighed
+        as tools are, so a lamp competes with what else the household would do. **Proved:** the
+        bench worlds keep every digest but the meta, nobody knowing lamps. **Tested:** a household
+        taught lamps, with clay, firewood and game meat, makes a lamp and renders tallow within a
+        day. Several of its members may each make one before the first is counted, as with other
+        tools.
+      - *As built, fifth part (2026-10-23): the observer's view of light; DU closed.* The clock
+        carries the homes where a lamp burns for work now, counted once the world has lit one, and
+        the minute it first did (wire 1.99); the observer's clock line adds "3 homes lit" when any
+        is. A person's page says whether they are working by lamplight and how many hours of light
+        their household's lamp has left ("Working by lamplight at home; their household's fat lamp
+        has tallow for 12 hours"), or that it holds one with no tallow. The kernel only reads what
+        it holds, so no world changes. **Tested:** a home where someone works by a lamp at 23:00
+        counts as lit only once the world has lit a lamp, and not once they sleep; the person's
+        words follow the tallow; the web decodes both and words the count. **DU is closed.** Lit
+        streets, gas and the lamplighter's rounds wait for DY; what light changes in the
+        evening beyond making (company, sleep) stays a §9 question (brief open question 12).
     - **DV**: wagonways pushed by people: the `RAIL` mode, track by cells with a turn rule and a
       ruling grade, wagons.
-    - **DW**: engines on rails and train runs: block sections, single track and loops.
+      *As built, first part (2026-10-23): the wagonway as vocabulary.* The vehicle mode `rail`
+      (content API 168): a wagon names `rail_resistance` and `gauge_m` beside a cart's mass, puller
+      and brake, and refuses a boat's and a road's fields. The core's `core:vehicle/wagon` carries
+      2,000 kg on a 500 kg wagon at C = 0.005 on timber rails of a metre's gauge, so one person's
+      200 N moves it on the level at about 0.61 m/s and a 1 % rise stops it (the brief §1.2);
+      `core:technique/wooden_railway` needs wheels on an axle and is found by those who dig coal or
+      ore, at an e50 of 100,000 hours, so in practice it comes by the observer's introduction. The
+      way kind `RAIL` is reserved, and `civ_land::rail` lays track: an A* over a cell and its
+      heading that turns at most 45° a cell (ADR-0034 §2's turn rule) and climbs no steeper than a
+      ruling grade between neighbouring cells, on land or a crossing's deck, never through water.
+      Nothing lays track or makes a wagon yet, so no world changes. **Tested:** a pushed wagon's
+      pull and speed on the level and its stop at 1 %; a line round a bend turns at most 45° a cell;
+      under a 1 % ruling grade a line goes round a ridge by its gap, at 10 % straight over, never
+      across water but over a deck; a wagon's file names no road or boat field.
+      *As built, second part (2026-10-23): track laid by work.* A way may carry a `Track` (saves
+      180): the gauge it is laid to, its bed's height at each cell, the earth its grading cuts and
+      fills, and the timber and hours laying it takes in all. A line is searched over ground no
+      steeper than the land profile's `[track] search_grade` (5 %), and its bed is graded to its
+      ruling grade as the midpoint between the lowest and highest beds that keep that grade from
+      every cell's ground, so ground already within the grade is left as it lies and a hump is cut
+      about as much as its hollows are filled. Laying takes 50 kg of timber and 1.5 hours a metre
+      and 2.3 hours a cubic metre of earth (content API 169); a begun line (`begin_track`) is a way
+      serving wagons alone, of the surface `timber track`, marked out on a bed of its gauge and half
+      a metre each side. Its keeper's hours of work widen the bed as a passing place's do, each
+      taking its share of the timber from the household's store, no more hours than the timber
+      allows; it carries wagons only once whole. Walkers' wear never holds it. Nobody begins a line
+      yet (lines by choice are the fourth part), so no world changes; grading leaves the map's
+      ground as it lies, the bed kept with the track, and any open deck carries it until crossings
+      rated for a wagon's load come. **Tested:** a graded bed keeps its ruling grade, is symmetric
+      over a symmetric hump and moves no earth where the ground already keeps the grade; a planned
+      line reckons its timber by length and its hours by length and earth; a line begun from a
+      village hearth is a way for wagons of timber track, laid by its keeper's work only as far as
+      its timber goes, half its timber laying half of it, not usable until whole, saved and loaded
+      alike part laid and whole; the core's `[track]` names a good that must exist and hours above
+      zero.
+      *As built, third part (2026-10-23): wagons bring a pit's coal home.* Wagons are records of the
+      boat's shape in a store of their own (saves 181), aged as carts are, each standing at an end
+      of a line. Someone digging at a pit where their household's whole line, kept by it alone, runs
+      from within 40 m of the pit to within 40 m of home, with a made wagon of the line's gauge
+      standing at either end, loads the wagon rather than carrying one person's 20 kg: as much as
+      the session digs, up to what one person's 200 N moves up the steepest rise homeward on the
+      graded bed, `M·g·(C + s) ≤ pull`, at most the wagon's payload. The loaded push home at the
+      pusher's power over the pull on each step takes longer than the walk, and that time comes out
+      of the session's work; the wagon is left at the line's home end, and goes out empty with the
+      next digger. A line is no longer searched only over ground within a grade: it is cut across
+      ground up to `[track] search_grade` (now 40 %, steeper being a cliff it goes round), each
+      step's earth beyond the ruling grade weighed against going round in hours of laying, since the
+      core's villages sit on valley sides where every step from a home climbs 7 to 14 %. Nobody
+      makes a wagon or begins a line yet, so no world changes. A fix landed with it: saves of schema
+      179 load again (the bump to 180 had left them no decoder), and a test loads a save under every
+      schema from 171. **Tested:** the ruling grade sets a pushed wagon's load and its time (1,539
+      kg up 0.5 %, the full 2 t the other way, stalling loaded uphill); a line cuts through a ridge
+      when going round costs more than its earth, and goes round ground too steep to cut; in a
+      village a line along the contour from home to a coal pit, laid and with a wagon at the pit,
+      brings home more than twice one person's carry in a session and leaves the wagon at home, does
+      so again from the home end, is saved and loaded alike, and a wagon of another gauge carries
+      nothing there.
+      *As built, fourth part (2026-10-23): lines and wagons by choice.* Once a year, on a day of its
+      own, a household that knows the wagon's technique weighs a line from the deposit it digs most
+      (its held use of the place, in days a year) to home: the hours a year it would spare are its
+      dig days times a session's hours and the walk both ways, times one less what one person
+      carries over what the wagon brings in a session. The line is planned from the pit to home at
+      the ruling grade a full wagon is pushed up by one person, and when those hours over the
+      wagon's life come to more than the line's labour, the wagon's and their timber at the
+      household's own cost of it, it begins the line and a wagon at the home end, the wagon's
+      timber taken from its store. A wagon being made is worked as a cart is (its kind of work
+      carries the wagon's), and finished it is chronicled as a cart is. A household whose line
+      stands but has no wagon begins one. A track's way work counts the hours its wagon saves over
+      the line and wagon's labour. Nobody knows the wagon's technique yet, so no world changes.
+      **Tested:** a household that never digs weighs no line; digging 52 days a year the line is
+      not worth it (151 hours a year over fifteen years against 2,704) and nothing is begun though
+      it knows how; at 104 days it begins the line and a wagon at the home end with the wagon's
+      timber from its store, a second review adds nothing, and both are saved and loaded alike.
+      *As built, fifth part (2026-10-23): the observer of lines and wagons.* The ways layer tells a
+      line of track by its gauge, its bed's steepest grade and the share of it laid (wire 1.100):
+      "Wagonway of 240 m, gauge 1.0 m, graded to 1 in 300 at its steepest, 40% laid; begun in year
+      2." The map draws a line as its graded bed the width of its corridor, faint while marked out
+      and firmer as it is laid, with two rails at its gauge once it is whole, and the pointer finds
+      it across its bed and tells its keeper. Wagons join the vehicles layer as a third mode, drawn
+      as a box on four wheels where they stand, told by the pointer as boats and carts are; a
+      wagon is pushed within a dig, so it is never shown out with anyone. A line made whole is
+      chronicled ("Ada's household finished laying its line of track, 240 m, and wagons can run on
+      it."), placed at its pit end. **Tested:** half laid, a line is shown as a wagonway of its
+      gauge within its ruling grade, half laid, and nothing is chronicled; whole, it is chronicled
+      once and shown laid; a wagon is listed as a wagon where it stands and the layer's revision
+      moves when it is pushed home; the observer decodes the new fields, draws a line by how much
+      of it is laid, finds it across its bed, and draws a wagon by its own boards. **Slice DV is
+      done.**
+    - **DW**: engines on rails and train runs: block sections, single track and loops. Planned
+      (2026-10-23) in five parts, each leaving worlds where nobody knows the new technique as
+      they were: (1) the locomotive as vocabulary, a rail vehicle with an engine that burns a fuel
+      for its power, pulling up to what its driven wheels hold; (2) runs as a line's own event
+      chain, timed step by step by the engine's power over the train's pull and no faster than its
+      top speed, holding block sections of single track between passing loops, first come first
+      served, waiting at the last loop and never despawned (a pure module in `civ-land` and a saved
+      store of runs); (3) a household's engine runs its pit line, its crew from the household and
+      its coal burned by the work done, bringing the pit's stock home in loads no pusher moves; (4)
+      engines by choice, weighed as a line's wagon was; (5) the observer of runs and engines.
+      *As built, first part (2026-10-23): the locomotive as vocabulary.* A rail vehicle may name an
+      `[engine]` (content API 170): the fuel it burns, a good burned for heat, the share of that
+      heat it turns into work and its top speed; its pull and power are the vehicle's own, its
+      pull what its driven wheels hold before they slip. The core's locomotive is 5 t of engine on
+      a metre's gauge, 7.5 kW and 9,810 N, running at most 2.2 m/s and turning 3 % of its coal's
+      heat into work, made of 3,000 kg of iron in 3,000 hours by smiths who know the locomotive,
+      which needs the atmospheric engine, wooden railways and forging together and is tried by
+      those who dig coal. A wagon is now a rail vehicle with no engine, so the line's reviews and
+      hauls never take an engine for a wagon. Nobody knows the locomotive, so no world changes but
+      by the catalog's new entries. **Tested:** the core's locomotive loads with its engine burning
+      coal, its pull, power and tare, made only under its technique, and is no wagon while the
+      wagon is one; an engine too efficient, a top speed of nothing, a fuel that is not burned for
+      heat and an engine on a cart are each refused.
+      *As built, second part (2026-10-23): runs, block sections and loops.* A train is timed step
+      by step along its line's graded bed: its engine's power over the pull the step needs,
+      `M·g·(C + s)`, no faster than its top speed, at its top speed where a fall needs no pull,
+      and stalled where the pull is more than its driven wheels hold. A line's passing loops split
+      it into block sections; a run is its legs, one a section, each its whole minutes (at least
+      one). Runs are the line's own records (saves 182, the `runs` section): one holds a section
+      at a time; the others wait at the loop or end before it, the one waiting longest first, and
+      enter the minute it clears; a run that arrives stays at its end until taken off. Runs move
+      on to the minute the clock reaches at the end of every step, each leg ending and each
+      section entered at its own minute however the clock was stepped. Nobody runs a train yet,
+      so no world changes. **Tested:** the core's locomotive with 20 t behind runs the level at
+      its top speed, climbs 1 % at 2.04 m/s, stalls at 4 %, and its wheels hold 66.7 t up 1 %; a
+      line splits at its loops and a run's legs come in its own order; two runs meeting on single
+      track pass at the loop one at a time, the later waiting there, and neither is despawned; a
+      run behind a slow one waits at the loop and enters the minute it clears; on a laid line two
+      runs timed by its bed hold the sections at their ends, pass at the loop a minute on, are
+      saved and loaded where they are, and arrive.
+      *As built, third part (2026-10-23): a household's engine runs its pit line.* An engine is
+      kept beside the wagons, at an end of its household's line. Where the whole line runs from
+      beside a pit to beside home with the engine and its wagons at the pit end, a session of
+      digging there loads what the work digs onto the wagons, as goods in transit carried by the
+      wagon itself, up to what the engine's driven wheels hold up the steepest rise homeward less
+      its own and the wagons' mass; nobody carries it home. Each day the household brings its
+      trains to account: a run that has arrived leaves its engine and wagons at that end and is
+      taken off the line, and at the home end the wagons' goods go into the store; an engine at
+      the pit end with loaded wagons sets off home at six, and one at the home end with empty
+      wagons goes back out light, each burning coal by the work it does (the pull of every step
+      that needs it, times its run, at the engine's efficiency, over the coal's heat), taken from
+      the store as it sets off, and only when someone of the household is of an age to drive it.
+      Runs carry the wagons they pull (saves 183). A wagon out on a run is never pushed. Nobody
+      has an engine yet, so no world changes. **Tested:** with an engine and a wagon at the pit
+      end, a session's digging goes onto the wagon, more than twice a carry, and nothing is
+      carried home; with no coal the engine stays; with coal it sets off home with that wagon and
+      burns exactly the work of its train up the bed at 3 % of 25.8 MJ/kg; saved and loaded
+      waiting to go it is the same; arrived, the next accounting leaves the engine and wagon at
+      home, puts the load in the store and sends the engine back out light; at the pit end again
+      with nothing aboard, it waits.
+      *As built, fourth part (2026-10-23): engines by choice.* A household that keeps a whole line
+      from the pit it digs most to home, with wagons on it, weighs an engine at its yearly line
+      review once one of it knows the locomotive and it has none. A dig day brings home what one
+      person pushes in a session's work (or carries, with no wagon), and with an engine what the
+      session digs, up to what the train of all its wagons on the line holds; so the engine spares
+      the share of each dig day's session and walks that the smaller load leaves undone. Against
+      that, its coal (a run home loaded and one out light for each train that brings as much) at
+      the household's own cost or, where the pit yields it, the hours it takes to dig; and its
+      making: its labour and its iron at the household's own cost, nothing more for iron held and
+      not made. Where what it spares beyond its coal over the engine's life is more, the household
+      begins one at the pit end, its iron taken from the store, made by the household's work as a
+      wagon is and chronicled when finished. With the core's wagon, which holds more than a
+      session digs, one person pushes home all the work digs, so an engine spares a household
+      nothing and none is begun: the engine waits on loads no pusher moves. Nobody knows the
+      locomotive, so no world changes. **Tested:** with the core's wagon nothing is weighed; with
+      tubs of 100 kg and four on the line, the engine spares hours in proportion to dig days and
+      its pit's coal costs a trifle; knowing wooden railways alone, or digging a day a week, the
+      review begins nothing; at two hundred dig days it begins an engine at the pit end, 3,000 kg
+      of iron out of the store, and nothing more when weighed again; saved and loaded it is as it
+      was; worked to its 3,000 hours it is made where it stands and the chronicle says so.
+      *As built, fifth part (2026-10-23): the observer of engines and runs.* The vehicles layer
+      tells an engine on rails as a mode of its own (wire 1.101), apart from the wagons it pulls,
+      and says of each engine and wagon whether it is on a run: waiting at a loop or end for the
+      section ahead, running, or arrived. One on a run stands where the run has it: the engine at
+      the share of its leg's section it has run, at the section's start while it waits and at the
+      line's end once arrived, each wagon a wagon's length (4 m) behind along the line's cells; the
+      layer's revision moves as the train does. The run is in the engine's words ("running home
+      with 4 wagons, 380 kg aboard", "out light to the pit with a wagon", "waiting at the loop for
+      the section ahead", "arrived home") and in each wagon's ("in a train running home"). The map
+      draws an engine as an iron box on four wheels with its chimney, a wisp of steam above while
+      it runs. Nobody knows the locomotive, so no world changes. **Slice DW is done.**
+      **Tested:** an engine standing at its line's end shows as an engine and its wagon as a wagon,
+      neither on a run; set off on a ten-minute run home with the wagon, the engine is running at
+      the line's start, its words saying so, and the layer's revision moves; five minutes on it is
+      about halfway along, the wagon a wagon's length behind and nearer the start, in a train
+      running home; its leg run, it has arrived at the far end, "arrived home". The observer
+      decodes an engine on its run and draws it by its iron, apart from wagons, where the kernel
+      places it.
     - **DX**: stations, timetables set at review, fares and freight as posted terms, consignments
-      of many owners, rides as household-day blocks, who builds and owns a line.
+      of many owners, rides as household-day blocks, who builds and owns a line. Planned
+      (2026-10-24) in five parts, each leaving worlds where nobody knows the locomotive as they
+      were, and led by what slice DW found: an engine waits on loads no pusher moves, which one
+      household's digging never makes, so a line first carries others' goods. (1) Freight on a
+      household's line: a neighbour whose pit lies by the line's pit end and whose home lies by its
+      home end puts its digging on the keeper's train for a share in kind, as a mill takes its
+      toll; (2) stations and timetables: a line's ends as stations with goods waiting at them, and
+      runs a day set at the keeper's review from the last period's freight; (3) rides: a ride as a
+      person's trip and a household-day block, its fare a posted term against walking; (4) who
+      builds and owns a line: an organization by stake and a polity's `build_line` as a public
+      work between settlements, a franchise over a route as a privilege (ADR-0026); (5) the
+      observer of stations, terms and freight. *Reordered (2026-10-24):* a ride wants a line
+      between places people live, and every line so far runs from one household's pit to its
+      home, so who builds and owns a line comes third and rides fourth: (3a) a polity's
+      `build_line`, a line from a pit several of its households dig to its hearth, laid by their
+      shares of work as its passing places are; (3b) its households' own wagons on it; (3c)
+      engines and trains on a polity's line, with stations at the settlement carrying any
+      household's goods; (4) rides; (5) the observer.
+      *As built, first part (2026-10-24): freight on a household's line.* Where another household's
+      engine works a whole line from beside the pit a household digs to beside its home, a session
+      of its digging there goes onto the keeper's wagons at the pit end, as its own goods in
+      transit carried by the wagon, up to the room left on the train, when what comes home after
+      the freight is more than its own wagon or a carry brings; the keeper's train takes it home
+      with its own, and at the home end each owner's goods go into its store, a tenth of another
+      household's kept by the keeper as freight (a new ledger channel, `freight`). Nobody has an
+      engine, so no world changes. **Tested:** a neighbour at the keeper's door carries what one
+      person carries while the line has no engine; with the keeper's engine and wagon at the pit
+      end, its session goes onto the wagon, more than twice a carry after freight, and nothing is
+      carried home; the keeper's train runs it home with the keeper's coal, and there nine tenths
+      go into the neighbour's store and a tenth into the keeper's, counted as freight.
+      *As built, second part (2026-10-24): stations and timetables.* A line's first run opens its
+      ends as stations (chronicled), and from then a session's digging at its pit while the train
+      is away waits at the pit station, as goods in transit held there, up to what all the
+      keeper's wagons on the line hold, when what comes home after any freight is more than the
+      household's own wagon or a carry brings; at the pit end the train takes aboard what waits as
+      far as it has room. Trains run by a timetable: each day the departures of every line's runs
+      a day (the first at six, the rest spread over the next twelve hours) are the times trains
+      are due, and at each the households with engines bring their arrived trains to account and
+      set off where their line runs one then. What the trains bring home is tallied on the line,
+      and at the keeper's yearly line review its runs a day are set to as many as a day's goods
+      since the last review fill, at least one and at most four, the tally then begun again
+      (saves 184: a line's stations, runs a day and tally; a pending `Trains` event). Lines are
+      now weighed and trains timetabled every day, where before they were only in a world where
+      someone had waded. Nobody knows the locomotive, so no world changes. **Tested:** the first
+      run opens stations and the chronicle tells it; digging with the train away waits at the pit
+      station, more than twice a carry, and goes aboard when the train is next at the pit end;
+      the goods brought home are tallied; the review sets one run a day for a little and four for
+      a great deal, then clears the tally; saved and loaded the line is as it was; left to the
+      clock, the trains run by the timetable and the waiting goods reach the store by the next
+      evening.
+      *As built, third part, first step (2026-10-24): a line laid together by law.* A new policy
+      kind, `build_line`, answers a new issue, `loads_carried` (content API 171: template
+      `core:policy/yourselves_work_a_line_to_the_pit`). At its review a polity whose catalog has
+      such a template and among whose people someone knows how to make a wagon, with no line of
+      its own still being laid, looks at each pit two or more of its households dig: it plans a
+      line from the pit to the hearth, and reckons for each digger the hours a year a wagon on it
+      would spare it (its dig days times a session and the walk there and back, times the share of
+      a carry the wagon makes needless, less a wagon's making spread over its life). Where what
+      they would spare together over the wagon's life exceeds the line's labour and its timber
+      reckoned in hours, its loads carried are an issue, its diggers deliberate, and a member may
+      propose the line, named by the pit's cell. Passed, the polity marks it out as its own line,
+      kept by the polity, and its households work their shares of it from their own timber, as a
+      passing place by law is; its last length is chronicled as laid together. Wagons and an engine
+      on it come in the next step. Nobody knows the wooden railway, so no world changes.
+      **Tested:** with two households digging a coal pit two hundred days a year, no line is
+      weighed until one of them knows the wooden railway; then the line from the pit to the hearth
+      would spare both, and a law for it would bring them more than any household that does not
+      dig there; a review raises the issue and proposes it; passed and known, the polity's line runs
+      from the pit's cell to the hearth's; saved and loaded it is as it was; the two households'
+      shares lay it, each counted toward its share, the chronicle tells it laid together, and no
+      further line is weighed while it stands.
+      *As built, third part, second step (2026-10-24): wagons on a line laid together.* A line a
+      polity keeps serves the households of the settlement at whose hearth it ends, its end there
+      counting as their home: a household's own made wagon of the line's gauge standing at either
+      end carries home from the pit what a session digs, as on a line of its own, its goods going
+      from the hearth end into its store, the wagon left standing there. At its yearly line review
+      a household that keeps no line of its own and digs most at a pit such a line runs from
+      weighs a wagon on it rather than a line of its own, and begins one at the hearth end where
+      the hours it spares over its life are more than its making takes. Engines and trains still
+      run only on a household's own line. Nobody knows the wooden railway, so no world changes.
+      **Tested:** after the line laid together, a digger with no line of its own begins a wagon at
+      the hearth end and lays nothing; a household with a made wagon on the line brings home more
+      than twice a carry from the pit, its wagon left at the hearth end; saved and loaded, the
+      world goes on alike.
+      *As built, third part, third step (2026-10-24): engines and trains on a line laid
+      together.* A household's engine runs on its polity's line as on a line of its own: the
+      lines it may run trains on are those it may run wagons on, its own or one its polity keeps
+      ending at its hearth, the hearth end counting as home. Trains are run by their engine's
+      owner, its operator, who drives and burns its own coal; a neighbour's digging goes aboard
+      the first operator's train at the pit end (operators tried in the order their engines were
+      begun), or waits at the pit station, and comes off at the end that is home to the
+      operator, going into the neighbour's store less the operator's tenth in freight. A household
+      with its wagons on its polity's line weighs an engine there and sets the line's timetable at
+      its yearly review, as on a line of its own. Nobody knows the locomotive, so no world changes.
+      **Tested:** on a line from a pit to the hearth kept by the polity, a neighbour with no wagon
+      carries what one person carries until an operator's engine and wagon stand at the pit end;
+      then its digging goes aboard, the operator's train runs it to the hearth with the
+      operator's coal, it reaches the neighbour's store less a tenth, the wagon stands at the
+      hearth end, and the run opened the line's stations; saved and loaded, the world goes on
+      alike.
+      *As built, fourth part, first step (2026-10-24): rides out to the pit.* A ride is a step of
+      a person's activity: from a line's station to its other end, waiting there for the next
+      run its timetable sets off (up to an hour and a half; past that, or with no engine standing
+      at the station, they walk on instead), then along the line at a light engine's pace, aboard
+      and wearing no ground (ADR-0034 §5). Its fare is a posted term: at the operator's yearly
+      review the line's fare is set to the coal a light run out burns, shared among a run's riders
+      since the last review (one at least), and the rider's household pays it to the operator in
+      the engines' fuel as it boards (a new ledger channel, `fare`); a household that cannot pay
+      walks. Someone setting off to dig weighs a ride out to the pit on a line it may run wagons
+      on, from its home or hearth end to its pit end: the walk to the station, half the time
+      between the timetable's runs, the ride and the walk from the pit end, with the fare at its
+      own cost of the fuel, against walking there; where the ride is quicker it walks to the
+      station, rides out, digs, and walks home (saves 185: a ride step, a line's riders and fare).
+      Household-resolved settlements leave a ride out of their day for now (the next step). Nobody
+      knows the locomotive, so no world changes. **Tested:** a household on its polity's line
+      sees no ride while no engine stands at the station or the stations are shut, and then one
+      to the pit end; at the station before the morning's train, without the fare's coal it is
+      refused, with it the fare goes to the operator and is counted as a fare, the line counts the
+      rider, and the ride waits until six and ends at the pit end, aboard; saved and loaded the
+      world goes on alike; at the operator's review the fare is posted from the light run's coal
+      and the tally begins again.
+      *As built, fourth part, second step (2026-10-24): rides in a household-resolved day.* A ride
+      is a block (ADR-0034 §7): a household-resolved person's day lived at midnight may now take
+      up a dig with a ride out, and the ride takes its seat on a run of the day's timetable and
+      its fare as an event-driven ride does, the person then at the line's end; with no train
+      that day, an engine away from the station, or no fare held, the ride is left out and the
+      walk after it goes on from where they stand. Nobody knows the locomotive, so no world
+      changes. **Tested:** at midnight, a ride set off then is refused, the morning's train hours
+      off, while the day's ride takes its seat, pays the fare posted at the review to the
+      operator, counts on the line and ends at the pit end.
+      *As built, fifth part (2026-10-24): the observer of stations, terms and freight.* The ways
+      layer carries each line's terms (wire 1.102): whether its ends are open as stations, its
+      runs a day, its posted fare in kilograms of fuel, and since its last review the rides taken
+      and the goods brought a day; the layer's revision follows a line's record as well as the
+      land's. A line with open stations tells them in its words ("Stations at both ends; 2 trains a
+      day; a ride costs 0.6 kg of coal; 14 rides and 380 kg brought a day since its review."), so
+      the pointer's readout over a line gives its timetable, fare and freight. The map draws a
+      small square at each end of a line whose stations are open. The kernel's words are the line's
+      page; a page of its own waits for a line with more than two stations. Nothing in a world
+      changes. **Tested:** before its first run a line shows no stations and its words name none;
+      after it, the layer shows its stations open, one train a day and no fare, its words say so
+      and its revision moves; with a fare of 0.6 kg posted, 14 rides and 760 kg brought over two
+      days, it shows the fare, the rides and 380 kg a day in its fields and words, the revision
+      moving again. The observer decodes the new fields, marks a line's two ends once its
+      stations are open and none before, and reads out its timetable, fare and freight.
+      **Slice DX is done.** Of its plan, an organization by stake owning a line and a franchise
+      over a route (ADR-0026) are not built: a line is kept by a household or by its polity, and
+      no line yet joins two settlements, so neither has anything to answer. They wait for a line
+      between settlements, which no household or polity yet weighs.
     - **DY**: the gas chain: gasworks, holders, mains, connections by district capacity,
-      interruptions by cause, street lighting as a public work.
+      interruptions by cause, street lighting as a public work. Planned (2026-10-24) in five
+      parts, each leaving worlds where nobody knows gas lighting as they were (ADR-0034 §8–§9;
+      brief §2): (1) gas as vocabulary: coal gas, a good accounted by its energy content, made
+      from coal in a gasworks' retort with coke left over, kept in a holder that holds so many
+      kilograms of it, and burned in a fitted burner whose light is piped rather than carried, under
+      a technique found by those coking coal who know lamps; (2) the works: a gasworks makes gas by
+      its holder, gas made beyond the holder's room or with no holder lost to the air, the holder's
+      gas recorded by energy; (3) mains and connections: a main laid by work along ways from the
+      works with each stretch's keeper's leave, burners connected in buildings, and each evening a
+      check by district of the holder's gas and the main's capacity against the burners lit,
+      delivered or interrupted by a named cause (no gas, a main overloaded, a main broken, an
+      account cut off), a connected home lit where it burns; (4) by choice: the works' holder
+      sells gas by the meter (a new ledger channel), households connect where an hour of gas light
+      costs them less than their lamp or their work, the works lays mains where connected demand
+      repays them, and a polity may light its streets by law, lamps on its ways lit and put out on
+      a lamplighter's rounds, lit streets restoring sight as lamplight does; (5) the observer:
+      works, holders, mains and lit streets on the map, a building's service in words.
+      *As built, first part (2026-10-24): gas as vocabulary.* A fixed tool may carry a `[holder]`
+      table, the good it keeps apart and how many kilograms full, and a light may be `piped`, its
+      fuel coming by a main rather than from its household's stores (content API 172). Coal gas is
+      a material accounted by its energy, 40 MJ a kilogram (some 20 MJ a cubic metre at half a
+      kilogram a cubic metre; tuning values, research 12-09 gives none and warns that made gases
+      differ), which no hearth burns. A gasworks' retort, a fixed tool built of 6,000 kg of brick,
+      500 kg of clay and 600 kg of iron in 800 hours, makes 0.14 kg of gas and 0.65 kg of coke from
+      a kilogram of coal (some 280 cubic metres a tonne; tuning values) for 0.015 hours' stoking. A
+      gas holder of 8,000 kg of stone, 500 kg of timber and 2,500 kg of iron keeps 150 kg of gas,
+      some 6,000 MJ. A gas burner, half a kilogram of iron, burns 0.071 kg an hour (0.142 cubic
+      metres, 12-09 §2.3), piped. Gas making needs coking and lamps and is found coking coal with
+      coal at home (E50 500,000 hours); founders do not bring it, and nobody wants a retort, a
+      holder or a burner for its own sake. A piped burner is no lamp: a household holding one
+      neither works by it nor keeps fuel for it, so its light waits for mains (the third part).
+      Nobody knows gas making, so no world changes. **Tested:** the holder names coal gas and 150
+      kg and the burner its piped gas at 0.071 kg an hour, the fat lamp not piped; coal gas gives
+      40 MJ a kilogram and the core's recipe makes it from coal with coke left over; a holder of 0
+      kg or above 100,000, a holder on a tool that is not fixed, and a held good that is no good
+      are each refused.
+      *As built, second part (2026-10-24): the works.* Gas keeps only in a holder: a household's
+      coal gas is kept to the room of the whole holders it holds (150 kg each in the core), and
+      what a session at the retort makes beyond that room, or all of it where it holds no holder,
+      goes to the air at once, counted as spoiled; its stores settle to the same room. The
+      holder's gas is its kilograms by its heat, 6,000 MJ full. A retort session's first two
+      hours fire it and make nothing (the recipe's session hours); after them each 0.015 hours
+      charges a kilogram of coal. Nobody knows gas making, so no world changes. **Tested:** with
+      no holder a session's gas all goes to the air, counted as spoiled, while its coke (0.65 kg
+      a kilogram of coal) stays and its coal is spent; with a holder an hour's making past the
+      firing is kept, 0.14 kg a kilogram of coal; long sessions fill it to 150 kg exactly, 6,000
+      MJ, the rest lost; a day on the gas is still there; saved and loaded the world is alike; two
+      whole holders hold 300 kg, a good no holder keeps is untouched, and a holder short of whole
+      holds nothing.
+      *Split (2026-10-24):* the third part in two, as DX's third was: (3a) mains and connections
+      as records with the evening's check, (3b) mains laid by work along ways with each stretch's
+      keeper's leave.
+      *As built, third part, first step (2026-10-24): mains, connections and the evening.* A main
+      is a record: the household whose works feeds it, the cells it runs along, the most gas it
+      carries an hour and whether it is broken; a connection is a building's burners on a main,
+      its household, whether its account is cut off, and its last evening (saves 186: a `gas`
+      section and a pending `Gas` event). At dusk each day while any main is laid, each main's
+      district is checked (research 12-09 §5.2, a capacity check, not a flow solver): its
+      connections, in the order made, are lit for four hours (12-09 §2.3) while the main carries
+      their burners at 0.071 kg an hour each and its works' gas lasts, the gas served drawn from
+      the works' household's stores; the rest are not, each by its cause kept apart (§1.5): no
+      gas, the main overloaded, the main broken, the account cut off. A home whose burners are lit
+      is lit as a lamp lights it: making at home after dark there burns none of the household's
+      fuel, it is planned for as long as the burners burn, a lit home restores day sight to those
+      about and its members working by it add the lamp's escapes. A household-resolved day, lived
+      at midnight before its evening is checked, still lights by its lamp. Nobody knows gas
+      making, so no world changes. **Tested:** a main's connections are served while its
+      capacity and its works' gas last and the next is overloaded or without gas; lit from dusk
+      for four hours, two burners' gas (0.568 kg) is drawn from the works; making at home in the
+      lit evening burns no tallow and is the world's first light; too little gas, too small a
+      main, a broken main and a cut-off account each leave the home dark by their cause; left to
+      the clock the next dusk lights it again; saved and loaded every section comes back alike.
+      *As built, third part, second step (2026-10-24): mains laid by work.* A main is begun from
+      its works' household's home to a building's cell, routed along the cells of ways whose
+      stretches' keepers give leave (research 12-09 §1.3: a main under a way needs its keeper's
+      leave): stretches kept by nobody, by the works' own household or by its polity; the fewest
+      cells by the eight neighbours, so the same land routes the same main. Its length is marked
+      out and nothing laid. A land profile's `[gas_main]` says what laying it takes (content API
+      173): the core's cast-iron main takes 25 kg of iron and 3 hours a metre to dig, lay, joint
+      and fill in, and carries 6 kg of gas an hour (tuning values). Only its works' own household
+      lays it, each hour's metres taking their pipe from its store, no more than the pipe held
+      allows; a main carries gas, and its connections are checked at dusk, only once its whole
+      length is laid (saves 187: a main's length and length laid). Who begins one, and when, comes
+      with gas by choice (the fourth part). Nobody knows gas making, so no world changes.
+      **Tested:** a route keeps to ways whose keepers give leave and finds none where a keeper
+      gives none; begun along a way kept by another household no main is begun, along one kept by
+      nobody it runs from the works to the building at the core's bore; half the pipe lays half
+      of it, and laid in part it is not checked at dusk; another household's work lays none of
+      it; the rest of the pipe makes it whole, and at dusk it lights the building; the core's
+      `[gas_main]` names a good that must exist and a rate above zero; saved and loaded every
+      section comes back alike.
+      *Split (2026-10-24):* the fourth part in three, as DX's was: (4a) gas sold by the meter and
+      homes connecting by choice, (4b) the works laying mains where connected demand repays it,
+      (4c) streets lit by law on a lamplighter's rounds.
+      *As built, fourth part, first step (2026-10-24): gas by the meter.* At dusk, before a main
+      laid whole and not broken is checked, households whose home lies on it or beside it weigh
+      connecting: one not yet connected, not its works, that holds an evening's price connects
+      where an hour of gas light at the meter costs it fewer of its own hours than an hour of its
+      work, or than an hour of a lamp it holds whole (the lamp's hour, its fuel and its wear, is
+      the reckoning the lamp by choice made, now shared). The meter's price is the coal a retort
+      charges for the gas, the first input of the recipe that makes it over the gas it makes (7.1
+      kg of coal a kilogram in the core; a tuning choice, research 12-09 gives no tariff), and a
+      household that has no figure of its own for coal reckons it by its heat in firewood at its
+      own cost of that. The works fits it a burner the works holds whole, at the works' own cost,
+      and the works of a main laid whole keeps one by it, made as a tool is. Each household
+      served pays the works after the evening, its burners' gas at the meter's price by a new
+      ledger channel (`Gas`, "gas by the meter"); one that cannot pay it all pays what it holds
+      and is cut off, dark by that cause, until it holds an evening's price again. Nobody knows gas
+      making, so no world changes. **Tested:** with no burner at the works nobody connects; with
+      one, the home at the main's end is fitted and lit, and pays 2.03 kg of coal (four hours of
+      0.071 kg at 7.1), counted by the channel and received by the works; short of coal it is lit
+      that evening, pays what it holds and is cut off, dark by that cause the next, and restored
+      once it holds the price; the works, its burner fitted and its people smiths, makes another;
+      saved and loaded every section comes back alike. *Observed:* an unskilled smith's session
+      makes half a burner (tools made are worth their maker's quality), and half a fixed tool
+      serves for nothing; the works made no second half in four days. Left for 4b to watch, as a
+      works' own people learn smithing as they work.
+      *As built, fourth part, second step (2026-10-24): mains where demand repays.* Once a year,
+      on a day of its own, a household holding a gasworks (a whole holder of some gas and the
+      whole retort of a recipe making it), knowing gas making and laying no main yet, weighs a
+      main to each home of its settlement it can reach along ways with leave, as the third part
+      routes one. The homes along a route, its end's among them, not yet connected and that would
+      have gas light at the meter's price (the fourth part's own weighing), would each repay a
+      burner's evenings a year at the works' gain on a kilogram of gas sold: the meter gives back
+      the coal its retort charged, so its gain is the coke that charge leaves, at its own cost of
+      it or its heat in firewood, less the stoking. Against that it sets the main's digging and
+      laying and its pipe at its own cost (pipe it holds counts as in hand where it can put no
+      figure on iron) and a burner each; it begins the main that repays it most where the homes
+      would repay more over the main's life (a land profile's `life_years`, content API 174; the
+      core's 50) than that takes, marked out with what it reckoned they repay a year (saves 188).
+      A main it is laying is its people's way work, each hour worth that reckoning over the
+      main's life spread over its laying, offered while a metre's pipe is in hand and laid a metre
+      at a time as the third part lays it; the works wants the pipe the rest of the main takes as
+      a tool's material is wanted. Nobody knows gas making, so no world changes. **Tested:** a
+      works that does not know gas making weighs no main; knowing it, a main to a home some cells
+      off along a way kept by nobody is reckoned to repay that home's evenings, its cost its
+      laying alone with the pipe in hand, and more over fifty years than that; its review begins
+      the best, marked with its reckoning, and a second begins nothing while it is laid; left to
+      the clock, the works' people lay it as way work within six days, 25 kg of iron a metre
+      taken; saved and loaded every section comes back alike.
+      *Split (2026-10-24):* the third step, streets lit by law, in two: (4c1) the law and its
+      lamps, (4c2) the lamplighter's rounds and lit streets restoring sight.
+      *As built, fourth part, third step, first half (2026-10-24): streets lit by law.* A new
+      policy kind, `light_streets`, and the issue it answers, `dark_takings`: within the year
+      something was taken from a household of the settlement after dark, its people found it
+      missing and nobody saw who took it, someone of the settlement knows how to make a light (a
+      recipe making a lamp whose technique one of them knows), and a lamp could stand beside a
+      home on a public way (one kept by nobody or by the polity). The household taken from is
+      among those who may propose it. It names an office as a watch does, its holder the
+      lamplighter, the adult the sponsor regards most, themselves at full regard; held for a
+      term, filled by lot where its template says, and lapsing as an office does. A household
+      weighs it as a watch, by a people profile's `crime.lit_guard` of what was taken (the share it
+      believes those about would see by lit streets; the core's 0.3, below a watch's 0.5: lamps see
+      nothing themselves; content API 175). Passed, the polity sets a lamp at once beside each home
+      of its settlement, on the public way's cell nearest it within a cell, each cell once, unlit
+      (saves 189: the gas section's street lamps, each its cell, polity, law and the minute it burns
+      until). The core's template is `policy/yourselves_work_the_street_lamps`. The rounds that
+      light them, and what lit streets let people see, are the second half. Nobody knows lamps at
+      the founding, so no world changes. **Tested:** with nothing taken, no issue; a taking at one
+      in the morning that nobody saw and its household found is the issue once someone knows lamps;
+      the lamps would stand on the way beside the homes; someone proposes it against takings in
+      the dark, naming a lamplighter; passed, the lamps stand there unlit, the polity's by that
+      law, its lamplighter holds the office, and no more are wanted; a lamp lights the cells about
+      it while it burns; saved and loaded every section comes back alike.
+      *As built, fourth part, third step, second half (2026-10-24): the lamplighter's rounds.* A
+      new behaviour, `light` (content API 176, `activity/light_lamps`): after dark, while lamps of
+      the law naming them stand unlit and a night's fuel for one lies in the polity's store or
+      their household's, the lamplighter may walk a round of them in the order they were set, a
+      two-minute stand at each, worth a people profile's `crime.w_light` points (the core's 6, as
+      a watch's round). Standing at a lamp they light it until the next sunrise, its night's
+      fuel at the first household light's rate (the fat lamp's 8 g of tallow an hour) taken from
+      the polity's store and the rest from their own household's; a lamp whose fuel is not there
+      stays dark, and the world's first lamp lit is remembered as a lamp lit at home is. A lamp
+      goes out at dawn by itself (the putting out is not walked). It is taken once a day, and
+      shared out in a household-resolved day as a watch's round is. Where a street lamp burns
+      within as many cells of a place as `lit_m` reaches, those about see a taker there as by day,
+      as by a lamp lit at home. Street lamps on mains, lit by gas, are left for later: the core's
+      lamps burn tallow. Nobody knows lamps at the founding, so no world changes. **Tested:** by
+      day no round; after dark with no tallow in the store or at home none either; with tallow at
+      home the round passes every unlit lamp; the lamplighter standing at one lights it until the
+      next sunrise from the household's tallow, 8 g an hour, and the store pays first where it
+      holds tallow; where a lamp burns sight is day sight, far from any light dark sight; left to
+      the clock with the lamps out, the lamplighter lights them at the next dusk by choice; saved
+      and loaded every section comes back alike.
+      *As built, fifth part (2026-10-24): the observer of gas.* The ways layer lists every gas
+      main and street lamp (wire 1.103): a main by its route from its works, its length and share
+      laid, the gas it carries an hour, whether it is broken, the buildings connected to it and
+      those lit now, and in words ("Gas main of 120 m from Ada's gasworks, laid, carrying up to
+      1.0 kg of coal gas an hour; 2 homes connected, 1 lit now"); a lamp where it stands, whether
+      it burns, and whose ("Street lamp of Ashford, set by its law to light the streets; burning
+      until 05:42"). The ways' revision follows each main's laying, each connection's last
+      evening and whether its burners burn, and each lamp's. A building's page says its gas: its
+      burners on a main and how its last evening went, lit until when or dark by its cause
+      (waiting for the main to be laid, the works' gas short, the main overloaded or broken, its
+      account cut off), and the first building of a household holding a gas holder reads as its
+      gasworks, its retort and holder, the gas held and the mains it feeds. A person whose home
+      burns gas now reads as working by gaslight, or lit by gas until its burners go out; the
+      clock's lit homes already count homes lit by gas (third part). The map draws a main as an
+      iron line along its route, fainter while it is laid and red once broken, and a lamp as a
+      dot, warm and haloed while it burns, and the pointer reads either out. **Tested:** a main
+      half laid reads by its share and its home waits for it; laid whole, the home is not yet lit
+      until its evening, then lit until four hours on, the main showing one home lit and the
+      works feeding one main; the person of the home reads gaslight; a main too small and an
+      account cut off read by their cause; a street lamp reads burning, then dark, the revision
+      following each; on the web, the decoding of mains, lamps and a building's gas, how a main
+      and a lamp are drawn and found under the pointer, and on a fresh world there are none.
+      **Slice DY is done.**
   - **M10c, services and letters** (ADR-0035 §1–§7).
     - **DZ**: care beyond the household: a call, tending another home, kin unasked, the `Fee`
-      channel, reputation from claims.
+      channel, reputation from claims. Planned (2026-10-24) in three parts, each leaving worlds
+      nobody falls ill in as they were (brief `docs/briefs/m10-services.md` §2.1, §6.1): (1) kin
+      tend unasked: close kin living apart who have heard a home's sickness walk there to tend it,
+      exposed there as its members are; (2) a call: a household short of care sends someone to a
+      carer's door leaving a request with a fee, the carer tending on the request and paid through
+      an appended `Fee` channel, kin and ties asking none; (3) reputation from what clients saw,
+      claims of those a carer tended who lived or died weighing whom a household calls, and the
+      observer: care given and received in words.
+      *As built, first part (2026-10-24): kin tend unasked.* Where nobody of a person's own home
+      is owed care, the home of close kin living apart (a parent, child, brother or sister) whose
+      sickness they heard of within the word's spell (`word.sickness_spell_days`, the core's 14)
+      and whose ill are still owed care is one they may tend, the most owed first and the nearer
+      of two alike, within the tending activity's walk (now half an hour, as farming's; a tuning
+      value): the walk there and back counts against it as asking's does, and the session's hours
+      go to that home's ill as a member's would, recorded as care by them. A carer come from
+      another home is exposed there to each disease passing by the household route that its
+      members shed that day, at a member's hazard, by a draw of their own for the day
+      (`SickDraw::Visit`), taken as from that home. Nothing is saved anew. The same holds in a
+      household-resolved day, where tending another home is a block as tending one's own is. A
+      world where nobody falls ill is unchanged. **Tested:** a home all abed, and an adult of
+      another home made a member's child by the records: having heard of the sickness they come
+      and tend it, in both resolutions, and not having heard nobody does; where its sick shed,
+      the kin who sat with them takes it that day, recorded as from that home.
+      *As built, second part (2026-10-24): a call for a carer.* A new behaviour, `call` (content
+      API 177, `activity/call_a_carer`, from seven years old, ten minutes at the door, as far as
+      half an hour's walk): where the care owed to a household's ill (each severely ill one whole,
+      the rest half, less what was given today) is more than its well members of tending age can
+      give, one each, and it has no call standing, someone well of it walks to the door of a
+      household with someone able to tend and leaves a call: close kin of any of its members
+      first, asking no fee, else the nearest household of someone the caller has a tie with, for
+      a fee of half a day of the household's food for each day of care (`CALL_FEE_FOOD_DAYS`, a
+      tuning value; research 05-05 prices a healer in money, not food), which it must hold to ask.
+      So a child old enough to run an errand goes for help for a home all abed. The call stands
+      (saves 190, in the sickness section) until nobody of the household is ill, either household
+      is no more, or the word's spell has passed; someone of the household called may tend its
+      ill as close kin who heard of it would (the first part), and the first session each day the
+      caller pays the day's fee in food, the least keeping first, through a new ledger channel,
+      `Fee` ("fee for care"); one that cannot pay it all pays what it holds and its call lapses.
+      Calling is a once-a-day block in a household-resolved day, as asking for food is. The
+      reason for tending now reads "someone ill needs tending". A world where nobody falls ill is
+      unchanged. **Tested:** a home all abed but a child of eight: with a grown son of one of them
+      living apart, the child calls him the first day, asking no fee, and he comes; with only
+      someone the child knows by a trade, the child calls a household it knows for half a day of
+      the household's food, someone of it comes, and the day's fee is paid in food through `Fee`;
+      the call saves and loads with the rest and lapses once nobody is ill.
+      *As built, third part (2026-10-24): a carer's repute, and the observer of care.* When an
+      illness ends that someone of another household was first to tend, the living members of the
+      bearer's household see what came of it, a tie act each: `tended_lived`, good evidence of the
+      carer's craft (with a little familiarity and warmth), or `tended_died`, bad evidence of it
+      (content API 178; tuning values). A carer's repute to a household is the most net good
+      evidence in craft any of its members holds of anyone of the carer's household, beyond the
+      prior; it is what clients saw, never the treatment's worth, so a carer whose tended happened
+      to live is sought whatever their remedy did. A household calling someone not of its kin now
+      weighs the households of anyone any of its members has a tie with, the nearest less ten
+      minutes' walk for each unit of repute (`REPUTE_WALK_MIN`, a tuning value); kin still come
+      first. A person's page says their care of other homes (wire 1.104): the sick of other homes
+      they were first to tend and what came of it, and the calls their household was asked to
+      answer or made, with their fee; an infection taken tending another home reads as taken
+      there. Nothing is saved anew (ties keep evidence by domain). A world where nobody falls ill
+      is unchanged. **Tested:** a child calling for a home all abed calls the nearest household
+      it knows, then, where the household has seen the sick an adult of another household tended
+      live, that household instead; once the sick are well, those at home hold the carer in
+      esteem for their craft, and the carer's page says whom they tended and that they lived; on
+      the web, a person's care decodes and shows. **Slice DZ is done.**
     - **EA**: birth care: the maternal draw split by complication and rescaled by births attended,
-      birth attending and clean hands.
+      birth attending and clean hands. Planned (2026-10-24) in two parts, each leaving worlds
+      where nobody attends a birth as they were (brief `docs/briefs/m10-services.md` §2.2, §6.2):
+      (1) the split draw and the techniques: the maternal rate divided among complications,
+      techniques that prevent a share of each, the attendant from the mother's household or close
+      kin, and the harm of one fresh from the fevered; (2) calling an attendant to a birth due,
+      and the observer of births attended.
+      *As built, first part (2026-10-24): the split draw.* A people profile divides mothers'
+      deaths in childbirth among bleeding, fever after the birth and labours that would not end
+      (`[mortality.birth]`, 0.3, 0.4 and 0.3; design priors), and a technique may carry a `[birth]`
+      table, the share of each complication's deaths an attendant who knows it prevents (content
+      API 179). `birth_attending` prevents 30 % of bleeding and obstructed labour (05-05 §2.1's
+      20–40 % for doubled Swedish midwives taken as a ceiling), learnt in 200 hours beside a knower
+      or at home as a child; `clean_hands` prevents 82 % of fever after the birth (§2.1's 11.3 %
+      against 2.0 % in Semmelweis's wards), learnt in 10 hours; both are found tending the sick,
+      very slowly, and nobody brings them. A technique with a birth effect gates work (E3005). The
+      authored maternal rate is read as the rate with nobody attending who knows a technique of
+      birth care (a declared reading: the brief's reference coverage, rescaling it by an
+      assumed share attended, would change every world), and the birth's one draw is as ever:
+      unattended, the mother dies below the rate, exactly as before, and her death is chronicled
+      as childbirth. Attended by the person of her household or close kin of her settlement, well
+      and of tending age, who knows a technique of birth care and whose techniques prevent the
+      most, she dies only below what is left of each complication's part of the rate; one who
+      tended someone ill within a week (`fever_harm_days`, saves 191: the last day each person
+      tended the ill, kept while it matters) and knows nothing against infection makes fever
+      after the birth twice as likely (`fever_harm`; 05-05 §1.6), never more than certain. A
+      death where someone attended is chronicled with the complication they saw
+      ("childbirth:infection"). No world changes until someone knows a technique of birth care.
+      **Tested:** the draw unattended is the rate exactly at every point; an attendant who
+      prevents all bleeding and obstruction leaves fever's part, twice it fresh from the fevered;
+      a birth unattended kills where the rate is certain and is chronicled as childbirth; with a
+      member who knows birth attending she lives where the rate is all bleeding and obstruction
+      and dies of fever where it is all fever, chronicled so; where half of births kill by fever,
+      an attendant fresh from tending the ill kills her, and one who also knows clean hands
+      does not; who tended the ill saves and loads.
     - **EB**: teaching and study settled at midnight, working alongside recorded the same way (the
       parked-learning claim checked first), schools and `keep_a_school`.
     - **EC**: letters and records: reading, writing and reckoning as techniques, written records as
@@ -7250,6 +8165,13 @@ One line each. Don't re-litigate without a reason written next to the entry.
   heard from being proposed, since its gathering now passed one, and a case's time to pay
   reopened the loan, before the pledged field lay between crops (the courts have their own
   tests).
+- **The smoke's dry household again, and a failing world's identity (2026-10-24, found by slice
+  DY part 4b's chain):** the smoke failed once, "1 households have no water" in `ria_coast` seed 3,
+  and passed on rerunning the same build; no smoke world knows gas making, so DY's changes nothing
+  there reads. A probe lived that seed's 30 days under 40 fixed identities and found no dry
+  household. The cause stays open: the smoke drew the identity and never printed it, so the world
+  could not be replayed. **Changed:** a failing smoke world now prints its identity among its notes
+  (`identity <hex>`), so the next one can be lived again exactly with that identity.
 - **M8d design (2026-10-19, plan §7):** from the building brief (`docs/briefs/m8-building.md`),
   one ADR, [ADR-0031](decisions/0031-tall-public-buildings-and-shaking.md). **The brief's open
   questions, answered:** (1) `trussed_roof`, `storeyed_frame` and `tied_masonry`, none known to
@@ -7354,6 +8276,179 @@ One line each. Don't re-litigate without a reason written next to the entry.
   evaluations of Gate C (each about five minutes) took the household day from leisure +75 %, sleep
   −100 % and food +17–30 % to every aggregate within a few points of its tolerance; the rest is
   time-boxed here and recorded above (plan §7, DI). Tolerances were not touched.
+- **Design priors for water mills (2026-10-22, M10a slice DR):** NUDGE: a wheel is set at half a
+  metre of fall or more and 50 m from any other, grinds eight hours a day and is reckoned to ask
+  100 hours a year of upkeep (dressing the stones, clearing the race) in its owner's choice,
+  though that upkeep is not yet worked; the toll is a sixteenth of the flour. Without the upkeep
+  a household grinding 600 kg a year beside a working mill would set a second for the toll it
+  saves. Each revisited if the M10 demo shows mills nowhere where grain is ground by hand at
+  scale, or one beside every household.
+- **Design priors for coal (2026-10-22, M10a slice DS):** NUDGE: seams lie on upland slopes
+  (slope 0.05–0.6, 5 m or more above a channel), 0.3 to a square kilometre that qualifies,
+  20–60 m in radius, 0.5–2 m thick under up to 6 m of cover, 40 % of those under cover showing,
+  1,300 kg of coal a cubic metre of which 60–95 % is sorted out as coal, broken out at 8 hours a
+  cubic metre; burning coal is found at an E50 of 2,000 hours of gathering wood where a seam is
+  known (cheap where coal shows, ADR-0033 §1) and is learned in 20 hours; coal smokes twice as
+  much as wood. The research gives none of these. Each revisited if the M10 demo shows coal
+  burned nowhere a seam shows, or everywhere within a year.
+- **Design priors for pits that flood (2026-10-22, M10a slice DS):** NUDGE: a coal seam and the
+  ground it lies in pass 0.3 m of water a day (within research 03-02's 0.001-10 m/day for fractured
+  bedrock); the other bodies none, so clay, stone and flint pits stay dry as before (intact clay
+  passes 10^-7-10^-4 m/day); a pit fills as a well of its area's radius with a 50 m radius of
+  influence; a person bails at 75 W, half of it lifting water (07-06 §1.3, §2.2); water coming in
+  during a session is counted from its end. Revisited when pumping by wheel or engine (DS's next
+  part) is weighed against bailing.
+- **Design priors for the atmospheric engine (2026-10-22, M10a slice DS):** NUDGE: an engine
+  gives up to 4 kW (a Newcomen engine's 5.5 hp) at 1 % of its fuel's heat (research 07-06 §2.3:
+  0.5-1.5 %), lasts 40,000 hours of working, works a pump at half its power into lifting water
+  (07-06 §2.2) and is kept going 12 hours a day; its tending is not yet counted in anyone's hours
+  (the works' crews, slice DT). It burns its owner's fuels in the catalogue's order by heat, coal
+  first. Revisited with the works' crews and when the M10 demo shows whether engines pay at pit
+  heads.
+- **Design priors for setting an engine (2026-10-22, M10a slice DS):** NUDGE: building an
+  atmospheric engine takes 2,000 hours, 300 kg of copper, 150 kg of bar iron, 1,500 kg of timber
+  and 3,000 kg of stone (07-06 §4.2 names the parts but no hours); the technique is found by those
+  digging coal with coal and bar iron at home at an E50 of 400,000 hours, and learned in 400; a
+  household weighs it on its day of the year once it has bailed a pit for half a year, over at
+  most 20 years of the engine's life at its work, valuing the pit's own fuel at the hours it takes
+  to dig. With these an engine repays only some thousands of hours of bailing a year, several
+  hands bailing most days: Newcomen's niche, the deep pit where drainage limits. Revisited if the
+  M10 demo shows engines set nowhere coal pits are bailed for years, or at every wet pit.
+- **Design priors for crews and the bell (2026-10-22, M10a slice DT):** NUDGE: a tilt hammer
+  takes two at it (one at the bloom, one at the hearth); a works' bell rings at sunrise and its
+  shift is ten hours, cut at sunset (07-12 §4.2 gives long shifts and the bell, not a number); a
+  hand goes no sooner than an hour before it; a crew counts those at the same work since the
+  session began and still there. The hammer forges bar in an hour and a half and 5 kg of
+  charcoal a kilogram, at 1 kWh, lasting 20,000 hours (07-05 §2.3 and 07-06 §4.1 give the hand
+  figures and the mechanism, not the hammer's). Revisited with the works' block and when the
+  M10 demo shows whether any works rings a bell.
+- **Design priors for wheels at pits (2026-10-23, M10a slice DT, fifth part):** NUDGE: a
+  wheel's rods carry its work 300 m to a pit's pump, and it pumps twelve hours a day at the
+  pump's half, its other work (a mill's, a hammer's) taken in the same daylight and not netted
+  off; nobody sets a wheel for a pit's sake, so a wheel pumps only where one already stands near
+  its holder's pit. Revisited when the M10 demo shows a pit beside a mill.
+- **Design priors for rides (2026-10-24, M10b slice DX, fourth part, first step):** NUDGE: a
+  ride is out to the pit only, home on foot; a rider does not take a seat on the run the
+  operator sets off, only its timing (the train is assumed to go when the timetable says and an
+  engine stands at the station); the wait weighed is half the time between runs, the wait taken
+  the real one up to 90 minutes; the fare is the light run's coal over its riders, paid in that
+  coal, and a household weighs it at its own cost of coal; a ride is weighed only for the deposit
+  chosen by its walk. Rides are not yet counted in the dashboard's travel. In a household-resolved
+  day a ride takes the day's first run whatever hour the dig is taken up, its wait not counted.
+  None is measured. Revisited when a line carries riders in a world.
+- **Design priors for engines on a line laid together (2026-10-24, M10b slice DX, third part,
+  third step):** NUDGE: any household of the settlement may run its engine on its polity's line,
+  paying the polity nothing; several operators share one line's freight tally and timetable, the
+  last to review it setting its runs a day; a neighbour's goods board the operator whose engine
+  was begun first that has room. None is measured. Revisited with rides and when a polity's line
+  carries trains in a world.
+- **Design priors for wagons on a line laid together (2026-10-24, M10b slice DX, third part,
+  second step):** NUDGE: any household of the settlement at whose hearth a polity's line ends may
+  run its own wagons on it, unasked and paying nothing; what a wagon brings goes from the hearth
+  end into the household's store with no walk from there taken, as freight's goods do; a
+  household weighs a wagon on such a line only where it keeps no line of its own. None is
+  measured. Revisited with engines on a polity's line and when a line is laid together in a world.
+- **Design priors for a line laid together (2026-10-24, M10b slice DX, third part, first step):**
+  NUDGE: a polity weighs a line only from a pit two or more of its households dig, to its
+  hearth, one at a time; what a household would spare is its walk and carrying a year beyond what
+  a wagon brings, less a wagon's making over its life, as if every digger would have a wagon on
+  the line; the line's timber counts against it in the pooled reckoning (in hours at the
+  settlement's hour) but not in each household's forecast of the law, which weighs only its share
+  of the labour. None is measured. Revisited with the polity's trains (DX's third part, second
+  step) and when a line is laid together in a world.
+- **Design priors for stations and timetables (2026-10-24, M10b slice DX, second part):** NUDGE:
+  a line's ends become stations with its first run, unbidden; a timetable's runs leave at six and
+  evenly over the twelve hours after, at most four a day; goods wait at the pit station up to one
+  train's room, in the order dug, and board whole or not at all; runs a day follow the goods
+  brought since the last yearly review, not what waits. None is measured. Revisited when a line
+  carries freight in a world.
+- **Design priors for freight on a household's line (2026-10-24, M10b slice DX, first part):**
+  NUDGE: the keeper keeps a tenth of another household's goods for carrying them, a share in
+  kind as the mill's sixteenth is, whatever the haul's length; a neighbour's goods go from the
+  home end into its store with no walk from the station taken; any household whose home lies by
+  the line's home end may load, the keeper asked nothing; neighbours load in the order they dig,
+  the train's room first come first served. None is measured. Revisited with stations and
+  timetables (DX's second part) and when a line carries freight in a world.
+- **Design priors for engines by choice (2026-10-23, M10b slice DW, fourth part):** NUDGE: a
+  household weighs an engine only at its yearly line review, for the line from the pit it digs
+  most; a dig day is one session, so a household that sends several diggers the same day is
+  reckoned as one; iron held and not made is priced at nothing more; its coal is priced at the
+  hours to dig it where the pit yields it. **Found:** with the core's wagon (2 t) and a session's
+  digging (about 380 kg in three hours at the core's coal seam), one person pushes home all a
+  session digs on a short line, so no household's engine ever pays and none is begun. The engine's
+  case wants output beyond one pusher (several hewers, a works) or a line too long or steep to
+  push, which slice DX's lines of many owners may bring. Revisited when the M10 demo shows a
+  line in use.
+- **Design priors for a household's engine (2026-10-23, M10b slice DW, third part):** NUDGE: an
+  engine sets off at six and runs home whenever its wagons hold anything, however little; its
+  driver's time is not yet taken from them; it burns coal only for the work of pulling, none to
+  raise steam or stand; a train is loaded to what its wheels hold up the steepest rise. None is
+  measured. Revisited when an engine runs a line in a world.
+- **Design priors for train runs (2026-10-23, M10b slice DW, second part):** NUDGE: a passing loop
+  holds any number of waiting runs; a leg is rounded up to whole minutes; a train runs down any
+  fall at its top speed, its braking not yet modelled; one run holds a section whatever its
+  direction. None is measured. Revisited when runs meet on a busy line.
+- **Design priors for the locomotive (2026-10-23, M10b slice DW, first part):** NUDGE: an engine
+  on rails of 5 t, 7.5 kW and 2.2 m/s near the first engines on plateways (research 07-08 §5.5,
+  Trevithick's 1804 Penydarren, whose power no report gives), its most pull μ·m·g at the rail
+  brief's μ = 0.2, turning 3 % of its coal's heat into work (07-06 §2.3's 2-5 % for improved
+  steam), so some 35 kg of coal an hour at full power; it runs on the wagon's timber track at C =
+  0.005 though so heavy an engine would want iron rails. Made of 3,000 kg of iron in 3,000 hours
+  (tuning values). Revisited when an engine runs a line.
+- **Design priors for lines by choice (2026-10-23, M10b slice DV, fourth part):** NUDGE: a
+  household weighs one line a year, from the deposit it digs most to home; a session is the dig's
+  longest, walked both ways at off-trail pace; the line's timber and the wagon's are priced at the
+  household's own cost of timber; the ruling grade is the one a full wagon is pushed up by one
+  person; and a line is worth it when the hours spared over the wagon's life exceed its labour and
+  the wagon's. None is measured. Revisited when the M10 demo shows a line laid.
+- **Smoke draws a different world each run (2026-10-23):** the smoke command creates each world
+  with a fresh identity, and the identity orders same-instant events, so a rare draw can fail a
+  check one run in many (once, river valley seed 2: a household without water at the instant
+  checked; 60 fixed identities probed afterwards were all watered). Whether that check should
+  pass a household mid-refill is left open until it recurs.
+- **Design priors for wagons on a line (2026-10-23, M10b slice DV, third part):** NUDGE: a pushed
+  wagon is loaded to what one person moves up the line's steepest rise homeward and no further, so a
+  line's ruling grade sets its load; one person pushes it loaded and walks it back empty with the
+  next session; its ends serve a pit and a home within 40 m (a cart's door leg). Lines are cut
+  across ground up to 40 % between cells, weighing a step's earth beyond the ruling grade as half
+  its excess rise times its run across the bed. None is measured; the 5 % search of the second part
+  found no line out of the core's hillside villages. Revisited when the M10 demo shows a line laid.
+- **Design priors for laying track (2026-10-23, M10b slice DV, second part):** NUDGE: timber track
+  takes 50 kg of timber a metre (rails and sleepers of about 0.07 m³) and 1.5 hours to hew and lay,
+  on a bed half a metre wider than the gauge each side; grading moves earth at 10-07 §2.2's 2.3
+  hours a cubic metre; lines are searched over ground no steeper than 5 % and graded from there. The
+  bed is the midpoint of the grade's upper and lower envelopes, which balances cut and fill only
+  roughly; spoil and borrow, and grading's change to the map's ground, wait. Revisited when the M10
+  demo shows a line laid.
+- **Design priors for the wagonway (2026-10-23, M10b slice DV, first part):** NUDGE: a wagon on
+  timber rails rolls at C = 0.005 (the brief's figure; no report gives rail's resistance), runs on a
+  metre's gauge, is held back down 1 % by its pusher, and carries 2 t on 0.5 t; wooden railways are
+  found at an e50 of 100,000 hours, as far techniques are. Track turns at most 45° a cell, ADR-0034
+  §2's rule standing for a curve's least radius at the grid's scale. Revisited when the M10 demo
+  shows a line laid.
+- **Design priors for the lamp by choice (2026-10-23, M10b slice DU, fourth part):** NUDGE: an hour
+  lit is worth an hour of home making to a household that can make a lamp, and it keeps fuel for 30
+  hours of light (a week of evenings). Neither is measured; 12-09 §3.1 has light as a purchased
+  service, which waits for a market in tallow. Revisited when the M10 demo shows households with
+  lamps.
+- **Design priors for dark sight (2026-10-23, M10b slice DU, third part):** NUDGE: a figure is made
+  out by starlight at about 10 m (`dark_sight_m`), and a fat lamp's light (1 lux at a metre,
+  research 11-13 §2.2) reaches 3 m from the home it burns in (`lit_m`); neither is measured. Dark
+  sight waits for the world's first lamp lit, as ADR-0034 §9 chose. Revisited when the M10 demo
+  shows takings by night where lamps are lit.
+- **Design priors for work by lamplight (2026-10-23, M10b slice DU, second part):** NUDGE: only
+  making at home runs after dark by a lamp (`max_walk_minutes = 0` stands for indoors; building a
+  kiln or a furnace at the door counts, a field does not), and a lamp's escape rate is a lit
+  hearth's, 2.0e-6 an hour a person, capped at `worked_per_hour` so it stays within the hazard's
+  existing bound. 12-03 gives no rate for lighting apart. Revisited when the M10 demo shows
+  households holding lamps and their fires.
+- **Pumping by a wheel, and coke, deferred to the works (2026-10-22, M10a slice DS):** Both since
+  built in slice DT (coke and the blast furnace its fourth part, wheels at pits its fifth); an
+  engine pumping water back up to a wheel stays deferred, as no wheel yet wants for water. ADR-0033
+  §7 names three ways a flooded pit is drained: by hand, by a wheel, or by an engine. DS built hand
+  and engine; a wheel pumping a pit, and an engine pumping water back to a wheel (the brief's
+  complement, 07-06 §5.5), wait for the works (slice DT), where a powered station drives more
+  than millstones. Coke waits for the same slice's blast furnace, as nothing yet would burn it.
 - **Design priors for the household day (2026-10-20, M9a slice DG, ADR-0032 §2):** NUDGE: the
   day is scored once at sunrise; waking minutes are the day less the middle of the content's
   sleep range and three meals; a walk's length in the day's sharing is reckoned straight off trail

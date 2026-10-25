@@ -68,6 +68,9 @@ pub enum Target {
     /// A way a household is working on, by its permanent id: a passing place being cleared (M8b
     /// slice CQ, second part).
     Way(PermanentId),
+    /// A neighbour's water mill, by its installation's permanent id: the one ground at (M10a
+    /// slice DR, fourth part).
+    Mill(PermanentId),
 }
 
 /// Water for a fire drawn from the household's store at home, not a source (see
@@ -105,6 +108,12 @@ pub enum Step {
     Haul {
         /// The door, metres.
         to: (f32, f32),
+    },
+    /// Ride a line's train from its station where one stands to its end at cell `to` (M10b slice
+    /// DX, fourth part; ADR-0034 §5): waiting there for the next run the timetable sets off.
+    Ride {
+        /// The line's end cell to alight at.
+        to: u32,
     },
     /// Load a boat at a bank or a cart at a door, or unload it (`unload`) and carry the load up
     /// (ADR-0029 §5: handling is people's work).
@@ -1205,6 +1214,8 @@ impl Household {
                 burned -= take * per_kg;
             }
         }
+        // Gas beyond its holders' room is lost to the air (M10b slice DY).
+        crate::make::keep_to_holders(goods, &mut out);
         out
     }
 
@@ -1363,6 +1374,8 @@ mod tests {
         let good = |id: &str, purpose, kcal, half, eaten| GoodDef {
             fuel: None,
             power: None,
+            light: None,
+            holder: None,
             money: None,
             id: id.into(),
             name: id.into(),
@@ -1543,12 +1556,14 @@ mod tests {
         goods[2].fuel = Some(GoodFuel {
             mj_per_kg: 15.6,
             smoke: 1.0,
+            technique: None,
         });
         let mut dense = goods[2].clone();
         dense.id = "dense".into();
         dense.fuel = Some(GoodFuel {
             mj_per_kg: 31.2,
             smoke: 0.2,
+            technique: None,
         });
         goods.push(dense);
         let per_day = |_: i64| 10.0;

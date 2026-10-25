@@ -1,0 +1,17 @@
+# Charging, blowing and tapping a blast furnace on coke, four at it together, in daylight.
+kind = "activity"
+id = "core:activity/smelt_pig_iron_with_coke"
+name = "Smelt pig iron with coke"
+doing = "smelting pig iron with coke"
+behavior = "make"
+recipe = "core:recipe/smelt_pig_iron_with_coke"
+par = 5.0
+min_age_years = 14.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 480
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

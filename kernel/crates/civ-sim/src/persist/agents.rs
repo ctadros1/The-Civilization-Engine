@@ -127,7 +127,9 @@ use super::{
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
     SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
     SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
-    finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, SCHEMA_V180,
+    SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, SCHEMA_V187,
+    SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -202,6 +204,12 @@ pub const SECTION_WAYS: SectionTag = SectionTag::new("ways");
 pub const SECTION_BOATS: SectionTag = SectionTag::new("boats");
 /// Section: carts (schema 145, M8b slice CP), records of the boats' shape.
 pub const SECTION_CARTS: SectionTag = SectionTag::new("carts");
+/// Section: wagons (schema 181, M10b slice DV), records of the boats' shape.
+pub const SECTION_WAGONS: SectionTag = SectionTag::new("wagons");
+/// Section: lines' passing loops and train runs (schema 182, M10b slice DW).
+pub const SECTION_RUNS: SectionTag = SectionTag::new("runs");
+/// Section: gas mains and connections (schema 186, M10b slice DY).
+pub const SECTION_GAS: SectionTag = SectionTag::new("gas");
 /// Section: goods in transit by boat (schema 143, M8b slice CO).
 pub const SECTION_CONSIGNMENTS: SectionTag = SectionTag::new("consigns");
 /// Section: wells (schema 74, M6a slice AY, step three).
@@ -329,6 +337,13 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         section(SECTION_WAYS, 0, encode_ways(&sim.land)),
         section(SECTION_BOATS, 0, encode_boats(&sim.land.boats, &sim.rules)),
         section(SECTION_CARTS, 0, encode_boats(&sim.land.carts, &sim.rules)),
+        section(
+            SECTION_WAGONS,
+            0,
+            encode_boats(&sim.land.wagons, &sim.rules),
+        ),
+        section(SECTION_RUNS, 0, encode_runs(&sim.land.runs)),
+        section(SECTION_GAS, 0, encode_gas(&sim.land.gas)),
         section(
             SECTION_CONSIGNMENTS,
             0,
@@ -688,6 +703,12 @@ enum Schema {
     V169,
     /// Households keep batches that run unattended (M10a slice DP).
     V171,
+    /// Wagons (M10b slice DV: the `wagons` section).
+    V181,
+    /// Train runs (M10b slice DW: the `runs` section).
+    V182,
+    /// Gas mains and connections (M10b slice DY: the `gas` section).
+    V186,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -873,9 +894,20 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V168 => Schema::V168,
         // The observer's forcings (schema 170) changed no people or land.
         SCHEMA_V169 | SCHEMA_V170 => Schema::V169,
-        // Workshops' batches (schema 172) changed no people or land; installations (schema 173)
-        // and households' mill counts (schema 174) are read wherever saved.
-        SCHEMA_V171 | SCHEMA_V172 | SCHEMA_V173 | SAVE_SCHEMA_VERSION => Schema::V171,
+        // Workshops' batches (schema 172) changed no people or land; installations (schema 173),
+        // households' mill counts (schema 174), pits' water (schema 175), engines (schema 176),
+        // pits' bailing (schema 177), works' bells (schema 178), the first lamp lit (schema 179)
+        // and ways' track (schema 180) are read wherever saved.
+        SCHEMA_V171 | SCHEMA_V172 | SCHEMA_V173 | SCHEMA_V174 | SCHEMA_V175 | SCHEMA_V176
+        | SCHEMA_V177 | SCHEMA_V178 | SCHEMA_V179 | SCHEMA_V180 => Schema::V171,
+        SCHEMA_V181 => Schema::V181,
+        // Runs' wagons (schema 183), lines' stations and timetables (schema 184) and rides and
+        // fares (schema 185) are read wherever saved; gas mains (schema 186) have their section.
+        SCHEMA_V182 | SCHEMA_V183 | SCHEMA_V184 | SCHEMA_V185 => Schema::V182,
+        // Mains' lengths laid (schema 187), their worth (188) and street lamps (189) are read
+        // wherever saved.
+        SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SCHEMA_V190
+        | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1137,6 +1169,21 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V145 {
         let bytes = single_chunk(reader, SECTION_CARTS)?;
         land.carts = decode_boats(&bytes, SECTION_CARTS, rules, map, schema)?;
+    }
+    // Wagons (schema 181); before, none.
+    if schema >= Schema::V181 {
+        let bytes = single_chunk(reader, SECTION_WAGONS)?;
+        land.wagons = decode_boats(&bytes, SECTION_WAGONS, rules, map, schema)?;
+    }
+    // Lines' loops and train runs (schema 182); before, none.
+    if schema >= Schema::V182 {
+        let bytes = single_chunk(reader, SECTION_RUNS)?;
+        land.runs = decode_runs(&bytes, SECTION_RUNS)?;
+    }
+    // Gas mains and connections (schema 186); before, none.
+    if schema >= Schema::V186 {
+        let bytes = single_chunk(reader, SECTION_GAS)?;
+        land.gas = decode_gas(&bytes, SECTION_GAS)?;
     }
     // Goods in transit (schema 143); before, none.
     if schema >= Schema::V143 {
@@ -2304,6 +2351,8 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::StoreSpoils => 28,
         IssueKind::RainedOff => 29,
         IssueKind::FiresUnseen => 30,
+        IssueKind::LoadsCarried => 31,
+        IssueKind::DarkTakings => 32,
     }
 }
 
@@ -2441,6 +2490,8 @@ fn decode_polities(
                 28 => IssueKind::StoreSpoils,
                 29 => IssueKind::RainedOff,
                 30 => IssueKind::FiresUnseen,
+                31 => IssueKind::LoadsCarried,
+                32 => IssueKind::DarkTakings,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -3485,6 +3536,35 @@ fn encode_earth(land: &Land) -> Vec<u8> {
         })
         .collect();
     let installations = (!installations.is_empty()).then(|| fbb.create_vector(&installations));
+    // Water standing in pits (schema 175), absent while no pit has taken any in.
+    let pit_water: Vec<_> = land
+        .pit_water
+        .iter()
+        .map(|p| save::PitWaterRecord::new(p.work.get(), p.water_m3, p.at.minutes()))
+        .collect();
+    let pit_water = (!pit_water.is_empty()).then(|| fbb.create_vector(&pit_water));
+    // Engines set at pits (schema 176), absent while there are none.
+    let engines: Vec<_> = land
+        .engines
+        .iter()
+        .map(|e| {
+            save::EngineRecord::new(
+                e.id.get(),
+                e.pit.get(),
+                e.owner.get(),
+                e.rated_kw,
+                e.efficiency,
+            )
+        })
+        .collect();
+    let engines = (!engines.is_empty()).then(|| fbb.create_vector(&engines));
+    // Hours bailed at pits (schema 177), absent while none.
+    let pit_bailing: Vec<_> = land
+        .pit_bailing
+        .iter()
+        .map(|p| save::PitBailingRecord::new(p.work.get(), p.hours, p.since.minutes()))
+        .collect();
+    let pit_bailing = (!pit_bailing.is_empty()).then(|| fbb.create_vector(&pit_bailing));
     let root = save::Earth::create(
         &mut fbb,
         &save::EarthArgs {
@@ -3498,6 +3578,9 @@ fn encode_earth(land: &Land) -> Vec<u8> {
             ditches: Some(ditches),
             ditch_flows: Some(ditch_flows),
             installations,
+            pit_water,
+            engines,
+            pit_bailing,
         },
     );
     finish(fbb, root)
@@ -3683,6 +3766,51 @@ fn decode_earth(bytes: &[u8], land: &mut Land, schema: Schema) -> Result<(), Loa
             )));
         }
         land.installations.push(record);
+    }
+    // Engines set at pits (schema 176); before, none.
+    for e in root.engines().iter().flatten() {
+        let record = civ_land::power::Engine {
+            id: required(e.id(), "an engine")?,
+            pit: required(e.pit(), "an engine's pit")?,
+            owner: required(e.owner(), "an engine's owner")?,
+            rated_kw: e.rated_kw(),
+            efficiency: e.efficiency(),
+        };
+        if !record.valid() {
+            return Err(LoadError::Malformed(format!(
+                "engine {} is not whole",
+                record.id
+            )));
+        }
+        land.engines.push(record);
+    }
+    // Hours bailed at pits (schema 177); before, none.
+    for p in root.pit_bailing().iter().flatten() {
+        let work = required(p.work(), "a pit's bailing")?;
+        if !(p.hours().is_finite() && p.hours() >= 0.0) {
+            return Err(LoadError::Malformed(format!(
+                "pit {work} tallies invalid hours of bailing"
+            )));
+        }
+        land.pit_bailing.push(civ_land::pits::Bailed {
+            work,
+            hours: p.hours(),
+            since: SimTime::from_minutes(p.since()),
+        });
+    }
+    // Water standing in pits (schema 175); before, none.
+    for p in root.pit_water().iter().flatten() {
+        let work = required(p.work(), "a pit's water")?;
+        if !(p.water_m3().is_finite() && p.water_m3() >= 0.0) {
+            return Err(LoadError::Malformed(format!(
+                "pit {work} holds an invalid amount of water"
+            )));
+        }
+        land.pit_water.push(civ_land::pits::PitWater {
+            work,
+            water_m3: p.water_m3(),
+            at: SimTime::from_minutes(p.at()),
+        });
     }
     // Schema 21: what each pit and heap is linked to.
     for l in root.links().iter().flatten() {
@@ -4072,6 +4200,7 @@ fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
         Target::Enclosure(e) => (save::TargetKind::Enclosure, 0, e.get()),
         Target::Boat(b) => (save::TargetKind::Boat, 0, b.get()),
         Target::Way(w) => (save::TargetKind::Way, 0, w.get()),
+        Target::Mill(m) => (save::TargetKind::Mill, 0, m.get()),
     }
 }
 
@@ -4117,6 +4246,7 @@ fn target_of(
         save::TargetKind::Enclosure => Target::Enclosure(required(id, "a palisade target")?),
         save::TargetKind::Boat => Target::Boat(required(id, "a boat target")?),
         save::TargetKind::Way => Target::Way(required(id, "a way target")?),
+        save::TargetKind::Mill => Target::Mill(required(id, "a mill target")?),
         other => {
             return Err(LoadError::Malformed(format!(
                 "an activity has target kind {}",
@@ -4447,6 +4577,9 @@ fn decode_land(
         ditches: Vec::new(),
         ditch_flows: Vec::new(),
         installations: Vec::new(),
+        pit_water: Vec::new(),
+        engines: Vec::new(),
+        pit_bailing: Vec::new(),
         ground: civ_land::earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
         // Read from its own section (schema 68 on).
         crossings: Default::default(),
@@ -4456,6 +4589,9 @@ fn decode_land(
         // Read from its own section (schema 142 on).
         boats: Default::default(),
         carts: Default::default(),
+        wagons: Default::default(),
+        runs: Default::default(),
+        gas: Default::default(),
         // The heads and the store below (schema 72 on); the aquifer derived.
         water: Default::default(),
         // Read from its own section (schema 74 on).
@@ -4635,6 +4771,7 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
                 Step::Wait { minutes } => (save::StepKind::Wait, none, minutes, 0, false),
                 Step::Paddle { to } => (save::StepKind::Paddle, none, 0, to, false),
                 Step::Haul { to } => (save::StepKind::Haul, to, 0, 0, false),
+                Step::Ride { to } => (save::StepKind::Ride, none, 0, to, false),
                 Step::Handle { minutes, unload } => {
                     (save::StepKind::Handle, none, minutes, 0, unload)
                 }
@@ -4851,6 +4988,7 @@ fn decode_people(
                 },
                 save::StepKind::Paddle => Step::Paddle { to: s.cell() },
                 save::StepKind::Haul => Step::Haul { to: xy(s.to()) },
+                save::StepKind::Ride => Step::Ride { to: s.cell() },
                 save::StepKind::Handle => Step::Handle {
                     minutes: s.minutes(),
                     unload: s.unload(),
@@ -5262,7 +5400,10 @@ fn carried(
         | Schema::V167
         | Schema::V168
         | Schema::V169
-        | Schema::V171 => {
+        | Schema::V171
+        | Schema::V181
+        | Schema::V182
+        | Schema::V186 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5642,7 +5783,10 @@ fn decode_households(
             | Schema::V167
             | Schema::V168
             | Schema::V169
-            | Schema::V171 => {
+            | Schema::V171
+            | Schema::V181
+            | Schema::V182
+            | Schema::V186 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -6354,6 +6498,7 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
             coin_issues,
             purses,
             brought,
+            lamp_first_lit: order.lamp_first_lit.map_or(-1, |t| t.minutes()),
         },
     );
     finish(fbb, root)
@@ -6725,6 +6870,10 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
     order.credit.next = root.loans_next();
     order.credit.asked = root.loans_asked();
     order.credit.refused = root.loans_refused();
+    // The world's first lamp lit (schema 179); none before.
+    order.lamp_first_lit = Some(root.lamp_first_lit())
+        .filter(|&m| m >= 0)
+        .map(civ_core::time::SimTime::from_minutes);
     // Coin issues and purses (schema 136); none before.
     for c in root.coin_issues().iter().flatten() {
         order.coinage.cohorts.push(civ_agents::coin::Cohort {
@@ -6920,6 +7069,8 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::BoatMade => 62,
         ChronicleKind::CartMade => 63,
         ChronicleKind::TakenDown => 64,
+        ChronicleKind::LineLaid => 65,
+        ChronicleKind::StationsOpened => 66,
     }
 }
 
@@ -6989,6 +7140,8 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         62 => Some(ChronicleKind::BoatMade),
         63 => Some(ChronicleKind::CartMade),
         64 => Some(ChronicleKind::TakenDown),
+        65 => Some(ChronicleKind::LineLaid),
+        66 => Some(ChronicleKind::StationsOpened),
         _ => None,
     }
 }
@@ -8419,6 +8572,8 @@ fn encode_firms(
                         hours: w.hours,
                         taken: w.taken,
                         reviewed: w.reviewed,
+                        bell_min: w.bell_min,
+                        shift_min: w.shift_min,
                     },
                 )
             });
@@ -8604,6 +8759,9 @@ fn decode_firms(bytes: &[u8], rules: &Rules) -> Result<Vec<Firm>, LoadError> {
                             hours: w.hours(),
                             taken: w.taken(),
                             reviewed: w.reviewed(),
+                            // Before schema 178 no works rang a bell.
+                            bell_min: w.bell_min(),
+                            shift_min: w.shift_min(),
                         }),
                         _ => None,
                     }
@@ -8949,6 +9107,8 @@ fn encode_events(sim: &Sim) -> Vec<u8> {
                 }
                 SimEvent::Agent(AgentEvent::BandLook) => (save::EventKind::BandLook, 0, 0, 0),
                 SimEvent::Agent(AgentEvent::Gates) => (save::EventKind::Gates, 0, 0, 0),
+                SimEvent::Agent(AgentEvent::Trains) => (save::EventKind::Trains, 0, 0, 0),
+                SimEvent::Agent(AgentEvent::Gas) => (save::EventKind::Gas, 0, 0, 0),
                 SimEvent::Agent(AgentEvent::Pass {
                     person,
                     version,
@@ -8996,6 +9156,8 @@ fn decode_events(bytes: &[u8]) -> Result<Vec<PendingEvent<SimEvent>>, LoadError>
             }),
             save::EventKind::BandLook => SimEvent::Agent(AgentEvent::BandLook),
             save::EventKind::Gates => SimEvent::Agent(AgentEvent::Gates),
+            save::EventKind::Trains => SimEvent::Agent(AgentEvent::Trains),
+            save::EventKind::Gas => SimEvent::Agent(AgentEvent::Gas),
             save::EventKind::Pass => SimEvent::Agent(AgentEvent::Pass {
                 person: required(e.person(), "a passage's walker")?,
                 version: e.version(),
@@ -11974,6 +12136,20 @@ fn encode_ways(land: &Land) -> Vec<u8> {
                 })
                 .collect();
             let segments = fbb.create_vector(&segments);
+            let track = w.track.as_ref().map(|t| {
+                let bed = fbb.create_vector(&t.bed);
+                save::WayTrackSave::create(
+                    &mut fbb,
+                    &save::WayTrackSaveArgs {
+                        gauge_m: t.gauge_m,
+                        bed: Some(bed),
+                        cut_m3: t.cut_m3,
+                        fill_m3: t.fill_m3,
+                        good_kg: t.good_kg,
+                        labour_h: t.labour_h,
+                    },
+                )
+            });
             save::WayLineSave::create(
                 &mut fbb,
                 &save::WayLineSaveArgs {
@@ -11984,6 +12160,7 @@ fn encode_ways(land: &Land) -> Vec<u8> {
                     trips: w.trips,
                     trips_day: w.trips_day,
                     rank: w.rank.code(),
+                    track,
                 },
             )
         })
@@ -12126,6 +12303,250 @@ fn encode_boats(boats: &civ_land::boats::Boats, rules: &Rules) -> Vec<u8> {
 
 /// The boats, or carts, saved in `bytes` of section `tag`. One of a vehicle the loaded content
 /// no longer has is dropped; one at a cell off the map, or out of order, is malformed.
+/// Lines' passing loops and train runs (schema 182, M10b slice DW).
+fn encode_runs(runs: &civ_land::trains::Runs) -> Vec<u8> {
+    use civ_land::trains::RunState;
+    let mut fbb = FlatBufferBuilder::new();
+    let lines: Vec<_> = runs
+        .lines
+        .iter()
+        .map(|l| {
+            let loops = fbb.create_vector(&l.loops);
+            save::RailLineSave::create(
+                &mut fbb,
+                &save::RailLineSaveArgs {
+                    way: l.way.get(),
+                    loops: Some(loops),
+                    stations: l.stations,
+                    runs_a_day: l.runs_a_day,
+                    freight_kg: l.freight_kg,
+                    freight_since: l.freight_since,
+                    riders: l.riders,
+                    fare_kg: l.fare_kg,
+                },
+            )
+        })
+        .collect();
+    let list: Vec<_> = runs
+        .list
+        .iter()
+        .map(|r| {
+            let sections: Vec<u16> = r.legs.iter().map(|l| l.0).collect();
+            let minutes: Vec<u32> = r.legs.iter().map(|l| l.1).collect();
+            let sections = fbb.create_vector(&sections);
+            let minutes = fbb.create_vector(&minutes);
+            let cars: Vec<u64> = r.cars.iter().map(|c| c.get()).collect();
+            let cars = fbb.create_vector(&cars);
+            let (state, time) = match r.state {
+                RunState::Waiting { since } => (0, since),
+                RunState::Running { until } => (1, until),
+                RunState::Arrived { at } => (2, at),
+            };
+            save::RunSave::create(
+                &mut fbb,
+                &save::RunSaveArgs {
+                    id: r.id.get(),
+                    way: r.way.get(),
+                    back: r.back,
+                    engine: r.engine.get(),
+                    owner: r.owner.get(),
+                    sections: Some(sections),
+                    minutes: Some(minutes),
+                    leg: r.leg,
+                    state,
+                    time,
+                    load_kg: r.load_kg,
+                    cars: Some(cars),
+                },
+            )
+        })
+        .collect();
+    let lines = fbb.create_vector(&lines);
+    let list = fbb.create_vector(&list);
+    let root = save::RunsSave::create(
+        &mut fbb,
+        &save::RunsSaveArgs {
+            lines: Some(lines),
+            list: Some(list),
+            revision: runs.revision(),
+        },
+    );
+    finish(fbb, root)
+}
+
+/// Reads [`encode_runs`]'s section.
+fn decode_runs(bytes: &[u8], tag: SectionTag) -> Result<civ_land::trains::Runs, LoadError> {
+    use civ_land::trains::{Line, Run, RunState, Runs};
+    let root = section_root::<save::RunsSave>(bytes).map_err(|e| unreadable(tag, &e))?;
+    let mut lines = Vec::new();
+    for l in root.lines().iter().flatten() {
+        lines.push(Line {
+            way: required(l.way(), "a line")?,
+            loops: l.loops().map(|v| v.iter().collect()).unwrap_or_default(),
+            // Schema 184 (M10b slice DX, second part): before, no stations and a run a day.
+            stations: l.stations(),
+            runs_a_day: l.runs_a_day().max(1),
+            freight_kg: l.freight_kg(),
+            freight_since: l.freight_since(),
+            // Schema 185 (M10b slice DX, fourth part): before, no rides and no fare.
+            riders: l.riders(),
+            fare_kg: l.fare_kg(),
+        });
+    }
+    let mut list = Vec::new();
+    for r in root.list().iter().flatten() {
+        let id = required(r.id(), "a run")?;
+        let sections: Vec<u16> = r.sections().map(|v| v.iter().collect()).unwrap_or_default();
+        let minutes: Vec<u32> = r.minutes().map(|v| v.iter().collect()).unwrap_or_default();
+        if sections.len() != minutes.len() || usize::from(r.leg()) >= sections.len().max(1) {
+            return Err(LoadError::Malformed(format!("run {id} has broken legs")));
+        }
+        let state = match r.state() {
+            0 => RunState::Waiting { since: r.time() },
+            1 => RunState::Running { until: r.time() },
+            2 => RunState::Arrived { at: r.time() },
+            other => {
+                return Err(LoadError::Malformed(format!(
+                    "run {id} is in an unknown state {other}"
+                )));
+            }
+        };
+        list.push(Run {
+            id,
+            way: required(r.way(), "a run's line")?,
+            back: r.back(),
+            engine: required(r.engine(), "a run's engine")?,
+            owner: required(r.owner(), "a run's owner")?,
+            legs: sections.into_iter().zip(minutes).collect(),
+            leg: r.leg(),
+            state,
+            load_kg: r.load_kg(),
+            // Schema 183 (M10b slice DW, third part): the wagons it pulls; before, none.
+            cars: r
+                .cars()
+                .map(|v| v.iter().filter_map(PermanentId::from_raw).collect())
+                .unwrap_or_default(),
+        });
+    }
+    Ok(Runs::from_saved(lines, list, root.revision()))
+}
+
+/// Gas mains and connections (schema 186, M10b slice DY).
+fn encode_gas(gas: &civ_land::gas::Gas) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let mains: Vec<_> = gas
+        .mains
+        .iter()
+        .map(|m| {
+            let cells = fbb.create_vector(&m.cells);
+            save::GasMainSave::create(
+                &mut fbb,
+                &save::GasMainSaveArgs {
+                    id: m.id.get(),
+                    works: m.works.get(),
+                    cells: Some(cells),
+                    capacity_kg_h: m.capacity_kg_h,
+                    broken: m.broken,
+                    length_m: m.length_m,
+                    laid_m: m.laid_m,
+                    worth_h: m.worth_h,
+                },
+            )
+        })
+        .collect();
+    let connections: Vec<_> = gas
+        .connections
+        .iter()
+        .map(|c| {
+            save::GasConnectionSave::create(
+                &mut fbb,
+                &save::GasConnectionSaveArgs {
+                    building: c.building.get(),
+                    household: c.household.get(),
+                    main: c.main.get(),
+                    burners: c.burners,
+                    cut_off: c.cut_off,
+                    evening: c.evening,
+                    lit_from: c.lit_from,
+                    lit_until: c.lit_until,
+                    cause: c.cause.code(),
+                },
+            )
+        })
+        .collect();
+    let lamps: Vec<_> = gas
+        .lamps
+        .iter()
+        .map(|l| {
+            save::StreetLampSave::create(
+                &mut fbb,
+                &save::StreetLampSaveArgs {
+                    cell: l.cell,
+                    polity: l.polity.get(),
+                    law: l.law.get(),
+                    lit_until: l.lit_until,
+                },
+            )
+        })
+        .collect();
+    let mains = fbb.create_vector(&mains);
+    let connections = fbb.create_vector(&connections);
+    let lamps = fbb.create_vector(&lamps);
+    let root = save::GasSave::create(
+        &mut fbb,
+        &save::GasSaveArgs {
+            mains: Some(mains),
+            connections: Some(connections),
+            lamps: Some(lamps),
+        },
+    );
+    finish(fbb, root)
+}
+
+/// Reads [`encode_gas`]'s section.
+fn decode_gas(bytes: &[u8], tag: SectionTag) -> Result<civ_land::gas::Gas, LoadError> {
+    use civ_land::gas::{Cause, Connection, Gas, Main, StreetLamp};
+    let root = section_root::<save::GasSave>(bytes).map_err(|e| unreadable(tag, &e))?;
+    let mut gas = Gas::default();
+    for m in root.mains().iter().flatten() {
+        gas.mains.push(Main {
+            id: required(m.id(), "a gas main")?,
+            works: required(m.works(), "a gas main's works")?,
+            cells: m.cells().map(|v| v.iter().collect()).unwrap_or_default(),
+            capacity_kg_h: m.capacity_kg_h(),
+            broken: m.broken(),
+            // Schema 187: before, a main had no length and was whole.
+            length_m: m.length_m(),
+            laid_m: m.laid_m(),
+            // Schema 188: before, no worth was reckoned.
+            worth_h: m.worth_h(),
+        });
+    }
+    for c in root.connections().iter().flatten() {
+        gas.connections.push(Connection {
+            building: required(c.building(), "a gas connection's building")?,
+            household: required(c.household(), "a gas connection's household")?,
+            main: required(c.main(), "a gas connection's main")?,
+            burners: c.burners(),
+            cut_off: c.cut_off(),
+            evening: c.evening(),
+            lit_from: c.lit_from(),
+            lit_until: c.lit_until(),
+            cause: Cause::from_code(c.cause()),
+        });
+    }
+    // Schema 189: before, no street lamps.
+    for l in root.lamps().iter().flatten() {
+        gas.lamps.push(StreetLamp {
+            cell: l.cell(),
+            polity: required(l.polity(), "a street lamp's polity")?,
+            law: required(l.law(), "a street lamp's law")?,
+            lit_until: l.lit_until(),
+        });
+    }
+    Ok(gas)
+}
+
 fn decode_boats(
     bytes: &[u8],
     tag: SectionTag,
@@ -12174,7 +12595,7 @@ fn decode_boats(
 }
 
 /// The ways saved in `bytes`. One with an unknown surface, keeper or rank, a cell off the map,
-/// or widths out of order is malformed.
+/// widths out of order or a track that does not fit its cells is malformed.
 fn decode_ways(bytes: &[u8], map: &WorldMap) -> Result<civ_land::ways::Ways, LoadError> {
     use civ_land::ways::{Keeper, Rank, Segment, Surface, Way, Ways};
     let root = section_root::<save::WaysSave>(bytes).map_err(|e| unreadable(SECTION_WAYS, &e))?;
@@ -12205,6 +12626,14 @@ fn decode_ways(bytes: &[u8], map: &WorldMap) -> Result<civ_land::ways::Ways, Loa
             trips_day: w.trips_day(),
             rank: Rank::from_code(w.rank())
                 .ok_or_else(|| bad(&format!("rank code {}", w.rank())))?,
+            track: w.track().map(|t| civ_land::rail::Track {
+                gauge_m: t.gauge_m(),
+                bed: t.bed().map(|b| b.iter().collect()).unwrap_or_default(),
+                cut_m3: t.cut_m3(),
+                fill_m3: t.fill_m3(),
+                good_kg: t.good_kg(),
+                labour_h: t.labour_h(),
+            }),
         });
     }
     let ways = Ways::with_revision(list, root.revision());
@@ -12363,11 +12792,27 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
         })
         .collect();
     let outbreaks = fbb.create_vector(&outbreaks);
+    let calls: Vec<_> = people
+        .sickness
+        .calls
+        .iter()
+        .map(|c| save::CareCallSave::new(c.caller.get(), c.carer.get(), c.fee_kcal, c.day, c.paid))
+        .collect();
+    let calls = fbb.create_vector(&calls);
+    let tended: Vec<_> = people
+        .sickness
+        .tended
+        .iter()
+        .map(|(p, &d)| save::TendedSave::new(p.get(), d))
+        .collect();
+    let tended = fbb.create_vector(&tended);
     let root = save::SicknessSave::create(
         &mut fbb,
         &save::SicknessSaveArgs {
             episodes: Some(list),
             outbreaks: Some(outbreaks),
+            calls: Some(calls),
+            tended: Some(tended),
         },
     );
     finish(fbb, root)
@@ -13318,7 +13763,30 @@ fn decode_sickness(
             ended: (o.ended() >= 0).then_some(o.ended()),
         });
     }
-    Ok(Sickness::with(list, outbreaks))
+    let mut sickness = Sickness::with(list, outbreaks);
+    // Calls for carers (schema 190, M10c slice DZ): none in older saves.
+    for c in root.calls().iter().flatten() {
+        let (Some(caller), Some(carer)) = (
+            PermanentId::from_raw(c.caller()),
+            PermanentId::from_raw(c.carer()),
+        ) else {
+            continue;
+        };
+        sickness.calls.push(civ_agents::sickness::CareCall {
+            caller,
+            carer,
+            fee_kcal: c.fee_kcal(),
+            day: c.day(),
+            paid: c.paid(),
+        });
+    }
+    // Who tended the ill lately (schema 191, M10c slice EA): none in older saves.
+    for t in root.tended().iter().flatten() {
+        if let Some(p) = PermanentId::from_raw(t.person()) {
+            sickness.tended.insert(p, t.day());
+        }
+    }
+    Ok(sickness)
 }
 
 fn node_save(n: civ_agents::contagion::Node) -> save::NodeSave {

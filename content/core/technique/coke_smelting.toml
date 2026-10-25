@@ -1,0 +1,19 @@
+# Blowing a blast furnace on coke instead of charcoal (research 07-05 X1; 07-06 §3: "coal
+# carbonization AND compatible furnace, charge, and blast practice"; Darby at Coalbrookdale, 1709).
+# It needs the blast furnace and coking. Found at the furnace by those who smelt pig with coke at
+# home; half of them would need 400,000 qualified hours. Learnt in 300 hours beside a knower.
+# Charcoal smelting stays an alternative (07-12 §2).
+kind = "technique"
+id = "core:technique/coke_smelting"
+name = "Smelting with coke"
+can = "blow a blast furnace on coke"
+domain = "core:skill/smithing"
+requires = [["core:technique/blast_furnace", "core:technique/coking"]]
+tried_in = ["core:activity/smelt_pig_iron"]
+needs = ["core:good/coke", "core:good/iron_ore"]
+e50_h = 400000.0
+learn_h = 300.0
+upbringing = true
+
+[answers]
+spoilage = []

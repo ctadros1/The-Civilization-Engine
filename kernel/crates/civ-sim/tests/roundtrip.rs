@@ -248,12 +248,12 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 41 land, field, plot, building,
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 44 land, field, plot, building,
     // wear, market, firm, wealth, knowledge, deposits, earth, ties, polity, order, word, opinion,
     // norms, values, creeds, factions, influence, places, relation, crossing, wells, sickness,
-    // pathogen, fires, floods, quakes, ways, traffic, boats, carts, consignments and people
-    // sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 41);
+    // pathogen, fires, floods, quakes, ways, traffic, boats, carts, wagons, runs, gas,
+    // consignments and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 44);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -3182,5 +3182,21 @@ fn slice_q_saves_load_with_each_household_s_taste_drawn_as_its_band_s() {
             "{}",
             h.id
         );
+    }
+}
+
+#[test]
+fn every_schema_since_171_loads_with_the_current_sections() {
+    // Schemas 171 onward share one people-and-land decoder (each added a field read wherever
+    // saved): a save of any of them loads. Schema 179 once had no arm, so saves made between the
+    // first lamp lit and ways' track would not load.
+    let sim = load_first();
+    let sections = persist::encode_sections(&sim);
+    for version in persist::SCHEMA_V171..=SAVE_SCHEMA_VERSION {
+        let mut info = fixture().first_info.clone();
+        info.schema_version = version;
+        let path = republish(&format!("schema-{version}"), &info, &sections);
+        persist::load(&path, content())
+            .unwrap_or_else(|e| panic!("schema {version} does not load: {e:?}"));
     }
 }

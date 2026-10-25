@@ -1723,6 +1723,13 @@ fn run_one(
             if options.years > 0 && result.failures.is_empty() {
                 check_years(&mut sim, options.years, &mut result);
             }
+            // A failing world's drawn identity, so that it can be lived again exactly
+            // (`Sim::create_for_tests`): each smoke world draws a fresh one.
+            if !result.failures.is_empty() {
+                result
+                    .notes
+                    .push(format!("identity {}", sim.meta().world_id_hex()));
+            }
         }
     }
     result.elapsed = started.elapsed();

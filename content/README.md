@@ -175,7 +175,7 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | `crime` | `objection_mean`, `objection_sd`, `objection_heritability`, `objection_filter` | Taking (M4b slice AA, ADR-0015; content API 35). Each person's objection to taking what is not theirs, 0–1: the log-odds of a founder's is drawn from a normal of this mean (−20 to 20) and spread (0 to 20), and a child's is pulled toward its parents' with this heritability (0 to 1; research 04-09 §1.1, §5.1). At or above `objection_filter` (0 to 1) taking is not weighed at all: a moral filter first (04-09 §5.3). |
 | | `w_objection`, `w_seen`, `w_risk_trait`, `w_regard` | Points against taking (0 to 1,000; `w_risk_trait` 0 to 10): for a full objection; for a certainty of being seen, scaled by `exp(-w_risk_trait × risk)` for the person's risk-taking; and for full regard for the elder of the household taken from. The gain is asking's: the food the household needs, by the load a taker can carry. |
 | | `risk_prior`, `risk_alpha`, `risk_alpha_told` | The chance of being seen a taker runs, as each person believes it (0 to 1 each): before anything is seen or heard, and the share of the gap their own attempt closes toward what happened (seen or turned back 1, unseen 0) and a taking they hear of closes toward 1 (04-09 §5.4: p̂ ← (1 − α)p̂ + αs). A loss found that nobody saw moves it toward 0. |
-| | `sight_m`, `notice_chance`, `retry_hours`, `guardian_age`, `wake_chance` | Guardianship, settled on arrival (12-04 §1.4): metres within which someone awake sees a taker at a store (0 to 10,000); the chance the taker notices each person of `guardian_age` or more about, and turns back (0 to 1); the hours, on average, someone who turned back or fled waits before weighing taking again (0 to 87,600; the wait is drawn between half and one and a half times this); the age from which someone at home or about stops a taker (0 to 130; younger children see, and do not stop); and the chance a grown sleeper at home wakes (0 to 1). A member of that age home and awake turns the taker back. |
+| | `sight_m`, `dark_sight_m`, `lit_m`, `notice_chance`, `retry_hours`, `guardian_age`, `wake_chance` | Guardianship, settled on arrival (12-04 §1.4): metres within which someone awake sees a taker at a store (0 to 10,000); after sunset once the world has lit a lamp, `dark_sight_m` instead (content API 167; 0 to `sight_m`, absent the same), unless the store lies within `lit_m` of a home where a lamp burns for work (0 to 100, absent 0); the chance the taker notices each person of `guardian_age` or more about, and turns back (0 to 1); the hours, on average, someone who turned back or fled waits before weighing taking again (0 to 87,600; the wait is drawn between half and one and a half times this); the age from which someone at home or about stops a taker (0 to 130; younger children see, and do not stop); and the chance a grown sleeper at home wakes (0 to 1). A member of that age home and awake turns the taker back. |
 | | `remember_days`, `refuse_regard` | Days a person keeps what they believe of a taking (0 to 36,500), and the regard (0 to 100) for the elder of a household taken from at which a household refuses the asks of the taker it believes took from it. |
 | | `demand_base`, `w_demand_loss`, `w_forgive`, `due_days` | A household that learns who took from it chooses to demand the food back or let it go (09-07 §4.1): points before anything is weighed (−100 to 100), per day of its food taken (0 to 100) and against, for full regard for the taker (0 to 100); the chance of demanding is logistic in the points. A demand falls due after `due_days` (1 to 3,650). |
 | | `comply_base`, `w_comply_known`, `w_comply_regard`, `w_comply_cost`, `keep_days` | The taker's household answers a demand once: points before anything is weighed (−100 to 100), for the share of its settlement's households that believe the taker took and for full regard for the household owed (0 to 100 each), and against, per day of its own food paying would cost (0 to 100). One that means to pay gives food beyond `keep_days` of its need (0 to 3,650) day by day; what it cannot pay when due is an arrear. |
@@ -1465,7 +1465,7 @@ content's comments cite a measurement; the planned ignition sweep remains separa
 | `exposure_minutes`, `catch_per_minute`, `extinction_moisture`, `reference_moisture` | Accumulated heat, catching hazard and fuel moisture. |
 | `involve_minutes`, `involved_minutes`, `covering_minutes` | Building-fire stages and covering consumption. |
 | `char_mm_first_hour`, `char_exponent`, `infill_loss` | Loss of timber section and wall infill during burning. |
-| `hearth_lit_per_hour`, `hearth_banked_per_hour`, `worked_per_hour` | Escapes per hour of the fires actually in use, scaled by dryness. |
+| `hearth_lit_per_hour`, `hearth_banked_per_hour`, `worked_per_hour`, `lamp_lit_per_hour` | Escapes per hour of the fires actually in use, scaled by dryness; `lamp_lit_per_hour` (content API 166, default 0, 0 to 0.1) is a lamp lit at home for work after dark, counted only as far as `worked_per_hour`. |
 | `beside_m`, `grow_minutes`, `wake_minutes`, `sight_m`, `earshot_m` | Finding and controlling an escape, growth and waking intervals, sight and alarms. |
 | `water_stays`, `wet_drains_per_minute` | Delivered water retained on roofs and its subsequent loss; a carrier must obtain and deliver each load. |
 | `w_save`, `kin_share`, `neighbour_share` | The actor's stakes in saving a threatened roof. |
@@ -1615,3 +1615,140 @@ at most 1; research 07-06 §2.2: simple wheels 20–40 %, overshot 50–70 %); o
 carry one. A recipe's `kwh_per_unit` is the power a unit takes from a powered station; a session
 makes no more than the station's power over its hours allows. An installation's power is worked
 out each day from its river reach's discharge, P = 9.81 Q H η, and is never saved.
+
+Content API 161 (M10a slice DR, fourth part) adds the behavior `mill`: carry a load of the
+household's grain to a working water mill of another household of its settlement, grind it there
+by the way the mill's wheel turns, and carry the flour home, the mill's owner keeping a toll of it
+(a sixteenth, a tuning value). Its activity names no recipe; the way is the mill's. The first is
+`activity/carry_grain_to_mill`.
+
+Content API 162 (M10a slice DS) adds three optional fields. A deposit rule's `keyed_ids` (default
+false) gives its bodies ids of their own, numbered by the rule's place among the land profile's
+rules, rather than the world's next ones, so adding the rule moves no other id in any world; a
+fuel's `[fuel] technique` names the technique a household must know to keep that fuel for its
+hearth (the hearth's measure stays the first fuel that asks none); and a technique's
+`needs_known` lists goods its finder's settlement must know a deposit of, with some left. The
+first of each is coal: `good/coal`, the coal rule of `land/temperate_valley`,
+`activity/dig_coal` and `technique/coal_burning`.
+
+Content API 163 (M10a slice DS, second part) lets a deposit rule give `k_m_day` (0–100, default
+0), the hydraulic conductivity of the body and the ground it lies in: a pit dug below the water
+table takes in water toward the table's head at the rate a wide well of its area would (research
+03-02 §1.4), and what stands in it is lifted out by hand before digging below it goes on. A rule
+giving none keeps its pits dry. The people profile's `[digging]` gains `bail_w` (a person's
+sustained power, watts; default 75), `bail_efficiency` (the share of it that lifts water, above 0
+and at most 1; default 0.5) and `influence_m` (a pit's radius of influence, metres; default 50).
+The core's coal rule gives 0.3 m/day; its other bodies none.
+
+M10a slice DS, third part, adds no field: a fixed tool whose `[power]` source is `fuel` is an
+engine, and one set at a pit pumps its water each day while its owner holds it whole and fuel,
+burning the owner's fuels in the catalogue's order by their heat at the engine's efficiency. The
+first is `good/atmospheric_engine` (4 kW at 1 %, 40,000 hours). Its fourth part adds no field
+either: a household wants an engine only for a pit it has chosen to set one at, weighing the hours
+it bails there against the engine and its fuel; `technique/atmospheric_engine`,
+`recipe/build_atmospheric_engine` and `activity/build_atmospheric_engine` are the first way of
+making one.
+
+Content API 164 (M10a slice DT) lets a tool's `[tool]` table name its `crew` (1-20, default 1):
+the fewest hands at it together for it to run. Only a fixed tool asks more than one; a session
+of a recipe that needs it makes nothing without its crew, and a household works such a recipe
+only at a works. The people profile's `[firm]` gains `shift_h` (1-16, default 10): the hours of a
+works' shift from its bell at sunrise, cut at sunset. The first machine is `good/tilt_hammer`
+(crew 2), with `technique/water_hammer`, `recipe/build_tilt_hammer` and
+`recipe/forge_bar_by_hammer` and their activities.
+
+M10a slice DT's fourth part adds no field: coke and the blast furnace are content made of what is
+already there. `good/coke` (28.2 MJ a kilogram, a furnace's material as charcoal is) is baked from
+coal in a four-day batch by `recipe/coke_coal` under `technique/coking` (charcoal burning and
+burning coal; found burning charcoal with coal at home). `good/blast_furnace` (crew 4, 40,000
+hours) is built by `recipe/build_blast_furnace` under `technique/blast_furnace` (the bloomery and
+the water hammer; found smelting iron); blown by a works' wheel it smelts `good/pig_iron` from
+ore on charcoal (`recipe/smelt_pig_iron`) or, under `technique/coke_smelting`, on coke
+(`recipe/smelt_pig_iron_with_coke`), and the hammer's two fine the pig to bar
+(`recipe/fine_pig_iron`). Each has its activity; founders bring none of the three techniques.
+
+Content API 165 (M10b slice DU) lets a tool carry a `[light]` table: `fuel`, the good it burns (by
+content id), and `kg_per_hour`, how much of it an hour lit (above 0 and at most 1). Only a tool
+gives light. The first lamp is `good/fat_lamp`, a clay dish burning `good/tallow` (8 g an hour),
+with `technique/lamps` (found drying meat, with meat at home; founders do not bring it),
+`recipe/render_tallow`, `recipe/make_fat_lamp` and their activities. Nobody wants a lamp for
+its own sake (`per_worker = 0`); what light changes comes in DU's later parts.
+
+Content API 166 (DU's second part) adds `[fire] lamp_lit_per_hour` to a people profile: the
+escapes an hour of each person working at home by a lamp after dark (core 2.0e-6, as a lit
+hearth). A household holding a whole lamp and fuel for it may make at home after dark, for no
+longer than its fuel lasts; work away from home stays to daylight.
+
+Content API 167 (DU's third part) adds `[crime] dark_sight_m` and `lit_m`. Once a lamp has been
+lit for work anywhere in the world, a taking after sunset is seen only within `dark_sight_m`
+(core 10 m) unless it is within `lit_m` (core 3 m) of a home where a lamp burns for work. Until
+then the dark shortens nobody's sight.
+
+Content API 168 (M10b slice DV) appends the vehicle mode `rail`: a wagon on track. A wagon names
+`rail_resistance` (its rolling resistance on its track) and `gauge_m` (the track it runs on, metres)
+beside a cart's `tare_kg`, `pull_n`, `power_w` and `brake_grade`, and refuses a boat's fields and a
+cart's road resistances; a cart and a boat refuse a wagon's. The core adds `core:vehicle/wagon` (2 t
+aboard a 0.5 t wagon at 0.005 on timber rails of a metre's gauge, pushed at 200 N and 75 W, held
+back down 1 %) and `core:technique/wooden_railway`, which needs wheels on an axle and is tried in
+digging coal and ore; design priors marked in their files.
+
+Content API 169 (DV's second part) adds a land profile's `[track]`: what laying track takes. It
+names the `good` its sleepers and rails are made of and `good_kg_m` of it a metre, `lay_h_m` (hours
+to hew and lay a metre), `earth_h_m3` (hours to dig or place a cubic metre in grading), `shoulder_m`
+(the bed's width beyond the gauge each side) and `search_grade` (the steepest ground between cells a
+line is laid over before its bed is graded). The core lays timber at 50 kg and 1.5 hours a metre,
+grades at 2.3 hours a cubic metre, on a bed 0.5 m wider than the gauge each side, over ground no
+steeper than 5 %. A profile that leaves it out lays no track.
+
+From DV's third part the core's `[track] search_grade` is 0.4: a line is cut across ground up to 40
+% between cells, its grading's earth weighed against going round, and goes round only what is
+steeper. The field's meaning is unchanged; content API 169 still.
+
+Content API 170 (M10b slice DW) lets a rail vehicle name an `[engine]`: the `fuel` it burns (a good
+with `[fuel]`), the `efficiency` with which it turns that fuel's heat into work (0.001-0.5) and its
+`top_speed_m_s` (0.1-50). Its `pull_n` and `power_w` are then the engine's: the most its driven
+wheels hold before they slip, and its power. Only a rail vehicle may have one; a rail vehicle
+without one is a wagon pushed by people. The core adds `core:vehicle/locomotive` (5 t, 7.5 kW,
+9,810 N, 2.2 m/s, burning coal at 3 %) and `core:technique/locomotive`, which needs the atmospheric
+engine, wooden railways and forging and is tried in digging coal; design priors marked in their
+files.
+
+Content API 171 (M10b slice DX, third part) brings the policy kind `build_line` and the issue
+`loads_carried`. The issue opens when two or more of a settlement's households dig one pit and a
+line laid together from it to beside the hearth would spare them, over a wagon's life, more than
+its laying and timber, once someone of the settlement knows how to make a wagon. Under
+`build_line` the polity marks the line out from the pit to the hearth, and each household is asked
+an equal share of laying it. The core adds `core:policy/yourselves_work_a_line_to_the_pit`.
+
+Content API 172 (M10b slice DY) lets a fixed tool carry a `[holder]` table: `good`, the good it
+keeps apart (by content id), and `kg`, how many kilograms of it it holds full (above 0 and at most
+100,000); and a `[light]` may be `piped` (default false), its fuel coming by a main rather than
+from its household's stores, so it is no lamp a household fills. The core adds `good/coal_gas` (40
+MJ a kilogram, a material, not a hearth's fuel), `good/gas_retort` and `good/gas_holder` (fixed;
+the holder keeps 150 kg of coal gas), `good/gas_burner` (piped, 0.071 kg an hour), the technique
+`technique/gas_making` (needs coking and lamps, found coking coal with coal at home; founders do
+not bring it), `recipe/make_gas` (a kilogram of coal into 0.14 kg of gas and 0.65 kg of coke at the
+retort), `recipe/build_gas_retort`, `recipe/build_gas_holder`, `recipe/make_gas_burner` and their
+activities. Nobody wants any of them for its own sake (`per_worker = 0`); what gas does comes in
+DY's later parts.
+
+Content API 173 (M10b slice DY, third part) adds a land profile's `[gas_main]`: what laying a gas
+main takes. `good` is the good its pipe is made of, `good_kg_m` how many kilograms a metre takes,
+`lay_h_m` the hours to dig, lay, joint and fill in a metre, and `capacity_kg_h` the most gas a main
+of its bore carries an hour (each above 0). A profile that leaves it out lays no main. The core
+lays cast-iron mains of 25 kg and 3 hours a metre, carrying 6 kg an hour.
+
+Content API 174 (M10b slice DY, fourth part) adds `life_years` to `[gas_main]`: the years a main
+laid serves (above 0 and at most 1,000), over which a gasworks reckons whether the homes along a
+main it might lay would repay it. The core's serves 50 years.
+
+Content API 175 (M10b slice DY, fourth part) adds the policy kind `light_streets` (an office, its
+holder the lamplighter) and the issue `dark_takings` it answers, and a people profile's
+`crime.lit_guard`: the share of takings after dark a household believes those about would see by
+lit streets, what it weighs such a law by (0 to 1; the core's 0.3). The core adds
+`policy/yourselves_work_the_street_lamps`.
+
+Content API 176 (M10b slice DY, fourth part) adds the behaviour `light` (the lamplighter's round of
+the street lamps, after dark, a stand of the activity's least minutes at each) and a people
+profile's `crime.w_light`, the points the round is worth to the lamplighter (0 to 100; the core's
+6, as a watch's round). The core adds `activity/light_lamps`.

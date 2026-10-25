@@ -25,7 +25,7 @@ pub(crate) struct PolicyFile {
     /// `keep_watch`, `curfew`, `amend_body` or `repeal` (content API 49), `claim_place` (59),
     /// `agreement` (62), `build_crossing` (67), `close_source` or `dig_well` (M6a), or
     /// `build_bank` (88) or `keep_bank` (90), or `building_rule` (93), or `build_way` (138), or
-    /// `plan` (141).
+    /// `plan` (141), or `build_line` (171), or `light_streets` (175).
     pub does: String,
     /// The issues it answers: `food_short`, `store_unkept`, `takings`, `overruled`, `petition`,
     /// `founding` (content API 49), `outsiders` (59), `claimed_from_us`, `terms_sought` (61) or
@@ -1266,6 +1266,8 @@ impl PolicyFile {
                 | PolicyKind::Mint
                 | PolicyKind::PayWork
                 | PolicyKind::BuildWay
+                | PolicyKind::BuildLine
+                | PolicyKind::LightStreets
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
@@ -1331,6 +1333,8 @@ impl PolicyFile {
                 | PolicyKind::Mint
                 | PolicyKind::PayWork
                 | PolicyKind::BuildWay
+                | PolicyKind::BuildLine
+                | PolicyKind::LightStreets
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding,
             )

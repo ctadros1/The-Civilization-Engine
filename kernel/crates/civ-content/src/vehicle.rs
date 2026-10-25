@@ -3,9 +3,10 @@
 //! gives it), what making one takes, and how long it lasts. Using one needs no technique; making
 //! one does. M8's modes are the boat and the handcart (`cart`, content API 135, M8b slice CP):
 //! a boat's water and paddling fields are a boat's only, a cart's mass, resistances and puller
-//! a cart's only.
+//! a cart's only. A rail vehicle may have an `[engine]` (content API 170, M10b slice DW): then it
+//! pulls by its fuel, its `pull_n` and `power_w` the engine's.
 
-use civ_agents::params::{VehicleDef, VehicleMode};
+use civ_agents::params::{RailEngine, VehicleDef, VehicleMode};
 use serde::Deserialize;
 
 /// The `kind` value of a vehicle.
@@ -67,9 +68,29 @@ pub(crate) struct VehicleFile {
     pub pull_n: f64,
     #[serde(default)]
     pub power_w: f64,
-    /// The steepest grade down, rise over run, its puller can hold it back on (a cart's).
+    /// The steepest grade down, rise over run, its puller can hold it back on (a cart's or a
+    /// wagon's).
     #[serde(default)]
     pub brake_grade: f64,
+    /// A wagon's rolling resistance on its track, and the gauge it runs on, metres (content API
+    /// 168, M10b slice DV).
+    #[serde(default)]
+    pub rail_resistance: f64,
+    #[serde(default)]
+    pub gauge_m: f64,
+    /// A rail vehicle's engine, if it pulls (content API 170).
+    #[serde(default)]
+    pub engine: Option<EngineFile>,
+}
+
+/// A rail vehicle's `[engine]` table: the fuel it burns (a good with `[fuel]`), the share of the
+/// fuel's heat it turns into work at the wheels, and its top speed, metres a second.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct EngineFile {
+    pub fuel: String,
+    pub efficiency: f64,
+    pub top_speed_m_s: f64,
 }
 
 impl VehicleFile {
@@ -79,7 +100,7 @@ impl VehicleFile {
     }
 
     /// The compiled vehicle, its references resolved to indexes (call after
-    /// [`VehicleFile::problems`] found none and all resolved).
+    /// [`VehicleFile::problems`] found none and all resolved); `fuel` is its engine's fuel.
     pub fn def(
         &self,
         mode: VehicleMode,
@@ -87,6 +108,7 @@ impl VehicleFile {
         technique: Option<usize>,
         skill: Option<usize>,
         tool: Option<usize>,
+        fuel: Option<usize>,
     ) -> VehicleDef {
         VehicleDef {
             id: self.id.clone(),
@@ -112,6 +134,13 @@ impl VehicleFile {
             pull_n: self.pull_n,
             power_w: self.power_w,
             brake_grade: self.brake_grade,
+            rail_resistance: self.rail_resistance,
+            gauge_m: self.gauge_m,
+            engine: self.engine.as_ref().zip(fuel).map(|(e, fuel)| RailEngine {
+                fuel,
+                efficiency: e.efficiency,
+                top_speed_m_s: e.top_speed_m_s,
+            }),
         }
     }
 
@@ -121,7 +150,7 @@ impl VehicleFile {
         let mode = self.mode();
         if mode.is_none() {
             p.push(format!(
-                "`mode` must be `boat` or `cart` (got `{}`)",
+                "`mode` must be `boat`, `cart` or `rail` (got `{}`)",
                 self.mode
             ));
         }
@@ -134,7 +163,6 @@ impl VehicleFile {
             ("life_years", self.life_years, 0.1, 500.0),
             ("handling_kg_min", self.handling_kg_min, 0.1, 1000.0),
         ];
-        // Each mode's own fields are required of it, and the other mode's must be left out.
         let boat = [
             ("draft_m", self.draft_m, 0.01, 20.0),
             ("paddle_m_s", self.paddle_m_s, 0.1, 10.0),
@@ -148,12 +176,49 @@ impl VehicleFile {
             ("power_w", self.power_w, 1.0, 100_000.0),
             ("brake_grade", self.brake_grade, 0.0, 1.0),
         ];
-        let (own, other, name): (&[_], &[_], &str) = match mode {
-            Some(VehicleMode::Cart) => (&cart, &boat, "a boat"),
-            _ => (&boat, &cart, "a cart"),
+        let rail = [
+            ("tare_kg", self.tare_kg, 1.0, 100_000.0),
+            ("rail_resistance", self.rail_resistance, 0.0005, 0.1),
+            ("gauge_m", self.gauge_m, 0.3, 3.0),
+            ("pull_n", self.pull_n, 1.0, 100_000.0),
+            ("power_w", self.power_w, 1.0, 100_000.0),
+            ("brake_grade", self.brake_grade, 0.0, 1.0),
+        ];
+        // Each mode's own fields are required of it, and other modes' must be left out (a
+        // wagon shares a cart's puller and mass).
+        let boats = [
+            ("draft_m", self.draft_m, "a boat"),
+            ("paddle_m_s", self.paddle_m_s, "a boat"),
+            ("slack_share", self.slack_share, "a boat"),
+        ];
+        let roads = [
+            ("way_resistance", self.way_resistance, "a cart"),
+            ("trail_resistance", self.trail_resistance, "a cart"),
+        ];
+        let wheels = [
+            ("tare_kg", self.tare_kg, "a cart"),
+            ("pull_n", self.pull_n, "a cart"),
+            ("power_w", self.power_w, "a cart"),
+            ("brake_grade", self.brake_grade, "a cart"),
+        ];
+        let rails = [
+            ("rail_resistance", self.rail_resistance, "a wagon"),
+            ("gauge_m", self.gauge_m, "a wagon"),
+        ];
+        let (own, others): (&[_], Vec<(&str, f64, &str)>) = match mode {
+            Some(VehicleMode::Cart) => (&cart, [&boats[..], &rails[..]].concat()),
+            Some(VehicleMode::Rail) => (&rail, [&boats[..], &roads[..]].concat()),
+            _ => (&boat, [&roads[..], &wheels[..], &rails[..]].concat()),
         };
         ranges.extend_from_slice(own);
-        for &(field, v, _, _) in other {
+        if let Some(e) = &self.engine {
+            if mode != Some(VehicleMode::Rail) {
+                p.push("`[engine]` is a rail vehicle's, not this vehicle's".to_owned());
+            }
+            ranges.push(("engine.efficiency", e.efficiency, 0.001, 0.5));
+            ranges.push(("engine.top_speed_m_s", e.top_speed_m_s, 0.1, 50.0));
+        }
+        for (field, v, name) in others {
             if v != 0.0 {
                 p.push(format!("`{field}` is {name}'s, not this vehicle's"));
             }

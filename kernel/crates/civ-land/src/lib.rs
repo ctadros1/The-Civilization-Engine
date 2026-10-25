@@ -31,10 +31,14 @@ pub mod ditches;
 pub mod earth;
 pub mod enclosures;
 pub mod fields;
+pub mod gas;
 pub mod paths;
+pub mod pits;
 pub mod plans;
 pub mod power;
+pub mod rail;
 pub mod soil;
+pub mod trains;
 pub mod water;
 pub mod ways;
 pub mod weather;
@@ -184,6 +188,10 @@ pub struct LandParams {
     pub ditches: ditches::DitchParams,
     /// What works on ways take (M8b slice CQ).
     pub way_works: ways::WayWorkParams,
+    /// What laying track takes (M10b slice DV, second part); `None` where no track can be laid.
+    pub track: Option<rail::TrackParams>,
+    /// What laying a gas main takes (M10b slice DY, third part); `None` where no main is laid.
+    pub gas_main: Option<gas::MainParams>,
     /// How what people shed moves through the ground and water (ADR-0021 §4).
     pub contamination: ContaminationParams,
 }
@@ -400,6 +408,14 @@ pub struct Land {
     /// Water-power installations, in the order built (M10a slice DR; ADR-0033 §5). Saved; their
     /// power is worked out from the day's discharge ([`Land::installation_kw`]) and never saved.
     pub installations: Vec<power::Installation>,
+    /// Water standing in pits, as last worked out, by pit (M10a slice DS; ADR-0033 §7). Saved;
+    /// a pit with none has no record.
+    pub pit_water: Vec<pits::PitWater>,
+    /// Engines set at pits to pump them, in the order set (M10a slice DS, third part). Saved.
+    pub engines: Vec<power::Engine>,
+    /// Hours bailed by hand at pits, by pit (M10a slice DS, fourth part). Saved; a pit never
+    /// bailed has no record.
+    pub pit_bailing: Vec<pits::Bailed>,
     /// Today's water the ditches took from their reaches and returned below them, as changes to
     /// a reach's flow passed on down the river, m³/s (M6b slice BG). Saved.
     pub ditch_flows: Vec<(u32, f32)>,
@@ -416,6 +432,15 @@ pub struct Land {
     /// Carts, oldest first (M8b slice CP, ADR-0029 §2): records of the boat's shape, each
     /// standing on the cell where it was left. Saved.
     pub carts: boats::Boats,
+    /// Wagons, oldest first (M10b slice DV, ADR-0034 §3): records of the boat's shape, each
+    /// standing at an end of a line. Saved.
+    pub wagons: boats::Boats,
+    /// Lines' passing loops and train runs (M10b slice DW, ADR-0034 §4): each run its line's own
+    /// event chain, moved on with the clock. Saved.
+    pub runs: trains::Runs,
+    /// Gas mains and the buildings connected to them (M10b slice DY, third part; ADR-0034 §8),
+    /// with each connection's last evening. Saved.
+    pub gas: gas::Gas,
     /// Water under the ground and the rivers' runoff store (M6a slice AY, ADR-0021 §1–§2): the
     /// heads and the store saved, the aquifer derived.
     pub water: Water,
@@ -646,12 +671,18 @@ impl Land {
             banks: Vec::new(),
             ditches: Vec::new(),
             installations: Vec::new(),
+            pit_water: Vec::new(),
+            engines: Vec::new(),
+            pit_bailing: Vec::new(),
             ditch_flows: Vec::new(),
             ground: earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
             crossings: crossings::Crossings::default(),
             ways: ways::Ways::default(),
             boats: boats::Boats::default(),
             carts: boats::Boats::default(),
+            wagons: boats::Boats::default(),
+            runs: Default::default(),
+            gas: Default::default(),
             enclosures: enclosures::Enclosures::default(),
             water: Water::default(),
             wells: wells::Wells::default(),
@@ -869,20 +900,134 @@ impl Land {
         seed: u64,
         ids: &mut civ_core::IdAllocator,
     ) -> usize {
-        let bodies = deposits::place(
+        let bodies = deposits::place_ruled(
             map,
             &params.deposits,
             (params.channel_area_km2 * 1e6) as f32,
             seed,
         );
         let n = bodies.len();
-        self.deposits
-            .extend(bodies.into_iter().map(|body| deposits::Deposit {
-                id: ids.allocate(),
+        // A rule whose bodies take keyed ids numbers them itself (M10a slice DS).
+        let mut keyed = vec![0usize; params.deposits.len()];
+        for (r, body) in bodies {
+            let id = if params.deposits[r].keyed_ids {
+                keyed[r] += 1;
+                deposits::keyed_id(r, keyed[r] - 1)
+            } else {
+                ids.allocate()
+            };
+            self.deposits.push(deposits::Deposit {
+                id,
                 body,
                 taken_kg: 0.0,
-            }));
+            });
+        }
         n
+    }
+
+    /// The water standing in pit `work` at `now`, and how it stands (M10a slice DS; ADR-0033
+    /// §7): from what was last worked out, toward the water table's head under it, at the rate
+    /// its body lets water in ([`pits::inflow_rate`], the land profile's `k_m_day` for the good
+    /// of the deposit it is dug for, over `influence_m`). `None` for an earthwork that is not a
+    /// pit, or a pit in a body that passes no water.
+    pub fn pit_water_now(
+        &self,
+        map: &WorldMap,
+        params: &LandParams,
+        influence_m: f64,
+        work: civ_core::PermanentId,
+        now: civ_core::SimTime,
+    ) -> Option<pits::PitState> {
+        let w = self
+            .earthworks
+            .iter()
+            .find(|w| w.id == work && w.kind == earth::EarthKind::Pit)?;
+        let good = self
+            .deposits
+            .iter()
+            .find(|d| Some(d.id) == w.deposit)
+            .map(|d| usize::from(d.body.good))?;
+        let k = params
+            .deposits
+            .iter()
+            .find(|r| r.good == good)
+            .map_or(0.0, |r| r.k_m_day);
+        if k <= 0.0 {
+            return None;
+        }
+        let area = f64::from(w.rect.w.max(0)) * f64::from(w.rect.h.max(0)) / 10_000.0;
+        if area <= 0.0 {
+            return None;
+        }
+        let floor_m = w.level_m() - w.depth_m();
+        let (x, y) = w.rect.centre_m();
+        let c = map.cell_size_m;
+        let cx = ((x / c).floor().max(0.0) as u32).min(map.width.saturating_sub(1));
+        let cy = ((y / c).floor().max(0.0) as u32).min(map.height.saturating_sub(1));
+        let cell = (cy * map.width + cx) as usize;
+        let (head_m, _) = self.ground_water(cell, map.width, 1.0, influence_m);
+        let head_m = if head_m.is_finite() { head_m } else { floor_m };
+        let rate = pits::inflow_rate(k, head_m - floor_m, area, influence_m);
+        let (water0, at) = self
+            .pit_water
+            .iter()
+            .find(|p| p.work == work)
+            .map_or((0.0, now), |p| (p.water_m3, p.at));
+        let days = (now.minutes() - at.minutes()) as f64 / 1_440.0;
+        // Water stands no higher than the pit's mouth: above it, it runs off over the ground.
+        let mouth = w.level_m().max(floor_m);
+        let level = pits::settle(
+            (floor_m + water0 / area).min(mouth),
+            head_m.max(floor_m).min(mouth),
+            rate,
+            days,
+        );
+        Some(pits::PitState {
+            water_m3: ((level - floor_m) * area).max(0.0),
+            floor_m,
+            ground_m: w.level_m(),
+            head_m,
+            area_m2: area,
+            rate_per_day: rate,
+        })
+    }
+
+    /// Records `water_m3` standing in pit `work` at `now`: none, when it was just bailed dry, is
+    /// recorded too, so what comes in after is counted from then.
+    pub fn set_pit_water(
+        &mut self,
+        work: civ_core::PermanentId,
+        water_m3: f64,
+        now: civ_core::SimTime,
+    ) {
+        let water_m3 = water_m3.max(0.0);
+        match self.pit_water.iter_mut().find(|p| p.work == work) {
+            Some(p) => {
+                p.water_m3 = water_m3;
+                p.at = now;
+            }
+            None => self.pit_water.push(pits::PitWater {
+                work,
+                water_m3,
+                at: now,
+            }),
+        }
+    }
+
+    /// Adds `hours` bailed by hand at pit `work` at `now` to its tally (M10a slice DS, fourth
+    /// part).
+    pub fn add_bailing(&mut self, work: civ_core::PermanentId, hours: f64, now: civ_core::SimTime) {
+        if hours.is_nan() || hours <= 0.0 {
+            return;
+        }
+        match self.pit_bailing.iter_mut().find(|p| p.work == work) {
+            Some(p) => p.hours += hours,
+            None => self.pit_bailing.push(pits::Bailed {
+                work,
+                hours,
+                since: now,
+            }),
+        }
     }
 
     /// Whether installation `i` can turn: its headrace, the earthwork sharing its id, is dug (an
@@ -966,12 +1111,47 @@ impl Land {
                 out.push(format!("settlement {} has an invalid harvest", s.id));
             }
         }
+        // An engine pumps a pit, one to a pit, and is whole (M10a slice DS, third part).
+        let mut pumped = civ_core::FastSet::default();
+        for e in &self.engines {
+            let pit = self
+                .earthworks
+                .iter()
+                .any(|w| w.id == e.pit && w.kind == earth::EarthKind::Pit);
+            if !pit || !pumped.insert(e.pit) || !e.valid() || e.id.get() >= next_id {
+                out.push(format!("engine {} is not whole or not at one pit", e.id));
+            }
+        }
+        // Water stands only in pits, one record each (M10a slice DS).
+        let mut wet = civ_core::FastSet::default();
+        for p in &self.pit_water {
+            let pit = self
+                .earthworks
+                .iter()
+                .any(|e| e.id == p.work && e.kind == earth::EarthKind::Pit);
+            if !pit || !wet.insert(p.work) || !(p.water_m3.is_finite() && p.water_m3 >= 0.0) {
+                out.push(format!("pit water {} is not of one pit", p.work));
+            }
+        }
+        // Hours bailed are tallied only at pits, one record each (M10a slice DS, fourth part).
+        let mut bailed = civ_core::FastSet::default();
+        for p in &self.pit_bailing {
+            let pit = self
+                .earthworks
+                .iter()
+                .any(|e| e.id == p.work && e.kind == earth::EarthKind::Pit);
+            if !pit || !bailed.insert(p.work) || !(p.hours.is_finite() && p.hours >= 0.0) {
+                out.push(format!("pit bailing {} is not of one pit", p.work));
+            }
+        }
         let (w_cm, h_cm) = (f64::from(w) * 100.0, f64::from(h) * 100.0);
         let mut seen = civ_core::FastSet::default();
         for d in &self.deposits {
             let b = &d.body;
             let (x, y) = (b.at_cm.0 as f64, b.at_cm.1 as f64);
-            if d.id.get() >= next_id || !seen.insert(d.id) {
+            // An id the world gave, or one of the keyed space (M10a slice DS).
+            let keyed = (deposits::KEYED_ID_BASE..1 << 53).contains(&d.id.get());
+            if (d.id.get() >= next_id && !keyed) || !seen.insert(d.id) {
                 out.push(format!("deposit {} is unallocated or repeated", d.id));
             }
             if !((0.0..=w_cm).contains(&x) && (0.0..=h_cm).contains(&y)) {
@@ -1889,6 +2069,8 @@ mod tests {
             banks: banks::BankParams::default(),
             ditches: ditches::DitchParams::default(),
             way_works: ways::WayWorkParams::default(),
+            track: None,
+            gas_main: None,
             contamination: ContaminationParams::default(),
         }
     }
@@ -1949,6 +2131,50 @@ mod tests {
                 lake_evaporation_mm_per_yr: 900.0,
             },
             drainage_area_m2: vec![64.0; n],
+        }
+    }
+
+    #[test]
+    fn a_rule_with_keyed_ids_moves_no_other_id() {
+        // M10a slice DS: clay placed alone and clay placed with a keyed rule after it take the
+        // same ids, and the keyed rule takes none of the world's.
+        let rule = |good: usize, keyed_ids: bool| deposits::DepositRule {
+            good,
+            slope: (0.0, 10.0),
+            hand_m: (0.0, 1e6),
+            per_km2: 400.0,
+            radius_m: (5.0, 20.0),
+            top_m: (0.0, 1.0),
+            thickness_m: (0.5, 2.0),
+            quality: (0.4, 0.9),
+            exposed_share: 0.3,
+            density_kg_m3: 1_800.0,
+            dig_h_per_m3: 0.0,
+            working: "pit".to_owned(),
+            k_m_day: 0.0,
+            keyed_ids,
+        };
+        let placed = |rules: Vec<deposits::DepositRule>| {
+            let mut p = params();
+            p.deposits = rules;
+            let mut land = create(&p, 1, 400);
+            let mut ids = civ_core::IdAllocator::new();
+            land.place_deposits(&map(), &p, 7, &mut ids);
+            (land.deposits, ids.peek_next())
+        };
+        let (alone, next_alone) = placed(vec![rule(3, false)]);
+        let (both, next_both) = placed(vec![rule(3, false), rule(4, true)]);
+        assert!(!alone.is_empty());
+        assert_eq!(
+            next_alone, next_both,
+            "the keyed rule took none of the world's ids"
+        );
+        assert_eq!(&both[..alone.len()], &alone[..]);
+        let keyed = &both[alone.len()..];
+        assert!(!keyed.is_empty());
+        for (n, d) in keyed.iter().enumerate() {
+            assert_eq!(d.id, deposits::keyed_id(1, n));
+            assert!(d.id.get() >= deposits::KEYED_ID_BASE && d.id.get() < 1 << 53);
         }
     }
 

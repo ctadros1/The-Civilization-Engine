@@ -1,0 +1,21 @@
+# Building an atmospheric engine: a boiler and cylinder of sheet copper, a beam, pump rods and an
+# engine house's frame of timber, valves and fittings of bar iron, and its house's footing of
+# stone. 2,000 hours, 300 kg of copper, 150 kg of iron, 1,500 kg of timber and 3,000 kg of stone
+# (tuning values logged in PROJECT_PLAN; research 07-06 §4.2 names the parts but no hours).
+kind = "recipe"
+id = "core:recipe/build_atmospheric_engine"
+name = "Build an atmospheric engine"
+skill = "core:skill/smithing"
+technique = "core:technique/atmospheric_engine"
+unit_h = 2000.0
+session_h = 0.0
+max_units = 1.0
+tools = []
+inputs = [
+  { good = "core:good/copper", amount = 300.0 },
+  { good = "core:good/iron", amount = 150.0 },
+  { good = "core:good/timber", amount = 1500.0 },
+  { good = "core:good/stone", amount = 3000.0 },
+]
+outputs = [{ good = "core:good/atmospheric_engine", amount = 1.0 }]
+session_inputs = []

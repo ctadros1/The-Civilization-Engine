@@ -272,9 +272,10 @@ table Settlements {
 // People.techniques (in a decision receipt, into the content's techniques when it was saved).
 // Douse (schema 91, M6b slice BD, step three): `index` where the water is drawn (a source's cell,
 // or 4294967295 the household's store), `id` the building it is thrown on.
-enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15, Douse = 16, Bank = 17, Ditch = 18, Enclosure = 19, Boat = 20, Way = 21 }
+enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15, Douse = 16, Bank = 17, Ditch = 18, Enclosure = 19, Boat = 20, Way = 21, Mill = 22 }
 
-enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3, Paddle = 4, Handle = 5, Haul = 6 }
+// Schema 185 (M10b slice DX, fourth part): Ride, a ride on a line's train to its end at `cell`.
+enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3, Paddle = 4, Handle = 5, Haul = 6, Ride = 7 }
 
 table Step {
   kind: StepKind (id: 0);
@@ -1050,6 +1051,10 @@ table WageOfferState {
   hours: float (id: 4);
   taken: float (id: 5);
   reviewed: long (id: 6);
+  // Schema 178 (M10a slice DT): its works' bell, the minute of the day its shift begins and the
+  // shift's minutes (0 and 0, no bell, before).
+  bell_min: ushort (id: 7);
+  shift_min: ushort (id: 8);
 }
 
 table Firms {
@@ -1256,6 +1261,38 @@ table Earth {
   ditch_flows: [DitchFlowRecord] (id: 8);
   // Schema 173 (M10a slice DR): water-power installations, absent while there are none.
   installations: [InstallationRecord] (id: 9);
+  // Schema 175 (M10a slice DS): water standing in pits, absent while no pit has taken any in.
+  pit_water: [PitWaterRecord] (id: 10);
+  // Schema 176 (M10a slice DS, third part): engines set at pits, absent while there are none.
+  engines: [EngineRecord] (id: 11);
+  // Schema 177 (M10a slice DS, fourth part): hours bailed by hand at pits, absent while none.
+  pit_bailing: [PitBailingRecord] (id: 12);
+}
+
+// Hours bailed by hand at a pit since its first bailing (schema 177, M10a slice DS; ADR-0033 §7):
+// the pit by earthwork id, the hours, and when the first was (minutes).
+struct PitBailingRecord {
+  work: ulong;
+  hours: double;
+  since: long;
+}
+
+// An engine set at a pit (schema 176, M10a slice DS; ADR-0033 §7): its id, the pit it pumps by
+// earthwork id, the household that set it, and its rated kilowatts and efficiency.
+struct EngineRecord {
+  id: ulong;
+  pit: ulong;
+  owner: ulong;
+  rated_kw: double;
+  efficiency: double;
+}
+
+// Water standing in a pit when last worked out (schema 175, M10a slice DS; ADR-0033 §7): the pit
+// by earthwork id, cubic metres, and when (minutes).
+struct PitWaterRecord {
+  work: ulong;
+  water_m3: double;
+  at: long;
 }
 
 // A water-power installation (schema 173, M10a slice DR; ADR-0033 §5): its wheel's place in
@@ -2249,6 +2286,8 @@ table Order {
   coin_issues: [CoinIssueSave] (id: 18);
   purses: [PurseSave] (id: 19);
   brought: [BroughtSave] (id: 20);
+  // Schema 179 (M10b slice DU): the minute the world's first lamp was lit for work, -1 before.
+  lamp_first_lit: long = -1 (id: 21);
 }
 
 // An issue of coin (schema 136): its number, the polity whose mint struck it, the day, grams a
@@ -2604,7 +2643,7 @@ table FactionsSave {
 // Schema 88 (M6b slice BC): FireStep, a minute of every fire burning, pending whenever one burns.
 // Schema 89 (M6b slice BD): Ignite, a home's fires in use may escape (`person` holds the
 // building's id).
-enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2, BandLook = 3, Gates = 4, Pass = 5 }
+enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2, BandLook = 3, Gates = 4, Pass = 5, Trains = 6, Gas = 7 }
 
 table PendingEvent {
   at: long (id: 0);
@@ -2997,9 +3036,29 @@ table OutbreakSave {
 
 // Every infection, in the order they came (schema 75), and every outbreak, in the order they
 // began (schema 77).
+// Schema 190 (M10c slice DZ, second part; ADR-0035 §2): a household's call for someone of
+// another to tend its ill: the household that called and the one it asked, the food offered a day
+// of care, kcal (0 from kin), the day it called and the last day it paid (-1 not yet).
+struct CareCallSave {
+  caller: ulong;
+  carer: ulong;
+  fee_kcal: float;
+  day: long;
+  paid: long;
+}
+
+// Schema 191 (M10c slice EA; ADR-0035 §3): the last day someone tended the ill, kept while it
+// matters to a birth they attend.
+struct TendedSave {
+  person: ulong;
+  day: long;
+}
+
 table SicknessSave {
   episodes: [EpisodeSave] (id: 0);
   outbreaks: [OutbreakSave] (id: 1);
+  calls: [CareCallSave] (id: 2);
+  tended: [TendedSave] (id: 3);
 }
 
 // Section "fires" (schema 88, M6b slice BC; ADR-0022 §13): a building's fire, from its covering
@@ -3531,7 +3590,7 @@ table WaySegmentSave {
   kept: long (id: 7);
 }
 
-// A way: the day work on it began; `modes` bits (1 walking, 2 handcarts); its trips, faded as of
+// A way: the day work on it began; `modes` bits (1 walking, 2 handcarts, 4 wagons); its trips, faded as of
 // `trips_day`; `rank` as last surveyed, 0 a lane, 1 a street, 2 a main way, 3 a way between
 // settlements.
 table WayLineSave {
@@ -3542,6 +3601,20 @@ table WayLineSave {
   trips: float (id: 4);
   trips_day: long (id: 5);
   rank: ubyte (id: 6);
+  // Schema 180 (M10b slice DV): its track, for a way that serves wagons.
+  track: WayTrackSave (id: 7);
+}
+
+// A way's track (schema 180, M10b slice DV): the gauge it is laid to, its bed's height at each of
+// its way's cells in order, the earth its grading cuts and fills, and the kilograms of its rails'
+// good and hours of work laying it takes in all.
+table WayTrackSave {
+  gauge_m: float (id: 0);
+  bed: [float] (id: 1);
+  cut_m3: float (id: 2);
+  fill_m3: float (id: 3);
+  good_kg: float (id: 4);
+  labour_h: float (id: 5);
 }
 
 table WaysSave {
@@ -3572,6 +3645,96 @@ table BoatSave {
 table BoatsSave {
   list: [BoatSave] (id: 0);
   revision: uint (id: 1);
+}
+
+// A line's passing loops (schema 182, M10b slice DW): cell indexes along its way.
+table RailLineSave {
+  way: ulong (id: 0);
+  loops: [uint] (id: 1);
+  // Schema 184 (M10b slice DX, second part): whether its ends are stations, the runs a day its
+  // timetable sets, and the goods its trains brought since day `freight_since`, kg.
+  stations: bool (id: 2);
+  runs_a_day: ubyte = 1 (id: 3);
+  freight_kg: float (id: 4);
+  freight_since: long (id: 5);
+  // Schema 185 (M10b slice DX, fourth part): the rides taken since `freight_since`, and the fare
+  // a ride costs, kg of its engines' fuel.
+  riders: uint (id: 6);
+  fare_kg: float (id: 7);
+}
+
+// A train run (schema 182): its line and direction, its engine and owner, its legs (each
+// section's index along the line and its minutes, in the order run), the leg it is on, where it
+// is (0 waiting since `time`, 1 running until `time`, 2 arrived at `time`, minutes) and the goods
+// it carries, kg.
+table RunSave {
+  id: ulong (id: 0);
+  way: ulong (id: 1);
+  back: bool (id: 2);
+  engine: ulong (id: 3);
+  owner: ulong (id: 4);
+  sections: [ushort] (id: 5);
+  minutes: [uint] (id: 6);
+  leg: ushort (id: 7);
+  state: ubyte (id: 8);
+  time: long (id: 9);
+  load_kg: float (id: 10);
+  // Schema 183 (M10b slice DW, third part): the wagons it pulls.
+  cars: [ulong] (id: 11);
+}
+
+table RunsSave {
+  lines: [RailLineSave] (id: 0);
+  list: [RunSave] (id: 1);
+  revision: uint (id: 2);
+}
+
+// Gas mains and connections (schema 186, M10b slice DY, third part; ADR-0034 §8): each main's
+// works household, the cells it runs along, the most gas it carries an hour, kg, and whether it is
+// broken; each connection's building, household, main, burners and whether cut off, and its last
+// evening: the day checked and the minutes lit from and until (-1 none), and why it lit or not (0
+// served, 1 no gas, 2 overloaded, 3 broken, 4 cut off).
+table GasMainSave {
+  id: ulong (id: 0);
+  works: ulong (id: 1);
+  cells: [uint] (id: 2);
+  capacity_kg_h: float (id: 3);
+  broken: bool (id: 4);
+  // Schema 187 (M10b slice DY, third part, second step): its length and how much of it is laid,
+  // metres; before, both 0, whole.
+  length_m: float (id: 5);
+  laid_m: float (id: 6);
+  // Schema 188 (M10b slice DY, fourth part, second step): the hours a year its works reckoned
+  // the homes along it would repay when it began it; before, 0.
+  worth_h: float (id: 7);
+}
+
+table GasConnectionSave {
+  building: ulong (id: 0);
+  household: ulong (id: 1);
+  main: ulong (id: 2);
+  burners: ubyte (id: 3);
+  cut_off: bool (id: 4);
+  evening: long = -1 (id: 5);
+  lit_from: long = -1 (id: 6);
+  lit_until: long = -1 (id: 7);
+  cause: ubyte (id: 8);
+}
+
+// A street lamp a polity set on its ways by law (schema 189, M10b slice DY, fourth part, third
+// step): its cell, polity, law, and the minute it burns until once lit (-1 never lit).
+table StreetLampSave {
+  cell: uint (id: 0);
+  polity: ulong (id: 1);
+  law: ulong (id: 2);
+  lit_until: long = -1 (id: 3);
+}
+
+table GasSave {
+  mains: [GasMainSave] (id: 0);
+  connections: [GasConnectionSave] (id: 1);
+  // Schema 189: its street lamps; before, none.
+  lamps: [StreetLampSave] (id: 2);
 }
 
 // Goods in transit (schema 143, M8b slice CO; ADR-0029 §3): each load's owner household, carrier

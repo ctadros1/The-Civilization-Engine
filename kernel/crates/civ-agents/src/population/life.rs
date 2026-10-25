@@ -290,7 +290,13 @@ impl Population {
             |p: Option<PermanentId>| p.and_then(|p| self.person(p)).map(|q| q.objection);
         let objection_parents = (parent_objection(Some(mother)), parent_objection(father));
         let recovery = recovery_days(f, &mut rng);
-        let dies = rng.next_f64() < params.mortality.maternal_death_per_birth;
+        // Whether she dies of it, by the same draw as ever: below the maternal rate unattended,
+        // below what an attendant's techniques leave of it (M10c slice EA).
+        let u = rng.next_f64();
+        let attendant = self.birth_attendant(ctx, mother, day);
+        let dies = params
+            .mortality
+            .childbirth(u, attendant.map(|(_, e, harmed)| (e, harmed)));
         let id = ctx.ids.allocate();
         let own_fecundity = match sex {
             Sex::Female => fecundity(f, &mut life_rng(ctx.seed, id, day, Draw::Fecundity)),
@@ -386,8 +392,14 @@ impl Population {
             String::new(),
         );
         self.begin(ctx, id);
-        if dies {
-            self.die(ctx, mother, Cause::Childbirth);
+        if let Some(c) = dies {
+            // Where someone attended, the complication they saw is kept with the death.
+            if attendant.is_some() {
+                let key = format!("{}:{}", Cause::Childbirth.key(), c.key());
+                self.die_named(ctx, mother, Cause::Childbirth, key);
+            } else {
+                self.die(ctx, mother, Cause::Childbirth);
+            }
         }
     }
 

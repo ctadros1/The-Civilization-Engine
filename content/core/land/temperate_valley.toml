@@ -498,6 +498,30 @@ density_kg_m3 = 300.0            # selected ore in a cubic metre of the body (03
 dig_h_per_m3 = 15.0              # hard rock, worked with hammerstones and fire (tuning)
 working = "pit"
 
+[[deposit]]
+# Coal (M10a slice DS; ADR-0033 §7): seams in the sedimentary uplands, often under cover, showing
+# where a stream or slope cuts them (research 07-06 §1.6: coal behaves as a depleting deposit; it
+# gives no figures for where seams lie or how thick). Every figure is a tuning value. Its bodies
+# take ids of their own (`keyed_ids`), so adding the rule moves no other id in any world.
+good = "core:good/coal"
+slope = [0.05, 0.6]              # upland slopes and valley sides
+hand_m = [5.0, 500.0]
+per_km2 = 0.3
+radius_m = [20.0, 60.0]          # a stretch of seam
+top_m = [0.0, 6.0]               # from showing to six metres under
+thickness_m = [0.5, 2.0]
+quality = [0.6, 0.95]            # what is sorted out as coal; shale and dirt go to the heap
+exposed_share = 0.4
+density_kg_m3 = 1300.0           # bituminous coal in place, about 1,300 kg/m³
+dig_h_per_m3 = 8.0               # softer than stone, harder than earth (tuning)
+working = "pit"
+# Coal measures pass water through their joints and sandstones (research 03-02's starting priors:
+# weathered or fractured bedrock 0.001-10 m/day as a bulk value); a pit dug below the water table
+# fills toward it at this conductivity (M10a slice DS). The other bodies give none, so their pits
+# stay dry, as before (intact clay passes 10^-7-10^-4 m/day). A tuning value within the prior.
+k_m_day = 0.3
+keyed_ids = true
+
 [banks]
 # Design prior, not historical failure frequency (research 11-12 §4.2).
 erosion_per_head_day = 0.02
@@ -522,6 +546,36 @@ settle_days = 365.0
 passing_width_m = 2.0
 clear_h_m2 = 0.34
 passing_life_years = 10.0
+
+# Laying track (M10b slice DV, second part; content API 169; the rail brief §1.1; research 07-08
+# §5.5 P01). Timber rails on sleepers: two rails of about 0.1 × 0.15 m and a sleeper of 0.15 × 0.1
+# × 1.5 m every 0.6 m come to some 0.07 m³ of timber a metre, about 50 kg (design priors). Hewing
+# and laying them takes 1.5 hours a metre (a tuning value). Grading moves earth at 2.3 hours a cubic
+# metre, ILO's 3.5 m³ a worker-day in medium soil (research 10-07 §2.2, as clearing a way). The bed
+# runs half a metre beyond the gauge each side. A line is cut across ground up to 40 % between cells
+# (steeper is a cliff it goes round), weighing the earth its grading moves against going round
+# (design priors).
+[track]
+good = "core:good/timber"
+good_kg_m = 50.0
+lay_h_m = 1.5
+earth_h_m3 = 2.3
+shoulder_m = 0.5
+search_grade = 0.4
+
+# Laying a gas main (M10b slice DY, third part; content API 173; research 12-09 §1.3: a main's cost
+# is its digging, its pipe and restoring the street). A cast-iron main of some 75 mm bore weighs
+# about 25 kg a metre; digging its trench, laying and jointing the pipe and filling it in takes 3
+# hours a metre; and it carries 6 kg of gas an hour, some 12 cubic metres, about eighty burners at
+# 0.071 kg an hour (tuning values: the research gives no bore or rate).
+[gas_main]
+good = "core:good/iron"
+good_kg_m = 25.0
+lay_h_m = 3.0
+capacity_kg_h = 6.0
+# Laid, a cast-iron main serves some fifty years (content API 174; a tuning value), the life over
+# which a works reckons what its homes would repay it.
+life_years = 50.0
 
 [ditches]
 # An irrigation ditch's Manning's n clean and densely weeded, s/m^(1/3) (research 11-12 §2.3:

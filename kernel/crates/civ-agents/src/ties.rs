@@ -108,6 +108,13 @@ pub enum Act {
     RaisedAsProposed,
     /// A building raised together that the other proposed stalled (M8d slice DC).
     ProposalStalled,
+    /// The other, of another household, was first to tend one of the holder's household through
+    /// a sickness they lived through (M10c slice DZ, third part; ADR-0035 §3: a carer's repute is
+    /// what their clients saw of the outcome).
+    TendedLived,
+    /// The other, of another household, was first to tend one of the holder's household through
+    /// a sickness they died of (M10c slice DZ, third part).
+    TendedDied,
 }
 
 impl Act {
@@ -135,6 +142,8 @@ impl Act {
         Act::RaisedWell,
         Act::RaisedAsProposed,
         Act::ProposalStalled,
+        Act::TendedLived,
+        Act::TendedDied,
     ];
 
     /// Its number in saves.
@@ -172,6 +181,8 @@ impl Act {
             Act::RaisedWell => "raised_well",
             Act::RaisedAsProposed => "raised_as_proposed",
             Act::ProposalStalled => "proposal_stalled",
+            Act::TendedLived => "tended_lived",
+            Act::TendedDied => "tended_died",
         }
     }
 
@@ -182,7 +193,7 @@ impl Act {
 }
 
 /// Number of acts.
-pub const ACTS: usize = 22;
+pub const ACTS: usize = 24;
 
 /// What one act writes into its holder's tie, for each unit of it (an act, or an hour for
 /// [`Act::LearnedFrom`] and [`Act::Hearth`]). Authored in content as tuning values.
@@ -295,6 +306,8 @@ impl TieParams {
             w(0.02, 0.0, Some(Domain::Craft), 0.5),
             w(0.0, 0.0, Some(Domain::Counsel), 1.0),
             bad(Domain::Counsel, 1.0),
+            w(0.05, 0.05, Some(Domain::Craft), 1.0),
+            bad(Domain::Craft, 1.0),
         ];
         p
     }
@@ -338,6 +351,8 @@ impl Reason {
             Act::RaisedWell => "helped raise a building that stands finished",
             Act::RaisedAsProposed => "proposed a building that was raised as proposed",
             Act::ProposalStalled => "proposed a building that stalled",
+            Act::TendedLived => "tended one of their household, who lived",
+            Act::TendedDied => "tended one of their household, who died",
         };
         let date = civ_core::time::SimTime::from_minutes(self.day * 1440).date();
         let month = civ_land::weather::MONTH_NAMES[usize::from(date.month.clamp(1, 12)) - 1];

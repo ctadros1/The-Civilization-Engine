@@ -72,7 +72,7 @@ fn work_place(c: &decide::Candidate, home: (f32, f32)) -> (f32, f32) {
 
 /// Behaviours a household-resolved day shares hours among (slice DG): the rest wait for slice DH
 /// or are not taken while household-resolved (ADR-0032 §2).
-const SHARED: [Behavior; 27] = [
+const SHARED: [Behavior; 29] = [
     Behavior::Gather,
     Behavior::Farm,
     Behavior::Build,
@@ -96,7 +96,9 @@ const SHARED: [Behavior; 27] = [
     Behavior::Boat,
     Behavior::Cart,
     Behavior::Watch,
+    Behavior::Light,
     Behavior::Tend,
+    Behavior::Call,
     Behavior::Take,
     Behavior::Attend,
     Behavior::Poll,
@@ -104,9 +106,10 @@ const SHARED: [Behavior; 27] = [
 ];
 
 /// Behaviours never taken while household-resolved (ADR-0032 §2): journeys to another place
-/// (a visit, a fetch, carrying dues, a band) and the fire behaviours, as no fire starts there and
-/// a burning settlement is held Detailed. Sleep, meals and water are lived apart from the shares.
-pub const NOT_TAKEN: [Behavior; 8] = [
+/// (a visit, a fetch, carrying dues, a band, grain to a mill) and the fire behaviours, as no fire
+/// starts there and a burning settlement is held Detailed. Sleep, meals and water are lived apart
+/// from the shares.
+pub const NOT_TAKEN: [Behavior; 9] = [
     Behavior::Visit,
     Behavior::Fetch,
     Behavior::Carry,
@@ -115,16 +118,19 @@ pub const NOT_TAKEN: [Behavior; 8] = [
     Behavior::Strip,
     Behavior::Salvage,
     Behavior::Pull,
+    Behavior::Mill,
 ];
 
 /// Behaviours taken at most once a day: a claim on someone else's goods or work, a round of the
 /// watch, or coming to a gathering, poll or petition.
-const ONCE: [Behavior; 8] = [
+const ONCE: [Behavior; 10] = [
     Behavior::Ask,
     Behavior::Trade,
     Behavior::Hire,
     Behavior::Take,
     Behavior::Watch,
+    Behavior::Light,
+    Behavior::Call,
     Behavior::Attend,
     Behavior::Poll,
     Behavior::Petition,
@@ -170,7 +176,8 @@ fn option_minutes(ctx: &Ctx, c: &decide::Candidate, home: (f32, f32)) -> f64 {
 /// count, [`ONCE`] at most once, and an option that lays claim to new ground, a home or a
 /// workshop once. Counts are rounded by largest remainder, ties to the earlier option.
 fn shares(ctx: &Ctx, plan: &Planned, waking: f64, home: (f32, f32)) -> Vec<(usize, u32)> {
-    // Options moved by a boat or a cart wait for the journeys they make (slice DH lists them).
+    // Options moved by a boat or a cart wait for the journeys they make (slice DH lists them); a
+    // ride on a line's train is lived in the block (M10b slice DX, fourth part).
     let moved = |c: &decide::Candidate| {
         c.steps.iter().any(|s| {
             matches!(
@@ -477,6 +484,7 @@ impl Population {
             .copied()
             .filter(|s| !self.held.contains(s))
             .collect();
+        self.resolving = true;
         for s in settlements {
             let mut company: Vec<(PermanentId, u32, u32)> = Vec::new();
             let households: Vec<PermanentId> = self.households_in(s).map(|x| x.id).collect();
@@ -559,6 +567,7 @@ impl Population {
                         for (i, reps) in shares(ctx, part, minutes_to_share, hh.home) {
                             let cand = &part.cands[i];
                             let lasts = option_minutes(ctx, cand, hh.home) * f64::from(reps);
+                            let start = t;
                             let end = (t + lasts.round() as i64).min(to);
                             if end > t {
                                 blocks.push(DayBlock {
@@ -587,9 +596,15 @@ impl Population {
                                     .map_or(minutes, |a| a.min_minutes.max(1));
                                 company.push((m, minutes, (minutes / session.max(1)).max(1)));
                             }
-                            for _ in 0..reps {
+                            // Each repetition is enacted now, its making's dark minutes
+                            // counted to when it would have ended in the day.
+                            let each = lasts / f64::from(reps.max(1));
+                            for k in 0..reps {
+                                let ends = start + (each * f64::from(k + 1)).round() as i64;
+                                self.enact_end = Some(midnight.plus_minutes(ends));
                                 self.enact(ctx, h, cand, part.site, &hh);
                             }
+                            self.enact_end = None;
                         }
                         if t < to {
                             blocks.push(DayBlock {
@@ -625,6 +640,8 @@ impl Population {
                     }
                 }
             }
+            // The works' machines whose crews came today run (M10a slice DT).
+            self.run_held_crews(ctx);
             // Company at the hearth: each who kept it meets those of the pool (ADR-0032 §2).
             let mut pool: Vec<PermanentId> = company.iter().map(|c| c.0).collect();
             pool.sort_unstable();
@@ -633,6 +650,7 @@ impl Population {
                 self.keep_company(ctx, me, &pool, minutes, sessions);
             }
         }
+        self.resolving = false;
     }
 
     /// Person `h` scored as they would stand at `at`, in the evening, with their needs then put
@@ -739,6 +757,17 @@ impl Population {
                     self.end_step(ctx, h);
                 }
                 Step::Deposit => self.deposit(ctx, h),
+                // A ride (M10b slice DX, fourth part) takes its seat and fare on a run of the day's
+                // timetable and ends at the line's end; with no train to take, it is left out and
+                // the walk after it goes on from where the person stands.
+                Step::Ride { to } => {
+                    if !self.ride_in_block(ctx, h, to) {
+                        if let Some(p) = self.people.get_mut(h) {
+                            p.act.steps.remove(i);
+                        }
+                        continue;
+                    }
+                }
                 Step::Wait { .. }
                 | Step::Paddle { .. }
                 | Step::Haul { .. }

@@ -1,0 +1,20 @@
+# Burning coal: knowing the black stone of a seam for a fuel, digging and sorting it, and keeping a
+# fire of it going (research 07-06 §3: "coal extraction and combustion"; systematic use at
+# Jirentaigoukou about 1600 BCE). It leads nowhere by itself (07-06 §5.4: coal use precedes, and
+# may never lead to, steam). It is found by people gathering wood where their settlement knows coal
+# showing at the surface, and nowhere else (`needs_known`). Founders do not bring it.
+kind = "technique"
+id = "core:technique/coal_burning"
+name = "Burning coal"
+can = "dig coal from a seam and keep a fire of it"
+domain = ""
+requires = []
+tried_in = ["core:activity/gather_wood"]
+needs = []
+needs_known = ["core:good/coal"]
+e50_h = 2000.0                   # a design prior: cheap to find where coal shows (ADR-0033 §1)
+learn_h = 20.0
+upbringing = true
+
+[answers]
+spoilage = []

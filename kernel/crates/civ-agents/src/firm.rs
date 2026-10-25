@@ -245,6 +245,12 @@ pub struct WageOffer {
     pub taken: f32,
     /// The day its wage was last reviewed.
     pub reviewed: i64,
+    /// Its bell: the minute of the day its shift begins, and the shift's minutes (M10a slice
+    /// DT; ADR-0033 §8). A works whose machines want a crew hires only for the shift, so its
+    /// hands are at them together; `shift_min` 0 is no bell, work at any hour as before.
+    pub bell_min: u16,
+    /// See `bell_min`.
+    pub shift_min: u16,
 }
 
 impl WageOffer {

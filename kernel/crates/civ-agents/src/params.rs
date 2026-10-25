@@ -112,11 +112,22 @@ pub enum Behavior {
     /// Walk to the building the household's polity raises, help raise it, and walk home (M8d
     /// slice DC): the activity's numbers, the work's own labour.
     Raise,
+    /// Carry grain to a neighbour's water mill, grind it there and carry the flour home, leaving
+    /// the mill's toll (M10a slice DR, fourth part): the activity's numbers, its recipe's.
+    Mill,
+    /// Walk the round of the street lamps their polity's law sets, lighting each until dawn, and
+    /// walk home (M10b slice DY, fourth part): only for the lamplighter it names, after dark.
+    Light,
+    /// Walk to the door of a household of kin or a tie and ask someone of it to come and tend
+    /// the household's ill, leaving a fee in food for each day of care, none from kin (M10c slice
+    /// DZ, second part; ADR-0035 §2): only where the ill at home are owed more care than its well
+    /// members can give.
+    Call,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 38] = [
+    pub const ALL: [Behavior; 41] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -155,6 +166,9 @@ impl Behavior {
         Behavior::Cart,
         Behavior::Way,
         Behavior::Raise,
+        Behavior::Mill,
+        Behavior::Light,
+        Behavior::Call,
     ];
 
     /// The authored name of a behavior.
@@ -198,6 +212,9 @@ impl Behavior {
             Behavior::Cart => "cart",
             Behavior::Way => "way",
             Behavior::Raise => "raise",
+            Behavior::Mill => "mill",
+            Behavior::Light => "light",
+            Behavior::Call => "call",
         }
     }
 
@@ -347,6 +364,9 @@ pub struct ToolDef {
     /// The tool whose work it does as well, by good index (a copper axe for an axe): work that
     /// needs that tool may be done with this one (M7d slice CE).
     pub serves: Option<usize>,
+    /// The fewest hands that must be at it together for it to run (M10a slice DT; ADR-0033 §8):
+    /// 1 for a tool one person works; more for a machine, which a missing hand idles.
+    pub crew: u8,
 }
 
 /// What a good paid by weight as money adds to being a good (M7d slice CD, ADR-0027 §5).
@@ -417,6 +437,22 @@ pub struct GoodDef {
     /// The power it delivers as a station (M10a slice DR, ADR-0033 §5; content API 160): `None`
     /// for a good that is not a wheel or an engine.
     pub power: Option<GoodPower>,
+    /// The light it gives (M10b slice DU, ADR-0034 §9; content API 165): `None` for a good that
+    /// is not a lamp.
+    pub light: Option<GoodLight>,
+    /// What it holds as a gas holder (M10b slice DY, ADR-0034 §8; content API 172): `None` for a
+    /// good that holds nothing apart.
+    pub holder: Option<GoodHolder>,
+}
+
+/// What a holder keeps (M10b slice DY; ADR-0034 §8): a good that keeps only in it, and how many
+/// kilograms it holds. Gas is accounted by its energy, its kilograms times its heat (brief §2.1).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GoodHolder {
+    /// The good it holds, by index in the goods (resolved once the goods are known).
+    pub good: Option<usize>,
+    /// Kilograms of it held when full.
+    pub kg: f64,
 }
 
 /// What drives a powered station (M10a slice DR).
@@ -437,6 +473,19 @@ pub struct GoodPower {
     pub efficiency: f64,
 }
 
+/// The light a lamp gives (M10b slice DU; ADR-0034 §9): the fuel it burns and how fast. Light's
+/// cost is its fuel, its tending and its fixture by the burning hour (research 11-13 §2.2).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GoodLight {
+    /// The good it burns, by index in the goods (resolved once the goods are known).
+    pub fuel: Option<usize>,
+    /// Kilograms of it burned an hour lit.
+    pub kg_per_hour: f64,
+    /// Content API 172 (M10b slice DY): its fuel comes by a main, not from its holder's stores, so
+    /// it is no lamp a household fills (ADR-0034 §8).
+    pub piped: bool,
+}
+
 /// What a good gives burned (M10a slice DP, ADR-0033 §1): heat, and the smoke that comes with it.
 /// Fitness for a process is not here: a recipe names the fuels it takes.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -445,16 +494,20 @@ pub struct GoodFuel {
     pub mj_per_kg: f64,
     /// Smoke a kilogram makes, against firewood's 1.
     pub smoke: f64,
+    /// The technique a household must know to want it for its hearth, by index in the
+    /// techniques (M10a slice DS: burning coal is a technique of its own, ADR-0033 §1); `None`
+    /// for a fuel anyone burns.
+    pub technique: Option<usize>,
 }
 
 /// What a kilogram of `goods[g]` stands for at the hearth, in kilograms of the first fuel among
-/// `goods` (firewood, the measure a household's need is given in), by their heat (M10a slice DP):
-/// exactly 1 for that fuel itself, and for any fuel whose heat is not given.
+/// `goods` that asks no technique (firewood, the measure a household's need is given in), by their
+/// heat (M10a slice DP): exactly 1 for that fuel itself, and for any fuel whose heat is not given.
 pub fn fuel_ratio(goods: &[GoodDef], g: usize) -> f64 {
     let heat = |d: &GoodDef| d.fuel.map_or(1.0, |f| f.mj_per_kg);
     let reference = goods
         .iter()
-        .find(|d| d.purpose == GoodUse::Fuel)
+        .find(|d| d.purpose == GoodUse::Fuel && d.fuel.is_none_or(|f| f.technique.is_none()))
         .map_or(1.0, heat);
     goods.get(g).map_or(1.0, |d| heat(d) / reference)
 }
@@ -687,6 +740,9 @@ pub struct TechniqueDef {
     pub tried_in: Vec<usize>,
     /// Goods a household must hold to try it (the feasibility gate), by index in the goods.
     pub needs: Vec<usize>,
+    /// Goods its settlement must know a deposit of, with some left, to try it (M10a slice DS:
+    /// coal burned where it shows at the surface), by index in the goods.
+    pub needs_known: Vec<usize>,
     /// Qualified hours of experiment to a median find (E50, research 07-01 §5.3).
     pub e50_h: f64,
     /// Hours of work beside someone who knows it that teach it.
@@ -696,6 +752,9 @@ pub struct TechniqueDef {
     /// The household problem it answers, which draws people to try toward it (ADR-0008 §3):
     /// goods lost to spoilage, by index in the goods.
     pub answers_spoilage: Vec<usize>,
+    /// The share of each complication's deaths in childbirth an attendant who knows it prevents
+    /// (M10c slice EA; content API 179), by [`Complication`]; all nought for most.
+    pub birth: [f64; COMPLICATIONS],
 }
 
 /// The authored activities, goods and crops.
@@ -928,6 +987,8 @@ pub enum VehicleMode {
     Boat,
     /// On wheels, pulled by a person (M8b slice CP).
     Cart,
+    /// On track, pushed by people (M10b slice DV; ADR-0034 §3).
+    Rail,
 }
 
 impl VehicleMode {
@@ -936,6 +997,7 @@ impl VehicleMode {
         match self {
             VehicleMode::Boat => "boat",
             VehicleMode::Cart => "cart",
+            VehicleMode::Rail => "rail",
         }
     }
 
@@ -944,6 +1006,7 @@ impl VehicleMode {
         match name {
             "boat" => Some(VehicleMode::Boat),
             "cart" => Some(VehicleMode::Cart),
+            "rail" => Some(VehicleMode::Rail),
             _ => None,
         }
     }
@@ -993,6 +1056,24 @@ pub struct VehicleDef {
     pub power_w: f64,
     /// The steepest grade down, rise over run, a cart's puller can hold it back on.
     pub brake_grade: f64,
+    /// A wagon's rolling resistance on its track, and the gauge of track it runs on, metres
+    /// (M10b slice DV; 0 for a boat or cart).
+    pub rail_resistance: f64,
+    pub gauge_m: f64,
+    /// A rail vehicle's engine (M10b slice DW; content API 170): `None` for a wagon pushed by
+    /// people, and for every boat and cart.
+    pub engine: Option<RailEngine>,
+}
+
+/// The engine of a rail vehicle that pulls (M10b slice DW; ADR-0034 §3, ADR-0033 §7): the fuel it
+/// burns, by good index, the share of the fuel's heat it turns into work at the wheels, and the
+/// fastest it runs, metres a second. Its pull and power are the vehicle's `pull_n` (the most its
+/// driven wheels hold before they slip) and `power_w`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RailEngine {
+    pub fuel: usize,
+    pub efficiency: f64,
+    pub top_speed_m_s: f64,
 }
 
 impl VehicleDef {
@@ -1011,6 +1092,21 @@ impl VehicleDef {
         }
     }
 
+    /// How its track sees a wagon of this vehicle carrying `load_kg`, pushed by someone who
+    /// walks at `walk_m_s` (M10b slice DV): wheels whose ground is the rail's.
+    pub fn rail_wheels(&self, load_kg: f64, walk_m_s: f64) -> civ_land::carting::Wheels {
+        civ_land::carting::Wheels {
+            mass_kg: self.tare_kg + load_kg.max(0.0),
+            width_m: self.width_m,
+            way_c: self.rail_resistance,
+            trail_c: self.rail_resistance,
+            pull_n: self.pull_n,
+            power_w: self.power_w,
+            walk_m_s,
+            brake_grade: self.brake_grade,
+        }
+    }
+
     /// How the river sees it.
     pub fn hull(&self) -> civ_land::boating::Hull {
         civ_land::boating::Hull {
@@ -1022,6 +1118,11 @@ impl VehicleDef {
 }
 
 impl VehicleDef {
+    /// Whether it is a wagon: a rail vehicle with no engine, pushed by people (M10b slice DW).
+    pub fn is_wagon(&self) -> bool {
+        self.mode == VehicleMode::Rail && self.engine.is_none()
+    }
+
     /// Days it lasts, at 365.25 a year.
     pub fn life_days(&self) -> f64 {
         self.life_years * 365.25
@@ -1630,8 +1731,93 @@ pub struct MortalityParams {
     pub exhaustion_per_day: f64,
     /// How steeply that hazard rises toward the end of the reserve: `exhaustion_per_day · d^power`.
     pub exhaustion_power: f64,
-    /// Mothers' deaths per live birth.
+    /// Mothers' deaths per live birth, with nobody attending who knows a technique of birth
+    /// care.
     pub maternal_death_per_birth: f64,
+    /// How those deaths divide among the complications, and the harm of an attendant fresh from
+    /// the fevered (M10c slice EA).
+    pub birth: BirthParams,
+}
+
+/// The complications that kill a mother in childbirth (M10c slice EA; ADR-0035 §3; research
+/// 05-05 §1.5: maternal deaths split by cause, each answered by different care).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Complication {
+    Bleeding = 0,
+    Infection = 1,
+    Obstructed = 2,
+}
+
+/// Number of complications.
+pub const COMPLICATIONS: usize = 3;
+
+impl Complication {
+    /// Every complication, in order.
+    pub const ALL: [Complication; COMPLICATIONS] = [
+        Complication::Bleeding,
+        Complication::Infection,
+        Complication::Obstructed,
+    ];
+
+    /// Its key, as content and the chronicle name it.
+    pub fn key(self) -> &'static str {
+        match self {
+            Complication::Bleeding => "bleeding",
+            Complication::Infection => "infection",
+            Complication::Obstructed => "obstructed",
+        }
+    }
+
+    /// In words: "bleeding", "fever after the birth", "a labour that would not end".
+    pub fn words(self) -> &'static str {
+        match self {
+            Complication::Bleeding => "bleeding",
+            Complication::Infection => "fever after the birth",
+            Complication::Obstructed => "a labour that would not end",
+        }
+    }
+}
+
+/// How mothers' deaths in childbirth divide among the complications, shares summing to one, and
+/// how many times as likely an attendant who tended someone ill within `fever_harm_days` and
+/// knows nothing against infection makes fever after the birth (M10c slice EA; research 05-05
+/// §1.6: care can harm through its own routes).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct BirthParams {
+    pub shares: [f64; COMPLICATIONS],
+    pub fever_harm: f64,
+    pub fever_harm_days: i64,
+}
+
+impl MortalityParams {
+    /// Whether a mother dies in childbirth by draw `u` (uniform in [0, 1)), and of what: with
+    /// nobody attending (`care` `None`), below the maternal rate, as ever; attended by someone
+    /// whose techniques prevent the share `e` of each complication's deaths, and `harmed` if
+    /// they come fresh from the fevered without a technique against infection, below what is
+    /// left of each complication's part of the rate, fever's multiplied by the harm, never more
+    /// than certain (M10c slice EA). The complication is the part the draw falls in.
+    pub fn childbirth(
+        &self,
+        u: f64,
+        care: Option<([f64; COMPLICATIONS], bool)>,
+    ) -> Option<Complication> {
+        let p = self.maternal_death_per_birth;
+        let (e, harmed) = care.unwrap_or(([0.0; COMPLICATIONS], false));
+        let mut below = 0.0;
+        for c in Complication::ALL {
+            let i = c as usize;
+            let mut width = p * self.birth.shares[i] * (1.0 - e[i].clamp(0.0, 1.0));
+            if harmed && c == Complication::Infection {
+                width *= self.birth.fever_harm.max(1.0);
+            }
+            below = (below + width).min(1.0);
+            if u < below {
+                // With nobody attending, death is the authored rate exactly, as it always was.
+                return (care.is_some() || u < p).then_some(c);
+            }
+        }
+        (care.is_none() && u < p).then_some(Complication::Obstructed)
+    }
 }
 
 impl MortalityParams {
@@ -1840,6 +2026,9 @@ pub struct FirmParams {
     pub wage_max_change: f64,
     /// Most hours of work a workshop hires between two of its reviews.
     pub max_hire_hours: f64,
+    /// Hours of a works' shift from its bell, by daylight (M10a slice DT; ADR-0033 §8): a
+    /// workshop whose machines need a crew rings a bell at sunrise and hires for the shift.
+    pub shift_h: f64,
 }
 
 /// What households build (ADR-0009 §1, §7).
@@ -1888,6 +2077,14 @@ pub struct Digging {
     pub h_per_m3: f64,
     /// The side of a pit, and of the spoil heap beside it, metres.
     pub pit_side_m: f64,
+    /// A person's sustained power lifting water out of a pit by hand, watts (M10a slice DS;
+    /// research 07-06 §1.3: 50-100 W, 75 W the FAO example).
+    pub bail_w: f64,
+    /// The share of that power that lifts water, bucket and rope (07-06 §2.2's 50 %).
+    pub bail_efficiency: f64,
+    /// The distance from a pit at which the water it takes in no longer draws down the water
+    /// table, metres (03-02 §1.4's radius of influence, as a well's).
+    pub influence_m: f64,
 }
 
 /// A taste in building, or the traits of a building (M3b slice R): the roof pitch, the height to

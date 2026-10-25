@@ -283,7 +283,45 @@ pub(crate) mod tests {
             exhaustion_per_day: 0.05,
             exhaustion_power: 20.0,
             maternal_death_per_birth: 0.0075,
+            birth: crate::params::BirthParams {
+                shares: [0.3, 0.4, 0.3],
+                fever_harm: 2.0,
+                fever_harm_days: 7,
+            },
         }
+    }
+
+    #[test]
+    fn a_birth_unattended_dies_at_the_rate_as_ever_and_attended_by_what_the_attendant_leaves() {
+        use crate::params::Complication;
+        let m = mortality();
+        let p = m.maternal_death_per_birth;
+        // Unattended: below the rate exactly, whatever part of it the draw falls in.
+        for i in 0..2000 {
+            let u = f64::from(i) / 2000.0 * 2.0 * p;
+            assert_eq!(m.childbirth(u, None).is_some(), u < p, "u {u}");
+        }
+        assert_eq!(m.childbirth(0.0, None), Some(Complication::Bleeding));
+        assert_eq!(m.childbirth(0.5 * p, None), Some(Complication::Infection));
+        assert_eq!(m.childbirth(0.9 * p, None), Some(Complication::Obstructed));
+        // An attendant who prevents all bleeding and obstructed labour leaves fever's part.
+        let e = [1.0, 0.0, 1.0];
+        let left = p * m.birth.shares[1];
+        assert_eq!(
+            m.childbirth(0.99 * left, Some((e, false))),
+            Some(Complication::Infection)
+        );
+        assert_eq!(m.childbirth(1.01 * left, Some((e, false))), None);
+        // Fresh from the fevered, twice that.
+        assert_eq!(
+            m.childbirth(1.99 * left, Some((e, true))),
+            Some(Complication::Infection)
+        );
+        assert_eq!(m.childbirth(2.01 * left, Some((e, true))), None);
+        // Never more than certain.
+        let mut sure = m;
+        sure.maternal_death_per_birth = 1.0;
+        assert!(sure.childbirth(0.999, Some(([0.0; 3], true))).is_some());
     }
 
     pub(crate) fn fertility() -> FertilityParams {

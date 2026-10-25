@@ -18,7 +18,7 @@ use super::*;
 use crate::decide::WayFacts;
 use crate::polity::{LawStatus, PolicyKind};
 use crate::traffic;
-use civ_land::ways::{CART, Keeper, Rank, Segment, Surface, WALK, Way};
+use civ_land::ways::{CART, Keeper, RAIL, Rank, Segment, Surface, WALK, Way};
 
 /// Where the settlement's people could clear a passing place together (M8b slice CQ, third
 /// part): the cell at a single-cart stretch's middle, the hours clearing it takes, the years
@@ -227,6 +227,7 @@ impl Population {
             trips: 0.0,
             trips_day: day,
             rank: Rank::Lane,
+            track: None,
         });
         id
     }
@@ -253,8 +254,91 @@ impl Population {
             trips: 0.0,
             trips_day: day,
             rank: Rank::Lane,
+            track: None,
         });
         id
+    }
+
+    /// Begins a line of track kept by `keeper`, of gauge `gauge_m`, from cell `from` to cell `to`,
+    /// its bed to be graded to `ruling` (M10b slice DV, second part): a way serving wagons alone,
+    /// marked out and its track planned ([`civ_land::rail::Terrain::plan_track`]), nothing yet
+    /// laid. Returns its id; `None` where the land profile lays no track or no line joins the
+    /// cells within a map's width of search.
+    pub fn begin_track(
+        ctx: &mut Ctx,
+        keeper: Keeper,
+        from: u32,
+        to: u32,
+        gauge_m: f32,
+        ruling: f64,
+    ) -> Option<PermanentId> {
+        let params = ctx.land_params.track?;
+        let (cells, track) = Self::plan_line(ctx, from, to, gauge_m, ruling)?;
+        Some(Self::lay_line(ctx, keeper, cells, track, params.shoulder_m))
+    }
+
+    /// The line of track of gauge `gauge_m` from cell `from` to cell `to` graded to `ruling`, as
+    /// [`civ_land::rail::Terrain::plan_track`] plans it over today's land, searching a map's
+    /// width of cells; `None` where the land profile lays no track or no line joins them.
+    pub(super) fn plan_line(
+        ctx: &Ctx,
+        from: u32,
+        to: u32,
+        gauge_m: f32,
+        ruling: f64,
+    ) -> Option<(Vec<u32>, civ_land::rail::Track)> {
+        let params = ctx.land_params.track?;
+        let decks = ctx.land.cart_decks(ctx.map);
+        let terrain = ctx.land.cart_terrain(ctx.map, &decks);
+        let budget = (ctx.map.width.max(ctx.map.height) as usize).pow(2) * 8;
+        terrain.plan_track(from, to, gauge_m, ruling, &params, budget)
+    }
+
+    /// Marks out planned line `cells` with track `track`, kept by `keeper`, on a bed `shoulder_m`
+    /// wider than its gauge each side: a way serving wagons alone, nothing yet laid. Returns its
+    /// id.
+    pub(super) fn lay_line(
+        ctx: &mut Ctx,
+        keeper: Keeper,
+        cells: Vec<u32>,
+        track: civ_land::rail::Track,
+        shoulder_m: f32,
+    ) -> PermanentId {
+        let gauge_m = track.gauge_m;
+        let day = ctx.now.day_index();
+        let id = ctx.ids.allocate();
+        ctx.land.ways.add(Way {
+            id,
+            begun: day,
+            segments: vec![Segment {
+                cells,
+                corridor_m: gauge_m + 2.0 * shoulder_m,
+                built_m: LAID_FROM_M,
+                usable_m: LAID_FROM_M,
+                surface: Surface::Track,
+                keeper,
+                kept: day,
+            }],
+            modes: RAIL,
+            trips: 0.0,
+            trips_day: day,
+            rank: Rank::Lane,
+            track: Some(track),
+        });
+        id
+    }
+
+    /// Begins a line of track kept by household `household`: for tests.
+    #[doc(hidden)]
+    pub fn begin_track_for_tests(
+        ctx: &mut Ctx,
+        household: PermanentId,
+        from: u32,
+        to: u32,
+        gauge_m: f32,
+        ruling: f64,
+    ) -> Option<PermanentId> {
+        Self::begin_track(ctx, Keeper::Household(household), from, to, gauge_m, ruling)
     }
 
     /// Where settlement `settlement`'s households `households` (sorted) could clear a passing
@@ -427,15 +511,39 @@ impl Population {
                 )
             };
             let (at, walk_min) = walk_of(cell);
+            // Track's hours left are its share of the whole not yet laid, and each hour of its
+            // laying spares the hours its wagon was reckoned to spare over its life, spread over
+            // the line's and the wagon's labour (M10b slice DV, fourth part).
+            let (left_h, saves_per_hour) = match &w.track {
+                Some(t) => {
+                    let wagon = ctx.land.wagons.of(x.id).next().and_then(|c| {
+                        let def = ctx.catalog.vehicles.get(usize::from(c.vehicle))?;
+                        Some(
+                            f64::from(c.saves_h_year) * def.life_years
+                                / (f64::from(t.labour_h) + f64::from(c.labour_h)).max(1.0),
+                        )
+                    });
+                    (
+                        f64::from(t.labour_h) * f64::from((s.corridor_m - s.built_m).max(0.0))
+                            / f64::from((s.corridor_m - LAID_FROM_M).max(1e-3)),
+                        wagon.unwrap_or(0.0),
+                    )
+                }
+                None => (left_of(s), saved_h / labour_h),
+            };
             return Some(WayFacts {
                 way: w.id,
                 at,
                 walk_min,
-                left_h: left_of(s),
-                saves_per_hour: saved_h / labour_h,
+                left_h,
+                saves_per_hour,
                 duty: 0.0,
                 full: false,
             });
+        }
+        // A gas main its works is laying (M10b slice DY, fourth part), as its own way work.
+        if let Some(f) = self.main_facts(ctx, x) {
+            return Some(f);
         }
         let pi = self.polity_of(x.settlement?)?;
         let polity = &self.polities[pi];
@@ -443,7 +551,7 @@ impl Population {
             let law = polity.laws.iter().find(|k| {
                 k.id == *l
                     && k.status == LawStatus::InForce
-                    && k.kind == PolicyKind::BuildWay
+                    && (k.kind == PolicyKind::BuildWay || k.kind == PolicyKind::BuildLine)
                     && k.knows(person)
             })?;
             let w = ctx
@@ -455,7 +563,15 @@ impl Population {
             let s = w.segments.iter().find(|s| {
                 s.keeper == Keeper::Polity(polity.id) && s.built_m + 1e-3 < s.corridor_m
             })?;
-            Some((law, *site, w.id, left_of(s)))
+            // A line's hours left are its track's share not yet laid (M10b slice DX, third part).
+            let left = match &w.track {
+                Some(t) => {
+                    f64::from(t.labour_h) * f64::from((s.corridor_m - s.built_m).max(0.0))
+                        / f64::from((s.corridor_m - LAID_FROM_M).max(1e-3))
+                }
+                None => left_of(s),
+            };
+            Some((law, *site, w.id, left))
         })?;
         let households = self
             .households
@@ -484,7 +600,15 @@ impl Population {
             at,
             walk_min,
             left_h,
-            saves_per_hour: f64::from(polity.way_saves_of(law.id, x.id)) * works.passing_life_years
+            saves_per_hour: f64::from(polity.way_saves_of(law.id, x.id))
+                * if law.kind == PolicyKind::BuildLine {
+                    // A line's spared hours last a wagon's life (M10b slice DX, third part).
+                    Self::wagon_vehicle(ctx)
+                        .and_then(|v| ctx.catalog.vehicles.get(v))
+                        .map_or(works.passing_life_years, |d| d.life_years)
+                } else {
+                    works.passing_life_years
+                }
                 / site.labour_h.max(1e-6),
             duty,
             full: false,
@@ -495,6 +619,11 @@ impl Population {
     /// and levels its share of a square metre a `clear_h_m2`, widening the stretch along its
     /// length, until it is as wide as its corridor. It is kept that day. On a polity's, the hours
     /// it took are the household's given to the law that laid it, and to the polity's works.
+    ///
+    /// On track (M10b slice DV, second part) the hours are its grading and laying, its share of
+    /// the line's whole as its bed is widened to the corridor, and each takes its share of the
+    /// timber from the household's store: no more hours are worked than its timber allows. Track
+    /// carries wagons only once it is whole.
     pub(super) fn way_work(
         &mut self,
         ctx: &mut Ctx,
@@ -502,13 +631,40 @@ impl Population {
         way: PermanentId,
         hours: f64,
     ) {
+        // A gas main is laid by its works' own work (M10b slice DY, fourth part).
+        if ctx.land.gas.mains.iter().any(|m| m.id == way) {
+            self.main_work(ctx, household, way, hours);
+            return;
+        }
         let works = ctx.land_params.way_works;
         let cell_m = f64::from(ctx.map.cell_size_m);
         let day = ctx.now.day_index();
         let Some(w) = ctx.land.ways.list.iter_mut().find(|w| w.id == way) else {
             return;
         };
+        // On track: the hours a square metre of its bed takes, and the timber an hour.
+        let mut hours = hours;
+        let mut timber = None;
+        let mut rate_h_m2 = works.clear_h_m2;
+        if let (Some(t), Some(p)) = (&w.track, ctx.land_params.track) {
+            let cells: usize = w.segments.iter().map(|s| s.cells.len()).sum();
+            let corridor = w.segments.first().map_or(0.0, |s| s.corridor_m);
+            let area = cell_m * cells as f64 * f64::from(corridor - LAID_FROM_M);
+            rate_h_m2 = f64::from(t.labour_h) / area.max(1e-6);
+            let kg_h = f64::from(t.good_kg) / f64::from(t.labour_h).max(1e-6);
+            let held = self
+                .household(household)
+                .map_or(0.0, |x| x.stores[p.good].max(0.0));
+            // Timber short of the hours offered: it is all used when they are.
+            let short = kg_h > 0.0 && held / kg_h < hours;
+            if short {
+                hours = held / kg_h;
+            }
+            timber = Some((p.good, kg_h, short.then_some(hours)));
+        }
         let mut used = None;
+        // A line of track made whole by this work: its first cell and its length, metres.
+        let mut finished = None;
         for s in &mut w.segments {
             let ours = match s.keeper {
                 Keeper::Household(h) => h == household,
@@ -522,19 +678,65 @@ impl Population {
                 continue;
             }
             let area = cell_m * s.cells.len() as f64;
-            let wider = (hours / works.clear_h_m2 / area.max(1e-6)) as f32;
+            let wider = (hours / rate_h_m2 / area.max(1e-6)) as f32;
             let before = s.built_m;
             s.built_m = (s.built_m + wider).min(s.corridor_m);
-            s.usable_m = s.built_m;
+            if timber.is_none() || s.built_m + 1e-3 >= s.corridor_m {
+                s.usable_m = s.built_m;
+            }
             s.kept = day;
-            let took = f64::from(s.built_m - before) * area * works.clear_h_m2;
+            if timber.is_some() && before + 1e-3 < s.corridor_m && s.built_m + 1e-3 >= s.corridor_m
+            {
+                finished = s.cells.first().map(|&c| (c, area));
+            }
+            let took = f64::from(s.built_m - before) * area * rate_h_m2;
             used = Some((s.keeper, took.min(hours)));
             break;
         }
         let Some((keeper, took)) = used else {
             return;
         };
+        if let Some((good, kg_h, short)) = timber
+            && let Some(x) = self.household_mut(household)
+        {
+            let all = short.is_some_and(|h| took >= h * (1.0 - 1e-4));
+            x.stores[good] = if all {
+                0.0
+            } else {
+                (x.stores[good] - took * kg_h).max(0.0)
+            };
+        }
         ctx.land.ways.changed();
+        if let Some((cell, length_m)) = finished
+            && let Some(who) = self.elder_of(household, ctx.now, ctx.params)
+        {
+            let settlement = self.household(household).and_then(|x| x.settlement);
+            // A line laid together is the polity's, finished by whoever laid its last length
+            // (M10b slice DX, third part).
+            let sentence = if matches!(keeper, Keeper::Polity(_)) {
+                format!(
+                    "{} laid the last of the line of track laid together from the pit to the \
+                     hearth, {length_m:.0} m, and wagons can run on it.",
+                    self.name_of(who)
+                )
+            } else {
+                format!(
+                    "{}'s household finished laying its line of track, {length_m:.0} m, and wagons \
+                     can run on it.",
+                    self.name_of(who)
+                )
+            };
+            let at = cell_centre(ctx.map, cell as usize);
+            self.chronicle_push(
+                ctx.now,
+                ChronicleKind::LineLaid,
+                vec![who],
+                settlement,
+                Some(at),
+                0.0,
+                sentence,
+            );
+        }
         if let Keeper::Polity(p) = keeper
             && let Some(pi) = self.polities.iter().position(|q| q.id == p)
             && let Some(law) = self.polities[pi]

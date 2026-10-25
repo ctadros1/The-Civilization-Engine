@@ -1,0 +1,19 @@
+# Building a retort bench: a brick furnace holding fireclay retorts, with its iron mouthpieces,
+# hydraulic main and purifier boxes. 800 hours, 6,000 kg of brick, 500 kg of clay and 600 kg of
+# iron (tuning values; research 12-09 names the works but no hours).
+kind = "recipe"
+id = "core:recipe/build_gas_retort"
+name = "Build a gas retort"
+skill = "core:skill/smithing"
+technique = "core:technique/gas_making"
+unit_h = 800.0
+session_h = 0.0
+max_units = 1.0
+tools = []
+inputs = [
+  { good = "core:good/brick", amount = 6000.0 },
+  { good = "core:good/clay", amount = 500.0 },
+  { good = "core:good/iron", amount = 600.0 },
+]
+outputs = [{ good = "core:good/gas_retort", amount = 1.0 }]
+session_inputs = []

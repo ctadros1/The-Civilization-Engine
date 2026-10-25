@@ -1416,6 +1416,8 @@ pub(crate) mod tests {
         let good = |id: &str| GoodDef {
             fuel: None,
             power: None,
+            light: None,
+            holder: None,
             money: None,
             id: id.into(),
             name: id.into(),
@@ -1693,6 +1695,8 @@ pub(crate) mod tests {
         let good = |id: &str, purpose, kcal, half, sheltered| GoodDef {
             fuel: None,
             power: None,
+            light: None,
+            holder: None,
             money: None,
             id: id.to_owned(),
             name: id.to_owned(),
@@ -1713,6 +1717,8 @@ pub(crate) mod tests {
             GoodDef {
                 fuel: None,
                 power: None,
+                light: None,
+                holder: None,
                 store: Some(StoreDef { keeps_kg: 15.0 }),
                 ..good("pot", GoodUse::Store, 0.0, 1100.0, 0.0)
             },
@@ -1840,6 +1846,8 @@ pub(crate) mod tests {
         let good = |id: &str| GoodDef {
             fuel: None,
             power: None,
+            light: None,
+            holder: None,
             money: None,
             id: id.into(),
             name: id.into(),

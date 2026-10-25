@@ -1,0 +1,20 @@
+# Smelting iron to a liquid in a tall furnace blown by a wheel, and fining the pig under a hammer
+# (research 07-05 §4, I5 and I6: a hotter, taller furnace with a sustained blast gives cast iron,
+# which decarburizing refines; 07-12 §2: "sustained air blast"). It needs the bloomery and the water
+# hammer, whose wheel blows the bellows. Found by those who smelt iron, with ore and charcoal at
+# home; half of them would need 400,000 qualified hours (a far technique). Learnt in 400 hours
+# beside a knower. Founders do not bring it.
+kind = "technique"
+id = "core:technique/blast_furnace"
+name = "The blast furnace"
+can = "smelt iron to a liquid in a blown stack and fine the pig under a hammer"
+domain = "core:skill/smithing"
+requires = [["core:technique/bloomery", "core:technique/water_hammer"]]
+tried_in = ["core:activity/smelt_iron"]
+needs = ["core:good/iron_ore", "core:good/charcoal"]
+e50_h = 400000.0
+learn_h = 400.0
+upbringing = true
+
+[answers]
+spoilage = []

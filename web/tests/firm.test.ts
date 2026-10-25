@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  atWorkText,
   holdingsText,
   hoursText,
   lifeText,
   linesText,
+  machinesText,
   marginText,
   monthAmount,
   quantityText,
@@ -122,5 +124,22 @@ describe("workshop statements", () => {
     expect(lifeText([months[0]!])).toBe(
       "Its owners worked 3.0 h for it and hired no one. It has been paid nothing yet; its inputs and wages cost 1.2 h of their own work.",
     );
+  });
+});
+
+describe("a works' machines", () => {
+  const goods = [...GOODS, good("Tilt hammer", "tool"), good("Water wheel", "tool")];
+  it("names each machine and the crew it wants", () => {
+    expect(
+      machinesText(goods, [
+        { good: 4, units: 1, crew: 2 },
+        { good: 5, units: 1, crew: 1 },
+      ]),
+    ).toBe("1 tilt hammer, worked by 2 hands together · 1 water wheel");
+    expect(machinesText(goods, [{ good: 4, units: 0.001, crew: 2 }])).toBe("none");
+    expect(machinesText(goods, [])).toBe("none");
+  });
+  it("says how many are at work now", () => {
+    expect([atWorkText(0), atWorkText(1), atWorkText(3)]).toEqual(["nobody", "1 person", "3 people"]);
   });
 });

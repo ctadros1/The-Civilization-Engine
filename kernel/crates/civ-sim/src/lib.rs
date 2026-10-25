@@ -1745,8 +1745,8 @@ impl Sim {
                         advance.days += 1;
                         // The day that just ended is complete.
                         land.advance_to_day(&rules.land, map, at.day_index() - 1);
-                        // Boats and carts age a day; those past use are gone (M8b slices CO
-                        // and CP).
+                        // Boats, carts and wagons age a day; those past use are gone (M8b slices
+                        // CO and CP, M10b slice DV).
                         let vehicles = &rules.catalog.vehicles;
                         let life = |v: u16| {
                             vehicles
@@ -1755,6 +1755,7 @@ impl Sim {
                         };
                         land.boats.age(life);
                         land.carts.age(life);
+                        land.wagons.age(life);
                         refresh_nav(nav, map, rules, land);
                         let mut ctx = Ctx {
                             now: at,
@@ -1869,6 +1870,11 @@ impl Sim {
                 }
             })
             .map_err(SimError::Schedule)?;
+        // Train runs move on to the minute reached (M10b slice DW): each leg ends and each
+        // section is entered at its own minute, however the clock was stepped.
+        if !self.land.runs.list.is_empty() {
+            self.land.runs.advance(target.minutes());
+        }
         self.dirty = true;
         Ok(advance)
     }

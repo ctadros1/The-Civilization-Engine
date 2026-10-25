@@ -1,0 +1,25 @@
+# A gas burner: an iron jet fitted in a building and fed by a main, giving many candles' light
+# (M10b slice DY; ADR-0034 §8-§9). It burns 0.142 cubic metres an hour (research 12-09 §2.3, Keene
+# 1918: 5 cubic feet an hour), 0.071 kg of coal gas at half a kilogram a cubic metre. Its gas comes
+# by a main, not from its household's stores (`piped`), so it is no lamp a household fills. It lasts
+# 20,000 hours lit (a tuning value). No household wants one for its own sake.
+kind = "good"
+id = "core:good/gas_burner"
+name = "Gas burner"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 20000.0
+per_worker = 0.0
+fixed = true
+
+[light]
+fuel = "core:good/coal_gas"
+kg_per_hour = 0.071
+piped = true

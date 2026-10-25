@@ -266,6 +266,19 @@ exhaustion_power = 20.0
 # 1,050 to 500 across 1700-1850).
 maternal_death_per_birth = 0.0075
 
+[mortality.birth]                # M10c slice EA (content API 179; ADR-0035 §3)
+# How those deaths divide among their causes (05-05 §1.5 asks for the split; design priors, as the
+# brief has them: puerperal fever the largest share, then bleeding and labours that would not end).
+# The rate above is taken as the rate with nobody attending who knows a technique of birth care.
+bleeding = 0.3
+infection = 0.4
+obstructed = 0.3
+# An attendant who tended someone ill within a week and knows nothing against infection makes
+# fever after the birth twice as likely (05-05 §1.6, §2.1: Semmelweis's wards, 11.3 % against
+# 2.0 % once hands were washed; a design prior).
+fever_harm = 2.0
+fever_harm_days = 7
+
 [fertility]                      # a reproductive state machine (research 05-01 §1.4-1.5, 04-08 §1.5)
 # Chance a fecund woman living with her partner conceives in a month at her most fecund ages
 # (04-08 §2.3: start at 0.20, explore 0.10-0.30). With the spacing below, 0.10 brings a band's
@@ -387,6 +400,13 @@ max_hire_hours = 21.0
 # A pit is 3 m square, its spoil heaped on a square beside it (tuning values).
 h_per_m3 = 8.0
 pit_side_m = 3.0
+# Water standing in a pit dug below the water table is lifted out by hand before digging goes on
+# (M10a slice DS; ADR-0033 §7): a person's sustained power (research 07-06 §1.3: 50-100 W, 75 W
+# the FAO example), the share of it bucket and rope turn into lifting (07-06 §2.2's 50 %), and a
+# pit's radius of influence on the water table, as the core's wells'.
+bail_w = 75.0
+bail_efficiency = 0.5
+influence_m = 50.0
 
 [style]
 # Taste in building and how it moves (M3b slice R; research 11-02 §1.1, §2.2). A household's taste
@@ -561,6 +581,11 @@ acts = [
   { act = "raised_well", familiarity = 0.02, warmth = 0.0, domain = "craft", good = 0.5, bad = 0.0 },
   { act = "raised_as_proposed", familiarity = 0.0, warmth = 0.0, domain = "counsel", good = 1.0, bad = 0.0 },
   { act = "proposal_stalled", familiarity = 0.0, warmth = 0.0, domain = "counsel", good = 0.0, bad = 1.0 },
+  # M10c slice DZ, third part (content API 178): a carer of another household first to tend one of
+  # the holder's through a sickness they lived through or died of; a carer's craft as clients saw
+  # it (05-05 §1.2: a prestigious carer of a useless remedy can still be sought).
+  { act = "tended_lived", familiarity = 0.05, warmth = 0.05, domain = "craft", good = 1.0, bad = 0.0 },
+  { act = "tended_died", familiarity = 0.0, warmth = 0.0, domain = "craft", good = 0.0, bad = 1.0 },
 ]
 
 [standing]                       # standing and notables (ADR-0014 §3-4); tuning values
@@ -671,6 +696,12 @@ risk_alpha_told = 0.1
 # and a half times `retry_hours` before weighing taking again (12-04 §1.4: an offender may change
 # their timing).
 sight_m = 30.0
+# Once a world has lit a lamp (M10b slice DU; ADR-0034 §9), a taking after sunset is seen only
+# within `dark_sight_m` metres, unless it happens within `lit_m` of a home where a lamp burns for
+# work, whose light restores day sight. Design priors: a figure made out by starlight at about 10
+# m; a fat lamp's 1 lux at a metre lights its doorway to about 3 m (research 11-13 §2.2).
+dark_sight_m = 10.0
+lit_m = 3.0
 notice_chance = 0.7
 retry_hours = 12.0
 guardian_age = 10.0
@@ -724,6 +755,13 @@ exile_days = 60.0
 # watch at each for the activity's minutes (12-04 §2.3: 11-15 minute visits, a modern patrol
 # finding, here only a scale).
 watch_guard = 0.5
+# Lit streets (M10b slice DY, fourth part; content API 175): a household weighs a law to light the
+# streets as a watch, by `lit_guard` of what was taken: the share it believes those about would
+# see by the lamps (a tuning value, below a watch's: lamps see nothing themselves).
+lit_guard = 0.3
+# The lamplighter a law names walks the round of its street lamps after dark as a choice, worth
+# `w_light` points, lighting each until dawn (content API 176; a tuning value, as a watch's round).
+w_light = 6.0
 w_watch = 6.0
 rounds_per_night = 3
 round_stops = 6
@@ -1199,6 +1237,10 @@ infill_loss = 0.5
 hearth_lit_per_hour = 2.0e-6
 hearth_banked_per_hour = 1.0e-6
 worked_per_hour = 4.0e-6
+# A lamp lit at home for work after dark is a small open flame, as likely to escape as a lit
+# hearth (M10b slice DU; ADR-0034 §9; a tuning value: 12-03 §1.1 separates lighting from cooking
+# and heating but gives no rate).
+lamp_lit_per_hour = 2.0e-6
 beside_m = 3.0
 # An escape left alone grows inside before it reaches the covering (12-03 §1.2: ignition, then
 # locally controlled or growing, then the building involved). No source gives how long for an

@@ -11,6 +11,8 @@
 //! weighed.
 
 use super::*;
+use crate::decide::MillFacts;
+use crate::ledger::{Channel, Leg};
 use crate::params::{GoodPower, PowerSource};
 use crate::person::MillSeen;
 use civ_land::RectCm;
@@ -28,6 +30,13 @@ const MILL_HOURS_A_DAY: f64 = 8.0;
 /// The least distance between two wheels, metres (a design prior: one fall drives one mill;
 /// a wheel below another takes the water the first has spent its fall on).
 const MILL_SPACING_M: f64 = 50.0;
+/// The share of what a neighbour's mill grinds that its owner keeps (M10a slice DR, fourth
+/// part): a tuning value (research 08-03 names "customer-owned inputs processed for a fee or
+/// toll" but gives no figure; a sixteenth is a design prior).
+pub(crate) const TOLL_SHARE: f64 = 1.0 / 16.0;
+/// Hours a year keeping a mill asks: dressing its stones and clearing its race (a design prior,
+/// logged as a NUDGE in PROJECT_PLAN: reckoned in the choice, not yet worked).
+const MILL_UPKEEP_H: f64 = 100.0;
 /// The fewest days between two counts from which a year's making is read.
 const MIN_SEEN_DAYS: i64 = 180;
 
@@ -160,6 +169,32 @@ impl Population {
         else {
             return;
         };
+        // A mill of its own spares only what grinding at a neighbour's for its toll would not
+        // (M10a slice DR, fourth part): the toll's flour and a round trip for each load.
+        let key = x.settlement.unwrap_or(x.id);
+        let saved = match self.nearest_mill(ctx, x, key, ways) {
+            None => saved,
+            Some((_, w, walk_min)) => {
+                let r = &ctx.catalog.recipes[w.recipe];
+                let by_toll = r.inputs.first().zip(r.outputs.first()).and_then(
+                    |(&(_, per_in), &(out, per))| {
+                        let now = costs.get(out).copied().flatten()?;
+                        let mut by_mill = r.unit_h;
+                        for &(g, amount) in &r.inputs {
+                            by_mill += costs.get(g).copied().flatten()? * amount;
+                        }
+                        let loads = per_in / ctx.params.household.carry_kg.max(1e-9);
+                        let walk_h = 2.0 * walk_min / 60.0 * loads;
+                        let kept = per * (1.0 - TOLL_SHARE);
+                        Some(now - (by_mill + walk_h) / kept.max(1e-9))
+                    },
+                );
+                saved - by_toll.unwrap_or(0.0).max(0.0)
+            }
+        };
+        if saved <= 0.0 {
+            return;
+        }
         let Some(wheel_h) = costs.get(way.wheel).copied().flatten() else {
             return;
         };
@@ -212,6 +247,231 @@ impl Population {
             x.ditch_worth = worth;
         }
     }
+
+    /// The working mill of another household of household `x`'s settlement nearest it by its
+    /// people's walk, if any (M10a slice DR, fourth part): its installation's index, the way it
+    /// grinds by, and the walk there, minutes. A mill works whose headrace is dug, whose owner
+    /// holds a wheel for one of the ways and whose river turns it today.
+    fn nearest_mill(
+        &self,
+        ctx: &Ctx,
+        x: &Household,
+        field_key: PermanentId,
+        ways: &[PoweredWay],
+    ) -> Option<(usize, PoweredWay, f64)> {
+        let reach = &self.homes.get(&field_key)?.reach;
+        let mut best: Option<(usize, PoweredWay, f64)> = None;
+        for (i, m) in ctx.land.installations.iter().enumerate() {
+            if m.owner == x.id || !ctx.land.installation_ready(i) {
+                continue;
+            }
+            let Some(owner) = self.household(m.owner) else {
+                continue;
+            };
+            if owner.members.is_empty() || owner.settlement != x.settlement {
+                continue;
+            }
+            let Some(way) = ways
+                .iter()
+                .copied()
+                .find(|w| owner.stores.get(w.wheel).copied().unwrap_or(0.0) >= decide::MIN_TOOL)
+            else {
+                continue;
+            };
+            if ctx.land.installation_kw(ctx.land_params, i) <= 0.0 {
+                continue;
+            }
+            let at = (m.at[0] as f32, m.at[1] as f32);
+            let Some(secs) = reach.seconds_to(cell_of(ctx.map, at)) else {
+                continue;
+            };
+            let walk = f64::from(secs) / 60.0;
+            if best.as_ref().is_none_or(|b| walk < b.2) {
+                best = Some((i, way, walk));
+            }
+        }
+        best
+    }
+
+    /// The neighbour's mill household `x`'s people could grind its grain at, as their decision
+    /// sees it (M10a slice DR, fourth part): none in the dark, for a household with a working
+    /// mill of its own, or one with no grain to grind or no want of flour; otherwise the nearest
+    /// working mill of its settlement, the grain one of them would carry there (no more than a
+    /// load, the grain held, or what brings its flour up to its days' store), the hours that
+    /// takes at the mill's power, and the hours of its own grinding each of them spares, the
+    /// mill's toll counted at what flour costs the household.
+    pub(super) fn mill_facts(
+        &self,
+        ctx: &Ctx,
+        x: &Household,
+        field_key: PermanentId,
+        dark: bool,
+    ) -> Option<MillFacts> {
+        if dark || ctx.land.installations.is_empty() {
+            return None;
+        }
+        let owns = ctx
+            .land
+            .installations
+            .iter()
+            .enumerate()
+            .any(|(i, m)| m.owner == x.id && ctx.land.installation_ready(i));
+        if owns {
+            return None;
+        }
+        let ways = powered_ways(ctx.catalog);
+        let (i, way, walk_min) = self.nearest_mill(ctx, x, field_key, &ways)?;
+        let r = &ctx.catalog.recipes[way.recipe];
+        let (&(grain, per_in), &(flour, per)) = (r.inputs.first()?, r.outputs.first()?);
+        let goods = &ctx.catalog.goods;
+        let stores = stores_now(x, ctx.now, ctx.params, goods);
+        let flour_kcal = goods.get(flour).map_or(0.0, |g| g.kcal_per_kg);
+        if flour_kcal <= 0.0 || per_in <= 0.0 || per <= 0.0 {
+            return None;
+        }
+        let day_kcal = x.members.len() as f64 * ctx.params.household.daily_kcal_per_person;
+        let target = ctx.params.household.processed_food_days * day_kcal / flour_kcal;
+        let short = target - stores.get(flour).copied().unwrap_or(0.0);
+        let units = (ctx.params.household.carry_kg / per_in)
+            .min(stores.get(grain).copied().unwrap_or(0.0) / per_in)
+            .min(short / (per * (1.0 - TOLL_SHARE)));
+        if units < 1.0 {
+            return None;
+        }
+        let costs = self.own_costs_of(ctx, x);
+        let now_h = costs.get(flour).copied().flatten()?;
+        let mut by_mill = r.unit_h;
+        for &(g, amount) in &r.inputs {
+            by_mill += costs.get(g).copied().flatten()? * amount;
+        }
+        // A unit gives its flour less the toll: what each kilogram brought home spares.
+        let kept = per * (1.0 - TOLL_SHARE);
+        let saved = now_h * kept - by_mill;
+        if saved <= 0.0 {
+            return None;
+        }
+        let kw = ctx.land.installation_kw(ctx.land_params, i);
+        let unit_hours = r.unit_h.max(r.kwh_per_unit / kw.max(1e-9));
+        let m = &ctx.land.installations[i];
+        Some(MillFacts {
+            mill: m.id,
+            at: (m.at[0] as f32, m.at[1] as f32),
+            walk_min,
+            left_h: units * unit_hours,
+            saves_per_hour: saved / unit_hours,
+        })
+    }
+
+    /// The mill person `who`'s household would grind at, as their decision sees it: for tests.
+    #[doc(hidden)]
+    pub fn mill_facts_for_tests(&self, ctx: &Ctx, who: PermanentId) -> Option<MillFacts> {
+        let x = self.household(self.person(who)?.household)?;
+        let key = x.settlement.unwrap_or(x.id);
+        self.mill_facts(ctx, x, key, false)
+    }
+
+    /// `minutes` of person `who` grinding their household's grain at mill `mill`: for tests.
+    #[doc(hidden)]
+    pub fn mill_grind_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        who: PermanentId,
+        mill: PermanentId,
+        minutes: u32,
+    ) {
+        if let Some(&h) = self.index.get(&who) {
+            self.mill_grind(ctx, h, mill, minutes);
+        }
+    }
+
+    /// `minutes` of person `h` grinding their household's grain at mill `mill` (M10a slice DR,
+    /// fourth part): as much as the session, the mill's power today and a load of the grain held
+    /// allow, the flour theirs but the toll, which goes to the mill's owner; the owner's wheel
+    /// wears by the hours it turned.
+    pub(super) fn mill_grind(
+        &mut self,
+        ctx: &mut Ctx,
+        h: Handle<Person>,
+        mill: PermanentId,
+        minutes: u32,
+    ) {
+        let Some(i) = ctx.land.installations.iter().position(|m| m.id == mill) else {
+            return;
+        };
+        let owner = ctx.land.installations[i].owner;
+        let Some(p) = self.people.get(h) else {
+            return;
+        };
+        let household = p.household;
+        if owner == household || !ctx.land.installation_ready(i) {
+            return;
+        }
+        let ways = powered_ways(ctx.catalog);
+        let Some(way) = self.household(owner).and_then(|o| {
+            ways.iter()
+                .copied()
+                .find(|w| o.stores.get(w.wheel).copied().unwrap_or(0.0) >= decide::MIN_TOOL)
+        }) else {
+            return;
+        };
+        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let r = &ctx.catalog.recipes[way.recipe];
+        let (Some(&(grain, per_in)), Some(&(flour, per))) = (r.inputs.first(), r.outputs.first())
+        else {
+            return;
+        };
+        let hours = f64::from(minutes) / 60.0;
+        let kw = ctx.land.installation_kw(ctx.land_params, i);
+        let mut units = make::units_in(r, f64::from(minutes), 1.0)
+            .min(kw * hours / r.kwh_per_unit.max(1e-9))
+            .min(params.household.carry_kg / per_in.max(1e-9));
+        let mut toll = 0.0;
+        if let Some(x) = self
+            .hh_index
+            .get(&household)
+            .and_then(|&hd| self.households.get_mut(hd))
+        {
+            let members = x.members.len().max(1);
+            x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
+            x.stores.resize(goods.len(), 0.0);
+            units = units.min(x.stores[grain] / per_in.max(1e-9));
+            if units <= 0.0 {
+                return;
+            }
+            let before = x.stores.clone();
+            x.stores[grain] -= units * per_in;
+            x.stores[flour] += units * per;
+            toll = units * per * TOLL_SHARE;
+            x.flows
+                .add_changes(&before, &x.stores, Flow::Made, Flow::Used);
+        }
+        if units <= 0.0 {
+            return;
+        }
+        // The toll is the owner's, by the ledger (a transfer the customer's store covers).
+        let legs = [Leg {
+            from: household,
+            to: owner,
+            good: flour,
+            amount: toll,
+        }];
+        self.transfer(now, params, goods, &legs, Channel::Toll);
+        // The wheel turned for the hours the grinding took.
+        let turned = units * r.kwh_per_unit / kw.max(1e-9);
+        if let Some(o) = self
+            .hh_index
+            .get(&owner)
+            .and_then(|&hd| self.households.get_mut(hd))
+        {
+            let members = o.members.len().max(1);
+            o.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
+            o.stores.resize(goods.len(), 0.0);
+            let before = o.stores.clone();
+            make::wear(&mut o.stores, goods, &r.tools, turned.min(hours));
+            o.flows
+                .add_changes(&before, &o.stores, Flow::Made, Flow::Worn);
+        }
+    }
 }
 
 /// The best site for a mill of way `way` for household `holder` at `home` that makes
@@ -221,8 +481,9 @@ impl Population {
 /// water falls back to and no nearer another wheel than `MILL_SPACING_M`, joined by a
 /// headrace falling at a ditch's least gradient that leaves the wheel at least `MIN_HEAD_M`
 /// of fall and crosses no field, plot or well. The wheel's power is reckoned at its reach's
-/// mean flow; a mill that cannot grind all the household makes saves on what it can. Of
-/// those, the one whose gain over a ditch's years most exceeds its digging and its wheel.
+/// mean flow; a mill that cannot grind all the household makes saves on what it can, less
+/// `MILL_UPKEEP_H` a year. Of those, the one whose gain over a ditch's years most exceeds its
+/// digging and its wheel.
 fn mill_site(
     ctx: &Ctx,
     holder: PermanentId,
@@ -298,7 +559,7 @@ fn mill_site(
                 let can_kg = kw * MILL_HOURS_A_DAY * DAYS_PER_YEAR as f64 / r.kwh_per_unit * per;
                 let gain_h = saved * kg_year.min(can_kg);
                 let dig_h = dp.dig_hours(length);
-                let net_h = gain_h * dp.life_years - dig_h - wheel_h;
+                let net_h = (gain_h - MILL_UPKEEP_H) * dp.life_years - dig_h - wheel_h;
                 if net_h <= 0.0 || best.as_ref().is_some_and(|p| p.net_h >= net_h) {
                     continue;
                 }
@@ -355,14 +616,15 @@ fn bank(map: &civ_world::WorldMap, c: u32, home: [f64; 2]) -> Option<u32> {
     best.map(|(_, n)| n)
 }
 
-/// The ways of making by falling water in the catalog: recipes that ask power and name a fixed
-/// tool that turns on water, with that tool and its power.
+/// The ways of making by falling water in the catalog that a household works at its own mill:
+/// recipes that ask power and name a fixed tool that turns on water, with that tool and its
+/// power, leaving out those whose machine wants a crew, which only a works works (M10a slice DT).
 fn powered_ways(catalog: &crate::params::Catalog) -> Vec<PoweredWay> {
     catalog
         .recipes
         .iter()
         .enumerate()
-        .filter(|(_, r)| r.kwh_per_unit > 0.0)
+        .filter(|(_, r)| r.kwh_per_unit > 0.0 && super::crew_of(&catalog.goods, r) <= 1)
         .filter_map(|(i, r)| {
             r.tools.iter().find_map(|&t| {
                 let power = catalog.goods.get(t)?.power?;

@@ -198,6 +198,10 @@ export interface Clock {
   /** Settlements away from the observer's focus are lived by household (wire 1.93, ADR-0032
    * §6), as the observer chose; false: every settlement in detail. */
   resolutionByFocus: boolean;
+  /** Homes where a lamp burns for work now (wire 1.99, M10b slice DU); 0 from an older host. */
+  litHomes: number;
+  /** The minute the world's first lamp was lit for work, or null before (wire 1.99). */
+  firstLampMinute: number | null;
 }
 
 /** A day's weather on the valley floor (wire 1.24, M3c slice U). */
@@ -598,6 +602,10 @@ export interface BuildingInfo {
    * ("chosen over 5 others: 34 hours less walking and levelling over 5 years than the next best");
    * empty where nothing was weighed. */
   site: string;
+  /** Wire 1.103 (M10b slice DY): its gas in the kernel's words: connected to a main, its burners
+   * and how its last evening went ("Gas: 1 burner on Ada's main; lit until 22:40"), or the
+   * gasworks its household keeps; empty for neither. */
+  gas: string;
 }
 
 /** How a building stands to its latest fire (wire 1.68). */
@@ -872,6 +880,13 @@ export interface PersonInfo {
    * of 5 households they know that draw there, 3 had sickness lately, against 0 of 6 that draw
    * elsewhere"). What they believe, which may be wrong. */
   suspicions: string[];
+  /** Wire 1.99 (M10b slice DU): their light ("Working by lamplight at home; their household's
+   * fat lamp has tallow for 12 hours"); empty when their household holds no lamp. */
+  light: string;
+  /** Wire 1.104 (M10c slice DZ): their care of other homes ("First to tend 3 of the sick of other
+   * homes: 2 lived, 1 died; Their household is called to tend the sick of Ada's household, for
+   * 2100 kcal of food a day"); empty for none. */
+  care: string;
 }
 
 /** A claim the observer may whisper (wire 1.47). */
@@ -1499,6 +1514,21 @@ export interface WageInfo {
   taken: number;
   /** Rendered by the kernel: "Pays 0.90 kg of grain an hour; wants 6 more hours of work …". */
   text: string;
+  /**
+   * Its bell (wire 1.98, M10a slice DT): the minute of the day it rings and the minutes of the
+   * shift that follows; a shift of 0 is no bell.
+   */
+  bellMinute: number;
+  shiftMinutes: number;
+}
+
+/** A machine a works holds (wire 1.98, M10a slice DT). */
+export interface MachineLine {
+  /** The good, an index into Welcome.goods; how much of it the works holds. */
+  good: number;
+  units: number;
+  /** The fewest hands it wants at it together. */
+  crew: number;
 }
 
 /** A line of a workshop's books. */
@@ -1553,6 +1583,10 @@ export interface FirmInfo {
   entries: BookEntry[];
   /** Every month of its life, oldest first. */
   months: MonthStatement[];
+  /** Its machines and fixed tools (wire 1.98). */
+  machines: MachineLine[];
+  /** The people at work for it now, owners and hired hands (wire 1.98). */
+  atWork: number;
 }
 
 /**
@@ -1802,23 +1836,70 @@ export interface WayInfo {
   /** 0 a lane, 1 a street, 2 a main way, 3 a way between settlements: derived, shown only. */
   rank: number;
   rankName: string;
-  /** Bits: 1 walking, 2 handcarts. */
+  /** Bits: 1 walking, 2 handcarts, 4 wagons on track. */
   modes: number;
   tripsADay: number;
   segments: WaySegmentInfo[];
   /** In the kernel's words: "Street of 240 m, 3.0 m wide at most; begun in year 2." */
+  words: string;
+  /** Wire 1.100 (M10b slice DV): a line of track's gauge, metres (0 for a way with none), its
+   * bed's steepest grade, rise over run, and the share of it laid, 0–1 (1 for a way with no
+   * track). */
+  gaugeM: number;
+  ruling: number;
+  laid: number;
+  /** Wire 1.102 (M10b slice DX): for a line, whether its ends are stations, the runs a day its
+   * timetable sets, the fare a ride costs (kg of its engines' fuel), and since its last review the
+   * rides taken and the goods its trains brought a day, kg. */
+  stations: boolean;
+  runsADay: number;
+  fareKg: number;
+  riders: number;
+  freightKgDay: number;
+}
+
+/** A gas main (wire 1.103, M10b slice DY; ADR-0034 §8). */
+export interface GasMainInfo {
+  id: number;
+  /** The household whose works feeds it. */
+  works: number;
+  /** Its centre line from the works, metres from the map's north-west corner. */
+  points: [number, number][];
+  lengthM: number;
+  /** The share of it laid, 0–1; it carries gas only once whole. */
+  laid: number;
+  capacityKgH: number;
+  broken: boolean;
+  /** The buildings connected to it, and those whose burners are lit now. */
+  homes: number;
+  lit: number;
+  /** In the kernel's words: "Gas main of 120 m from Ada's gasworks, 40% laid." */
+  words: string;
+}
+
+/** A street lamp a polity set by law (wire 1.103). */
+export interface StreetLampInfo {
+  x: number;
+  y: number;
+  /** Whether it burns now. */
+  lit: boolean;
+  /** In the kernel's words: "Street lamp of Ashford, set by its law to light the streets; dark now." */
   words: string;
 }
 
 export interface WaysInfo {
   rev: number;
   ways: WayInfo[];
+  /** Wire 1.103 (M10b slice DY): every gas main and street lamp, in the order made. */
+  mains: GasMainInfo[];
+  lamps: StreetLampInfo[];
 }
 
-/** A boat or a cart (wire 1.86, M8b slices CO and CP; ADR-0029 §3). */
+/** A boat or a cart (wire 1.86, M8b slices CO and CP; ADR-0029 §3), a wagon on its line (wire
+ * 1.100, M10b slice DV) or an engine on rails (wire 1.101, M10b slice DW). */
 export interface VehicleInfo {
   id: number;
-  /** 0 a boat, 1 a cart. */
+  /** 0 a boat, 1 a cart, 2 a wagon, 3 an engine on rails. */
   mode: number;
   /** Its content name: "Dugout". */
   name: string;
@@ -1836,6 +1917,9 @@ export interface VehicleInfo {
   loadKg: number;
   /** In the kernel's words: "Ada's household's dugout, made in year 2; out with Bo, 40 kg aboard". */
   words: string;
+  /** Wire 1.101: an engine's or wagon's run along its line: 0 on none, 1 waiting at a loop or end,
+   * 2 running, 3 arrived; on a run, where it stands is where the run has it now. */
+  run: number;
 }
 
 export interface VehiclesInfo {
@@ -1941,6 +2025,20 @@ export interface FloodCellInfo {
   depthM: number;
 }
 
+/** A water mill (wire 1.97, M10a slice DR): its wheel, the fall it takes, its power today and
+ * its wheel's rating (kW), whether its headrace is dug, whose it is, and all of it in words. */
+export interface MillInfo {
+  id: number;
+  x: number;
+  y: number;
+  headM: number;
+  kw: number;
+  ratedKw: number;
+  dug: boolean;
+  household: number;
+  words: string;
+}
+
 export interface WaterInfo {
   rev: number;
   wells: WellInfo[];
@@ -1950,6 +2048,8 @@ export interface WaterInfo {
   banks: BankDrawInfo[];
   /** Flooded cells today with water depth, metres. */
   flooded: FloodCellInfo[];
+  /** Every water mill (wire 1.97). */
+  mills: MillInfo[];
 }
 
 /** A source of water as one home stands to it (wire 1.66): `kind` 1 its own well, 2 a well by
@@ -2944,6 +3044,9 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
           mode: clock.mode() === W.ClockMode.Accelerated ? "accelerated" : "detailed",
           weather: dayWeather(clock.weather()),
           resolutionByFocus: clock.resolutionByFocus(),
+          litHomes: clock.litHomes(),
+          firstLampMinute:
+            Number(clock.firstLampMinute()) >= 0 ? Number(clock.firstLampMinute()) : null,
         }
       : null,
     task: task
@@ -3094,9 +3197,42 @@ function ways(w: W.Ways): WaysInfo {
       tripsADay: v.tripsADay(),
       segments,
       words: v.words() ?? "",
+      gaugeM: v.gaugeM(),
+      ruling: v.ruling(),
+      laid: v.laid(),
+      stations: v.stations(),
+      runsADay: v.runsADay(),
+      fareKg: v.fareKg(),
+      riders: v.riders(),
+      freightKgDay: v.freightKgDay(),
     });
   }
-  return { rev: Number(w.rev()), ways: list };
+  const mains: GasMainInfo[] = [];
+  for (let i = 0; i < w.mainsLength(); i++) {
+    const m = w.mains(i);
+    if (!m) continue;
+    const points: [number, number][] = [];
+    for (let k = 0; k + 1 < m.pointsLength(); k += 2) points.push([m.points(k) ?? 0, m.points(k + 1) ?? 0]);
+    mains.push({
+      id: Number(m.id()),
+      works: Number(m.works()),
+      points,
+      lengthM: m.lengthM(),
+      laid: m.laid(),
+      capacityKgH: m.capacityKgH(),
+      broken: m.broken(),
+      homes: m.homes(),
+      lit: m.lit(),
+      words: m.words() ?? "",
+    });
+  }
+  const lamps: StreetLampInfo[] = [];
+  for (let i = 0; i < w.lampsLength(); i++) {
+    const l = w.lamps(i);
+    if (!l) continue;
+    lamps.push({ x: l.x(), y: l.y(), lit: l.lit(), words: l.words() ?? "" });
+  }
+  return { rev: Number(w.rev()), ways: list, mains, lamps };
 }
 
 function vehicles(w: W.Vehicles): VehiclesInfo {
@@ -3117,6 +3253,7 @@ function vehicles(w: W.Vehicles): VehiclesInfo {
       outWith: Number(v.outWith()),
       loadKg: v.loadKg(),
       words: v.words() ?? "",
+      run: v.run(),
     });
   }
   return { rev: Number(w.rev()), vehicles: list };
@@ -3298,7 +3435,23 @@ function water(w: W.Water): WaterInfo {
     const v = w.flooded(i);
     if (v) flooded.push({ cell: v.cell(), depthM: v.depthM() });
   }
-  return { rev: Number(w.rev()), wells, springs, flow: w.flow(), banks, flooded };
+  const mills: MillInfo[] = [];
+  for (let i = 0; i < w.millsLength(); i++) {
+    const v = w.mills(i);
+    if (!v) continue;
+    mills.push({
+      id: Number(v.id()),
+      x: v.x(),
+      y: v.y(),
+      headM: v.headM(),
+      kw: v.kw(),
+      ratedKw: v.ratedKw(),
+      dug: v.dug(),
+      household: Number(v.household()),
+      words: v.words() ?? "",
+    });
+  }
+  return { rev: Number(w.rev()), wells, springs, flow: w.flow(), banks, flooded, mills };
 }
 
 function earthworks(w: W.Earthworks): EarthworksInfo {
@@ -4030,6 +4183,7 @@ function buildings(f: W.Buildings): { rev: number; buildings: BuildingInfo[] } {
       fireId: x.fireId(),
       fireWords: x.fireWords() ?? "",
       site: x.site() ?? "",
+      gas: x.gas() ?? "",
     });
   }
   return { rev: Number(f.rev()), buildings: out };
@@ -4236,6 +4390,12 @@ function firmInfo(f: W.FirmInfo): FirmInfo {
       text: e.text() ?? "",
     });
   }
+  const machines: MachineLine[] = [];
+  const machine = new W.MachineLine();
+  for (let k = 0; k < f.machinesLength(); k++) {
+    const m = f.machines(k, machine);
+    if (m) machines.push({ good: m.good(), units: m.units(), crew: m.crew() });
+  }
   const months: MonthStatement[] = [];
   const month = new W.MonthStatement();
   const line = new W.BookLine();
@@ -4274,10 +4434,14 @@ function firmInfo(f: W.FirmInfo): FirmInfo {
           hours: w.hours(),
           taken: w.taken(),
           text: w.text() ?? "",
+          bellMinute: w.bellMinute(),
+          shiftMinutes: w.shiftMinutes(),
         }
       : null,
     entries,
     months,
+    machines,
+    atWork: f.atWork(),
   };
 }
 
@@ -4657,6 +4821,8 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     water: p.water() ?? "",
     sickness: Array.from({ length: p.sicknessLength() }, (_, k) => p.sickness(k) ?? ""),
     suspicions: Array.from({ length: p.suspicionsLength() }, (_, k) => p.suspicions(k) ?? ""),
+    light: p.light() ?? "",
+    care: p.care() ?? "",
   };
 }
 

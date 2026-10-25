@@ -1,0 +1,14 @@
+# Tallow: fat rendered from meat by slow heating and strained, kept hard in a pot (M10b slice DU).
+# It burns in a lamp; it is a material, not a hearth's fuel, so no hearth eats it. It keeps for
+# months (tuning: rendered fat keeps far longer than the meat it came from; the research gives no
+# rate).
+kind = "good"
+id = "core:good/tallow"
+name = "Tallow"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

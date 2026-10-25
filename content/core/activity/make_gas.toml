@@ -1,0 +1,17 @@
+# Charging, firing and drawing a gasworks' retorts.
+kind = "activity"
+id = "core:activity/make_gas"
+name = "Make gas"
+doing = "making gas"
+behavior = "make"
+recipe = "core:recipe/make_gas"
+par = 4.0
+min_age_years = 14.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 480
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

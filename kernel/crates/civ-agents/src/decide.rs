@@ -32,10 +32,15 @@ pub struct Facts {
     pub dark: bool,
     /// Minutes of daylight left today (0 in the dark).
     pub daylight_left_min: f64,
+    /// The minute of the day now, 0-1439 (M10a slice DT: a works' bell is rung at one).
+    pub clock_min: f64,
     /// Evening: the hours after sunset when people sit together, 0–1.
     pub evening: f64,
     /// Minutes until the next sunrise.
     pub until_sunrise_min: f64,
+    /// Minutes of lamplight at home the household can burn now: a whole lamp it holds and the
+    /// fuel for it (M10b slice DU; ADR-0034 §9); 0 for a household without one.
+    pub lamp_min: f64,
     /// Household's food, days.
     pub food_days: f64,
     /// Days of food the household tries to keep.
@@ -78,6 +83,9 @@ pub struct Facts {
     pub campaign: f64,
     /// The round of the watch they keep, if they keep one and may walk it now (M4b slice AC).
     pub watch: Option<WatchFacts>,
+    /// The round of the street lamps they light, if their polity names them its lamplighter and
+    /// lamps of it stand unlit now (M10b slice DY, fourth part).
+    pub light: Option<WatchFacts>,
     /// A payment an agreement owes that they are to carry, set aside and waiting, if they can
     /// walk it there and back in the day (M5c slice AV).
     pub carry: Option<CarryFacts>,
@@ -101,6 +109,9 @@ pub struct Facts {
     pub raise: Option<RaiseFacts>,
     /// The irrigation ditch their household is digging to its field, if any (M6b slice BG).
     pub ditch: Option<DitchFacts>,
+    /// The nearest neighbour's water mill their household could grind its grain at, if any
+    /// (M10a slice DR, fourth part).
+    pub mill: Option<MillFacts>,
     /// The palisade their polity is raising, if they may work on it (M6c slice BK).
     pub enclosure: Option<EnclosureFacts>,
     /// A band they joined that musters within the day, if any (M6c slice BJ).
@@ -120,6 +131,9 @@ pub struct Facts {
     /// Members of their household ill at home and still owed care today, if any (M6a slice AZ,
     /// step three).
     pub tend: Option<TendFacts>,
+    /// A household of kin or a tie to call to tend the household's ill (M10c slice DZ, second
+    /// part), where they are owed more care than its well members can give.
+    pub call: Option<CallFacts>,
     /// Whether their home is flooded today (M6b slice BF): they leave wet homes for kin or
     /// hearth until the flood recedes.
     pub home_flooded: bool,
@@ -129,10 +143,26 @@ pub struct Facts {
 
 /// Members of someone's household ill at home and still owed care today (M6a slice AZ, step
 /// three; ADR-0021 §5): the share of a day's care owed, summed over them (each counts at most
-/// one), the severely ill whole and the others half.
+/// one), the severely ill whole and the others half. With none owed at home, the home of close
+/// kin elsewhere whose sickness they have heard of (M10c slice DZ; ADR-0035 §3: kin may tend
+/// unasked): which household, where its home is and the minutes' walk there.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TendFacts {
     pub owed: f64,
+    pub household: Option<PermanentId>,
+    pub at: (f32, f32),
+    pub walk_min: f64,
+}
+
+/// A carer a household short of care would call (M10c slice DZ, second part; ADR-0035 §2): the
+/// household asked, where its home is and the minutes' walk there, and the care owed at home
+/// beyond what the household's well members can give (each gives at most one).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CallFacts {
+    pub carer: PermanentId,
+    pub at: (f32, f32),
+    pub walk_min: f64,
+    pub short: f64,
 }
 
 /// How a load can be brought to a threatened roof.
@@ -302,6 +332,19 @@ pub struct DitchFacts {
     pub saves_per_hour: f64,
 }
 
+/// A neighbour's water mill someone's household could grind at (M10a slice DR, fourth part): its
+/// installation, where its wheel stands, the walk there from home, the hours the grain they would
+/// carry takes to grind there, and the hours of grinding at home each hour there spares the
+/// household, its toll paid.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MillFacts {
+    pub mill: PermanentId,
+    pub at: (f32, f32),
+    pub walk_min: f64,
+    pub left_h: f64,
+    pub saves_per_hour: f64,
+}
+
 /// A band someone joined that musters within the day (M6c slice BJ, ADR-0023 §3): what going is
 /// worth to one who said they would, its hearth, how long to wait there for the muster, where it
 /// goes and how long it stays.
@@ -365,6 +408,9 @@ pub struct PatchOption {
     pub purpose: GoodUse,
     /// Its food energy, kcal per kilogram.
     pub kcal_per_kg: f64,
+    /// For a fuel: what a kilogram of it stands for at the hearth, in kilograms of the fuel a
+    /// household's need is given in (`params::fuel_ratio`; M10a slice DS); 1 for anything else.
+    pub fuel_ratio: f64,
     /// Days of the household's need it already holds of this good.
     pub stored_days: f64,
     /// For a material: kilograms of it the household still needs for what it is building,
@@ -381,6 +427,17 @@ pub struct PatchOption {
     pub at: (f32, f32),
     /// For digging: the deposit dug at, in place of a patch (M3b slice Q).
     pub deposit: Option<PermanentId>,
+    /// For digging: a ride out to the pit on a line's train, where it is quicker for its fare
+    /// than walking there (M10b slice DX, fourth part).
+    pub by_ride: Option<RideLegs>,
+}
+
+/// A ride out on a line's train (M10b slice DX, fourth part): the station to walk to, and the
+/// line's end cell to ride to.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RideLegs {
+    pub station: (f32, f32),
+    pub to: u32,
 }
 
 /// Field work a person could do: on which field, where, and what it is worth.
@@ -537,6 +594,9 @@ pub enum TradeWorth {
     Sale { share: f64 },
 }
 
+/// The longest a hand goes ahead of a works' bell to wait for it, minutes (a design prior).
+const BELL_EARLY_MIN: f64 = 60.0;
+
 /// Paid work at a workshop of another household (slice J): where, for how long, and what the
 /// pay brings the worker's household.
 #[derive(Clone, Copy, Debug)]
@@ -551,6 +611,9 @@ pub struct JobOption {
     pub minutes: f64,
     /// What the pay brings the household.
     pub worth: TradeWorth,
+    /// Its works' bell, the minute of the day its shift begins and the shift's minutes, when it
+    /// has one (M10a slice DT): the work is taken only for the shift.
+    pub bell: Option<(u16, u16)>,
 }
 
 /// A session of trying toward a technique (ADR-0008 §3): which, and what it is worth.
@@ -694,6 +757,14 @@ fn night_water(
 /// The daylight work may use: all that is left, but while what is at home would not last until
 /// morning, less the trip to water and a meal, so whoever works by daylight is home while the trip
 /// can still be made, and the last of the light decides it, not the dusk.
+/// Whether daylight-only work `def` may run by lamplight now (M10b slice DU): making at home,
+/// with no walk, for at least its shortest session by the household's lamp.
+fn lit_at_home(def: &ActivityDef, f: &Facts) -> bool {
+    def.behavior == Behavior::Make
+        && def.max_walk_minutes == 0
+        && f.lamp_min >= f64::from(def.min_minutes).max(1.0)
+}
+
 fn work_light(
     defs: &[ActivityDef],
     f: &Facts,
@@ -994,9 +1065,19 @@ pub fn candidates(
         if def.behavior == Behavior::Ditch && f.ditch.is_none() {
             continue;
         }
+        // And grinding at a neighbour's mill to all but those whose household has grain to grind
+        // and a mill within reach (M10a slice DR, fourth part).
+        if def.behavior == Behavior::Mill && f.mill.is_none() {
+            continue;
+        }
         // And tending to all but those with someone ill at home still owed care (M6a slice AZ,
         // step three).
         if def.behavior == Behavior::Tend && f.tend.is_none() {
+            continue;
+        }
+        // And calling a carer to all but those whose ill at home are owed more care than its
+        // well members can give, with someone to call (M10c slice DZ, second part).
+        if def.behavior == Behavior::Call && f.call.is_none() {
             continue;
         }
         if f.age < def.min_age_years {
@@ -1007,7 +1088,9 @@ pub fn candidates(
             excluded.push((id, Reason::TooOld));
             continue;
         }
-        if def.daylight_only && f.dark {
+        // Work at home may run by lamplight after dark (M10b slice DU); fields and walks stay
+        // dark.
+        if def.daylight_only && f.dark && !lit_at_home(def, f) {
             excluded.push((id, Reason::NotInDark));
             continue;
         }
@@ -1200,7 +1283,9 @@ pub fn candidates(
                     }
                     GoodUse::Fuel => {
                         let half = w.trip_half_worth_days * f.household_fuel_day.max(0.1);
-                        let worth = kg / (kg + half);
+                        // A load by its heat (M10a slice DS).
+                        let heat = kg * patch.fuel_ratio;
+                        let worth = heat / (heat + half);
                         let target = f.fuel_target_days.max(1e-6);
                         let short = (1.0 - f.fuel_days / target).clamp(0.0, 1.0);
                         let room = target / (target + patch.stored_days.max(0.0));
@@ -1249,14 +1334,26 @@ pub fn candidates(
                     Reason::Effort,
                     -w.w_effort * (def.par - 1.0).max(0.0) * hours * f.sleep_pressure,
                 );
-                let steps = vec![
-                    Step::Walk { to: patch.at },
-                    Step::Work {
-                        minutes: minutes.round() as u32,
-                    },
-                    Step::Walk { to: f.home },
-                    Step::Deposit,
-                ];
+                let work = Step::Work {
+                    minutes: minutes.round() as u32,
+                };
+                let steps = match patch.by_ride {
+                    // To the station, out on the train, on to the pit; home on foot.
+                    Some(r) => vec![
+                        Step::Walk { to: r.station },
+                        Step::Ride { to: r.to },
+                        Step::Walk { to: patch.at },
+                        work,
+                        Step::Walk { to: f.home },
+                        Step::Deposit,
+                    ],
+                    None => vec![
+                        Step::Walk { to: patch.at },
+                        work,
+                        Step::Walk { to: f.home },
+                        Step::Deposit,
+                    ],
+                };
                 let target = patch
                     .deposit
                     .map_or(Target::Patch(patch.patch), Target::Deposit);
@@ -1614,7 +1711,24 @@ pub fn candidates(
                     excluded.push((id, Reason::Unreachable));
                     continue;
                 }
-                let minutes = j.minutes.min(f64::from(def.max_minutes)).max(1.0);
+                // At a works with a bell the work is its shift (M10a slice DT): a hand goes no
+                // sooner than an hour before the bell, waits for it, and stays to the shift's
+                // end, so its hands are at its machines together.
+                let (minutes, wait) = match j.bell {
+                    None => (j.minutes.min(f64::from(def.max_minutes)).max(1.0), 0.0),
+                    Some((bell, len)) => {
+                        let arrive = f.clock_min + j.walk_min;
+                        let (start, end) = (f64::from(bell), f64::from(bell) + f64::from(len));
+                        if arrive < start - BELL_EARLY_MIN
+                            || arrive > end - f64::from(def.min_minutes)
+                        {
+                            excluded.push((id, Reason::NoWork));
+                            continue;
+                        }
+                        let minutes = (end - arrive.max(start)).min(j.minutes).max(1.0);
+                        (minutes, (start - arrive).max(0.0))
+                    }
+                };
                 match j.worth {
                     TradeWorth::Tool { need } => {
                         term(&mut terms, Reason::Wages, w.w_tools * need.clamp(0.0, 1.0));
@@ -1654,13 +1768,16 @@ pub fn candidates(
                     Reason::Effort,
                     -w.w_effort * (def.par - 1.0).max(0.0) * minutes / 60.0 * f.sleep_pressure,
                 );
-                let steps = vec![
-                    Step::Walk { to: j.at },
-                    Step::Work {
-                        minutes: minutes.round().max(1.0) as u32,
-                    },
-                    Step::Walk { to: f.home },
-                ];
+                let mut steps = vec![Step::Walk { to: j.at }];
+                if wait >= 1.0 {
+                    steps.push(Step::Wait {
+                        minutes: wait.round() as u32,
+                    });
+                }
+                steps.push(Step::Work {
+                    minutes: minutes.round().max(1.0) as u32,
+                });
+                steps.push(Step::Walk { to: f.home });
                 out.push(finish(id, Target::Firm(j.firm), terms, steps));
             }
             Behavior::Try => {
@@ -1808,6 +1925,22 @@ pub fn candidates(
                 // the activity's least minutes each.
                 let Some(round) = f.watch.as_ref() else {
                     excluded.push((id, Reason::NoWatch));
+                    continue;
+                };
+                term(&mut terms, Reason::Duty, round.points);
+                let stand = def.min_minutes.max(1);
+                let mut steps = Vec::with_capacity(round.stops.len() * 2 + 1);
+                for &at in &round.stops {
+                    steps.push(Step::Walk { to: at });
+                    steps.push(Step::Work { minutes: stand });
+                }
+                steps.push(Step::Walk { to: f.home });
+                out.push(finish(id, Target::None, terms, steps));
+            }
+            Behavior::Light => {
+                // The round of the street lamps (M10b slice DY, fourth part), as a watch's: a
+                // stand at each unlit lamp to light it, the activity's least minutes each.
+                let Some(round) = f.light.as_ref() else {
                     continue;
                 };
                 term(&mut terms, Reason::Duty, round.points);
@@ -2021,6 +2154,25 @@ pub fn candidates(
                     Err(why) => excluded.push((id, why)),
                 }
             }
+            Behavior::Mill => {
+                // Grinding the household's grain at a neighbour's mill (M10a slice DR, fourth
+                // part): a walk with the grain, the grinding, and home with the flour.
+                let Some(c) = f.mill else {
+                    continue;
+                };
+                let site = Site {
+                    at: c.at,
+                    walk_min: c.walk_min,
+                    left_h: c.left_h,
+                    saves_per_hour: c.saves_per_hour,
+                    duty: 0.0,
+                    full: false,
+                };
+                match session_at_site(def, w, f, light, &site, Reason::Mill, &mut terms) {
+                    Ok(steps) => out.push(finish(id, Target::Mill(c.mill), terms, steps)),
+                    Err(why) => excluded.push((id, why)),
+                }
+            }
             Behavior::Band => {
                 // A band they said they would go with (M6c slice BJ, ADR-0023 §3): to the hearth
                 // for the muster, the walk there at the band's hour, the stay, and home.
@@ -2143,16 +2295,57 @@ pub fn candidates(
                 out.push(finish(id, Target::Building(t.building), terms, steps));
             }
             Behavior::Tend => {
-                // Sitting with the household's sick at home, as long as care is owed them.
+                // Sitting with the household's sick at home, as long as care is owed them, or
+                // with close kin's at theirs (M10c slice DZ), less the walk there and back.
                 let Some(t) = f.tend else {
                     continue;
                 };
                 term(&mut terms, Reason::Tend, w.w_tend * t.owed);
-                let mut steps = walk_home_first(f);
-                steps.push(Step::Work {
+                let work = Step::Work {
                     minutes: def.min_minutes.max(1),
-                });
+                };
+                if let Some(household) = t.household {
+                    if t.walk_min > f64::from(def.max_walk_minutes) {
+                        excluded.push((id, Reason::Unreachable));
+                        continue;
+                    }
+                    term(
+                        &mut terms,
+                        Reason::Walking,
+                        -w.w_walk_hour * 2.0 * t.walk_min / 60.0,
+                    );
+                    let steps = vec![Step::Walk { to: t.at }, work, Step::Walk { to: f.home }];
+                    out.push(finish(id, Target::Household(household), terms, steps));
+                    continue;
+                }
+                let mut steps = walk_home_first(f);
+                steps.push(work);
                 out.push(finish(id, Target::Home, terms, steps));
+            }
+            Behavior::Call => {
+                // To a carer's door and back (M10c slice DZ, second part), for the care the
+                // household's well cannot give, less the walk.
+                let Some(c) = f.call else {
+                    continue;
+                };
+                if c.walk_min > f64::from(def.max_walk_minutes) {
+                    excluded.push((id, Reason::Unreachable));
+                    continue;
+                }
+                term(&mut terms, Reason::Tend, w.w_tend * c.short);
+                term(
+                    &mut terms,
+                    Reason::Walking,
+                    -w.w_walk_hour * 2.0 * c.walk_min / 60.0,
+                );
+                let steps = vec![
+                    Step::Walk { to: c.at },
+                    Step::Work {
+                        minutes: def.min_minutes.max(1),
+                    },
+                    Step::Walk { to: f.home },
+                ];
+                out.push(finish(id, Target::Household(c.carer), terms, steps));
             }
             Behavior::Rest => {
                 term(&mut terms, Reason::Rest, w.w_rest);
@@ -2192,6 +2385,12 @@ pub fn candidates(
                     }
                 };
                 let minutes = option.minutes.min(f64::from(def.max_minutes)).max(1.0);
+                // After dark, no longer than the lamp's fuel lasts.
+                let minutes = if def.daylight_only && f.dark {
+                    minutes.min(f.lamp_min).max(1.0)
+                } else {
+                    minutes
+                };
                 let hours = minutes / 60.0;
                 match option.worth {
                     MakeWorth::Food {
@@ -2484,6 +2683,7 @@ mod tests {
             home_afire: false,
             fire: None,
             tend: None,
+            call: None,
             home_flooded: false,
             shelter: None,
             age: 30.0,
@@ -2494,8 +2694,10 @@ mod tests {
             loneliness: 0.2,
             dark: false,
             daylight_left_min: 600.0,
+            clock_min: 720.0,
             evening: 0.0,
             until_sunrise_min: 900.0,
+            lamp_min: 0.0,
             food_days: 50.0,
             food_target_days: 5.0,
             food_outlook_days: 0.0,
@@ -2512,6 +2714,7 @@ mod tests {
             hearth: None,
             gathering: None,
             watch: None,
+            light: None,
             carry: None,
             crossing: None,
             well: None,
@@ -2522,6 +2725,7 @@ mod tests {
             raise: None,
             enclosure: None,
             ditch: None,
+            mill: None,
             band: None,
         }
     }
@@ -2735,6 +2939,7 @@ mod tests {
         // Not set out on when dark would fall before they got there, nor with nowhere to go.
         let dusk = Facts {
             daylight_left_min: 50.0,
+            clock_min: 720.0,
             ..facts()
         };
         let (cands, excluded) = run(&dusk, vec![there(60.0, 6.0)]);
@@ -2809,6 +3014,7 @@ mod tests {
                 kg_per_hour: 20.0,
                 purpose: GoodUse::Material,
                 kcal_per_kg: 0.0,
+                fuel_ratio: 1.0,
                 stored_days: 0.0,
                 need_kg: 200.0,
                 urgency: 1.0,
@@ -2816,6 +3022,7 @@ mod tests {
                 tool_blocked: false,
                 at: (50.0, 0.0),
                 deposit: None,
+                by_ride: None,
             })
         };
         let none = |_: usize| false;
@@ -2862,6 +3069,160 @@ mod tests {
         let chosen: Vec<u16> = cands.iter().map(|c| c.scored.def).collect();
         assert!(chosen.contains(&1) && !chosen.contains(&0), "{chosen:?}");
         assert!(excluded.contains(&(0, Reason::NoTool)));
+    }
+
+    #[test]
+    fn work_at_home_runs_by_lamplight_after_dark_as_long_as_the_fuel_lasts() {
+        // M10b slice DU (ADR-0034 §9): daylight-only making at home may run after dark by the
+        // household's lamp, no longer than its fuel lasts; work with a walk stays dark.
+        let mut pots = activity("make_pots", Behavior::Make, Vec::new(), 1.0);
+        pots.max_walk_minutes = 0;
+        pots.min_minutes = 30;
+        let mut away = activity("make_away", Behavior::Make, Vec::new(), 1.0);
+        away.max_walk_minutes = 30;
+        away.min_minutes = 30;
+        let defs = vec![pots, away];
+        let none = |_: usize| false;
+        let make = |_: usize, _: &[usize]| {
+            Ok(MakeOption {
+                units: 1.0,
+                minutes: 180.0,
+                worth: MakeWorth::Tool { tool: 0, need: 0.5 },
+                firm: None,
+                site: None,
+            })
+        };
+        let shop = Workshop {
+            free_tools: &[],
+            held_tools: &[],
+            best_make: &make,
+            makes_tool: &none,
+            knows: &|_| true,
+        };
+        let at = |lamp_min: f64| {
+            let mut f = facts();
+            f.dark = true;
+            f.daylight_left_min = 0.0;
+            f.lamp_min = lamp_min;
+            candidates(
+                &defs,
+                &weights(),
+                &f,
+                &limits(),
+                &|_| None,
+                &|_| Ok(field()),
+                None,
+                &|| None,
+                &|| None,
+                &|| Err(Reason::NoReport),
+                &|| None,
+                Err(Reason::Built),
+                &shop,
+                &|| Err(Reason::NoProblem),
+                &|| Err(Reason::WouldNotTake),
+                &Vec::new,
+            )
+        };
+        // No lamp: both wait for daylight.
+        let (cands, excluded) = at(0.0);
+        assert!(cands.iter().all(|c| c.scored.def > 1), "{cands:?}");
+        assert!(excluded.contains(&(0, Reason::NotInDark)));
+        assert!(excluded.contains(&(1, Reason::NotInDark)));
+        // Fuel for 20 minutes is less than a session: still dark.
+        let (_, excluded) = at(20.0);
+        assert!(excluded.contains(&(0, Reason::NotInDark)));
+        // Fuel for 90 minutes: the work at home runs by lamplight, for 90 minutes; the work
+        // away stays dark.
+        let (cands, excluded) = at(90.0);
+        let lit = cands
+            .iter()
+            .find(|c| c.scored.def == 0)
+            .expect("work at home by lamplight");
+        let worked: u32 = lit
+            .steps
+            .iter()
+            .map(|s| match s {
+                Step::Work { minutes } => *minutes,
+                _ => 0,
+            })
+            .sum();
+        assert_eq!(worked, 90, "{:?}", lit.steps);
+        assert!(excluded.contains(&(1, Reason::NotInDark)));
+    }
+
+    #[test]
+    fn hired_work_at_a_works_with_a_bell_is_its_shift() {
+        // M10a slice DT, ADR-0033 §8: a hand goes no sooner than an hour before the bell, waits
+        // for it, and works to the end of the shift, so the works' hands are at it together.
+        let mut hire = activity("hired_work", Behavior::Hire, Vec::new(), 1.0);
+        hire.min_minutes = 60;
+        hire.max_minutes = 180;
+        hire.max_walk_minutes = 30;
+        let defs = vec![hire];
+        let firm = PermanentId::from_raw(9).expect("nonzero");
+        let job = |bell: Option<(u16, u16)>| JobOption {
+            firm,
+            walk_min: 20.0,
+            at: (5.0, 5.0),
+            minutes: 600.0,
+            worth: TradeWorth::Goods { hours: 4.0 },
+            bell,
+        };
+        let none = |_: usize| false;
+        let make = |_: usize, _: &[usize]| Err((Reason::NoInputs, None));
+        let shop = Workshop {
+            free_tools: &[],
+            held_tools: &[],
+            best_make: &make,
+            makes_tool: &none,
+            knows: &|_| true,
+        };
+        let at = |clock: f64, j: JobOption| {
+            let mut f = facts();
+            f.clock_min = clock;
+            candidates(
+                &defs,
+                &weights(),
+                &f,
+                &limits(),
+                &|_| None,
+                &|_| Ok(field()),
+                None,
+                &|| None,
+                &|| None,
+                &|| Err(Reason::NoReport),
+                &|| Some(j),
+                Err(Reason::Built),
+                &shop,
+                &|| Err(Reason::NoProblem),
+                &|| Err(Reason::WouldNotTake),
+                &Vec::new,
+            )
+        };
+        // The bell at 6:00 for a ten-hour shift. Setting off at 5:20, a 20-minute walk: twenty
+        // minutes' wait, then the whole shift.
+        let (cands, _) = at(320.0, job(Some((360, 600))));
+        assert_eq!(
+            cands[0].steps,
+            vec![
+                Step::Walk { to: (5.0, 5.0) },
+                Step::Wait { minutes: 20 },
+                Step::Work { minutes: 600 },
+                Step::Walk { to: facts().home },
+            ]
+        );
+        // Setting off at 9:00: to the shift's end at 16:00.
+        let (cands, _) = at(540.0, job(Some((360, 600))));
+        assert_eq!(cands[0].steps[1], Step::Work { minutes: 400 });
+        // Long before the bell, or with under a session of the shift left: no work.
+        for clock in [200.0, 920.0] {
+            let (cands, excluded) = at(clock, job(Some((360, 600))));
+            assert!(cands.is_empty(), "at {clock}");
+            assert!(excluded.iter().any(|&(_, r)| r == Reason::NoWork));
+        }
+        // Without a bell, a session as long as at home, at any hour.
+        let (cands, _) = at(200.0, job(None));
+        assert_eq!(cands[0].steps[1], Step::Work { minutes: 180 });
     }
 
     #[test]
@@ -2972,6 +3333,7 @@ mod tests {
                 dark: false,
                 daylight_left_min,
                 until_sunrise_min: 800.0,
+                lamp_min: 0.0,
                 water_days,
                 ..facts()
             };
@@ -3032,7 +3394,9 @@ mod tests {
             let f = Facts {
                 dark,
                 daylight_left_min: 300.0,
+                clock_min: 720.0,
                 until_sunrise_min: 800.0,
+                lamp_min: 0.0,
                 water_days,
                 ..facts()
             };
@@ -3108,6 +3472,7 @@ mod tests {
             well: Some(wf),
             dark: false,
             daylight_left_min: 600.0,
+            clock_min: 720.0,
             ..facts()
         };
         let (cands, _) = run(&f, None);
@@ -3206,6 +3571,7 @@ mod tests {
             enclosure: Some(ef),
             dark: false,
             daylight_left_min: 600.0,
+            clock_min: 720.0,
             ..facts()
         };
         let (cands, _) = run(&f);

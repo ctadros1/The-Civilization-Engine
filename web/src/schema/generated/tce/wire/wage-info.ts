@@ -59,8 +59,18 @@ text(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+bellMinute():number {
+  const offset = this.bb!.__offset(this.bb_pos, 18);
+  return offset ? this.bb!.readUint16(this.bb_pos + offset) : 0;
+}
+
+shiftMinutes():number {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? this.bb!.readUint16(this.bb_pos + offset) : 0;
+}
+
 static startWageInfo(builder:flatbuffers.Builder) {
-  builder.startObject(7);
+  builder.startObject(9);
 }
 
 static addActivity(builder:flatbuffers.Builder, activity:number) {
@@ -91,12 +101,20 @@ static addText(builder:flatbuffers.Builder, textOffset:flatbuffers.Offset) {
   builder.addFieldOffset(6, textOffset, 0);
 }
 
+static addBellMinute(builder:flatbuffers.Builder, bellMinute:number) {
+  builder.addFieldInt16(7, bellMinute, 0);
+}
+
+static addShiftMinutes(builder:flatbuffers.Builder, shiftMinutes:number) {
+  builder.addFieldInt16(8, shiftMinutes, 0);
+}
+
 static endWageInfo(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createWageInfo(builder:flatbuffers.Builder, activity:number, pay:number, perHour:number, hourH:number, hours:number, taken:number, textOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createWageInfo(builder:flatbuffers.Builder, activity:number, pay:number, perHour:number, hourH:number, hours:number, taken:number, textOffset:flatbuffers.Offset, bellMinute:number, shiftMinutes:number):flatbuffers.Offset {
   WageInfo.startWageInfo(builder);
   WageInfo.addActivity(builder, activity);
   WageInfo.addPay(builder, pay);
@@ -105,6 +123,8 @@ static createWageInfo(builder:flatbuffers.Builder, activity:number, pay:number, 
   WageInfo.addHours(builder, hours);
   WageInfo.addTaken(builder, taken);
   WageInfo.addText(builder, textOffset);
+  WageInfo.addBellMinute(builder, bellMinute);
+  WageInfo.addShiftMinutes(builder, shiftMinutes);
   return WageInfo.endWageInfo(builder);
 }
 }

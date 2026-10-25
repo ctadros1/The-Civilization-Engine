@@ -1,0 +1,20 @@
+# Raising water from a pit by a beam worked by steam condensing under a piston: a boiler, a
+# cylinder of sheet copper, valves and a pump (research 07-06 §4.2; the M10 power brief §1.4: it
+# needs sheet copper or cast iron, forging and jointed framing, never coal or coke by name). Found
+# by those who dig at a pit, with coal and bar iron at home: Newcomen's niche, deeper workable
+# deposits where drainage is limiting (07-12 §1.3). Half of them would need 400,000 qualified hours
+# (a far technique, a tuning value). Learnt in 400 hours beside a knower. Founders do not bring it.
+kind = "technique"
+id = "core:technique/atmospheric_engine"
+name = "The atmospheric engine"
+can = "build an engine that pumps a pit by the steam of a fire"
+domain = "core:skill/smithing"
+requires = [["core:technique/forging", "core:technique/jointed_frame"]]
+tried_in = ["core:activity/dig_coal"]
+needs = ["core:good/coal", "core:good/iron"]
+e50_h = 400000.0
+learn_h = 400.0
+upbringing = true
+
+[answers]
+spoilage = []

@@ -208,6 +208,8 @@ mod tests {
         GoodDef {
             fuel: None,
             power: None,
+            light: None,
+            holder: None,
             money: None,
             id: id.into(),
             name: id.into(),
@@ -223,6 +225,7 @@ mod tests {
                 per_worker: 1.0,
                 fixed: false,
                 serves: None,
+                crew: 1,
             }),
             timber: None,
             store: None,

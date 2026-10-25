@@ -7,7 +7,7 @@ settlements. M9's 100,000-person performance target was not met; see §7 and §9
 result and amended gate. **M10a, power and the works, and M10b, rail and gas light, are
 implemented** (slices DO–DY). **M10c, services and letters, is in progress:** care beyond the
 household (DZ), birth care (EA), teaching (EB) and letters and records (EC) are implemented;
-inoculation (ED) is under way (smallpox, variolation), and the health office remains ahead. M2's portable kernel library and C interface are
+inoculation (ED) is under way (smallpox, variolation, vaccination), and the health office remains ahead. M2's portable kernel library and C interface are
 implemented; the Unreal client remains future work. Modern civilization remains future scope. See
 §7 for milestone scope and §9 for implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
@@ -7120,6 +7120,29 @@ and M6a gives rivers a daily flow.
       is severe the disease's share less often (20,000 draws); where someone died of smallpox,
       a household tied to them calls a variolator its member knows, the call saves and loads,
       and within days its people take smallpox inoculated by them; the content.
+      *As built, third part (2026-10-25): vaccination.* A disease may name how it is prevented
+      (`[vaccination]`, content API 186): the technique, the good it is given from and a dose of
+      it, the share of its hazards turned away while whole, how long it stays whole (years, drawn
+      evenly between two) and the years over which that share then falls by a factor of e.
+      Smallpox's is `core:technique/vaccination` (requiring variolation, so found only by
+      variolators tending the sick, and farther: 200,000 hours; nobody brings it) with
+      `core:good/vaccine_matter` at a gram a dose, 95%, whole 3-5 years, waning over 10 (05-05
+      §2.1, CDC; the waning a design prior). There is no livestock in the core, so the matter is
+      made by a recipe only its knowers work, of hours alone (standing for a cowpox source kept
+      going arm to arm), and keeps some days. A vaccination is a record (who, the disease, the
+      day, the last day whole; saves 200) that scales the person's summed hazards of the disease
+      at midnight by one less what it turns away. Calls are part two's: a household that believes
+      the disease near calls someone it knows who knows vaccination before one who knows only
+      variolation, as it risks nobody, and wants it even where it would not risk inoculation.
+      While such a call stands at a household's door and it holds fewer doses than its calls
+      want, making the matter is worth the doses short as care owed (a `Called` worth of making,
+      scored as tending); the vaccinator goes once it holds a dose for each to protect there,
+      and vaccinates each with one, inoculating any left over where they know that and it is
+      worth it. Those whose vaccination is whole are not called for. **Tested:** a vaccination
+      turns away 95% while whole and 0.95/e of it ten years on; where someone died of smallpox, a
+      household knowing a vaccinator and a variolator calls the vaccinator, whose household
+      makes matter, and its people are vaccinated, none inoculated, the records saving and
+      loading; the content.
     - **EE**: the health office and the sickhouse: register and rounds, `keep_apart`,
       `clear_middens`, the sickhouse's pool and capacity; the observer's service views. From EC:
       an office whose holder must know a technique (the register's keeper, writing), and a

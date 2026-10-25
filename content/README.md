@@ -1788,3 +1788,12 @@ inoculated course has, 0 to 1) and `believed_take` (the chance a household belie
 would take it where it is near, 0 to 1; it calls an inoculator only where `deaths` is below it).
 The technique gates work (E3005). The core gives smallpox variolation at 0.127 (Jurin's 2.1/16.6)
 and 0.5, and adds `technique/variolation`.
+
+Content API 186 (M10c slice ED, third part) adds a disease's `[vaccination]`: the `technique` that
+gives it and the `good` it is given from (by content id), `dose_kg` (a person's dose), `efficacy`
+(the share of the disease's hazards it turns away while whole, 0 to 1), `full_years` (least and
+most years it stays whole, drawn evenly) and `waning_years` (the years over which what it turns
+away then falls by a factor of e). A household makes the good only for calls to vaccinate that
+stand at its door. The core gives smallpox `technique/vaccination` (requiring variolation) with
+`good/vaccine_matter` at 0.001 kg, 0.95, [3, 5] and 10, and adds the recipe and activity
+`make_vaccine_matter`.

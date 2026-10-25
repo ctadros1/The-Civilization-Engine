@@ -1612,3 +1612,153 @@ fn a_household_that_believes_smallpox_near_calls_a_variolator_and_its_people_are
         "{inoculated:?}"
     );
 }
+
+/// Where someone died of smallpox, a household with ties to them that knows both one who knows
+/// vaccination and one who knows only variolation calls the vaccinator; their household makes
+/// matter for the call, they come, and its people not protected are vaccinated, a dose each, none
+/// inoculated; those vaccinated save and load, and smallpox's hazards on them are turned away
+/// (M10c slice ED, third part).
+#[test]
+fn a_household_calls_a_vaccinator_before_a_variolator_and_its_people_are_vaccinated() {
+    let mut sim = village(1);
+    to_morning(&mut sim, 8 * 60);
+    let (index, _) = someone_with_family(&sim);
+    sim.plague(index, SMALLPOX).expect("brought");
+    let catalog = &sim.rules().catalog;
+    let disease = catalog.disease_index(SMALLPOX).expect("smallpox") as u16;
+    let variolation = catalog
+        .technique_index("core:technique/variolation")
+        .expect("variolation");
+    let vaccination = catalog
+        .technique_index("core:technique/vaccination")
+        .expect("vaccination");
+    let matter = catalog
+        .good_index("core:good/vaccine_matter")
+        .expect("matter");
+    // Live until someone dies of it.
+    let mut dead = None;
+    for _ in 0..80 {
+        sim.advance_minutes(DAY).expect("lives");
+        dead = sim
+            .people()
+            .sickness
+            .episodes()
+            .iter()
+            .find(|e| e.disease == disease && matches!(e.ended, Some((_, Outcome::Died))))
+            .map(|e| e.person);
+        if dead.is_some() {
+            break;
+        }
+    }
+    let dead = dead.expect("someone died of smallpox");
+    let day = sim.now().day_index();
+    // A household of people tied to the dead, with someone of it not protected, one of whom has
+    // ties with two others of two other households of its settlement, alive and well.
+    let people = sim.people();
+    let (home, member, vaccinator, variolator) = people
+        .households
+        .iter()
+        .find_map(|(_, x)| {
+            let tied = x
+                .members
+                .iter()
+                .any(|&m| people.ties.of(m).iter().any(|t| t.to == dead));
+            if !tied
+                || !x
+                    .members
+                    .iter()
+                    .any(|&m| !people.sickness.protected(m, disease, day))
+            {
+                return None;
+            }
+            x.members.iter().find_map(|&m| {
+                let mut known: Vec<(PermanentId, PermanentId)> = Vec::new();
+                for v in people.ties.of(m).iter().map(|t| t.to) {
+                    let Some(p) = people.person(v) else {
+                        continue;
+                    };
+                    if p.household != x.id
+                        && !people.sickness.ill(v, day)
+                        && people
+                            .household(p.household)
+                            .is_some_and(|y| y.settlement == x.settlement)
+                        && !known.iter().any(|k| k.1 == p.household)
+                    {
+                        known.push((v, p.household));
+                    }
+                }
+                (known.len() >= 2).then(|| (x.id, m, known[0].0, known[1].0))
+            })
+        })
+        .expect("a household tied to the dead, and two it knows of two households");
+    let now = sim.now();
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.id == vaccinator || p.id == variolator {
+            p.come_to_know(variolation, civ_agents::person::KnowSource::Observer, now);
+        }
+        if p.id == vaccinator {
+            p.come_to_know(vaccination, civ_agents::person::KnowSource::Observer, now);
+        }
+    }
+    let theirs = sim.people().person(vaccinator).expect("alive").household;
+    let called =
+        sim.with_ctx_for_tests(|pop, ctx| pop.inoculation_call_for_tests(ctx, member, home));
+    assert_eq!(
+        called,
+        Some(theirs),
+        "they would call the vaccinator's household"
+    );
+    // They call; the vaccinator's household makes matter, and they come and vaccinate.
+    let mut made = false;
+    let mut vaccinated = Vec::new();
+    for _ in 0..40 {
+        sim.advance_minutes(DAY / 8).expect("lives");
+        let people = sim.people();
+        made |= people
+            .household(theirs)
+            .is_some_and(|y| y.stores.get(matter).copied().unwrap_or(0.0) > 0.0);
+        vaccinated = people
+            .sickness
+            .vaccinated
+            .iter()
+            .filter(|v| v.disease == disease)
+            .map(|v| v.person)
+            .collect();
+        if !vaccinated.is_empty() {
+            break;
+        }
+    }
+    assert!(made, "matter was made for the call");
+    assert!(!vaccinated.is_empty(), "someone was vaccinated");
+    let people = sim.people();
+    let x = people.household(home).expect("home");
+    assert!(
+        vaccinated.iter().all(|m| x.members.contains(m)),
+        "{vaccinated:?}"
+    );
+    assert!(
+        !people.sickness.episodes().iter().any(|e| matches!(
+            e.acquired,
+            civ_agents::sickness::Acquired::Inoculated { .. }
+        )),
+        "nobody was inoculated"
+    );
+    // Whole for 3-5 years, which turns away all but 5% of smallpox's hazards.
+    let today = sim.now().day_index();
+    let def = sim.rules().catalog.diseases[usize::from(disease)]
+        .vaccination
+        .expect("smallpox's vaccination");
+    for v in &people.sickness.vaccinated {
+        let years = (v.full_until - v.day) as f64 / 365.25;
+        assert!((2.99..=5.01).contains(&years), "{years}");
+        let share = people
+            .sickness
+            .unvaccinated_share(v.person, disease, today, &def);
+        assert!((share - 0.05).abs() < 1e-9, "{share}");
+    }
+    let loaded = reloaded(&mut sim);
+    assert_eq!(
+        loaded.people().sickness.vaccinated,
+        sim.people().sickness.vaccinated
+    );
+}

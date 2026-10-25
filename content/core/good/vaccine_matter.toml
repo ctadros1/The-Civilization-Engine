@@ -1,0 +1,15 @@
+# Vaccine matter: the lymph of a cowpox sore, taken on a quill or thread to be given (M10c slice ED,
+# third part; research 05-05 §2.1: a usable supply is needed apart from the knowing). There is no
+# livestock here to take it from, so it stands for the matter a vaccinator keeps going from arm to
+# arm; a gram is a dose (a tuning value). Dried on a quill it keeps some days (a half-life of 5
+# days, a tuning value), so it is made for the calls that stand, not ahead of them.
+kind = "good"
+id = "core:good/vaccine_matter"
+name = "Vaccine matter"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 5.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

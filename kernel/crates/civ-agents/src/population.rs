@@ -4519,6 +4519,38 @@ impl Population {
                 });
             }
             let have = |g: usize| make::available(&stores, goods, g, reserve_ok, protected);
+            // Matter to vaccinate with is made only for the calls to give it that stand at the
+            // household's door (M10c slice ED, third part): as much as they are short of, owed as
+            // the care they ask is.
+            if let Some((dose_kg, needed)) = self.vaccine_wanted(ctx, hh_id, out) {
+                let short_kg = needed as f64 * dose_kg - held_of(out);
+                let per = r.outputs.first().map_or(0.0, |o| o.1);
+                if short_kg <= 1e-9 || per <= 0.0 {
+                    return Err((Reason::NotNeeded, None));
+                }
+                if let Some(&t) = r
+                    .tools
+                    .iter()
+                    .find(|&&t| free_tools.get(t).copied().unwrap_or(0.0) < decide::MIN_TOOL)
+                {
+                    return Err((Reason::NoTool, Some(t)));
+                }
+                let units = (short_kg / per)
+                    .min(make::units_from_inputs(r, &have))
+                    .min(make::units_in(r, f64::from(a.max_minutes), speed));
+                if units.is_nan() || units <= 1e-6 {
+                    return Err((Reason::NoInputs, None));
+                }
+                return Ok(MakeOption {
+                    units,
+                    minutes: make::minutes_for(r, units, speed),
+                    worth: MakeWorth::Called {
+                        owed: short_kg / dose_kg.max(1e-12),
+                    },
+                    firm: None,
+                    site: None,
+                });
+            }
             // A batch runs unattended (M10a slice DP, ADR-0033 §2): while one of this recipe is
             // under way there is nothing to do; once its days are past, a session opens it, worth
             // what making its units would be.

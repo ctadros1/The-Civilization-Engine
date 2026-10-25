@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 185;
+pub const KERNEL_CONTENT_API: u32 = 186;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1400,7 +1400,16 @@ fn resolve(
         {
             missing(c, parsed, &d.rel, "inoculation.technique", &i.technique);
         }
-        if let Some(def) = d.file.def(technique_index) {
+        // And how it is vaccinated against (M10c slice ED, third part).
+        if let Some(v) = &d.file.vaccination {
+            if technique_index(&v.technique).is_none() {
+                missing(c, parsed, &d.rel, "vaccination.technique", &v.technique);
+            }
+            if good_index(&v.good).is_none() {
+                missing(c, parsed, &d.rel, "vaccination.good", &v.good);
+            }
+        }
+        if let Some(def) = d.file.def(technique_index, good_index) {
             diseases.push(def);
         }
     }

@@ -3132,6 +3132,15 @@ struct CompanySave {
   hours: float;
 }
 
+// Schema 200 (M10c slice ED, third part): someone vaccinated against a disease, the day, and the
+// last day its protection is whole.
+table VaccinatedSave {
+  person: ulong;
+  disease: string;
+  day: long;
+  full_until: long;
+}
+
 table SicknessSave {
   episodes: [EpisodeSave] (id: 0);
   outbreaks: [OutbreakSave] (id: 1);
@@ -3147,6 +3156,8 @@ table SicknessSave {
   met: [CompanySave] (id: 7);
   // Schema 199 (M10c slice ED, second part): calls to inoculate a household's people that stand.
   inoculation_calls: [CareCallSave] (id: 8);
+  // Schema 200: everyone vaccinated, in the order vaccinated.
+  vaccinated: [VaccinatedSave] (id: 9);
 }
 
 // Section "fires" (schema 88, M6b slice BC; ADR-0022 §13): a building's fire, from its covering

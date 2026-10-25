@@ -24,6 +24,8 @@ pub enum SickDraw {
     Death = 3,
     /// Whether someone tending another home today takes what its sick shed (M10c slice DZ).
     Visit = 4,
+    /// How long a vaccination stays whole (M10c slice ED, third part).
+    Vaccinated = 5,
 }
 
 /// The generator for `person`'s draw of `what` about disease `disease` on `day`.
@@ -335,6 +337,16 @@ pub struct UnknowingCare {
     pub day: i64,
 }
 
+/// Someone vaccinated against a disease (M10c slice ED, third part): who, the disease by index,
+/// the day, and the last day its protection is whole. Saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Vaccinated {
+    pub person: PermanentId,
+    pub disease: u16,
+    pub day: i64,
+    pub full_until: i64,
+}
+
 /// Every infection there has been, in the order they came, every outbreak, and the calls for
 /// carers standing. Saved; the indexes are derived.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -354,6 +366,8 @@ pub struct Sickness {
     /// Deaths in the care of paid carers who knew no treatment, within the year, oldest first
     /// (M10c slice EC, third part).
     pub unknowing: Vec<UnknowingCare>,
+    /// Everyone vaccinated, in the order vaccinated (M10c slice ED, third part).
+    pub vaccinated: Vec<Vaccinated>,
     /// Episodes that run, by index, in order.
     running: Vec<usize>,
     /// Each person's episodes, by index, in order.
@@ -484,6 +498,40 @@ impl Sickness {
         })
     }
 
+    /// The share of `disease`'s hazards that still reaches `person` on `day`, by their latest
+    /// vaccination against it `v` (M10c slice ED, third part): 1 unvaccinated; one less its
+    /// efficacy while whole, the efficacy then falling by a factor of e each `waning_years`.
+    pub fn unvaccinated_share(
+        &self,
+        person: PermanentId,
+        disease: u16,
+        day: i64,
+        v: &crate::params::VaccinationDef,
+    ) -> f64 {
+        let Some(r) = self
+            .vaccinated
+            .iter()
+            .rev()
+            .find(|r| r.person == person && r.disease == disease)
+        else {
+            return 1.0;
+        };
+        let efficacy = if day <= r.full_until {
+            v.efficacy
+        } else {
+            let years = (day - r.full_until) as f64 / 365.25;
+            v.efficacy * (-years / v.waning_years.max(1e-9)).exp()
+        };
+        (1.0 - efficacy).clamp(0.0, 1.0)
+    }
+
+    /// Whether `person`'s vaccination against `disease` is whole on `day`.
+    pub fn vaccinated_whole(&self, person: PermanentId, disease: u16, day: i64) -> bool {
+        self.vaccinated
+            .iter()
+            .any(|r| r.person == person && r.disease == disease && day <= r.full_until)
+    }
+
     /// Whether `person` is ill of anything on `day`.
     pub fn ill(&self, person: PermanentId, day: i64) -> bool {
         !self.running.is_empty() && self.of(person).any(|e| e.ill_on(day))
@@ -587,6 +635,7 @@ mod tests {
             household_hazard: 0.03,
             company_hazard: 0.0,
             inoculation: None,
+            vaccination: None,
             shed_ill_per_day: 1000.0,
             shed_silent_per_day: 10.0,
             decay_per_day: 0.2,
@@ -620,6 +669,40 @@ mod tests {
             (c.rr(&d, 5) - 0.05).abs() < 1e-6,
             "a treatment a carer knew"
         );
+    }
+
+    #[test]
+    fn a_vaccination_turns_away_its_share_while_whole_and_less_after() {
+        let v = crate::params::VaccinationDef {
+            technique: 0,
+            good: 0,
+            dose_kg: 0.001,
+            efficacy: 0.95,
+            full_years: [3.0, 5.0],
+            waning_years: 10.0,
+        };
+        let me = PermanentId::from_raw(7).expect("an id");
+        let mut s = Sickness::default();
+        assert_eq!(s.unvaccinated_share(me, 0, 0, &v), 1.0);
+        s.vaccinated.push(Vaccinated {
+            person: me,
+            disease: 0,
+            day: 0,
+            full_until: 1000,
+        });
+        assert!((s.unvaccinated_share(me, 0, 1000, &v) - 0.05).abs() < 1e-12);
+        assert!(s.vaccinated_whole(me, 0, 1000) && !s.vaccinated_whole(me, 0, 1001));
+        // Ten years on, what it turns away has fallen by a factor of e.
+        let later = 1000 + (10.0 * 365.25_f64).round() as i64;
+        let share = s.unvaccinated_share(me, 0, later, &v);
+        assert!(
+            (share - (1.0 - 0.95 / std::f64::consts::E)).abs() < 1e-3,
+            "{share}"
+        );
+        // Another disease, or another person, is not protected.
+        assert_eq!(s.unvaccinated_share(me, 1, 1000, &v), 1.0);
+        let other = PermanentId::from_raw(8).expect("an id");
+        assert_eq!(s.unvaccinated_share(other, 0, 1000, &v), 1.0);
     }
 
     #[test]

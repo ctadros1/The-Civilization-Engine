@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 185
+kernel_content_api = 186
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2808,5 +2808,47 @@ fn smallpox_may_be_given_by_variolation_which_nobody_brings() {
             .iter()
             .filter(|x| x.id != d.id)
             .all(|x| x.inoculation.is_none())
+    );
+}
+
+#[test]
+fn smallpox_may_be_vaccinated_against_with_matter_only_its_knowers_make() {
+    // M10c slice ED, third part (content API 186): about 95%, whole 3-5 years (05-05 §2.1).
+    let reg = registry(load(&repo_content()));
+    let c = &reg.catalog;
+    let d = &c.diseases[c.disease_index("core:disease/smallpox").expect("smallpox")];
+    let v = d.vaccination.expect("its vaccination");
+    assert_eq!(c.techniques[v.technique].id, "core:technique/vaccination");
+    assert_eq!(c.goods[v.good].id, "core:good/vaccine_matter");
+    assert!((v.efficacy - 0.95).abs() < 1e-9);
+    assert_eq!(v.full_years, [3.0, 5.0]);
+    // Found only by one who knows variolation, and brought by nobody.
+    let variolation = c
+        .technique_index("core:technique/variolation")
+        .expect("variolation");
+    assert_eq!(c.techniques[v.technique].requires, vec![vec![variolation]]);
+    assert!(
+        !reg.people
+            .params
+            .knowledge
+            .founders
+            .iter()
+            .any(|&(t, _)| t == v.technique)
+    );
+    // Its matter is made by one recipe, which its knowers alone work, and spoils in days.
+    let makes: Vec<_> = c
+        .recipes
+        .iter()
+        .filter(|r| r.outputs.iter().any(|&(g, _)| g == v.good))
+        .collect();
+    assert_eq!(makes.len(), 1);
+    assert_eq!(makes[0].technique, Some(v.technique));
+    assert!(c.goods[v.good].half_life_days > 0.0 && c.goods[v.good].half_life_days < 30.0);
+    // No other disease may be vaccinated against.
+    assert!(
+        c.diseases
+            .iter()
+            .filter(|x| x.id != d.id)
+            .all(|x| x.vaccination.is_none())
     );
 }

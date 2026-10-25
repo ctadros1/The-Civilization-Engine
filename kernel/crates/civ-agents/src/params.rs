@@ -943,6 +943,21 @@ pub struct InoculationDef {
     pub believed_take: f64,
 }
 
+/// Vaccination against a disease (M10c slice ED, third part; research 05-05 §2.1, §4): the
+/// technique that gives it, by index in the catalog's techniques; the good it is given from, by
+/// index in the goods, and the kilograms of it a person takes; the share of the disease's hazards
+/// it turns away while whole; how long it stays whole, years, drawn evenly between the two; and
+/// the years over which what it turns away then falls by a factor of e.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct VaccinationDef {
+    pub technique: usize,
+    pub good: usize,
+    pub dose_kg: f64,
+    pub efficacy: f64,
+    pub full_years: [f64; 2],
+    pub waning_years: f64,
+}
+
 /// A duration a disease's clock draws, days: lognormal with this arithmetic mean and standard
 /// deviation (research 05-03 §7.3); a standard deviation of 0 is the mean exactly.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1003,6 +1018,9 @@ pub struct DiseaseDef {
     /// How it may be given on purpose to protect from it, mildly (M10c slice ED, second part;
     /// content API 185), if it may.
     pub inoculation: Option<InoculationDef>,
+    /// How it may be prevented by vaccination (M10c slice ED, third part; content API 186), if
+    /// it may.
+    pub vaccination: Option<VaccinationDef>,
     /// What someone sheds of it a day while ill, and while shedding without symptoms, in doses: a
     /// dose drunk is a hazard of 1 (12-02 §5.4's exponential dose-response with its rate folded
     /// into the unit).

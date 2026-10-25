@@ -717,6 +717,12 @@ pub enum MakeWorth {
         /// Decision points.
         points: f64,
     },
+    /// Matter to vaccinate those who called the household to (M10c slice ED, third part): the
+    /// doses the calls standing at its door are short of, owed as care is.
+    Called {
+        /// Doses.
+        owed: f64,
+    },
 }
 
 /// A recipe a person could work at home: how much of it, for how long, and what it is worth.
@@ -2523,6 +2529,7 @@ pub fn candidates(
                         term(&mut terms, Reason::Spoiling, w.w_food * worth);
                     }
                     MakeWorth::Office { points } => term(&mut terms, Reason::Duty, points),
+                    MakeWorth::Called { owed } => term(&mut terms, Reason::Tend, w.w_tend * owed),
                     MakeWorth::Tool { tool, need } => {
                         term(&mut terms, Reason::Tools, w.w_tools * need.clamp(0.0, 1.0));
                         if blocked.contains(&tool) {

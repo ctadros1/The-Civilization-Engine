@@ -188,7 +188,17 @@ impl Population {
             if self.sickness.protected(m, disease, day) {
                 continue;
             }
-            let total: f64 = hazards.iter().map(|(h, _)| h.max(0.0)).sum();
+            let mut total: f64 = hazards.iter().map(|(h, _)| h.max(0.0)).sum();
+            // Vaccination turns away its share (M10c slice ED, third part).
+            if !self.sickness.vaccinated.is_empty()
+                && let Some(v) = ctx
+                    .catalog
+                    .diseases
+                    .get(usize::from(disease))
+                    .and_then(|d| d.vaccination)
+            {
+                total *= self.sickness.unvaccinated_share(m, disease, day, &v);
+            }
             if total <= 0.0 {
                 continue;
             }

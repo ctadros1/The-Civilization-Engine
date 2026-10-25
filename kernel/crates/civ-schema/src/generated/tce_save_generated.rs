@@ -56216,6 +56216,153 @@ impl ::core::fmt::Debug for UnknowingSave<'_> {
       ds.finish()
   }
 }
+pub enum VaccinatedSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct VaccinatedSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for VaccinatedSave<'a> {
+  type Inner = VaccinatedSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> VaccinatedSave<'a> {
+  pub const VT_PERSON: ::flatbuffers::VOffsetT = 4;
+  pub const VT_DISEASE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 8;
+  pub const VT_FULL_UNTIL: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    VaccinatedSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args VaccinatedSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<VaccinatedSave<'bldr>> {
+    let mut builder = VaccinatedSaveBuilder::new(_fbb);
+    builder.add_full_until(args.full_until);
+    builder.add_day(args.day);
+    builder.add_person(args.person);
+    if let Some(x) = args.disease { builder.add_disease(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn person(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(VaccinatedSave::VT_PERSON, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn disease(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(VaccinatedSave::VT_DISEASE, None)}
+  }
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(VaccinatedSave::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn full_until(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(VaccinatedSave::VT_FULL_UNTIL, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for VaccinatedSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("person", Self::VT_PERSON, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("disease", Self::VT_DISEASE, false)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<i64>("full_until", Self::VT_FULL_UNTIL, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct VaccinatedSaveArgs<'a> {
+    pub person: u64,
+    pub disease: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub day: i64,
+    pub full_until: i64,
+}
+impl<'a> Default for VaccinatedSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    VaccinatedSaveArgs {
+      person: 0,
+      disease: None,
+      day: 0,
+      full_until: 0,
+    }
+  }
+}
+
+pub struct VaccinatedSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> VaccinatedSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_person(&mut self, person: u64) {
+    self.fbb_.push_slot::<u64>(VaccinatedSave::VT_PERSON, person, 0);
+  }
+  #[inline]
+  pub fn add_disease(&mut self, disease: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(VaccinatedSave::VT_DISEASE, disease);
+  }
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(VaccinatedSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_full_until(&mut self, full_until: i64) {
+    self.fbb_.push_slot::<i64>(VaccinatedSave::VT_FULL_UNTIL, full_until, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> VaccinatedSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    VaccinatedSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<VaccinatedSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for VaccinatedSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("VaccinatedSave");
+      ds.field("person", &self.person());
+      ds.field("disease", &self.disease());
+      ds.field("day", &self.day());
+      ds.field("full_until", &self.full_until());
+      ds.finish()
+  }
+}
 pub enum SicknessSaveOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -56241,6 +56388,7 @@ impl<'a> SicknessSave<'a> {
   pub const VT_UNKNOWING: ::flatbuffers::VOffsetT = 16;
   pub const VT_MET: ::flatbuffers::VOffsetT = 18;
   pub const VT_INOCULATION_CALLS: ::flatbuffers::VOffsetT = 20;
+  pub const VT_VACCINATED: ::flatbuffers::VOffsetT = 22;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -56252,6 +56400,7 @@ impl<'a> SicknessSave<'a> {
     args: &'args SicknessSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<SicknessSave<'bldr>> {
     let mut builder = SicknessSaveBuilder::new(_fbb);
+    if let Some(x) = args.vaccinated { builder.add_vaccinated(x); }
     if let Some(x) = args.inoculation_calls { builder.add_inoculation_calls(x); }
     if let Some(x) = args.met { builder.add_met(x); }
     if let Some(x) = args.unknowing { builder.add_unknowing(x); }
@@ -56328,6 +56477,13 @@ impl<'a> SicknessSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, CareCallSave>>>(SicknessSave::VT_INOCULATION_CALLS, None)}
   }
+  #[inline]
+  pub fn vaccinated(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<VaccinatedSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<VaccinatedSave>>>>(SicknessSave::VT_VACCINATED, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for SicknessSave<'_> {
@@ -56345,6 +56501,7 @@ impl ::flatbuffers::Verifiable for SicknessSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<UnknowingSave>>>>("unknowing", Self::VT_UNKNOWING, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, CompanySave>>>("met", Self::VT_MET, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, CareCallSave>>>("inoculation_calls", Self::VT_INOCULATION_CALLS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<VaccinatedSave>>>>("vaccinated", Self::VT_VACCINATED, false)?
      .finish();
     Ok(())
   }
@@ -56359,6 +56516,7 @@ pub struct SicknessSaveArgs<'a> {
     pub unknowing: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<UnknowingSave<'a>>>>>,
     pub met: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, CompanySave>>>,
     pub inoculation_calls: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, CareCallSave>>>,
+    pub vaccinated: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<VaccinatedSave<'a>>>>>,
 }
 impl<'a> Default for SicknessSaveArgs<'a> {
   #[inline]
@@ -56373,6 +56531,7 @@ impl<'a> Default for SicknessSaveArgs<'a> {
       unknowing: None,
       met: None,
       inoculation_calls: None,
+      vaccinated: None,
     }
   }
 }
@@ -56419,6 +56578,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SicknessSaveBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SicknessSave::VT_INOCULATION_CALLS, inoculation_calls);
   }
   #[inline]
+  pub fn add_vaccinated(&mut self, vaccinated: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<VaccinatedSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SicknessSave::VT_VACCINATED, vaccinated);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SicknessSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SicknessSaveBuilder {
@@ -56445,6 +56608,7 @@ impl ::core::fmt::Debug for SicknessSave<'_> {
       ds.field("unknowing", &self.unknowing());
       ds.field("met", &self.met());
       ds.field("inoculation_calls", &self.inoculation_calls());
+      ds.field("vaccinated", &self.vaccinated());
       ds.finish()
   }
 }

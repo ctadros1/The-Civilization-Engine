@@ -54,3 +54,15 @@ care_rr = 0.95
 technique = "core:technique/variolation"
 deaths = 0.127
 believed_take = 0.5
+
+# Vaccination (M10c slice ED, third part; content API 186; 05-05 §2.1, CDC): a dose of vaccine
+# matter, a gram, turns away 95% of its hazards, whole for 3 to 5 years and falling by a factor of
+# e each 10 years after (the waning a design prior). A household calls one who knows it before a
+# variolator, as it risks nobody.
+[vaccination]
+technique = "core:technique/vaccination"
+good = "core:good/vaccine_matter"
+dose_kg = 0.001
+efficacy = 0.95
+full_years = [3.0, 5.0]
+waning_years = 10.0

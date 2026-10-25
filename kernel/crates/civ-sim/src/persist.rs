@@ -531,6 +531,8 @@ pub const SCHEMA_V196: u32 = 196;
 pub const SCHEMA_V197: u32 = 197;
 /// The day's company kept, before calls to inoculate.
 pub const SCHEMA_V198: u32 = 198;
+/// Calls to inoculate, before those vaccinated.
+pub const SCHEMA_V199: u32 = 199;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

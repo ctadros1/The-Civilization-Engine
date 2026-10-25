@@ -18,6 +18,53 @@ pub enum KnowledgeEventKind {
     Lost,
 }
 
+/// A learner enrolled to learn a technique from someone of another household (M10c slice EB,
+/// second part; ADR-0035 §5): who teaches and who learns, the technique (by index), the food the
+/// paying household gives for each day of study, kcal (none from kin), that household, the day
+/// they enrolled and the last day it paid (-1 not yet). Saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Enrolment {
+    pub teacher: PermanentId,
+    pub learner: PermanentId,
+    pub technique: u16,
+    pub fee_kcal: f32,
+    pub payer: PermanentId,
+    pub since: i64,
+    pub paid: i64,
+}
+
+/// Minutes someone gave a technique today in sessions, teaching it or studying it (M10c slice
+/// EB, second part): credited to the learners at midnight. Saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Session {
+    pub person: PermanentId,
+    pub technique: u16,
+    pub minutes: f32,
+}
+
+/// Adds `minutes` of person `person`'s sessions of technique `technique` to the day's `list`.
+pub fn tally(list: &mut Vec<Session>, person: PermanentId, technique: u16, minutes: f32) {
+    match list
+        .iter_mut()
+        .find(|s| s.person == person && s.technique == technique)
+    {
+        Some(s) => s.minutes += minutes,
+        None => list.push(Session {
+            person,
+            technique,
+            minutes,
+        }),
+    }
+}
+
+/// The minutes of person `person`'s sessions of technique `technique` in `list`.
+pub fn tallied(list: &[Session], person: PermanentId, technique: u16) -> f32 {
+    list.iter()
+        .filter(|s| s.person == person && s.technique == technique)
+        .map(|s| s.minutes)
+        .sum()
+}
+
 /// One entry in a settlement's record of a technique (ADR-0008 §2).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct KnowledgeEvent {
@@ -242,6 +289,7 @@ mod tests {
             upbringing,
             answers_spoilage: Vec::new(),
             birth: [0.0; 3],
+            group: 3,
         };
         Catalog {
             activities: vec![activity("sow", 10.0, 0), activity("weave", 12.0, 1)],

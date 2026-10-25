@@ -123,11 +123,17 @@ pub enum Behavior {
     /// DZ, second part; ADR-0035 §2): only where the ill at home are owed more care than its well
     /// members can give.
     Call,
+    /// Hold a session of a technique they know at home for those enrolled to learn it from them
+    /// (M10c slice EB, second part; ADR-0035 §5): credited to the learners at midnight.
+    Teach,
+    /// Walk to the home of the one they are enrolled to learn a technique from, study it there,
+    /// and walk home (M10c slice EB, second part): credited at midnight, up to what was taught.
+    Study,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 41] = [
+    pub const ALL: [Behavior; 43] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -169,6 +175,8 @@ impl Behavior {
         Behavior::Mill,
         Behavior::Light,
         Behavior::Call,
+        Behavior::Teach,
+        Behavior::Study,
     ];
 
     /// The authored name of a behavior.
@@ -215,6 +223,8 @@ impl Behavior {
             Behavior::Mill => "mill",
             Behavior::Light => "light",
             Behavior::Call => "call",
+            Behavior::Teach => "teach",
+            Behavior::Study => "study",
         }
     }
 
@@ -755,6 +765,10 @@ pub struct TechniqueDef {
     /// The share of each complication's deaths in childbirth an attendant who knows it prevents
     /// (M10c slice EA; content API 179), by [`Complication`]; all nought for most.
     pub birth: [f64; COMPLICATIONS],
+    /// How many learners one teacher's session serves whole (M10c slice EB, second part; content
+    /// API 180; research 06-08 §5.3: 1-3 for crafts, 15-40 for elementary group work); beyond it,
+    /// each learner's share of the session falls.
+    pub group: u16,
 }
 
 /// The authored activities, goods and crops.
@@ -1607,6 +1621,12 @@ pub struct DecisionParams {
     /// Points for tending members of the household who are severely ill and still owed a day's
     /// care; half as much for those ill but not severely (M6a slice AZ, step three).
     pub w_tend: f64,
+    /// Points for holding a session of a technique for each learner enrolled with them, up to
+    /// its group (M10c slice EB, second part).
+    pub w_teach: f64,
+    /// Points for a session of study with the one they are enrolled to learn from (M10c slice
+    /// EB, second part).
+    pub w_study: f64,
 }
 
 /// The first people of a new world (research 05-01 §4.5).

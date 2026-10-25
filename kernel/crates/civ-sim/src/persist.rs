@@ -516,6 +516,8 @@ pub const SCHEMA_V189: u32 = 189;
 pub const SCHEMA_V190: u32 = 190;
 /// Who tended the ill kept for births, before calls to attend a birth.
 pub const SCHEMA_V191: u32 = 191;
+/// Calls to attend a birth, before enrolments to learn from another household.
+pub const SCHEMA_V192: u32 = 192;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

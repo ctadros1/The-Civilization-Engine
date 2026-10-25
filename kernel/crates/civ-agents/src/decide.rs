@@ -134,6 +134,12 @@ pub struct Facts {
     /// A household of kin or a tie to call to tend the household's ill (M10c slice DZ, second
     /// part), where they are owed more care than its well members can give.
     pub call: Option<CallFacts>,
+    /// A technique they know that learners are enrolled to learn from them, and how many (M10c
+    /// slice EB, second part); none once today's session is held.
+    pub teach: Option<TeachFacts>,
+    /// The one they are enrolled to learn a technique from (M10c slice EB, second part); none
+    /// once today's session is studied.
+    pub study: Option<StudyFacts>,
     /// Whether their home is flooded today (M6b slice BF): they leave wet homes for kin or
     /// hearth until the flood recedes.
     pub home_flooded: bool,
@@ -165,6 +171,23 @@ pub struct CallFacts {
     pub short: f64,
     /// To attend a birth due rather than tend the ill (M10c slice EA, second part; `short` 1).
     pub birth: bool,
+}
+
+/// A technique someone teaches (M10c slice EB, second part; ADR-0035 §5): which, by index, and
+/// how many learners are enrolled with them for it, counted up to its group.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TeachFacts {
+    pub technique: u16,
+    pub learners: u32,
+}
+
+/// A technique someone studies (M10c slice EB, second part): which, by index, where the one
+/// teaching it lives and the minutes' walk there.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct StudyFacts {
+    pub technique: u16,
+    pub at: (f32, f32),
+    pub walk_min: f64,
 }
 
 /// How a load can be brought to a threatened roof.
@@ -1080,6 +1103,14 @@ pub fn candidates(
         // And calling a carer to all but those whose ill at home are owed more care than its
         // well members can give, with someone to call (M10c slice DZ, second part).
         if def.behavior == Behavior::Call && f.call.is_none() {
+            continue;
+        }
+        // And teaching and study to all but those enrolled, teaching or learning, with today's
+        // session still to hold (M10c slice EB, second part).
+        if def.behavior == Behavior::Teach && f.teach.is_none() {
+            continue;
+        }
+        if def.behavior == Behavior::Study && f.study.is_none() {
             continue;
         }
         if f.age < def.min_age_years {
@@ -2324,6 +2355,46 @@ pub fn candidates(
                 steps.push(work);
                 out.push(finish(id, Target::Home, terms, steps));
             }
+            Behavior::Teach => {
+                // A session at home for those enrolled (M10c slice EB, second part).
+                let Some(t) = f.teach else {
+                    continue;
+                };
+                term(
+                    &mut terms,
+                    Reason::Teaching,
+                    w.w_teach * f64::from(t.learners),
+                );
+                let mut steps = walk_home_first(f);
+                steps.push(Step::Work {
+                    minutes: def.min_minutes.max(1),
+                });
+                out.push(finish(id, Target::Technique(t.technique), terms, steps));
+            }
+            Behavior::Study => {
+                // A session at the teacher's home, less the walk there and back.
+                let Some(s) = f.study else {
+                    continue;
+                };
+                if s.walk_min > f64::from(def.max_walk_minutes) {
+                    excluded.push((id, Reason::Unreachable));
+                    continue;
+                }
+                term(&mut terms, Reason::Study, w.w_study);
+                term(
+                    &mut terms,
+                    Reason::Walking,
+                    -w.w_walk_hour * 2.0 * s.walk_min / 60.0,
+                );
+                let steps = vec![
+                    Step::Walk { to: s.at },
+                    Step::Work {
+                        minutes: def.min_minutes.max(1),
+                    },
+                    Step::Walk { to: f.home },
+                ];
+                out.push(finish(id, Target::Technique(s.technique), terms, steps));
+            }
             Behavior::Call => {
                 // To a carer's door and back (M10c slice DZ, second part), for the care the
                 // household's well cannot give, less the walk.
@@ -2638,6 +2709,8 @@ mod tests {
             w_rest: 1.0,
             w_play: 2.0,
             w_tend: 6.0,
+            w_teach: 4.0,
+            w_study: 4.0,
         }
     }
 
@@ -2686,6 +2759,8 @@ mod tests {
             fire: None,
             tend: None,
             call: None,
+            teach: None,
+            study: None,
             home_flooded: false,
             shelter: None,
             age: 30.0,

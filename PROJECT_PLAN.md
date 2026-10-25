@@ -6933,6 +6933,26 @@ and M6a gives rivers a daily flow.
       were. This changes worlds where a household-resolved settlement has an adult who lacks a
       technique a member of their household knows, as it was meant to. **Tested:** the finding's
       world learns knapping again in both resolutions.
+      *As built, second part, first half (2026-10-25): teaching and study.* A learner may be
+      enrolled to learn a technique from someone of another household: who teaches and who
+      learns, the technique, the food the paying household gives for each day of study, kcal
+      (none from kin), that household, the day enrolled and the last paid (saves 193, with the
+      day's sessions, in the knowledge section). Two behaviours (content API 180): `teach`
+      (`activity/teach_a_technique`), a two-hour session at home for those enrolled, scored
+      `decision.w_teach` for each learner up to the technique's `group` (a technique's new field,
+      3 by default; 06-08 §5.3's 1–3 for crafts), and `study` (`activity/study_a_technique`, from
+      seven years old, as far as half an hour's walk), a two-hour session at the teacher's home,
+      `decision.w_study` less the walk, each once a day, and once a day in a household-resolved
+      day. Their minutes are tallied, and at midnight each learner is credited the hours studied,
+      up to the hours their teacher taught it, shared beyond its group among that teacher's
+      learners who came (ADR-0035 §5); learnt so, they know it from the teacher, and the
+      enrolment ends, as it does when either is no more or the teacher forgets it. The first
+      study each day pays the day's fee in food through `Fee`; a household that cannot pay it all
+      pays what it holds and the enrolment ends. Nobody enrols yet: who wants a child taught
+      what is the second half. **Tested:** in both resolutions, a learner of another household
+      enrolled with a knapper, knapping made learnable in three hours and never at home,
+      studies with them, pays the fees, and knows it from them within days, the enrolment
+      ending; mid-way the enrolment and the day's sessions save and load alike.
     - **EC**: letters and records: reading, writing and reckoning as techniques, written records as
       saved entities, office requirements, licences as privileges.
     - **ED**: inoculation: the `Company` route, smallpox by the observer's hand, variolation and

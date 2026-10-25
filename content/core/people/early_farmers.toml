@@ -145,6 +145,11 @@ w_play = 3.0
 # for one ill but not severely (M6a slice AZ, step three): above ordinary work and company, below
 # food and water short at home (a tuning value; 05-05 §1.1: care is chosen labour).
 w_tend = 6.0
+# Holding a session of a technique for each learner enrolled with them, up to its group, and a
+# session of study for one enrolled (M10c slice EB, second part; content API 180): as ordinary
+# useful work, below tending (tuning values; 06-08 §1.4: teaching takes the teacher's time).
+w_teach = 4.0
+w_study = 4.0
 
 [band]                           # research 05-01 §4.5: bands of 40 in at least six unrelated families
 default_size = 40

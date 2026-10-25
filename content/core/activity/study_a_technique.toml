@@ -1,0 +1,19 @@
+# Studying a technique with the one they are enrolled to learn it from, a session at the teacher's
+# home (M10c slice EB, second part; ADR-0035 §5): credited at midnight, up to the hours the
+# teacher taught it. A session of two hours a day, as far as half an hour's walk, from the age of
+# seven (tuning values).
+kind = "activity"
+id = "core:activity/study_a_technique"
+name = "Study"
+doing = "studying"
+behavior = "study"
+par = 1.6
+min_age_years = 7.0
+max_age_years = 60.0
+min_minutes = 120
+max_minutes = 120
+daylight_only = true
+max_walk_minutes = 30
+technique = ""
+tools = []
+rate = 1.0

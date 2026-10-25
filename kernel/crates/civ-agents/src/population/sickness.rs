@@ -842,13 +842,31 @@ impl Population {
             return;
         };
         self.sickness.calls[i].paid = day;
-        let mut want = f64::from(self.sickness.calls[i].fee_kcal);
-        if want <= 0.0 {
+        let fee = f64::from(self.sickness.calls[i].fee_kcal);
+        if fee <= 0.0 {
             return;
         }
+        let want = fee - self.pay_food(ctx, caller, carer, fee);
+        if want > 1e-6 {
+            self.sickness
+                .calls
+                .retain(|c| c.caller != caller || c.birth != birth);
+        }
+    }
+
+    /// Household `from` pays household `to` `kcal` of food through the [`Channel::Fee`] channel,
+    /// the least keeping first, as far as it holds it (M10c slices DZ and EB); returns the kcal
+    /// paid.
+    pub(super) fn pay_food(
+        &mut self,
+        ctx: &Ctx,
+        from: PermanentId,
+        to: PermanentId,
+        kcal: f64,
+    ) -> f64 {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
-        let Some(x) = self.household(caller) else {
-            return;
+        let Some(x) = self.household(from) else {
+            return 0.0;
         };
         let stores = stores_now(x, now, params, goods);
         let mut order: Vec<usize> = (0..goods.len())
@@ -863,7 +881,7 @@ impl Population {
             _ => f64::INFINITY,
         };
         order.sort_by(|&a, &b| keeps(a).total_cmp(&keeps(b)).then(a.cmp(&b)));
-        let mut legs = Vec::new();
+        let (mut want, mut legs) = (kcal, Vec::new());
         for g in order {
             if want <= 1e-9 {
                 break;
@@ -874,22 +892,19 @@ impl Population {
                 continue;
             }
             legs.push(Leg {
-                from: caller,
-                to: carer,
+                from,
+                to,
                 good: g,
                 amount: kg,
             });
             want -= kg * goods[g].kcal_per_kg;
         }
-        if !legs.is_empty() && self.transfer(now, params, goods, &legs, Channel::Fee) {
-            self.changed(caller);
-            self.changed(carer);
+        if legs.is_empty() || !self.transfer(now, params, goods, &legs, Channel::Fee) {
+            return 0.0;
         }
-        if want > 1e-6 {
-            self.sickness
-                .calls
-                .retain(|c| c.caller != caller || c.birth != birth);
-        }
+        self.changed(from);
+        self.changed(to);
+        kcal - want.max(0.0)
     }
 
     /// Who would attend mother `mother`'s birth on `day` (M10c slice EA; ADR-0035 §3): of those

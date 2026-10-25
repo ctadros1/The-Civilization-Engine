@@ -5,7 +5,8 @@
 
 use civ_core::{PermanentId, Rng64, SimTime};
 
-use super::{Ctx, Population};
+use super::{Ctx, Population, cell_of};
+use crate::decide;
 use crate::history::{
     ChronicleKind, FOUND_AGAIN, FOUND_FIRST_ANYWHERE, FOUND_FIRST_HERE, FOUND_KNOWN_HERE,
 };
@@ -185,6 +186,181 @@ impl Population {
                 }
             }
         }
+    }
+
+    /// The technique person `who` teaches today, if learners are enrolled with them for one
+    /// they know that the learner does not yet, and they have not held today's session (M10c
+    /// slice EB, second part): the one with the most learners, counted up to its group, the
+    /// first enrolled of two alike.
+    pub(super) fn teach_facts(&self, ctx: &Ctx, who: PermanentId) -> Option<decide::TeachFacts> {
+        if self.enrolments.is_empty() {
+            return None;
+        }
+        let p = self.person(who)?;
+        let session = SESSION_MIN as f32;
+        let mut best: Option<decide::TeachFacts> = None;
+        for e in self.enrolments.iter().filter(|e| e.teacher == who) {
+            let t = e.technique;
+            if !p.knows(usize::from(t))
+                || crate::knowledge::tallied(&self.taught, who, t) >= session
+                || best.is_some_and(|b| b.technique == t)
+            {
+                continue;
+            }
+            let group = ctx
+                .catalog
+                .techniques
+                .get(usize::from(t))
+                .map_or(1, |d| u32::from(d.group.max(1)));
+            let learners = self
+                .enrolments
+                .iter()
+                .filter(|o| o.teacher == who && o.technique == t)
+                .filter(|o| {
+                    self.person(o.learner)
+                        .is_some_and(|q| !q.knows(usize::from(t)))
+                })
+                .count() as u32;
+            let learners = learners.min(group);
+            if learners > 0 && best.is_none_or(|b| learners > b.learners) {
+                best = Some(decide::TeachFacts {
+                    technique: t,
+                    learners,
+                });
+            }
+        }
+        best
+    }
+
+    /// The technique person `who` studies today, if they are enrolled to learn one they do not
+    /// yet know and have not studied today's session, with where its teacher lives and the walk
+    /// there from `field_key`'s travel field (M10c slice EB, second part).
+    pub(super) fn study_facts(
+        &self,
+        ctx: &Ctx,
+        who: PermanentId,
+        field_key: PermanentId,
+    ) -> Option<decide::StudyFacts> {
+        if self.enrolments.is_empty() {
+            return None;
+        }
+        let p = self.person(who)?;
+        let e = self.enrolments.iter().find(|e| {
+            e.learner == who
+                && !p.knows(usize::from(e.technique))
+                && crate::knowledge::tallied(&self.studied, who, e.technique) < SESSION_MIN as f32
+        })?;
+        let home = self.household(self.person(e.teacher)?.household)?.home;
+        let secs = self
+            .homes
+            .get(&field_key)?
+            .reach
+            .seconds_to(cell_of(ctx.map, home))?;
+        Some(decide::StudyFacts {
+            technique: e.technique,
+            at: home,
+            walk_min: f64::from(secs) / 60.0,
+        })
+    }
+
+    /// Learner `who` studied technique `t` today (M10c slice EB, second part): the household
+    /// paying for it gives the teacher's the day's fee, once a day; one that cannot pay it all
+    /// pays what it holds, and the enrolment ends.
+    pub(super) fn pay_study_fee(&mut self, ctx: &Ctx, who: PermanentId, t: u16) {
+        let day = ctx.now.day_index();
+        let Some(i) = self
+            .enrolments
+            .iter()
+            .position(|e| e.learner == who && e.technique == t && e.paid < day)
+        else {
+            return;
+        };
+        self.enrolments[i].paid = day;
+        let e = self.enrolments[i];
+        let fee = f64::from(e.fee_kcal);
+        let Some(to) = self.person(e.teacher).map(|q| q.household) else {
+            return;
+        };
+        if fee > 0.0 && self.pay_food(ctx, e.payer, to, fee) + 1e-6 < fee {
+            self.enrolments
+                .retain(|o| !(o.learner == who && o.technique == t));
+        }
+    }
+
+    /// Yesterday's sessions are credited (M10c slice EB, second part; ADR-0035 §5, amending
+    /// ADR-0008 §4): each learner who studied a technique is credited the hours they studied it,
+    /// up to the hours their teacher taught it, shared beyond its group among those of that
+    /// teacher who studied it; learnt so, they know it from their teacher. Enrolments end once
+    /// the learner knows it, or either is no more or the teacher no longer knows it.
+    pub(super) fn credit_study(&mut self, ctx: &mut Ctx) {
+        if self.enrolments.is_empty() {
+            self.taught.clear();
+            self.studied.clear();
+            return;
+        }
+        let (taught, studied) = (
+            std::mem::take(&mut self.taught),
+            std::mem::take(&mut self.studied),
+        );
+        let now = ctx.now;
+        let list = self.enrolments.clone();
+        for e in &list {
+            let t = e.technique;
+            let attended = crate::knowledge::tallied(&studied, e.learner, t);
+            let held = crate::knowledge::tallied(&taught, e.teacher, t);
+            if attended <= 0.0 || held <= 0.0 {
+                continue;
+            }
+            let Some(def) = ctx.catalog.techniques.get(usize::from(t)) else {
+                continue;
+            };
+            let came = list
+                .iter()
+                .filter(|o| o.teacher == e.teacher && o.technique == t)
+                .filter(|o| crate::knowledge::tallied(&studied, o.learner, t) > 0.0)
+                .count()
+                .max(1);
+            let group = usize::from(def.group.max(1));
+            let share = if came <= group {
+                held
+            } else {
+                held * group as f32 / came as f32
+            };
+            let hours = f64::from(attended.min(share)) / 60.0;
+            let learn_h = def.learn_h;
+            let learnt = self.person_mut_by_id(e.learner).is_some_and(|p| {
+                !p.knows(usize::from(t)) && p.learn(usize::from(t), hours, e.teacher, learn_h, now)
+            });
+            self.note_tie(
+                ctx,
+                e.learner,
+                e.teacher,
+                crate::ties::Act::LearnedFrom,
+                hours,
+                0.0,
+            );
+            if learnt {
+                self.on_known(
+                    ctx,
+                    e.learner,
+                    usize::from(t),
+                    KnowSource::Taught(e.teacher),
+                );
+            }
+        }
+        let alive = |pop: &Self, id: PermanentId| pop.person(id).is_some();
+        let kept: Vec<_> = self
+            .enrolments
+            .iter()
+            .copied()
+            .filter(|e| {
+                let t = usize::from(e.technique);
+                alive(self, e.learner)
+                    && self.person(e.teacher).is_some_and(|q| q.knows(t))
+                    && self.person(e.learner).is_some_and(|q| !q.knows(t))
+            })
+            .collect();
+        self.enrolments = kept;
     }
 
     /// Whether person `who` may do activity `def` aimed at `target`, which needs technique `t`
@@ -1173,6 +1349,10 @@ fn working(q: &Person, def: u16, target: Target) -> bool {
             Some(Step::Work { .. })
         )
 }
+
+/// The minutes of a day's session of teaching or study (M10c slice EB, second part; the session
+/// activities' length).
+pub const SESSION_MIN: u32 = 120;
 
 /// Those learning a technique at a household, each with the hours they gave it.
 type Learners = Vec<(PermanentId, f64)>;

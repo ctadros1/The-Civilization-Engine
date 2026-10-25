@@ -577,3 +577,113 @@ fn ten_years_knowing_every_technique_change_nothing() {
         }
     }
 }
+
+/// Someone enrolled to learn a craft from a knower of another household studies it with them,
+/// is credited at midnight up to what was taught, pays the day's fee, and comes to know it from
+/// them; in both resolutions (M10c slice EB, second part; ADR-0035 §5). A variant of the core
+/// content in which knapping is learnt in three hours, never at home.
+#[test]
+fn a_learner_enrolled_with_a_knower_of_another_household_studies_with_them_and_learns() {
+    use civ_agents::knowledge::Enrolment;
+    use civ_agents::ledger::Channel;
+    for resolved in [false, true] {
+        let mut variant = content().clone();
+        let knapping = variant
+            .catalog
+            .technique_index("core:technique/knapping")
+            .expect("knapping");
+        variant.catalog.techniques[knapping].upbringing = false;
+        variant.catalog.techniques[knapping].learn_h = 3.0;
+        let mut sim = world(&variant, 3);
+        if resolved {
+            sim.advance_to_midnight().expect("advances");
+            let settlements: Vec<_> = sim.land().settlements.iter().map(|s| s.id).collect();
+            sim.set_household_resolved(settlements);
+            sim.advance_minutes(1).expect("advances");
+            sim.advance_to_midnight().expect("advances");
+            assert!(!sim.household_resolved().is_empty(), "household-resolved");
+        }
+        let now = sim.now();
+        let adult = |sim: &Sim, h: PermanentId| {
+            sim.people()
+                .household(h)
+                .expect("household")
+                .members
+                .iter()
+                .copied()
+                .find(|&m| {
+                    sim.people()
+                        .person(m)
+                        .is_some_and(|p| p.age_years(now) >= 20.0 && p.knows(knapping))
+                })
+        };
+        let homes: Vec<PermanentId> = sim.people().households.iter().map(|(_, x)| x.id).collect();
+        let (teacher, learner, payer) = homes
+            .iter()
+            .find_map(|&a| {
+                let t = adult(&sim, a)?;
+                let b = homes
+                    .iter()
+                    .copied()
+                    .find(|&b| b != a && adult(&sim, b).is_some())?;
+                Some((t, adult(&sim, b)?, b))
+            })
+            .expect("two households with grown knappers");
+        let day = sim.now().day_index();
+        let pop = sim.people_mut_for_tests();
+        for (_, p) in pop.people.iter_mut() {
+            if p.id == learner {
+                p.knows.retain(|k| usize::from(k.technique) != knapping);
+            }
+        }
+        pop.enrolments.push(Enrolment {
+            teacher,
+            learner,
+            technique: knapping as u16,
+            fee_kcal: 1_000.0,
+            payer,
+            since: day,
+            paid: -1,
+        });
+        let mut learnt = None;
+        for d in 0..10 {
+            sim.advance_minutes(24 * 60).expect("advances");
+            if d == 0 {
+                // Mid-way, the enrolment and its sessions save and load alike.
+                let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+                let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+                let saved =
+                    persist::save(&mut sim, &saves, SaveKind::Manual, "taught").expect("saves");
+                let loaded = persist::load(&saved.path, &variant).expect("loads");
+                assert_eq!(loaded.people().enrolments, sim.people().enrolments);
+                assert_eq!(loaded.people().studied, sim.people().studied);
+            }
+            let p = sim.people().person(learner).expect("alive");
+            if p.knows(knapping) {
+                learnt = p
+                    .knows
+                    .iter()
+                    .find(|k| usize::from(k.technique) == knapping)
+                    .map(|k| k.source);
+                break;
+            }
+        }
+        assert_eq!(
+            learnt,
+            Some(KnowSource::Taught(teacher)),
+            "resolved {resolved}: learnt knapping from the teacher"
+        );
+        assert!(
+            sim.people().enrolments.is_empty(),
+            "the enrolment ends once learnt"
+        );
+        let goods = &sim.rules().catalog.goods;
+        let fees: f64 = (0..goods.len())
+            .map(|g| sim.people().transfers.get(Channel::Fee, g) * goods[g].kcal_per_kg)
+            .sum();
+        assert!(
+            fees >= 1_000.0 - 1.0,
+            "resolved {resolved}: fees paid: {fees}"
+        );
+    }
+}

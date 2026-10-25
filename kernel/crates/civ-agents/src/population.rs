@@ -633,6 +633,12 @@ pub struct Population {
     /// Each settlement's record of the techniques it came to know and lost, oldest first
     /// (ADR-0008 §2).
     pub knowledge: Vec<crate::knowledge::KnowledgeEvent>,
+    /// Learners enrolled to learn a technique from someone of another household, in the order
+    /// enrolled, and today's minutes of teaching and of study (M10c slice EB, second part;
+    /// ADR-0035 §5).
+    pub enrolments: Vec<crate::knowledge::Enrolment>,
+    pub taught: Vec<crate::knowledge::Session>,
+    pub studied: Vec<crate::knowledge::Session>,
     /// What each settlement has seen of each technique's buildings, in the order first seen
     /// (ADR-0009 §6).
     pub trust: Vec<crate::caution::Trust>,
@@ -3694,6 +3700,8 @@ impl Population {
             fire: fire_facts,
             tend: self.tend_facts(ctx, p.id, &hh, field_key),
             call: self.call_facts(ctx, p.id, &hh, field_key),
+            teach: self.teach_facts(ctx, p.id),
+            study: self.study_facts(ctx, p.id, field_key),
             home_flooded: ctx
                 .land
                 .flood_depths
@@ -5579,7 +5587,8 @@ impl Population {
                 | Behavior::Play
                 | Behavior::Make
                 | Behavior::Try
-                | Behavior::Tend,
+                | Behavior::Tend
+                | Behavior::Teach,
             ) => (def_par, false, params.social.household_quality),
             Some(
                 Behavior::Gather
@@ -5595,6 +5604,7 @@ impl Population {
                 | Behavior::Watch
                 | Behavior::Light
                 | Behavior::Call
+                | Behavior::Study
                 | Behavior::Carry
                 | Behavior::Bridge
                 | Behavior::Boat
@@ -5828,6 +5838,20 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.field_work(ctx, who, household, field, task, hours);
+                    }
+                }
+                // A session taught or studied, tallied for midnight (M10c slice EB, second part).
+                Some(Behavior::Teach) => {
+                    if let Target::Technique(t) = p.act.target {
+                        let who = p.id;
+                        crate::knowledge::tally(&mut self.taught, who, t, minutes as f32);
+                    }
+                }
+                Some(Behavior::Study) => {
+                    if let Target::Technique(t) = p.act.target {
+                        let who = p.id;
+                        crate::knowledge::tally(&mut self.studied, who, t, minutes as f32);
+                        self.pay_study_fee(ctx, who, t);
                     }
                 }
                 // A call left at a carer's door (M10c slice DZ, second part).

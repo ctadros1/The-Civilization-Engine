@@ -136,6 +136,8 @@ impl Population {
     pub(super) fn live_day(&mut self, ctx: &mut Ctx) {
         let day = ctx.now.day_index();
         self.emptied.clear();
+        // Yesterday's sessions of teaching and study are credited (M10c slice EB).
+        self.credit_study(ctx);
         self.end_pregnancies(ctx, day);
         self.mortality(ctx, day);
         // Infections run their course, kill or are taken (M6a slice AZ).

@@ -1130,6 +1130,25 @@ struct FireTrustEntry {
   wall_kind: ubyte;
 }
 
+// Schema 193: an enrolment: who teaches, who learns, the household that pays, the technique, the
+// food a day of study costs, kcal (0 from kin), the day enrolled and the last day paid (-1 not yet).
+struct EnrolmentSave {
+  teacher: ulong;
+  learner: ulong;
+  payer: ulong;
+  technique: ushort;
+  fee_kcal: float;
+  since: long;
+  paid: long;
+}
+
+// Schema 193: someone's minutes of sessions of a technique today, teaching or studying.
+struct SessionSave {
+  person: ulong;
+  technique: ushort;
+  minutes: float;
+}
+
 table Knowledge {
   // Technique content ids at save time; KnowledgeEntry.technique and TrustEntry.technique index
   // this list.
@@ -1143,6 +1162,12 @@ table Knowledge {
   // entry has one.
   elsewhere: [ulong] (id: 3);
   fire_trust: [FireTrustEntry] (id: 4);
+  // Schema 193 (M10c slice EB, second part; ADR-0035 §5): learners enrolled to learn a technique
+  // from someone of another household, in the order enrolled, and today's minutes of teaching and
+  // of study, credited at midnight; `technique` indexes `techniques`.
+  enrolments: [EnrolmentSave] (id: 5);
+  taught: [SessionSave] (id: 6);
+  studied: [SessionSave] (id: 7);
 }
 
 // Section "deposits" (schema 19): bodies in the ground (ADR-0010 §1), in the order they were

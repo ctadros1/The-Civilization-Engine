@@ -43,6 +43,14 @@ pub(crate) struct TechniqueFile {
     /// attendant who knows it prevents; none by default.
     #[serde(default)]
     pub birth: Option<BirthEffect>,
+    /// Content API 180 (M10c slice EB, second part): how many learners one teacher's session
+    /// serves whole; 3 by default (research 06-08 §5.3: 1-3 for crafts).
+    #[serde(default = "default_group")]
+    pub group: u16,
+}
+
+fn default_group() -> u16 {
+    3
 }
 
 /// What a technique of birth care prevents (M10c slice EA): the share of each complication's
@@ -119,6 +127,7 @@ impl TechniqueFile {
                 .birth
                 .as_ref()
                 .map_or([0.0; 3], |b| [b.bleeding, b.infection, b.obstructed]),
+            group: self.group,
         })
     }
 
@@ -143,6 +152,9 @@ impl TechniqueFile {
         }
         if self.requires.iter().flatten().any(|t| *t == self.id) {
             p.push("a technique cannot require itself".to_owned());
+        }
+        if self.group == 0 {
+            p.push("`group` must be at least 1".to_owned());
         }
         if let Some(b) = &self.birth {
             for (name, v) in [

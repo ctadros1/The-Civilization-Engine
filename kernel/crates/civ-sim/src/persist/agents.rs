@@ -129,7 +129,7 @@ use super::{
     SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
     SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, SCHEMA_V180,
     SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, SCHEMA_V187,
-    SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, finish, section, section_root,
+    SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, finish, section, section_root,
     single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
@@ -906,10 +906,10 @@ pub(super) fn decode<R: Read + Seek>(
         // fares (schema 185) are read wherever saved; gas mains (schema 186) have their section.
         SCHEMA_V182 | SCHEMA_V183 | SCHEMA_V184 | SCHEMA_V185 => Schema::V182,
         // Mains' lengths laid (schema 187), their worth (188) and street lamps (189) are read
-        // wherever saved, as are calls for carers (190), who tended the ill (191) and births
-        // attended (192).
+        // wherever saved, as are calls for carers (190), who tended the ill (191), births
+        // attended (192) and enrolments to learn (193).
         SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SCHEMA_V190 | SCHEMA_V191
-        | SAVE_SCHEMA_VERSION => Schema::V186,
+        | SCHEMA_V192 | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1021,6 +1021,8 @@ pub(super) fn decode<R: Read + Seek>(
         if schema >= Schema::V94 {
             people.fire_trust = decode_fire_trust(&bytes)?;
         }
+        // Enrolments to learn and today's sessions (schema 193): none in older saves.
+        decode_enrolments(&bytes, rules, &mut people)?;
         // A technique founders bring that the content has added since the save was made is
         // given as a founder of their age would bring it, like a new skill.
         people.give_new_founder_knowledge(
@@ -8942,6 +8944,30 @@ fn encode_knowledge(pop: &Population, techniques: &[&str]) -> Vec<u8> {
         })
         .collect();
     let fire_trust = fbb.create_vector(&fire_trust);
+    // Enrolments and today's sessions (schema 193, M10c slice EB): techniques index the list.
+    let enrolments: Vec<save::EnrolmentSave> = pop
+        .enrolments
+        .iter()
+        .map(|e| {
+            save::EnrolmentSave::new(
+                e.teacher.get(),
+                e.learner.get(),
+                e.payer.get(),
+                e.technique,
+                e.fee_kcal,
+                e.since,
+                e.paid,
+            )
+        })
+        .collect();
+    let enrolments = fbb.create_vector(&enrolments);
+    let sessions = |list: &[civ_agents::knowledge::Session]| -> Vec<save::SessionSave> {
+        list.iter()
+            .map(|s| save::SessionSave::new(s.person.get(), s.technique, s.minutes))
+            .collect()
+    };
+    let taught = fbb.create_vector(&sessions(&pop.taught));
+    let studied = fbb.create_vector(&sessions(&pop.studied));
     let root = save::Knowledge::create(
         &mut fbb,
         &save::KnowledgeArgs {
@@ -8950,6 +8976,9 @@ fn encode_knowledge(pop: &Population, techniques: &[&str]) -> Vec<u8> {
             trust: Some(trust),
             elsewhere,
             fire_trust: Some(fire_trust),
+            enrolments: Some(enrolments),
+            taught: Some(taught),
+            studied: Some(studied),
         },
     );
     finish(fbb, root)
@@ -9000,6 +9029,61 @@ fn decode_trust(bytes: &[u8], rules: &Rules) -> Result<Vec<Trust>, LoadError> {
         });
     }
     Ok(out)
+}
+
+/// Enrolments to learn from another household and today's sessions (schema 193, M10c slice EB),
+/// from the knowledge section: one naming a technique the loaded content no longer has, or
+/// nobody, drops out.
+fn decode_enrolments(
+    bytes: &[u8],
+    rules: &Rules,
+    people: &mut Population,
+) -> Result<(), LoadError> {
+    let root = section_root::<save::Knowledge>(bytes).map_err(|e| unreadable(SECTION_KNOW, &e))?;
+    let ids: Vec<Option<usize>> = read_strings(root.techniques())
+        .iter()
+        .map(|id| rules.catalog.technique_index(id))
+        .collect();
+    let technique = |t: u16| {
+        ids.get(usize::from(t))
+            .copied()
+            .flatten()
+            .and_then(|i| u16::try_from(i).ok())
+    };
+    for e in root.enrolments().into_iter().flatten() {
+        let (Some(teacher), Some(learner), Some(payer), Some(t)) = (
+            PermanentId::from_raw(e.teacher()),
+            PermanentId::from_raw(e.learner()),
+            PermanentId::from_raw(e.payer()),
+            technique(e.technique()),
+        ) else {
+            continue;
+        };
+        people.enrolments.push(civ_agents::knowledge::Enrolment {
+            teacher,
+            learner,
+            technique: t,
+            fee_kcal: e.fee_kcal(),
+            payer,
+            since: e.since(),
+            paid: e.paid(),
+        });
+    }
+    let sessions = |list: Option<civ_schema::flatbuffers::Vector<'_, save::SessionSave>>| {
+        list.into_iter()
+            .flatten()
+            .filter_map(|s| {
+                Some(civ_agents::knowledge::Session {
+                    person: PermanentId::from_raw(s.person())?,
+                    technique: technique(s.technique())?,
+                    minutes: s.minutes(),
+                })
+            })
+            .collect::<Vec<_>>()
+    };
+    people.taught = sessions(root.taught());
+    people.studied = sessions(root.studied());
+    Ok(())
 }
 
 /// Fire caution (schema 94); malformed or repeated records are refused.

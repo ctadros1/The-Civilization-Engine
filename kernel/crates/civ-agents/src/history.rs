@@ -220,6 +220,10 @@ pub enum Reason {
     /// A machine its work needs that wants more hands at it together than the household has to
     /// set to it at home: only a works, whose bell brings its crew, works one (M10a slice DT).
     NoCrew = 161,
+    /// Learners enrolled with them to learn a technique they know (M10c slice EB).
+    Teaching = 162,
+    /// They are enrolled to learn a technique from someone (M10c slice EB).
+    Study = 163,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -231,7 +235,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 95] = [
+    pub const ALL: [Reason; 97] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -327,6 +331,8 @@ impl Reason {
         Reason::Burning,
         Reason::Mill,
         Reason::NoCrew,
+        Reason::Teaching,
+        Reason::Study,
     ];
 
     /// The reason with this code.
@@ -434,6 +440,8 @@ impl Reason {
             Reason::Burning => "a batch of it is still burning",
             Reason::Mill => "the grinding a neighbour's mill would spare",
             Reason::NoCrew => "it needs more hands at it together than come to it at home",
+            Reason::Teaching => "those enrolled to learn from them",
+            Reason::Study => "they are enrolled to learn it",
         }
     }
 }

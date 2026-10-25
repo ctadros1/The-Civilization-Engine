@@ -44,8 +44,8 @@ pub struct Untaught {
 }
 
 /// A written record of a technique (M10c slice EC; ADR-0035 §6; research 07-09 §5.1): a carrier
-/// of it that is not a person, kept by the household that holds it, with who wrote it and the day.
-/// Saved.
+/// of it that is not a person, kept by the household that holds it, with who wrote it and the day,
+/// and the building it is kept in, if any (second part), with which it burns. Saved.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Record {
     pub id: PermanentId,
@@ -53,6 +53,7 @@ pub struct Record {
     pub holder: PermanentId,
     pub maker: PermanentId,
     pub made: i64,
+    pub building: Option<PermanentId>,
 }
 
 /// Minutes someone gave a technique today in sessions, teaching it or studying it (M10c slice

@@ -1190,3 +1190,110 @@ fn a_sole_knower_who_can_write_writes_a_craft_down_and_a_reader_learns_it_from_t
     assert!(hours > 0.0, "{hours} hours");
     assert_eq!(source, KnowSource::Read(writer));
 }
+
+/// A record is kept in its household's building; a writer whose household holds the settlement's
+/// only record of a craft copies it for close kin living apart who hold none; a household's
+/// records pass to the household it joins (M10c slice EC, second part).
+#[test]
+fn a_writer_copies_the_settlements_only_record_for_kin_living_apart_and_records_pass_on() {
+    let mut sim = world(content(), 3);
+    sim.advance_minutes(24 * 60).expect("advances");
+    let catalog = &sim.rules().catalog;
+    let index = |id: &str| catalog.technique_index(id).expect(id);
+    let (reckoning, reading, writing, laying_out) = (
+        index("core:technique/reckoning"),
+        index("core:technique/reading"),
+        index("core:technique/writing"),
+        index("core:technique/laying_out"),
+    );
+    let now = sim.now();
+    let homes: Vec<PermanentId> = sim.people().households.iter().map(|(_, x)| x.id).collect();
+    let (home, writer) = homes
+        .iter()
+        .find_map(|&h| {
+            let m = sim
+                .people()
+                .household(h)?
+                .members
+                .iter()
+                .copied()
+                .find(|&m| {
+                    sim.people()
+                        .person(m)
+                        .is_some_and(|p| p.age_years(now) >= 16.0)
+                })?;
+            Some((h, m))
+        })
+        .expect("a grown member");
+    let (kin_home, mother) = homes
+        .iter()
+        .filter(|&&h| h != home)
+        .find_map(|&h| {
+            let m = *sim.people().household(h)?.members.first()?;
+            Some((h, m))
+        })
+        .expect("another household");
+    let pop = sim.people_mut_for_tests();
+    // The writer's mother lives apart, in another household.
+    pop.records.get_mut(&writer).expect("their record").mother = Some(mother);
+    for (_, p) in pop.people.iter_mut() {
+        if p.id == writer {
+            p.knows.clear();
+            for t in [reckoning, reading, writing, laying_out] {
+                p.come_to_know(t, KnowSource::Observer, now);
+            }
+        } else {
+            p.knows.retain(|k| usize::from(k.technique) != laying_out);
+        }
+    }
+    let write = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| {
+            pop.finish_write_for_tests(ctx, writer, laying_out as u16, 20.0 * 60.0)
+        })
+    };
+    let letters =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.letters_for_tests(ctx, writer));
+    write(&mut sim);
+    let first = *sim.people().writings.first().expect("written");
+    let kept = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.household == home && b.roofed())
+        .map(|b| b.id);
+    assert_eq!((first.holder, first.building), (home, kept));
+    // The settlement's only record of it: copied for the writer's mother's household.
+    assert_eq!(letters(&mut sim).0, Some(laying_out as u16));
+    write(&mut sim);
+    let copy = *sim.people().writings.last().expect("copied");
+    assert_eq!(
+        (sim.people().writings.len(), copy.holder, copy.maker),
+        (2, kin_home, writer)
+    );
+    let words: Vec<String> = sim
+        .people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == civ_agents::ChronicleKind::RecordWritten)
+        .map(|e| e.name.clone())
+        .collect();
+    assert_eq!(words.len(), 2, "{words:?}");
+    assert!(words[0].contains(" wrote down laying out"), "{}", words[0]);
+    assert!(
+        words[1].contains(" copied the record of laying out")
+            && words[1].contains(" for the household of "),
+        "{}",
+        words[1]
+    );
+    // Its kin hold one now: nothing more to copy of it.
+    assert_ne!(letters(&mut sim).0, Some(laying_out as u16));
+    // Saved and loaded, each record keeps where it is kept.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let at = persist::save(&mut sim, &saves, SaveKind::Manual, "records").expect("saves");
+    let loaded = persist::load(&at.path, content()).expect("loads");
+    assert_eq!(loaded.people().writings, sim.people().writings);
+    // The kin household joins the writer's: its record passes with it.
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, kin_home, home));
+    assert!(sim.people().writings.iter().all(|r| r.holder == home));
+}

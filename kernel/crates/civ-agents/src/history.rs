@@ -929,6 +929,12 @@ pub enum ChronicleKind {
     /// elder, `settlement` the household's, `place` the line's first cell, and `name` the
     /// sentence.
     StationsOpened,
+    /// Someone wrote down a technique, or copied a record of one for kin (M10c slice EC, second
+    /// part): `people` is the writer, `settlement` theirs, and `name` the sentence.
+    RecordWritten,
+    /// A record of a technique was lost (M10c slice EC, second part): burned with the building
+    /// that kept it; `people` is its writer, `settlement` the holder's, and `name` the sentence.
+    RecordLost,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1606,7 +1612,9 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::CartMade
         | ChronicleKind::TakenDown
         | ChronicleKind::LineLaid
-        | ChronicleKind::StationsOpened => {
+        | ChronicleKind::StationsOpened
+        | ChronicleKind::RecordWritten
+        | ChronicleKind::RecordLost => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

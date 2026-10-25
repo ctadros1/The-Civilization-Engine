@@ -6,8 +6,9 @@ institutions through large cities, transport, planning, land and household resol
 settlements. M9's 100,000-person performance target was not met; see §7 and §9 for the measured
 result and amended gate. **M10a, power and the works, and M10b, rail and gas light, are
 implemented** (slices DO–DY). **M10c, services and letters, is in progress:** care beyond the
-household (DZ), birth care (EA) and teaching (EB) are implemented; letters (EC) have begun, and
-inoculation and the health office remain ahead. M2's portable kernel library and C interface are
+household (DZ), birth care (EA) and teaching (EB) are implemented; letters (EC) are under way
+(techniques, records written, read, kept, burned and copied), and inoculation and the health
+office remain ahead. M2's portable kernel library and C interface are
 implemented; the Unreal client remains future work. Modern civilization remains future scope. See
 §7 for milestone scope and §9 for implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
@@ -7024,6 +7025,23 @@ and M6a gives rivers a daily flow.
       household holds a record of it by them, which saves and loads; they would write down writing
       itself next, not laying out again; another member who can read reads the record and learns
       toward laying out from it, from its writer.
+      *As built, second part (2026-10-25): where records are kept, lost and copied.* A record is
+      kept in a building of the household holding it, the first of its with a roof on (its home
+      as a rule), or in none while it has none (saves 196). When a fire in that building burns
+      out, the records kept there burn with it, each loss chronicled ("The record of laying out
+      by cord and stake Nell wrote burned."; ADR-0035 §6). A household's records pass to the
+      household it joins, with its buildings, and are left behind with its things when it is no
+      more and nobody takes them in. A writer whose household holds the settlement's only record
+      of a technique copies it, two hours a day, for the household of close kin living apart that
+      holds none (07-11 §5.4: copies elsewhere are what survive a loss), whether or not they know
+      the technique; once its hours are written that household holds it. Writing a record or a
+      copy is chronicled ("Nell wrote down laying out by cord and stake."). **Tested:** a hut that
+      keeps a record burns out and the record with it, the loss chronicled; a sole knower's record
+      kept in their household's roofed building; copied for the writer's mother's household,
+      living apart, and nothing more of it to copy once that household holds one; both
+      chronicled; saved and loaded with where each is kept; the kin household joining the
+      writer's, its copy passes to the writer's. Not tested on its own: a household that is no
+      more leaving its records behind.
     - **ED**: inoculation: the `Company` route, smallpox by the observer's hand, variolation and
       vaccination with protection records.
     - **EE**: the health office and the sickhouse: register and rounds, `keep_apart`,

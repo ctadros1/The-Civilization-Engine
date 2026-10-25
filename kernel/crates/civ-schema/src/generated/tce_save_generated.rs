@@ -39852,6 +39852,7 @@ impl<'a> Knowledge<'a> {
   pub const VT_UNTAUGHT: ::flatbuffers::VOffsetT = 20;
   pub const VT_WRITINGS: ::flatbuffers::VOffsetT = 22;
   pub const VT_WRITTEN: ::flatbuffers::VOffsetT = 24;
+  pub const VT_WRITINGS_KEPT: ::flatbuffers::VOffsetT = 26;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -39863,6 +39864,7 @@ impl<'a> Knowledge<'a> {
     args: &'args KnowledgeArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Knowledge<'bldr>> {
     let mut builder = KnowledgeBuilder::new(_fbb);
+    if let Some(x) = args.writings_kept { builder.add_writings_kept(x); }
     if let Some(x) = args.written { builder.add_written(x); }
     if let Some(x) = args.writings { builder.add_writings(x); }
     if let Some(x) = args.untaught { builder.add_untaught(x); }
@@ -39955,6 +39957,13 @@ impl<'a> Knowledge<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, SessionSave>>>(Knowledge::VT_WRITTEN, None)}
   }
+  #[inline]
+  pub fn writings_kept(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(Knowledge::VT_WRITINGS_KEPT, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Knowledge<'_> {
@@ -39974,6 +39983,7 @@ impl ::flatbuffers::Verifiable for Knowledge<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, UntaughtSave>>>("untaught", Self::VT_UNTAUGHT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, RecordSave>>>("writings", Self::VT_WRITINGS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, SessionSave>>>("written", Self::VT_WRITTEN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("writings_kept", Self::VT_WRITINGS_KEPT, false)?
      .finish();
     Ok(())
   }
@@ -39990,6 +40000,7 @@ pub struct KnowledgeArgs<'a> {
     pub untaught: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, UntaughtSave>>>,
     pub writings: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, RecordSave>>>,
     pub written: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, SessionSave>>>,
+    pub writings_kept: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
 }
 impl<'a> Default for KnowledgeArgs<'a> {
   #[inline]
@@ -40006,6 +40017,7 @@ impl<'a> Default for KnowledgeArgs<'a> {
       untaught: None,
       writings: None,
       written: None,
+      writings_kept: None,
     }
   }
 }
@@ -40060,6 +40072,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> KnowledgeBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Knowledge::VT_WRITTEN, written);
   }
   #[inline]
+  pub fn add_writings_kept(&mut self, writings_kept: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Knowledge::VT_WRITINGS_KEPT, writings_kept);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> KnowledgeBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     KnowledgeBuilder {
@@ -40088,6 +40104,7 @@ impl ::core::fmt::Debug for Knowledge<'_> {
       ds.field("untaught", &self.untaught());
       ds.field("writings", &self.writings());
       ds.field("written", &self.written());
+      ds.field("writings_kept", &self.writings_kept());
       ds.finish()
   }
 }

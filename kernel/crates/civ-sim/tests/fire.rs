@@ -2287,3 +2287,49 @@ fn a_lamp_lit_for_work_after_dark_may_catch_and_is_put_out_by_those_awake() {
     sim.with_ctx_for_tests(|pop, ctx| pop.ignite_for_tests(ctx, hut_id));
     assert_eq!(sim.people().fires.ignitions.len(), before);
 }
+
+/// A record kept in a hut burns with it, and the chronicle says so (M10c slice EC, second part).
+#[test]
+fn a_record_kept_in_a_hut_burns_with_it() {
+    let mut sim = world(3);
+    sim.advance_minutes(6 * 60).expect("advances");
+    let (household, home) = first(&sim);
+    let id = hut(&mut sim, household, home);
+    set_day(&mut sim, 1.0, 0.12);
+    let maker = sim
+        .people()
+        .household(household)
+        .and_then(|x| x.members.first().copied())
+        .expect("a member");
+    let laying_out = content()
+        .catalog
+        .technique_index("core:technique/laying_out")
+        .expect("laying out") as u16;
+    let record = sim.allocate_id_for_tests();
+    let day = sim.now().day_index();
+    sim.people_mut_for_tests()
+        .writings
+        .push(civ_agents::knowledge::Record {
+            id: record,
+            technique: laying_out,
+            holder: household,
+            maker,
+            made: day,
+            building: Some(id),
+        });
+    sim.set_fire(id).expect("set alight");
+    sim.advance_minutes(41).expect("advances");
+    assert!(sim.people().fires.list[0].ended.is_some());
+    assert!(sim.people().writings.is_empty(), "the record burned");
+    let line = sim
+        .people()
+        .chronicle
+        .iter()
+        .find(|e| e.kind == ChronicleKind::RecordLost)
+        .map(|e| e.name.clone())
+        .expect("its loss chronicled");
+    assert!(
+        line.starts_with("The record of laying out ") && line.ends_with(" wrote burned."),
+        "{line}"
+    );
+}

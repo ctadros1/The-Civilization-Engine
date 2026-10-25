@@ -40,9 +40,44 @@ impl Population {
         })
     }
 
-    /// The technique person `who` would write down (M10c slice EC): one they know, the one they
-    /// are writing first, that nobody else of their settlement knows and no record held there
-    /// keeps; none unless they know writing.
+    /// The household of close kin of person `who` living apart that holds no record of technique
+    /// `t`, the first by id, for whom they would copy one (M10c slice EC, second part).
+    fn copy_for(&self, who: PermanentId, t: u16) -> Option<PermanentId> {
+        let own = self.person(who)?.household;
+        let mut homes: Vec<PermanentId> = self
+            .close_kin(who)
+            .iter()
+            .filter_map(|&k| self.person(k).map(|q| q.household))
+            .filter(|&h| h != own && self.household(h).is_some())
+            .collect();
+        homes.sort_unstable();
+        homes.dedup();
+        homes.into_iter().find(|&h| {
+            !self
+                .writings
+                .iter()
+                .any(|r| r.holder == h && r.technique == t)
+        })
+    }
+
+    /// Whether settlement `s` holds exactly one record of technique `t`.
+    fn only_record_in(&self, s: PermanentId, t: u16) -> bool {
+        self.writings
+            .iter()
+            .filter(|r| {
+                r.technique == t
+                    && self
+                        .household(r.holder)
+                        .is_some_and(|x| x.settlement == Some(s))
+            })
+            .count()
+            == 1
+    }
+
+    /// The technique person `who` would write (M10c slice EC): the one they are writing first;
+    /// else one they know that nobody else of their settlement knows and no record held there
+    /// keeps; else one their household holds the settlement's only record of, to copy for close
+    /// kin living apart who hold none (second part); none unless they know writing.
     pub(super) fn write_facts(&self, ctx: &Ctx, who: PermanentId) -> Option<u16> {
         let writing = Self::letter_technique(ctx.catalog, Behavior::Write)?;
         let p = self.person(who)?;
@@ -56,14 +91,38 @@ impl Population {
             .filter(|w| w.person == who)
             .map(|w| w.technique);
         let known = p.knows.iter().filter(|k| k.known).map(|k| k.technique);
-        begun.chain(known).find(|&t| {
-            let t = usize::from(t);
-            p.knows(t) && !self.another_knows(s, t, who) && !self.record_held_in(s, t)
+        let held = self
+            .writings
+            .iter()
+            .filter(|r| r.holder == p.household)
+            .map(|r| r.technique);
+        begun.chain(known).chain(held).find(|&t| {
+            let i = usize::from(t);
+            let original =
+                p.knows(i) && !self.another_knows(s, i, who) && !self.record_held_in(s, i);
+            original
+                || (self
+                    .writings
+                    .iter()
+                    .any(|r| r.holder == p.household && r.technique == t)
+                    && self.only_record_in(s, t)
+                    && self.copy_for(who, t).is_some())
         })
     }
 
+    /// The building a record household `holder` holds is kept in: the first of its buildings
+    /// with a roof on, its home as a rule; none while it has none.
+    fn keeping(ctx: &Ctx, holder: PermanentId) -> Option<PermanentId> {
+        ctx.land
+            .buildings
+            .iter()
+            .find(|b| b.household == holder && b.roofed())
+            .map(|b| b.id)
+    }
+
     /// Person `who` wrote technique `t` for `minutes` (M10c slice EC): once the hours of a record
-    /// are written, their household holds it.
+    /// are written, their household holds it, or, where it held one already and this was a copy,
+    /// the household of close kin they copied it for (second part).
     pub(super) fn finish_write(&mut self, ctx: &mut Ctx, who: PermanentId, t: u16, minutes: f64) {
         crate::knowledge::tally(&mut self.written, who, t, minutes as f32);
         let done = crate::knowledge::tallied(&self.written, who, t);
@@ -72,16 +131,106 @@ impl Population {
         }
         self.written
             .retain(|w| !(w.person == who && w.technique == t));
-        let Some(holder) = self.person(who).map(|p| p.household) else {
+        let Some(own) = self.person(who).map(|p| p.household) else {
             return;
         };
+        self.refresh_kin();
+        let copy = self
+            .writings
+            .iter()
+            .any(|r| r.holder == own && r.technique == t);
+        let holder = if copy {
+            match self.copy_for(who, t) {
+                Some(h) => h,
+                None => return,
+            }
+        } else {
+            own
+        };
+        let building = Self::keeping(ctx, holder);
         self.writings.push(Record {
             id: ctx.ids.allocate(),
             technique: t,
             holder,
             maker: who,
             made: ctx.now.day_index(),
+            building,
         });
+        let what = ctx
+            .catalog
+            .techniques
+            .get(usize::from(t))
+            .map_or_else(String::new, |d| d.name.to_lowercase());
+        let words = if copy {
+            let kin = self
+                .household(holder)
+                .and_then(|x| x.members.first().copied())
+                .map_or_else(|| "kin".to_owned(), |m| self.name_of(m));
+            format!(
+                "{} copied the record of {what} for the household of {kin}.",
+                self.name_of(who)
+            )
+        } else {
+            format!("{} wrote down {what}.", self.name_of(who))
+        };
+        let settlement = self.household(own).and_then(|x| x.settlement);
+        self.chronicle_push(
+            ctx.now,
+            ChronicleKind::RecordWritten,
+            vec![who],
+            settlement,
+            None,
+            f64::from(t),
+            words,
+        );
+    }
+
+    /// The fire in building `building` burned out (M10c slice EC, second part): the records kept
+    /// there are lost with it.
+    pub(super) fn records_burned(&mut self, ctx: &Ctx, building: PermanentId) {
+        if !self.writings.iter().any(|r| r.building == Some(building)) {
+            return;
+        }
+        let (lost, kept): (Vec<Record>, Vec<Record>) = self
+            .writings
+            .iter()
+            .partition(|r| r.building == Some(building));
+        self.writings = kept;
+        for r in lost {
+            let what = ctx
+                .catalog
+                .techniques
+                .get(usize::from(r.technique))
+                .map_or_else(String::new, |d| d.name.to_lowercase());
+            let words = format!(
+                "The record of {what} {} wrote burned.",
+                self.name_of(r.maker)
+            );
+            let settlement = self.household(r.holder).and_then(|x| x.settlement);
+            self.chronicle_push(
+                ctx.now,
+                ChronicleKind::RecordLost,
+                vec![r.maker],
+                settlement,
+                None,
+                f64::from(r.technique),
+                words,
+            );
+        }
+    }
+
+    /// Household `from` joined household `to` (M10c slice EC, second part): its records pass
+    /// with its buildings.
+    pub(super) fn records_pass(&mut self, from: PermanentId, to: PermanentId) {
+        for r in self.writings.iter_mut().filter(|r| r.holder == from) {
+            r.holder = to;
+        }
+    }
+
+    /// Household `household` is no more, with nobody to take its things (M10c slice EC, second
+    /// part): its records are left behind with them.
+    pub(super) fn records_left(&mut self, household: PermanentId) {
+        self.writings.retain(|r| r.holder != household);
     }
 
     /// The technique person `who` would read of (M10c slice EC): the first record their household

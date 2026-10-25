@@ -1194,6 +1194,9 @@ table Knowledge {
   // `techniques`.
   writings: [RecordSave] (id: 9);
   written: [SessionSave] (id: 10);
+  // Schema 196 (M10c slice EC, second part): for each record, in order, the building it is kept
+  // in (0 for none).
+  writings_kept: [ulong] (id: 11);
 }
 
 // Section "deposits" (schema 19): bodies in the ground (ADR-0010 §1), in the order they were

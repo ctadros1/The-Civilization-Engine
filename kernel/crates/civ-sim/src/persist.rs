@@ -523,6 +523,8 @@ pub const SCHEMA_V192: u32 = 192;
 pub const SCHEMA_V193: u32 = 193;
 /// Households untaught kept for a school, before written records of techniques.
 pub const SCHEMA_V194: u32 = 194;
+/// Written records, before the building each is kept in.
+pub const SCHEMA_V195: u32 = 195;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

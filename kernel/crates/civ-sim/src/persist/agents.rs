@@ -130,7 +130,7 @@ use super::{
     SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, SCHEMA_V180,
     SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, SCHEMA_V187,
     SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, SCHEMA_V194,
-    finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V195, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -907,10 +907,12 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V182 | SCHEMA_V183 | SCHEMA_V184 | SCHEMA_V185 => Schema::V182,
         // Mains' lengths laid (schema 187), their worth (188) and street lamps (189) are read
         // wherever saved, as are calls for carers (190), who tended the ill (191), births
-        // attended (192), enrolments to learn (193), households untaught (194) and written
-        // records (195).
+        // attended (192), enrolments to learn (193), households untaught (194), written records
+        // (195) and where each is kept (196).
         SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SCHEMA_V190 | SCHEMA_V191
-        | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SAVE_SCHEMA_VERSION => Schema::V186,
+        | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SAVE_SCHEMA_VERSION => {
+            Schema::V186
+        }
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -7078,6 +7080,8 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::TakenDown => 64,
         ChronicleKind::LineLaid => 65,
         ChronicleKind::StationsOpened => 66,
+        ChronicleKind::RecordWritten => 67,
+        ChronicleKind::RecordLost => 68,
     }
 }
 
@@ -7149,6 +7153,8 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         64 => Some(ChronicleKind::TakenDown),
         65 => Some(ChronicleKind::LineLaid),
         66 => Some(ChronicleKind::StationsOpened),
+        67 => Some(ChronicleKind::RecordWritten),
+        68 => Some(ChronicleKind::RecordLost),
         _ => None,
     }
 }
@@ -8994,6 +9000,12 @@ fn encode_knowledge(pop: &Population, techniques: &[&str]) -> Vec<u8> {
         .collect();
     let writings = fbb.create_vector(&writings);
     let written = fbb.create_vector(&sessions(&pop.written));
+    let kept: Vec<u64> = pop
+        .writings
+        .iter()
+        .map(|r| r.building.map_or(0, PermanentId::get))
+        .collect();
+    let writings_kept = fbb.create_vector(&kept);
     let root = save::Knowledge::create(
         &mut fbb,
         &save::KnowledgeArgs {
@@ -9008,6 +9020,7 @@ fn encode_knowledge(pop: &Population, techniques: &[&str]) -> Vec<u8> {
             untaught: Some(untaught),
             writings: Some(writings),
             written: Some(written),
+            writings_kept: Some(writings_kept),
         },
     );
     finish(fbb, root)
@@ -9113,17 +9126,20 @@ fn decode_enrolments(
     people.taught = sessions(root.taught());
     people.studied = sessions(root.studied());
     people.written = sessions(root.written());
+    let kept: Vec<u64> = root.writings_kept().into_iter().flatten().collect();
     people.writings = root
         .writings()
         .into_iter()
         .flatten()
-        .filter_map(|r| {
+        .enumerate()
+        .filter_map(|(i, r)| {
             Some(civ_agents::knowledge::Record {
                 id: PermanentId::from_raw(r.id())?,
                 technique: technique(r.technique())?,
                 holder: PermanentId::from_raw(r.holder())?,
                 maker: PermanentId::from_raw(r.maker())?,
                 made: r.made(),
+                building: kept.get(i).copied().and_then(PermanentId::from_raw),
             })
         })
         .collect();

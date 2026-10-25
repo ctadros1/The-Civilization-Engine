@@ -1042,6 +1042,8 @@ impl Population {
         }
         self.settle_household(ctx, from);
         self.settle_household(ctx, to);
+        // Its records pass with its buildings (M10c slice EC, second part).
+        self.records_pass(from, to);
         // Everything it holds passes to the household its people join.
         let legs: Vec<Leg> = self
             .household(from)
@@ -1176,6 +1178,12 @@ impl Population {
         }
     }
 
+    /// Household `from` joins household `to` with its fields: for tests.
+    #[doc(hidden)]
+    pub fn merge_household_for_tests(&mut self, ctx: &mut Ctx, from: PermanentId, to: PermanentId) {
+        self.merge_household(ctx, from, to, true, ResidenceWhy::TakenIn);
+    }
+
     /// A household with no one left goes to `heir`, or is no more. Its fields go as the regime's
     /// succession rule says, to `heirs` or back to its settlement (ADR-0007 §2), and its
     /// settlement's land is reviewed.
@@ -1202,6 +1210,7 @@ impl Population {
                     }
                     self.flows_gone.absorb(&gone.flows);
                 }
+                self.records_left(household);
                 self.hand_over_land(ctx, household, None, false);
             }
         }

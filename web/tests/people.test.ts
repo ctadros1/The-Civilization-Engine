@@ -239,6 +239,7 @@ describe("people payloads", () => {
     const light = b.createString("Working by lamplight at home");
     const care = b.createString("First to tend 3 of the sick of other homes: 2 lived, 1 died");
     const teaching = b.createString("Studies pottery with Bo, 40 of 300 hours, asking nothing");
+    const letters = b.createString("Wrote a record of pottery, kept by Ada's household");
     const name = b.createString("Ilse");
     W.PersonInfo.startStoresVector(b, 2);
     // Structs are written back to front.
@@ -263,6 +264,7 @@ describe("people payloads", () => {
     W.PersonInfo.addLight(b, light);
     W.PersonInfo.addCare(b, care);
     W.PersonInfo.addTeaching(b, teaching);
+    W.PersonInfo.addLetters(b, letters);
     const body = W.PersonInfo.endPersonInfo(b);
     b.finish(W.Response.createResponse(b, W.ResponseBody.PersonInfo, body));
     const r = M.decodeResponse(b.asUint8Array());
@@ -280,6 +282,8 @@ describe("people payloads", () => {
     expect(r.person.care).toBe("First to tend 3 of the sick of other homes: 2 lived, 1 died");
     // Wire 1.105: their teaching and study, in words.
     expect(r.person.teaching).toBe("Studies pottery with Bo, 40 of 300 hours, asking nothing");
+    // Wire 1.106: their letters, in words.
+    expect(r.person.letters).toBe("Wrote a record of pottery, kept by Ada's household");
     expect(r.person.skills).toEqual([
       { skill: 0, level: 0.75 },
       { skill: 4, level: 0.25 },

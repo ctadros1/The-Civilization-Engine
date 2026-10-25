@@ -1682,6 +1682,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         args.light = Some(fbb.create_string(&light_words(sim, p.id)));
         args.care = Some(fbb.create_string(&super::sickness::care_words(sim, p.id)));
         args.teaching = Some(fbb.create_string(&teaching_words(sim, p.id)));
+        args.letters = Some(fbb.create_string(&letters_words(sim, p.id)));
     }
     // A person's infections, living or not (wire 1.62).
     let sickness: Vec<_> = super::sickness::sickness_words(sim, pid)
@@ -1697,6 +1698,75 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
     args.suspicions = Some(fbb.create_vector(&suspicions));
     let body = wire::PersonInfo::create(&mut fbb, &args);
     Ok(response(fbb, wire::ResponseBody::PersonInfo, body))
+}
+
+/// Person `id`'s letters, in words (wire 1.106, M10c slice EC): each record they wrote and the
+/// household keeping it; a record they are writing, and how far; and each technique they read
+/// toward from a record, with its writer and the hours read of those it takes, or only heard of
+/// there. Empty for none.
+pub fn letters_words(sim: &Sim, id: PermanentId) -> String {
+    let people = sim.people();
+    let rules = sim.rules();
+    let techniques = &rules.catalog.techniques;
+    let name = |t: u16| {
+        techniques
+            .get(usize::from(t))
+            .map_or_else(|| "a craft".to_owned(), |d| d.name.to_lowercase())
+    };
+    let keeper = |h: PermanentId| {
+        people
+            .household(h)
+            .and_then(|x| x.members.first().copied())
+            .map_or_else(|| "nobody".to_owned(), |m| people.name_of(m))
+    };
+    let mut said: Vec<String> = people
+        .writings
+        .iter()
+        .filter(|r| r.maker == id)
+        .map(|r| {
+            format!(
+                "wrote a record of {}, kept by {}'s household",
+                name(r.technique),
+                keeper(r.holder)
+            )
+        })
+        .collect();
+    let record_h = rules.people.knowledge.record_h;
+    for w in people.written.iter().filter(|w| w.person == id) {
+        said.push(format!(
+            "writing a record of {}, {:.0} of {record_h:.0} hours",
+            name(w.technique),
+            f64::from(w.minutes) / 60.0
+        ));
+    }
+    if let Some(p) = people.person(id) {
+        for k in &p.knows {
+            let civ_agents::person::KnowSource::Read(maker) = k.source else {
+                continue;
+            };
+            let Some(d) = techniques.get(usize::from(k.technique)) else {
+                continue;
+            };
+            let what = d.name.to_lowercase();
+            let by = people.name_of(maker);
+            said.push(if k.known {
+                format!("learnt {what} from a record {by} wrote")
+            } else if d.codified > 0.0 {
+                format!(
+                    "reading {what} from a record {by} wrote, {:.0} of {:.0} hours",
+                    f64::from(k.hours) * d.codified,
+                    d.learn_h * d.codified
+                )
+            } else {
+                format!("heard of {what} in a record {by} wrote")
+            });
+        }
+    }
+    let mut s = said.join("; ");
+    if let Some(c) = s.get(..1) {
+        s = c.to_uppercase() + &s[1..];
+    }
+    s
 }
 
 /// Person `id`'s teaching and study, in words (wire 1.105, M10c slice EB): for each technique they

@@ -6,8 +6,7 @@ institutions through large cities, transport, planning, land and household resol
 settlements. M9's 100,000-person performance target was not met; see §7 and §9 for the measured
 result and amended gate. **M10a, power and the works, and M10b, rail and gas light, are
 implemented** (slices DO–DY). **M10c, services and letters, is in progress:** care beyond the
-household (DZ), birth care (EA) and teaching (EB) are implemented; letters (EC) are under way
-(techniques, records written, read, kept, burned and copied, licences to practise care), and
+household (DZ), birth care (EA), teaching (EB) and letters and records (EC) are implemented, and
 inoculation and the health office remain ahead. M2's portable kernel library and C interface are
 implemented; the Unreal client remains future work. Modern civilization remains future scope. See
 §7 for milestone scope and §9 for implementation evidence and known limits.
@@ -7062,10 +7061,28 @@ and M6a gives rivers a daily flow.
       once a neighbour knows fluid replacement, a licence that asks it, answering the issue; in
       force, the household may pay only a household where someone knows it; the memory saves and
       loads. Not tested on its own: the memory's making at a death in paid care.
+      *As built, fourth part (2026-10-25): the observer of letters and records.* A person's page
+      says their letters (wire 1.106): each record they wrote and whose household keeps it, a
+      record they are writing and how many of its hours are written, and what they read toward
+      from a record, its writer and the hours read of those it takes, or that they only heard of
+      it there ("Wrote a record of laying out by cord and stake, kept by Nell's household";
+      "Reading laying out by cord and stake from a record Nell wrote, 4 of 80 hours"); a
+      building's page names the records kept in it and their writers. On the web, both decode
+      and show, the person's under Letters. *Found while testing:* the second part's test that a
+      record is kept in its household's roofed building compared none with none, its household
+      having no building on its first day; with a hut placed it now holds. **Tested:** the
+      writer's and the reader's pages say it, and the hut's page names the record kept there; on
+      the web, a person's letters and a building's records decode and show. *Left to EE:* offices
+      whose holder needs a technique, and why a household sends a child to learn letters (brief
+      §3.2: what letters visibly bring, the pay of offices and posts that need them): no office in
+      the core keeps records yet, and the first that will is the health office's register (brief
+      §2.4: holding it needs writing). **Slice EC is done.**
     - **ED**: inoculation: the `Company` route, smallpox by the observer's hand, variolation and
       vaccination with protection records.
     - **EE**: the health office and the sickhouse: register and rounds, `keep_apart`,
-      `clear_middens`, the sickhouse's pool and capacity; the observer's service views.
+      `clear_middens`, the sickhouse's pool and capacity; the observer's service views. From EC:
+      an office whose holder must know a technique (the register's keeper, writing), and a
+      household sending a child to learn letters for what they visibly bring.
   - **M10d, money and the demo** (ADR-0035 §8–§12).
     - **EF**: acceptance of a money for onward exchange and dues, a money's value in a midnight
       table instead of a scan per decision.

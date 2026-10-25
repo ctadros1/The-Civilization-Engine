@@ -606,6 +606,9 @@ export interface BuildingInfo {
    * and how its last evening went ("Gas: 1 burner on Ada's main; lit until 22:40"), or the
    * gasworks its household keeps; empty for neither. */
   gas: string;
+  /** Wire 1.106 (M10c slice EC): the records kept in it, each with its writer ("Records: laying
+   * out by cord and stake, by Nell"); empty for none. */
+  records: string;
 }
 
 /** How a building stands to its latest fire (wire 1.68). */
@@ -891,6 +894,9 @@ export interface PersonInfo {
    * nothing); 2 hours today"; "Studies pottery with Bo, 40 of 300 hours, for 2100 kcal of food a
    * day"); empty for neither. */
   teaching: string;
+  /** Wire 1.106 (M10c slice EC): their letters, the records they wrote and who keeps each, a
+   * record they are writing, and what they read toward from a record; empty for none. */
+  letters: string;
 }
 
 /** A claim the observer may whisper (wire 1.47). */
@@ -4188,6 +4194,7 @@ function buildings(f: W.Buildings): { rev: number; buildings: BuildingInfo[] } {
       fireWords: x.fireWords() ?? "",
       site: x.site() ?? "",
       gas: x.gas() ?? "",
+      records: x.records() ?? "",
     });
   }
   return { rev: Number(f.rev()), buildings: out };
@@ -4828,6 +4835,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     light: p.light() ?? "",
     care: p.care() ?? "",
     teaching: p.teaching() ?? "",
+    letters: p.letters() ?? "",
   };
 }
 

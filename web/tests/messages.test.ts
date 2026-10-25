@@ -709,6 +709,7 @@ describe("decoders", () => {
     const fireWords = b.createString("fully involved since 02:15, set alight by the observer (one recorded influence)");
     const site = b.createString("chosen over 5 others: 34 hours less walking and levelling over 5 years than the next best");
     const gas = b.createString("Gas: 1 burner on Ada's main; lit until 22:40");
+    const records = b.createString("Records: laying out by cord and stake, by Nell");
     const group = W.GroupInfo.createGroupInfo(
       b,
       0x0700,
@@ -762,6 +763,7 @@ describe("decoders", () => {
     W.BuildingInfo.addFireWords(b, fireWords);
     W.BuildingInfo.addSite(b, site);
     W.BuildingInfo.addGas(b, gas);
+    W.BuildingInfo.addRecords(b, records);
     const info = W.BuildingInfo.endBuildingInfo(b);
     const list = W.Buildings.createBuildingsVector(b, [info]);
     const buildings = W.Buildings.createBuildings(b, 77n, list);
@@ -835,6 +837,7 @@ describe("decoders", () => {
           fireWords: "fully involved since 02:15, set alight by the observer (one recorded influence)",
           site: "chosen over 5 others: 34 hours less walking and levelling over 5 years than the next best",
           gas: "Gas: 1 burner on Ada's main; lit until 22:40",
+          records: "Records: laying out by cord and stake, by Nell",
         },
       ],
     });

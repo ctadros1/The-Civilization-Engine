@@ -573,6 +573,7 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                 .unwrap_or_default();
             let site = fbb.create_string(&site);
             let gas = fbb.create_string(&gas_words(sim, b));
+            let records = fbb.create_string(&records_words(sim, b));
             wire::BuildingInfo::create(
                 &mut fbb,
                 &wire::BuildingInfoArgs {
@@ -627,6 +628,7 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                     fire_words: Some(fire_words),
                     site: Some(site),
                     gas: Some(gas),
+                    records: Some(records),
                 },
             )
         })
@@ -652,6 +654,29 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
 /// unpaid"); the first building of a household holding a gas holder, the gasworks ("Gasworks:
 /// a retort and a gas holder with 12 kg of coal gas of 40; feeds 1 main, 3 homes connected").
 /// Empty for neither.
+/// The records kept in building `b`, each with its writer (wire 1.106, M10c slice EC): "Records:
+/// laying out by cord and stake, by Nell"; empty for none.
+pub fn records_words(sim: &Sim, b: &Building) -> String {
+    let people = sim.people();
+    let techniques = &sim.rules().catalog.techniques;
+    let kept: Vec<String> = people
+        .writings
+        .iter()
+        .filter(|r| r.building == Some(b.id))
+        .map(|r| {
+            let what = techniques
+                .get(usize::from(r.technique))
+                .map_or_else(|| "a craft".to_owned(), |d| d.name.to_lowercase());
+            format!("{what}, by {}", people.name_of(r.maker))
+        })
+        .collect();
+    if kept.is_empty() {
+        String::new()
+    } else {
+        format!("Records: {}", kept.join("; "))
+    }
+}
+
 pub(crate) fn gas_words(sim: &Sim, b: &Building) -> String {
     use civ_land::gas::Cause;
     let gas = &sim.land.gas;

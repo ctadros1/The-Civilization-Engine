@@ -1113,6 +1113,11 @@ table PersonInfo {
   // kcal of food a day); 2 hours today"; "Studies pottery with Bo, 40 of 300 hours, asking
   // nothing"); empty for neither.
   teaching: string (id: 61);
+  // Their letters, in words (wire 1.106, M10c slice EC): the records they wrote and who keeps
+  // each, a record they are writing, and what they read toward from a record ("Wrote a record of
+  // pottery, kept by Ada's household; reading laying out from a record Bo wrote, 12 of 80
+  // hours"); empty for none.
+  letters: string (id: 62);
 }
 
 // Wire 1.47 (M4c slice AJ): a claim that may be whispered.
@@ -1470,6 +1475,9 @@ table BuildingInfo {
   // that keeps it, its retort, holder and the gas held ("Gasworks: a gas holder with 12 kg of
   // coal gas of 40; feeds 1 main, 3 homes connected"); empty for neither.
   gas: string (id: 49);
+  // Wire 1.106 (M10c slice EC): the records kept in it, each with its writer ("Records: laying
+  // out by cord and stake, by Nell"); empty for none.
+  records: string (id: 50);
 }
 
 table Buildings {

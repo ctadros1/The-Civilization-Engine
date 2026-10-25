@@ -1189,6 +1189,21 @@ fn a_sole_knower_who_can_write_writes_a_craft_down_and_a_reader_learns_it_from_t
     let (hours, source) = toward.expect("the reader learns toward laying out");
     assert!(hours > 0.0, "{hours} hours");
     assert_eq!(source, KnowSource::Read(writer));
+    // The person pages say it (wire 1.106).
+    let craft = sim.rules().catalog.techniques[laying_out]
+        .name
+        .to_lowercase();
+    let wrote = civ_sim::frames::people::letters_words(&sim, writer);
+    assert!(
+        wrote.starts_with(&format!("Wrote a record of {craft}, kept by ")),
+        "{wrote}"
+    );
+    let read = civ_sim::frames::people::letters_words(&sim, reader);
+    assert!(
+        read.starts_with(&format!("Reading {craft} from a record "))
+            && read.ends_with(" of 80 hours"),
+        "{read}"
+    );
 }
 
 /// A record is kept in its household's building; a writer whose household holds the settlement's
@@ -1233,6 +1248,22 @@ fn a_writer_copies_the_settlements_only_record_for_kin_living_apart_and_records_
             Some((h, m))
         })
         .expect("another household");
+    // The writer's household has a finished hut at home.
+    let hut = {
+        let catalog = &content().catalog;
+        let def = &catalog.buildings[catalog.building_index("core:building/hut").expect("hut")];
+        let at = sim.people().household(home).expect("home").home;
+        let spec = civ_agents::build::design_shape(
+            def,
+            &catalog.goods,
+            civ_agents::build::Shape::Round { radius: 310 },
+            at,
+            None,
+        )
+        .expect("a hut");
+        sim.place_building_for_tests(home, spec, civ_grammar::Stage::ALL.len() as u8)
+            .expect("placed")
+    };
     let pop = sim.people_mut_for_tests();
     // The writer's mother lives apart, in another household.
     pop.records.get_mut(&writer).expect("their record").mother = Some(mother);
@@ -1255,13 +1286,19 @@ fn a_writer_copies_the_settlements_only_record_for_kin_living_apart_and_records_
         |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.letters_for_tests(ctx, writer));
     write(&mut sim);
     let first = *sim.people().writings.first().expect("written");
-    let kept = sim
+    assert_eq!((first.holder, first.building), (home, Some(hut)));
+    // Its building's page says it is kept there (wire 1.106).
+    let b = sim
         .land()
         .buildings
         .iter()
-        .find(|b| b.household == home && b.roofed())
-        .map(|b| b.id);
-    assert_eq!((first.holder, first.building), (home, kept));
+        .find(|b| b.id == hut)
+        .expect("the hut");
+    let words = civ_sim::frames::buildings::records_words(&sim, b);
+    assert!(
+        words.starts_with("Records: laying out") && words.contains(", by "),
+        "{words}"
+    );
     // The settlement's only record of it: copied for the writer's mother's household.
     assert_eq!(letters(&mut sim).0, Some(laying_out as u16));
     write(&mut sim);

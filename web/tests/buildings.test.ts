@@ -68,6 +68,7 @@ function hut(over: Partial<BuildingInfo> = {}): BuildingInfo {
     fireWords: "",
     site: "",
     gas: "",
+    records: "",
     ...over,
   };
 }

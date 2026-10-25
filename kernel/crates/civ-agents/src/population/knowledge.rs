@@ -188,6 +188,161 @@ impl Population {
         }
     }
 
+    /// Households whose day of the year it is weigh sending a child to learn a craft (M10c
+    /// slice EB, second part); none while no market remembers a trade.
+    pub(super) fn enrol_reviews(&mut self, ctx: &mut Ctx, day: i64) {
+        if self.markets.iter().all(|m| m.recent.is_empty()) {
+            return;
+        }
+        let due: Vec<PermanentId> = self
+            .households
+            .iter()
+            .map(|(_, x)| x.id)
+            .filter(|h| {
+                Rng64::from_key(&[ctx.seed, PURPOSE_ENROL, h.get()]).next_u64()
+                    % civ_core::time::DAYS_PER_YEAR as u64
+                    == day.rem_euclid(civ_core::time::DAYS_PER_YEAR) as u64
+            })
+            .collect();
+        for h in due {
+            self.review_enrolment(ctx, h);
+        }
+    }
+
+    /// The technique working a recipe that makes good `g` needs, if any: the first such recipe's
+    /// own, or the activity's that works it.
+    fn technique_making(catalog: &Catalog, g: usize) -> Option<usize> {
+        catalog
+            .recipes
+            .iter()
+            .enumerate()
+            .filter(|(_, r)| r.outputs.iter().any(|&(o, _)| o == g))
+            .find_map(|(ri, r)| {
+                r.technique.or_else(|| {
+                    catalog
+                        .activities
+                        .iter()
+                        .find(|a| a.recipe == Some(ri))
+                        .and_then(|a| catalog.technique_of(a))
+                })
+            })
+    }
+
+    /// Household `h` weighs sending a child to learn a craft (M10c slice EB, second part;
+    /// ADR-0035 §5; brief §3.2: a household sends a child for what it can see learning brings):
+    /// its oldest child of the study activity's age and under the age of independence not
+    /// enrolled, to learn the technique of a good it bought at least twice from one household of
+    /// its market, in the trades the market remembers, where none of it knows that technique or is
+    /// enrolled to learn it and someone grown of the seller's household knows it; with the seller's most skilled knower, kin
+    /// asking no fee and others the fee for a day of care for each day of study, which it must
+    /// hold. One enrolment a review.
+    fn review_enrolment(&mut self, ctx: &mut Ctx, h: PermanentId) {
+        let catalog = ctx.catalog;
+        let Some(x) = self.household(h) else {
+            return;
+        };
+        let Some(market) = x.settlement.and_then(|s| self.market(s)) else {
+            return;
+        };
+        let now = ctx.now;
+        let from = catalog
+            .activities
+            .iter()
+            .find(|a| a.behavior == Behavior::Study)
+            .map_or(f64::INFINITY, |a| a.min_age_years);
+        let until = ctx.params.family.independent_age;
+        let Some(child) = x
+            .members
+            .iter()
+            .filter_map(|&m| self.person(m))
+            .filter(|p| (from..until).contains(&p.age_years(now)))
+            .filter(|p| !self.enrolments.iter().any(|e| e.learner == p.id))
+            .min_by_key(|p| (p.born, p.id))
+            .map(|p| p.id)
+        else {
+            return;
+        };
+        let mut bought: std::collections::BTreeMap<(PermanentId, u16), u32> = Default::default();
+        for t in market
+            .recent
+            .iter()
+            .filter(|t| t.buyer == h && t.seller != h)
+        {
+            *bought.entry((t.seller, t.good)).or_default() += 1;
+        }
+        let knows = |pop: &Self, members: &[PermanentId], t: usize| {
+            members
+                .iter()
+                .any(|&m| pop.person(m).is_some_and(|p| p.knows(t)))
+        };
+        let members = x.members.clone();
+        let grown = 16.0;
+        let mut chosen = None;
+        for ((seller, good), n) in bought {
+            if n < 2 {
+                continue;
+            }
+            let Some(t) = Self::technique_making(catalog, usize::from(good)) else {
+                continue;
+            };
+            // Nor a technique someone of it is already enrolled to learn.
+            if knows(self, &members, t)
+                || self
+                    .enrolments
+                    .iter()
+                    .any(|e| usize::from(e.technique) == t && members.contains(&e.learner))
+            {
+                continue;
+            }
+            let Some(teacher) = self.knower_in(ctx, seller, t, None, None) else {
+                continue;
+            };
+            if self
+                .person(teacher)
+                .is_none_or(|p| p.age_years(now) < grown)
+            {
+                continue;
+            }
+            chosen = Some((teacher, seller, t));
+            break;
+        }
+        let Some((teacher, seller, t)) = chosen else {
+            return;
+        };
+        self.refresh_kin();
+        let kin = members.iter().any(|&m| {
+            self.close_kin(m)
+                .iter()
+                .any(|k| self.person(*k).is_some_and(|q| q.household == seller))
+        });
+        let Some(x) = self.household(h) else {
+            return;
+        };
+        let fee = if kin { 0.0 } else { self.call_fee(ctx, x) };
+        let (params, goods) = (ctx.params, &catalog.goods);
+        if crate::person::stock_kcal(&super::stores_now(x, now, params, goods), goods) < fee {
+            return;
+        }
+        let Ok(technique) = u16::try_from(t) else {
+            return;
+        };
+        self.enrolments.push(crate::knowledge::Enrolment {
+            teacher,
+            learner: child,
+            technique,
+            fee_kcal: fee as f32,
+            payer: h,
+            since: now.day_index(),
+            paid: -1,
+        });
+    }
+
+    /// Household `h` weighs sending a child to learn a craft now: for tests.
+    #[doc(hidden)]
+    pub fn review_enrolment_for_tests(&mut self, ctx: &mut Ctx, h: PermanentId) {
+        self.review_enrolment(ctx, h);
+    }
+
     /// The technique person `who` teaches today, if learners are enrolled with them for one
     /// they know that the learner does not yet, and they have not held today's session (M10c
     /// slice EB, second part): the one with the most learners, counted up to its group, the
@@ -1353,6 +1508,9 @@ fn working(q: &Person, def: u16, target: Target) -> bool {
 /// The minutes of a day's session of teaching or study (M10c slice EB, second part; the session
 /// activities' length).
 pub const SESSION_MIN: u32 = 120;
+
+/// Keyed-randomness purpose of a household's day of the year for weighing a child's enrolment.
+const PURPOSE_ENROL: u64 = 0x656e_726f_6c6d_656e; // "enrolmen"
 
 /// Those learning a technique at a household, each with the hours they gave it.
 type Learners = Vec<(PermanentId, f64)>;

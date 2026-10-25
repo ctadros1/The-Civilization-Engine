@@ -783,7 +783,7 @@ impl Population {
     }
 
     /// The food household `x` offers for a day of care by someone not of its kin, kcal.
-    fn call_fee(&self, ctx: &Ctx, x: &Household) -> f64 {
+    pub(super) fn call_fee(&self, ctx: &Ctx, x: &Household) -> f64 {
         CALL_FEE_FOOD_DAYS * x.members.len() as f64 * ctx.params.household.daily_kcal_per_person
     }
 

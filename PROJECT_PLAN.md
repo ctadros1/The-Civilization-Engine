@@ -6953,6 +6953,21 @@ and M6a gives rivers a daily flow.
       enrolled with a knapper, knapping made learnable in three hours and never at home,
       studies with them, pays the fees, and knows it from them within days, the enrolment
       ending; mid-way the enrolment and the day's sessions save and load alike.
+      *As built, second part, second half (2026-10-25): who sends a child to learn.* Once a year,
+      on a day of its own (keyed by household), a household weighs sending a child to learn a
+      craft (brief §3.2: for what it can see learning brings, here what it has to buy): its
+      oldest member of the study activity's age (seven) and under the age of independence
+      (fifteen) not enrolled, to learn the technique of a good it bought at least twice from one
+      household in the trades its market remembers, where none of it knows that technique or is
+      enrolled to learn it and someone grown of the seller's household knows it; with that
+      household's most skilled knower, kin asking no fee and others the fee for a day of care for
+      each day of study, which it must hold to send them. One enrolment a review. Unlike the
+      slices before it, this is open to every world with a market: a household that keeps buying
+      what a neighbour makes may now send a child to learn it (the bench shows how much changes).
+      **Tested:** a household that bought pots twice from a potter's household, none of its own
+      knowing pottery, enrols its child of ten with the potter for a day's fee a day of study,
+      and the child studies pottery with them within days; a second review sends nobody else
+      for it.
     - **EC**: letters and records: reading, writing and reckoning as techniques, written records as
       saved entities, office requirements, licences as privileges.
     - **ED**: inoculation: the `Company` route, smallpox by the observer's hand, variolation and

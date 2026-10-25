@@ -687,3 +687,122 @@ fn a_learner_enrolled_with_a_knower_of_another_household_studies_with_them_and_l
         );
     }
 }
+
+/// A household that bought pots twice from a potter's household, none of its own knowing
+/// pottery, sends its oldest child of learning age to learn it from the potter, for a day's fee
+/// in food a day of study, and the child studies with them (M10c slice EB, second part).
+#[test]
+fn a_household_that_buys_what_it_cannot_make_sends_a_child_to_learn_it_from_the_maker() {
+    use civ_agents::ledger::{Channel, Trade};
+    let mut sim = world(content(), 3);
+    sim.advance_minutes(2 * 24 * 60).expect("advances");
+    let pottery = sim
+        .rules()
+        .catalog
+        .technique_index("core:technique/pottery")
+        .expect("pottery");
+    let pot = sim
+        .rules()
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/pot")
+        .expect("pot") as u16;
+    let now = sim.now();
+    let homes: Vec<PermanentId> = sim.people().households.iter().map(|(_, x)| x.id).collect();
+    // A household with someone of fewer than fifteen years, made ten, and a potter's household.
+    let buyer = homes
+        .iter()
+        .copied()
+        .find(|&h| sim.people().household(h).expect("home").members.len() >= 2)
+        .expect("a household of two or more");
+    let child = *sim
+        .people()
+        .household(buyer)
+        .expect("home")
+        .members
+        .last()
+        .expect("a member");
+    let (seller, potter) = homes
+        .iter()
+        .copied()
+        .filter(|&h| h != buyer)
+        .find_map(|h| {
+            let p = sim
+                .people()
+                .household(h)?
+                .members
+                .iter()
+                .copied()
+                .find(|&m| {
+                    sim.people()
+                        .person(m)
+                        .is_some_and(|p| p.age_years(now) >= 20.0)
+                })?;
+            Some((h, p))
+        })
+        .expect("another household with an adult");
+    let settlement = sim
+        .people()
+        .household(buyer)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let members = sim.people().household(buyer).expect("home").members.clone();
+    let pop = sim.people_mut_for_tests();
+    for (_, p) in pop.people.iter_mut() {
+        if members.contains(&p.id) {
+            p.knows.retain(|k| usize::from(k.technique) != pottery);
+        }
+        if p.id == child {
+            p.born = now.plus_minutes(-10 * 365 * 24 * 60);
+        }
+        if p.id == potter && !p.knows(pottery) {
+            p.learn(pottery, 1_000.0, potter, 1.0, now);
+        }
+    }
+    let market = pop
+        .markets
+        .iter_mut()
+        .find(|m| m.settlement == settlement)
+        .expect("a market");
+    for _ in 0..2 {
+        market.recent.push_back(Trade {
+            at: now,
+            seller,
+            buyer,
+            good: pot,
+            units: 1.0,
+            payment: 0,
+            paid: 1.0,
+            channel: Channel::Barter,
+            from: None,
+        });
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_enrolment_for_tests(ctx, buyer));
+    let e = *sim.people().enrolments.first().expect("enrolled");
+    assert_eq!(
+        (e.learner, e.technique as usize, e.payer),
+        (child, pottery, buyer)
+    );
+    assert_eq!(
+        sim.people().person(e.teacher).map(|p| p.household),
+        Some(seller),
+        "taught by the seller's household"
+    );
+    let fee = 0.5 * members.len() as f64 * sim.rules().people.household.daily_kcal_per_person;
+    assert!((f64::from(e.fee_kcal) - fee).abs() < 1e-3, "{}", e.fee_kcal);
+    // The child studies with the teacher: credited at midnight.
+    sim.advance_minutes(3 * 24 * 60).expect("advances");
+    let hours = sim
+        .people()
+        .person(child)
+        .expect("alive")
+        .knows
+        .iter()
+        .find(|k| usize::from(k.technique) == pottery)
+        .map_or(0.0, |k| f64::from(k.hours));
+    assert!(hours > 0.0, "the child studied pottery: {hours} h");
+    // A second review enrols nobody else for it: the child is enrolled.
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_enrolment_for_tests(ctx, buyer));
+    assert_eq!(sim.people().enrolments.len(), 1);
+}

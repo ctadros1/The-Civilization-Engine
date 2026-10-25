@@ -802,6 +802,20 @@ fn a_household_that_buys_what_it_cannot_make_sends_a_child_to_learn_it_from_the_
         .find(|k| usize::from(k.technique) == pottery)
         .map_or(0.0, |k| f64::from(k.hours));
     assert!(hours > 0.0, "the child studied pottery: {hours} h");
+    // The person pages say it (wire 1.105).
+    let craft = sim.rules().catalog.techniques[pottery].name.to_lowercase();
+    let child_words = civ_sim::frames::people::teaching_words(&sim, child);
+    assert!(
+        child_words.starts_with(&format!("Studies {craft} with "))
+            && child_words.contains(" of 300 hours, for "),
+        "{child_words}"
+    );
+    let teacher_words = civ_sim::frames::people::teaching_words(&sim, e.teacher);
+    assert!(
+        teacher_words.starts_with(&format!("Teaches {craft} to "))
+            && teacher_words.contains(" (for "),
+        "{teacher_words}"
+    );
     // A second review enrols nobody else for it: the child is enrolled.
     sim.with_ctx_for_tests(|pop, ctx| pop.review_enrolment_for_tests(ctx, buyer));
     assert_eq!(sim.people().enrolments.len(), 1);

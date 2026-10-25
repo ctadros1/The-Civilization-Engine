@@ -887,6 +887,10 @@ export interface PersonInfo {
    * homes: 2 lived, 1 died; Their household is called to tend the sick at Ada's household, for
    * 2100 kcal of food a day"); empty for none. */
   care: string;
+  /** Wire 1.105 (M10c slice EB): their teaching and study ("Teaches pottery to Ada (asking
+   * nothing); 2 hours today"; "Studies pottery with Bo, 40 of 300 hours, for 2100 kcal of food a
+   * day"); empty for neither. */
+  teaching: string;
 }
 
 /** A claim the observer may whisper (wire 1.47). */
@@ -4823,6 +4827,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     suspicions: Array.from({ length: p.suspicionsLength() }, (_, k) => p.suspicions(k) ?? ""),
     light: p.light() ?? "",
     care: p.care() ?? "",
+    teaching: p.teaching() ?? "",
   };
 }
 

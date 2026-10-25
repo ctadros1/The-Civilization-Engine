@@ -1524,6 +1524,12 @@ export function bindUi(store: Store, actions: Actions): void {
     if (p.alive && p.care) {
       nodes.push(el("div", { className: "care" }, el("h4", { text: "Care" }), el("p", { text: `${p.care}.` })));
     }
+    // Their teaching and study (wire 1.105, M10c slice EB).
+    if (p.alive && p.teaching) {
+      nodes.push(
+        el("div", { className: "teaching" }, el("h4", { text: "Teaching" }), el("p", { text: `${p.teaching}.` })),
+      );
+    }
     if (p.alive) nodes.push(tiesBlock(state, p), wordBlock(p), opinionBlock(p));
     if (p.alive) nodes.push(observerBlock(welcome, p));
     if (p.kin.length > 0 || p.family.length > 0) {

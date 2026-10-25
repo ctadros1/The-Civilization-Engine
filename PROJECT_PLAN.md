@@ -6968,6 +6968,12 @@ and M6a gives rivers a daily flow.
       knowing pottery, enrols its child of ten with the potter for a day's fee a day of study,
       and the child studies pottery with them within days; a second review sends nobody else
       for it.
+      *As built, third part, first half (2026-10-25): the observer of teaching.* A person's page
+      says their teaching and study (wire 1.105): for each technique they teach, whom, each with
+      the fee, and today's hours taught; for what they are enrolled to learn, with whom, the
+      hours toward it of those it takes, the fee, and today's hours studied ("Studies making
+      pottery with Imma, 6 of 300 hours, for 6300 kcal of food a day"). **Tested:** the enrolled
+      child's page and the potter's say it; on the web, a person's teaching decodes and shows.
     - **EC**: letters and records: reading, writing and reckoning as techniques, written records as
       saved entities, office requirements, licences as privileges.
     - **ED**: inoculation: the `Company` route, smallpox by the observer's hand, variolation and

@@ -1108,6 +1108,11 @@ table PersonInfo {
   // tend the sick at Ada's household, for 2100 kcal of food a day; Attended 2 births: every
   // mother lived"); empty for none.
   care: string (id: 60);
+  // Their teaching and study, in words (wire 1.105, M10c slice EB): whom they teach a technique
+  // and what, or what they study and with whom, and the fee ("Teaches pottery to Ada (for 2100
+  // kcal of food a day); 2 hours today"; "Studies pottery with Bo, 40 of 300 hours, asking
+  // nothing"); empty for neither.
+  teaching: string (id: 61);
 }
 
 // Wire 1.47 (M4c slice AJ): a claim that may be whispered.

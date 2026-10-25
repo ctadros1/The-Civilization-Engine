@@ -1681,6 +1681,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         args.water = Some(fbb.create_string(&super::water::water_words(sim, p.household)));
         args.light = Some(fbb.create_string(&light_words(sim, p.id)));
         args.care = Some(fbb.create_string(&super::sickness::care_words(sim, p.id)));
+        args.teaching = Some(fbb.create_string(&teaching_words(sim, p.id)));
     }
     // A person's infections, living or not (wire 1.62).
     let sickness: Vec<_> = super::sickness::sickness_words(sim, pid)
@@ -1696,6 +1697,74 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
     args.suspicions = Some(fbb.create_vector(&suspicions));
     let body = wire::PersonInfo::create(&mut fbb, &args);
     Ok(response(fbb, wire::ResponseBody::PersonInfo, body))
+}
+
+/// Person `id`'s teaching and study, in words (wire 1.105, M10c slice EB): for each technique they
+/// teach, whom and the fee, and today's hours taught; for what they are enrolled to learn, with
+/// whom, the hours toward it of those it takes, and today's hours studied. Empty for neither.
+pub fn teaching_words(sim: &Sim, id: PermanentId) -> String {
+    let people = sim.people();
+    let techniques = &sim.rules().catalog.techniques;
+    let name = |t: u16| {
+        techniques
+            .get(usize::from(t))
+            .map_or_else(|| "a craft".to_owned(), |d| d.name.to_lowercase())
+    };
+    let fee = |kcal: f32| {
+        if kcal > 0.0 {
+            format!("for {kcal:.0} kcal of food a day")
+        } else {
+            "asking nothing".to_owned()
+        }
+    };
+    let hours_today = |list: &[civ_agents::knowledge::Session], t: u16| {
+        let h = f64::from(civ_agents::knowledge::tallied(list, id, t)) / 60.0;
+        if h > 0.0 {
+            format!("; {h:.0} hours today")
+        } else {
+            String::new()
+        }
+    };
+    let mut said = Vec::new();
+    let mut taught: Vec<u16> = people
+        .enrolments
+        .iter()
+        .filter(|e| e.teacher == id)
+        .map(|e| e.technique)
+        .collect();
+    taught.sort_unstable();
+    taught.dedup();
+    for t in taught {
+        let learners: Vec<String> = people
+            .enrolments
+            .iter()
+            .filter(|e| e.teacher == id && e.technique == t)
+            .map(|e| format!("{} ({})", people.name_of(e.learner), fee(e.fee_kcal)))
+            .collect();
+        said.push(format!(
+            "Teaches {} to {}{}",
+            name(t),
+            learners.join(", "),
+            hours_today(&people.taught, t)
+        ));
+    }
+    for e in people.enrolments.iter().filter(|e| e.learner == id) {
+        let toward = people
+            .person(id)
+            .and_then(|p| p.knows.iter().find(|k| k.technique == e.technique))
+            .map_or(0.0, |k| f64::from(k.hours));
+        let whole = techniques
+            .get(usize::from(e.technique))
+            .map_or(0.0, |d| d.learn_h);
+        said.push(format!(
+            "Studies {} with {}, {toward:.0} of {whole:.0} hours, {}{}",
+            name(e.technique),
+            people.name_of(e.teacher),
+            fee(e.fee_kcal),
+            hours_today(&people.studied, e.technique)
+        ));
+    }
+    said.join("; ")
 }
 
 /// Person `id`'s light, in words (wire 1.99, M10b slice DU): at work by lamplight now, or the

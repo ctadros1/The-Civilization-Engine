@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 189
+kernel_content_api = 190
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2666,6 +2666,7 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         "core:policy/yourselves_work_with_carers_who_know",
         "core:policy/yourselves_work_without_meeting_the_sick",
         "core:policy/yourselves_write_down_the_sick",
+        "core:policy/yourselves_yonder_with_middens",
     ];
     assert!(
         reg.catalog
@@ -2696,6 +2697,7 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
         "core:policy/yourselves_work_with_carers_who_know",
         "core:policy/yourselves_work_without_meeting_the_sick",
         "core:policy/yourselves_write_down_the_sick",
+        "core:policy/yourselves_yonder_with_middens",
     ];
     assert!(
         reg.catalog
@@ -2767,6 +2769,7 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
     let newer = [
         "core:policy/yourselves_work_without_meeting_the_sick",
         "core:policy/yourselves_write_down_the_sick",
+        "core:policy/yourselves_yonder_with_middens",
     ];
     assert!(
         reg.catalog
@@ -2794,7 +2797,10 @@ fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
     assert_eq!(k.days_after, 14);
     assert!(k.cost_share > 0.0 && k.cost_share < 1.0);
     // Its id sorts after every older template's (the register's, M10c slice EE, is newer).
-    let newer = ["core:policy/yourselves_write_down_the_sick"];
+    let newer = [
+        "core:policy/yourselves_write_down_the_sick",
+        "core:policy/yourselves_yonder_with_middens",
+    ];
     assert!(
         reg.catalog
             .policies
@@ -2831,6 +2837,40 @@ fn the_core_lets_a_polity_name_a_health_officer_who_can_write() {
             .iter()
             .filter(|p| p.id != def.id)
             .all(|p| p.holder_needs.is_none())
+    );
+    // Its id sorts after every older template's (clearing middens, M10c slice EE, is newer).
+    let newer = ["core:policy/yourselves_yonder_with_middens"];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
+}
+
+#[test]
+fn the_core_lets_a_polity_clear_middens_from_the_water() {
+    // M10c slice EE, third part (content API 190): the template answers a suspected source and
+    // asks households near the water to carry their middens 30 m from every source.
+    use civ_agents::params::Behavior;
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/yourselves_yonder_with_middens")
+        .expect("the middens template");
+    assert_eq!(def.kind, PolicyKind::ClearMiddens);
+    assert_eq!(def.answers, vec![IssueKind::SourceSuspected]);
+    let m = def.middens.expect("its terms");
+    assert_eq!(m.distance_m, 30.0);
+    assert!(m.keep_days >= 1 && m.carry_h > 0.0 && m.avoided_share > 0.0);
+    assert!(
+        reg.catalog
+            .activities
+            .iter()
+            .any(|a| a.behavior == Behavior::Midden && a.daylight_only)
     );
     assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
 }

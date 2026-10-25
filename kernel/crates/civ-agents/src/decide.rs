@@ -89,6 +89,9 @@ pub struct Facts {
     /// The health officer's round, if they keep a register of the sick and have not walked it
     /// today, in daylight (M10c slice EE, second part).
     pub rounds: Option<WatchFacts>,
+    /// Where they would carry their household's midden from the water, if a law they know asks
+    /// it and it was not carried lately (M10c slice EE, third part).
+    pub midden: Option<WatchFacts>,
     /// A payment an agreement owes that they are to carry, set aside and waiting, if they can
     /// walk it there and back in the day (M5c slice AV).
     pub carry: Option<CarryFacts>,
@@ -1135,6 +1138,11 @@ pub fn candidates(
         if def.behavior == Behavior::Read && f.read.is_none() {
             continue;
         }
+        // And carrying a midden away to those whose household's heap a law asks carried (M10c
+        // slice EE, third part).
+        if def.behavior == Behavior::Midden && f.midden.is_none() {
+            continue;
+        }
         if f.age < def.min_age_years {
             excluded.push((id, Reason::TooYoung));
             continue;
@@ -1991,6 +1999,25 @@ pub fn candidates(
                 }
                 steps.push(Step::Walk { to: f.home });
                 out.push(finish(id, Target::None, terms, steps));
+            }
+            Behavior::Midden => {
+                // The household's heap carried from the water (M10c slice EE, third part): what
+                // keeping the law weighs with them, less the walk there and back.
+                let Some(m) = f.midden.as_ref() else {
+                    continue;
+                };
+                let Some(&site) = m.stops.first() else {
+                    continue;
+                };
+                term(&mut terms, Reason::Duty, m.points);
+                let steps = vec![
+                    Step::Walk { to: site },
+                    Step::Work {
+                        minutes: def.min_minutes.max(1),
+                    },
+                    Step::Walk { to: f.home },
+                ];
+                out.push(finish(id, Target::Home, terms, steps));
             }
             Behavior::Rounds => {
                 // The health officer's round (M10c slice EE, second part), as a watch's: a stand
@@ -2854,6 +2881,7 @@ mod tests {
             watch: None,
             light: None,
             rounds: None,
+            midden: None,
             carry: None,
             crossing: None,
             well: None,

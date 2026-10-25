@@ -502,6 +502,11 @@ table Household {
   // Schema 174 (M10a slice DR): what it had made by water-powered ways' outputs when it last
   // weighed a mill; absent before its first review.
   mill_seen: MillSeenSave (id: 26);
+  // Schema 205 (M10c slice EE, third part): the day its midden was last carried from the water
+  // under a law clearing middens (-1 never), and where to, metres.
+  midden_carried: long = -1 (id: 27);
+  midden_x: float (id: 28);
+  midden_y: float (id: 29);
 }
 
 // A household's count at a mill review (schema 174): the day and the kilograms it had made in

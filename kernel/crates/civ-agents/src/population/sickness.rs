@@ -40,6 +40,8 @@ impl Population {
     /// The day's turn for infections (see the module documentation).
     pub(super) fn sickness_day(&mut self, ctx: &mut Ctx, day: i64) {
         self.lapse_calls(ctx, day);
+        // Each law clearing middens counts the day's breaches (M10c slice EE, third part).
+        self.middens_day(ctx, day);
         // Yesterday's company at the hearth, kept while a disease passing by company ran.
         let met = std::mem::take(&mut self.met);
         if self.sickness.quiet() && self.contagion.is_empty() && !self.sickness.outbreak_open() {

@@ -1,0 +1,31 @@
+# Middens cleared from the water (M10c slice EE, third part; ADR-0035 §7; brief m10-services §2.4;
+# research 05-05 §1.7: protecting the water does more against a sickness of the water than keeping
+# the sick apart). Where someone suspects that the water at a source sickens (the issue
+# `source_suspected`), anyone may propose that a household whose home lies within 30 m of an open
+# well or a stream carries its midden at least as far from every source (a design prior: some tens
+# of metres, the scale at which runoff from a heap reaches a wellhead here), and keeps it there:
+# a heap carried lies there for two days before it is the household's at home again. It is kept by
+# choice, as a curfew is, and a household near the water that does not carry its heap breaks it,
+# though nobody brings that before anyone. A household weighs the law by a fifth of its deaths of
+# disease within the year, which it believes cleaner water would have spared, against half an hour
+# of carrying every two days if its home lies near the water (design priors). Its id sorts after
+# every older template's: hearth talk about a question is keyed by a template's place in id order.
+kind = "policy"
+id = "core:policy/yourselves_yonder_with_middens"
+name = "Middens from the water"
+description = "A household near an open well or a stream carries its midden at least 30 m from every source."
+does = "clear_middens"
+answers = ["source_suspected"]
+question = "whether households near the water carry their middens away from it"
+
+[middens]
+distance_m = 30.0
+keep_days = 2
+carry_h = 0.5
+avoided_share = 0.2
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement: the water is kept cleaner, by everyone's work.
+[bears]
+"core:value/security" = 0.5
+"core:value/reciprocity" = 0.25

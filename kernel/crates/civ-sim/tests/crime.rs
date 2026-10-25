@@ -1509,3 +1509,70 @@ fn under_a_law_keeping_the_sick_apart_the_well_of_a_sick_home_stay_in() {
     );
     saves_and_goes_on_alike(&mut sim, content(), DAY);
 }
+
+/// Clearing middens from the water (M10c slice EE, third part): under the law, which everyone
+/// grown knows, a household whose home lies near an open well or a stream carries its heap to a
+/// place at least the law's distance from every source within days, and the heap lies there,
+/// washing toward the water from there; it saves and goes on alike.
+#[test]
+fn under_a_law_clearing_middens_households_near_the_water_carry_their_heaps_away() {
+    use civ_agents::polity::PolicyKind;
+    let mut sim = world_with(content(), 5);
+    sim.advance_minutes(2 * DAY).expect("advances");
+    let (_, law) = a_law(&mut sim, PolicyKind::ClearMiddens);
+    let settlement = sim.people().polities[0].settlement;
+    // The households near the water: those with a place to carry their heap to.
+    let homes: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+        .map(|(_, x)| x.id)
+        .collect();
+    let near: Vec<(PermanentId, (f32, f32))> = homes
+        .iter()
+        .filter_map(|&h| {
+            let (site, _) = sim.with_ctx_for_tests(|pop, ctx| pop.midden_for_tests(ctx, h));
+            site.map(|s| (h, s))
+        })
+        .collect();
+    assert!(
+        !near.is_empty(),
+        "some home lies near the water, or this test shows nothing"
+    );
+    sim.advance_minutes(4 * DAY).expect("advances");
+    let carried: Vec<PermanentId> = near
+        .iter()
+        .filter(|&&(h, _)| {
+            sim.people()
+                .household(h)
+                .is_some_and(|x| x.midden.carried >= 0)
+        })
+        .map(|&(h, _)| h)
+        .collect();
+    let l = sim.people().polities[0]
+        .laws
+        .iter()
+        .find(|l| l.id == law)
+        .expect("the law");
+    eprintln!(
+        "{} of {} homes near the water carried their heaps; {} household-days broke it",
+        carried.len(),
+        near.len(),
+        l.compliance.broken
+    );
+    assert!(
+        !carried.is_empty(),
+        "a household near the water carried its heap away"
+    );
+    for h in carried {
+        let x = sim.people().household(h).expect("there");
+        let (carried, site, home) = (x.midden.carried, x.midden.site, x.home);
+        let (_, place) = sim.with_ctx_for_tests(|pop, ctx| pop.midden_for_tests(ctx, h));
+        if sim.now().day_index() - carried <= 2 {
+            assert_eq!(place, site, "a heap carried lately lies where it went");
+            assert_ne!(place, home);
+        }
+    }
+    saves_and_goes_on_alike(&mut sim, content(), DAY);
+}

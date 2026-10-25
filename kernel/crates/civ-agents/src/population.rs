@@ -73,6 +73,7 @@ mod licences;
 mod life;
 mod loads;
 mod market;
+mod middens;
 mod mills;
 mod mint;
 mod moving;
@@ -3697,6 +3698,7 @@ impl Population {
             watch: self.watch_facts(ctx, p.id, &hh, dark),
             light: self.light_facts(ctx, p.id, &hh, dark),
             rounds: self.rounds_facts(ctx, p.id, &hh, dark),
+            midden: self.midden_facts(ctx, p.id, &hh, dark),
             carry: self.carry_facts(ctx, p.id, field_key, dark),
             crossing: self.crossing_facts(ctx, &hh, p.id, field_key, dark),
             well: self.well_facts(ctx, &hh, p.id, dark),
@@ -5741,6 +5743,7 @@ impl Population {
                 | Behavior::Watch
                 | Behavior::Light
                 | Behavior::Rounds
+                | Behavior::Midden
                 | Behavior::Call
                 | Behavior::Study
                 | Behavior::Carry
@@ -6032,6 +6035,11 @@ impl Population {
                 Some(Behavior::Rounds) => {
                     let (who, pos) = (p.id, p.pos);
                     self.round_stop(ctx, who, pos, minutes);
+                }
+                // A midden carried from the water (M10c slice EE, third part).
+                Some(Behavior::Midden) => {
+                    let (who, pos) = (p.id, p.pos);
+                    self.carry_midden(ctx, who, pos);
                 }
                 // A street lamp lit where the lamplighter stands (M10b slice DY, fourth part).
                 Some(Behavior::Light) => {

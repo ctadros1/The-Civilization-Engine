@@ -238,7 +238,12 @@ impl Population {
             .collect();
         for (household, disease) in heaps {
             let from = Node::Midden(household);
-            let Some(home) = self.household(household).map(|x| x.home) else {
+            // Where it lies: carried from the water under a law clearing middens, or at home
+            // (M10c slice EE, third part).
+            let Some(home) = self
+                .household(household)
+                .map(|x| self.midden_place(ctx, x, day))
+            else {
                 // A heap whose household is no more is let go with it.
                 self.contagion.take(from, disease, 1.0);
                 continue;

@@ -133,6 +133,10 @@ pub(crate) struct PolicyFile {
     /// household believes it spares.
     #[serde(default)]
     pub register: Option<RegisterFile>,
+    /// For clearing middens from the water (`clear_middens`, content API 190, M10c slice EE):
+    /// its terms.
+    #[serde(default)]
+    pub middens: Option<MiddensFile>,
     /// For a common store (`common_store`, content API 129, M7d slice CE3b): a money its levy
     /// may be paid in.
     #[serde(default)]
@@ -249,6 +253,22 @@ pub struct MediumFile {
     pub good: String,
     /// Units of it that pay for a kilogram of the grain owed.
     pub per_kg: f64,
+}
+
+/// The terms of clearing middens from the water in a policy file (content API 190, M10c slice
+/// EE, third part).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct MiddensFile {
+    /// How far from every open well and stream a household near one carries its heap, metres.
+    pub distance_m: f32,
+    /// How many days a heap carried lies there before it is at home again.
+    pub keep_days: u16,
+    /// The hours a carrying takes, as a household weighs it.
+    pub carry_h: f32,
+    /// The share of a household's deaths of disease within the year it believes cleaner water
+    /// would have spared, 0-1.
+    pub avoided_share: f32,
 }
 
 /// What a household believes a register of the sick spares it, in a policy file (content API
@@ -678,6 +698,15 @@ impl PolicyFile {
                 .as_ref()
                 .map(|r| civ_agents::polity::RegisterDef {
                     avoided_share: r.avoided_share,
+                }),
+            middens: self
+                .middens
+                .as_ref()
+                .map(|m| civ_agents::polity::MiddensDef {
+                    distance_m: m.distance_m,
+                    keep_days: m.keep_days,
+                    carry_h: m.carry_h,
+                    avoided_share: m.avoided_share,
                 }),
             plan: self.plan.as_ref().map(|g| civ_agents::polity::PlanDef {
                 grid: civ_land::plans::Grid {
@@ -1143,6 +1172,36 @@ impl PolicyFile {
             (Some(_), Some(PolicyKind::Licence)) | (None, _) => {}
             (Some(_), _) => p.push("`licence` is for `does = \"licence\"`".to_owned()),
         }
+        // Clearing middens' terms (M10c slice EE, third part): only for `clear_middens`, which
+        // must have them.
+        match (&self.middens, PolicyKind::from_name(&self.does)) {
+            (None, Some(PolicyKind::ClearMiddens)) => {
+                p.push("a `clear_middens` template needs a `middens` table".to_owned());
+            }
+            (Some(m), Some(PolicyKind::ClearMiddens)) => {
+                for (name, v, lo, hi) in [
+                    ("distance_m", m.distance_m, 1.0, 1000.0),
+                    ("carry_h", m.carry_h, 0.0, 24.0),
+                    ("avoided_share", m.avoided_share, 0.0, 1.0),
+                ] {
+                    if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                        p.push(format!(
+                            "`middens.{name}` must be between {lo} and {hi} (got {v})"
+                        ));
+                    }
+                }
+                if !(1..=365).contains(&m.keep_days) {
+                    p.push(format!(
+                        "`middens.keep_days` must be between 1 and 365 (got {})",
+                        m.keep_days
+                    ));
+                }
+            }
+            (None, _) => {}
+            (Some(_), _) => {
+                p.push("`middens` is for `does = \"clear_middens\"`".to_owned());
+            }
+        }
         // A register's share (M10c slice EE, second part): only for `keep_register`, which must
         // have it; and a technique an office's holder must know only for an office.
         match (&self.register, PolicyKind::from_name(&self.does)) {
@@ -1399,6 +1458,7 @@ impl PolicyFile {
                 | PolicyKind::Licence
                 | PolicyKind::KeepApart
                 | PolicyKind::KeepRegister
+                | PolicyKind::ClearMiddens
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
@@ -1470,6 +1530,7 @@ impl PolicyFile {
                 | PolicyKind::Licence
                 | PolicyKind::KeepApart
                 | PolicyKind::KeepRegister
+                | PolicyKind::ClearMiddens
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding,
             )
@@ -1772,6 +1833,7 @@ mod tests {
             keep_apart: None,
             holder_needs: None,
             register: None,
+            middens: None,
         }
     }
 

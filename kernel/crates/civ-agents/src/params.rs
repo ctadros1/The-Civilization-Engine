@@ -140,11 +140,14 @@ pub enum Behavior {
     /// stand at each home on it, where they see who lies abed and enter the home in the register
     /// of the sick they keep.
     Rounds,
+    /// Carry the household's midden from near the water to a place as far from every source, as
+    /// a law clearing middens asks (M10c slice EE, third part).
+    Midden,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 46] = [
+    pub const ALL: [Behavior; 47] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -191,6 +194,7 @@ impl Behavior {
         Behavior::Write,
         Behavior::Read,
         Behavior::Rounds,
+        Behavior::Midden,
     ];
 
     /// The authored name of a behavior.
@@ -242,6 +246,7 @@ impl Behavior {
             Behavior::Write => "write",
             Behavior::Read => "read",
             Behavior::Rounds => "rounds",
+            Behavior::Midden => "midden",
         }
     }
 

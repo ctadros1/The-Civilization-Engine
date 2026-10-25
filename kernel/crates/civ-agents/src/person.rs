@@ -997,12 +997,22 @@ pub struct Midden {
     pub kg: f64,
     /// When it was last brought up to date.
     pub at: SimTime,
+    /// The day it was last carried away from the water under a law clearing middens, -1 never
+    /// (M10c slice EE, third part).
+    pub carried: i64,
+    /// Where it was carried, metres.
+    pub site: (f32, f32),
 }
 
 impl Midden {
     /// An empty heap begun at `t`.
     pub fn begun(t: SimTime) -> Midden {
-        Midden { kg: 0.0, at: t }
+        Midden {
+            kg: 0.0,
+            at: t,
+            carried: -1,
+            site: (0.0, 0.0),
+        }
     }
 
     /// The heap at `t` for `members` people.

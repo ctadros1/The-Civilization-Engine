@@ -541,6 +541,8 @@ pub const SCHEMA_V201: u32 = 201;
 pub const SCHEMA_V202: u32 = 202;
 /// The registers of the sick, before homes seen on a round in them.
 pub const SCHEMA_V203: u32 = 203;
+/// Homes seen on a round, before middens carried from the water.
+pub const SCHEMA_V204: u32 = 204;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

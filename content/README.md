@@ -1815,3 +1815,11 @@ Content API 189 (M10c slice EE, second part) adds the behaviour `rounds`: the ro
 law names to keep the register of the sick, in daylight, once a day, a stand of the activity's
 `min_minutes` at each home of the watch's set round. The core adds `activity/walk_the_rounds` at 10
 minutes.
+
+Content API 190 (M10c slice EE, third part) adds `does = "clear_middens"` and its `[middens]`
+table: `distance_m` (how far from every open well and stream a household near one carries its heap,
+1 to 1000), `keep_days` (how long a heap carried lies there, 1 to 365), `carry_h` (the hours a
+carrying takes, as a household weighs it) and `avoided_share` (the share of its deaths of disease
+within the year it believes cleaner water would have spared, 0 to 1); and the behaviour `midden`.
+The core adds `policy/yourselves_yonder_with_middens` (30 m, 2 days, 0.5 h, 0.2), answering
+`source_suspected`, and `activity/carry_out_the_midden` (20 minutes).

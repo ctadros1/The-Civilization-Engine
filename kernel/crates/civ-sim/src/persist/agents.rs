@@ -131,7 +131,7 @@ use super::{
     SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, SCHEMA_V187,
     SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, SCHEMA_V194,
     SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, SCHEMA_V199, SCHEMA_V200, SCHEMA_V201,
-    SCHEMA_V202, SCHEMA_V203, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -914,7 +914,7 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SCHEMA_V190 | SCHEMA_V191
         | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SCHEMA_V196 | SCHEMA_V197
         | SCHEMA_V198 | SCHEMA_V199 | SCHEMA_V200 | SCHEMA_V201 | SCHEMA_V202 | SCHEMA_V203
-        | SAVE_SCHEMA_VERSION => Schema::V186,
+        | SCHEMA_V204 | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -5576,6 +5576,9 @@ fn encode_households(
                     admired: raw(h.admired),
                     midden_kg: h.midden.kg,
                     midden_at: h.midden.at.minutes(),
+                    midden_carried: h.midden.carried,
+                    midden_x: h.midden.site.0,
+                    midden_y: h.midden.site.1,
                     water_use_l: h.water_use_l,
                     water_walk_min: h.water_walk_min,
                     flood_home_cm: h.flood_memory.home_depth_cm,
@@ -5930,9 +5933,12 @@ fn decode_households(
                         "household {hh_id} has a midden of {kg} kg"
                     )));
                 }
+                // Where it was carried from the water (schema 205): never, in older saves.
                 civ_agents::person::Midden {
                     kg,
                     at: time(h.midden_at()),
+                    carried: h.midden_carried(),
+                    site: (h.midden_x(), h.midden_y()),
                 }
             },
             flood_memory: if schema >= Schema::V93 {

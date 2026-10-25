@@ -124,6 +124,9 @@ pub(super) struct Forecasts {
     /// What a register of the sick would spare each household that lost someone to disease
     /// within the year, kcal a year, by household id (M10c slice EE, second part).
     registers: Vec<(PermanentId, f64)>,
+    /// What clearing middens from the water would bring each household and cost it, kcal a
+    /// year, by household id (M10c slice EE, third part).
+    middens: Vec<(PermanentId, f64, f64)>,
 }
 
 /// What a household weighs a trade law by (M7c slice BV, ADR-0026 §1): its settlement's
@@ -394,6 +397,17 @@ impl Forecasts {
                     .and_then(|l| l.1.iter().find(|s| s.0 == h))
                     .map_or(0.0, |s| s.1);
                 crate::polity::kept_gain(o, saved, pp)
+            }
+            // Clearing middens (M10c slice EE, third part): the share of its deaths of disease it
+            // believes cleaner water would have spared, less its carrying where its home lies
+            // near the water.
+            Some(PolicyKind::ClearMiddens) => {
+                let (gain, cost) = self
+                    .middens
+                    .iter()
+                    .find(|s| s.0 == h)
+                    .map_or((0.0, 0.0), |s| (s.1, s.2));
+                crate::polity::against_gain(o, gain, cost, pp)
             }
             // A register of the sick (M10c slice EE, second part): the share of its deaths of
             // disease it believes the register would have avoided, as food kept for it.
@@ -1843,6 +1857,7 @@ impl Population {
             licences: self.licence_forecasts(ctx, households),
             keep_apart: self.keep_apart_forecasts(ctx, households, adults),
             registers: self.register_forecasts(ctx, households),
+            middens: self.middens_forecasts(ctx, households),
             adults: {
                 let mut a = adults.to_vec();
                 a.sort_unstable();
@@ -3788,6 +3803,13 @@ impl Population {
                     }
                     // A licence asking a treatment someone of them knows of a disease one of theirs
                     // died of in unknowing paid care (M10c slice EC, third part).
+                    // Clearing middens (M10c slice EE, third part): where they suspect a source of
+                    // water.
+                    PolicyKind::ClearMiddens => {
+                        if !self.word.suspicions_of(d).is_empty() {
+                            moves.push(blank);
+                        }
+                    }
                     // Keeping the sick apart (M10c slice EE, first part): where one of theirs died
                     // of a sickness passing at home or in company within the year.
                     PolicyKind::KeepApart => {

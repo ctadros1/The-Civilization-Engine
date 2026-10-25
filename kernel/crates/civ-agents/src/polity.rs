@@ -187,11 +187,15 @@ pub enum PolicyKind {
     /// the deaths of disease of the polity's households they hear of; their tallies of where
     /// sickness comes from run over it, a wider record than anyone's own.
     KeepRegister,
+    /// Middens cleared from the water (M10c slice EE, third part; ADR-0035 §7; brief
+    /// m10-services §2.4): a household whose home lies near an open well or a stream carries its
+    /// midden away, to a place as far from every source; kept by choice.
+    ClearMiddens,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 38] = [
+    pub const ALL: [PolicyKind; 39] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -230,6 +234,7 @@ impl PolicyKind {
         PolicyKind::Licence,
         PolicyKind::KeepApart,
         PolicyKind::KeepRegister,
+        PolicyKind::ClearMiddens,
     ];
 
     /// The authored name.
@@ -273,6 +278,7 @@ impl PolicyKind {
             PolicyKind::Licence => "licence",
             PolicyKind::KeepApart => "keep_apart",
             PolicyKind::KeepRegister => "keep_register",
+            PolicyKind::ClearMiddens => "clear_middens",
         }
     }
 
@@ -703,6 +709,21 @@ pub struct PolicyDef {
     /// For a register of the sick: what a household believes it spares (M10c slice EE, second
     /// part).
     pub register: Option<RegisterDef>,
+    /// For clearing middens from the water: its terms (M10c slice EE, third part).
+    pub middens: Option<MiddensDef>,
+}
+
+/// The terms of a law clearing middens from the water (M10c slice EE, third part): how far from
+/// every open well and stream a household near one carries its heap, metres; how many days a
+/// heap carried lies there before it is the household's at home again; the hours a carrying
+/// takes and the share of its deaths of disease within the year a household believes cleaner
+/// water would have spared (design priors it weighs).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MiddensDef {
+    pub distance_m: f32,
+    pub keep_days: u16,
+    pub carry_h: f32,
+    pub avoided_share: f32,
 }
 
 /// What a household believes a register of the sick spares it (M10c slice EE, second part): the
@@ -1954,6 +1975,16 @@ pub fn law_words(
             k.days_after
         );
     }
+    if let Some(m) = def
+        .filter(|d| d.kind == PolicyKind::ClearMiddens)
+        .and_then(|d| d.middens)
+    {
+        return format!(
+            "that a household whose home lies within {:.0} m of an open well or a stream carries \
+             its midden as far from every source",
+            m.distance_m
+        );
+    }
     if def.is_some_and(|d| d.kind == PolicyKind::KeepRegister) {
         return match law.holder {
             Some(h) => format!("{} to keep a register of the sick{instead}", name_of(h)),
@@ -2037,6 +2068,7 @@ pub fn ending_words(
         Some(PolicyKind::LightStreets) => who("lighting of the streets"),
         Some(PolicyKind::KeepSchool) => who("keeping of the school"),
         Some(PolicyKind::KeepRegister) => who("keeping of the register of the sick"),
+        Some(PolicyKind::ClearMiddens) => "the clearing of middens from the water".to_owned(),
         Some(PolicyKind::Licence) => "the licence to tend the sick for pay".to_owned(),
         Some(PolicyKind::KeepApart) => "the keeping apart of the sick".to_owned(),
         Some(PolicyKind::AgainstTaking) => "the law against taking".to_owned(),
@@ -3822,6 +3854,7 @@ pub(crate) mod tests {
             keep_apart: None,
             holder_needs: None,
             register: None,
+            middens: None,
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -3946,6 +3979,7 @@ pub(crate) mod tests {
             keep_apart: None,
             holder_needs: None,
             register: None,
+            middens: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -4178,6 +4212,7 @@ pub(crate) mod tests {
             keep_apart: None,
             holder_needs: None,
             register: None,
+            middens: None,
         }];
         assert!(
             law_words(&law, &policies, &|_| "Ada".to_owned())

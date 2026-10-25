@@ -7206,6 +7206,27 @@ and M6a gives rivers a daily flow.
       and minutes. Household-resolved, it is a once-a-day behaviour, as the watch's. **Tested:**
       in force, with pay for common work and coin in the store, the registrar walks a round
       within days, homes on it entered as seen, the round counted, their household paid.
+      *As built, third part (2026-10-25): middens cleared from the water.* Where someone
+      suspects a source (the existing issue `source_suspected`), anyone may propose
+      `clear_middens` (appended; content API 190; `core:policy/yourselves_yonder_with_middens`,
+      its `[middens]` terms: `distance_m` 30, `keep_days` 2, `carry_h` 0.5, `avoided_share` 0.2,
+      design priors): a household whose home lies within that distance of an open well or a
+      stream cell carries its heap at least as far from every source. It is kept by choice: one
+      who knows the law and in whom keeping it weighs (`comply_points`) has the option, in
+      daylight, while the heap was not carried within the days (`midden`, an appended behaviour;
+      the core activity `carry_out_the_midden`, twenty minutes there), to walk to the place (the
+      first found along the line from the nearest source through the home, or a few turns from
+      it, on land) and back. A heap carried within the days lies there (saves 205: the day and
+      the place), and the midnight's runoff and seepage go toward the water from there; one not
+      carried lies at home, as before. Each midnight a household near the water whose heap was
+      not carried within the days counts as a breach of the law; nobody brings it (ADR-0025). A
+      household weighs the law by a fifth of its deaths of disease within the year as kept food,
+      against half an hour every two days if its home lies near the water. **Found while
+      testing:** a household's heap weight is kept as of when it was last brought up to date, so
+      the option read it as empty; it reads the heap as of now. **Tested:** under the law, which
+      everyone grown knows, both homes near the water in a village carried their heaps within
+      four days, a heap carried lately lies at its place and not at home, breaches are counted,
+      and the world saves and goes on alike; the content.
   - **M10d, money and the demo** (ADR-0035 §8–§12).
     - **EF**: acceptance of a money for onward exchange and dues, a money's value in a midnight
       table instead of a scan per decision.

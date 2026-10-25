@@ -182,11 +182,16 @@ pub enum PolicyKind {
     /// research 05-05 §1.6-1.7): a household with someone ill keeps to its home, and others keep
     /// from it, until some days after the last is well; kept by choice, as a curfew is.
     KeepApart,
+    /// A register of the sick kept (M10c slice EE, second part; ADR-0035 §7; brief m10-services
+    /// §2.4): an office whose holder must know how to write, who enters in it the sickness and
+    /// the deaths of disease of the polity's households they hear of; their tallies of where
+    /// sickness comes from run over it, a wider record than anyone's own.
+    KeepRegister,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 37] = [
+    pub const ALL: [PolicyKind; 38] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -224,6 +229,7 @@ impl PolicyKind {
         PolicyKind::KeepSchool,
         PolicyKind::Licence,
         PolicyKind::KeepApart,
+        PolicyKind::KeepRegister,
     ];
 
     /// The authored name.
@@ -266,6 +272,7 @@ impl PolicyKind {
             PolicyKind::KeepSchool => "keep_a_school",
             PolicyKind::Licence => "licence",
             PolicyKind::KeepApart => "keep_apart",
+            PolicyKind::KeepRegister => "keep_register",
         }
     }
 
@@ -690,6 +697,20 @@ pub struct PolicyDef {
     pub licence: Option<LicenceDef>,
     /// For keeping the sick apart: its terms (M10c slice EE, first part).
     pub keep_apart: Option<KeepApartDef>,
+    /// For an office: a technique its holder must know, by index in the catalog's techniques
+    /// (M10c slice EE, second part; ADR-0035 §6: an office or post may require a technique).
+    pub holder_needs: Option<usize>,
+    /// For a register of the sick: what a household believes it spares (M10c slice EE, second
+    /// part).
+    pub register: Option<RegisterDef>,
+}
+
+/// What a household believes a register of the sick spares it (M10c slice EE, second part): the
+/// share of its deaths of disease within the year it believes a register would have avoided (a
+/// design prior).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RegisterDef {
+    pub avoided_share: f32,
 }
 
 /// How long a law keeping the sick apart keeps a household apart, and what keeping it costs
@@ -1933,6 +1954,12 @@ pub fn law_words(
             k.days_after
         );
     }
+    if def.is_some_and(|d| d.kind == PolicyKind::KeepRegister) {
+        return match law.holder {
+            Some(h) => format!("{} to keep a register of the sick{instead}", name_of(h)),
+            None => "someone to keep a register of the sick".to_owned(),
+        };
+    }
     if def.is_some_and(|d| d.kind == PolicyKind::KeepSchool) {
         return match law.holder {
             Some(h) => format!("{} to keep the school{instead}", name_of(h)),
@@ -2009,6 +2036,7 @@ pub fn ending_words(
         Some(PolicyKind::KeepWatch) => who("watch over the stores at night"),
         Some(PolicyKind::LightStreets) => who("lighting of the streets"),
         Some(PolicyKind::KeepSchool) => who("keeping of the school"),
+        Some(PolicyKind::KeepRegister) => who("keeping of the register of the sick"),
         Some(PolicyKind::Licence) => "the licence to tend the sick for pay".to_owned(),
         Some(PolicyKind::KeepApart) => "the keeping apart of the sick".to_owned(),
         Some(PolicyKind::AgainstTaking) => "the law against taking".to_owned(),
@@ -2137,6 +2165,7 @@ pub fn office_words(
                 | PolicyKind::Mint
                 | PolicyKind::LightStreets
                 | PolicyKind::KeepSchool
+                | PolicyKind::KeepRegister
         ) {
             continue;
         }
@@ -3090,6 +3119,12 @@ impl Polity {
             .find_map(|l| Some((l, policies.get(usize::from(l.policy))?.forum.as_ref()?)))
     }
 
+    /// The one who keeps the register of the sick by a law in force, and that law (M10c slice EE,
+    /// second part).
+    pub fn registrar(&self) -> Option<(PermanentId, &Law)> {
+        self.office(PolicyKind::KeepRegister)
+    }
+
     /// The one who keeps the store under their roof by a law in force, and that law.
     pub fn keeper(&self) -> Option<(PermanentId, &Law)> {
         self.office(PolicyKind::KeepStore)
@@ -3785,6 +3820,8 @@ pub(crate) mod tests {
             plan: None,
             licence: None,
             keep_apart: None,
+            holder_needs: None,
+            register: None,
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -3907,6 +3944,8 @@ pub(crate) mod tests {
             plan: None,
             licence: None,
             keep_apart: None,
+            holder_needs: None,
+            register: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -4137,6 +4176,8 @@ pub(crate) mod tests {
             plan: None,
             licence: None,
             keep_apart: None,
+            holder_needs: None,
+            register: None,
         }];
         assert!(
             law_words(&law, &policies, &|_| "Ada".to_owned())

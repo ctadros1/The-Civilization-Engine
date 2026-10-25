@@ -3143,6 +3143,16 @@ table VaccinatedSave {
   by: ulong;
 }
 
+// Schema 203 (M10c slice EE, second part): an entry in a polity's register of the sick: the
+// polity, the day, the household, and what was entered (0 sickness heard of, 1 a death of
+// disease).
+struct RegisterSave {
+  polity: ulong;
+  day: long;
+  household: ulong;
+  kind: ubyte;
+}
+
 table SicknessSave {
   episodes: [EpisodeSave] (id: 0);
   outbreaks: [OutbreakSave] (id: 1);
@@ -3160,6 +3170,8 @@ table SicknessSave {
   inoculation_calls: [CareCallSave] (id: 8);
   // Schema 200: everyone vaccinated, in the order vaccinated.
   vaccinated: [VaccinatedSave] (id: 9);
+  // Schema 203: the registers of the sick within the year, in the order entered.
+  register: [RegisterSave] (id: 10);
 }
 
 // Section "fires" (schema 88, M6b slice BC; ADR-0022 §13): a building's fire, from its covering

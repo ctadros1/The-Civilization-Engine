@@ -349,6 +349,17 @@ pub struct Vaccinated {
     pub by: Option<PermanentId>,
 }
 
+/// An entry in a polity's register of the sick (M10c slice EE, second part): the polity, the
+/// day, the household, and what was entered: 0 sickness heard of, 1 a death of disease. Kept a
+/// year; saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RegisterEntry {
+    pub polity: PermanentId,
+    pub day: i64,
+    pub household: PermanentId,
+    pub kind: u8,
+}
+
 /// Every infection there has been, in the order they came, every outbreak, and the calls for
 /// carers standing. Saved; the indexes are derived.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -370,6 +381,9 @@ pub struct Sickness {
     pub unknowing: Vec<UnknowingCare>,
     /// Everyone vaccinated, in the order vaccinated (M10c slice ED, third part).
     pub vaccinated: Vec<Vaccinated>,
+    /// The entries in polities' registers of the sick within the year, in the order entered
+    /// (M10c slice EE, second part).
+    pub register: Vec<RegisterEntry>,
     /// Episodes that run, by index, in order.
     running: Vec<usize>,
     /// Each person's episodes, by index, in order.

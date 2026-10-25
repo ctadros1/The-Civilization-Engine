@@ -34,6 +34,15 @@ impl Population {
         for s in &self.word.suspicions {
             due.entry(s.holder).or_default();
         }
+        // And those who keep a register of the sick that holds anyone (M10c slice EE, second
+        // part).
+        if !self.sickness.register.is_empty() {
+            for p in &self.polities {
+                if let Some((holder, _)) = p.registrar() {
+                    due.entry(holder).or_default();
+                }
+            }
+        }
         if due.is_empty() {
             return;
         }
@@ -47,8 +56,8 @@ impl Population {
             if !(fresh || weekday) || p.age_years(ctx.now) < grown {
                 continue;
             }
-            let draws = self.known_draws(ctx, person, p.household, day);
-            let sick: BTreeSet<PermanentId> = self
+            let mut draws = self.known_draws(ctx, person, p.household, day);
+            let mut sick: BTreeSet<PermanentId> = self
                 .word
                 .heard_by(person)
                 .iter()
@@ -56,6 +65,13 @@ impl Population {
                 .filter(|c| c.kind == ClaimKind::Sickness)
                 .filter_map(|c| c.subject)
                 .collect();
+            // A registrar's tally runs over their register too: every household it holds is
+            // sick, and they know where each draws (M10c slice EE, second part).
+            let registered = self.registered_sick(ctx, person, day);
+            for (place, h) in self.registered_draws(ctx, &registered, day) {
+                draws.entry(place).or_default().insert(h);
+            }
+            sick.extend(registered);
             found.push((person, crate::suspicion::tally(&draws, &sick, sp)));
         }
         for (person, suspect) in found {
@@ -252,7 +268,7 @@ impl Population {
     }
 
     /// Where `household` draws most, as of `day`, if it has drawn there for `min_days`.
-    fn usual_source(
+    pub(super) fn usual_source(
         &self,
         household: PermanentId,
         day: i64,

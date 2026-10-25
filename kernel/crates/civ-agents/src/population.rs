@@ -91,6 +91,7 @@ mod patronage;
 mod places;
 mod polity;
 mod privileges;
+mod register;
 mod relations;
 mod residence;
 mod resolution;

@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 187
+kernel_content_api = 188
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2665,6 +2665,7 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         "core:policy/yourselves_work_with_a_teacher",
         "core:policy/yourselves_work_with_carers_who_know",
         "core:policy/yourselves_work_without_meeting_the_sick",
+        "core:policy/yourselves_write_down_the_sick",
     ];
     assert!(
         reg.catalog
@@ -2694,6 +2695,7 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
     let newer = [
         "core:policy/yourselves_work_with_carers_who_know",
         "core:policy/yourselves_work_without_meeting_the_sick",
+        "core:policy/yourselves_write_down_the_sick",
     ];
     assert!(
         reg.catalog
@@ -2762,7 +2764,10 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
     assert_eq!(licence.what, "fluid replacement");
     // Its id sorts after every older template's (keeping the sick apart, M10c slice EE, is
     // newer).
-    let newer = ["core:policy/yourselves_work_without_meeting_the_sick"];
+    let newer = [
+        "core:policy/yourselves_work_without_meeting_the_sick",
+        "core:policy/yourselves_write_down_the_sick",
+    ];
     assert!(
         reg.catalog
             .policies
@@ -2788,6 +2793,45 @@ fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
     let k = def.keep_apart.expect("its terms");
     assert_eq!(k.days_after, 14);
     assert!(k.cost_share > 0.0 && k.cost_share < 1.0);
+    // Its id sorts after every older template's (the register's, M10c slice EE, is newer).
+    let newer = ["core:policy/yourselves_write_down_the_sick"];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
+}
+
+#[test]
+fn the_core_lets_a_polity_name_a_health_officer_who_can_write() {
+    // M10c slice EE, second part (content API 188): an office for sickness at home, which only
+    // one who knows how to write may hold.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/yourselves_write_down_the_sick")
+        .expect("the register template");
+    assert_eq!(def.kind, PolicyKind::KeepRegister);
+    assert_eq!(def.answers, vec![IssueKind::Sickness]);
+    let writing = reg
+        .catalog
+        .technique_index("core:technique/writing")
+        .expect("writing");
+    assert_eq!(def.holder_needs, Some(writing));
+    let r = def.register.expect("its register");
+    assert!(r.avoided_share > 0.0 && r.avoided_share < 1.0);
+    // No other template asks a technique of its holder.
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .filter(|p| p.id != def.id)
+            .all(|p| p.holder_needs.is_none())
+    );
     assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
 }
 

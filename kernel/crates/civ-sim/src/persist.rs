@@ -537,6 +537,8 @@ pub const SCHEMA_V199: u32 = 199;
 pub const SCHEMA_V200: u32 = 200;
 /// Who vaccinated them, before deaths of contagion as an issue.
 pub const SCHEMA_V201: u32 = 201;
+/// Deaths of contagion as an issue, before the registers of the sick.
+pub const SCHEMA_V202: u32 = 202;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

@@ -1875,3 +1875,140 @@ fn a_death_of_contagion_puts_keeping_the_sick_apart_before_the_gathering() {
     assert_eq!(law.issue, IssueKind::Contagion);
     reloaded(&mut sim);
 }
+
+/// Where its people had smallpox at home, a polity keeps a register of the sick only under one
+/// who can write: with nobody who can, nobody proposes it; once someone can, it is proposed with
+/// them named, and in force they enter in it, each midnight, the households whose sickness they
+/// heard of; the register saves and loads (M10c slice EE, second part).
+#[test]
+fn a_register_of_the_sick_is_kept_by_one_who_can_write() {
+    use civ_agents::polity::{LawStatus, PolicyKind};
+    let mut sim = village(1);
+    to_morning(&mut sim, 8 * 60);
+    let (index, _) = someone_with_family(&sim);
+    sim.plague(index, SMALLPOX).expect("brought");
+    let home = sim.people().person(index).expect("alive").household;
+    let settlement = sim
+        .people()
+        .household(home)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    let writing = sim
+        .rules()
+        .catalog
+        .technique_index("core:technique/writing")
+        .expect("writing");
+    // Live until the sick lie abed, and their sickness is told.
+    sim.advance_minutes(16 * DAY).expect("lives");
+    let proposes = |sim: &mut Sim| {
+        sim.people_mut_for_tests().every_adult_deliberates = true;
+        let mut proposed = None;
+        for _ in 0..24 {
+            {
+                let pop = sim.people_mut_for_tests();
+                pop.polities[pi].gathering = None;
+                for l in &mut pop.polities[pi].laws {
+                    if l.status == LawStatus::Proposed {
+                        l.status = LawStatus::Rejected;
+                    }
+                }
+            }
+            sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+            match sim.people().polities[pi].agenda().cloned() {
+                Some(l) if l.kind == PolicyKind::KeepRegister => {
+                    proposed = Some(l);
+                    break;
+                }
+                Some(_) => continue,
+                None => break,
+            }
+        }
+        sim.people_mut_for_tests().every_adult_deliberates = false;
+        proposed
+    };
+    assert!(
+        proposes(&mut sim).is_none(),
+        "nobody can write: no registrar"
+    );
+    // Someone grown of another household learns to write.
+    let now = sim.now();
+    let scribe = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.id != home && x.settlement == Some(settlement))
+        .flat_map(|(_, x)| x.members.clone())
+        .find(|&m| {
+            sim.people()
+                .person(m)
+                .is_some_and(|p| p.age_years(now) >= 20.0)
+        })
+        .expect("a grown member of another household");
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.id == scribe {
+            p.come_to_know(writing, civ_agents::person::KnowSource::Observer, now);
+        }
+    }
+    let law = proposes(&mut sim).expect("a register proposed");
+    let holder = law.holder.expect("someone named");
+    assert!(
+        sim.people()
+            .person(holder)
+            .is_some_and(|p| p.knows(writing)),
+        "the one named can write"
+    );
+    {
+        let pop = sim.people_mut_for_tests();
+        let p = &mut pop.polities[pi];
+        p.gathering = None;
+        p.laws
+            .iter_mut()
+            .find(|l| l.id == law.id)
+            .expect("the law")
+            .status = LawStatus::InForce;
+    }
+    // In force: each midnight the registrar enters the sickness they heard of.
+    let mut entered = false;
+    for _ in 0..10 {
+        sim.advance_minutes(DAY).expect("lives");
+        if !sim.people().sickness.register.is_empty() {
+            entered = true;
+            break;
+        }
+    }
+    assert!(entered, "the registrar entered the sickness they heard of");
+    // Their tallies of where sickness comes from count every household the register holds as
+    // sick, and know where each draws.
+    let (sick, draws) =
+        sim.with_ctx_for_tests(|pop, ctx| pop.register_tally_for_tests(ctx, holder));
+    let mut held: Vec<PermanentId> = sim
+        .people()
+        .sickness
+        .register
+        .iter()
+        .map(|r| r.household)
+        .collect();
+    held.sort_unstable();
+    held.dedup();
+    assert_eq!(sick, held);
+    assert!(!draws.is_empty(), "they know where the registered draw");
+    let pop = sim.people();
+    let polity = pop.polities[pi].id;
+    assert!(pop.sickness.register.iter().all(|r| {
+        r.polity == polity
+            && pop
+                .household(r.household)
+                .is_none_or(|x| x.settlement == Some(settlement))
+    }));
+    let loaded = reloaded(&mut sim);
+    assert_eq!(
+        loaded.people().sickness.register,
+        sim.people().sickness.register
+    );
+}

@@ -1,0 +1,29 @@
+# A register of the sick (M10c slice EE, second part; ADR-0035 §7: a health officer keeps a
+# register and makes rounds; ADR-0035 §6: an office may require a technique; brief m10-services
+# §2.4; research 05-04 §5.4, 05-05 §5.5: isolation performs poorly when recognition comes late).
+# Where its people had sickness at home lately (the issue `sickness`) and someone grown of the
+# settlement can write, anyone may propose that the one the gathering names keep a register of the
+# sick, an office as the watch is, which only one who knows how to write may hold (`holder_needs`).
+# Each midnight they enter in it the households whose sickness they heard of and the deaths of
+# disease of the polity's households, and their tallies of where sickness comes from run over it,
+# a wider record than anyone's own: recognition can come earlier, or be wrong. A household weighs
+# it by a tenth of its deaths of disease within the year, which it believes a register would have
+# spared (a design prior). Whether anyone proposes it, whom, and whether the gathering agrees, is
+# people's choice. Its id sorts after every older template's: hearth talk about a question is
+# keyed by a template's place in id order.
+kind = "policy"
+id = "core:policy/yourselves_write_down_the_sick"
+name = "Health officer"
+description = "The one the gathering names, who can write, keeps a register of the sick and the dead of disease."
+does = "keep_register"
+answers = ["sickness"]
+question = "whether to keep a register of the sick"
+holder_needs = "core:technique/writing"
+
+[register]
+avoided_share = 0.1
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement: the sick are counted, and the well kept safer.
+[bears]
+"core:value/security" = 0.5

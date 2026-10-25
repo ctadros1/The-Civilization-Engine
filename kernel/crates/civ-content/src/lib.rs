@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 187;
+pub const KERNEL_CONTENT_API: u32 = 188;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1180,6 +1180,12 @@ fn resolve(
             && technique_index(&l.technique).is_none()
         {
             missing(c, parsed, &d.rel, "licence.technique", &l.technique);
+        }
+        // And what an office's holder must know (M10c slice EE, second part).
+        if let Some(t) = d.file.holder_needs.as_deref()
+            && technique_index(t).is_none()
+        {
+            missing(c, parsed, &d.rel, "holder_needs", t);
         }
         // And a plan's (M8c slice CT).
         if let Some(t) = d.file.plan.as_ref().and_then(|g| g.needs.as_deref())

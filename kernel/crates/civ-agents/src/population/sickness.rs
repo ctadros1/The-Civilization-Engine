@@ -218,6 +218,8 @@ impl Population {
         }
         self.end_outbreaks(ctx, day);
         self.sickness_seen(ctx, day);
+        // Each register of the sick kept takes the day's entries (M10c slice EE, second part).
+        self.register_day(ctx, day);
     }
 
     /// Sickness seen (M6a slice BA, ADR-0021 §6): the members of each household with someone abed

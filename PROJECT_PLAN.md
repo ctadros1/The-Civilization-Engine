@@ -7176,6 +7176,24 @@ and M6a gives rivers a daily flow.
       law the well of a household with someone ill of smallpox were away from home 112 times in
       two working days' samples against 171 in the same village without it, breaches counted,
       and the world saves and goes on alike; the content.
+      *As built, second part (2026-10-25): an office that asks a technique, and the register of
+      the sick.* An office template may name `holder_needs`, a technique its holder must know
+      (content API 188; ADR-0035 §6): its nominee, and those a lot draws among, must know it.
+      `keep_register` (appended), answering the existing issue `sickness`, names a health
+      officer who must know writing (`core:policy/yourselves_write_down_the_sick`): an office as
+      the watch is. Each midnight while one holds it, they enter in the polity's register (saves
+      203, kept a year) each household whose sickness they heard of, once a sickness spell, and
+      the deaths of disease of its households since the last midnight. Their tallies of where
+      sickness comes from run over the register: every household in it within the spell counts
+      as sick, and they know where each draws (asked when written down), so a source can be
+      suspected sooner, or wrongly. A household weighs the office by a tenth of its deaths of
+      disease within the year (`[register] avoided_share`, a design prior) as food kept. Nobody
+      in a world where nobody writes can hold it, so such worlds are unchanged. Left to part
+      2b: rounds, and the office's pay. **Tested:** with smallpox at home and nobody who can
+      write, nobody proposes it; once someone grown can, it is proposed naming one who can
+      write; in force, the register takes the sickness heard of within days, the registrar's
+      tally counts every household it holds and knows where they draw, and it saves and loads;
+      the content.
   - **M10d, money and the demo** (ADR-0035 §8–§12).
     - **EF**: acceptance of a money for onward exchange and dues, a money's value in a midnight
       table instead of a scan per decision.

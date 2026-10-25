@@ -121,6 +121,9 @@ pub(super) struct Forecasts {
     /// passing at home or in company within the year, or had someone ill, and cost it, kcal a
     /// year, by household id (M10c slice EE, first part).
     keep_apart: Vec<(PermanentId, f64, f64)>,
+    /// What a register of the sick would spare each household that lost someone to disease
+    /// within the year, kcal a year, by household id (M10c slice EE, second part).
+    registers: Vec<(PermanentId, f64)>,
 }
 
 /// What a household weighs a trade law by (M7c slice BV, ADR-0026 §1): its settlement's
@@ -389,6 +392,16 @@ impl Forecasts {
                     .iter()
                     .find(|l| l.0 == m.policy)
                     .and_then(|l| l.1.iter().find(|s| s.0 == h))
+                    .map_or(0.0, |s| s.1);
+                crate::polity::kept_gain(o, saved, pp)
+            }
+            // A register of the sick (M10c slice EE, second part): the share of its deaths of
+            // disease it believes the register would have avoided, as food kept for it.
+            Some(PolicyKind::KeepRegister) => {
+                let saved = self
+                    .registers
+                    .iter()
+                    .find(|s| s.0 == h)
                     .map_or(0.0, |s| s.1);
                 crate::polity::kept_gain(o, saved, pp)
             }
@@ -1002,6 +1015,11 @@ impl Population {
                 .map(|r| r.person)
                 .filter(|&p| Some(p) != barred && !watching.contains(&p))
                 .filter(|&p| self.person(p).is_some())
+                // Who may hold it must know what it asks (M10c slice EE, second part).
+                .filter(|&p| {
+                    def.holder_needs
+                        .is_none_or(|t| self.person(p).is_some_and(|q| q.knows(t)))
+                })
                 .collect();
             pool = names.len() as u32;
             let key = Rng64::from_key(&[ctx.seed, law_id.get()]).next_u64();
@@ -1140,6 +1158,7 @@ impl Population {
                 PolicyKind::KeepWatch => "keeps watch",
                 PolicyKind::LightStreets => "lights the streets",
                 PolicyKind::KeepSchool => "keeps the school",
+                PolicyKind::KeepRegister => "keeps the register of the sick",
                 PolicyKind::HearCases => "hears cases",
                 PolicyKind::Mint => "strikes coin",
                 _ => "keeps the common store",
@@ -1823,6 +1842,7 @@ impl Population {
             schooling: self.schooling(ctx, households, adults),
             licences: self.licence_forecasts(ctx, households),
             keep_apart: self.keep_apart_forecasts(ctx, households, adults),
+            registers: self.register_forecasts(ctx, households),
             adults: {
                 let mut a = adults.to_vec();
                 a.sort_unstable();
@@ -3431,6 +3451,7 @@ impl Population {
                     | PolicyKind::Mint
                     | PolicyKind::LightStreets
                     | PolicyKind::KeepSchool
+                    | PolicyKind::KeepRegister
                         if def.tenure.is_some_and(|t| t.by_lot) =>
                     {
                         moves.push(blank);
@@ -3780,6 +3801,33 @@ impl Population {
                             self.unknowing_cures(ctx, &households, &adults).contains(&t)
                         }) {
                             moves.push(blank);
+                        }
+                    }
+                    // A registrar (M10c slice EE, second part): of the adults who know what the
+                    // office asks, the one they regard most, themselves at full regard.
+                    PolicyKind::KeepRegister => {
+                        let barred = self.term_barred(pi, k, day, def);
+                        let pick = adults
+                            .iter()
+                            .filter(|&&(c, _)| Some(c) != barred)
+                            .filter(|&&(c, _)| {
+                                def.holder_needs
+                                    .is_none_or(|t| self.person(c).is_some_and(|p| p.knows(t)))
+                            })
+                            .map(|&(c, _)| {
+                                let r = if c == d {
+                                    1.0
+                                } else {
+                                    self.ties.regard(d, c, day, tp).clamp(0.0, 1.0)
+                                };
+                                (r, c)
+                            })
+                            .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)));
+                        if let Some((_, c)) = pick {
+                            moves.push(MoveOption {
+                                nominee: Some(c),
+                                ..blank
+                            });
                         }
                     }
                     // A schoolteacher (M10c slice EB, third part): of the adults who know the
@@ -4601,6 +4649,7 @@ impl Population {
                     | PolicyKind::Mint
                     | PolicyKind::LightStreets
                     | PolicyKind::KeepSchool
+                    | PolicyKind::KeepRegister
             )
         {
             self.fill_term(ctx, pi, law_id);

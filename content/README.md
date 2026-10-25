@@ -1804,3 +1804,9 @@ table: `days_after` (the days after the last of a household is well that it is s
 kept apart, as a household weighs it, 0 to 1), and the issue `contagion` (someone of a household
 of the polity died within the year of a sickness passing at home or in company). The core adds
 `policy/yourselves_work_without_meeting_the_sick` at 14 days and 0.25.
+
+Content API 188 (M10c slice EE, second part) adds an office template's `holder_needs` (a
+technique, by content id, its holder must know: the nominee and those a lot draws among), and
+`does = "keep_register"` with its `[register]` table: `avoided_share` (the share of a household's
+deaths of disease within the year it believes a register would have spared, 0 to 1). The core adds
+`policy/yourselves_write_down_the_sick`, answering `sickness`, asking `technique/writing`, at 0.1.

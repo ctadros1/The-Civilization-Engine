@@ -125,6 +125,14 @@ pub(crate) struct PolicyFile {
     /// household is kept apart, and what keeping to its home costs.
     #[serde(default)]
     pub keep_apart: Option<KeepApartFile>,
+    /// For an office (content API 188, M10c slice EE): a technique, by content id, its holder
+    /// must know.
+    #[serde(default)]
+    pub holder_needs: Option<String>,
+    /// For a register of the sick (`keep_register`, content API 188, M10c slice EE): what a
+    /// household believes it spares.
+    #[serde(default)]
+    pub register: Option<RegisterFile>,
     /// For a common store (`common_store`, content API 129, M7d slice CE3b): a money its levy
     /// may be paid in.
     #[serde(default)]
@@ -241,6 +249,16 @@ pub struct MediumFile {
     pub good: String,
     /// Units of it that pay for a kilogram of the grain owed.
     pub per_kg: f64,
+}
+
+/// What a household believes a register of the sick spares it, in a policy file (content API
+/// 188, M10c slice EE, second part).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct RegisterFile {
+    /// The share of its deaths of disease within the year it believes a register would have
+    /// avoided, 0-1.
+    pub avoided_share: f32,
 }
 
 /// The terms of keeping the sick apart in a policy file (content API 187, M10c slice EE, first
@@ -653,6 +671,13 @@ impl PolicyFile {
                 .map(|k| civ_agents::polity::KeepApartDef {
                     days_after: k.days_after,
                     cost_share: k.cost_share,
+                }),
+            holder_needs: self.holder_needs.as_deref().and_then(technique_index),
+            register: self
+                .register
+                .as_ref()
+                .map(|r| civ_agents::polity::RegisterDef {
+                    avoided_share: r.avoided_share,
                 }),
             plan: self.plan.as_ref().map(|g| civ_agents::polity::PlanDef {
                 grid: civ_land::plans::Grid {
@@ -1118,6 +1143,40 @@ impl PolicyFile {
             (Some(_), Some(PolicyKind::Licence)) | (None, _) => {}
             (Some(_), _) => p.push("`licence` is for `does = \"licence\"`".to_owned()),
         }
+        // A register's share (M10c slice EE, second part): only for `keep_register`, which must
+        // have it; and a technique an office's holder must know only for an office.
+        match (&self.register, PolicyKind::from_name(&self.does)) {
+            (None, Some(PolicyKind::KeepRegister)) => {
+                p.push("a `keep_register` template needs a `register` table".to_owned());
+            }
+            (Some(r), Some(PolicyKind::KeepRegister)) => {
+                if !(r.avoided_share.is_finite() && (0.0..=1.0).contains(&r.avoided_share)) {
+                    p.push(format!(
+                        "`register.avoided_share` must be between 0 and 1 (got {})",
+                        r.avoided_share
+                    ));
+                }
+            }
+            (None, _) => {}
+            (Some(_), _) => {
+                p.push("`register` is for `does = \"keep_register\"`".to_owned());
+            }
+        }
+        if self.holder_needs.is_some()
+            && !matches!(
+                PolicyKind::from_name(&self.does),
+                Some(
+                    PolicyKind::KeepStore
+                        | PolicyKind::KeepWatch
+                        | PolicyKind::Mint
+                        | PolicyKind::LightStreets
+                        | PolicyKind::KeepSchool
+                        | PolicyKind::KeepRegister
+                )
+            )
+        {
+            p.push("`holder_needs` is for an office that names a holder".to_owned());
+        }
         // Keeping the sick apart's terms (M10c slice EE, first part): only for `keep_apart`,
         // which must have them.
         match (&self.keep_apart, PolicyKind::from_name(&self.does)) {
@@ -1339,6 +1398,7 @@ impl PolicyFile {
                 | PolicyKind::KeepSchool
                 | PolicyKind::Licence
                 | PolicyKind::KeepApart
+                | PolicyKind::KeepRegister
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
@@ -1409,6 +1469,7 @@ impl PolicyFile {
                 | PolicyKind::KeepSchool
                 | PolicyKind::Licence
                 | PolicyKind::KeepApart
+                | PolicyKind::KeepRegister
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding,
             )
@@ -1709,6 +1770,8 @@ mod tests {
             raise: None,
             licence: None,
             keep_apart: None,
+            holder_needs: None,
+            register: None,
         }
     }
 

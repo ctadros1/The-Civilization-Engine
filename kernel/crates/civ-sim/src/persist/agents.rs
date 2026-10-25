@@ -131,7 +131,7 @@ use super::{
     SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, SCHEMA_V187,
     SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, SCHEMA_V194,
     SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, SCHEMA_V199, SCHEMA_V200, SCHEMA_V201,
-    finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V202, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -913,9 +913,8 @@ pub(super) fn decode<R: Read + Seek>(
         // company kept (198) and calls to inoculate (199).
         SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SCHEMA_V190 | SCHEMA_V191
         | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SCHEMA_V196 | SCHEMA_V197
-        | SCHEMA_V198 | SCHEMA_V199 | SCHEMA_V200 | SCHEMA_V201 | SAVE_SCHEMA_VERSION => {
-            Schema::V186
-        }
+        | SCHEMA_V198 | SCHEMA_V199 | SCHEMA_V200 | SCHEMA_V201 | SCHEMA_V202
+        | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -13005,6 +13004,14 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
         })
         .collect();
     let vaccinated = fbb.create_vector(&vaccinated);
+    // The registers of the sick (schema 203, M10c slice EE, second part).
+    let register: Vec<_> = people
+        .sickness
+        .register
+        .iter()
+        .map(|r| save::RegisterSave::new(r.polity.get(), r.day, r.household.get(), r.kind))
+        .collect();
+    let register = fbb.create_vector(&register);
     let attended: Vec<_> = people
         .sickness
         .attended
@@ -13063,6 +13070,7 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
             met: Some(met),
             inoculation_calls: Some(inoculation_calls),
             vaccinated: Some(vaccinated),
+            register: Some(register),
         },
     );
     finish(fbb, root)
@@ -14102,6 +14110,21 @@ fn decode_sickness(
             day: v.day(),
             full_until: v.full_until(),
             by: PermanentId::from_raw(v.by()),
+        });
+    }
+    // The registers of the sick (schema 203): none in older saves.
+    for r in root.register().into_iter().flatten() {
+        let (Some(polity), Some(household)) = (
+            PermanentId::from_raw(r.polity()),
+            PermanentId::from_raw(r.household()),
+        ) else {
+            continue;
+        };
+        sickness.register.push(civ_agents::sickness::RegisterEntry {
+            polity,
+            day: r.day(),
+            household,
+            kind: r.kind(),
         });
     }
     // Deaths in unknowing paid care (schema 197): none in older saves; one of a disease the

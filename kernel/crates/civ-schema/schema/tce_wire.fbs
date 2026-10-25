@@ -1105,7 +1105,8 @@ table PersonInfo {
   // Their care of other homes, in words (wire 1.104, M10c slice DZ): the sick of other homes they
   // were first to tend and what came of it, and the calls for carers their household stands in
   // ("First to tend 3 of the sick of other homes: 2 lived, 1 died; Their household is called to
-  // tend the sick of Ada's household, for 2100 kcal of food a day"); empty for none.
+  // tend the sick at Ada's household, for 2100 kcal of food a day; Attended 2 births: every
+  // mother lived"); empty for none.
   care: string (id: 60);
 }
 

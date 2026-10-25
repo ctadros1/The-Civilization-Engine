@@ -1139,3 +1139,114 @@ fn a_birth_attended_by_one_who_knows_birth_care_is_survived_and_one_fresh_from_t
         reloaded(&mut sim);
     }
 }
+
+#[test]
+fn a_household_with_a_birth_due_and_nobody_to_attend_calls_one_it_heard_attend_and_pays_at_the_birth()
+ {
+    use civ_agents::Repro;
+    use civ_agents::ledger::Channel;
+    use civ_agents::ties::Domain;
+    const ATTENDING: &str = "core:technique/birth_attending";
+    let mut sim = village(3);
+    to_morning(&mut sim, 9 * 60);
+    {
+        let rules = sim.rules_mut_for_tests().expect("the rules are not shared");
+        rules.people.mortality.maternal_death_per_birth = 1.0;
+        rules.people.mortality.birth.shares = [0.5, 0.0, 0.5];
+        let t = rules.catalog.technique_index(ATTENDING).expect("content");
+        rules.catalog.techniques[t].birth = [1.0, 0.0, 1.0];
+    }
+    let (mother, _) = due_today(&mut sim);
+    let home = sim.people().person(mother).expect("alive").household;
+    // Due in three days, nobody at home or of her kin knowing birth care.
+    let now = sim.now();
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.id == mother
+            && let Repro::Pregnant { due, .. } = &mut p.repro
+        {
+            *due = now.plus_minutes(3 * DAY);
+        }
+    }
+    // An adult of another household knows birth attending and once attended a birth in hers.
+    let attendant = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.id != home)
+        .flat_map(|(_, x)| x.members.iter().copied())
+        .find(|&m| {
+            sim.people()
+                .person(m)
+                .is_some_and(|p| p.age_years(now) >= 20.0)
+        })
+        .expect("an adult elsewhere");
+    let theirs = sim.people().person(attendant).expect("alive").household;
+    sim.introduce_technique(attendant, ATTENDING, false)
+        .expect("taught");
+    let day = now.day_index();
+    sim.people_mut_for_tests()
+        .sickness
+        .attended
+        .push(civ_agents::sickness::BirthAttended {
+            attendant,
+            household: home,
+            day: day - 100,
+            lived: true,
+        });
+    // Within the days before the birth, someone of hers calls the attendant's household.
+    to_morning(&mut sim, 1);
+    to_morning(&mut sim, 1);
+    let call = *sim
+        .people()
+        .sickness
+        .birth_call_of(home)
+        .expect("called an attendant");
+    assert_eq!(call.carer, theirs);
+    let fee = 0.5
+        * sim.people().household(home).expect("home").members.len() as f64
+        * sim.rules().people.household.daily_kcal_per_person;
+    assert!((f64::from(call.fee_kcal) - fee).abs() < 1e-3);
+    assert!(
+        sim.people().sickness.call_of(home).is_none(),
+        "no call for the ill"
+    );
+    // The call saves and loads with the rest.
+    reloaded(&mut sim);
+    // At the birth the attendant comes: every birth kills unattended here, and this one she
+    // lives through; it is kept as the attendant's, the fee is paid and the call answered.
+    to_morning(&mut sim, 1);
+    to_morning(&mut sim, 1);
+    assert!(sim.people().person(mother).is_some(), "she lived, attended");
+    let last = *sim.people().sickness.attended.last().expect("attended");
+    assert_eq!(
+        (last.attendant, last.household, last.lived),
+        (attendant, home, true)
+    );
+    assert!(sim.people().sickness.birth_call_of(home).is_none());
+    let goods = &sim.rules().catalog.goods;
+    let fees: f64 = (0..goods.len())
+        .map(|g| sim.people().transfers.get(Channel::Fee, g) * goods[g].kcal_per_kg)
+        .sum();
+    assert!(
+        (fees - fee).abs() < 1.0,
+        "the fee paid at the birth: {fees}"
+    );
+    // Those at home hold her in esteem for her craft; her page says the births she attended.
+    let params = sim.rules().people.ties.clone();
+    let today = sim.now().day_index();
+    let esteem = sim
+        .people()
+        .ties
+        .of(mother)
+        .iter()
+        .find(|t| t.to == attendant)
+        .map(|t| t.at(today, &params).esteem(Domain::Craft, &params))
+        .expect("the mother knows her now");
+    assert!(esteem > 0.5, "{esteem}");
+    let words = civ_sim::frames::sickness::care_words(&sim, attendant);
+    assert!(
+        words.contains("Attended 2 births: every mother lived"),
+        "{words}"
+    );
+    reloaded(&mut sim);
+}

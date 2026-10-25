@@ -284,6 +284,19 @@ pub struct CareCall {
     pub fee_kcal: f32,
     pub day: i64,
     pub paid: i64,
+    /// A call to attend a birth due, not to tend the ill (M10c slice EA, second part): paid once,
+    /// at the birth.
+    pub birth: bool,
+}
+
+/// A birth someone attended (M10c slice EA, second part): who attended, the mother's household,
+/// the day, and whether the mother lived. Saved, kept as the attendant's record.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BirthAttended {
+    pub attendant: PermanentId,
+    pub household: PermanentId,
+    pub day: i64,
+    pub lived: bool,
 }
 
 /// Every infection there has been, in the order they came, every outbreak, and the calls for
@@ -297,6 +310,8 @@ pub struct Sickness {
     /// The last day each person tended someone ill, while it is recent enough to matter to a
     /// birth they attend (M10c slice EA).
     pub tended: BTreeMap<PermanentId, i64>,
+    /// Every birth someone attended, in the order attended (M10c slice EA, second part).
+    pub attended: Vec<BirthAttended>,
     /// Episodes that run, by index, in order.
     running: Vec<usize>,
     /// Each person's episodes, by index, in order.
@@ -304,9 +319,14 @@ pub struct Sickness {
 }
 
 impl Sickness {
-    /// The call household `caller` made that stands, if any.
+    /// The call for a carer household `caller` made that stands, if any.
     pub fn call_of(&self, caller: PermanentId) -> Option<&CareCall> {
-        self.calls.iter().find(|c| c.caller == caller)
+        self.calls.iter().find(|c| c.caller == caller && !c.birth)
+    }
+
+    /// The call to attend a birth household `caller` made that stands, if any (M10c slice EA).
+    pub fn birth_call_of(&self, caller: PermanentId) -> Option<&CareCall> {
+        self.calls.iter().find(|c| c.caller == caller && c.birth)
     }
 
     /// The store of `episodes`, in the order they came, and `outbreaks`, in the order they began.

@@ -163,6 +163,8 @@ pub struct CallFacts {
     pub at: (f32, f32),
     pub walk_min: f64,
     pub short: f64,
+    /// To attend a birth due rather than tend the ill (M10c slice EA, second part; `short` 1).
+    pub birth: bool,
 }
 
 /// How a load can be brought to a threatened roof.

@@ -884,7 +884,7 @@ export interface PersonInfo {
    * fat lamp has tallow for 12 hours"); empty when their household holds no lamp. */
   light: string;
   /** Wire 1.104 (M10c slice DZ): their care of other homes ("First to tend 3 of the sick of other
-   * homes: 2 lived, 1 died; Their household is called to tend the sick of Ada's household, for
+   * homes: 2 lived, 1 died; Their household is called to tend the sick at Ada's household, for
    * 2100 kcal of food a day"); empty for none. */
   care: string;
 }

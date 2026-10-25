@@ -304,6 +304,31 @@ pub fn care_words(sim: &Sim, person: PermanentId) -> String {
             came.join(", ")
         ));
     }
+    // Births they attended (M10c slice EA, second part).
+    let births: Vec<_> = people
+        .sickness
+        .attended
+        .iter()
+        .filter(|a| a.attendant == person)
+        .collect();
+    if !births.is_empty() {
+        let died = births.iter().filter(|a| !a.lived).count();
+        let n = births.len();
+        let attended = if n == 1 {
+            "Attended 1 birth".to_owned()
+        } else {
+            format!("Attended {n} births")
+        };
+        let came = match (n, died) {
+            (1, 0) => "the mother lived".to_owned(),
+            (1, _) => "the mother died".to_owned(),
+            (_, 0) => "every mother lived".to_owned(),
+            (_, d) if d == n => "every mother died".to_owned(),
+            (_, 1) => "1 mother died".to_owned(),
+            (_, d) => format!("{d} mothers died"),
+        };
+        said.push(format!("{attended}: {came}"));
+    }
     let fee = |kcal: f32| {
         if kcal > 0.0 {
             format!("for {kcal:.0} kcal of food a day")
@@ -312,15 +337,25 @@ pub fn care_words(sim: &Sim, person: PermanentId) -> String {
         }
     };
     for c in &people.sickness.calls {
+        let what = if c.birth {
+            "to attend a birth"
+        } else {
+            "to tend the sick"
+        };
         if c.carer == home {
             said.push(format!(
-                "Their household is called to tend the sick of {}, {}",
+                "Their household is called {what} at {}, {}",
                 super::people::household_name(sim, c.caller),
                 fee(c.fee_kcal)
             ));
         } else if c.caller == home {
+            let what = if c.birth {
+                "to attend a birth"
+            } else {
+                "to tend its sick"
+            };
             said.push(format!(
-                "Their household called {} to tend its sick, {}",
+                "Their household called {} {what}, {}",
                 super::people::household_name(sim, c.carer),
                 fee(c.fee_kcal)
             ));

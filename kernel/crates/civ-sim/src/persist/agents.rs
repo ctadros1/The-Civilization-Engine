@@ -129,7 +129,8 @@ use super::{
     SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
     SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, SCHEMA_V180,
     SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, SCHEMA_V187,
-    SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, finish, section, section_root,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -905,8 +906,9 @@ pub(super) fn decode<R: Read + Seek>(
         // fares (schema 185) are read wherever saved; gas mains (schema 186) have their section.
         SCHEMA_V182 | SCHEMA_V183 | SCHEMA_V184 | SCHEMA_V185 => Schema::V182,
         // Mains' lengths laid (schema 187), their worth (188) and street lamps (189) are read
-        // wherever saved.
-        SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SCHEMA_V190
+        // wherever saved, as are calls for carers (190), who tended the ill (191) and births
+        // attended (192).
+        SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SCHEMA_V190 | SCHEMA_V191
         | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
@@ -12792,13 +12794,26 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
         })
         .collect();
     let outbreaks = fbb.create_vector(&outbreaks);
-    let calls: Vec<_> = people
+    let calls_of = |birth: bool| -> Vec<_> {
+        people
+            .sickness
+            .calls
+            .iter()
+            .filter(|c| c.birth == birth)
+            .map(|c| {
+                save::CareCallSave::new(c.caller.get(), c.carer.get(), c.fee_kcal, c.day, c.paid)
+            })
+            .collect()
+    };
+    let calls = fbb.create_vector(&calls_of(false));
+    let birth_calls = fbb.create_vector(&calls_of(true));
+    let attended: Vec<_> = people
         .sickness
-        .calls
+        .attended
         .iter()
-        .map(|c| save::CareCallSave::new(c.caller.get(), c.carer.get(), c.fee_kcal, c.day, c.paid))
+        .map(|a| save::AttendedSave::new(a.attendant.get(), a.household.get(), a.day, a.lived))
         .collect();
-    let calls = fbb.create_vector(&calls);
+    let attended = fbb.create_vector(&attended);
     let tended: Vec<_> = people
         .sickness
         .tended
@@ -12813,6 +12828,8 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
             outbreaks: Some(outbreaks),
             calls: Some(calls),
             tended: Some(tended),
+            birth_calls: Some(birth_calls),
+            attended: Some(attended),
         },
     );
     finish(fbb, root)
@@ -13764,8 +13781,11 @@ fn decode_sickness(
         });
     }
     let mut sickness = Sickness::with(list, outbreaks);
-    // Calls for carers (schema 190, M10c slice DZ): none in older saves.
-    for c in root.calls().iter().flatten() {
+    // Calls for carers (schema 190, M10c slice DZ), and to attend a birth (schema 192, M10c slice
+    // EA): none in older saves; calls for carers first, as they were made apart.
+    let calls = root.calls().into_iter().flatten().map(|c| (c, false));
+    let birth_calls = root.birth_calls().into_iter().flatten().map(|c| (c, true));
+    for (c, birth) in calls.chain(birth_calls) {
         let (Some(caller), Some(carer)) = (
             PermanentId::from_raw(c.caller()),
             PermanentId::from_raw(c.carer()),
@@ -13778,6 +13798,22 @@ fn decode_sickness(
             fee_kcal: c.fee_kcal(),
             day: c.day(),
             paid: c.paid(),
+            birth,
+        });
+    }
+    // Births attended (schema 192): none in older saves.
+    for a in root.attended().iter().flatten() {
+        let (Some(attendant), Some(household)) = (
+            PermanentId::from_raw(a.attendant()),
+            PermanentId::from_raw(a.household()),
+        ) else {
+            continue;
+        };
+        sickness.attended.push(civ_agents::sickness::BirthAttended {
+            attendant,
+            household,
+            day: a.day(),
+            lived: a.lived(),
         });
     }
     // Who tended the ill lately (schema 191, M10c slice EA): none in older saves.

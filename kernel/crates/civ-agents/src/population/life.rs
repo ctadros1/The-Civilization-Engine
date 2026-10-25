@@ -401,6 +401,9 @@ impl Population {
                 self.die(ctx, mother, Cause::Childbirth);
             }
         }
+        if let Some((who, _, _)) = attendant {
+            self.birth_attended(ctx, who, household, day, dies.is_none());
+        }
     }
 
     fn mortality(&mut self, ctx: &mut Ctx, day: i64) {

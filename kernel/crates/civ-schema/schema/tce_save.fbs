@@ -3054,11 +3054,24 @@ struct TendedSave {
   day: long;
 }
 
+// Schema 192 (M10c slice EA, second part): a birth someone attended: who, the mother's
+// household, the day, and whether she lived.
+struct AttendedSave {
+  attendant: ulong;
+  household: ulong;
+  day: long;
+  lived: bool;
+}
+
 table SicknessSave {
   episodes: [EpisodeSave] (id: 0);
   outbreaks: [OutbreakSave] (id: 1);
   calls: [CareCallSave] (id: 2);
   tended: [TendedSave] (id: 3);
+  // Schema 192: calls to attend a birth due, apart from those to tend the ill; every birth
+  // attended.
+  birth_calls: [CareCallSave] (id: 4);
+  attended: [AttendedSave] (id: 5);
 }
 
 // Section "fires" (schema 88, M6b slice BC; ADR-0022 §13): a building's fire, from its covering

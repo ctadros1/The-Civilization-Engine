@@ -820,3 +820,245 @@ fn a_household_that_buys_what_it_cannot_make_sends_a_child_to_learn_it_from_the_
     sim.with_ctx_for_tests(|pop, ctx| pop.review_enrolment_for_tests(ctx, buyer));
     assert_eq!(sim.people().enrolments.len(), 1);
 }
+
+/// A household that could not hold the fee to send a child to learn pottery, which someone grown
+/// of the settlement knows, puts a school before the gathering; kept, the schoolteacher takes the
+/// child without a fee, and where work is paid the store pays their household for the hours they
+/// teach (M10c slice EB, third part).
+#[test]
+fn a_household_that_cannot_hold_the_fee_puts_a_school_before_the_gathering_and_its_child_learns_there()
+ {
+    use civ_agents::ledger::{Channel, Trade};
+    use civ_agents::polity::{IssueKind, LawStatus, PolicyKind};
+    let mut sim = world(content(), 3);
+    sim.advance_minutes(2 * 24 * 60).expect("advances");
+    let catalog = &sim.rules().catalog;
+    let pottery = catalog
+        .technique_index("core:technique/pottery")
+        .expect("pottery");
+    let pot = catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/pot")
+        .expect("pot") as u16;
+    let coin = catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/coin")
+        .expect("coin");
+    let pay_work = catalog
+        .policies
+        .iter()
+        .position(|d| d.id == "core:policy/pay_work")
+        .expect("pay_work");
+    let now = sim.now();
+    let homes: Vec<PermanentId> = sim.people().households.iter().map(|(_, x)| x.id).collect();
+    let buyer = homes
+        .iter()
+        .copied()
+        .find(|&h| sim.people().household(h).expect("home").members.len() >= 2)
+        .expect("a household of two or more");
+    let settlement = sim
+        .people()
+        .household(buyer)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let child = *sim
+        .people()
+        .household(buyer)
+        .expect("home")
+        .members
+        .last()
+        .expect("a member");
+    let (seller, potter) = homes
+        .iter()
+        .copied()
+        .filter(|&h| h != buyer)
+        .find_map(|h| {
+            let x = sim.people().household(h)?;
+            if x.settlement != Some(settlement) {
+                return None;
+            }
+            let p = x.members.iter().copied().find(|&m| {
+                sim.people()
+                    .person(m)
+                    .is_some_and(|p| p.age_years(now) >= 20.0)
+            })?;
+            Some((h, p))
+        })
+        .expect("another household of the settlement with an adult");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    let members = sim.people().household(buyer).expect("home").members.clone();
+    let pop = sim.people_mut_for_tests();
+    for (_, p) in pop.people.iter_mut() {
+        if members.contains(&p.id) {
+            p.knows.retain(|k| usize::from(k.technique) != pottery);
+        }
+        if p.id == child {
+            p.born = now.plus_minutes(-10 * 365 * 24 * 60);
+        }
+        if p.id == potter && !p.knows(pottery) {
+            p.learn(pottery, 1_000.0, potter, 1.0, now);
+        }
+    }
+    // The buyer holds nothing to pay a fee with, for now.
+    let mut held = Vec::new();
+    for (_, x) in pop.households.iter_mut() {
+        if x.id == buyer {
+            let empty = vec![0.0; x.stores.len()];
+            held = std::mem::replace(&mut x.stores, empty);
+        }
+    }
+    let market = pop
+        .markets
+        .iter_mut()
+        .find(|m| m.settlement == settlement)
+        .expect("a market");
+    for _ in 0..2 {
+        market.recent.push_back(Trade {
+            at: now,
+            seller,
+            buyer,
+            good: pot,
+            units: 1.0,
+            payment: 0,
+            paid: 1.0,
+            channel: Channel::Barter,
+            from: None,
+        });
+    }
+    let issue = |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.untaught_for_tests(ctx, pi));
+    assert!(!issue(&mut sim), "nobody untaught yet");
+    // It cannot hold the fee: nobody is enrolled, and it is remembered.
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_enrolment_for_tests(ctx, buyer));
+    assert!(sim.people().enrolments.is_empty());
+    let untaught = sim.people().untaught.clone();
+    assert_eq!(
+        untaught
+            .iter()
+            .map(|u| (u.household, usize::from(u.technique)))
+            .collect::<Vec<_>>(),
+        vec![(buyer, pottery)]
+    );
+    assert!(
+        issue(&mut sim),
+        "a household untaught, and a potter of the settlement"
+    );
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == buyer {
+            x.stores = held.clone();
+        }
+    }
+    // The record saves and loads alike.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "untaught").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.people().untaught, untaught);
+    // Someone proposes a school, its keeper one who knows pottery.
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    let mut proposed = None;
+    for _ in 0..24 {
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[pi].gathering = None;
+            for l in &mut pop.polities[pi].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        match sim.people().polities[pi].agenda().cloned() {
+            Some(l) if l.kind == PolicyKind::KeepSchool => {
+                proposed = Some(l);
+                break;
+            }
+            Some(_) => continue,
+            None => break,
+        }
+    }
+    let law = proposed.expect("a school proposed");
+    assert_eq!(law.issue, IssueKind::Untaught);
+    let teacher = law.holder.expect("a schoolteacher named");
+    assert!(
+        sim.people()
+            .person(teacher)
+            .is_some_and(|p| p.knows(pottery) && p.household != buyer)
+    );
+    let teacher_home = sim.people().person(teacher).expect("alive").household;
+    // Passed, with a law paying common work and coin in the store.
+    let polity = sim.people().polities[pi].id;
+    let pay_id = sim.allocate_id_for_tests();
+    let today = sim.now().day_index();
+    {
+        let pop = sim.people_mut_for_tests();
+        pop.every_adult_deliberates = false;
+        let p = &mut pop.polities[pi];
+        p.gathering = None;
+        let l = p.laws.iter_mut().find(|l| l.id == law.id).expect("the law");
+        l.status = LawStatus::InForce;
+        let mut pay = l.clone();
+        pay.id = pay_id;
+        pay.policy = pay_work as u16;
+        pay.kind = PolicyKind::PayWork;
+        pay.holder = None;
+        pay.issue = IssueKind::CoinIdle;
+        p.laws.push(pay);
+        assert!(pop.strike_for_tests(coin, polity, polity, today, 100.0, 8.0, 1.0));
+    }
+    assert_eq!(
+        sim.people().polities[pi].schoolteacher().map(|(h, _)| h),
+        Some(teacher)
+    );
+    let coin_held = |sim: &Sim| {
+        sim.people()
+            .household(teacher_home)
+            .map_or(0.0, |x| x.stores.get(coin).copied().unwrap_or(0.0))
+    };
+    let before = coin_held(&sim);
+    // The school takes the child without a fee, and the record is done with.
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_enrolment_for_tests(ctx, buyer));
+    let e = *sim.people().enrolments.first().expect("enrolled");
+    assert_eq!(
+        (e.teacher, e.learner, e.technique as usize, e.payer),
+        (teacher, child, pottery, buyer)
+    );
+    assert_eq!(e.fee_kcal, 0.0);
+    assert!(sim.people().untaught.is_empty());
+    // The child studies there, and the store pays for the hours taught.
+    sim.advance_minutes(3 * 24 * 60).expect("advances");
+    let hours = sim
+        .people()
+        .person(child)
+        .expect("alive")
+        .knows
+        .iter()
+        .find(|k| usize::from(k.technique) == pottery)
+        .map_or(0.0, |k| f64::from(k.hours));
+    assert!(hours > 0.0, "the child studied pottery: {hours} h");
+    assert!(
+        coin_held(&sim) > before,
+        "the schoolteacher's household was paid: {} after {before}",
+        coin_held(&sim)
+    );
+    // Its office in words.
+    let words = sim.with_ctx_for_tests(|pop, ctx| {
+        civ_agents::polity::office_words(
+            &pop.polities[pi],
+            &ctx.catalog.policies,
+            &|id| pop.name_of(id),
+            &|_| String::new(),
+            ctx.now.day_index(),
+        )
+    });
+    assert!(
+        words.iter().any(|w| w.starts_with("Schoolteacher: ")),
+        "{words:?}"
+    );
+}

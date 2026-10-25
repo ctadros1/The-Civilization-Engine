@@ -1752,3 +1752,10 @@ Content API 176 (M10b slice DY, fourth part) adds the behaviour `light` (the lam
 the street lamps, after dark, a stand of the activity's least minutes at each) and a people
 profile's `crime.w_light`, the points the round is worth to the lamplighter (0 to 100; the core's
 6, as a watch's round). The core adds `activity/light_lamps`.
+
+Content API 181 (M10c slice EB, third part) adds the policy kind `keep_a_school` (an office, its
+holder the schoolteacher) and the issue `untaught` it answers: a household of the polity could not
+hold the fee to send a child to learn a technique it lacked within the year, and someone grown of
+the settlement knows it. The schoolteacher takes the polity's children to learn what they know
+without a fee, and where a law pays common work the store pays their household for the hours they
+teach them. The core adds `policy/yourselves_work_with_a_teacher`.

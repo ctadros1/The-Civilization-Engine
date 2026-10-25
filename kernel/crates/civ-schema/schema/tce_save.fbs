@@ -1142,6 +1142,14 @@ struct EnrolmentSave {
   paid: long;
 }
 
+// Schema 194: a household that could not hold the fee to send a child to learn a technique, and
+// the day.
+struct UntaughtSave {
+  household: ulong;
+  technique: ushort;
+  day: long;
+}
+
 // Schema 193: someone's minutes of sessions of a technique today, teaching or studying.
 struct SessionSave {
   person: ulong;
@@ -1168,6 +1176,9 @@ table Knowledge {
   enrolments: [EnrolmentSave] (id: 5);
   taught: [SessionSave] (id: 6);
   studied: [SessionSave] (id: 7);
+  // Schema 194 (M10c slice EB, third part): households that could not hold the fee to send a
+  // child to learn within the year, oldest first; `technique` indexes `techniques`.
+  untaught: [UntaughtSave] (id: 8);
 }
 
 // Section "deposits" (schema 19): bodies in the ground (ADR-0010 §1), in the order they were

@@ -170,11 +170,15 @@ pub enum PolicyKind {
     /// a watch is, whose holder lights lamps the polity sets on its ways beside its homes and puts
     /// them out on a lamplighter's rounds; lit streets let those about see after dark.
     LightStreets,
+    /// A school kept (M10c slice EB, third part; ADR-0035 §5): an office whose holder takes the
+    /// children of the polity's households to learn a technique they know without a fee, and is
+    /// paid for the hours taught where work is paid.
+    KeepSchool,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 34] = [
+    pub const ALL: [PolicyKind; 35] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -209,6 +213,7 @@ impl PolicyKind {
         PolicyKind::RaiseBuilding,
         PolicyKind::BuildLine,
         PolicyKind::LightStreets,
+        PolicyKind::KeepSchool,
     ];
 
     /// The authored name.
@@ -248,6 +253,7 @@ impl PolicyKind {
             PolicyKind::RaiseBuilding => "raise_building",
             PolicyKind::BuildLine => "build_line",
             PolicyKind::LightStreets => "light_streets",
+            PolicyKind::KeepSchool => "keep_a_school",
         }
     }
 
@@ -368,11 +374,15 @@ pub enum IssueKind {
     /// and someone of it knows how to make a light (M10b slice DY, fourth part, third step): what
     /// `light_streets` answers.
     DarkTakings,
+    /// A household of the polity could not hold the fee to send a child to learn a technique
+    /// it lacked within a year, and someone of the settlement knows it (M10c slice EB, third
+    /// part): what `keep_a_school` answers.
+    Untaught,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 33] = [
+    pub const ALL: [IssueKind; 34] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -406,6 +416,7 @@ impl IssueKind {
         IssueKind::FiresUnseen,
         IssueKind::LoadsCarried,
         IssueKind::DarkTakings,
+        IssueKind::Untaught,
     ];
 
     /// The authored name.
@@ -444,6 +455,7 @@ impl IssueKind {
             IssueKind::FiresUnseen => "fires_unseen",
             IssueKind::LoadsCarried => "loads_carried",
             IssueKind::DarkTakings => "dark_takings",
+            IssueKind::Untaught => "untaught",
         }
     }
 
@@ -506,6 +518,9 @@ impl IssueKind {
             }
             IssueKind::DarkTakings => {
                 "something was taken from them in the dark, and nobody saw who took it"
+            }
+            IssueKind::Untaught => {
+                "a child of theirs could not be sent to learn a craft for want of the fee"
             }
         }
     }
@@ -1848,6 +1863,12 @@ pub fn law_words(
             None => "someone as keeper of the common store".to_owned(),
         };
     }
+    if def.is_some_and(|d| d.kind == PolicyKind::KeepSchool) {
+        return match law.holder {
+            Some(h) => format!("{} to keep the school{instead}", name_of(h)),
+            None => "someone to keep the school".to_owned(),
+        };
+    }
     if def.is_some_and(|d| d.kind == PolicyKind::LightStreets) {
         return match law.holder {
             Some(h) => format!("{} to light the streets at night{instead}", name_of(h)),
@@ -1917,6 +1938,7 @@ pub fn ending_words(
         Some(PolicyKind::KeepStore) => who("keeping of the common store"),
         Some(PolicyKind::KeepWatch) => who("watch over the stores at night"),
         Some(PolicyKind::LightStreets) => who("lighting of the streets"),
+        Some(PolicyKind::KeepSchool) => who("keeping of the school"),
         Some(PolicyKind::AgainstTaking) => "the law against taking".to_owned(),
         Some(PolicyKind::Curfew) => format!(
             "the curfew from {}:00 to {}:00",
@@ -2042,6 +2064,7 @@ pub fn office_words(
                 | PolicyKind::HearCases
                 | PolicyKind::Mint
                 | PolicyKind::LightStreets
+                | PolicyKind::KeepSchool
         ) {
             continue;
         }
@@ -3019,6 +3042,12 @@ impl Polity {
     /// part).
     pub fn lamplighter(&self) -> Option<(PermanentId, &Law)> {
         self.office(PolicyKind::LightStreets)
+    }
+
+    /// The one who keeps the school by a law in force, and that law (M10c slice EB, third
+    /// part).
+    pub fn schoolteacher(&self) -> Option<(PermanentId, &Law)> {
+        self.office(PolicyKind::KeepSchool)
     }
 
     /// The one who strikes coin by a law in force, and that law (M7d slice CE).

@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 180
+kernel_content_api = 181
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2650,7 +2650,31 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         .expect("the street lamps template");
     assert_eq!(def.kind, PolicyKind::LightStreets);
     assert_eq!(def.answers, vec![IssueKind::DarkTakings]);
+    // Its id sorts after every older template's (the school's, M10c slice EB, is newer).
+    let newer = ["core:policy/yourselves_work_with_a_teacher"];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
+    assert_eq!(reg.people.params.crime.lit_guard, 0.3);
+}
+
+#[test]
+fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
+    // M10c slice EB, third part (content API 181): the template answers households that could not
+    // hold a fee to send a child to learn, and names an office.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/yourselves_work_with_a_teacher")
+        .expect("the school template");
+    assert_eq!(def.kind, PolicyKind::KeepSchool);
+    assert_eq!(def.answers, vec![IssueKind::Untaught]);
     // Its id sorts after every other template's.
     assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
-    assert_eq!(reg.people.params.crime.lit_guard, 0.3);
 }

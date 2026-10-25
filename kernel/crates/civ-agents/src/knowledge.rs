@@ -33,6 +33,16 @@ pub struct Enrolment {
     pub paid: i64,
 }
 
+/// A household that found someone to teach a child of its a technique it lacked but could not
+/// hold the fee, and the day (M10c slice EB, third part): what a school answers. Kept a year;
+/// saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Untaught {
+    pub household: PermanentId,
+    pub technique: u16,
+    pub day: i64,
+}
+
 /// Minutes someone gave a technique today in sessions, teaching it or studying it (M10c slice
 /// EB, second part): credited to the learners at midnight. Saved.
 #[derive(Clone, Copy, Debug, PartialEq)]

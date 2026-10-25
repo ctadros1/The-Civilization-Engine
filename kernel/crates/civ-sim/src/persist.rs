@@ -518,6 +518,9 @@ pub const SCHEMA_V190: u32 = 190;
 pub const SCHEMA_V191: u32 = 191;
 /// Calls to attend a birth, before enrolments to learn from another household.
 pub const SCHEMA_V192: u32 = 192;
+/// Enrolments to learn from another household, before households untaught were kept for a
+/// school.
+pub const SCHEMA_V193: u32 = 193;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

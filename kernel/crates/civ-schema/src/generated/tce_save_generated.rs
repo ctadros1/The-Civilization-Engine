@@ -4459,6 +4459,165 @@ impl<'a> EnrolmentSave {
 
 }
 
+// struct UntaughtSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct UntaughtSave(pub [u8; 24]);
+impl Default for UntaughtSave { 
+  fn default() -> Self { 
+    Self([0; 24])
+  }
+}
+impl ::core::fmt::Debug for UntaughtSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("UntaughtSave")
+      .field("household", &self.household())
+      .field("technique", &self.technique())
+      .field("day", &self.day())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for UntaughtSave {}
+impl<'a> ::flatbuffers::Follow<'a> for UntaughtSave {
+  type Inner = &'a UntaughtSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a UntaughtSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a UntaughtSave {
+  type Inner = &'a UntaughtSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<UntaughtSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for UntaughtSave {
+    type Output = UntaughtSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const UntaughtSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for UntaughtSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> UntaughtSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    household: u64,
+    technique: u16,
+    day: i64,
+  ) -> Self {
+    let mut s = Self([0; 24]);
+    s.set_household(household);
+    s.set_technique(technique);
+    s.set_day(day);
+    s
+  }
+
+  pub fn household(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_household(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn technique(&self) -> u16 {
+    let mut mem = ::core::mem::MaybeUninit::<<u16 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_technique(&mut self, x: u16) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn day(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_day(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct SessionSave, aligned to 8
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -39467,6 +39626,7 @@ impl<'a> Knowledge<'a> {
   pub const VT_ENROLMENTS: ::flatbuffers::VOffsetT = 14;
   pub const VT_TAUGHT: ::flatbuffers::VOffsetT = 16;
   pub const VT_STUDIED: ::flatbuffers::VOffsetT = 18;
+  pub const VT_UNTAUGHT: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -39478,6 +39638,7 @@ impl<'a> Knowledge<'a> {
     args: &'args KnowledgeArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Knowledge<'bldr>> {
     let mut builder = KnowledgeBuilder::new(_fbb);
+    if let Some(x) = args.untaught { builder.add_untaught(x); }
     if let Some(x) = args.studied { builder.add_studied(x); }
     if let Some(x) = args.taught { builder.add_taught(x); }
     if let Some(x) = args.enrolments { builder.add_enrolments(x); }
@@ -39546,6 +39707,13 @@ impl<'a> Knowledge<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, SessionSave>>>(Knowledge::VT_STUDIED, None)}
   }
+  #[inline]
+  pub fn untaught(&self) -> Option<::flatbuffers::Vector<'a, UntaughtSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, UntaughtSave>>>(Knowledge::VT_UNTAUGHT, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Knowledge<'_> {
@@ -39562,6 +39730,7 @@ impl ::flatbuffers::Verifiable for Knowledge<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, EnrolmentSave>>>("enrolments", Self::VT_ENROLMENTS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, SessionSave>>>("taught", Self::VT_TAUGHT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, SessionSave>>>("studied", Self::VT_STUDIED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, UntaughtSave>>>("untaught", Self::VT_UNTAUGHT, false)?
      .finish();
     Ok(())
   }
@@ -39575,6 +39744,7 @@ pub struct KnowledgeArgs<'a> {
     pub enrolments: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, EnrolmentSave>>>,
     pub taught: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, SessionSave>>>,
     pub studied: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, SessionSave>>>,
+    pub untaught: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, UntaughtSave>>>,
 }
 impl<'a> Default for KnowledgeArgs<'a> {
   #[inline]
@@ -39588,6 +39758,7 @@ impl<'a> Default for KnowledgeArgs<'a> {
       enrolments: None,
       taught: None,
       studied: None,
+      untaught: None,
     }
   }
 }
@@ -39630,6 +39801,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> KnowledgeBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Knowledge::VT_STUDIED, studied);
   }
   #[inline]
+  pub fn add_untaught(&mut self, untaught: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , UntaughtSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Knowledge::VT_UNTAUGHT, untaught);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> KnowledgeBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     KnowledgeBuilder {
@@ -39655,6 +39830,7 @@ impl ::core::fmt::Debug for Knowledge<'_> {
       ds.field("enrolments", &self.enrolments());
       ds.field("taught", &self.taught());
       ds.field("studied", &self.studied());
+      ds.field("untaught", &self.untaught());
       ds.finish()
   }
 }

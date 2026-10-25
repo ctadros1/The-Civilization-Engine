@@ -91,6 +91,7 @@ mod relations;
 mod residence;
 mod resolution;
 mod rules;
+mod school;
 mod sickness;
 mod stewardship;
 mod suspicion;
@@ -639,6 +640,9 @@ pub struct Population {
     pub enrolments: Vec<crate::knowledge::Enrolment>,
     pub taught: Vec<crate::knowledge::Session>,
     pub studied: Vec<crate::knowledge::Session>,
+    /// Households that could not hold the fee to send a child to learn, within a year, oldest
+    /// first (M10c slice EB, third part).
+    pub untaught: Vec<crate::knowledge::Untaught>,
     /// What each settlement has seen of each technique's buildings, in the order first seen
     /// (ADR-0009 §6).
     pub trust: Vec<crate::caution::Trust>,

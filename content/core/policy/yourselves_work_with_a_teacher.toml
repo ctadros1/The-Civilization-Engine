@@ -1,0 +1,23 @@
+# A school kept (M10c slice EB, third part; ADR-0035 §5; brief m10-services §3.2: schools are
+# kept by those who keep a polity, a teacher named and paid from its store). Where a household of
+# the polity found someone to teach a child of its a craft it lacked but could not hold the fee,
+# within the year (the issue `untaught`), and someone grown of the settlement knows that craft,
+# anyone may propose that the polity keep a school. The one the gathering names keeps it, an office
+# as the watch is, lapsing when they die or leave: they take the children of the polity's
+# households to learn what they know without a fee, and where a law pays common work the store
+# pays their household for the hours they teach them. A household weighs it by the fees it could
+# not hold, as food kept for it. Whether anyone proposes it, whom, and whether the gathering agrees,
+# is people's choice. Its id sorts after every older template's: hearth talk about a question is
+# keyed by a template's place in id order.
+kind = "policy"
+id = "core:policy/yourselves_work_with_a_teacher"
+name = "Schoolteacher"
+description = "The one the gathering names takes the children of its households to learn a craft they know, without a fee."
+does = "keep_a_school"
+answers = ["untaught"]
+question = "whether to keep a school"
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement: what one household could not hold, all give.
+[bears]
+"core:value/reciprocity" = 0.5

@@ -191,6 +191,7 @@ impl Population {
     /// Households whose day of the year it is weigh sending a child to learn a craft (M10c
     /// slice EB, second part); none while no market remembers a trade.
     pub(super) fn enrol_reviews(&mut self, ctx: &mut Ctx, day: i64) {
+        self.prune_untaught(day);
         if self.markets.iter().all(|m| m.recent.is_empty()) {
             return;
         }
@@ -294,6 +295,12 @@ impl Population {
             {
                 continue;
             }
+            // A school the polity keeps takes the child first, without a fee (M10c slice EB,
+            // third part).
+            if let Some(teacher) = self.school_for(h, t) {
+                chosen = Some((teacher, seller, t, true));
+                break;
+            }
             let Some(teacher) = self.knower_in(ctx, seller, t, None, None) else {
                 continue;
             };
@@ -303,29 +310,34 @@ impl Population {
             {
                 continue;
             }
-            chosen = Some((teacher, seller, t));
+            chosen = Some((teacher, seller, t, false));
             break;
         }
-        let Some((teacher, seller, t)) = chosen else {
+        let Some((teacher, seller, t, school)) = chosen else {
+            return;
+        };
+        let Ok(technique) = u16::try_from(t) else {
             return;
         };
         self.refresh_kin();
-        let kin = members.iter().any(|&m| {
-            self.close_kin(m)
-                .iter()
-                .any(|k| self.person(*k).is_some_and(|q| q.household == seller))
-        });
+        let kin = school
+            || members.iter().any(|&m| {
+                self.close_kin(m)
+                    .iter()
+                    .any(|k| self.person(*k).is_some_and(|q| q.household == seller))
+            });
         let Some(x) = self.household(h) else {
             return;
         };
         let fee = if kin { 0.0 } else { self.call_fee(ctx, x) };
         let (params, goods) = (ctx.params, &catalog.goods);
         if crate::person::stock_kcal(&super::stores_now(x, now, params, goods), goods) < fee {
+            // Remembered a year, for a school (M10c slice EB, third part).
+            self.note_untaught(h, technique, now.day_index());
             return;
         }
-        let Ok(technique) = u16::try_from(t) else {
-            return;
-        };
+        self.untaught
+            .retain(|u| !(u.household == h && u.technique == technique));
         self.enrolments.push(crate::knowledge::Enrolment {
             teacher,
             learner: child,
@@ -459,6 +471,9 @@ impl Population {
         );
         let now = ctx.now;
         let list = self.enrolments.clone();
+        // Schoolteachers are paid for yesterday's hours, where work is paid (M10c slice EB, third
+        // part).
+        self.pay_school(ctx, &taught, &studied, &list);
         for e in &list {
             let t = e.technique;
             let attended = crate::knowledge::tallied(&studied, e.learner, t);

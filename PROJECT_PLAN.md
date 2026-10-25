@@ -6,8 +6,8 @@ institutions through large cities, transport, planning, land and household resol
 settlements. M9's 100,000-person performance target was not met; see §7 and §9 for the measured
 result and amended gate. **M10a, power and the works, and M10b, rail and gas light, are
 implemented** (slices DO–DY). **M10c, services and letters, is in progress:** care beyond the
-household (DZ) and birth care (EA) are implemented; teaching (EB) has begun, and letters,
-inoculation and the health office remain ahead. M2's portable kernel library and C interface are
+household (DZ), birth care (EA) and teaching (EB) are implemented, and letters, inoculation and
+the health office remain ahead. M2's portable kernel library and C interface are
 implemented; the Unreal client remains future work. Modern civilization remains future scope. See
 §7 for milestone scope and §9 for implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
@@ -6974,6 +6974,27 @@ and M6a gives rivers a daily flow.
       hours toward it of those it takes, the fee, and today's hours studied ("Studies making
       pottery with Imma, 6 of 300 hours, for 6300 kcal of food a day"). **Tested:** the enrolled
       child's page and the potter's say it; on the web, a person's teaching decodes and shows.
+      *As built, third part, second half (2026-10-25): schools kept by law.* A household whose
+      review found someone to teach a child of its a craft but could not hold the fee is
+      remembered a year (saves 194, in the knowledge section). Where a household of a polity was
+      so within the year and someone grown of the settlement knows that craft, anyone may
+      propose that the polity keep a school, `keep_a_school`, answering the issue `untaught`
+      (content API 181; the core's `policy/yourselves_work_with_a_teacher`): an office as the
+      watch is, its holder the schoolteacher, named from the adults who know the craft most
+      wanted, the one the proposer regards most, filled by lot where its template says. A
+      household weighs it by the fees it could not hold over the days learning takes in
+      sessions, as food kept for it. Kept, a household's review enrols its child first with the
+      schoolteacher, without a fee, where they know the craft it wants and are not of it; where a
+      law pays common work, the store pays the schoolteacher's household each midnight for the
+      hours they taught such learners who came. Teaching is held at the schoolteacher's home: a
+      school building raised by law, which part 3's plan named, is left to the raising of
+      buildings and not built here. A world where every household holds its fees is unchanged.
+      **Tested:** a household holding nothing to pay with is remembered untaught, which saves
+      and loads, and the issue stands while a potter of the settlement knows pottery; someone
+      proposes a school kept by a potter; in force, with pay for common work and coin in the
+      store, the household's child is enrolled with the schoolteacher at no fee, studies pottery
+      within days, the schoolteacher's household is paid, and the polity's offices name the
+      schoolteacher. **Slice EB is done.**
     - **EC**: letters and records: reading, writing and reckoning as techniques, written records as
       saved entities, office requirements, licences as privileges.
     - **ED**: inoculation: the `Company` route, smallpox by the observer's hand, variolation and

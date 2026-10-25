@@ -1268,6 +1268,7 @@ impl PolicyFile {
                 | PolicyKind::BuildWay
                 | PolicyKind::BuildLine
                 | PolicyKind::LightStreets
+                | PolicyKind::KeepSchool
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
@@ -1335,6 +1336,7 @@ impl PolicyFile {
                 | PolicyKind::BuildWay
                 | PolicyKind::BuildLine
                 | PolicyKind::LightStreets
+                | PolicyKind::KeepSchool
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding,
             )

@@ -419,7 +419,13 @@ impl Population {
 
     /// Household `household` gave `hours` to a common work of polity `polity`: the store pays it
     /// the law's rate for them, as far as it holds the money.
-    fn pay_for_work(&mut self, ctx: &Ctx, polity: PermanentId, household: PermanentId, hours: f64) {
+    pub(super) fn pay_for_work(
+        &mut self,
+        ctx: &Ctx,
+        polity: PermanentId,
+        household: PermanentId,
+        hours: f64,
+    ) {
         if hours.is_nan() || hours <= 0.0 {
             return;
         }

@@ -110,6 +110,9 @@ pub(super) struct Forecasts {
     /// template index and then household id (M7d slice CE3a): its share of the money the store
     /// holds, at what a unit is worth to it in hours, at what its hours bring in food.
     pay: Vec<(u16, Vec<(PermanentId, f64)>)>,
+    /// What a school would spare each household that could not send a child to learn within the
+    /// year, kcal, by household id (M10c slice EB, third part).
+    schooling: Vec<(PermanentId, f64)>,
 }
 
 /// What a household weighs a trade law by (M7c slice BV, ADR-0026 §1): its settlement's
@@ -369,6 +372,16 @@ impl Forecasts {
             Some(PolicyKind::LightStreets) => {
                 let (recover, owe) = known().watched(params.crime.lit_guard);
                 crate::polity::against_gain(o, recover, owe, pp)
+            }
+            // A school (M10c slice EB, third part) spares the fees a household could not hold,
+            // as food kept for it.
+            Some(PolicyKind::KeepSchool) => {
+                let saved = self
+                    .schooling
+                    .iter()
+                    .find(|s| s.0 == h)
+                    .map_or(0.0, |s| s.1);
+                crate::polity::kept_gain(o, saved, pp)
             }
             Some(PolicyKind::KeepWatch) => {
                 let g = params.crime.watch_guard.clamp(0.0, 1.0);
@@ -1097,6 +1110,7 @@ impl Population {
             let office = match kind {
                 PolicyKind::KeepWatch => "keeps watch",
                 PolicyKind::LightStreets => "lights the streets",
+                PolicyKind::KeepSchool => "keeps the school",
                 PolicyKind::HearCases => "hears cases",
                 PolicyKind::Mint => "strikes coin",
                 _ => "keeps the common store",
@@ -1777,6 +1791,7 @@ impl Population {
             mints,
             count_piece_h,
             pay: self.pay_forecasts(ctx, pi, households),
+            schooling: self.schooling(ctx, households, adults),
             adults: {
                 let mut a = adults.to_vec();
                 a.sort_unstable();
@@ -2663,6 +2678,11 @@ impl Population {
         if self.dark_takings(ctx, pi, &households) {
             issues.push(IssueKind::DarkTakings);
         }
+        // A household of it could not hold the fee to send a child to learn what someone grown of
+        // it knows (M10c slice EB, third part).
+        if self.school_technique(ctx, &households, &adults).is_some() {
+            issues.push(IssueKind::Untaught);
+        }
         // What it saw of its ground within memory (M8c slice CT, second part): a household that
         // found no ground for its home, a trail built over, a home beyond the built edge.
         let (ground, ground_homes) = self.ground_issues(ctx, pi, settlement);
@@ -3369,6 +3389,7 @@ impl Population {
                     | PolicyKind::KeepWatch
                     | PolicyKind::Mint
                     | PolicyKind::LightStreets
+                    | PolicyKind::KeepSchool
                         if def.tenure.is_some_and(|t| t.by_lot) =>
                     {
                         moves.push(blank);
@@ -3687,6 +3708,33 @@ impl Population {
                         let pick = adults
                             .iter()
                             .filter(|&&(c, _)| Some(c) != barred)
+                            .map(|&(c, _)| {
+                                let r = if c == d {
+                                    1.0
+                                } else {
+                                    self.ties.regard(d, c, day, tp).clamp(0.0, 1.0)
+                                };
+                                (r, c)
+                            })
+                            .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)));
+                        if let Some((_, c)) = pick {
+                            moves.push(MoveOption {
+                                nominee: Some(c),
+                                ..blank
+                            });
+                        }
+                    }
+                    // A schoolteacher (M10c slice EB, third part): of the adults who know the
+                    // technique most wanted, the one they regard most, themselves at full regard.
+                    PolicyKind::KeepSchool => {
+                        let barred = self.term_barred(pi, k, day, def);
+                        let wanted = self.school_technique(ctx, &households, &adults);
+                        let pick = adults
+                            .iter()
+                            .filter(|&&(c, _)| Some(c) != barred)
+                            .filter(|&&(c, _)| {
+                                wanted.is_some_and(|t| self.person(c).is_some_and(|p| p.knows(t)))
+                            })
                             .map(|&(c, _)| {
                                 let r = if c == d {
                                     1.0
@@ -4494,6 +4542,7 @@ impl Population {
                     | PolicyKind::KeepWatch
                     | PolicyKind::Mint
                     | PolicyKind::LightStreets
+                    | PolicyKind::KeepSchool
             )
         {
             self.fill_term(ctx, pi, law_id);

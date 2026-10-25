@@ -6,8 +6,8 @@ institutions through large cities, transport, planning, land and household resol
 settlements. M9's 100,000-person performance target was not met; see §7 and §9 for the measured
 result and amended gate. **M10a, power and the works, and M10b, rail and gas light, are
 implemented** (slices DO–DY). **M10c, services and letters, is in progress:** care beyond the
-household (DZ), birth care (EA), teaching (EB) and letters and records (EC) are implemented;
-inoculation (ED) is under way (smallpox, variolation, vaccination), and the health office remains ahead. M2's portable kernel library and C interface are
+household (DZ), birth care (EA), teaching (EB), letters and records (EC) and inoculation (ED:
+smallpox, variolation, vaccination) are implemented, and the health office remains ahead. M2's portable kernel library and C interface are
 implemented; the Unreal client remains future work. Modern civilization remains future scope. See
 §7 for milestone scope and §9 for implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
@@ -7143,6 +7143,17 @@ and M6a gives rivers a daily flow.
       household knowing a vaccinator and a variolator calls the vaccinator, whose household
       makes matter, and its people are vaccinated, none inoculated, the records saving and
       loading; the content.
+      *As built, fourth part (2026-10-25): the observer of inoculation.* A vaccination records
+      who gave it (saves 201; nobody known in older saves). A person's page reads it with no wire
+      change: their care says how many they inoculated and vaccinated against each disease
+      ("Vaccinated 4 people against smallpox") and the calls to inoculate that stand at their
+      household's door or that it made, with the fee; their sickness lists, before their
+      infections, their latest vaccination against each disease, when and by whom, and how many
+      days more it is whole or how protected they are now that it wanes. An inoculated course
+      already names its inoculator (part two). **Tested:** while the call stands the
+      vaccinator's page says their household is called to inoculate; after, it says how many
+      they vaccinated, and the vaccinated's says by whom and that it is whole; the variolator's
+      says how many they inoculated. **Slice ED is done.**
     - **EE**: the health office and the sickhouse: register and rounds, `keep_apart`,
       `clear_middens`, the sickhouse's pool and capacity; the observer's service views. From EC:
       an office whose holder must know a technique (the register's keeper, writing), and a

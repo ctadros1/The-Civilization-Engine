@@ -56236,6 +56236,7 @@ impl<'a> VaccinatedSave<'a> {
   pub const VT_DISEASE: ::flatbuffers::VOffsetT = 6;
   pub const VT_DAY: ::flatbuffers::VOffsetT = 8;
   pub const VT_FULL_UNTIL: ::flatbuffers::VOffsetT = 10;
+  pub const VT_BY: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -56247,6 +56248,7 @@ impl<'a> VaccinatedSave<'a> {
     args: &'args VaccinatedSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<VaccinatedSave<'bldr>> {
     let mut builder = VaccinatedSaveBuilder::new(_fbb);
+    builder.add_by(args.by);
     builder.add_full_until(args.full_until);
     builder.add_day(args.day);
     builder.add_person(args.person);
@@ -56283,6 +56285,13 @@ impl<'a> VaccinatedSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(VaccinatedSave::VT_FULL_UNTIL, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn by(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(VaccinatedSave::VT_BY, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for VaccinatedSave<'_> {
@@ -56295,6 +56304,7 @@ impl ::flatbuffers::Verifiable for VaccinatedSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("disease", Self::VT_DISEASE, false)?
      .visit_field::<i64>("day", Self::VT_DAY, false)?
      .visit_field::<i64>("full_until", Self::VT_FULL_UNTIL, false)?
+     .visit_field::<u64>("by", Self::VT_BY, false)?
      .finish();
     Ok(())
   }
@@ -56304,6 +56314,7 @@ pub struct VaccinatedSaveArgs<'a> {
     pub disease: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub day: i64,
     pub full_until: i64,
+    pub by: u64,
 }
 impl<'a> Default for VaccinatedSaveArgs<'a> {
   #[inline]
@@ -56313,6 +56324,7 @@ impl<'a> Default for VaccinatedSaveArgs<'a> {
       disease: None,
       day: 0,
       full_until: 0,
+      by: 0,
     }
   }
 }
@@ -56339,6 +56351,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> VaccinatedSaveBuilder<'a, 'b,
     self.fbb_.push_slot::<i64>(VaccinatedSave::VT_FULL_UNTIL, full_until, 0);
   }
   #[inline]
+  pub fn add_by(&mut self, by: u64) {
+    self.fbb_.push_slot::<u64>(VaccinatedSave::VT_BY, by, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> VaccinatedSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     VaccinatedSaveBuilder {
@@ -56360,6 +56376,7 @@ impl ::core::fmt::Debug for VaccinatedSave<'_> {
       ds.field("disease", &self.disease());
       ds.field("day", &self.day());
       ds.field("full_until", &self.full_until());
+      ds.field("by", &self.by());
       ds.finish()
   }
 }

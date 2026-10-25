@@ -1611,6 +1611,18 @@ fn a_household_that_believes_smallpox_near_calls_a_variolator_and_its_people_are
         inoculated.iter().all(|&(_, h)| h == Some(home)),
         "{inoculated:?}"
     );
+    // The variolator's page says whom they inoculated (fourth part).
+    let n = inoculated.len();
+    let whom = if n == 1 {
+        "1 person".to_owned()
+    } else {
+        format!("{n} people")
+    };
+    let words = civ_sim::frames::sickness::care_words(&sim, variolator);
+    assert!(
+        words.contains(&format!("Inoculated {whom} against smallpox")),
+        "{words}"
+    );
 }
 
 /// Where someone died of smallpox, a household with ties to them that knows both one who knows
@@ -1708,11 +1720,17 @@ fn a_household_calls_a_vaccinator_before_a_variolator_and_its_people_are_vaccina
         Some(theirs),
         "they would call the vaccinator's household"
     );
-    // They call; the vaccinator's household makes matter, and they come and vaccinate.
+    // They call; the vaccinator's household makes matter, and they come and vaccinate. While the
+    // call stands the vaccinator's page says so (fourth part).
     let mut made = false;
+    let mut called_words = false;
     let mut vaccinated = Vec::new();
     for _ in 0..40 {
         sim.advance_minutes(DAY / 8).expect("lives");
+        if !sim.people().sickness.inoculation_calls.is_empty() {
+            let words = civ_sim::frames::sickness::care_words(&sim, vaccinator);
+            called_words |= words.contains("Their household is called to inoculate the people of");
+        }
         let people = sim.people();
         made |= people
             .household(theirs)
@@ -1756,6 +1774,34 @@ fn a_household_calls_a_vaccinator_before_a_variolator_and_its_people_are_vaccina
             .unvaccinated_share(v.person, disease, today, &def);
         assert!((share - 0.05).abs() < 1e-9, "{share}");
     }
+    // The observer reads it (fourth part): whom the vaccinator vaccinated, and by whom each
+    // vaccinated was, whole for how long.
+    assert!(called_words, "the call stood on the vaccinator's page");
+    let n = people
+        .sickness
+        .vaccinated
+        .iter()
+        .filter(|v| v.by == Some(vaccinator))
+        .count();
+    assert_eq!(n, vaccinated.len());
+    let whom = if n == 1 {
+        "1 person".to_owned()
+    } else {
+        format!("{n} people")
+    };
+    let words = civ_sim::frames::sickness::care_words(&sim, vaccinator);
+    assert!(
+        words.contains(&format!("Vaccinated {whom} against smallpox")),
+        "{words}"
+    );
+    let said = civ_sim::frames::sickness::sickness_words(&sim, vaccinated[0]);
+    let by = people.name_of(vaccinator);
+    assert!(
+        said.first()
+            .is_some_and(|w| w.starts_with("Vaccinated against smallpox")
+                && w.contains(&format!(" by {by}, whole for "))),
+        "{said:?}"
+    );
     let loaded = reloaded(&mut sim);
     assert_eq!(
         loaded.people().sickness.vaccinated,

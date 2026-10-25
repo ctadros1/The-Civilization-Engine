@@ -338,13 +338,15 @@ pub struct UnknowingCare {
 }
 
 /// Someone vaccinated against a disease (M10c slice ED, third part): who, the disease by index,
-/// the day, and the last day its protection is whole. Saved.
+/// the day, the last day its protection is whole, and who vaccinated them (fourth part; none in
+/// saves before 201). Saved.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vaccinated {
     pub person: PermanentId,
     pub disease: u16,
     pub day: i64,
     pub full_until: i64,
+    pub by: Option<PermanentId>,
 }
 
 /// Every infection there has been, in the order they came, every outbreak, and the calls for
@@ -689,6 +691,7 @@ mod tests {
             disease: 0,
             day: 0,
             full_until: 1000,
+            by: None,
         });
         assert!((s.unvaccinated_share(me, 0, 1000, &v) - 0.05).abs() < 1e-12);
         assert!(s.vaccinated_whole(me, 0, 1000) && !s.vaccinated_whole(me, 0, 1001));

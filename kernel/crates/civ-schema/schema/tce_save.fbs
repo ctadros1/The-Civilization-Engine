@@ -3139,6 +3139,8 @@ table VaccinatedSave {
   disease: string;
   day: long;
   full_until: long;
+  // Schema 201 (M10c slice ED, fourth part): who vaccinated them, 0 for nobody known.
+  by: ulong;
 }
 
 table SicknessSave {

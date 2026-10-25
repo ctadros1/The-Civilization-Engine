@@ -373,7 +373,7 @@ impl Population {
             if let Some(v) = vaccine
                 && vaccinated < doses
             {
-                self.vaccinate(ctx, m, d, day, &v);
+                self.vaccinate(ctx, m, d, day, &v, who);
                 vaccinated += 1;
             } else if inoc.is_some() {
                 self.infect(ctx, m, d, day, Acquired::Inoculated { by: who });
@@ -411,9 +411,17 @@ impl Population {
         true
     }
 
-    /// Person `m` is vaccinated against `disease` on `day` by `v`: whole for a number of years
-    /// drawn evenly between its two (M10c slice ED, third part).
-    fn vaccinate(&mut self, ctx: &Ctx, m: PermanentId, disease: u16, day: i64, v: &VaccinationDef) {
+    /// Person `m` is vaccinated against `disease` on `day` by `v`, by person `by`: whole for a
+    /// number of years drawn evenly between its two (M10c slice ED, third part).
+    fn vaccinate(
+        &mut self,
+        ctx: &Ctx,
+        m: PermanentId,
+        disease: u16,
+        day: i64,
+        v: &VaccinationDef,
+        by: PermanentId,
+    ) {
         let u = sickness_rng(ctx.seed, m, day, disease, SickDraw::Vaccinated).next_f64();
         let [lo, hi] = v.full_years;
         let years = lo + (hi - lo).max(0.0) * u;
@@ -422,6 +430,7 @@ impl Population {
             disease,
             day,
             full_until: day + (years * 365.25).round() as i64,
+            by: Some(by),
         });
     }
 

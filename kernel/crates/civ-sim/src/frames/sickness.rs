@@ -271,7 +271,9 @@ pub fn suspicion_words(sim: &Sim, person: PermanentId) -> Vec<String> {
 /// homes they were first to tend and what came of it ("First to tend 3 of the sick of other
 /// homes: 2 lived, 1 died"), and the calls standing that ask their household to tend another's
 /// ("Their household is called to tend the sick of Ada's household, for 2100 kcal of food a day")
-/// or that their household made; empty for none.
+/// or that their household made; those they inoculated or vaccinated ("Vaccinated 4 people
+/// against smallpox", M10c slice ED) and the calls to inoculate standing either way; empty for
+/// none.
 pub fn care_words(sim: &Sim, person: PermanentId) -> String {
     let people = &sim.people;
     let Some(home) = people.person(person).map(|p| p.household) else {
@@ -337,6 +339,63 @@ pub fn care_words(sim: &Sim, person: PermanentId) -> String {
         };
         said.push(format!("{attended}: {came}"));
     }
+    // Those they inoculated and vaccinated, by disease (M10c slice ED).
+    let disease_name = |d: u16| {
+        sim.rules
+            .catalog
+            .diseases
+            .get(usize::from(d))
+            .map_or_else(|| "a disease".to_owned(), |x| x.name.to_lowercase())
+    };
+    let mut given: std::collections::BTreeMap<(u16, bool), u32> = Default::default();
+    for e in people.sickness.episodes() {
+        if e.acquired == (Acquired::Inoculated { by: person }) {
+            *given.entry((e.disease, false)).or_default() += 1;
+        }
+    }
+    for v in people
+        .sickness
+        .vaccinated
+        .iter()
+        .filter(|v| v.by == Some(person))
+    {
+        *given.entry((v.disease, true)).or_default() += 1;
+    }
+    for ((d, vaccinated), n) in given {
+        let how = if vaccinated {
+            "Vaccinated"
+        } else {
+            "Inoculated"
+        };
+        let whom = if n == 1 {
+            "1 person".to_owned()
+        } else {
+            format!("{n} people")
+        };
+        said.push(format!("{how} {whom} against {}", disease_name(d)));
+    }
+    let fee_once = |kcal: f32| {
+        if kcal > 0.0 {
+            format!("for {kcal:.0} kcal of food")
+        } else {
+            "asking nothing".to_owned()
+        }
+    };
+    for c in &people.sickness.inoculation_calls {
+        if c.carer == home {
+            said.push(format!(
+                "Their household is called to inoculate the people of {}, {}",
+                super::people::household_name(sim, c.caller),
+                fee_once(c.fee_kcal)
+            ));
+        } else if c.caller == home {
+            said.push(format!(
+                "Their household called {} to inoculate its people, {}",
+                super::people::household_name(sim, c.carer),
+                fee_once(c.fee_kcal)
+            ));
+        }
+    }
     let fee = |kcal: f32| {
         if kcal > 0.0 {
             format!("for {kcal:.0} kcal of food a day")
@@ -372,14 +431,48 @@ pub fn care_words(sim: &Sim, person: PermanentId) -> String {
     said.join("; ")
 }
 
-/// `person`'s infections in words, the latest first, at most five.
+/// `person`'s infections in words, the latest first, at most five; before them their latest
+/// vaccination against each disease (M10c slice ED): "Vaccinated against smallpox 3 days ago by
+/// Ada, whole for 1400 days more", or once no longer whole, "..., 62% protected now".
 pub fn sickness_words(sim: &Sim, person: PermanentId) -> Vec<String> {
-    let mut list: Vec<&Episode> = sim.people.sickness.of(person).collect();
+    let today = sim.now().day_index();
+    let sickness = &sim.people.sickness;
+    let mut out = Vec::new();
+    let mut seen: Vec<u16> = Vec::new();
+    for v in sickness
+        .vaccinated
+        .iter()
+        .rev()
+        .filter(|v| v.person == person)
+    {
+        if seen.contains(&v.disease) {
+            continue;
+        }
+        seen.push(v.disease);
+        let Some(d) = sim.rules.catalog.diseases.get(usize::from(v.disease)) else {
+            continue;
+        };
+        let by =
+            v.by.map(|b| format!(" by {}", sim.people.name_of(b)))
+                .unwrap_or_default();
+        let now = if today <= v.full_until {
+            format!("whole for {} days more", v.full_until - today)
+        } else {
+            let share = d.vaccination.map_or(1.0, |def| {
+                sickness.unvaccinated_share(person, v.disease, today, &def)
+            });
+            format!("{:.0}% protected now", (1.0 - share) * 100.0)
+        };
+        out.push(format!(
+            "Vaccinated against {} {}{by}, {now}",
+            d.name.to_lowercase(),
+            when(today, v.day)
+        ));
+    }
+    let mut list: Vec<&Episode> = sickness.of(person).collect();
     list.reverse();
-    list.into_iter()
-        .take(5)
-        .map(|e| episode_words(sim, e))
-        .collect()
+    out.extend(list.into_iter().take(5).map(|e| episode_words(sim, e)));
+    out
 }
 
 /// What fouls the water of well `well`, holding `litres`, in words (`WellInfo.fouled`): "Its

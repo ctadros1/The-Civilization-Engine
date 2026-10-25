@@ -228,6 +228,9 @@ pub enum Reason {
     Writing = 164,
     /// Their household holds a record of something they do not know (M10c slice EC).
     Reading = 165,
+    /// A law keeps the sick apart: their household has someone ill, or the household they would
+    /// tend at has (M10c slice EE).
+    KeepApart = 166,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -239,7 +242,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 99] = [
+    pub const ALL: [Reason; 100] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -339,6 +342,7 @@ impl Reason {
         Reason::Study,
         Reason::Writing,
         Reason::Reading,
+        Reason::KeepApart,
     ];
 
     /// The reason with this code.
@@ -450,6 +454,7 @@ impl Reason {
             Reason::Study => "they are enrolled to learn it",
             Reason::Writing => "nobody else of theirs knows it, and no record keeps it",
             Reason::Reading => "their household holds a record of it",
+            Reason::KeepApart => "a law keeps the sick and their households apart from others",
         }
     }
 }

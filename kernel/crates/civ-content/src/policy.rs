@@ -121,6 +121,10 @@ pub(crate) struct PolicyFile {
     /// asks of those paid to tend the sick.
     #[serde(default)]
     pub licence: Option<LicenceFile>,
+    /// For keeping the sick apart (`keep_apart`, content API 187, M10c slice EE): how long a
+    /// household is kept apart, and what keeping to its home costs.
+    #[serde(default)]
+    pub keep_apart: Option<KeepApartFile>,
     /// For a common store (`common_store`, content API 129, M7d slice CE3b): a money its levy
     /// may be paid in.
     #[serde(default)]
@@ -237,6 +241,17 @@ pub struct MediumFile {
     pub good: String,
     /// Units of it that pay for a kilogram of the grain owed.
     pub per_kg: f64,
+}
+
+/// The terms of keeping the sick apart in a policy file (content API 187, M10c slice EE, first
+/// part).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct KeepApartFile {
+    /// The days after the last of a household is well that it is still kept apart.
+    pub days_after: u16,
+    /// The share of a day's work each grown member loses while their home is kept apart, 0-1.
+    pub cost_share: f32,
 }
 
 /// What a licence to practise asks in a policy file (content API 183, M10c slice EC, third part).
@@ -632,6 +647,13 @@ impl PolicyFile {
             medium: None,
             // Resolved apart, with the technique's name.
             licence: None,
+            keep_apart: self
+                .keep_apart
+                .as_ref()
+                .map(|k| civ_agents::polity::KeepApartDef {
+                    days_after: k.days_after,
+                    cost_share: k.cost_share,
+                }),
             plan: self.plan.as_ref().map(|g| civ_agents::polity::PlanDef {
                 grid: civ_land::plans::Grid {
                     block_m: (g.block_m[0] as f32, g.block_m[1] as f32),
@@ -1096,6 +1118,29 @@ impl PolicyFile {
             (Some(_), Some(PolicyKind::Licence)) | (None, _) => {}
             (Some(_), _) => p.push("`licence` is for `does = \"licence\"`".to_owned()),
         }
+        // Keeping the sick apart's terms (M10c slice EE, first part): only for `keep_apart`,
+        // which must have them.
+        match (&self.keep_apart, PolicyKind::from_name(&self.does)) {
+            (None, Some(PolicyKind::KeepApart)) => {
+                p.push("a `keep_apart` template needs a `keep_apart` table".to_owned());
+            }
+            (Some(k), Some(PolicyKind::KeepApart)) => {
+                if !(1..=365).contains(&k.days_after) {
+                    p.push(format!(
+                        "`keep_apart.days_after` must be between 1 and 365 (got {})",
+                        k.days_after
+                    ));
+                }
+                if !(k.cost_share.is_finite() && (0.0..=1.0).contains(&k.cost_share)) {
+                    p.push(format!(
+                        "`keep_apart.cost_share` must be between 0 and 1 (got {})",
+                        k.cost_share
+                    ));
+                }
+            }
+            (None, _) => {}
+            (Some(_), _) => p.push("`keep_apart` is for `does = \"keep_apart\"`".to_owned()),
+        }
         // Pay for common work (M7d slice CE3a): only for `pay_work`, which must have it.
         match (&self.pay, PolicyKind::from_name(&self.does)) {
             (Some(pay), Some(PolicyKind::PayWork)) => {
@@ -1293,6 +1338,7 @@ impl PolicyFile {
                 | PolicyKind::LightStreets
                 | PolicyKind::KeepSchool
                 | PolicyKind::Licence
+                | PolicyKind::KeepApart
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
@@ -1362,6 +1408,7 @@ impl PolicyFile {
                 | PolicyKind::LightStreets
                 | PolicyKind::KeepSchool
                 | PolicyKind::Licence
+                | PolicyKind::KeepApart
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding,
             )
@@ -1661,6 +1708,7 @@ mod tests {
             plan: None,
             raise: None,
             licence: None,
+            keep_apart: None,
         }
     }
 

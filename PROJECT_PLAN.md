@@ -7158,6 +7158,24 @@ and M6a gives rivers a daily flow.
       `clear_middens`, the sickhouse's pool and capacity; the observer's service views. From EC:
       an office whose holder must know a technique (the register's keeper, writing), and a
       household sending a child to learn letters for what they visibly bring.
+      *As built, first part (2026-10-25): keeping the sick apart.* Where someone of a household
+      of a polity died within the year of a sickness passing at home or in company (the issue
+      `contagion`, appended), anyone may propose `keep_apart` (appended; content API 187, its
+      template's `[keep_apart]` terms: `days_after` 14, `cost_share` 0.25, design priors): a
+      household with someone ill of anything keeps to its home, and others keep from it, until
+      that many days after the last of it is well. It is kept by choice, as a curfew is: one who
+      knows the law weighs going out of a home kept apart (the watch, the lamplighter and those at
+      a fire exempt), or tending at one, by what keeping it weighs with them (`KeepApart`, an
+      appended reason), and breaches are counted, knowing or not. A household weighs the law by
+      the deaths of its people of such a sickness within the year, as deaths avoided (as a
+      licence's), against a quarter of a day's work of each grown member for each day it had
+      someone ill within the year and the days after. Cholera passes at home too, so a death of
+      it raises the issue, and a law passed against it costs work and keeps nobody from the water
+      (a legible mistake, 05-05 §1.7). Saves 202 (the issue's code). **Tested:** where someone
+      died of smallpox, keeping the sick apart comes before the gathering against it; under the
+      law the well of a household with someone ill of smallpox were away from home 112 times in
+      two working days' samples against 171 in the same village without it, breaches counted,
+      and the world saves and goes on alike; the content.
   - **M10d, money and the demo** (ADR-0035 §8–§12).
     - **EF**: acceptance of a money for onward exchange and dues, a money's value in a midnight
       table instead of a scan per decision.

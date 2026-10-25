@@ -39,6 +39,7 @@ use crate::person::{
     food_kcal, fuel_kg, reserve_food_kcal, stock_kcal,
 };
 
+mod apart;
 mod boating;
 mod bottlenecks;
 mod cases;
@@ -4928,6 +4929,66 @@ impl Population {
                 }
             }
         }
+        // A law keeping the sick apart where they live (M10c slice EE, first part): going out of
+        // a home kept apart, or tending at another one, costs one who knows of it what keeping it
+        // weighs with them. The watch, the lamplighter and those at a fire are exempt.
+        let apart = self
+            .people
+            .get(h)
+            .map(|p| p.id)
+            .and_then(|id| self.keep_apart_now(ctx, id, &hh));
+        let today = ctx.now.day_index();
+        // The households their tending options would take them to that are kept apart.
+        let apart_targets: Vec<PermanentId> = match apart {
+            Some(k) if !k.home => cands
+                .iter()
+                .filter_map(|c| match c.scored.target {
+                    Target::Household(x) => Some(x),
+                    _ => None,
+                })
+                .filter(|&x| {
+                    self.household(x)
+                        .is_some_and(|y| self.kept_apart(y, &k.def, today))
+                })
+                .collect(),
+            _ => Vec::new(),
+        };
+        let kept_from = |c: &decide::Candidate| {
+            let Some(k) = apart else {
+                return false;
+            };
+            let behavior = catalog
+                .activities
+                .get(usize::from(c.scored.def))
+                .map(|a| a.behavior);
+            if k.home {
+                let exempt = behavior.is_some_and(|b| {
+                    matches!(
+                        b,
+                        Behavior::Watch
+                            | Behavior::Light
+                            | Behavior::Douse
+                            | Behavior::Strip
+                            | Behavior::Pull
+                            | Behavior::Salvage
+                    )
+                });
+                return !exempt && self::polity::away_from_home(&c.steps, pos, hh.home);
+            }
+            match c.scored.target {
+                Target::Household(x) => {
+                    behavior == Some(Behavior::Tend) && apart_targets.contains(&x)
+                }
+                _ => false,
+            }
+        };
+        if let Some(points) = apart.and_then(|k| k.points) {
+            for c in &mut cands {
+                if kept_from(c) {
+                    decide::add_term(c, Reason::KeepApart, -points);
+                }
+            }
+        }
         // A household-resolved day's planning takes the options as scored and stops here
         // (ADR-0032 §2): nothing is chosen, drawn or begun.
         if self.planning {
@@ -5027,6 +5088,21 @@ impl Population {
                 facts.water_days as f32,
             ],
         };
+        // One who goes out of a home kept apart, or tends at one, breaks the law that keeps the
+        // sick apart, knowing it or not (M10c slice EE, first part).
+        if let Some(k) = apart
+            && kept_from(&cands[choice])
+            && let Some(law) = self
+                .polities
+                .get_mut(k.pi)
+                .and_then(|x| x.laws.get_mut(k.li))
+        {
+            if k.points.is_some() {
+                law.compliance.broken += 1;
+            } else {
+                law.compliance.broken_unaware += 1;
+            }
+        }
         // One who goes out in a curfew's hours breaks it, knowing it or not.
         if let Some((pi, li, points)) = curfew
             && covered(&cands[choice])

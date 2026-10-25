@@ -1406,3 +1406,106 @@ fn a_blow_that_kills_is_a_death_by_violence_with_its_record() {
         .crime = content_crime;
     saves_and_goes_on_alike(&mut sim, content(), DAY);
 }
+
+/// Minutes of the well members of household `home` away from home, counted every 20 minutes in
+/// `hours` over `days` days.
+fn well_away(sim: &mut Sim, home: PermanentId, days: i64, hours: (u8, u8)) -> u32 {
+    let mut away = 0;
+    for _ in 0..days {
+        let mut from = sim.now().day_index() * DAY + i64::from(hours.0) * 60;
+        if from < sim.now().minutes() {
+            from += DAY;
+        }
+        let to = from + (i64::from(hours.1) - i64::from(hours.0)) * 60;
+        sim.advance_minutes(from - sim.now().minutes())
+            .expect("advances");
+        while sim.now().minutes() < to {
+            let (t, day) = (sim.now().minutes() as f64, sim.now().day_index());
+            let pop = sim.people();
+            if let Some(x) = pop.household(home) {
+                away += x
+                    .members
+                    .iter()
+                    .filter(|&&m| !pop.sickness.ill(m, day))
+                    .filter_map(|&m| pop.person(m))
+                    .filter(|p| {
+                        let at = p.position_at(t);
+                        (at.0 - x.home.0).hypot(at.1 - x.home.1) > 20.0
+                    })
+                    .count() as u32;
+            }
+            sim.advance_minutes(20).expect("advances");
+        }
+    }
+    away
+}
+
+/// Keeping the sick apart (M10c slice EE, first part): under the law, the well of a household
+/// with someone ill of smallpox are away from home less in the working day than in the same
+/// village without it; those who go out anyway break it, and the law keeps count; and it saves
+/// and loads exactly.
+#[test]
+fn under_a_law_keeping_the_sick_apart_the_well_of_a_sick_home_stay_in() {
+    use civ_agents::polity::PolicyKind;
+    let mut sim = world_with(content(), 5);
+    sim.advance_minutes(2 * DAY).expect("advances");
+    // Someone of the largest household of the polity's settlement falls ill of smallpox.
+    let pop = sim.people();
+    let settlement = pop.polities[0].settlement;
+    let x = pop
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .filter(|x| x.settlement == Some(settlement))
+        .max_by_key(|x| (x.members.len(), std::cmp::Reverse(x.id)))
+        .expect("a household");
+    assert!(x.members.len() >= 2, "a household of two or more");
+    let (home, sick) = (x.id, x.members[0]);
+    sim.plague(sick, "core:disease/smallpox").expect("brought");
+    for _ in 0..20 {
+        if sim.people().sickness.ill(sick, sim.now().day_index()) {
+            break;
+        }
+        sim.advance_minutes(DAY).expect("advances");
+    }
+    assert!(
+        sim.people().sickness.ill(sick, sim.now().day_index()),
+        "they fell ill"
+    );
+    // The same village twice: one under the law, one not.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "free").expect("saves");
+    let mut free = persist::load(&saved.path, content()).expect("loads");
+    let (_, law) = a_law(&mut sim, PolicyKind::KeepApart);
+    let apart = sim.with_ctx_for_tests(|pop, ctx| pop.kept_apart_for_tests(ctx, home));
+    assert!(apart, "their household is kept apart");
+    let hours = (8, 18);
+    let without = well_away(&mut free, home, 2, hours);
+    let with = well_away(&mut sim, home, 2, hours);
+    assert!(
+        without > 0,
+        "the well of the sick home go out without the law, or this test shows nothing"
+    );
+    assert!(
+        with < without,
+        "the law keeps some in: {with} away under it, {without} without"
+    );
+    let l = sim.people().polities[0]
+        .laws
+        .iter()
+        .find(|l| l.id == law)
+        .expect("the law");
+    eprintln!(
+        "kept apart: {with} away under it, {without} without; broken {} knowing, {} not",
+        l.compliance.broken, l.compliance.broken_unaware
+    );
+    assert!(
+        with == 0 || l.compliance.broken + l.compliance.broken_unaware > 0,
+        "those who went out are counted: {:?}",
+        l.compliance
+    );
+    saves_and_goes_on_alike(&mut sim, content(), DAY);
+}

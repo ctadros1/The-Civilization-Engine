@@ -1808,3 +1808,70 @@ fn a_household_calls_a_vaccinator_before_a_variolator_and_its_people_are_vaccina
         sim.people().sickness.vaccinated
     );
 }
+
+/// Where someone of a household died of smallpox, which passes at home and in company, keeping
+/// the sick apart comes before the gathering, against that death (M10c slice EE, first part).
+#[test]
+fn a_death_of_contagion_puts_keeping_the_sick_apart_before_the_gathering() {
+    use civ_agents::polity::{IssueKind, LawStatus, PolicyKind};
+    let mut sim = village(1);
+    to_morning(&mut sim, 8 * 60);
+    let (index, _) = someone_with_family(&sim);
+    sim.plague(index, SMALLPOX).expect("brought");
+    let disease = sim
+        .rules()
+        .catalog
+        .disease_index(SMALLPOX)
+        .expect("smallpox") as u16;
+    let mut dead = None;
+    for _ in 0..80 {
+        sim.advance_minutes(DAY).expect("lives");
+        dead = sim
+            .people()
+            .sickness
+            .episodes()
+            .iter()
+            .find(|e| e.disease == disease && matches!(e.ended, Some((_, Outcome::Died))))
+            .and_then(|e| e.household);
+        if dead.is_some() {
+            break;
+        }
+    }
+    let home = dead.expect("someone died of smallpox");
+    let settlement = sim
+        .people()
+        .household(home)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    let mut proposed = None;
+    for _ in 0..24 {
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[pi].gathering = None;
+            for l in &mut pop.polities[pi].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        match sim.people().polities[pi].agenda().cloned() {
+            Some(l) if l.kind == PolicyKind::KeepApart => {
+                proposed = Some(l);
+                break;
+            }
+            Some(_) => continue,
+            None => break,
+        }
+    }
+    let law = proposed.expect("keeping the sick apart proposed");
+    assert_eq!(law.issue, IssueKind::Contagion);
+    reloaded(&mut sim);
+}

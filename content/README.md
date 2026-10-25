@@ -1797,3 +1797,10 @@ away then falls by a factor of e). A household makes the good only for calls to 
 stand at its door. The core gives smallpox `technique/vaccination` (requiring variolation) with
 `good/vaccine_matter` at 0.001 kg, 0.95, [3, 5] and 10, and adds the recipe and activity
 `make_vaccine_matter`.
+
+Content API 187 (M10c slice EE, first part) adds `does = "keep_apart"` and its `[keep_apart]`
+table: `days_after` (the days after the last of a household is well that it is still kept apart,
+1 to 365) and `cost_share` (the share of a day's work each grown member loses while their home is
+kept apart, as a household weighs it, 0 to 1), and the issue `contagion` (someone of a household
+of the polity died within the year of a sickness passing at home or in company). The core adds
+`policy/yourselves_work_without_meeting_the_sick` at 14 days and 0.25.

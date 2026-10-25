@@ -117,6 +117,10 @@ pub(super) struct Forecasts {
     /// carer who knew no treatment within the year, kcal, by template index and then household
     /// id (M10c slice EC, third part).
     licences: Vec<(u16, Vec<(PermanentId, f64)>)>,
+    /// What keeping the sick apart would bring each household that lost someone to a sickness
+    /// passing at home or in company within the year, or had someone ill, and cost it, kcal a
+    /// year, by household id (M10c slice EE, first part).
+    keep_apart: Vec<(PermanentId, f64, f64)>,
 }
 
 /// What a household weighs a trade law by (M7c slice BV, ADR-0026 §1): its settlement's
@@ -387,6 +391,16 @@ impl Forecasts {
                     .and_then(|l| l.1.iter().find(|s| s.0 == h))
                     .map_or(0.0, |s| s.1);
                 crate::polity::kept_gain(o, saved, pp)
+            }
+            // Keeping the sick apart (M10c slice EE, first part): the deaths it believes avoided,
+            // as food kept for it, less the work its people lose while their home is kept apart.
+            Some(PolicyKind::KeepApart) => {
+                let (gain, cost) = self
+                    .keep_apart
+                    .iter()
+                    .find(|s| s.0 == h)
+                    .map_or((0.0, 0.0), |s| (s.1, s.2));
+                crate::polity::against_gain(o, gain, cost, pp)
             }
             // A school (M10c slice EB, third part) spares the fees a household could not hold,
             // as food kept for it.
@@ -1808,6 +1822,7 @@ impl Population {
             pay: self.pay_forecasts(ctx, pi, households),
             schooling: self.schooling(ctx, households, adults),
             licences: self.licence_forecasts(ctx, households),
+            keep_apart: self.keep_apart_forecasts(ctx, households, adults),
             adults: {
                 let mut a = adults.to_vec();
                 a.sort_unstable();
@@ -2703,6 +2718,11 @@ impl Population {
         // grown of it knows one (M10c slice EC, third part).
         if !self.unknowing_cures(ctx, &households, &adults).is_empty() {
             issues.push(IssueKind::UnknowingCare);
+        }
+        // One of its households lost someone to a sickness passing at home or in company within
+        // the year (M10c slice EE, first part).
+        if !self.contagion_deaths(ctx, &households).is_empty() {
+            issues.push(IssueKind::Contagion);
         }
         // What it saw of its ground within memory (M8c slice CT, second part): a household that
         // found no ground for its home, a trail built over, a home beyond the built edge.
@@ -3747,6 +3767,13 @@ impl Population {
                     }
                     // A licence asking a treatment someone of them knows of a disease one of theirs
                     // died of in unknowing paid care (M10c slice EC, third part).
+                    // Keeping the sick apart (M10c slice EE, first part): where one of theirs died
+                    // of a sickness passing at home or in company within the year.
+                    PolicyKind::KeepApart => {
+                        if !self.contagion_deaths(ctx, &households).is_empty() {
+                            moves.push(blank);
+                        }
+                    }
                     PolicyKind::Licence => {
                         let asks = def.licence.as_ref().map(|l| l.technique);
                         if asks.is_some_and(|t| {

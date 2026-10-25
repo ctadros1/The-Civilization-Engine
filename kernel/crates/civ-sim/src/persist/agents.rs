@@ -130,8 +130,8 @@ use super::{
     SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, SCHEMA_V180,
     SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, SCHEMA_V187,
     SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, SCHEMA_V194,
-    SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, SCHEMA_V199, SCHEMA_V200, finish, section,
-    section_root, single_chunk, unreadable,
+    SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, SCHEMA_V199, SCHEMA_V200, SCHEMA_V201,
+    finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -913,7 +913,9 @@ pub(super) fn decode<R: Read + Seek>(
         // company kept (198) and calls to inoculate (199).
         SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SCHEMA_V190 | SCHEMA_V191
         | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SCHEMA_V196 | SCHEMA_V197
-        | SCHEMA_V198 | SCHEMA_V199 | SCHEMA_V200 | SAVE_SCHEMA_VERSION => Schema::V186,
+        | SCHEMA_V198 | SCHEMA_V199 | SCHEMA_V200 | SCHEMA_V201 | SAVE_SCHEMA_VERSION => {
+            Schema::V186
+        }
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2364,6 +2366,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::DarkTakings => 32,
         IssueKind::Untaught => 33,
         IssueKind::UnknowingCare => 34,
+        IssueKind::Contagion => 35,
     }
 }
 
@@ -2505,6 +2508,7 @@ fn decode_polities(
                 32 => IssueKind::DarkTakings,
                 33 => IssueKind::Untaught,
                 34 => IssueKind::UnknowingCare,
+                35 => IssueKind::Contagion,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {

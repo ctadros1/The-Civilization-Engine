@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 186
+kernel_content_api = 187
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2664,6 +2664,7 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
     let newer = [
         "core:policy/yourselves_work_with_a_teacher",
         "core:policy/yourselves_work_with_carers_who_know",
+        "core:policy/yourselves_work_without_meeting_the_sick",
     ];
     assert!(
         reg.catalog
@@ -2688,8 +2689,12 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
         .expect("the school template");
     assert_eq!(def.kind, PolicyKind::KeepSchool);
     assert_eq!(def.answers, vec![IssueKind::Untaught]);
-    // Its id sorts after every older template's (the licence's, M10c slice EC, is newer).
-    let newer = ["core:policy/yourselves_work_with_carers_who_know"];
+    // Its id sorts after every older template's (the licence's, M10c slice EC, and keeping the
+    // sick apart, EE, are newer).
+    let newer = [
+        "core:policy/yourselves_work_with_carers_who_know",
+        "core:policy/yourselves_work_without_meeting_the_sick",
+    ];
     assert!(
         reg.catalog
             .policies
@@ -2755,6 +2760,34 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
         "core:technique/fluid_replacement"
     );
     assert_eq!(licence.what, "fluid replacement");
+    // Its id sorts after every older template's (keeping the sick apart, M10c slice EE, is
+    // newer).
+    let newer = ["core:policy/yourselves_work_without_meeting_the_sick"];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
+}
+
+#[test]
+fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
+    // M10c slice EE, first part (content API 187): the template answers deaths of a sickness
+    // passing at home or in company, keeping a household apart two weeks past its last illness.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/yourselves_work_without_meeting_the_sick")
+        .expect("the keep-apart template");
+    assert_eq!(def.kind, PolicyKind::KeepApart);
+    assert_eq!(def.answers, vec![IssueKind::Contagion]);
+    let k = def.keep_apart.expect("its terms");
+    assert_eq!(k.days_after, 14);
+    assert!(k.cost_share > 0.0 && k.cost_share < 1.0);
     assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
 }
 

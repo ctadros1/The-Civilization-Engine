@@ -3287,3 +3287,14 @@ idles on a dry reach and produces less when river flow falls. A selected seed-3 
 technique known and 600 kg annual grinding saw all six households build mills, with 0.5–1.0 m falls
 and 8–24 m headraces. Shared grinding, fuel and iron remain ahead. See [Industry and Water Power](industry-and-power.md)
 and the M10a slice records in [the project plan](../../PROJECT_PLAN.md#7-milestones).
+
+
+## 2026-10-22 to 2026-10-24 — M10a closed; M10b closed; M10c underway
+
+**M10a, power and the works:** after the first water-mill slice, the merged implementation added fuel by heat, unattended batches, bog-iron bloomery and forging, workshops with their own stations and multiple production lines, coal seams and flooded pits, bailing and atmospheric engines, crews and shifts, powered machines, coke and blast-furnace work. Slice DT closed the milestone. The detailed vocabulary, save versions and evidence remain in the [M10a plan entry](../../PROJECT_PLAN.md#7-milestones) and [industry guide](industry-and-power.md).
+
+**M10b, rail and gas light:** lamps and after-dark visibility were followed by timber wagonways, staged track, wagons, coal locomotives, block-based train runs, stations, timetables, freight, passenger fares and polity-built lines. Gasworks, holders and mains supply connected buildings; a polity can also arrange street lighting. Slice DY closed M10b. Some choices carry explicit design nudges recorded in the plan; those are authored priors, not evidence of unaided emergence. See [mobility and light](mobility-and-light.md).
+
+**M10c, services and letters:** slice DZ added care by close kin or known people outside the household, food fees, care reputation and observer records. The first EA part now separates maternal deaths into bleeding, fever and obstructed labor and introduces birth-attending and clean-hands techniques, including increased fever risk for an attendant coming from care of the ill without clean hands. A second EA step added calls for an attendant before a due birth, fee settlement at the birth, saved attendance outcomes and observer wording for births attended. EA is now complete. Teaching, literacy, inoculation and the health office remain ahead. See [services and care](services-and-care.md).
+
+The M10 work advances boundary versions to wire 1.104, save schema 192 and content API 179. M9 remains the latest committed observer video. No M10 milestone video was added in this merge; the plan places the complete demonstration in M10d. These status descriptions are based on merged source and plan, not a claim that a newly captured live demo exists.

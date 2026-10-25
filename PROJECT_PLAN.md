@@ -1,14 +1,15 @@
 # The Civilization Engine: Project Plan
 
 Status: plan of record, written 2026-09-27 from the planning interview.
-Implementation status (2026-10-22): **M0–M9 are implemented**, from early settlements and their
+Implementation status (2026-10-24): **M0–M9 are implemented**, from early settlements and their
 institutions through large cities, transport, planning, land and household resolution across many
 settlements. M9's 100,000-person performance target was not met; see §7 and §9 for the measured
-result and amended gate. **M10a, power and the works, is in progress:** river-powered installations,
-powered recipes and household-built water mills are implemented through slice DR part 3; shared
-mill services, fuel and iron works remain ahead. M2's portable kernel library and C interface are
-implemented; the Unreal client remains future work. Modern civilization remains future scope. See
-§7 for milestone scope and §9 for implementation evidence and known limits.
+result and amended gate. **M10a (power and the works) and M10b (rail and gas light) are implemented.**
+**M10c (services and letters) is in progress:** care beyond the household and birth care (slices DZ
+and EA) are implemented; teaching, literacy, inoculation and a health office remain. M10d, including
+the full M10 demo, is planned. M2's portable kernel library and C interface are implemented; the Unreal
+client and modern civilization remain future scope. See §7 and §9 for implementation evidence and
+known limits.
 The README lists what exists, what is planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
 (i9 13th gen, RTX 4070 Ti with 12 GB VRAM, 64 GB DDR5).

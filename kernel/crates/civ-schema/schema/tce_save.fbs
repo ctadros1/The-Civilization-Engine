@@ -3145,7 +3145,7 @@ table VaccinatedSave {
 
 // Schema 203 (M10c slice EE, second part): an entry in a polity's register of the sick: the
 // polity, the day, the household, and what was entered (0 sickness heard of, 1 a death of
-// disease).
+// disease; schema 204: 2 a home seen on the health officer's round).
 struct RegisterSave {
   polity: ulong;
   day: long;

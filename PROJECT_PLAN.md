@@ -7194,6 +7194,18 @@ and M6a gives rivers a daily flow.
       write; in force, the register takes the sickness heard of within days, the registrar's
       tally counts every household it holds and knows where they draw, and it saves and loads;
       the content.
+      *As built, second part's second step (2026-10-25): rounds and pay.* The health officer
+      walks a round once a day in daylight (`rounds`, an appended behaviour, and the core
+      activity `walk_the_rounds`, ten minutes a stand; content API 189), through the
+      settlement's homes in the watch's set order, a watch's duty. At each home they enter it in
+      the register as seen (saves 204: an entry's third kind), and where someone of it lies abed
+      they hear its sickness at first hand, as its own members do. Homes seen count as known
+      draws in their tallies, not as sick, so a tally's comparison of sick against well grows.
+      Where a law pays common work, the store pays their household for the hours (`pay_work`'s
+      rate), as it pays a schoolteacher. The round's record is the law's, as a watch's: rounds
+      and minutes. Household-resolved, it is a once-a-day behaviour, as the watch's. **Tested:**
+      in force, with pay for common work and coin in the store, the registrar walks a round
+      within days, homes on it entered as seen, the round counted, their household paid.
   - **M10d, money and the demo** (ADR-0035 §8–§12).
     - **EF**: acceptance of a money for onward exchange and dues, a money's value in a midnight
       table instead of a scan per decision.

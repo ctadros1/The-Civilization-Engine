@@ -72,7 +72,7 @@ fn work_place(c: &decide::Candidate, home: (f32, f32)) -> (f32, f32) {
 
 /// Behaviours a household-resolved day shares hours among (slice DG): the rest wait for slice DH
 /// or are not taken while household-resolved (ADR-0032 §2).
-const SHARED: [Behavior; 33] = [
+const SHARED: [Behavior; 34] = [
     Behavior::Gather,
     Behavior::Farm,
     Behavior::Build,
@@ -97,6 +97,7 @@ const SHARED: [Behavior; 33] = [
     Behavior::Cart,
     Behavior::Watch,
     Behavior::Light,
+    Behavior::Rounds,
     Behavior::Tend,
     Behavior::Call,
     Behavior::Teach,
@@ -127,13 +128,14 @@ pub const NOT_TAKEN: [Behavior; 9] = [
 
 /// Behaviours taken at most once a day: a claim on someone else's goods or work, a round of the
 /// watch, or coming to a gathering, poll or petition.
-const ONCE: [Behavior; 14] = [
+const ONCE: [Behavior; 15] = [
     Behavior::Ask,
     Behavior::Trade,
     Behavior::Hire,
     Behavior::Take,
     Behavior::Watch,
     Behavior::Light,
+    Behavior::Rounds,
     Behavior::Call,
     Behavior::Teach,
     Behavior::Study,

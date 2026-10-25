@@ -1879,10 +1879,12 @@ fn a_death_of_contagion_puts_keeping_the_sick_apart_before_the_gathering() {
 /// Where its people had smallpox at home, a polity keeps a register of the sick only under one
 /// who can write: with nobody who can, nobody proposes it; once someone can, it is proposed with
 /// them named, and in force they enter in it, each midnight, the households whose sickness they
-/// heard of; the register saves and loads (M10c slice EE, second part).
+/// heard of; they walk a round of homes in daylight, entering each as seen, and where common work
+/// is paid the store pays for the hours; the register saves and loads (M10c slice EE, second
+/// part).
 #[test]
 fn a_register_of_the_sick_is_kept_by_one_who_can_write() {
-    use civ_agents::polity::{LawStatus, PolicyKind};
+    use civ_agents::polity::{IssueKind, LawStatus, PolicyKind};
     let mut sim = village(1);
     to_morning(&mut sim, 8 * 60);
     let (index, _) = someone_with_family(&sim);
@@ -1963,16 +1965,44 @@ fn a_register_of_the_sick_is_kept_by_one_who_can_write() {
             .is_some_and(|p| p.knows(writing)),
         "the one named can write"
     );
+    // Passed, with a law paying common work and coin in the store.
+    let pay_work = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.kind == PolicyKind::PayWork)
+        .expect("a pay template");
+    let coin = sim
+        .rules()
+        .catalog
+        .good_index("core:good/coin")
+        .expect("coin");
+    let polity_id = sim.people().polities[pi].id;
+    let pay_id = sim.allocate_id_for_tests();
+    let today = sim.now().day_index();
     {
         let pop = sim.people_mut_for_tests();
         let p = &mut pop.polities[pi];
         p.gathering = None;
-        p.laws
-            .iter_mut()
-            .find(|l| l.id == law.id)
-            .expect("the law")
-            .status = LawStatus::InForce;
+        let l = p.laws.iter_mut().find(|l| l.id == law.id).expect("the law");
+        l.status = LawStatus::InForce;
+        let mut pay = l.clone();
+        pay.id = pay_id;
+        pay.policy = pay_work as u16;
+        pay.kind = PolicyKind::PayWork;
+        pay.holder = None;
+        pay.issue = IssueKind::CoinIdle;
+        p.laws.push(pay);
+        assert!(pop.strike_for_tests(coin, polity_id, polity_id, today, 100.0, 8.0, 1.0));
     }
+    let holder_home = sim.people().person(holder).expect("alive").household;
+    let coin_held = |sim: &Sim| {
+        sim.people()
+            .household(holder_home)
+            .map_or(0.0, |x| x.stores.get(coin).copied().unwrap_or(0.0))
+    };
+    let before = coin_held(&sim);
     // In force: each midnight the registrar enters the sickness they heard of.
     let mut entered = false;
     for _ in 0..10 {
@@ -1984,7 +2014,7 @@ fn a_register_of_the_sick_is_kept_by_one_who_can_write() {
     }
     assert!(entered, "the registrar entered the sickness they heard of");
     // Their tallies of where sickness comes from count every household the register holds as
-    // sick, and know where each draws.
+    // sick (not those it holds only as seen on a round), and know where each draws.
     let (sick, draws) =
         sim.with_ctx_for_tests(|pop, ctx| pop.register_tally_for_tests(ctx, holder));
     let mut held: Vec<PermanentId> = sim
@@ -1992,12 +2022,34 @@ fn a_register_of_the_sick_is_kept_by_one_who_can_write() {
         .sickness
         .register
         .iter()
+        .filter(|r| r.kind != 2)
         .map(|r| r.household)
         .collect();
     held.sort_unstable();
     held.dedup();
     assert_eq!(sick, held);
     assert!(!draws.is_empty(), "they know where the registered draw");
+    // They walk a round in daylight, entering the homes on it as seen, paid for the hours.
+    let mut seen = false;
+    for _ in 0..6 {
+        if sim.people().sickness.register.iter().any(|r| r.kind == 2) {
+            seen = true;
+            break;
+        }
+        sim.advance_minutes(DAY).expect("lives");
+    }
+    assert!(seen, "the registrar walked a round and entered homes seen");
+    let l = sim.people().polities[pi]
+        .laws
+        .iter()
+        .find(|l| l.id == law.id)
+        .expect("the law");
+    assert!(l.watch.rounds > 0 && l.watch.minutes > 0.0, "{:?}", l.watch);
+    assert!(
+        coin_held(&sim) > before,
+        "the registrar's household was paid: {} after {before}",
+        coin_held(&sim)
+    );
     let pop = sim.people();
     let polity = pop.polities[pi].id;
     assert!(pop.sickness.register.iter().all(|r| {

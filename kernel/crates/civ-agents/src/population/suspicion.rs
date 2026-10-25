@@ -68,7 +68,8 @@ impl Population {
             // A registrar's tally runs over their register too: every household it holds is
             // sick, and they know where each draws (M10c slice EE, second part).
             let registered = self.registered_sick(ctx, person, day);
-            for (place, h) in self.registered_draws(ctx, &registered, day) {
+            let known = self.registered_all(ctx, person, day);
+            for (place, h) in self.registered_draws(ctx, &known, day) {
                 draws.entry(place).or_default().insert(h);
             }
             sick.extend(registered);

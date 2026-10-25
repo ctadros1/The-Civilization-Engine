@@ -77,7 +77,7 @@ impl Population {
     /// The homes of settlement `settlement` a round starting at `next` passes, but for the
     /// watcher's own: the settlement's households in id order, from `next` on, round to the
     /// start, `round_stops` of them.
-    fn round_stops(
+    pub(super) fn round_stops(
         &self,
         ctx: &Ctx,
         settlement: PermanentId,

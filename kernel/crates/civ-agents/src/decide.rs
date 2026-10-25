@@ -86,6 +86,9 @@ pub struct Facts {
     /// The round of the street lamps they light, if their polity names them its lamplighter and
     /// lamps of it stand unlit now (M10b slice DY, fourth part).
     pub light: Option<WatchFacts>,
+    /// The health officer's round, if they keep a register of the sick and have not walked it
+    /// today, in daylight (M10c slice EE, second part).
+    pub rounds: Option<WatchFacts>,
     /// A payment an agreement owes that they are to carry, set aside and waiting, if they can
     /// walk it there and back in the day (M5c slice AV).
     pub carry: Option<CarryFacts>,
@@ -1989,6 +1992,23 @@ pub fn candidates(
                 steps.push(Step::Walk { to: f.home });
                 out.push(finish(id, Target::None, terms, steps));
             }
+            Behavior::Rounds => {
+                // The health officer's round (M10c slice EE, second part), as a watch's: a stand
+                // at each home on it, the activity's least minutes each.
+                let Some(round) = f.rounds.as_ref() else {
+                    excluded.push((id, Reason::NoWatch));
+                    continue;
+                };
+                term(&mut terms, Reason::Duty, round.points);
+                let stand = def.min_minutes.max(1);
+                let mut steps = Vec::with_capacity(round.stops.len() * 2 + 1);
+                for &at in &round.stops {
+                    steps.push(Step::Walk { to: at });
+                    steps.push(Step::Work { minutes: stand });
+                }
+                steps.push(Step::Walk { to: f.home });
+                out.push(finish(id, Target::None, terms, steps));
+            }
             Behavior::Light => {
                 // The round of the street lamps (M10b slice DY, fourth part), as a watch's: a
                 // stand at each unlit lamp to light it, the activity's least minutes each.
@@ -2833,6 +2853,7 @@ mod tests {
             gathering: None,
             watch: None,
             light: None,
+            rounds: None,
             carry: None,
             crossing: None,
             well: None,

@@ -3696,6 +3696,7 @@ impl Population {
             campaign: self.campaign_points(ctx, p.id),
             watch: self.watch_facts(ctx, p.id, &hh, dark),
             light: self.light_facts(ctx, p.id, &hh, dark),
+            rounds: self.rounds_facts(ctx, p.id, &hh, dark),
             carry: self.carry_facts(ctx, p.id, field_key, dark),
             crossing: self.crossing_facts(ctx, &hh, p.id, field_key, dark),
             well: self.well_facts(ctx, &hh, p.id, dark),
@@ -5278,6 +5279,14 @@ impl Population {
         {
             self.start_round(ctx, who);
         }
+        // And the health officer's (M10c slice EE, second part).
+        if catalog
+            .activities
+            .get(usize::from(def))
+            .is_some_and(|a| a.behavior == Behavior::Rounds)
+        {
+            self.start_rounds(ctx, who);
+        }
         // Someone who sets off to work on a crossing is one of its crew that day, counted as
         // they choose it, so that those choosing after them see the room taken (M5c slice AW;
         // research 11-11 §1.3: progress is limited by the usable work front).
@@ -5731,6 +5740,7 @@ impl Population {
                 | Behavior::Take
                 | Behavior::Watch
                 | Behavior::Light
+                | Behavior::Rounds
                 | Behavior::Call
                 | Behavior::Study
                 | Behavior::Carry
@@ -6016,6 +6026,12 @@ impl Population {
                 Some(Behavior::Watch) => {
                     let who = p.id;
                     self.stood_watch(who, minutes);
+                }
+                // A home on the health officer's round, seen and entered (M10c slice EE, second
+                // part).
+                Some(Behavior::Rounds) => {
+                    let (who, pos) = (p.id, p.pos);
+                    self.round_stop(ctx, who, pos, minutes);
                 }
                 // A street lamp lit where the lamplighter stands (M10b slice DY, fourth part).
                 Some(Behavior::Light) => {

@@ -539,6 +539,8 @@ pub const SCHEMA_V200: u32 = 200;
 pub const SCHEMA_V201: u32 = 201;
 /// Deaths of contagion as an issue, before the registers of the sick.
 pub const SCHEMA_V202: u32 = 202;
+/// The registers of the sick, before homes seen on a round in them.
+pub const SCHEMA_V203: u32 = 203;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

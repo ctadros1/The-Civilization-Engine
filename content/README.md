@@ -1810,3 +1810,8 @@ technique, by content id, its holder must know: the nominee and those a lot draw
 `does = "keep_register"` with its `[register]` table: `avoided_share` (the share of a household's
 deaths of disease within the year it believes a register would have spared, 0 to 1). The core adds
 `policy/yourselves_write_down_the_sick`, answering `sickness`, asking `technique/writing`, at 0.1.
+
+Content API 189 (M10c slice EE, second part) adds the behaviour `rounds`: the round of the one a
+law names to keep the register of the sick, in daylight, once a day, a stand of the activity's
+`min_minutes` at each home of the watch's set round. The core adds `activity/walk_the_rounds` at 10
+minutes.

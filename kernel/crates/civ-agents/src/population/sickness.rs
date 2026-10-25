@@ -254,7 +254,7 @@ impl Population {
     /// The claim that someone of `household` (of `settlement`) lay sick: the one held, if it was
     /// first seen no more than `spell` days before `day` (any held, without a spell), or else a new
     /// one from `day`.
-    fn sickness_claim(
+    pub(super) fn sickness_claim(
         &mut self,
         household: PermanentId,
         settlement: PermanentId,

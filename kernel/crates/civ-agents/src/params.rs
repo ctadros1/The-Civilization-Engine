@@ -136,11 +136,15 @@ pub enum Behavior {
     /// Read at home a record their household holds of a technique they do not know (M10c slice
     /// EC): aware of it, and learning toward it where it can be learnt from the page.
     Read,
+    /// Walk the health officer's round in daylight (M10c slice EE, second part; ADR-0035 §7): a
+    /// stand at each home on it, where they see who lies abed and enter the home in the register
+    /// of the sick they keep.
+    Rounds,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 45] = [
+    pub const ALL: [Behavior; 46] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -186,6 +190,7 @@ impl Behavior {
         Behavior::Study,
         Behavior::Write,
         Behavior::Read,
+        Behavior::Rounds,
     ];
 
     /// The authored name of a behavior.
@@ -236,6 +241,7 @@ impl Behavior {
             Behavior::Study => "study",
             Behavior::Write => "write",
             Behavior::Read => "read",
+            Behavior::Rounds => "rounds",
         }
     }
 

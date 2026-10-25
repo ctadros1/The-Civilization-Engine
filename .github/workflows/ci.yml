@@ -34,6 +34,12 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Attach local Rust build directories
+        if: runner.environment == 'self-hosted'
+        run: tools/ci/prepare-workspace.sh
 
       - name: Toolchain (from rust-toolchain.toml)
         run: |
@@ -42,6 +48,7 @@ jobs:
           cargo --version
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: runner.environment != 'self-hosted'
         with:
           workspaces: |
             commons -> target
@@ -85,11 +92,18 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Attach local Rust build directories
+        if: runner.environment == 'self-hosted'
+        run: tools/ci/prepare-workspace.sh
 
       - name: Toolchain (from rust-toolchain.toml)
         run: rustup show active-toolchain
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: runner.environment != 'self-hosted'
         with:
           workspaces: kernel -> target
 
@@ -106,10 +120,16 @@ jobs:
 
   web:
     name: Web observer
-    runs-on: ubuntu-24.04
+    runs-on: ${{ github.event_name == 'push' && github.actor == 'ctadros1' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/ci/') || startsWith(github.ref, 'refs/heads/codex/') || startsWith(github.ref, 'refs/heads/claude/')) && fromJSON('["self-hosted","Linux","X64","tce-ci"]') || 'ubuntu-24.04' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Attach local Rust build directories
+        if: runner.environment == 'self-hosted'
+        run: tools/ci/prepare-workspace.sh
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -133,6 +153,7 @@ jobs:
         run: rustup show active-toolchain
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: runner.environment != 'self-hosted'
         with:
           workspaces: kernel -> target
 
@@ -142,7 +163,12 @@ jobs:
 
       - name: Browser
         working-directory: web
-        run: npx playwright install --with-deps chromium
+        run: |
+          if [[ "$RUNNER_ENVIRONMENT" == self-hosted ]]; then
+            npx playwright install chromium
+          else
+            npx playwright install --with-deps chromium
+          fi
 
       - name: Browser tests
         working-directory: web
@@ -158,12 +184,19 @@ jobs:
 
   schema:
     name: Generated schema code
-    runs-on: ubuntu-24.04
+    runs-on: ${{ github.event_name == 'push' && github.actor == 'ctadros1' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/ci/') || startsWith(github.ref, 'refs/heads/codex/') || startsWith(github.ref, 'refs/heads/claude/')) && fromJSON('["self-hosted","Linux","X64","tce-ci"]') || 'ubuntu-24.04' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Attach local Rust build directories
+        if: runner.environment == 'self-hosted'
+        run: tools/ci/prepare-workspace.sh
 
       - name: Cached flatc
+        if: runner.environment != 'self-hosted'
         id: flatc
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -171,7 +204,7 @@ jobs:
           key: flatc-25.12.19-ubuntu-24.04
 
       - name: Build flatc 25.12.19
-        if: steps.flatc.outputs.cache-hit != 'true'
+        if: runner.environment != 'self-hosted' && steps.flatc.outputs.cache-hit != 'true'
         run: |
           git clone --depth 1 --branch v25.12.19 https://github.com/google/flatbuffers "$RUNNER_TEMP/flatbuffers"
           cmake -S "$RUNNER_TEMP/flatbuffers" -B "$RUNNER_TEMP/flatbuffers/build" \
@@ -181,4 +214,9 @@ jobs:
           cp "$RUNNER_TEMP/flatbuffers/build/flatc" ~/flatc/
 
       - name: Generated code matches the schema
-        run: FLATC="$HOME/flatc/flatc" tools/gen-schema.sh --check
+        run: |
+          if [[ "$RUNNER_ENVIRONMENT" == self-hosted ]]; then
+            FLATC="$(command -v flatc)" tools/gen-schema.sh --check
+          else
+            FLATC="$HOME/flatc/flatc" tools/gen-schema.sh --check
+          fi

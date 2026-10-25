@@ -1,30 +1,14 @@
 # The Civilization Engine: Project Plan
 
 Status: plan of record, written 2026-09-27 from the planning interview.
-Implementation status (2026-10-15): **M0–M3c are implemented**:
-world and village life, the early economy, knowledge and building, daily weather, soils and
-fertility, and the Detailed/Accelerated time modes. **M2's kernel library and C interface are
-implemented; its Unreal client remains future work.** **M4, Councils, law and crime, is
-implemented** in M4a (standing and the first council), M4b (crime and order) and M4c (factions,
-unrest and political change). The last fifty-year dashboard after M4c failed the food-price row
-in one world; see §9. **M5, Neighbors, is implemented:** M5a (several settlements, movement and
-founding) is implemented; its 3,000-person, three-settlement run takes about 19.6 minutes at Max,
-above its ten-minute design budget, and Gate B does not yet grade cross-settlement moves. M5b
-adds household price reports, cross-settlement trade and resale, and contact-based diffusion.
-M5c adds claims, agreements ratified by each polity's own law, carried payments, and household
-and village log crossings. The earlier roof-style demo no longer qualifies after corrected river
-routing separated its villages. A failed agreement ratification is covered by a test world, not a
-lived demo. **M6a, Water and sickness, is implemented**, including the cholera demo, water and
-incident views, and household and polity responses to suspected sources. **M6b, Fire, masonry and
-floods, is implemented:** buildings burn and spread fire by exposure; people notice, raise
-alarms, carry water, strip roofs, salvage goods and pull buildings down; masonry, brick and tile;
-floods and storms by routing and the weather; flood banks and irrigation ditches dug by choice
-and kept by law; building rules proposed after fires and failures, binding new work; and the
-great fire demo. Trapped rain, shared ditches, multi-segment banks, crossing scour and flood
-gates are left open. **M6c, War and conquest, is designed**
-([ADR-0023](decisions/0023-force-between-polities.md), slices BI–BM) and not yet built.
-See §7 for scope and §9 for
-implementation evidence and known limits.
+Implementation status (2026-10-22): **M0–M9 are implemented**, from early settlements and their
+institutions through large cities, transport, planning, land and household resolution across many
+settlements. M9's 100,000-person performance target was not met; see §7 and §9 for the measured
+result and amended gate. **M10a, power and the works, is in progress:** river-powered installations,
+powered recipes and household-built water mills are implemented through slice DR part 3; shared
+mill services, fuel and iron works remain ahead. M2's portable kernel library and C interface are
+implemented; the Unreal client remains future work. Modern civilization remains future scope. See
+§7 for milestone scope and §9 for implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
 (i9 13th gen, RTX 4070 Ti with 12 GB VRAM, 64 GB DDR5).
@@ -7035,7 +7019,11 @@ and M6a gives rivers a daily flow.
 
 ## 9. Decisions log
 
+- **2026-10-22 — Optional Actions capacity (owner request):** add an isolated Ubuntu runner VM on servernode4 with shared `tce-ci`, automatic guest/service startup, and explicit `node4` dispatch. Keep it outside the default permanent health matrix and scheduled `tce-long` work; GitHub routes pooled jobs to available runners. Drain before shutdown or switching to Windows.
+
 One line each. Don't re-litigate without a reason written next to the entry.
+
+- **Self-hosted CI (2026-10-22, owner request):** dedicated isolated Ubuntu VMs on servernode1 and servernode3; GitHub routes the shared `tce-ci` label, with node3 also carrying `tce-long`. Candidate branches run the full Linux chain; trusted owner push and scheduled Linux work can use the pool. Windows and public pull-request checks remain GitHub-hosted. Runner accounts have no sudo, job tokens are read-only, and a root-owned gate rejects PR events and foreign actors. Servernode4 is optional future capacity; no local load balancer or cross-machine benchmark comparison. Operational and validation evidence: `docs/operations/github-runners.md`.
 
 - **Purpose:** personal/research project built to product polish (UX, save/load, stability); no game-design restrictions.
 - **One-sentence vision:** as realistic as possible; people make their own society, laws and world; scripted as little as possible; must not become a long research project like TGE.

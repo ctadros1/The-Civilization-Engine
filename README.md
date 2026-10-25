@@ -1,24 +1,28 @@
-<p align="center"><img src="assets/previews/civilization-engine-icon.png" width="88" height="88" alt="The Civilization Engine icon"></p>
+<p align="center">
+  <img src="assets/previews/civilization-engine-icon.png" alt="The Civilization Engine icon" width="128">
+</p>
+
 <h1 align="center">The Civilization Engine</h1>
-<p align="center"><strong>A bottom-up simulation of how people build a civilization.</strong></p>
-<p align="center">People make a living, raise families, trade, learn, build and govern. Their choices shape the settlements and institutions that emerge.</p>
+
+<p align="center"><strong>A living-world simulator where people build their own communities, economies and institutions.</strong></p>
+
+<p align="center">People make a living, raise families, trade, learn, build and govern. Their choices shape the societies that emerge.</p>
 
 <p align="center">
-  <a href="#the-project">Project</a> · <a href="#current-status">Status</a> · <a href="demos/README.md">Demo gallery</a> · <a href="#technical-highlights">Technical highlights</a> · <a href="#run-it">Run it</a> · <a href="#documentation">Documentation</a>
+  <a href="#the-project">Project</a> · <a href="#project-status">Status</a> · <a href="demos/README.md">Demo gallery</a> · <a href="#technical-highlights">Technical highlights</a> · <a href="#run-it">Run it</a> · <a href="#documentation">Documentation</a>
 </p>
 <p align="center">
-  <img src="https://img.shields.io/badge/milestone-M6a%20complete%20%C2%B7%20M6b%20in%20progress-9a6a36?style=flat-square" alt="M6a complete; M6b in progress">
-  <img src="https://img.shields.io/badge/kernel-Rust-315f55?style=flat-square" alt="Simulation kernel: Rust">
-  <img src="https://img.shields.io/badge/observer-TypeScript%20%2B%20PixiJS-526c83?style=flat-square" alt="Observer: TypeScript and PixiJS">
+  <a href="#project-status"><img src="https://img.shields.io/badge/M0%E2%80%93M9-complete-39785b?style=flat-square" alt="Milestones M0 through M9 complete"></a>
+  <a href="#project-status"><img src="https://img.shields.io/badge/M10a-in%20progress-b57932?style=flat-square" alt="Milestone M10a in progress"></a>
+  <a href="#technical-highlights"><img src="https://img.shields.io/badge/kernel-Rust-315f55?style=flat-square" alt="Simulation kernel: Rust"></a>
+  <a href="#technical-highlights"><img src="https://img.shields.io/badge/observer-TypeScript%20%2B%20PixiJS-526c83?style=flat-square" alt="Observer: TypeScript and PixiJS"></a>
 </p>
 
-## The project
+The Civilization Engine (TCE) is a long-running simulation project. It models people, households and settlements from the ground up: how they find food, learn skills, build, trade, make rules and respond to events. The engine supplies the materials and social mechanisms; it does not script a civilization's story or destination.
 
-The Civilization Engine (TCE) is a single-player simulation about societies growing from ordinary lives. People respond to food, work, family, resources, neighbors and institutions; the simulation lets settlements and social systems take shape from those choices.
+The current playable world is an early farming society. The project roadmap reaches industrial and modern civilization, but those systems are still being built. The Unreal client is also future work.
 
-Its guiding rule is **the engine authors the vocabulary, never the plot**. Content supplies people, goods, techniques, offices and policies. It does not prescribe eras, storylines or outcomes. The long-term vision spans early communities through modern civilization. The current simulation is focused on early farming societies; modern industry and the Unreal client are future work.
-
-## Current status
+## Project status
 
 | Area | Status |
 | --- | --- |
@@ -39,15 +43,15 @@ Its guiding rule is **the engine authors the vocabulary, never the plot**. Conte
 
 The web observer currently presents an early farming world. The project's longer vision reaches modern civilization, but modern industry, cities and the Unreal client are not implemented. Smoke runs and dashboards check selected behaviors and engineering invariants; they do not prove historical realism.
 
-## Latest live demo: M6a water and sickness
+## Latest live demo: M9, many settlements
 
-The newest completed milestone demo follows a cholera outbreak through village wells and shows what residents and their polity believed about its source. These are captures from the live observer; the [demo gallery](demos/README.md) collects this run and the earlier milestone demos.
+The current M9 capture shows the observer following a person in one detailed settlement while the other settlements are lived by household. It also shows the world map, settlement-resolution labels and the recorded climate change. The [demo gallery](demos/README.md) separates the short video capture from the full ten-year M9 run report.
 
-<p align="center"><a href="demos/m6a/m6a-overview.mp4"><img src="demos/m6a/m6a-overview-poster.png" alt="M6a live demo: a village by the water, with the first chapter title" width="900"></a></p>
+<p align="center"><a href="demos/m9/m9-overview.mp4"><img src="demos/m9/m9-overview-poster.png" alt="M9 live demo: many settlements at household resolution" width="900"></a></p>
 
-[Watch the 1080p M6a demo](demos/m6a/m6a-overview.mp4) · [Incidents panel capture](demos/m6a/m6a-incidents.png) · [All demo versions](demos/README.md)
+[Watch the titled M9 demo](demos/m9/m9-overview.mp4) · [Ten-year M9 run report](demos/m9/m9-demo.txt) · [Video-capture run report](demos/m9/m9-capture-run.txt) · [All demo versions](demos/README.md)
 
-These generated previews illustrate the project's longer-term historical and modern scope. They are concept art, not screenshots of implemented features.
+These generated previews show the project's longer-term historical and modern scope. They are concept art, not screenshots of implemented features.
 
 <p align="center">
   <img src="assets/previews/civilization-engine-hero.png" alt="Concept art of a historical settlement growing into a city" width="48%">
@@ -56,11 +60,11 @@ These generated previews illustrate the project's longer-term historical and mod
 
 ## Technical highlights
 
-- **Simulation kernel:** Rust workspace organized around world generation, changing land, people, authored content, simulation composition, hosting and a C interface.
-- **Emergent systems:** event-scheduled daily lives and calendar cadences; goods move through an accounting ledger; building grammars expand saved designs; institutions emerge through proposals, deliberation, law and collective action. Waterborne disease and fire spread through household choices, weather, buildings and local response.
-- **Multiple settlements:** settlement identity and residence histories are explicit. Households learn places by contact and choose whether to visit, move or found elsewhere.
-- **Content and boundaries:** strict TOML packs (content API 117) feed the kernel. The web observer uses a localhost WebSocket and versioned FlatBuffers messages (TCE wire 1.82); it displays kernel state and forwards commands.
-- **Persistence:** checksummed, versioned snapshots (schema 128) with explicit migrations. World generation is reproducible for a seed on one build; simulation replay is not a goal.
+- **Simulation kernel:** Rust workspace with separate crates for world generation, land, people, content, simulation, hosting and a versioned C interface.
+- **Emergent systems:** event-scheduled lives and household economies; authored building grammars; institutions formed through proposals and collective decisions; weather, water, illness, fire, conflict and transport.
+- **Many-settlement scale:** each person remains individually represented. Settlements away from the observer's focus can resolve household work once per day, while the selected settlement continues in detail. Time skips use the same household machinery.
+- **Industrial transition underway:** water-powered work is represented by saved installations whose daily output follows river discharge; powered recipes and water mills can be built when households expect them to repay their cost.
+- **Persistence and interfaces:** checksummed, versioned snapshots; generated FlatBuffers messages; a localhost WebSocket observer that displays kernel state and forwards commands. Current boundary versions: wire 1.96, save schema 174 and content API 160.
 
 ## Run it
 
@@ -75,12 +79,8 @@ On Windows, run `tools\run.ps1` in PowerShell. The observer opens at <http://127
 ## Documentation
 
 - [Project plan and milestone status](PROJECT_PLAN.md)
-- [Development journal and technical guide](docs/development-journal/README.md)
+- [Development journal and technical guides](docs/development-journal/README.md)
 - [Demo gallery across milestones](demos/README.md)
-- [Institutions, law and social change](docs/development-journal/institutions-and-order.md)
-- [Settlements, movement and trade](docs/development-journal/settlements-and-exchange.md)
-- [Inter-polity relations and public works](docs/development-journal/relations-and-public-works.md)
-- [Water, sickness and fire systems](docs/development-journal/hazards-and-health.md)
 - [Architecture decision records](decisions/README.md)
 - [Research index](research/README.md)
 - [Content authoring guide](content/README.md)
@@ -89,3 +89,7 @@ On Windows, run `tools\run.ps1` in PowerShell. The observer opens at <http://127
 ## License
 
 No license has been added. Until one is chosen, the repository does not grant reuse or redistribution rights.
+
+## CI runner pool
+
+Dedicated Linux VMs on servernode1 and servernode3, with optional capacity on servernode4, provide the [GitHub Actions runner pool](docs/operations/github-runners.md). Trusted push checks and scheduled long runs can use these machines; Windows and pull-request checks retain GitHub-hosted runners. The runner guide covers candidate branches, routing, isolation, and safely stopping the optional runner before switching servernode4 to Windows.

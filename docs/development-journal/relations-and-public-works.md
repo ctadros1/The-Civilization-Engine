@@ -1,12 +1,12 @@
 # Relations and Public Works
 
-This guide describes implemented M5c systems in the integrated `main` tree as of 2026-10-11. [ADR-0020](../../decisions/0020-relations-between-polities.md) governs inter-polity relations and agreements; crossing construction extends [ADR-0004](../../decisions/0004-buildings-land-paths.md) and [ADR-0009](../../decisions/0009-building-components.md). The plan's [M5c milestone](../../PROJECT_PLAN.md#7-milestones) and [decision log](../../PROJECT_PLAN.md#9-decisions-log) hold exact slice details, checks and run results.
+This guide describes inter-polity relations and public works in the integrated `main` tree as of 2026-10-22. [ADR-0020](../../decisions/0020-relations-between-polities.md) governs relations and agreements; [ADR-0023](../../decisions/0023-force-between-polities.md) governs force and conquest. Crossing construction extends [ADR-0004](../../decisions/0004-buildings-land-paths.md) and [ADR-0009](../../decisions/0009-building-components.md). The plan's [M5–M6 milestones](../../PROJECT_PLAN.md#7-milestones) and [decision log](../../PROJECT_PLAN.md#9-decisions-log) hold exact slice details, checks and run results.
 
 ## What a polity knows about another
 
 Each settlement has its own polity and laws. Relations are not stored as a score or a world-level diplomatic mode. People hold views based on acts they saw or heard about; grievances name a responsible party and an expectation; claims and agreement histories record what the polities did. A pure classifier derives labels such as *unknown*, *known*, *wary*, *friendly*, *under agreement* or *tributary*. Labels are explanatory views only and do not drive simulation choices. The two polities may have different labels because their people have different knowledge and experience.
 
-Claims over wild gathering places and deposits begin as laws decided by the local polity. Households record where their people gathered or dug and whether they saw outsiders working there. When a household knows its own polity's claim and its people work beside outsiders at that place, a grievance can form. Claims and news about them travel through people and routine contact; there is no global diplomatic feed. The system does not yet model raids or taking goods from another settlement's stores.
+Claims over wild gathering places and deposits begin as laws decided by the local polity. Households record where their people gathered or dug and whether they saw outsiders working there. When a household knows its own polity's claim and its people work beside outsiders at that place, a grievance can form. Claims and news about them travel through people and routine contact; there is no global diplomatic feed. Since M6c, households may also take goods from homes in another settlement, and polities may call and send bands, fight minute-level encounters, raise enclosures, seek terms, or incorporate a held settlement through law. The [development history](development-history.md) and plan record the lived demo and its seed-specific outcome.
 
 ## Agreements: one record, two laws
 
@@ -24,7 +24,7 @@ A bridge system is authored content; the current system is a log footbridge. A c
 
 A household can consider a crossing using its recorded river wades and the walking time the deck could save. People in the household choose construction work, with quality based on their building skill. A polity can also pass a public-work law for a crossing where the households' combined use makes the work worthwhile; each household is asked for an equal share and contributes by choice. A bridge system's crew limit bounds how many workers can make progress on it in a day. The observer's crossing view shows construction, owner, members, condition and location on the map.
 
-In the measured worlds, no household's own wades justified a standalone log bridge. Selected village runs did build shared crossings. The current system does not include a trestle over the trunk river, other bridge systems, routes made reachable only by a crossing, abandoning stalled work or repairing a bridge before it fails. Enclosures were moved to M6, where theft and force can give them a purpose.
+In the measured worlds, no household's own wades justified a standalone log bridge. Selected village runs did build shared crossings. The current system does not include a trestle over the trunk river, other bridge systems, routes made reachable only by a crossing, abandoning stalled work or repairing a bridge before it fails. War and enclosure are implemented in M6c; their details belong to [ADR-0023](../../decisions/0023-force-between-polities.md).
 
 ## Source map
 

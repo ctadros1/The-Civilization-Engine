@@ -1,6 +1,6 @@
 # Institutions, Law and Social Change
 
-This guide describes the M4 systems in the integrated `main` tree as of 2026-10-11. The design is governed by [ADR-0013](../../decisions/0013-polity-offices-laws.md) through [ADR-0017](../../decisions/0017-factions-episodes-regime-change.md). M5's inter-polity claims, agreements and public works are covered in [Relations and Public Works](relations-and-public-works.md). The detailed implementation and run record is in [PROJECT_PLAN.md §9](../../PROJECT_PLAN.md#9-decisions-log).
+This guide describes institutions and public order in the integrated `main` tree as of 2026-10-22. M4 established polities, law, order and political change; M7 added offices with terms, elections, courts, precedent, review, organizations, trade policy, credit and coin. The design is governed by [ADR-0013](../../decisions/0013-polity-offices-laws.md) through [ADR-0017](../../decisions/0017-factions-episodes-regime-change.md) and [ADR-0024](../../decisions/0024-seats-offices-and-elections.md) through [ADR-0027](../../decisions/0027-claims-and-coin.md). M5 and M6 relations and war are covered in [Relations and Public Works](relations-and-public-works.md). Exact implementation evidence is in [PROJECT_PLAN.md §7–9](../../PROJECT_PLAN.md#7-milestones).
 
 ## Ownership and core rule
 
@@ -71,12 +71,20 @@ The observer can introduce a true claim to one person's hearing, tell someone of
 
 Government, Takings, Standing and inspector panels are projections of kernel records. They expose histories, reasons and current state but have no independent authority. The map and panels can be empty or lack a view where the record contains no event; absence is not filled in by a narrator.
 
-## Limits at this baseline
+## M7: offices, courts, organizations and credit
 
-- This is a small authored set of policies, issues, offices and social values, not a model of modern states, elections, bureaucracies or general-purpose legal codes.
+M7 extends the same bottom-up process. A polity can change its constitution and choose a council by election or lot; candidates stand and campaign, voters are counted by the configured block vote, and the observer records failures as well as completed elections. A law can name a court or panel, whose findings become precedent according to its authority. Constitutional limits can be adopted through amendment, and a review-capable forum can strike down a law when a burdened person challenges it. These systems are implemented, but their outcomes depend on who hears, attends and supports each proposal.
+
+Trade rules may include duties or embargoes. Sellers may organize under authored membership rules; a polity may recognize an organization, exempt members from a duty, or grant a license or staple. Organization and influence are emergent: the M7c run passed trade restrictions but produced no organization, because trade remained too small in that world.
+
+Credit records household and common-store loans, increments, repayment, default, extensions, pledges, guarantors, workshop wages and debts heard by a gathering. Copper and coin are implemented, including minting, coin wages and levies. The M7d four-year run shown in the [demo gallery](../../demos/README.md) produced loans but no copper or coin, even after the observer taught smelting; households still had stone axes and no replacement need. The outcome is evidence about that seed, not proof of a universal pattern. See [ADR-0024–0027](../../decisions/README.md) and the [plan](../../PROJECT_PLAN.md#9-decisions-log) for design boundaries and run conditions.
+
+## Limits in this build
+
+- This is a small authored set of policies, issues, offices and social values, not a model of modern states, bureaucracies or general-purpose legal codes.
 - A passing law, a revolt, an ideology becoming common or a regime label is contingent on the initial world and people's choices. The demos document what their selected runs did, not a guaranteed outcome.
 - The M4 fifty-year dashboard's latest recorded run has one failed food-price row in one world. The detailed result, other rows and uncertainty are preserved in the plan's decision log.
-- Some designed cases remain deferred, including closures, property damage and seizure/retention of a faction's store.
+- The demos do not show that elections, organizations, credit or coin will arise in every world.
 
 ## Further reading
 

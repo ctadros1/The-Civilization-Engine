@@ -1,6 +1,6 @@
 # Settlements, Movement and Exchange
 
-This guide describes M5a settlement behavior and the implemented M5b exchange and diffusion systems in the integrated `main` tree as of 2026-10-11. [ADR-0018](../../decisions/0018-settlements-residence-movement.md) governs settlement identity and movement; [ADR-0019](../../decisions/0019-exchange-between-settlements.md) governs exchange. Inter-polity relations and works are documented separately in [Relations and Public Works](relations-and-public-works.md). Run measurements and known limits live in [PROJECT_PLAN.md §9](../../PROJECT_PLAN.md#9-decisions-log).
+This guide focuses on M5a settlement behavior and M5b exchange and diffusion in the integrated `main` tree as of 2026-10-22. [ADR-0018](../../decisions/0018-settlements-residence-movement.md) governs settlement identity and movement; [ADR-0019](../../decisions/0019-exchange-between-settlements.md) governs exchange. M6 conflict and M7 credit/coin are covered in [Relations and Public Works](relations-and-public-works.md) and [Institutions and Order](institutions-and-order.md); M8 transport and M9 household resolution are summarized in the [simulation model](simulation-model.md). Run measurements and known limits live in [PROJECT_PLAN.md §9](../../PROJECT_PLAN.md#9-decisions-log).
 
 ## Settlement identity and population accounts
 
@@ -69,7 +69,7 @@ An earlier M5b comparison recorded 20 and 70 purchases between settlements over 
 
 The command `civ-host twin` can compare a saved world lived with cross-settlement buying enabled and with it stopped by a test harness. This is a diagnostic counterfactual, not a player-facing rule. Selected runs are not proof that trade or diffusion will happen in every world.
 
-Per-polity currencies are not implemented because the content has no money-minting mechanism. The current system has no merchant firms that run errands, no goods in transit, and no guarantee of price convergence. See [PROJECT_PLAN.md §7](../../PROJECT_PLAN.md#7-milestones) and its [decision log](../../PROJECT_PLAN.md#9-decisions-log) for implementation details and measured outcomes.
+M7 implements per-polity coin issues, minting, purses and coin payments, but the M7d lived run did not produce copper or coin. Workshops still do not run trade errands as merchant firms. M8 boats and carts carry household goods while in transit, but prices do not converge by rule and these vehicles are not merchant agents. See [PROJECT_PLAN.md §7](../../PROJECT_PLAN.md#7-milestones) and its [decision log](../../PROJECT_PLAN.md#9-decisions-log) for implementation details and measured outcomes.
 
 ## Further reading
 

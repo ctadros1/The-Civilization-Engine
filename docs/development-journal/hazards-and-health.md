@@ -1,6 +1,6 @@
 # Water, Sickness and Fire
 
-This guide describes the integrated `main` implementation as of 2026-10-11. The project plan
+This guide describes the integrated `main` implementation as of 2026-10-22. The project plan
 records milestone status and run evidence; the architecture decisions define durable boundaries.
 The detailed slice-by-slice record is in the [development history](development-history.md).
 
@@ -96,9 +96,9 @@ building, shout to nearby people, and hear alarms; those records form the fire's
 People who know of a fire weigh choices against their other needs and work. Implemented responses
 include carrying a water load from household stores or a source to threatened roofs, stripping a
 threatened covering, and carrying household goods out. A fire page records what each response did.
-The implemented response set is still partial: leading people out, pulling a building down and
-keeping away remain in the milestone plan. Masonry, tile, floods, banks, ditches, building rules and
-the M6b demonstration are also still ahead.
+The response set remains partial. M6b also adds masonry, tile, flood and storm damage, banks,
+ditches, building rules and a great-fire demo. An equipped crew can pull down an empty threatened
+building; work can be partial and saved. Household awareness and response calibration remain open.
 
 The dashboard grades fires that escaped from fires in use against the research reference range of
 1–100 per 1,000 household-years. It reports how many were put out, burned a building, spread from a

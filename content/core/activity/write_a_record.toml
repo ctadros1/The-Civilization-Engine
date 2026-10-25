@@ -1,0 +1,20 @@
+# Writing down a technique at home (M10c slice EC; ADR-0035 §6; research 07-09 §1.10: a record can
+# carry awareness of a method, and some methods more than that): someone who can write, and who
+# alone of their settlement knows a technique that no record held there keeps, writes toward a
+# record of it; once `knowledge.record_h` hours are written, their household holds the record. A
+# session of two hours a day by daylight (a tuning value); light work about the home.
+kind = "activity"
+id = "core:activity/write_a_record"
+name = "Write"
+doing = "writing"
+behavior = "write"
+par = 1.5
+min_age_years = 12.0
+max_age_years = 90.0
+min_minutes = 120
+max_minutes = 120
+daylight_only = true
+max_walk_minutes = 0
+technique = "core:technique/writing"
+tools = []
+rate = 1.0

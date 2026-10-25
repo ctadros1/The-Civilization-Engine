@@ -129,11 +129,18 @@ pub enum Behavior {
     /// Walk to the home of the one they are enrolled to learn a technique from, study it there,
     /// and walk home (M10c slice EB, second part): credited at midnight, up to what was taught.
     Study,
+    /// Write down at home a technique they know that no record their settlement holds keeps,
+    /// where nobody else of it knows it (M10c slice EC; ADR-0035 §6): a record once the hours of
+    /// one are written.
+    Write,
+    /// Read at home a record their household holds of a technique they do not know (M10c slice
+    /// EC): aware of it, and learning toward it where it can be learnt from the page.
+    Read,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 43] = [
+    pub const ALL: [Behavior; 45] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -177,6 +184,8 @@ impl Behavior {
         Behavior::Call,
         Behavior::Teach,
         Behavior::Study,
+        Behavior::Write,
+        Behavior::Read,
     ];
 
     /// The authored name of a behavior.
@@ -225,6 +234,8 @@ impl Behavior {
             Behavior::Call => "call",
             Behavior::Teach => "teach",
             Behavior::Study => "study",
+            Behavior::Write => "write",
+            Behavior::Read => "read",
         }
     }
 
@@ -769,6 +780,10 @@ pub struct TechniqueDef {
     /// API 180; research 06-08 §5.3: 1-3 for crafts, 15-40 for elementary group work); beyond it,
     /// each learner's share of the session falls.
     pub group: u16,
+    /// How many times its `learn_h` learning it from a record alone takes (M10c slice EC;
+    /// content API 182; research 07-09 §1.10: codifiability); 0: it cannot be learnt from the
+    /// page, only heard of there.
+    pub codified: f64,
 }
 
 /// The authored activities, goods and crops.
@@ -1627,6 +1642,12 @@ pub struct DecisionParams {
     /// Points for a session of study with the one they are enrolled to learn from (M10c slice
     /// EB, second part).
     pub w_study: f64,
+    /// Points for a session writing down a technique only they of their settlement know (M10c
+    /// slice EC).
+    pub w_write: f64,
+    /// Points for a session reading a record their household holds of a technique they do not
+    /// know (M10c slice EC).
+    pub w_read: f64,
 }
 
 /// The first people of a new world (research 05-01 §4.5).
@@ -2361,6 +2382,9 @@ pub struct KnowledgeParams {
     /// How far, metres, someone at another settlement's hearth or a seller's door there sees its
     /// people at work well enough to know of a technique the work needs (M5b slice AR; 0: never).
     pub watch_m: f64,
+    /// Hours of writing that make a record of a technique (M10c slice EC; content API 182;
+    /// research 07-09 §2.2: 20-90 worker-minutes a complex document, a technique many).
+    pub record_h: f64,
 }
 
 /// Linear interpolation in an ascending `(x, y)` table, clamped at its ends.

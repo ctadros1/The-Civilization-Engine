@@ -6,8 +6,8 @@ institutions through large cities, transport, planning, land and household resol
 settlements. M9's 100,000-person performance target was not met; see §7 and §9 for the measured
 result and amended gate. **M10a, power and the works, and M10b, rail and gas light, are
 implemented** (slices DO–DY). **M10c, services and letters, is in progress:** care beyond the
-household (DZ), birth care (EA) and teaching (EB) are implemented, and letters, inoculation and
-the health office remain ahead. M2's portable kernel library and C interface are
+household (DZ), birth care (EA) and teaching (EB) are implemented; letters (EC) have begun, and
+inoculation and the health office remain ahead. M2's portable kernel library and C interface are
 implemented; the Unreal client remains future work. Modern civilization remains future scope. See
 §7 for milestone scope and §9 for implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
@@ -6996,7 +6996,34 @@ and M6a gives rivers a daily flow.
       within days, the schoolteacher's household is paid, and the polity's offices name the
       schoolteacher. **Slice EB is done.**
     - **EC**: letters and records: reading, writing and reckoning as techniques, written records as
-      saved entities, office requirements, licences as privileges.
+      saved entities, office requirements, licences as privileges. Planned (2026-10-25) in parts:
+      (1) letters as techniques and records written and read; (2) records lost with their building
+      and copies; (3) offices and posts that need letters, licences, and why a household sends a
+      child to learn them; (4) the observer.
+      *As built, first part (2026-10-25): letters and records.* Reckoning, reading and writing are
+      techniques (content API 182): reckoning found by those who trade, reading by reckoners and
+      writing by readers, each rarely (100,000, 300,000 and 300,000 qualified hours for half;
+      design priors); learnt in 300, 600 and 600 hours with a knower in groups of up to 15
+      (06-08 §5.3; 07-09 §2.2), never in upbringing, and founders bring none (06-08 §3). Someone
+      who can write, and who alone of their settlement knows a technique that no record held there
+      keeps, writes it down at home two hours a day (`write`, `activity/write_a_record`,
+      `decision.w_write`); once `knowledge.record_h` hours are written (the core's 20, a design
+      prior beside 07-09 §2.2's 20-90 minutes a complex document), their household holds a record
+      of it, with its writer and the day (saves 195, with the writing toward one, in the knowledge
+      section). Someone who can read, whose household holds a record of a technique they do not
+      know, reads it at home (`read`, `activity/read_a_record`, `decision.w_read`): they hear of it
+      from its writer (a new source, `Read`), and where a technique can be learnt from the page
+      (its `codified`, a multiple of `learn_h`; 0 by default; 07-09 §1.10), they learn toward it
+      at that multiple, knowing it at last from the record. The core makes laying out codified at
+      twice (10-04 §4: texts carry planning knowledge). A technique that a technique gating work
+      needs first now counts as gating work itself (E3005), as reckoning does. Both behaviours are
+      at most once a day in a household-resolved day. A world where nobody finds letters is
+      unchanged until someone does. **Tested:** the three techniques' routes, groups and that
+      founders bring none; a household's one grown member who alone knows laying out and knows
+      letters writes it down over days, the writing saving and loading alike mid-way, until the
+      household holds a record of it by them, which saves and loads; they would write down writing
+      itself next, not laying out again; another member who can read reads the record and learns
+      toward laying out from it, from its writer.
     - **ED**: inoculation: the `Company` route, smallpox by the observer's hand, variolation and
       vaccination with protection records.
     - **EE**: the health office and the sickhouse: register and rounds, `keep_apart`,

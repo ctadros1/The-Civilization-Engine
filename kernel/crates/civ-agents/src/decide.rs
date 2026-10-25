@@ -140,6 +140,12 @@ pub struct Facts {
     /// The one they are enrolled to learn a technique from (M10c slice EB, second part); none
     /// once today's session is studied.
     pub study: Option<StudyFacts>,
+    /// A technique they would write down, which nobody else of their settlement knows and no
+    /// record it holds keeps (M10c slice EC); none unless they know writing.
+    pub write: Option<u16>,
+    /// A technique their household holds a record of that they do not know (M10c slice EC);
+    /// none unless they know reading.
+    pub read: Option<u16>,
     /// Whether their home is flooded today (M6b slice BF): they leave wet homes for kin or
     /// hearth until the flood recedes.
     pub home_flooded: bool,
@@ -1111,6 +1117,13 @@ pub fn candidates(
             continue;
         }
         if def.behavior == Behavior::Study && f.study.is_none() {
+            continue;
+        }
+        // And writing and reading records to those with one to write or read (M10c slice EC).
+        if def.behavior == Behavior::Write && f.write.is_none() {
+            continue;
+        }
+        if def.behavior == Behavior::Read && f.read.is_none() {
             continue;
         }
         if f.age < def.min_age_years {
@@ -2371,6 +2384,23 @@ pub fn candidates(
                 });
                 out.push(finish(id, Target::Technique(t.technique), terms, steps));
             }
+            Behavior::Write | Behavior::Read => {
+                // A session at home with a record, written or read (M10c slice EC).
+                let (t, reason, weight) = if def.behavior == Behavior::Write {
+                    (f.write, Reason::Writing, w.w_write)
+                } else {
+                    (f.read, Reason::Reading, w.w_read)
+                };
+                let Some(t) = t else {
+                    continue;
+                };
+                term(&mut terms, reason, weight);
+                let mut steps = walk_home_first(f);
+                steps.push(Step::Work {
+                    minutes: def.min_minutes.max(1),
+                });
+                out.push(finish(id, Target::Technique(t), terms, steps));
+            }
             Behavior::Study => {
                 // A session at the teacher's home, less the walk there and back.
                 let Some(s) = f.study else {
@@ -2711,6 +2741,8 @@ mod tests {
             w_tend: 6.0,
             w_teach: 4.0,
             w_study: 4.0,
+            w_write: 3.0,
+            w_read: 3.0,
         }
     }
 
@@ -2761,6 +2793,8 @@ mod tests {
             call: None,
             teach: None,
             study: None,
+            write: None,
+            read: None,
             home_flooded: false,
             shelter: None,
             age: 30.0,

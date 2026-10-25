@@ -224,6 +224,10 @@ pub enum Reason {
     Teaching = 162,
     /// They are enrolled to learn a technique from someone (M10c slice EB).
     Study = 163,
+    /// Nobody else of their settlement knows it, and no record it holds keeps it (M10c slice EC).
+    Writing = 164,
+    /// Their household holds a record of something they do not know (M10c slice EC).
+    Reading = 165,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -235,7 +239,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 97] = [
+    pub const ALL: [Reason; 99] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -333,6 +337,8 @@ impl Reason {
         Reason::NoCrew,
         Reason::Teaching,
         Reason::Study,
+        Reason::Writing,
+        Reason::Reading,
     ];
 
     /// The reason with this code.
@@ -442,6 +448,8 @@ impl Reason {
             Reason::NoCrew => "it needs more hands at it together than come to it at home",
             Reason::Teaching => "those enrolled to learn from them",
             Reason::Study => "they are enrolled to learn it",
+            Reason::Writing => "nobody else of theirs knows it, and no record keeps it",
+            Reason::Reading => "their household holds a record of it",
         }
     }
 }

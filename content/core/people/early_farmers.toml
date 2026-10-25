@@ -150,6 +150,11 @@ w_tend = 6.0
 # useful work, below tending (tuning values; 06-08 §1.4: teaching takes the teacher's time).
 w_teach = 4.0
 w_study = 4.0
+# Writing down a technique only they of their settlement know, a session at a time, and reading a
+# record their household holds of a technique they do not know (M10c slice EC; content API 182):
+# below teaching, as nobody waits on them (tuning values).
+w_write = 3.0
+w_read = 3.0
 
 [band]                           # research 05-01 §4.5: bands of 40 in at least six unrelated families
 default_size = 40
@@ -510,6 +515,10 @@ w_try = 2.0
 # Seeing gives awareness only: buying a tool does not teach toolmaking (research 07-02 §1.2). A
 # design prior: close enough to watch hands at work, not just to see a roof.
 watch_m = 100.0
+# Hours of writing that make a record of a technique (M10c slice EC; content API 182; research
+# 07-09 §2.2: 20-90 worker-minutes a complex document, and a technique's procedures many of them):
+# a design prior, ten two-hour sessions.
+record_h = 20.0
 # Least days between one person's sessions of trying: an hour a week at most, about 2 % of
 # working time (07-01 §2.3 tests 0-5 %; 07-11 §2.2 finds 0-10 % protected time for craft workers).
 try_gap_days = 7.0

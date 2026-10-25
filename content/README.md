@@ -43,7 +43,7 @@ CI runs the validator. Diagnostics have stable codes:
 | E3002 | Unknown or missing `kind` |
 | E3003 | Not exactly one world-generation preset has `default = true` |
 | E3004 | Not exactly one people profile, or not exactly one land profile |
-| E3005 | A technique gates no work: no recipe, activity, building program, bridge, vehicle or well system names it |
+| E3005 | A technique gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor does a technique that gates work need it |
 | E3006 | Techniques' prerequisites form a cycle |
 | E3007 | A recipe can never be worked: an input or tool comes only from recipes that need it (research 07-03 §6's bootstrap test) |
 
@@ -1759,3 +1759,14 @@ hold the fee to send a child to learn a technique it lacked within the year, and
 the settlement knows it. The schoolteacher takes the polity's children to learn what they know
 without a fee, and where a law pays common work the store pays their household for the hours they
 teach them. The core adds `policy/yourselves_work_with_a_teacher`.
+
+Content API 182 (M10c slice EC, first part) adds the behaviours `write` (writing down at home a
+technique the writer alone of their settlement knows and no record there keeps) and `read`
+(reading a record the household holds of a technique the reader does not know), with their
+points `decision.w_write` and `decision.w_read` (at least 0; the core's 3), a people profile's
+`knowledge.record_h` (the hours of writing a record takes, above 0 and at most 1,000; the core's
+20), and a technique's `codified` (how many times its `learn_h` learning it from a record alone
+takes: 0, the default, for heard of there but never learnt, or 1 to 100). A technique that another
+technique gating work requires now gates work itself (E3005). The core adds the techniques
+`reckoning`, `reading` and `writing`, the activities `write_a_record` and `read_a_record`, and
+makes `laying_out` codified at 2.

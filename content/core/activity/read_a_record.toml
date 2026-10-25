@@ -1,0 +1,20 @@
+# Reading a record at home (M10c slice EC; ADR-0035 §6; research 07-09 §1.10: awareness, then
+# comprehension, then practised competence): someone who can read, whose household holds a record
+# of a technique they do not know, reads it; they hear of the technique there, and where it can be
+# learnt from the page (its `codified`), they learn toward it at that multiple of the hours beside
+# a knower. A session of two hours a day by daylight (a tuning value); light work about the home.
+kind = "activity"
+id = "core:activity/read_a_record"
+name = "Read"
+doing = "reading"
+behavior = "read"
+par = 1.5
+min_age_years = 7.0
+max_age_years = 90.0
+min_minutes = 120
+max_minutes = 120
+daylight_only = true
+max_walk_minutes = 0
+technique = "core:technique/reading"
+tools = []
+rate = 1.0

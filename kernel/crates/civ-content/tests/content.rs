@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 181
+kernel_content_api = 182
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -258,7 +258,17 @@ fn the_repository_content_is_clean() {
     for later in ["core:technique/drying", "core:technique/rotary_quern"] {
         assert!(!founders.contains(&later), "{later}");
     }
-    assert!(c.techniques.iter().all(|t| t.upbringing));
+    // Every craft is learnt in upbringing; letters and reckoning are only taught (M10c slice EC).
+    let letters = [
+        "core:technique/reckoning",
+        "core:technique/reading",
+        "core:technique/writing",
+    ];
+    assert!(
+        c.techniques
+            .iter()
+            .all(|t| t.upbringing != letters.contains(&t.id.as_str()))
+    );
     // Drying answers food lost to spoiling; the rotary quern needs both shaping crafts.
     let drying = &c.techniques[c.technique_index("core:technique/drying").expect("drying")];
     assert_eq!(drying.answers_spoilage.len(), 2);
@@ -2677,4 +2687,41 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
     assert_eq!(def.answers, vec![IssueKind::Untaught]);
     // Its id sorts after every other template's.
     assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
+}
+
+#[test]
+fn letters_and_reckoning_are_techniques_nobody_brings_found_rarely_by_those_who_trade() {
+    // M10c slice EC, first part (ADR-0035 §6): reckoning, then reading, then writing, each found
+    // only by those who know the one before it, at trade; taught in groups, never in upbringing.
+    let reg = registry(load(&repo_content()));
+    let c = &reg.catalog;
+    let index = |id: &str| c.technique_index(id).expect(id);
+    let (reckoning, reading, writing) = (
+        index("core:technique/reckoning"),
+        index("core:technique/reading"),
+        index("core:technique/writing"),
+    );
+    let trade = c
+        .activities
+        .iter()
+        .position(|a| a.id == "core:activity/trade")
+        .expect("trade");
+    assert!(c.techniques[reckoning].requires.is_empty());
+    assert_eq!(c.techniques[reading].requires, vec![vec![reckoning]]);
+    assert_eq!(c.techniques[writing].requires, vec![vec![reading]]);
+    for t in [reckoning, reading, writing] {
+        let d = &c.techniques[t];
+        assert_eq!(d.tried_in, vec![trade], "{}", d.id);
+        assert!(!d.upbringing && d.group == 15, "{}", d.id);
+        assert!(
+            !reg.people
+                .params
+                .knowledge
+                .founders
+                .iter()
+                .any(|&(f, _)| f == t),
+            "founders do not bring {}",
+            d.id
+        );
+    }
 }

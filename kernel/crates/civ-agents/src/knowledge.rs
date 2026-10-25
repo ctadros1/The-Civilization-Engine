@@ -43,6 +43,18 @@ pub struct Untaught {
     pub day: i64,
 }
 
+/// A written record of a technique (M10c slice EC; ADR-0035 §6; research 07-09 §5.1): a carrier
+/// of it that is not a person, kept by the household that holds it, with who wrote it and the day.
+/// Saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Record {
+    pub id: PermanentId,
+    pub technique: u16,
+    pub holder: PermanentId,
+    pub maker: PermanentId,
+    pub made: i64,
+}
+
 /// Minutes someone gave a technique today in sessions, teaching it or studying it (M10c slice
 /// EB, second part): credited to the learners at midnight. Saved.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -300,6 +312,7 @@ mod tests {
             answers_spoilage: Vec::new(),
             birth: [0.0; 3],
             group: 3,
+            codified: 0.0,
         };
         Catalog {
             activities: vec![activity("sow", 10.0, 0), activity("weave", 12.0, 1)],
@@ -318,6 +331,7 @@ mod tests {
             w_try: 2.0,
             try_gap_days: 7.0,
             watch_m: 100.0,
+            record_h: 20.0,
         }
     }
 

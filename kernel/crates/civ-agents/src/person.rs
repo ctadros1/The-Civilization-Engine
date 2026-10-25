@@ -342,6 +342,8 @@ pub enum KnowSource {
     /// They saw its work done, or bought what was made with it, in this settlement, not their
     /// own (M5b slice AR): awareness only, never knowing (research 07-02 §1.2).
     Seen(PermanentId),
+    /// They read it in a record this person wrote (M10c slice EC; ADR-0035 §6).
+    Read(PermanentId),
 }
 
 impl KnowSource {
@@ -354,6 +356,7 @@ impl KnowSource {
             KnowSource::Found => 3,
             KnowSource::Observer => 4,
             KnowSource::Seen(_) => 5,
+            KnowSource::Read(_) => 6,
         }
     }
 
@@ -373,7 +376,7 @@ impl KnowSource {
     /// The person it came from, if any.
     pub fn person(self) -> Option<PermanentId> {
         match self {
-            KnowSource::Upbringing(p) | KnowSource::Taught(p) => Some(p),
+            KnowSource::Upbringing(p) | KnowSource::Taught(p) | KnowSource::Read(p) => Some(p),
             _ => None,
         }
     }
@@ -387,6 +390,7 @@ impl KnowSource {
             (3, _) => KnowSource::Found,
             (4, _) => KnowSource::Observer,
             (5, Some(s)) => KnowSource::Seen(s),
+            (6, Some(p)) => KnowSource::Read(p),
             _ => KnowSource::Founder,
         }
     }
@@ -510,12 +514,25 @@ impl Person {
         learn_h: f64,
         now: SimTime,
     ) -> bool {
-        let k = self.know_entry(t, now, KnowSource::Taught(teacher));
+        self.learn_from(t, hours, KnowSource::Taught(teacher), learn_h, now)
+    }
+
+    /// `hours` toward technique `t` from `source` (a teacher, or a record read), which takes
+    /// `learn_h` to learn. Returns whether they now know it.
+    pub fn learn_from(
+        &mut self,
+        t: usize,
+        hours: f64,
+        source: KnowSource,
+        learn_h: f64,
+        now: SimTime,
+    ) -> bool {
+        let k = self.know_entry(t, now, source);
         if k.known {
             return false;
         }
         k.hours += hours.max(0.0) as f32;
-        k.source = KnowSource::Taught(teacher);
+        k.source = source;
         if f64::from(k.hours) + 1e-6 >= learn_h {
             k.known = true;
             k.since = now;

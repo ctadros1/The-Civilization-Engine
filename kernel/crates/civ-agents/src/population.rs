@@ -65,6 +65,7 @@ mod influence;
 mod knowledge;
 mod lamps;
 mod land;
+mod letters;
 mod levees;
 mod life;
 mod loads;
@@ -643,6 +644,10 @@ pub struct Population {
     /// Households that could not hold the fee to send a child to learn, within a year, oldest
     /// first (M10c slice EB, third part).
     pub untaught: Vec<crate::knowledge::Untaught>,
+    /// Written records of techniques, in the order written, and the minutes each writer has
+    /// written toward the record they are writing (M10c slice EC; ADR-0035 §6).
+    pub writings: Vec<crate::knowledge::Record>,
+    pub written: Vec<crate::knowledge::Session>,
     /// What each settlement has seen of each technique's buildings, in the order first seen
     /// (ADR-0009 §6).
     pub trust: Vec<crate::caution::Trust>,
@@ -3706,6 +3711,8 @@ impl Population {
             call: self.call_facts(ctx, p.id, &hh, field_key),
             teach: self.teach_facts(ctx, p.id),
             study: self.study_facts(ctx, p.id, field_key),
+            write: self.write_facts(ctx, p.id),
+            read: self.read_facts(ctx, p.id),
             home_flooded: ctx
                 .land
                 .flood_depths
@@ -5592,7 +5599,9 @@ impl Population {
                 | Behavior::Make
                 | Behavior::Try
                 | Behavior::Tend
-                | Behavior::Teach,
+                | Behavior::Teach
+                | Behavior::Write
+                | Behavior::Read,
             ) => (def_par, false, params.social.household_quality),
             Some(
                 Behavior::Gather
@@ -5856,6 +5865,19 @@ impl Population {
                         let who = p.id;
                         crate::knowledge::tally(&mut self.studied, who, t, minutes as f32);
                         self.pay_study_fee(ctx, who, t);
+                    }
+                }
+                // A record written toward, or read (M10c slice EC).
+                Some(Behavior::Write) => {
+                    if let Target::Technique(t) = p.act.target {
+                        let who = p.id;
+                        self.finish_write(ctx, who, t, f64::from(minutes));
+                    }
+                }
+                Some(Behavior::Read) => {
+                    if let Target::Technique(t) = p.act.target {
+                        let who = p.id;
+                        self.finish_read(ctx, who, t, f64::from(minutes));
                     }
                 }
                 // A call left at a carer's door (M10c slice DZ, second part).

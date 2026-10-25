@@ -129,8 +129,8 @@ use super::{
     SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
     SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, SCHEMA_V180,
     SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, SCHEMA_V187,
-    SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, finish, section,
-    section_root, single_chunk, unreadable,
+    SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, SCHEMA_V194,
+    finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -907,9 +907,10 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V182 | SCHEMA_V183 | SCHEMA_V184 | SCHEMA_V185 => Schema::V182,
         // Mains' lengths laid (schema 187), their worth (188) and street lamps (189) are read
         // wherever saved, as are calls for carers (190), who tended the ill (191), births
-        // attended (192), enrolments to learn (193) and households untaught (194).
+        // attended (192), enrolments to learn (193), households untaught (194) and written
+        // records (195).
         SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SCHEMA_V190 | SCHEMA_V191
-        | SCHEMA_V192 | SCHEMA_V193 | SAVE_SCHEMA_VERSION => Schema::V186,
+        | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -8977,6 +8978,22 @@ fn encode_knowledge(pop: &Population, techniques: &[&str]) -> Vec<u8> {
         .map(|u| save::UntaughtSave::new(u.household.get(), u.technique, u.day))
         .collect();
     let untaught = fbb.create_vector(&untaught);
+    // Written records and the writing toward them (schema 195, M10c slice EC).
+    let writings: Vec<save::RecordSave> = pop
+        .writings
+        .iter()
+        .map(|r| {
+            save::RecordSave::new(
+                r.id.get(),
+                r.holder.get(),
+                r.maker.get(),
+                r.technique,
+                r.made,
+            )
+        })
+        .collect();
+    let writings = fbb.create_vector(&writings);
+    let written = fbb.create_vector(&sessions(&pop.written));
     let root = save::Knowledge::create(
         &mut fbb,
         &save::KnowledgeArgs {
@@ -8989,6 +9006,8 @@ fn encode_knowledge(pop: &Population, techniques: &[&str]) -> Vec<u8> {
             taught: Some(taught),
             studied: Some(studied),
             untaught: Some(untaught),
+            writings: Some(writings),
+            written: Some(written),
         },
     );
     finish(fbb, root)
@@ -9042,7 +9061,7 @@ fn decode_trust(bytes: &[u8], rules: &Rules) -> Result<Vec<Trust>, LoadError> {
 }
 
 /// Enrolments to learn from another household and today's sessions (schema 193, M10c slice EB),
-/// and households untaught (schema 194), from the knowledge section: one naming a technique the loaded content no longer has, or
+/// households untaught (schema 194) and written records (schema 195), from the knowledge section: one naming a technique the loaded content no longer has, or
 /// nobody, drops out.
 fn decode_enrolments(
     bytes: &[u8],
@@ -9093,6 +9112,21 @@ fn decode_enrolments(
     };
     people.taught = sessions(root.taught());
     people.studied = sessions(root.studied());
+    people.written = sessions(root.written());
+    people.writings = root
+        .writings()
+        .into_iter()
+        .flatten()
+        .filter_map(|r| {
+            Some(civ_agents::knowledge::Record {
+                id: PermanentId::from_raw(r.id())?,
+                technique: technique(r.technique())?,
+                holder: PermanentId::from_raw(r.holder())?,
+                maker: PermanentId::from_raw(r.maker())?,
+                made: r.made(),
+            })
+        })
+        .collect();
     people.untaught = root
         .untaught()
         .into_iter()

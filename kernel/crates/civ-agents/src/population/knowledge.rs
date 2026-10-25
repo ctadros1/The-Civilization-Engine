@@ -804,7 +804,7 @@ impl Population {
     /// A person came to know technique `t` from `source`: the settlement's record notes it if
     /// nobody there knew it, and the chronicle notes learning a craft (not everyday work brought
     /// up with) and the observer's doing.
-    fn on_known(&mut self, ctx: &Ctx, who: PermanentId, t: usize, source: KnowSource) {
+    pub(super) fn on_known(&mut self, ctx: &Ctx, who: PermanentId, t: usize, source: KnowSource) {
         let now = ctx.now;
         let settlement = self
             .person(who)

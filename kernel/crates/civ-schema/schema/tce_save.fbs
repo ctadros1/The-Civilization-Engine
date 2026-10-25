@@ -1150,6 +1150,16 @@ struct UntaughtSave {
   day: long;
 }
 
+// Schema 195: a written record of a technique: its id, the household holding it, who wrote it and
+// the day.
+struct RecordSave {
+  id: ulong;
+  holder: ulong;
+  maker: ulong;
+  technique: ushort;
+  made: long;
+}
+
 // Schema 193: someone's minutes of sessions of a technique today, teaching or studying.
 struct SessionSave {
   person: ulong;
@@ -1179,6 +1189,11 @@ table Knowledge {
   // Schema 194 (M10c slice EB, third part): households that could not hold the fee to send a
   // child to learn within the year, oldest first; `technique` indexes `techniques`.
   untaught: [UntaughtSave] (id: 8);
+  // Schema 195 (M10c slice EC): written records of techniques, in the order written, and the
+  // minutes each writer has written toward the record they are writing; `technique` indexes
+  // `techniques`.
+  writings: [RecordSave] (id: 9);
+  written: [SessionSave] (id: 10);
 }
 
 // Section "deposits" (schema 19): bodies in the ground (ADR-0010 §1), in the order they were

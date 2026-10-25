@@ -1062,3 +1062,131 @@ fn a_household_that_cannot_hold_the_fee_puts_a_school_before_the_gathering_and_i
         "{words:?}"
     );
 }
+
+/// Someone who can write, and alone of their settlement knows laying out, writes it down over
+/// days until their household holds a record of it; a reader of the household reads it and learns
+/// toward laying out from the page, from its writer (M10c slice EC, first part).
+#[test]
+fn a_sole_knower_who_can_write_writes_a_craft_down_and_a_reader_learns_it_from_the_page() {
+    let mut sim = world(content(), 3);
+    sim.advance_minutes(24 * 60).expect("advances");
+    let catalog = &sim.rules().catalog;
+    let index = |id: &str| catalog.technique_index(id).expect(id);
+    let (reckoning, reading, writing, laying_out) = (
+        index("core:technique/reckoning"),
+        index("core:technique/reading"),
+        index("core:technique/writing"),
+        index("core:technique/laying_out"),
+    );
+    let now = sim.now();
+    // A household with two grown members: the writer and a reader.
+    let (home, writer, reader) = sim
+        .people()
+        .households
+        .iter()
+        .find_map(|(_, x)| {
+            let grown: Vec<PermanentId> = x
+                .members
+                .iter()
+                .copied()
+                .filter(|&m| {
+                    sim.people()
+                        .person(m)
+                        .is_some_and(|p| p.age_years(now) >= 16.0)
+                })
+                .collect();
+            (grown.len() >= 2).then(|| (x.id, grown[0], grown[1]))
+        })
+        .expect("a household of two grown");
+    let settlement = sim
+        .people()
+        .household(home)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let members: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(settlement))
+        .flat_map(|(_, x)| x.members.clone())
+        .collect();
+    let pop = sim.people_mut_for_tests();
+    for (_, p) in pop.people.iter_mut() {
+        if !members.contains(&p.id) {
+            continue;
+        }
+        if p.id == writer {
+            // The writer knows only letters and laying out.
+            p.knows.clear();
+            for t in [reckoning, reading, writing, laying_out] {
+                p.come_to_know(t, KnowSource::Observer, now);
+            }
+        } else {
+            p.knows.retain(|k| usize::from(k.technique) != laying_out);
+        }
+        if p.id == reader {
+            p.knows
+                .retain(|k| ![reckoning, reading, writing].contains(&usize::from(k.technique)));
+            for t in [reckoning, reading] {
+                p.come_to_know(t, KnowSource::Observer, now);
+            }
+        }
+    }
+    let letters = |sim: &mut Sim, who: PermanentId| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.letters_for_tests(ctx, who))
+    };
+    assert_eq!(letters(&mut sim, writer).0, Some(laying_out as u16));
+    assert_eq!(
+        letters(&mut sim, reader),
+        (None, None),
+        "nothing to read yet"
+    );
+    // They write it down, two hours a day, until the record's twenty hours are written.
+    let mut saved = false;
+    for _ in 0..30 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        if !saved && !sim.people().written.is_empty() {
+            // Mid-way, the writing saves and loads alike.
+            let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+            let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+            let at = persist::save(&mut sim, &saves, SaveKind::Manual, "writing").expect("saves");
+            let loaded = persist::load(&at.path, content()).expect("loads");
+            assert_eq!(loaded.people().written, sim.people().written);
+            saved = true;
+        }
+        if !sim.people().writings.is_empty() {
+            break;
+        }
+    }
+    assert!(saved, "the writing was under way at a midnight");
+    let record = *sim.people().writings.first().expect("a record written");
+    assert_eq!(
+        (record.technique as usize, record.holder, record.maker),
+        (laying_out, home, writer)
+    );
+    assert!(sim.people().written.is_empty());
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let at = persist::save(&mut sim, &saves, SaveKind::Manual, "record").expect("saves");
+    let loaded = persist::load(&at.path, content()).expect("loads");
+    assert_eq!(loaded.people().writings, sim.people().writings);
+    // Kept, the writer would write down something else only they know, writing itself, not laying
+    // out again; the reader reads it and learns from the page.
+    assert_eq!(letters(&mut sim, writer).0, Some(writing as u16));
+    assert_eq!(letters(&mut sim, reader).1, Some(laying_out as u16));
+    let mut toward = None;
+    for _ in 0..10 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        toward = sim
+            .people()
+            .person(reader)
+            .and_then(|p| p.know(laying_out))
+            .map(|k| (k.hours, k.source));
+        if toward.is_some_and(|(h, _)| h > 0.0) {
+            break;
+        }
+    }
+    let (hours, source) = toward.expect("the reader learns toward laying out");
+    assert!(hours > 0.0, "{hours} hours");
+    assert_eq!(source, KnowSource::Read(writer));
+}

@@ -17,6 +17,10 @@ needs = []
 e50_h = 100000.0                 # unused while no work tries toward it
 learn_h = 40.0
 upbringing = true
+# Learnt from a record alone in twice the hours beside a knower (M10c slice EC; content API 182;
+# 07-09 §1.10: a standardized procedure of lines and measures codifies well; 10-04 §4: texts carry
+# planning knowledge). A design prior.
+codified = 2.0
 
 [answers]
 spoilage = []

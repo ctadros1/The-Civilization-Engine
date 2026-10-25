@@ -521,6 +521,8 @@ pub const SCHEMA_V192: u32 = 192;
 /// Enrolments to learn from another household, before households untaught were kept for a
 /// school.
 pub const SCHEMA_V193: u32 = 193;
+/// Households untaught kept for a school, before written records of techniques.
+pub const SCHEMA_V194: u32 = 194;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

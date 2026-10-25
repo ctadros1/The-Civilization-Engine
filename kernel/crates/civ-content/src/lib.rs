@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 181;
+pub const KERNEL_CONTENT_API: u32 = 182;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -82,7 +82,7 @@ pub enum Severity {
 /// | E3002 | The `kind` is unknown, or missing |
 /// | E3003 | Not exactly one world-generation preset is marked `default = true` |
 /// | E3004 | Not exactly one people profile, or not exactly one land profile |
-/// | E3005 | A technique gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know, nor does it prevent deaths in childbirth |
+/// | E3005 | A technique gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know, nor does it prevent deaths in childbirth, nor does a technique that does need it |
 /// | E3006 | Techniques' prerequisites form a cycle |
 /// | E3007 | A recipe can never be worked: an input or tool comes only from recipes that need it |
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -1548,8 +1548,12 @@ fn knowledge_problems(
             ),
         );
     }
-    for (t, def) in catalog.techniques.iter().enumerate() {
-        let gated = catalog.activities.iter().any(|a| a.technique == Some(t))
+    let mut gated: Vec<bool> = catalog
+        .techniques
+        .iter()
+        .enumerate()
+        .map(|(t, def)| {
+            catalog.activities.iter().any(|a| a.technique == Some(t))
             || catalog.recipes.iter().any(|r| r.technique == Some(t))
             || catalog
                 .buildings
@@ -1570,14 +1574,34 @@ fn knowledge_problems(
                 .any(|x| x.technique == def.id)
             // Or the deaths in childbirth it prevents at a birth its knower attends (M10c slice
             // EA).
-            || def.birth.iter().any(|&e| e > 0.0);
-        if !gated {
+            || def.birth.iter().any(|&e| e > 0.0)
+        })
+        .collect();
+    // Or a technique that gates work needs it first (M10c slice EC: reckoning before reading).
+    loop {
+        let mut more = false;
+        for t in 0..gated.len() {
+            if gated[t] {
+                for &u in catalog.techniques[t].requires.iter().flatten() {
+                    if u < gated.len() && !gated[u] {
+                        gated[u] = true;
+                        more = true;
+                    }
+                }
+            }
+        }
+        if !more {
+            break;
+        }
+    }
+    for (t, def) in catalog.techniques.iter().enumerate() {
+        if !gated[t] {
             c.push(
                 "E3005",
                 &rel_of(&def.id),
                 None,
                 format!(
-                    "technique `{}` gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know, nor does it prevent deaths in childbirth",
+                    "technique `{}` gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know, nor does it prevent deaths in childbirth, nor does a technique that does need it",
                     def.id
                 ),
             );

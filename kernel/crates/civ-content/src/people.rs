@@ -2075,6 +2075,8 @@ pub(crate) struct Knowledge {
     pub try_gap_days: f64,
     /// How far, metres, someone in another settlement sees work done there (content API 58).
     pub watch_m: f64,
+    /// Hours of writing that make a record of a technique (content API 182).
+    pub record_h: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2279,6 +2281,9 @@ pub(crate) struct Decision {
     /// Content API 180 (M10c slice EB, second part).
     pub w_teach: f64,
     pub w_study: f64,
+    /// Content API 182 (M10c slice EC).
+    pub w_write: f64,
+    pub w_read: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2548,6 +2553,8 @@ impl PeopleFile {
                 w_tend: d.w_tend,
                 w_teach: d.w_teach,
                 w_study: d.w_study,
+                w_write: d.w_write,
+                w_read: d.w_read,
             },
             band: BandParams {
                 default_size: b.default_size,
@@ -2690,6 +2697,7 @@ impl PeopleFile {
                 w_try: self.knowledge.w_try,
                 try_gap_days: self.knowledge.try_gap_days,
                 watch_m: self.knowledge.watch_m,
+                record_h: self.knowledge.record_h,
             },
             digging: civ_agents::params::Digging {
                 h_per_m3: self.digging.h_per_m3,
@@ -3128,6 +3136,12 @@ impl PeopleFile {
                 k.experiment_share
             ));
         }
+        if !(k.record_h.is_finite() && k.record_h > 0.0 && k.record_h <= 1_000.0) {
+            p.push(format!(
+                "`knowledge.record_h` must be above 0 and at most 1000 (got {})",
+                k.record_h
+            ));
+        }
         if !(k.watch_m.is_finite() && (0.0..=1_000.0).contains(&k.watch_m)) {
             p.push(format!(
                 "`knowledge.watch_m` must be between 0 and 1000 (got {})",
@@ -3415,6 +3429,8 @@ impl PeopleFile {
             ("w_tend", d.w_tend),
             ("w_teach", d.w_teach),
             ("w_study", d.w_study),
+            ("w_write", d.w_write),
+            ("w_read", d.w_read),
         ] {
             non_negative(&format!("decision.{name}"), v, &mut p);
         }

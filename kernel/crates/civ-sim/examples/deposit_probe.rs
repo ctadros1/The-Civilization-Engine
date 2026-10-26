@@ -64,6 +64,14 @@ struct Tally {
     open_max_kg: f64,
     /// Housed household-days with a carry of room to spare.
     spare_carry: u64,
+    /// The same for household-days with no roof of their own, where all that keeps better
+    /// under a roof lies in the open.
+    u_open_any: u64,
+    u_open_carry: u64,
+    u_open_carry_room: u64,
+    u_open_kg_days: f64,
+    u_lost_kg: f64,
+    u_open_max_kg: f64,
     /// Polity-days, those with a storehouse standing, and the kilograms their stores held.
     store_days: u64,
     storehouse_days: u64,
@@ -150,12 +158,32 @@ fn run(seed: u64, people: u32, days: i64) -> Result<(), String> {
         t.store_kg_days / t.store_days.max(1) as f64,
         t.store_max_kg
     );
+    let u_share = |n: u64| 100.0 * n as f64 / t.unhoused.max(1) as f64;
+    println!(
+        "with no roof of their own: any in the open on {} ({:.2} %), a carry on {} ({:.2} %), \
+         {} of them with a neighbour's room for it; kilogram-days {:.0}, most on a day {:.1} kg, \
+         lost to lying there {:.1} kg",
+        t.u_open_any,
+        u_share(t.u_open_any),
+        t.u_open_carry,
+        u_share(t.u_open_carry),
+        t.u_open_carry_room,
+        t.u_open_kg_days,
+        t.u_open_max_kg,
+        t.u_lost_kg
+    );
     println!("people at the end: {}", t.people);
     let demand = share(t.open_carry_room) >= 1.0;
     println!(
         "demand (a carry in the open, a neighbour with room, on >= 1 % of housed \
          household-days): {}",
         if demand { "yes" } else { "no" }
+    );
+    let all = 100.0 * (t.open_carry_room + t.u_open_carry_room) as f64
+        / (t.housed + t.unhoused).max(1) as f64;
+    println!(
+        "the same over all household-days, roofed or not: {all:.2} %: {}",
+        if all >= 1.0 { "yes" } else { "no" }
     );
     Ok(())
 }
@@ -172,8 +200,9 @@ fn count(sim: &Sim, t: &mut Tally) {
             0.0
         }
     };
-    // Per household: its settlement, kilograms in the open, and room to spare.
-    let mut rows: Vec<(PermanentId, f64, f64)> = Vec::new();
+    // Per household: its settlement, kilograms in the open, room to spare, and whether it has a
+    // roof of its own.
+    let mut rows: Vec<(PermanentId, f64, f64, bool)> = Vec::new();
     for (_, x) in sim.people().households.iter() {
         let Some(settlement) = x.settlement else {
             continue;
@@ -181,12 +210,29 @@ fn count(sim: &Sim, t: &mut Tally) {
         if x.members.is_empty() {
             continue;
         }
+        let stores = stores_now(x, now, &rules.people, goods);
         if !x.sheltered {
+            // No roof of its own: all that keeps better under one lies in the open.
             t.unhoused += 1;
+            let (mut open, mut lost) = (0.0, 0.0);
+            for (g, d) in goods.iter().enumerate() {
+                if d.sheltered_half_life_days <= 0.0 {
+                    continue;
+                }
+                let kg = stores.get(g).copied().unwrap_or(0.0).max(0.0);
+                open += kg;
+                lost += kg * (rate(d.half_life_days) - rate(d.sheltered_half_life_days)).max(0.0);
+            }
+            rows.push((settlement, open, 0.0, false));
+            t.u_open_kg_days += open;
+            t.u_lost_kg += lost;
+            t.u_open_max_kg = t.u_open_max_kg.max(open);
+            if open >= 1.0 {
+                t.u_open_any += 1;
+            }
             continue;
         }
         t.housed += 1;
-        let stores = stores_now(x, now, &rules.people, goods);
         let keeping = x.keeping.with_stores(&stores, goods);
         let shares = keeping.shares(&stores, goods);
         let (mut open, mut lost, mut kept) = (0.0, 0.0, 0.0);
@@ -207,7 +253,7 @@ fn count(sim: &Sim, t: &mut Tally) {
         } else {
             f64::INFINITY
         };
-        rows.push((settlement, open, spare));
+        rows.push((settlement, open, spare, true));
         t.open_kg_days += open;
         t.lost_kg += lost;
         t.open_max_kg = t.open_max_kg.max(open);
@@ -218,17 +264,20 @@ fn count(sim: &Sim, t: &mut Tally) {
             t.spare_carry += 1;
         }
     }
-    for (i, &(s, open, _)) in rows.iter().enumerate() {
+    for (i, &(s, open, _, housed)) in rows.iter().enumerate() {
         if open < CARRY_KG {
             continue;
         }
-        t.open_carry += 1;
-        if rows
+        let room = rows
             .iter()
             .enumerate()
-            .any(|(j, &(s2, _, spare))| j != i && s2 == s && spare >= open)
-        {
-            t.open_carry_room += 1;
+            .any(|(j, &(s2, _, spare, _))| j != i && s2 == s && spare >= open);
+        if housed {
+            t.open_carry += 1;
+            t.open_carry_room += u64::from(room);
+        } else {
+            t.u_open_carry += 1;
+            t.u_open_carry_room += u64::from(room);
         }
     }
     for p in &sim.people().polities {

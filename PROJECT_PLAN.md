@@ -7434,8 +7434,26 @@ and M6a gives rivers a daily flow.
       kilogram a piece, held by the depositor, and takes no monthly fee; roofed with room, the
       depositor presents them and gets the goods back on `Redeemed`, the pieces retired and held
       by nobody; with half the backing gone and the keeper unroofed, half the pieces are paid and
-      the rest refused, counted and still owed; notes save and load exactly. **Not built yet:**
-      notes passing in payment and their worth by belief (second part); *bearer heard*.
+      the rest refused, counted and still owed; notes save and load exactly.
+      *As built, second part (2026-10-26): notes that pass.* A piece is worth to a household of
+      its keeper's settlement, who knows the door, the good it is redeemed in at its own cost,
+      times its belief that the keeper pays (the share of the pieces presented there that were
+      paid, which the settlement hears of: a design reading of brief §4's belief from what it
+      heard), less its share of the walk there and back to present a carry (50 pieces, a design
+      prior); to a household holding notes, the issue worth least to it, which it pays with first;
+      to one holding none, the least of its settlement's keepers', as it cannot choose which it
+      is paid in. Through `pay_worth` that worth is its price, as a coin's metal is its assayer's,
+      and it is wanted as much as the good it is redeemed in (the least wanted of those it
+      knows), so a seller short of food takes grain notes for what it sells. A note is paid, never
+      offered as a ware. At its weekly review a household holding notes presents what brings its
+      food back to nine tenths of what it keeps to its harvest, and every piece of an issue its
+      settlement heard refused within the month; the depositor goes on taking its goods back as
+      custody does. **Tested:** a piece is worth a kilogram of provisions to a neighbour less a
+      share of the walk, half that much after half the pieces presented were refused, and a
+      neighbour short of food posts terms taking notes; notes passed by gift move piece by piece
+      of their issue; a holder short of food presents its pieces and is paid, and fed it keeps
+      them until it hears of a refusal, then presents them all. **Not built yet:** *bearer heard*
+      (with runs, slice EI); the observer of notes (third part).
     - **EI**: keepers issuing beyond backing, presentations and runs, suspension.
     - **EJ**: a polity's notes: issue within a ceiling, dues in notes, legal tender, suspended
       redemption and the derived fiat label.

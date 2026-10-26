@@ -79,6 +79,7 @@ mod mint;
 mod money;
 mod moving;
 mod norm;
+mod notes;
 mod opinion;
 mod payments;
 mod trains;

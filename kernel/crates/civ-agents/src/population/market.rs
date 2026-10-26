@@ -253,6 +253,12 @@ impl Population {
             self.assayed_worth(hh, money, costs)
                 .map(|v| v - money.verify_h)
                 .filter(|&v| v > 0.0)
+        } else if money.note {
+            // A note is worth the good it is redeemed in, by belief (M10d slice EH, second part).
+            match (raw, self.note_worth(hh, costs)) {
+                (Some(r), Some(n)) => Some(r.max(n)),
+                (r, n) => r.or(n),
+            }
         } else if money.coin {
             // One who cannot assay takes another polity's pieces, which it pays with first, by
             // weight at the coin's discount, less weighing them, unless what they bought says
@@ -688,6 +694,14 @@ impl Population {
                 };
             }
         }
+        // Notes are wanted as the goods they are redeemed in (M10d slice EH, second part).
+        if let Some(note) = goods
+            .iter()
+            .position(|d| d.money.as_ref().is_some_and(|m| m.note))
+            && !self.notes.issues.is_empty()
+        {
+            want[note] = want[note].max(self.note_want(hh, &want));
+        }
         Holding {
             keep,
             want,
@@ -739,7 +753,9 @@ impl Population {
                 } else {
                     MIN_OFFER_KG
                 };
-                if can_offer(d) && spare >= least {
+                // A note is paid, never offered as a ware (M10d slice EH).
+                let note = d.money.as_ref().is_some_and(|m| m.note);
+                if can_offer(d) && spare >= least && !note {
                     offered.push((g, spare));
                 }
             }

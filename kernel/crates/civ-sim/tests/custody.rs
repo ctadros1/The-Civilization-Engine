@@ -431,3 +431,122 @@ fn pieces_the_backing_cannot_pay_are_refused_and_stay_owed() {
     assert!((after.count - (issue.count - half)).abs() < 1e-6);
     assert!((sim.people().notes.held(d, issue.id) - after.count).abs() < 1e-6);
 }
+
+/// A household of `k`'s settlement other than `d` and `k`, with all its food taken away.
+fn hungry_neighbour(sim: &mut Sim, d: PermanentId, k: PermanentId) -> PermanentId {
+    let settlement = sim
+        .people()
+        .household(k)
+        .and_then(|x| x.settlement)
+        .expect("settlement");
+    let s = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .find(|x| {
+            x.id != d && x.id != k && !x.members.is_empty() && x.settlement == Some(settlement)
+        })
+        .map(|x| x.id)
+        .expect("a neighbour");
+    let food: Vec<usize> = sim
+        .rules()
+        .catalog
+        .goods
+        .iter()
+        .enumerate()
+        .filter(|(_, g)| g.kcal_per_kg > 0.0)
+        .map(|(i, _)| i)
+        .collect();
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == s {
+            for &g in &food {
+                x.stores[g] = 0.0;
+            }
+        }
+    }
+    s
+}
+
+#[test]
+fn notes_are_worth_their_good_by_belief_and_a_neighbour_short_of_it_takes_them() {
+    let (mut sim, d, k) = scene();
+    let provisions = good(&sim, "core:good/provisions");
+    let note = good(&sim, "core:good/note");
+    let writer = sim.people().household(k).expect("keeper").members[0];
+    writers(&mut sim, k, Some(writer));
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    let s = hungry_neighbour(&mut sim, d, k);
+    let worth = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.pay_worth_for_tests(ctx, s, note, 0.0))
+            .unwrap_or(0.0)
+    };
+    let own = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.pay_worth_for_tests(ctx, s, provisions, 0.0))
+            .unwrap_or(0.0)
+    };
+    // A piece is worth about a kilogram of provisions to a neighbour, less a share of the walk.
+    let (w, p) = (worth(&mut sim), own(&mut sim));
+    assert!(w > 0.9 * p && w <= p, "{w} against {p}");
+    // Short of food, it takes notes in payment for what it sells.
+    let terms =
+        sim.with_ctx_for_tests(|pop, ctx| pop.terms_for_tests(ctx, s, &[(provisions, 10.0)]));
+    assert!(
+        terms.iter().any(|o| usize::from(o.payment) == note),
+        "{terms:?}"
+    );
+    // Half the pieces presented at the keeper's door refused: half the worth.
+    {
+        let c = &mut sim.people_mut_for_tests().notes.issues[0];
+        c.presented = 100.0;
+        c.refused = 50.0;
+    }
+    // The walk's share is the same, so half the provisions' worth less it.
+    let half = worth(&mut sim);
+    assert!(
+        (half - (w - p / 2.0)).abs() < 1e-9,
+        "{half} against {w} and {p}"
+    );
+    // Notes pass hand to hand, piece by piece of their issue.
+    let issue = sim.people().notes.issues[0].id;
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, d, s, note, 10.0)));
+    assert!((sim.people().notes.held(s, issue) - 10.0).abs() < 1e-9);
+}
+
+#[test]
+fn a_holder_short_of_food_presents_its_notes_and_on_hearing_refusals_all_of_them() {
+    let (mut sim, d, k) = scene();
+    let provisions = good(&sim, "core:good/provisions");
+    let note = good(&sim, "core:good/note");
+    let writer = sim.people().household(k).expect("keeper").members[0];
+    writers(&mut sim, k, Some(writer));
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    let s = hungry_neighbour(&mut sim, d, k);
+    let issue = sim.people().notes.issues[0].id;
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, d, s, note, 10.0)));
+    // Short of food, it presents what brings it back toward its keep: here all ten.
+    sim.with_ctx_for_tests(|pop, ctx| pop.notes_review_for_tests(ctx, s));
+    let x = sim.people().household(s).expect("holder");
+    assert!(
+        (x.stores[provisions] - 10.0).abs() < 1e-6,
+        "{}",
+        x.stores[provisions]
+    );
+    assert!(sim.people().notes.held(s, issue) < 1e-9);
+    // Fed, it holds them; hearing the keeper refused some lately, it presents them all.
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, d, s, note, 10.0)));
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == s {
+            x.stores[provisions] = 5_000.0;
+        }
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.notes_review_for_tests(ctx, s));
+    assert!(
+        (sim.people().notes.held(s, issue) - 10.0).abs() < 1e-9,
+        "kept"
+    );
+    let today = sim.now().day_index();
+    sim.people_mut_for_tests().notes.issues[0].refused_day = today - 1;
+    sim.with_ctx_for_tests(|pop, ctx| pop.notes_review_for_tests(ctx, s));
+    assert!(sim.people().notes.held(s, issue) < 1e-9, "all presented");
+}

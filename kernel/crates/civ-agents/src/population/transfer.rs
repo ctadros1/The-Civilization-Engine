@@ -467,7 +467,19 @@ impl Population {
             // issuer's door a holder presents those of the issue it redeems, moved by the caller.
             if channel != Channel::Redeemed && goods[l.good].money.as_ref().is_some_and(|m| m.note)
             {
-                self.notes.give(l.from, l.to, moved, &|_| 0.0);
+                // Those it believes least that their keepers pay, of least worth, first.
+                let worth: Vec<(u32, f64)> = self
+                    .notes
+                    .issues
+                    .iter()
+                    .map(|c| (c.id, Self::note_belief(c) * f64::from(c.kg)))
+                    .collect();
+                let worth = |issue: u32| {
+                    worth
+                        .binary_search_by_key(&issue, |x| x.0)
+                        .map_or(0.0, |i| worth[i].1)
+                };
+                self.notes.give(l.from, l.to, moved, &worth);
             }
         }
         true

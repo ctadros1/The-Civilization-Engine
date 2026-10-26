@@ -25,10 +25,10 @@ use super::*;
 use crate::custody::Kept;
 
 /// Days between a keeper's fees.
-const FEE_DAYS: i64 = 30;
+pub(super) const FEE_DAYS: i64 = 30;
 /// Below this share of the food it keeps to its next harvest, a household takes back what brings
 /// it there (a design prior, so that it does not go back and forth each day).
-const RETAKE_SHARE: f64 = 0.9;
+pub(super) const RETAKE_SHARE: f64 = 0.9;
 /// Months of a keeper's fee taken at once from goods whose receipt is written as notes, which
 /// pay no monthly fee after (M10d slice EH; a design prior, so that fees do not draw the goods
 /// backing notes below them).
@@ -37,7 +37,7 @@ const FEE_PREPAID_MONTHS: f64 = 12.0;
 const NOTE_KG: f32 = 1.0;
 /// Metres a second one walks on an errand to a neighbour (a design prior, as the walk is weighed,
 /// not walked).
-const WALK_M_S: f64 = 1.2;
+pub(super) const WALK_M_S: f64 = 1.2;
 
 impl Population {
     /// What household `x` with `stores` has room for under its roofs beyond its own goods that
@@ -175,6 +175,9 @@ impl Population {
                     self.transfer(now, params, goods, &legs, Channel::Custody);
                 }
             }
+            // Holders of notes whose review it is present them when short or on hearing refusals
+            // (M10d slice EH, second part).
+            presented.extend(self.notes_review(ctx, day));
             // Every piece of a keeper's notes is presented when its goods can no longer be kept.
             called_in.sort_unstable();
             called_in.dedup();
@@ -342,7 +345,12 @@ impl Population {
     /// household id order, each from the goods its issuer keeps backing it, oldest left first,
     /// the pieces moving to the issuer and retired and the good to the holder on `Redeemed`.
     /// Pieces the backing can no longer pay are refused, staying with their holder, and counted.
-    fn redeem(&mut self, ctx: &Ctx, day: i64, mut presented: Vec<(u32, PermanentId, f64)>) {
+    pub(super) fn redeem(
+        &mut self,
+        ctx: &Ctx,
+        day: i64,
+        mut presented: Vec<(u32, PermanentId, f64)>,
+    ) {
         if presented.is_empty() {
             return;
         }

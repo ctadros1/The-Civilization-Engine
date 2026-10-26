@@ -594,6 +594,45 @@ pub fn custody_words(sim: &Sim, s: PermanentId) -> String {
     )
 }
 
+/// Settlement `s`'s notes in words (M10d slice EH, third part): for each keeper of it whose notes
+/// are out or were presented, whose they are and in what, the pieces out against the kilograms
+/// kept behind them, and the pieces presented and refused. Empty where no keeper here wrote any.
+pub fn notes_words(sim: &Sim, s: PermanentId) -> String {
+    let goods = &sim.rules.catalog.goods;
+    let people = &sim.people;
+    let mut out: Vec<String> = Vec::new();
+    for c in &people.notes.issues {
+        let Some(x) = people.household(c.issuer) else {
+            continue;
+        };
+        if x.settlement != Some(s) || (c.count <= 1e-6 && c.presented <= 1e-6) {
+            continue;
+        }
+        let good = usize::from(c.good);
+        let behind: f64 = people
+            .kept
+            .iter()
+            .filter(|k| k.keeper == c.issuer && k.noted)
+            .map(|k| k.stores.get(good).copied().unwrap_or(0.0).max(0.0))
+            .sum::<f64>()
+            // An empty sum is -0, which would read "-0 kg".
+            + 0.0;
+        let whose = x.members.first().map_or_else(
+            || "a gone".to_owned(),
+            |&m| format!("{}'s", people.name_of(m)),
+        );
+        let what = goods
+            .get(good)
+            .map_or_else(|| "a good".to_owned(), |d| d.name.to_lowercase());
+        out.push(format!(
+            "{whose} household's notes in {what}: {:.0} out against {behind:.0} kg kept; {:.0} \
+             presented, {:.0} refused.",
+            c.count, c.presented, c.refused
+        ));
+    }
+    out.join(" ")
+}
+
 /// The settlements with a market or a household or workshop offering anything, by id.
 fn trading_settlements(sim: &Sim, sellers: &[Seller<'_>]) -> Vec<PermanentId> {
     let mut out: Vec<PermanentId> = sellers
@@ -746,7 +785,11 @@ pub fn markets_response(sim: &Sim) -> Vec<u8> {
                 .map_or("", |s| s.name.as_str());
             let name = fbb.create_string(name);
             let mut summary = summary(sim, market);
-            for words in [money_words(sim, settlement), custody_words(sim, settlement)] {
+            for words in [
+                money_words(sim, settlement),
+                custody_words(sim, settlement),
+                notes_words(sim, settlement),
+            ] {
                 if !words.is_empty() {
                     summary.push(' ');
                     summary.push_str(&words);

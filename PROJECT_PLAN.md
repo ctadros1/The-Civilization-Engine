@@ -7452,8 +7452,16 @@ and M6a gives rivers a daily flow.
       share of the walk, half that much after half the pieces presented were refused, and a
       neighbour short of food posts terms taking notes; notes passed by gift move piece by piece
       of their issue; a holder short of food presents its pieces and is paid, and fed it keeps
-      them until it hears of a refusal, then presents them all. **Not built yet:** *bearer heard*
-      (with runs, slice EI); the observer of notes (third part).
+      them until it hears of a refusal, then presents them all.
+      *As built, third part (2026-10-26): the observer of notes.* A market's summary says, for each
+      keeper there whose notes are out or were presented, whose they are and in what, the pieces
+      out against the kilograms kept behind them, and the pieces presented and refused ("Willa's
+      household's notes in provisions: 1915 out against 0 kg kept; 3830 presented, 1915
+      refused."); a person's letters say which receipts they wrote as notes; no wire change.
+      **Tested:** the summary tells the refused pieces after a shortfall; the writer's letters
+      say "as notes". **Slice EH is done.** **Not built:** *bearer heard*, a law under which a
+      holder refused may bring the keeper before the gathering (with runs, slice EI); notes of
+      a polity's own issue (EJ); a household valuing a keeper of another settlement's notes.
     - **EI**: keepers issuing beyond backing, presentations and runs, suspension.
     - **EJ**: a polity's notes: issue within a ceiling, dues in notes, legal tender, suspended
       redemption and the derived fiat label.

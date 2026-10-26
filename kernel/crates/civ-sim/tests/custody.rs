@@ -259,6 +259,7 @@ fn a_keeper_who_can_write_writes_a_receipt_and_the_observer_tells_of_it() {
         name(k)
     );
     assert!(letters.contains(&receipt), "{letters}");
+    assert!(letters.contains("household, as notes"), "{letters}");
     // It is only a record: once the goods are all taken back, it is gone with them.
     for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
         if x.id == d {
@@ -427,6 +428,20 @@ fn pieces_the_backing_cannot_pay_are_refused_and_stay_owed() {
         issue.count - half
     );
     assert_eq!(after.refused_day, sim.now().day_index());
+    // The market's summary tells of it.
+    let settlement = sim
+        .people()
+        .household(k)
+        .and_then(|x| x.settlement)
+        .expect("settlement");
+    let words = civ_sim::frames::markets::notes_words(&sim, settlement);
+    let out = issue.count - half;
+    let told = format!(
+        "household's notes in provisions: {out:.0} out against 0 kg kept; {:.0} presented, \
+         {out:.0} refused.",
+        issue.count
+    );
+    assert!(words.contains(&told), "{words}");
     // The refused pieces stay with their holder, still owed.
     assert!((after.count - (issue.count - half)).abs() < 1e-6);
     assert!((sim.people().notes.held(d, issue.id) - after.count).abs() < 1e-6);

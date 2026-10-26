@@ -7276,6 +7276,30 @@ and M6a gives rivers a daily flow.
   - **M10d, money and the demo** (ADR-0035 §8–§12).
     - **EF**: acceptance of a money for onward exchange and dues, a money's value in a midnight
       table instead of a scan per decision.
+      *As built, first part (2026-10-26): the midnight table and the acceptance belief.* What a
+      good with a `[money]` table (copper by weight, coin) is worth to a household from its use
+      as money is no longer scanned from every market's remembered trades in each decision (brief
+      §10: some 1,900 trades a call with 30 settlements): each midnight, one pass over the
+      markets' remembered payments in a money, grouped by buyer, values what a unit bought at
+      the buyer's own costs then, faded by the markets' memory, and the decisions of the day
+      read that table (saves 208, saved with the markets, as a load in the day could not
+      rebuild it). A purchase counts from the next midnight (ADR-0035 §12). Beside it each
+      household keeps a belief of whether others take each money (08-06 §1.3): a payment in it
+      that settles counts as taken, and at its weekly review a household holding a money beyond
+      what it keeps counts each seller of its settlement offering what it wants (a tool it
+      needs) as taking it if its terms do and refusing it if they do not; both fade by half
+      every 30 days, and a unit's onward worth is what it bought at the share taken (1 where
+      none refused, so worths are as before until someone refuses). Only goods with a
+      `[money]` table have one: coin and notes, not grain or firewood. **Not measured in a
+      lived world:** no lived world holds copper or coin, so nothing should change there.
+      **Tested:** a purchase in copper is worth nothing until the next midnight, then what it
+      bought, a day faded; with one neighbour selling an axe for copper and one not, a household
+      holding copper and lacking an axe believes half take it and values a kilogram at half what
+      it bought; a household holding none counts nothing; the beliefs save and load exactly and
+      the world lives the same after. **Seen on the way:** a household's keep of each food is
+      what it holds less what it can spare, so the "food it is short of" a purchase answers is
+      never above nought; nobody buys food at a door for its own table (left as it is: not this
+      slice's).
     - **EG**: the deposit-demand probe re-run in towns; if demand, custody, keepers' fees and
       receipts.
     - **EH**: notes that pass: issues and purses, redemption and its queue, valuation by belief.

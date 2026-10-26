@@ -330,6 +330,8 @@ fn weighed_copper_is_worth_what_it_bought_and_less_beyond_a_balance() {
         channel: civ_agents::ledger::Channel::Sale,
         from: None,
     });
+    // What a money is worth is kept in a table built at midnight (M10d slice EF): afresh now.
+    sim.with_ctx_for_tests(|pop, ctx| pop.money_day_for_tests(ctx));
     // A kilogram bought 50 kg of grain, less the tenth of an hour of weighing it.
     let w = worth(&mut sim, copper, 0.0).expect("now worth what it bought");
     assert!(
@@ -580,6 +582,8 @@ fn bought_with_coin(sim: &mut Sim, hh: PermanentId, pieces: f32) {
         channel: civ_agents::ledger::Channel::Sale,
         from: None,
     });
+    // What a money is worth is kept in a table built at midnight (M10d slice EF): afresh now.
+    sim.with_ctx_for_tests(|pop, ctx| pop.money_day_for_tests(ctx));
 }
 
 #[test]
@@ -987,6 +991,8 @@ fn foreign_coin_goes_first_and_is_taken_by_weight_at_a_discount() {
         channel: civ_agents::ledger::Channel::Sale,
         from: None,
     });
+    // What a money is worth is kept in a table built at midnight (M10d slice EF): afresh now.
+    sim.with_ctx_for_tests(|pop, ctx| pop.money_day_for_tests(ctx));
     // Nobody of it can assay: it pays with the other polity's pieces first, though they are newer.
     assert!(sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, hh, other, coin, 4.0)));
     let got = sim

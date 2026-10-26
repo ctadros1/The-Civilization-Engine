@@ -38779,6 +38779,204 @@ impl ::core::fmt::Debug for MarketState<'_> {
       ds.finish()
   }
 }
+pub enum MoneyBeliefOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct MoneyBelief<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for MoneyBelief<'a> {
+  type Inner = MoneyBelief<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> MoneyBelief<'a> {
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 4;
+  pub const VT_GOOD: ::flatbuffers::VOffsetT = 6;
+  pub const VT_BOUGHT_H: ::flatbuffers::VOffsetT = 8;
+  pub const VT_PAID: ::flatbuffers::VOffsetT = 10;
+  pub const VT_TAKEN: ::flatbuffers::VOffsetT = 12;
+  pub const VT_REFUSED: ::flatbuffers::VOffsetT = 14;
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 16;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    MoneyBelief { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args MoneyBeliefArgs
+  ) -> ::flatbuffers::WIPOffset<MoneyBelief<'bldr>> {
+    let mut builder = MoneyBeliefBuilder::new(_fbb);
+    builder.add_day(args.day);
+    builder.add_paid(args.paid);
+    builder.add_bought_h(args.bought_h);
+    builder.add_household(args.household);
+    builder.add_refused(args.refused);
+    builder.add_taken(args.taken);
+    builder.add_good(args.good);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(MoneyBelief::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn good(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(MoneyBelief::VT_GOOD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn bought_h(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(MoneyBelief::VT_BOUGHT_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn paid(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(MoneyBelief::VT_PAID, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn taken(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(MoneyBelief::VT_TAKEN, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn refused(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(MoneyBelief::VT_REFUSED, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(MoneyBelief::VT_DAY, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for MoneyBelief<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<u32>("good", Self::VT_GOOD, false)?
+     .visit_field::<f64>("bought_h", Self::VT_BOUGHT_H, false)?
+     .visit_field::<f64>("paid", Self::VT_PAID, false)?
+     .visit_field::<f32>("taken", Self::VT_TAKEN, false)?
+     .visit_field::<f32>("refused", Self::VT_REFUSED, false)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct MoneyBeliefArgs {
+    pub household: u64,
+    pub good: u32,
+    pub bought_h: f64,
+    pub paid: f64,
+    pub taken: f32,
+    pub refused: f32,
+    pub day: i64,
+}
+impl<'a> Default for MoneyBeliefArgs {
+  #[inline]
+  fn default() -> Self {
+    MoneyBeliefArgs {
+      household: 0,
+      good: 0,
+      bought_h: 0.0,
+      paid: 0.0,
+      taken: 0.0,
+      refused: 0.0,
+      day: 0,
+    }
+  }
+}
+
+pub struct MoneyBeliefBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MoneyBeliefBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(MoneyBelief::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_good(&mut self, good: u32) {
+    self.fbb_.push_slot::<u32>(MoneyBelief::VT_GOOD, good, 0);
+  }
+  #[inline]
+  pub fn add_bought_h(&mut self, bought_h: f64) {
+    self.fbb_.push_slot::<f64>(MoneyBelief::VT_BOUGHT_H, bought_h, 0.0);
+  }
+  #[inline]
+  pub fn add_paid(&mut self, paid: f64) {
+    self.fbb_.push_slot::<f64>(MoneyBelief::VT_PAID, paid, 0.0);
+  }
+  #[inline]
+  pub fn add_taken(&mut self, taken: f32) {
+    self.fbb_.push_slot::<f32>(MoneyBelief::VT_TAKEN, taken, 0.0);
+  }
+  #[inline]
+  pub fn add_refused(&mut self, refused: f32) {
+    self.fbb_.push_slot::<f32>(MoneyBelief::VT_REFUSED, refused, 0.0);
+  }
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(MoneyBelief::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> MoneyBeliefBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    MoneyBeliefBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<MoneyBelief<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for MoneyBelief<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("MoneyBelief");
+      ds.field("household", &self.household());
+      ds.field("good", &self.good());
+      ds.field("bought_h", &self.bought_h());
+      ds.field("paid", &self.paid());
+      ds.field("taken", &self.taken());
+      ds.field("refused", &self.refused());
+      ds.field("day", &self.day());
+      ds.finish()
+  }
+}
 pub enum MarketsOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -38797,6 +38995,7 @@ impl<'a> ::flatbuffers::Follow<'a> for Markets<'a> {
 impl<'a> Markets<'a> {
   pub const VT_MARKETS: ::flatbuffers::VOffsetT = 4;
   pub const VT_GOODS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_BELIEFS: ::flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -38808,6 +39007,7 @@ impl<'a> Markets<'a> {
     args: &'args MarketsArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Markets<'bldr>> {
     let mut builder = MarketsBuilder::new(_fbb);
+    if let Some(x) = args.beliefs { builder.add_beliefs(x); }
     if let Some(x) = args.goods { builder.add_goods(x); }
     if let Some(x) = args.markets { builder.add_markets(x); }
     builder.finish()
@@ -38828,6 +39028,13 @@ impl<'a> Markets<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(Markets::VT_GOODS, None)}
   }
+  #[inline]
+  pub fn beliefs(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MoneyBelief<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MoneyBelief>>>>(Markets::VT_BELIEFS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Markets<'_> {
@@ -38838,6 +39045,7 @@ impl ::flatbuffers::Verifiable for Markets<'_> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MarketState>>>>("markets", Self::VT_MARKETS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("goods", Self::VT_GOODS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MoneyBelief>>>>("beliefs", Self::VT_BELIEFS, false)?
      .finish();
     Ok(())
   }
@@ -38845,6 +39053,7 @@ impl ::flatbuffers::Verifiable for Markets<'_> {
 pub struct MarketsArgs<'a> {
     pub markets: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MarketState<'a>>>>>,
     pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub beliefs: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MoneyBelief<'a>>>>>,
 }
 impl<'a> Default for MarketsArgs<'a> {
   #[inline]
@@ -38852,6 +39061,7 @@ impl<'a> Default for MarketsArgs<'a> {
     MarketsArgs {
       markets: None,
       goods: None,
+      beliefs: None,
     }
   }
 }
@@ -38868,6 +39078,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MarketsBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_goods(&mut self, goods: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Markets::VT_GOODS, goods);
+  }
+  #[inline]
+  pub fn add_beliefs(&mut self, beliefs: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<MoneyBelief<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Markets::VT_BELIEFS, beliefs);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> MarketsBuilder<'a, 'b, A> {
@@ -38889,6 +39103,7 @@ impl ::core::fmt::Debug for Markets<'_> {
     let mut ds = f.debug_struct("Markets");
       ds.field("markets", &self.markets());
       ds.field("goods", &self.goods());
+      ds.field("beliefs", &self.beliefs());
       ds.finish()
   }
 }

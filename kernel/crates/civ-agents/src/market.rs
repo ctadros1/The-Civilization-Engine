@@ -46,6 +46,40 @@ pub struct MonthOfTrade {
     pub paid_h: f32,
 }
 
+/// What a money is worth to a household from its use as money, as of the last midnight (M10d
+/// slice EF, first part; ADR-0035 §8, §12): what it bought with it and how often, and whether
+/// others take it (research 08-06 §1.3: a local acceptance estimate, updated from successful and
+/// refused payments). Kept in a table built at midnight, not scanned per decision.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MoneyBelief {
+    /// The household.
+    pub household: PermanentId,
+    /// The money, by index in the catalog's goods.
+    pub good: u16,
+    /// Hours of its own work a unit bought in the purchases its markets remember, faded by their
+    /// memory (0 with none).
+    pub bought_h: f64,
+    /// Units it paid in those purchases, faded by the markets' memory.
+    pub paid: f64,
+    /// Payments in it others took, and sellers of what it wanted who did not take it, fading by
+    /// half every `memory_days`.
+    pub taken: f32,
+    pub refused: f32,
+    /// The day its tallies were last faded to.
+    pub day: i64,
+}
+
+impl MoneyBelief {
+    /// The share of payments it offered that others took; 1 when none was refused.
+    pub fn acceptance(&self) -> f64 {
+        if self.refused <= 0.0 {
+            return 1.0;
+        }
+        let taken = f64::from(self.taken.max(0.0));
+        taken / (taken + f64::from(self.refused))
+    }
+}
+
 /// Months from the calendar's origin to the month of `t`: (year − 1) × 12 + month − 1.
 pub fn month_of(t: SimTime) -> u32 {
     let d = t.date();

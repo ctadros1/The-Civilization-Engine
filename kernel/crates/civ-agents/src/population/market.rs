@@ -241,7 +241,7 @@ impl Population {
         held: f64,
         costs: &[Option<f64>],
     ) -> Option<f64> {
-        let raw = self.pay_worth_raw(ctx, hh, p, own, held, costs);
+        let raw = self.pay_worth_raw(ctx, hh, p, own, held);
         let Some(money) = ctx.catalog.goods.get(p).and_then(|g| g.money.as_ref()) else {
             return raw;
         };
@@ -295,14 +295,8 @@ impl Population {
             .reduce(f64::min)?;
         let metal = money.metal?;
         let held = hh.stores.get(metal).copied().unwrap_or(0.0);
-        let metal_h = self.pay_worth_raw(
-            ctx,
-            hh,
-            metal,
-            costs.get(metal).copied().flatten(),
-            held,
-            costs,
-        )?;
+        let metal_h =
+            self.pay_worth_raw(ctx, hh, metal, costs.get(metal).copied().flatten(), held)?;
         let w = kg * metal_h * (1.0 - money.foreign_discount) - money.foreign_assay_h;
         (w > 0.0).then_some(w)
     }
@@ -370,7 +364,9 @@ impl Population {
             .reduce(f64::max)
     }
 
-    /// [`Population::pay_worth`] without what a levy taking the money adds: what it bought.
+    /// [`Population::pay_worth`] without what a levy taking the money adds: what it bought, as
+    /// the midnight's table holds it (M10d slice EF, first part), at the share of its payments in
+    /// it others took.
     pub(crate) fn pay_worth_raw(
         &self,
         ctx: &Ctx,
@@ -378,28 +374,14 @@ impl Population {
         p: usize,
         own: Option<f64>,
         held: f64,
-        costs: &[Option<f64>],
     ) -> Option<f64> {
         let Some(money) = ctx.catalog.goods.get(p).and_then(|g| g.money.as_ref()) else {
             return own;
         };
         let mp = &ctx.params.market;
-        let today = ctx.now.day_index();
-        let (mut bought_h, mut paid) = (0.0, 0.0);
-        for t in self
-            .markets
-            .iter()
-            .flat_map(|m| m.recent.iter())
-            .filter(|t| t.buyer == hh.id && usize::from(t.payment) == p && t.paid > 0.0)
-        {
-            let Some(c) = costs.get(usize::from(t.good)).copied().flatten() else {
-                continue;
-            };
-            let age = (today - t.at.day_index()).max(0) as f64;
-            let w = 0.5f64.powf(age / mp.memory_days.max(1e-6));
-            bought_h += w * c * f64::from(t.units);
-            paid += w * f64::from(t.paid);
-        }
+        let (bought_h, paid, accepted) = self
+            .money_belief(hh.id, p)
+            .map_or((0.0, 0.0, 1.0), |b| (b.bought_h, b.paid, b.acceptance()));
         // Units spent a day: the faded payments over the memory's mean age.
         let per_day = paid * std::f64::consts::LN_2 / mp.memory_days.max(1e-6);
         let desired = mp.money_days * per_day;
@@ -408,7 +390,7 @@ impl Population {
         } else {
             1.0
         };
-        let bought = (paid > 1e-9).then(|| bought_h / paid * scale);
+        let bought = (paid > 1e-9).then_some(bought_h * accepted * scale);
         let worth = match (own, bought) {
             (Some(a), Some(b)) => Some(a.max(b)),
             (a, b) => a.or(b),
@@ -815,6 +797,9 @@ impl Population {
                     wanted.push((t, need, c));
                 }
             }
+            // A money it holds beyond what it keeps is taken or refused at the doors of those
+            // selling what it wants (M10d slice EF, first part).
+            let (spare_money, money_wanted) = Self::money_offered(goods, &stores, &holding);
             // What it might fetch from elsewhere to sell at home (M5b slice AQ, ADR-0019 §6).
             let (errand, wish) = self.plan_errand(ctx, hh, &stores, &costs, &holding, &offered);
             // A boat or cart it could make that would save it more over its life than making
@@ -843,6 +828,7 @@ impl Population {
             if let Some(x) = self.household_mut_by_id(id) {
                 x.offers = rows;
             }
+            self.money_refusals(ctx, id, settlement, &spare_money, &money_wanted);
             match errand {
                 Some(e) => {
                     self.reports.errands.insert(id, e);
@@ -1392,6 +1378,10 @@ impl Population {
                 }
             }
             return;
+        }
+        // A payment in a money was taken (M10d slice EF, first part).
+        if goods.get(d.payment).is_some_and(|g| g.money.is_some()) {
+            self.note_money(ctx, buyer, d.payment, 1.0, 0.0);
         }
         // Buyer and seller each saw the other keep to the terms (ADR-0014 §2).
         let seller_household = if d.firm {
@@ -2498,7 +2488,7 @@ impl Population {
 
 /// Food a household with `stores` is short of, kcal, and what it keeps of food, kcal: what it
 /// keeps (`keep`, by good) less what it has, by energy.
-fn food_short(goods: &[GoodDef], keep: &[f64], stores: &[f64]) -> (f64, f64) {
+pub(super) fn food_short(goods: &[GoodDef], keep: &[f64], stores: &[f64]) -> (f64, f64) {
     let food = stock_kcal(stores, goods);
     let food_keep: f64 = goods
         .iter()

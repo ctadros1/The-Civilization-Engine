@@ -981,10 +981,26 @@ table MarketState {
   history: [MonthOfTrade] (id: 9);
 }
 
+// Schema 208 (M10d slice EF, first part; ADR-0035 §12): what a money is worth to a household from
+// its use as money, as of the last midnight. `good` is indexed like Markets.goods.
+table MoneyBelief {
+  household: ulong (id: 0);
+  good: uint (id: 1);
+  // Hours of its own work a unit bought, and units paid, faded by the markets' memory.
+  bought_h: double (id: 2);
+  paid: double (id: 3);
+  // Payments in it taken, and sellers of what it wanted who did not take it, faded to `day`.
+  taken: float (id: 4);
+  refused: float (id: 5);
+  day: long (id: 6);
+}
+
 table Markets {
   markets: [MarketState] (id: 0);
   // Good content ids at save time.
   goods: [string] (id: 1);
+  // Schema 208: each household's beliefs of each money, by household and money.
+  beliefs: [MoneyBelief] (id: 2);
 }
 
 // Section "firms" (schema 11): every firm there has been, open and closed (ADR-0006 §5). Goods are

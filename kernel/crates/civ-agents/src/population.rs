@@ -76,6 +76,7 @@ mod market;
 mod middens;
 mod mills;
 mod mint;
+mod money;
 mod moving;
 mod norm;
 mod opinion;
@@ -661,6 +662,9 @@ pub struct Population {
     /// Who tended at a sickhouse today, and which (M10c slice EE, fourth part): the day's
     /// exposure of its carers, drawn at midnight.
     pub staffed: Vec<(PermanentId, PermanentId)>,
+    /// What each money is worth to each household from its use as money, by household and money
+    /// (M10d slice EF, first part; ADR-0035 §12): built at midnight.
+    pub money: Vec<crate::market::MoneyBelief>,
     pub written: Vec<crate::knowledge::Session>,
     /// What each settlement has seen of each technique's buildings, in the order first seen
     /// (ADR-0009 §6).
@@ -7595,6 +7599,8 @@ impl Population {
     pub fn on_day(&mut self, ctx: &mut Ctx) {
         self.pay_for_work_given(ctx);
         self.close_travel_day(ctx);
+        // What each money is worth to those who used it, afresh for the day (M10d slice EF).
+        self.money_day(ctx);
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         // Gates are opened at first light and kept at dusk (M6c slice BK).
         self.schedule_gates(ctx);

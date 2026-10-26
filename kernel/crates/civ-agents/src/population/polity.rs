@@ -5262,14 +5262,7 @@ impl Population {
         let costs = self.own_costs_of(ctx, hh);
         let grain_h = costs.get(grain).copied().flatten().unwrap_or(0.0);
         let unit_h = self
-            .pay_worth_raw(
-                ctx,
-                hh,
-                m.good,
-                costs.get(m.good).copied().flatten(),
-                held,
-                &costs,
-            )
+            .pay_worth_raw(ctx, hh, m.good, costs.get(m.good).copied().flatten(), held)
             .unwrap_or(0.0);
         if unit_h * per_kg >= grain_h {
             return 0.0;

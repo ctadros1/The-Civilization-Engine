@@ -78,7 +78,7 @@ use civ_agents::history::{
 };
 use civ_agents::knowledge::{KnowledgeEvent, KnowledgeEventKind};
 use civ_agents::ledger::{Channel, Trade};
-use civ_agents::market::{Market, MonthOfTrade, Offer};
+use civ_agents::market::{Market, MoneyBelief, MonthOfTrade, Offer};
 use civ_agents::person::{Know, KnowSource};
 use civ_agents::population::DepositKnown;
 use civ_agents::seats::Seats;
@@ -131,8 +131,8 @@ use super::{
     SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, SCHEMA_V187,
     SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, SCHEMA_V194,
     SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, SCHEMA_V199, SCHEMA_V200, SCHEMA_V201,
-    SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, SCHEMA_V205, SCHEMA_V206, finish, section, section_root,
-    single_chunk, unreadable,
+    SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, SCHEMA_V205, SCHEMA_V206, SCHEMA_V207, finish, section,
+    section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -915,7 +915,9 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SCHEMA_V190 | SCHEMA_V191
         | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SCHEMA_V196 | SCHEMA_V197
         | SCHEMA_V198 | SCHEMA_V199 | SCHEMA_V200 | SCHEMA_V201 | SCHEMA_V202 | SCHEMA_V203
-        | SCHEMA_V204 | SCHEMA_V205 | SCHEMA_V206 | SAVE_SCHEMA_VERSION => Schema::V186,
+        | SCHEMA_V204 | SCHEMA_V205 | SCHEMA_V206 | SCHEMA_V207 | SAVE_SCHEMA_VERSION => {
+            Schema::V186
+        }
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1003,6 +1005,7 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V10 {
         let bytes = single_chunk(reader, SECTION_MARKET)?;
         people.markets = decode_markets(&bytes, rules)?;
+        people.money = decode_money_beliefs(&bytes, rules)?;
     }
     // Before schema 11 there were no firms.
     if schema >= Schema::V11 {
@@ -8426,14 +8429,62 @@ fn encode_markets(pop: &Population, goods: &[&str]) -> Vec<u8> {
         })
         .collect();
     let list = fbb.create_vector(&list);
+    let beliefs: Vec<_> = pop
+        .money
+        .iter()
+        .map(|b| {
+            save::MoneyBelief::create(
+                &mut fbb,
+                &save::MoneyBeliefArgs {
+                    household: b.household.get(),
+                    good: u32::from(b.good),
+                    bought_h: b.bought_h,
+                    paid: b.paid,
+                    taken: b.taken,
+                    refused: b.refused,
+                    day: b.day,
+                },
+            )
+        })
+        .collect();
+    let beliefs = fbb.create_vector(&beliefs);
     let root = save::Markets::create(
         &mut fbb,
         &save::MarketsArgs {
             markets: Some(list),
             goods: Some(good_dictionary),
+            beliefs: Some(beliefs),
         },
     );
     finish(fbb, root)
+}
+
+/// Each household's beliefs of each money (schema 208, M10d slice EF); none before.
+fn decode_money_beliefs(bytes: &[u8], rules: &Rules) -> Result<Vec<MoneyBelief>, LoadError> {
+    let root = section_root::<save::Markets>(bytes).map_err(|e| unreadable(SECTION_MARKET, &e))?;
+    let goods = good_map(&read_strings(root.goods()), rules);
+    let mut out = Vec::new();
+    for b in root.beliefs().iter().flatten() {
+        let household = required(b.household(), "a money belief's household")?;
+        let what = || format!("household {household}'s belief of a money");
+        // A money the content no longer has is forgotten.
+        let Some(good) = saved_good(&goods, b.good(), what)? else {
+            continue;
+        };
+        out.push(MoneyBelief {
+            household,
+            good,
+            bought_h: b.bought_h(),
+            paid: b.paid(),
+            taken: b.taken(),
+            refused: b.refused(),
+            day: b.day(),
+        });
+    }
+    // By household and money, in the loaded content's order of goods.
+    out.sort_by_key(|b| (b.household, b.good));
+    out.dedup_by_key(|b| (b.household, b.good));
+    Ok(out)
 }
 
 fn decode_markets(bytes: &[u8], rules: &Rules) -> Result<Vec<Market>, LoadError> {

@@ -551,11 +551,8 @@ impl Population {
                 if self.assays(h, money.assay) {
                     return Some((h, 0.0));
                 }
-                let costs = self.own_costs_of(ctx, hh);
                 let held = hh.stores.get(coin).copied().unwrap_or(0.0);
-                let w = self
-                    .pay_worth_raw(ctx, hh, coin, None, held, &costs)
-                    .unwrap_or(0.0);
+                let w = self.pay_worth_raw(ctx, hh, coin, None, held).unwrap_or(0.0);
                 Some((h, w))
             })
             .collect();

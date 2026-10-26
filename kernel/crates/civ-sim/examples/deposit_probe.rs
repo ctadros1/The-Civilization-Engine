@@ -77,6 +77,12 @@ struct Tally {
     storehouse_days: u64,
     store_kg_days: f64,
     store_max_kg: f64,
+    /// Household-days with goods left with a keeper (M10d slice EG, second part), the
+    /// kilogram-days kept, the most kept on a day, and the households that ever left any.
+    kept_days: u64,
+    kept_kg_days: f64,
+    kept_max_kg: f64,
+    depositors: std::collections::BTreeSet<PermanentId>,
     /// People at the end.
     people: usize,
 }
@@ -127,6 +133,14 @@ fn run(seed: u64, people: u32, days: i64) -> Result<(), String> {
         }
     }
     t.people = sim.people().people.len();
+    println!(
+        "kept for others: on {} household-days, {} households, {:.0} kilogram-days, most {:.0} kg \
+         on a day",
+        t.kept_days,
+        t.depositors.len(),
+        t.kept_kg_days,
+        t.kept_max_kg
+    );
     let share = |n: u64| 100.0 * n as f64 / t.housed.max(1) as f64;
     println!("deposit probe: seed {seed}, two settlements of {people}, {days} days");
     println!(
@@ -280,6 +294,12 @@ fn count(sim: &Sim, t: &mut Tally) {
             t.u_open_carry_room += u64::from(room);
         }
     }
+    let kept: f64 = sim.people().kept.iter().map(|k| k.kg()).sum();
+    t.kept_days += sim.people().kept.len() as u64;
+    t.kept_kg_days += kept;
+    t.kept_max_kg = t.kept_max_kg.max(kept);
+    t.depositors
+        .extend(sim.people().kept.iter().map(|k| k.depositor));
     for p in &sim.people().polities {
         let kg: f64 = p
             .stores

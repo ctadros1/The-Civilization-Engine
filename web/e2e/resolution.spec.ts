@@ -67,6 +67,9 @@ test("settlements away from the chosen one are lived by household while the obse
     if (!(await page.evaluate(() => window.__TCE__.state().clock?.paused))) {
       await page.getByRole("button", { name: "Pause" }).click();
     }
+    // At Max the host pauses at the end of the day it is living; wait for it, or the person read
+    // here may have their settlement lived in detail from the midnight that ends it.
+    await page.waitForFunction(() => window.__TCE__.state().clock?.paused === true);
     const inBlock = await page.evaluate(
       () => window.__TCE__.briefs().find((p) => p.blockUntilMinute > 0)?.id ?? 0,
     );

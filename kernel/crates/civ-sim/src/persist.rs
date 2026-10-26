@@ -555,6 +555,8 @@ pub const SCHEMA_V208: u32 = 208;
 pub const SCHEMA_V209: u32 = 209;
 /// Receipts written for goods kept, before notes.
 pub const SCHEMA_V210: u32 = 210;
+/// Notes, before keepers lent in them.
+pub const SCHEMA_V211: u32 = 211;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

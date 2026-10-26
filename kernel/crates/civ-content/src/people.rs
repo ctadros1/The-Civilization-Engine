@@ -2383,6 +2383,9 @@ pub(crate) struct Market {
     /// Content API 192 (M10d slice EG, second part): what a keeper takes each 30 days of what it
     /// keeps for another, a share of it.
     pub custody_fee_share: f64,
+    /// Content API 194 (M10d slice EI): what a keeper keeps behind its notes, at least, of the
+    /// pieces out, when it lends in them.
+    pub note_coverage: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2681,6 +2684,7 @@ impl PeopleFile {
                     money_days: k.money_days,
                     strike_points: k.strike_points,
                     custody_fee_share: k.custody_fee_share,
+                    note_coverage: k.note_coverage,
                 }
             },
             firm: FirmParams {
@@ -3519,6 +3523,7 @@ impl PeopleFile {
         unit("market.accept_want", k.accept_want, &mut p);
         positive("market.money_days", k.money_days, &mut p);
         unit("market.custody_fee_share", k.custody_fee_share, &mut p);
+        unit("market.note_coverage", k.note_coverage, &mut p);
         if !(k.strike_points.is_finite() && (0.0..=100.0).contains(&k.strike_points)) {
             p.push(format!(
                 "`market.strike_points` must be between 0 and 100 (got {})",

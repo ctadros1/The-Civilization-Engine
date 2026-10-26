@@ -67245,6 +67245,7 @@ impl<'a> NoteIssueSave<'a> {
   pub const VT_PRESENTED: ::flatbuffers::VOffsetT = 14;
   pub const VT_REFUSED: ::flatbuffers::VOffsetT = 16;
   pub const VT_REFUSED_DAY: ::flatbuffers::VOffsetT = 18;
+  pub const VT_LENT: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -67256,6 +67257,7 @@ impl<'a> NoteIssueSave<'a> {
     args: &'args NoteIssueSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<NoteIssueSave<'bldr>> {
     let mut builder = NoteIssueSaveBuilder::new(_fbb);
+    builder.add_lent(args.lent);
     builder.add_refused_day(args.refused_day);
     builder.add_refused(args.refused);
     builder.add_presented(args.presented);
@@ -67324,6 +67326,13 @@ impl<'a> NoteIssueSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(NoteIssueSave::VT_REFUSED_DAY, Some(-1)).unwrap()}
   }
+  #[inline]
+  pub fn lent(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(NoteIssueSave::VT_LENT, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for NoteIssueSave<'_> {
@@ -67340,6 +67349,7 @@ impl ::flatbuffers::Verifiable for NoteIssueSave<'_> {
      .visit_field::<f64>("presented", Self::VT_PRESENTED, false)?
      .visit_field::<f64>("refused", Self::VT_REFUSED, false)?
      .visit_field::<i64>("refused_day", Self::VT_REFUSED_DAY, false)?
+     .visit_field::<f64>("lent", Self::VT_LENT, false)?
      .finish();
     Ok(())
   }
@@ -67353,6 +67363,7 @@ pub struct NoteIssueSaveArgs<'a> {
     pub presented: f64,
     pub refused: f64,
     pub refused_day: i64,
+    pub lent: f64,
 }
 impl<'a> Default for NoteIssueSaveArgs<'a> {
   #[inline]
@@ -67366,6 +67377,7 @@ impl<'a> Default for NoteIssueSaveArgs<'a> {
       presented: 0.0,
       refused: 0.0,
       refused_day: -1,
+      lent: 0.0,
     }
   }
 }
@@ -67408,6 +67420,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> NoteIssueSaveBuilder<'a, 'b, 
     self.fbb_.push_slot::<i64>(NoteIssueSave::VT_REFUSED_DAY, refused_day, -1);
   }
   #[inline]
+  pub fn add_lent(&mut self, lent: f64) {
+    self.fbb_.push_slot::<f64>(NoteIssueSave::VT_LENT, lent, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> NoteIssueSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     NoteIssueSaveBuilder {
@@ -67433,6 +67449,7 @@ impl ::core::fmt::Debug for NoteIssueSave<'_> {
       ds.field("presented", &self.presented());
       ds.field("refused", &self.refused());
       ds.field("refused_day", &self.refused_day());
+      ds.field("lent", &self.lent());
       ds.finish()
   }
 }

@@ -401,6 +401,19 @@ impl Population {
                     want -= take;
                 }
             }
+            // Then from the keeper's own beyond what it keeps (M10d slice EI).
+            if want > 1e-9 {
+                let own = self.keeper_spare(ctx, issuer, good).min(want);
+                if own > 1e-9 {
+                    legs.push(Leg {
+                        from: issuer,
+                        to: holder,
+                        good,
+                        amount: own,
+                    });
+                    want -= own;
+                }
+            }
             let paid = (pieces - want.max(0.0) / kg).max(0.0);
             let alive = self
                 .household(issuer)

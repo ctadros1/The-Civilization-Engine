@@ -162,8 +162,9 @@ impl Population {
             if self.borrow_from_store(ctx, id, borrower, want, due) {
                 continue;
             }
-            // Those with food to spare, those its elder regards first.
-            let mut lenders: Vec<(f64, PermanentId, f64)> = self
+            // Those with food to spare, or a keeper who may lend in its notes more than it has
+            // to spare (M10d slice EI), those its elder regards first.
+            let mut lenders: Vec<(f64, PermanentId, f64, Option<u32>)> = self
                 .households
                 .iter()
                 .map(|(_, h)| h)
@@ -173,25 +174,40 @@ impl Population {
                 .filter(|h| !self.order.credit.owes(h.id) && !self.order.credit.guarantees(h.id))
                 .filter_map(|h| {
                     let spare = spare_food_kcal(h, now, params, goods);
-                    (spare > 1.0).then_some((h.id, spare))
+                    let notes = self.note_lending(ctx, h);
+                    match notes {
+                        Some((issue, kcal)) if kcal > spare && kcal > 1.0 => {
+                            Some((h.id, kcal, Some(issue)))
+                        }
+                        _ => (spare > 1.0).then_some((h.id, spare, None)),
+                    }
                 })
-                .map(|(h, spare)| {
+                .map(|(h, spare, issue)| {
                     let regard = self
                         .elder_of(h, now, params)
                         .map_or(0.0, |e| self.ties.regard(borrower, e, day, &params.ties));
-                    (regard, h, spare)
+                    (regard, h, spare, issue)
                 })
                 .collect();
             lenders.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
             lenders.truncate(cp.max_asked as usize);
             let t_years = (due - day) as f64 / civ_core::time::DAYS_PER_YEAR as f64;
             let field = self.pledgeable_field(ctx, id);
-            for (_, lender, spare) in lenders {
+            for (_, lender, spare, issue) in lenders {
                 self.order.credit.asked += 1;
                 let Some(elder) = self.elder_of(lender, now, params) else {
                     continue;
                 };
-                let Some((good, kg_held)) = self.richest_food(ctx, lender) else {
+                // A loan in notes is in the good they are redeemed in, as far as it may write
+                // them (M10d slice EI).
+                let lent_in = match issue.and_then(|i| self.notes.issue(i)) {
+                    Some(c) => Some((
+                        usize::from(c.good),
+                        spare / goods[usize::from(c.good)].kcal_per_kg,
+                    )),
+                    None => self.richest_food(ctx, lender),
+                };
+                let Some((good, kg_held)) = lent_in else {
                     continue;
                 };
                 let per_kg = goods[good].kcal_per_kg;
@@ -226,13 +242,19 @@ impl Population {
                     self.order.credit.refused += 1;
                     continue;
                 };
-                let leg = Leg {
-                    from: lender,
-                    to: id,
-                    good,
-                    amount: kg,
+                let lent = match issue {
+                    Some(i) => self.lend_notes(ctx, lender, id, i, kg),
+                    None => {
+                        let leg = Leg {
+                            from: lender,
+                            to: id,
+                            good,
+                            amount: kg,
+                        };
+                        self.transfer(now, params, goods, &[leg], Channel::Lent)
+                    }
                 };
-                if !self.transfer(now, params, goods, &[leg], Channel::Lent) {
+                if !lent {
                     continue;
                 }
                 let credit = &mut self.order.credit;

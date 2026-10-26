@@ -390,6 +390,11 @@ strike_points = 12.0
 # (a design prior: the research gives no custody fee; a keeper asks about what keeping costs a sound
 # store, 08-02 §7.1's 2-8 % a year, here 6 % a year).
 custody_fee_share = 0.005
+# A keeper whose notes are out may lend in new ones, by its own choice (content API 194; ADR-0027
+# §4, ADR-0035 §10), while what it keeps behind them stays at least this share of what the pieces
+# out pay: a content prior, the top of 08-07 §2.3's prudence range of 10-40 % (08-06 §2.3's
+# liquidity targets run 10-100 %).
+note_coverage = 0.4
 
 [firm]                           # household workshops (slice J, ADR-0006 §5); every value a tuning value
 # A workshop that sells nothing for this long is given up by its owners: a voluntary exit, not a

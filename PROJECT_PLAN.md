@@ -7463,6 +7463,23 @@ and M6a gives rivers a daily flow.
       holder refused may bring the keeper before the gathering (with runs, slice EI); notes of
       a polity's own issue (EJ); a household valuing a keeper of another settlement's notes.
     - **EI**: keepers issuing beyond backing, presentations and runs, suspension.
+      *As built, first part (2026-10-26): lending in notes.* A keeper whose notes in a food are
+      out lends in them by its own choice (ADR-0027 §4): in the weighing of borrowing it is a
+      lender of what it may write while what is behind its notes stays at least
+      `market.note_coverage` of what the pieces out pay (a content prior of 40 %, the top of
+      08-07 §2.3's prudence range; content API 194), chosen over its spare food when that is more,
+      and weighed by the same rule as a loan in grain (belief of repayment, terms, pledges). The
+      loan is written into its own purse and paid to the borrower on `Lent`, a recorded act that
+      raises what it owes, and the claim is booked in the good its notes are redeemed in (a design
+      reading of brief §4's claim in notes: the borrower repays grain, which the keeper keeps).
+      What is behind an issue is the goods left with its keeper backing its notes and the
+      keeper's own beyond what it keeps, which it pays presentations with once those run out, so
+      repaid loans pay later presentations. The issue counts the pieces lent (saves 212).
+      **Tested:** a keeper with no provisions of its own may lend what keeps its coverage at the
+      prior and no more, writes them on `Lent` and owes them; the borrower, short of food,
+      presents them and is paid from what others left; with that gone, from the keeper's own; in
+      a village a keeper with notes out and no grain to spare lends in notes, owed in grain, within
+      its coverage, its grain untouched.
     - **EJ**: a polity's notes: issue within a ceiling, dues in notes, legal tender, suspended
       redemption and the derived fiat label.
     - **EK**: counterfeiting.

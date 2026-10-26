@@ -29,6 +29,8 @@ pub struct Issue {
     pub presented: f64,
     pub refused: f64,
     pub refused_day: i64,
+    /// Pieces its issuer wrote as loans, beyond the goods left with it (M10d slice EI).
+    pub lent: f64,
 }
 
 /// Every issue of notes and every purse holding any (saved).
@@ -107,6 +109,7 @@ impl Notes {
                     presented: 0.0,
                     refused: 0.0,
                     refused_day: -1,
+                    lent: 0.0,
                 });
                 id
             }

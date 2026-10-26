@@ -3944,6 +3944,8 @@ table NoteIssueSave {
   presented: double (id: 5);
   refused: double (id: 6);
   refused_day: long = -1 (id: 7);
+  // Schema 212 (M10d slice EI): pieces its issuer wrote as loans.
+  lent: double (id: 8);
 }
 
 table ConsignmentsSave {

@@ -409,12 +409,14 @@ fn pieces_the_backing_cannot_pay_are_refused_and_stay_owed() {
         .issue_of(k, provisions)
         .expect("an issue")
         .clone();
-    // Half the backing lost by hand, and the keeper's roof gone: every piece is presented.
+    // Half the backing lost by hand, the keeper holding no provisions of its own to pay with
+    // (slice EI), and its roof gone: every piece is presented.
     let half = sim.people().kept[0].stores[provisions] / 2.0;
     sim.people_mut_for_tests().kept[0].stores[provisions] = half;
     for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
         if x.id == k {
             x.sheltered = false;
+            x.stores[provisions] = 0.0;
         }
     }
     sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
@@ -564,4 +566,76 @@ fn a_holder_short_of_food_presents_its_notes_and_on_hearing_refusals_all_of_them
     sim.people_mut_for_tests().notes.issues[0].refused_day = today - 1;
     sim.with_ctx_for_tests(|pop, ctx| pop.notes_review_for_tests(ctx, s));
     assert!(sim.people().notes.held(s, issue) < 1e-9, "all presented");
+}
+
+#[test]
+fn a_keeper_with_notes_out_lends_in_them_within_its_coverage_and_pays_from_its_own() {
+    let (mut sim, d, k) = scene();
+    let provisions = good(&sim, "core:good/provisions");
+    let note = good(&sim, "core:good/note");
+    let writer = sim.people().household(k).expect("keeper").members[0];
+    writers(&mut sim, k, Some(writer));
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    // The keeper holds no provisions of its own: what is behind its notes is what was left.
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == k {
+            x.stores[provisions] = 0.0;
+        }
+    }
+    let issue = sim
+        .people()
+        .notes
+        .issue_of(k, provisions)
+        .expect("an issue")
+        .clone();
+    let behind = sim.people().kept[0].stores[provisions];
+    let coverage = sim.rules().people.market.note_coverage;
+    let per_kg = sim.rules().catalog.goods[provisions].kcal_per_kg;
+    let (lends_in, kcal) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.note_lending_for_tests(ctx, k))
+        .expect("it may lend in its notes");
+    assert_eq!(lends_in, issue.id);
+    let kg = behind / coverage - issue.count;
+    assert!(
+        (kcal - kg * per_kg).abs() < 1e-3 * kg * per_kg,
+        "{kcal} against {}",
+        kg * per_kg
+    );
+    // It lends all it may to a hungry neighbour: pieces written on `Lent`, owed more.
+    let s = hungry_neighbour(&mut sim, d, k);
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.lend_notes_for_tests(ctx, (k, s), issue.id, kg)));
+    let after = sim.people().notes.issue(issue.id).expect("issue").clone();
+    assert!((after.count - issue.count - kg).abs() < 1e-6);
+    assert!((after.lent - kg).abs() < 1e-6);
+    assert!((sim.people().notes.held(s, issue.id) - kg).abs() < 1e-6);
+    assert!((sim.people().transfers.get(Channel::Lent, note) - kg).abs() < 1e-6);
+    assert!(sim.people().household(k).expect("keeper").stores[note].abs() < 1e-9);
+    // Its coverage reached, it may lend no more.
+    assert!(
+        sim.with_ctx_for_tests(|pop, ctx| pop.note_lending_for_tests(ctx, k))
+            .is_none_or(|(_, kcal)| kcal < 1e-3)
+    );
+    // The borrower, short of food, presents them and is paid from what others left.
+    sim.with_ctx_for_tests(|pop, ctx| pop.notes_review_for_tests(ctx, s));
+    let paid = sim.people().household(s).expect("borrower").stores[provisions];
+    assert!(paid > 1.0, "{paid}");
+    assert!((sim.people().kept[0].stores[provisions] - (behind - paid)).abs() < 1e-6);
+    // With nothing left behind them, the keeper pays from its own beyond what it keeps.
+    sim.people_mut_for_tests().kept[0].stores[provisions] = 0.0;
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == k {
+            x.stores[provisions] = 50_000.0;
+        }
+        if x.id == s {
+            x.stores[provisions] = 0.0;
+        }
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.notes_review_for_tests(ctx, s));
+    let again = sim.people().household(s).expect("borrower").stores[provisions];
+    assert!(again > 1.0, "{again}");
+    assert!(
+        sim.people().household(k).expect("keeper").stores[provisions] < 50_000.0 - again + 1e-6
+    );
+    let c = sim.people().notes.issue(issue.id).expect("issue").clone();
+    assert_eq!(c.refused, 0.0);
 }

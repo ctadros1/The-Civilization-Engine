@@ -894,3 +894,61 @@ fn under_lending_from_the_store_a_short_household_borrows_from_it_and_repays_int
         "{words:?}"
     );
 }
+
+#[test]
+fn a_keeper_whose_notes_are_out_lends_in_them_and_keeps_its_grain() {
+    let mut sc = village();
+    let note = sc
+        .sim
+        .rules()
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/note")
+        .expect("notes");
+    // The lender holds no grain to spare but keeps 3000 kg left with it by another household,
+    // whose notes for it are out.
+    feed(&mut sc.sim, sc.lender, 0.0);
+    let depositor = sc
+        .sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .find(|h| !h.members.is_empty() && h.id != sc.lender && h.id != sc.borrower)
+        .map(|h| h.id)
+        .expect("another household");
+    let (now, goods) = (sc.sim.now(), sc.sim.rules().catalog.goods.len());
+    let lot = PermanentId::from_raw(u64::MAX - 7).expect("an id");
+    let pop = sc.sim.people_mut_for_tests();
+    let mut kept = civ_agents::custody::Kept::new(lot, (depositor, sc.lender), now, goods);
+    kept.stores[sc.grain] = 3000.0;
+    kept.noted = true;
+    pop.kept.push(kept);
+    let issue = pop
+        .notes
+        .write(sc.lender, (sc.grain, 1.0), 3000.0, depositor);
+    for (_, x) in pop.households.iter_mut() {
+        if x.id == depositor {
+            x.stores[note] += 3000.0;
+        }
+    }
+    weigh(&mut sc.sim);
+    let (_, c) = loan_of(&sc.sim, sc.borrower);
+    assert_eq!(c.creditor, sc.lender);
+    // Owed in the grain its notes pay; lent in its notes, written for the borrower.
+    assert_eq!(usize::from(c.good), sc.grain);
+    let lent = f64::from(c.lent);
+    assert!(lent > 1.0);
+    let notes = &sc.sim.people().notes;
+    assert!((notes.held(sc.borrower, issue) - lent).abs() < 1e-3);
+    let i = notes.issue(issue).expect("issue");
+    assert!((i.lent - lent).abs() < 1e-3 && (i.count - 3000.0 - lent).abs() < 1e-3);
+    assert!(
+        grain_of(&sc.sim, sc.lender, sc.grain).abs() < 1e-9,
+        "no grain lent"
+    );
+    // Within what its coverage lets it write.
+    let coverage = sc.sim.rules().people.market.note_coverage;
+    assert!(lent <= 3000.0 / coverage - 3000.0 + 1e-3);
+}

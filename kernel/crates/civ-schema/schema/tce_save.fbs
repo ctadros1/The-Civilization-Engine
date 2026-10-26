@@ -3913,8 +3913,22 @@ table ConsignmentSave {
   goods: [ConsignedGoodSave] (id: 8);
 }
 
+// Schema 209 (M10d slice EG, second part; ADR-0027 §4): goods one household keeps for another
+// under its roof, the depositor's throughout; `since` and `fee_day` are day indexes.
+table KeptSave {
+  id: ulong (id: 0);
+  depositor: ulong (id: 1);
+  keeper: ulong (id: 2);
+  since: long (id: 3);
+  fee_day: long (id: 4);
+  stores_at: long (id: 5);
+  goods: [ConsignedGoodSave] (id: 6);
+}
+
 table ConsignmentsSave {
   list: [ConsignmentSave] (id: 0);
+  // Schema 209: goods kept for others, in the order left.
+  kept: [KeptSave] (id: 1);
 }
 
 // Turn-taking at bottlenecks (schema 141, M8b slice CN; ADR-0029 §4). A facility as in

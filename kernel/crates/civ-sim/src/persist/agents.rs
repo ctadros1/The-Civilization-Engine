@@ -131,8 +131,8 @@ use super::{
     SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, SCHEMA_V187,
     SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, SCHEMA_V194,
     SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, SCHEMA_V199, SCHEMA_V200, SCHEMA_V201,
-    SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, SCHEMA_V205, SCHEMA_V206, SCHEMA_V207, finish, section,
-    section_root, single_chunk, unreadable,
+    SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, SCHEMA_V205, SCHEMA_V206, SCHEMA_V207, SCHEMA_V208,
+    finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -915,9 +915,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SCHEMA_V190 | SCHEMA_V191
         | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SCHEMA_V196 | SCHEMA_V197
         | SCHEMA_V198 | SCHEMA_V199 | SCHEMA_V200 | SCHEMA_V201 | SCHEMA_V202 | SCHEMA_V203
-        | SCHEMA_V204 | SCHEMA_V205 | SCHEMA_V206 | SCHEMA_V207 | SAVE_SCHEMA_VERSION => {
-            Schema::V186
-        }
+        | SCHEMA_V204 | SCHEMA_V205 | SCHEMA_V206 | SCHEMA_V207 | SCHEMA_V208
+        | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1202,6 +1201,7 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V143 {
         let bytes = single_chunk(reader, SECTION_CONSIGNMENTS)?;
         people.consignments = decode_consignments(&bytes, rules)?;
+        people.kept = decode_kept(&bytes, rules)?;
     }
     // Ways (schema 140); before, none.
     if schema >= Schema::V140 {
@@ -12454,9 +12454,82 @@ fn encode_consignments(people: &Population, rules: &Rules) -> Vec<u8> {
         })
         .collect();
     let list = fbb.create_vector(&list);
-    let root =
-        save::ConsignmentsSave::create(&mut fbb, &save::ConsignmentsSaveArgs { list: Some(list) });
+    let kept: Vec<_> = people
+        .kept
+        .iter()
+        .map(|k| {
+            let held: Vec<_> = k
+                .stores
+                .iter()
+                .enumerate()
+                .filter(|&(_, &x)| x != 0.0)
+                .filter_map(|(g, &amount)| {
+                    let good = fbb.create_string(&goods.get(g)?.id);
+                    Some(save::ConsignedGoodSave::create(
+                        &mut fbb,
+                        &save::ConsignedGoodSaveArgs {
+                            good: Some(good),
+                            amount,
+                        },
+                    ))
+                })
+                .collect();
+            let held = fbb.create_vector(&held);
+            save::KeptSave::create(
+                &mut fbb,
+                &save::KeptSaveArgs {
+                    id: k.id.get(),
+                    depositor: k.depositor.get(),
+                    keeper: k.keeper.get(),
+                    since: k.since,
+                    fee_day: k.fee_day,
+                    stores_at: k.stores_at.minutes(),
+                    goods: Some(held),
+                },
+            )
+        })
+        .collect();
+    let kept = fbb.create_vector(&kept);
+    let root = save::ConsignmentsSave::create(
+        &mut fbb,
+        &save::ConsignmentsSaveArgs {
+            list: Some(list),
+            kept: Some(kept),
+        },
+    );
     finish(fbb, root)
+}
+
+/// The goods kept for others saved in `bytes` (schema 209, M10d slice EG); none before. A good
+/// the loaded content no longer has is let go.
+fn decode_kept(bytes: &[u8], rules: &Rules) -> Result<Vec<civ_agents::custody::Kept>, LoadError> {
+    use civ_agents::custody::Kept;
+    let goods = &rules.catalog.goods;
+    let root = section_root::<save::ConsignmentsSave>(bytes)
+        .map_err(|e| unreadable(SECTION_CONSIGNMENTS, &e))?;
+    let mut out = Vec::new();
+    for k in root.kept().iter().flatten() {
+        let id = required(k.id(), "goods kept for another")?;
+        let mut kept = Kept::new(
+            id,
+            (
+                required(k.depositor(), "kept goods' depositor")?,
+                required(k.keeper(), "kept goods' keeper")?,
+            ),
+            SimTime::from_minutes(k.stores_at()),
+            goods.len(),
+        );
+        kept.since = k.since();
+        kept.fee_day = k.fee_day();
+        for g in k.goods().iter().flatten() {
+            let name = g.good().unwrap_or("");
+            if let Some(i) = goods.iter().position(|d| d.id == name) {
+                kept.stores[i] = g.amount();
+            }
+        }
+        out.push(kept);
+    }
+    Ok(out)
 }
 
 /// The loads in transit saved in `bytes`. A good the loaded content no longer has is let go.

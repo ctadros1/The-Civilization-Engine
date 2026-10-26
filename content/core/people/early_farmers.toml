@@ -385,6 +385,13 @@ money_days = 14.0
 # Striking the metal brought to a mint is worth this to its minter as the duty of their office
 # (content API 127), as carrying an agreement's payment is (`relations.carry_points`).
 strike_points = 12.0
+# A household with no roof of its own may leave what keeps better under one with a neighbour who
+# has room (content API 192; ADR-0027 §4). The keeper takes this share of it each 30 days, close kin
+# nothing (a design prior: the research gives no custody fee; a keeper asks about what keeping costs
+# a sound store, 08-02 §7.1's 2-8 % a year, here 6 % a year); the household keeps this many days of
+# its food in hand, and takes what it left back below half of them.
+custody_fee_share = 0.005
+custody_keep_days = 14.0
 
 [firm]                           # household workshops (slice J, ADR-0006 §5); every value a tuning value
 # A workshop that sells nothing for this long is given up by its owners: a voluntary exit, not a

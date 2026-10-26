@@ -549,6 +549,8 @@ pub const SCHEMA_V205: u32 = 205;
 pub const SCHEMA_V206: u32 = 206;
 /// Those lying in sickhouses, before the midnight table of what money is worth.
 pub const SCHEMA_V207: u32 = 207;
+/// The midnight table of what money is worth, before goods kept for others.
+pub const SCHEMA_V208: u32 = 208;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

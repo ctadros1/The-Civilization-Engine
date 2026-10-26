@@ -90,6 +90,7 @@ pub use payments::Burden;
 pub use resolution::{DayBlock, NOT_TAKEN, SwitchInvariants};
 pub use sickhouse::sickhouse_bed_m2;
 mod credit;
+mod custody;
 mod patronage;
 mod places;
 mod polity;
@@ -763,6 +764,10 @@ pub struct Population {
     pub consignments: Vec<crate::consignments::Consignment>,
     /// What the counters of consignments since unloaded saw: counters, never saved.
     pub consigned_flows: crate::person::Flows,
+    /// Goods households keep for others (M10d slice EG, second part; ADR-0027 §4), in the order
+    /// left, and what the counters of those since emptied saw (counters, never saved).
+    pub kept: Vec<crate::custody::Kept>,
+    pub kept_flows: crate::person::Flows,
     /// Each cell a facility lies on, with it and its passage width, in cell order, and the
     /// crossings' and enclosures' revisions it stands for. Derived.
     facilities: Vec<(u32, crate::traffic::Facility, f32)>,
@@ -1426,6 +1431,11 @@ impl Population {
             all.absorb(&c.flows);
         }
         all.absorb(&self.consigned_flows);
+        // And goods kept for others (M10d slice EG, second part).
+        for k in &self.kept {
+            all.absorb(&k.flows);
+        }
+        all.absorb(&self.kept_flows);
         all
     }
 
@@ -1440,7 +1450,8 @@ impl Population {
             .chain(self.firms.iter().map(|f| &f.stores))
             .chain(self.polities.iter().map(|p| &p.stores))
             .chain(self.agreements.dues.iter().map(|d| &d.stores))
-            .chain(self.consignments.iter().map(|c| &c.stores));
+            .chain(self.consignments.iter().map(|c| &c.stores))
+            .chain(self.kept.iter().map(|k| &k.stores));
         for s in stores {
             if out.len() < s.len() {
                 out.resize(s.len(), 0.0);
@@ -7795,6 +7806,8 @@ impl Population {
         self.record_convergence(ctx);
         // Households whose day it is review what they offer and on what terms.
         self.review_offers(ctx, day);
+        // Goods kept for households with no roof of their own (M10d slice EG, second part).
+        self.custody_day(ctx, day);
         // Those that found a boat would save them more walking over its life than making it
         // takes begin one (M8b slice CO, third part).
         self.begin_boats(ctx);

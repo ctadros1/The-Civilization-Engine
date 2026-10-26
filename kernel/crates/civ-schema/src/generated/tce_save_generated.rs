@@ -66972,6 +66972,204 @@ impl ::core::fmt::Debug for ConsignmentSave<'_> {
       ds.finish()
   }
 }
+pub enum KeptSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct KeptSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for KeptSave<'a> {
+  type Inner = KeptSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> KeptSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_DEPOSITOR: ::flatbuffers::VOffsetT = 6;
+  pub const VT_KEEPER: ::flatbuffers::VOffsetT = 8;
+  pub const VT_SINCE: ::flatbuffers::VOffsetT = 10;
+  pub const VT_FEE_DAY: ::flatbuffers::VOffsetT = 12;
+  pub const VT_STORES_AT: ::flatbuffers::VOffsetT = 14;
+  pub const VT_GOODS: ::flatbuffers::VOffsetT = 16;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    KeptSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args KeptSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<KeptSave<'bldr>> {
+    let mut builder = KeptSaveBuilder::new(_fbb);
+    builder.add_stores_at(args.stores_at);
+    builder.add_fee_day(args.fee_day);
+    builder.add_since(args.since);
+    builder.add_keeper(args.keeper);
+    builder.add_depositor(args.depositor);
+    builder.add_id(args.id);
+    if let Some(x) = args.goods { builder.add_goods(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(KeptSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn depositor(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(KeptSave::VT_DEPOSITOR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn keeper(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(KeptSave::VT_KEEPER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn since(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(KeptSave::VT_SINCE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn fee_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(KeptSave::VT_FEE_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn stores_at(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(KeptSave::VT_STORES_AT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn goods(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ConsignedGoodSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ConsignedGoodSave>>>>(KeptSave::VT_GOODS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for KeptSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("depositor", Self::VT_DEPOSITOR, false)?
+     .visit_field::<u64>("keeper", Self::VT_KEEPER, false)?
+     .visit_field::<i64>("since", Self::VT_SINCE, false)?
+     .visit_field::<i64>("fee_day", Self::VT_FEE_DAY, false)?
+     .visit_field::<i64>("stores_at", Self::VT_STORES_AT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ConsignedGoodSave>>>>("goods", Self::VT_GOODS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct KeptSaveArgs<'a> {
+    pub id: u64,
+    pub depositor: u64,
+    pub keeper: u64,
+    pub since: i64,
+    pub fee_day: i64,
+    pub stores_at: i64,
+    pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ConsignedGoodSave<'a>>>>>,
+}
+impl<'a> Default for KeptSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    KeptSaveArgs {
+      id: 0,
+      depositor: 0,
+      keeper: 0,
+      since: 0,
+      fee_day: 0,
+      stores_at: 0,
+      goods: None,
+    }
+  }
+}
+
+pub struct KeptSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> KeptSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(KeptSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_depositor(&mut self, depositor: u64) {
+    self.fbb_.push_slot::<u64>(KeptSave::VT_DEPOSITOR, depositor, 0);
+  }
+  #[inline]
+  pub fn add_keeper(&mut self, keeper: u64) {
+    self.fbb_.push_slot::<u64>(KeptSave::VT_KEEPER, keeper, 0);
+  }
+  #[inline]
+  pub fn add_since(&mut self, since: i64) {
+    self.fbb_.push_slot::<i64>(KeptSave::VT_SINCE, since, 0);
+  }
+  #[inline]
+  pub fn add_fee_day(&mut self, fee_day: i64) {
+    self.fbb_.push_slot::<i64>(KeptSave::VT_FEE_DAY, fee_day, 0);
+  }
+  #[inline]
+  pub fn add_stores_at(&mut self, stores_at: i64) {
+    self.fbb_.push_slot::<i64>(KeptSave::VT_STORES_AT, stores_at, 0);
+  }
+  #[inline]
+  pub fn add_goods(&mut self, goods: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<ConsignedGoodSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(KeptSave::VT_GOODS, goods);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> KeptSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    KeptSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<KeptSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for KeptSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("KeptSave");
+      ds.field("id", &self.id());
+      ds.field("depositor", &self.depositor());
+      ds.field("keeper", &self.keeper());
+      ds.field("since", &self.since());
+      ds.field("fee_day", &self.fee_day());
+      ds.field("stores_at", &self.stores_at());
+      ds.field("goods", &self.goods());
+      ds.finish()
+  }
+}
 pub enum ConsignmentsSaveOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -66989,6 +67187,7 @@ impl<'a> ::flatbuffers::Follow<'a> for ConsignmentsSave<'a> {
 
 impl<'a> ConsignmentsSave<'a> {
   pub const VT_LIST: ::flatbuffers::VOffsetT = 4;
+  pub const VT_KEPT: ::flatbuffers::VOffsetT = 6;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -67000,6 +67199,7 @@ impl<'a> ConsignmentsSave<'a> {
     args: &'args ConsignmentsSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<ConsignmentsSave<'bldr>> {
     let mut builder = ConsignmentsSaveBuilder::new(_fbb);
+    if let Some(x) = args.kept { builder.add_kept(x); }
     if let Some(x) = args.list { builder.add_list(x); }
     builder.finish()
   }
@@ -67012,6 +67212,13 @@ impl<'a> ConsignmentsSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ConsignmentSave>>>>(ConsignmentsSave::VT_LIST, None)}
   }
+  #[inline]
+  pub fn kept(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KeptSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KeptSave>>>>(ConsignmentsSave::VT_KEPT, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for ConsignmentsSave<'_> {
@@ -67021,18 +67228,21 @@ impl ::flatbuffers::Verifiable for ConsignmentsSave<'_> {
   ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ConsignmentSave>>>>("list", Self::VT_LIST, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<KeptSave>>>>("kept", Self::VT_KEPT, false)?
      .finish();
     Ok(())
   }
 }
 pub struct ConsignmentsSaveArgs<'a> {
     pub list: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ConsignmentSave<'a>>>>>,
+    pub kept: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KeptSave<'a>>>>>,
 }
 impl<'a> Default for ConsignmentsSaveArgs<'a> {
   #[inline]
   fn default() -> Self {
     ConsignmentsSaveArgs {
       list: None,
+      kept: None,
     }
   }
 }
@@ -67045,6 +67255,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ConsignmentsSaveBuilder<'a, '
   #[inline]
   pub fn add_list(&mut self, list: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<ConsignmentSave<'b >>>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConsignmentsSave::VT_LIST, list);
+  }
+  #[inline]
+  pub fn add_kept(&mut self, kept: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<KeptSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConsignmentsSave::VT_KEPT, kept);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ConsignmentsSaveBuilder<'a, 'b, A> {
@@ -67065,6 +67279,7 @@ impl ::core::fmt::Debug for ConsignmentsSave<'_> {
   fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
     let mut ds = f.debug_struct("ConsignmentsSave");
       ds.field("list", &self.list());
+      ds.field("kept", &self.kept());
       ds.finish()
   }
 }

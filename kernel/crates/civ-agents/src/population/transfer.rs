@@ -30,6 +30,7 @@ enum Holder {
     Faction(usize),
     Due(usize),
     Consignment(usize),
+    Kept(usize),
 }
 
 impl Population {
@@ -49,10 +50,10 @@ impl Population {
         if let Some(i) = self.agreements.dues.iter().position(|d| d.id == id) {
             return Some(Holder::Due(i));
         }
-        self.consignments
-            .iter()
-            .position(|c| c.id == id)
-            .map(Holder::Consignment)
+        if let Some(i) = self.consignments.iter().position(|c| c.id == id) {
+            return Some(Holder::Consignment(i));
+        }
+        self.kept.iter().position(|k| k.id == id).map(Holder::Kept)
     }
 
     /// The polity whose own issues coin `holder` holds are (M7d slice CE4c): a household's or a
@@ -115,6 +116,7 @@ impl Population {
         held.extend(self.factions.list.iter().map(|f| (f.id, at(&f.stores))));
         held.extend(self.agreements.dues.iter().map(|d| (d.id, at(&d.stores))));
         held.extend(self.consignments.iter().map(|c| (c.id, at(&c.stores))));
+        held.extend(self.kept.iter().map(|k| (k.id, at(&k.stores))));
         held.retain(|&(_, n)| n > 0.0);
         held.sort_unstable_by_key(|&(id, _)| id);
         let holders: Vec<PermanentId> = held.iter().map(|&(id, _)| id).collect();
@@ -254,6 +256,12 @@ impl Population {
                     c.stores.resize(goods.len(), 0.0);
                 }
             }
+            Holder::Kept(i) => {
+                if let Some(k) = self.kept.get_mut(i) {
+                    k.settle_stores(now, goods);
+                    k.stores.resize(goods.len(), 0.0);
+                }
+            }
         }
     }
 
@@ -282,6 +290,7 @@ impl Population {
                 .consignments
                 .get_mut(i)
                 .map(|c| (&mut c.stores, &mut c.flows)),
+            Holder::Kept(i) => self.kept.get_mut(i).map(|k| (&mut k.stores, &mut k.flows)),
         }
     }
 
@@ -329,6 +338,7 @@ impl Population {
                     Holder::Faction(i) => self.factions.list.get(i).map(|f| &f.stores),
                     Holder::Due(i) => self.agreements.dues.get(i).map(|d| &d.stores),
                     Holder::Consignment(i) => self.consignments.get(i).map(|c| &c.stores),
+                    Holder::Kept(i) => self.kept.get(i).map(|k| &k.stores),
                 })
                 .and_then(|s| s.get(good))
                 .copied()

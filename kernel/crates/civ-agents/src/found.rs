@@ -1797,6 +1797,8 @@ pub(crate) mod tests {
                 recent_trades: 64,
                 money_days: 14.0,
                 strike_points: 12.0,
+                custody_fee_share: 0.005,
+                custody_keep_days: 14.0,
             },
             firm: crate::params::FirmParams {
                 idle_close_days: 180.0,

@@ -7227,6 +7227,20 @@ and M6a gives rivers a daily flow.
       everyone grown knows, both homes near the water in a village carried their heaps within
       four days, a heap carried lately lies at its place and not at home, breaches are counted,
       and the world saves and goes on alike; the content.
+      *As built, fourth part's first step (2026-10-26): a sickhouse measured and raised.* A
+      building may be for the sick (`sickhouse`, an appended use; saves 206 with the appended
+      issue code and the measure below). Each midnight a severe case that lay ill the day before
+      with nobody tending them counts a day against their household's polity (a measured year's
+      `untended_days`); where it measured some and no sickhouse of its stands or is being raised,
+      the issue `untended` (appended) opens `core:policy/yourselves_zone_a_sickhouse` (content
+      API 191), a building raised together as the hall is, `core:building/sickhouse` (the hall's
+      frame in three bays, some 54 m², a design prior). A household weighs it by its share of
+      those days a year, each a day's work of care lacking at what an hour of its own work
+      brings, against its equal share of the work over the years it weighs. Finished, it stands;
+      who lies in it and who tends there is the next step's. **Tested:** smallpox in a village
+      measured a severe day untended within the outbreak; with sixty a year measured, raising a
+      sickhouse repays some household, and someone who can frame one puts it before the
+      gathering against the issue; the measure saves and loads; the content.
   - **M10d, money and the demo** (ADR-0035 §8–§12).
     - **EF**: acceptance of a money for onward exchange and dues, a money's value in a midnight
       table instead of a scan per decision.

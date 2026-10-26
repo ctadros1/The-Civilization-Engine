@@ -1017,15 +1017,16 @@ impl ::flatbuffers::SimpleToVerifyInSlice for HarvestLimit {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_PLOT_USE: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_PLOT_USE: u8 = 4;
+pub const ENUM_MAX_PLOT_USE: u8 = 5;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_PLOT_USE: [PlotUse; 5] = [
+pub const ENUM_VALUES_PLOT_USE: [PlotUse; 6] = [
   PlotUse::Dwelling,
   PlotUse::Store,
   PlotUse::Work,
   PlotUse::Hall,
   PlotUse::Tower,
+  PlotUse::Sickhouse,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1038,15 +1039,17 @@ impl PlotUse {
   pub const Work: Self = Self(2);
   pub const Hall: Self = Self(3);
   pub const Tower: Self = Self(4);
+  pub const Sickhouse: Self = Self(5);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 4;
+  pub const ENUM_MAX: u8 = 5;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Dwelling,
     Self::Store,
     Self::Work,
     Self::Hall,
     Self::Tower,
+    Self::Sickhouse,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1056,6 +1059,7 @@ impl PlotUse {
       Self::Work => Some("Work"),
       Self::Hall => Some("Hall"),
       Self::Tower => Some("Tower"),
+      Self::Sickhouse => Some("Sickhouse"),
       _ => None,
     }
   }
@@ -43410,6 +43414,7 @@ impl<'a> MeasuredLossSave<'a> {
   pub const VT_YEAR: ::flatbuffers::VOffsetT = 4;
   pub const VT_WET_LOST_H: ::flatbuffers::VOffsetT = 6;
   pub const VT_LATE_FIRE_H: ::flatbuffers::VOffsetT = 8;
+  pub const VT_UNTENDED_DAYS: ::flatbuffers::VOffsetT = 10;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -43421,6 +43426,7 @@ impl<'a> MeasuredLossSave<'a> {
     args: &'args MeasuredLossSaveArgs
   ) -> ::flatbuffers::WIPOffset<MeasuredLossSave<'bldr>> {
     let mut builder = MeasuredLossSaveBuilder::new(_fbb);
+    builder.add_untended_days(args.untended_days);
     builder.add_late_fire_h(args.late_fire_h);
     builder.add_wet_lost_h(args.wet_lost_h);
     builder.add_year(args.year);
@@ -43449,6 +43455,13 @@ impl<'a> MeasuredLossSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f64>(MeasuredLossSave::VT_LATE_FIRE_H, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn untended_days(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(MeasuredLossSave::VT_UNTENDED_DAYS, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for MeasuredLossSave<'_> {
@@ -43460,6 +43473,7 @@ impl ::flatbuffers::Verifiable for MeasuredLossSave<'_> {
      .visit_field::<i64>("year", Self::VT_YEAR, false)?
      .visit_field::<f64>("wet_lost_h", Self::VT_WET_LOST_H, false)?
      .visit_field::<f64>("late_fire_h", Self::VT_LATE_FIRE_H, false)?
+     .visit_field::<f64>("untended_days", Self::VT_UNTENDED_DAYS, false)?
      .finish();
     Ok(())
   }
@@ -43468,6 +43482,7 @@ pub struct MeasuredLossSaveArgs {
     pub year: i64,
     pub wet_lost_h: f64,
     pub late_fire_h: f64,
+    pub untended_days: f64,
 }
 impl<'a> Default for MeasuredLossSaveArgs {
   #[inline]
@@ -43476,6 +43491,7 @@ impl<'a> Default for MeasuredLossSaveArgs {
       year: 0,
       wet_lost_h: 0.0,
       late_fire_h: 0.0,
+      untended_days: 0.0,
     }
   }
 }
@@ -43498,6 +43514,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MeasuredLossSaveBuilder<'a, '
     self.fbb_.push_slot::<f64>(MeasuredLossSave::VT_LATE_FIRE_H, late_fire_h, 0.0);
   }
   #[inline]
+  pub fn add_untended_days(&mut self, untended_days: f64) {
+    self.fbb_.push_slot::<f64>(MeasuredLossSave::VT_UNTENDED_DAYS, untended_days, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> MeasuredLossSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     MeasuredLossSaveBuilder {
@@ -43518,6 +43538,7 @@ impl ::core::fmt::Debug for MeasuredLossSave<'_> {
       ds.field("year", &self.year());
       ds.field("wet_lost_h", &self.wet_lost_h());
       ds.field("late_fire_h", &self.late_fire_h());
+      ds.field("untended_days", &self.untended_days());
       ds.finish()
   }
 }

@@ -411,11 +411,15 @@ pub enum IssueKind {
     /// the sick to those near them, at home or in company (M10c slice EE, first part): what
     /// `keep_apart` answers.
     Contagion,
+    /// Severe cases of the polity's households lay ill with nobody tending them, measured, and no
+    /// sickhouse of its stands or is being raised (M10c slice EE, fourth part): what raising a
+    /// sickhouse answers.
+    Untended,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 36] = [
+    pub const ALL: [IssueKind; 37] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -452,6 +456,7 @@ impl IssueKind {
         IssueKind::Untaught,
         IssueKind::UnknowingCare,
         IssueKind::Contagion,
+        IssueKind::Untended,
     ];
 
     /// The authored name.
@@ -493,6 +498,7 @@ impl IssueKind {
             IssueKind::Untaught => "untaught",
             IssueKind::UnknowingCare => "unknowing_care",
             IssueKind::Contagion => "contagion",
+            IssueKind::Untended => "untended",
         }
     }
 
@@ -565,6 +571,7 @@ impl IssueKind {
             IssueKind::Contagion => {
                 "one of theirs died of a sickness that passes from the sick to those near them"
             }
+            IssueKind::Untended => "those severely ill among them lay with nobody to tend them",
         }
     }
 }
@@ -2441,6 +2448,9 @@ pub struct Measured {
     /// Hours of work putting right the buildings of fires nobody saw for a while after their
     /// covering caught, but spread from a neighbour (schema 167): what a watch tower answers.
     pub late_fire_h: f64,
+    /// Days a severe case of its households lay ill with nobody tending them (schema 206, M10c
+    /// slice EE, fourth part): what a sickhouse answers.
+    pub untended_days: f64,
 }
 
 /// How a polity came to hold a settlement besides its seat (M6c slice BM, ADR-0023 §9). Codes are

@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 190
+kernel_content_api = 191
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2667,6 +2667,7 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         "core:policy/yourselves_work_without_meeting_the_sick",
         "core:policy/yourselves_write_down_the_sick",
         "core:policy/yourselves_yonder_with_middens",
+        "core:policy/yourselves_zone_a_sickhouse",
     ];
     assert!(
         reg.catalog
@@ -2698,6 +2699,7 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
         "core:policy/yourselves_work_without_meeting_the_sick",
         "core:policy/yourselves_write_down_the_sick",
         "core:policy/yourselves_yonder_with_middens",
+        "core:policy/yourselves_zone_a_sickhouse",
     ];
     assert!(
         reg.catalog
@@ -2770,6 +2772,7 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
         "core:policy/yourselves_work_without_meeting_the_sick",
         "core:policy/yourselves_write_down_the_sick",
         "core:policy/yourselves_yonder_with_middens",
+        "core:policy/yourselves_zone_a_sickhouse",
     ];
     assert!(
         reg.catalog
@@ -2800,6 +2803,7 @@ fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
     let newer = [
         "core:policy/yourselves_write_down_the_sick",
         "core:policy/yourselves_yonder_with_middens",
+        "core:policy/yourselves_zone_a_sickhouse",
     ];
     assert!(
         reg.catalog
@@ -2839,7 +2843,10 @@ fn the_core_lets_a_polity_name_a_health_officer_who_can_write() {
             .all(|p| p.holder_needs.is_none())
     );
     // Its id sorts after every older template's (clearing middens, M10c slice EE, is newer).
-    let newer = ["core:policy/yourselves_yonder_with_middens"];
+    let newer = [
+        "core:policy/yourselves_yonder_with_middens",
+        "core:policy/yourselves_zone_a_sickhouse",
+    ];
     assert!(
         reg.catalog
             .policies
@@ -2871,6 +2878,36 @@ fn the_core_lets_a_polity_clear_middens_from_the_water() {
             .activities
             .iter()
             .any(|a| a.behavior == Behavior::Midden && a.daylight_only)
+    );
+    // Its id sorts after every older template's (the sickhouse's, M10c slice EE, is newer).
+    let newer = ["core:policy/yourselves_zone_a_sickhouse"];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
+}
+
+#[test]
+fn the_core_lets_a_polity_raise_a_sickhouse_where_the_sick_lay_untended() {
+    // M10c slice EE, fourth part (content API 191): a building of its own use, raised together
+    // against severe days untended.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/yourselves_zone_a_sickhouse")
+        .expect("the sickhouse template");
+    assert_eq!(def.kind, PolicyKind::RaiseBuilding);
+    assert_eq!(def.answers, vec![IssueKind::Untended]);
+    let program = def.raise.expect("what it raises").program;
+    assert_eq!(reg.catalog.buildings[program].id, "core:building/sickhouse");
+    assert_eq!(
+        reg.catalog.buildings[program].use_,
+        civ_land::PlotUse::Sickhouse
     );
     assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
 }

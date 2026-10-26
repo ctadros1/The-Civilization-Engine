@@ -2824,6 +2824,11 @@ impl Population {
         if self.fires_unseen(ctx, pi) {
             issues.push(IssueKind::FiresUnseen);
         }
+        // Severe cases untended, measured, and no sickhouse of its stands or is being raised
+        // (M10c slice EE, fourth part).
+        if self.untended(ctx, pi) {
+            issues.push(IssueKind::Untended);
+        }
         // A household of it paid or was paid in weighed metal lately (M7d slice CE2b).
         if self.weighed_lately(ctx, &households) {
             issues.push(IssueKind::Weighed);

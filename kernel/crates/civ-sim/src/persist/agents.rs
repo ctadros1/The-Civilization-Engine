@@ -131,7 +131,8 @@ use super::{
     SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, SCHEMA_V187,
     SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, SCHEMA_V194,
     SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, SCHEMA_V199, SCHEMA_V200, SCHEMA_V201,
-    SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, SCHEMA_V205, finish, section, section_root,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -914,7 +915,7 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SCHEMA_V190 | SCHEMA_V191
         | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SCHEMA_V196 | SCHEMA_V197
         | SCHEMA_V198 | SCHEMA_V199 | SCHEMA_V200 | SCHEMA_V201 | SCHEMA_V202 | SCHEMA_V203
-        | SCHEMA_V204 | SAVE_SCHEMA_VERSION => Schema::V186,
+        | SCHEMA_V204 | SCHEMA_V205 | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2152,6 +2153,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             year: m.year,
                             wet_lost_h: m.wet_lost_h,
                             late_fire_h: m.late_fire_h,
+                            untended_days: m.untended_days,
                         },
                     )
                 })
@@ -2366,6 +2368,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::Untaught => 33,
         IssueKind::UnknowingCare => 34,
         IssueKind::Contagion => 35,
+        IssueKind::Untended => 36,
     }
 }
 
@@ -2508,6 +2511,7 @@ fn decode_polities(
                 33 => IssueKind::Untaught,
                 34 => IssueKind::UnknowingCare,
                 35 => IssueKind::Contagion,
+                36 => IssueKind::Untended,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -3146,6 +3150,7 @@ fn decode_polities(
                 roof_fires: m.roof_fires(),
                 wet_lost_h: 0.0,
                 late_fire_h: 0.0,
+                untended_days: 0.0,
             });
         }
         // The losses measured beside them (schema 166); before, none.
@@ -3162,7 +3167,9 @@ fn decode_polities(
                     && l.wet_lost_h().is_finite()
                     && l.wet_lost_h() >= 0.0
                     && l.late_fire_h().is_finite()
-                    && l.late_fire_h() >= 0.0;
+                    && l.late_fire_h() >= 0.0
+                    && l.untended_days().is_finite()
+                    && l.untended_days() >= 0.0;
                 if !ok {
                     return Err(bad(format!(
                         "polity {id} measures its losses out of order, or out of range"
@@ -3170,6 +3177,8 @@ fn decode_polities(
                 }
                 m.wet_lost_h = l.wet_lost_h();
                 m.late_fire_h = l.late_fire_h();
+                // Severe days untended (schema 206): none in older saves.
+                m.untended_days = l.untended_days();
             }
         }
         if measured.len() > civ_agents::polity::MEASURED_YEARS {
@@ -7848,6 +7857,7 @@ fn encode_plots(plots: &[Plot]) -> Vec<u8> {
                         PlotUse::Work => save::PlotUse::Work,
                         PlotUse::Hall => save::PlotUse::Hall,
                         PlotUse::Tower => save::PlotUse::Tower,
+                        PlotUse::Sickhouse => save::PlotUse::Sickhouse,
                     },
                     since: p.since.minutes(),
                     receipt_weighed: p.receipt.map_or(0, |r| r.weighed),
@@ -7876,6 +7886,7 @@ fn decode_plots(bytes: &[u8]) -> Result<Vec<Plot>, LoadError> {
             save::PlotUse::Work => PlotUse::Work,
             save::PlotUse::Hall => PlotUse::Hall,
             save::PlotUse::Tower => PlotUse::Tower,
+            save::PlotUse::Sickhouse => PlotUse::Sickhouse,
             other => {
                 return Err(LoadError::Malformed(format!(
                     "plot {id} has use {}",

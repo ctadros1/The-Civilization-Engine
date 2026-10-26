@@ -549,7 +549,7 @@ export interface BuildingInfo {
   /** Rendered by the kernel: "walls going up, 40% done; waiting for timber". */
   status: string;
   /** Wire 1.14 (M3b slice O): the grammar that expands it, "hut" or "frame" ("" from an older
-   * host), and what it is for: "dwelling", "store", "work", "hall" or "tower". */
+   * host), and what it is for: "dwelling", "store", "work", "hall", "tower" or "sickhouse". */
   grammar: string;
   purpose: string;
   /** Length and width between the wall lines, metres (a hut: its diameter both ways), and the

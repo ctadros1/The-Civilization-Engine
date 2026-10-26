@@ -1,0 +1,26 @@
+# A sickhouse raised together (M10c slice EE, fourth part; ADR-0035 §7; brief m10-services §2.4:
+# the issue that opens it is measured as the hall's is, days a severe case had nobody to tend it).
+# Where severe cases of the polity's households lay ill with nobody tending them, as its settlements
+# measure a year (the issue `untended`), anyone who knows how to frame a building may propose that
+# the polity raise a sickhouse by the hearth. A household weighs it by its share of those days a
+# year, each a day's work of care lacking at what an hour of its own work brings, less its equal
+# share of the work spread over the years it weighs. Once passed, the polity lays it out near the
+# hearth, and each household is asked an equal share of the work: its people give it as they
+# choose. Whether anyone proposes one, whether it passes, and whether it is finished, is people's
+# choice. Its id sorts after every older template's: hearth talk about a question is keyed by a
+# template's place in id order.
+kind = "policy"
+id = "core:policy/yourselves_zone_a_sickhouse"
+name = "Sickhouse raised together"
+description = "The polity raises a sickhouse by the hearth for the sick of its households to lie in, and each household is asked an equal share of the work."
+does = "raise_building"
+answers = ["untended"]
+
+[raise]
+program = "core:building/sickhouse"
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement: the sick are kept, by everyone's work.
+[bears]
+"core:value/security" = 0.5
+"core:value/autonomy" = -0.5

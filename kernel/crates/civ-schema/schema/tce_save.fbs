@@ -771,7 +771,7 @@ table Fields {
 // Section "plots" (schema 5): ground households have claimed (ADR-0004 §3). A plot outlives
 // its building.
 // Schema 15 (M3b slice O, ADR-0009 §7): stores and workshops beside dwellings.
-enum PlotUse : ubyte { Dwelling = 0, Store = 1, Work = 2, Hall = 3, Tower = 4 }
+enum PlotUse : ubyte { Dwelling = 0, Store = 1, Work = 2, Hall = 3, Tower = 4, Sickhouse = 5 }
 
 table Plot {
   id: ulong (id: 0);
@@ -1671,6 +1671,9 @@ table MeasuredLossSave {
   year: long (id: 0);
   wet_lost_h: double (id: 1);
   late_fire_h: double (id: 2);
+  // Schema 206 (M10c slice EE, fourth part): days a severe case of its households lay ill with
+  // nobody tending them.
+  untended_days: double (id: 3);
 }
 
 // A building a law would raise in common (schema 165, M8d slice DC): the law, the program by

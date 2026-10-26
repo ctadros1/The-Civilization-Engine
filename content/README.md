@@ -1823,3 +1823,8 @@ carrying takes, as a household weighs it) and `avoided_share` (the share of its 
 within the year it believes cleaner water would have spared, 0 to 1); and the behaviour `midden`.
 The core adds `policy/yourselves_yonder_with_middens` (30 m, 2 days, 0.5 h, 0.2), answering
 `source_suspected`, and `activity/carry_out_the_midden` (20 minutes).
+
+Content API 191 (M10c slice EE, fourth part) adds the building use `sickhouse` and the issue
+`untended` (severe cases of the polity's households lay ill with nobody tending them, measured, and
+no sickhouse raised). The core adds `building/sickhouse` and `policy/yourselves_zone_a_sickhouse`,
+a raising together answering it.

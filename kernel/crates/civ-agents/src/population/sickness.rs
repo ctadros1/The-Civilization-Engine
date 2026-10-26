@@ -61,6 +61,11 @@ impl Population {
             // they were given that day, and less still if a carer knew a treatment (step three;
             // 05-05 §2.2, 05-03 §3.2).
             let lived = day - 1;
+            // A severe day nobody tended them is measured against their polity: what a sickhouse
+            // answers (M10c slice EE, fourth part).
+            if e.course.severe && e.ill_on(lived) && e.care.day != lived {
+                self.measure_untended(e.household, lived);
+            }
             if e.course.severe
                 && e.ill_on(lived)
                 && let Some(def) = ctx.catalog.diseases.get(usize::from(e.disease))

@@ -2064,3 +2064,105 @@ fn a_register_of_the_sick_is_kept_by_one_who_can_write() {
         sim.people().sickness.register
     );
 }
+
+/// Where severe cases of smallpox lay with nobody tending them, the polity measures the days; where
+/// it measured many (set here at sixty a year), someone who knows how to frame a building puts a
+/// sickhouse raised together before the gathering against them; the measure saves and loads
+/// (M10c slice EE, fourth part).
+#[test]
+fn severe_days_untended_put_a_sickhouse_before_the_gathering() {
+    use civ_agents::polity::{IssueKind, LawStatus};
+    let mut sim = village(1);
+    to_morning(&mut sim, 8 * 60);
+    let (index, _) = someone_with_family(&sim);
+    sim.plague(index, SMALLPOX).expect("brought");
+    let home = sim.people().person(index).expect("alive").household;
+    let settlement = sim
+        .people()
+        .household(home)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    let untended = |sim: &Sim| {
+        sim.people().polities[pi]
+            .measured
+            .iter()
+            .map(|m| m.untended_days)
+            .sum::<f64>()
+    };
+    for _ in 0..60 {
+        sim.advance_minutes(DAY).expect("lives");
+        if untended(&sim) > 0.0 {
+            break;
+        }
+    }
+    let days = untended(&sim);
+    assert!(days > 0.0, "a severe case lay untended");
+    // A day or two untended weighs little against a building's work: let the year's measure be
+    // as an outbreak's of many weeks, that the weighing has something to weigh.
+    {
+        let pop = sim.people_mut_for_tests();
+        if let Some(m) = pop.polities[pi].measured.last_mut() {
+            m.untended_days = 60.0;
+        }
+    }
+    // Everyone grown can frame a building.
+    let frame = sim
+        .rules()
+        .catalog
+        .technique_index("core:technique/jointed_frame")
+        .expect("framing");
+    let now = sim.now();
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        p.come_to_know(frame, civ_agents::person::KnowSource::Observer, now);
+    }
+    let sickhouse = sim
+        .rules()
+        .catalog
+        .building_index("core:building/sickhouse")
+        .expect("the program");
+    let template = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.raise.is_some_and(|r| r.program == sickhouse))
+        .expect("the template");
+    // A sickhouse repays its work to some household now.
+    let gains = sim
+        .with_ctx_for_tests(|pop, ctx| pop.rule_gains_for_tests(ctx, settlement, template as u16));
+    assert!(gains.iter().any(|g| g.1 > 0.0), "{gains:?}");
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    let mut proposed = None;
+    for _ in 0..30 {
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[pi].gathering = None;
+            for l in &mut pop.polities[pi].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        if let Some(l) = sim.people().polities[pi].agenda().cloned()
+            && usize::from(l.policy) == template
+        {
+            proposed = Some(l);
+            break;
+        }
+        sim.advance_minutes(DAY).expect("lives");
+    }
+    let law = proposed.expect("a sickhouse proposed");
+    assert_eq!(law.issue, IssueKind::Untended);
+    let loaded = reloaded(&mut sim);
+    assert_eq!(
+        loaded.people().polities[pi].measured,
+        sim.people().polities[pi].measured
+    );
+}

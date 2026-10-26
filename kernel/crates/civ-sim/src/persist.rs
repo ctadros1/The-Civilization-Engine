@@ -543,6 +543,8 @@ pub const SCHEMA_V202: u32 = 202;
 pub const SCHEMA_V203: u32 = 203;
 /// Homes seen on a round, before middens carried from the water.
 pub const SCHEMA_V204: u32 = 204;
+/// Middens carried from the water, before severe days untended and sickhouses.
+pub const SCHEMA_V205: u32 = 205;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

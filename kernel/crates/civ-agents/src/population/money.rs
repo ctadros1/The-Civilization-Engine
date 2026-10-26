@@ -190,7 +190,7 @@ impl Population {
             return 0.0;
         };
         let grain_held = stores.get(grain).copied().unwrap_or(0.0).max(0.0);
-        polity
+        let levy = polity
             .laws
             .iter()
             .filter(|l| taken(l) && hh.members.iter().any(|&m| l.knows(m)))
@@ -199,7 +199,124 @@ impl Population {
                 (m.good == g && m.per_kg > 0.0)
                     .then(|| f64::from(l.levy_share) * grain_held * f64::from(m.per_kg))
             })
-            .fold(0.0, f64::max)
+            .fold(0.0, f64::max);
+        // And what it owes the store, a fine or ground rent, it may pay in it (M10d slice EF,
+        // third part).
+        let owed = match self.store_medium(ctx, pi).filter(|m| m.good == g) {
+            Some(m) => {
+                let per_piece = Self::medium_kcal(ctx, &m);
+                let kcal: f64 = self
+                    .order
+                    .obligations
+                    .iter()
+                    .filter(|o| {
+                        o.debtor == hh.id
+                            && o.beneficiary == polity.id
+                            && o.standing == crate::crime::Standing::Open
+                            && matches!(
+                                o.kind,
+                                crate::crime::Owed::Fine | crate::crime::Owed::GroundRent
+                            )
+                    })
+                    .map(crate::crime::Obligation::left_kcal)
+                    .sum();
+                if per_piece > 0.0 {
+                    kcal / per_piece
+                } else {
+                    0.0
+                }
+            }
+            None => 0.0,
+        };
+        levy + owed
+    }
+
+    /// The money polity `pi`'s common store in force takes and its rate, if one does.
+    fn store_medium(&self, ctx: &Ctx, pi: usize) -> Option<crate::polity::MediumDef> {
+        self.polities[pi]
+            .laws
+            .iter()
+            .filter(|l| {
+                l.status == crate::polity::LawStatus::InForce
+                    && l.kind == crate::polity::PolicyKind::CommonStore
+            })
+            .find_map(|l| {
+                ctx.catalog
+                    .policies
+                    .get(usize::from(l.policy))?
+                    .medium
+                    .filter(|m| m.per_kg > 0.0)
+            })
+    }
+
+    /// The food energy a unit of money `m` discharges of what is owed a store taking it: the
+    /// grain it pays for.
+    fn medium_kcal(ctx: &Ctx, m: &crate::polity::MediumDef) -> f64 {
+        ctx.catalog
+            .crops
+            .get(ctx.params.farm.crop)
+            .and_then(|c| ctx.catalog.goods.get(c.good))
+            .map_or(0.0, |g| g.kcal_per_kg / f64::from(m.per_kg))
+    }
+
+    /// The debtor of obligation `k`, owed a polity's store (a fine, ground rent), pays what it
+    /// can of it in the money that polity's common store takes, at its rate (M10d slice EF, third
+    /// part; ADR-0035 §8; research 08-06 §1.4): as far as it holds the money, and only when a unit
+    /// would otherwise bring it less than the grain it pays for, as the levy is paid in it. The
+    /// payer gives what is worth least to it. Returns the kcal discharged.
+    pub(super) fn dues_in_money(&mut self, ctx: &Ctx, k: usize) -> f64 {
+        let ob = self.order.obligations[k];
+        let Some(pi) = self.polities.iter().position(|p| p.id == ob.beneficiary) else {
+            return 0.0;
+        };
+        let Some(m) = self.store_medium(ctx, pi) else {
+            return 0.0;
+        };
+        let Some(grain) = ctx.catalog.crops.get(ctx.params.farm.crop).map(|c| c.good) else {
+            return 0.0;
+        };
+        let per_piece = Self::medium_kcal(ctx, &m);
+        let Some(hh) = self.household(ob.debtor) else {
+            return 0.0;
+        };
+        let held = hh.stores.get(m.good).copied().unwrap_or(0.0).max(0.0);
+        let left = ob.left_kcal();
+        if held <= 1e-9 || per_piece <= 0.0 || left <= 1.0 {
+            return 0.0;
+        }
+        let costs = self.own_costs_of(ctx, hh);
+        let grain_h = costs.get(grain).copied().flatten().unwrap_or(0.0);
+        let unit_h = self
+            .pay_worth_raw(ctx, hh, m.good, costs.get(m.good).copied().flatten(), held)
+            .unwrap_or(0.0);
+        if unit_h * f64::from(m.per_kg) >= grain_h {
+            return 0.0;
+        }
+        let units = (left / per_piece).min(held);
+        let leg = Leg {
+            from: ob.debtor,
+            to: ob.beneficiary,
+            good: m.good,
+            amount: units,
+        };
+        let channel = if ob.kind == crate::crime::Owed::GroundRent {
+            Channel::GroundRent
+        } else {
+            Channel::Fine
+        };
+        if !self.transfer(ctx.now, ctx.params, &ctx.catalog.goods, &[leg], channel) {
+            return 0.0;
+        }
+        let kcal = units * per_piece;
+        self.order.obligations[k].paid_kcal += kcal as f32;
+        kcal
+    }
+
+    /// Obligation `k` paid as far as its debtor would in the money its store takes
+    /// ([`Population::dues_in_money`]): for tests. Returns the kcal discharged.
+    #[doc(hidden)]
+    pub fn dues_in_money_for_tests(&mut self, ctx: &Ctx, k: usize) -> f64 {
+        self.dues_in_money(ctx, k)
     }
 
     /// The terms household `household` would post now for `offered` (good, units), as at its

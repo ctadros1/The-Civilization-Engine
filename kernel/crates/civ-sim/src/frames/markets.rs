@@ -502,6 +502,60 @@ pub fn summary(sim: &Sim, market: Option<&Market>) -> String {
     }
 }
 
+/// Each money of settlement `s` in words (M10d slice EF, third part): how many of its sellers
+/// take it and how many of its households hold some, for every good with a `[money]` table some
+/// household holds or some seller takes; empty where none does.
+pub fn money_words(sim: &Sim, s: PermanentId) -> String {
+    let goods = &sim.rules.catalog.goods;
+    let households: Vec<_> = sim
+        .people
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .filter(|x| x.settlement == Some(s) && !x.members.is_empty())
+        .collect();
+    let offers: Vec<&[Offer]> = households
+        .iter()
+        .map(|x| x.offers.as_slice())
+        .chain(
+            sim.people
+                .firms
+                .iter()
+                .filter(|f| f.is_open() && f.settlement == Some(s))
+                .map(|f| f.offers.as_slice()),
+        )
+        .filter(|o| !o.is_empty())
+        .collect();
+    let mut out: Vec<String> = Vec::new();
+    for (g, d) in goods.iter().enumerate() {
+        if d.money.is_none() {
+            continue;
+        }
+        let holding = households
+            .iter()
+            .filter(|x| x.stores.get(g).copied().unwrap_or(0.0) > 1e-9)
+            .count();
+        let taking = offers
+            .iter()
+            .filter(|o| o.iter().any(|r| usize::from(r.payment) == g))
+            .count();
+        if holding == 0 && taking == 0 {
+            continue;
+        }
+        out.push(format!(
+            "{}: {taking} of {} sellers here take it; {holding} {} some.",
+            capitalized(&d.name.to_lowercase()),
+            offers.len(),
+            if holding == 1 {
+                "household holds"
+            } else {
+                "households hold"
+            }
+        ));
+    }
+    out.join(" ")
+}
+
 /// The settlements with a market or a household or workshop offering anything, by id.
 fn trading_settlements(sim: &Sim, sellers: &[Seller<'_>]) -> Vec<PermanentId> {
     let mut out: Vec<PermanentId> = sellers
@@ -653,7 +707,13 @@ pub fn markets_response(sim: &Sim) -> Vec<u8> {
                 .find(|s| s.id == settlement)
                 .map_or("", |s| s.name.as_str());
             let name = fbb.create_string(name);
-            let summary = fbb.create_string(&summary(sim, market));
+            let mut summary = summary(sim, market);
+            let money = money_words(sim, settlement);
+            if !money.is_empty() {
+                summary.push(' ');
+                summary.push_str(&money);
+            }
+            let summary = fbb.create_string(&summary);
             let outsiders = fbb.create_string(&outsiders_words(sim, settlement));
             let between: Vec<_> = between_words(sim, settlement)
                 .iter()

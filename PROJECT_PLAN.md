@@ -7315,7 +7315,24 @@ and M6a gives rivers a daily flow.
       with no coin about, a household keeps none and does not take it; with coin in the store, it
       keeps a tenth of its 200 kg of grain at two pieces a kilogram and offers its grain for coin
       at its ask over the levy's floor; a household that paid four pieces keeps 14 days of that
-      spending.
+      spending. The bench did not move.
+      *As built, third part (2026-10-26): dues to the store in its money, and the observer.*
+      What a household owes its polity's store, a fine or ground rent (and the yearly payment
+      for a building let stand), it pays first in the money that polity's common store takes, at
+      the levy's rate (a piece discharges the grain it pays for), as far as it holds the money
+      and only when a piece would otherwise bring it less than that grain, as the levy is paid in
+      it; the rest in food as before. What it still owes the store adds to the money it keeps,
+      beside what the levy could take (ADR-0035 §8: a household seeks the medium its dues ask).
+      Generalising the `[medium]` table onto other templates, so that a fine or ground rent names
+      a money of its own, is the brief's "dues in notes" and waits for slice EJ: obligations
+      carry no law to read it from, and no template yet needs one. A market's summary ends, for
+      each money some household of it holds or some seller takes, with how many of its sellers
+      take it and how many households hold some ("Coin: 0 of 12 sellers here take it; 1
+      household holds some."), nothing where none does; no wire change. **Tested:** holding no
+      grain, a household keeps no coin for the levy, but owing a fine of ten kilograms of grain
+      it keeps the twenty pieces that pay it, and pays it in them, the pieces moving to the
+      store's purse; the market's summary names the household holding coin. **Slice EF is
+      done.**
     - **EG**: the deposit-demand probe re-run in towns; if demand, custody, keepers' fees and
       receipts.
     - **EH**: notes that pass: issues and purses, redemption and its queue, valuation by belief.

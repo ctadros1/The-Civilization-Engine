@@ -1358,7 +1358,12 @@ impl Population {
                     continue;
                 }
             }
-            // Meant to pay: what it can spare today.
+            // Meant to pay: owed the store, first in the money its common store takes, where that
+            // is worth less to it than the food (M10d slice EF, third part); then what it can
+            // spare today.
+            if to_store {
+                self.dues_in_money(ctx, k);
+            }
             let Some(debtor) = self.household(ob.debtor) else {
                 continue;
             };

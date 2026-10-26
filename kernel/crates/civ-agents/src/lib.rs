@@ -60,6 +60,7 @@ pub mod make;
 pub mod market;
 pub mod needs;
 pub mod norm;
+pub mod notes;
 pub mod opinion;
 pub mod params;
 pub mod person;

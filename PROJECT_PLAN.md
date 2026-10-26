@@ -7411,6 +7411,31 @@ and M6a gives rivers a daily flow.
       goods and receipt are gone and the summary says nothing; a receipt saves and loads exactly.
       **Slice EG is done.**
     - **EH**: notes that pass: issues and purses, redemption and its queue, valuation by belief.
+      *As built, first part (2026-10-26): notes and redemption.* A note is a good (`core:good/note`,
+      a `[money]` table with `note = true`, content API 193) counted in pieces of issues as coin
+      is, one issue per keeper and good and its terms (a kilogram of the good a piece, a design
+      prior), never per day (brief §1); purses are kept as coin's, by the same code, and put right
+      at midnight (saves 211, in the consignments section). EG's receipt is written as notes:
+      when goods are left with a keeper one of whose household can write, the keeper takes a
+      year's fee at once (none from close kin) and writes its issue in each good for the rest
+      into the depositor's purse, and the goods back its notes from then on, paying no monthly
+      fee (a design prior: notes keep fixed terms, so fees taken from the goods would leave them
+      short). A piece comes into being only so, and leaves only redeemed. The depositor takes the
+      goods back by presenting its pieces at the keeper's door, as much as it would take back
+      before, and when the keeper can no longer keep them (gone, crowded or unroofed) every piece
+      is presented, whoever holds it. Presentations are paid at midnight issue by issue in an
+      order drawn for the issue and the day, never household id order (brief §10), from the
+      goods backing the issue, oldest left first: the good goes to the holder and the pieces to
+      the keeper on an appended `Redeemed` channel, and the keeper retires them; pieces the
+      backing cannot pay are refused, stay with their holder and are still owed, and the issue
+      counts what was presented and refused. A depositor counts the food its notes claim in its
+      outlook. No world writes a note unless someone of a keeper's household can write.
+      **Tested:** a keeper not close kin takes a year's fee and writes the rest as notes, a
+      kilogram a piece, held by the depositor, and takes no monthly fee; roofed with room, the
+      depositor presents them and gets the goods back on `Redeemed`, the pieces retired and held
+      by nobody; with half the backing gone and the keeper unroofed, half the pieces are paid and
+      the rest refused, counted and still owed; notes save and load exactly. **Not built yet:**
+      notes passing in payment and their worth by belief (second part); *bearer heard*.
     - **EI**: keepers issuing beyond backing, presentations and runs, suspension.
     - **EJ**: a polity's notes: issue within a ceiling, dues in notes, legal tender, suspended
       redemption and the derived fiat label.

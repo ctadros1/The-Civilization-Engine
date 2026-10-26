@@ -2,7 +2,8 @@
 //! what keeps better under one with a neighbour who has room, keeps some days of its food in hand,
 //! pays a keeper who is not close kin a share each month, and takes it all back once it has a
 //! roof; the goods are the depositor's throughout and are conserved. Where someone of the
-//! keeper's household can write, they write a receipt (third part), which the observer tells of.
+//! keeper's household can write, they write a receipt (third part), which the observer tells of,
+//! as notes the depositor presents at the keeper's door to take the goods back (slice EH).
 
 use std::path::Path;
 use std::sync::OnceLock;
@@ -301,11 +302,14 @@ fn goods_kept_for_another_save_and_load_exactly() {
                     k.fee_day,
                     k.stores.clone(),
                     k.receipt,
+                    k.noted,
                 )
             })
             .collect::<Vec<_>>()
     };
     assert_eq!(saved_of(&loaded), saved_of(&sim));
+    assert!(!sim.people().notes.issues.is_empty(), "notes written");
+    assert_eq!(loaded.people().notes, sim.people().notes);
     let same = |x: &Sim, y: &Sim, when: &str| {
         let (x, y) = (persist::encode_sections(x), persist::encode_sections(y));
         assert_eq!(x.len(), y.len());
@@ -319,4 +323,111 @@ fn goods_kept_for_another_save_and_load_exactly() {
     sim.advance_minutes(2 * DAY).expect("lives");
     loaded.advance_minutes(2 * DAY).expect("lives");
     same(&sim, &loaded, "two days on");
+}
+
+#[test]
+fn a_keeper_who_can_write_writes_notes_the_depositor_presents_at_its_door() {
+    let (mut sim, d, k) = scene();
+    let provisions = good(&sim, "core:good/provisions");
+    let note = good(&sim, "core:good/note");
+    let writer = sim.people().household(k).expect("keeper").members[0];
+    writers(&mut sim, k, Some(writer));
+    let keeper_held = |sim: &Sim| {
+        let x = sim.people().household(k).expect("keeper");
+        let rules = sim.rules();
+        civ_agents::population::stores_now(x, sim.now(), &rules.people, &rules.catalog.goods)
+            [provisions]
+    };
+    let keeper_before = keeper_held(&sim);
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    // The keeper, not close kin, took a year's fee at once, and wrote notes for the rest, a
+    // kilogram a piece, held by the depositor: its issue in provisions.
+    let lot = sim.people().kept[0].clone();
+    assert!(lot.noted);
+    let fee = keeper_held(&sim) - keeper_before;
+    let share = 12.0 * sim.rules().people.market.custody_fee_share;
+    let left = lot.stores[provisions] + fee;
+    assert!(
+        (fee - left * share).abs() < 1e-6,
+        "{fee} against {}",
+        left * share
+    );
+    let notes = &sim.people().notes;
+    let issue = notes.issue_of(k, provisions).expect("an issue").clone();
+    assert_eq!(issue.kg, 1.0);
+    assert!((issue.count - lot.stores[provisions]).abs() < 1e-6);
+    assert!((notes.held(d, issue.id) - issue.count).abs() < 1e-6);
+    let depositor = sim.people().household(d).expect("depositor");
+    assert!((depositor.stores[note] - issue.count).abs() < 1e-6);
+    // A month on, a lot backing notes pays no monthly fee.
+    let day = sim.now().day_index();
+    sim.people_mut_for_tests().kept[0].fee_day = day - 30;
+    let keeper_before = keeper_held(&sim);
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    assert!((keeper_held(&sim) - keeper_before).abs() < 1e-6, "no fee");
+    // Under a roof of its own with room, it presents its notes and is paid at the keeper's door:
+    // the provisions come back on `Redeemed`, the pieces go to the keeper and out of being.
+    let mine = |sim: &Sim| {
+        let x = sim.people().household(d).expect("depositor");
+        let rules = sim.rules();
+        civ_agents::population::stores_now(x, sim.now(), &rules.people, &rules.catalog.goods)
+    };
+    let before = mine(&sim)[provisions];
+    let backing = sim.people().kept[0].stores[provisions];
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == d {
+            x.sheltered = true;
+            x.keeping.roofed_kg = 100_000.0;
+        }
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    assert!(sim.people().kept.is_empty(), "all taken back");
+    assert!((mine(&sim)[provisions] - before - backing).abs() < 1e-6);
+    assert!(mine(&sim)[note].abs() < 1e-6, "no pieces left");
+    assert!((sim.people().transfers.get(Channel::Redeemed, provisions) - backing).abs() < 1e-6);
+    assert!((sim.people().transfers.get(Channel::Redeemed, note) - issue.count).abs() < 1e-6);
+    let after = sim.people().notes.issue(issue.id).expect("issue").clone();
+    assert!(after.count.abs() < 1e-6, "retired: {}", after.count);
+    assert!((after.presented - issue.count).abs() < 1e-6);
+    assert_eq!(after.refused, 0.0);
+    let keeper = sim.people().household(k).expect("keeper");
+    assert!(keeper.stores[note].abs() < 1e-6, "retired, not held");
+    assert!(sim.people().notes.purse(d).is_none() && sim.people().notes.purse(k).is_none());
+}
+
+#[test]
+fn pieces_the_backing_cannot_pay_are_refused_and_stay_owed() {
+    let (mut sim, d, k) = scene();
+    let provisions = good(&sim, "core:good/provisions");
+    let writer = sim.people().household(k).expect("keeper").members[0];
+    writers(&mut sim, k, Some(writer));
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    let issue = sim
+        .people()
+        .notes
+        .issue_of(k, provisions)
+        .expect("an issue")
+        .clone();
+    // Half the backing lost by hand, and the keeper's roof gone: every piece is presented.
+    let half = sim.people().kept[0].stores[provisions] / 2.0;
+    sim.people_mut_for_tests().kept[0].stores[provisions] = half;
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == k {
+            x.sheltered = false;
+        }
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    assert!(sim.people().kept.is_empty(), "the backing is paid out");
+    let after = sim.people().notes.issue(issue.id).expect("issue").clone();
+    assert!((after.presented - issue.count).abs() < 1e-6);
+    assert!(
+        (after.refused - (issue.count - half)).abs() < 1e-6,
+        "{} refused against {}",
+        after.refused,
+        issue.count - half
+    );
+    assert_eq!(after.refused_day, sim.now().day_index());
+    // The refused pieces stay with their holder, still owed.
+    assert!((after.count - (issue.count - half)).abs() < 1e-6);
+    assert!((sim.people().notes.held(d, issue.id) - after.count).abs() < 1e-6);
 }

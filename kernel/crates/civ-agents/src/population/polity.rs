@@ -1331,13 +1331,24 @@ impl Population {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let x = self.household(household)?;
         let need_day = x.members.len() as f64 * params.household.daily_kcal_per_person;
-        // Its food, with what it left with keepers (M10d slice EG): that is its own too.
+        // Its food, with what it left with keepers (M10d slice EG): that is its own too; where the
+        // receipt was written as notes, the food the notes it holds are redeemed in (slice EH).
         let kept: f64 = self
             .kept
             .iter()
-            .filter(|k| k.depositor == household)
+            .filter(|k| k.depositor == household && !k.noted)
             .map(|k| stock_kcal(&k.stores, goods))
-            .sum();
+            .sum::<f64>()
+            + self.notes.purse(household).map_or(0.0, |p| {
+                p.counts
+                    .iter()
+                    .filter_map(|&(i, n)| {
+                        let c = self.notes.issue(i)?;
+                        let g = goods.get(usize::from(c.good))?;
+                        Some(n * f64::from(c.kg) * g.kcal_per_kg)
+                    })
+                    .sum()
+            });
         let held = stock_kcal(&stores_now(x, now, params, goods), goods) + kept;
         let harvest = ctx.catalog.crops.get(params.farm.crop).map_or(0.0, |crop| {
             let fields = || self.fields_of(ctx.land, household);

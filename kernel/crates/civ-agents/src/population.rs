@@ -768,6 +768,8 @@ pub struct Population {
     /// left, and what the counters of those since emptied saw (counters, never saved).
     pub kept: Vec<crate::custody::Kept>,
     pub kept_flows: crate::person::Flows,
+    /// Notes written and the purses holding them (M10d slice EH).
+    pub notes: crate::notes::Notes,
     /// Each cell a facility lies on, with it and its passage width, in cell order, and the
     /// crossings' and enclosures' revisions it stands for. Derived.
     facilities: Vec<(u32, crate::traffic::Facility, f32)>,

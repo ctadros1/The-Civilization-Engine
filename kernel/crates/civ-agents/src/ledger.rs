@@ -87,11 +87,14 @@ pub enum Channel {
     /// Goods a household leaves with another to keep under its roof, taken back, and the
     /// keeper's fee taken from them (M10d slice EG, second part; ADR-0027 §4).
     Custody = 32,
+    /// Notes presented at their issuer's door and the good they are redeemed in (M10d slice EH;
+    /// brief m10-money §9).
+    Redeemed = 33,
 }
 
 impl Channel {
     /// Every channel, in code order.
-    pub const ALL: [Channel; 32] = [
+    pub const ALL: [Channel; 33] = [
         Channel::Gift,
         Channel::Share,
         Channel::Allocation,
@@ -124,6 +127,7 @@ impl Channel {
         Channel::Gas,
         Channel::Fee,
         Channel::Custody,
+        Channel::Redeemed,
     ];
 
     /// The channel with this code.
@@ -166,6 +170,7 @@ impl Channel {
             Channel::Gas => "gas by the meter",
             Channel::Fee => "fee for care",
             Channel::Custody => "kept for another",
+            Channel::Redeemed => "redeemed",
         }
     }
 }

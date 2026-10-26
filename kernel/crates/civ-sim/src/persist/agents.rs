@@ -132,7 +132,7 @@ use super::{
     SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, SCHEMA_V194,
     SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, SCHEMA_V199, SCHEMA_V200, SCHEMA_V201,
     SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, SCHEMA_V205, SCHEMA_V206, SCHEMA_V207, SCHEMA_V208,
-    SCHEMA_V209, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V209, SCHEMA_V210, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -916,7 +916,7 @@ pub(super) fn decode<R: Read + Seek>(
         | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SCHEMA_V196 | SCHEMA_V197
         | SCHEMA_V198 | SCHEMA_V199 | SCHEMA_V200 | SCHEMA_V201 | SCHEMA_V202 | SCHEMA_V203
         | SCHEMA_V204 | SCHEMA_V205 | SCHEMA_V206 | SCHEMA_V207 | SCHEMA_V208 | SCHEMA_V209
-        | SAVE_SCHEMA_VERSION => Schema::V186,
+        | SCHEMA_V210 | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1202,6 +1202,7 @@ pub(super) fn decode<R: Read + Seek>(
         let bytes = single_chunk(reader, SECTION_CONSIGNMENTS)?;
         people.consignments = decode_consignments(&bytes, rules)?;
         people.kept = decode_kept(&bytes, rules)?;
+        people.notes = decode_notes(&bytes, rules)?;
     }
     // Ways (schema 140); before, none.
     if schema >= Schema::V140 {
@@ -12487,16 +12488,53 @@ fn encode_consignments(people: &Population, rules: &Rules) -> Vec<u8> {
                     goods: Some(held),
                     receipt_by: k.receipt.map_or(0, |(by, _)| by.get()),
                     receipt_day: k.receipt.map_or(0, |(_, day)| day),
+                    noted: k.noted,
                 },
             )
         })
         .collect();
     let kept = fbb.create_vector(&kept);
+    // Notes (schema 211, M10d slice EH).
+    let notes = &people.notes;
+    let issues: Vec<_> = notes
+        .issues
+        .iter()
+        .map(|c| {
+            let good =
+                fbb.create_string(goods.get(usize::from(c.good)).map_or("", |d| d.id.as_str()));
+            save::NoteIssueSave::create(
+                &mut fbb,
+                &save::NoteIssueSaveArgs {
+                    id: c.id,
+                    issuer: c.issuer.get(),
+                    good: Some(good),
+                    kg: c.kg,
+                    count: c.count,
+                    presented: c.presented,
+                    refused: c.refused,
+                    refused_day: c.refused_day,
+                },
+            )
+        })
+        .collect();
+    let note_issues = fbb.create_vector(&issues);
+    let purses: Vec<save::PurseSave> = notes
+        .purses
+        .iter()
+        .flat_map(|p| {
+            p.counts
+                .iter()
+                .map(move |&(issue, n)| save::PurseSave::new(p.holder.get(), issue, n))
+        })
+        .collect();
+    let note_purses = fbb.create_vector(&purses);
     let root = save::ConsignmentsSave::create(
         &mut fbb,
         &save::ConsignmentsSaveArgs {
             list: Some(list),
             kept: Some(kept),
+            note_issues: Some(note_issues),
+            note_purses: Some(note_purses),
         },
     );
     finish(fbb, root)
@@ -12524,6 +12562,7 @@ fn decode_kept(bytes: &[u8], rules: &Rules) -> Result<Vec<civ_agents::custody::K
         kept.since = k.since();
         kept.fee_day = k.fee_day();
         kept.receipt = PermanentId::from_raw(k.receipt_by()).map(|by| (by, k.receipt_day()));
+        kept.noted = k.noted();
         for g in k.goods().iter().flatten() {
             let name = g.good().unwrap_or("");
             if let Some(i) = goods.iter().position(|d| d.id == name) {
@@ -12533,6 +12572,47 @@ fn decode_kept(bytes: &[u8], rules: &Rules) -> Result<Vec<civ_agents::custody::K
         out.push(kept);
     }
     Ok(out)
+}
+
+/// The notes saved in `bytes` (schema 211, M10d slice EH); none before. An issue in a good the
+/// loaded content no longer has is let go with its pieces.
+fn decode_notes(bytes: &[u8], rules: &Rules) -> Result<civ_agents::notes::Notes, LoadError> {
+    use civ_agents::notes::{Issue, Notes};
+    let goods = &rules.catalog.goods;
+    let root = section_root::<save::ConsignmentsSave>(bytes)
+        .map_err(|e| unreadable(SECTION_CONSIGNMENTS, &e))?;
+    let mut notes = Notes::default();
+    for c in root.note_issues().iter().flatten() {
+        let name = c.good().unwrap_or("");
+        let Some(good) = goods.iter().position(|d| d.id == name) else {
+            continue;
+        };
+        notes.issues.push(Issue {
+            id: c.id(),
+            issuer: required(c.issuer(), "a note issue's issuer")?,
+            good: u16::try_from(good)
+                .map_err(|_| LoadError::Malformed("a note issue's good".to_owned()))?,
+            kg: c.kg(),
+            count: c.count(),
+            presented: c.presented(),
+            refused: c.refused(),
+            refused_day: c.refused_day(),
+        });
+    }
+    for p in root.note_purses().iter().flatten() {
+        if notes.issue(p.issue()).is_none() {
+            continue;
+        }
+        let holder = required(p.holder(), "a note purse's holder")?;
+        match notes.purses.last_mut() {
+            Some(last) if last.holder == holder => last.counts.push((p.issue(), p.count())),
+            _ => notes.purses.push(civ_agents::coin::Purse {
+                holder,
+                counts: vec![(p.issue(), p.count())],
+            }),
+        }
+    }
+    Ok(notes)
 }
 
 /// The loads in transit saved in `bytes`. A good the loaded content no longer has is let go.

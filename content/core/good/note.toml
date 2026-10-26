@@ -1,0 +1,19 @@
+# A written note (M10d slice EH; ADR-0035 §9; brief m10-money §3-4): a claim on the household that
+# wrote it for a good it keeps, counted in pieces of its issue as coin is in pieces of a mint's.
+# Its keeper writes it for goods left with it, by one of its household who can write; whoever
+# holds a piece may present it at the keeper's door for the good. Counting a piece of a known
+# issue takes about as long as counting coin (a tuning value).
+kind = "good"
+id = "core:good/note"
+name = "Note"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[money]
+verify_h = 0.0003
+note = true

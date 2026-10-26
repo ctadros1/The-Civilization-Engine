@@ -28,6 +28,9 @@ pub struct Kept {
     /// The receipt someone of the keeper's household who can write wrote when they were left:
     /// who wrote it and the day (M10d slice EG, third part). Only a record: it never pays.
     pub receipt: Option<(PermanentId, i64)>,
+    /// Its receipt was written as notes (M10d slice EH): its goods back its keeper's issues in
+    /// them, redeemed to whoever holds their pieces, no longer the depositor's to take back.
+    pub noted: bool,
 }
 
 impl Kept {
@@ -48,6 +51,7 @@ impl Kept {
             stores_at: now,
             flows: Flows::default(),
             receipt: None,
+            noted: false,
         }
     }
 

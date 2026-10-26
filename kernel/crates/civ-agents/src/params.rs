@@ -410,6 +410,9 @@ pub struct MoneyDef {
     /// It is counted in pieces of issues a mint struck (coin), whose purses are kept (M7d
     /// slice CE); else it is weighed (metal).
     pub coin: bool,
+    /// It is a note, counted in pieces of issues their issuers wrote, whose purses are kept (M10d
+    /// slice EH): a claim on its issuer for a good.
+    pub note: bool,
     /// For coin: the metal it is struck of, by index in the catalog's goods (M7d slice CE4a).
     pub metal: Option<usize>,
     /// For coin: the technique whose knowers can tell how much metal a piece holds, by index in

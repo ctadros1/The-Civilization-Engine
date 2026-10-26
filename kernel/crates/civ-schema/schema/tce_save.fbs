@@ -3927,12 +3927,33 @@ table KeptSave {
   // any: who wrote it (0 for none) and the day.
   receipt_by: ulong (id: 7);
   receipt_day: long (id: 8);
+  // Schema 211 (M10d slice EH): its receipt was written as notes, its goods backing them.
+  noted: bool (id: 9);
+}
+
+// Schema 211 (M10d slice EH): one keeper's notes in one good: its number, its issuer household,
+// the good a piece is redeemed in (a content id) and kilograms of it a piece pays, pieces
+// outstanding, pieces presented and refused since first written, and the last day one was
+// refused (-1 for none).
+table NoteIssueSave {
+  id: uint (id: 0);
+  issuer: ulong (id: 1);
+  good: string (id: 2);
+  kg: float (id: 3);
+  count: double (id: 4);
+  presented: double (id: 5);
+  refused: double (id: 6);
+  refused_day: long = -1 (id: 7);
 }
 
 table ConsignmentsSave {
   list: [ConsignmentSave] (id: 0);
   // Schema 209: goods kept for others, in the order left.
   kept: [KeptSave] (id: 1);
+  // Schema 211: note issues, in the order first written, and the purses holding their pieces, by
+  // holder and issue.
+  note_issues: [NoteIssueSave] (id: 2);
+  note_purses: [PurseSave] (id: 3);
 }
 
 // Turn-taking at bottlenecks (schema 141, M8b slice CN; ADR-0029 §4). A facility as in

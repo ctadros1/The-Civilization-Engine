@@ -91,12 +91,41 @@ impl Population {
     /// moved by a path other than [`Population::transfer`] (a household dividing its stores, a
     /// store's levy) is found again in whoever holds it, each issue's count conserved.
     pub(super) fn reconcile_coin(&mut self, ctx: &crate::Ctx) {
+        if !self.order.coinage.cohorts.is_empty()
+            && let Some((holders, held)) = self.money_held(ctx, |m| m.coin)
+        {
+            let lookup = |id: PermanentId| {
+                held.binary_search_by_key(&id, |&(i, _)| i)
+                    .map_or(0.0, |i| held[i].1)
+            };
+            self.order.coinage.reconcile(&holders, &lookup);
+        }
+        // Notes likewise (M10d slice EH).
+        if !self.notes.issues.is_empty()
+            && let Some((holders, held)) = self.money_held(ctx, |m| m.note)
+        {
+            let lookup = |id: PermanentId| {
+                held.binary_search_by_key(&id, |&(i, _)| i)
+                    .map_or(0.0, |i| held[i].1)
+            };
+            self.notes.reconcile(&holders, &lookup);
+        }
+    }
+
+    /// Every holder holding any of the money goods `which` picks, and how much, in holder order;
+    /// none where the content has no such good.
+    #[allow(clippy::type_complexity)]
+    fn money_held(
+        &self,
+        ctx: &crate::Ctx,
+        which: impl Fn(&crate::params::MoneyDef) -> bool,
+    ) -> Option<(Vec<PermanentId>, Vec<(PermanentId, f64)>)> {
         let goods = &ctx.catalog.goods;
         let coins: Vec<usize> = (0..goods.len())
-            .filter(|&g| goods[g].money.as_ref().is_some_and(|m| m.coin))
+            .filter(|&g| goods[g].money.as_ref().is_some_and(&which))
             .collect();
-        if coins.is_empty() || self.order.coinage.cohorts.is_empty() {
-            return;
+        if coins.is_empty() {
+            return None;
         }
         let at = |s: &Vec<f64>| {
             coins
@@ -120,11 +149,7 @@ impl Population {
         held.retain(|&(_, n)| n > 0.0);
         held.sort_unstable_by_key(|&(id, _)| id);
         let holders: Vec<PermanentId> = held.iter().map(|&(id, _)| id).collect();
-        let lookup = |id: PermanentId| {
-            held.binary_search_by_key(&id, |&(i, _)| i)
-                .map_or(0.0, |i| held[i].1)
-        };
-        self.order.coinage.reconcile(&holders, &lookup);
+        Some((holders, held))
     }
 
     /// Moves `amount` of `good` from one holder to another through the ledger, as a gift: for
@@ -205,6 +230,55 @@ impl Population {
         self.order
             .coinage
             .strike(issuer, day, mass_g, fineness, count, holder);
+        true
+    }
+
+    /// Writes `count` pieces of note good `note`, `issuer`'s issue in `(good, kg)`, into
+    /// `holder`'s stores and purse (M10d slice EH). Returns the issue's number, writing nothing
+    /// when `holder` holds nothing.
+    pub(super) fn put_written(
+        &mut self,
+        note: usize,
+        issuer: PermanentId,
+        holder: PermanentId,
+        terms: (usize, f32),
+        count: f64,
+    ) -> Option<u32> {
+        let h = self.holder(holder)?;
+        let (stores, flows) = self.holder_goods(h)?;
+        if stores.len() <= note {
+            stores.resize(note + 1, 0.0);
+        }
+        stores[note] += count;
+        flows.add(Flow::Made, note, count);
+        Some(self.notes.write(issuer, terms, count, holder))
+    }
+
+    /// Takes `count` pieces of note good `note` of issue `issue` out of `holder`'s stores and
+    /// purse and out of being, brought up to `now` first (M10d slice EH): notes redeemed, retired
+    /// by their issuer. Returns `false`, retiring nothing, when it does not hold them.
+    pub(super) fn retire_written(
+        &mut self,
+        (now, params, goods): (SimTime, &PeopleParams, &[GoodDef]),
+        holder: PermanentId,
+        (note, issue): (usize, u32),
+        count: f64,
+    ) -> bool {
+        let Some(h) = self.holder(holder) else {
+            return false;
+        };
+        self.settle_holder(h, now, params, goods);
+        let Some((stores, flows)) = self.holder_goods(h) else {
+            return false;
+        };
+        let held = stores.get(note).copied().unwrap_or(0.0);
+        if held + COVER_SLACK + count * COVER_SHARE < count {
+            return false;
+        }
+        let taken = count.min(held.max(0.0));
+        stores[note] -= taken;
+        flows.add(Flow::Used, note, taken);
+        self.notes.retire(holder, issue, count);
         true
     }
 
@@ -388,6 +462,12 @@ impl Population {
                         .map_or(0.0, |i| metal[i].1)
                 };
                 self.order.coinage.give(l.from, l.to, moved, &worth);
+            }
+            // Notes move issue by issue too, the oldest issue first (M10d slice EH); at their
+            // issuer's door a holder presents those of the issue it redeems, moved by the caller.
+            if channel != Channel::Redeemed && goods[l.good].money.as_ref().is_some_and(|m| m.note)
+            {
+                self.notes.give(l.from, l.to, moved, &|_| 0.0);
             }
         }
         true

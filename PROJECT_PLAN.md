@@ -7354,6 +7354,41 @@ and M6a gives rivers a daily flow.
       average (most 2.8 and 1.9 t). **Custody is built** (ADR-0027 §4): for households waiting
       on a roof, not for overflowing roofs, which do not happen. The research gives no custody
       fee; its fee is a design prior.
+      *As built, second part (2026-10-26): custody.* What a household leaves with another is a
+      ledger holder of its own (`Kept`, as a load in transit is): the depositor's throughout, never
+      the keeper's, kept under the keeper's roof at its goods' sheltered clocks, moved in and out
+      and its fee taken on an appended `Custody` channel (saves 209, in the consignments section).
+      At its weekly review a household with no roof of its own leaves what keeps better under one,
+      less 14 days of its food (`market.custody_keep_days`), with close kin whose roofs have room
+      for it after their own goods and what they keep for others, who ask nothing, or else the
+      nearest such neighbour, who takes `market.custody_fee_share` of it each 30 days (content
+      API 192): half a percent a month, a design prior where the research gives no custody fee,
+      set at about what a sound store loses (08-02 §7.1: 2-8 % a year), since at the first trial,
+      2 % a month, nobody but kin would leave grain or provisions, which a month in the open costs
+      only about 1 % more than under a roof. It does when a month in the open would cost it more,
+      at its own costs, than the fee and the walks there and back (weighed at 1.2 m/s, not walked,
+      as bringing metal to a mint is). Once it has a roof it takes back as much as its room holds,
+      the rest still kept; short of food (below half its days), the food that brings it back to
+      them; everything when the keeper's room no longer holds it; and what a household gone left
+      is the keeper's. Each is applied at midnight in household id order, so household-resolved
+      settlements do the same. **Measured** (the probe, two towns of 400, 720 days): 124 and 141
+      households left goods with keepers, on 4,577 and 7,606 household-days, up to 17 and 73 t kept
+      on a day; what lay in the open by households with no roof fell 1.0 % and 3.7 % (23,979 to
+      23,732 kg and 20,655 to 19,900 kg lost to lying there), so custody answers a little of the
+      demand: most of what such households hold is grain and provisions, slow to spoil, and many
+      neighbours with room are too far for a month's saving to pay the fee and the walks. In seed
+      2 households under their own roof had a carry in the open on 817 household-days against 349
+      without custody (115 against 40 kg lost); a first build that took everything back on moving
+      in had 870, and taking back only what a roof holds changed it little, so it is not that; the
+      world's course differs once custody changes what people hold (739 people at the end against
+      713), and the cause was not found within the slice's time box. **The bench did not move**
+      after day 0: no bench world's households wait long enough on a roof with goods worth leaving.
+      **Tested:** a household with no roof leaves its provisions beyond 14 days with a neighbour
+      not close kin, the goods the same goods held apart; a month on the keeper takes half a
+      percent; under its own roof with no room it leaves them, with room it takes all back; kept
+      goods save and load exactly and the world lives the same after. **Not built:** a keeper
+      short of room hands back all it keeps rather than the excess; leaving more with a keeper
+      already holding some; *keep deposits* at a polity's storehouse (no probe raised one).
     - **EH**: notes that pass: issues and purses, redemption and its queue, valuation by belief.
     - **EI**: keepers issuing beyond backing, presentations and runs, suspension.
     - **EJ**: a polity's notes: issue within a ceiling, dues in notes, legal tender, suspended

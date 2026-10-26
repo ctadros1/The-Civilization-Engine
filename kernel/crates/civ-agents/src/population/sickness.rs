@@ -42,8 +42,10 @@ impl Population {
         self.lapse_calls(ctx, day);
         // Each law clearing middens counts the day's breaches (M10c slice EE, third part).
         self.middens_day(ctx, day);
-        // Yesterday's company at the hearth, kept while a disease passing by company ran.
+        // Yesterday's company at the hearth, kept while a disease passing by company ran, and
+        // yesterday's carers at a sickhouse (M10c slice EE, fourth part).
         let met = std::mem::take(&mut self.met);
+        let staffed = std::mem::take(&mut self.staffed);
         if self.sickness.quiet() && self.contagion.is_empty() && !self.sickness.outbreak_open() {
             return;
         }
@@ -113,6 +115,8 @@ impl Population {
                 self.note_tended(ctx, &e, true);
             }
         }
+        // The sickhouses' admissions and discharges (M10c slice EE, fourth part).
+        self.admit_day(ctx, day);
         // What people shed moves through the ground and water (step two).
         self.contagion_day(ctx, day);
         // Who is exposed today, by every route, before anyone takes it: nobody infected today
@@ -127,8 +131,10 @@ impl Population {
                 .diseases
                 .get(usize::from(e.disease))
                 .is_some_and(|d| d.passes_by(DiseaseRoute::Household));
+            // One lying in a sickhouse sheds there, not at home (M10c slice EE, fourth part).
             if household_route
                 && e.shedding(day)
+                && self.sickness.admitted_to(e.person).is_none()
                 && let Some(p) = self.person(e.person)
             {
                 *shedding.entry((p.household, e.disease)).or_default() += 1;
@@ -176,12 +182,23 @@ impl Population {
                 continue;
             };
             let hazard = def.household_hazard.max(0.0) * f64::from(shedders);
-            for &m in &x.members {
+            for &m in x
+                .members
+                .iter()
+                .filter(|&&m| self.sickness.admitted_to(m).is_none())
+            {
                 exposed
                     .entry((m, disease))
                     .or_default()
                     .push((hazard, Acquired::Household { household }));
             }
+        }
+        // At each sickhouse, from those lying there who shed it (M10c slice EE, fourth part).
+        for (m, disease, hazard, from) in self.sickhouse_hazards(ctx, day, &staffed) {
+            exposed
+                .entry((m, disease))
+                .or_default()
+                .push((hazard, Acquired::Sickhouse { person: from }));
         }
         // A dose drunk is a hazard of one (12-02 §5.4's exponential, its rate in the dose).
         for (m, disease, dose, source) in self.water_doses(ctx) {
@@ -419,6 +436,7 @@ impl Population {
                 household: None,
                 at: x.home,
                 walk_min: 0.0,
+                sickhouse: None,
             });
         }
         // Close kin elsewhere, whose sickness they heard of lately, and the households that
@@ -467,11 +485,14 @@ impl Population {
                     household: Some(y.id),
                     at: y.home,
                     walk_min,
+                    sickhouse: None,
                 });
             }
         }
-        // Else a household that called theirs to inoculate its people (M10c slice ED).
+        // Else a household that called theirs to inoculate its people (M10c slice ED), or the
+        // sickhouse (M10c slice EE, fourth part).
         best.or_else(|| self.inoculation_tend(ctx, who, x, field_key))
+            .or_else(|| self.sickhouse_tend(ctx, who, x, field_key))
     }
 
     /// Person `who` sat `minutes` with the members of household `household` ill at home (their
@@ -498,10 +519,11 @@ impl Population {
             return;
         };
         let visiting = carer.household != household;
+        // Those lying in a sickhouse are tended there (M10c slice EE, fourth part).
         let ill: Vec<usize> = x
             .members
             .iter()
-            .filter(|&&m| m != who)
+            .filter(|&&m| m != who && self.sickness.admitted_to(m).is_none())
             .flat_map(|&m| self.sickness.ill_with(m, day))
             .collect();
         if ill.is_empty() {
@@ -550,9 +572,21 @@ impl Population {
     /// The care owed today to those of `members` ill, but `except` (step three): the share of a
     /// day's care still owed each, the severely ill whole and the others half.
     fn care_owed(&self, ctx: &Ctx, members: &[PermanentId], except: Option<PermanentId>) -> f64 {
+        // Those lying in a sickhouse are owed care there, not at home (M10c slice EE, fourth part).
+        let home: Vec<PermanentId> = members
+            .iter()
+            .copied()
+            .filter(|&m| Some(m) != except && self.sickness.admitted_to(m).is_none())
+            .collect();
+        self.care_owed_at(ctx, &home)
+    }
+
+    /// The care owed today to those of `members` ill: the share of a day's care still owed each,
+    /// the severely ill whole and the others half.
+    pub(super) fn care_owed_at(&self, ctx: &Ctx, members: &[PermanentId]) -> f64 {
         let day = ctx.now.day_index();
         let mut owed = 0.0;
-        for &m in members.iter().filter(|&&m| Some(m) != except) {
+        for &m in members {
             for i in self.sickness.ill_with(m, day) {
                 let Some(e) = self.sickness.get(i) else {
                     continue;

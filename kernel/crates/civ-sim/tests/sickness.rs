@@ -2166,3 +2166,166 @@ fn severe_days_untended_put_a_sickhouse_before_the_gathering() {
         sim.people().polities[pi].measured
     );
 }
+
+/// A polity with a sickhouse standing finished (raised as its law would raise it): once smallpox
+/// is brought, a severe case whom nobody tended the day before is admitted at midnight while beds
+/// are left; those lying there are tended there by people of the polity; those no longer ill
+/// leave; who lies there and who tended there save and load (M10c slice EE, fourth part).
+#[test]
+fn a_sickhouse_admits_the_untended_severe_and_they_are_tended_there() {
+    use civ_agents::polity::{LawStatus, Outcome as Decided};
+    let mut sim = village(1);
+    to_morning(&mut sim, 8 * 60);
+    let (index, _) = someone_with_family(&sim);
+    let home = sim.people().person(index).expect("alive").household;
+    let settlement = sim
+        .people()
+        .household(home)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    let sickhouse = sim
+        .rules()
+        .catalog
+        .building_index("core:building/sickhouse")
+        .expect("the program");
+    let template = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.raise.is_some_and(|r| r.program == sickhouse))
+        .expect("the template");
+    // Measured, it is proposed by someone who can frame it; passed, laid out and raised.
+    let year = sim.now().date().year;
+    sim.people_mut_for_tests().polities[pi]
+        .measured_mut(year)
+        .untended_days = 60.0;
+    let frame = sim
+        .rules()
+        .catalog
+        .technique_index("core:technique/jointed_frame")
+        .expect("framing");
+    let now = sim.now();
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        p.come_to_know(frame, civ_agents::person::KnowSource::Observer, now);
+    }
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    let mut proposed = None;
+    for _ in 0..30 {
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[pi].gathering = None;
+            for l in &mut pop.polities[pi].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        if let Some(l) = sim.people().polities[pi].agenda().cloned()
+            && usize::from(l.policy) == template
+        {
+            proposed = Some(l);
+            break;
+        }
+        sim.advance_minutes(DAY).expect("lives");
+    }
+    let law = proposed.expect("a sickhouse proposed");
+    {
+        let today = sim.now().day_index();
+        let pop = sim.people_mut_for_tests();
+        pop.every_adult_deliberates = false;
+        let grown: Vec<_> = pop.people.iter().map(|(_, p)| (p.id, today)).collect();
+        let p = &mut pop.polities[pi];
+        p.gathering = None;
+        let l = p.laws.iter_mut().find(|l| l.id == law.id).expect("the law");
+        l.status = LawStatus::InForce;
+        l.outcome = Some(Decided::Passed);
+        l.known = grown;
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_public_raise_for_tests(ctx, pi, law.id));
+    let building = sim.people().polities[pi]
+        .raise_site_of(law.id)
+        .and_then(|s| s.building)
+        .expect("laid out");
+    for _ in 0..8000 {
+        if sim.people().polities[pi].sickhouse.is_some() {
+            break;
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.raise_work_for_tests(ctx, home, building, 4.0));
+    }
+    assert_eq!(sim.people().polities[pi].sickhouse, Some(building));
+    let (_, beds) = sim.with_ctx_for_tests(|pop, ctx| pop.sickhouse_for_tests(ctx, pi));
+    assert!(beds >= 4, "{beds} beds");
+    // Smallpox comes; an untended severe case is admitted.
+    sim.plague(index, SMALLPOX).expect("brought");
+    let mut lying = Vec::new();
+    for _ in 0..80 {
+        sim.advance_minutes(DAY).expect("lives");
+        let (now_lying, _) = sim.with_ctx_for_tests(|pop, ctx| pop.sickhouse_for_tests(ctx, pi));
+        if !now_lying.is_empty() {
+            lying = now_lying;
+            break;
+        }
+    }
+    assert!(!lying.is_empty(), "someone untended was admitted");
+    assert!(lying.len() <= beds);
+    let day = sim.now().day_index();
+    for &m in &lying {
+        assert!(
+            sim.people().sickness.ill(m, day),
+            "those lying there are ill"
+        );
+    }
+    // They are tended there: someone tended there within days, and their care grew.
+    let care = |sim: &Sim, m: PermanentId| -> f32 {
+        sim.people()
+            .sickness
+            .of(m)
+            .filter(|e| e.ended.is_none())
+            .map(|e| e.care.total_h)
+            .sum()
+    };
+    let before: Vec<f32> = lying.iter().map(|&m| care(&sim, m)).collect();
+    let mut staffed = false;
+    for _ in 0..12 {
+        sim.advance_minutes(DAY / 4).expect("lives");
+        if !sim.people().staffed.is_empty() {
+            staffed = true;
+            let loaded = reloaded(&mut sim);
+            assert_eq!(loaded.people().staffed, sim.people().staffed);
+            assert_eq!(
+                loaded.people().sickness.admitted,
+                sim.people().sickness.admitted
+            );
+            assert_eq!(
+                loaded.people().polities[pi].sickhouse,
+                sim.people().polities[pi].sickhouse
+            );
+            break;
+        }
+    }
+    assert!(staffed, "someone tended at the sickhouse");
+    let after: Vec<f32> = lying.iter().map(|&m| care(&sim, m)).collect();
+    assert!(
+        after.iter().zip(&before).any(|(a, b)| a > b),
+        "their care grew: {before:?} -> {after:?}"
+    );
+    // Those no longer ill leave.
+    sim.advance_minutes(40 * DAY).expect("lives");
+    let day = sim.now().day_index();
+    let pop = sim.people();
+    assert!(
+        pop.sickness
+            .admitted
+            .iter()
+            .all(|a| pop.sickness.ill(a.person, day)),
+        "only the ill lie there"
+    );
+}

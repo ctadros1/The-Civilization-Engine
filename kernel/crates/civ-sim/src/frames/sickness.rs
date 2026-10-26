@@ -194,6 +194,10 @@ pub(crate) fn episode_words(sim: &Sim, e: &Episode) -> String {
         Acquired::Inoculated { by } => {
             format!("inoculated with it by {}", sim.people().name_of(by))
         }
+        Acquired::Sickhouse { person } => format!(
+            "took it at the sickhouse from {}",
+            sim.people().name_of(person)
+        ),
         Acquired::Company { person } => format!(
             "took it in company at the hearth with {}",
             sim.people().name_of(person)

@@ -1662,6 +1662,9 @@ table PolitySave {
   measured_losses: [MeasuredLossSave] (id: 47);
   // Schema 167 (M8d slice DC): the watch tower its watch looks out from (0 when none).
   tower: ulong (id: 48);
+  // Schema 207 (M10c slice EE, fourth part): the sickhouse it raised that stands finished (0 when
+  // none).
+  sickhouse: ulong (id: 49);
 }
 
 // A year's measured losses beside `MeasuredSave` (schema 166, M8d slice DC): the year, and the
@@ -3161,6 +3164,19 @@ struct RegisterSave {
   kind: ubyte;
 }
 
+// Schema 207 (M10c slice EE, fourth part): someone lying in a sickhouse, and the day admitted;
+// someone who tended at one today.
+struct AdmittedSave {
+  person: ulong;
+  building: ulong;
+  day: long;
+}
+
+struct StaffedSave {
+  carer: ulong;
+  building: ulong;
+}
+
 table SicknessSave {
   episodes: [EpisodeSave] (id: 0);
   outbreaks: [OutbreakSave] (id: 1);
@@ -3180,6 +3196,9 @@ table SicknessSave {
   vaccinated: [VaccinatedSave] (id: 9);
   // Schema 203: the registers of the sick within the year, in the order entered.
   register: [RegisterSave] (id: 10);
+  // Schema 207: those lying in sickhouses, in the order admitted, and today's carers there.
+  admitted: [AdmittedSave] (id: 11);
+  staffed: [StaffedSave] (id: 12);
 }
 
 // Section "fires" (schema 88, M6b slice BC; ADR-0022 §13): a building's fire, from its covering

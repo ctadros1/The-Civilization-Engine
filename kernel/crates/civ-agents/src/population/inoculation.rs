@@ -315,6 +315,7 @@ impl Population {
                     household: Some(y.id),
                     at: y.home,
                     walk_min,
+                    sickhouse: None,
                 });
             }
         }

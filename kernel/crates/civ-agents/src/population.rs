@@ -122,6 +122,7 @@ mod raising;
 pub use raising::{
     AT_TOWER_M, LATE_NOTICE_MIN, RAISE_WITHIN_M, SEEN_GIVERS, STALL_DAYS, TOWER_SIGHT_M,
 };
+mod sickhouse;
 mod siting;
 mod taste;
 mod ties;
@@ -656,6 +657,9 @@ pub struct Population {
     /// disease passing by company runs (M10c slice ED): the day's company exposure, drawn at
     /// midnight.
     pub met: Vec<(PermanentId, PermanentId, f32)>,
+    /// Who tended at a sickhouse today, and which (M10c slice EE, fourth part): the day's
+    /// exposure of its carers, drawn at midnight.
+    pub staffed: Vec<(PermanentId, PermanentId)>,
     pub written: Vec<crate::knowledge::Session>,
     /// What each settlement has seen of each technique's buildings, in the order first seen
     /// (ADR-0009 §6).
@@ -6152,13 +6156,17 @@ impl Population {
                     }
                 }
                 Some(Behavior::Tend) => {
-                    // At home, or at close kin's home (M10c slice DZ).
-                    let household = match p.act.target {
-                        Target::Household(h) => h,
-                        _ => p.household,
-                    };
+                    // At home, or at close kin's home (M10c slice DZ), or at the sickhouse (M10c
+                    // slice EE, fourth part).
                     let (who, def) = (p.id, p.act.def);
-                    self.tended(ctx, who, household, def, minutes);
+                    match p.act.target {
+                        Target::Building(b) => self.tend_at_sickhouse(ctx, who, b, def, minutes),
+                        Target::Household(h) => self.tended(ctx, who, h, def, minutes),
+                        _ => {
+                            let household = p.household;
+                            self.tended(ctx, who, household, def, minutes);
+                        }
+                    }
                 }
                 Some(Behavior::Make) => {
                     if let Some(d) = def.as_ref() {

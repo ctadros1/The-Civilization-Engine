@@ -513,6 +513,7 @@ impl Population {
                 civ_land::PlotUse::Store => self.polities[pi].storehouse = Some(building),
                 civ_land::PlotUse::Hall => self.polities[pi].hall = Some(building),
                 civ_land::PlotUse::Tower => self.polities[pi].tower = Some(building),
+                civ_land::PlotUse::Sickhouse => self.polities[pi].sickhouse = Some(building),
                 _ => {}
             }
             let first_time = self.polities[pi]

@@ -170,6 +170,8 @@ pub struct TendFacts {
     pub household: Option<PermanentId>,
     pub at: (f32, f32),
     pub walk_min: f64,
+    /// The sickhouse, where it is there they would tend (M10c slice EE, fourth part).
+    pub sickhouse: Option<PermanentId>,
 }
 
 /// A carer a household short of care would call (M10c slice DZ, second part; ADR-0035 §2): the
@@ -2403,6 +2405,21 @@ pub fn candidates(
                 let work = Step::Work {
                     minutes: def.min_minutes.max(1),
                 };
+                // At the sickhouse (M10c slice EE, fourth part).
+                if let Some(building) = t.sickhouse {
+                    if t.walk_min > f64::from(def.max_walk_minutes) {
+                        excluded.push((id, Reason::Unreachable));
+                        continue;
+                    }
+                    term(
+                        &mut terms,
+                        Reason::Walking,
+                        -w.w_walk_hour * 2.0 * t.walk_min / 60.0,
+                    );
+                    let steps = vec![Step::Walk { to: t.at }, work, Step::Walk { to: f.home }];
+                    out.push(finish(id, Target::Building(building), terms, steps));
+                    continue;
+                }
                 if let Some(household) = t.household {
                     if t.walk_min > f64::from(def.max_walk_minutes) {
                         excluded.push((id, Reason::Unreachable));

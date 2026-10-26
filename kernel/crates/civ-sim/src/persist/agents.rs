@@ -131,7 +131,7 @@ use super::{
     SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, SCHEMA_V187,
     SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, SCHEMA_V194,
     SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, SCHEMA_V199, SCHEMA_V200, SCHEMA_V201,
-    SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, SCHEMA_V205, finish, section, section_root,
+    SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, SCHEMA_V205, SCHEMA_V206, finish, section, section_root,
     single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
@@ -915,7 +915,7 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SCHEMA_V190 | SCHEMA_V191
         | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SCHEMA_V196 | SCHEMA_V197
         | SCHEMA_V198 | SCHEMA_V199 | SCHEMA_V200 | SCHEMA_V201 | SCHEMA_V202 | SCHEMA_V203
-        | SCHEMA_V204 | SCHEMA_V205 | SAVE_SCHEMA_VERSION => Schema::V186,
+        | SCHEMA_V204 | SCHEMA_V205 | SCHEMA_V206 | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1215,6 +1215,7 @@ pub(super) fn decode<R: Read + Seek>(
         let bytes = single_chunk(reader, SECTION_SICKNESS)?;
         people.sickness = decode_sickness(&bytes, rules)?;
         people.met = decode_met(&bytes)?;
+        people.staffed = decode_staffed(&bytes)?;
     }
     // What people shed (schema 76); before, nothing lies anywhere.
     if schema >= Schema::V76 {
@@ -2254,6 +2255,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     storehouse: p.storehouse.map_or(0, PermanentId::get),
                     hall: p.hall.map_or(0, PermanentId::get),
                     tower: p.tower.map_or(0, PermanentId::get),
+                    sickhouse: p.sickhouse.map_or(0, PermanentId::get),
                     measured_losses,
                 },
             )
@@ -3229,6 +3231,7 @@ fn decode_polities(
         let storehouse = PermanentId::from_raw(p.storehouse());
         let hall = PermanentId::from_raw(p.hall());
         let tower = PermanentId::from_raw(p.tower());
+        let sickhouse = PermanentId::from_raw(p.sickhouse());
         // Patron gifts (schema 131, M7c slice BY).
         let mut patron_gifts = Vec::new();
         for g in p.patron_gifts().iter().flatten() {
@@ -3404,6 +3407,7 @@ fn decode_polities(
             storehouse,
             hall,
             tower,
+            sickhouse,
         });
     }
     Ok(out)
@@ -13067,6 +13071,21 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
         })
         .collect();
     let unknowing = fbb.create_vector(&unknowing);
+    // Those lying in sickhouses, and today's carers there (schema 207, M10c slice EE, fourth
+    // part).
+    let admitted: Vec<_> = people
+        .sickness
+        .admitted
+        .iter()
+        .map(|a| save::AdmittedSave::new(a.person.get(), a.building.get(), a.day))
+        .collect();
+    let admitted = fbb.create_vector(&admitted);
+    let staffed: Vec<_> = people
+        .staffed
+        .iter()
+        .map(|&(p, b)| save::StaffedSave::new(p.get(), b.get()))
+        .collect();
+    let staffed = fbb.create_vector(&staffed);
     // Today's company kept (schema 198, M10c slice ED).
     let met: Vec<_> = people
         .met
@@ -13085,6 +13104,8 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
             attended: Some(attended),
             unknowing: Some(unknowing),
             met: Some(met),
+            admitted: Some(admitted),
+            staffed: Some(staffed),
             inoculation_calls: Some(inoculation_calls),
             vaccinated: Some(vaccinated),
             register: Some(register),
@@ -13964,6 +13985,23 @@ fn validate_flood_records(
 /// An infection of a disease the loaded content no longer has is let go.
 /// Today's company at the hearth kept for a disease passing by it (schema 198, M10c slice ED):
 /// none in older saves; a pair naming nobody is let go.
+/// Today's carers at sickhouses (schema 207): none in older saves.
+fn decode_staffed(bytes: &[u8]) -> Result<Vec<(PermanentId, PermanentId)>, LoadError> {
+    let root =
+        section_root::<save::SicknessSave>(bytes).map_err(|e| unreadable(SECTION_SICKNESS, &e))?;
+    Ok(root
+        .staffed()
+        .into_iter()
+        .flatten()
+        .filter_map(|s| {
+            Some((
+                PermanentId::from_raw(s.carer())?,
+                PermanentId::from_raw(s.building())?,
+            ))
+        })
+        .collect())
+}
+
 fn decode_met(bytes: &[u8]) -> Result<Vec<(PermanentId, PermanentId, f32)>, LoadError> {
     let root =
         section_root::<save::SicknessSave>(bytes).map_err(|e| unreadable(SECTION_SICKNESS, &e))?;
@@ -14127,6 +14165,20 @@ fn decode_sickness(
             day: v.day(),
             full_until: v.full_until(),
             by: PermanentId::from_raw(v.by()),
+        });
+    }
+    // Those lying in sickhouses (schema 207): none in older saves.
+    for a in root.admitted().into_iter().flatten() {
+        let (Some(person), Some(building)) = (
+            PermanentId::from_raw(a.person()),
+            PermanentId::from_raw(a.building()),
+        ) else {
+            continue;
+        };
+        sickness.admitted.push(civ_agents::sickness::Admitted {
+            person,
+            building,
+            day: a.day(),
         });
     }
     // The registers of the sick (schema 203): none in older saves.

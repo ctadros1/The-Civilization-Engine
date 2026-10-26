@@ -63,6 +63,9 @@ pub enum Acquired {
     /// Given on purpose to protect from it, a mild course (M10c slice ED, second part): by
     /// whom.
     Inoculated { by: PermanentId },
+    /// Taken lying in a sickhouse, or tending there, from someone lying there who shed it (M10c
+    /// slice EE, fourth part): that person.
+    Sickhouse { person: PermanentId },
 }
 
 impl Acquired {
@@ -73,6 +76,7 @@ impl Acquired {
             Acquired::Household { household } => (1, household.get()),
             Acquired::Company { person } => (32, person.get()),
             Acquired::Inoculated { by } => (33, by.get()),
+            Acquired::Sickhouse { person } => (34, person.get()),
             Acquired::Water { source } => match source {
                 crate::contagion::Node::Well(w) => (2, w.get()),
                 crate::contagion::Node::Reach(r) => (3, u64::from(r)),
@@ -101,6 +105,9 @@ impl Acquired {
             }),
             33 => Some(Acquired::Inoculated {
                 by: PermanentId::from_raw(n)?,
+            }),
+            34 => Some(Acquired::Sickhouse {
+                person: PermanentId::from_raw(n)?,
             }),
             c @ 4.. => Some(Acquired::Water {
                 source: crate::contagion::Node::from_code(c - 4, n)?,
@@ -360,6 +367,15 @@ pub struct RegisterEntry {
     pub kind: u8,
 }
 
+/// Someone lying in a sickhouse (M10c slice EE, fourth part): who, the building, and the day they
+/// were admitted. Saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Admitted {
+    pub person: PermanentId,
+    pub building: PermanentId,
+    pub day: i64,
+}
+
 /// Every infection there has been, in the order they came, every outbreak, and the calls for
 /// carers standing. Saved; the indexes are derived.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -384,6 +400,8 @@ pub struct Sickness {
     /// The entries in polities' registers of the sick within the year, in the order entered
     /// (M10c slice EE, second part).
     pub register: Vec<RegisterEntry>,
+    /// Those lying in sickhouses, in the order admitted (M10c slice EE, fourth part).
+    pub admitted: Vec<Admitted>,
     /// Episodes that run, by index, in order.
     running: Vec<usize>,
     /// Each person's episodes, by index, in order.
@@ -546,6 +564,14 @@ impl Sickness {
         self.vaccinated
             .iter()
             .any(|r| r.person == person && r.disease == disease && day <= r.full_until)
+    }
+
+    /// The sickhouse `person` lies in, if any (M10c slice EE, fourth part).
+    pub fn admitted_to(&self, person: PermanentId) -> Option<PermanentId> {
+        self.admitted
+            .iter()
+            .find(|a| a.person == person)
+            .map(|a| a.building)
     }
 
     /// Whether `person` is ill of anything on `day`.

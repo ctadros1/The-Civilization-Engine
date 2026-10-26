@@ -7241,6 +7241,23 @@ and M6a gives rivers a daily flow.
       measured a severe day untended within the outbreak; with sixty a year measured, raising a
       sickhouse repays some household, and someone who can frame one puts it before the
       gathering against the issue; the measure saves and loads; the content.
+      *As built, fourth part's second step (2026-10-26): admission and care at the sickhouse.*
+      A polity's sickhouse finished is its own (saved, as its hall is). Each midnight, after the
+      day's deaths and recoveries and before anyone is exposed, those lying there no longer ill
+      or gone leave, and each severe case of its households ill today whom nobody tended the day
+      before is admitted while beds are left, one for each 4.5 m² of its floor (a design prior;
+      twelve in the core's). Admitted (saves 207), they shed a sickness passing at home there,
+      not at home: their household is spared it, and its household hazard falls on each other
+      lying there and on yesterday's carers there (`Sickhouse`, an appended way to take it, from
+      the one who shed it). Their care is owed there, not at home: anyone of the polity may tend
+      there, close kin of one lying there at the whole weight of tending, others at half (a
+      design prior), the hours shared among those lying there as at home, the carer practising
+      what treatments they know, among the day's carers there (saved), and paid for the hours
+      where a law pays common work. **Tested:** with a sickhouse raised and finished as its law
+      would, smallpox brought to the village had an untended severe case admitted, within beds,
+      every one lying there ill; someone tended there within a day and their care grew; who lay
+      there, who tended there and the polity's sickhouse saved and loaded; those no longer ill
+      left.
   - **M10d, money and the demo** (ADR-0035 §8–§12).
     - **EF**: acceptance of a money for onward exchange and dues, a money's value in a midnight
       table instead of a scan per decision.

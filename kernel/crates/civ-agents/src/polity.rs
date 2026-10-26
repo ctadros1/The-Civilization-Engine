@@ -2394,6 +2394,9 @@ pub struct Polity {
     /// The watch tower it raised that stands finished, if any (M8d slice DC): its watch looks out
     /// from it. Looked over monthly.
     pub tower: Option<PermanentId>,
+    /// The sickhouse it raised that stands finished, if any (M10c slice EE, fourth part): the sick
+    /// of its households may lie there.
+    pub sickhouse: Option<PermanentId>,
     /// The plan each law of a plan lays, by law (M8c slice CT, second part): in force, it
     /// reserves.
     pub plans: Vec<(PermanentId, PlanLaid)>,
@@ -2861,6 +2864,7 @@ impl Polity {
             storehouse: None,
             hall: None,
             tower: None,
+            sickhouse: None,
             plans: Vec::new(),
             ground_seen: Vec::new(),
             encroachments: Vec::new(),

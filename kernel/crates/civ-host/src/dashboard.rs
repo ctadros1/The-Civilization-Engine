@@ -310,7 +310,8 @@ impl EpidemicsSeen {
                 civ_agents::sickness::Acquired::Water { .. } => self.water_cases += 1,
                 civ_agents::sickness::Acquired::Household { .. }
                 | civ_agents::sickness::Acquired::Company { .. }
-                | civ_agents::sickness::Acquired::Inoculated { .. } => {}
+                | civ_agents::sickness::Acquired::Inoculated { .. }
+                | civ_agents::sickness::Acquired::Sickhouse { .. } => {}
             }
         }
     }

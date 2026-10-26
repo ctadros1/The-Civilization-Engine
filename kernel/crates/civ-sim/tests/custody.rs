@@ -51,7 +51,7 @@ fn good(sim: &Sim, id: &str) -> usize {
         .expect(id)
 }
 
-/// A world where household `d` has no roof of its own and 600 kg of provisions, and `k`, of its
+/// A world where household `d` has no roof of its own and 5 t of provisions, and `k`, of its
 /// settlement and not its close kin, alone has a roof with room, on `d`'s review day.
 fn scene() -> (Sim, PermanentId, PermanentId) {
     let mut sim = world(3);
@@ -95,7 +95,7 @@ fn scene() -> (Sim, PermanentId, PermanentId) {
             raised_factor: factor,
         };
         if x.id == d {
-            x.stores[provisions] = 600.0;
+            x.stores[provisions] = 5_000.0;
         }
     }
     (sim, d, k)
@@ -112,10 +112,11 @@ fn a_household_with_no_roof_leaves_its_goods_with_a_neighbour_and_takes_them_bac
         civ_agents::population::stores_now(x, sim.now(), &rules.people, &rules.catalog.goods)
             [provisions]
     };
+    // What it keeps to its next harvest is at least its margin of days.
     let keep_back = {
         let x = sim.people().household(d).expect("household");
         let need = x.members.len() as f64 * sim.rules().people.household.daily_kcal_per_person;
-        sim.rules().people.market.custody_keep_days * need
+        sim.rules().people.household.harvest_margin_days * need
     };
     sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
     let (left, _) = sim.people().custody_for_tests(d);
@@ -123,13 +124,11 @@ fn a_household_with_no_roof_leaves_its_goods_with_a_neighbour_and_takes_them_bac
     assert!(left > 100.0, "{left} kg left with a neighbour");
     assert!((left - keeps).abs() < 1e-9, "{left} against {keeps}");
     assert!(sim.people().transfers.get(Channel::Custody, provisions) > 100.0);
-    // It kept its days of food in hand.
+    // It kept in hand the food it keeps to its next harvest, and left what it could spare.
     let x = sim.people().household(d).expect("household");
     let food = civ_agents::person::stock_kcal(&x.stores, &sim.rules().catalog.goods);
-    assert!(
-        (food - keep_back).abs() <= 0.01 * keep_back,
-        "{food} kcal in hand against {keep_back}"
-    );
+    assert!(food >= keep_back, "{food} kcal in hand against {keep_back}");
+    assert!(x.stores[provisions] < before - 100.0);
     // The goods are the same goods, held apart.
     let mine = |sim: &Sim| sim.people().household(d).expect("household").stores[provisions];
     let kept = sim.people().kept[0].stores[provisions];

@@ -2108,9 +2108,6 @@ pub struct MarketParams {
     /// What a keeper takes each 30 days of what it keeps for another, a share of it (M10d slice
     /// EG, second part; a design prior: the research gives no custody fee).
     pub custody_fee_share: f64,
-    /// Days of its food a household with no roof of its own keeps in hand when it leaves the
-    /// rest with a keeper, and below which it takes what it left back (M10d slice EG).
-    pub custody_keep_days: f64,
 }
 
 /// Household workshops (slice J, ADR-0006 §5).

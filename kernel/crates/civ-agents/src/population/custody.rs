@@ -1,14 +1,15 @@
 //! Custody at midnight (M10d slice EG, second part; ADR-0027 §4; ADR-0035 §9; brief m10-money
 //! §3): the probe of slice EG found households under their own roof never hold more than it
 //! keeps, but those still waiting on one keep everything in the open. At its weekly review such a
-//! household leaves what keeps better under a roof, less the days of food it keeps in hand, with
+//! household leaves the food that keeps better under a roof it can spare beyond what it keeps to
+//! its next harvest (as it would offer it for sale; not the seed it keeps back to sow), with
 //! a neighbour of its settlement whose roofs have room for it after its own goods and what it
 //! keeps for others: close kin first, who ask nothing, else the nearest, who take a share each
 //! month. It does when what lying in the open would lose it in a month, at its own costs, is more
 //! than the fee and the walks there and back (weighed, not walked, as bringing metal to a mint
 //! is). Once it has a roof of its own it takes back as much as that roof has room for, the rest
-//! still kept; when its food in hand runs below half those days, the food that brings it back to
-//! them; and everything when the keeper has no longer room for it. What a household gone left is
+//! still kept; when its food in hand runs below nine tenths of what it keeps to its harvest, the
+//! food that brings it back there; and everything when the keeper has no longer room for it. What a household gone left is
 //! the keeper's. Each is applied at midnight in household id order.
 
 use super::*;
@@ -16,6 +17,9 @@ use crate::custody::Kept;
 
 /// Days between a keeper's fees.
 const FEE_DAYS: i64 = 30;
+/// Below this share of the food it keeps to its next harvest, a household takes back what brings
+/// it there (a design prior, so that it does not go back and forth each day).
+const RETAKE_SHARE: f64 = 0.9;
 /// Metres a second one walks on an errand to a neighbour (a design prior, as the walk is weighed,
 /// not walked).
 const WALK_M_S: f64 = 1.2;
@@ -78,11 +82,11 @@ impl Population {
                             back.push((k.id, k.depositor, k.stores.clone()));
                             continue;
                         }
-                        // Under a roof of its own, as much as its room holds; short of food, what
-                        // brings its food in hand back to its days.
+                        // Under a roof of its own, as much as its room holds; short of the food it
+                        // keeps to its next harvest, what brings it back there.
                         let stores = stores_now(d, now, params, goods);
-                        let need = d.members.len() as f64 * params.household.daily_kcal_per_person;
                         let food = stock_kcal(&stores, goods);
+                        let target = self.holding_of(ctx, d, &stores).food_keep;
                         let room_share = if d.sheltered {
                             let room = self.custody_room(ctx, d, &stores).max(0.0);
                             (room / k.kg().max(1e-9)).min(1.0)
@@ -90,8 +94,8 @@ impl Population {
                             0.0
                         };
                         let kept_food = stock_kcal(&k.stores, goods);
-                        let food_share = if food < 0.5 * mp.custody_keep_days * need {
-                            ((mp.custody_keep_days * need - food) / kept_food.max(1e-9)).min(1.0)
+                        let food_share = if food < RETAKE_SHARE * target {
+                            ((target - food) / kept_food.max(1e-9)).min(1.0)
                         } else {
                             0.0
                         };
@@ -215,26 +219,22 @@ impl Population {
         let x = self.household(h)?;
         let settlement = x.settlement?;
         let stores = stores_now(x, now, params, goods);
-        let need = x.members.len() as f64 * params.household.daily_kcal_per_person;
-        let food = stock_kcal(&stores, goods);
-        let keep = mp.custody_keep_days * need;
-        // Of its food, what is beyond the days it keeps in hand, from each in proportion.
-        let food_share = if food > keep && food > 0.0 {
-            (food - keep) / food
-        } else {
-            0.0
-        };
+        // Of its food, what it can spare beyond what it keeps to its next harvest (as it would
+        // offer it for sale), from what keeps longest.
+        let holding = self.holding_of(ctx, x, &stores);
         let leave: Vec<(usize, f64)> = goods
             .iter()
             .enumerate()
-            .filter(|(_, d)| d.sheltered_half_life_days > 0.0)
-            .filter_map(|(g, d)| {
-                let kg = stores.get(g).copied().unwrap_or(0.0).max(0.0);
-                let kg = if d.purpose == GoodUse::Food && d.kcal_per_kg > 0.0 {
-                    kg * food_share
-                } else {
-                    kg
-                };
+            // Food only: not seed kept back for sowing, nor what it works or builds with.
+            .filter(|(_, d)| {
+                d.sheltered_half_life_days > 0.0
+                    && d.purpose == GoodUse::Food
+                    && d.kcal_per_kg > 0.0
+                    && !d.kept_back()
+            })
+            .filter_map(|(g, _)| {
+                let held = stores.get(g).copied().unwrap_or(0.0).max(0.0);
+                let kg = held - holding.keep.get(g).copied().unwrap_or(held);
                 (kg > 1e-6).then_some((g, kg))
             })
             .collect();

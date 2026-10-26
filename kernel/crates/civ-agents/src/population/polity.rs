@@ -1331,7 +1331,14 @@ impl Population {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let x = self.household(household)?;
         let need_day = x.members.len() as f64 * params.household.daily_kcal_per_person;
-        let held = stock_kcal(&stores_now(x, now, params, goods), goods);
+        // Its food, with what it left with keepers (M10d slice EG): that is its own too.
+        let kept: f64 = self
+            .kept
+            .iter()
+            .filter(|k| k.depositor == household)
+            .map(|k| stock_kcal(&k.stores, goods))
+            .sum();
+        let held = stock_kcal(&stores_now(x, now, params, goods), goods) + kept;
         let harvest = ctx.catalog.crops.get(params.farm.crop).map_or(0.0, |crop| {
             let fields = || self.fields_of(ctx.land, household);
             let area: f64 = fields().map(Field::area_ha).sum();

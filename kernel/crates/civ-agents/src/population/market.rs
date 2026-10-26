@@ -69,6 +69,8 @@ pub(crate) struct Holding {
     pub keep: Vec<f64>,
     pub want: Vec<f64>,
     pub spare_years: f64,
+    /// The food it keeps to see it to its next harvest and its margin, kcal.
+    pub food_keep: f64,
 }
 
 /// A vehicle a household could make that would keep it `gain_h` hours beyond the walk's on the
@@ -690,6 +692,7 @@ impl Population {
             keep,
             want,
             spare_years,
+            food_keep,
         }
     }
 

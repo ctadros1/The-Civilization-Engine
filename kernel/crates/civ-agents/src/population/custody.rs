@@ -6,9 +6,10 @@
 //! keeps for others: close kin first, who ask nothing, else the nearest, who take a share each
 //! month. It does when what lying in the open would lose it in a month, at its own costs, is more
 //! than the fee and the walks there and back (weighed, not walked, as bringing metal to a mint
-//! is). It takes everything back once it has a roof of its own, when its food in hand runs below
-//! half those days, or when the keeper has no longer room for it; what a household gone left is the
-//! keeper's. Each is applied at midnight in household id order.
+//! is). Once it has a roof of its own it takes back as much as that roof has room for, the rest
+//! still kept; when its food in hand runs below half those days, the food that brings it back to
+//! them; and everything when the keeper has no longer room for it. What a household gone left is
+//! the keeper's. Each is applied at midnight in household id order.
 
 use super::*;
 use crate::custody::Kept;
@@ -57,8 +58,8 @@ impl Population {
             for k in &mut self.kept {
                 k.settle_stores(now, goods);
             }
-            // What goes back, to whom, and the fees, decided first.
-            let mut back: Vec<(PermanentId, PermanentId)> = Vec::new();
+            // What goes back, to whom, how much of each good, and the fees, decided first.
+            let mut back: Vec<(PermanentId, PermanentId, Vec<f64>)> = Vec::new();
             let mut fees: Vec<(PermanentId, PermanentId, Vec<f64>)> = Vec::new();
             for k in &self.kept {
                 let depositor = self
@@ -67,17 +68,49 @@ impl Population {
                 let keeper = self.household(k.keeper).filter(|x| !x.members.is_empty());
                 match (depositor, keeper) {
                     // A household gone left what it kept with another to its keeper.
-                    (None, Some(_)) => back.push((k.id, k.keeper)),
+                    (None, Some(_)) => back.push((k.id, k.keeper, k.stores.clone())),
                     (None, None) => {}
-                    (Some(_), None) => back.push((k.id, k.depositor)),
+                    (Some(_), None) => back.push((k.id, k.depositor, k.stores.clone())),
                     (Some(d), Some(keeper)) => {
-                        let stores = stores_now(d, now, params, goods);
-                        let need = d.members.len() as f64 * params.household.daily_kcal_per_person;
-                        let short = stock_kcal(&stores, goods) < 0.5 * mp.custody_keep_days * need;
                         let keeper_stores = stores_now(keeper, now, params, goods);
                         let crowded = self.custody_room(ctx, keeper, &keeper_stores) < -1e-6;
-                        if d.sheltered || short || crowded || !keeper.sheltered {
-                            back.push((k.id, k.depositor));
+                        if crowded || !keeper.sheltered {
+                            back.push((k.id, k.depositor, k.stores.clone()));
+                            continue;
+                        }
+                        // Under a roof of its own, as much as its room holds; short of food, what
+                        // brings its food in hand back to its days.
+                        let stores = stores_now(d, now, params, goods);
+                        let need = d.members.len() as f64 * params.household.daily_kcal_per_person;
+                        let food = stock_kcal(&stores, goods);
+                        let room_share = if d.sheltered {
+                            let room = self.custody_room(ctx, d, &stores).max(0.0);
+                            (room / k.kg().max(1e-9)).min(1.0)
+                        } else {
+                            0.0
+                        };
+                        let kept_food = stock_kcal(&k.stores, goods);
+                        let food_share = if food < 0.5 * mp.custody_keep_days * need {
+                            ((mp.custody_keep_days * need - food) / kept_food.max(1e-9)).min(1.0)
+                        } else {
+                            0.0
+                        };
+                        if room_share > 0.0 || food_share > 0.0 {
+                            let take: Vec<f64> = k
+                                .stores
+                                .iter()
+                                .zip(goods)
+                                .map(|(&kg, g)| {
+                                    let food = g.purpose == GoodUse::Food && g.kcal_per_kg > 0.0;
+                                    let share = if food {
+                                        room_share.max(food_share)
+                                    } else {
+                                        room_share
+                                    };
+                                    kg * share
+                                })
+                                .collect();
+                            back.push((k.id, k.depositor, take));
                         } else if day - k.fee_day >= FEE_DAYS
                             && self.kin_households(d).binary_search(&keeper.id).is_err()
                         {
@@ -107,25 +140,18 @@ impl Population {
                     k.fee_day = day;
                 }
             }
-            for (id, to) in back {
-                let legs: Vec<Leg> = self
-                    .kept
+            for (id, to, take) in back {
+                let legs: Vec<Leg> = take
                     .iter()
-                    .find(|k| k.id == id)
-                    .map(|k| {
-                        k.stores
-                            .iter()
-                            .enumerate()
-                            .filter(|&(_, &kg)| kg > 1e-9)
-                            .map(|(good, &amount)| Leg {
-                                from: id,
-                                to,
-                                good,
-                                amount,
-                            })
-                            .collect()
+                    .enumerate()
+                    .filter(|&(_, &kg)| kg > 1e-9)
+                    .map(|(good, &amount)| Leg {
+                        from: id,
+                        to,
+                        good,
+                        amount,
                     })
-                    .unwrap_or_default();
+                    .collect();
                 if !legs.is_empty() {
                     self.transfer(now, params, goods, &legs, Channel::Custody);
                 }

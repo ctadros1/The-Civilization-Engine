@@ -157,12 +157,25 @@ fn a_household_with_no_roof_leaves_its_goods_with_a_neighbour_and_takes_them_bac
         held(&sim) - keeper_before,
         kept * fee
     );
-    // With a roof of its own, it takes everything back.
-    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
-        if x.id == d {
-            x.sheltered = true;
+    // Under a roof of its own with no room for them, it leaves them where they are.
+    let factor = sim.rules().people.household.raised_store_factor;
+    let roof = |sim: &mut Sim, room: f64| {
+        for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+            if x.id == d {
+                x.sheltered = true;
+                x.keeping = civ_agents::person::Keeping {
+                    raised_kg: 0.0,
+                    roofed_kg: room,
+                    raised_factor: factor,
+                };
+            }
         }
-    }
+    };
+    roof(&mut sim, 0.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    assert!(sim.people().custody_for_tests(d).0 > 100.0, "still kept");
+    // With room for them all, it takes everything back.
+    roof(&mut sim, 100_000.0);
     sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
     assert_eq!(sim.people().custody_for_tests(d), (0.0, 0.0));
     assert!(sim.people().kept.is_empty());

@@ -7291,7 +7291,8 @@ and M6a gives rivers a daily flow.
       every 30 days, and a unit's onward worth is what it bought at the share taken (1 where
       none refused, so worths are as before until someone refuses). Only goods with a
       `[money]` table have one: coin and notes, not grain or firewood. **Not measured in a
-      lived world:** no lived world holds copper or coin, so nothing should change there.
+      lived world:** no lived world holds copper or coin, so nothing changed there (the bench
+      differed from the build before only at day 0, in the saved markets' empty table).
       **Tested:** a purchase in copper is worth nothing until the next midnight, then what it
       bought, a day faded; with one neighbour selling an axe for copper and one not, a household
       holding copper and lacking an axe believes half take it and values a kilogram at half what
@@ -7300,6 +7301,21 @@ and M6a gives rivers a daily flow.
       what it holds less what it can spare, so the "food it is short of" a purchase answers is
       never above nought; nobody buys food at a door for its own table (left as it is: not this
       slice's).
+      *As built, second part (2026-10-26): a money kept for its spending and its dues.* A
+      household keeps of a money its balance, 14 days of its spending in it as its purchases
+      show, and, where the money is about (it holds some, its market has seen payments in it, or
+      its polity's store holds some), what a common store it knows of could levy in it: its
+      share of the grain it holds at the template's rate, as the levy floor counts it (08-06
+      §1.4: dues payable in a medium make holders seek it). Its want follows by the stores rule,
+      so a seller short of the coin its levy takes posts terms in coin at its ask over what a
+      piece pays for, and a money it wants comes before other goods it wants as much among the
+      four it posts terms in (ADR-0035 §8: a household seeks the medium its dues ask). Coin held
+      beyond that is what it pays with; the levy then takes it as before. Nowhere does a seller
+      post terms in a money nobody here has seen. **Tested:** under a common store taking coin
+      with no coin about, a household keeps none and does not take it; with coin in the store, it
+      keeps a tenth of its 200 kg of grain at two pieces a kilogram and offers its grain for coin
+      at its ask over the levy's floor; a household that paid four pieces keeps 14 days of that
+      spending.
     - **EG**: the deposit-demand probe re-run in towns; if demand, custody, keepers' fees and
       receipts.
     - **EH**: notes that pass: issues and purses, redemption and its queue, valuation by belief.

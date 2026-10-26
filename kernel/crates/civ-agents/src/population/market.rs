@@ -657,6 +657,12 @@ impl Population {
             .any(|b| b.finished() && b.standing() && ctx.catalog.is_dwelling(&b.spec.program))
             && mine()
                 .all(|b| (b.finished() && !mending(b)) || !self.can_build(catalog, &hh.members, b));
+        // A money is kept to its balance and the dues it expects to pay in it (M10d slice EF).
+        for (g, d) in goods.iter().enumerate() {
+            if d.money.is_some() {
+                keep[g] += self.money_keep(ctx, hh, g, stores);
+            }
+        }
         let fuel_day = fuel_per_day(params, members, ctx.now.day_index());
         for (g, d) in goods.iter().enumerate() {
             // The household's need is in kilograms of the first fuel; another by its heat. A fuel
@@ -905,9 +911,13 @@ impl Population {
             h if h > 0.0 => h,
             _ => f64::INFINITY,
         };
+        // A money wanted comes before other goods wanted as much: one who must pay in it, or
+        // spends in it, seeks it (M10d slice EF, second part; ADR-0035 §8).
+        let money_good = |p: usize| goods[p].money.is_some();
         accepts.sort_by(|a, b| {
             want_of(b.0)
                 .total_cmp(&want_of(a.0))
+                .then(money_good(b.0).cmp(&money_good(a.0)))
                 .then(
                     accepted
                         .get(b.0)

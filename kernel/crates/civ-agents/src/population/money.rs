@@ -145,6 +145,85 @@ impl Population {
         }
     }
 
+    /// What household `hh` with `stores` keeps of money `g` (M10d slice EF, second part; ADR-0035
+    /// §8; research 08-06 §1.4, §2.3): its balance, `money_days` of its spending in it as its
+    /// purchases show; and, where the money is about (it holds some, its market has seen payments
+    /// in it, or its polity's store holds some), the dues it expects to pay in it: what a common
+    /// store it knows of could levy in it, its share of the grain it holds at the template's rate,
+    /// as [`Population::levy_floor`] counts it. Its want then follows, so a household that owes in
+    /// a money takes it in payment and sells for it.
+    pub(super) fn money_keep(&self, ctx: &Ctx, hh: &Household, g: usize, stores: &[f64]) -> f64 {
+        let mp = &ctx.params.market;
+        let balance = self.money_belief(hh.id, g).map_or(0.0, |b| {
+            mp.money_days * b.paid * std::f64::consts::LN_2 / mp.memory_days.max(1e-6)
+        });
+        balance + self.dues_in(ctx, hh, g, stores)
+    }
+
+    /// The dues household `hh` with `stores` expects to pay in money `g` ([`Self::money_keep`]).
+    fn dues_in(&self, ctx: &Ctx, hh: &Household, g: usize, stores: &[f64]) -> f64 {
+        let Some(settlement) = hh.settlement else {
+            return 0.0;
+        };
+        let Some(pi) = self.polity_of(settlement) else {
+            return 0.0;
+        };
+        let polity = &self.polities[pi];
+        let taken = |l: &crate::polity::Law| {
+            l.status == crate::polity::LawStatus::InForce
+                && l.kind == crate::polity::PolicyKind::CommonStore
+                && l.levy_share > 0.0
+        };
+        if !polity.laws.iter().any(taken) {
+            return 0.0;
+        }
+        let held = |s: &[f64]| s.get(g).copied().unwrap_or(0.0) > 1e-9;
+        let about = held(stores)
+            || held(&polity.stores)
+            || self
+                .market(settlement)
+                .is_some_and(|m| m.paid_h.get(g).copied().unwrap_or(0.0) > 0.0);
+        if !about {
+            return 0.0;
+        }
+        let Some(grain) = ctx.catalog.crops.get(ctx.params.farm.crop).map(|c| c.good) else {
+            return 0.0;
+        };
+        let grain_held = stores.get(grain).copied().unwrap_or(0.0).max(0.0);
+        polity
+            .laws
+            .iter()
+            .filter(|l| taken(l) && hh.members.iter().any(|&m| l.knows(m)))
+            .filter_map(|l| {
+                let m = ctx.catalog.policies.get(usize::from(l.policy))?.medium?;
+                (m.good == g && m.per_kg > 0.0)
+                    .then(|| f64::from(l.levy_share) * grain_held * f64::from(m.per_kg))
+            })
+            .fold(0.0, f64::max)
+    }
+
+    /// The terms household `household` would post now for `offered` (good, units), as at its
+    /// review with no terms before: for tests.
+    #[doc(hidden)]
+    pub fn terms_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        offered: &[(usize, f64)],
+    ) -> Vec<Offer> {
+        let Some(hh) = self.household(household) else {
+            return Vec::new();
+        };
+        let Some(settlement) = hh.settlement else {
+            return Vec::new();
+        };
+        let stores = stores_now(hh, ctx.now, ctx.params, &ctx.catalog.goods);
+        let own = self.own_costs_of(ctx, hh);
+        let costs = self.pay_costs(ctx, hh, &stores, own);
+        let holding = self.holding_of(ctx, hh, &stores);
+        self.post_terms(ctx, settlement, &costs, &costs, &holding, offered, &[])
+    }
+
     /// The monies a household with `stores` holds beyond what it keeps (`holding`), and, if any,
     /// the goods it wants at its neighbours' doors: the tools that serve for one it needs, and
     /// food when it is short of it.

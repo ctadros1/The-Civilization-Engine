@@ -7335,6 +7335,25 @@ and M6a gives rivers a daily flow.
       done.**
     - **EG**: the deposit-demand probe re-run in towns; if demand, custody, keepers' fees and
       receipts.
+      *As measured, first part (2026-10-26): the probe in towns.* `civ-sim --example
+      deposit_probe` founds two settlements of 400 on a river valley as the M8 demo founds them
+      and lives 720 days at Max; each midnight it counts, for every household, what of its goods
+      that keep better under a roof lies in the open beyond the room its roofed buildings and
+      pots give, what that loses, the room households have to spare, and the common stores. It
+      changes nothing anyone does. Demand was set before running: a carry (50 kg) in the open
+      while another household of the settlement has room for it, on at least 1 % of
+      household-days. **Housed households:** seed 1, 63,008 household-days, nothing in the open;
+      seed 2, 81,811, a carry in the open on 349 (0.43 %), 40 kg lost in two years: as CC2 found
+      in villages, a household's roof holds what it keeps. **Households with no roof of their
+      own** were left out of the first runs and are what answers: in towns founded large they
+      are about half of all household-days for the two years (71,460 and 50,627; homes are slow
+      to rise for hundreds), and all they keep lies in the open, a carry on 94.8 % and 98.8 % of
+      them, a neighbour with room for it on 19,971 and 14,162 (most 4.0 and 3.6 t on a day; 24.0
+      and 20.7 t lost to lying there). Over all household-days the bar is met on 14.85 % and
+      10.96 %. No storehouse was raised in either; the common stores held 109 and 259 kg on
+      average (most 2.8 and 1.9 t). **Custody is built** (ADR-0027 §4): for households waiting
+      on a roof, not for overflowing roofs, which do not happen. The research gives no custody
+      fee; its fee is a design prior.
     - **EH**: notes that pass: issues and purses, redemption and its queue, valuation by belief.
     - **EI**: keepers issuing beyond backing, presentations and runs, suspension.
     - **EJ**: a polity's notes: issue within a ceiling, dues in notes, legal tender, suspended

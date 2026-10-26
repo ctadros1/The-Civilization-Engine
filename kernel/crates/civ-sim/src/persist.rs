@@ -551,6 +551,8 @@ pub const SCHEMA_V206: u32 = 206;
 pub const SCHEMA_V207: u32 = 207;
 /// The midnight table of what money is worth, before goods kept for others.
 pub const SCHEMA_V208: u32 = 208;
+/// Goods kept for others, before receipts written for them.
+pub const SCHEMA_V209: u32 = 209;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

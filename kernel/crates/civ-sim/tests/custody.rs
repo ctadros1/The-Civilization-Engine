@@ -1,12 +1,14 @@
 //! Custody (M10d slice EG, second part; ADR-0027 §4): a household with no roof of its own leaves
 //! what keeps better under one with a neighbour who has room, keeps some days of its food in hand,
 //! pays a keeper who is not close kin a share each month, and takes it all back once it has a
-//! roof; the goods are the depositor's throughout and are conserved.
+//! roof; the goods are the depositor's throughout and are conserved. Where someone of the
+//! keeper's household can write, they write a receipt (third part), which the observer tells of.
 
 use std::path::Path;
 use std::sync::OnceLock;
 
 use civ_agents::ledger::Channel;
+use civ_agents::person::KnowSource;
 use civ_content::ContentRegistry;
 use civ_core::PermanentId;
 use civ_sim::{NewWorld, Sim, persist};
@@ -186,11 +188,99 @@ fn a_household_with_no_roof_leaves_its_goods_with_a_neighbour_and_takes_them_bac
     );
 }
 
+/// Gives writing to `who` of household `k` and takes it from its other members, or from all of
+/// them when `who` is none.
+fn writers(sim: &mut Sim, k: PermanentId, who: Option<PermanentId>) {
+    let writing = sim
+        .rules()
+        .catalog
+        .techniques
+        .iter()
+        .position(|t| t.id == "core:technique/writing")
+        .expect("writing");
+    let members = sim.people().household(k).expect("keeper").members.clone();
+    let now = sim.now();
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if !members.contains(&p.id) {
+            continue;
+        }
+        p.knows.retain(|t| usize::from(t.technique) != writing);
+        if Some(p.id) == who {
+            p.come_to_know(writing, KnowSource::Observer, now);
+        }
+    }
+}
+
 #[test]
-fn goods_kept_for_another_save_and_load_exactly() {
-    let (mut sim, d, _) = scene();
+fn a_keeper_who_can_write_writes_a_receipt_and_the_observer_tells_of_it() {
+    // Nobody of the keeper's household can write: no receipt.
+    let (mut sim, d, k) = scene();
+    writers(&mut sim, k, None);
     sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
     assert!(sim.people().custody_for_tests(d).0 > 100.0);
+    assert_eq!(sim.people().kept[0].receipt, None);
+    let settlement = sim
+        .people()
+        .household(k)
+        .and_then(|x| x.settlement)
+        .expect("settlement");
+    let words = civ_sim::frames::markets::custody_words(&sim, settlement);
+    assert!(
+        words.starts_with("1 household keeps goods for 1 other here, ")
+            && words.ends_with("kg; 0 with a written receipt."),
+        "{words}"
+    );
+    // Its last member can: they write one, held by the depositor, on the day the goods are left.
+    let (mut sim, d, k) = scene();
+    let writer = *sim
+        .people()
+        .household(k)
+        .expect("keeper")
+        .members
+        .iter()
+        .max()
+        .expect("members");
+    writers(&mut sim, k, Some(writer));
+    let day = sim.now().day_index();
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    assert!(sim.people().custody_for_tests(d).0 > 100.0);
+    assert_eq!(sim.people().kept[0].receipt, Some((writer, day)));
+    let words = civ_sim::frames::markets::custody_words(&sim, settlement);
+    assert!(words.ends_with("kg; 1 with a written receipt."), "{words}");
+    let name = |h: PermanentId| {
+        let first = sim.people().household(h).expect("household").members[0];
+        sim.people().name_of(first)
+    };
+    let letters = civ_sim::frames::people::letters_words(&sim, writer);
+    let receipt = format!(
+        "rote a receipt for goods {}'s household left with {}'s household",
+        name(d),
+        name(k)
+    );
+    assert!(letters.contains(&receipt), "{letters}");
+    // It is only a record: once the goods are all taken back, it is gone with them.
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == d {
+            x.sheltered = true;
+            x.keeping.roofed_kg = 100_000.0;
+        }
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    assert!(sim.people().kept.is_empty());
+    assert_eq!(
+        civ_sim::frames::markets::custody_words(&sim, settlement),
+        ""
+    );
+}
+
+#[test]
+fn goods_kept_for_another_save_and_load_exactly() {
+    let (mut sim, d, k) = scene();
+    let writer = sim.people().household(k).expect("keeper").members[0];
+    writers(&mut sim, k, Some(writer));
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    assert!(sim.people().custody_for_tests(d).0 > 100.0);
+    assert!(sim.people().kept[0].receipt.is_some());
     let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
     let saves =
         commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
@@ -210,6 +300,7 @@ fn goods_kept_for_another_save_and_load_exactly() {
                     k.since,
                     k.fee_day,
                     k.stores.clone(),
+                    k.receipt,
                 )
             })
             .collect::<Vec<_>>()

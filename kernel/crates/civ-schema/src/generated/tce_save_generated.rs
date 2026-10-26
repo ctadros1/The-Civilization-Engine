@@ -66995,6 +66995,8 @@ impl<'a> KeptSave<'a> {
   pub const VT_FEE_DAY: ::flatbuffers::VOffsetT = 12;
   pub const VT_STORES_AT: ::flatbuffers::VOffsetT = 14;
   pub const VT_GOODS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_RECEIPT_BY: ::flatbuffers::VOffsetT = 18;
+  pub const VT_RECEIPT_DAY: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -67006,6 +67008,8 @@ impl<'a> KeptSave<'a> {
     args: &'args KeptSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<KeptSave<'bldr>> {
     let mut builder = KeptSaveBuilder::new(_fbb);
+    builder.add_receipt_day(args.receipt_day);
+    builder.add_receipt_by(args.receipt_by);
     builder.add_stores_at(args.stores_at);
     builder.add_fee_day(args.fee_day);
     builder.add_since(args.since);
@@ -67066,6 +67070,20 @@ impl<'a> KeptSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ConsignedGoodSave>>>>(KeptSave::VT_GOODS, None)}
   }
+  #[inline]
+  pub fn receipt_by(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(KeptSave::VT_RECEIPT_BY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn receipt_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(KeptSave::VT_RECEIPT_DAY, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for KeptSave<'_> {
@@ -67081,6 +67099,8 @@ impl ::flatbuffers::Verifiable for KeptSave<'_> {
      .visit_field::<i64>("fee_day", Self::VT_FEE_DAY, false)?
      .visit_field::<i64>("stores_at", Self::VT_STORES_AT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ConsignedGoodSave>>>>("goods", Self::VT_GOODS, false)?
+     .visit_field::<u64>("receipt_by", Self::VT_RECEIPT_BY, false)?
+     .visit_field::<i64>("receipt_day", Self::VT_RECEIPT_DAY, false)?
      .finish();
     Ok(())
   }
@@ -67093,6 +67113,8 @@ pub struct KeptSaveArgs<'a> {
     pub fee_day: i64,
     pub stores_at: i64,
     pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ConsignedGoodSave<'a>>>>>,
+    pub receipt_by: u64,
+    pub receipt_day: i64,
 }
 impl<'a> Default for KeptSaveArgs<'a> {
   #[inline]
@@ -67105,6 +67127,8 @@ impl<'a> Default for KeptSaveArgs<'a> {
       fee_day: 0,
       stores_at: 0,
       goods: None,
+      receipt_by: 0,
+      receipt_day: 0,
     }
   }
 }
@@ -67143,6 +67167,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> KeptSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(KeptSave::VT_GOODS, goods);
   }
   #[inline]
+  pub fn add_receipt_by(&mut self, receipt_by: u64) {
+    self.fbb_.push_slot::<u64>(KeptSave::VT_RECEIPT_BY, receipt_by, 0);
+  }
+  #[inline]
+  pub fn add_receipt_day(&mut self, receipt_day: i64) {
+    self.fbb_.push_slot::<i64>(KeptSave::VT_RECEIPT_DAY, receipt_day, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> KeptSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     KeptSaveBuilder {
@@ -67167,6 +67199,8 @@ impl ::core::fmt::Debug for KeptSave<'_> {
       ds.field("fee_day", &self.fee_day());
       ds.field("stores_at", &self.stores_at());
       ds.field("goods", &self.goods());
+      ds.field("receipt_by", &self.receipt_by());
+      ds.field("receipt_day", &self.receipt_day());
       ds.finish()
   }
 }

@@ -3923,6 +3923,10 @@ table KeptSave {
   fee_day: long (id: 4);
   stores_at: long (id: 5);
   goods: [ConsignedGoodSave] (id: 6);
+  // Schema 210 (slice EG, third part): the receipt the keeper's household wrote for them, if
+  // any: who wrote it (0 for none) and the day.
+  receipt_by: ulong (id: 7);
+  receipt_day: long (id: 8);
 }
 
 table ConsignmentsSave {

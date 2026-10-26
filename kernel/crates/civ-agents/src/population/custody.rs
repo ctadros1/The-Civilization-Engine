@@ -11,6 +11,10 @@
 //! still kept; when its food in hand runs below nine tenths of what it keeps to its harvest, the
 //! food that brings it back there; and everything when the keeper has no longer room for it. What a household gone left is
 //! the keeper's. Each is applied at midnight in household id order.
+//!
+//! Where someone of the keeper's household can write (the first by id), they write a receipt when
+//! the goods are left, held by the depositor (third part; brief m10-money §3): only a record of
+//! whose goods they are, which never pays, until receipts pass (slice EH).
 
 use super::*;
 use crate::custody::Kept;
@@ -201,8 +205,24 @@ impl Population {
                 .collect();
             if !self.transfer(now, params, &ctx.catalog.goods, &legs, Channel::Custody) {
                 self.kept.pop();
+                continue;
+            }
+            let writer = self.receipt_writer(ctx, keeper);
+            if let Some(k) = self.kept.last_mut() {
+                k.receipt = writer.map(|w| (w, day));
             }
         }
+    }
+
+    /// The first person by id of household `keeper` who can write, if any.
+    fn receipt_writer(&self, ctx: &Ctx, keeper: PermanentId) -> Option<PermanentId> {
+        let writing = Self::letter_technique(ctx.catalog, Behavior::Write)?;
+        self.household(keeper)?
+            .members
+            .iter()
+            .copied()
+            .filter(|&m| self.person(m).is_some_and(|p| p.knows(writing)))
+            .min()
     }
 
     /// The keeper household `h` would leave goods with, and what it would leave (good,

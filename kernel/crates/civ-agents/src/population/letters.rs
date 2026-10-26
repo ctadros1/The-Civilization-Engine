@@ -13,7 +13,7 @@ use crate::person::KnowSource;
 impl Population {
     /// The technique the work of behaviour `b` needs, if any: writing for writing a record,
     /// reading for reading one.
-    fn letter_technique(catalog: &Catalog, b: Behavior) -> Option<usize> {
+    pub(super) fn letter_technique(catalog: &Catalog, b: Behavior) -> Option<usize> {
         catalog
             .activities
             .iter()

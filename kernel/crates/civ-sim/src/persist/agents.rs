@@ -132,7 +132,7 @@ use super::{
     SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, SCHEMA_V194,
     SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, SCHEMA_V199, SCHEMA_V200, SCHEMA_V201,
     SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, SCHEMA_V205, SCHEMA_V206, SCHEMA_V207, SCHEMA_V208,
-    finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V209, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -915,7 +915,7 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SCHEMA_V190 | SCHEMA_V191
         | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SCHEMA_V196 | SCHEMA_V197
         | SCHEMA_V198 | SCHEMA_V199 | SCHEMA_V200 | SCHEMA_V201 | SCHEMA_V202 | SCHEMA_V203
-        | SCHEMA_V204 | SCHEMA_V205 | SCHEMA_V206 | SCHEMA_V207 | SCHEMA_V208
+        | SCHEMA_V204 | SCHEMA_V205 | SCHEMA_V206 | SCHEMA_V207 | SCHEMA_V208 | SCHEMA_V209
         | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
@@ -12485,6 +12485,8 @@ fn encode_consignments(people: &Population, rules: &Rules) -> Vec<u8> {
                     fee_day: k.fee_day,
                     stores_at: k.stores_at.minutes(),
                     goods: Some(held),
+                    receipt_by: k.receipt.map_or(0, |(by, _)| by.get()),
+                    receipt_day: k.receipt.map_or(0, |(_, day)| day),
                 },
             )
         })
@@ -12500,8 +12502,8 @@ fn encode_consignments(people: &Population, rules: &Rules) -> Vec<u8> {
     finish(fbb, root)
 }
 
-/// The goods kept for others saved in `bytes` (schema 209, M10d slice EG); none before. A good
-/// the loaded content no longer has is let go.
+/// The goods kept for others saved in `bytes` (schema 209, M10d slice EG; their receipts schema
+/// 210, none before); none before. A good the loaded content no longer has is let go.
 fn decode_kept(bytes: &[u8], rules: &Rules) -> Result<Vec<civ_agents::custody::Kept>, LoadError> {
     use civ_agents::custody::Kept;
     let goods = &rules.catalog.goods;
@@ -12521,6 +12523,7 @@ fn decode_kept(bytes: &[u8], rules: &Rules) -> Result<Vec<civ_agents::custody::K
         );
         kept.since = k.since();
         kept.fee_day = k.fee_day();
+        kept.receipt = PermanentId::from_raw(k.receipt_by()).map(|by| (by, k.receipt_day()));
         for g in k.goods().iter().flatten() {
             let name = g.good().unwrap_or("");
             if let Some(i) = goods.iter().position(|d| d.id == name) {

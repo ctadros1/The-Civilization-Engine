@@ -7397,6 +7397,19 @@ and M6a gives rivers a daily flow.
       levies, norms and grievances are as before. **Not built:** a keeper short of room hands
       back all it keeps rather than the excess; leaving more with a keeper already holding some;
       *keep deposits* at a polity's storehouse (no probe raised one).
+      *As built, third part (2026-10-26): receipts and the observer.* When goods are left, the
+      first by id of the keeper's household who can write writes a receipt, held with them for the
+      depositor: who wrote it and the day (saves 210). It is only a record of whose the goods are
+      (brief m10-money §3): it never pays, passes or changes what anyone does, and goes when the
+      goods are all taken back; receipts that pass are slice EH's notes. A market's summary says
+      how many households keep goods for how many others there, the kilograms kept and how many
+      have a written receipt ("2 households keep goods for 3 others here, 840 kg; 1 with a
+      written receipt."), nothing where none; a person's letters say each receipt they wrote and
+      for whose goods; no wire change. **Tested:** with nobody of the keeper's household able to
+      write no receipt is written and the summary counts none; with its last member able to,
+      they write it on the day, the summary counts one and their letters say it; taken back, the
+      goods and receipt are gone and the summary says nothing; a receipt saves and loads exactly.
+      **Slice EG is done.**
     - **EH**: notes that pass: issues and purses, redemption and its queue, valuation by belief.
     - **EI**: keepers issuing beyond backing, presentations and runs, suspension.
     - **EJ**: a polity's notes: issue within a ceiling, dues in notes, legal tender, suspended

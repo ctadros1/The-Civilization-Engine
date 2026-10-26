@@ -1701,9 +1701,9 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
 }
 
 /// Person `id`'s letters, in words (wire 1.106, M10c slice EC): each record they wrote and the
-/// household keeping it; a record they are writing, and how far; and each technique they read
-/// toward from a record, with its writer and the hours read of those it takes, or only heard of
-/// there. Empty for none.
+/// household keeping it; each receipt they wrote for goods kept for another (M10d slice EG); a
+/// record they are writing, and how far; and each technique they read toward from a record, with
+/// its writer and the hours read of those it takes, or only heard of there. Empty for none.
 pub fn letters_words(sim: &Sim, id: PermanentId) -> String {
     let people = sim.people();
     let rules = sim.rules();
@@ -1731,6 +1731,15 @@ pub fn letters_words(sim: &Sim, id: PermanentId) -> String {
             )
         })
         .collect();
+    for k in &people.kept {
+        if k.receipt.is_some_and(|(by, _)| by == id) {
+            said.push(format!(
+                "wrote a receipt for goods {}'s household left with {}'s household",
+                keeper(k.depositor),
+                keeper(k.keeper)
+            ));
+        }
+    }
     let record_h = rules.people.knowledge.record_h;
     for w in people.written.iter().filter(|w| w.person == id) {
         said.push(format!(

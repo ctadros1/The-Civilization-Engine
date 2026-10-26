@@ -25,6 +25,9 @@ pub struct Kept {
     pub stores: Vec<f64>,
     pub stores_at: SimTime,
     pub flows: Flows,
+    /// The receipt someone of the keeper's household who can write wrote when they were left:
+    /// who wrote it and the day (M10d slice EG, third part). Only a record: it never pays.
+    pub receipt: Option<(PermanentId, i64)>,
 }
 
 impl Kept {
@@ -44,6 +47,7 @@ impl Kept {
             stores: vec![0.0; goods],
             stores_at: now,
             flows: Flows::default(),
+            receipt: None,
         }
     }
 

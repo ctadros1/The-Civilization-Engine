@@ -556,6 +556,44 @@ pub fn money_words(sim: &Sim, s: PermanentId) -> String {
     out.join(" ")
 }
 
+/// Settlement `s`'s custody in words (M10d slice EG, third part): how many of its households keep
+/// goods for how many others, the kilograms kept, and how many of those were given a written
+/// receipt. Empty where nobody keeps anything for another.
+pub fn custody_words(sim: &Sim, s: PermanentId) -> String {
+    let kept: Vec<_> = sim
+        .people
+        .kept
+        .iter()
+        .filter(|k| {
+            sim.people
+                .household(k.keeper)
+                .is_some_and(|x| x.settlement == Some(s))
+        })
+        .collect();
+    if kept.is_empty() {
+        return String::new();
+    }
+    let distinct = |mut ids: Vec<PermanentId>| {
+        ids.sort_unstable();
+        ids.dedup();
+        ids.len()
+    };
+    let keepers = distinct(kept.iter().map(|k| k.keeper).collect());
+    let depositors = distinct(kept.iter().map(|k| k.depositor).collect());
+    let kg: f64 = kept.iter().map(|k| k.kg()).sum();
+    let receipts = kept.iter().filter(|k| k.receipt.is_some()).count();
+    format!(
+        "{keepers} {} goods for {depositors} {} here, {kg:.0} kg; {receipts} with a written \
+         receipt.",
+        if keepers == 1 {
+            "household keeps"
+        } else {
+            "households keep"
+        },
+        if depositors == 1 { "other" } else { "others" }
+    )
+}
+
 /// The settlements with a market or a household or workshop offering anything, by id.
 fn trading_settlements(sim: &Sim, sellers: &[Seller<'_>]) -> Vec<PermanentId> {
     let mut out: Vec<PermanentId> = sellers
@@ -708,10 +746,11 @@ pub fn markets_response(sim: &Sim) -> Vec<u8> {
                 .map_or("", |s| s.name.as_str());
             let name = fbb.create_string(name);
             let mut summary = summary(sim, market);
-            let money = money_words(sim, settlement);
-            if !money.is_empty() {
-                summary.push(' ');
-                summary.push_str(&money);
+            for words in [money_words(sim, settlement), custody_words(sim, settlement)] {
+                if !words.is_empty() {
+                    summary.push(' ');
+                    summary.push_str(&words);
+                }
             }
             let summary = fbb.create_string(&summary);
             let outsiders = fbb.create_string(&outsiders_words(sim, settlement));

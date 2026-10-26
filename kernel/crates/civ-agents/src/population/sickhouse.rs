@@ -16,6 +16,11 @@ use crate::sickness::Admitted;
 /// The floor a bed takes, with room beside it to tend, square metres (a design prior).
 pub const BED_M2: f64 = 4.5;
 
+/// [`BED_M2`], for the observer.
+pub fn sickhouse_bed_m2() -> f64 {
+    BED_M2
+}
+
 /// The weight one not close kin of anyone lying in a sickhouse gives tending there, of what they
 /// would give their own (a design prior).
 const STRANGER_SHARE: f64 = 0.5;

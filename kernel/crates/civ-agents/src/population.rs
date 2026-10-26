@@ -87,6 +87,7 @@ mod way_works;
 pub use crime::TakeProbe;
 pub use payments::Burden;
 pub use resolution::{DayBlock, NOT_TAKEN, SwitchInvariants};
+pub use sickhouse::sickhouse_bed_m2;
 mod credit;
 mod patronage;
 mod places;

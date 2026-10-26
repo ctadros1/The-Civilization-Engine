@@ -313,6 +313,29 @@ impl Population {
             chosen = Some((teacher, seller, t, false));
             break;
         }
+        // Else letters, for what they visibly bring (M10c slice EE, fourth part; brief
+        // m10-services §3.2): where its polity pays the holder of an office that asks a
+        // technique, the child is sent to learn it, or the first of what it requires the child
+        // does not know, from a school, or else from the holder.
+        if chosen.is_none()
+            && let Some((holder, office_t)) = self.paid_office_technique(ctx, h)
+        {
+            let t = self.first_needed(catalog, child, office_t);
+            let enrolled = self
+                .enrolments
+                .iter()
+                .any(|e| usize::from(e.technique) == t && members.contains(&e.learner));
+            let holder_home = self.person(holder).map(|p| p.household);
+            if !knows(self, &members, t) && !enrolled {
+                if let Some(teacher) = self.school_for(h, t) {
+                    chosen = holder_home.map(|s| (teacher, s, t, true));
+                } else if self.person(holder).is_some_and(|p| p.knows(t))
+                    && holder_home.is_some_and(|s| s != h)
+                {
+                    chosen = holder_home.map(|s| (holder, s, t, false));
+                }
+            }
+        }
         let Some((teacher, seller, t, school)) = chosen else {
             return;
         };
@@ -347,6 +370,45 @@ impl Population {
             since: now.day_index(),
             paid: -1,
         });
+    }
+
+    /// The holder of an office of household `h`'s polity that asks a technique, and the
+    /// technique, where a law in force pays common work (M10c slice EE, fourth part): the office
+    /// visibly paid.
+    fn paid_office_technique(&self, ctx: &Ctx, h: PermanentId) -> Option<(PermanentId, usize)> {
+        let pi = self.polity_of(self.household(h)?.settlement?)?;
+        self.work_pay_of(ctx, pi)?;
+        self.polities[pi].laws.iter().find_map(|l| {
+            if l.status != crate::polity::LawStatus::InForce {
+                return None;
+            }
+            let t = ctx
+                .catalog
+                .policies
+                .get(usize::from(l.policy))?
+                .holder_needs?;
+            Some((l.holder?, t))
+        })
+    }
+
+    /// The first technique person `child` would learn toward `t`: `t` where they know what it
+    /// requires, else the first of its first requirement they do not know, and so on.
+    fn first_needed(&self, catalog: &Catalog, child: PermanentId, t: usize) -> usize {
+        let knows = |u: usize| self.person(child).is_some_and(|p| p.knows(u));
+        let mut at = t;
+        for _ in 0..8 {
+            let Some(def) = catalog.techniques.get(at) else {
+                break;
+            };
+            if def.requires.is_empty() || def.requires.iter().any(|r| r.iter().all(|&u| knows(u))) {
+                break;
+            }
+            match def.requires[0].iter().copied().find(|&u| !knows(u)) {
+                Some(u) => at = u,
+                None => break,
+            }
+        }
+        at
     }
 
     /// Household `h` weighs sending a child to learn a craft now: for tests.

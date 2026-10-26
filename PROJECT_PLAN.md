@@ -4,10 +4,10 @@ Status: plan of record, written 2026-09-27 from the planning interview.
 Implementation status (2026-10-25): **M0–M9 are implemented**, from early settlements and their
 institutions through large cities, transport, planning, land and household resolution across many
 settlements. M9's 100,000-person performance target was not met; see §7 and §9 for the measured
-result and amended gate. **M10a, power and the works, and M10b, rail and gas light, are
-implemented** (slices DO–DY). **M10c, services and letters, is in progress:** care beyond the
-household (DZ), birth care (EA), teaching (EB), letters and records (EC) and inoculation (ED:
-smallpox, variolation, vaccination) are implemented, and the health office remains ahead. M2's portable kernel library and C interface are
+result and amended gate. **M10a, power and the works, M10b, rail and gas light, and M10c,
+services and letters, are implemented** (slices DO–EE: care beyond the household, birth care,
+teaching, letters and records, inoculation, and the health office and sickhouse); M10d, money and
+the demo, remains. M2's portable kernel library and C interface are
 implemented; the Unreal client remains future work. Modern civilization remains future scope. See
 §7 for milestone scope and §9 for implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
@@ -7258,6 +7258,21 @@ and M6a gives rivers a daily flow.
       every one lying there ill; someone tended there within a day and their care grew; who lay
       there, who tended there and the polity's sickhouse saved and loaded; those no longer ill
       left.
+      *As built, fourth part's third step (2026-10-26): the observer of services, and why letters
+      are learnt.* A polity's offices, in words, end with its services: the register of the sick
+      (households entered sick within the spell, deaths of disease within the year, homes seen
+      on rounds), its sickhouse (beds taken of its beds, and how many tended there today), and
+      for the laws keeping the sick apart and clearing middens, how often they were broken,
+      knowing or not; no wire change, as they are lines of its offices. And letters have a
+      motive (brief §3.2: what they visibly bring): once a year, a household whose child of an
+      age to learn found no craft to be sent for, where its polity pays common work and has an
+      office in force asking a technique (the health officer's writing), sends the child to learn
+      it, or the first of what it requires that the child does not know (reckoning before
+      reading before writing), from its school or else from the office's holder, for the fee a
+      craft's would ask (kin nothing). A world where nobody writes has no such office. **Tested:**
+      a polity's offices show its register and its sickhouse's beds; with a paid registrar who
+      can write, a household sends its child to learn reckoning from them. **Slice EE is done,
+      and with it M10c.**
   - **M10d, money and the demo** (ADR-0035 §8–§12).
     - **EF**: acceptance of a money for onward exchange and dues, a money's value in a midnight
       table instead of a scan per decision.

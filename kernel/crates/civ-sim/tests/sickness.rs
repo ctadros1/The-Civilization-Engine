@@ -1952,9 +1952,20 @@ fn a_register_of_the_sick_is_kept_by_one_who_can_write() {
                 .is_some_and(|p| p.age_years(now) >= 20.0)
         })
         .expect("a grown member of another household");
+    let letters: Vec<usize> = ["reckoning", "reading", "writing"]
+        .iter()
+        .map(|t| {
+            sim.rules()
+                .catalog
+                .technique_index(&format!("core:technique/{t}"))
+                .expect("a letter technique")
+        })
+        .collect();
     for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
         if p.id == scribe {
-            p.come_to_know(writing, civ_agents::person::KnowSource::Observer, now);
+            for &t in &letters {
+                p.come_to_know(t, civ_agents::person::KnowSource::Observer, now);
+            }
         }
     }
     let law = proposes(&mut sim).expect("a register proposed");
@@ -2049,6 +2060,44 @@ fn a_register_of_the_sick_is_kept_by_one_who_can_write() {
         coin_held(&sim) > before,
         "the registrar's household was paid: {} after {before}",
         coin_held(&sim)
+    );
+    // The polity's offices show the register (M10c slice EE, fourth part).
+    let words = civ_sim::frames::government::services_words(&sim, &sim.people().polities[pi]);
+    assert!(
+        words
+            .iter()
+            .any(|w| w.starts_with("Register of the sick: ")),
+        "{words:?}"
+    );
+    // A paid office asking letters: a household with a child of an age to learn sends them to
+    // learn letters from the registrar, reckoning first, as reading and writing need it.
+    let now = sim.now();
+    let homes: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(settlement) && x.id != holder_home)
+        .map(|(_, x)| x.id)
+        .collect();
+    let mut sent = None;
+    for h in homes {
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_enrolment_for_tests(ctx, h));
+        sent = sim
+            .people()
+            .enrolments
+            .iter()
+            .find(|e| e.teacher == holder && letters.contains(&usize::from(e.technique)))
+            .copied();
+        if sent.is_some() {
+            break;
+        }
+    }
+    let e = sent.expect("a child sent to learn letters");
+    assert_eq!(usize::from(e.technique), letters[0], "reckoning first");
+    assert!(
+        sim.people()
+            .person(e.learner)
+            .is_some_and(|p| p.age_years(now) < 16.0)
     );
     let pop = sim.people();
     let polity = pop.polities[pi].id;
@@ -2312,6 +2361,13 @@ fn a_sickhouse_admits_the_untended_severe_and_they_are_tended_there() {
         }
     }
     assert!(staffed, "someone tended at the sickhouse");
+    let words = civ_sim::frames::government::services_words(&sim, &sim.people().polities[pi]);
+    assert!(
+        words
+            .iter()
+            .any(|w| w.starts_with("Sickhouse: ") && w.contains(&format!("of {beds} beds taken"))),
+        "{words:?}"
+    );
     let after: Vec<f32> = lying.iter().map(|&m| care(&sim, m)).collect();
     assert!(
         after.iter().zip(&before).any(|(a, b)| a > b),

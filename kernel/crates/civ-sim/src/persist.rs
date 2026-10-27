@@ -567,6 +567,8 @@ pub const SCHEMA_V214: u32 = 214;
 pub const SCHEMA_V215: u32 = 215;
 /// The store's notes refused an issue, before false notes were made.
 pub const SCHEMA_V216: u32 = 216;
+/// False notes made, before they were told apart.
+pub const SCHEMA_V217: u32 = 217;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

@@ -67668,6 +67668,187 @@ impl ::core::fmt::Debug for ForgerySave<'_> {
       ds.finish()
   }
 }
+pub enum FalseFoundSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct FalseFoundSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for FalseFoundSave<'a> {
+  type Inner = FalseFoundSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> FalseFoundSave<'a> {
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_FORGERY: ::flatbuffers::VOffsetT = 6;
+  pub const VT_PASSER: ::flatbuffers::VOffsetT = 8;
+  pub const VT_PIECES: ::flatbuffers::VOffsetT = 10;
+  pub const VT_KEPT: ::flatbuffers::VOffsetT = 12;
+  pub const VT_HEARD: ::flatbuffers::VOffsetT = 14;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    FalseFoundSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args FalseFoundSaveArgs
+  ) -> ::flatbuffers::WIPOffset<FalseFoundSave<'bldr>> {
+    let mut builder = FalseFoundSaveBuilder::new(_fbb);
+    builder.add_pieces(args.pieces);
+    builder.add_passer(args.passer);
+    builder.add_day(args.day);
+    builder.add_forgery(args.forgery);
+    builder.add_heard(args.heard);
+    builder.add_kept(args.kept);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(FalseFoundSave::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn forgery(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(FalseFoundSave::VT_FORGERY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn passer(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(FalseFoundSave::VT_PASSER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn pieces(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(FalseFoundSave::VT_PIECES, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn kept(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(FalseFoundSave::VT_KEPT, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn heard(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(FalseFoundSave::VT_HEARD, Some(false)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for FalseFoundSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<u32>("forgery", Self::VT_FORGERY, false)?
+     .visit_field::<u64>("passer", Self::VT_PASSER, false)?
+     .visit_field::<f64>("pieces", Self::VT_PIECES, false)?
+     .visit_field::<bool>("kept", Self::VT_KEPT, false)?
+     .visit_field::<bool>("heard", Self::VT_HEARD, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct FalseFoundSaveArgs {
+    pub day: i64,
+    pub forgery: u32,
+    pub passer: u64,
+    pub pieces: f64,
+    pub kept: bool,
+    pub heard: bool,
+}
+impl<'a> Default for FalseFoundSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    FalseFoundSaveArgs {
+      day: 0,
+      forgery: 0,
+      passer: 0,
+      pieces: 0.0,
+      kept: false,
+      heard: false,
+    }
+  }
+}
+
+pub struct FalseFoundSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FalseFoundSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(FalseFoundSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_forgery(&mut self, forgery: u32) {
+    self.fbb_.push_slot::<u32>(FalseFoundSave::VT_FORGERY, forgery, 0);
+  }
+  #[inline]
+  pub fn add_passer(&mut self, passer: u64) {
+    self.fbb_.push_slot::<u64>(FalseFoundSave::VT_PASSER, passer, 0);
+  }
+  #[inline]
+  pub fn add_pieces(&mut self, pieces: f64) {
+    self.fbb_.push_slot::<f64>(FalseFoundSave::VT_PIECES, pieces, 0.0);
+  }
+  #[inline]
+  pub fn add_kept(&mut self, kept: bool) {
+    self.fbb_.push_slot::<bool>(FalseFoundSave::VT_KEPT, kept, false);
+  }
+  #[inline]
+  pub fn add_heard(&mut self, heard: bool) {
+    self.fbb_.push_slot::<bool>(FalseFoundSave::VT_HEARD, heard, false);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FalseFoundSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    FalseFoundSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<FalseFoundSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for FalseFoundSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("FalseFoundSave");
+      ds.field("day", &self.day());
+      ds.field("forgery", &self.forgery());
+      ds.field("passer", &self.passer());
+      ds.field("pieces", &self.pieces());
+      ds.field("kept", &self.kept());
+      ds.field("heard", &self.heard());
+      ds.finish()
+  }
+}
 pub enum ConsignmentsSaveOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -67690,6 +67871,7 @@ impl<'a> ConsignmentsSave<'a> {
   pub const VT_NOTE_PURSES: ::flatbuffers::VOffsetT = 10;
   pub const VT_NOTE_DISHONOURED: ::flatbuffers::VOffsetT = 12;
   pub const VT_NOTE_FORGERIES: ::flatbuffers::VOffsetT = 14;
+  pub const VT_NOTE_FOUND: ::flatbuffers::VOffsetT = 16;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -67701,6 +67883,7 @@ impl<'a> ConsignmentsSave<'a> {
     args: &'args ConsignmentsSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<ConsignmentsSave<'bldr>> {
     let mut builder = ConsignmentsSaveBuilder::new(_fbb);
+    if let Some(x) = args.note_found { builder.add_note_found(x); }
     if let Some(x) = args.note_forgeries { builder.add_note_forgeries(x); }
     if let Some(x) = args.note_dishonoured { builder.add_note_dishonoured(x); }
     if let Some(x) = args.note_purses { builder.add_note_purses(x); }
@@ -67753,6 +67936,13 @@ impl<'a> ConsignmentsSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ForgerySave>>>>(ConsignmentsSave::VT_NOTE_FORGERIES, None)}
   }
+  #[inline]
+  pub fn note_found(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FalseFoundSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FalseFoundSave>>>>(ConsignmentsSave::VT_NOTE_FOUND, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for ConsignmentsSave<'_> {
@@ -67767,6 +67957,7 @@ impl ::flatbuffers::Verifiable for ConsignmentsSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, PurseSave>>>("note_purses", Self::VT_NOTE_PURSES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("note_dishonoured", Self::VT_NOTE_DISHONOURED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ForgerySave>>>>("note_forgeries", Self::VT_NOTE_FORGERIES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<FalseFoundSave>>>>("note_found", Self::VT_NOTE_FOUND, false)?
      .finish();
     Ok(())
   }
@@ -67778,6 +67969,7 @@ pub struct ConsignmentsSaveArgs<'a> {
     pub note_purses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, PurseSave>>>,
     pub note_dishonoured: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
     pub note_forgeries: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ForgerySave<'a>>>>>,
+    pub note_found: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FalseFoundSave<'a>>>>>,
 }
 impl<'a> Default for ConsignmentsSaveArgs<'a> {
   #[inline]
@@ -67789,6 +67981,7 @@ impl<'a> Default for ConsignmentsSaveArgs<'a> {
       note_purses: None,
       note_dishonoured: None,
       note_forgeries: None,
+      note_found: None,
     }
   }
 }
@@ -67823,6 +68016,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ConsignmentsSaveBuilder<'a, '
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConsignmentsSave::VT_NOTE_FORGERIES, note_forgeries);
   }
   #[inline]
+  pub fn add_note_found(&mut self, note_found: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<FalseFoundSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConsignmentsSave::VT_NOTE_FOUND, note_found);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ConsignmentsSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ConsignmentsSaveBuilder {
@@ -67846,6 +68043,7 @@ impl ::core::fmt::Debug for ConsignmentsSave<'_> {
       ds.field("note_purses", &self.note_purses());
       ds.field("note_dishonoured", &self.note_dishonoured());
       ds.field("note_forgeries", &self.note_forgeries());
+      ds.field("note_found", &self.note_found());
       ds.finish()
   }
 }

@@ -61,6 +61,25 @@ pub struct Forgery {
     pub count: f64,
 }
 
+/// False pieces told apart (M10d slice EK, second part; brief m10-money §7): refused by a payee
+/// who can tell them, or kept by their issuer when presented. Its passer, the household that paid
+/// or presented them, is known; their maker need not be.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FalseFound {
+    /// The day they were told apart.
+    pub day: i64,
+    /// The false issue they were pieces of.
+    pub forgery: u32,
+    /// The household that paid or presented them.
+    pub passer: PermanentId,
+    /// Pieces told apart.
+    pub pieces: f64,
+    /// Kept by their issuer at redemption, else refused at payment.
+    pub kept: bool,
+    /// Whether the passer has counted it as a refusal of notes yet.
+    pub heard: bool,
+}
+
 /// Every issue of notes and every purse holding any (saved).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Notes {
@@ -73,6 +92,8 @@ pub struct Notes {
     pub dishonoured: Vec<u32>,
     /// False pieces made, in the order first made (M10d slice EK).
     pub forgeries: Vec<Forgery>,
+    /// False pieces told apart, oldest first, within a memory (M10d slice EK, second part).
+    pub found: Vec<FalseFound>,
 }
 
 impl Notes {
@@ -116,6 +137,11 @@ impl Notes {
                 .filter(|f| f.of == issue)
                 .map(|f| self.held(holder, f.id))
                 .sum::<f64>()
+    }
+
+    /// False pieces `holder` holds, of every false issue.
+    pub fn false_held(&self, holder: PermanentId) -> f64 {
+        self.forgeries.iter().map(|f| self.held(holder, f.id)).sum()
     }
 
     /// Household `maker` makes `count` false pieces passing for issue `of` into its own purse:

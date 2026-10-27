@@ -7607,6 +7607,19 @@ and M6a gives rivers a daily flow.
       exactly; the note's making technique and forging time load. **Not built yet:** telling them
       apart at payment and redemption (part 2); a law against counterfeiting and the observer
       (part 3).
+      *As built, second part (2026-10-27): telling them apart.* A payee who can tell false notes
+      (a household with someone who can write, or a polity's store) refuses a payment in notes
+      its payer cannot make in true ones: nothing moves, and the false pieces it was offered are
+      found, their passer known; paid to one who can tell, true pieces go and false ones stay.
+      Presented at their issuer's door, false pieces are always told and kept: nothing is paid,
+      they go out of being, and they are found, their presenter the passer. Finds are saved
+      (saves 218); each passer counts its find as a payment in notes refused, so it believes notes
+      less taken (EF's acceptance belief; brief §7), and finds are forgotten after the memory of
+      takings. **Tested:** a keeper who can write refuses three false pieces in payment and they
+      are found; the depositor, who cannot write, takes them; presented at the keeper's door
+      they are kept, nothing paid, the false issue three fewer; each passer then believes notes
+      less taken. **Not built yet:** a law against counterfeiting, which hears finds as takings,
+      and the observer of false notes (part 3).
     - **EL**: the M10 demo, time-boxed, nudges logged.
 
 **Post-v1 (ordered, not sized):**

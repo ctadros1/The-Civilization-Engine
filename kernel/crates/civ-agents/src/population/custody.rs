@@ -73,8 +73,11 @@ impl Population {
 
     /// The midnight's custody (see the module documentation).
     pub(super) fn custody_day(&mut self, ctx: &mut Ctx, day: i64) {
-        // Households whose review it is weigh making false notes first (M10d slice EK).
+        // Households whose review it is weigh making false notes first (M10d slice EK); those
+        // whose false pieces were told apart count it a refusal of notes, and old finds are
+        // forgotten (second part).
         self.forge_notes(ctx, day);
+        self.hear_false_found(ctx, day);
         let (now, params) = (ctx.now, ctx.params);
         let goods = &ctx.catalog.goods;
         let mp = &params.market;
@@ -386,6 +389,27 @@ impl Population {
             order.extend(chunk);
         }
         for (issue, holder, pieces) in order {
+            // False pieces presented their issuer always tells and keeps, paying nothing (M10d
+            // slice EK, second part).
+            if self.notes.forgery(issue).is_some() {
+                let pieces = pieces.min(self.notes.held(holder, issue));
+                if pieces > 1e-9
+                    && self.retire_written((now, params, goods), holder, (note, issue), pieces)
+                {
+                    if let Some(f) = self.notes.forgeries.iter_mut().find(|f| f.id == issue) {
+                        f.count = (f.count - pieces).max(0.0);
+                    }
+                    self.notes.found.push(crate::notes::FalseFound {
+                        day,
+                        forgery: issue,
+                        passer: holder,
+                        pieces,
+                        kept: true,
+                        heard: false,
+                    });
+                }
+                continue;
+            }
             let Some(c) = self.notes.issue(issue) else {
                 continue;
             };

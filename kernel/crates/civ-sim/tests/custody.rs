@@ -823,6 +823,8 @@ fn a_writer_short_of_food_weighs_false_notes_makes_them_and_pays_with_them_first
     assert!((sim.people().household(s).expect("neighbour").stores[note] - 5.0).abs() < 1e-9);
     let real = notes.issue(issue).expect("issue").count;
     let before = notes.held_seen(d, issue);
+    // Paid to the depositor, who cannot tell them (second part: one who can write would refuse).
+    writers(&mut sim, d, None);
     assert!(sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, s, d, note, 3.0)));
     let notes = &sim.people().notes;
     assert!(
@@ -843,4 +845,58 @@ fn a_writer_short_of_food_weighs_false_notes_makes_them_and_pays_with_them_first
         persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "false").expect("saves");
     let loaded = persist::load(&saved.path, content()).expect("loads");
     assert_eq!(loaded.people().notes, sim.people().notes);
+}
+
+#[test]
+fn a_payee_who_can_write_refuses_false_notes_and_their_keeper_keeps_those_presented() {
+    // M10d slice EK, second part: a neighbour holds five false pieces of a keeper's notes.
+    let (mut sim, d, k) = scene();
+    let provisions = good(&sim, "core:good/provisions");
+    let note = good(&sim, "core:good/note");
+    let writer = sim.people().household(k).expect("keeper").members[0];
+    writers(&mut sim, k, Some(writer));
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    let issue = sim.people().notes.issues[0].id;
+    let s = hungry_neighbour(&mut sim, d, k);
+    writers(&mut sim, s, None);
+    writers(&mut sim, d, None);
+    sim.with_ctx_for_tests(|pop, ctx| pop.make_false_notes_for_tests(ctx, s, issue, 5.0));
+    let f = sim.people().notes.forgeries[0].id;
+    // The keeper, who can write, refuses three of them in payment: nothing moves, and they are
+    // found, their passer known.
+    assert!(!sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, s, k, note, 3.0)));
+    let notes = &sim.people().notes;
+    assert!((notes.held(s, f) - 5.0).abs() < 1e-9);
+    let found = notes.found[0].clone();
+    assert_eq!((found.passer, found.forgery, found.kept), (s, f, false));
+    assert!((found.pieces - 3.0).abs() < 1e-9);
+    // The depositor, who cannot write, takes them for the keeper's.
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, s, d, note, 3.0)));
+    assert!((sim.people().notes.held(d, f) - 3.0).abs() < 1e-9);
+    // Presented at the keeper's door they are kept: no provisions for them, the pieces out of
+    // being, and found again, its presenter the passer.
+    let held = |sim: &Sim| {
+        let x = sim.people().household(d).expect("depositor");
+        (x.stores[provisions], x.stores[note])
+    };
+    let (food, notes_before) = held(&sim);
+    sim.with_ctx_for_tests(|pop, ctx| pop.present_notes_for_tests(ctx, d, f, 3.0));
+    let (food_after, notes_after) = held(&sim);
+    assert!((food_after - food).abs() < 1e-9, "nothing paid for them");
+    assert!((notes_before - notes_after - 3.0).abs() < 1e-9);
+    let notes = &sim.people().notes;
+    assert!(notes.held(d, f) < 1e-9);
+    assert!((notes.forgeries[0].count - 2.0).abs() < 1e-9);
+    let kept = notes.found[1].clone();
+    assert_eq!((kept.passer, kept.kept), (d, true));
+    // Each passer then counts a payment in notes refused, and believes notes taken less.
+    sim.with_ctx_for_tests(|pop, ctx| pop.hear_false_found_for_tests(ctx));
+    for passer in [s, d] {
+        let b = sim
+            .people()
+            .money_belief_for_tests(passer, note)
+            .expect("a belief of notes");
+        assert!(b.refused > 0.0 && b.acceptance() < 1.0, "{b:?}");
+    }
+    assert!(sim.people().notes.found.iter().all(|x| x.heard));
 }

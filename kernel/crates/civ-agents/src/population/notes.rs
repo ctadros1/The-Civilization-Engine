@@ -432,6 +432,41 @@ impl Population {
         self.put_forged(note, maker, of, pieces);
     }
 
+    /// Each passer of false pieces told apart not yet heard of counts it as a payment in notes
+    /// refused, so it believes notes less taken (M10d slice EK, second part; brief §7:
+    /// "Refusals lower holders' acceptance beliefs"); finds older than the memory of takings
+    /// are forgotten.
+    pub(super) fn hear_false_found(&mut self, ctx: &Ctx, day: i64) {
+        if self.notes.found.is_empty() {
+            return;
+        }
+        let Some(note) = ctx
+            .catalog
+            .goods
+            .iter()
+            .position(|g| g.money.as_ref().is_some_and(|m| m.note))
+        else {
+            return;
+        };
+        let unheard: Vec<PermanentId> = self
+            .notes
+            .found
+            .iter()
+            .filter(|f| !f.heard)
+            .map(|f| f.passer)
+            .collect();
+        for passer in unheard {
+            if self.household(passer).is_some() {
+                self.note_money(ctx, passer, note, 0.0, 1.0);
+            }
+        }
+        for f in &mut self.notes.found {
+            f.heard = true;
+        }
+        let since = day - i64::from(ctx.params.crime.remember_days);
+        self.notes.found.retain(|f| f.day >= since);
+    }
+
     /// Households whose weekly review it is weigh making false notes and, by a draw on what they
     /// weigh, make them (M10d slice EK).
     pub(super) fn forge_notes(&mut self, ctx: &Ctx, day: i64) {
@@ -681,6 +716,28 @@ impl Population {
         kg: f64,
     ) -> bool {
         self.lend_notes(ctx, lender, borrower, issue, kg)
+    }
+
+    /// Household `holder` presents `pieces` of issue (or false issue) `issue` at its issuer's
+    /// door, paid or kept as at midnight: for tests.
+    #[doc(hidden)]
+    pub fn present_notes_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        holder: PermanentId,
+        issue: u32,
+        pieces: f64,
+    ) {
+        let day = ctx.now.day_index();
+        self.redeem(ctx, day, vec![(issue, holder, pieces)]);
+    }
+
+    /// Passers of false pieces told apart count them as notes refused ([`Self::hear_false_found`]):
+    /// for tests.
+    #[doc(hidden)]
+    pub fn hear_false_found_for_tests(&mut self, ctx: &Ctx) {
+        let day = ctx.now.day_index();
+        self.hear_false_found(ctx, day);
     }
 
     /// Household `household` presents the pieces it would at its review, and they are paid as at

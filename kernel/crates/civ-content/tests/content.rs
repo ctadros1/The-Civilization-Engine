@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 195
+kernel_content_api = 196
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2668,6 +2668,9 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         "core:policy/yourselves_write_down_the_sick",
         "core:policy/yourselves_yonder_with_middens",
         "core:policy/yourselves_zone_a_sickhouse",
+        "core:policy/zealously_hear_the_bearer",
+        "core:policy/zealously_issue_notes",
+        "core:policy/zealously_pay_work_in_notes",
     ];
     assert!(
         reg.catalog
@@ -2700,6 +2703,9 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
         "core:policy/yourselves_write_down_the_sick",
         "core:policy/yourselves_yonder_with_middens",
         "core:policy/yourselves_zone_a_sickhouse",
+        "core:policy/zealously_hear_the_bearer",
+        "core:policy/zealously_issue_notes",
+        "core:policy/zealously_pay_work_in_notes",
     ];
     assert!(
         reg.catalog
@@ -2773,6 +2779,9 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
         "core:policy/yourselves_write_down_the_sick",
         "core:policy/yourselves_yonder_with_middens",
         "core:policy/yourselves_zone_a_sickhouse",
+        "core:policy/zealously_hear_the_bearer",
+        "core:policy/zealously_issue_notes",
+        "core:policy/zealously_pay_work_in_notes",
     ];
     assert!(
         reg.catalog
@@ -2804,6 +2813,9 @@ fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
         "core:policy/yourselves_write_down_the_sick",
         "core:policy/yourselves_yonder_with_middens",
         "core:policy/yourselves_zone_a_sickhouse",
+        "core:policy/zealously_hear_the_bearer",
+        "core:policy/zealously_issue_notes",
+        "core:policy/zealously_pay_work_in_notes",
     ];
     assert!(
         reg.catalog
@@ -2846,6 +2858,9 @@ fn the_core_lets_a_polity_name_a_health_officer_who_can_write() {
     let newer = [
         "core:policy/yourselves_yonder_with_middens",
         "core:policy/yourselves_zone_a_sickhouse",
+        "core:policy/zealously_hear_the_bearer",
+        "core:policy/zealously_issue_notes",
+        "core:policy/zealously_pay_work_in_notes",
     ];
     assert!(
         reg.catalog
@@ -2880,7 +2895,12 @@ fn the_core_lets_a_polity_clear_middens_from_the_water() {
             .any(|a| a.behavior == Behavior::Midden && a.daylight_only)
     );
     // Its id sorts after every older template's (the sickhouse's, M10c slice EE, is newer).
-    let newer = ["core:policy/yourselves_zone_a_sickhouse"];
+    let newer = [
+        "core:policy/yourselves_zone_a_sickhouse",
+        "core:policy/zealously_hear_the_bearer",
+        "core:policy/zealously_issue_notes",
+        "core:policy/zealously_pay_work_in_notes",
+    ];
     assert!(
         reg.catalog
             .policies
@@ -2909,7 +2929,17 @@ fn the_core_lets_a_polity_raise_a_sickhouse_where_the_sick_lay_untended() {
         reg.catalog.buildings[program].use_,
         civ_land::PlotUse::Sickhouse
     );
-    assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
+    let newer = [
+        "core:policy/zealously_hear_the_bearer",
+        "core:policy/zealously_issue_notes",
+        "core:policy/zealously_pay_work_in_notes",
+    ];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
 }
 
 #[test]
@@ -3100,4 +3130,31 @@ fn bearer_heard_hears_notes_refused_and_imposes_what_is_owed() {
     let d = def.debts.expect("its remedy");
     assert_eq!(d.remedy, DebtRemedy::Imposed);
     assert_eq!(d.share, 1.0);
+}
+
+#[test]
+fn a_store_issues_notes_redeemable_for_grain_and_pays_work_in_them() {
+    // M10d slice EJ (content API 196): notes issued answer work unpaid, up to a ceiling of pieces
+    // out, each redeemed for a kilogram of grain less Sichuan's 3 % fee; a law of pay for common
+    // work pays in notes.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let c = &reg.catalog;
+    let find = |id: &str| c.policies.iter().find(|p| p.id == id).expect(id);
+    let issue = find("core:policy/zealously_issue_notes");
+    assert_eq!(issue.kind, PolicyKind::IssueNotes);
+    assert_eq!(issue.answers, vec![IssueKind::WorkUnpaid]);
+    let n = issue.notes.expect("its terms");
+    assert!(n.ceiling > 0.0);
+    let (good, kg) = n.redeem.expect("redeemable");
+    assert_eq!(c.goods[good].id, "core:good/grain");
+    assert_eq!(kg, 1.0);
+    assert!((n.fee - 0.03).abs() < 1e-6);
+    let pay = find("core:policy/zealously_pay_work_in_notes");
+    assert_eq!(pay.kind, PolicyKind::PayWork);
+    assert_eq!(pay.answers, vec![IssueKind::WorkUnpaid]);
+    assert_eq!(
+        c.goods[pay.pay.expect("its rate").good].id,
+        "core:good/note"
+    );
 }

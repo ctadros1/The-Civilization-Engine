@@ -255,7 +255,7 @@ impl Population {
                 .filter(|&v| v > 0.0)
         } else if money.note {
             // A note is worth the good it is redeemed in, by belief (M10d slice EH, second part).
-            match (raw, self.note_worth(hh, costs)) {
+            match (raw, self.note_worth(ctx, hh, costs)) {
                 (Some(r), Some(n)) => Some(r.max(n)),
                 (r, n) => r.or(n),
             }
@@ -700,7 +700,7 @@ impl Population {
             .position(|d| d.money.as_ref().is_some_and(|m| m.note))
             && !self.notes.issues.is_empty()
         {
-            want[note] = want[note].max(self.note_want(hh, &want));
+            want[note] = want[note].max(self.note_want(ctx, hh, &want));
         }
         Holding {
             keep,

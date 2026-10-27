@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 195;
+pub const KERNEL_CONTENT_API: u32 = 196;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1146,6 +1146,19 @@ fn resolve(
                 Some(_) => {}
             }
         }
+        // A polity's notes are redeemed in a good that is not itself a money (M10d slice EJ).
+        if let Some(r) = d.file.notes.as_ref().and_then(|n| n.redeem.as_ref()) {
+            match good_index(r) {
+                None => missing(c, parsed, &d.rel, "notes.redeem", r),
+                Some(g) if goods[g].money.is_some() => c.push(
+                    "E3001",
+                    &d.rel,
+                    None,
+                    format!("`notes.redeem` must name a good that is not a money; `{r}` is one"),
+                ),
+                Some(_) => {}
+            }
+        }
         // A mint's recipe takes a weighed metal first and makes a coin first (M7d slice CE).
         if let Some(m) = &d.file.mint {
             match recipes.iter().find(|r| r.id == m.recipe) {
@@ -1210,6 +1223,7 @@ fn resolve(
                 .mint_def(&|id| recipes.iter().position(|r| r.id == id));
             def.pay = d.file.pay_def(&good_index);
             def.medium = d.file.medium_def(&good_index);
+            def.notes = d.file.notes_def(&good_index);
             def.licence = d.file.licence.as_ref().and_then(|l| {
                 Some(civ_agents::polity::LicenceDef {
                     technique: technique_index(&l.technique)?,

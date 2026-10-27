@@ -561,6 +561,8 @@ pub const SCHEMA_V211: u32 = 211;
 pub const SCHEMA_V212: u32 = 212;
 /// Runs and suspension, before refused notes heard as debts.
 pub const SCHEMA_V213: u32 = 213;
+/// Refused notes heard as debts, before the store's notes and work unpaid.
+pub const SCHEMA_V214: u32 = 214;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

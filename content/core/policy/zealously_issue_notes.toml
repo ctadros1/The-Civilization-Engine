@@ -1,0 +1,28 @@
+# Notes issued (M10d slice EJ; ADR-0035 §10; brief m10-money §5; research 08-06 §2.1: Sichuan's
+# official jiaozi, a 3 % conversion charge against an issue ceiling, reserves about 29 % of it).
+# Where the store could not pay for the common work a law of its asks (the issue `work_unpaid`),
+# anyone may propose that it write its own notes when it pays in them: one of its keeper's
+# household who can write writes, up to `ceiling` pieces out of the store at once, each redeemable
+# at the store for `kg` of `redeem` less the store's `fee`. A store issues only to spend, and a
+# piece back in the store is no liability; what it spends them on is pay for common work, under a
+# law paying in notes. The ceiling is a tuning value, about a year's grain for a few households.
+# Whether anyone proposes it, and whether a gathering passes it, is people's. Its id sorts after
+# every older template's: hearth talk about a question and a saved law are keyed by a template's
+# place in id order, so an id sorting earlier would shift theirs.
+kind = "policy"
+id = "core:policy/zealously_issue_notes"
+name = "Issue notes"
+description = "The store writes its own notes to pay with, up to a ceiling, redeemable for grain."
+does = "issue_notes"
+answers = ["work_unpaid"]
+question = "whether the store writes its own notes to pay with"
+
+[notes]
+ceiling = 1000.0
+redeem = "core:good/grain"
+kg = 1.0
+fee = 0.03
+
+# An authoring judgement, not a measurement: a promise the store keeps to all alike.
+[bears]
+"core:value/reciprocity" = 0.5

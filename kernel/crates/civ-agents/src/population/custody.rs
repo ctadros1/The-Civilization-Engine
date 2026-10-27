@@ -384,12 +384,15 @@ impl Population {
             };
             let (issuer, good, kg) = (c.issuer, usize::from(c.good), f64::from(c.kg));
             let pieces = pieces.min(self.notes.held(holder, issue));
-            if pieces <= 1e-9 {
+            if pieces <= 1e-9 || kg <= 0.0 {
                 continue;
             }
-            let alive = self
-                .household(issuer)
-                .is_some_and(|x| !x.members.is_empty());
+            // A polity's store pays its own notes from its stores (M10d slice EJ).
+            let store = self.polities.iter().position(|p| p.id == issuer);
+            let alive = store.is_some()
+                || self
+                    .household(issuer)
+                    .is_some_and(|x| !x.members.is_empty());
             // Suspended, it pays none, unless what is behind them covers every piece out.
             if alive && c.suspended_until > day {
                 let covered = self.note_behind(ctx, c) + 1e-6 >= c.count * kg;
@@ -421,9 +424,18 @@ impl Population {
                     want -= take;
                 }
             }
-            // Then from the keeper's own beyond what it keeps (M10d slice EI).
+            // Then from the keeper's own beyond what it keeps (M10d slice EI), or from the store.
             if want > 1e-9 {
-                let own = self.keeper_spare(ctx, issuer, good).min(want);
+                let own = match store {
+                    Some(pi) => self.polities[pi]
+                        .stores
+                        .get(good)
+                        .copied()
+                        .unwrap_or(0.0)
+                        .max(0.0),
+                    None => self.keeper_spare(ctx, issuer, good),
+                }
+                .min(want);
                 if own > 1e-9 {
                     legs.push(Leg {
                         from: issuer,
@@ -461,8 +473,9 @@ impl Population {
             if alive && refused > 1e-9 {
                 self.refused_to_debt(ctx, day, (issue, holder), refused);
             }
-            // Having refused, a keeper living suspends.
+            // Having refused, a keeper living suspends; a store does not of its own accord.
             if alive
+                && store.is_none()
                 && refused > 1e-9
                 && let Some(c) = self.notes.issue_mut(issue)
             {
@@ -585,7 +598,7 @@ impl Population {
     }
 
     /// The first person by id of household `keeper` who can write, if any.
-    fn receipt_writer(&self, ctx: &Ctx, keeper: PermanentId) -> Option<PermanentId> {
+    pub(super) fn receipt_writer(&self, ctx: &Ctx, keeper: PermanentId) -> Option<PermanentId> {
         let writing = Self::letter_technique(ctx.catalog, Behavior::Write)?;
         self.household(keeper)?
             .members

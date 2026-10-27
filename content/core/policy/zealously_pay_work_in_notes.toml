@@ -1,0 +1,24 @@
+# Pay for common work in notes (M10d slice EJ; brief m10-money §5: spending is the existing pay
+# for common work, which already names a money). Under it the store pays each household, for each
+# hour it gives to the polity's common works, `per_hour` pieces of notes, as far as it holds them
+# or, under a law of notes issued, may write them; hours it cannot pay for go unpaid. It pays after
+# any other law of pay for common work in force has paid what it could. A piece redeemed for a
+# kilogram of grain is about what an hour of farm work brings in grain here (a tuning value).
+# Whether anyone proposes it, and whether a gathering passes it, is people's. Its id sorts after
+# every older template's: hearth talk about a question and a saved law are keyed by a template's
+# place in id order, so an id sorting earlier would shift theirs.
+kind = "policy"
+id = "core:policy/zealously_pay_work_in_notes"
+name = "Pay for common work in notes"
+description = "The store pays notes for the hours households give to the village's common works."
+does = "pay_work"
+answers = ["work_unpaid"]
+question = "whether the store pays notes for the hours households give to the common works"
+
+[pay]
+good = "core:good/note"
+per_hour = 1.0
+
+# An authoring judgement, not a measurement: as for pay for common work.
+[bears]
+"core:value/reciprocity" = 1.0

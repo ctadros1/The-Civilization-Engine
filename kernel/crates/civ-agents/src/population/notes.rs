@@ -59,41 +59,64 @@ impl Population {
         ((lots + own) / out).min(1.0)
     }
 
+    /// Where pieces of issuer `issuer`'s notes are presented, for a household of settlement
+    /// `settlement`: a keeper's home, when it lives in that settlement, or the hearth of a
+    /// polity whose settlement it is (M10d slice EJ: its store's notes are redeemed at the store).
+    pub(crate) fn issuer_door(
+        &self,
+        ctx: &Ctx,
+        issuer: PermanentId,
+        settlement: Option<PermanentId>,
+    ) -> Option<(f32, f32)> {
+        let s = settlement?;
+        if let Some(x) = self.household(issuer) {
+            return (!x.members.is_empty() && x.settlement == Some(s)).then_some(x.home);
+        }
+        self.polities
+            .iter()
+            .find(|p| p.id == issuer && p.settlement == s)?;
+        ctx.land
+            .settlements
+            .iter()
+            .find(|y| y.id == s)
+            .map(|y| y.hearth_m)
+    }
+
     /// What a piece of issue `c` is worth to household `hh` at its own costs `costs`, in hours,
-    /// if it knows the keeper's door (the keeper lives, in its settlement): the good it pays, at
-    /// its cost, times its belief that the keeper pays, less its share of a walk to the door and
-    /// back. Its keeper values its own pieces at what they would pay.
+    /// if it knows the issuer's door (a keeper living in its settlement, or its settlement's
+    /// store): the good it pays, at its cost, times its belief that the issuer pays, less its
+    /// share of a walk to the door and back. Its keeper values its own pieces at what they would
+    /// pay.
     pub(crate) fn piece_worth(
         &self,
+        ctx: &Ctx,
         hh: &Household,
         c: &Issue,
         costs: &[Option<f64>],
     ) -> Option<f64> {
-        let issuer = self.household(c.issuer).filter(|x| !x.members.is_empty())?;
         let cost = costs.get(usize::from(c.good)).copied().flatten()?;
         let kg = f64::from(c.kg);
-        if issuer.id == hh.id {
-            return (cost > 0.0).then_some(kg * cost);
+        if c.issuer == hh.id {
+            return (cost > 0.0 && !hh.members.is_empty()).then_some(kg * cost);
         }
-        if issuer.settlement.is_none() || issuer.settlement != hh.settlement {
-            return None;
-        }
-        let metres =
-            f64::from(issuer.home.0 - hh.home.0).hypot(f64::from(issuer.home.1 - hh.home.1));
+        let door = self.issuer_door(ctx, c.issuer, hh.settlement)?;
+        let metres = f64::from(door.0 - hh.home.0).hypot(f64::from(door.1 - hh.home.1));
         let walk_h = 2.0 * metres / WALK_M_S / 3600.0 / NOTE_CARRY;
         let w = kg * cost * Self::note_belief(c) * self.note_cover_seen(c) - walk_h;
         (w > 0.0).then_some(w)
     }
 
     /// The issues of notes household `hh` knows the doors of: those it holds and those of keepers
-    /// of its settlement.
-    fn known_issues<'a>(&'a self, hh: &'a Household) -> impl Iterator<Item = &'a Issue> + 'a {
+    /// of its settlement and of its settlement's store.
+    fn known_issues<'a>(
+        &'a self,
+        ctx: &'a Ctx,
+        hh: &'a Household,
+    ) -> impl Iterator<Item = &'a Issue> + 'a {
         self.notes.issues.iter().filter(move |c| {
             c.count > 1e-9
                 && (self.notes.held(hh.id, c.id) > 1e-9
-                    || self
-                        .household(c.issuer)
-                        .is_some_and(|x| x.settlement.is_some() && x.settlement == hh.settlement))
+                    || self.issuer_door(ctx, c.issuer, hh.settlement).is_some())
         })
     }
 
@@ -101,14 +124,19 @@ impl Population {
     /// issues it holds, the one worth least to it (as it pays with those first); holding none, of
     /// those of its settlement's keepers, the one worth least (as it cannot choose which it is
     /// paid in). None where it knows none worth anything.
-    pub(crate) fn note_worth(&self, hh: &Household, costs: &[Option<f64>]) -> Option<f64> {
+    pub(crate) fn note_worth(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        costs: &[Option<f64>],
+    ) -> Option<f64> {
         let held = self
             .notes
             .purse(hh.id)
             .is_some_and(|p| !p.counts.is_empty());
-        self.known_issues(hh)
+        self.known_issues(ctx, hh)
             .filter(|c| !held || self.notes.held(hh.id, c.id) > 1e-9)
-            .map(|c| self.piece_worth(hh, c, costs).unwrap_or(0.0))
+            .map(|c| self.piece_worth(ctx, hh, c, costs).unwrap_or(0.0))
             .reduce(f64::min)
             .filter(|&w| w > 0.0)
     }
@@ -116,8 +144,8 @@ impl Population {
     /// How much household `hh` wants notes, from how much it wants the goods those it knows are
     /// redeemed in (`want`, by good): as much as the least wanted, as it cannot choose which it is
     /// paid in.
-    pub(super) fn note_want(&self, hh: &Household, want: &[f64]) -> f64 {
-        self.known_issues(hh)
+    pub(super) fn note_want(&self, ctx: &Ctx, hh: &Household, want: &[f64]) -> f64 {
+        self.known_issues(ctx, hh)
             .filter(|c| c.issuer != hh.id)
             .map(|c| want.get(usize::from(c.good)).copied().unwrap_or(0.0))
             .reduce(f64::min)
@@ -144,10 +172,9 @@ impl Population {
             let Some(c) = self.notes.issue(i) else {
                 continue;
             };
-            let at_door = self
-                .household(c.issuer)
-                .is_some_and(|x| !x.members.is_empty() && x.settlement == hh.settlement);
-            if !at_door || c.issuer == hh.id {
+            // Notes nobody redeems are not presented (M10d slice EJ).
+            let at_door = self.issuer_door(ctx, c.issuer, hh.settlement).is_some();
+            if !at_door || c.issuer == hh.id || c.kg <= 0.0 {
                 continue;
             }
             // Its settlement heard the keeper refuse lately, or a debtor of its loans in them

@@ -394,14 +394,77 @@ impl Population {
         self.strike(ctx, pi, &def, units);
         true
     }
-    /// The money a law of pay for common work in force in polity `pi` pays, and its rate.
+    /// The money a law of pay for common work in force in polity `pi` pays, and its rate: the
+    /// oldest law's.
     pub(super) fn work_pay_of(&self, ctx: &Ctx, pi: usize) -> Option<crate::polity::PayDef> {
+        self.work_pays_of(ctx, pi).next()
+    }
+
+    /// What each law of pay for common work in force in polity `pi` pays, oldest law first (M10d
+    /// slice EJ: hours one cannot pay for, the next pays).
+    pub(super) fn work_pays_of<'a>(
+        &'a self,
+        ctx: &'a Ctx,
+        pi: usize,
+    ) -> impl Iterator<Item = crate::polity::PayDef> + 'a {
+        self.polities.get(pi).into_iter().flat_map(move |p| {
+            p.laws.iter().filter_map(move |l| {
+                if l.status != LawStatus::InForce || l.kind != PolicyKind::PayWork {
+                    return None;
+                }
+                ctx.catalog.policies.get(usize::from(l.policy))?.pay
+            })
+        })
+    }
+
+    /// The terms of polity `pi`'s notes under a law of notes issued in force, if any (M10d slice
+    /// EJ).
+    pub(super) fn store_notes_of(&self, ctx: &Ctx, pi: usize) -> Option<crate::polity::NotesDef> {
         self.polities.get(pi)?.laws.iter().find_map(|l| {
-            if l.status != LawStatus::InForce || l.kind != PolicyKind::PayWork {
+            if l.status != LawStatus::InForce || l.kind != PolicyKind::IssueNotes {
                 return None;
             }
-            ctx.catalog.policies.get(usize::from(l.policy))?.pay
+            ctx.catalog.policies.get(usize::from(l.policy))?.notes
         })
+    }
+
+    /// Polity `pi`'s issue under terms `def` (M10d slice EJ): the redemption good, and what a
+    /// piece pays of it net of the store's fee; for notes nobody redeems, the note good and
+    /// nothing.
+    pub(super) fn store_terms(def: &crate::polity::NotesDef, note: usize) -> (usize, f32) {
+        match def.redeem {
+            Some((good, kg)) => (good, kg * (1.0 - def.fee)),
+            None => (note, 0.0),
+        }
+    }
+
+    /// Pieces of its own notes polity `pi`'s store may still write under its law of notes
+    /// issued (M10d slice EJ): its ceiling less the pieces out of the store, if someone of its
+    /// keeper's household can write; none otherwise.
+    pub(super) fn store_may_write(&self, ctx: &Ctx, pi: usize, note: usize) -> f64 {
+        let Some(def) = self.store_notes_of(ctx, pi) else {
+            return 0.0;
+        };
+        let polity = &self.polities[pi];
+        let writes = polity
+            .keeper()
+            .and_then(|(k, _)| self.person(k))
+            .map(|p| p.household)
+            .and_then(|h| self.receipt_writer(ctx, h))
+            .is_some();
+        if !writes {
+            return 0.0;
+        }
+        let (good, kg) = Self::store_terms(&def, note);
+        let out = self
+            .notes
+            .issues
+            .iter()
+            .find(|c| c.issuer == polity.id && usize::from(c.good) == good && c.kg == kg)
+            .map_or(0.0, |c| {
+                (c.count - self.notes.held(polity.id, c.id)).max(0.0)
+            });
+        (f64::from(def.ceiling) - out).max(0.0)
     }
 
     /// Pays for the hours households gave to polities' common works since the last call, under
@@ -418,7 +481,9 @@ impl Population {
     }
 
     /// Household `household` gave `hours` to a common work of polity `polity`: the store pays it
-    /// the law's rate for them, as far as it holds the money.
+    /// each law's rate for them, as far as it holds the money, oldest law first, the hours one
+    /// cannot pay going to the next (M10d slice EJ). Paying in notes under a law of notes issued,
+    /// it writes what it lacks of them first, within the law's ceiling.
     pub(super) fn pay_for_work(
         &mut self,
         ctx: &Ctx,
@@ -426,37 +491,57 @@ impl Population {
         household: PermanentId,
         hours: f64,
     ) {
-        if hours.is_nan() || hours <= 0.0 {
+        if hours.is_nan() || hours <= 0.0 || self.household(household).is_none() {
             return;
         }
         let Some(pi) = self.polities.iter().position(|p| p.id == polity) else {
             return;
         };
-        let Some(pay) = self.work_pay_of(ctx, pi) else {
-            return;
-        };
-        let held = self.polities[pi]
-            .stores
-            .get(pay.good)
-            .copied()
-            .unwrap_or(0.0);
-        let amount = (f64::from(pay.per_hour) * hours).min(held);
-        if amount <= 1e-9 || self.household(household).is_none() {
-            return;
+        let goods = &ctx.catalog.goods;
+        let note = goods
+            .iter()
+            .position(|g| g.money.as_ref().is_some_and(|m| m.note));
+        let pays: Vec<crate::polity::PayDef> = self.work_pays_of(ctx, pi).collect();
+        let mut hours = hours;
+        for pay in pays {
+            if hours <= 1e-9 || pay.per_hour <= 0.0 {
+                break;
+            }
+            let per_hour = f64::from(pay.per_hour);
+            let mut held = self.polities[pi]
+                .stores
+                .get(pay.good)
+                .copied()
+                .unwrap_or(0.0);
+            if Some(pay.good) == note {
+                let wanted = per_hour * hours - held;
+                let write = wanted.min(self.store_may_write(ctx, pi, pay.good));
+                if write > 1e-9
+                    && let Some(def) = self.store_notes_of(ctx, pi)
+                {
+                    let terms = Self::store_terms(&def, pay.good);
+                    if self
+                        .put_written(pay.good, polity, polity, terms, write)
+                        .is_some()
+                    {
+                        held += write;
+                    }
+                }
+            }
+            let amount = (per_hour * hours).min(held);
+            if amount <= 1e-9 {
+                continue;
+            }
+            let leg = Leg {
+                from: polity,
+                to: household,
+                good: pay.good,
+                amount,
+            };
+            if self.transfer(ctx.now, ctx.params, goods, &[leg], Channel::Wage) {
+                hours -= amount / per_hour;
+            }
         }
-        let leg = Leg {
-            from: polity,
-            to: household,
-            good: pay.good,
-            amount,
-        };
-        self.transfer(
-            ctx.now,
-            ctx.params,
-            &ctx.catalog.goods,
-            &[leg],
-            Channel::Wage,
-        );
     }
 
     /// For tests: household `household` gave `hours` to a common work of polity `polity`, paid
@@ -488,11 +573,24 @@ impl Population {
             let Some(pay) = d.pay else {
                 continue;
             };
+            // Notes the store may still write count as held, worth what they would pay (M10d
+            // slice EJ).
+            let issued = self.store_notes_of(ctx, pi).filter(|_| {
+                goods
+                    .get(pay.good)
+                    .and_then(|g| g.money.as_ref())
+                    .is_some_and(|m| m.note)
+            });
             let held = self.polities[pi]
                 .stores
                 .get(pay.good)
                 .copied()
-                .unwrap_or(0.0);
+                .unwrap_or(0.0)
+                + if issued.is_some() {
+                    self.store_may_write(ctx, pi, pay.good)
+                } else {
+                    0.0
+                };
             if held <= 1e-9 || households.is_empty() {
                 continue;
             }
@@ -503,7 +601,7 @@ impl Population {
                     let hh = self.household(h)?;
                     let stores = stores_now(hh, ctx.now, ctx.params, goods);
                     let costs = self.own_costs_of(ctx, hh);
-                    let worth = self
+                    let paid = self
                         .pay_worth(
                             ctx,
                             hh,
@@ -513,6 +611,9 @@ impl Population {
                             &costs,
                         )
                         .unwrap_or(0.0);
+                    let worth = issued
+                        .and_then(|def| self.store_piece_worth(ctx, hh, pi, &def, &costs))
+                        .map_or(paid, |w| w.max(paid));
                     Some((h, each * worth * self.hour_kcal(ctx, hh)))
                 })
                 .collect();
@@ -520,6 +621,126 @@ impl Population {
         }
         out
     }
+    /// Whether polity `pi`'s store could not pay an hour of common work under any law of pay for
+    /// common work in force, for want of what it pays in, counting the notes it may still write
+    /// (M10d slice EJ); false with no such law.
+    pub(super) fn work_unpaid(&self, ctx: &Ctx, pi: usize) -> bool {
+        let note = ctx
+            .catalog
+            .goods
+            .iter()
+            .position(|g| g.money.as_ref().is_some_and(|m| m.note));
+        let mut pays = self.work_pays_of(ctx, pi).peekable();
+        pays.peek().is_some()
+            && pays.all(|pay| {
+                let held = self.polities[pi]
+                    .stores
+                    .get(pay.good)
+                    .copied()
+                    .unwrap_or(0.0);
+                let may = if Some(pay.good) == note {
+                    self.store_may_write(ctx, pi, pay.good)
+                } else {
+                    0.0
+                };
+                held + may < f64::from(pay.per_hour)
+            })
+    }
+
+    /// Whether polity `polity`'s store could not pay an hour of common work under its laws of pay
+    /// ([`Self::work_unpaid`]): for tests.
+    #[doc(hidden)]
+    pub fn work_unpaid_for_tests(&self, ctx: &Ctx, polity: PermanentId) -> bool {
+        self.polities
+            .iter()
+            .position(|p| p.id == polity)
+            .is_some_and(|pi| self.work_unpaid(ctx, pi))
+    }
+
+    /// What a piece of polity `pi`'s notes under terms `def` would be worth to household `hh` at
+    /// its own costs, in hours, before any is written (M10d slice EJ): what it pays, at its cost
+    /// of the good, less its share of a walk to the hearth and back.
+    pub(super) fn store_piece_worth(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        pi: usize,
+        def: &crate::polity::NotesDef,
+        costs: &[Option<f64>],
+    ) -> Option<f64> {
+        let note = ctx
+            .catalog
+            .goods
+            .iter()
+            .position(|g| g.money.as_ref().is_some_and(|m| m.note))?;
+        let (good, kg) = Self::store_terms(def, note);
+        let issue = crate::notes::Issue {
+            id: 0,
+            issuer: self.polities.get(pi)?.id,
+            good: u16::try_from(good).ok()?,
+            kg,
+            count: 0.0,
+            presented: 0.0,
+            refused: 0.0,
+            refused_day: -1,
+            lent: 0.0,
+            defaulted_day: -1,
+            seen: 0.0,
+            seen_day: -1,
+            suspended_until: -1,
+        };
+        // Its own, once written, as households believe it pays (M10d slice EH).
+        let issue = self
+            .notes
+            .issues
+            .iter()
+            .find(|c| c.issuer == issue.issuer && c.good == issue.good && c.kg == kg)
+            .unwrap_or(&issue);
+        self.piece_worth(ctx, hh, issue, costs)
+    }
+
+    /// What each household would be paid in the store's notes under each template of notes
+    /// issued, kcal, by template index and then household id (M10d slice EJ): its share of the
+    /// ceiling, at what a piece would pay it, at what its hours bring in food; none where no
+    /// template of pay for common work pays in notes, as the store issues only to spend.
+    pub(super) fn store_notes_forecasts(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        households: &[PermanentId],
+    ) -> Vec<(u16, Vec<(PermanentId, f64)>)> {
+        let goods = &ctx.catalog.goods;
+        let spends = ctx.catalog.policies.iter().any(|d| {
+            d.pay.is_some_and(|p| {
+                goods
+                    .get(p.good)
+                    .and_then(|g| g.money.as_ref())
+                    .is_some_and(|m| m.note)
+            })
+        });
+        if !spends || households.is_empty() {
+            return Vec::new();
+        }
+        let mut out = Vec::new();
+        for (k, d) in ctx.catalog.policies.iter().enumerate() {
+            let Some(def) = d.notes else {
+                continue;
+            };
+            let each = f64::from(def.ceiling) / households.len() as f64;
+            let kcal: Vec<(PermanentId, f64)> = households
+                .iter()
+                .filter_map(|&h| {
+                    let hh = self.household(h)?;
+                    let costs = self.own_costs_of(ctx, hh);
+                    let worth = self.store_piece_worth(ctx, hh, pi, &def, &costs)?;
+                    Some((h, each * worth * self.hour_kcal(ctx, hh)))
+                })
+                .collect();
+            out.push((k as u16, kcal));
+        }
+        out
+    }
+
     /// What a piece of the coin a mint template strikes is worth to each of `households` that
     /// counts pieces rather than assaying them, hours, by household id (M7d slice CE4b): what
     /// pieces bought it, as it remembers; 0 for one that can assay.

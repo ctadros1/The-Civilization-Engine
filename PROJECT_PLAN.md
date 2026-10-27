@@ -7518,6 +7518,35 @@ and M6a gives rivers a daily flow.
       valued at all (EJ's question of a polity's notes passing between polities).
     - **EJ**: a polity's notes: issue within a ceiling, dues in notes, legal tender, suspended
       redemption and the derived fiat label.
+      *As built, first part (2026-10-27): notes issued to pay for common work.* First, a fix:
+      a saved law and hearth talk name a template by its place in id order, so a new template's
+      id sorts after every older one's; EI's bearer heard sorted fourth and shifted the rest. Its
+      id now sorts last (`zealously_hear_the_bearer`), and a content test holds the templates'
+      order as an append-only list. Then an appended policy kind, *notes issued* (`issue_notes`,
+      content API 196; brief §5), answering an appended issue, *work unpaid*: a law of pay for
+      common work is in force and the store cannot pay an hour of the work a law asks under any
+      of them. Its template's terms (`[notes]`): a ceiling of pieces out (1000), the good a
+      piece is redeemed for and how much (a kilogram of grain), and the store's fee (3 %,
+      Sichuan's; research 08-06 §2.1). The fee is folded into the issue's terms: a piece of the
+      store's issue pays 0.97 kg, so a new fee is a new issue and no saved field is added. The
+      store issues only to spend: under a law of pay for common work paying in notes (a second
+      template, `zealously_pay_work_in_notes`, a piece an hour) it writes what the hours ask
+      beyond the pieces it holds, into its own purse, within the ceiling less the pieces out of
+      the store, and pays them on wages; it writes only when someone of its keeper's household
+      can write. Laws of pay now pay in turn, oldest first, the hours one cannot pay going to the
+      next. A household of the settlement presents the store's notes at the hearth as it presents
+      a keeper's, worth what they pay at its cost of the good, by belief, less the walk, and the
+      store pays them from its own stores, refusing beyond them; it does not suspend of its own
+      accord. A household weighs the law by its share of the ceiling at what a piece would pay
+      it, where some template pays work in notes, and pay in notes by what the store may write.
+      Saves 215 (the issue's code). **Tested:** the store pays nothing in notes it may not write
+      and work goes unpaid; under notes issued it writes two pieces for two hours, held by the
+      worker, an issue in grain at 0.97 kg, worth to it at least nine tenths of that in grain;
+      it writes no more than 1000 out and the work is unpaid again; with nobody to write it writes
+      none; with 100 kg of grain the store pays 103 pieces, refuses the rest, retires what it
+      paid and does not suspend; the templates load with their terms. **Not built yet:** dues in
+      notes (part 2); legal tender, suspended redemption and the fiat label, and the observer of a
+      store's notes (part 3).
     - **EK**: counterfeiting.
     - **EL**: the M10 demo, time-boxed, nudges logged.
 

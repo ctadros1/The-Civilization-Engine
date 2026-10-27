@@ -112,6 +112,10 @@ pub(super) struct Forecasts {
     /// template index and then household id (M7d slice CE3a): its share of the money the store
     /// holds, at what a unit is worth to it in hours, at what its hours bring in food.
     pay: Vec<(u16, Vec<(PermanentId, f64)>)>,
+    /// What each household would be paid in the store's notes under a law of notes issued, kcal,
+    /// by template index and then household id (M10d slice EJ): its share of the template's
+    /// ceiling, at what a piece would pay it, at what its hours bring in food.
+    store_notes: Vec<(u16, Vec<(PermanentId, f64)>)>,
     /// What a school would spare each household that could not send a child to learn within the
     /// year, kcal, by household id (M10c slice EB, third part).
     schooling: Vec<(PermanentId, f64)>,
@@ -800,6 +804,17 @@ impl Forecasts {
                 let counted = kg / 2.0 * pieces * piece_h;
                 crate::polity::kept_gain(o, (kg * saved_h + counted) * kcal, pp)
                     - crate::polity::levy_cost(o, work, pp)
+            }
+            // Notes issued (M10d slice EJ): the household's share of the pieces the store may
+            // write, as it would value them.
+            Some(PolicyKind::IssueNotes) => {
+                let kcal = self
+                    .store_notes
+                    .iter()
+                    .find(|p| p.0 == m.policy)
+                    .and_then(|p| p.1.iter().find(|x| x.0 == h))
+                    .map_or(0.0, |x| x.1);
+                crate::polity::kept_gain(o, kcal, pp)
             }
             // Pay for common work (M7d slice CE3a): the household's share of the money the store
             // holds, as it values it.
@@ -1879,6 +1894,7 @@ impl Population {
             mints,
             count_piece_h,
             pay: self.pay_forecasts(ctx, pi, households),
+            store_notes: self.store_notes_forecasts(ctx, pi, households),
             schooling: self.schooling(ctx, households, adults),
             licences: self.licence_forecasts(ctx, households),
             keep_apart: self.keep_apart_forecasts(ctx, households, adults),
@@ -2835,6 +2851,11 @@ impl Population {
         if money_held && common_work {
             issues.push(IssueKind::CoinIdle);
         }
+        // Its store could not pay an hour of that work under any law of pay for common work in
+        // force, for want of what it pays in (M10d slice EJ).
+        if common_work && self.work_unpaid(ctx, pi) {
+            issues.push(IssueKind::WorkUnpaid);
+        }
         // Its common store spoiled, measured, and no storehouse of its stands or is being
         // raised (M8d slice DC).
         if self.store_spoils(ctx, pi) {
@@ -3390,8 +3411,11 @@ impl Population {
                     PolicyKind::PayWork => moves.push(blank),
                     // Debts heard (M7d slice CB): one law, its remedy the template's; it
                     // replaces a law of debts heard of another template in force.
-                    // Bearer heard likewise (M10d slice EI, third part).
-                    k @ (PolicyKind::DebtsHeard | PolicyKind::BearerHeard) => {
+                    // Bearer heard likewise (M10d slice EI, third part), and notes issued (slice
+                    // EJ).
+                    k @ (PolicyKind::DebtsHeard
+                    | PolicyKind::BearerHeard
+                    | PolicyKind::IssueNotes) => {
                         let ends = self.polities[pi]
                             .laws
                             .iter()

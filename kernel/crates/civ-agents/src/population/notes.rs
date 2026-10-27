@@ -7,14 +7,23 @@
 //! ware. At its weekly review a household holding notes presents, at their keepers' doors, the
 //! pieces that bring its food back to what it keeps to its harvest when it is short, and every
 //! piece of an issue its settlement heard refused within the month.
+//!
+//! Runs (slice EI, second part; ADR-0027 §4, ADR-0035 §10): it also presents every piece of an
+//! issue when its settlement heard within the month that a debtor of the keeper's loans in them
+//! defaulted, or saw more than a tenth of the pieces out presented at the keeper's door within
+//! the week. Once the keeper has lent in them, what a piece is worth falls with what the
+//! settlement sees behind the pieces out (the goods left with the keeper and the keeper's own).
 
 use super::custody::{FEE_DAYS, RETAKE_SHARE, WALK_M_S};
 use super::*;
-use crate::notes::Issue;
+use crate::notes::{Issue, SEEN_DAYS};
 
 /// Pieces of a keeper's notes one presents at a time, over which a walk to its door is spread (a
 /// design prior: about what one carries of the grain they are redeemed in).
 const NOTE_CARRY: f64 = 50.0;
+/// The share of a keeper's pieces out that, seen presented at its door within a week, makes those
+/// who hold its notes present theirs too (a design prior: "seeing others withdraw", ADR-0027 §4).
+const RUN_SHARE: f64 = 0.1;
 
 impl Population {
     /// The share of issue `c`'s pieces presented that were paid: what a household of its keeper's
@@ -25,6 +34,29 @@ impl Population {
         } else {
             1.0
         }
+    }
+
+    /// What a household of its keeper's settlement sees behind issue `c`'s pieces out once the
+    /// keeper has lent in them, as a share of what they pay (at most 1): the goods left with the
+    /// keeper backing them and the keeper's own of the good. 1 before it lent (M10d slice EI).
+    pub(crate) fn note_cover_seen(&self, c: &Issue) -> f64 {
+        let out = c.count * f64::from(c.kg);
+        if c.lent <= 1e-9 || out <= 1e-9 {
+            return 1.0;
+        }
+        let good = usize::from(c.good);
+        let lots: f64 = self
+            .kept
+            .iter()
+            .filter(|k| k.keeper == c.issuer && k.noted)
+            .map(|k| k.stores.get(good).copied().unwrap_or(0.0).max(0.0))
+            .sum();
+        let own = self
+            .household(c.issuer)
+            .and_then(|x| x.stores.get(good).copied())
+            .unwrap_or(0.0)
+            .max(0.0);
+        ((lots + own) / out).min(1.0)
     }
 
     /// What a piece of issue `c` is worth to household `hh` at its own costs `costs`, in hours,
@@ -49,7 +81,7 @@ impl Population {
         let metres =
             f64::from(issuer.home.0 - hh.home.0).hypot(f64::from(issuer.home.1 - hh.home.1));
         let walk_h = 2.0 * metres / WALK_M_S / 3600.0 / NOTE_CARRY;
-        let w = kg * cost * Self::note_belief(c) - walk_h;
+        let w = kg * cost * Self::note_belief(c) * self.note_cover_seen(c) - walk_h;
         (w > 0.0).then_some(w)
     }
 
@@ -118,8 +150,13 @@ impl Population {
             if !at_door || c.issuer == hh.id {
                 continue;
             }
-            // Its settlement heard the keeper refuse lately: it presents them all.
-            if c.refused_day >= 0 && day - c.refused_day <= FEE_DAYS {
+            // Its settlement heard the keeper refuse lately, or a debtor of its loans in them
+            // default, or saw others present a tenth of those out this week: it presents them all.
+            let heard = |d: i64| d >= 0 && day - d <= FEE_DAYS;
+            let seen = c.seen_day >= 0
+                && day - c.seen_day < SEEN_DAYS
+                && c.seen > RUN_SHARE * c.count.max(1e-9);
+            if heard(c.refused_day) || heard(c.defaulted_day) || seen {
                 out.push((i, n));
                 continue;
             }

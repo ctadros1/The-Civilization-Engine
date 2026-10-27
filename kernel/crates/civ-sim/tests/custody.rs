@@ -639,3 +639,131 @@ fn a_keeper_with_notes_out_lends_in_them_within_its_coverage_and_pays_from_its_o
     let c = sim.people().notes.issue(issue.id).expect("issue").clone();
     assert_eq!(c.refused, 0.0);
 }
+
+#[test]
+fn holders_run_on_hearing_of_a_default_or_seeing_others_present_and_a_refusing_keeper_suspends() {
+    let (mut sim, d, k) = scene();
+    let provisions = good(&sim, "core:good/provisions");
+    let note = good(&sim, "core:good/note");
+    let writer = sim.people().household(k).expect("keeper").members[0];
+    writers(&mut sim, k, Some(writer));
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    let s = hungry_neighbour(&mut sim, d, k);
+    let issue = sim.people().notes.issues[0].id;
+    let today = sim.now().day_index();
+    // The keeper holds no provisions of its own: what is behind its notes is what was left.
+    let set = |sim: &mut Sim, who: PermanentId, kg: f64| {
+        for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+            if x.id == who {
+                x.stores[provisions] = kg;
+            }
+        }
+    };
+    set(&mut sim, k, 0.0);
+    // Fed, a holder keeps its pieces.
+    let give = |sim: &mut Sim| {
+        assert!(sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, d, s, note, 10.0)));
+    };
+    give(&mut sim);
+    set(&mut sim, s, 5_000.0);
+    let review =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.notes_review_for_tests(ctx, s));
+    let held = |sim: &Sim| sim.people().notes.held(s, issue);
+    review(&mut sim);
+    assert!((held(&sim) - 10.0).abs() < 1e-9, "kept");
+    // Seeing a tenth of the pieces out presented at the door this week, it presents them all.
+    let count = sim.people().notes.issue(issue).expect("issue").count;
+    {
+        let c = sim
+            .people_mut_for_tests()
+            .notes
+            .issue_mut(issue)
+            .expect("issue");
+        c.seen = 0.2 * count;
+        c.seen_day = today;
+    }
+    review(&mut sim);
+    assert!(held(&sim) < 1e-9, "presented on seeing others");
+    // Hearing that a debtor of the keeper's loans in them defaulted, likewise.
+    give(&mut sim);
+    {
+        let c = sim
+            .people_mut_for_tests()
+            .notes
+            .issue_mut(issue)
+            .expect("issue");
+        c.seen = 0.0;
+        c.seen_day = -1;
+        c.defaulted_day = today - 1;
+    }
+    review(&mut sim);
+    assert!(held(&sim) < 1e-9, "presented on hearing of a default");
+    // With 5 kg behind its notes, the keeper pays 5 pieces, refuses the rest and suspends.
+    give(&mut sim);
+    sim.people_mut_for_tests().kept[0].stores[provisions] = 5.0;
+    review(&mut sim);
+    let c = sim.people().notes.issue(issue).expect("issue").clone();
+    assert!((held(&sim) - 5.0).abs() < 1e-6, "{}", held(&sim));
+    assert_eq!(c.suspended_until, today + 30);
+    // Suspended, it refuses every piece while what is behind them does not cover all out.
+    sim.people_mut_for_tests().kept[0].stores[provisions] = 4.0;
+    let refused = c.refused;
+    review(&mut sim);
+    let c = sim.people().notes.issue(issue).expect("issue").clone();
+    assert!((held(&sim) - 5.0).abs() < 1e-6, "refused while suspended");
+    assert!((c.refused - refused - 5.0).abs() < 1e-6);
+    assert!(
+        (sim.people().kept[0].stores[provisions] - 4.0).abs() < 1e-9,
+        "nothing paid"
+    );
+    // Covered again, it pays and lifts the suspension.
+    sim.people_mut_for_tests().kept[0].stores[provisions] = c.count + 1.0;
+    review(&mut sim);
+    assert!(held(&sim) < 1e-9, "paid once covered");
+    assert_eq!(
+        sim.people()
+            .notes
+            .issue(issue)
+            .expect("issue")
+            .suspended_until,
+        -1
+    );
+}
+
+#[test]
+fn once_its_keeper_lends_in_them_a_note_is_worth_what_is_seen_behind_it() {
+    let (mut sim, d, k) = scene();
+    let provisions = good(&sim, "core:good/provisions");
+    let note = good(&sim, "core:good/note");
+    let writer = sim.people().household(k).expect("keeper").members[0];
+    writers(&mut sim, k, Some(writer));
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == k {
+            x.stores[provisions] = 0.0;
+        }
+    }
+    let s = hungry_neighbour(&mut sim, d, k);
+    let worth = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.pay_worth_for_tests(ctx, s, note, 0.0))
+            .unwrap_or(0.0)
+    };
+    let p = sim
+        .with_ctx_for_tests(|pop, ctx| pop.pay_worth_for_tests(ctx, s, provisions, 0.0))
+        .expect("provisions are worth something");
+    let before = worth(&mut sim);
+    let walk = p - before;
+    // It lends in its notes as far as its coverage lets it, so that share of what they pay stays
+    // behind them, and a piece is worth that share of the provisions, less the same walk.
+    let issue = sim.people().notes.issues[0].clone();
+    let behind = sim.people().kept[0].stores[provisions];
+    let coverage = sim.rules().people.market.note_coverage;
+    let kg = behind / coverage - issue.count;
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.lend_notes_for_tests(ctx, (k, s), issue.id, kg)));
+    let after = worth(&mut sim);
+    assert!(
+        (after - (p * coverage - walk)).abs() < 1e-6,
+        "{after} against {}",
+        p * coverage - walk
+    );
+}

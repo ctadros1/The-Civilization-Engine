@@ -557,6 +557,8 @@ pub const SCHEMA_V209: u32 = 209;
 pub const SCHEMA_V210: u32 = 210;
 /// Notes, before keepers lent in them.
 pub const SCHEMA_V211: u32 = 211;
+/// Keepers lending in notes, before runs and suspension.
+pub const SCHEMA_V212: u32 = 212;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

@@ -31,7 +31,17 @@ pub struct Issue {
     pub refused_day: i64,
     /// Pieces its issuer wrote as loans, beyond the goods left with it (M10d slice EI).
     pub lent: f64,
+    /// The last day a debtor of a loan in these notes defaulted (-1 for none), the pieces
+    /// presented in the week begun on `seen_day` (-1 for none), and the day before which its
+    /// issuer pays none (-1 for none: it does not suspend) (M10d slice EI, second part).
+    pub defaulted_day: i64,
+    pub seen: f64,
+    pub seen_day: i64,
+    pub suspended_until: i64,
 }
+
+/// Days over which pieces presented at an issuer's door are seen together (M10d slice EI).
+pub const SEEN_DAYS: i64 = 7;
 
 /// Every issue of notes and every purse holding any (saved).
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -51,7 +61,8 @@ impl Notes {
             .map(|i| &self.issues[i])
     }
 
-    fn issue_mut(&mut self, id: u32) -> Option<&mut Issue> {
+    /// The issue numbered `id`, to change.
+    pub fn issue_mut(&mut self, id: u32) -> Option<&mut Issue> {
         self.issues
             .binary_search_by_key(&id, |c| c.id)
             .ok()
@@ -110,6 +121,10 @@ impl Notes {
                     refused: 0.0,
                     refused_day: -1,
                     lent: 0.0,
+                    defaulted_day: -1,
+                    seen: 0.0,
+                    seen_day: -1,
+                    suspended_until: -1,
                 });
                 id
             }
@@ -157,7 +172,8 @@ impl Notes {
         }
     }
 
-    /// Counts `n` pieces of issue `issue` presented on `day`, `refused` of them refused.
+    /// Counts `n` pieces of issue `issue` presented on `day`, `refused` of them refused, and seen
+    /// presented that week.
     pub fn note_presented(&mut self, issue: u32, n: f64, refused: f64, day: i64) {
         if let Some(c) = self.issue_mut(issue) {
             c.presented += n;
@@ -165,6 +181,11 @@ impl Notes {
             if refused > EPS {
                 c.refused_day = day;
             }
+            if c.seen_day < 0 || day - c.seen_day >= SEEN_DAYS {
+                c.seen = 0.0;
+                c.seen_day = day;
+            }
+            c.seen += n;
         }
     }
 

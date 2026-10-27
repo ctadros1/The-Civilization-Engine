@@ -885,6 +885,17 @@ impl Population {
                 self.note_tie(ctx, m, b, Act::Defaulted, 1.0, 0.0);
             }
         }
+        // A keeper's debtor of a loan in its notes defaulted: its settlement hears of it (M10d
+        // slice EI, second part).
+        if let Some(issue) = self
+            .notes
+            .issue_of(c.creditor, usize::from(c.good))
+            .filter(|x| x.lent > 1e-9)
+            .map(|x| x.id)
+            && let Some(x) = self.notes.issue_mut(issue)
+        {
+            x.defaulted_day = day;
+        }
         let Some(Pledge::Guarantor(g)) = c.pledge else {
             return;
         };

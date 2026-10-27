@@ -33,6 +33,9 @@ pub(super) const RETAKE_SHARE: f64 = 0.9;
 /// pay no monthly fee after (M10d slice EH; a design prior, so that fees do not draw the goods
 /// backing notes below them).
 const FEE_PREPAID_MONTHS: f64 = 12.0;
+/// Days a keeper that refused presentations of its notes pays none, unless what is behind them
+/// again covers every piece out (M10d slice EI; a design prior).
+const SUSPEND_DAYS: i64 = 30;
 /// Kilograms of its good a piece of a keeper's notes is redeemed for (a design prior).
 const NOTE_KG: f32 = 1.0;
 /// Metres a second one walks on an errand to a neighbour (a design prior, as the walk is weighed,
@@ -345,6 +348,8 @@ impl Population {
     /// household id order, each from the goods its issuer keeps backing it, oldest left first,
     /// the pieces moving to the issuer and retired and the good to the holder on `Redeemed`.
     /// Pieces the backing can no longer pay are refused, staying with their holder, and counted.
+    /// A keeper living that refused any suspends paying them for `SUSPEND_DAYS`, refusing every
+    /// piece presented, unless what is behind them again covers every piece out (slice EI).
     pub(super) fn redeem(
         &mut self,
         ctx: &Ctx,
@@ -382,6 +387,20 @@ impl Population {
             if pieces <= 1e-9 {
                 continue;
             }
+            let alive = self
+                .household(issuer)
+                .is_some_and(|x| !x.members.is_empty());
+            // Suspended, it pays none, unless what is behind them covers every piece out.
+            if alive && c.suspended_until > day {
+                let covered = self.note_behind(ctx, c) + 1e-6 >= c.count * kg;
+                if !covered {
+                    self.notes.note_presented(issue, pieces, pieces, day);
+                    continue;
+                }
+                if let Some(c) = self.notes.issue_mut(issue) {
+                    c.suspended_until = -1;
+                }
+            }
             // From its lots backing notes, oldest left first.
             let mut want = pieces * kg;
             let mut legs: Vec<Leg> = Vec::new();
@@ -415,9 +434,6 @@ impl Population {
                 }
             }
             let paid = (pieces - want.max(0.0) / kg).max(0.0);
-            let alive = self
-                .household(issuer)
-                .is_some_and(|x| !x.members.is_empty());
             let at = if alive && paid > 1e-9 {
                 legs.push(Leg {
                     from: holder,
@@ -439,8 +455,15 @@ impl Population {
                     done = paid;
                 }
             }
-            self.notes
-                .note_presented(issue, pieces, (pieces - done).max(0.0), day);
+            let refused = (pieces - done).max(0.0);
+            self.notes.note_presented(issue, pieces, refused, day);
+            // Having refused, a keeper living suspends.
+            if alive
+                && refused > 1e-9
+                && let Some(c) = self.notes.issue_mut(issue)
+            {
+                c.suspended_until = day + SUSPEND_DAYS;
+            }
         }
     }
 

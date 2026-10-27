@@ -3946,6 +3946,13 @@ table NoteIssueSave {
   refused_day: long = -1 (id: 7);
   // Schema 212 (M10d slice EI): pieces its issuer wrote as loans.
   lent: double (id: 8);
+  // Schema 213 (M10d slice EI, second part): the last day a debtor of its loans defaulted, the
+  // pieces presented in the week begun on `seen_day`, and the day before which its issuer pays
+  // none; -1 for none.
+  defaulted_day: long = -1 (id: 9);
+  seen: double (id: 10);
+  seen_day: long = -1 (id: 11);
+  suspended_until: long = -1 (id: 12);
 }
 
 table ConsignmentsSave {

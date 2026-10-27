@@ -895,9 +895,9 @@ fn under_lending_from_the_store_a_short_household_borrows_from_it_and_repays_int
     );
 }
 
-#[test]
-fn a_keeper_whose_notes_are_out_lends_in_them_and_keeps_its_grain() {
-    let mut sc = village();
+/// The village's lender made a keeper: no grain of its own to spare, 3000 kg left with it by
+/// another household whose notes for it are out. The issue's number.
+fn keeper_of_notes(sc: &mut Scene) -> u32 {
     let note = sc
         .sim
         .rules()
@@ -933,6 +933,13 @@ fn a_keeper_whose_notes_are_out_lends_in_them_and_keeps_its_grain() {
             x.stores[note] += 3000.0;
         }
     }
+    issue
+}
+
+#[test]
+fn a_keeper_whose_notes_are_out_lends_in_them_and_keeps_its_grain() {
+    let mut sc = village();
+    let issue = keeper_of_notes(&mut sc);
     weigh(&mut sc.sim);
     let (_, c) = loan_of(&sc.sim, sc.borrower);
     assert_eq!(c.creditor, sc.lender);
@@ -951,4 +958,27 @@ fn a_keeper_whose_notes_are_out_lends_in_them_and_keeps_its_grain() {
     // Within what its coverage lets it write.
     let coverage = sc.sim.rules().people.market.note_coverage;
     assert!(lent <= 3000.0 / coverage - 3000.0 + 1e-3);
+}
+
+#[test]
+fn a_debtor_of_a_loan_in_notes_defaulting_is_heard_of_on_the_issue() {
+    let mut sc = village();
+    let issue = keeper_of_notes(&mut sc);
+    let cp = credit(&mut sc.sim);
+    cp.pay_base = 50.0;
+    cp.max_extensions = 0;
+    weigh(&mut sc.sim);
+    let (_, c) = loan_of(&sc.sim, sc.borrower);
+    assert_eq!(c.creditor, sc.lender);
+    let issue_of = |sim: &Sim| sim.people().notes.issue(issue).expect("issue").clone();
+    assert_eq!(issue_of(&sc.sim).defaulted_day, -1);
+    feed(&mut sc.sim, sc.borrower, 0.0);
+    let grace = i64::from(sc.sim.rules().people.credit.grace_days);
+    repay(&mut sc.sim, c.due);
+    repay(&mut sc.sim, c.due + grace + 1);
+    assert_eq!(
+        loan_of(&sc.sim, sc.borrower).1.standing,
+        Standing::Defaulted
+    );
+    assert_eq!(issue_of(&sc.sim).defaulted_day, c.due + grace + 1);
 }

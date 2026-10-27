@@ -67246,6 +67246,10 @@ impl<'a> NoteIssueSave<'a> {
   pub const VT_REFUSED: ::flatbuffers::VOffsetT = 16;
   pub const VT_REFUSED_DAY: ::flatbuffers::VOffsetT = 18;
   pub const VT_LENT: ::flatbuffers::VOffsetT = 20;
+  pub const VT_DEFAULTED_DAY: ::flatbuffers::VOffsetT = 22;
+  pub const VT_SEEN: ::flatbuffers::VOffsetT = 24;
+  pub const VT_SEEN_DAY: ::flatbuffers::VOffsetT = 26;
+  pub const VT_SUSPENDED_UNTIL: ::flatbuffers::VOffsetT = 28;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -67257,6 +67261,10 @@ impl<'a> NoteIssueSave<'a> {
     args: &'args NoteIssueSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<NoteIssueSave<'bldr>> {
     let mut builder = NoteIssueSaveBuilder::new(_fbb);
+    builder.add_suspended_until(args.suspended_until);
+    builder.add_seen_day(args.seen_day);
+    builder.add_seen(args.seen);
+    builder.add_defaulted_day(args.defaulted_day);
     builder.add_lent(args.lent);
     builder.add_refused_day(args.refused_day);
     builder.add_refused(args.refused);
@@ -67333,6 +67341,34 @@ impl<'a> NoteIssueSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f64>(NoteIssueSave::VT_LENT, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn defaulted_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(NoteIssueSave::VT_DEFAULTED_DAY, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn seen(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(NoteIssueSave::VT_SEEN, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn seen_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(NoteIssueSave::VT_SEEN_DAY, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn suspended_until(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(NoteIssueSave::VT_SUSPENDED_UNTIL, Some(-1)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for NoteIssueSave<'_> {
@@ -67350,6 +67386,10 @@ impl ::flatbuffers::Verifiable for NoteIssueSave<'_> {
      .visit_field::<f64>("refused", Self::VT_REFUSED, false)?
      .visit_field::<i64>("refused_day", Self::VT_REFUSED_DAY, false)?
      .visit_field::<f64>("lent", Self::VT_LENT, false)?
+     .visit_field::<i64>("defaulted_day", Self::VT_DEFAULTED_DAY, false)?
+     .visit_field::<f64>("seen", Self::VT_SEEN, false)?
+     .visit_field::<i64>("seen_day", Self::VT_SEEN_DAY, false)?
+     .visit_field::<i64>("suspended_until", Self::VT_SUSPENDED_UNTIL, false)?
      .finish();
     Ok(())
   }
@@ -67364,6 +67404,10 @@ pub struct NoteIssueSaveArgs<'a> {
     pub refused: f64,
     pub refused_day: i64,
     pub lent: f64,
+    pub defaulted_day: i64,
+    pub seen: f64,
+    pub seen_day: i64,
+    pub suspended_until: i64,
 }
 impl<'a> Default for NoteIssueSaveArgs<'a> {
   #[inline]
@@ -67378,6 +67422,10 @@ impl<'a> Default for NoteIssueSaveArgs<'a> {
       refused: 0.0,
       refused_day: -1,
       lent: 0.0,
+      defaulted_day: -1,
+      seen: 0.0,
+      seen_day: -1,
+      suspended_until: -1,
     }
   }
 }
@@ -67424,6 +67472,22 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> NoteIssueSaveBuilder<'a, 'b, 
     self.fbb_.push_slot::<f64>(NoteIssueSave::VT_LENT, lent, 0.0);
   }
   #[inline]
+  pub fn add_defaulted_day(&mut self, defaulted_day: i64) {
+    self.fbb_.push_slot::<i64>(NoteIssueSave::VT_DEFAULTED_DAY, defaulted_day, -1);
+  }
+  #[inline]
+  pub fn add_seen(&mut self, seen: f64) {
+    self.fbb_.push_slot::<f64>(NoteIssueSave::VT_SEEN, seen, 0.0);
+  }
+  #[inline]
+  pub fn add_seen_day(&mut self, seen_day: i64) {
+    self.fbb_.push_slot::<i64>(NoteIssueSave::VT_SEEN_DAY, seen_day, -1);
+  }
+  #[inline]
+  pub fn add_suspended_until(&mut self, suspended_until: i64) {
+    self.fbb_.push_slot::<i64>(NoteIssueSave::VT_SUSPENDED_UNTIL, suspended_until, -1);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> NoteIssueSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     NoteIssueSaveBuilder {
@@ -67450,6 +67514,10 @@ impl ::core::fmt::Debug for NoteIssueSave<'_> {
       ds.field("refused", &self.refused());
       ds.field("refused_day", &self.refused_day());
       ds.field("lent", &self.lent());
+      ds.field("defaulted_day", &self.defaulted_day());
+      ds.field("seen", &self.seen());
+      ds.field("seen_day", &self.seen_day());
+      ds.field("suspended_until", &self.suspended_until());
       ds.finish()
   }
 }

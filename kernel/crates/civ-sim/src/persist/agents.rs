@@ -132,7 +132,8 @@ use super::{
     SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, SCHEMA_V194,
     SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, SCHEMA_V199, SCHEMA_V200, SCHEMA_V201,
     SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, SCHEMA_V205, SCHEMA_V206, SCHEMA_V207, SCHEMA_V208,
-    SCHEMA_V209, SCHEMA_V210, SCHEMA_V211, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V209, SCHEMA_V210, SCHEMA_V211, SCHEMA_V212, finish, section, section_root,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -916,7 +917,7 @@ pub(super) fn decode<R: Read + Seek>(
         | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SCHEMA_V196 | SCHEMA_V197
         | SCHEMA_V198 | SCHEMA_V199 | SCHEMA_V200 | SCHEMA_V201 | SCHEMA_V202 | SCHEMA_V203
         | SCHEMA_V204 | SCHEMA_V205 | SCHEMA_V206 | SCHEMA_V207 | SCHEMA_V208 | SCHEMA_V209
-        | SCHEMA_V210 | SCHEMA_V211 | SAVE_SCHEMA_VERSION => Schema::V186,
+        | SCHEMA_V210 | SCHEMA_V211 | SCHEMA_V212 | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -12514,6 +12515,10 @@ fn encode_consignments(people: &Population, rules: &Rules) -> Vec<u8> {
                     refused: c.refused,
                     refused_day: c.refused_day,
                     lent: c.lent,
+                    defaulted_day: c.defaulted_day,
+                    seen: c.seen,
+                    seen_day: c.seen_day,
+                    suspended_until: c.suspended_until,
                 },
             )
         })
@@ -12599,6 +12604,10 @@ fn decode_notes(bytes: &[u8], rules: &Rules) -> Result<civ_agents::notes::Notes,
             refused: c.refused(),
             refused_day: c.refused_day(),
             lent: c.lent(),
+            defaulted_day: c.defaulted_day(),
+            seen: c.seen(),
+            seen_day: c.seen_day(),
+            suspended_until: c.suspended_until(),
         });
     }
     for p in root.note_purses().iter().flatten() {

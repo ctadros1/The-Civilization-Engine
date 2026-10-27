@@ -7480,6 +7480,22 @@ and M6a gives rivers a daily flow.
       presents them and is paid from what others left; with that gone, from the keeper's own; in
       a village a keeper with notes out and no grain to spare lends in notes, owed in grain, within
       its coverage, its grain untouched.
+      *As built, second part (2026-10-27): runs and suspension.* A holder presents every piece of
+      an issue at its review when its settlement heard within the month that the keeper refused,
+      or that a debtor of its loans in those notes defaulted (the issue records the day), or saw
+      more than a tenth of the pieces out presented at the keeper's door within the week (a design
+      prior for ADR-0027 §4's "seeing others withdraw"; the issue counts the week's pieces). Once
+      the keeper has lent in them, a piece is worth its good times the paid share times what the
+      settlement sees behind the pieces out (the goods left with the keeper and the keeper's own,
+      at most all of it). A keeper living that refused any piece suspends for 30 days (a design
+      prior), refusing every piece presented, unless what is behind them again covers every piece
+      out, which lifts it; payment order stays drawn per issue and day. Nothing forces a
+      suspension or rescues a keeper (brief §11). Saves 213. **Tested:** a fed holder keeps its
+      pieces until it sees a tenth presented this week, or hears of a default, then presents them
+      all; with 5 kg behind ten pieces the keeper pays five, refuses five and suspends, refuses
+      all while short, and pays and lifts the suspension once covered; after lending to its
+      coverage a piece is worth that share of its good, less the same walk; a debtor of a loan in
+      notes who defaults marks the issue on the day it fails.
     - **EJ**: a polity's notes: issue within a ceiling, dues in notes, legal tender, suspended
       redemption and the derived fiat label.
     - **EK**: counterfeiting.

@@ -26,10 +26,13 @@ The current observer presents an early farming world. M10 adds industrial system
 
 ## Project status
 
-- **M0–M9 · Implemented:** settlement life, institutions, cities and many-settlement simulation.
-- **M10a–M10c · Implemented:** industry, transport, services and public health.
-- **M10d · In progress:** household money and redeemable notes. Polity-issued notes, counterfeiting and the complete M10 demo remain planned.
-- **Future scope:** modern-era systems and the Unreal client.
+| Status | Milestone | Overview |
+| --- | --- | --- |
+| <img src="assets/icons/status-complete.svg" width="18" alt=""> **Complete** | M0–M9 | Settlement life, institutions, cities and many-settlement simulation. |
+| <img src="assets/icons/status-complete.svg" width="18" alt=""> **Complete** | M10a–M10c | Industry, transport, services and public health. |
+| <img src="assets/icons/status-in-progress.svg" width="18" alt=""> **In progress** | M10d | Household money and redeemable notes. |
+| <img src="assets/icons/status-planned.svg" width="18" alt=""> **Planned** | M10d | Polity-issued notes, counterfeiting and the complete M10 demo. |
+| <img src="assets/icons/status-planned.svg" width="18" alt=""> **Planned** | Future scope | Modern-era systems and the Unreal client. |
 
 See the [project plan](PROJECT_PLAN.md) and [development journal](docs/development-journal/README.md) for milestone details and implementation evidence.
 

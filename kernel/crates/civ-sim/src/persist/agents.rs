@@ -133,7 +133,7 @@ use super::{
     SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, SCHEMA_V199, SCHEMA_V200, SCHEMA_V201,
     SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, SCHEMA_V205, SCHEMA_V206, SCHEMA_V207, SCHEMA_V208,
     SCHEMA_V209, SCHEMA_V210, SCHEMA_V211, SCHEMA_V212, SCHEMA_V213, SCHEMA_V214, SCHEMA_V215,
-    finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V216, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -918,7 +918,7 @@ pub(super) fn decode<R: Read + Seek>(
         | SCHEMA_V198 | SCHEMA_V199 | SCHEMA_V200 | SCHEMA_V201 | SCHEMA_V202 | SCHEMA_V203
         | SCHEMA_V204 | SCHEMA_V205 | SCHEMA_V206 | SCHEMA_V207 | SCHEMA_V208 | SCHEMA_V209
         | SCHEMA_V210 | SCHEMA_V211 | SCHEMA_V212 | SCHEMA_V213 | SCHEMA_V214 | SCHEMA_V215
-        | SAVE_SCHEMA_VERSION => Schema::V186,
+        | SCHEMA_V216 | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -12542,6 +12542,23 @@ fn encode_consignments(people: &Population, rules: &Rules) -> Vec<u8> {
         .collect();
     let note_purses = fbb.create_vector(&purses);
     let note_dishonoured = fbb.create_vector(&notes.dishonoured);
+    // False pieces (schema 217, M10d slice EK).
+    let forgeries: Vec<_> = notes
+        .forgeries
+        .iter()
+        .map(|f| {
+            save::ForgerySave::create(
+                &mut fbb,
+                &save::ForgerySaveArgs {
+                    id: f.id,
+                    of: f.of,
+                    maker: f.maker.get(),
+                    count: f.count,
+                },
+            )
+        })
+        .collect();
+    let note_forgeries = fbb.create_vector(&forgeries);
     let root = save::ConsignmentsSave::create(
         &mut fbb,
         &save::ConsignmentsSaveArgs {
@@ -12550,6 +12567,7 @@ fn encode_consignments(people: &Population, rules: &Rules) -> Vec<u8> {
             note_issues: Some(note_issues),
             note_purses: Some(note_purses),
             note_dishonoured: Some(note_dishonoured),
+            note_forgeries: Some(note_forgeries),
         },
     );
     finish(fbb, root)
@@ -12619,8 +12637,21 @@ fn decode_notes(bytes: &[u8], rules: &Rules) -> Result<civ_agents::notes::Notes,
             suspended_until: c.suspended_until(),
         });
     }
+    // False pieces (schema 217, M10d slice EK); none before. One passing for an issue let go goes
+    // with it.
+    for f in root.note_forgeries().iter().flatten() {
+        if notes.issue(f.of()).is_none() {
+            continue;
+        }
+        notes.forgeries.push(civ_agents::notes::Forgery {
+            id: f.id(),
+            of: f.of(),
+            maker: required(f.maker(), "a false note's maker")?,
+            count: f.count(),
+        });
+    }
     for p in root.note_purses().iter().flatten() {
-        if notes.issue(p.issue()).is_none() {
+        if notes.issue(p.issue()).is_none() && notes.forgery(p.issue()).is_none() {
             continue;
         }
         let holder = required(p.holder(), "a note purse's holder")?;

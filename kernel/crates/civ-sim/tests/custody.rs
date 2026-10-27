@@ -784,3 +784,63 @@ fn once_its_keeper_lends_in_them_a_note_is_worth_what_is_seen_behind_it() {
         "{words}"
     );
 }
+
+#[test]
+fn a_writer_short_of_food_weighs_false_notes_makes_them_and_pays_with_them_first() {
+    // M10d slice EK: a keeper's notes are about, held by its depositor; a neighbour short of food
+    // whose member can write, and objects to nothing, weighs imitating them.
+    let (mut sim, d, k) = scene();
+    let note = good(&sim, "core:good/note");
+    let writer = sim.people().household(k).expect("keeper").members[0];
+    writers(&mut sim, k, Some(writer));
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    let issue = sim.people().notes.issues[0].id;
+    let s = hungry_neighbour(&mut sim, d, k);
+    writers(&mut sim, s, None);
+    let none = sim.with_ctx_for_tests(|pop, ctx| pop.forge_choice_for_tests(ctx, s));
+    assert_eq!(none, None, "nobody of it can write");
+    let forger = sim.people().household(s).expect("neighbour").members[0];
+    writers(&mut sim, s, Some(forger));
+    let filter = sim.rules().people.crime.objection_filter;
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.id == forger {
+            p.objection = (filter - 10.0) as f32;
+        }
+    }
+    let (of, pieces, points) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.forge_choice_for_tests(ctx, s))
+        .expect("it weighs imitating the keeper's notes");
+    assert_eq!(of, issue);
+    assert!((1.0..=8.0 / 0.25).contains(&pieces), "{pieces}");
+    assert!(points.is_finite());
+    // It makes five, which it holds as the keeper's pieces nobody owes, and pays with them first.
+    sim.with_ctx_for_tests(|pop, ctx| pop.make_false_notes_for_tests(ctx, s, issue, 5.0));
+    let notes = &sim.people().notes;
+    let f = notes.forgeries[0].clone();
+    assert_eq!((f.of, f.maker, f.count), (issue, s, 5.0));
+    assert!((notes.held_seen(s, issue) - 5.0).abs() < 1e-9);
+    assert!(notes.held(s, issue).abs() < 1e-9, "none of them real");
+    assert!((sim.people().household(s).expect("neighbour").stores[note] - 5.0).abs() < 1e-9);
+    let real = notes.issue(issue).expect("issue").count;
+    let before = notes.held_seen(d, issue);
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, s, d, note, 3.0)));
+    let notes = &sim.people().notes;
+    assert!(
+        (notes.held(d, f.id) - 3.0).abs() < 1e-9,
+        "the false ones went"
+    );
+    assert!((notes.held_seen(d, issue) - before - 3.0).abs() < 1e-9);
+    assert_eq!(
+        notes.issue(issue).expect("issue").count,
+        real,
+        "the keeper owes no more"
+    );
+    // They save and load as made.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "false").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.people().notes, sim.people().notes);
+}

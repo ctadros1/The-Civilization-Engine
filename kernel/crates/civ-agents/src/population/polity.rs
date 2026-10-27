@@ -1384,7 +1384,7 @@ impl Population {
                 p.counts
                     .iter()
                     .filter_map(|&(i, n)| {
-                        let c = self.notes.issue(i)?;
+                        let c = self.notes.seen(i)?;
                         let g = goods.get(usize::from(c.good))?;
                         Some(n * f64::from(c.kg) * g.kcal_per_kg)
                     })

@@ -254,6 +254,26 @@ impl Population {
         Some(self.notes.write(issuer, terms, count, holder))
     }
 
+    /// Makes `count` false pieces of note good `note` passing for issue `of` into `maker`'s
+    /// stores and purse (M10d slice EK). Returns the false issue's number, making nothing when
+    /// `maker` holds nothing.
+    pub(super) fn put_forged(
+        &mut self,
+        note: usize,
+        maker: PermanentId,
+        of: u32,
+        count: f64,
+    ) -> Option<u32> {
+        let h = self.holder(maker)?;
+        let (stores, flows) = self.holder_goods(h)?;
+        if stores.len() <= note {
+            stores.resize(note + 1, 0.0);
+        }
+        stores[note] += count;
+        flows.add(Flow::Made, note, count);
+        Some(self.notes.forge(maker, of, count))
+    }
+
     /// Takes `count` pieces of note good `note` of issue `issue` out of `holder`'s stores and
     /// purse and out of being, brought up to `now` first (M10d slice EH): notes redeemed, retired
     /// by their issuer. Returns `false`, retiring nothing, when it does not hold them.
@@ -482,6 +502,25 @@ impl Population {
                         (c.id, w)
                     })
                     .collect();
+                // False pieces go as the real ones they pass for; their maker gives them first
+                // (M10d slice EK).
+                let mut worth = worth;
+                let forged: Vec<(u32, f64)> = self
+                    .notes
+                    .forgeries
+                    .iter()
+                    .map(|f| {
+                        let w = if f.maker == l.from {
+                            -2.0
+                        } else {
+                            worth
+                                .binary_search_by_key(&f.of, |x| x.0)
+                                .map_or(0.0, |i| worth[i].1)
+                        };
+                        (f.id, w)
+                    })
+                    .collect();
+                worth.extend(forged);
                 let worth = |issue: u32| {
                     worth
                         .binary_search_by_key(&issue, |x| x.0)

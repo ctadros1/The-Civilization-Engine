@@ -7585,6 +7585,28 @@ and M6a gives rivers a daily flow.
       being heard as the debtor's case (creditors here always take it, as the law compels);
       another polity's notes valued at all; legal tender for wages or prices.
     - **EK**: counterfeiting.
+      *As built, first part (2026-10-27): false notes made and passed.* First, a fix to EJ: the
+      midnight's review and redemption of notes ran only where some goods were kept for another,
+      so a store's notes were never presented where nobody kept goods; they now run all the same
+      (a test holds it). Then (ADR-0035 §11; brief §7; no report covers counterfeiting, so every
+      number is a design prior): a note is made by writing, now its `assay` technique, and a
+      false piece takes one who can write a quarter of an hour (`forge_h`, content API 199).
+      False pieces are their own saved list (saves 217), each passing for a real issue and made
+      by one household, held in purses under their own number, counted by every other holder as
+      the real issue's and owed by nobody; their maker pays with them first and never presents
+      them. A household whose weekly review it is weighs making them as a taking is weighed: only
+      if someone of it can write and objects to it less than the moral filter, and it is short
+      of the food it keeps to its harvest; it would imitate the issue it knows that is worth most
+      to it, as many pieces as cover its shortfall within eight hours a week; toward it, its
+      shortfall (four points at the most, a prior); against it, its maker's objection and the
+      chance they believe of being found (the larger of what they believe of being seen and the
+      share of its settlement's other households with someone who can write), by their daring;
+      it makes them on a draw. **Tested:** a neighbour short of food with nobody who can write
+      weighs nothing; with a writer it weighs imitating the keeper's notes; five it makes are the
+      keeper's pieces to it and nobody's debt, it pays with them first, and they save and load
+      exactly; the note's making technique and forging time load. **Not built yet:** telling them
+      apart at payment and redemption (part 2); a law against counterfeiting and the observer
+      (part 3).
     - **EL**: the M10 demo, time-boxed, nudges logged.
 
 **Post-v1 (ordered, not sized):**

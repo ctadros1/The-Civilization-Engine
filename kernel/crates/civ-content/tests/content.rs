@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 198
+kernel_content_api = 199
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -3184,4 +3184,21 @@ fn a_store_issues_notes_redeemable_for_grain_and_pays_work_in_them() {
         c.goods[pay.pay.expect("its rate").good].id,
         "core:good/note"
     );
+}
+
+#[test]
+fn a_note_is_made_by_writing_and_a_false_one_takes_a_quarter_hour() {
+    // M10d slice EK (content API 199): writing makes a note and tells a false one; a false piece
+    // takes a quarter of an hour (a design prior).
+    let reg = registry(load(&repo_content()));
+    let c = &reg.catalog;
+    let note = c
+        .goods
+        .iter()
+        .find(|g| g.id == "core:good/note")
+        .and_then(|g| g.money.as_ref())
+        .expect("the note is money");
+    let writing = note.assay.expect("its making technique");
+    assert_eq!(c.techniques[writing].id, "core:technique/writing");
+    assert!((note.forge_h - 0.25).abs() < 1e-9);
 }

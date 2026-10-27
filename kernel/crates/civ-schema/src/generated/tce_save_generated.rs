@@ -67521,6 +67521,153 @@ impl ::core::fmt::Debug for NoteIssueSave<'_> {
       ds.finish()
   }
 }
+pub enum ForgerySaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ForgerySave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for ForgerySave<'a> {
+  type Inner = ForgerySave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> ForgerySave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_OF: ::flatbuffers::VOffsetT = 6;
+  pub const VT_MAKER: ::flatbuffers::VOffsetT = 8;
+  pub const VT_COUNT: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    ForgerySave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ForgerySaveArgs
+  ) -> ::flatbuffers::WIPOffset<ForgerySave<'bldr>> {
+    let mut builder = ForgerySaveBuilder::new(_fbb);
+    builder.add_count(args.count);
+    builder.add_maker(args.maker);
+    builder.add_of(args.of);
+    builder.add_id(args.id);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(ForgerySave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn of(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(ForgerySave::VT_OF, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn maker(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ForgerySave::VT_MAKER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn count(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(ForgerySave::VT_COUNT, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for ForgerySave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .visit_field::<u32>("of", Self::VT_OF, false)?
+     .visit_field::<u64>("maker", Self::VT_MAKER, false)?
+     .visit_field::<f64>("count", Self::VT_COUNT, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ForgerySaveArgs {
+    pub id: u32,
+    pub of: u32,
+    pub maker: u64,
+    pub count: f64,
+}
+impl<'a> Default for ForgerySaveArgs {
+  #[inline]
+  fn default() -> Self {
+    ForgerySaveArgs {
+      id: 0,
+      of: 0,
+      maker: 0,
+      count: 0.0,
+    }
+  }
+}
+
+pub struct ForgerySaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ForgerySaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(ForgerySave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_of(&mut self, of: u32) {
+    self.fbb_.push_slot::<u32>(ForgerySave::VT_OF, of, 0);
+  }
+  #[inline]
+  pub fn add_maker(&mut self, maker: u64) {
+    self.fbb_.push_slot::<u64>(ForgerySave::VT_MAKER, maker, 0);
+  }
+  #[inline]
+  pub fn add_count(&mut self, count: f64) {
+    self.fbb_.push_slot::<f64>(ForgerySave::VT_COUNT, count, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ForgerySaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ForgerySaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<ForgerySave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for ForgerySave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("ForgerySave");
+      ds.field("id", &self.id());
+      ds.field("of", &self.of());
+      ds.field("maker", &self.maker());
+      ds.field("count", &self.count());
+      ds.finish()
+  }
+}
 pub enum ConsignmentsSaveOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -67542,6 +67689,7 @@ impl<'a> ConsignmentsSave<'a> {
   pub const VT_NOTE_ISSUES: ::flatbuffers::VOffsetT = 8;
   pub const VT_NOTE_PURSES: ::flatbuffers::VOffsetT = 10;
   pub const VT_NOTE_DISHONOURED: ::flatbuffers::VOffsetT = 12;
+  pub const VT_NOTE_FORGERIES: ::flatbuffers::VOffsetT = 14;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -67553,6 +67701,7 @@ impl<'a> ConsignmentsSave<'a> {
     args: &'args ConsignmentsSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<ConsignmentsSave<'bldr>> {
     let mut builder = ConsignmentsSaveBuilder::new(_fbb);
+    if let Some(x) = args.note_forgeries { builder.add_note_forgeries(x); }
     if let Some(x) = args.note_dishonoured { builder.add_note_dishonoured(x); }
     if let Some(x) = args.note_purses { builder.add_note_purses(x); }
     if let Some(x) = args.note_issues { builder.add_note_issues(x); }
@@ -67597,6 +67746,13 @@ impl<'a> ConsignmentsSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(ConsignmentsSave::VT_NOTE_DISHONOURED, None)}
   }
+  #[inline]
+  pub fn note_forgeries(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ForgerySave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ForgerySave>>>>(ConsignmentsSave::VT_NOTE_FORGERIES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for ConsignmentsSave<'_> {
@@ -67610,6 +67766,7 @@ impl ::flatbuffers::Verifiable for ConsignmentsSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<NoteIssueSave>>>>("note_issues", Self::VT_NOTE_ISSUES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, PurseSave>>>("note_purses", Self::VT_NOTE_PURSES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("note_dishonoured", Self::VT_NOTE_DISHONOURED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ForgerySave>>>>("note_forgeries", Self::VT_NOTE_FORGERIES, false)?
      .finish();
     Ok(())
   }
@@ -67620,6 +67777,7 @@ pub struct ConsignmentsSaveArgs<'a> {
     pub note_issues: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NoteIssueSave<'a>>>>>,
     pub note_purses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, PurseSave>>>,
     pub note_dishonoured: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub note_forgeries: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ForgerySave<'a>>>>>,
 }
 impl<'a> Default for ConsignmentsSaveArgs<'a> {
   #[inline]
@@ -67630,6 +67788,7 @@ impl<'a> Default for ConsignmentsSaveArgs<'a> {
       note_issues: None,
       note_purses: None,
       note_dishonoured: None,
+      note_forgeries: None,
     }
   }
 }
@@ -67660,6 +67819,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ConsignmentsSaveBuilder<'a, '
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConsignmentsSave::VT_NOTE_DISHONOURED, note_dishonoured);
   }
   #[inline]
+  pub fn add_note_forgeries(&mut self, note_forgeries: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<ForgerySave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConsignmentsSave::VT_NOTE_FORGERIES, note_forgeries);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ConsignmentsSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ConsignmentsSaveBuilder {
@@ -67682,6 +67845,7 @@ impl ::core::fmt::Debug for ConsignmentsSave<'_> {
       ds.field("note_issues", &self.note_issues());
       ds.field("note_purses", &self.note_purses());
       ds.field("note_dishonoured", &self.note_dishonoured());
+      ds.field("note_forgeries", &self.note_forgeries());
       ds.finish()
   }
 }

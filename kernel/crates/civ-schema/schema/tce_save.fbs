@@ -3955,6 +3955,15 @@ table NoteIssueSave {
   suspended_until: long = -1 (id: 12);
 }
 
+// False pieces of a note issue one household made (schema 217, M10d slice EK): its number (from
+// 2^31), the real issue it passes for, its maker, and the pieces not yet taken out of being.
+table ForgerySave {
+  id: uint (id: 0);
+  of: uint (id: 1);
+  maker: ulong (id: 2);
+  count: double (id: 3);
+}
+
 table ConsignmentsSave {
   list: [ConsignmentSave] (id: 0);
   // Schema 209: goods kept for others, in the order left.
@@ -3966,6 +3975,8 @@ table ConsignmentsSave {
   // Schema 214 (M10d slice EI, third part): claims of the credit book that are notes refused
   // under a law of bearer heard, by claim number, ascending.
   note_dishonoured: [uint] (id: 4);
+  // Schema 217 (M10d slice EK): false pieces made, in the order first made.
+  note_forgeries: [ForgerySave] (id: 5);
 }
 
 // Turn-taking at bottlenecks (schema 141, M8b slice CN; ADR-0029 §4). A facility as in

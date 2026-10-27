@@ -424,6 +424,10 @@ pub struct MoneyDef {
     pub foreign_discount: f64,
     /// For coin: hours one who cannot assay spends weighing and testing a foreign piece.
     pub foreign_assay_h: f64,
+    /// For notes: hours one who knows the technique of `assay`, the note's making, takes to make
+    /// a false piece of an issue that holders count as the real one (M10d slice EK; brief
+    /// m10-money §7); 0 where none can be made.
+    pub forge_h: f64,
 }
 
 /// What a store good adds to being a good (M3b slice Q): the room each one gives.

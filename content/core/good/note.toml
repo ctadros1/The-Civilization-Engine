@@ -2,7 +2,10 @@
 # wrote it for a good it keeps, counted in pieces of its issue as coin is in pieces of a mint's.
 # Its keeper writes it for goods left with it, by one of its household who can write; whoever
 # holds a piece may present it at the keeper's door for the good. Counting a piece of a known
-# issue takes about as long as counting coin (a tuning value).
+# issue takes about as long as counting coin (a tuning value). A note is made by writing (M10d
+# slice EK; brief m10-money §7; no report covers counterfeiting, so both are design priors): one
+# who can write may make a false piece that holders count as the real one, in a quarter of an
+# hour, several times what writing a true one takes; those who can write tell one at payment.
 kind = "good"
 id = "core:good/note"
 name = "Note"
@@ -17,3 +20,5 @@ reserve_for = ""
 [money]
 verify_h = 0.0003
 note = true
+assay = "core:technique/writing"
+forge_h = 0.25

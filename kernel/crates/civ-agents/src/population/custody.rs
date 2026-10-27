@@ -73,6 +73,8 @@ impl Population {
 
     /// The midnight's custody (see the module documentation).
     pub(super) fn custody_day(&mut self, ctx: &mut Ctx, day: i64) {
+        // Households whose review it is weigh making false notes first (M10d slice EK).
+        self.forge_notes(ctx, day);
         let (now, params) = (ctx.now, ctx.params);
         let goods = &ctx.catalog.goods;
         let mp = &params.market;

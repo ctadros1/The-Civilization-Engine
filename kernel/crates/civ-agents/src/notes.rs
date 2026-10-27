@@ -50,6 +50,9 @@ pub struct Notes {
     pub issues: Vec<Issue>,
     /// Purses, by holder.
     pub purses: Vec<Purse>,
+    /// Loans in the credit book that are notes refused under a law of bearer heard and booked as
+    /// what their keeper owes their holder (M10d slice EI, third part), by claim number.
+    pub dishonoured: Vec<u32>,
 }
 
 impl Notes {
@@ -74,6 +77,11 @@ impl Notes {
         self.issues
             .iter()
             .find(|c| c.issuer == issuer && usize::from(c.good) == good)
+    }
+
+    /// Whether claim `id` of the credit book is notes refused, booked as a debt.
+    pub fn is_dishonoured(&self, id: u32) -> bool {
+        self.dishonoured.binary_search(&id).is_ok()
     }
 
     /// `holder`'s purse, if it holds any notes.

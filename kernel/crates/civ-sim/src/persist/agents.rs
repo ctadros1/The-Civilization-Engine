@@ -132,7 +132,7 @@ use super::{
     SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, SCHEMA_V194,
     SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, SCHEMA_V199, SCHEMA_V200, SCHEMA_V201,
     SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, SCHEMA_V205, SCHEMA_V206, SCHEMA_V207, SCHEMA_V208,
-    SCHEMA_V209, SCHEMA_V210, SCHEMA_V211, SCHEMA_V212, finish, section, section_root,
+    SCHEMA_V209, SCHEMA_V210, SCHEMA_V211, SCHEMA_V212, SCHEMA_V213, finish, section, section_root,
     single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
@@ -917,7 +917,9 @@ pub(super) fn decode<R: Read + Seek>(
         | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SCHEMA_V196 | SCHEMA_V197
         | SCHEMA_V198 | SCHEMA_V199 | SCHEMA_V200 | SCHEMA_V201 | SCHEMA_V202 | SCHEMA_V203
         | SCHEMA_V204 | SCHEMA_V205 | SCHEMA_V206 | SCHEMA_V207 | SCHEMA_V208 | SCHEMA_V209
-        | SCHEMA_V210 | SCHEMA_V211 | SCHEMA_V212 | SAVE_SCHEMA_VERSION => Schema::V186,
+        | SCHEMA_V210 | SCHEMA_V211 | SCHEMA_V212 | SCHEMA_V213 | SAVE_SCHEMA_VERSION => {
+            Schema::V186
+        }
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2376,6 +2378,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::UnknowingCare => 34,
         IssueKind::Contagion => 35,
         IssueKind::Untended => 36,
+        IssueKind::NotesRefused => 37,
     }
 }
 
@@ -2519,6 +2522,7 @@ fn decode_polities(
                 34 => IssueKind::UnknowingCare,
                 35 => IssueKind::Contagion,
                 36 => IssueKind::Untended,
+                37 => IssueKind::NotesRefused,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -12534,6 +12538,7 @@ fn encode_consignments(people: &Population, rules: &Rules) -> Vec<u8> {
         })
         .collect();
     let note_purses = fbb.create_vector(&purses);
+    let note_dishonoured = fbb.create_vector(&notes.dishonoured);
     let root = save::ConsignmentsSave::create(
         &mut fbb,
         &save::ConsignmentsSaveArgs {
@@ -12541,6 +12546,7 @@ fn encode_consignments(people: &Population, rules: &Rules) -> Vec<u8> {
             kept: Some(kept),
             note_issues: Some(note_issues),
             note_purses: Some(note_purses),
+            note_dishonoured: Some(note_dishonoured),
         },
     );
     finish(fbb, root)
@@ -12623,6 +12629,13 @@ fn decode_notes(bytes: &[u8], rules: &Rules) -> Result<civ_agents::notes::Notes,
             }),
         }
     }
+    // Notes refused and booked as debts (schema 214); none before.
+    notes.dishonoured = root
+        .note_dishonoured()
+        .iter()
+        .flat_map(|v| v.iter())
+        .collect();
+    notes.dishonoured.sort_unstable();
     Ok(notes)
 }
 

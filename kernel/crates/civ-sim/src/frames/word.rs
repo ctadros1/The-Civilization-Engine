@@ -114,8 +114,10 @@ pub fn law_text(
                 );
             }
         }
-        // Debts heard (M7d slice CB): what a finding does.
-        civ_agents::polity::PolicyKind::DebtsHeard => {
+        // Debts heard (M7d slice CB), and refused notes heard (M10d slice EI): what a finding
+        // does.
+        civ_agents::polity::PolicyKind::DebtsHeard
+        | civ_agents::polity::PolicyKind::BearerHeard => {
             if let Some(d) = def.and_then(|d| d.debts) {
                 let remedy = match d.remedy {
                     civ_agents::polity::DebtRemedy::Time => {

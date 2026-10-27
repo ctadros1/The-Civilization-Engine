@@ -67541,6 +67541,7 @@ impl<'a> ConsignmentsSave<'a> {
   pub const VT_KEPT: ::flatbuffers::VOffsetT = 6;
   pub const VT_NOTE_ISSUES: ::flatbuffers::VOffsetT = 8;
   pub const VT_NOTE_PURSES: ::flatbuffers::VOffsetT = 10;
+  pub const VT_NOTE_DISHONOURED: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -67552,6 +67553,7 @@ impl<'a> ConsignmentsSave<'a> {
     args: &'args ConsignmentsSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<ConsignmentsSave<'bldr>> {
     let mut builder = ConsignmentsSaveBuilder::new(_fbb);
+    if let Some(x) = args.note_dishonoured { builder.add_note_dishonoured(x); }
     if let Some(x) = args.note_purses { builder.add_note_purses(x); }
     if let Some(x) = args.note_issues { builder.add_note_issues(x); }
     if let Some(x) = args.kept { builder.add_kept(x); }
@@ -67588,6 +67590,13 @@ impl<'a> ConsignmentsSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, PurseSave>>>(ConsignmentsSave::VT_NOTE_PURSES, None)}
   }
+  #[inline]
+  pub fn note_dishonoured(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(ConsignmentsSave::VT_NOTE_DISHONOURED, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for ConsignmentsSave<'_> {
@@ -67600,6 +67609,7 @@ impl ::flatbuffers::Verifiable for ConsignmentsSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<KeptSave>>>>("kept", Self::VT_KEPT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<NoteIssueSave>>>>("note_issues", Self::VT_NOTE_ISSUES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, PurseSave>>>("note_purses", Self::VT_NOTE_PURSES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("note_dishonoured", Self::VT_NOTE_DISHONOURED, false)?
      .finish();
     Ok(())
   }
@@ -67609,6 +67619,7 @@ pub struct ConsignmentsSaveArgs<'a> {
     pub kept: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KeptSave<'a>>>>>,
     pub note_issues: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NoteIssueSave<'a>>>>>,
     pub note_purses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, PurseSave>>>,
+    pub note_dishonoured: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
 }
 impl<'a> Default for ConsignmentsSaveArgs<'a> {
   #[inline]
@@ -67618,6 +67629,7 @@ impl<'a> Default for ConsignmentsSaveArgs<'a> {
       kept: None,
       note_issues: None,
       note_purses: None,
+      note_dishonoured: None,
     }
   }
 }
@@ -67644,6 +67656,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ConsignmentsSaveBuilder<'a, '
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConsignmentsSave::VT_NOTE_PURSES, note_purses);
   }
   #[inline]
+  pub fn add_note_dishonoured(&mut self, note_dishonoured: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConsignmentsSave::VT_NOTE_DISHONOURED, note_dishonoured);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ConsignmentsSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ConsignmentsSaveBuilder {
@@ -67665,6 +67681,7 @@ impl ::core::fmt::Debug for ConsignmentsSave<'_> {
       ds.field("kept", &self.kept());
       ds.field("note_issues", &self.note_issues());
       ds.field("note_purses", &self.note_purses());
+      ds.field("note_dishonoured", &self.note_dishonoured());
       ds.finish()
   }
 }

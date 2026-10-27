@@ -1308,18 +1308,27 @@ impl Population {
             Some(_) => format!("{support} for, {oppose} against, of {eligible} who sat"),
             None => format!("{support} for, {oppose} against; {present} of {eligible} adults came"),
         };
+        // A debt of notes refused under a law of bearer heard (M10d slice EI, third part).
+        let owed_what = if debt
+            .as_ref()
+            .is_some_and(|(claim, _)| self.notes.is_dishonoured(claim.id))
+        {
+            "what it refused of its notes"
+        } else {
+            "what it did not repay of a loan"
+        };
         let words = match decided {
             Decided::Passed if debt.is_some() => format!(
-                "{who} found that {accused_name}'s household owes {accuser_words} what it did not \
-                 repay of a loan{debt_words}: {tally}."
+                "{who} found that {accused_name}'s household owes {accuser_words} \
+                 {owed_what}{debt_words}: {tally}."
             ),
             Decided::Failed if debt.is_some() => format!(
-                "{who} did not find that {accused_name}'s household owes {accuser_words} what it \
-                 did not repay of a loan: {tally}."
+                "{who} did not find that {accused_name}'s household owes {accuser_words} \
+                 {owed_what}: {tally}."
             ),
             Decided::Tied if debt.is_some() => format!(
                 "{who} was evenly split on whether {accused_name}'s household owes \
-                 {accuser_words} what it did not repay of a loan, so it found nothing: {tally}."
+                 {accuser_words} {owed_what}, so it found nothing: {tally}."
             ),
             Decided::Passed if breach => {
                 let mut owed = Vec::new();

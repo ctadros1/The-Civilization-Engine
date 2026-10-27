@@ -705,6 +705,13 @@ fn holders_run_on_hearing_of_a_default_or_seeing_others_present_and_a_refusing_k
     let c = sim.people().notes.issue(issue).expect("issue").clone();
     assert!((held(&sim) - 5.0).abs() < 1e-6, "{}", held(&sim));
     assert_eq!(c.suspended_until, today + 30);
+    let settlement = sim
+        .people()
+        .household(k)
+        .and_then(|x| x.settlement)
+        .expect("settlement");
+    let words = civ_sim::frames::markets::notes_words(&sim, settlement);
+    assert!(words.contains("It pays none of them until"), "{words}");
     // Suspended, it refuses every piece while what is behind them does not cover all out.
     sim.people_mut_for_tests().kept[0].stores[provisions] = 4.0;
     let refused = c.refused;
@@ -765,5 +772,15 @@ fn once_its_keeper_lends_in_them_a_note_is_worth_what_is_seen_behind_it() {
         (after - (p * coverage - walk)).abs() < 1e-6,
         "{after} against {}",
         p * coverage - walk
+    );
+    let settlement = sim
+        .people()
+        .household(k)
+        .and_then(|x| x.settlement)
+        .expect("settlement");
+    let words = civ_sim::frames::markets::notes_words(&sim, settlement);
+    assert!(
+        words.contains(&format!("It wrote {kg:.0} of them as loans.")),
+        "{words}"
     );
 }

@@ -90,6 +90,8 @@ pub(super) struct Forecasts {
     /// What each household is owed on loans refused or left unpaid and not yet heard, and what
     /// it owes on such loans, kcal (M7d slice CB), by household id.
     debts: Vec<(PermanentId, f64, f64)>,
+    /// The same for notes refused at their keepers' doors and booked as debts (M10d slice EI).
+    bearers: Vec<(PermanentId, f64, f64)>,
     /// The food the common store holds, kcal, and the households it serves (M7d slice CC):
     /// what lending from it could lend each.
     store_food: (f64, usize),
@@ -746,15 +748,20 @@ impl Forecasts {
             }
             // Debts heard (M7d slice CB): what it is owed and owes on failed loans, at the share
             // a finding is expected to move.
-            Some(PolicyKind::DebtsHeard) => {
+            Some(k @ (PolicyKind::DebtsHeard | PolicyKind::BearerHeard)) => {
                 let Some(def) = policies.get(usize::from(m.policy)).and_then(|d| d.debts) else {
                     return 0.0;
                 };
                 let share = f64::from(def.share);
-                let (to, from) = self
-                    .debts
+                // Notes refused weigh as loans unpaid (M10d slice EI, third part).
+                let stakes = if k == PolicyKind::BearerHeard {
+                    &self.bearers
+                } else {
+                    &self.debts
+                };
+                let (to, from) = stakes
                     .binary_search_by_key(&h, |d| d.0)
-                    .map_or((0.0, 0.0), |i| (self.debts[i].1, self.debts[i].2));
+                    .map_or((0.0, 0.0), |i| (stakes[i].1, stakes[i].2));
                 crate::polity::against_gain(o, to * share, from * share, pp)
             }
             // A mint (M7d slice CE2b): the hours of weighing its coin would save the household on
@@ -1862,7 +1869,8 @@ impl Population {
             }),
             forum_cases: self.forum_cases(ctx, pi),
             trade: self.trade_forecast(ctx, pi, households),
-            debts: self.debt_stakes(ctx, households),
+            debts: self.debt_stakes(ctx, households, false),
+            bearers: self.debt_stakes(ctx, households, true),
             store_food: (
                 stock_kcal(&self.polities[pi].stores, &ctx.catalog.goods),
                 households.len(),
@@ -2855,9 +2863,17 @@ impl Population {
         // for it nor a case brought (M7d slice CB).
         if households
             .iter()
-            .any(|&h| !self.unheard_debts(h).is_empty())
+            .any(|&h| !self.unheard_debts(h, false).is_empty())
         {
             issues.push(IssueKind::DebtsUnpaid);
+        }
+        // Notes one of its households held were refused and stand as a debt unheard (M10d slice
+        // EI, third part).
+        if households
+            .iter()
+            .any(|&h| !self.unheard_debts(h, true).is_empty())
+        {
+            issues.push(IssueKind::NotesRefused);
         }
         let polity = &self.polities[pi];
         // A watch may have one more while takings continue (M4c slice AI: a watch of several):
@@ -3374,13 +3390,12 @@ impl Population {
                     PolicyKind::PayWork => moves.push(blank),
                     // Debts heard (M7d slice CB): one law, its remedy the template's; it
                     // replaces a law of debts heard of another template in force.
-                    PolicyKind::DebtsHeard => {
+                    // Bearer heard likewise (M10d slice EI, third part).
+                    k @ (PolicyKind::DebtsHeard | PolicyKind::BearerHeard) => {
                         let ends = self.polities[pi]
                             .laws
                             .iter()
-                            .find(|l| {
-                                l.kind == PolicyKind::DebtsHeard && l.status == LawStatus::InForce
-                            })
+                            .find(|l| l.kind == k && l.status == LawStatus::InForce)
                             .map(|l| l.id);
                         moves.push(MoveOption { ends, ..blank });
                     }

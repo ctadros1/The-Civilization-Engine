@@ -395,6 +395,7 @@ impl Population {
                 let covered = self.note_behind(ctx, c) + 1e-6 >= c.count * kg;
                 if !covered {
                     self.notes.note_presented(issue, pieces, pieces, day);
+                    self.refused_to_debt(ctx, day, (issue, holder), pieces);
                     continue;
                 }
                 if let Some(c) = self.notes.issue_mut(issue) {
@@ -457,6 +458,9 @@ impl Population {
             }
             let refused = (pieces - done).max(0.0);
             self.notes.note_presented(issue, pieces, refused, day);
+            if alive && refused > 1e-9 {
+                self.refused_to_debt(ctx, day, (issue, holder), refused);
+            }
             // Having refused, a keeper living suspends.
             if alive
                 && refused > 1e-9
@@ -464,6 +468,75 @@ impl Population {
             {
                 c.suspended_until = day + SUSPEND_DAYS;
             }
+        }
+    }
+
+    /// Under a law of bearer heard in force where its keeper lives (M10d slice EI, third part;
+    /// brief m10-money §4), `pieces` of issue `issue` refused to `holder` stand as what the keeper
+    /// owes it: they are retired from its purse and booked in the credit book as a loan of their
+    /// good refused today, which the holder may bring before the gathering as a debt. Without the
+    /// law they stay with the holder, owed and unheard.
+    fn refused_to_debt(
+        &mut self,
+        ctx: &Ctx,
+        day: i64,
+        (issue, holder): (u32, PermanentId),
+        pieces: f64,
+    ) {
+        let (now, params) = (ctx.now, ctx.params);
+        let goods = &ctx.catalog.goods;
+        let Some(c) = self.notes.issue(issue) else {
+            return;
+        };
+        let (issuer, good, kg) = (c.issuer, c.good, f64::from(c.kg));
+        let heard = self
+            .household(issuer)
+            .and_then(|x| x.settlement)
+            .and_then(|s| self.polity_of(s))
+            .is_some_and(|pi| {
+                self.polities[pi].laws.iter().any(|l| {
+                    l.kind == crate::polity::PolicyKind::BearerHeard
+                        && l.status == crate::polity::LawStatus::InForce
+                })
+            });
+        let Some(note) = goods
+            .iter()
+            .position(|g| g.money.as_ref().is_some_and(|m| m.note))
+        else {
+            return;
+        };
+        if !heard || !self.retire_written((now, params, goods), holder, (note, issue), pieces) {
+            return;
+        }
+        let witnesses = [
+            self.elder_of(holder, now, params).unwrap_or(holder),
+            self.elder_of(issuer, now, params).unwrap_or(issuer),
+        ];
+        let credit = &mut self.order.credit;
+        credit.next += 1;
+        let id = credit.next;
+        credit.claims.push(crate::credit::Claim {
+            id,
+            creditor: holder,
+            debtor: issuer,
+            good,
+            lent: (pieces * kg) as f32,
+            owed: (pieces * kg) as f32,
+            paid: 0.0,
+            made: day,
+            due: day,
+            standing: crate::credit::Standing::Defaulted,
+            witnesses,
+            pledge: None,
+            answer: None,
+            asks: 0,
+            extensions: 0,
+            taken: None,
+            by_guarantor: 0.0,
+            recourse: None,
+        });
+        if let Err(at) = self.notes.dishonoured.binary_search(&id) {
+            self.notes.dishonoured.insert(at, id);
         }
     }
 

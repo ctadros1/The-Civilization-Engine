@@ -7496,6 +7496,26 @@ and M6a gives rivers a daily flow.
       all while short, and pays and lifts the suspension once covered; after lending to its
       coverage a piece is worth that share of its good, less the same walk; a debtor of a loan in
       notes who defaults marks the issue on the day it fails.
+      *As built, third part (2026-10-27): bearer heard and the observer; EI done.* An appended
+      policy kind and template, *bearer heard* (content API 195), answering an appended issue,
+      notes refused (brief §4: "A law makes notes pass ... as *debts heard* does for loans"). With
+      it in force where the keeper lives, pieces of its notes refused at its door, for want of
+      what is behind them or while it suspends, stand as what it owes their holder: they are
+      retired from the holder's purse and booked in the credit book as a loan of their good
+      refused that day (so the liability is counted once), listed as dishonoured notes (saves
+      214). The gathering hears them as it hears unpaid loans under debts heard, by the same
+      weighing, under the bearer heard law and not the other; the finding imposes what is still
+      owed, met as any finding is, and its words and the chronicle say notes refused. A household
+      weighs the law by what it is owed and owes on refused notes, as on unpaid loans. Without
+      it, refused notes stay with their holder, owed and unheard. A market's summary adds what a
+      keeper wrote of its notes as loans and, while it suspends, until when it pays none.
+      **Tested:** without the law, 2000 pieces refused stay with their holder; with it, they are
+      retired and booked as 2000 kg of grain the keeper owes, brought before the gathering under
+      that law, a finding imposes them, and the world saves and loads its notes exactly; the
+      template answers notes refused and imposes; the summary names loans written and a
+      suspension. **Slice EI is done.** **Not built:** a run's payment order by the issuer's law
+      (it stays drawn per issue and day); a forum of its own for notes; another settlement's notes
+      valued at all (EJ's question of a polity's notes passing between polities).
     - **EJ**: a polity's notes: issue within a ceiling, dues in notes, legal tender, suspended
       redemption and the derived fiat label.
     - **EK**: counterfeiting.

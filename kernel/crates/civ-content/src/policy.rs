@@ -1278,7 +1278,7 @@ impl PolicyFile {
         // A law of debts heard's terms (M7d slice CB): only for `debts_heard`, which must have
         // them.
         match (&self.debts, PolicyKind::from_name(&self.does)) {
-            (Some(d), Some(PolicyKind::DebtsHeard)) => {
+            (Some(d), Some(PolicyKind::DebtsHeard | PolicyKind::BearerHeard)) => {
                 let remedy = civ_agents::polity::DebtRemedy::from_name(&d.remedy);
                 if remedy.is_none() {
                     p.push(format!(
@@ -1301,10 +1301,12 @@ impl PolicyFile {
                     ));
                 }
             }
-            (None, Some(PolicyKind::DebtsHeard)) => {
-                p.push("a `debts_heard` template needs a `debts` table".to_owned());
+            (None, Some(k @ (PolicyKind::DebtsHeard | PolicyKind::BearerHeard))) => {
+                p.push(format!("a `{}` template needs a `debts` table", k.name()));
             }
-            (Some(_), _) => p.push("`debts` is for `does = \"debts_heard\"`".to_owned()),
+            (Some(_), _) => p.push(
+                "`debts` is for `does = \"debts_heard\"` or `does = \"bearer_heard\"`".to_owned(),
+            ),
             (None, _) => {}
         }
         // A duty's terms (M7c slice BV): only for `duty`, which must have them.
@@ -1459,6 +1461,7 @@ impl PolicyFile {
                 | PolicyKind::KeepApart
                 | PolicyKind::KeepRegister
                 | PolicyKind::ClearMiddens
+                | PolicyKind::BearerHeard
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
@@ -1531,6 +1534,7 @@ impl PolicyFile {
                 | PolicyKind::KeepApart
                 | PolicyKind::KeepRegister
                 | PolicyKind::ClearMiddens
+                | PolicyKind::BearerHeard
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding,
             )

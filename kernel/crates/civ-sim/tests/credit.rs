@@ -982,3 +982,131 @@ fn a_debtor_of_a_loan_in_notes_defaulting_is_heard_of_on_the_issue() {
     );
     assert_eq!(issue_of(&sc.sim).defaulted_day, c.due + grace + 1);
 }
+
+/// The village's keeper of notes (`keeper_of_notes`) with only 1000 kg left behind its 3000
+/// pieces, and their holder presenting every one at its door, as on hearing of a default: what
+/// it refused, and the holder.
+fn refuse_notes(sc: &mut Scene, issue: u32) -> (f64, PermanentId) {
+    let holder = sc.sim.people().notes.purses[0].holder;
+    let today = sc.sim.now().day_index();
+    let pop = sc.sim.people_mut_for_tests();
+    pop.kept[0].stores[sc.grain] = 1000.0;
+    pop.notes.issue_mut(issue).expect("issue").defaulted_day = today;
+    sc.sim
+        .with_ctx_for_tests(|pop, ctx| pop.notes_review_for_tests(ctx, holder));
+    let c = sc.sim.people().notes.issue(issue).expect("issue").clone();
+    (c.refused, holder)
+}
+
+#[test]
+fn under_bearer_heard_notes_refused_become_a_debt_the_gathering_hears() {
+    // Without the law, the refused pieces stay with their holder, owed and unheard.
+    let mut sc = village();
+    let issue = keeper_of_notes(&mut sc);
+    let (refused, holder) = refuse_notes(&mut sc, issue);
+    assert!((refused - 2000.0).abs() < 1e-6, "{refused}");
+    assert!((sc.sim.people().notes.held(holder, issue) - 2000.0).abs() < 1e-6);
+    assert!(sc.sim.people().notes.dishonoured.is_empty());
+    // With it in force where the keeper lives, they are retired and booked as what the keeper
+    // owes their holder, in grain, refused today.
+    let mut sc = village();
+    let issue = keeper_of_notes(&mut sc);
+    let law = law_in_force(
+        &mut sc.sim,
+        sc.lender,
+        "core:policy/bearer_heard",
+        civ_agents::polity::IssueKind::NotesRefused,
+    );
+    let (refused, holder) = refuse_notes(&mut sc, issue);
+    assert!((refused - 2000.0).abs() < 1e-6, "{refused}");
+    assert!(sc.sim.people().notes.held(holder, issue) < 1e-9, "retired");
+    assert!(sc.sim.people().notes.issue(issue).expect("issue").count < 1e-6);
+    let claim = sc
+        .sim
+        .people()
+        .order
+        .credit
+        .claims
+        .iter()
+        .find(|c| c.creditor == holder && c.debtor == sc.lender)
+        .cloned()
+        .expect("a debt booked");
+    assert_eq!(usize::from(claim.good), sc.grain);
+    assert!((f64::from(claim.owed) - 2000.0).abs() < 1e-3);
+    assert_eq!(claim.standing, Standing::Defaulted);
+    assert!(sc.sim.people().notes.is_dishonoured(claim.id));
+    // The holder's household brings it before the gathering under that law, and the chronicle
+    // says so; debts heard alone would not.
+    let at = sc
+        .sim
+        .people()
+        .household(sc.lender)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let p = sc
+        .sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.settlement == at)
+        .expect("a polity");
+    sc.sim
+        .with_ctx_for_tests(|pop, ctx| pop.weigh_debts_for_tests(ctx, p));
+    let case = sc
+        .sim
+        .people()
+        .order
+        .cases
+        .iter()
+        .find(|c| c.loan == Some(claim.id))
+        .cloned()
+        .expect("the holder's household brought it");
+    assert_eq!(
+        (case.law, case.accuser, case.accused_household),
+        (law, holder, sc.lender)
+    );
+    assert!(
+        sc.sim
+            .people()
+            .chronicle
+            .iter()
+            .any(|e| e.name.contains("for notes it refused at its door")),
+        "the chronicle says it was brought"
+    );
+    // A finding imposes what is still owed.
+    let def = sc
+        .sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .find(|d| d.id == "core:policy/bearer_heard")
+        .and_then(|d| d.debts)
+        .expect("its remedy");
+    let words = sc
+        .sim
+        .with_ctx_for_tests(|pop, ctx| pop.debt_found_for_tests(ctx, claim.id, case.id, def));
+    assert_eq!(words, ", which the finding imposes");
+    assert!(
+        sc.sim
+            .people()
+            .order
+            .obligations
+            .iter()
+            .any(|o| o.debtor == sc.lender && o.beneficiary == holder && o.kcal > 0.0),
+        "an obligation imposed"
+    );
+    // A world with it saves and loads exactly.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(
+        &mut sc.sim,
+        &saves,
+        commons_persist::SaveKind::Manual,
+        "bearer",
+    )
+    .expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.people().notes, sc.sim.people().notes);
+}

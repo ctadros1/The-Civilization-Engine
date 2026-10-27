@@ -626,8 +626,9 @@ impl Population {
     }
 
     /// Loans household `creditor` made that were refused or left unpaid, with something still
-    /// owed, whose pledge was not taken and that nobody has brought a case for (M7d slice CB).
-    pub(super) fn unheard_debts(&self, creditor: PermanentId) -> Vec<u32> {
+    /// owed, whose pledge was not taken and that nobody has brought a case for (M7d slice CB):
+    /// with `notes`, only notes refused and booked as debts (M10d slice EI), else only the rest.
+    pub(super) fn unheard_debts(&self, creditor: PermanentId, notes: bool) -> Vec<u32> {
         self.order
             .credit
             .claims
@@ -638,6 +639,7 @@ impl Population {
                     && c.left() > 1e-3
                     && c.taken.is_none()
                     && self.firm(c.debtor).is_none()
+                    && self.notes.is_dishonoured(c.id) == notes
             })
             .map(|c| c.id)
             .filter(|&id| !self.order.cases.iter().any(|k| k.loan == Some(id)))
@@ -645,18 +647,20 @@ impl Population {
     }
 
     /// What each of `households` is owed on loans refused or left unpaid and not yet heard, and
-    /// what it owes on such loans, kcal (M7d slice CB), in household order.
+    /// what it owes on such loans, kcal (M7d slice CB), in household order: with `notes`, on
+    /// notes refused and booked as debts (M10d slice EI).
     pub(super) fn debt_stakes(
         &self,
         ctx: &Ctx,
         households: &[PermanentId],
+        notes: bool,
     ) -> Vec<(PermanentId, f64, f64)> {
         let goods = &ctx.catalog.goods;
         let mut out: Vec<(PermanentId, f64, f64)> =
             households.iter().map(|&h| (h, 0.0, 0.0)).collect();
         out.sort_by_key(|x| x.0);
         for h in households {
-            for id in self.unheard_debts(*h) {
+            for id in self.unheard_debts(*h, notes) {
                 let Some(c) = self.order.credit.claim(id) else {
                     continue;
                 };
@@ -684,15 +688,21 @@ impl Population {
     /// and their regard for the debtor's elder. The one with the most to gain, if anyone, brings
     /// it.
     pub(super) fn weigh_debts(&mut self, ctx: &mut Ctx, pi: usize) {
+        self.weigh_debts_under(ctx, pi, crate::polity::PolicyKind::DebtsHeard);
+        // Notes refused, under a law of bearer heard, as loans are (M10d slice EI, third part).
+        self.weigh_debts_under(ctx, pi, crate::polity::PolicyKind::BearerHeard);
+    }
+
+    /// [`Self::weigh_debts`] under a law of `kind` in force: debts heard for loans, bearer heard
+    /// for notes refused and booked as debts.
+    fn weigh_debts_under(&mut self, ctx: &mut Ctx, pi: usize, kind: crate::polity::PolicyKind) {
         let (now, params) = (ctx.now, ctx.params);
         let (pp, cp, day) = (&params.polity, &params.crime, now.day_index());
+        let notes = kind == crate::polity::PolicyKind::BearerHeard;
         let Some((law_id, def)) = self.polities[pi]
             .laws
             .iter()
-            .filter(|l| {
-                l.kind == crate::polity::PolicyKind::DebtsHeard
-                    && l.status == crate::polity::LawStatus::InForce
-            })
+            .filter(|l| l.kind == kind && l.status == crate::polity::LawStatus::InForce)
             .find_map(|l| {
                 let d = ctx.catalog.policies.get(usize::from(l.policy))?.debts?;
                 Some((l.id, d))
@@ -710,7 +720,7 @@ impl Population {
             .collect();
         creditors.sort_unstable();
         for creditor in creditors {
-            for id in self.unheard_debts(creditor) {
+            for id in self.unheard_debts(creditor, notes) {
                 let Some(c) = self.order.credit.claim(id).cloned() else {
                     continue;
                 };
@@ -784,9 +794,13 @@ impl Population {
                     .map_or((None, String::new()), |s| {
                         (Some(s.hearth_m), s.name.clone())
                     });
+                let what = if notes {
+                    "notes it refused at its door"
+                } else {
+                    "a loan it did not repay"
+                };
                 let words = format!(
-                    "brought a case at {name} against {}'s household for a loan it did not \
-                     repay.",
+                    "brought a case at {name} against {}'s household for {what}.",
                     self.name_of(accused),
                 );
                 self.chronicle_push(

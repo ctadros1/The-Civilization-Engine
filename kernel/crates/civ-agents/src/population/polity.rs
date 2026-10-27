@@ -122,6 +122,9 @@ pub(super) struct Forecasts {
     /// What legal tender would bring each household as a debtor and cost it as a creditor,
     /// kcal, by household id (M10d slice EJ, third part).
     tender: Vec<(PermanentId, f64, f64)>,
+    /// The false notes each household found and passed within the memory of takings, by
+    /// household id (M10d slice EK, third part).
+    counterfeits: Vec<(PermanentId, u32, u32)>,
     /// What a school would spare each household that could not send a child to learn within the
     /// year, kcal, by household id (M10c slice EB, third part).
     schooling: Vec<(PermanentId, f64)>,
@@ -389,6 +392,30 @@ impl Forecasts {
                 let (recover, owe) =
                     known().under(&m.sanction, o.year_need / 365.0, params.crime.exile_days);
                 crate::polity::against_gain(o, recover, owe, pp)
+            }
+            // Against counterfeiting (M10d slice EK, third part): the bundle's compensation for
+            // each find of its own, against the whole bundle for each it passed, in days of its
+            // own food, as a law against taking's.
+            Some(PolicyKind::AgainstCounterfeiting) => {
+                let (found, passed) = self
+                    .counterfeits
+                    .binary_search_by_key(&h, |c| c.0)
+                    .map_or((0, 0), |i| (self.counterfeits[i].1, self.counterfeits[i].2));
+                let need_day = o.year_need / 365.0;
+                let s = &m.sanction;
+                let comp = f64::from(s.compensation_days) * need_day;
+                let exile = if s.exile {
+                    params.crime.exile_days * need_day
+                } else {
+                    0.0
+                };
+                let fine = f64::from(s.fine_days) * need_day + exile;
+                crate::polity::against_gain(
+                    o,
+                    f64::from(found) * comp,
+                    f64::from(passed) * (comp + fine),
+                    pp,
+                )
             }
             // A watcher guards what the others leave unguarded (M4c slice AI): one more beside
             // `n` others adds `g(1 - g)^n` of the guard `g` one alone gives. The others are those
@@ -1010,6 +1037,9 @@ impl Population {
                 self.weigh_plan_cases(ctx, pi);
                 // Whether a creditor brings a loan refused or left unpaid (M7d slice CB).
                 self.weigh_debts(ctx, pi);
+                // Whether a household that found false notes brings their passer (M10d slice
+                // EK, third part).
+                self.weigh_counterfeits(ctx, pi);
                 // Whether the store's keeper draws from it for their own household (M7c slice
                 // BY).
                 self.keeper_weighs_drawing(ctx, pi);
@@ -1916,6 +1946,7 @@ impl Population {
             store_notes: self.store_notes_forecasts(ctx, pi, households),
             suspend: self.suspend_stakes(ctx, pi, households),
             tender: self.tender_stakes(ctx, pi, households),
+            counterfeits: self.counterfeit_stakes(ctx, pi, households),
             schooling: self.schooling(ctx, households, adults),
             licences: self.licence_forecasts(ctx, households),
             keep_apart: self.keep_apart_forecasts(ctx, households, adults),
@@ -2925,6 +2956,11 @@ impl Population {
         }) {
             issues.push(IssueKind::StoreNotesRefused);
         }
+        // False notes its households passed or found, or its store kept, within the memory of
+        // takings (M10d slice EK, third part).
+        if self.false_found_in(ctx, pi).next().is_some() {
+            issues.push(IssueKind::FalseNotesFound);
+        }
         let polity = &self.polities[pi];
         // A watch may have one more while takings continue (M4c slice AI: a watch of several):
         // food taken from a household here since the newest watcher was named.
@@ -3390,6 +3426,15 @@ impl Population {
                     PolicyKind::AgainstTaking | PolicyKind::AgainstRaiding => {
                         for &sanction in &def.bundles {
                             moves.push(MoveOption { sanction, ..blank });
+                        }
+                    }
+                    // Against counterfeiting (M10d slice EK, third part): its bundles, only where
+                    // false notes were found.
+                    PolicyKind::AgainstCounterfeiting => {
+                        if self.false_found_in(ctx, pi).next().is_some() {
+                            for &sanction in &def.bundles {
+                                moves.push(MoveOption { sanction, ..blank });
+                            }
                         }
                     }
                     // A band against the settlement whose people raided their household lately,

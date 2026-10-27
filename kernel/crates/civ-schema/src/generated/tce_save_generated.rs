@@ -67690,6 +67690,8 @@ impl<'a> FalseFoundSave<'a> {
   pub const VT_PIECES: ::flatbuffers::VOffsetT = 10;
   pub const VT_KEPT: ::flatbuffers::VOffsetT = 12;
   pub const VT_HEARD: ::flatbuffers::VOffsetT = 14;
+  pub const VT_FINDER: ::flatbuffers::VOffsetT = 16;
+  pub const VT_BROUGHT: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -67701,10 +67703,12 @@ impl<'a> FalseFoundSave<'a> {
     args: &'args FalseFoundSaveArgs
   ) -> ::flatbuffers::WIPOffset<FalseFoundSave<'bldr>> {
     let mut builder = FalseFoundSaveBuilder::new(_fbb);
+    builder.add_finder(args.finder);
     builder.add_pieces(args.pieces);
     builder.add_passer(args.passer);
     builder.add_day(args.day);
     builder.add_forgery(args.forgery);
+    builder.add_brought(args.brought);
     builder.add_heard(args.heard);
     builder.add_kept(args.kept);
     builder.finish()
@@ -67753,6 +67757,20 @@ impl<'a> FalseFoundSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<bool>(FalseFoundSave::VT_HEARD, Some(false)).unwrap()}
   }
+  #[inline]
+  pub fn finder(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(FalseFoundSave::VT_FINDER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn brought(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(FalseFoundSave::VT_BROUGHT, Some(false)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FalseFoundSave<'_> {
@@ -67767,6 +67785,8 @@ impl ::flatbuffers::Verifiable for FalseFoundSave<'_> {
      .visit_field::<f64>("pieces", Self::VT_PIECES, false)?
      .visit_field::<bool>("kept", Self::VT_KEPT, false)?
      .visit_field::<bool>("heard", Self::VT_HEARD, false)?
+     .visit_field::<u64>("finder", Self::VT_FINDER, false)?
+     .visit_field::<bool>("brought", Self::VT_BROUGHT, false)?
      .finish();
     Ok(())
   }
@@ -67778,6 +67798,8 @@ pub struct FalseFoundSaveArgs {
     pub pieces: f64,
     pub kept: bool,
     pub heard: bool,
+    pub finder: u64,
+    pub brought: bool,
 }
 impl<'a> Default for FalseFoundSaveArgs {
   #[inline]
@@ -67789,6 +67811,8 @@ impl<'a> Default for FalseFoundSaveArgs {
       pieces: 0.0,
       kept: false,
       heard: false,
+      finder: 0,
+      brought: false,
     }
   }
 }
@@ -67823,6 +67847,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FalseFoundSaveBuilder<'a, 'b,
     self.fbb_.push_slot::<bool>(FalseFoundSave::VT_HEARD, heard, false);
   }
   #[inline]
+  pub fn add_finder(&mut self, finder: u64) {
+    self.fbb_.push_slot::<u64>(FalseFoundSave::VT_FINDER, finder, 0);
+  }
+  #[inline]
+  pub fn add_brought(&mut self, brought: bool) {
+    self.fbb_.push_slot::<bool>(FalseFoundSave::VT_BROUGHT, brought, false);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FalseFoundSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FalseFoundSaveBuilder {
@@ -67846,6 +67878,8 @@ impl ::core::fmt::Debug for FalseFoundSave<'_> {
       ds.field("pieces", &self.pieces());
       ds.field("kept", &self.kept());
       ds.field("heard", &self.heard());
+      ds.field("finder", &self.finder());
+      ds.field("brought", &self.brought());
       ds.finish()
   }
 }

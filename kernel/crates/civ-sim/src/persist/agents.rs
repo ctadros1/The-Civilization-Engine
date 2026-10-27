@@ -133,7 +133,7 @@ use super::{
     SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, SCHEMA_V199, SCHEMA_V200, SCHEMA_V201,
     SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, SCHEMA_V205, SCHEMA_V206, SCHEMA_V207, SCHEMA_V208,
     SCHEMA_V209, SCHEMA_V210, SCHEMA_V211, SCHEMA_V212, SCHEMA_V213, SCHEMA_V214, SCHEMA_V215,
-    SCHEMA_V216, SCHEMA_V217, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V216, SCHEMA_V217, SCHEMA_V218, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -918,7 +918,7 @@ pub(super) fn decode<R: Read + Seek>(
         | SCHEMA_V198 | SCHEMA_V199 | SCHEMA_V200 | SCHEMA_V201 | SCHEMA_V202 | SCHEMA_V203
         | SCHEMA_V204 | SCHEMA_V205 | SCHEMA_V206 | SCHEMA_V207 | SCHEMA_V208 | SCHEMA_V209
         | SCHEMA_V210 | SCHEMA_V211 | SCHEMA_V212 | SCHEMA_V213 | SCHEMA_V214 | SCHEMA_V215
-        | SCHEMA_V216 | SCHEMA_V217 | SAVE_SCHEMA_VERSION => Schema::V186,
+        | SCHEMA_V216 | SCHEMA_V217 | SCHEMA_V218 | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2380,6 +2380,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::NotesRefused => 37,
         IssueKind::WorkUnpaid => 38,
         IssueKind::StoreNotesRefused => 39,
+        IssueKind::FalseNotesFound => 40,
     }
 }
 
@@ -2526,6 +2527,7 @@ fn decode_polities(
                 37 => IssueKind::NotesRefused,
                 38 => IssueKind::WorkUnpaid,
                 39 => IssueKind::StoreNotesRefused,
+                40 => IssueKind::FalseNotesFound,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -12573,6 +12575,8 @@ fn encode_consignments(people: &Population, rules: &Rules) -> Vec<u8> {
                     pieces: f.pieces,
                     kept: f.kept,
                     heard: f.heard,
+                    finder: f.finder.map_or(0, PermanentId::get),
+                    brought: f.brought,
                 },
             )
         })
@@ -12682,6 +12686,9 @@ fn decode_notes(bytes: &[u8], rules: &Rules) -> Result<civ_agents::notes::Notes,
             pieces: f.pieces(),
             kept: f.kept(),
             heard: f.heard(),
+            // Who told them apart (schema 219); none before, and then nobody brings them.
+            finder: PermanentId::from_raw(f.finder()),
+            brought: f.brought() || f.finder() == 0,
         });
     }
     for p in root.note_purses().iter().flatten() {

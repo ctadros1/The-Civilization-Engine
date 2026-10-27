@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 199
+kernel_content_api = 200
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2673,6 +2673,7 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         "core:policy/zealously_pay_work_in_notes",
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
+        "core:policy/zealously_write_against_forgery",
     ];
     assert!(
         reg.catalog
@@ -2710,6 +2711,7 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
         "core:policy/zealously_pay_work_in_notes",
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
+        "core:policy/zealously_write_against_forgery",
     ];
     assert!(
         reg.catalog
@@ -2788,6 +2790,7 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
         "core:policy/zealously_pay_work_in_notes",
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
+        "core:policy/zealously_write_against_forgery",
     ];
     assert!(
         reg.catalog
@@ -2824,6 +2827,7 @@ fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
         "core:policy/zealously_pay_work_in_notes",
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
+        "core:policy/zealously_write_against_forgery",
     ];
     assert!(
         reg.catalog
@@ -2871,6 +2875,7 @@ fn the_core_lets_a_polity_name_a_health_officer_who_can_write() {
         "core:policy/zealously_pay_work_in_notes",
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
+        "core:policy/zealously_write_against_forgery",
     ];
     assert!(
         reg.catalog
@@ -2912,6 +2917,7 @@ fn the_core_lets_a_polity_clear_middens_from_the_water() {
         "core:policy/zealously_pay_work_in_notes",
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
+        "core:policy/zealously_write_against_forgery",
     ];
     assert!(
         reg.catalog
@@ -2947,6 +2953,7 @@ fn the_core_lets_a_polity_raise_a_sickhouse_where_the_sick_lay_untended() {
         "core:policy/zealously_pay_work_in_notes",
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
+        "core:policy/zealously_write_against_forgery",
     ];
     assert!(
         reg.catalog
@@ -3124,6 +3131,7 @@ fn policy_templates_keep_their_places() {
         "core:policy/zealously_pay_work_in_notes",
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
+        "core:policy/zealously_write_against_forgery",
     ];
     assert!(
         ids.starts_with(&kept),
@@ -3201,4 +3209,23 @@ fn a_note_is_made_by_writing_and_a_false_one_takes_a_quarter_hour() {
     let writing = note.assay.expect("its making technique");
     assert_eq!(c.techniques[writing].id, "core:technique/writing");
     assert!((note.forge_h - 0.25).abs() < 1e-9);
+}
+
+#[test]
+fn a_law_against_counterfeiting_answers_false_notes_found_and_always_owes_something() {
+    // M10d slice EK, third part (content API 200): its bundles are a law against taking's without
+    // restitution alone, as nothing was taken from the household that found the false pieces.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let law = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/zealously_write_against_forgery")
+        .expect("the template");
+    assert_eq!(law.kind, PolicyKind::AgainstCounterfeiting);
+    assert_eq!(law.answers, vec![IssueKind::FalseNotesFound]);
+    assert_eq!(law.bundles.len(), 3);
+    assert!(law.bundles.iter().all(|b| b.compensation_days > 0.0));
+    assert!(law.bundles.iter().any(|b| b.exile));
 }

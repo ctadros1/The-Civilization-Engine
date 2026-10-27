@@ -495,6 +495,8 @@ impl Population {
                         pieces: offered,
                         kept: false,
                         heard: false,
+                        finder: Some(l.to),
+                        brought: false,
                     });
                 }
                 return false;

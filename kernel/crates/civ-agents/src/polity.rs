@@ -212,11 +212,15 @@ pub enum PolicyKind {
     /// they buy and what dues they pay remain. A store's notes nobody may redeem are what the
     /// observer calls fiat.
     SuspendRedemption,
+    /// Against counterfeiting (M10d slice EK, third part; ADR-0035 §11; brief m10-money §7): a
+    /// household found to have passed false notes, refused at payment or kept at their issuer's
+    /// door, owes the law's bundle, as one found to have taken does.
+    AgainstCounterfeiting,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 43] = [
+    pub const ALL: [PolicyKind; 44] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -260,6 +264,7 @@ impl PolicyKind {
         PolicyKind::IssueNotes,
         PolicyKind::LegalTender,
         PolicyKind::SuspendRedemption,
+        PolicyKind::AgainstCounterfeiting,
     ];
 
     /// The authored name.
@@ -308,6 +313,7 @@ impl PolicyKind {
             PolicyKind::IssueNotes => "issue_notes",
             PolicyKind::LegalTender => "legal_tender",
             PolicyKind::SuspendRedemption => "suspend_redemption",
+            PolicyKind::AgainstCounterfeiting => "against_counterfeiting",
         }
     }
 
@@ -454,11 +460,15 @@ pub enum IssueKind {
     /// The store refused pieces of its own notes presented for the good they promise, for want
     /// of it, within the month (M10d slice EJ, third part): what suspending redemption answers.
     StoreNotesRefused,
+    /// False notes passed by or to its households were found, refused at payment or kept at their
+    /// issuer's door, within the memory of takings (M10d slice EK, third part): what a law
+    /// against counterfeiting answers.
+    FalseNotesFound,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 40] = [
+    pub const ALL: [IssueKind; 41] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -499,6 +509,7 @@ impl IssueKind {
         IssueKind::NotesRefused,
         IssueKind::WorkUnpaid,
         IssueKind::StoreNotesRefused,
+        IssueKind::FalseNotesFound,
     ];
 
     /// The authored name.
@@ -544,6 +555,7 @@ impl IssueKind {
             IssueKind::NotesRefused => "notes_refused",
             IssueKind::WorkUnpaid => "work_unpaid",
             IssueKind::StoreNotesRefused => "store_notes_refused",
+            IssueKind::FalseNotesFound => "false_notes_found",
         }
     }
 
@@ -624,6 +636,7 @@ impl IssueKind {
             IssueKind::StoreNotesRefused => {
                 "the store could not pay its notes in the good they promise"
             }
+            IssueKind::FalseNotesFound => "false notes were found passed among its households",
         }
     }
 }
@@ -2010,6 +2023,13 @@ pub fn law_words(
             law.sanction.words()
         );
     }
+    if def.is_some_and(|d| d.kind == PolicyKind::AgainstCounterfeiting) {
+        return format!(
+            "a law against counterfeiting: whoever is found to have passed false notes answers \
+             for them{}",
+            law.sanction.words()
+        );
+    }
     // Without the settlement at hand (see [`Polity::words_of`]), only who leads it.
     if def.is_some_and(|d| d.kind == PolicyKind::SendBand) {
         let who = law.holder.map_or_else(|| "someone".to_owned(), name_of);
@@ -2147,6 +2167,7 @@ pub fn ending_words(
         Some(PolicyKind::IssueNotes) => "the store's notes".to_owned(),
         Some(PolicyKind::LegalTender) => "the store's notes as legal tender".to_owned(),
         Some(PolicyKind::SuspendRedemption) => "the suspension of the store's notes".to_owned(),
+        Some(PolicyKind::AgainstCounterfeiting) => "the law against counterfeiting".to_owned(),
         Some(PolicyKind::Licence) => "the licence to tend the sick for pay".to_owned(),
         Some(PolicyKind::KeepApart) => "the keeping apart of the sick".to_owned(),
         Some(PolicyKind::AgainstTaking) => "the law against taking".to_owned(),

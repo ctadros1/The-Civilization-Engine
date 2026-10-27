@@ -569,6 +569,8 @@ pub const SCHEMA_V215: u32 = 215;
 pub const SCHEMA_V216: u32 = 216;
 /// False notes made, before they were told apart.
 pub const SCHEMA_V217: u32 = 217;
+/// False notes told apart, before their finders were kept.
+pub const SCHEMA_V218: u32 = 218;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

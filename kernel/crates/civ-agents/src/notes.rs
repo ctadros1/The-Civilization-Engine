@@ -78,6 +78,12 @@ pub struct FalseFound {
     pub kept: bool,
     /// Whether the passer has counted it as a refusal of notes yet.
     pub heard: bool,
+    /// The one that told them apart: the payee that refused them or their issuer that kept them
+    /// (M10d slice EK, third part); none for those found before it was kept.
+    pub finder: Option<PermanentId>,
+    /// Whether the finder has weighed bringing a case for them under a law against
+    /// counterfeiting yet (third part).
+    pub brought: bool,
 }
 
 /// Every issue of notes and every purse holding any (saved).

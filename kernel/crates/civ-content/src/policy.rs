@@ -951,10 +951,11 @@ impl PolicyFile {
                                 | PolicyKind::AgainstRaiding
                                 | PolicyKind::Privilege
                                 | PolicyKind::Plan
+                                | PolicyKind::AgainstCounterfeiting
                         )
                     ) {
                         p.push(format!(
-                            "`forum.hears` names `{h}`; cases are brought under `against_taking`, `against_raiding`, `privilege` and `plan`"
+                            "`forum.hears` names `{h}`; cases are brought under `against_taking`, `against_raiding`, `privilege`, `plan` and `against_counterfeiting`"
                         ));
                     }
                 }
@@ -1562,8 +1563,10 @@ impl PolicyFile {
                 ));
             }
             Some(
-                k
-                @ (PolicyKind::AgainstTaking | PolicyKind::AgainstRaiding | PolicyKind::Privilege),
+                k @ (PolicyKind::AgainstTaking
+                | PolicyKind::AgainstRaiding
+                | PolicyKind::Privilege
+                | PolicyKind::AgainstCounterfeiting),
             ) => {
                 if !self.levy_shares.is_empty() || self.relief_days != 0.0 {
                     p.push(format!(
@@ -1763,11 +1766,13 @@ impl PolicyFile {
                     | PolicyKind::AgainstRaiding
                     | PolicyKind::Privilege
                     | PolicyKind::Plan
+                    | PolicyKind::AgainstCounterfeiting
             )
         ) && !self.bundles.is_empty()
         {
             p.push(
-                "only an `against_taking`, `against_raiding`, `privilege` or `plan` policy has \
+                "only an `against_taking`, `against_raiding`, `privilege`, `plan` or \
+                 `against_counterfeiting` policy has \
                  `bundles`"
                     .to_owned(),
             );

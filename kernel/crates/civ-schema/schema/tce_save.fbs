@@ -3966,7 +3966,8 @@ table ForgerySave {
 
 // False pieces told apart (schema 218, M10d slice EK, second part): the day, the false issue, the
 // household that paid or presented them, the pieces, whether their issuer kept them (else a payee
-// refused them), and whether the passer has counted it yet.
+// refused them), and whether the passer has counted it yet. Schema 219 (third part): who told them
+// apart (0 before), and whether they have weighed bringing a case for them.
 table FalseFoundSave {
   day: long (id: 0);
   forgery: uint (id: 1);
@@ -3974,6 +3975,8 @@ table FalseFoundSave {
   pieces: double (id: 3);
   kept: bool (id: 4);
   heard: bool (id: 5);
+  finder: ulong (id: 6);
+  brought: bool (id: 7);
 }
 
 table ConsignmentsSave {

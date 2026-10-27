@@ -7620,6 +7620,35 @@ and M6a gives rivers a daily flow.
       they are kept, nothing paid, the false issue three fewer; each passer then believes notes
       less taken. **Not built yet:** a law against counterfeiting, which hears finds as takings,
       and the observer of false notes (part 3).
+      *As built, third part (2026-10-27): a law against counterfeiting; EK done.* False notes
+      found within the memory of takings, passed or found by a polity's households or kept by its
+      store, are an issue of the polity (`false_notes_found`, appended), and only then may anyone
+      propose a law against counterfeiting (`against_counterfeiting`, appended; template
+      `zealously_write_against_forgery`, content API 200): a law against taking's bundles without
+      restitution alone, as nothing was taken from the finder. A find now keeps its finder (the
+      payee that refused it, or the issuer that kept it) and whether it was brought (saves 219).
+      Under the law a finding household weighs each find once, as a breach of a privilege is
+      weighed: its grown members who know the law weigh the bundle's compensation, in days of
+      their food, against the cost of bringing a case and their regard for the passer's elder;
+      the one with most to gain brings the passer before the gathering, which hears it as a
+      breach (nothing to give back) and a finding owes the bundle. Households weigh the law by
+      the compensation for finds of their own against the whole bundle for finds they passed.
+      One who would make false notes and knows the law weighs its bundle, as days of food, beside
+      the chance they believe of being found. A market's summary counts the false pieces found
+      where their passer or finder lives, refused at payment and kept at their issuer's door.
+      **Tested:** the issue is there only once false notes are found; without the law nobody
+      brings the passer; under it the keeper's household brings it once, and the gathering's
+      finding owes three days' food to the finder and three to the store, nothing as
+      restitution; the summary counts the three refused; finds save and load with their finder;
+      a forger who knows a law with exile weighs making them well below one who does not; the
+      template loads with its bundles. **Not built:** a store that kept false pieces brings
+      nobody (no household was owed); a finding does not raise the cost of the issue's mark (a
+      costlier mark on a new issue, brief §7, deferred). **Found on the way (not EK's):** in the
+      sowing window a household's fuel shortage loses to field work, so households can sit
+      without firewood for days, and smoke's firewood check fails on a rare world (ria_coast
+      seed 1, identity `2a8290890b6c9197770f94fd618adee3`); counting fuel that will not last the
+      day twice over fixes it but moves fifteen scenario tests that choose their actors from the
+      unfolding world, which are to be reworked first.
     - **EL**: the M10 demo, time-boxed, nudges logged.
 
 **Post-v1 (ordered, not sized):**

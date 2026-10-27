@@ -399,6 +399,11 @@ impl Population {
                     if let Some(f) = self.notes.forgeries.iter_mut().find(|f| f.id == issue) {
                         f.count = (f.count - pieces).max(0.0);
                     }
+                    let finder = self
+                        .notes
+                        .forgery(issue)
+                        .and_then(|f| self.notes.issue(f.of))
+                        .map(|c| c.issuer);
                     self.notes.found.push(crate::notes::FalseFound {
                         day,
                         forgery: issue,
@@ -406,6 +411,8 @@ impl Population {
                         pieces,
                         kept: true,
                         heard: false,
+                        finder,
+                        brought: false,
                     });
                 }
                 continue;

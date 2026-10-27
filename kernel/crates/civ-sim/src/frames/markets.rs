@@ -597,7 +597,8 @@ pub fn custody_words(sim: &Sim, s: PermanentId) -> String {
 /// Settlement `s`'s notes in words (M10d slice EH, third part): for each keeper of it whose notes
 /// are out or were presented, whose they are and in what, the pieces out against the kilograms
 /// kept behind them, and the pieces presented and refused; what it wrote of them as loans, and
-/// until when it pays none (slice EI). Empty where no keeper here wrote any.
+/// until when it pays none (slice EI); and the false pieces told apart here (slice EK). Empty where
+/// no keeper here wrote any and no false piece was found.
 pub fn notes_words(sim: &Sim, s: PermanentId) -> String {
     let goods = &sim.rules.catalog.goods;
     let people = &sim.people;
@@ -669,6 +670,35 @@ pub fn notes_words(sim: &Sim, s: PermanentId) -> String {
                 ))
             ));
         }
+    }
+    // False notes told apart where their passer or their finder lives, within the memory of
+    // takings (M10d slice EK, third part): refused at payment, and kept at their issuer's door.
+    let here = |id: PermanentId| {
+        people.household(id).map_or_else(
+            || {
+                people
+                    .polities
+                    .iter()
+                    .any(|p| p.id == id && p.settlement == s)
+            },
+            |x| x.settlement == Some(s),
+        )
+    };
+    let (mut refused, mut kept) = (0.0, 0.0);
+    for f in &people.notes.found {
+        if here(f.passer) || f.finder.is_some_and(here) {
+            if f.kept {
+                kept += f.pieces;
+            } else {
+                refused += f.pieces;
+            }
+        }
+    }
+    if refused + kept > 1e-6 {
+        out.push(format!(
+            "False notes found: {refused:.0} refused at payment, {kept:.0} kept at their \
+             issuer's door."
+        ));
     }
     out.join(" ")
 }

@@ -414,8 +414,28 @@ impl Population {
         };
         let found = share.max(f64::from(maker.risk_seen)).clamp(0.0, 1.0);
         let daring = (-cp.w_risk_trait * f64::from(maker.traits.risk)).exp();
-        let points =
-            FORGE_NEED_POINTS * short - cp.w_objection * objection - cp.w_seen * found * daring;
+        // A law against counterfeiting in force where it lives, as the maker knows it (M10d
+        // slice EK, third part): its bundle, in days of its own food at the points a day is worth
+        // in a dispute, if found.
+        let bundle = hh
+            .settlement
+            .and_then(|s| self.polity_of(s))
+            .and_then(|pi| {
+                self.polities[pi]
+                    .in_force(
+                        &ctx.catalog.policies,
+                        crate::polity::PolicyKind::AgainstCounterfeiting,
+                    )
+                    .find(|l| l.knows(maker.id))
+                    .map(|l| l.sanction)
+            })
+            .map_or(0.0, |s| {
+                let exile = if s.exile { cp.exile_days } else { 0.0 };
+                cp.w_demand_loss * (f64::from(s.compensation_days) + f64::from(s.fine_days) + exile)
+            });
+        let points = FORGE_NEED_POINTS * short
+            - cp.w_objection * objection
+            - (cp.w_seen + bundle) * found * daring;
         Some((of, pieces, points))
     }
 
@@ -430,6 +450,198 @@ impl Population {
             return;
         };
         self.put_forged(note, maker, of, pieces);
+    }
+
+    /// False pieces told apart within the memory of takings that a household of polity `pi`
+    /// passed or found, or its store kept (M10d slice EK, third part).
+    pub(super) fn false_found_in<'a>(
+        &'a self,
+        ctx: &Ctx,
+        pi: usize,
+    ) -> impl Iterator<Item = &'a crate::notes::FalseFound> + 'a {
+        let since = ctx.now.day_index() - i64::from(ctx.params.crime.remember_days);
+        let polity = &self.polities[pi];
+        let of = move |id: PermanentId| {
+            id == polity.id
+                || self
+                    .household(id)
+                    .is_some_and(|x| polity.holds(x.settlement))
+        };
+        self.notes
+            .found
+            .iter()
+            .filter(move |f| f.day >= since && (of(f.passer) || f.finder.is_some_and(of)))
+    }
+
+    /// Whether a household that found false notes brings a case against their passer under a
+    /// law against counterfeiting in force in polity `pi` (M10d slice EK, third part; brief §7:
+    /// "A refused or kept piece is an incident, its passer known"), as a member of an
+    /// organization brings a breach of its privilege (M7c slice BX): each find is weighed once,
+    /// by its finder's grown members who know the law, V the bundle's compensation in days of
+    /// their household's food at the points a day is worth in a dispute, C the cost of bringing a
+    /// case and their regard for the passer's elder. The one with the most to gain, if anyone,
+    /// brings it. A store that kept false pieces has no household to bring them.
+    pub(super) fn weigh_counterfeits(&mut self, ctx: &mut Ctx, pi: usize) {
+        let (now, params) = (ctx.now, ctx.params);
+        let (pp, cp, day) = (&params.polity, &params.crime, now.day_index());
+        let Some((law_id, sanction)) = self.polities[pi]
+            .in_force(
+                &ctx.catalog.policies,
+                crate::polity::PolicyKind::AgainstCounterfeiting,
+            )
+            .next()
+            .map(|l| (l.id, l.sanction))
+        else {
+            return;
+        };
+        let due: Vec<usize> = {
+            let since = day - i64::from(cp.remember_days);
+            let polity = &self.polities[pi];
+            self.notes
+                .found
+                .iter()
+                .enumerate()
+                .filter(|(_, f)| !f.brought && f.day >= since)
+                .filter(|(_, f)| {
+                    f.finder
+                        .and_then(|h| self.household(h))
+                        .is_some_and(|x| polity.holds(x.settlement))
+                })
+                .map(|(i, _)| i)
+                .collect()
+        };
+        for i in due {
+            self.notes.found[i].brought = true;
+            let (finder, passer) = {
+                let f = &self.notes.found[i];
+                (f.finder.unwrap_or(f.passer), f.passer)
+            };
+            let open = self.order.cases.iter().any(|c| {
+                c.law == law_id
+                    && c.accused_household == passer
+                    && c.stage == crate::crime::CaseStage::Open
+            });
+            let Some(accused) = self
+                .elder_of(passer, now, params)
+                .filter(|_| !open && passer != finder)
+            else {
+                continue;
+            };
+            let compensation =
+                f64::from(sanction.compensation_days) * self.day_need(passer, params);
+            let v = cp.w_demand_loss * compensation / self.day_need(finder, params);
+            let law = self.polities[pi].laws.iter().find(|l| l.id == law_id);
+            let members: Vec<PermanentId> = self
+                .household(finder)
+                .map(|x| x.members.clone())
+                .unwrap_or_default();
+            let mut best: Option<(f64, PermanentId)> = None;
+            for m in members {
+                let grown = self
+                    .person(m)
+                    .is_some_and(|p| p.age_years(now) >= params.family.independent_age);
+                if !grown || !law.is_some_and(|l| l.knows(m)) {
+                    continue;
+                }
+                let regard = self
+                    .ties
+                    .regard(m, accused, day, &params.ties)
+                    .clamp(0.0, 1.0);
+                let u = v - cp.report_cost - pp.w_regard * regard;
+                if u > 0.0 && best.is_none_or(|b| u > b.0) {
+                    best = Some((u, m));
+                }
+            }
+            let Some((_, by)) = best else {
+                continue;
+            };
+            let settlement = self.polities[pi].settlement;
+            let id = self.order.cases.last().map_or(1, |c| c.id + 1);
+            self.order.cases.push(crate::crime::Case {
+                id,
+                incident: 0,
+                settlement,
+                law: law_id,
+                accuser: finder,
+                by,
+                accused,
+                accused_household: passer,
+                kcal: 0.0,
+                leads: vec![by],
+                opened: day,
+                stage: crate::crime::CaseStage::Open,
+                heard: None,
+                eligible: 0,
+                stances: Vec::new(),
+                exiled: false,
+                forum: None,
+                challenge: None,
+                tags: 0,
+                departed: None,
+                loan: None,
+                building: None,
+            });
+            let (place, name) = ctx
+                .land
+                .settlements
+                .iter()
+                .find(|s| s.id == settlement)
+                .map_or((None, String::new()), |s| {
+                    (Some(s.hearth_m), s.name.clone())
+                });
+            let words = format!(
+                "brought a case at {name} against {}'s household for passing false notes.",
+                self.name_of(accused),
+            );
+            self.chronicle_push(
+                now,
+                ChronicleKind::CaseBrought,
+                vec![by, accused],
+                Some(settlement),
+                place,
+                0.0,
+                words,
+            );
+        }
+    }
+
+    /// Whether polity `pi` faces false notes found ([`Self::false_found_in`]), the issue a law
+    /// against counterfeiting answers: for tests.
+    #[doc(hidden)]
+    pub fn false_notes_found_for_tests(&self, ctx: &Ctx, pi: usize) -> bool {
+        self.false_found_in(ctx, pi).next().is_some()
+    }
+
+    /// Whether a household that found false notes brings a case for them
+    /// ([`Self::weigh_counterfeits`]), whatever day it is: for tests.
+    #[doc(hidden)]
+    pub fn weigh_counterfeits_for_tests(&mut self, ctx: &mut Ctx, pi: usize) {
+        self.weigh_counterfeits(ctx, pi);
+    }
+
+    /// How many finds of false notes within the memory of takings each of `households` made and
+    /// passed, in household order (M10d slice EK, third part): what a law against counterfeiting
+    /// would bring and cost it.
+    pub(super) fn counterfeit_stakes(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        households: &[PermanentId],
+    ) -> Vec<(PermanentId, u32, u32)> {
+        let mut out: Vec<(PermanentId, u32, u32)> = households.iter().map(|&h| (h, 0, 0)).collect();
+        out.sort_by_key(|x| x.0);
+        for f in self.false_found_in(ctx, pi) {
+            if let Some(i) = f
+                .finder
+                .and_then(|h| out.binary_search_by_key(&h, |x| x.0).ok())
+            {
+                out[i].1 += 1;
+            }
+            if let Ok(i) = out.binary_search_by_key(&f.passer, |x| x.0) {
+                out[i].2 += 1;
+            }
+        }
+        out
     }
 
     /// Each passer of false pieces told apart not yet heard of counts it as a payment in notes

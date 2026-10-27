@@ -7463,6 +7463,59 @@ and M6a gives rivers a daily flow.
       holder refused may bring the keeper before the gathering (with runs, slice EI); notes of
       a polity's own issue (EJ); a household valuing a keeper of another settlement's notes.
     - **EI**: keepers issuing beyond backing, presentations and runs, suspension.
+      *As built, first part (2026-10-26): lending in notes.* A keeper whose notes in a food are
+      out lends in them by its own choice (ADR-0027 §4): in the weighing of borrowing it is a
+      lender of what it may write while what is behind its notes stays at least
+      `market.note_coverage` of what the pieces out pay (a content prior of 40 %, the top of
+      08-07 §2.3's prudence range; content API 194), chosen over its spare food when that is more,
+      and weighed by the same rule as a loan in grain (belief of repayment, terms, pledges). The
+      loan is written into its own purse and paid to the borrower on `Lent`, a recorded act that
+      raises what it owes, and the claim is booked in the good its notes are redeemed in (a design
+      reading of brief §4's claim in notes: the borrower repays grain, which the keeper keeps).
+      What is behind an issue is the goods left with its keeper backing its notes and the
+      keeper's own beyond what it keeps, which it pays presentations with once those run out, so
+      repaid loans pay later presentations. The issue counts the pieces lent (saves 212).
+      **Tested:** a keeper with no provisions of its own may lend what keeps its coverage at the
+      prior and no more, writes them on `Lent` and owes them; the borrower, short of food,
+      presents them and is paid from what others left; with that gone, from the keeper's own; in
+      a village a keeper with notes out and no grain to spare lends in notes, owed in grain, within
+      its coverage, its grain untouched.
+      *As built, second part (2026-10-27): runs and suspension.* A holder presents every piece of
+      an issue at its review when its settlement heard within the month that the keeper refused,
+      or that a debtor of its loans in those notes defaulted (the issue records the day), or saw
+      more than a tenth of the pieces out presented at the keeper's door within the week (a design
+      prior for ADR-0027 §4's "seeing others withdraw"; the issue counts the week's pieces). Once
+      the keeper has lent in them, a piece is worth its good times the paid share times what the
+      settlement sees behind the pieces out (the goods left with the keeper and the keeper's own,
+      at most all of it). A keeper living that refused any piece suspends for 30 days (a design
+      prior), refusing every piece presented, unless what is behind them again covers every piece
+      out, which lifts it; payment order stays drawn per issue and day. Nothing forces a
+      suspension or rescues a keeper (brief §11). Saves 213. **Tested:** a fed holder keeps its
+      pieces until it sees a tenth presented this week, or hears of a default, then presents them
+      all; with 5 kg behind ten pieces the keeper pays five, refuses five and suspends, refuses
+      all while short, and pays and lifts the suspension once covered; after lending to its
+      coverage a piece is worth that share of its good, less the same walk; a debtor of a loan in
+      notes who defaults marks the issue on the day it fails.
+      *As built, third part (2026-10-27): bearer heard and the observer; EI done.* An appended
+      policy kind and template, *bearer heard* (content API 195), answering an appended issue,
+      notes refused (brief §4: "A law makes notes pass ... as *debts heard* does for loans"). With
+      it in force where the keeper lives, pieces of its notes refused at its door, for want of
+      what is behind them or while it suspends, stand as what it owes their holder: they are
+      retired from the holder's purse and booked in the credit book as a loan of their good
+      refused that day (so the liability is counted once), listed as dishonoured notes (saves
+      214). The gathering hears them as it hears unpaid loans under debts heard, by the same
+      weighing, under the bearer heard law and not the other; the finding imposes what is still
+      owed, met as any finding is, and its words and the chronicle say notes refused. A household
+      weighs the law by what it is owed and owes on refused notes, as on unpaid loans. Without
+      it, refused notes stay with their holder, owed and unheard. A market's summary adds what a
+      keeper wrote of its notes as loans and, while it suspends, until when it pays none.
+      **Tested:** without the law, 2000 pieces refused stay with their holder; with it, they are
+      retired and booked as 2000 kg of grain the keeper owes, brought before the gathering under
+      that law, a finding imposes them, and the world saves and loads its notes exactly; the
+      template answers notes refused and imposes; the summary names loans written and a
+      suspension. **Slice EI is done.** **Not built:** a run's payment order by the issuer's law
+      (it stays drawn per issue and day); a forum of its own for notes; another settlement's notes
+      valued at all (EJ's question of a polity's notes passing between polities).
     - **EJ**: a polity's notes: issue within a ceiling, dues in notes, legal tender, suspended
       redemption and the derived fiat label.
     - **EK**: counterfeiting.

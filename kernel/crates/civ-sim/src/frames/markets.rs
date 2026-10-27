@@ -596,7 +596,8 @@ pub fn custody_words(sim: &Sim, s: PermanentId) -> String {
 
 /// Settlement `s`'s notes in words (M10d slice EH, third part): for each keeper of it whose notes
 /// are out or were presented, whose they are and in what, the pieces out against the kilograms
-/// kept behind them, and the pieces presented and refused. Empty where no keeper here wrote any.
+/// kept behind them, and the pieces presented and refused; what it wrote of them as loans, and
+/// until when it pays none (slice EI). Empty where no keeper here wrote any.
 pub fn notes_words(sim: &Sim, s: PermanentId) -> String {
     let goods = &sim.rules.catalog.goods;
     let people = &sim.people;
@@ -629,6 +630,18 @@ pub fn notes_words(sim: &Sim, s: PermanentId) -> String {
              presented, {:.0} refused.",
             c.count, c.presented, c.refused
         ));
+        // What it lent in them, and its suspension while it lasts (M10d slice EI, third part).
+        if c.lent > 1e-6 {
+            out.push(format!("It wrote {:.0} of them as loans.", c.lent));
+        }
+        if c.suspended_until > sim.now().day_index() {
+            out.push(format!(
+                "It pays none of them until {}.",
+                civ_agents::polity::day_words(civ_core::SimTime::from_minutes(
+                    c.suspended_until * 24 * 60
+                ))
+            ));
+        }
     }
     out.join(" ")
 }

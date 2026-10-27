@@ -894,3 +894,219 @@ fn under_lending_from_the_store_a_short_household_borrows_from_it_and_repays_int
         "{words:?}"
     );
 }
+
+/// The village's lender made a keeper: no grain of its own to spare, 3000 kg left with it by
+/// another household whose notes for it are out. The issue's number.
+fn keeper_of_notes(sc: &mut Scene) -> u32 {
+    let note = sc
+        .sim
+        .rules()
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/note")
+        .expect("notes");
+    // The lender holds no grain to spare but keeps 3000 kg left with it by another household,
+    // whose notes for it are out.
+    feed(&mut sc.sim, sc.lender, 0.0);
+    let depositor = sc
+        .sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .find(|h| !h.members.is_empty() && h.id != sc.lender && h.id != sc.borrower)
+        .map(|h| h.id)
+        .expect("another household");
+    let (now, goods) = (sc.sim.now(), sc.sim.rules().catalog.goods.len());
+    let lot = PermanentId::from_raw(u64::MAX - 7).expect("an id");
+    let pop = sc.sim.people_mut_for_tests();
+    let mut kept = civ_agents::custody::Kept::new(lot, (depositor, sc.lender), now, goods);
+    kept.stores[sc.grain] = 3000.0;
+    kept.noted = true;
+    pop.kept.push(kept);
+    let issue = pop
+        .notes
+        .write(sc.lender, (sc.grain, 1.0), 3000.0, depositor);
+    for (_, x) in pop.households.iter_mut() {
+        if x.id == depositor {
+            x.stores[note] += 3000.0;
+        }
+    }
+    issue
+}
+
+#[test]
+fn a_keeper_whose_notes_are_out_lends_in_them_and_keeps_its_grain() {
+    let mut sc = village();
+    let issue = keeper_of_notes(&mut sc);
+    weigh(&mut sc.sim);
+    let (_, c) = loan_of(&sc.sim, sc.borrower);
+    assert_eq!(c.creditor, sc.lender);
+    // Owed in the grain its notes pay; lent in its notes, written for the borrower.
+    assert_eq!(usize::from(c.good), sc.grain);
+    let lent = f64::from(c.lent);
+    assert!(lent > 1.0);
+    let notes = &sc.sim.people().notes;
+    assert!((notes.held(sc.borrower, issue) - lent).abs() < 1e-3);
+    let i = notes.issue(issue).expect("issue");
+    assert!((i.lent - lent).abs() < 1e-3 && (i.count - 3000.0 - lent).abs() < 1e-3);
+    assert!(
+        grain_of(&sc.sim, sc.lender, sc.grain).abs() < 1e-9,
+        "no grain lent"
+    );
+    // Within what its coverage lets it write.
+    let coverage = sc.sim.rules().people.market.note_coverage;
+    assert!(lent <= 3000.0 / coverage - 3000.0 + 1e-3);
+}
+
+#[test]
+fn a_debtor_of_a_loan_in_notes_defaulting_is_heard_of_on_the_issue() {
+    let mut sc = village();
+    let issue = keeper_of_notes(&mut sc);
+    let cp = credit(&mut sc.sim);
+    cp.pay_base = 50.0;
+    cp.max_extensions = 0;
+    weigh(&mut sc.sim);
+    let (_, c) = loan_of(&sc.sim, sc.borrower);
+    assert_eq!(c.creditor, sc.lender);
+    let issue_of = |sim: &Sim| sim.people().notes.issue(issue).expect("issue").clone();
+    assert_eq!(issue_of(&sc.sim).defaulted_day, -1);
+    feed(&mut sc.sim, sc.borrower, 0.0);
+    let grace = i64::from(sc.sim.rules().people.credit.grace_days);
+    repay(&mut sc.sim, c.due);
+    repay(&mut sc.sim, c.due + grace + 1);
+    assert_eq!(
+        loan_of(&sc.sim, sc.borrower).1.standing,
+        Standing::Defaulted
+    );
+    assert_eq!(issue_of(&sc.sim).defaulted_day, c.due + grace + 1);
+}
+
+/// The village's keeper of notes (`keeper_of_notes`) with only 1000 kg left behind its 3000
+/// pieces, and their holder presenting every one at its door, as on hearing of a default: what
+/// it refused, and the holder.
+fn refuse_notes(sc: &mut Scene, issue: u32) -> (f64, PermanentId) {
+    let holder = sc.sim.people().notes.purses[0].holder;
+    let today = sc.sim.now().day_index();
+    let pop = sc.sim.people_mut_for_tests();
+    pop.kept[0].stores[sc.grain] = 1000.0;
+    pop.notes.issue_mut(issue).expect("issue").defaulted_day = today;
+    sc.sim
+        .with_ctx_for_tests(|pop, ctx| pop.notes_review_for_tests(ctx, holder));
+    let c = sc.sim.people().notes.issue(issue).expect("issue").clone();
+    (c.refused, holder)
+}
+
+#[test]
+fn under_bearer_heard_notes_refused_become_a_debt_the_gathering_hears() {
+    // Without the law, the refused pieces stay with their holder, owed and unheard.
+    let mut sc = village();
+    let issue = keeper_of_notes(&mut sc);
+    let (refused, holder) = refuse_notes(&mut sc, issue);
+    assert!((refused - 2000.0).abs() < 1e-6, "{refused}");
+    assert!((sc.sim.people().notes.held(holder, issue) - 2000.0).abs() < 1e-6);
+    assert!(sc.sim.people().notes.dishonoured.is_empty());
+    // With it in force where the keeper lives, they are retired and booked as what the keeper
+    // owes their holder, in grain, refused today.
+    let mut sc = village();
+    let issue = keeper_of_notes(&mut sc);
+    let law = law_in_force(
+        &mut sc.sim,
+        sc.lender,
+        "core:policy/bearer_heard",
+        civ_agents::polity::IssueKind::NotesRefused,
+    );
+    let (refused, holder) = refuse_notes(&mut sc, issue);
+    assert!((refused - 2000.0).abs() < 1e-6, "{refused}");
+    assert!(sc.sim.people().notes.held(holder, issue) < 1e-9, "retired");
+    assert!(sc.sim.people().notes.issue(issue).expect("issue").count < 1e-6);
+    let claim = sc
+        .sim
+        .people()
+        .order
+        .credit
+        .claims
+        .iter()
+        .find(|c| c.creditor == holder && c.debtor == sc.lender)
+        .cloned()
+        .expect("a debt booked");
+    assert_eq!(usize::from(claim.good), sc.grain);
+    assert!((f64::from(claim.owed) - 2000.0).abs() < 1e-3);
+    assert_eq!(claim.standing, Standing::Defaulted);
+    assert!(sc.sim.people().notes.is_dishonoured(claim.id));
+    // The holder's household brings it before the gathering under that law, and the chronicle
+    // says so; debts heard alone would not.
+    let at = sc
+        .sim
+        .people()
+        .household(sc.lender)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let p = sc
+        .sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.settlement == at)
+        .expect("a polity");
+    sc.sim
+        .with_ctx_for_tests(|pop, ctx| pop.weigh_debts_for_tests(ctx, p));
+    let case = sc
+        .sim
+        .people()
+        .order
+        .cases
+        .iter()
+        .find(|c| c.loan == Some(claim.id))
+        .cloned()
+        .expect("the holder's household brought it");
+    assert_eq!(
+        (case.law, case.accuser, case.accused_household),
+        (law, holder, sc.lender)
+    );
+    assert!(
+        sc.sim
+            .people()
+            .chronicle
+            .iter()
+            .any(|e| e.name.contains("for notes it refused at its door")),
+        "the chronicle says it was brought"
+    );
+    // A finding imposes what is still owed.
+    let def = sc
+        .sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .find(|d| d.id == "core:policy/bearer_heard")
+        .and_then(|d| d.debts)
+        .expect("its remedy");
+    let words = sc
+        .sim
+        .with_ctx_for_tests(|pop, ctx| pop.debt_found_for_tests(ctx, claim.id, case.id, def));
+    assert_eq!(words, ", which the finding imposes");
+    assert!(
+        sc.sim
+            .people()
+            .order
+            .obligations
+            .iter()
+            .any(|o| o.debtor == sc.lender && o.beneficiary == holder && o.kcal > 0.0),
+        "an obligation imposed"
+    );
+    // A world with it saves and loads exactly.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(
+        &mut sc.sim,
+        &saves,
+        commons_persist::SaveKind::Manual,
+        "bearer",
+    )
+    .expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.people().notes, sc.sim.people().notes);
+}

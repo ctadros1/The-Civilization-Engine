@@ -67245,6 +67245,11 @@ impl<'a> NoteIssueSave<'a> {
   pub const VT_PRESENTED: ::flatbuffers::VOffsetT = 14;
   pub const VT_REFUSED: ::flatbuffers::VOffsetT = 16;
   pub const VT_REFUSED_DAY: ::flatbuffers::VOffsetT = 18;
+  pub const VT_LENT: ::flatbuffers::VOffsetT = 20;
+  pub const VT_DEFAULTED_DAY: ::flatbuffers::VOffsetT = 22;
+  pub const VT_SEEN: ::flatbuffers::VOffsetT = 24;
+  pub const VT_SEEN_DAY: ::flatbuffers::VOffsetT = 26;
+  pub const VT_SUSPENDED_UNTIL: ::flatbuffers::VOffsetT = 28;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -67256,6 +67261,11 @@ impl<'a> NoteIssueSave<'a> {
     args: &'args NoteIssueSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<NoteIssueSave<'bldr>> {
     let mut builder = NoteIssueSaveBuilder::new(_fbb);
+    builder.add_suspended_until(args.suspended_until);
+    builder.add_seen_day(args.seen_day);
+    builder.add_seen(args.seen);
+    builder.add_defaulted_day(args.defaulted_day);
+    builder.add_lent(args.lent);
     builder.add_refused_day(args.refused_day);
     builder.add_refused(args.refused);
     builder.add_presented(args.presented);
@@ -67324,6 +67334,41 @@ impl<'a> NoteIssueSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(NoteIssueSave::VT_REFUSED_DAY, Some(-1)).unwrap()}
   }
+  #[inline]
+  pub fn lent(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(NoteIssueSave::VT_LENT, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn defaulted_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(NoteIssueSave::VT_DEFAULTED_DAY, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn seen(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(NoteIssueSave::VT_SEEN, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn seen_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(NoteIssueSave::VT_SEEN_DAY, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn suspended_until(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(NoteIssueSave::VT_SUSPENDED_UNTIL, Some(-1)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for NoteIssueSave<'_> {
@@ -67340,6 +67385,11 @@ impl ::flatbuffers::Verifiable for NoteIssueSave<'_> {
      .visit_field::<f64>("presented", Self::VT_PRESENTED, false)?
      .visit_field::<f64>("refused", Self::VT_REFUSED, false)?
      .visit_field::<i64>("refused_day", Self::VT_REFUSED_DAY, false)?
+     .visit_field::<f64>("lent", Self::VT_LENT, false)?
+     .visit_field::<i64>("defaulted_day", Self::VT_DEFAULTED_DAY, false)?
+     .visit_field::<f64>("seen", Self::VT_SEEN, false)?
+     .visit_field::<i64>("seen_day", Self::VT_SEEN_DAY, false)?
+     .visit_field::<i64>("suspended_until", Self::VT_SUSPENDED_UNTIL, false)?
      .finish();
     Ok(())
   }
@@ -67353,6 +67403,11 @@ pub struct NoteIssueSaveArgs<'a> {
     pub presented: f64,
     pub refused: f64,
     pub refused_day: i64,
+    pub lent: f64,
+    pub defaulted_day: i64,
+    pub seen: f64,
+    pub seen_day: i64,
+    pub suspended_until: i64,
 }
 impl<'a> Default for NoteIssueSaveArgs<'a> {
   #[inline]
@@ -67366,6 +67421,11 @@ impl<'a> Default for NoteIssueSaveArgs<'a> {
       presented: 0.0,
       refused: 0.0,
       refused_day: -1,
+      lent: 0.0,
+      defaulted_day: -1,
+      seen: 0.0,
+      seen_day: -1,
+      suspended_until: -1,
     }
   }
 }
@@ -67408,6 +67468,26 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> NoteIssueSaveBuilder<'a, 'b, 
     self.fbb_.push_slot::<i64>(NoteIssueSave::VT_REFUSED_DAY, refused_day, -1);
   }
   #[inline]
+  pub fn add_lent(&mut self, lent: f64) {
+    self.fbb_.push_slot::<f64>(NoteIssueSave::VT_LENT, lent, 0.0);
+  }
+  #[inline]
+  pub fn add_defaulted_day(&mut self, defaulted_day: i64) {
+    self.fbb_.push_slot::<i64>(NoteIssueSave::VT_DEFAULTED_DAY, defaulted_day, -1);
+  }
+  #[inline]
+  pub fn add_seen(&mut self, seen: f64) {
+    self.fbb_.push_slot::<f64>(NoteIssueSave::VT_SEEN, seen, 0.0);
+  }
+  #[inline]
+  pub fn add_seen_day(&mut self, seen_day: i64) {
+    self.fbb_.push_slot::<i64>(NoteIssueSave::VT_SEEN_DAY, seen_day, -1);
+  }
+  #[inline]
+  pub fn add_suspended_until(&mut self, suspended_until: i64) {
+    self.fbb_.push_slot::<i64>(NoteIssueSave::VT_SUSPENDED_UNTIL, suspended_until, -1);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> NoteIssueSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     NoteIssueSaveBuilder {
@@ -67433,6 +67513,11 @@ impl ::core::fmt::Debug for NoteIssueSave<'_> {
       ds.field("presented", &self.presented());
       ds.field("refused", &self.refused());
       ds.field("refused_day", &self.refused_day());
+      ds.field("lent", &self.lent());
+      ds.field("defaulted_day", &self.defaulted_day());
+      ds.field("seen", &self.seen());
+      ds.field("seen_day", &self.seen_day());
+      ds.field("suspended_until", &self.suspended_until());
       ds.finish()
   }
 }
@@ -67456,6 +67541,7 @@ impl<'a> ConsignmentsSave<'a> {
   pub const VT_KEPT: ::flatbuffers::VOffsetT = 6;
   pub const VT_NOTE_ISSUES: ::flatbuffers::VOffsetT = 8;
   pub const VT_NOTE_PURSES: ::flatbuffers::VOffsetT = 10;
+  pub const VT_NOTE_DISHONOURED: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -67467,6 +67553,7 @@ impl<'a> ConsignmentsSave<'a> {
     args: &'args ConsignmentsSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<ConsignmentsSave<'bldr>> {
     let mut builder = ConsignmentsSaveBuilder::new(_fbb);
+    if let Some(x) = args.note_dishonoured { builder.add_note_dishonoured(x); }
     if let Some(x) = args.note_purses { builder.add_note_purses(x); }
     if let Some(x) = args.note_issues { builder.add_note_issues(x); }
     if let Some(x) = args.kept { builder.add_kept(x); }
@@ -67503,6 +67590,13 @@ impl<'a> ConsignmentsSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, PurseSave>>>(ConsignmentsSave::VT_NOTE_PURSES, None)}
   }
+  #[inline]
+  pub fn note_dishonoured(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(ConsignmentsSave::VT_NOTE_DISHONOURED, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for ConsignmentsSave<'_> {
@@ -67515,6 +67609,7 @@ impl ::flatbuffers::Verifiable for ConsignmentsSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<KeptSave>>>>("kept", Self::VT_KEPT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<NoteIssueSave>>>>("note_issues", Self::VT_NOTE_ISSUES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, PurseSave>>>("note_purses", Self::VT_NOTE_PURSES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("note_dishonoured", Self::VT_NOTE_DISHONOURED, false)?
      .finish();
     Ok(())
   }
@@ -67524,6 +67619,7 @@ pub struct ConsignmentsSaveArgs<'a> {
     pub kept: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KeptSave<'a>>>>>,
     pub note_issues: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<NoteIssueSave<'a>>>>>,
     pub note_purses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, PurseSave>>>,
+    pub note_dishonoured: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
 }
 impl<'a> Default for ConsignmentsSaveArgs<'a> {
   #[inline]
@@ -67533,6 +67629,7 @@ impl<'a> Default for ConsignmentsSaveArgs<'a> {
       kept: None,
       note_issues: None,
       note_purses: None,
+      note_dishonoured: None,
     }
   }
 }
@@ -67559,6 +67656,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ConsignmentsSaveBuilder<'a, '
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConsignmentsSave::VT_NOTE_PURSES, note_purses);
   }
   #[inline]
+  pub fn add_note_dishonoured(&mut self, note_dishonoured: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConsignmentsSave::VT_NOTE_DISHONOURED, note_dishonoured);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ConsignmentsSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ConsignmentsSaveBuilder {
@@ -67580,6 +67681,7 @@ impl ::core::fmt::Debug for ConsignmentsSave<'_> {
       ds.field("kept", &self.kept());
       ds.field("note_issues", &self.note_issues());
       ds.field("note_purses", &self.note_purses());
+      ds.field("note_dishonoured", &self.note_dishonoured());
       ds.finish()
   }
 }

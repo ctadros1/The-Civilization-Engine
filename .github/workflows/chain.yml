@@ -20,7 +20,7 @@ on:
       ref:
         description: Branch, tag or commit to verify
         required: true
-        default: claude/adoring-turing-w10ius
+        default: claude/claude-verification
       runner:
         description: JSON list of runner labels
         required: true

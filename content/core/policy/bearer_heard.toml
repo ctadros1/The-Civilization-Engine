@@ -1,0 +1,24 @@
+# Bearer heard (M10d slice EI; ADR-0035 §9-10; brief m10-money §4: "A law makes notes pass ...
+# the gathering or a forum hears a holder's case against an issuer who refused to redeem, as
+# debts heard does for loans"). Under it, pieces of a keeper's notes refused at its door stand as
+# what the keeper owes their holder, in the good they are redeemed in, and the holder may bring
+# the keeper before the gathering, or a forum that hears such cases; a finding imposes what is
+# still owed, met as any finding is. Without it, refused notes stay with their holder, owed and
+# unheard. Whether anyone proposes it and whether a gathering passes it is people's; the share is
+# what households expect a finding to move, a tuning value.
+kind = "policy"
+id = "core:policy/bearer_heard"
+name = "Bearer heard"
+description = "Notes refused at their keeper's door may be brought; a finding imposes what is owed."
+does = "bearer_heard"
+answers = ["notes_refused"]
+question = "whether the gathering hears notes refused at their keeper's door"
+
+[debts]
+remedy = "imposed"
+share = 1.0
+
+# An authoring judgement, not a measurement: as for debts heard.
+[bears]
+"core:value/reciprocity" = 1.0
+"core:value/autonomy" = -0.25

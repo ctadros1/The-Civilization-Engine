@@ -169,6 +169,7 @@ fn laws_words(sim: &Sim) -> Vec<String> {
                     | PolicyKind::Privilege
                     | PolicyKind::AmendBody
                     | PolicyKind::DebtsHeard
+                    | PolicyKind::BearerHeard
                     | PolicyKind::LendFromStore
                     | PolicyKind::Mint
                     | PolicyKind::PayWork

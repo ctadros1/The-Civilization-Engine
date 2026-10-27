@@ -2111,6 +2111,9 @@ pub struct MarketParams {
     /// What a keeper takes each 30 days of what it keeps for another, a share of it (M10d slice
     /// EG, second part; a design prior: the research gives no custody fee).
     pub custody_fee_share: f64,
+    /// What a keeper keeps behind its notes, at least, of what the pieces out pay, when it lends
+    /// in them (M10d slice EI; ADR-0035 §10: a content prior, 08-07 §2.3's prudence 10-40 %).
+    pub note_coverage: f64,
 }
 
 /// Household workshops (slice J, ADR-0006 §5).

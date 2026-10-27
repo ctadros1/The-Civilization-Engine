@@ -191,11 +191,17 @@ pub enum PolicyKind {
     /// m10-services §2.4): a household whose home lies near an open well or a stream carries its
     /// midden away, to a place as far from every source; kept by choice.
     ClearMiddens,
+    /// Bearer heard (M10d slice EI, third part; brief m10-money §4): a holder of a keeper's notes
+    /// refused at its door may bring the keeper before the gathering, or a forum that hears such
+    /// cases, as a creditor brings a loan under [`PolicyKind::DebtsHeard`]: the refused pieces
+    /// become what the keeper owes it, and a finding imposes the template's remedy
+    /// ([`DebtsDef`]). Without it, refused notes stay with their holder, owed and unheard.
+    BearerHeard,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 39] = [
+    pub const ALL: [PolicyKind; 40] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -235,6 +241,7 @@ impl PolicyKind {
         PolicyKind::KeepApart,
         PolicyKind::KeepRegister,
         PolicyKind::ClearMiddens,
+        PolicyKind::BearerHeard,
     ];
 
     /// The authored name.
@@ -279,6 +286,7 @@ impl PolicyKind {
             PolicyKind::KeepApart => "keep_apart",
             PolicyKind::KeepRegister => "keep_register",
             PolicyKind::ClearMiddens => "clear_middens",
+            PolicyKind::BearerHeard => "bearer_heard",
         }
     }
 
@@ -415,11 +423,15 @@ pub enum IssueKind {
     /// sickhouse of its stands or is being raised (M10c slice EE, fourth part): what raising a
     /// sickhouse answers.
     Untended,
+    /// Notes one of their households held were refused at their keeper's door, and the pieces
+    /// stand as what the keeper owes it, unheard (M10d slice EI, third part): what a law of
+    /// bearer heard answers.
+    NotesRefused,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 37] = [
+    pub const ALL: [IssueKind; 38] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -457,6 +469,7 @@ impl IssueKind {
         IssueKind::UnknowingCare,
         IssueKind::Contagion,
         IssueKind::Untended,
+        IssueKind::NotesRefused,
     ];
 
     /// The authored name.
@@ -499,6 +512,7 @@ impl IssueKind {
             IssueKind::UnknowingCare => "unknowing_care",
             IssueKind::Contagion => "contagion",
             IssueKind::Untended => "untended",
+            IssueKind::NotesRefused => "notes_refused",
         }
     }
 
@@ -572,6 +586,9 @@ impl IssueKind {
                 "one of theirs died of a sickness that passes from the sick to those near them"
             }
             IssueKind::Untended => "those severely ill among them lay with nobody to tend them",
+            IssueKind::NotesRefused => {
+                "notes their households held were refused at the keeper's door"
+            }
         }
     }
 }
@@ -2076,6 +2093,7 @@ pub fn ending_words(
         Some(PolicyKind::KeepSchool) => who("keeping of the school"),
         Some(PolicyKind::KeepRegister) => who("keeping of the register of the sick"),
         Some(PolicyKind::ClearMiddens) => "the clearing of middens from the water".to_owned(),
+        Some(PolicyKind::BearerHeard) => "the hearing of refused notes".to_owned(),
         Some(PolicyKind::Licence) => "the licence to tend the sick for pay".to_owned(),
         Some(PolicyKind::KeepApart) => "the keeping apart of the sick".to_owned(),
         Some(PolicyKind::AgainstTaking) => "the law against taking".to_owned(),

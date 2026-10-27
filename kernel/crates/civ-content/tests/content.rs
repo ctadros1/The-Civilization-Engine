@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 193
+kernel_content_api = 195
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -3005,4 +3005,23 @@ fn smallpox_may_be_vaccinated_against_with_matter_only_its_knowers_make() {
             .filter(|x| x.id != d.id)
             .all(|x| x.vaccination.is_none())
     );
+}
+
+#[test]
+fn bearer_heard_hears_notes_refused_and_imposes_what_is_owed() {
+    // M10d slice EI, third part (content API 195): the template answers notes refused at their
+    // keeper's door, and a finding imposes what is still owed, as debts heard does for loans.
+    use civ_agents::polity::{DebtRemedy, IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/bearer_heard")
+        .expect("the bearer heard template");
+    assert_eq!(def.kind, PolicyKind::BearerHeard);
+    assert_eq!(def.answers, vec![IssueKind::NotesRefused]);
+    let d = def.debts.expect("its remedy");
+    assert_eq!(d.remedy, DebtRemedy::Imposed);
+    assert_eq!(d.share, 1.0);
 }

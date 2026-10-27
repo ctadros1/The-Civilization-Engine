@@ -162,8 +162,9 @@ impl Population {
             if self.borrow_from_store(ctx, id, borrower, want, due) {
                 continue;
             }
-            // Those with food to spare, those its elder regards first.
-            let mut lenders: Vec<(f64, PermanentId, f64)> = self
+            // Those with food to spare, or a keeper who may lend in its notes more than it has
+            // to spare (M10d slice EI), those its elder regards first.
+            let mut lenders: Vec<(f64, PermanentId, f64, Option<u32>)> = self
                 .households
                 .iter()
                 .map(|(_, h)| h)
@@ -173,25 +174,40 @@ impl Population {
                 .filter(|h| !self.order.credit.owes(h.id) && !self.order.credit.guarantees(h.id))
                 .filter_map(|h| {
                     let spare = spare_food_kcal(h, now, params, goods);
-                    (spare > 1.0).then_some((h.id, spare))
+                    let notes = self.note_lending(ctx, h);
+                    match notes {
+                        Some((issue, kcal)) if kcal > spare && kcal > 1.0 => {
+                            Some((h.id, kcal, Some(issue)))
+                        }
+                        _ => (spare > 1.0).then_some((h.id, spare, None)),
+                    }
                 })
-                .map(|(h, spare)| {
+                .map(|(h, spare, issue)| {
                     let regard = self
                         .elder_of(h, now, params)
                         .map_or(0.0, |e| self.ties.regard(borrower, e, day, &params.ties));
-                    (regard, h, spare)
+                    (regard, h, spare, issue)
                 })
                 .collect();
             lenders.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
             lenders.truncate(cp.max_asked as usize);
             let t_years = (due - day) as f64 / civ_core::time::DAYS_PER_YEAR as f64;
             let field = self.pledgeable_field(ctx, id);
-            for (_, lender, spare) in lenders {
+            for (_, lender, spare, issue) in lenders {
                 self.order.credit.asked += 1;
                 let Some(elder) = self.elder_of(lender, now, params) else {
                     continue;
                 };
-                let Some((good, kg_held)) = self.richest_food(ctx, lender) else {
+                // A loan in notes is in the good they are redeemed in, as far as it may write
+                // them (M10d slice EI).
+                let lent_in = match issue.and_then(|i| self.notes.issue(i)) {
+                    Some(c) => Some((
+                        usize::from(c.good),
+                        spare / goods[usize::from(c.good)].kcal_per_kg,
+                    )),
+                    None => self.richest_food(ctx, lender),
+                };
+                let Some((good, kg_held)) = lent_in else {
                     continue;
                 };
                 let per_kg = goods[good].kcal_per_kg;
@@ -226,13 +242,19 @@ impl Population {
                     self.order.credit.refused += 1;
                     continue;
                 };
-                let leg = Leg {
-                    from: lender,
-                    to: id,
-                    good,
-                    amount: kg,
+                let lent = match issue {
+                    Some(i) => self.lend_notes(ctx, lender, id, i, kg),
+                    None => {
+                        let leg = Leg {
+                            from: lender,
+                            to: id,
+                            good,
+                            amount: kg,
+                        };
+                        self.transfer(now, params, goods, &[leg], Channel::Lent)
+                    }
                 };
-                if !self.transfer(now, params, goods, &[leg], Channel::Lent) {
+                if !lent {
                     continue;
                 }
                 let credit = &mut self.order.credit;
@@ -604,8 +626,9 @@ impl Population {
     }
 
     /// Loans household `creditor` made that were refused or left unpaid, with something still
-    /// owed, whose pledge was not taken and that nobody has brought a case for (M7d slice CB).
-    pub(super) fn unheard_debts(&self, creditor: PermanentId) -> Vec<u32> {
+    /// owed, whose pledge was not taken and that nobody has brought a case for (M7d slice CB):
+    /// with `notes`, only notes refused and booked as debts (M10d slice EI), else only the rest.
+    pub(super) fn unheard_debts(&self, creditor: PermanentId, notes: bool) -> Vec<u32> {
         self.order
             .credit
             .claims
@@ -616,6 +639,7 @@ impl Population {
                     && c.left() > 1e-3
                     && c.taken.is_none()
                     && self.firm(c.debtor).is_none()
+                    && self.notes.is_dishonoured(c.id) == notes
             })
             .map(|c| c.id)
             .filter(|&id| !self.order.cases.iter().any(|k| k.loan == Some(id)))
@@ -623,18 +647,20 @@ impl Population {
     }
 
     /// What each of `households` is owed on loans refused or left unpaid and not yet heard, and
-    /// what it owes on such loans, kcal (M7d slice CB), in household order.
+    /// what it owes on such loans, kcal (M7d slice CB), in household order: with `notes`, on
+    /// notes refused and booked as debts (M10d slice EI).
     pub(super) fn debt_stakes(
         &self,
         ctx: &Ctx,
         households: &[PermanentId],
+        notes: bool,
     ) -> Vec<(PermanentId, f64, f64)> {
         let goods = &ctx.catalog.goods;
         let mut out: Vec<(PermanentId, f64, f64)> =
             households.iter().map(|&h| (h, 0.0, 0.0)).collect();
         out.sort_by_key(|x| x.0);
         for h in households {
-            for id in self.unheard_debts(*h) {
+            for id in self.unheard_debts(*h, notes) {
                 let Some(c) = self.order.credit.claim(id) else {
                     continue;
                 };
@@ -662,15 +688,21 @@ impl Population {
     /// and their regard for the debtor's elder. The one with the most to gain, if anyone, brings
     /// it.
     pub(super) fn weigh_debts(&mut self, ctx: &mut Ctx, pi: usize) {
+        self.weigh_debts_under(ctx, pi, crate::polity::PolicyKind::DebtsHeard);
+        // Notes refused, under a law of bearer heard, as loans are (M10d slice EI, third part).
+        self.weigh_debts_under(ctx, pi, crate::polity::PolicyKind::BearerHeard);
+    }
+
+    /// [`Self::weigh_debts`] under a law of `kind` in force: debts heard for loans, bearer heard
+    /// for notes refused and booked as debts.
+    fn weigh_debts_under(&mut self, ctx: &mut Ctx, pi: usize, kind: crate::polity::PolicyKind) {
         let (now, params) = (ctx.now, ctx.params);
         let (pp, cp, day) = (&params.polity, &params.crime, now.day_index());
+        let notes = kind == crate::polity::PolicyKind::BearerHeard;
         let Some((law_id, def)) = self.polities[pi]
             .laws
             .iter()
-            .filter(|l| {
-                l.kind == crate::polity::PolicyKind::DebtsHeard
-                    && l.status == crate::polity::LawStatus::InForce
-            })
+            .filter(|l| l.kind == kind && l.status == crate::polity::LawStatus::InForce)
             .find_map(|l| {
                 let d = ctx.catalog.policies.get(usize::from(l.policy))?.debts?;
                 Some((l.id, d))
@@ -688,7 +720,7 @@ impl Population {
             .collect();
         creditors.sort_unstable();
         for creditor in creditors {
-            for id in self.unheard_debts(creditor) {
+            for id in self.unheard_debts(creditor, notes) {
                 let Some(c) = self.order.credit.claim(id).cloned() else {
                     continue;
                 };
@@ -762,9 +794,13 @@ impl Population {
                     .map_or((None, String::new()), |s| {
                         (Some(s.hearth_m), s.name.clone())
                     });
+                let what = if notes {
+                    "notes it refused at its door"
+                } else {
+                    "a loan it did not repay"
+                };
                 let words = format!(
-                    "brought a case at {name} against {}'s household for a loan it did not \
-                     repay.",
+                    "brought a case at {name} against {}'s household for {what}.",
                     self.name_of(accused),
                 );
                 self.chronicle_push(
@@ -862,6 +898,17 @@ impl Population {
             for m in members {
                 self.note_tie(ctx, m, b, Act::Defaulted, 1.0, 0.0);
             }
+        }
+        // A keeper's debtor of a loan in its notes defaulted: its settlement hears of it (M10d
+        // slice EI, second part).
+        if let Some(issue) = self
+            .notes
+            .issue_of(c.creditor, usize::from(c.good))
+            .filter(|x| x.lent > 1e-9)
+            .map(|x| x.id)
+            && let Some(x) = self.notes.issue_mut(issue)
+        {
+            x.defaulted_day = day;
         }
         let Some(Pledge::Guarantor(g)) = c.pledge else {
             return;

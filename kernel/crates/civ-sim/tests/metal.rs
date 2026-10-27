@@ -868,6 +868,53 @@ fn a_store_under_notes_issued_pays_work_in_its_own_notes_within_the_ceiling() {
 }
 
 #[test]
+fn where_nobody_keeps_goods_a_store_s_notes_are_still_presented_at_midnight() {
+    // With no goods kept for anyone, the midnight's review of notes still runs: a household short
+    // of food presents its store's notes within a week of midnights, and the store pays them.
+    let (mut sim, hh, keeper) = mint_scene(3);
+    let polity = store_notes_scene(&mut sim, hh, keeper);
+    law_in_force(
+        &mut sim,
+        hh,
+        "core:policy/zealously_issue_notes",
+        None,
+        keeper,
+    );
+    let grain = good(&sim, "core:good/grain");
+    sim.with_ctx_for_tests(|pop, ctx| pop.work_given_for_tests(ctx, polity, hh, 40.0));
+    let n = sim.rules().catalog.goods.len();
+    let food: Vec<usize> = (0..n)
+        .filter(|&g| sim.rules().catalog.goods[g].kcal_per_kg > 0.0)
+        .collect();
+    let pop = sim.people_mut_for_tests();
+    assert!(pop.kept.is_empty(), "nobody keeps goods for anyone");
+    for (_, x) in pop.households.iter_mut() {
+        if x.id == hh {
+            for &g in &food {
+                x.stores[g] = 0.0;
+            }
+        }
+    }
+    let pi = pop
+        .polities
+        .iter()
+        .position(|p| p.id == polity)
+        .expect("polity");
+    pop.polities[pi].stores.resize(n, 0.0);
+    pop.polities[pi].stores[grain] += 500.0;
+    let issue = pop
+        .notes
+        .issues
+        .iter()
+        .find(|c| c.issuer == polity)
+        .expect("issue")
+        .id;
+    sim.advance_minutes(8 * DAY).expect("lives");
+    let c = sim.people().notes.issue(issue).expect("issue");
+    assert!(c.presented > 1e-9, "presented at midnight: {}", c.presented);
+}
+
+#[test]
 fn a_store_whose_keeper_cannot_write_writes_no_notes() {
     let (mut sim, hh, keeper) = mint_scene(3);
     let polity = store_notes_scene(&mut sim, hh, keeper);

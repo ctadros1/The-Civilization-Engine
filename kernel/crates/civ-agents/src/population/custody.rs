@@ -203,6 +203,11 @@ impl Population {
                 self.kept_flows.absorb(&k.flows);
             }
             self.kept = full;
+        } else if !self.notes.issues.is_empty() {
+            // Notes with no goods kept behind any (a polity's store's, M10d slice EJ) are presented
+            // and paid all the same.
+            let presented = self.notes_review(ctx, day);
+            self.redeem(ctx, day, presented);
         }
         // Households with no roof of their own whose day it is weigh leaving goods with another.
         let review_days = i64::from(mp.review_days.max(1));

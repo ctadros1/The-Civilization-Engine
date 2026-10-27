@@ -1,13 +1,15 @@
 # The Civilization Engine: Project Plan
 
 Status: plan of record, written 2026-09-27 from the planning interview.
-Implementation status (2026-10-25): **M0–M9 are implemented**, from early settlements and their
+Implementation status (2026-10-27): **M0–M9 are implemented**, from early settlements and their
 institutions through large cities, transport, planning, land and household resolution across many
 settlements. M9's 100,000-person performance target was not met; see §7 and §9 for the measured
 result and amended gate. **M10a, power and the works, M10b, rail and gas light, and M10c,
 services and letters, are implemented** (slices DO–EE: care beyond the household, birth care,
-teaching, letters and records, inoculation, and the health office and sickhouse); M10d, money and
-the demo, remains. M2's portable kernel library and C interface are
+teaching, letters and records, inoculation, and the health office and sickhouse). **M10d, money,
+is underway:** slices EF–EI implement household valuation, custody, redeemable notes, lending,
+redemption runs, suspension and the *bearer heard* rule. Polity-issued notes, counterfeiting and
+the complete M10 demo remain. M2's portable kernel library and C interface are
 implemented; the Unreal client remains future work. Modern civilization remains future scope. See
 §7 for milestone scope and §9 for implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
@@ -7631,6 +7633,7 @@ and M6a gives rivers a daily flow.
 
 ## 9. Decisions log
 
+- **2026-10-27 — M10 implementation status:** merged M10c slices EB–EE and M10d slices EF–EI. M10c is complete; M10d money includes household valuation, custody, redeemable notes, bounded lending, runs, suspension and the *bearer heard* rule. Wire 1.106, save schema 214, content API 195. M9 remains the latest committed observer video; no M10 capture was available. The remaining M10d scope is recorded in §7.
 - **2026-10-22 — Optional Actions capacity (owner request):** add an isolated Ubuntu runner VM on servernode4 with shared `tce-ci`, automatic guest/service startup, and explicit `node4` dispatch. Keep it outside the default permanent health matrix and scheduled `tce-long` work; GitHub routes pooled jobs to available runners. Drain before shutdown or switching to Windows.
 
 One line each. Don't re-litigate without a reason written next to the entry.

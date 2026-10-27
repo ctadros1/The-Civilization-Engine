@@ -3298,3 +3298,19 @@ and the M10a slice records in [the project plan](../../PROJECT_PLAN.md#7-milesto
 **M10c, services and letters:** slice DZ added care by close kin or known people outside the household, food fees, care reputation and observer records. The first EA part now separates maternal deaths into bleeding, fever and obstructed labor and introduces birth-attending and clean-hands techniques, including increased fever risk for an attendant coming from care of the ill without clean hands. A second EA step added calls for an attendant before a due birth, fee settlement at the birth, saved attendance outcomes and observer wording for births attended. EA is now complete. Teaching, literacy, inoculation and the health office remain ahead. See [services and care](services-and-care.md).
 
 The M10 work advances boundary versions to wire 1.104, save schema 192 and content API 179. M9 remains the latest committed observer video. No M10 milestone video was added in this merge; the plan places the complete demonstration in M10d. These status descriptions are based on merged source and plan, not a claim that a newly captured live demo exists.
+
+## 2026-10-27 — M10c closed; M10d money through slice EI
+
+**Built:** slices EB–EE completed M10c with teaching, literacy and household records, inoculation,
+disease reporting, sickhouse and related public-health duties. M10d then added a household-specific
+money valuation table and acceptance belief (EF); safekeeping of goods with ownership retained and
+receipts from literate keepers (EG); notes redeemable for deposited goods, with refusal and
+acceptance affecting local value (EH); and bounded note lending, presentation runs, temporary
+suspension and debt hearings under *bearer heard* (EI). The [money and notes guide](money-and-notes.md)
+explains the data and decision flow. Exact implementation details, saved fields and slice evidence
+are in [the M10 entries in the plan](../../PROJECT_PLAN.md#7-milestones).
+
+**Current state:** M10c is implemented and M10d is underway. Wire is 1.106, save schema 214 and
+content API 195. Polity-issued notes, counterfeiting and the complete M10 demonstration remain
+planned. M9 is still the newest committed observer video; this merge added no M10 recording. This
+journal summarizes the merged implementation; no new test run is claimed here.

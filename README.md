@@ -13,7 +13,7 @@
 </p>
 <p align="center">
   <a href="#project-status"><img src="https://img.shields.io/badge/M0%E2%80%93M9-complete-39785b?style=flat-square" alt="Milestones M0 through M9 complete"></a>
-  <a href="#project-status"><img src="https://img.shields.io/badge/M10-industrial%20systems%20underway-b57932?style=flat-square" alt="Milestone M10 industrial systems underway"></a>
+  <a href="#project-status"><img src="https://img.shields.io/badge/M10d-money%20systems%20underway-b57932?style=flat-square" alt="Milestone M10d money systems underway"></a>
   <a href="#technical-highlights"><img src="https://img.shields.io/badge/kernel-Rust-315f55?style=flat-square" alt="Simulation kernel: Rust"></a>
   <a href="#technical-highlights"><img src="https://img.shields.io/badge/observer-TypeScript%20%2B%20PixiJS-526c83?style=flat-square" alt="Observer: TypeScript and PixiJS"></a>
 </p>
@@ -22,18 +22,18 @@
 
 The Civilization Engine (TCE) is a long-running simulation of people, households and settlements. It provides resources, skills, institutions and physical systems; people make choices within them, so the engine does not prescribe a civilization's story or destination.
 
-The current observer presents an early farming world. M10 now adds industrial-era systems; modern civilization and the Unreal client remain future work.
+The current observer presents an early farming world. M10 adds industrial systems and services; its money systems are underway. Modern civilization and the Unreal client remain future work.
 
 ## Project status
 
 - **M0–M9 complete:** from settlement life and institutions through transport, city planning and household-level resolution across many settlements. The 100,000-person performance target was measured and missed; the plan records the amended gate.
 - **M10a–M10b implemented:** industrial power and works, water mills, fuel and iron production, railways, trains, freight, gas networks and lighting.
-- **M10c underway:** care beyond the household and birth care are implemented. Teaching, literacy, inoculation and a health office remain ahead.
-- **M10d planned:** money systems and the complete M10 demonstration.
+- **M10c implemented:** care beyond the household, birth care, teaching, literacy and records, inoculation, disease reporting and a shared sickhouse.
+- **M10d underway:** household money valuation, custody and receipts, redeemable notes, lending, runs and suspension, and the *bearer heard* rule are implemented. Polity-issued notes, counterfeiting and the complete M10 demonstration remain planned.
 
 ## Latest live demo: M9, many settlements
 
-The newest committed observer video is M9. It shows one settlement in detail while households resolve daily work across other settlements, with a followed resident and a climate change. M10 has no committed milestone video yet; its complete demo is planned for M10d. The gallery distinguishes recorded captures from run reports and planned demos.
+The newest committed observer video is M9. It shows one settlement in detail while households resolve daily work across other settlements, with a followed resident and a climate change. The M10d code has advanced, but no M10 observer video has been captured; the complete demo remains planned. The gallery distinguishes recorded captures from run reports and planned demos.
 
 <p align="center"><a href="demos/m9/m9-overview.mp4"><img src="demos/m9/m9-overview-poster.png" alt="M9 live demo: many settlements at household resolution" width="900"></a></p>
 
@@ -52,7 +52,7 @@ These generated previews show the project's longer-term historical and modern sc
 - **Emergent simulation:** event-scheduled people and household economies, authored building grammars, institutions, weather, water, disease, conflict and transport.
 - **Many-settlement scale:** each person remains individually represented; settlements away from the observer's focus can resolve household work once per day.
 - **Industrial systems:** river-powered installations drive recipes; households can build mills, mines and works, lay rail, operate trains, and produce and distribute gas light.
-- **Persistence:** checksummed versioned snapshots with explicit migrations. Current boundaries: wire 1.104, save schema 192 and content API 179.
+- **Persistence:** checksummed versioned snapshots with explicit migrations. Current boundaries: wire 1.106, save schema 214 and content API 195.
 
 ## Run it
 

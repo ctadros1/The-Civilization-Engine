@@ -1,0 +1,30 @@
+# Keeping the sick apart (M10c slice EE, first part; ADR-0035 §7; brief m10-services §2.4; research
+# 05-05 §1.6-1.7: isolation cuts a sickness passing from person to person, and performs poorly
+# against one carried by water). Where someone of a household of the polity died within the year of
+# a sickness that passes at home or in company (the issue `contagion`), anyone may propose that a
+# household with someone ill keeps to its home, and others keep from it (tending there included),
+# until 14 days after the last of it is well (a design prior: some two weeks past the illness, about
+# the time those near the sick would show it). It is kept by choice, as a curfew is: one who knows
+# the law weighs going out of a home kept apart, or tending at one, by what keeping it weighs with
+# them. A household weighs it by the deaths it saw of such sickness, as deaths avoided, against a
+# quarter of a day's work of each grown member for each day its home would be kept apart (a design
+# prior: the work done at home goes on). Passed against a sickness of the water, it costs work and
+# does little. Its id sorts after every older template's: hearth talk about a question is keyed by
+# a template's place in id order.
+kind = "policy"
+id = "core:policy/yourselves_work_without_meeting_the_sick"
+name = "Keeping the sick apart"
+description = "A household with someone ill keeps to its home, and others keep from it, until two weeks after the last is well."
+does = "keep_apart"
+answers = ["contagion"]
+question = "whether a household with someone ill keeps to its home, and others keep from it"
+
+[keep_apart]
+days_after = 14
+cost_share = 0.25
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement: the well are safer, and a household is shut in.
+[bears]
+"core:value/security" = 0.5
+"core:value/autonomy" = -0.5

@@ -43,7 +43,7 @@ CI runs the validator. Diagnostics have stable codes:
 | E3002 | Unknown or missing `kind` |
 | E3003 | Not exactly one world-generation preset has `default = true` |
 | E3004 | Not exactly one people profile, or not exactly one land profile |
-| E3005 | A technique gates no work: no recipe, activity, building program, bridge, vehicle or well system names it |
+| E3005 | A technique gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor does a technique that gates work need it |
 | E3006 | Techniques' prerequisites form a cycle |
 | E3007 | A recipe can never be worked: an input or tool comes only from recipes that need it (research 07-03 §6's bootstrap test) |
 
@@ -1752,3 +1752,79 @@ Content API 176 (M10b slice DY, fourth part) adds the behaviour `light` (the lam
 the street lamps, after dark, a stand of the activity's least minutes at each) and a people
 profile's `crime.w_light`, the points the round is worth to the lamplighter (0 to 100; the core's
 6, as a watch's round). The core adds `activity/light_lamps`.
+
+Content API 181 (M10c slice EB, third part) adds the policy kind `keep_a_school` (an office, its
+holder the schoolteacher) and the issue `untaught` it answers: a household of the polity could not
+hold the fee to send a child to learn a technique it lacked within the year, and someone grown of
+the settlement knows it. The schoolteacher takes the polity's children to learn what they know
+without a fee, and where a law pays common work the store pays their household for the hours they
+teach them. The core adds `policy/yourselves_work_with_a_teacher`.
+
+Content API 182 (M10c slice EC, first part) adds the behaviours `write` (writing down at home a
+technique the writer alone of their settlement knows and no record there keeps) and `read`
+(reading a record the household holds of a technique the reader does not know), with their
+points `decision.w_write` and `decision.w_read` (at least 0; the core's 3), a people profile's
+`knowledge.record_h` (the hours of writing a record takes, above 0 and at most 1,000; the core's
+20), and a technique's `codified` (how many times its `learn_h` learning it from a record alone
+takes: 0, the default, for heard of there but never learnt, or 1 to 100). A technique that another
+technique gating work requires now gates work itself (E3005). The core adds the techniques
+`reckoning`, `reading` and `writing`, the activities `write_a_record` and `read_a_record`, and
+makes `laying_out` codified at 2.
+
+Content API 183 (M10c slice EC, third part) adds the policy kind `licence` and the issue
+`unknowing_care` it answers (someone of a household of the polity died within the year in the care
+of a carer it paid who knew no treatment of their disease, and someone grown of the settlement
+knows one). A `licence` template names in `[licence] technique` what those paid to tend the sick
+must know. The core adds `policy/yourselves_work_with_carers_who_know`, asking fluid replacement.
+
+Content API 184 (M10c slice ED, first part) adds the disease route `company` (in company at the
+hearth with someone shedding it) and a disease's `company_hazard`, the hazard an hour in company
+with one shedding it puts on each met (0 to 10; default 0). The core adds `disease/smallpox`,
+passing at home and in company, which no world has until the observer brings it.
+
+Content API 185 (M10c slice ED, second part) adds a disease's `[inoculation]`: the `technique`
+that gives it on purpose (by content id), `deaths` (the share of a natural course's severe share an
+inoculated course has, 0 to 1) and `believed_take` (the chance a household believes its people
+would take it where it is near, 0 to 1; it calls an inoculator only where `deaths` is below it).
+The technique gates work (E3005). The core gives smallpox variolation at 0.127 (Jurin's 2.1/16.6)
+and 0.5, and adds `technique/variolation`.
+
+Content API 186 (M10c slice ED, third part) adds a disease's `[vaccination]`: the `technique` that
+gives it and the `good` it is given from (by content id), `dose_kg` (a person's dose), `efficacy`
+(the share of the disease's hazards it turns away while whole, 0 to 1), `full_years` (least and
+most years it stays whole, drawn evenly) and `waning_years` (the years over which what it turns
+away then falls by a factor of e). A household makes the good only for calls to vaccinate that
+stand at its door. The core gives smallpox `technique/vaccination` (requiring variolation) with
+`good/vaccine_matter` at 0.001 kg, 0.95, [3, 5] and 10, and adds the recipe and activity
+`make_vaccine_matter`.
+
+Content API 187 (M10c slice EE, first part) adds `does = "keep_apart"` and its `[keep_apart]`
+table: `days_after` (the days after the last of a household is well that it is still kept apart,
+1 to 365) and `cost_share` (the share of a day's work each grown member loses while their home is
+kept apart, as a household weighs it, 0 to 1), and the issue `contagion` (someone of a household
+of the polity died within the year of a sickness passing at home or in company). The core adds
+`policy/yourselves_work_without_meeting_the_sick` at 14 days and 0.25.
+
+Content API 188 (M10c slice EE, second part) adds an office template's `holder_needs` (a
+technique, by content id, its holder must know: the nominee and those a lot draws among), and
+`does = "keep_register"` with its `[register]` table: `avoided_share` (the share of a household's
+deaths of disease within the year it believes a register would have spared, 0 to 1). The core adds
+`policy/yourselves_write_down_the_sick`, answering `sickness`, asking `technique/writing`, at 0.1.
+
+Content API 189 (M10c slice EE, second part) adds the behaviour `rounds`: the round of the one a
+law names to keep the register of the sick, in daylight, once a day, a stand of the activity's
+`min_minutes` at each home of the watch's set round. The core adds `activity/walk_the_rounds` at 10
+minutes.
+
+Content API 190 (M10c slice EE, third part) adds `does = "clear_middens"` and its `[middens]`
+table: `distance_m` (how far from every open well and stream a household near one carries its heap,
+1 to 1000), `keep_days` (how long a heap carried lies there, 1 to 365), `carry_h` (the hours a
+carrying takes, as a household weighs it) and `avoided_share` (the share of its deaths of disease
+within the year it believes cleaner water would have spared, 0 to 1); and the behaviour `midden`.
+The core adds `policy/yourselves_yonder_with_middens` (30 m, 2 days, 0.5 h, 0.2), answering
+`source_suspected`, and `activity/carry_out_the_midden` (20 minutes).
+
+Content API 191 (M10c slice EE, fourth part) adds the building use `sickhouse` and the issue
+`untended` (severe cases of the polity's households lay ill with nobody tending them, measured, and
+no sickhouse raised). The core adds `building/sickhouse` and `policy/yourselves_zone_a_sickhouse`,
+a raising together answering it.

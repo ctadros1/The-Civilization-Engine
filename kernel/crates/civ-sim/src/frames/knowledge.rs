@@ -94,6 +94,7 @@ pub fn source_words(sim: &Sim, source: KnowSource) -> String {
         KnowSource::Found => "found it".to_owned(),
         KnowSource::Observer => "introduced by the observer".to_owned(),
         KnowSource::Seen(s) => format!("saw it at {}", settlement_name(sim, s)),
+        KnowSource::Read(p) => format!("read it in a record {} wrote", name_of(sim, p)),
     }
 }
 
@@ -292,6 +293,10 @@ fn history_words(sim: &Sim, s: PermanentId, t: usize) -> Vec<String> {
                 KnowledgeEventKind::Known(KnowSource::Seen(at)) => {
                     format!("Year {year}: {who} saw it at {}.", settlement_name(sim, at))
                 }
+                KnowledgeEventKind::Known(KnowSource::Read(from)) => format!(
+                    "Year {year}: {who} learnt it from a record {} wrote.",
+                    name_of(sim, from)
+                ),
                 KnowledgeEventKind::Lost => format!("Year {year}: lost with {who}."),
             }
         })

@@ -430,6 +430,18 @@ fn illness_happened(sim: &Sim, e: &Episode) -> String {
         Acquired::Water { source } => {
             format!(" in water drawn at {}", source_words(sim, source))
         }
+        Acquired::Inoculated { by } => {
+            format!(", inoculated by {}", sim.people().name_of(by))
+        }
+        Acquired::Sickhouse { person } => {
+            format!(" at the sickhouse, from {}", sim.people().name_of(person))
+        }
+        Acquired::Company { person } => {
+            format!(
+                " in company at the hearth with {}",
+                sim.people().name_of(person)
+            )
+        }
     };
     let c = &e.course;
     let course = if !e.symptomatic() {
@@ -1152,6 +1164,30 @@ fn caught_link(sim: &Sim, e: &Episode) -> Link {
                 super::people::household_name(sim, household)
             ),
         ),
+        Acquired::Inoculated { by } => Link(
+            CAUSED_BY,
+            TO_PERSON,
+            by.get(),
+            format!("inoculated by {}", sim.people().name_of(by)),
+        ),
+        Acquired::Sickhouse { person } => Link(
+            CAUSED_BY,
+            TO_PERSON,
+            person.get(),
+            format!(
+                "caught at the sickhouse from {}, who shed it",
+                sim.people().name_of(person)
+            ),
+        ),
+        Acquired::Company { person } => Link(
+            CAUSED_BY,
+            TO_PERSON,
+            person.get(),
+            format!(
+                "caught in company at the hearth with {}, who shed it",
+                sim.people().name_of(person)
+            ),
+        ),
         Acquired::Water { source } => Link(
             CAUSED_BY,
             TO_SOURCE,
@@ -1738,6 +1774,9 @@ pub fn outbreak_response(sim: &Sim, id: u32, limit: usize) -> Option<Vec<u8>> {
         let way = match e.acquired {
             Acquired::Observer { .. } => (0, "brought by the observer".to_owned()),
             Acquired::Household { .. } => (1, "at home, from those who shed it".to_owned()),
+            Acquired::Company { .. } => (3, "in company at the hearth".to_owned()),
+            Acquired::Inoculated { .. } => (4, "inoculated".to_owned()),
+            Acquired::Sickhouse { .. } => (5, "at the sickhouse".to_owned()),
             Acquired::Water { source } => (
                 2,
                 format!("in water drawn at {}", source_words(sim, source)),

@@ -491,8 +491,22 @@ care(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+teaching():string|null
+teaching(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+teaching(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 126);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+letters():string|null
+letters(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+letters(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 128);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(61);
+  builder.startObject(63);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -978,6 +992,14 @@ static addLight(builder:flatbuffers.Builder, lightOffset:flatbuffers.Offset) {
 
 static addCare(builder:flatbuffers.Builder, careOffset:flatbuffers.Offset) {
   builder.addFieldOffset(60, careOffset, 0);
+}
+
+static addTeaching(builder:flatbuffers.Builder, teachingOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(61, teachingOffset, 0);
+}
+
+static addLetters(builder:flatbuffers.Builder, lettersOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(62, lettersOffset, 0);
 }
 
 static endPersonInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

@@ -330,6 +330,8 @@ fn weighed_copper_is_worth_what_it_bought_and_less_beyond_a_balance() {
         channel: civ_agents::ledger::Channel::Sale,
         from: None,
     });
+    // What a money is worth is kept in a table built at midnight (M10d slice EF): afresh now.
+    sim.with_ctx_for_tests(|pop, ctx| pop.money_day_for_tests(ctx));
     // A kilogram bought 50 kg of grain, less the tenth of an hour of weighing it.
     let w = worth(&mut sim, copper, 0.0).expect("now worth what it bought");
     assert!(
@@ -580,6 +582,8 @@ fn bought_with_coin(sim: &mut Sim, hh: PermanentId, pieces: f32) {
         channel: civ_agents::ledger::Channel::Sale,
         from: None,
     });
+    // What a money is worth is kept in a table built at midnight (M10d slice EF): afresh now.
+    sim.with_ctx_for_tests(|pop, ctx| pop.money_day_for_tests(ctx));
 }
 
 #[test]
@@ -855,6 +859,165 @@ fn a_household_pays_its_levy_in_coin_worth_less_to_it_than_the_grain() {
 }
 
 #[test]
+fn where_its_levy_takes_coin_and_coin_is_about_a_household_keeps_and_takes_it() {
+    let (mut sim, hh, _) = mint_scene(3);
+    let [coin, grain] = ["coin", "grain"].map(|g| good(&sim, &format!("core:good/{g}")));
+    let (polity, _) = common_store_in_force(&mut sim, hh);
+    let keep = |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.keep_for_tests(ctx, hh))[coin];
+    let terms = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.terms_for_tests(ctx, hh, &[(grain, 100.0)]))
+    };
+    // Nobody here has seen a piece: none is kept, and grain is not offered for coin.
+    assert!(keep(&mut sim) < 1e-12);
+    assert!(
+        terms(&mut sim)
+            .iter()
+            .all(|o| usize::from(o.payment) != coin)
+    );
+    // The store holds coin to pay for common work: now the levy's coin is kept for.
+    let today = sim.now().day_index();
+    assert!(
+        sim.people_mut_for_tests()
+            .strike_for_tests(coin, polity, polity, today, 20.0, 8.0, 1.0)
+    );
+    // It holds 200 kg of grain, a tenth of which the levy could take.
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == hh {
+            x.stores[grain] = 200.0;
+        }
+    }
+    let grain_kg = 200.0;
+    let per_kg = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .find(|d| d.id == "core:policy/common_store")
+        .and_then(|d| d.medium)
+        .expect("the core store takes coin")
+        .per_kg;
+    let k = keep(&mut sim);
+    let expect = 0.1 * grain_kg * f64::from(per_kg);
+    assert!(
+        k > 0.0 && (k - expect).abs() <= 1e-3 * expect,
+        "{k} against {expect}"
+    );
+    // So it takes coin for its grain, at its ask over what a piece pays for.
+    let piece = sim
+        .with_ctx_for_tests(|pop, ctx| pop.pay_worth_for_tests(ctx, hh, coin, 0.0))
+        .expect("worth the grain it pays for");
+    let t = terms(&mut sim);
+    let row = t
+        .iter()
+        .find(|o| usize::from(o.payment) == coin)
+        .unwrap_or_else(|| panic!("coin taken for grain: {t:?} piece {piece}"));
+    let price = f64::from(row.ask_h) / piece;
+    assert!(
+        (f64::from(row.price) - price).abs() <= 1e-4 * price,
+        "{} against {price}",
+        row.price
+    );
+}
+
+#[test]
+fn a_fine_owed_the_store_is_kept_for_and_paid_in_the_coin_it_takes() {
+    use civ_agents::crime::{Obligation, Owed, Standing};
+    let (mut sim, hh, _) = mint_scene(3);
+    let [coin, grain] = ["coin", "grain"].map(|g| good(&sim, &format!("core:good/{g}")));
+    let (polity, _) = common_store_in_force(&mut sim, hh);
+    let settlement = sim
+        .people()
+        .household(hh)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let today = sim.now().day_index();
+    assert!(
+        sim.people_mut_for_tests()
+            .strike_for_tests(coin, polity, hh, today, 30.0, 8.0, 1.0)
+    );
+    let per_kg = f64::from(
+        sim.rules()
+            .catalog
+            .policies
+            .iter()
+            .find(|d| d.id == "core:policy/common_store")
+            .and_then(|d| d.medium)
+            .expect("the core store takes coin")
+            .per_kg,
+    );
+    let grain_kcal = sim.rules().catalog.goods[grain].kcal_per_kg;
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == hh {
+            x.stores[grain] = 0.0;
+        }
+    }
+    let keep = |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.keep_for_tests(ctx, hh))[coin];
+    // Holding no grain, the levy would take none of it: it keeps no coin for it.
+    assert!(keep(&mut sim) < 1e-9);
+    // A fine of ten kilograms of grain is owed the store: it keeps the twenty pieces that pay it.
+    let k = sim.people().order.obligations.len();
+    let id = sim
+        .people()
+        .order
+        .obligations
+        .last()
+        .map_or(1, |o| o.id + 1);
+    sim.people_mut_for_tests()
+        .order
+        .obligations
+        .push(Obligation {
+            id,
+            incident: 0,
+            kind: Owed::Fine,
+            case: None,
+            debtor: hh,
+            beneficiary: polity,
+            kcal: (10.0 * grain_kcal) as f32,
+            paid_kcal: 0.0,
+            made: today,
+            due: today + 30,
+            standing: Standing::Open,
+            answer: Some((true, 1.0)),
+        });
+    let kept = keep(&mut sim);
+    assert!(
+        (kept - 10.0 * per_kg).abs() < 1e-3 * 10.0 * per_kg,
+        "{kept} against {}",
+        10.0 * per_kg
+    );
+    // It pays it in coin, the twenty pieces moving to the store's purse.
+    let paid = sim.with_ctx_for_tests(|pop, ctx| pop.dues_in_money_for_tests(ctx, k));
+    assert!(
+        (paid - 10.0 * grain_kcal).abs() < 1e-2 * grain_kcal,
+        "{paid} against {}",
+        10.0 * grain_kcal
+    );
+    let ob = sim.people().order.obligations[k];
+    assert!(ob.left_kcal() < 1.0, "{} left", ob.left_kcal());
+    let coinage = &sim.people().order.coinage;
+    assert!((coinage.purse(hh).expect("its purse").total() - (30.0 - 10.0 * per_kg)).abs() < 1e-6);
+    assert!((coinage.purse(polity).expect("the store's").total() - 10.0 * per_kg).abs() < 1e-6);
+    // The market says who holds it.
+    let words = civ_sim::frames::markets::money_words(&sim, settlement);
+    assert!(
+        words.starts_with("Coin: ") && words.contains("1 household holds some"),
+        "{words}"
+    );
+}
+
+#[test]
+fn a_money_spent_is_kept_to_its_spending() {
+    let (mut sim, hh, _) = mint_scene(3);
+    let coin = good(&sim, "core:good/coin");
+    bought_with_coin(&mut sim, hh, 4.0);
+    let mp = sim.rules().people.market.clone();
+    let k = sim.with_ctx_for_tests(|pop, ctx| pop.keep_for_tests(ctx, hh))[coin];
+    // No levy takes it here: its balance alone, the days of spending its purchases show.
+    let expect = mp.money_days * 4.0 * std::f64::consts::LN_2 / mp.memory_days;
+    assert!((k - expect).abs() < 1e-9, "{k} against {expect}");
+}
+
+#[test]
 fn one_who_can_assay_pays_with_the_lightest_coin_and_values_it_by_its_metal() {
     let (mut sim, hh, minter) = mint_scene(3);
     let [coin, copper] = ["coin", "copper"].map(|g| good(&sim, &format!("core:good/{g}")));
@@ -987,6 +1150,8 @@ fn foreign_coin_goes_first_and_is_taken_by_weight_at_a_discount() {
         channel: civ_agents::ledger::Channel::Sale,
         from: None,
     });
+    // What a money is worth is kept in a table built at midnight (M10d slice EF): afresh now.
+    sim.with_ctx_for_tests(|pop, ctx| pop.money_day_for_tests(ctx));
     // Nobody of it can assay: it pays with the other polity's pieces first, though they are newer.
     assert!(sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, hh, other, coin, 4.0)));
     let got = sim

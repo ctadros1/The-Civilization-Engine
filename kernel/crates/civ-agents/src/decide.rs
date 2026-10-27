@@ -86,6 +86,12 @@ pub struct Facts {
     /// The round of the street lamps they light, if their polity names them its lamplighter and
     /// lamps of it stand unlit now (M10b slice DY, fourth part).
     pub light: Option<WatchFacts>,
+    /// The health officer's round, if they keep a register of the sick and have not walked it
+    /// today, in daylight (M10c slice EE, second part).
+    pub rounds: Option<WatchFacts>,
+    /// Where they would carry their household's midden from the water, if a law they know asks
+    /// it and it was not carried lately (M10c slice EE, third part).
+    pub midden: Option<WatchFacts>,
     /// A payment an agreement owes that they are to carry, set aside and waiting, if they can
     /// walk it there and back in the day (M5c slice AV).
     pub carry: Option<CarryFacts>,
@@ -134,6 +140,18 @@ pub struct Facts {
     /// A household of kin or a tie to call to tend the household's ill (M10c slice DZ, second
     /// part), where they are owed more care than its well members can give.
     pub call: Option<CallFacts>,
+    /// A technique they know that learners are enrolled to learn from them, and how many (M10c
+    /// slice EB, second part); none once today's session is held.
+    pub teach: Option<TeachFacts>,
+    /// The one they are enrolled to learn a technique from (M10c slice EB, second part); none
+    /// once today's session is studied.
+    pub study: Option<StudyFacts>,
+    /// A technique they would write down, which nobody else of their settlement knows and no
+    /// record it holds keeps (M10c slice EC); none unless they know writing.
+    pub write: Option<u16>,
+    /// A technique their household holds a record of that they do not know (M10c slice EC);
+    /// none unless they know reading.
+    pub read: Option<u16>,
     /// Whether their home is flooded today (M6b slice BF): they leave wet homes for kin or
     /// hearth until the flood recedes.
     pub home_flooded: bool,
@@ -152,6 +170,8 @@ pub struct TendFacts {
     pub household: Option<PermanentId>,
     pub at: (f32, f32),
     pub walk_min: f64,
+    /// The sickhouse, where it is there they would tend (M10c slice EE, fourth part).
+    pub sickhouse: Option<PermanentId>,
 }
 
 /// A carer a household short of care would call (M10c slice DZ, second part; ADR-0035 §2): the
@@ -165,6 +185,23 @@ pub struct CallFacts {
     pub short: f64,
     /// To attend a birth due rather than tend the ill (M10c slice EA, second part; `short` 1).
     pub birth: bool,
+}
+
+/// A technique someone teaches (M10c slice EB, second part; ADR-0035 §5): which, by index, and
+/// how many learners are enrolled with them for it, counted up to its group.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TeachFacts {
+    pub technique: u16,
+    pub learners: u32,
+}
+
+/// A technique someone studies (M10c slice EB, second part): which, by index, where the one
+/// teaching it lives and the minutes' walk there.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct StudyFacts {
+    pub technique: u16,
+    pub at: (f32, f32),
+    pub walk_min: f64,
 }
 
 /// How a load can be brought to a threatened roof.
@@ -688,6 +725,12 @@ pub enum MakeWorth {
         /// Decision points.
         points: f64,
     },
+    /// Matter to vaccinate those who called the household to (M10c slice ED, third part): the
+    /// doses the calls standing at its door are short of, owed as care is.
+    Called {
+        /// Doses.
+        owed: f64,
+    },
 }
 
 /// A recipe a person could work at home: how much of it, for how long, and what it is worth.
@@ -1080,6 +1123,26 @@ pub fn candidates(
         // And calling a carer to all but those whose ill at home are owed more care than its
         // well members can give, with someone to call (M10c slice DZ, second part).
         if def.behavior == Behavior::Call && f.call.is_none() {
+            continue;
+        }
+        // And teaching and study to all but those enrolled, teaching or learning, with today's
+        // session still to hold (M10c slice EB, second part).
+        if def.behavior == Behavior::Teach && f.teach.is_none() {
+            continue;
+        }
+        if def.behavior == Behavior::Study && f.study.is_none() {
+            continue;
+        }
+        // And writing and reading records to those with one to write or read (M10c slice EC).
+        if def.behavior == Behavior::Write && f.write.is_none() {
+            continue;
+        }
+        if def.behavior == Behavior::Read && f.read.is_none() {
+            continue;
+        }
+        // And carrying a midden away to those whose household's heap a law asks carried (M10c
+        // slice EE, third part).
+        if def.behavior == Behavior::Midden && f.midden.is_none() {
             continue;
         }
         if f.age < def.min_age_years {
@@ -1939,6 +2002,42 @@ pub fn candidates(
                 steps.push(Step::Walk { to: f.home });
                 out.push(finish(id, Target::None, terms, steps));
             }
+            Behavior::Midden => {
+                // The household's heap carried from the water (M10c slice EE, third part): what
+                // keeping the law weighs with them, less the walk there and back.
+                let Some(m) = f.midden.as_ref() else {
+                    continue;
+                };
+                let Some(&site) = m.stops.first() else {
+                    continue;
+                };
+                term(&mut terms, Reason::Duty, m.points);
+                let steps = vec![
+                    Step::Walk { to: site },
+                    Step::Work {
+                        minutes: def.min_minutes.max(1),
+                    },
+                    Step::Walk { to: f.home },
+                ];
+                out.push(finish(id, Target::Home, terms, steps));
+            }
+            Behavior::Rounds => {
+                // The health officer's round (M10c slice EE, second part), as a watch's: a stand
+                // at each home on it, the activity's least minutes each.
+                let Some(round) = f.rounds.as_ref() else {
+                    excluded.push((id, Reason::NoWatch));
+                    continue;
+                };
+                term(&mut terms, Reason::Duty, round.points);
+                let stand = def.min_minutes.max(1);
+                let mut steps = Vec::with_capacity(round.stops.len() * 2 + 1);
+                for &at in &round.stops {
+                    steps.push(Step::Walk { to: at });
+                    steps.push(Step::Work { minutes: stand });
+                }
+                steps.push(Step::Walk { to: f.home });
+                out.push(finish(id, Target::None, terms, steps));
+            }
             Behavior::Light => {
                 // The round of the street lamps (M10b slice DY, fourth part), as a watch's: a
                 // stand at each unlit lamp to light it, the activity's least minutes each.
@@ -2306,6 +2405,21 @@ pub fn candidates(
                 let work = Step::Work {
                     minutes: def.min_minutes.max(1),
                 };
+                // At the sickhouse (M10c slice EE, fourth part).
+                if let Some(building) = t.sickhouse {
+                    if t.walk_min > f64::from(def.max_walk_minutes) {
+                        excluded.push((id, Reason::Unreachable));
+                        continue;
+                    }
+                    term(
+                        &mut terms,
+                        Reason::Walking,
+                        -w.w_walk_hour * 2.0 * t.walk_min / 60.0,
+                    );
+                    let steps = vec![Step::Walk { to: t.at }, work, Step::Walk { to: f.home }];
+                    out.push(finish(id, Target::Building(building), terms, steps));
+                    continue;
+                }
                 if let Some(household) = t.household {
                     if t.walk_min > f64::from(def.max_walk_minutes) {
                         excluded.push((id, Reason::Unreachable));
@@ -2323,6 +2437,63 @@ pub fn candidates(
                 let mut steps = walk_home_first(f);
                 steps.push(work);
                 out.push(finish(id, Target::Home, terms, steps));
+            }
+            Behavior::Teach => {
+                // A session at home for those enrolled (M10c slice EB, second part).
+                let Some(t) = f.teach else {
+                    continue;
+                };
+                term(
+                    &mut terms,
+                    Reason::Teaching,
+                    w.w_teach * f64::from(t.learners),
+                );
+                let mut steps = walk_home_first(f);
+                steps.push(Step::Work {
+                    minutes: def.min_minutes.max(1),
+                });
+                out.push(finish(id, Target::Technique(t.technique), terms, steps));
+            }
+            Behavior::Write | Behavior::Read => {
+                // A session at home with a record, written or read (M10c slice EC).
+                let (t, reason, weight) = if def.behavior == Behavior::Write {
+                    (f.write, Reason::Writing, w.w_write)
+                } else {
+                    (f.read, Reason::Reading, w.w_read)
+                };
+                let Some(t) = t else {
+                    continue;
+                };
+                term(&mut terms, reason, weight);
+                let mut steps = walk_home_first(f);
+                steps.push(Step::Work {
+                    minutes: def.min_minutes.max(1),
+                });
+                out.push(finish(id, Target::Technique(t), terms, steps));
+            }
+            Behavior::Study => {
+                // A session at the teacher's home, less the walk there and back.
+                let Some(s) = f.study else {
+                    continue;
+                };
+                if s.walk_min > f64::from(def.max_walk_minutes) {
+                    excluded.push((id, Reason::Unreachable));
+                    continue;
+                }
+                term(&mut terms, Reason::Study, w.w_study);
+                term(
+                    &mut terms,
+                    Reason::Walking,
+                    -w.w_walk_hour * 2.0 * s.walk_min / 60.0,
+                );
+                let steps = vec![
+                    Step::Walk { to: s.at },
+                    Step::Work {
+                        minutes: def.min_minutes.max(1),
+                    },
+                    Step::Walk { to: f.home },
+                ];
+                out.push(finish(id, Target::Technique(s.technique), terms, steps));
             }
             Behavior::Call => {
                 // To a carer's door and back (M10c slice DZ, second part), for the care the
@@ -2422,6 +2593,7 @@ pub fn candidates(
                         term(&mut terms, Reason::Spoiling, w.w_food * worth);
                     }
                     MakeWorth::Office { points } => term(&mut terms, Reason::Duty, points),
+                    MakeWorth::Called { owed } => term(&mut terms, Reason::Tend, w.w_tend * owed),
                     MakeWorth::Tool { tool, need } => {
                         term(&mut terms, Reason::Tools, w.w_tools * need.clamp(0.0, 1.0));
                         if blocked.contains(&tool) {
@@ -2638,6 +2810,10 @@ mod tests {
             w_rest: 1.0,
             w_play: 2.0,
             w_tend: 6.0,
+            w_teach: 4.0,
+            w_study: 4.0,
+            w_write: 3.0,
+            w_read: 3.0,
         }
     }
 
@@ -2686,6 +2862,10 @@ mod tests {
             fire: None,
             tend: None,
             call: None,
+            teach: None,
+            study: None,
+            write: None,
+            read: None,
             home_flooded: false,
             shelter: None,
             age: 30.0,
@@ -2717,6 +2897,8 @@ mod tests {
             gathering: None,
             watch: None,
             light: None,
+            rounds: None,
+            midden: None,
             carry: None,
             crossing: None,
             well: None,

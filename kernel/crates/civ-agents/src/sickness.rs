@@ -24,6 +24,8 @@ pub enum SickDraw {
     Death = 3,
     /// Whether someone tending another home today takes what its sick shed (M10c slice DZ).
     Visit = 4,
+    /// How long a vaccination stays whole (M10c slice ED, third part).
+    Vaccinated = 5,
 }
 
 /// The generator for `person`'s draw of `what` about disease `disease` on `day`.
@@ -56,6 +58,14 @@ pub enum Acquired {
     /// From water drunk: where most of what they drank of it was drawn (step two), a well or a
     /// river reach.
     Water { source: crate::contagion::Node },
+    /// From company at the hearth with someone shedding it (M10c slice ED): that person.
+    Company { person: PermanentId },
+    /// Given on purpose to protect from it, a mild course (M10c slice ED, second part): by
+    /// whom.
+    Inoculated { by: PermanentId },
+    /// Taken lying in a sickhouse, or tending there, from someone lying there who shed it (M10c
+    /// slice EE, fourth part): that person.
+    Sickhouse { person: PermanentId },
 }
 
 impl Acquired {
@@ -64,6 +74,9 @@ impl Acquired {
         match self {
             Acquired::Observer { influence } => (0, u64::from(influence)),
             Acquired::Household { household } => (1, household.get()),
+            Acquired::Company { person } => (32, person.get()),
+            Acquired::Inoculated { by } => (33, by.get()),
+            Acquired::Sickhouse { person } => (34, person.get()),
             Acquired::Water { source } => match source {
                 crate::contagion::Node::Well(w) => (2, w.get()),
                 crate::contagion::Node::Reach(r) => (3, u64::from(r)),
@@ -86,6 +99,15 @@ impl Acquired {
             }),
             3 => Some(Acquired::Water {
                 source: crate::contagion::Node::Reach(u32::try_from(n).ok()?),
+            }),
+            32 => Some(Acquired::Company {
+                person: PermanentId::from_raw(n)?,
+            }),
+            33 => Some(Acquired::Inoculated {
+                by: PermanentId::from_raw(n)?,
+            }),
+            34 => Some(Acquired::Sickhouse {
+                person: PermanentId::from_raw(n)?,
             }),
             c @ 4.. => Some(Acquired::Water {
                 source: crate::contagion::Node::from_code(c - 4, n)?,
@@ -135,6 +157,18 @@ pub struct Course {
 
 /// The course of an infection of `def` taken on day `day` by someone `age` years old.
 pub fn course(def: &DiseaseDef, age: f64, day: i64, rng: &mut Rng64) -> Course {
+    course_with(def, age, day, rng, 1.0)
+}
+
+/// The course of an infection, its share severely ill times `severe_factor` (an inoculated
+/// course's, M10c slice ED).
+pub fn course_with(
+    def: &DiseaseDef,
+    age: f64,
+    day: i64,
+    rng: &mut Rng64,
+    severe_factor: f64,
+) -> Course {
     let days = |x: f64| x.round().max(0.0) as i64;
     let onset = day + days(def.incubation.at(normal(rng))).max(1);
     let symptomatic = rng.next_f64() < def.symptomatic;
@@ -148,7 +182,8 @@ pub fn course(def: &DiseaseDef, age: f64, day: i64, rng: &mut Rng64) -> Course {
     let shed_len = days(def.shed.at(normal(rng))).max(1);
     let after = days(def.shed_after.at(normal(rng)));
     let shed_until = (shed_from + shed_len).max(if symptomatic { ill_until + after } else { 0 });
-    let severe = symptomatic && rng.next_f64() < interpolate(&def.severe_by_age, age);
+    let severe =
+        symptomatic && rng.next_f64() < interpolate(&def.severe_by_age, age) * severe_factor;
     let [lo, hi] = def.immunity_years;
     let years = lo + rng.next_f64() * (hi - lo).max(0.0);
     let immune_until = shed_until.max(ill_until) + (years * 365.0).round() as i64;
@@ -299,6 +334,48 @@ pub struct BirthAttended {
     pub lived: bool,
 }
 
+/// Someone of a household died in the care of a carer it paid who knew no treatment of their
+/// disease (M10c slice EC, third part): the household, the disease, by index, and the day. Kept a
+/// year; saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct UnknowingCare {
+    pub household: PermanentId,
+    pub disease: u16,
+    pub day: i64,
+}
+
+/// Someone vaccinated against a disease (M10c slice ED, third part): who, the disease by index,
+/// the day, the last day its protection is whole, and who vaccinated them (fourth part; none in
+/// saves before 201). Saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Vaccinated {
+    pub person: PermanentId,
+    pub disease: u16,
+    pub day: i64,
+    pub full_until: i64,
+    pub by: Option<PermanentId>,
+}
+
+/// An entry in a polity's register of the sick (M10c slice EE, second part): the polity, the
+/// day, the household, and what was entered: 0 sickness heard of, 1 a death of disease. Kept a
+/// year; saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RegisterEntry {
+    pub polity: PermanentId,
+    pub day: i64,
+    pub household: PermanentId,
+    pub kind: u8,
+}
+
+/// Someone lying in a sickhouse (M10c slice EE, fourth part): who, the building, and the day they
+/// were admitted. Saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Admitted {
+    pub person: PermanentId,
+    pub building: PermanentId,
+    pub day: i64,
+}
+
 /// Every infection there has been, in the order they came, every outbreak, and the calls for
 /// carers standing. Saved; the indexes are derived.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -307,11 +384,24 @@ pub struct Sickness {
     outbreaks: Vec<Outbreak>,
     /// Calls for carers that stand, in the order made (M10c slice DZ).
     pub calls: Vec<CareCall>,
+    /// Calls for someone to inoculate a household's people that stand, in the order made (M10c
+    /// slice ED, second part).
+    pub inoculation_calls: Vec<CareCall>,
     /// The last day each person tended someone ill, while it is recent enough to matter to a
     /// birth they attend (M10c slice EA).
     pub tended: BTreeMap<PermanentId, i64>,
     /// Every birth someone attended, in the order attended (M10c slice EA, second part).
     pub attended: Vec<BirthAttended>,
+    /// Deaths in the care of paid carers who knew no treatment, within the year, oldest first
+    /// (M10c slice EC, third part).
+    pub unknowing: Vec<UnknowingCare>,
+    /// Everyone vaccinated, in the order vaccinated (M10c slice ED, third part).
+    pub vaccinated: Vec<Vaccinated>,
+    /// The entries in polities' registers of the sick within the year, in the order entered
+    /// (M10c slice EE, second part).
+    pub register: Vec<RegisterEntry>,
+    /// Those lying in sickhouses, in the order admitted (M10c slice EE, fourth part).
+    pub admitted: Vec<Admitted>,
     /// Episodes that run, by index, in order.
     running: Vec<usize>,
     /// Each person's episodes, by index, in order.
@@ -442,6 +532,48 @@ impl Sickness {
         })
     }
 
+    /// The share of `disease`'s hazards that still reaches `person` on `day`, by their latest
+    /// vaccination against it `v` (M10c slice ED, third part): 1 unvaccinated; one less its
+    /// efficacy while whole, the efficacy then falling by a factor of e each `waning_years`.
+    pub fn unvaccinated_share(
+        &self,
+        person: PermanentId,
+        disease: u16,
+        day: i64,
+        v: &crate::params::VaccinationDef,
+    ) -> f64 {
+        let Some(r) = self
+            .vaccinated
+            .iter()
+            .rev()
+            .find(|r| r.person == person && r.disease == disease)
+        else {
+            return 1.0;
+        };
+        let efficacy = if day <= r.full_until {
+            v.efficacy
+        } else {
+            let years = (day - r.full_until) as f64 / 365.25;
+            v.efficacy * (-years / v.waning_years.max(1e-9)).exp()
+        };
+        (1.0 - efficacy).clamp(0.0, 1.0)
+    }
+
+    /// Whether `person`'s vaccination against `disease` is whole on `day`.
+    pub fn vaccinated_whole(&self, person: PermanentId, disease: u16, day: i64) -> bool {
+        self.vaccinated
+            .iter()
+            .any(|r| r.person == person && r.disease == disease && day <= r.full_until)
+    }
+
+    /// The sickhouse `person` lies in, if any (M10c slice EE, fourth part).
+    pub fn admitted_to(&self, person: PermanentId) -> Option<PermanentId> {
+        self.admitted
+            .iter()
+            .find(|a| a.person == person)
+            .map(|a| a.building)
+    }
+
     /// Whether `person` is ill of anything on `day`.
     pub fn ill(&self, person: PermanentId, day: i64) -> bool {
         !self.running.is_empty() && self.of(person).any(|e| e.ill_on(day))
@@ -543,6 +675,9 @@ mod tests {
             severe_death_per_day: 0.2,
             immunity_years: [3.0, 10.0],
             household_hazard: 0.03,
+            company_hazard: 0.0,
+            inoculation: None,
+            vaccination: None,
             shed_ill_per_day: 1000.0,
             shed_silent_per_day: 10.0,
             decay_per_day: 0.2,
@@ -575,6 +710,63 @@ mod tests {
         assert!(
             (c.rr(&d, 5) - 0.05).abs() < 1e-6,
             "a treatment a carer knew"
+        );
+    }
+
+    #[test]
+    fn a_vaccination_turns_away_its_share_while_whole_and_less_after() {
+        let v = crate::params::VaccinationDef {
+            technique: 0,
+            good: 0,
+            dose_kg: 0.001,
+            efficacy: 0.95,
+            full_years: [3.0, 5.0],
+            waning_years: 10.0,
+        };
+        let me = PermanentId::from_raw(7).expect("an id");
+        let mut s = Sickness::default();
+        assert_eq!(s.unvaccinated_share(me, 0, 0, &v), 1.0);
+        s.vaccinated.push(Vaccinated {
+            person: me,
+            disease: 0,
+            day: 0,
+            full_until: 1000,
+            by: None,
+        });
+        assert!((s.unvaccinated_share(me, 0, 1000, &v) - 0.05).abs() < 1e-12);
+        assert!(s.vaccinated_whole(me, 0, 1000) && !s.vaccinated_whole(me, 0, 1001));
+        // Ten years on, what it turns away has fallen by a factor of e.
+        let later = 1000 + (10.0 * 365.25_f64).round() as i64;
+        let share = s.unvaccinated_share(me, 0, later, &v);
+        assert!(
+            (share - (1.0 - 0.95 / std::f64::consts::E)).abs() < 1e-3,
+            "{share}"
+        );
+        // Another disease, or another person, is not protected.
+        assert_eq!(s.unvaccinated_share(me, 1, 1000, &v), 1.0);
+        let other = PermanentId::from_raw(8).expect("an id");
+        assert_eq!(s.unvaccinated_share(other, 0, 1000, &v), 1.0);
+    }
+
+    #[test]
+    fn an_inoculated_course_is_severe_the_disease_s_share_less_often() {
+        // M10c slice ED, second part: Jurin's 2.1/16.6 of a natural course's severe share.
+        let d = cholera();
+        let (mut natural, mut inoculated) = (0, 0);
+        let n = 20_000;
+        for i in 0..n {
+            let mut rng = Rng64::from_key(&[7, i]);
+            natural += usize::from(course(&d, 30.0, 0, &mut rng).severe);
+            let mut rng = Rng64::from_key(&[7, i]);
+            inoculated += usize::from(course_with(&d, 30.0, 0, &mut rng, 0.127).severe);
+        }
+        let share = |k: usize| k as f64 / n as f64;
+        let severe = d.symptomatic * interpolate(&d.severe_by_age, 30.0);
+        assert!((share(natural) - severe).abs() < 0.01, "{}", share(natural));
+        assert!(
+            (share(inoculated) - severe * 0.127).abs() < 0.005,
+            "{}",
+            share(inoculated)
         );
     }
 

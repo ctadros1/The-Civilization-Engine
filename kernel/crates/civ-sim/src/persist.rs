@@ -516,6 +516,45 @@ pub const SCHEMA_V189: u32 = 189;
 pub const SCHEMA_V190: u32 = 190;
 /// Who tended the ill kept for births, before calls to attend a birth.
 pub const SCHEMA_V191: u32 = 191;
+/// Calls to attend a birth, before enrolments to learn from another household.
+pub const SCHEMA_V192: u32 = 192;
+/// Enrolments to learn from another household, before households untaught were kept for a
+/// school.
+pub const SCHEMA_V193: u32 = 193;
+/// Households untaught kept for a school, before written records of techniques.
+pub const SCHEMA_V194: u32 = 194;
+/// Written records, before the building each is kept in.
+pub const SCHEMA_V195: u32 = 195;
+/// Where each written record is kept, before deaths in unknowing paid care.
+pub const SCHEMA_V196: u32 = 196;
+/// Deaths in unknowing paid care, before the day's company kept for a disease passing by it.
+pub const SCHEMA_V197: u32 = 197;
+/// The day's company kept, before calls to inoculate.
+pub const SCHEMA_V198: u32 = 198;
+/// Calls to inoculate, before those vaccinated.
+pub const SCHEMA_V199: u32 = 199;
+/// Those vaccinated, before who vaccinated them.
+pub const SCHEMA_V200: u32 = 200;
+/// Who vaccinated them, before deaths of contagion as an issue.
+pub const SCHEMA_V201: u32 = 201;
+/// Deaths of contagion as an issue, before the registers of the sick.
+pub const SCHEMA_V202: u32 = 202;
+/// The registers of the sick, before homes seen on a round in them.
+pub const SCHEMA_V203: u32 = 203;
+/// Homes seen on a round, before middens carried from the water.
+pub const SCHEMA_V204: u32 = 204;
+/// Middens carried from the water, before severe days untended and sickhouses.
+pub const SCHEMA_V205: u32 = 205;
+/// Severe days untended, before those lying in sickhouses.
+pub const SCHEMA_V206: u32 = 206;
+/// Those lying in sickhouses, before the midnight table of what money is worth.
+pub const SCHEMA_V207: u32 = 207;
+/// The midnight table of what money is worth, before goods kept for others.
+pub const SCHEMA_V208: u32 = 208;
+/// Goods kept for others, before receipts written for them.
+pub const SCHEMA_V209: u32 = 209;
+/// Receipts written for goods kept, before notes.
+pub const SCHEMA_V210: u32 = 210;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

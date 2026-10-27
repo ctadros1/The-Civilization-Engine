@@ -146,6 +146,9 @@ pub(crate) struct Money {
     /// Content API 126 (M7d slice CE): counted in pieces of issues a mint struck.
     #[serde(default)]
     pub coin: bool,
+    /// Content API 193 (M10d slice EH): a note, counted in pieces of issues their issuers wrote.
+    #[serde(default)]
+    pub note: bool,
     /// Content API 130 (M7d slice CE4a): for coin, the metal it is struck of, by content id.
     #[serde(default)]
     pub metal: Option<String>,
@@ -216,6 +219,7 @@ impl GoodFile {
             money: self.money.as_ref().map(|m| MoneyDef {
                 verify_h: m.verify_h,
                 coin: m.coin,
+                note: m.note,
                 // Resolved once the goods and techniques are known (`civ_content::compile`).
                 metal: None,
                 assay: None,
@@ -266,6 +270,9 @@ impl GoodFile {
                 if !(v.is_finite() && (0.0..=100.0).contains(&v)) {
                     p.push(format!("`{name}` must be between 0 and 100 (got {v})"));
                 }
+            }
+            if m.coin && m.note {
+                p.push("a money is coin or a note, not both".to_owned());
             }
             if !(m.foreign_discount.is_finite() && (0.0..1.0).contains(&m.foreign_discount)) {
                 p.push(format!(

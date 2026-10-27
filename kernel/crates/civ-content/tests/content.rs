@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 179
+kernel_content_api = 193
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -258,7 +258,17 @@ fn the_repository_content_is_clean() {
     for later in ["core:technique/drying", "core:technique/rotary_quern"] {
         assert!(!founders.contains(&later), "{later}");
     }
-    assert!(c.techniques.iter().all(|t| t.upbringing));
+    // Every craft is learnt in upbringing; letters and reckoning are only taught (M10c slice EC).
+    let letters = [
+        "core:technique/reckoning",
+        "core:technique/reading",
+        "core:technique/writing",
+    ];
+    assert!(
+        c.techniques
+            .iter()
+            .all(|t| t.upbringing != letters.contains(&t.id.as_str()))
+    );
     // Drying answers food lost to spoiling; the rotary quern needs both shaping crafts.
     let drying = &c.techniques[c.technique_index("core:technique/drying").expect("drying")];
     assert_eq!(drying.answers_spoilage.len(), 2);
@@ -2650,7 +2660,349 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         .expect("the street lamps template");
     assert_eq!(def.kind, PolicyKind::LightStreets);
     assert_eq!(def.answers, vec![IssueKind::DarkTakings]);
-    // Its id sorts after every other template's.
-    assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
+    // Its id sorts after every older template's (the school's, M10c slice EB, is newer).
+    let newer = [
+        "core:policy/yourselves_work_with_a_teacher",
+        "core:policy/yourselves_work_with_carers_who_know",
+        "core:policy/yourselves_work_without_meeting_the_sick",
+        "core:policy/yourselves_write_down_the_sick",
+        "core:policy/yourselves_yonder_with_middens",
+        "core:policy/yourselves_zone_a_sickhouse",
+    ];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
     assert_eq!(reg.people.params.crime.lit_guard, 0.3);
+}
+
+#[test]
+fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
+    // M10c slice EB, third part (content API 181): the template answers households that could not
+    // hold a fee to send a child to learn, and names an office.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/yourselves_work_with_a_teacher")
+        .expect("the school template");
+    assert_eq!(def.kind, PolicyKind::KeepSchool);
+    assert_eq!(def.answers, vec![IssueKind::Untaught]);
+    // Its id sorts after every older template's (the licence's, M10c slice EC, and keeping the
+    // sick apart, EE, are newer).
+    let newer = [
+        "core:policy/yourselves_work_with_carers_who_know",
+        "core:policy/yourselves_work_without_meeting_the_sick",
+        "core:policy/yourselves_write_down_the_sick",
+        "core:policy/yourselves_yonder_with_middens",
+        "core:policy/yourselves_zone_a_sickhouse",
+    ];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
+}
+
+#[test]
+fn letters_and_reckoning_are_techniques_nobody_brings_found_rarely_by_those_who_trade() {
+    // M10c slice EC, first part (ADR-0035 §6): reckoning, then reading, then writing, each found
+    // only by those who know the one before it, at trade; taught in groups, never in upbringing.
+    let reg = registry(load(&repo_content()));
+    let c = &reg.catalog;
+    let index = |id: &str| c.technique_index(id).expect(id);
+    let (reckoning, reading, writing) = (
+        index("core:technique/reckoning"),
+        index("core:technique/reading"),
+        index("core:technique/writing"),
+    );
+    let trade = c
+        .activities
+        .iter()
+        .position(|a| a.id == "core:activity/trade")
+        .expect("trade");
+    assert!(c.techniques[reckoning].requires.is_empty());
+    assert_eq!(c.techniques[reading].requires, vec![vec![reckoning]]);
+    assert_eq!(c.techniques[writing].requires, vec![vec![reading]]);
+    for t in [reckoning, reading, writing] {
+        let d = &c.techniques[t];
+        assert_eq!(d.tried_in, vec![trade], "{}", d.id);
+        assert!(!d.upbringing && d.group == 15, "{}", d.id);
+        assert!(
+            !reg.people
+                .params
+                .knowledge
+                .founders
+                .iter()
+                .any(|&(f, _)| f == t),
+            "founders do not bring {}",
+            d.id
+        );
+    }
+}
+
+#[test]
+fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
+    // M10c slice EC, third part (content API 183): the template answers deaths in unknowing paid
+    // care and asks fluid replacement of those paid to tend the sick.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/yourselves_work_with_carers_who_know")
+        .expect("the licence template");
+    assert_eq!(def.kind, PolicyKind::Licence);
+    assert_eq!(def.answers, vec![IssueKind::UnknowingCare]);
+    let licence = def.licence.as_ref().expect("its licence");
+    assert_eq!(
+        reg.catalog.techniques[licence.technique].id,
+        "core:technique/fluid_replacement"
+    );
+    assert_eq!(licence.what, "fluid replacement");
+    // Its id sorts after every older template's (keeping the sick apart, M10c slice EE, is
+    // newer).
+    let newer = [
+        "core:policy/yourselves_work_without_meeting_the_sick",
+        "core:policy/yourselves_write_down_the_sick",
+        "core:policy/yourselves_yonder_with_middens",
+        "core:policy/yourselves_zone_a_sickhouse",
+    ];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
+}
+
+#[test]
+fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
+    // M10c slice EE, first part (content API 187): the template answers deaths of a sickness
+    // passing at home or in company, keeping a household apart two weeks past its last illness.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/yourselves_work_without_meeting_the_sick")
+        .expect("the keep-apart template");
+    assert_eq!(def.kind, PolicyKind::KeepApart);
+    assert_eq!(def.answers, vec![IssueKind::Contagion]);
+    let k = def.keep_apart.expect("its terms");
+    assert_eq!(k.days_after, 14);
+    assert!(k.cost_share > 0.0 && k.cost_share < 1.0);
+    // Its id sorts after every older template's (the register's, M10c slice EE, is newer).
+    let newer = [
+        "core:policy/yourselves_write_down_the_sick",
+        "core:policy/yourselves_yonder_with_middens",
+        "core:policy/yourselves_zone_a_sickhouse",
+    ];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
+}
+
+#[test]
+fn the_core_lets_a_polity_name_a_health_officer_who_can_write() {
+    // M10c slice EE, second part (content API 188): an office for sickness at home, which only
+    // one who knows how to write may hold.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/yourselves_write_down_the_sick")
+        .expect("the register template");
+    assert_eq!(def.kind, PolicyKind::KeepRegister);
+    assert_eq!(def.answers, vec![IssueKind::Sickness]);
+    let writing = reg
+        .catalog
+        .technique_index("core:technique/writing")
+        .expect("writing");
+    assert_eq!(def.holder_needs, Some(writing));
+    let r = def.register.expect("its register");
+    assert!(r.avoided_share > 0.0 && r.avoided_share < 1.0);
+    // No other template asks a technique of its holder.
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .filter(|p| p.id != def.id)
+            .all(|p| p.holder_needs.is_none())
+    );
+    // Its id sorts after every older template's (clearing middens, M10c slice EE, is newer).
+    let newer = [
+        "core:policy/yourselves_yonder_with_middens",
+        "core:policy/yourselves_zone_a_sickhouse",
+    ];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
+}
+
+#[test]
+fn the_core_lets_a_polity_clear_middens_from_the_water() {
+    // M10c slice EE, third part (content API 190): the template answers a suspected source and
+    // asks households near the water to carry their middens 30 m from every source.
+    use civ_agents::params::Behavior;
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/yourselves_yonder_with_middens")
+        .expect("the middens template");
+    assert_eq!(def.kind, PolicyKind::ClearMiddens);
+    assert_eq!(def.answers, vec![IssueKind::SourceSuspected]);
+    let m = def.middens.expect("its terms");
+    assert_eq!(m.distance_m, 30.0);
+    assert!(m.keep_days >= 1 && m.carry_h > 0.0 && m.avoided_share > 0.0);
+    assert!(
+        reg.catalog
+            .activities
+            .iter()
+            .any(|a| a.behavior == Behavior::Midden && a.daylight_only)
+    );
+    // Its id sorts after every older template's (the sickhouse's, M10c slice EE, is newer).
+    let newer = ["core:policy/yourselves_zone_a_sickhouse"];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
+}
+
+#[test]
+fn the_core_lets_a_polity_raise_a_sickhouse_where_the_sick_lay_untended() {
+    // M10c slice EE, fourth part (content API 191): a building of its own use, raised together
+    // against severe days untended.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/yourselves_zone_a_sickhouse")
+        .expect("the sickhouse template");
+    assert_eq!(def.kind, PolicyKind::RaiseBuilding);
+    assert_eq!(def.answers, vec![IssueKind::Untended]);
+    let program = def.raise.expect("what it raises").program;
+    assert_eq!(reg.catalog.buildings[program].id, "core:building/sickhouse");
+    assert_eq!(
+        reg.catalog.buildings[program].use_,
+        civ_land::PlotUse::Sickhouse
+    );
+    assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
+}
+
+#[test]
+fn the_core_has_smallpox_passing_at_home_and_in_company() {
+    // M10c slice ED, first part (content API 184): the company route and its hazard.
+    use civ_agents::params::DiseaseRoute;
+    let reg = registry(load(&repo_content()));
+    let i = reg
+        .catalog
+        .disease_index("core:disease/smallpox")
+        .expect("smallpox");
+    let d = &reg.catalog.diseases[i];
+    assert_eq!(
+        d.routes,
+        vec![DiseaseRoute::Household, DiseaseRoute::Company]
+    );
+    assert!(d.company_hazard > 0.0 && d.household_hazard > 0.0);
+    assert_eq!(d.symptomatic, 1.0);
+    // Every other disease passes by no company.
+    assert!(
+        reg.catalog
+            .diseases
+            .iter()
+            .filter(|x| x.id != d.id)
+            .all(|x| !x.passes_by(DiseaseRoute::Company) && x.company_hazard == 0.0)
+    );
+}
+
+#[test]
+fn smallpox_may_be_given_by_variolation_which_nobody_brings() {
+    // M10c slice ED, second part (content API 185): Jurin's 2.1/16.6, a technique tending finds.
+    let reg = registry(load(&repo_content()));
+    let c = &reg.catalog;
+    let d = &c.diseases[c.disease_index("core:disease/smallpox").expect("smallpox")];
+    let i = d.inoculation.expect("its inoculation");
+    assert_eq!(c.techniques[i.technique].id, "core:technique/variolation");
+    assert!((i.deaths - 2.1 / 16.6).abs() < 0.001, "{}", i.deaths);
+    assert!(i.deaths < i.believed_take);
+    assert!(
+        !reg.people
+            .params
+            .knowledge
+            .founders
+            .iter()
+            .any(|&(t, _)| t == i.technique)
+    );
+    // No other disease may be given on purpose.
+    assert!(
+        c.diseases
+            .iter()
+            .filter(|x| x.id != d.id)
+            .all(|x| x.inoculation.is_none())
+    );
+}
+
+#[test]
+fn smallpox_may_be_vaccinated_against_with_matter_only_its_knowers_make() {
+    // M10c slice ED, third part (content API 186): about 95%, whole 3-5 years (05-05 §2.1).
+    let reg = registry(load(&repo_content()));
+    let c = &reg.catalog;
+    let d = &c.diseases[c.disease_index("core:disease/smallpox").expect("smallpox")];
+    let v = d.vaccination.expect("its vaccination");
+    assert_eq!(c.techniques[v.technique].id, "core:technique/vaccination");
+    assert_eq!(c.goods[v.good].id, "core:good/vaccine_matter");
+    assert!((v.efficacy - 0.95).abs() < 1e-9);
+    assert_eq!(v.full_years, [3.0, 5.0]);
+    // Found only by one who knows variolation, and brought by nobody.
+    let variolation = c
+        .technique_index("core:technique/variolation")
+        .expect("variolation");
+    assert_eq!(c.techniques[v.technique].requires, vec![vec![variolation]]);
+    assert!(
+        !reg.people
+            .params
+            .knowledge
+            .founders
+            .iter()
+            .any(|&(t, _)| t == v.technique)
+    );
+    // Its matter is made by one recipe, which its knowers alone work, and spoils in days.
+    let makes: Vec<_> = c
+        .recipes
+        .iter()
+        .filter(|r| r.outputs.iter().any(|&(g, _)| g == v.good))
+        .collect();
+    assert_eq!(makes.len(), 1);
+    assert_eq!(makes[0].technique, Some(v.technique));
+    assert!(c.goods[v.good].half_life_days > 0.0 && c.goods[v.good].half_life_days < 30.0);
+    // No other disease may be vaccinated against.
+    assert!(
+        c.diseases
+            .iter()
+            .filter(|x| x.id != d.id)
+            .all(|x| x.vaccination.is_none())
+    );
 }

@@ -1,0 +1,21 @@
+# The health officer's round (M10c slice EE, second part; ADR-0035 §7; brief m10-services §2.4):
+# only for the one a law names to keep the register of the sick, only in daylight, once a day. The
+# round passes the settlement's homes in the watch's set order, a stand of `min_minutes` at each
+# (a design prior: long enough to ask after the household and see who lies abed). At each home they
+# enter it in the register as seen, and where someone lies abed they see it at first hand; where a
+# law pays common work, the store pays their household for the hours.
+kind = "activity"
+id = "core:activity/walk_the_rounds"
+name = "Walk the rounds"
+doing = "walking the rounds of the sick"
+behavior = "rounds"
+par = 2.0
+min_age_years = 15.0
+max_age_years = 130.0
+min_minutes = 10                 # each stand
+max_minutes = 10
+daylight_only = true
+max_walk_minutes = 30
+technique = ""
+tools = []
+rate = 1.0

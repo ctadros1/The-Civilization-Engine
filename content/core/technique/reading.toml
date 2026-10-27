@@ -1,0 +1,21 @@
+# Reading marks others made (M10c slice EC; ADR-0035 §6; research 06-08 §1.5: elementary reading is
+# separate from writing, and was often learnt first; 07-09 §3.1 I05: structured records of
+# quantities). It needs reckoning, the counts its marks keep. Found, rarely, by reckoners who trade
+# (half of them would need 300,000 qualified hours, a design prior). Learnt in 600 hours with a
+# knower (06-08 §5.3: 1-3 effective instruction years for elementary reading; 07-09 §2.2), in
+# groups of up to 15. Never learnt in upbringing; founders do not bring it.
+kind = "technique"
+id = "core:technique/reading"
+name = "Reading"
+can = "read a record of counts and names another made"
+domain = ""
+requires = [["core:technique/reckoning"]]
+tried_in = ["core:activity/trade"]
+needs = []
+e50_h = 300000.0
+learn_h = 600.0
+upbringing = false
+group = 15
+
+[answers]
+spoilage = []

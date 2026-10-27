@@ -123,11 +123,31 @@ pub enum Behavior {
     /// DZ, second part; ADR-0035 §2): only where the ill at home are owed more care than its well
     /// members can give.
     Call,
+    /// Hold a session of a technique they know at home for those enrolled to learn it from them
+    /// (M10c slice EB, second part; ADR-0035 §5): credited to the learners at midnight.
+    Teach,
+    /// Walk to the home of the one they are enrolled to learn a technique from, study it there,
+    /// and walk home (M10c slice EB, second part): credited at midnight, up to what was taught.
+    Study,
+    /// Write down at home a technique they know that no record their settlement holds keeps,
+    /// where nobody else of it knows it (M10c slice EC; ADR-0035 §6): a record once the hours of
+    /// one are written.
+    Write,
+    /// Read at home a record their household holds of a technique they do not know (M10c slice
+    /// EC): aware of it, and learning toward it where it can be learnt from the page.
+    Read,
+    /// Walk the health officer's round in daylight (M10c slice EE, second part; ADR-0035 §7): a
+    /// stand at each home on it, where they see who lies abed and enter the home in the register
+    /// of the sick they keep.
+    Rounds,
+    /// Carry the household's midden from near the water to a place as far from every source, as
+    /// a law clearing middens asks (M10c slice EE, third part).
+    Midden,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 41] = [
+    pub const ALL: [Behavior; 47] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -169,6 +189,12 @@ impl Behavior {
         Behavior::Mill,
         Behavior::Light,
         Behavior::Call,
+        Behavior::Teach,
+        Behavior::Study,
+        Behavior::Write,
+        Behavior::Read,
+        Behavior::Rounds,
+        Behavior::Midden,
     ];
 
     /// The authored name of a behavior.
@@ -215,6 +241,12 @@ impl Behavior {
             Behavior::Mill => "mill",
             Behavior::Light => "light",
             Behavior::Call => "call",
+            Behavior::Teach => "teach",
+            Behavior::Study => "study",
+            Behavior::Write => "write",
+            Behavior::Read => "read",
+            Behavior::Rounds => "rounds",
+            Behavior::Midden => "midden",
         }
     }
 
@@ -378,6 +410,9 @@ pub struct MoneyDef {
     /// It is counted in pieces of issues a mint struck (coin), whose purses are kept (M7d
     /// slice CE); else it is weighed (metal).
     pub coin: bool,
+    /// It is a note, counted in pieces of issues their issuers wrote, whose purses are kept (M10d
+    /// slice EH): a claim on its issuer for a good.
+    pub note: bool,
     /// For coin: the metal it is struck of, by index in the catalog's goods (M7d slice CE4a).
     pub metal: Option<usize>,
     /// For coin: the technique whose knowers can tell how much metal a piece holds, by index in
@@ -755,6 +790,14 @@ pub struct TechniqueDef {
     /// The share of each complication's deaths in childbirth an attendant who knows it prevents
     /// (M10c slice EA; content API 179), by [`Complication`]; all nought for most.
     pub birth: [f64; COMPLICATIONS],
+    /// How many learners one teacher's session serves whole (M10c slice EB, second part; content
+    /// API 180; research 06-08 §5.3: 1-3 for crafts, 15-40 for elementary group work); beyond it,
+    /// each learner's share of the session falls.
+    pub group: u16,
+    /// How many times its `learn_h` learning it from a record alone takes (M10c slice EC;
+    /// content API 182; research 07-09 §1.10: codifiability); 0: it cannot be learnt from the
+    /// page, only heard of there.
+    pub codified: f64,
 }
 
 /// The authored activities, goods and crops.
@@ -875,6 +918,9 @@ pub enum DiseaseRoute {
     Water,
     /// Living under one roof with someone shedding it: hands, food and shared vessels.
     Household,
+    /// Company at the hearth with someone shedding it (M10c slice ED; ADR-0035 §4): breath and
+    /// touch among those met.
+    Company,
 }
 
 impl DiseaseRoute {
@@ -883,15 +929,47 @@ impl DiseaseRoute {
         match self {
             DiseaseRoute::Water => "water",
             DiseaseRoute::Household => "household",
+            DiseaseRoute::Company => "company",
         }
     }
 
     /// The route with a key.
     pub fn from_key(key: &str) -> Option<DiseaseRoute> {
-        [DiseaseRoute::Water, DiseaseRoute::Household]
-            .into_iter()
-            .find(|r| r.key() == key)
+        [
+            DiseaseRoute::Water,
+            DiseaseRoute::Household,
+            DiseaseRoute::Company,
+        ]
+        .into_iter()
+        .find(|r| r.key() == key)
     }
+}
+
+/// Inoculation with a disease (M10c slice ED, second part; research 05-05 §2.1): the technique
+/// that gives it, by index in the catalog's techniques; the share of a natural infection's severe
+/// share an inoculated course has (Jurin's 2.1% against 16.6% died); and the chance a household
+/// believes those of it would take it where it is near (a design prior), against which it weighs
+/// the inoculated course's deaths.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct InoculationDef {
+    pub technique: usize,
+    pub deaths: f64,
+    pub believed_take: f64,
+}
+
+/// Vaccination against a disease (M10c slice ED, third part; research 05-05 §2.1, §4): the
+/// technique that gives it, by index in the catalog's techniques; the good it is given from, by
+/// index in the goods, and the kilograms of it a person takes; the share of the disease's hazards
+/// it turns away while whole; how long it stays whole, years, drawn evenly between the two; and
+/// the years over which what it turns away then falls by a factor of e.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct VaccinationDef {
+    pub technique: usize,
+    pub good: usize,
+    pub dose_kg: f64,
+    pub efficacy: f64,
+    pub full_years: [f64; 2],
+    pub waning_years: f64,
 }
 
 /// A duration a disease's clock draws, days: lognormal with this arithmetic mean and standard
@@ -948,6 +1026,15 @@ pub struct DiseaseDef {
     /// The hazard a day each member shedding it puts on each other member of a household
     /// (05-03 §7.2: summed over routes, drawn once a day).
     pub household_hazard: f64,
+    /// The hazard an hour in company at the hearth with one shedding it puts on each they meet
+    /// (M10c slice ED; content API 184), summed with the day's other hazards.
+    pub company_hazard: f64,
+    /// How it may be given on purpose to protect from it, mildly (M10c slice ED, second part;
+    /// content API 185), if it may.
+    pub inoculation: Option<InoculationDef>,
+    /// How it may be prevented by vaccination (M10c slice ED, third part; content API 186), if
+    /// it may.
+    pub vaccination: Option<VaccinationDef>,
     /// What someone sheds of it a day while ill, and while shedding without symptoms, in doses: a
     /// dose drunk is a hazard of 1 (12-02 §5.4's exponential dose-response with its rate folded
     /// into the unit).
@@ -1607,6 +1694,18 @@ pub struct DecisionParams {
     /// Points for tending members of the household who are severely ill and still owed a day's
     /// care; half as much for those ill but not severely (M6a slice AZ, step three).
     pub w_tend: f64,
+    /// Points for holding a session of a technique for each learner enrolled with them, up to
+    /// its group (M10c slice EB, second part).
+    pub w_teach: f64,
+    /// Points for a session of study with the one they are enrolled to learn from (M10c slice
+    /// EB, second part).
+    pub w_study: f64,
+    /// Points for a session writing down a technique only they of their settlement know (M10c
+    /// slice EC).
+    pub w_write: f64,
+    /// Points for a session reading a record their household holds of a technique they do not
+    /// know (M10c slice EC).
+    pub w_read: f64,
 }
 
 /// The first people of a new world (research 05-01 §4.5).
@@ -2009,6 +2108,9 @@ pub struct MarketParams {
     /// What striking the metal brought to a mint is worth to its minter as the duty of their
     /// office, decision points (M7d slice CE2b), as carrying an agreement's payment is.
     pub strike_points: f64,
+    /// What a keeper takes each 30 days of what it keeps for another, a share of it (M10d slice
+    /// EG, second part; a design prior: the research gives no custody fee).
+    pub custody_fee_share: f64,
 }
 
 /// Household workshops (slice J, ADR-0006 §5).
@@ -2341,6 +2443,9 @@ pub struct KnowledgeParams {
     /// How far, metres, someone at another settlement's hearth or a seller's door there sees its
     /// people at work well enough to know of a technique the work needs (M5b slice AR; 0: never).
     pub watch_m: f64,
+    /// Hours of writing that make a record of a technique (M10c slice EC; content API 182;
+    /// research 07-09 §2.2: 20-90 worker-minutes a complex document, a technique many).
+    pub record_h: f64,
 }
 
 /// Linear interpolation in an ascending `(x, y)` table, clamped at its ends.

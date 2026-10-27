@@ -23,19 +23,22 @@ pub enum PlotUse {
     Hall,
     /// A tower a polity's watch looks out from (M8d slice DC).
     Tower,
+    /// A sickhouse, where the sick of a polity's households may lie (M10c slice EE).
+    Sickhouse,
 }
 
 impl PlotUse {
     /// Every use, in a fixed order.
-    pub const ALL: [PlotUse; 5] = [
+    pub const ALL: [PlotUse; 6] = [
         PlotUse::Dwelling,
         PlotUse::Store,
         PlotUse::Work,
         PlotUse::Hall,
         PlotUse::Tower,
+        PlotUse::Sickhouse,
     ];
 
-    /// The authored name: `dwelling`, `store`, `work`, `hall` or `tower`.
+    /// The authored name: `dwelling`, `store`, `work`, `hall`, `tower` or `sickhouse`.
     pub fn name(self) -> &'static str {
         match self {
             PlotUse::Dwelling => "dwelling",
@@ -43,6 +46,7 @@ impl PlotUse {
             PlotUse::Work => "work",
             PlotUse::Hall => "hall",
             PlotUse::Tower => "tower",
+            PlotUse::Sickhouse => "sickhouse",
         }
     }
 

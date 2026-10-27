@@ -39,6 +39,7 @@ use crate::person::{
     food_kcal, fuel_kg, reserve_food_kcal, stock_kcal,
 };
 
+mod apart;
 mod boating;
 mod bottlenecks;
 mod cases;
@@ -62,17 +63,23 @@ mod gas;
 mod holds;
 mod ideology;
 mod influence;
+mod inoculation;
 mod knowledge;
 mod lamps;
 mod land;
+mod letters;
 mod levees;
+mod licences;
 mod life;
 mod loads;
 mod market;
+mod middens;
 mod mills;
 mod mint;
+mod money;
 mod moving;
 mod norm;
+mod notes;
 mod opinion;
 mod payments;
 mod trains;
@@ -82,15 +89,19 @@ mod way_works;
 pub use crime::TakeProbe;
 pub use payments::Burden;
 pub use resolution::{DayBlock, NOT_TAKEN, SwitchInvariants};
+pub use sickhouse::sickhouse_bed_m2;
 mod credit;
+mod custody;
 mod patronage;
 mod places;
 mod polity;
 mod privileges;
+mod register;
 mod relations;
 mod residence;
 mod resolution;
 mod rules;
+mod school;
 mod sickness;
 mod stewardship;
 mod suspicion;
@@ -115,6 +126,7 @@ mod raising;
 pub use raising::{
     AT_TOWER_M, LATE_NOTICE_MIN, RAISE_WITHIN_M, SEEN_GIVERS, STALL_DAYS, TOWER_SIGHT_M,
 };
+mod sickhouse;
 mod siting;
 mod taste;
 mod ties;
@@ -571,6 +583,11 @@ pub struct Population {
     /// wants worked it ([`Self::run_held_crews`]). Filled and emptied within
     /// [`Self::live_household_days`] only, never saved.
     crew_held: Vec<firm::HeldSession>,
+    /// Hours worked beside a household's knowers in a household-resolved day (M10c slice EB,
+    /// first part; ADR-0035 §5): by those learning a technique, and by those knowing it, at each
+    /// household, credited when the day is lived ([`Self::credit_alongside`]). Filled and emptied
+    /// within [`Self::live_household_days`] only, never saved.
+    alongside: knowledge::Alongside,
     /// Whether a household-resolved day is being lived, and whether a held crew's run is under
     /// way (its crew already counted).
     resolving: bool,
@@ -628,6 +645,29 @@ pub struct Population {
     /// Each settlement's record of the techniques it came to know and lost, oldest first
     /// (ADR-0008 §2).
     pub knowledge: Vec<crate::knowledge::KnowledgeEvent>,
+    /// Learners enrolled to learn a technique from someone of another household, in the order
+    /// enrolled, and today's minutes of teaching and of study (M10c slice EB, second part;
+    /// ADR-0035 §5).
+    pub enrolments: Vec<crate::knowledge::Enrolment>,
+    pub taught: Vec<crate::knowledge::Session>,
+    pub studied: Vec<crate::knowledge::Session>,
+    /// Households that could not hold the fee to send a child to learn, within a year, oldest
+    /// first (M10c slice EB, third part).
+    pub untaught: Vec<crate::knowledge::Untaught>,
+    /// Written records of techniques, in the order written, and the minutes each writer has
+    /// written toward the record they are writing (M10c slice EC; ADR-0035 §6).
+    pub writings: Vec<crate::knowledge::Record>,
+    /// Who met whom in company at the hearth today, and for how many hours, kept only while a
+    /// disease passing by company runs (M10c slice ED): the day's company exposure, drawn at
+    /// midnight.
+    pub met: Vec<(PermanentId, PermanentId, f32)>,
+    /// Who tended at a sickhouse today, and which (M10c slice EE, fourth part): the day's
+    /// exposure of its carers, drawn at midnight.
+    pub staffed: Vec<(PermanentId, PermanentId)>,
+    /// What each money is worth to each household from its use as money, by household and money
+    /// (M10d slice EF, first part; ADR-0035 §12): built at midnight.
+    pub money: Vec<crate::market::MoneyBelief>,
+    pub written: Vec<crate::knowledge::Session>,
     /// What each settlement has seen of each technique's buildings, in the order first seen
     /// (ADR-0009 §6).
     pub trust: Vec<crate::caution::Trust>,
@@ -725,6 +765,12 @@ pub struct Population {
     pub consignments: Vec<crate::consignments::Consignment>,
     /// What the counters of consignments since unloaded saw: counters, never saved.
     pub consigned_flows: crate::person::Flows,
+    /// Goods households keep for others (M10d slice EG, second part; ADR-0027 §4), in the order
+    /// left, and what the counters of those since emptied saw (counters, never saved).
+    pub kept: Vec<crate::custody::Kept>,
+    pub kept_flows: crate::person::Flows,
+    /// Notes written and the purses holding them (M10d slice EH).
+    pub notes: crate::notes::Notes,
     /// Each cell a facility lies on, with it and its passage width, in cell order, and the
     /// crossings' and enclosures' revisions it stands for. Derived.
     facilities: Vec<(u32, crate::traffic::Facility, f32)>,
@@ -1388,6 +1434,11 @@ impl Population {
             all.absorb(&c.flows);
         }
         all.absorb(&self.consigned_flows);
+        // And goods kept for others (M10d slice EG, second part).
+        for k in &self.kept {
+            all.absorb(&k.flows);
+        }
+        all.absorb(&self.kept_flows);
         all
     }
 
@@ -1402,7 +1453,8 @@ impl Population {
             .chain(self.firms.iter().map(|f| &f.stores))
             .chain(self.polities.iter().map(|p| &p.stores))
             .chain(self.agreements.dues.iter().map(|d| &d.stores))
-            .chain(self.consignments.iter().map(|c| &c.stores));
+            .chain(self.consignments.iter().map(|c| &c.stores))
+            .chain(self.kept.iter().map(|k| &k.stores));
         for s in stores {
             if out.len() < s.len() {
                 out.resize(s.len(), 0.0);
@@ -3668,6 +3720,8 @@ impl Population {
             campaign: self.campaign_points(ctx, p.id),
             watch: self.watch_facts(ctx, p.id, &hh, dark),
             light: self.light_facts(ctx, p.id, &hh, dark),
+            rounds: self.rounds_facts(ctx, p.id, &hh, dark),
+            midden: self.midden_facts(ctx, p.id, &hh, dark),
             carry: self.carry_facts(ctx, p.id, field_key, dark),
             crossing: self.crossing_facts(ctx, &hh, p.id, field_key, dark),
             well: self.well_facts(ctx, &hh, p.id, dark),
@@ -3689,6 +3743,10 @@ impl Population {
             fire: fire_facts,
             tend: self.tend_facts(ctx, p.id, &hh, field_key),
             call: self.call_facts(ctx, p.id, &hh, field_key),
+            teach: self.teach_facts(ctx, p.id),
+            study: self.study_facts(ctx, p.id, field_key),
+            write: self.write_facts(ctx, p.id),
+            read: self.read_facts(ctx, p.id),
             home_flooded: ctx
                 .land
                 .flood_depths
@@ -4489,6 +4547,38 @@ impl Population {
                 });
             }
             let have = |g: usize| make::available(&stores, goods, g, reserve_ok, protected);
+            // Matter to vaccinate with is made only for the calls to give it that stand at the
+            // household's door (M10c slice ED, third part): as much as they are short of, owed as
+            // the care they ask is.
+            if let Some((dose_kg, needed)) = self.vaccine_wanted(ctx, hh_id, out) {
+                let short_kg = needed as f64 * dose_kg - held_of(out);
+                let per = r.outputs.first().map_or(0.0, |o| o.1);
+                if short_kg <= 1e-9 || per <= 0.0 {
+                    return Err((Reason::NotNeeded, None));
+                }
+                if let Some(&t) = r
+                    .tools
+                    .iter()
+                    .find(|&&t| free_tools.get(t).copied().unwrap_or(0.0) < decide::MIN_TOOL)
+                {
+                    return Err((Reason::NoTool, Some(t)));
+                }
+                let units = (short_kg / per)
+                    .min(make::units_from_inputs(r, &have))
+                    .min(make::units_in(r, f64::from(a.max_minutes), speed));
+                if units.is_nan() || units <= 1e-6 {
+                    return Err((Reason::NoInputs, None));
+                }
+                return Ok(MakeOption {
+                    units,
+                    minutes: make::minutes_for(r, units, speed),
+                    worth: MakeWorth::Called {
+                        owed: short_kg / dose_kg.max(1e-12),
+                    },
+                    firm: None,
+                    site: None,
+                });
+            }
             // A batch runs unattended (M10a slice DP, ADR-0033 §2): while one of this recipe is
             // under way there is nothing to do; once its days are past, a session opens it, worth
             // what making its units would be.
@@ -4866,6 +4956,66 @@ impl Population {
                 }
             }
         }
+        // A law keeping the sick apart where they live (M10c slice EE, first part): going out of
+        // a home kept apart, or tending at another one, costs one who knows of it what keeping it
+        // weighs with them. The watch, the lamplighter and those at a fire are exempt.
+        let apart = self
+            .people
+            .get(h)
+            .map(|p| p.id)
+            .and_then(|id| self.keep_apart_now(ctx, id, &hh));
+        let today = ctx.now.day_index();
+        // The households their tending options would take them to that are kept apart.
+        let apart_targets: Vec<PermanentId> = match apart {
+            Some(k) if !k.home => cands
+                .iter()
+                .filter_map(|c| match c.scored.target {
+                    Target::Household(x) => Some(x),
+                    _ => None,
+                })
+                .filter(|&x| {
+                    self.household(x)
+                        .is_some_and(|y| self.kept_apart(y, &k.def, today))
+                })
+                .collect(),
+            _ => Vec::new(),
+        };
+        let kept_from = |c: &decide::Candidate| {
+            let Some(k) = apart else {
+                return false;
+            };
+            let behavior = catalog
+                .activities
+                .get(usize::from(c.scored.def))
+                .map(|a| a.behavior);
+            if k.home {
+                let exempt = behavior.is_some_and(|b| {
+                    matches!(
+                        b,
+                        Behavior::Watch
+                            | Behavior::Light
+                            | Behavior::Douse
+                            | Behavior::Strip
+                            | Behavior::Pull
+                            | Behavior::Salvage
+                    )
+                });
+                return !exempt && self::polity::away_from_home(&c.steps, pos, hh.home);
+            }
+            match c.scored.target {
+                Target::Household(x) => {
+                    behavior == Some(Behavior::Tend) && apart_targets.contains(&x)
+                }
+                _ => false,
+            }
+        };
+        if let Some(points) = apart.and_then(|k| k.points) {
+            for c in &mut cands {
+                if kept_from(c) {
+                    decide::add_term(c, Reason::KeepApart, -points);
+                }
+            }
+        }
         // A household-resolved day's planning takes the options as scored and stops here
         // (ADR-0032 §2): nothing is chosen, drawn or begun.
         if self.planning {
@@ -4965,6 +5115,21 @@ impl Population {
                 facts.water_days as f32,
             ],
         };
+        // One who goes out of a home kept apart, or tends at one, breaks the law that keeps the
+        // sick apart, knowing it or not (M10c slice EE, first part).
+        if let Some(k) = apart
+            && kept_from(&cands[choice])
+            && let Some(law) = self
+                .polities
+                .get_mut(k.pi)
+                .and_then(|x| x.laws.get_mut(k.li))
+        {
+            if k.points.is_some() {
+                law.compliance.broken += 1;
+            } else {
+                law.compliance.broken_unaware += 1;
+            }
+        }
         // One who goes out in a curfew's hours breaks it, knowing it or not.
         if let Some((pi, li, points)) = curfew
             && covered(&cands[choice])
@@ -5138,6 +5303,14 @@ impl Population {
             .is_some_and(|a| a.behavior == Behavior::Watch)
         {
             self.start_round(ctx, who);
+        }
+        // And the health officer's (M10c slice EE, second part).
+        if catalog
+            .activities
+            .get(usize::from(def))
+            .is_some_and(|a| a.behavior == Behavior::Rounds)
+        {
+            self.start_rounds(ctx, who);
         }
         // Someone who sets off to work on a crossing is one of its crew that day, counted as
         // they choose it, so that those choosing after them see the room taken (M5c slice AW;
@@ -5574,7 +5747,10 @@ impl Population {
                 | Behavior::Play
                 | Behavior::Make
                 | Behavior::Try
-                | Behavior::Tend,
+                | Behavior::Tend
+                | Behavior::Teach
+                | Behavior::Write
+                | Behavior::Read,
             ) => (def_par, false, params.social.household_quality),
             Some(
                 Behavior::Gather
@@ -5589,7 +5765,10 @@ impl Population {
                 | Behavior::Take
                 | Behavior::Watch
                 | Behavior::Light
+                | Behavior::Rounds
+                | Behavior::Midden
                 | Behavior::Call
+                | Behavior::Study
                 | Behavior::Carry
                 | Behavior::Bridge
                 | Behavior::Boat
@@ -5825,6 +6004,33 @@ impl Population {
                         self.field_work(ctx, who, household, field, task, hours);
                     }
                 }
+                // A session taught or studied, tallied for midnight (M10c slice EB, second part).
+                Some(Behavior::Teach) => {
+                    if let Target::Technique(t) = p.act.target {
+                        let who = p.id;
+                        crate::knowledge::tally(&mut self.taught, who, t, minutes as f32);
+                    }
+                }
+                Some(Behavior::Study) => {
+                    if let Target::Technique(t) = p.act.target {
+                        let who = p.id;
+                        crate::knowledge::tally(&mut self.studied, who, t, minutes as f32);
+                        self.pay_study_fee(ctx, who, t);
+                    }
+                }
+                // A record written toward, or read (M10c slice EC).
+                Some(Behavior::Write) => {
+                    if let Target::Technique(t) = p.act.target {
+                        let who = p.id;
+                        self.finish_write(ctx, who, t, f64::from(minutes));
+                    }
+                }
+                Some(Behavior::Read) => {
+                    if let Target::Technique(t) = p.act.target {
+                        let who = p.id;
+                        self.finish_read(ctx, who, t, f64::from(minutes));
+                    }
+                }
                 // A call left at a carer's door (M10c slice DZ, second part).
                 Some(Behavior::Call) => {
                     if let Target::Household(carer) = p.act.target {
@@ -5846,6 +6052,17 @@ impl Population {
                 Some(Behavior::Watch) => {
                     let who = p.id;
                     self.stood_watch(who, minutes);
+                }
+                // A home on the health officer's round, seen and entered (M10c slice EE, second
+                // part).
+                Some(Behavior::Rounds) => {
+                    let (who, pos) = (p.id, p.pos);
+                    self.round_stop(ctx, who, pos, minutes);
+                }
+                // A midden carried from the water (M10c slice EE, third part).
+                Some(Behavior::Midden) => {
+                    let (who, pos) = (p.id, p.pos);
+                    self.carry_midden(ctx, who, pos);
                 }
                 // A street lamp lit where the lamplighter stands (M10b slice DY, fourth part).
                 Some(Behavior::Light) => {
@@ -5958,13 +6175,17 @@ impl Population {
                     }
                 }
                 Some(Behavior::Tend) => {
-                    // At home, or at close kin's home (M10c slice DZ).
-                    let household = match p.act.target {
-                        Target::Household(h) => h,
-                        _ => p.household,
-                    };
+                    // At home, or at close kin's home (M10c slice DZ), or at the sickhouse (M10c
+                    // slice EE, fourth part).
                     let (who, def) = (p.id, p.act.def);
-                    self.tended(ctx, who, household, def, minutes);
+                    match p.act.target {
+                        Target::Building(b) => self.tend_at_sickhouse(ctx, who, b, def, minutes),
+                        Target::Household(h) => self.tended(ctx, who, h, def, minutes),
+                        _ => {
+                            let household = p.household;
+                            self.tended(ctx, who, household, def, minutes);
+                        }
+                    }
                 }
                 Some(Behavior::Make) => {
                     if let Some(d) = def.as_ref() {
@@ -7392,6 +7613,8 @@ impl Population {
     pub fn on_day(&mut self, ctx: &mut Ctx) {
         self.pay_for_work_given(ctx);
         self.close_travel_day(ctx);
+        // What each money is worth to those who used it, afresh for the day (M10d slice EF).
+        self.money_day(ctx);
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         // Gates are opened at first light and kept at dusk (M6c slice BK).
         self.schedule_gates(ctx);
@@ -7556,6 +7779,8 @@ impl Population {
         self.engine_runs(ctx, day);
         // Gas mains weighed by the works whose day it is (M10b slice DY, fourth part).
         self.main_reviews(ctx, day);
+        // A child sent to learn a craft the household buys (M10c slice EB, second part).
+        self.enrol_reviews(ctx, day);
         // And the wells (M6a slice AY, step three): what was drawn taken from the water table, a
         // month's rot on their linings, then the households whose day it is weigh one.
         if !ctx.land.wells.list.is_empty() {
@@ -7584,6 +7809,8 @@ impl Population {
         self.record_convergence(ctx);
         // Households whose day it is review what they offer and on what terms.
         self.review_offers(ctx, day);
+        // Goods kept for households with no roof of their own (M10d slice EG, second part).
+        self.custody_day(ctx, day);
         // Those that found a boat would save them more walking over its life than making it
         // takes begin one (M8b slice CO, third part).
         self.begin_boats(ctx);

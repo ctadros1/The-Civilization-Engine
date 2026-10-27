@@ -1,0 +1,17 @@
+# Making vaccine matter at home, in daylight, for the calls to vaccinate that stand.
+kind = "activity"
+id = "core:activity/make_vaccine_matter"
+name = "Make vaccine matter"
+doing = "making vaccine matter"
+behavior = "make"
+recipe = "core:recipe/make_vaccine_matter"
+par = 2.0
+min_age_years = 16.0
+max_age_years = 75.0
+min_minutes = 15
+max_minutes = 120
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

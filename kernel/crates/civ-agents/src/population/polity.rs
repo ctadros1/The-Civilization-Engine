@@ -110,6 +110,23 @@ pub(super) struct Forecasts {
     /// template index and then household id (M7d slice CE3a): its share of the money the store
     /// holds, at what a unit is worth to it in hours, at what its hours bring in food.
     pay: Vec<(u16, Vec<(PermanentId, f64)>)>,
+    /// What a school would spare each household that could not send a child to learn within the
+    /// year, kcal, by household id (M10c slice EB, third part).
+    schooling: Vec<(PermanentId, f64)>,
+    /// What each licence template would bring each household that lost someone to a paid
+    /// carer who knew no treatment within the year, kcal, by template index and then household
+    /// id (M10c slice EC, third part).
+    licences: Vec<(u16, Vec<(PermanentId, f64)>)>,
+    /// What keeping the sick apart would bring each household that lost someone to a sickness
+    /// passing at home or in company within the year, or had someone ill, and cost it, kcal a
+    /// year, by household id (M10c slice EE, first part).
+    keep_apart: Vec<(PermanentId, f64, f64)>,
+    /// What a register of the sick would spare each household that lost someone to disease
+    /// within the year, kcal a year, by household id (M10c slice EE, second part).
+    registers: Vec<(PermanentId, f64)>,
+    /// What clearing middens from the water would bring each household and cost it, kcal a
+    /// year, by household id (M10c slice EE, third part).
+    middens: Vec<(PermanentId, f64, f64)>,
 }
 
 /// What a household weighs a trade law by (M7c slice BV, ADR-0026 §1): its settlement's
@@ -369,6 +386,58 @@ impl Forecasts {
             Some(PolicyKind::LightStreets) => {
                 let (recover, owe) = known().watched(params.crime.lit_guard);
                 crate::polity::against_gain(o, recover, owe, pp)
+            }
+            // A licence (M10c slice EC, third part): the deaths in unknowing paid care it believes
+            // avoided, as food kept for it.
+            Some(PolicyKind::Licence) => {
+                let saved = self
+                    .licences
+                    .iter()
+                    .find(|l| l.0 == m.policy)
+                    .and_then(|l| l.1.iter().find(|s| s.0 == h))
+                    .map_or(0.0, |s| s.1);
+                crate::polity::kept_gain(o, saved, pp)
+            }
+            // Clearing middens (M10c slice EE, third part): the share of its deaths of disease it
+            // believes cleaner water would have spared, less its carrying where its home lies
+            // near the water.
+            Some(PolicyKind::ClearMiddens) => {
+                let (gain, cost) = self
+                    .middens
+                    .iter()
+                    .find(|s| s.0 == h)
+                    .map_or((0.0, 0.0), |s| (s.1, s.2));
+                crate::polity::against_gain(o, gain, cost, pp)
+            }
+            // A register of the sick (M10c slice EE, second part): the share of its deaths of
+            // disease it believes the register would have avoided, as food kept for it.
+            Some(PolicyKind::KeepRegister) => {
+                let saved = self
+                    .registers
+                    .iter()
+                    .find(|s| s.0 == h)
+                    .map_or(0.0, |s| s.1);
+                crate::polity::kept_gain(o, saved, pp)
+            }
+            // Keeping the sick apart (M10c slice EE, first part): the deaths it believes avoided,
+            // as food kept for it, less the work its people lose while their home is kept apart.
+            Some(PolicyKind::KeepApart) => {
+                let (gain, cost) = self
+                    .keep_apart
+                    .iter()
+                    .find(|s| s.0 == h)
+                    .map_or((0.0, 0.0), |s| (s.1, s.2));
+                crate::polity::against_gain(o, gain, cost, pp)
+            }
+            // A school (M10c slice EB, third part) spares the fees a household could not hold,
+            // as food kept for it.
+            Some(PolicyKind::KeepSchool) => {
+                let saved = self
+                    .schooling
+                    .iter()
+                    .find(|s| s.0 == h)
+                    .map_or(0.0, |s| s.1);
+                crate::polity::kept_gain(o, saved, pp)
             }
             Some(PolicyKind::KeepWatch) => {
                 let g = params.crime.watch_guard.clamp(0.0, 1.0);
@@ -960,6 +1029,11 @@ impl Population {
                 .map(|r| r.person)
                 .filter(|&p| Some(p) != barred && !watching.contains(&p))
                 .filter(|&p| self.person(p).is_some())
+                // Who may hold it must know what it asks (M10c slice EE, second part).
+                .filter(|&p| {
+                    def.holder_needs
+                        .is_none_or(|t| self.person(p).is_some_and(|q| q.knows(t)))
+                })
                 .collect();
             pool = names.len() as u32;
             let key = Rng64::from_key(&[ctx.seed, law_id.get()]).next_u64();
@@ -1097,6 +1171,8 @@ impl Population {
             let office = match kind {
                 PolicyKind::KeepWatch => "keeps watch",
                 PolicyKind::LightStreets => "lights the streets",
+                PolicyKind::KeepSchool => "keeps the school",
+                PolicyKind::KeepRegister => "keeps the register of the sick",
                 PolicyKind::HearCases => "hears cases",
                 PolicyKind::Mint => "strikes coin",
                 _ => "keeps the common store",
@@ -1255,7 +1331,25 @@ impl Population {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let x = self.household(household)?;
         let need_day = x.members.len() as f64 * params.household.daily_kcal_per_person;
-        let held = stock_kcal(&stores_now(x, now, params, goods), goods);
+        // Its food, with what it left with keepers (M10d slice EG): that is its own too; where the
+        // receipt was written as notes, the food the notes it holds are redeemed in (slice EH).
+        let kept: f64 = self
+            .kept
+            .iter()
+            .filter(|k| k.depositor == household && !k.noted)
+            .map(|k| stock_kcal(&k.stores, goods))
+            .sum::<f64>()
+            + self.notes.purse(household).map_or(0.0, |p| {
+                p.counts
+                    .iter()
+                    .filter_map(|&(i, n)| {
+                        let c = self.notes.issue(i)?;
+                        let g = goods.get(usize::from(c.good))?;
+                        Some(n * f64::from(c.kg) * g.kcal_per_kg)
+                    })
+                    .sum()
+            });
+        let held = stock_kcal(&stores_now(x, now, params, goods), goods) + kept;
         let harvest = ctx.catalog.crops.get(params.farm.crop).map_or(0.0, |crop| {
             let fields = || self.fields_of(ctx.land, household);
             let area: f64 = fields().map(Field::area_ha).sum();
@@ -1777,6 +1871,11 @@ impl Population {
             mints,
             count_piece_h,
             pay: self.pay_forecasts(ctx, pi, households),
+            schooling: self.schooling(ctx, households, adults),
+            licences: self.licence_forecasts(ctx, households),
+            keep_apart: self.keep_apart_forecasts(ctx, households, adults),
+            registers: self.register_forecasts(ctx, households),
+            middens: self.middens_forecasts(ctx, households),
             adults: {
                 let mut a = adults.to_vec();
                 a.sort_unstable();
@@ -2663,6 +2762,21 @@ impl Population {
         if self.dark_takings(ctx, pi, &households) {
             issues.push(IssueKind::DarkTakings);
         }
+        // A household of it could not hold the fee to send a child to learn what someone grown of
+        // it knows (M10c slice EB, third part).
+        if self.school_technique(ctx, &households, &adults).is_some() {
+            issues.push(IssueKind::Untaught);
+        }
+        // One of its households lost someone to a paid carer who knew no treatment, and someone
+        // grown of it knows one (M10c slice EC, third part).
+        if !self.unknowing_cures(ctx, &households, &adults).is_empty() {
+            issues.push(IssueKind::UnknowingCare);
+        }
+        // One of its households lost someone to a sickness passing at home or in company within
+        // the year (M10c slice EE, first part).
+        if !self.contagion_deaths(ctx, &households).is_empty() {
+            issues.push(IssueKind::Contagion);
+        }
         // What it saw of its ground within memory (M8c slice CT, second part): a household that
         // found no ground for its home, a trail built over, a home beyond the built edge.
         let (ground, ground_homes) = self.ground_issues(ctx, pi, settlement);
@@ -2727,6 +2841,11 @@ impl Population {
         // being raised (M8d slice DC).
         if self.fires_unseen(ctx, pi) {
             issues.push(IssueKind::FiresUnseen);
+        }
+        // Severe cases untended, measured, and no sickhouse of its stands or is being raised
+        // (M10c slice EE, fourth part).
+        if self.untended(ctx, pi) {
+            issues.push(IssueKind::Untended);
         }
         // A household of it paid or was paid in weighed metal lately (M7d slice CE2b).
         if self.weighed_lately(ctx, &households) {
@@ -3369,6 +3488,8 @@ impl Population {
                     | PolicyKind::KeepWatch
                     | PolicyKind::Mint
                     | PolicyKind::LightStreets
+                    | PolicyKind::KeepSchool
+                    | PolicyKind::KeepRegister
                         if def.tenure.is_some_and(|t| t.by_lot) =>
                     {
                         moves.push(blank);
@@ -3687,6 +3808,84 @@ impl Population {
                         let pick = adults
                             .iter()
                             .filter(|&&(c, _)| Some(c) != barred)
+                            .map(|&(c, _)| {
+                                let r = if c == d {
+                                    1.0
+                                } else {
+                                    self.ties.regard(d, c, day, tp).clamp(0.0, 1.0)
+                                };
+                                (r, c)
+                            })
+                            .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)));
+                        if let Some((_, c)) = pick {
+                            moves.push(MoveOption {
+                                nominee: Some(c),
+                                ..blank
+                            });
+                        }
+                    }
+                    // A licence asking a treatment someone of them knows of a disease one of theirs
+                    // died of in unknowing paid care (M10c slice EC, third part).
+                    // Clearing middens (M10c slice EE, third part): where they suspect a source of
+                    // water.
+                    PolicyKind::ClearMiddens => {
+                        if !self.word.suspicions_of(d).is_empty() {
+                            moves.push(blank);
+                        }
+                    }
+                    // Keeping the sick apart (M10c slice EE, first part): where one of theirs died
+                    // of a sickness passing at home or in company within the year.
+                    PolicyKind::KeepApart => {
+                        if !self.contagion_deaths(ctx, &households).is_empty() {
+                            moves.push(blank);
+                        }
+                    }
+                    PolicyKind::Licence => {
+                        let asks = def.licence.as_ref().map(|l| l.technique);
+                        if asks.is_some_and(|t| {
+                            self.unknowing_cures(ctx, &households, &adults).contains(&t)
+                        }) {
+                            moves.push(blank);
+                        }
+                    }
+                    // A registrar (M10c slice EE, second part): of the adults who know what the
+                    // office asks, the one they regard most, themselves at full regard.
+                    PolicyKind::KeepRegister => {
+                        let barred = self.term_barred(pi, k, day, def);
+                        let pick = adults
+                            .iter()
+                            .filter(|&&(c, _)| Some(c) != barred)
+                            .filter(|&&(c, _)| {
+                                def.holder_needs
+                                    .is_none_or(|t| self.person(c).is_some_and(|p| p.knows(t)))
+                            })
+                            .map(|&(c, _)| {
+                                let r = if c == d {
+                                    1.0
+                                } else {
+                                    self.ties.regard(d, c, day, tp).clamp(0.0, 1.0)
+                                };
+                                (r, c)
+                            })
+                            .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)));
+                        if let Some((_, c)) = pick {
+                            moves.push(MoveOption {
+                                nominee: Some(c),
+                                ..blank
+                            });
+                        }
+                    }
+                    // A schoolteacher (M10c slice EB, third part): of the adults who know the
+                    // technique most wanted, the one they regard most, themselves at full regard.
+                    PolicyKind::KeepSchool => {
+                        let barred = self.term_barred(pi, k, day, def);
+                        let wanted = self.school_technique(ctx, &households, &adults);
+                        let pick = adults
+                            .iter()
+                            .filter(|&&(c, _)| Some(c) != barred)
+                            .filter(|&&(c, _)| {
+                                wanted.is_some_and(|t| self.person(c).is_some_and(|p| p.knows(t)))
+                            })
                             .map(|&(c, _)| {
                                 let r = if c == d {
                                     1.0
@@ -4494,6 +4693,8 @@ impl Population {
                     | PolicyKind::KeepWatch
                     | PolicyKind::Mint
                     | PolicyKind::LightStreets
+                    | PolicyKind::KeepSchool
+                    | PolicyKind::KeepRegister
             )
         {
             self.fill_term(ctx, pi, law_id);
@@ -5079,14 +5280,7 @@ impl Population {
         let costs = self.own_costs_of(ctx, hh);
         let grain_h = costs.get(grain).copied().flatten().unwrap_or(0.0);
         let unit_h = self
-            .pay_worth_raw(
-                ctx,
-                hh,
-                m.good,
-                costs.get(m.good).copied().flatten(),
-                held,
-                &costs,
-            )
+            .pay_worth_raw(ctx, hh, m.good, costs.get(m.good).copied().flatten(), held)
             .unwrap_or(0.0);
         if unit_h * per_kg >= grain_h {
             return 0.0;

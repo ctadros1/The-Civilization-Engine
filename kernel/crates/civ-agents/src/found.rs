@@ -1756,6 +1756,10 @@ pub(crate) mod tests {
                 w_rest: 1.0,
                 w_play: 3.0,
                 w_tend: 6.0,
+                w_teach: 4.0,
+                w_study: 4.0,
+                w_write: 3.0,
+                w_read: 3.0,
             },
             band: BandParams {
                 default_size: 40,
@@ -1793,6 +1797,7 @@ pub(crate) mod tests {
                 recent_trades: 64,
                 money_days: 14.0,
                 strike_points: 12.0,
+                custody_fee_share: 0.005,
             },
             firm: crate::params::FirmParams {
                 idle_close_days: 180.0,
@@ -1812,6 +1817,7 @@ pub(crate) mod tests {
                 w_try: 2.0,
                 try_gap_days: 7.0,
                 watch_m: 100.0,
+                record_h: 20.0,
             },
             digging: crate::params::Digging {
                 h_per_m3: 8.0,

@@ -1,0 +1,23 @@
+# Vaccination: scratching into the skin a little matter from a cowpox sore, kept going from arm to
+# arm, so that the one given it is protected from smallpox without taking it (M10c slice ED, third
+# part; ADR-0035 §4; research 05-05 §2.1: about 95% protection, strongest for some 3-5 years and
+# then declining; §4: Jenner's experiment of 1796, a safer way distinct from variolation). Nobody
+# brings it. Only one who already knows variolation finds it, tending the sick; half of those would
+# need 200,000 qualified hours (a tuning value: farther than variolation, which took centuries
+# more to come to). One who knows it practises it as they vaccinate, and one who does not learns it
+# in 50 hours beside a member of their household who does, as variolation; children learn it at
+# home.
+kind = "technique"
+id = "core:technique/vaccination"
+name = "Vaccination"
+can = "keep cowpox matter going and give it, so that those given it are protected from smallpox"
+domain = ""
+requires = [["core:technique/variolation"]]
+tried_in = ["core:activity/work_tending_the_sick"]
+needs = []
+e50_h = 200000.0
+learn_h = 50.0
+upbringing = true
+
+[answers]
+spoilage = []

@@ -1,15 +1,15 @@
 # The Civilization Engine: Project Plan
 
 Status: plan of record, written 2026-09-27 from the planning interview.
-Implementation status (2026-10-24): **M0–M9 are implemented**, from early settlements and their
+Implementation status (2026-10-25): **M0–M9 are implemented**, from early settlements and their
 institutions through large cities, transport, planning, land and household resolution across many
 settlements. M9's 100,000-person performance target was not met; see §7 and §9 for the measured
-result and amended gate. **M10a (power and the works) and M10b (rail and gas light) are implemented.**
-**M10c (services and letters) is in progress:** care beyond the household and birth care (slices DZ
-and EA) are implemented; teaching, literacy, inoculation and a health office remain. M10d, including
-the full M10 demo, is planned. M2's portable kernel library and C interface are implemented; the Unreal
-client and modern civilization remain future scope. See §7 and §9 for implementation evidence and
-known limits.
+result and amended gate. **M10a, power and the works, M10b, rail and gas light, and M10c,
+services and letters, are implemented** (slices DO–EE: care beyond the household, birth care,
+teaching, letters and records, inoculation, and the health office and sickhouse); M10d, money and
+the demo, remains. M2's portable kernel library and C interface are
+implemented; the Unreal client remains future work. Modern civilization remains future scope. See
+§7 for milestone scope and §9 for implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
 (i9 13th gen, RTX 4070 Ti with 12 GB VRAM, 64 GB DDR5).
@@ -6911,19 +6911,557 @@ and M6a gives rivers a daily flow.
       for her craft, and the attendant's page says two births attended, every mother living.
       **Slice EA is done.**
     - **EB**: teaching and study settled at midnight, working alongside recorded the same way (the
-      parked-learning claim checked first), schools and `keep_a_school`.
+      parked-learning claim checked first), schools and `keep_a_school`. Planned (2026-10-25) in
+      three parts: (1) working alongside in a household-resolved day; (2) teaching and study for
+      others than one's household, enrolment and fees; (3) schools kept by law and the observer.
+      *The finding, checked by running (2026-10-25):* in a household-resolved day every member is
+      parked while another is planned, and learning beside a household member opened only while
+      that member was at the same work now, so it never opened there. A world in which knapping is
+      learnt only beside a knapper, a household of two grown knappers one of whom forgets it, with
+      no sickles and flint and wood to make them: Detailed, the forgetful one learns it again
+      within days; household-resolved, in sixty days never.
+      *As built, first part (2026-10-25): working alongside in a household-resolved day.* While a
+      household-resolved day is lived, someone who does not know a technique may take up work
+      that needs it where a member of their household knows it and the household's knowers have
+      room for another learner (`knowledge.max_learners` each); whether that knower works at it
+      that day is settled as the day is lived. Their hours at it are held rather than credited
+      at once, as are the hours the household's knowers give it; when the settlement's day has
+      been lived, each learner is credited the hours they gave it, up to their share of what the
+      knowers gave times the learners each may have, from the household's most skilled knower,
+      whom they saw at the craft (ADR-0035 §5's credit settled with the day, amending ADR-0008
+      §4; nothing is saved, the day being lived at once at midnight). Detailed days are as they
+      were. This changes worlds where a household-resolved settlement has an adult who lacks a
+      technique a member of their household knows, as it was meant to. **Tested:** the finding's
+      world learns knapping again in both resolutions.
+      *As built, second part, first half (2026-10-25): teaching and study.* A learner may be
+      enrolled to learn a technique from someone of another household: who teaches and who
+      learns, the technique, the food the paying household gives for each day of study, kcal
+      (none from kin), that household, the day enrolled and the last paid (saves 193, with the
+      day's sessions, in the knowledge section). Two behaviours (content API 180): `teach`
+      (`activity/teach_a_technique`), a two-hour session at home for those enrolled, scored
+      `decision.w_teach` for each learner up to the technique's `group` (a technique's new field,
+      3 by default; 06-08 §5.3's 1–3 for crafts), and `study` (`activity/study_a_technique`, from
+      seven years old, as far as half an hour's walk), a two-hour session at the teacher's home,
+      `decision.w_study` less the walk, each once a day, and once a day in a household-resolved
+      day. Their minutes are tallied, and at midnight each learner is credited the hours studied,
+      up to the hours their teacher taught it, shared beyond its group among that teacher's
+      learners who came (ADR-0035 §5); learnt so, they know it from the teacher, and the
+      enrolment ends, as it does when either is no more or the teacher forgets it. The first
+      study each day pays the day's fee in food through `Fee`; a household that cannot pay it all
+      pays what it holds and the enrolment ends. Nobody enrols yet: who wants a child taught
+      what is the second half. **Tested:** in both resolutions, a learner of another household
+      enrolled with a knapper, knapping made learnable in three hours and never at home,
+      studies with them, pays the fees, and knows it from them within days, the enrolment
+      ending; mid-way the enrolment and the day's sessions save and load alike.
+      *As built, second part, second half (2026-10-25): who sends a child to learn.* Once a year,
+      on a day of its own (keyed by household), a household weighs sending a child to learn a
+      craft (brief §3.2: for what it can see learning brings, here what it has to buy): its
+      oldest member of the study activity's age (seven) and under the age of independence
+      (fifteen) not enrolled, to learn the technique of a good it bought at least twice from one
+      household in the trades its market remembers, where none of it knows that technique or is
+      enrolled to learn it and someone grown of the seller's household knows it; with that
+      household's most skilled knower, kin asking no fee and others the fee for a day of care for
+      each day of study, which it must hold to send them. One enrolment a review. Unlike the
+      slices before it, this is open to every world with a market: a household that keeps buying
+      what a neighbour makes may now send a child to learn it (the bench shows how much changes).
+      **Tested:** a household that bought pots twice from a potter's household, none of its own
+      knowing pottery, enrols its child of ten with the potter for a day's fee a day of study,
+      and the child studies pottery with them within days; a second review sends nobody else
+      for it.
+      *As built, third part, first half (2026-10-25): the observer of teaching.* A person's page
+      says their teaching and study (wire 1.105): for each technique they teach, whom, each with
+      the fee, and today's hours taught; for what they are enrolled to learn, with whom, the
+      hours toward it of those it takes, the fee, and today's hours studied ("Studies making
+      pottery with Imma, 6 of 300 hours, for 6300 kcal of food a day"). **Tested:** the enrolled
+      child's page and the potter's say it; on the web, a person's teaching decodes and shows.
+      *As built, third part, second half (2026-10-25): schools kept by law.* A household whose
+      review found someone to teach a child of its a craft but could not hold the fee is
+      remembered a year (saves 194, in the knowledge section). Where a household of a polity was
+      so within the year and someone grown of the settlement knows that craft, anyone may
+      propose that the polity keep a school, `keep_a_school`, answering the issue `untaught`
+      (content API 181; the core's `policy/yourselves_work_with_a_teacher`): an office as the
+      watch is, its holder the schoolteacher, named from the adults who know the craft most
+      wanted, the one the proposer regards most, filled by lot where its template says. A
+      household weighs it by the fees it could not hold over the days learning takes in
+      sessions, as food kept for it. Kept, a household's review enrols its child first with the
+      schoolteacher, without a fee, where they know the craft it wants and are not of it; where a
+      law pays common work, the store pays the schoolteacher's household each midnight for the
+      hours they taught such learners who came. Teaching is held at the schoolteacher's home: a
+      school building raised by law, which part 3's plan named, is left to the raising of
+      buildings and not built here. A world where every household holds its fees is unchanged.
+      **Tested:** a household holding nothing to pay with is remembered untaught, which saves
+      and loads, and the issue stands while a potter of the settlement knows pottery; someone
+      proposes a school kept by a potter; in force, with pay for common work and coin in the
+      store, the household's child is enrolled with the schoolteacher at no fee, studies pottery
+      within days, the schoolteacher's household is paid, and the polity's offices name the
+      schoolteacher. **Slice EB is done.**
     - **EC**: letters and records: reading, writing and reckoning as techniques, written records as
-      saved entities, office requirements, licences as privileges.
+      saved entities, office requirements, licences as privileges. Planned (2026-10-25) in parts:
+      (1) letters as techniques and records written and read; (2) records lost with their building
+      and copies; (3) offices and posts that need letters, licences, and why a household sends a
+      child to learn them; (4) the observer.
+      *As built, first part (2026-10-25): letters and records.* Reckoning, reading and writing are
+      techniques (content API 182): reckoning found by those who trade, reading by reckoners and
+      writing by readers, each rarely (100,000, 300,000 and 300,000 qualified hours for half;
+      design priors); learnt in 300, 600 and 600 hours with a knower in groups of up to 15
+      (06-08 §5.3; 07-09 §2.2), never in upbringing, and founders bring none (06-08 §3). Someone
+      who can write, and who alone of their settlement knows a technique that no record held there
+      keeps, writes it down at home two hours a day (`write`, `activity/write_a_record`,
+      `decision.w_write`); once `knowledge.record_h` hours are written (the core's 20, a design
+      prior beside 07-09 §2.2's 20-90 minutes a complex document), their household holds a record
+      of it, with its writer and the day (saves 195, with the writing toward one, in the knowledge
+      section). Someone who can read, whose household holds a record of a technique they do not
+      know, reads it at home (`read`, `activity/read_a_record`, `decision.w_read`): they hear of it
+      from its writer (a new source, `Read`), and where a technique can be learnt from the page
+      (its `codified`, a multiple of `learn_h`; 0 by default; 07-09 §1.10), they learn toward it
+      at that multiple, knowing it at last from the record. The core makes laying out codified at
+      twice (10-04 §4: texts carry planning knowledge). A technique that a technique gating work
+      needs first now counts as gating work itself (E3005), as reckoning does. Both behaviours are
+      at most once a day in a household-resolved day. A world where nobody finds letters is
+      unchanged until someone does. **Tested:** the three techniques' routes, groups and that
+      founders bring none; a household's one grown member who alone knows laying out and knows
+      letters writes it down over days, the writing saving and loading alike mid-way, until the
+      household holds a record of it by them, which saves and loads; they would write down writing
+      itself next, not laying out again; another member who can read reads the record and learns
+      toward laying out from it, from its writer.
+      *As built, second part (2026-10-25): where records are kept, lost and copied.* A record is
+      kept in a building of the household holding it, the first of its with a roof on (its home
+      as a rule), or in none while it has none (saves 196). When a fire in that building burns
+      out, the records kept there burn with it, each loss chronicled ("The record of laying out
+      by cord and stake Nell wrote burned."; ADR-0035 §6). A household's records pass to the
+      household it joins, with its buildings, and are left behind with its things when it is no
+      more and nobody takes them in. A writer whose household holds the settlement's only record
+      of a technique copies it, two hours a day, for the household of close kin living apart that
+      holds none (07-11 §5.4: copies elsewhere are what survive a loss), whether or not they know
+      the technique; once its hours are written that household holds it. Writing a record or a
+      copy is chronicled ("Nell wrote down laying out by cord and stake."). **Tested:** a hut that
+      keeps a record burns out and the record with it, the loss chronicled; a sole knower's record
+      kept in their household's roofed building; copied for the writer's mother's household,
+      living apart, and nothing more of it to copy once that household holds one; both
+      chronicled; saved and loaded with where each is kept; the kin household joining the
+      writer's, its copy passes to the writer's. Not tested on its own: a household that is no
+      more leaving its records behind.
+      *As built, third part (2026-10-25): licences to practise care.* When someone dies in the
+      care of a carer of another household who is kin of none of theirs, and so was paid, and who
+      knew no treatment of the disease, the household remembers it a year (saves 197, in the
+      sickness section). Where a household of a polity holds such a memory and someone grown of
+      the settlement knows a treatment of that disease, anyone may propose a licence, a new
+      policy kind `licence` answering the issue `unknowing_care` (content API 183: a template's
+      `[licence] technique`): only those who know its technique may be paid to tend the sick
+      (ADR-0035 §6; ADR-0026 §3; research 05-05 §2's licensed midwives). A household weighs it by
+      the deaths it remembers whose disease that technique treats, each as a death avoided
+      (`suspicion.w_death` days of work at what an hour of its work brings, as for closing a
+      source). In force, a household calling for someone to tend its ill for a fee calls only a
+      household where someone knows the technique; kin, who ask none, are called as before. The
+      core's `policy/yourselves_work_with_carers_who_know` asks fluid replacement. A licence for
+      attending births is not built: a birth call already goes only to someone who knows a
+      technique of birth care. Office requirements and why a household sends a child to learn
+      letters remain for the fourth part. **Tested:** a household's remembered death in
+      unknowing paid care puts nothing before the gathering while nobody knows a treatment, and,
+      once a neighbour knows fluid replacement, a licence that asks it, answering the issue; in
+      force, the household may pay only a household where someone knows it; the memory saves and
+      loads. Not tested on its own: the memory's making at a death in paid care.
+      *As built, fourth part (2026-10-25): the observer of letters and records.* A person's page
+      says their letters (wire 1.106): each record they wrote and whose household keeps it, a
+      record they are writing and how many of its hours are written, and what they read toward
+      from a record, its writer and the hours read of those it takes, or that they only heard of
+      it there ("Wrote a record of laying out by cord and stake, kept by Nell's household";
+      "Reading laying out by cord and stake from a record Nell wrote, 4 of 80 hours"); a
+      building's page names the records kept in it and their writers. On the web, both decode
+      and show, the person's under Letters. *Found while testing:* the second part's test that a
+      record is kept in its household's roofed building compared none with none, its household
+      having no building on its first day; with a hut placed it now holds. **Tested:** the
+      writer's and the reader's pages say it, and the hut's page names the record kept there; on
+      the web, a person's letters and a building's records decode and show. *Left to EE:* offices
+      whose holder needs a technique, and why a household sends a child to learn letters (brief
+      §3.2: what letters visibly bring, the pay of offices and posts that need them): no office in
+      the core keeps records yet, and the first that will is the health office's register (brief
+      §2.4: holding it needs writing). **Slice EC is done.**
     - **ED**: inoculation: the `Company` route, smallpox by the observer's hand, variolation and
-      vaccination with protection records.
+      vaccination with protection records. Planned (2026-10-25) in four parts: (1) the company
+      route and smallpox; (2) variolation; (3) vaccination; (4) the observer.
+      *As built, first part (2026-10-25): the company route and smallpox.* A disease may pass in
+      company at the hearth (`company`, content API 184, with a disease's `company_hazard`, the
+      hazard an hour with one shedding it puts on each met). While such a disease runs anywhere,
+      who met whom at the hearth and for how long is kept for the day (saves 198, saved since a
+      midnight may fall after a save), in Detailed and household-resolved days alike; at
+      midnight each hour with one who shed it the day before puts the hazard on the other, summed
+      with the day's household and water hazards, and one taken so records whom it came from.
+      Smallpox is content (`core:disease/smallpox`), passing at home and in company: 05-03 §2.1's
+      12 days' incubation, shedding from a day and a half before the ill take to their beds for
+      some 24 days, every infection an illness of some three weeks, severe more in children and
+      the old, lifelong immunity; it enters a world only by the observer's hand (ADR-0035 §4).
+      **Measured** (the ignored probes `smallpox_r0` and `smallpox_fatality`): with 0.02 an hour
+      in company and 0.03 a day at home, the first case brought to each of six villages infected
+      4.3 on average before any of its own shed (05-03 §2.2's R0 of 3.5-6 for a first meeting), a
+      third of them in company (0.05 an hour gave 7.7); over 150 days in four villages 34 of 123
+      ended cases died (28%; 05-03 §3.2's 30%). A world where nobody brings it is unchanged: no
+      company is kept. **Tested:** smallpox brought to one person passes in company at the hearth
+      to people of other homes, in both resolutions; by the third evening the day's company is
+      kept, and saves and loads alike; the content's routes and that no other disease passes in
+      company.
+      *As built, second part (2026-10-25): variolation.* A disease may name how it is given on
+      purpose (`[inoculation]`, content API 185): the technique that gives it, the share of a
+      natural course's severe share an inoculated one has, and the chance a household believes
+      its people would take it where it is near (a design prior). Smallpox's is variolation
+      (`core:technique/variolation`, nobody brings it, tending counting toward finding it as for
+      fluid replacement, learnt in 50 hours beside a knower), at Jurin's 2.1/16.6 (05-05 §2.1),
+      and a half. An inoculated course (`Inoculated`, by whom) is the disease's own with that
+      share severe, and sheds and can pass as any. While such a disease runs, a household that
+      believes it near (someone its members have ties or kin with died of it within the sickness
+      spell: the cause of a death is read as known to those close to the dead, as the chronicle
+      names it; claims of sickness name no disease) and weighs the inoculated course's deaths
+      below the chance it believes its people would take it, with members not protected, calls
+      someone it knows who knows the technique, kin asking nothing and others the call's fee
+      (saves 199: calls to inoculate, apart from calls to tend). They come as to tend, and at
+      the session each member not protected and not ill takes the mild course from them, the fee
+      is paid and the call answered; a call lapses after a fortnight or once nothing is wanted.
+      The weighing is the household's, not each member's own. **Tested:** an inoculated course
+      is severe the disease's share less often (20,000 draws); where someone died of smallpox,
+      a household tied to them calls a variolator its member knows, the call saves and loads,
+      and within days its people take smallpox inoculated by them; the content.
+      *As built, third part (2026-10-25): vaccination.* A disease may name how it is prevented
+      (`[vaccination]`, content API 186): the technique, the good it is given from and a dose of
+      it, the share of its hazards turned away while whole, how long it stays whole (years, drawn
+      evenly between two) and the years over which that share then falls by a factor of e.
+      Smallpox's is `core:technique/vaccination` (requiring variolation, so found only by
+      variolators tending the sick, and farther: 200,000 hours; nobody brings it) with
+      `core:good/vaccine_matter` at a gram a dose, 95%, whole 3-5 years, waning over 10 (05-05
+      §2.1, CDC; the waning a design prior). There is no livestock in the core, so the matter is
+      made by a recipe only its knowers work, of hours alone (standing for a cowpox source kept
+      going arm to arm), and keeps some days. A vaccination is a record (who, the disease, the
+      day, the last day whole; saves 200) that scales the person's summed hazards of the disease
+      at midnight by one less what it turns away. Calls are part two's: a household that believes
+      the disease near calls someone it knows who knows vaccination before one who knows only
+      variolation, as it risks nobody, and wants it even where it would not risk inoculation.
+      While such a call stands at a household's door and it holds fewer doses than its calls
+      want, making the matter is worth the doses short as care owed (a `Called` worth of making,
+      scored as tending); the vaccinator goes once it holds a dose for each to protect there,
+      and vaccinates each with one, inoculating any left over where they know that and it is
+      worth it. Those whose vaccination is whole are not called for. **Tested:** a vaccination
+      turns away 95% while whole and 0.95/e of it ten years on; where someone died of smallpox, a
+      household knowing a vaccinator and a variolator calls the vaccinator, whose household
+      makes matter, and its people are vaccinated, none inoculated, the records saving and
+      loading; the content.
+      *As built, fourth part (2026-10-25): the observer of inoculation.* A vaccination records
+      who gave it (saves 201; nobody known in older saves). A person's page reads it with no wire
+      change: their care says how many they inoculated and vaccinated against each disease
+      ("Vaccinated 4 people against smallpox") and the calls to inoculate that stand at their
+      household's door or that it made, with the fee; their sickness lists, before their
+      infections, their latest vaccination against each disease, when and by whom, and how many
+      days more it is whole or how protected they are now that it wanes. An inoculated course
+      already names its inoculator (part two). **Tested:** while the call stands the
+      vaccinator's page says their household is called to inoculate; after, it says how many
+      they vaccinated, and the vaccinated's says by whom and that it is whole; the variolator's
+      says how many they inoculated. **Slice ED is done.**
     - **EE**: the health office and the sickhouse: register and rounds, `keep_apart`,
-      `clear_middens`, the sickhouse's pool and capacity; the observer's service views.
+      `clear_middens`, the sickhouse's pool and capacity; the observer's service views. From EC:
+      an office whose holder must know a technique (the register's keeper, writing), and a
+      household sending a child to learn letters for what they visibly bring.
+      *As built, first part (2026-10-25): keeping the sick apart.* Where someone of a household
+      of a polity died within the year of a sickness passing at home or in company (the issue
+      `contagion`, appended), anyone may propose `keep_apart` (appended; content API 187, its
+      template's `[keep_apart]` terms: `days_after` 14, `cost_share` 0.25, design priors): a
+      household with someone ill of anything keeps to its home, and others keep from it, until
+      that many days after the last of it is well. It is kept by choice, as a curfew is: one who
+      knows the law weighs going out of a home kept apart (the watch, the lamplighter and those at
+      a fire exempt), or tending at one, by what keeping it weighs with them (`KeepApart`, an
+      appended reason), and breaches are counted, knowing or not. A household weighs the law by
+      the deaths of its people of such a sickness within the year, as deaths avoided (as a
+      licence's), against a quarter of a day's work of each grown member for each day it had
+      someone ill within the year and the days after. Cholera passes at home too, so a death of
+      it raises the issue, and a law passed against it costs work and keeps nobody from the water
+      (a legible mistake, 05-05 §1.7). Saves 202 (the issue's code). **Tested:** where someone
+      died of smallpox, keeping the sick apart comes before the gathering against it; under the
+      law the well of a household with someone ill of smallpox were away from home 112 times in
+      two working days' samples against 171 in the same village without it, breaches counted,
+      and the world saves and goes on alike; the content.
+      *As built, second part (2026-10-25): an office that asks a technique, and the register of
+      the sick.* An office template may name `holder_needs`, a technique its holder must know
+      (content API 188; ADR-0035 §6): its nominee, and those a lot draws among, must know it.
+      `keep_register` (appended), answering the existing issue `sickness`, names a health
+      officer who must know writing (`core:policy/yourselves_write_down_the_sick`): an office as
+      the watch is. Each midnight while one holds it, they enter in the polity's register (saves
+      203, kept a year) each household whose sickness they heard of, once a sickness spell, and
+      the deaths of disease of its households since the last midnight. Their tallies of where
+      sickness comes from run over the register: every household in it within the spell counts
+      as sick, and they know where each draws (asked when written down), so a source can be
+      suspected sooner, or wrongly. A household weighs the office by a tenth of its deaths of
+      disease within the year (`[register] avoided_share`, a design prior) as food kept. Nobody
+      in a world where nobody writes can hold it, so such worlds are unchanged. Left to part
+      2b: rounds, and the office's pay. **Tested:** with smallpox at home and nobody who can
+      write, nobody proposes it; once someone grown can, it is proposed naming one who can
+      write; in force, the register takes the sickness heard of within days, the registrar's
+      tally counts every household it holds and knows where they draw, and it saves and loads;
+      the content.
+      *As built, second part's second step (2026-10-25): rounds and pay.* The health officer
+      walks a round once a day in daylight (`rounds`, an appended behaviour, and the core
+      activity `walk_the_rounds`, ten minutes a stand; content API 189), through the
+      settlement's homes in the watch's set order, a watch's duty. At each home they enter it in
+      the register as seen (saves 204: an entry's third kind), and where someone of it lies abed
+      they hear its sickness at first hand, as its own members do. Homes seen count as known
+      draws in their tallies, not as sick, so a tally's comparison of sick against well grows.
+      Where a law pays common work, the store pays their household for the hours (`pay_work`'s
+      rate), as it pays a schoolteacher. The round's record is the law's, as a watch's: rounds
+      and minutes. Household-resolved, it is a once-a-day behaviour, as the watch's. **Tested:**
+      in force, with pay for common work and coin in the store, the registrar walks a round
+      within days, homes on it entered as seen, the round counted, their household paid.
+      *As built, third part (2026-10-25): middens cleared from the water.* Where someone
+      suspects a source (the existing issue `source_suspected`), anyone may propose
+      `clear_middens` (appended; content API 190; `core:policy/yourselves_yonder_with_middens`,
+      its `[middens]` terms: `distance_m` 30, `keep_days` 2, `carry_h` 0.5, `avoided_share` 0.2,
+      design priors): a household whose home lies within that distance of an open well or a
+      stream cell carries its heap at least as far from every source. It is kept by choice: one
+      who knows the law and in whom keeping it weighs (`comply_points`) has the option, in
+      daylight, while the heap was not carried within the days (`midden`, an appended behaviour;
+      the core activity `carry_out_the_midden`, twenty minutes there), to walk to the place (the
+      first found along the line from the nearest source through the home, or a few turns from
+      it, on land) and back. A heap carried within the days lies there (saves 205: the day and
+      the place), and the midnight's runoff and seepage go toward the water from there; one not
+      carried lies at home, as before. Each midnight a household near the water whose heap was
+      not carried within the days counts as a breach of the law; nobody brings it (ADR-0025). A
+      household weighs the law by a fifth of its deaths of disease within the year as kept food,
+      against half an hour every two days if its home lies near the water. **Found while
+      testing:** a household's heap weight is kept as of when it was last brought up to date, so
+      the option read it as empty; it reads the heap as of now. **Tested:** under the law, which
+      everyone grown knows, both homes near the water in a village carried their heaps within
+      four days, a heap carried lately lies at its place and not at home, breaches are counted,
+      and the world saves and goes on alike; the content.
+      *As built, fourth part's first step (2026-10-26): a sickhouse measured and raised.* A
+      building may be for the sick (`sickhouse`, an appended use; saves 206 with the appended
+      issue code and the measure below). Each midnight a severe case that lay ill the day before
+      with nobody tending them counts a day against their household's polity (a measured year's
+      `untended_days`); where it measured some and no sickhouse of its stands or is being raised,
+      the issue `untended` (appended) opens `core:policy/yourselves_zone_a_sickhouse` (content
+      API 191), a building raised together as the hall is, `core:building/sickhouse` (the hall's
+      frame in three bays, some 54 m², a design prior). A household weighs it by its share of
+      those days a year, each a day's work of care lacking at what an hour of its own work
+      brings, against its equal share of the work over the years it weighs. Finished, it stands;
+      who lies in it and who tends there is the next step's. **Tested:** smallpox in a village
+      measured a severe day untended within the outbreak; with sixty a year measured, raising a
+      sickhouse repays some household, and someone who can frame one puts it before the
+      gathering against the issue; the measure saves and loads; the content.
+      *As built, fourth part's second step (2026-10-26): admission and care at the sickhouse.*
+      A polity's sickhouse finished is its own (saved, as its hall is). Each midnight, after the
+      day's deaths and recoveries and before anyone is exposed, those lying there no longer ill
+      or gone leave, and each severe case of its households ill today whom nobody tended the day
+      before is admitted while beds are left, one for each 4.5 m² of its floor (a design prior;
+      twelve in the core's). Admitted (saves 207), they shed a sickness passing at home there,
+      not at home: their household is spared it, and its household hazard falls on each other
+      lying there and on yesterday's carers there (`Sickhouse`, an appended way to take it, from
+      the one who shed it). Their care is owed there, not at home: anyone of the polity may tend
+      there, close kin of one lying there at the whole weight of tending, others at half (a
+      design prior), the hours shared among those lying there as at home, the carer practising
+      what treatments they know, among the day's carers there (saved), and paid for the hours
+      where a law pays common work. **Tested:** with a sickhouse raised and finished as its law
+      would, smallpox brought to the village had an untended severe case admitted, within beds,
+      every one lying there ill; someone tended there within a day and their care grew; who lay
+      there, who tended there and the polity's sickhouse saved and loaded; those no longer ill
+      left.
+      *As built, fourth part's third step (2026-10-26): the observer of services, and why letters
+      are learnt.* A polity's offices, in words, end with its services: the register of the sick
+      (households entered sick within the spell, deaths of disease within the year, homes seen
+      on rounds), its sickhouse (beds taken of its beds, and how many tended there today), and
+      for the laws keeping the sick apart and clearing middens, how often they were broken,
+      knowing or not; no wire change, as they are lines of its offices. And letters have a
+      motive (brief §3.2: what they visibly bring): once a year, a household whose child of an
+      age to learn found no craft to be sent for, where its polity pays common work and has an
+      office in force asking a technique (the health officer's writing), sends the child to learn
+      it, or the first of what it requires that the child does not know (reckoning before
+      reading before writing), from its school or else from the office's holder, for the fee a
+      craft's would ask (kin nothing). A world where nobody writes has no such office. **Tested:**
+      a polity's offices show its register and its sickhouse's beds; with a paid registrar who
+      can write, a household sends its child to learn reckoning from them. **Slice EE is done,
+      and with it M10c.**
   - **M10d, money and the demo** (ADR-0035 §8–§12).
     - **EF**: acceptance of a money for onward exchange and dues, a money's value in a midnight
       table instead of a scan per decision.
+      *As built, first part (2026-10-26): the midnight table and the acceptance belief.* What a
+      good with a `[money]` table (copper by weight, coin) is worth to a household from its use
+      as money is no longer scanned from every market's remembered trades in each decision (brief
+      §10: some 1,900 trades a call with 30 settlements): each midnight, one pass over the
+      markets' remembered payments in a money, grouped by buyer, values what a unit bought at
+      the buyer's own costs then, faded by the markets' memory, and the decisions of the day
+      read that table (saves 208, saved with the markets, as a load in the day could not
+      rebuild it). A purchase counts from the next midnight (ADR-0035 §12). Beside it each
+      household keeps a belief of whether others take each money (08-06 §1.3): a payment in it
+      that settles counts as taken, and at its weekly review a household holding a money beyond
+      what it keeps counts each seller of its settlement offering what it wants (a tool it
+      needs) as taking it if its terms do and refusing it if they do not; both fade by half
+      every 30 days, and a unit's onward worth is what it bought at the share taken (1 where
+      none refused, so worths are as before until someone refuses). Only goods with a
+      `[money]` table have one: coin and notes, not grain or firewood. **Not measured in a
+      lived world:** no lived world holds copper or coin, so nothing changed there (the bench
+      differed from the build before only at day 0, in the saved markets' empty table).
+      **Tested:** a purchase in copper is worth nothing until the next midnight, then what it
+      bought, a day faded; with one neighbour selling an axe for copper and one not, a household
+      holding copper and lacking an axe believes half take it and values a kilogram at half what
+      it bought; a household holding none counts nothing; the beliefs save and load exactly and
+      the world lives the same after. **Seen on the way:** a household's keep of each food is
+      what it holds less what it can spare, so the "food it is short of" a purchase answers is
+      never above nought; nobody buys food at a door for its own table (left as it is: not this
+      slice's).
+      *As built, second part (2026-10-26): a money kept for its spending and its dues.* A
+      household keeps of a money its balance, 14 days of its spending in it as its purchases
+      show, and, where the money is about (it holds some, its market has seen payments in it, or
+      its polity's store holds some), what a common store it knows of could levy in it: its
+      share of the grain it holds at the template's rate, as the levy floor counts it (08-06
+      §1.4: dues payable in a medium make holders seek it). Its want follows by the stores rule,
+      so a seller short of the coin its levy takes posts terms in coin at its ask over what a
+      piece pays for, and a money it wants comes before other goods it wants as much among the
+      four it posts terms in (ADR-0035 §8: a household seeks the medium its dues ask). Coin held
+      beyond that is what it pays with; the levy then takes it as before. Nowhere does a seller
+      post terms in a money nobody here has seen. **Tested:** under a common store taking coin
+      with no coin about, a household keeps none and does not take it; with coin in the store, it
+      keeps a tenth of its 200 kg of grain at two pieces a kilogram and offers its grain for coin
+      at its ask over the levy's floor; a household that paid four pieces keeps 14 days of that
+      spending. The bench did not move.
+      *As built, third part (2026-10-26): dues to the store in its money, and the observer.*
+      What a household owes its polity's store, a fine or ground rent (and the yearly payment
+      for a building let stand), it pays first in the money that polity's common store takes, at
+      the levy's rate (a piece discharges the grain it pays for), as far as it holds the money
+      and only when a piece would otherwise bring it less than that grain, as the levy is paid in
+      it; the rest in food as before. What it still owes the store adds to the money it keeps,
+      beside what the levy could take (ADR-0035 §8: a household seeks the medium its dues ask).
+      Generalising the `[medium]` table onto other templates, so that a fine or ground rent names
+      a money of its own, is the brief's "dues in notes" and waits for slice EJ: obligations
+      carry no law to read it from, and no template yet needs one. A market's summary ends, for
+      each money some household of it holds or some seller takes, with how many of its sellers
+      take it and how many households hold some ("Coin: 0 of 12 sellers here take it; 1
+      household holds some."), nothing where none does; no wire change. **Tested:** holding no
+      grain, a household keeps no coin for the levy, but owing a fine of ten kilograms of grain
+      it keeps the twenty pieces that pay it, and pays it in them, the pieces moving to the
+      store's purse; the market's summary names the household holding coin. **Slice EF is
+      done.**
     - **EG**: the deposit-demand probe re-run in towns; if demand, custody, keepers' fees and
       receipts.
+      *As measured, first part (2026-10-26): the probe in towns.* `civ-sim --example
+      deposit_probe` founds two settlements of 400 on a river valley as the M8 demo founds them
+      and lives 720 days at Max; each midnight it counts, for every household, what of its goods
+      that keep better under a roof lies in the open beyond the room its roofed buildings and
+      pots give, what that loses, the room households have to spare, and the common stores. It
+      changes nothing anyone does. Demand was set before running: a carry (50 kg) in the open
+      while another household of the settlement has room for it, on at least 1 % of
+      household-days. **Housed households:** seed 1, 63,008 household-days, nothing in the open;
+      seed 2, 81,811, a carry in the open on 349 (0.43 %), 40 kg lost in two years: as CC2 found
+      in villages, a household's roof holds what it keeps. **Households with no roof of their
+      own** were left out of the first runs and are what answers: in towns founded large they
+      are about half of all household-days for the two years (71,460 and 50,627; homes are slow
+      to rise for hundreds), and all they keep lies in the open, a carry on 94.8 % and 98.8 % of
+      them, a neighbour with room for it on 19,971 and 14,162 (most 4.0 and 3.6 t on a day; 24.0
+      and 20.7 t lost to lying there). Over all household-days the bar is met on 14.85 % and
+      10.96 %. No storehouse was raised in either; the common stores held 109 and 259 kg on
+      average (most 2.8 and 1.9 t). **Custody is built** (ADR-0027 §4): for households waiting
+      on a roof, not for overflowing roofs, which do not happen. The research gives no custody
+      fee; its fee is a design prior.
+      *As built, second part (2026-10-26): custody.* What a household leaves with another is a
+      ledger holder of its own (`Kept`, as a load in transit is): the depositor's throughout, never
+      the keeper's, kept under the keeper's roof at its goods' sheltered clocks, moved in and out
+      and its fee taken on an appended `Custody` channel (saves 209, in the consignments section).
+      At its weekly review a household with no roof of its own leaves the food that keeps better
+      under one that it can spare beyond what it keeps to its next harvest (as it would offer it
+      for sale; never the seed it keeps back to sow, nor what it works or builds with) with close
+      kin whose roofs have room for it after their own goods and what they keep for others, who
+      ask nothing, or else the nearest such neighbour, who takes `market.custody_fee_share` of it
+      each 30 days (content API 192): half a percent a month, a design prior where the research
+      gives no custody fee, set at about what a sound store loses (08-02 §7.1: 2-8 % a year),
+      since at a first trial of 2 % a month nobody but kin would leave grain or provisions, which
+      a month in the open costs only about 1 % more than under a roof. It does when a month in the
+      open would cost it more, at its own costs, than the fee and the walks there and back
+      (weighed at 1.2 m/s, not walked, as bringing metal to a mint is). Once it has a roof it takes
+      back as much as its room holds, the rest still kept; below nine tenths of the food it keeps
+      to its harvest, the food that brings it back there; everything when the keeper's room no
+      longer holds it; and what a household gone left is the keeper's. What it left is its own in
+      its outlook (whether its food lasts to the harvest, what a levy costs it). Each is applied at
+      midnight in household id order, so household-resolved settlements do the same.
+      **Found on the way:** a first build left everything that keeps under a roof, seed grain
+      among it, keeping only 14 days of food in hand: in the tests' villages households then
+      judged themselves short of food and their gatherings passed common stores they otherwise
+      would not (the chain failed on three test files), so a household now leaves only food it
+      can spare and counts what it left as its own. **Measured** (the probe, two towns of 400,
+      720 days): 42 and 25 households left food with keepers, on 1,243 and 1,212 household-days,
+      up to 1.4 and 1.9 t kept on a day; what households with no roof lost to lying in the open
+      fell 0.3 % and 1.1 % (23,979 to 23,912 kg and 20,655 to 20,427 kg). The demand the probe
+      found is mostly a waiting household's own food for the months to its harvest, which it keeps
+      in hand; custody answers only what it can spare. A build that left all but 14 days answered
+      1-4 % but changed what the gathering heard; that is not kept. In seed 2 households under
+      their own roof had a carry in the open on 652 household-days against 349 without custody
+      (84 against 40 kg lost), as in every build; the world's course differs once custody changes
+      what people hold (758 people at the end against 713, a third polity founded), and the cause
+      was not found within the slice's time box. **The bench did not move** after day 0: no bench
+      world's households wait on a roof with food to spare. **Tested:** a household with no roof
+      and five tonnes of provisions keeps in hand at least its margin of days and leaves the rest
+      with a neighbour not close kin, the goods the same goods held apart; a month on the keeper
+      takes half a percent; under its own roof with no room it leaves them, with room it takes all
+      back; kept goods save and load exactly and the world lives the same after; the villages'
+      levies, norms and grievances are as before. **Not built:** a keeper short of room hands
+      back all it keeps rather than the excess; leaving more with a keeper already holding some;
+      *keep deposits* at a polity's storehouse (no probe raised one).
+      *As built, third part (2026-10-26): receipts and the observer.* When goods are left, the
+      first by id of the keeper's household who can write writes a receipt, held with them for the
+      depositor: who wrote it and the day (saves 210). It is only a record of whose the goods are
+      (brief m10-money §3): it never pays, passes or changes what anyone does, and goes when the
+      goods are all taken back; receipts that pass are slice EH's notes. A market's summary says
+      how many households keep goods for how many others there, the kilograms kept and how many
+      have a written receipt ("2 households keep goods for 3 others here, 840 kg; 1 with a
+      written receipt."), nothing where none; a person's letters say each receipt they wrote and
+      for whose goods; no wire change. **Tested:** with nobody of the keeper's household able to
+      write no receipt is written and the summary counts none; with its last member able to,
+      they write it on the day, the summary counts one and their letters say it; taken back, the
+      goods and receipt are gone and the summary says nothing; a receipt saves and loads exactly.
+      **Slice EG is done.**
     - **EH**: notes that pass: issues and purses, redemption and its queue, valuation by belief.
+      *As built, first part (2026-10-26): notes and redemption.* A note is a good (`core:good/note`,
+      a `[money]` table with `note = true`, content API 193) counted in pieces of issues as coin
+      is, one issue per keeper and good and its terms (a kilogram of the good a piece, a design
+      prior), never per day (brief §1); purses are kept as coin's, by the same code, and put right
+      at midnight (saves 211, in the consignments section). EG's receipt is written as notes:
+      when goods are left with a keeper one of whose household can write, the keeper takes a
+      year's fee at once (none from close kin) and writes its issue in each good for the rest
+      into the depositor's purse, and the goods back its notes from then on, paying no monthly
+      fee (a design prior: notes keep fixed terms, so fees taken from the goods would leave them
+      short). A piece comes into being only so, and leaves only redeemed. The depositor takes the
+      goods back by presenting its pieces at the keeper's door, as much as it would take back
+      before, and when the keeper can no longer keep them (gone, crowded or unroofed) every piece
+      is presented, whoever holds it. Presentations are paid at midnight issue by issue in an
+      order drawn for the issue and the day, never household id order (brief §10), from the
+      goods backing the issue, oldest left first: the good goes to the holder and the pieces to
+      the keeper on an appended `Redeemed` channel, and the keeper retires them; pieces the
+      backing cannot pay are refused, stay with their holder and are still owed, and the issue
+      counts what was presented and refused. A depositor counts the food its notes claim in its
+      outlook. No world writes a note unless someone of a keeper's household can write.
+      **Tested:** a keeper not close kin takes a year's fee and writes the rest as notes, a
+      kilogram a piece, held by the depositor, and takes no monthly fee; roofed with room, the
+      depositor presents them and gets the goods back on `Redeemed`, the pieces retired and held
+      by nobody; with half the backing gone and the keeper unroofed, half the pieces are paid and
+      the rest refused, counted and still owed; notes save and load exactly.
+      *As built, second part (2026-10-26): notes that pass.* A piece is worth to a household of
+      its keeper's settlement, who knows the door, the good it is redeemed in at its own cost,
+      times its belief that the keeper pays (the share of the pieces presented there that were
+      paid, which the settlement hears of: a design reading of brief §4's belief from what it
+      heard), less its share of the walk there and back to present a carry (50 pieces, a design
+      prior); to a household holding notes, the issue worth least to it, which it pays with first;
+      to one holding none, the least of its settlement's keepers', as it cannot choose which it
+      is paid in. Through `pay_worth` that worth is its price, as a coin's metal is its assayer's,
+      and it is wanted as much as the good it is redeemed in (the least wanted of those it
+      knows), so a seller short of food takes grain notes for what it sells. A note is paid, never
+      offered as a ware. At its weekly review a household holding notes presents what brings its
+      food back to nine tenths of what it keeps to its harvest, and every piece of an issue its
+      settlement heard refused within the month; the depositor goes on taking its goods back as
+      custody does. **Tested:** a piece is worth a kilogram of provisions to a neighbour less a
+      share of the walk, half that much after half the pieces presented were refused, and a
+      neighbour short of food posts terms taking notes; notes passed by gift move piece by piece
+      of their issue; a holder short of food presents its pieces and is paid, and fed it keeps
+      them until it hears of a refusal, then presents them all.
+      *As built, third part (2026-10-26): the observer of notes.* A market's summary says, for each
+      keeper there whose notes are out or were presented, whose they are and in what, the pieces
+      out against the kilograms kept behind them, and the pieces presented and refused ("Willa's
+      household's notes in provisions: 1915 out against 0 kg kept; 3830 presented, 1915
+      refused."); a person's letters say which receipts they wrote as notes; no wire change.
+      **Tested:** the summary tells the refused pieces after a shortfall; the writer's letters
+      say "as notes". **Slice EH is done.** **Not built:** *bearer heard*, a law under which a
+      holder refused may bring the keeper before the gathering (with runs, slice EI); notes of
+      a polity's own issue (EJ); a household valuing a keeper of another settlement's notes.
     - **EI**: keepers issuing beyond backing, presentations and runs, suspension.
     - **EJ**: a polity's notes: issue within a ceiling, dues in notes, legal tender, suspended
       redemption and the derived fiat label.

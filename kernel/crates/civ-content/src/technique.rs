@@ -43,6 +43,18 @@ pub(crate) struct TechniqueFile {
     /// attendant who knows it prevents; none by default.
     #[serde(default)]
     pub birth: Option<BirthEffect>,
+    /// Content API 180 (M10c slice EB, second part): how many learners one teacher's session
+    /// serves whole; 3 by default (research 06-08 §5.3: 1-3 for crafts).
+    #[serde(default = "default_group")]
+    pub group: u16,
+    /// Content API 182 (M10c slice EC): how many times its `learn_h` learning it from a record
+    /// alone takes; 0 by default, heard of from the page but not learnt there.
+    #[serde(default)]
+    pub codified: f64,
+}
+
+fn default_group() -> u16 {
+    3
 }
 
 /// What a technique of birth care prevents (M10c slice EA): the share of each complication's
@@ -119,6 +131,8 @@ impl TechniqueFile {
                 .birth
                 .as_ref()
                 .map_or([0.0; 3], |b| [b.bleeding, b.infection, b.obstructed]),
+            group: self.group,
+            codified: self.codified,
         })
     }
 
@@ -143,6 +157,17 @@ impl TechniqueFile {
         }
         if self.requires.iter().flatten().any(|t| *t == self.id) {
             p.push("a technique cannot require itself".to_owned());
+        }
+        if self.group == 0 {
+            p.push("`group` must be at least 1".to_owned());
+        }
+        if !(self.codified.is_finite() && (self.codified == 0.0 || self.codified >= 1.0))
+            || self.codified > 100.0
+        {
+            p.push(format!(
+                "`codified` must be 0 or between 1 and 100 (got {})",
+                self.codified
+            ));
         }
         if let Some(b) = &self.birth {
             for (name, v) in [

@@ -18769,6 +18769,8 @@ impl<'a> PersonInfo<'a> {
   pub const VT_SUSPICIONS: ::flatbuffers::VOffsetT = 120;
   pub const VT_LIGHT: ::flatbuffers::VOffsetT = 122;
   pub const VT_CARE: ::flatbuffers::VOffsetT = 124;
+  pub const VT_TEACHING: ::flatbuffers::VOffsetT = 126;
+  pub const VT_LETTERS: ::flatbuffers::VOffsetT = 128;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -18790,6 +18792,8 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.letters { builder.add_letters(x); }
+    if let Some(x) = args.teaching { builder.add_teaching(x); }
     if let Some(x) = args.care { builder.add_care(x); }
     if let Some(x) = args.light { builder.add_light(x); }
     if let Some(x) = args.suspicions { builder.add_suspicions(x); }
@@ -19272,6 +19276,20 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PersonInfo::VT_CARE, None)}
   }
+  #[inline]
+  pub fn teaching(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PersonInfo::VT_TEACHING, None)}
+  }
+  #[inline]
+  pub fn letters(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PersonInfo::VT_LETTERS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -19341,6 +19359,8 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("suspicions", Self::VT_SUSPICIONS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("light", Self::VT_LIGHT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("care", Self::VT_CARE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("teaching", Self::VT_TEACHING, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("letters", Self::VT_LETTERS, false)?
      .finish();
     Ok(())
   }
@@ -19407,6 +19427,8 @@ pub struct PersonInfoArgs<'a> {
     pub suspicions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub light: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub care: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub teaching: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub letters: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -19473,6 +19495,8 @@ impl<'a> Default for PersonInfoArgs<'a> {
       suspicions: None,
       light: None,
       care: None,
+      teaching: None,
+      letters: None,
     }
   }
 }
@@ -19727,6 +19751,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_CARE, care);
   }
   #[inline]
+  pub fn add_teaching(&mut self, teaching: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_TEACHING, teaching);
+  }
+  #[inline]
+  pub fn add_letters(&mut self, letters: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_LETTERS, letters);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -19805,6 +19837,8 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("suspicions", &self.suspicions());
       ds.field("light", &self.light());
       ds.field("care", &self.care());
+      ds.field("teaching", &self.teaching());
+      ds.field("letters", &self.letters());
       ds.finish()
   }
 }
@@ -22878,6 +22912,7 @@ impl<'a> BuildingInfo<'a> {
   pub const VT_FIRE_WORDS: ::flatbuffers::VOffsetT = 98;
   pub const VT_SITE: ::flatbuffers::VOffsetT = 100;
   pub const VT_GAS: ::flatbuffers::VOffsetT = 102;
+  pub const VT_RECORDS: ::flatbuffers::VOffsetT = 104;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -22895,6 +22930,7 @@ impl<'a> BuildingInfo<'a> {
     builder.add_settlement(args.settlement);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    if let Some(x) = args.records { builder.add_records(x); }
     if let Some(x) = args.gas { builder.add_gas(x); }
     if let Some(x) = args.site { builder.add_site(x); }
     if let Some(x) = args.fire_words { builder.add_fire_words(x); }
@@ -23293,6 +23329,13 @@ impl<'a> BuildingInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_GAS, None)}
   }
+  #[inline]
+  pub fn records(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_RECORDS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
@@ -23351,6 +23394,7 @@ impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("fire_words", Self::VT_FIRE_WORDS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("site", Self::VT_SITE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("gas", Self::VT_GAS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("records", Self::VT_RECORDS, false)?
      .finish();
     Ok(())
   }
@@ -23406,6 +23450,7 @@ pub struct BuildingInfoArgs<'a> {
     pub fire_words: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub site: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub gas: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub records: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for BuildingInfoArgs<'a> {
   #[inline]
@@ -23461,6 +23506,7 @@ impl<'a> Default for BuildingInfoArgs<'a> {
       fire_words: None,
       site: None,
       gas: None,
+      records: None,
     }
   }
 }
@@ -23671,6 +23717,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingInfoBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_GAS, gas);
   }
   #[inline]
+  pub fn add_records(&mut self, records: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_RECORDS, records);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BuildingInfoBuilder {
@@ -23738,6 +23788,7 @@ impl ::core::fmt::Debug for BuildingInfo<'_> {
       ds.field("fire_words", &self.fire_words());
       ds.field("site", &self.site());
       ds.field("gas", &self.gas());
+      ds.field("records", &self.records());
       ds.finish()
   }
 }

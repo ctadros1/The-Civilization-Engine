@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 179;
+pub const KERNEL_CONTENT_API: u32 = 193;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -82,7 +82,7 @@ pub enum Severity {
 /// | E3002 | The `kind` is unknown, or missing |
 /// | E3003 | Not exactly one world-generation preset is marked `default = true` |
 /// | E3004 | Not exactly one people profile, or not exactly one land profile |
-/// | E3005 | A technique gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know, nor does it prevent deaths in childbirth |
+/// | E3005 | A technique gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know, nor does it prevent deaths in childbirth, nor does a technique that does need it |
 /// | E3006 | Techniques' prerequisites form a cycle |
 /// | E3007 | A recipe can never be worked: an input or tool comes only from recipes that need it |
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -1175,6 +1175,18 @@ fn resolve(
         {
             missing(c, parsed, &d.rel, "rule.needs", t);
         }
+        // A licence's (M10c slice EC, third part).
+        if let Some(l) = d.file.licence.as_ref()
+            && technique_index(&l.technique).is_none()
+        {
+            missing(c, parsed, &d.rel, "licence.technique", &l.technique);
+        }
+        // And what an office's holder must know (M10c slice EE, second part).
+        if let Some(t) = d.file.holder_needs.as_deref()
+            && technique_index(t).is_none()
+        {
+            missing(c, parsed, &d.rel, "holder_needs", t);
+        }
         // And a plan's (M8c slice CT).
         if let Some(t) = d.file.plan.as_ref().and_then(|g| g.needs.as_deref())
             && technique_index(t).is_none()
@@ -1198,6 +1210,18 @@ fn resolve(
                 .mint_def(&|id| recipes.iter().position(|r| r.id == id));
             def.pay = d.file.pay_def(&good_index);
             def.medium = d.file.medium_def(&good_index);
+            def.licence = d.file.licence.as_ref().and_then(|l| {
+                Some(civ_agents::polity::LicenceDef {
+                    technique: technique_index(&l.technique)?,
+                    what: parsed
+                        .techniques
+                        .iter()
+                        .find(|t| t.file.id == l.technique)?
+                        .file
+                        .name
+                        .to_lowercase(),
+                })
+            });
             def.raise = d.file.raise.as_ref().and_then(|r| {
                 Some(civ_agents::polity::RaiseDef {
                     program: buildings.iter().position(|b| b.id == r.program)?,
@@ -1376,7 +1400,22 @@ fn resolve(
                 missing(c, parsed, &d.rel, "technique", &t.technique);
             }
         }
-        if let Some(def) = d.file.def(technique_index) {
+        // And the technique that gives it on purpose (M10c slice ED).
+        if let Some(i) = &d.file.inoculation
+            && technique_index(&i.technique).is_none()
+        {
+            missing(c, parsed, &d.rel, "inoculation.technique", &i.technique);
+        }
+        // And how it is vaccinated against (M10c slice ED, third part).
+        if let Some(v) = &d.file.vaccination {
+            if technique_index(&v.technique).is_none() {
+                missing(c, parsed, &d.rel, "vaccination.technique", &v.technique);
+            }
+            if good_index(&v.good).is_none() {
+                missing(c, parsed, &d.rel, "vaccination.good", &v.good);
+            }
+        }
+        if let Some(def) = d.file.def(technique_index, good_index) {
             diseases.push(def);
         }
     }
@@ -1548,8 +1587,12 @@ fn knowledge_problems(
             ),
         );
     }
-    for (t, def) in catalog.techniques.iter().enumerate() {
-        let gated = catalog.activities.iter().any(|a| a.technique == Some(t))
+    let mut gated: Vec<bool> = catalog
+        .techniques
+        .iter()
+        .enumerate()
+        .map(|(t, def)| {
+            catalog.activities.iter().any(|a| a.technique == Some(t))
             || catalog.recipes.iter().any(|r| r.technique == Some(t))
             || catalog
                 .buildings
@@ -1568,16 +1611,42 @@ fn knowledge_problems(
                 .iter()
                 .flat_map(|d| &d.file.treatment)
                 .any(|x| x.technique == def.id)
+            // Or the disease it gives on purpose (M10c slice ED).
+            || parsed
+                .diseases
+                .iter()
+                .filter_map(|d| d.file.inoculation.as_ref())
+                .any(|x| x.technique == def.id)
             // Or the deaths in childbirth it prevents at a birth its knower attends (M10c slice
             // EA).
-            || def.birth.iter().any(|&e| e > 0.0);
-        if !gated {
+            || def.birth.iter().any(|&e| e > 0.0)
+        })
+        .collect();
+    // Or a technique that gates work needs it first (M10c slice EC: reckoning before reading).
+    loop {
+        let mut more = false;
+        for t in 0..gated.len() {
+            if gated[t] {
+                for &u in catalog.techniques[t].requires.iter().flatten() {
+                    if u < gated.len() && !gated[u] {
+                        gated[u] = true;
+                        more = true;
+                    }
+                }
+            }
+        }
+        if !more {
+            break;
+        }
+    }
+    for (t, def) in catalog.techniques.iter().enumerate() {
+        if !gated[t] {
             c.push(
                 "E3005",
                 &rel_of(&def.id),
                 None,
                 format!(
-                    "technique `{}` gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know, nor does it prevent deaths in childbirth",
+                    "technique `{}` gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know, nor does it prevent deaths in childbirth, nor does a technique that does need it",
                     def.id
                 ),
             );

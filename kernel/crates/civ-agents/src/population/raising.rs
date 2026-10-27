@@ -57,6 +57,16 @@ impl Population {
         m.iter().map(|y| y.wet_lost_h).sum::<f64>() / m.len() as f64
     }
 
+    /// The days a year severe cases of polity `pi`'s households lay with nobody tending them, over
+    /// the years it measured (M10c slice EE, fourth part).
+    fn untended_a_year(&self, pi: usize) -> f64 {
+        let m = &self.polities[pi].measured;
+        if m.is_empty() {
+            return 0.0;
+        }
+        m.iter().map(|y| y.untended_days).sum::<f64>() / m.len() as f64
+    }
+
     /// The hours of work a year the fires that burned unseen awhile cost polity `pi`, over the
     /// years it measured (M8d slice DC).
     fn fires_unseen_a_year(&self, pi: usize) -> f64 {
@@ -91,6 +101,16 @@ impl Population {
                 let hours = self.rained_off_a_year(pi);
                 if hours > 0.0 {
                     hours * self.polity_hour_kcal(ctx, pi)
+                } else {
+                    0.0
+                }
+            }
+            // A sickhouse (M10c slice EE, fourth part): each day a severe case lay untended, as a
+            // day's work of care lacking.
+            Some(civ_land::PlotUse::Sickhouse) => {
+                let days = self.untended_a_year(pi);
+                if days > 0.0 {
+                    days * ctx.params.farm.work_hours_per_day * self.polity_hour_kcal(ctx, pi)
                 } else {
                     0.0
                 }
@@ -153,6 +173,26 @@ impl Population {
         self.fires_unseen_a_year(pi) > 0.0
             && self.polities[pi].watchers().next().is_some()
             && !self.raised_for(ctx, pi, civ_land::PlotUse::Tower)
+    }
+
+    /// Whether severe cases untended are an issue for polity `pi` (M10c slice EE, fourth part):
+    /// measured, and no sickhouse of its raised or being raised.
+    pub(super) fn untended(&self, ctx: &Ctx, pi: usize) -> bool {
+        self.untended_a_year(pi) > 0.0 && !self.raised_for(ctx, pi, civ_land::PlotUse::Sickhouse)
+    }
+
+    /// A severe case of household `household` lay ill on `day` with nobody tending them (M10c
+    /// slice EE, fourth part): measured against its settlement's polity.
+    pub(super) fn measure_untended(&mut self, household: Option<PermanentId>, day: i64) {
+        let Some(pi) = household
+            .and_then(|h| self.household(h))
+            .and_then(|x| x.settlement)
+            .and_then(|s| self.polity_of(s))
+        else {
+            return;
+        };
+        let year = SimTime::from_minutes(day * MINUTES_PER_DAY).date().year;
+        self.polities[pi].measured_mut(year).untended_days += 1.0;
     }
 
     /// Fire `fire` has burnt out (M8d slice DC): if nobody saw it for [`LATE_NOTICE_MIN`] after
@@ -473,6 +513,7 @@ impl Population {
                 civ_land::PlotUse::Store => self.polities[pi].storehouse = Some(building),
                 civ_land::PlotUse::Hall => self.polities[pi].hall = Some(building),
                 civ_land::PlotUse::Tower => self.polities[pi].tower = Some(building),
+                civ_land::PlotUse::Sickhouse => self.polities[pi].sickhouse = Some(building),
                 _ => {}
             }
             let first_time = self.polities[pi]

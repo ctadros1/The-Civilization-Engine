@@ -1,0 +1,20 @@
+# Teaching a technique they know to those enrolled to learn it from them, a session at home
+# (M10c slice EB, second part; ADR-0035 §5; research 06-08 §1.4: teaching takes an instructor's
+# time and scarce teaching capacity): its hours are credited to the learners at midnight, up to
+# what each studied, shared beyond the technique's group. A session of two hours a day (a tuning
+# value); light work about the home.
+kind = "activity"
+id = "core:activity/teach_a_technique"
+name = "Teach"
+doing = "teaching"
+behavior = "teach"
+par = 1.8
+min_age_years = 16.0
+max_age_years = 90.0
+min_minutes = 120
+max_minutes = 120
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

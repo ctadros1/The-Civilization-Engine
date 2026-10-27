@@ -18,6 +18,76 @@ pub enum KnowledgeEventKind {
     Lost,
 }
 
+/// A learner enrolled to learn a technique from someone of another household (M10c slice EB,
+/// second part; ADR-0035 §5): who teaches and who learns, the technique (by index), the food the
+/// paying household gives for each day of study, kcal (none from kin), that household, the day
+/// they enrolled and the last day it paid (-1 not yet). Saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Enrolment {
+    pub teacher: PermanentId,
+    pub learner: PermanentId,
+    pub technique: u16,
+    pub fee_kcal: f32,
+    pub payer: PermanentId,
+    pub since: i64,
+    pub paid: i64,
+}
+
+/// A household that found someone to teach a child of its a technique it lacked but could not
+/// hold the fee, and the day (M10c slice EB, third part): what a school answers. Kept a year;
+/// saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Untaught {
+    pub household: PermanentId,
+    pub technique: u16,
+    pub day: i64,
+}
+
+/// A written record of a technique (M10c slice EC; ADR-0035 §6; research 07-09 §5.1): a carrier
+/// of it that is not a person, kept by the household that holds it, with who wrote it and the day,
+/// and the building it is kept in, if any (second part), with which it burns. Saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Record {
+    pub id: PermanentId,
+    pub technique: u16,
+    pub holder: PermanentId,
+    pub maker: PermanentId,
+    pub made: i64,
+    pub building: Option<PermanentId>,
+}
+
+/// Minutes someone gave a technique today in sessions, teaching it or studying it (M10c slice
+/// EB, second part): credited to the learners at midnight. Saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Session {
+    pub person: PermanentId,
+    pub technique: u16,
+    pub minutes: f32,
+}
+
+/// Adds `minutes` of person `person`'s sessions of technique `technique` to the day's `list`.
+pub fn tally(list: &mut Vec<Session>, person: PermanentId, technique: u16, minutes: f32) {
+    match list
+        .iter_mut()
+        .find(|s| s.person == person && s.technique == technique)
+    {
+        Some(s) => s.minutes += minutes,
+        None => list.push(Session {
+            person,
+            technique,
+            minutes,
+        }),
+    }
+}
+
+/// The minutes of person `person`'s sessions of technique `technique` in `list`.
+pub fn tallied(list: &[Session], person: PermanentId, technique: u16) -> f32 {
+    list.iter()
+        .filter(|s| s.person == person && s.technique == technique)
+        .map(|s| s.minutes)
+        .sum()
+}
+
 /// One entry in a settlement's record of a technique (ADR-0008 §2).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct KnowledgeEvent {
@@ -242,6 +312,8 @@ mod tests {
             upbringing,
             answers_spoilage: Vec::new(),
             birth: [0.0; 3],
+            group: 3,
+            codified: 0.0,
         };
         Catalog {
             activities: vec![activity("sow", 10.0, 0), activity("weave", 12.0, 1)],
@@ -260,6 +332,7 @@ mod tests {
             w_try: 2.0,
             try_gap_days: 7.0,
             watch_m: 100.0,
+            record_h: 20.0,
         }
     }
 

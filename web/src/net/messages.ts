@@ -549,7 +549,7 @@ export interface BuildingInfo {
   /** Rendered by the kernel: "walls going up, 40% done; waiting for timber". */
   status: string;
   /** Wire 1.14 (M3b slice O): the grammar that expands it, "hut" or "frame" ("" from an older
-   * host), and what it is for: "dwelling", "store", "work", "hall" or "tower". */
+   * host), and what it is for: "dwelling", "store", "work", "hall", "tower" or "sickhouse". */
   grammar: string;
   purpose: string;
   /** Length and width between the wall lines, metres (a hut: its diameter both ways), and the
@@ -606,6 +606,9 @@ export interface BuildingInfo {
    * and how its last evening went ("Gas: 1 burner on Ada's main; lit until 22:40"), or the
    * gasworks its household keeps; empty for neither. */
   gas: string;
+  /** Wire 1.106 (M10c slice EC): the records kept in it, each with its writer ("Records: laying
+   * out by cord and stake, by Nell"); empty for none. */
+  records: string;
 }
 
 /** How a building stands to its latest fire (wire 1.68). */
@@ -887,6 +890,13 @@ export interface PersonInfo {
    * homes: 2 lived, 1 died; Their household is called to tend the sick at Ada's household, for
    * 2100 kcal of food a day"); empty for none. */
   care: string;
+  /** Wire 1.105 (M10c slice EB): their teaching and study ("Teaches pottery to Ada (asking
+   * nothing); 2 hours today"; "Studies pottery with Bo, 40 of 300 hours, for 2100 kcal of food a
+   * day"); empty for neither. */
+  teaching: string;
+  /** Wire 1.106 (M10c slice EC): their letters, the records they wrote and who keeps each, a
+   * record they are writing, and what they read toward from a record; empty for none. */
+  letters: string;
 }
 
 /** A claim the observer may whisper (wire 1.47). */
@@ -4184,6 +4194,7 @@ function buildings(f: W.Buildings): { rev: number; buildings: BuildingInfo[] } {
       fireWords: x.fireWords() ?? "",
       site: x.site() ?? "",
       gas: x.gas() ?? "",
+      records: x.records() ?? "",
     });
   }
   return { rev: Number(f.rev()), buildings: out };
@@ -4823,6 +4834,8 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     suspicions: Array.from({ length: p.suspicionsLength() }, (_, k) => p.suspicions(k) ?? ""),
     light: p.light() ?? "",
     care: p.care() ?? "",
+    teaching: p.teaching() ?? "",
+    letters: p.letters() ?? "",
   };
 }
 

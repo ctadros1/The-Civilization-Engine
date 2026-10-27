@@ -10925,7 +10925,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_SICKNESS = 118,
     VT_SUSPICIONS = 120,
     VT_LIGHT = 122,
-    VT_CARE = 124
+    VT_CARE = 124,
+    VT_TEACHING = 126,
+    VT_LETTERS = 128
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -11110,6 +11112,12 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *care() const {
     return GetPointer<const ::flatbuffers::String *>(VT_CARE);
   }
+  const ::flatbuffers::String *teaching() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_TEACHING);
+  }
+  const ::flatbuffers::String *letters() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_LETTERS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -11226,6 +11234,10 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyString(light()) &&
            VerifyOffset(verifier, VT_CARE) &&
            verifier.VerifyString(care()) &&
+           VerifyOffset(verifier, VT_TEACHING) &&
+           verifier.VerifyString(teaching()) &&
+           VerifyOffset(verifier, VT_LETTERS) &&
+           verifier.VerifyString(letters()) &&
            verifier.EndTable();
   }
 };
@@ -11417,6 +11429,12 @@ struct PersonInfoBuilder {
   void add_care(::flatbuffers::Offset<::flatbuffers::String> care) {
     fbb_.AddOffset(PersonInfo::VT_CARE, care);
   }
+  void add_teaching(::flatbuffers::Offset<::flatbuffers::String> teaching) {
+    fbb_.AddOffset(PersonInfo::VT_TEACHING, teaching);
+  }
+  void add_letters(::flatbuffers::Offset<::flatbuffers::String> letters) {
+    fbb_.AddOffset(PersonInfo::VT_LETTERS, letters);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -11490,7 +11508,9 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> sickness = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> suspicions = 0,
     ::flatbuffers::Offset<::flatbuffers::String> light = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> care = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> care = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> teaching = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> letters = 0) {
   PersonInfoBuilder builder_(_fbb);
   builder_.add_household_admired(household_admired);
   builder_.add_left_minute(left_minute);
@@ -11502,6 +11522,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_died_minute(died_minute);
   builder_.add_born_minute(born_minute);
   builder_.add_id(id);
+  builder_.add_letters(letters);
+  builder_.add_teaching(teaching);
   builder_.add_care(care);
   builder_.add_light(light);
   builder_.add_suspicions(suspicions);
@@ -11623,7 +11645,9 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *sickness = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *suspicions = nullptr,
     const char *light = nullptr,
-    const char *care = nullptr) {
+    const char *care = nullptr,
+    const char *teaching = nullptr,
+    const char *letters = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -11656,6 +11680,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
   auto suspicions__ = suspicions ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*suspicions) : 0;
   auto light__ = light ? _fbb.CreateString(light) : 0;
   auto care__ = care ? _fbb.CreateString(care) : 0;
+  auto teaching__ = teaching ? _fbb.CreateString(teaching) : 0;
+  auto letters__ = letters ? _fbb.CreateString(letters) : 0;
   return tce::wire::CreatePersonInfo(
       _fbb,
       id,
@@ -11718,7 +11744,9 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       sickness__,
       suspicions__,
       light__,
-      care__);
+      care__,
+      teaching__,
+      letters__);
 }
 
 struct NewsLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -13779,7 +13807,8 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_FIRE_ID = 96,
     VT_FIRE_WORDS = 98,
     VT_SITE = 100,
-    VT_GAS = 102
+    VT_GAS = 102,
+    VT_RECORDS = 104
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -13931,6 +13960,9 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *gas() const {
     return GetPointer<const ::flatbuffers::String *>(VT_GAS);
   }
+  const ::flatbuffers::String *records() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_RECORDS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -14006,6 +14038,8 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyString(site()) &&
            VerifyOffset(verifier, VT_GAS) &&
            verifier.VerifyString(gas()) &&
+           VerifyOffset(verifier, VT_RECORDS) &&
+           verifier.VerifyString(records()) &&
            verifier.EndTable();
   }
 };
@@ -14164,6 +14198,9 @@ struct BuildingInfoBuilder {
   void add_gas(::flatbuffers::Offset<::flatbuffers::String> gas) {
     fbb_.AddOffset(BuildingInfo::VT_GAS, gas);
   }
+  void add_records(::flatbuffers::Offset<::flatbuffers::String> records) {
+    fbb_.AddOffset(BuildingInfo::VT_RECORDS, records);
+  }
   explicit BuildingInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -14226,7 +14263,8 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
     uint32_t fire_id = 0,
     ::flatbuffers::Offset<::flatbuffers::String> fire_words = 0,
     ::flatbuffers::Offset<::flatbuffers::String> site = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> gas = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> gas = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> records = 0) {
   BuildingInfoBuilder builder_(_fbb);
   builder_.add_style_from(style_from);
   builder_.add_firm(firm);
@@ -14234,6 +14272,7 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
   builder_.add_settlement(settlement);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_records(records);
   builder_.add_gas(gas);
   builder_.add_site(site);
   builder_.add_fire_words(fire_words);
@@ -14337,7 +14376,8 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
     uint32_t fire_id = 0,
     const char *fire_words = nullptr,
     const char *site = nullptr,
-    const char *gas = nullptr) {
+    const char *gas = nullptr,
+    const char *records = nullptr) {
   auto program__ = program ? _fbb.CreateString(program) : 0;
   auto stage_name__ = stage_name ? _fbb.CreateString(stage_name) : 0;
   auto outline__ = outline ? _fbb.CreateVectorOfStructs<tce::wire::Vec2>(*outline) : 0;
@@ -14359,6 +14399,7 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
   auto fire_words__ = fire_words ? _fbb.CreateString(fire_words) : 0;
   auto site__ = site ? _fbb.CreateString(site) : 0;
   auto gas__ = gas ? _fbb.CreateString(gas) : 0;
+  auto records__ = records ? _fbb.CreateString(records) : 0;
   return tce::wire::CreateBuildingInfo(
       _fbb,
       id,
@@ -14410,7 +14451,8 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
       fire_id,
       fire_words__,
       site__,
-      gas__);
+      gas__,
+      records__);
 }
 
 struct Buildings FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

@@ -49,7 +49,7 @@ impl Purse {
         self.counts.iter().map(|&(_, n)| n).sum()
     }
 
-    fn add(&mut self, issue: u32, n: f64) {
+    pub(crate) fn add(&mut self, issue: u32, n: f64) {
         match self.counts.binary_search_by_key(&issue, |&(i, _)| i) {
             Ok(i) => self.counts[i].1 += n,
             Err(i) => self.counts.insert(i, (issue, n)),
@@ -91,27 +91,7 @@ impl Coinage {
 
     /// `holder`'s purse, if it holds any coin.
     pub fn purse(&self, holder: PermanentId) -> Option<&Purse> {
-        self.purses
-            .binary_search_by_key(&holder, |p| p.holder)
-            .ok()
-            .map(|i| &self.purses[i])
-    }
-
-    fn purse_mut(&mut self, holder: PermanentId) -> &mut Purse {
-        let i = match self.purses.binary_search_by_key(&holder, |p| p.holder) {
-            Ok(i) => i,
-            Err(i) => {
-                self.purses.insert(
-                    i,
-                    Purse {
-                        holder,
-                        counts: Vec::new(),
-                    },
-                );
-                i
-            }
-        };
-        &mut self.purses[i]
+        purse_in(&self.purses, holder)
     }
 
     /// Strikes `count` pieces for `issuer` on `day`, each of `mass_g` grams at `fineness`, into
@@ -147,7 +127,7 @@ impl Coinage {
                 id
             }
         };
-        self.purse_mut(to).add(id, count);
+        purse_mut_in(&mut self.purses, to).add(id, count);
         id
     }
 
@@ -155,36 +135,7 @@ impl Coinage {
     /// first (`worth` of an issue, ties to the older), as far as its purse has them; any it does
     /// not is left for [`Coinage::reconcile`].
     pub fn give(&mut self, from: PermanentId, to: PermanentId, n: f64, worth: &dyn Fn(u32) -> f64) {
-        if from == to || n <= EPS {
-            return;
-        }
-        let Some(purse) = self.purse(from) else {
-            return;
-        };
-        let mut order: Vec<(u32, f64)> = purse.counts.clone();
-        order.sort_by(|a, b| worth(a.0).total_cmp(&worth(b.0)).then(a.0.cmp(&b.0)));
-        let mut left = n;
-        let mut moved: Vec<(u32, f64)> = Vec::new();
-        for (issue, held) in order {
-            if left <= EPS {
-                break;
-            }
-            let take = held.min(left);
-            moved.push((issue, take));
-            left -= take;
-        }
-        let giver = self.purse_mut(from);
-        for &(issue, take) in &moved {
-            if let Ok(i) = giver.counts.binary_search_by_key(&issue, |&(c, _)| c) {
-                giver.counts[i].1 -= take;
-            }
-        }
-        giver.counts.retain(|&(_, k)| k > EPS);
-        let taker = self.purse_mut(to);
-        for (issue, take) in moved {
-            taker.add(issue, take);
-        }
-        self.purses.retain(|p| !p.counts.is_empty());
+        give_in(&mut self.purses, from, to, n, worth);
     }
 
     /// Puts every purse right by what its holder holds of coin (`held`): one that counts more
@@ -192,51 +143,128 @@ impl Coinage {
     /// purse counts takes the pieces nobody's purse counts, oldest issue first. Issues are never
     /// struck or lost here.
     pub fn reconcile(&mut self, holders: &[PermanentId], held: &dyn Fn(PermanentId) -> f64) {
-        for p in &mut self.purses {
-            let has = held(p.holder).max(0.0);
-            let counted = p.total();
-            if counted > has + EPS {
-                let keep = if counted > 0.0 { has / counted } else { 0.0 };
-                for c in &mut p.counts {
-                    c.1 *= keep;
-                }
-                p.counts.retain(|&(_, k)| k > EPS);
-            }
+        let issues: Vec<(u32, f64)> = self.cohorts.iter().map(|c| (c.id, c.count)).collect();
+        reconcile_in(&mut self.purses, &issues, holders, held);
+    }
+}
+
+/// `holder`'s purse among `purses` (kept in holder order), if it holds any pieces: coin's or
+/// notes' (M10d slice EH).
+pub(crate) fn purse_in(purses: &[Purse], holder: PermanentId) -> Option<&Purse> {
+    purses
+        .binary_search_by_key(&holder, |p| p.holder)
+        .ok()
+        .map(|i| &purses[i])
+}
+
+/// `holder`'s purse among `purses`, made empty if it has none.
+pub(crate) fn purse_mut_in(purses: &mut Vec<Purse>, holder: PermanentId) -> &mut Purse {
+    let i = match purses.binary_search_by_key(&holder, |p| p.holder) {
+        Ok(i) => i,
+        Err(i) => {
+            purses.insert(
+                i,
+                Purse {
+                    holder,
+                    counts: Vec::new(),
+                },
+            );
+            i
         }
-        self.purses.retain(|p| !p.counts.is_empty());
-        let mut loose: Vec<(u32, f64)> = self
-            .cohorts
-            .iter()
-            .map(|c| {
-                let counted: f64 = self
-                    .purses
-                    .iter()
-                    .flat_map(|p| p.counts.iter())
-                    .filter(|&&(i, _)| i == c.id)
-                    .map(|&(_, n)| n)
-                    .sum();
-                (c.id, (c.count - counted).max(0.0))
-            })
-            .filter(|&(_, n)| n > EPS)
-            .collect();
-        let mut hs = holders.to_vec();
-        hs.sort_unstable();
-        hs.dedup();
-        for h in hs {
-            let mut want = held(h) - self.purse(h).map_or(0.0, Purse::total);
-            if want <= EPS {
-                continue;
+    };
+    &mut purses[i]
+}
+
+/// [`Coinage::give`] over any purses: coin's or notes'.
+pub(crate) fn give_in(
+    purses: &mut Vec<Purse>,
+    from: PermanentId,
+    to: PermanentId,
+    n: f64,
+    worth: &dyn Fn(u32) -> f64,
+) {
+    if from == to || n <= EPS {
+        return;
+    }
+    let Some(purse) = purse_in(purses, from) else {
+        return;
+    };
+    let mut order: Vec<(u32, f64)> = purse.counts.clone();
+    order.sort_by(|a, b| worth(a.0).total_cmp(&worth(b.0)).then(a.0.cmp(&b.0)));
+    let mut left = n;
+    let mut moved: Vec<(u32, f64)> = Vec::new();
+    for (issue, held) in order {
+        if left <= EPS {
+            break;
+        }
+        let take = held.min(left);
+        moved.push((issue, take));
+        left -= take;
+    }
+    let giver = purse_mut_in(purses, from);
+    for &(issue, take) in &moved {
+        if let Ok(i) = giver.counts.binary_search_by_key(&issue, |&(c, _)| c) {
+            giver.counts[i].1 -= take;
+        }
+    }
+    giver.counts.retain(|&(_, k)| k > EPS);
+    let taker = purse_mut_in(purses, to);
+    for (issue, take) in moved {
+        taker.add(issue, take);
+    }
+    purses.retain(|p| !p.counts.is_empty());
+}
+
+/// [`Coinage::reconcile`] over any purses, `issues` being each issue's number and pieces in
+/// being, in issue order.
+pub(crate) fn reconcile_in(
+    purses: &mut Vec<Purse>,
+    issues: &[(u32, f64)],
+    holders: &[PermanentId],
+    held: &dyn Fn(PermanentId) -> f64,
+) {
+    for p in purses.iter_mut() {
+        let has = held(p.holder).max(0.0);
+        let counted = p.total();
+        if counted > has + EPS {
+            let keep = if counted > 0.0 { has / counted } else { 0.0 };
+            for c in &mut p.counts {
+                c.1 *= keep;
             }
-            for (issue, n) in &mut loose {
-                if want <= EPS {
-                    break;
-                }
-                let take = n.min(want);
-                if take > EPS {
-                    self.purse_mut(h).add(*issue, take);
-                    *n -= take;
-                    want -= take;
-                }
+            p.counts.retain(|&(_, k)| k > EPS);
+        }
+    }
+    purses.retain(|p| !p.counts.is_empty());
+    let mut loose: Vec<(u32, f64)> = issues
+        .iter()
+        .map(|&(id, count)| {
+            let counted: f64 = purses
+                .iter()
+                .flat_map(|p| p.counts.iter())
+                .filter(|&&(i, _)| i == id)
+                .map(|&(_, n)| n)
+                .sum();
+            (id, (count - counted).max(0.0))
+        })
+        .filter(|&(_, n)| n > EPS)
+        .collect();
+    let mut hs = holders.to_vec();
+    hs.sort_unstable();
+    hs.dedup();
+    for h in hs {
+        let mut want = held(h) - purse_in(purses, h).map_or(0.0, Purse::total);
+        if want <= EPS {
+            continue;
+        }
+        for (issue, n) in &mut loose {
+            if want <= EPS {
+                break;
+            }
+            let take = n.min(want);
+            if take > EPS {
+                purse_mut_in(purses, h).add(*issue, take);
+                *n -= take;
+                want -= take;
             }
         }
     }

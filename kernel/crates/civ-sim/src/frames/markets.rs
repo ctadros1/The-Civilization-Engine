@@ -502,6 +502,137 @@ pub fn summary(sim: &Sim, market: Option<&Market>) -> String {
     }
 }
 
+/// Each money of settlement `s` in words (M10d slice EF, third part): how many of its sellers
+/// take it and how many of its households hold some, for every good with a `[money]` table some
+/// household holds or some seller takes; empty where none does.
+pub fn money_words(sim: &Sim, s: PermanentId) -> String {
+    let goods = &sim.rules.catalog.goods;
+    let households: Vec<_> = sim
+        .people
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .filter(|x| x.settlement == Some(s) && !x.members.is_empty())
+        .collect();
+    let offers: Vec<&[Offer]> = households
+        .iter()
+        .map(|x| x.offers.as_slice())
+        .chain(
+            sim.people
+                .firms
+                .iter()
+                .filter(|f| f.is_open() && f.settlement == Some(s))
+                .map(|f| f.offers.as_slice()),
+        )
+        .filter(|o| !o.is_empty())
+        .collect();
+    let mut out: Vec<String> = Vec::new();
+    for (g, d) in goods.iter().enumerate() {
+        if d.money.is_none() {
+            continue;
+        }
+        let holding = households
+            .iter()
+            .filter(|x| x.stores.get(g).copied().unwrap_or(0.0) > 1e-9)
+            .count();
+        let taking = offers
+            .iter()
+            .filter(|o| o.iter().any(|r| usize::from(r.payment) == g))
+            .count();
+        if holding == 0 && taking == 0 {
+            continue;
+        }
+        out.push(format!(
+            "{}: {taking} of {} sellers here take it; {holding} {} some.",
+            capitalized(&d.name.to_lowercase()),
+            offers.len(),
+            if holding == 1 {
+                "household holds"
+            } else {
+                "households hold"
+            }
+        ));
+    }
+    out.join(" ")
+}
+
+/// Settlement `s`'s custody in words (M10d slice EG, third part): how many of its households keep
+/// goods for how many others, the kilograms kept, and how many of those were given a written
+/// receipt. Empty where nobody keeps anything for another.
+pub fn custody_words(sim: &Sim, s: PermanentId) -> String {
+    let kept: Vec<_> = sim
+        .people
+        .kept
+        .iter()
+        .filter(|k| {
+            sim.people
+                .household(k.keeper)
+                .is_some_and(|x| x.settlement == Some(s))
+        })
+        .collect();
+    if kept.is_empty() {
+        return String::new();
+    }
+    let distinct = |mut ids: Vec<PermanentId>| {
+        ids.sort_unstable();
+        ids.dedup();
+        ids.len()
+    };
+    let keepers = distinct(kept.iter().map(|k| k.keeper).collect());
+    let depositors = distinct(kept.iter().map(|k| k.depositor).collect());
+    let kg: f64 = kept.iter().map(|k| k.kg()).sum();
+    let receipts = kept.iter().filter(|k| k.receipt.is_some()).count();
+    format!(
+        "{keepers} {} goods for {depositors} {} here, {kg:.0} kg; {receipts} with a written \
+         receipt.",
+        if keepers == 1 {
+            "household keeps"
+        } else {
+            "households keep"
+        },
+        if depositors == 1 { "other" } else { "others" }
+    )
+}
+
+/// Settlement `s`'s notes in words (M10d slice EH, third part): for each keeper of it whose notes
+/// are out or were presented, whose they are and in what, the pieces out against the kilograms
+/// kept behind them, and the pieces presented and refused. Empty where no keeper here wrote any.
+pub fn notes_words(sim: &Sim, s: PermanentId) -> String {
+    let goods = &sim.rules.catalog.goods;
+    let people = &sim.people;
+    let mut out: Vec<String> = Vec::new();
+    for c in &people.notes.issues {
+        let Some(x) = people.household(c.issuer) else {
+            continue;
+        };
+        if x.settlement != Some(s) || (c.count <= 1e-6 && c.presented <= 1e-6) {
+            continue;
+        }
+        let good = usize::from(c.good);
+        let behind: f64 = people
+            .kept
+            .iter()
+            .filter(|k| k.keeper == c.issuer && k.noted)
+            .map(|k| k.stores.get(good).copied().unwrap_or(0.0).max(0.0))
+            .sum::<f64>()
+            // An empty sum is -0, which would read "-0 kg".
+            + 0.0;
+        let whose = x.members.first().map_or_else(
+            || "a gone".to_owned(),
+            |&m| format!("{}'s", people.name_of(m)),
+        );
+        let what = goods
+            .get(good)
+            .map_or_else(|| "a good".to_owned(), |d| d.name.to_lowercase());
+        out.push(format!(
+            "{whose} household's notes in {what}: {:.0} out against {behind:.0} kg kept; {:.0} \
+             presented, {:.0} refused.",
+            c.count, c.presented, c.refused
+        ));
+    }
+    out.join(" ")
+}
+
 /// The settlements with a market or a household or workshop offering anything, by id.
 fn trading_settlements(sim: &Sim, sellers: &[Seller<'_>]) -> Vec<PermanentId> {
     let mut out: Vec<PermanentId> = sellers
@@ -653,7 +784,18 @@ pub fn markets_response(sim: &Sim) -> Vec<u8> {
                 .find(|s| s.id == settlement)
                 .map_or("", |s| s.name.as_str());
             let name = fbb.create_string(name);
-            let summary = fbb.create_string(&summary(sim, market));
+            let mut summary = summary(sim, market);
+            for words in [
+                money_words(sim, settlement),
+                custody_words(sim, settlement),
+                notes_words(sim, settlement),
+            ] {
+                if !words.is_empty() {
+                    summary.push(' ');
+                    summary.push_str(&words);
+                }
+            }
+            let summary = fbb.create_string(&summary);
             let outsiders = fbb.create_string(&outsiders_words(sim, settlement));
             let between: Vec<_> = between_words(sim, settlement)
                 .iter()

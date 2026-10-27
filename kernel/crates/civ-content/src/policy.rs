@@ -117,6 +117,26 @@ pub(crate) struct PolicyFile {
     /// paid.
     #[serde(default)]
     pub pay: Option<PayFile>,
+    /// For a licence to practise (`licence`, content API 183, M10c slice EC): the technique it
+    /// asks of those paid to tend the sick.
+    #[serde(default)]
+    pub licence: Option<LicenceFile>,
+    /// For keeping the sick apart (`keep_apart`, content API 187, M10c slice EE): how long a
+    /// household is kept apart, and what keeping to its home costs.
+    #[serde(default)]
+    pub keep_apart: Option<KeepApartFile>,
+    /// For an office (content API 188, M10c slice EE): a technique, by content id, its holder
+    /// must know.
+    #[serde(default)]
+    pub holder_needs: Option<String>,
+    /// For a register of the sick (`keep_register`, content API 188, M10c slice EE): what a
+    /// household believes it spares.
+    #[serde(default)]
+    pub register: Option<RegisterFile>,
+    /// For clearing middens from the water (`clear_middens`, content API 190, M10c slice EE):
+    /// its terms.
+    #[serde(default)]
+    pub middens: Option<MiddensFile>,
     /// For a common store (`common_store`, content API 129, M7d slice CE3b): a money its levy
     /// may be paid in.
     #[serde(default)]
@@ -233,6 +253,51 @@ pub struct MediumFile {
     pub good: String,
     /// Units of it that pay for a kilogram of the grain owed.
     pub per_kg: f64,
+}
+
+/// The terms of clearing middens from the water in a policy file (content API 190, M10c slice
+/// EE, third part).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct MiddensFile {
+    /// How far from every open well and stream a household near one carries its heap, metres.
+    pub distance_m: f32,
+    /// How many days a heap carried lies there before it is at home again.
+    pub keep_days: u16,
+    /// The hours a carrying takes, as a household weighs it.
+    pub carry_h: f32,
+    /// The share of a household's deaths of disease within the year it believes cleaner water
+    /// would have spared, 0-1.
+    pub avoided_share: f32,
+}
+
+/// What a household believes a register of the sick spares it, in a policy file (content API
+/// 188, M10c slice EE, second part).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct RegisterFile {
+    /// The share of its deaths of disease within the year it believes a register would have
+    /// avoided, 0-1.
+    pub avoided_share: f32,
+}
+
+/// The terms of keeping the sick apart in a policy file (content API 187, M10c slice EE, first
+/// part).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct KeepApartFile {
+    /// The days after the last of a household is well that it is still kept apart.
+    pub days_after: u16,
+    /// The share of a day's work each grown member loses while their home is kept apart, 0-1.
+    pub cost_share: f32,
+}
+
+/// What a licence to practise asks in a policy file (content API 183, M10c slice EC, third part).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct LicenceFile {
+    /// The technique, by content id, those paid to tend the sick must know.
+    pub technique: String,
 }
 
 /// What an hour given to the common works is paid in a policy file (content API 128, M7d slice
@@ -618,6 +683,31 @@ impl PolicyFile {
             mint: None,
             pay: None,
             medium: None,
+            // Resolved apart, with the technique's name.
+            licence: None,
+            keep_apart: self
+                .keep_apart
+                .as_ref()
+                .map(|k| civ_agents::polity::KeepApartDef {
+                    days_after: k.days_after,
+                    cost_share: k.cost_share,
+                }),
+            holder_needs: self.holder_needs.as_deref().and_then(technique_index),
+            register: self
+                .register
+                .as_ref()
+                .map(|r| civ_agents::polity::RegisterDef {
+                    avoided_share: r.avoided_share,
+                }),
+            middens: self
+                .middens
+                .as_ref()
+                .map(|m| civ_agents::polity::MiddensDef {
+                    distance_m: m.distance_m,
+                    keep_days: m.keep_days,
+                    carry_h: m.carry_h,
+                    avoided_share: m.avoided_share,
+                }),
             plan: self.plan.as_ref().map(|g| civ_agents::polity::PlanDef {
                 grid: civ_land::plans::Grid {
                     block_m: (g.block_m[0] as f32, g.block_m[1] as f32),
@@ -1073,6 +1163,102 @@ impl PolicyFile {
             (Some(_), Some(PolicyKind::RaiseBuilding)) | (None, _) => {}
             (Some(_), _) => p.push("`raise` is for `does = \"raise_building\"`".to_owned()),
         }
+        // A licence's technique (M10c slice EC, third part): only for `licence`, which must
+        // name one.
+        match (&self.licence, PolicyKind::from_name(&self.does)) {
+            (None, Some(PolicyKind::Licence)) => {
+                p.push("a `licence` template needs a `licence` table".to_owned());
+            }
+            (Some(_), Some(PolicyKind::Licence)) | (None, _) => {}
+            (Some(_), _) => p.push("`licence` is for `does = \"licence\"`".to_owned()),
+        }
+        // Clearing middens' terms (M10c slice EE, third part): only for `clear_middens`, which
+        // must have them.
+        match (&self.middens, PolicyKind::from_name(&self.does)) {
+            (None, Some(PolicyKind::ClearMiddens)) => {
+                p.push("a `clear_middens` template needs a `middens` table".to_owned());
+            }
+            (Some(m), Some(PolicyKind::ClearMiddens)) => {
+                for (name, v, lo, hi) in [
+                    ("distance_m", m.distance_m, 1.0, 1000.0),
+                    ("carry_h", m.carry_h, 0.0, 24.0),
+                    ("avoided_share", m.avoided_share, 0.0, 1.0),
+                ] {
+                    if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                        p.push(format!(
+                            "`middens.{name}` must be between {lo} and {hi} (got {v})"
+                        ));
+                    }
+                }
+                if !(1..=365).contains(&m.keep_days) {
+                    p.push(format!(
+                        "`middens.keep_days` must be between 1 and 365 (got {})",
+                        m.keep_days
+                    ));
+                }
+            }
+            (None, _) => {}
+            (Some(_), _) => {
+                p.push("`middens` is for `does = \"clear_middens\"`".to_owned());
+            }
+        }
+        // A register's share (M10c slice EE, second part): only for `keep_register`, which must
+        // have it; and a technique an office's holder must know only for an office.
+        match (&self.register, PolicyKind::from_name(&self.does)) {
+            (None, Some(PolicyKind::KeepRegister)) => {
+                p.push("a `keep_register` template needs a `register` table".to_owned());
+            }
+            (Some(r), Some(PolicyKind::KeepRegister)) => {
+                if !(r.avoided_share.is_finite() && (0.0..=1.0).contains(&r.avoided_share)) {
+                    p.push(format!(
+                        "`register.avoided_share` must be between 0 and 1 (got {})",
+                        r.avoided_share
+                    ));
+                }
+            }
+            (None, _) => {}
+            (Some(_), _) => {
+                p.push("`register` is for `does = \"keep_register\"`".to_owned());
+            }
+        }
+        if self.holder_needs.is_some()
+            && !matches!(
+                PolicyKind::from_name(&self.does),
+                Some(
+                    PolicyKind::KeepStore
+                        | PolicyKind::KeepWatch
+                        | PolicyKind::Mint
+                        | PolicyKind::LightStreets
+                        | PolicyKind::KeepSchool
+                        | PolicyKind::KeepRegister
+                )
+            )
+        {
+            p.push("`holder_needs` is for an office that names a holder".to_owned());
+        }
+        // Keeping the sick apart's terms (M10c slice EE, first part): only for `keep_apart`,
+        // which must have them.
+        match (&self.keep_apart, PolicyKind::from_name(&self.does)) {
+            (None, Some(PolicyKind::KeepApart)) => {
+                p.push("a `keep_apart` template needs a `keep_apart` table".to_owned());
+            }
+            (Some(k), Some(PolicyKind::KeepApart)) => {
+                if !(1..=365).contains(&k.days_after) {
+                    p.push(format!(
+                        "`keep_apart.days_after` must be between 1 and 365 (got {})",
+                        k.days_after
+                    ));
+                }
+                if !(k.cost_share.is_finite() && (0.0..=1.0).contains(&k.cost_share)) {
+                    p.push(format!(
+                        "`keep_apart.cost_share` must be between 0 and 1 (got {})",
+                        k.cost_share
+                    ));
+                }
+            }
+            (None, _) => {}
+            (Some(_), _) => p.push("`keep_apart` is for `does = \"keep_apart\"`".to_owned()),
+        }
         // Pay for common work (M7d slice CE3a): only for `pay_work`, which must have it.
         match (&self.pay, PolicyKind::from_name(&self.does)) {
             (Some(pay), Some(PolicyKind::PayWork)) => {
@@ -1268,6 +1454,11 @@ impl PolicyFile {
                 | PolicyKind::BuildWay
                 | PolicyKind::BuildLine
                 | PolicyKind::LightStreets
+                | PolicyKind::KeepSchool
+                | PolicyKind::Licence
+                | PolicyKind::KeepApart
+                | PolicyKind::KeepRegister
+                | PolicyKind::ClearMiddens
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
@@ -1335,6 +1526,11 @@ impl PolicyFile {
                 | PolicyKind::BuildWay
                 | PolicyKind::BuildLine
                 | PolicyKind::LightStreets
+                | PolicyKind::KeepSchool
+                | PolicyKind::Licence
+                | PolicyKind::KeepApart
+                | PolicyKind::KeepRegister
+                | PolicyKind::ClearMiddens
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding,
             )
@@ -1633,6 +1829,11 @@ mod tests {
             medium: None,
             plan: None,
             raise: None,
+            licence: None,
+            keep_apart: None,
+            holder_needs: None,
+            register: None,
+            middens: None,
         }
     }
 

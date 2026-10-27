@@ -1,0 +1,23 @@
+# Counting, measuring and keeping tallies of quantities (M10c slice EC; ADR-0035 §6; research 07-09
+# §1.3 and §3.1 I01-I02: counting and commodity measures are their own capability, numeracy not
+# needing literacy). Found by those who trade, where counts are kept against each other; half of
+# them would need 100,000 qualified hours (a design prior, as for other rare finds). Learnt in 300
+# hours with a knower (07-09 §2.2: task-limited training 300-1,500 hours, a broad prior), in groups
+# of up to 15 (06-08 §5.3: 15-40 for elementary group instruction). Never learnt in upbringing:
+# letters and reckoning are taught (brief m10-services §3.3). Founders do not bring it (06-08 §3),
+# so no world changes until someone finds it.
+kind = "technique"
+id = "core:technique/reckoning"
+name = "Reckoning"
+can = "count, measure and keep tallies of what is owed and held"
+domain = ""
+requires = []
+tried_in = ["core:activity/trade"]
+needs = []
+e50_h = 100000.0
+learn_h = 300.0
+upbringing = false
+group = 15
+
+[answers]
+spoilage = []

@@ -30,6 +30,7 @@ enum Holder {
     Faction(usize),
     Due(usize),
     Consignment(usize),
+    Kept(usize),
 }
 
 impl Population {
@@ -49,10 +50,10 @@ impl Population {
         if let Some(i) = self.agreements.dues.iter().position(|d| d.id == id) {
             return Some(Holder::Due(i));
         }
-        self.consignments
-            .iter()
-            .position(|c| c.id == id)
-            .map(Holder::Consignment)
+        if let Some(i) = self.consignments.iter().position(|c| c.id == id) {
+            return Some(Holder::Consignment(i));
+        }
+        self.kept.iter().position(|k| k.id == id).map(Holder::Kept)
     }
 
     /// The polity whose own issues coin `holder` holds are (M7d slice CE4c): a household's or a
@@ -90,12 +91,41 @@ impl Population {
     /// moved by a path other than [`Population::transfer`] (a household dividing its stores, a
     /// store's levy) is found again in whoever holds it, each issue's count conserved.
     pub(super) fn reconcile_coin(&mut self, ctx: &crate::Ctx) {
+        if !self.order.coinage.cohorts.is_empty()
+            && let Some((holders, held)) = self.money_held(ctx, |m| m.coin)
+        {
+            let lookup = |id: PermanentId| {
+                held.binary_search_by_key(&id, |&(i, _)| i)
+                    .map_or(0.0, |i| held[i].1)
+            };
+            self.order.coinage.reconcile(&holders, &lookup);
+        }
+        // Notes likewise (M10d slice EH).
+        if !self.notes.issues.is_empty()
+            && let Some((holders, held)) = self.money_held(ctx, |m| m.note)
+        {
+            let lookup = |id: PermanentId| {
+                held.binary_search_by_key(&id, |&(i, _)| i)
+                    .map_or(0.0, |i| held[i].1)
+            };
+            self.notes.reconcile(&holders, &lookup);
+        }
+    }
+
+    /// Every holder holding any of the money goods `which` picks, and how much, in holder order;
+    /// none where the content has no such good.
+    #[allow(clippy::type_complexity)]
+    fn money_held(
+        &self,
+        ctx: &crate::Ctx,
+        which: impl Fn(&crate::params::MoneyDef) -> bool,
+    ) -> Option<(Vec<PermanentId>, Vec<(PermanentId, f64)>)> {
         let goods = &ctx.catalog.goods;
         let coins: Vec<usize> = (0..goods.len())
-            .filter(|&g| goods[g].money.as_ref().is_some_and(|m| m.coin))
+            .filter(|&g| goods[g].money.as_ref().is_some_and(&which))
             .collect();
-        if coins.is_empty() || self.order.coinage.cohorts.is_empty() {
-            return;
+        if coins.is_empty() {
+            return None;
         }
         let at = |s: &Vec<f64>| {
             coins
@@ -115,14 +145,11 @@ impl Population {
         held.extend(self.factions.list.iter().map(|f| (f.id, at(&f.stores))));
         held.extend(self.agreements.dues.iter().map(|d| (d.id, at(&d.stores))));
         held.extend(self.consignments.iter().map(|c| (c.id, at(&c.stores))));
+        held.extend(self.kept.iter().map(|k| (k.id, at(&k.stores))));
         held.retain(|&(_, n)| n > 0.0);
         held.sort_unstable_by_key(|&(id, _)| id);
         let holders: Vec<PermanentId> = held.iter().map(|&(id, _)| id).collect();
-        let lookup = |id: PermanentId| {
-            held.binary_search_by_key(&id, |&(i, _)| i)
-                .map_or(0.0, |i| held[i].1)
-        };
-        self.order.coinage.reconcile(&holders, &lookup);
+        Some((holders, held))
     }
 
     /// Moves `amount` of `good` from one holder to another through the ledger, as a gift: for
@@ -206,6 +233,55 @@ impl Population {
         true
     }
 
+    /// Writes `count` pieces of note good `note`, `issuer`'s issue in `(good, kg)`, into
+    /// `holder`'s stores and purse (M10d slice EH). Returns the issue's number, writing nothing
+    /// when `holder` holds nothing.
+    pub(super) fn put_written(
+        &mut self,
+        note: usize,
+        issuer: PermanentId,
+        holder: PermanentId,
+        terms: (usize, f32),
+        count: f64,
+    ) -> Option<u32> {
+        let h = self.holder(holder)?;
+        let (stores, flows) = self.holder_goods(h)?;
+        if stores.len() <= note {
+            stores.resize(note + 1, 0.0);
+        }
+        stores[note] += count;
+        flows.add(Flow::Made, note, count);
+        Some(self.notes.write(issuer, terms, count, holder))
+    }
+
+    /// Takes `count` pieces of note good `note` of issue `issue` out of `holder`'s stores and
+    /// purse and out of being, brought up to `now` first (M10d slice EH): notes redeemed, retired
+    /// by their issuer. Returns `false`, retiring nothing, when it does not hold them.
+    pub(super) fn retire_written(
+        &mut self,
+        (now, params, goods): (SimTime, &PeopleParams, &[GoodDef]),
+        holder: PermanentId,
+        (note, issue): (usize, u32),
+        count: f64,
+    ) -> bool {
+        let Some(h) = self.holder(holder) else {
+            return false;
+        };
+        self.settle_holder(h, now, params, goods);
+        let Some((stores, flows)) = self.holder_goods(h) else {
+            return false;
+        };
+        let held = stores.get(note).copied().unwrap_or(0.0);
+        if held + COVER_SLACK + count * COVER_SHARE < count {
+            return false;
+        }
+        let taken = count.min(held.max(0.0));
+        stores[note] -= taken;
+        flows.add(Flow::Used, note, taken);
+        self.notes.retire(holder, issue, count);
+        true
+    }
+
     /// Brings a holder's stores up to `now`: a household's spoil and burn, a firm's spoil (under
     /// its owners' roof when they have one), a polity's spoil (under no roof).
     fn settle_holder(&mut self, h: Holder, now: SimTime, params: &PeopleParams, goods: &[GoodDef]) {
@@ -254,6 +330,12 @@ impl Population {
                     c.stores.resize(goods.len(), 0.0);
                 }
             }
+            Holder::Kept(i) => {
+                if let Some(k) = self.kept.get_mut(i) {
+                    k.settle_stores(now, goods);
+                    k.stores.resize(goods.len(), 0.0);
+                }
+            }
         }
     }
 
@@ -282,6 +364,7 @@ impl Population {
                 .consignments
                 .get_mut(i)
                 .map(|c| (&mut c.stores, &mut c.flows)),
+            Holder::Kept(i) => self.kept.get_mut(i).map(|k| (&mut k.stores, &mut k.flows)),
         }
     }
 
@@ -329,6 +412,7 @@ impl Population {
                     Holder::Faction(i) => self.factions.list.get(i).map(|f| &f.stores),
                     Holder::Due(i) => self.agreements.dues.get(i).map(|d| &d.stores),
                     Holder::Consignment(i) => self.consignments.get(i).map(|c| &c.stores),
+                    Holder::Kept(i) => self.kept.get(i).map(|k| &k.stores),
                 })
                 .and_then(|s| s.get(good))
                 .copied()
@@ -378,6 +462,24 @@ impl Population {
                         .map_or(0.0, |i| metal[i].1)
                 };
                 self.order.coinage.give(l.from, l.to, moved, &worth);
+            }
+            // Notes move issue by issue too, the oldest issue first (M10d slice EH); at their
+            // issuer's door a holder presents those of the issue it redeems, moved by the caller.
+            if channel != Channel::Redeemed && goods[l.good].money.as_ref().is_some_and(|m| m.note)
+            {
+                // Those it believes least that their keepers pay, of least worth, first.
+                let worth: Vec<(u32, f64)> = self
+                    .notes
+                    .issues
+                    .iter()
+                    .map(|c| (c.id, Self::note_belief(c) * f64::from(c.kg)))
+                    .collect();
+                let worth = |issue: u32| {
+                    worth
+                        .binary_search_by_key(&issue, |x| x.0)
+                        .map_or(0.0, |i| worth[i].1)
+                };
+                self.notes.give(l.from, l.to, moved, &worth);
             }
         }
         true

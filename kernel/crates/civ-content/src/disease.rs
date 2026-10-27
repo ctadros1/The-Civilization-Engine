@@ -37,6 +37,9 @@ pub(crate) struct DiseaseFile {
     pub immunity_years: [f64; 2],
     #[serde(default)]
     pub household_hazard: f64,
+    /// Content API 184 (M10c slice ED): the hazard an hour in company with one shedding it.
+    #[serde(default)]
+    pub company_hazard: f64,
     pub shed_ill_per_day: f64,
     pub shed_silent_per_day: f64,
     pub decay_per_day: f64,
@@ -47,6 +50,38 @@ pub(crate) struct DiseaseFile {
     /// Techniques a carer may know that bring that relative risk lower still.
     #[serde(default)]
     pub treatment: Vec<TreatmentFile>,
+    /// Content API 185 (M10c slice ED): how it may be given on purpose, mildly, if it may.
+    #[serde(default)]
+    pub inoculation: Option<InoculationFile>,
+    /// Content API 186 (M10c slice ED): how it may be prevented by vaccination, if it may.
+    #[serde(default)]
+    pub vaccination: Option<VaccinationFile>,
+}
+
+/// A `[vaccination]` of a disease (M10c slice ED, third part): the technique that gives it and
+/// the good it is given from, by content id; the kilograms of it a person takes; the share of the
+/// disease's hazards it turns away while whole; how long it stays whole, years, least and most;
+/// and the years over which what it turns away then falls by a factor of e.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct VaccinationFile {
+    pub technique: String,
+    pub good: String,
+    pub dose_kg: f64,
+    pub efficacy: f64,
+    pub full_years: [f64; 2],
+    pub waning_years: f64,
+}
+
+/// An `[inoculation]` of a disease (M10c slice ED, second part): the technique that gives it, by
+/// content id; the share of a natural course's severe share an inoculated course has; and the
+/// chance a household believes its people would take it where it is near.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct InoculationFile {
+    pub technique: String,
+    pub deaths: f64,
+    pub believed_take: f64,
 }
 
 /// A `[[treatment]]` of a disease: a technique, by content id, and the relative risk of dying on
@@ -63,9 +98,14 @@ fn days([mean, sd]: [f64; 2]) -> Days {
 }
 
 impl DiseaseFile {
-    /// The compiled disease, its treatments' techniques found by `technique`; `None` when a route
-    /// is unknown (reported by [`Self::problems`]) or a technique is (reported by the caller).
-    pub fn def(&self, technique: impl Fn(&str) -> Option<usize>) -> Option<DiseaseDef> {
+    /// The compiled disease, its treatments' techniques found by `technique` and its vaccine's
+    /// good by `good`; `None` when a route is unknown (reported by [`Self::problems`]) or a
+    /// technique or good is (reported by the caller).
+    pub fn def(
+        &self,
+        technique: impl Fn(&str) -> Option<usize>,
+        good: impl Fn(&str) -> Option<usize>,
+    ) -> Option<DiseaseDef> {
         let treatments = self
             .treatment
             .iter()
@@ -76,6 +116,25 @@ impl DiseaseFile {
             .iter()
             .map(|r| DiseaseRoute::from_key(r))
             .collect::<Option<Vec<_>>>()?;
+        let inoculation = match &self.inoculation {
+            Some(i) => Some(civ_agents::params::InoculationDef {
+                technique: technique(&i.technique)?,
+                deaths: i.deaths,
+                believed_take: i.believed_take,
+            }),
+            None => None,
+        };
+        let vaccination = match &self.vaccination {
+            Some(v) => Some(civ_agents::params::VaccinationDef {
+                technique: technique(&v.technique)?,
+                good: good(&v.good)?,
+                dose_kg: v.dose_kg,
+                efficacy: v.efficacy,
+                full_years: v.full_years,
+                waning_years: v.waning_years,
+            }),
+            None => None,
+        };
         Some(DiseaseDef {
             id: self.id.clone(),
             name: self.name.clone(),
@@ -90,6 +149,9 @@ impl DiseaseFile {
             severe_death_per_day: self.severe_death_per_day,
             immunity_years: self.immunity_years,
             household_hazard: self.household_hazard,
+            company_hazard: self.company_hazard,
+            inoculation,
+            vaccination,
             shed_ill_per_day: self.shed_ill_per_day,
             shed_silent_per_day: self.shed_silent_per_day,
             decay_per_day: self.decay_per_day,
@@ -107,7 +169,9 @@ impl DiseaseFile {
         }
         for r in &self.routes {
             if DiseaseRoute::from_key(r).is_none() {
-                p.push(format!("unknown route `{r}`: one of `water`, `household`"));
+                p.push(format!(
+                    "unknown route `{r}`: one of `water`, `household`, `company`"
+                ));
             }
         }
         for (name, [mean, sd], lo) in [
@@ -132,6 +196,7 @@ impl DiseaseFile {
             ("symptomatic", self.symptomatic, 0.0, 1.0),
             ("severe_death_per_day", self.severe_death_per_day, 0.0, 1.0),
             ("household_hazard", self.household_hazard, 0.0, 10.0),
+            ("company_hazard", self.company_hazard, 0.0, 10.0),
             ("shed_ill_per_day", self.shed_ill_per_day, 0.0, 1e12),
             ("shed_silent_per_day", self.shed_silent_per_day, 0.0, 1e12),
             ("decay_per_day", self.decay_per_day, 0.0, 1.0),
@@ -140,6 +205,34 @@ impl DiseaseFile {
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        if let Some(i) = &self.inoculation {
+            for (name, v) in [("deaths", i.deaths), ("believed_take", i.believed_take)] {
+                if !(v.is_finite() && (0.0..=1.0).contains(&v)) {
+                    p.push(format!(
+                        "`inoculation.{name}` must be between 0 and 1 (got {v})"
+                    ));
+                }
+            }
+        }
+        if let Some(v) = &self.vaccination {
+            for (name, x, lo, hi) in [
+                ("dose_kg", v.dose_kg, 1e-9, 10.0),
+                ("efficacy", v.efficacy, 0.0, 1.0),
+                ("waning_years", v.waning_years, 0.01, 1000.0),
+            ] {
+                if !(x.is_finite() && (lo..=hi).contains(&x)) {
+                    p.push(format!(
+                        "`vaccination.{name}` must be between {lo} and {hi} (got {x})"
+                    ));
+                }
+            }
+            let [lo, hi] = v.full_years;
+            if !(lo.is_finite() && hi.is_finite() && 0.0 <= lo && lo <= hi && hi <= 200.0) {
+                p.push(format!(
+                    "`vaccination.full_years` must be [least, most] within 0 to 200 (got [{lo}, {hi}])"
+                ));
             }
         }
         for t in &self.treatment {

@@ -358,8 +358,15 @@ gas(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+records():string|null
+records(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+records(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 104);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startBuildingInfo(builder:flatbuffers.Builder) {
-  builder.startObject(50);
+  builder.startObject(51);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -639,6 +646,10 @@ static addSite(builder:flatbuffers.Builder, siteOffset:flatbuffers.Offset) {
 
 static addGas(builder:flatbuffers.Builder, gasOffset:flatbuffers.Offset) {
   builder.addFieldOffset(49, gasOffset, 0);
+}
+
+static addRecords(builder:flatbuffers.Builder, recordsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(50, recordsOffset, 0);
 }
 
 static endBuildingInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

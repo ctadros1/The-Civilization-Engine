@@ -1,0 +1,20 @@
+# Writing a record others can read (M10c slice EC; ADR-0035 §6; research 06-08 §1.5: composing a
+# record, not reproducing a signature; 07-09 §3.1 I05-I06). It needs reading. Found, rarely, by
+# readers who trade (half of them would need 300,000 qualified hours, a design prior). Learnt in 600
+# hours with a knower (06-08 §5.3; 07-09 §2.2), in groups of up to 15. Never learnt in upbringing;
+# founders do not bring it. A writer's records are the later parts of slice EC.
+kind = "technique"
+id = "core:technique/writing"
+name = "Writing"
+can = "write a record of counts and names others can read"
+domain = ""
+requires = [["core:technique/reading"]]
+tried_in = ["core:activity/trade"]
+needs = []
+e50_h = 300000.0
+learn_h = 600.0
+upbringing = false
+group = 15
+
+[answers]
+spoilage = []

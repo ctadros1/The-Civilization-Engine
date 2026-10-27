@@ -1080,6 +1080,9 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
             },
             &|d| day_words(SimTime::from_minutes(d * civ_core::time::MINUTES_PER_DAY)),
         ));
+        // Its services (M10c slice EE, fourth part): the register of the sick, the sickhouse, and
+        // the laws on the sick and the middens kept or broken.
+        offices.extend(services_words(sim, polity));
         let offices: Vec<_> = offices.iter().map(|w| fbb.create_string(w)).collect();
         let offices = fbb.create_vector(&offices);
         // The custom's versions, and how many its body admits now (wire 1.35, M4c slice AF).
@@ -1642,4 +1645,92 @@ fn protected_price_words(
         ));
     }
     (!parts.is_empty()).then(|| parts.join("; "))
+}
+
+/// A polity's services, in words (M10c slice EE, fourth part), for its offices: "Register of the
+/// sick: 3 households entered sick within the spell, 1 death of disease within the year, 6 homes
+/// seen on rounds"; "Sickhouse: 2 of 12 beds taken; 1 tended there today"; and for the sick kept
+/// apart and the middens cleared, how often their laws were broken.
+pub fn services_words(sim: &Sim, polity: &civ_agents::polity::Polity) -> Vec<String> {
+    use civ_agents::polity::{LawStatus, PolicyKind};
+    let pop = sim.people();
+    let day = sim.now().day_index();
+    let spell = i64::from(sim.rules().people.word.sickness_spell_days);
+    let mut out = Vec::new();
+    let entries: Vec<_> = pop
+        .sickness
+        .register
+        .iter()
+        .filter(|r| r.polity == polity.id)
+        .collect();
+    if !entries.is_empty() {
+        let mut sick: Vec<_> = entries
+            .iter()
+            .filter(|r| r.kind == 0 && day - r.day <= spell)
+            .map(|r| r.household)
+            .collect();
+        sick.sort_unstable();
+        sick.dedup();
+        let died = entries.iter().filter(|r| r.kind == 1).count();
+        let mut seen: Vec<_> = entries
+            .iter()
+            .filter(|r| r.kind == 2 && day - r.day <= spell)
+            .map(|r| r.household)
+            .collect();
+        seen.sort_unstable();
+        seen.dedup();
+        let n = |k: usize, one: &str, many: &str| {
+            if k == 1 {
+                format!("1 {one}")
+            } else {
+                format!("{k} {many}")
+            }
+        };
+        out.push(format!(
+            "Register of the sick: {} entered sick within the spell, {} within the year, {} on \
+             rounds",
+            n(sick.len(), "household", "households"),
+            n(died, "death of disease", "deaths of disease"),
+            n(seen.len(), "home seen", "homes seen")
+        ));
+    }
+    if let Some(building) = polity.sickhouse {
+        let lying = pop
+            .sickness
+            .admitted
+            .iter()
+            .filter(|a| a.building == building)
+            .count();
+        let beds = sim
+            .land
+            .buildings
+            .iter()
+            .find(|b| b.id == building)
+            .and_then(|b| sim.rules().catalog.building_index(&b.spec.program))
+            .and_then(|p| sim.rules().catalog.buildings.get(p))
+            .and_then(|d| d.shapes.first())
+            .map_or(0, |c| {
+                (c.floor_m2 / civ_agents::population::sickhouse_bed_m2()).floor() as usize
+            });
+        let carers = pop.staffed.iter().filter(|s| s.1 == building).count();
+        out.push(format!(
+            "Sickhouse: {lying} of {beds} beds taken; {carers} tended there today"
+        ));
+    }
+    for l in polity
+        .laws
+        .iter()
+        .filter(|l| l.status == LawStatus::InForce)
+    {
+        let what = match l.kind {
+            PolicyKind::KeepApart => "Keeping the sick apart",
+            PolicyKind::ClearMiddens => "Middens from the water",
+            _ => continue,
+        };
+        out.push(format!(
+            "{what}: broken {} times knowing it, {} not",
+            l.compliance.broken, l.compliance.broken_unaware
+        ));
+    }
+    out
 }

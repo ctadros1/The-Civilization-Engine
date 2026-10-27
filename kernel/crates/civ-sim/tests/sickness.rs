@@ -1250,3 +1250,1138 @@ fn a_household_with_a_birth_due_and_nobody_to_attend_calls_one_it_heard_attend_a
     );
     reloaded(&mut sim);
 }
+
+/// A household that lost someone in the care of a carer it paid who knew no treatment, where
+/// someone grown of the settlement knows fluid replacement, puts a licence before the gathering;
+/// in force, it may pay only a household where someone knows it (M10c slice EC, third part).
+#[test]
+fn a_death_in_unknowing_paid_care_puts_a_licence_before_the_gathering() {
+    use civ_agents::polity::{IssueKind, LawStatus, PolicyKind};
+    use civ_agents::sickness::UnknowingCare;
+    let mut sim = village(3);
+    to_morning(&mut sim, 8 * 60);
+    let (someone, _) = someone_with_family(&sim);
+    let home = sim.people().person(someone).expect("alive").household;
+    let settlement = sim
+        .people()
+        .household(home)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    let fluid = sim
+        .rules()
+        .catalog
+        .technique_index("core:technique/fluid_replacement")
+        .expect("fluid replacement");
+    let now = sim.now();
+    let others: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.id != home && x.settlement == Some(settlement))
+        .map(|(_, x)| x.id)
+        .collect();
+    let (knowing, unknowing) = (others[0], others[1]);
+    let healer = sim
+        .people()
+        .household(knowing)
+        .and_then(|x| {
+            x.members.iter().copied().find(|&m| {
+                sim.people()
+                    .person(m)
+                    .is_some_and(|p| p.age_years(now) >= 16.0)
+            })
+        })
+        .expect("a grown member");
+    let day = now.day_index();
+    let cholera = cholera(&sim) as u16;
+    let pop = sim.people_mut_for_tests();
+    for (_, p) in pop.people.iter_mut() {
+        p.knows.retain(|k| usize::from(k.technique) != fluid);
+    }
+    pop.sickness.unknowing.push(UnknowingCare {
+        household: home,
+        disease: cholera,
+        day,
+    });
+    let cures =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.unknowing_care_for_tests(ctx, pi));
+    assert!(cures(&mut sim).is_empty(), "nobody knows a treatment");
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.id == healer {
+            p.come_to_know(fluid, civ_agents::person::KnowSource::Observer, now);
+        }
+    }
+    assert_eq!(cures(&mut sim), vec![fluid]);
+    // Someone proposes the licence, against deaths in unknowing paid care.
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    let mut proposed = None;
+    for _ in 0..24 {
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[pi].gathering = None;
+            for l in &mut pop.polities[pi].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        match sim.people().polities[pi].agenda().cloned() {
+            Some(l) if l.kind == PolicyKind::Licence => {
+                proposed = Some(l);
+                break;
+            }
+            Some(_) => continue,
+            None => break,
+        }
+    }
+    let law = proposed.expect("a licence proposed");
+    assert_eq!(law.issue, IssueKind::UnknowingCare);
+    let licensed = |sim: &mut Sim, y: PermanentId| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.licensed_for_tests(ctx, home, y))
+    };
+    assert!(licensed(&mut sim, unknowing), "no licence yet");
+    {
+        let pop = sim.people_mut_for_tests();
+        pop.every_adult_deliberates = false;
+        let p = &mut pop.polities[pi];
+        p.gathering = None;
+        p.laws
+            .iter_mut()
+            .find(|l| l.id == law.id)
+            .expect("the law")
+            .status = LawStatus::InForce;
+    }
+    // In force: only a household where someone knows fluid replacement may be paid.
+    assert!(!licensed(&mut sim, unknowing));
+    assert!(licensed(&mut sim, knowing));
+    // The record saves and loads alike.
+    let loaded = reloaded(&mut sim);
+    assert_eq!(
+        loaded.people().sickness.unknowing,
+        sim.people().sickness.unknowing
+    );
+}
+
+const SMALLPOX: &str = "core:disease/smallpox";
+
+/// The cases infected within 26 days of the first case of smallpox brought to a village of seed
+/// `seed`, besides it: none of its own cases sheds before then, so they are its first generation
+/// (the slice's probe of R0, 05-03 §2.2: 3.5-6 for a first meeting). And how many took it in
+/// company at the hearth.
+fn smallpox_first_generation(seed: u64) -> (usize, usize) {
+    let mut sim = village(seed);
+    to_morning(&mut sim, 8 * 60);
+    let (index, _) = someone_with_family(&sim);
+    sim.plague(index, SMALLPOX).expect("brought");
+    let start = sim.now().day_index();
+    sim.advance_minutes(28 * DAY).expect("lives");
+    let disease = sim
+        .rules()
+        .catalog
+        .disease_index(SMALLPOX)
+        .expect("smallpox") as u16;
+    let first: Vec<_> = sim
+        .people()
+        .sickness
+        .episodes()
+        .iter()
+        .filter(|e| e.disease == disease && e.person != index && e.infected < start + 26)
+        .collect();
+    let company = first
+        .iter()
+        .filter(|e| matches!(e.acquired, Acquired::Company { .. }))
+        .count();
+    (first.len(), company)
+}
+
+#[test]
+#[ignore = "a probe: cargo test --profile simcheck -p civ-sim --test sickness -- --ignored smallpox_r0 --nocapture"]
+fn smallpox_r0() {
+    let mut all = Vec::new();
+    for seed in 1..=6 {
+        let (n, company) = smallpox_first_generation(seed);
+        eprintln!("seed {seed}: {n} infected by the first case ({company} in company)");
+        all.push(n);
+    }
+    let mean = all.iter().sum::<usize>() as f64 / all.len() as f64;
+    eprintln!("mean first generation {mean:.2}");
+}
+
+#[test]
+#[ignore = "a probe: cargo test --profile simcheck -p civ-sim --test sickness -- --ignored smallpox_fatality --nocapture"]
+fn smallpox_fatality() {
+    let (mut cases, mut died) = (0, 0);
+    for seed in 1..=4 {
+        let mut sim = village(seed);
+        to_morning(&mut sim, 8 * 60);
+        let (index, _) = someone_with_family(&sim);
+        sim.plague(index, SMALLPOX).expect("brought");
+        sim.advance_minutes(150 * DAY).expect("lives");
+        for e in sim.people().sickness.episodes() {
+            if let Some((_, outcome)) = e.ended {
+                cases += 1;
+                died += usize::from(outcome == Outcome::Died);
+            }
+        }
+    }
+    eprintln!("{died} died of {cases} ended cases");
+}
+
+/// Smallpox brought to one person passes to people of other homes they keep company with at the
+/// hearth, in both resolutions; the day's company, kept while it runs, saves mid-day and loads
+/// alike (M10c slice ED, first part).
+#[test]
+fn smallpox_passes_in_company_at_the_hearth_to_those_of_other_homes() {
+    for resolved in [false, true] {
+        let mut sim = village(1);
+        if resolved {
+            sim.advance_to_midnight().expect("advances");
+            let settlements: Vec<_> = sim.land().settlements.iter().map(|s| s.id).collect();
+            sim.set_household_resolved(settlements);
+            sim.advance_minutes(1).expect("advances");
+            sim.advance_to_midnight().expect("advances");
+            assert!(!sim.household_resolved().is_empty(), "household-resolved");
+        }
+        to_morning(&mut sim, 8 * 60);
+        let (index, _) = someone_with_family(&sim);
+        let home = sim.people().person(index).expect("alive").household;
+        sim.plague(index, SMALLPOX).expect("brought");
+        let disease = sim
+            .rules()
+            .catalog
+            .disease_index(SMALLPOX)
+            .expect("smallpox") as u16;
+        if !resolved {
+            // By the third evening, the day's company at the hearth is kept; it saves and loads
+            // alike.
+            sim.advance_minutes(2 * DAY + 12 * 60).expect("lives");
+            assert!(!sim.people().met.is_empty(), "the day's company is kept");
+            let loaded = reloaded(&mut sim);
+            assert_eq!(loaded.people().met, sim.people().met);
+        }
+        // A resolved day meets fewer at the hearth, for shorter: given longer.
+        let days = if resolved { 60 } else { 28 };
+        sim.advance_minutes(days * DAY).expect("lives");
+        let in_company: Vec<_> = sim
+            .people()
+            .sickness
+            .episodes()
+            .iter()
+            .filter(|e| e.disease == disease)
+            .filter_map(|e| match e.acquired {
+                Acquired::Company { person } => Some((e.person, person)),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            !in_company.is_empty(),
+            "resolved {resolved}: someone took it in company at the hearth"
+        );
+        let other_homes = in_company.iter().any(|&(p, _)| {
+            sim.people()
+                .sickness
+                .episodes()
+                .iter()
+                .find(|e| e.person == p && e.disease == disease)
+                .and_then(|e| e.household)
+                != Some(home)
+        });
+        assert!(other_homes, "resolved {resolved}: of another home");
+    }
+}
+
+/// Where someone died of smallpox, a household with ties to them believes it near and calls one
+/// its members know who knows variolation; they come, and its people not protected take a mild
+/// course of it from them, inoculated; the call saves and loads (M10c slice ED, second part).
+#[test]
+fn a_household_that_believes_smallpox_near_calls_a_variolator_and_its_people_are_inoculated() {
+    let mut sim = village(1);
+    to_morning(&mut sim, 8 * 60);
+    let (index, _) = someone_with_family(&sim);
+    sim.plague(index, SMALLPOX).expect("brought");
+    let disease = sim
+        .rules()
+        .catalog
+        .disease_index(SMALLPOX)
+        .expect("smallpox") as u16;
+    let variolation = sim
+        .rules()
+        .catalog
+        .technique_index("core:technique/variolation")
+        .expect("variolation");
+    // Live until someone dies of it.
+    let mut dead = None;
+    for _ in 0..80 {
+        sim.advance_minutes(DAY).expect("lives");
+        dead = sim
+            .people()
+            .sickness
+            .episodes()
+            .iter()
+            .find(|e| e.disease == disease && matches!(e.ended, Some((_, Outcome::Died))))
+            .map(|e| e.person);
+        if dead.is_some() {
+            break;
+        }
+    }
+    let dead = dead.expect("someone died of smallpox");
+    let day = sim.now().day_index();
+    // A household of people tied to the dead, with someone of it not protected, and someone its
+    // members have ties with, of another household, alive and well, to learn variolation.
+    let people = sim.people();
+    let (home, member, variolator) = people
+        .households
+        .iter()
+        .find_map(|(_, x)| {
+            let tied = x
+                .members
+                .iter()
+                .any(|&m| people.ties.of(m).iter().any(|t| t.to == dead));
+            if !tied
+                || !x
+                    .members
+                    .iter()
+                    .any(|&m| !people.sickness.protected(m, disease, day))
+            {
+                return None;
+            }
+            x.members.iter().find_map(|&m| {
+                let v = people.ties.of(m).iter().map(|t| t.to).find(|&v| {
+                    people.person(v).is_some_and(|p| {
+                        p.household != x.id
+                            && !people.sickness.ill(v, day)
+                            && people
+                                .household(p.household)
+                                .is_some_and(|y| y.settlement == x.settlement)
+                    })
+                })?;
+                Some((x.id, m, v))
+            })
+        })
+        .expect("a household tied to the dead, and a variolator they know");
+    let now = sim.now();
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.id == variolator {
+            p.come_to_know(variolation, civ_agents::person::KnowSource::Observer, now);
+        }
+    }
+    let theirs = sim.people().person(variolator).expect("alive").household;
+    let called =
+        sim.with_ctx_for_tests(|pop, ctx| pop.inoculation_call_for_tests(ctx, member, home));
+    assert_eq!(
+        called,
+        Some(theirs),
+        "they would call the variolator's household"
+    );
+    // They call, and the variolator comes: its people not protected take it, inoculated by them.
+    let mut saved = false;
+    let mut inoculated = Vec::new();
+    for _ in 0..14 {
+        sim.advance_minutes(DAY / 4).expect("lives");
+        if !saved && !sim.people().sickness.inoculation_calls.is_empty() {
+            let loaded = reloaded(&mut sim);
+            assert_eq!(
+                loaded.people().sickness.inoculation_calls,
+                sim.people().sickness.inoculation_calls
+            );
+            saved = true;
+        }
+        inoculated = sim
+            .people()
+            .sickness
+            .episodes()
+            .iter()
+            .filter(|e| e.acquired == civ_agents::sickness::Acquired::Inoculated { by: variolator })
+            .map(|e| (e.person, e.household))
+            .collect();
+        if !inoculated.is_empty() {
+            break;
+        }
+    }
+    assert!(saved, "the call stood at a quarter-day");
+    assert!(!inoculated.is_empty(), "someone was inoculated");
+    assert!(
+        inoculated.iter().all(|&(_, h)| h == Some(home)),
+        "{inoculated:?}"
+    );
+    // The variolator's page says whom they inoculated (fourth part).
+    let n = inoculated.len();
+    let whom = if n == 1 {
+        "1 person".to_owned()
+    } else {
+        format!("{n} people")
+    };
+    let words = civ_sim::frames::sickness::care_words(&sim, variolator);
+    assert!(
+        words.contains(&format!("Inoculated {whom} against smallpox")),
+        "{words}"
+    );
+}
+
+/// Where someone died of smallpox, a household with ties to them that knows both one who knows
+/// vaccination and one who knows only variolation calls the vaccinator; their household makes
+/// matter for the call, they come, and its people not protected are vaccinated, a dose each, none
+/// inoculated; those vaccinated save and load, and smallpox's hazards on them are turned away
+/// (M10c slice ED, third part).
+#[test]
+fn a_household_calls_a_vaccinator_before_a_variolator_and_its_people_are_vaccinated() {
+    let mut sim = village(1);
+    to_morning(&mut sim, 8 * 60);
+    let (index, _) = someone_with_family(&sim);
+    sim.plague(index, SMALLPOX).expect("brought");
+    let catalog = &sim.rules().catalog;
+    let disease = catalog.disease_index(SMALLPOX).expect("smallpox") as u16;
+    let variolation = catalog
+        .technique_index("core:technique/variolation")
+        .expect("variolation");
+    let vaccination = catalog
+        .technique_index("core:technique/vaccination")
+        .expect("vaccination");
+    let matter = catalog
+        .good_index("core:good/vaccine_matter")
+        .expect("matter");
+    // Live until someone dies of it.
+    let mut dead = None;
+    for _ in 0..80 {
+        sim.advance_minutes(DAY).expect("lives");
+        dead = sim
+            .people()
+            .sickness
+            .episodes()
+            .iter()
+            .find(|e| e.disease == disease && matches!(e.ended, Some((_, Outcome::Died))))
+            .map(|e| e.person);
+        if dead.is_some() {
+            break;
+        }
+    }
+    let dead = dead.expect("someone died of smallpox");
+    let day = sim.now().day_index();
+    // A household of people tied to the dead, with someone of it not protected, one of whom has
+    // ties with two others of two other households of its settlement, alive and well.
+    let people = sim.people();
+    let (home, member, vaccinator, variolator) = people
+        .households
+        .iter()
+        .find_map(|(_, x)| {
+            let tied = x
+                .members
+                .iter()
+                .any(|&m| people.ties.of(m).iter().any(|t| t.to == dead));
+            if !tied
+                || !x
+                    .members
+                    .iter()
+                    .any(|&m| !people.sickness.protected(m, disease, day))
+            {
+                return None;
+            }
+            x.members.iter().find_map(|&m| {
+                let mut known: Vec<(PermanentId, PermanentId)> = Vec::new();
+                for v in people.ties.of(m).iter().map(|t| t.to) {
+                    let Some(p) = people.person(v) else {
+                        continue;
+                    };
+                    if p.household != x.id
+                        && !people.sickness.ill(v, day)
+                        && people
+                            .household(p.household)
+                            .is_some_and(|y| y.settlement == x.settlement)
+                        && !known.iter().any(|k| k.1 == p.household)
+                    {
+                        known.push((v, p.household));
+                    }
+                }
+                (known.len() >= 2).then(|| (x.id, m, known[0].0, known[1].0))
+            })
+        })
+        .expect("a household tied to the dead, and two it knows of two households");
+    let now = sim.now();
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.id == vaccinator || p.id == variolator {
+            p.come_to_know(variolation, civ_agents::person::KnowSource::Observer, now);
+        }
+        if p.id == vaccinator {
+            p.come_to_know(vaccination, civ_agents::person::KnowSource::Observer, now);
+        }
+    }
+    let theirs = sim.people().person(vaccinator).expect("alive").household;
+    let called =
+        sim.with_ctx_for_tests(|pop, ctx| pop.inoculation_call_for_tests(ctx, member, home));
+    assert_eq!(
+        called,
+        Some(theirs),
+        "they would call the vaccinator's household"
+    );
+    // They call; the vaccinator's household makes matter, and they come and vaccinate. While the
+    // call stands the vaccinator's page says so (fourth part).
+    let mut made = false;
+    let mut called_words = false;
+    let mut vaccinated = Vec::new();
+    for _ in 0..40 {
+        sim.advance_minutes(DAY / 8).expect("lives");
+        if !sim.people().sickness.inoculation_calls.is_empty() {
+            let words = civ_sim::frames::sickness::care_words(&sim, vaccinator);
+            called_words |= words.contains("Their household is called to inoculate the people of");
+        }
+        let people = sim.people();
+        made |= people
+            .household(theirs)
+            .is_some_and(|y| y.stores.get(matter).copied().unwrap_or(0.0) > 0.0);
+        vaccinated = people
+            .sickness
+            .vaccinated
+            .iter()
+            .filter(|v| v.disease == disease)
+            .map(|v| v.person)
+            .collect();
+        if !vaccinated.is_empty() {
+            break;
+        }
+    }
+    assert!(made, "matter was made for the call");
+    assert!(!vaccinated.is_empty(), "someone was vaccinated");
+    let people = sim.people();
+    let x = people.household(home).expect("home");
+    assert!(
+        vaccinated.iter().all(|m| x.members.contains(m)),
+        "{vaccinated:?}"
+    );
+    assert!(
+        !people.sickness.episodes().iter().any(|e| matches!(
+            e.acquired,
+            civ_agents::sickness::Acquired::Inoculated { .. }
+        )),
+        "nobody was inoculated"
+    );
+    // Whole for 3-5 years, which turns away all but 5% of smallpox's hazards.
+    let today = sim.now().day_index();
+    let def = sim.rules().catalog.diseases[usize::from(disease)]
+        .vaccination
+        .expect("smallpox's vaccination");
+    for v in &people.sickness.vaccinated {
+        let years = (v.full_until - v.day) as f64 / 365.25;
+        assert!((2.99..=5.01).contains(&years), "{years}");
+        let share = people
+            .sickness
+            .unvaccinated_share(v.person, disease, today, &def);
+        assert!((share - 0.05).abs() < 1e-9, "{share}");
+    }
+    // The observer reads it (fourth part): whom the vaccinator vaccinated, and by whom each
+    // vaccinated was, whole for how long.
+    assert!(called_words, "the call stood on the vaccinator's page");
+    let n = people
+        .sickness
+        .vaccinated
+        .iter()
+        .filter(|v| v.by == Some(vaccinator))
+        .count();
+    assert_eq!(n, vaccinated.len());
+    let whom = if n == 1 {
+        "1 person".to_owned()
+    } else {
+        format!("{n} people")
+    };
+    let words = civ_sim::frames::sickness::care_words(&sim, vaccinator);
+    assert!(
+        words.contains(&format!("Vaccinated {whom} against smallpox")),
+        "{words}"
+    );
+    let said = civ_sim::frames::sickness::sickness_words(&sim, vaccinated[0]);
+    let by = people.name_of(vaccinator);
+    assert!(
+        said.first()
+            .is_some_and(|w| w.starts_with("Vaccinated against smallpox")
+                && w.contains(&format!(" by {by}, whole for "))),
+        "{said:?}"
+    );
+    let loaded = reloaded(&mut sim);
+    assert_eq!(
+        loaded.people().sickness.vaccinated,
+        sim.people().sickness.vaccinated
+    );
+}
+
+/// Where someone of a household died of smallpox, which passes at home and in company, keeping
+/// the sick apart comes before the gathering, against that death (M10c slice EE, first part).
+#[test]
+fn a_death_of_contagion_puts_keeping_the_sick_apart_before_the_gathering() {
+    use civ_agents::polity::{IssueKind, LawStatus, PolicyKind};
+    let mut sim = village(1);
+    to_morning(&mut sim, 8 * 60);
+    let (index, _) = someone_with_family(&sim);
+    sim.plague(index, SMALLPOX).expect("brought");
+    let disease = sim
+        .rules()
+        .catalog
+        .disease_index(SMALLPOX)
+        .expect("smallpox") as u16;
+    let mut dead = None;
+    for _ in 0..80 {
+        sim.advance_minutes(DAY).expect("lives");
+        dead = sim
+            .people()
+            .sickness
+            .episodes()
+            .iter()
+            .find(|e| e.disease == disease && matches!(e.ended, Some((_, Outcome::Died))))
+            .and_then(|e| e.household);
+        if dead.is_some() {
+            break;
+        }
+    }
+    let home = dead.expect("someone died of smallpox");
+    let settlement = sim
+        .people()
+        .household(home)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    let mut proposed = None;
+    for _ in 0..24 {
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[pi].gathering = None;
+            for l in &mut pop.polities[pi].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        match sim.people().polities[pi].agenda().cloned() {
+            Some(l) if l.kind == PolicyKind::KeepApart => {
+                proposed = Some(l);
+                break;
+            }
+            Some(_) => continue,
+            None => break,
+        }
+    }
+    let law = proposed.expect("keeping the sick apart proposed");
+    assert_eq!(law.issue, IssueKind::Contagion);
+    reloaded(&mut sim);
+}
+
+/// Where its people had smallpox at home, a polity keeps a register of the sick only under one
+/// who can write: with nobody who can, nobody proposes it; once someone can, it is proposed with
+/// them named, and in force they enter in it, each midnight, the households whose sickness they
+/// heard of; they walk a round of homes in daylight, entering each as seen, and where common work
+/// is paid the store pays for the hours; the register saves and loads (M10c slice EE, second
+/// part).
+#[test]
+fn a_register_of_the_sick_is_kept_by_one_who_can_write() {
+    use civ_agents::polity::{IssueKind, LawStatus, PolicyKind};
+    let mut sim = village(1);
+    to_morning(&mut sim, 8 * 60);
+    let (index, _) = someone_with_family(&sim);
+    sim.plague(index, SMALLPOX).expect("brought");
+    let home = sim.people().person(index).expect("alive").household;
+    let settlement = sim
+        .people()
+        .household(home)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    let writing = sim
+        .rules()
+        .catalog
+        .technique_index("core:technique/writing")
+        .expect("writing");
+    // Live until the sick lie abed, and their sickness is told.
+    sim.advance_minutes(16 * DAY).expect("lives");
+    let proposes = |sim: &mut Sim| {
+        sim.people_mut_for_tests().every_adult_deliberates = true;
+        let mut proposed = None;
+        for _ in 0..24 {
+            {
+                let pop = sim.people_mut_for_tests();
+                pop.polities[pi].gathering = None;
+                for l in &mut pop.polities[pi].laws {
+                    if l.status == LawStatus::Proposed {
+                        l.status = LawStatus::Rejected;
+                    }
+                }
+            }
+            sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+            match sim.people().polities[pi].agenda().cloned() {
+                Some(l) if l.kind == PolicyKind::KeepRegister => {
+                    proposed = Some(l);
+                    break;
+                }
+                Some(_) => continue,
+                None => break,
+            }
+        }
+        sim.people_mut_for_tests().every_adult_deliberates = false;
+        proposed
+    };
+    assert!(
+        proposes(&mut sim).is_none(),
+        "nobody can write: no registrar"
+    );
+    // Someone grown of another household learns to write.
+    let now = sim.now();
+    let scribe = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.id != home && x.settlement == Some(settlement))
+        .flat_map(|(_, x)| x.members.clone())
+        .find(|&m| {
+            sim.people()
+                .person(m)
+                .is_some_and(|p| p.age_years(now) >= 20.0)
+        })
+        .expect("a grown member of another household");
+    let letters: Vec<usize> = ["reckoning", "reading", "writing"]
+        .iter()
+        .map(|t| {
+            sim.rules()
+                .catalog
+                .technique_index(&format!("core:technique/{t}"))
+                .expect("a letter technique")
+        })
+        .collect();
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.id == scribe {
+            for &t in &letters {
+                p.come_to_know(t, civ_agents::person::KnowSource::Observer, now);
+            }
+        }
+    }
+    let law = proposes(&mut sim).expect("a register proposed");
+    let holder = law.holder.expect("someone named");
+    assert!(
+        sim.people()
+            .person(holder)
+            .is_some_and(|p| p.knows(writing)),
+        "the one named can write"
+    );
+    // Passed, with a law paying common work and coin in the store.
+    let pay_work = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.kind == PolicyKind::PayWork)
+        .expect("a pay template");
+    let coin = sim
+        .rules()
+        .catalog
+        .good_index("core:good/coin")
+        .expect("coin");
+    let polity_id = sim.people().polities[pi].id;
+    let pay_id = sim.allocate_id_for_tests();
+    let today = sim.now().day_index();
+    {
+        let pop = sim.people_mut_for_tests();
+        let p = &mut pop.polities[pi];
+        p.gathering = None;
+        let l = p.laws.iter_mut().find(|l| l.id == law.id).expect("the law");
+        l.status = LawStatus::InForce;
+        let mut pay = l.clone();
+        pay.id = pay_id;
+        pay.policy = pay_work as u16;
+        pay.kind = PolicyKind::PayWork;
+        pay.holder = None;
+        pay.issue = IssueKind::CoinIdle;
+        p.laws.push(pay);
+        assert!(pop.strike_for_tests(coin, polity_id, polity_id, today, 100.0, 8.0, 1.0));
+    }
+    let holder_home = sim.people().person(holder).expect("alive").household;
+    let coin_held = |sim: &Sim| {
+        sim.people()
+            .household(holder_home)
+            .map_or(0.0, |x| x.stores.get(coin).copied().unwrap_or(0.0))
+    };
+    let before = coin_held(&sim);
+    // In force: each midnight the registrar enters the sickness they heard of.
+    let mut entered = false;
+    for _ in 0..10 {
+        sim.advance_minutes(DAY).expect("lives");
+        if !sim.people().sickness.register.is_empty() {
+            entered = true;
+            break;
+        }
+    }
+    assert!(entered, "the registrar entered the sickness they heard of");
+    // Their tallies of where sickness comes from count every household the register holds as
+    // sick (not those it holds only as seen on a round), and know where each draws.
+    let (sick, draws) =
+        sim.with_ctx_for_tests(|pop, ctx| pop.register_tally_for_tests(ctx, holder));
+    let mut held: Vec<PermanentId> = sim
+        .people()
+        .sickness
+        .register
+        .iter()
+        .filter(|r| r.kind != 2)
+        .map(|r| r.household)
+        .collect();
+    held.sort_unstable();
+    held.dedup();
+    assert_eq!(sick, held);
+    assert!(!draws.is_empty(), "they know where the registered draw");
+    // They walk a round in daylight, entering the homes on it as seen, paid for the hours.
+    let mut seen = false;
+    for _ in 0..6 {
+        if sim.people().sickness.register.iter().any(|r| r.kind == 2) {
+            seen = true;
+            break;
+        }
+        sim.advance_minutes(DAY).expect("lives");
+    }
+    assert!(seen, "the registrar walked a round and entered homes seen");
+    let l = sim.people().polities[pi]
+        .laws
+        .iter()
+        .find(|l| l.id == law.id)
+        .expect("the law");
+    assert!(l.watch.rounds > 0 && l.watch.minutes > 0.0, "{:?}", l.watch);
+    assert!(
+        coin_held(&sim) > before,
+        "the registrar's household was paid: {} after {before}",
+        coin_held(&sim)
+    );
+    // The polity's offices show the register (M10c slice EE, fourth part).
+    let words = civ_sim::frames::government::services_words(&sim, &sim.people().polities[pi]);
+    assert!(
+        words
+            .iter()
+            .any(|w| w.starts_with("Register of the sick: ")),
+        "{words:?}"
+    );
+    // A paid office asking letters: a household with a child of an age to learn sends them to
+    // learn letters from the registrar, reckoning first, as reading and writing need it.
+    let now = sim.now();
+    let homes: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(settlement) && x.id != holder_home)
+        .map(|(_, x)| x.id)
+        .collect();
+    let mut sent = None;
+    for h in homes {
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_enrolment_for_tests(ctx, h));
+        sent = sim
+            .people()
+            .enrolments
+            .iter()
+            .find(|e| e.teacher == holder && letters.contains(&usize::from(e.technique)))
+            .copied();
+        if sent.is_some() {
+            break;
+        }
+    }
+    let e = sent.expect("a child sent to learn letters");
+    assert_eq!(usize::from(e.technique), letters[0], "reckoning first");
+    assert!(
+        sim.people()
+            .person(e.learner)
+            .is_some_and(|p| p.age_years(now) < 16.0)
+    );
+    let pop = sim.people();
+    let polity = pop.polities[pi].id;
+    assert!(pop.sickness.register.iter().all(|r| {
+        r.polity == polity
+            && pop
+                .household(r.household)
+                .is_none_or(|x| x.settlement == Some(settlement))
+    }));
+    let loaded = reloaded(&mut sim);
+    assert_eq!(
+        loaded.people().sickness.register,
+        sim.people().sickness.register
+    );
+}
+
+/// Where severe cases of smallpox lay with nobody tending them, the polity measures the days; where
+/// it measured many (set here at sixty a year), someone who knows how to frame a building puts a
+/// sickhouse raised together before the gathering against them; the measure saves and loads
+/// (M10c slice EE, fourth part).
+#[test]
+fn severe_days_untended_put_a_sickhouse_before_the_gathering() {
+    use civ_agents::polity::{IssueKind, LawStatus};
+    let mut sim = village(1);
+    to_morning(&mut sim, 8 * 60);
+    let (index, _) = someone_with_family(&sim);
+    sim.plague(index, SMALLPOX).expect("brought");
+    let home = sim.people().person(index).expect("alive").household;
+    let settlement = sim
+        .people()
+        .household(home)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    let untended = |sim: &Sim| {
+        sim.people().polities[pi]
+            .measured
+            .iter()
+            .map(|m| m.untended_days)
+            .sum::<f64>()
+    };
+    for _ in 0..60 {
+        sim.advance_minutes(DAY).expect("lives");
+        if untended(&sim) > 0.0 {
+            break;
+        }
+    }
+    let days = untended(&sim);
+    assert!(days > 0.0, "a severe case lay untended");
+    // A day or two untended weighs little against a building's work: let the year's measure be
+    // as an outbreak's of many weeks, that the weighing has something to weigh.
+    {
+        let pop = sim.people_mut_for_tests();
+        if let Some(m) = pop.polities[pi].measured.last_mut() {
+            m.untended_days = 60.0;
+        }
+    }
+    // Everyone grown can frame a building.
+    let frame = sim
+        .rules()
+        .catalog
+        .technique_index("core:technique/jointed_frame")
+        .expect("framing");
+    let now = sim.now();
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        p.come_to_know(frame, civ_agents::person::KnowSource::Observer, now);
+    }
+    let sickhouse = sim
+        .rules()
+        .catalog
+        .building_index("core:building/sickhouse")
+        .expect("the program");
+    let template = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.raise.is_some_and(|r| r.program == sickhouse))
+        .expect("the template");
+    // A sickhouse repays its work to some household now.
+    let gains = sim
+        .with_ctx_for_tests(|pop, ctx| pop.rule_gains_for_tests(ctx, settlement, template as u16));
+    assert!(gains.iter().any(|g| g.1 > 0.0), "{gains:?}");
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    let mut proposed = None;
+    for _ in 0..30 {
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[pi].gathering = None;
+            for l in &mut pop.polities[pi].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        if let Some(l) = sim.people().polities[pi].agenda().cloned()
+            && usize::from(l.policy) == template
+        {
+            proposed = Some(l);
+            break;
+        }
+        sim.advance_minutes(DAY).expect("lives");
+    }
+    let law = proposed.expect("a sickhouse proposed");
+    assert_eq!(law.issue, IssueKind::Untended);
+    let loaded = reloaded(&mut sim);
+    assert_eq!(
+        loaded.people().polities[pi].measured,
+        sim.people().polities[pi].measured
+    );
+}
+
+/// A polity with a sickhouse standing finished (raised as its law would raise it): once smallpox
+/// is brought, a severe case whom nobody tended the day before is admitted at midnight while beds
+/// are left; those lying there are tended there by people of the polity; those no longer ill
+/// leave; who lies there and who tended there save and load (M10c slice EE, fourth part).
+#[test]
+fn a_sickhouse_admits_the_untended_severe_and_they_are_tended_there() {
+    use civ_agents::polity::{LawStatus, Outcome as Decided};
+    let mut sim = village(1);
+    to_morning(&mut sim, 8 * 60);
+    let (index, _) = someone_with_family(&sim);
+    let home = sim.people().person(index).expect("alive").household;
+    let settlement = sim
+        .people()
+        .household(home)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    let sickhouse = sim
+        .rules()
+        .catalog
+        .building_index("core:building/sickhouse")
+        .expect("the program");
+    let template = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.raise.is_some_and(|r| r.program == sickhouse))
+        .expect("the template");
+    // Measured, it is proposed by someone who can frame it; passed, laid out and raised.
+    let year = sim.now().date().year;
+    sim.people_mut_for_tests().polities[pi]
+        .measured_mut(year)
+        .untended_days = 60.0;
+    let frame = sim
+        .rules()
+        .catalog
+        .technique_index("core:technique/jointed_frame")
+        .expect("framing");
+    let now = sim.now();
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        p.come_to_know(frame, civ_agents::person::KnowSource::Observer, now);
+    }
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    let mut proposed = None;
+    for _ in 0..30 {
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[pi].gathering = None;
+            for l in &mut pop.polities[pi].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        if let Some(l) = sim.people().polities[pi].agenda().cloned()
+            && usize::from(l.policy) == template
+        {
+            proposed = Some(l);
+            break;
+        }
+        sim.advance_minutes(DAY).expect("lives");
+    }
+    let law = proposed.expect("a sickhouse proposed");
+    {
+        let today = sim.now().day_index();
+        let pop = sim.people_mut_for_tests();
+        pop.every_adult_deliberates = false;
+        let grown: Vec<_> = pop.people.iter().map(|(_, p)| (p.id, today)).collect();
+        let p = &mut pop.polities[pi];
+        p.gathering = None;
+        let l = p.laws.iter_mut().find(|l| l.id == law.id).expect("the law");
+        l.status = LawStatus::InForce;
+        l.outcome = Some(Decided::Passed);
+        l.known = grown;
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_public_raise_for_tests(ctx, pi, law.id));
+    let building = sim.people().polities[pi]
+        .raise_site_of(law.id)
+        .and_then(|s| s.building)
+        .expect("laid out");
+    for _ in 0..8000 {
+        if sim.people().polities[pi].sickhouse.is_some() {
+            break;
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.raise_work_for_tests(ctx, home, building, 4.0));
+    }
+    assert_eq!(sim.people().polities[pi].sickhouse, Some(building));
+    let (_, beds) = sim.with_ctx_for_tests(|pop, ctx| pop.sickhouse_for_tests(ctx, pi));
+    assert!(beds >= 4, "{beds} beds");
+    // Smallpox comes; an untended severe case is admitted.
+    sim.plague(index, SMALLPOX).expect("brought");
+    let mut lying = Vec::new();
+    for _ in 0..80 {
+        sim.advance_minutes(DAY).expect("lives");
+        let (now_lying, _) = sim.with_ctx_for_tests(|pop, ctx| pop.sickhouse_for_tests(ctx, pi));
+        if !now_lying.is_empty() {
+            lying = now_lying;
+            break;
+        }
+    }
+    assert!(!lying.is_empty(), "someone untended was admitted");
+    assert!(lying.len() <= beds);
+    let day = sim.now().day_index();
+    for &m in &lying {
+        assert!(
+            sim.people().sickness.ill(m, day),
+            "those lying there are ill"
+        );
+    }
+    // They are tended there: someone tended there within days, and their care grew.
+    let care = |sim: &Sim, m: PermanentId| -> f32 {
+        sim.people()
+            .sickness
+            .of(m)
+            .filter(|e| e.ended.is_none())
+            .map(|e| e.care.total_h)
+            .sum()
+    };
+    let before: Vec<f32> = lying.iter().map(|&m| care(&sim, m)).collect();
+    let mut staffed = false;
+    for _ in 0..12 {
+        sim.advance_minutes(DAY / 4).expect("lives");
+        if !sim.people().staffed.is_empty() {
+            staffed = true;
+            let loaded = reloaded(&mut sim);
+            assert_eq!(loaded.people().staffed, sim.people().staffed);
+            assert_eq!(
+                loaded.people().sickness.admitted,
+                sim.people().sickness.admitted
+            );
+            assert_eq!(
+                loaded.people().polities[pi].sickhouse,
+                sim.people().polities[pi].sickhouse
+            );
+            break;
+        }
+    }
+    assert!(staffed, "someone tended at the sickhouse");
+    let words = civ_sim::frames::government::services_words(&sim, &sim.people().polities[pi]);
+    assert!(
+        words
+            .iter()
+            .any(|w| w.starts_with("Sickhouse: ") && w.contains(&format!("of {beds} beds taken"))),
+        "{words:?}"
+    );
+    let after: Vec<f32> = lying.iter().map(|&m| care(&sim, m)).collect();
+    assert!(
+        after.iter().zip(&before).any(|(a, b)| a > b),
+        "their care grew: {before:?} -> {after:?}"
+    );
+    // Those no longer ill leave.
+    sim.advance_minutes(40 * DAY).expect("lives");
+    let day = sim.now().day_index();
+    let pop = sim.people();
+    assert!(
+        pop.sickness
+            .admitted
+            .iter()
+            .all(|a| pop.sickness.ill(a.person, day)),
+        "only the ill lie there"
+    );
+}

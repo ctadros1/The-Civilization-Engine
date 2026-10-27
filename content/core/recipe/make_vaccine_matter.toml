@@ -1,0 +1,17 @@
+# Making vaccine matter (M10c slice ED, third part): taking lymph from a sore kept going and drying
+# it on quills, ten doses an hour of one who knows vaccination (a tuning value). It needs no input
+# but the hours: the matter stands for a cowpox source kept going from arm to arm (05-05 §2.1). A
+# household makes it only while a call to vaccinate stands at its door and it holds fewer doses
+# than the calls want.
+kind = "recipe"
+id = "core:recipe/make_vaccine_matter"
+name = "Make vaccine matter"
+skill = ""
+technique = "core:technique/vaccination"
+unit_h = 1.0
+session_h = 0.0
+max_units = 4.0
+tools = []
+inputs = []
+outputs = [{ good = "core:good/vaccine_matter", amount = 0.01 }]
+session_inputs = []

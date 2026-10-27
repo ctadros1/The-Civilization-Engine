@@ -419,7 +419,13 @@ impl Population {
 
     /// Household `household` gave `hours` to a common work of polity `polity`: the store pays it
     /// the law's rate for them, as far as it holds the money.
-    fn pay_for_work(&mut self, ctx: &Ctx, polity: PermanentId, household: PermanentId, hours: f64) {
+    pub(super) fn pay_for_work(
+        &mut self,
+        ctx: &Ctx,
+        polity: PermanentId,
+        household: PermanentId,
+        hours: f64,
+    ) {
         if hours.is_nan() || hours <= 0.0 {
             return;
         }
@@ -545,11 +551,8 @@ impl Population {
                 if self.assays(h, money.assay) {
                     return Some((h, 0.0));
                 }
-                let costs = self.own_costs_of(ctx, hh);
                 let held = hh.stores.get(coin).copied().unwrap_or(0.0);
-                let w = self
-                    .pay_worth_raw(ctx, hh, coin, None, held, &costs)
-                    .unwrap_or(0.0);
+                let w = self.pay_worth_raw(ctx, hh, coin, None, held).unwrap_or(0.0);
                 Some((h, w))
             })
             .collect();

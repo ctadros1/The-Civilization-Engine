@@ -72,7 +72,7 @@ fn work_place(c: &decide::Candidate, home: (f32, f32)) -> (f32, f32) {
 
 /// Behaviours a household-resolved day shares hours among (slice DG): the rest wait for slice DH
 /// or are not taken while household-resolved (ADR-0032 §2).
-const SHARED: [Behavior; 29] = [
+const SHARED: [Behavior; 35] = [
     Behavior::Gather,
     Behavior::Farm,
     Behavior::Build,
@@ -97,8 +97,14 @@ const SHARED: [Behavior; 29] = [
     Behavior::Cart,
     Behavior::Watch,
     Behavior::Light,
+    Behavior::Rounds,
+    Behavior::Midden,
     Behavior::Tend,
     Behavior::Call,
+    Behavior::Teach,
+    Behavior::Study,
+    Behavior::Write,
+    Behavior::Read,
     Behavior::Take,
     Behavior::Attend,
     Behavior::Poll,
@@ -123,14 +129,20 @@ pub const NOT_TAKEN: [Behavior; 9] = [
 
 /// Behaviours taken at most once a day: a claim on someone else's goods or work, a round of the
 /// watch, or coming to a gathering, poll or petition.
-const ONCE: [Behavior; 10] = [
+const ONCE: [Behavior; 16] = [
     Behavior::Ask,
     Behavior::Trade,
     Behavior::Hire,
     Behavior::Take,
     Behavior::Watch,
     Behavior::Light,
+    Behavior::Rounds,
+    Behavior::Midden,
     Behavior::Call,
+    Behavior::Teach,
+    Behavior::Study,
+    Behavior::Write,
+    Behavior::Read,
     Behavior::Attend,
     Behavior::Poll,
     Behavior::Petition,
@@ -642,6 +654,9 @@ impl Population {
             }
             // The works' machines whose crews came today run (M10a slice DT).
             self.run_held_crews(ctx);
+            // Those who worked beside a knower of their household learn by the hours both gave
+            // (M10c slice EB).
+            self.credit_alongside(ctx);
             // Company at the hearth: each who kept it meets those of the pool (ADR-0032 §2).
             let mut pool: Vec<PermanentId> = company.iter().map(|c| c.0).collect();
             pool.sort_unstable();

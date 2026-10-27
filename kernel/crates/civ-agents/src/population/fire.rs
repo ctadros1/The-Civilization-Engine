@@ -2156,6 +2156,8 @@ impl Population {
         }
         // Its household and everyone who saw it burn remember it (M6b slice BH).
         self.households_remember_fire(ctx, i);
+        // The records kept in it burned with it (M10c slice EC, second part).
+        self.records_burned(ctx, building);
         // What the fire left is weighed now: charred posts and beams may give way.
         if ctx.land.buildings.iter().any(|b| b.id == building) {
             self.buildings_changed(now, ctx.land, ctx.catalog, ctx.params, household);

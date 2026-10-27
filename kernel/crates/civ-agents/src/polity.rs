@@ -170,11 +170,32 @@ pub enum PolicyKind {
     /// a watch is, whose holder lights lamps the polity sets on its ways beside its homes and puts
     /// them out on a lamplighter's rounds; lit streets let those about see after dark.
     LightStreets,
+    /// A school kept (M10c slice EB, third part; ADR-0035 §5): an office whose holder takes the
+    /// children of the polity's households to learn a technique they know without a fee, and is
+    /// paid for the hours taught where work is paid.
+    KeepSchool,
+    /// A licence to practise (M10c slice EC, third part; ADR-0035 §6; ADR-0026 §3; brief
+    /// m10-services §3.4): only those who know its technique may be paid to tend the sick; kin,
+    /// who ask no fee, are untouched.
+    Licence,
+    /// The sick kept apart (M10c slice EE, first part; ADR-0035 §7; brief m10-services §2.4;
+    /// research 05-05 §1.6-1.7): a household with someone ill keeps to its home, and others keep
+    /// from it, until some days after the last is well; kept by choice, as a curfew is.
+    KeepApart,
+    /// A register of the sick kept (M10c slice EE, second part; ADR-0035 §7; brief m10-services
+    /// §2.4): an office whose holder must know how to write, who enters in it the sickness and
+    /// the deaths of disease of the polity's households they hear of; their tallies of where
+    /// sickness comes from run over it, a wider record than anyone's own.
+    KeepRegister,
+    /// Middens cleared from the water (M10c slice EE, third part; ADR-0035 §7; brief
+    /// m10-services §2.4): a household whose home lies near an open well or a stream carries its
+    /// midden away, to a place as far from every source; kept by choice.
+    ClearMiddens,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 34] = [
+    pub const ALL: [PolicyKind; 39] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -209,6 +230,11 @@ impl PolicyKind {
         PolicyKind::RaiseBuilding,
         PolicyKind::BuildLine,
         PolicyKind::LightStreets,
+        PolicyKind::KeepSchool,
+        PolicyKind::Licence,
+        PolicyKind::KeepApart,
+        PolicyKind::KeepRegister,
+        PolicyKind::ClearMiddens,
     ];
 
     /// The authored name.
@@ -248,6 +274,11 @@ impl PolicyKind {
             PolicyKind::RaiseBuilding => "raise_building",
             PolicyKind::BuildLine => "build_line",
             PolicyKind::LightStreets => "light_streets",
+            PolicyKind::KeepSchool => "keep_a_school",
+            PolicyKind::Licence => "licence",
+            PolicyKind::KeepApart => "keep_apart",
+            PolicyKind::KeepRegister => "keep_register",
+            PolicyKind::ClearMiddens => "clear_middens",
         }
     }
 
@@ -368,11 +399,27 @@ pub enum IssueKind {
     /// and someone of it knows how to make a light (M10b slice DY, fourth part, third step): what
     /// `light_streets` answers.
     DarkTakings,
+    /// A household of the polity could not hold the fee to send a child to learn a technique
+    /// it lacked within a year, and someone of the settlement knows it (M10c slice EB, third
+    /// part): what `keep_a_school` answers.
+    Untaught,
+    /// Within the year someone of a household of the polity died in the care of one it paid who
+    /// knew no treatment of their sickness, and someone grown of the settlement knows one (M10c
+    /// slice EC, third part): what `licence` answers.
+    UnknowingCare,
+    /// Within the year someone of a household of the polity died of a sickness that passes from
+    /// the sick to those near them, at home or in company (M10c slice EE, first part): what
+    /// `keep_apart` answers.
+    Contagion,
+    /// Severe cases of the polity's households lay ill with nobody tending them, measured, and no
+    /// sickhouse of its stands or is being raised (M10c slice EE, fourth part): what raising a
+    /// sickhouse answers.
+    Untended,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 33] = [
+    pub const ALL: [IssueKind; 37] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -406,6 +453,10 @@ impl IssueKind {
         IssueKind::FiresUnseen,
         IssueKind::LoadsCarried,
         IssueKind::DarkTakings,
+        IssueKind::Untaught,
+        IssueKind::UnknowingCare,
+        IssueKind::Contagion,
+        IssueKind::Untended,
     ];
 
     /// The authored name.
@@ -444,6 +495,10 @@ impl IssueKind {
             IssueKind::FiresUnseen => "fires_unseen",
             IssueKind::LoadsCarried => "loads_carried",
             IssueKind::DarkTakings => "dark_takings",
+            IssueKind::Untaught => "untaught",
+            IssueKind::UnknowingCare => "unknowing_care",
+            IssueKind::Contagion => "contagion",
+            IssueKind::Untended => "untended",
         }
     }
 
@@ -507,6 +562,16 @@ impl IssueKind {
             IssueKind::DarkTakings => {
                 "something was taken from them in the dark, and nobody saw who took it"
             }
+            IssueKind::Untaught => {
+                "a child of theirs could not be sent to learn a craft for want of the fee"
+            }
+            IssueKind::UnknowingCare => {
+                "one of theirs died in the care of someone they paid who knew no cure for it"
+            }
+            IssueKind::Contagion => {
+                "one of theirs died of a sickness that passes from the sick to those near them"
+            }
+            IssueKind::Untended => "those severely ill among them lay with nobody to tend them",
         }
     }
 }
@@ -641,6 +706,48 @@ pub struct PolicyDef {
     pub medium: Option<MediumDef>,
     /// For a plan: its template (M8c slice CT, second part).
     pub plan: Option<PlanDef>,
+    /// For a licence to practise: the technique it asks (M10c slice EC, third part).
+    pub licence: Option<LicenceDef>,
+    /// For keeping the sick apart: its terms (M10c slice EE, first part).
+    pub keep_apart: Option<KeepApartDef>,
+    /// For an office: a technique its holder must know, by index in the catalog's techniques
+    /// (M10c slice EE, second part; ADR-0035 §6: an office or post may require a technique).
+    pub holder_needs: Option<usize>,
+    /// For a register of the sick: what a household believes it spares (M10c slice EE, second
+    /// part).
+    pub register: Option<RegisterDef>,
+    /// For clearing middens from the water: its terms (M10c slice EE, third part).
+    pub middens: Option<MiddensDef>,
+}
+
+/// The terms of a law clearing middens from the water (M10c slice EE, third part): how far from
+/// every open well and stream a household near one carries its heap, metres; how many days a
+/// heap carried lies there before it is the household's at home again; the hours a carrying
+/// takes and the share of its deaths of disease within the year a household believes cleaner
+/// water would have spared (design priors it weighs).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MiddensDef {
+    pub distance_m: f32,
+    pub keep_days: u16,
+    pub carry_h: f32,
+    pub avoided_share: f32,
+}
+
+/// What a household believes a register of the sick spares it (M10c slice EE, second part): the
+/// share of its deaths of disease within the year it believes a register would have avoided (a
+/// design prior).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RegisterDef {
+    pub avoided_share: f32,
+}
+
+/// How long a law keeping the sick apart keeps a household apart, and what keeping it costs
+/// (M10c slice EE, first part): the days after the last of it is well, and the share of a day's
+/// work each grown member loses while it keeps to its home (a design prior a household weighs).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct KeepApartDef {
+    pub days_after: u16,
+    pub cost_share: f32,
 }
 
 /// A money a common store's levy may be paid in, in place of grain (M7d slice CE3b, ADR-0027 §6;
@@ -652,6 +759,14 @@ pub struct MediumDef {
     pub good: usize,
     /// Units of it that pay for a kilogram of the grain owed.
     pub per_kg: f32,
+}
+
+/// What a licence to practise asks of those paid to tend the sick (M10c slice EC, third part):
+/// a technique, by index in the catalog's techniques, and its name in words.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LicenceDef {
+    pub technique: usize,
+    pub what: String,
 }
 
 /// What the store pays for an hour given to the polity's common works under a law of pay for
@@ -1848,6 +1963,47 @@ pub fn law_words(
             None => "someone as keeper of the common store".to_owned(),
         };
     }
+    if let Some(l) = def
+        .filter(|d| d.kind == PolicyKind::Licence)
+        .and_then(|d| d.licence.as_ref())
+    {
+        return format!(
+            "that only those who know {} may be paid to tend the sick",
+            l.what
+        );
+    }
+    if let Some(k) = def
+        .filter(|d| d.kind == PolicyKind::KeepApart)
+        .and_then(|d| d.keep_apart)
+    {
+        return format!(
+            "that a household with someone ill keeps to its home, and others keep from it, until \
+             {} days after the last is well",
+            k.days_after
+        );
+    }
+    if let Some(m) = def
+        .filter(|d| d.kind == PolicyKind::ClearMiddens)
+        .and_then(|d| d.middens)
+    {
+        return format!(
+            "that a household whose home lies within {:.0} m of an open well or a stream carries \
+             its midden as far from every source",
+            m.distance_m
+        );
+    }
+    if def.is_some_and(|d| d.kind == PolicyKind::KeepRegister) {
+        return match law.holder {
+            Some(h) => format!("{} to keep a register of the sick{instead}", name_of(h)),
+            None => "someone to keep a register of the sick".to_owned(),
+        };
+    }
+    if def.is_some_and(|d| d.kind == PolicyKind::KeepSchool) {
+        return match law.holder {
+            Some(h) => format!("{} to keep the school{instead}", name_of(h)),
+            None => "someone to keep the school".to_owned(),
+        };
+    }
     if def.is_some_and(|d| d.kind == PolicyKind::LightStreets) {
         return match law.holder {
             Some(h) => format!("{} to light the streets at night{instead}", name_of(h)),
@@ -1917,6 +2073,11 @@ pub fn ending_words(
         Some(PolicyKind::KeepStore) => who("keeping of the common store"),
         Some(PolicyKind::KeepWatch) => who("watch over the stores at night"),
         Some(PolicyKind::LightStreets) => who("lighting of the streets"),
+        Some(PolicyKind::KeepSchool) => who("keeping of the school"),
+        Some(PolicyKind::KeepRegister) => who("keeping of the register of the sick"),
+        Some(PolicyKind::ClearMiddens) => "the clearing of middens from the water".to_owned(),
+        Some(PolicyKind::Licence) => "the licence to tend the sick for pay".to_owned(),
+        Some(PolicyKind::KeepApart) => "the keeping apart of the sick".to_owned(),
         Some(PolicyKind::AgainstTaking) => "the law against taking".to_owned(),
         Some(PolicyKind::Curfew) => format!(
             "the curfew from {}:00 to {}:00",
@@ -2042,6 +2203,8 @@ pub fn office_words(
                 | PolicyKind::HearCases
                 | PolicyKind::Mint
                 | PolicyKind::LightStreets
+                | PolicyKind::KeepSchool
+                | PolicyKind::KeepRegister
         ) {
             continue;
         }
@@ -2231,6 +2394,9 @@ pub struct Polity {
     /// The watch tower it raised that stands finished, if any (M8d slice DC): its watch looks out
     /// from it. Looked over monthly.
     pub tower: Option<PermanentId>,
+    /// The sickhouse it raised that stands finished, if any (M10c slice EE, fourth part): the sick
+    /// of its households may lie there.
+    pub sickhouse: Option<PermanentId>,
     /// The plan each law of a plan lays, by law (M8c slice CT, second part): in force, it
     /// reserves.
     pub plans: Vec<(PermanentId, PlanLaid)>,
@@ -2285,6 +2451,9 @@ pub struct Measured {
     /// Hours of work putting right the buildings of fires nobody saw for a while after their
     /// covering caught, but spread from a neighbour (schema 167): what a watch tower answers.
     pub late_fire_h: f64,
+    /// Days a severe case of its households lay ill with nobody tending them (schema 206, M10c
+    /// slice EE, fourth part): what a sickhouse answers.
+    pub untended_days: f64,
 }
 
 /// How a polity came to hold a settlement besides its seat (M6c slice BM, ADR-0023 §9). Codes are
@@ -2695,6 +2864,7 @@ impl Polity {
             storehouse: None,
             hall: None,
             tower: None,
+            sickhouse: None,
             plans: Vec::new(),
             ground_seen: Vec::new(),
             encroachments: Vec::new(),
@@ -2995,6 +3165,12 @@ impl Polity {
             .find_map(|l| Some((l, policies.get(usize::from(l.policy))?.forum.as_ref()?)))
     }
 
+    /// The one who keeps the register of the sick by a law in force, and that law (M10c slice EE,
+    /// second part).
+    pub fn registrar(&self) -> Option<(PermanentId, &Law)> {
+        self.office(PolicyKind::KeepRegister)
+    }
+
     /// The one who keeps the store under their roof by a law in force, and that law.
     pub fn keeper(&self) -> Option<(PermanentId, &Law)> {
         self.office(PolicyKind::KeepStore)
@@ -3019,6 +3195,12 @@ impl Polity {
     /// part).
     pub fn lamplighter(&self) -> Option<(PermanentId, &Law)> {
         self.office(PolicyKind::LightStreets)
+    }
+
+    /// The one who keeps the school by a law in force, and that law (M10c slice EB, third
+    /// part).
+    pub fn schoolteacher(&self) -> Option<(PermanentId, &Law)> {
+        self.office(PolicyKind::KeepSchool)
     }
 
     /// The one who strikes coin by a law in force, and that law (M7d slice CE).
@@ -3682,6 +3864,11 @@ pub(crate) mod tests {
             pay: None,
             medium: None,
             plan: None,
+            licence: None,
+            keep_apart: None,
+            holder_needs: None,
+            register: None,
+            middens: None,
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -3802,6 +3989,11 @@ pub(crate) mod tests {
             pay: None,
             medium: None,
             plan: None,
+            licence: None,
+            keep_apart: None,
+            holder_needs: None,
+            register: None,
+            middens: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -4030,6 +4222,11 @@ pub(crate) mod tests {
             pay: None,
             medium: None,
             plan: None,
+            licence: None,
+            keep_apart: None,
+            holder_needs: None,
+            register: None,
+            middens: None,
         }];
         assert!(
             law_words(&law, &policies, &|_| "Ada".to_owned())

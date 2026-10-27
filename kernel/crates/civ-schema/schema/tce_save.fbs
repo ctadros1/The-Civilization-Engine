@@ -502,6 +502,11 @@ table Household {
   // Schema 174 (M10a slice DR): what it had made by water-powered ways' outputs when it last
   // weighed a mill; absent before its first review.
   mill_seen: MillSeenSave (id: 26);
+  // Schema 205 (M10c slice EE, third part): the day its midden was last carried from the water
+  // under a law clearing middens (-1 never), and where to, metres.
+  midden_carried: long = -1 (id: 27);
+  midden_x: float (id: 28);
+  midden_y: float (id: 29);
 }
 
 // A household's count at a mill review (schema 174): the day and the kilograms it had made in
@@ -766,7 +771,7 @@ table Fields {
 // Section "plots" (schema 5): ground households have claimed (ADR-0004 §3). A plot outlives
 // its building.
 // Schema 15 (M3b slice O, ADR-0009 §7): stores and workshops beside dwellings.
-enum PlotUse : ubyte { Dwelling = 0, Store = 1, Work = 2, Hall = 3, Tower = 4 }
+enum PlotUse : ubyte { Dwelling = 0, Store = 1, Work = 2, Hall = 3, Tower = 4, Sickhouse = 5 }
 
 table Plot {
   id: ulong (id: 0);
@@ -976,10 +981,26 @@ table MarketState {
   history: [MonthOfTrade] (id: 9);
 }
 
+// Schema 208 (M10d slice EF, first part; ADR-0035 §12): what a money is worth to a household from
+// its use as money, as of the last midnight. `good` is indexed like Markets.goods.
+table MoneyBelief {
+  household: ulong (id: 0);
+  good: uint (id: 1);
+  // Hours of its own work a unit bought, and units paid, faded by the markets' memory.
+  bought_h: double (id: 2);
+  paid: double (id: 3);
+  // Payments in it taken, and sellers of what it wanted who did not take it, faded to `day`.
+  taken: float (id: 4);
+  refused: float (id: 5);
+  day: long (id: 6);
+}
+
 table Markets {
   markets: [MarketState] (id: 0);
   // Good content ids at save time.
   goods: [string] (id: 1);
+  // Schema 208: each household's beliefs of each money, by household and money.
+  beliefs: [MoneyBelief] (id: 2);
 }
 
 // Section "firms" (schema 11): every firm there has been, open and closed (ADR-0006 §5). Goods are
@@ -1130,6 +1151,43 @@ struct FireTrustEntry {
   wall_kind: ubyte;
 }
 
+// Schema 193: an enrolment: who teaches, who learns, the household that pays, the technique, the
+// food a day of study costs, kcal (0 from kin), the day enrolled and the last day paid (-1 not yet).
+struct EnrolmentSave {
+  teacher: ulong;
+  learner: ulong;
+  payer: ulong;
+  technique: ushort;
+  fee_kcal: float;
+  since: long;
+  paid: long;
+}
+
+// Schema 194: a household that could not hold the fee to send a child to learn a technique, and
+// the day.
+struct UntaughtSave {
+  household: ulong;
+  technique: ushort;
+  day: long;
+}
+
+// Schema 195: a written record of a technique: its id, the household holding it, who wrote it and
+// the day.
+struct RecordSave {
+  id: ulong;
+  holder: ulong;
+  maker: ulong;
+  technique: ushort;
+  made: long;
+}
+
+// Schema 193: someone's minutes of sessions of a technique today, teaching or studying.
+struct SessionSave {
+  person: ulong;
+  technique: ushort;
+  minutes: float;
+}
+
 table Knowledge {
   // Technique content ids at save time; KnowledgeEntry.technique and TrustEntry.technique index
   // this list.
@@ -1143,6 +1201,23 @@ table Knowledge {
   // entry has one.
   elsewhere: [ulong] (id: 3);
   fire_trust: [FireTrustEntry] (id: 4);
+  // Schema 193 (M10c slice EB, second part; ADR-0035 §5): learners enrolled to learn a technique
+  // from someone of another household, in the order enrolled, and today's minutes of teaching and
+  // of study, credited at midnight; `technique` indexes `techniques`.
+  enrolments: [EnrolmentSave] (id: 5);
+  taught: [SessionSave] (id: 6);
+  studied: [SessionSave] (id: 7);
+  // Schema 194 (M10c slice EB, third part): households that could not hold the fee to send a
+  // child to learn within the year, oldest first; `technique` indexes `techniques`.
+  untaught: [UntaughtSave] (id: 8);
+  // Schema 195 (M10c slice EC): written records of techniques, in the order written, and the
+  // minutes each writer has written toward the record they are writing; `technique` indexes
+  // `techniques`.
+  writings: [RecordSave] (id: 9);
+  written: [SessionSave] (id: 10);
+  // Schema 196 (M10c slice EC, second part): for each record, in order, the building it is kept
+  // in (0 for none).
+  writings_kept: [ulong] (id: 11);
 }
 
 // Section "deposits" (schema 19): bodies in the ground (ADR-0010 §1), in the order they were
@@ -1603,6 +1678,9 @@ table PolitySave {
   measured_losses: [MeasuredLossSave] (id: 47);
   // Schema 167 (M8d slice DC): the watch tower its watch looks out from (0 when none).
   tower: ulong (id: 48);
+  // Schema 207 (M10c slice EE, fourth part): the sickhouse it raised that stands finished (0 when
+  // none).
+  sickhouse: ulong (id: 49);
 }
 
 // A year's measured losses beside `MeasuredSave` (schema 166, M8d slice DC): the year, and the
@@ -1612,6 +1690,9 @@ table MeasuredLossSave {
   year: long (id: 0);
   wet_lost_h: double (id: 1);
   late_fire_h: double (id: 2);
+  // Schema 206 (M10c slice EE, fourth part): days a severe case of its households lay ill with
+  // nobody tending them.
+  untended_days: double (id: 3);
 }
 
 // A building a law would raise in common (schema 165, M8d slice DC): the law, the program by
@@ -3063,6 +3144,55 @@ struct AttendedSave {
   lived: bool;
 }
 
+// Schema 197 (M10c slice EC, third part): someone of a household died in the care of a carer it
+// paid who knew no treatment of the disease (its content id), and the day.
+table UnknowingSave {
+  household: ulong;
+  disease: string;
+  day: long;
+}
+
+// Schema 198 (M10c slice ED): two who met in company at the hearth today, and the hours.
+struct CompanySave {
+  a: ulong;
+  b: ulong;
+  hours: float;
+}
+
+// Schema 200 (M10c slice ED, third part): someone vaccinated against a disease, the day, and the
+// last day its protection is whole.
+table VaccinatedSave {
+  person: ulong;
+  disease: string;
+  day: long;
+  full_until: long;
+  // Schema 201 (M10c slice ED, fourth part): who vaccinated them, 0 for nobody known.
+  by: ulong;
+}
+
+// Schema 203 (M10c slice EE, second part): an entry in a polity's register of the sick: the
+// polity, the day, the household, and what was entered (0 sickness heard of, 1 a death of
+// disease; schema 204: 2 a home seen on the health officer's round).
+struct RegisterSave {
+  polity: ulong;
+  day: long;
+  household: ulong;
+  kind: ubyte;
+}
+
+// Schema 207 (M10c slice EE, fourth part): someone lying in a sickhouse, and the day admitted;
+// someone who tended at one today.
+struct AdmittedSave {
+  person: ulong;
+  building: ulong;
+  day: long;
+}
+
+struct StaffedSave {
+  carer: ulong;
+  building: ulong;
+}
+
 table SicknessSave {
   episodes: [EpisodeSave] (id: 0);
   outbreaks: [OutbreakSave] (id: 1);
@@ -3072,6 +3202,19 @@ table SicknessSave {
   // attended.
   birth_calls: [CareCallSave] (id: 4);
   attended: [AttendedSave] (id: 5);
+  // Schema 197: deaths in unknowing paid care within the year, oldest first.
+  unknowing: [UnknowingSave] (id: 6);
+  // Schema 198: today's company at the hearth, kept while a disease passing by company runs.
+  met: [CompanySave] (id: 7);
+  // Schema 199 (M10c slice ED, second part): calls to inoculate a household's people that stand.
+  inoculation_calls: [CareCallSave] (id: 8);
+  // Schema 200: everyone vaccinated, in the order vaccinated.
+  vaccinated: [VaccinatedSave] (id: 9);
+  // Schema 203: the registers of the sick within the year, in the order entered.
+  register: [RegisterSave] (id: 10);
+  // Schema 207: those lying in sickhouses, in the order admitted, and today's carers there.
+  admitted: [AdmittedSave] (id: 11);
+  staffed: [StaffedSave] (id: 12);
 }
 
 // Section "fires" (schema 88, M6b slice BC; ADR-0022 §13): a building's fire, from its covering
@@ -3770,8 +3913,47 @@ table ConsignmentSave {
   goods: [ConsignedGoodSave] (id: 8);
 }
 
+// Schema 209 (M10d slice EG, second part; ADR-0027 §4): goods one household keeps for another
+// under its roof, the depositor's throughout; `since` and `fee_day` are day indexes.
+table KeptSave {
+  id: ulong (id: 0);
+  depositor: ulong (id: 1);
+  keeper: ulong (id: 2);
+  since: long (id: 3);
+  fee_day: long (id: 4);
+  stores_at: long (id: 5);
+  goods: [ConsignedGoodSave] (id: 6);
+  // Schema 210 (slice EG, third part): the receipt the keeper's household wrote for them, if
+  // any: who wrote it (0 for none) and the day.
+  receipt_by: ulong (id: 7);
+  receipt_day: long (id: 8);
+  // Schema 211 (M10d slice EH): its receipt was written as notes, its goods backing them.
+  noted: bool (id: 9);
+}
+
+// Schema 211 (M10d slice EH): one keeper's notes in one good: its number, its issuer household,
+// the good a piece is redeemed in (a content id) and kilograms of it a piece pays, pieces
+// outstanding, pieces presented and refused since first written, and the last day one was
+// refused (-1 for none).
+table NoteIssueSave {
+  id: uint (id: 0);
+  issuer: ulong (id: 1);
+  good: string (id: 2);
+  kg: float (id: 3);
+  count: double (id: 4);
+  presented: double (id: 5);
+  refused: double (id: 6);
+  refused_day: long = -1 (id: 7);
+}
+
 table ConsignmentsSave {
   list: [ConsignmentSave] (id: 0);
+  // Schema 209: goods kept for others, in the order left.
+  kept: [KeptSave] (id: 1);
+  // Schema 211: note issues, in the order first written, and the purses holding their pieces, by
+  // holder and issue.
+  note_issues: [NoteIssueSave] (id: 2);
+  note_purses: [PurseSave] (id: 3);
 }
 
 // Turn-taking at bottlenecks (schema 141, M8b slice CN; ADR-0029 §4). A facility as in

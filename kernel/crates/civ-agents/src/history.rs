@@ -220,6 +220,17 @@ pub enum Reason {
     /// A machine its work needs that wants more hands at it together than the household has to
     /// set to it at home: only a works, whose bell brings its crew, works one (M10a slice DT).
     NoCrew = 161,
+    /// Learners enrolled with them to learn a technique they know (M10c slice EB).
+    Teaching = 162,
+    /// They are enrolled to learn a technique from someone (M10c slice EB).
+    Study = 163,
+    /// Nobody else of their settlement knows it, and no record it holds keeps it (M10c slice EC).
+    Writing = 164,
+    /// Their household holds a record of something they do not know (M10c slice EC).
+    Reading = 165,
+    /// A law keeps the sick apart: their household has someone ill, or the household they would
+    /// tend at has (M10c slice EE).
+    KeepApart = 166,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -231,7 +242,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 95] = [
+    pub const ALL: [Reason; 100] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -327,6 +338,11 @@ impl Reason {
         Reason::Burning,
         Reason::Mill,
         Reason::NoCrew,
+        Reason::Teaching,
+        Reason::Study,
+        Reason::Writing,
+        Reason::Reading,
+        Reason::KeepApart,
     ];
 
     /// The reason with this code.
@@ -434,6 +450,11 @@ impl Reason {
             Reason::Burning => "a batch of it is still burning",
             Reason::Mill => "the grinding a neighbour's mill would spare",
             Reason::NoCrew => "it needs more hands at it together than come to it at home",
+            Reason::Teaching => "those enrolled to learn from them",
+            Reason::Study => "they are enrolled to learn it",
+            Reason::Writing => "nobody else of theirs knows it, and no record keeps it",
+            Reason::Reading => "their household holds a record of it",
+            Reason::KeepApart => "a law keeps the sick and their households apart from others",
         }
     }
 }
@@ -913,6 +934,12 @@ pub enum ChronicleKind {
     /// elder, `settlement` the household's, `place` the line's first cell, and `name` the
     /// sentence.
     StationsOpened,
+    /// Someone wrote down a technique, or copied a record of one for kin (M10c slice EC, second
+    /// part): `people` is the writer, `settlement` theirs, and `name` the sentence.
+    RecordWritten,
+    /// A record of a technique was lost (M10c slice EC, second part): burned with the building
+    /// that kept it; `people` is its writer, `settlement` the holder's, and `name` the sentence.
+    RecordLost,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1590,7 +1617,9 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::CartMade
         | ChronicleKind::TakenDown
         | ChronicleKind::LineLaid
-        | ChronicleKind::StationsOpened => {
+        | ChronicleKind::StationsOpened
+        | ChronicleKind::RecordWritten
+        | ChronicleKind::RecordLost => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

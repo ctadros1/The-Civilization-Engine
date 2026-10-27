@@ -78,7 +78,7 @@ use civ_agents::history::{
 };
 use civ_agents::knowledge::{KnowledgeEvent, KnowledgeEventKind};
 use civ_agents::ledger::{Channel, Trade};
-use civ_agents::market::{Market, MonthOfTrade, Offer};
+use civ_agents::market::{Market, MoneyBelief, MonthOfTrade, Offer};
 use civ_agents::person::{Know, KnowSource};
 use civ_agents::population::DepositKnown;
 use civ_agents::seats::Seats;
@@ -129,8 +129,10 @@ use super::{
     SCHEMA_V167, SCHEMA_V168, SCHEMA_V169, SCHEMA_V170, SCHEMA_V171, SCHEMA_V172, SCHEMA_V173,
     SCHEMA_V174, SCHEMA_V175, SCHEMA_V176, SCHEMA_V177, SCHEMA_V178, SCHEMA_V179, SCHEMA_V180,
     SCHEMA_V181, SCHEMA_V182, SCHEMA_V183, SCHEMA_V184, SCHEMA_V185, SCHEMA_V186, SCHEMA_V187,
-    SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, finish, section, section_root,
-    single_chunk, unreadable,
+    SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, SCHEMA_V194,
+    SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, SCHEMA_V199, SCHEMA_V200, SCHEMA_V201,
+    SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, SCHEMA_V205, SCHEMA_V206, SCHEMA_V207, SCHEMA_V208,
+    SCHEMA_V209, SCHEMA_V210, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -906,10 +908,15 @@ pub(super) fn decode<R: Read + Seek>(
         // fares (schema 185) are read wherever saved; gas mains (schema 186) have their section.
         SCHEMA_V182 | SCHEMA_V183 | SCHEMA_V184 | SCHEMA_V185 => Schema::V182,
         // Mains' lengths laid (schema 187), their worth (188) and street lamps (189) are read
-        // wherever saved, as are calls for carers (190), who tended the ill (191) and births
-        // attended (192).
+        // wherever saved, as are calls for carers (190), who tended the ill (191), births
+        // attended (192), enrolments to learn (193), households untaught (194), written records
+        // (195), where each is kept (196), deaths in unknowing paid care (197), the day's
+        // company kept (198) and calls to inoculate (199).
         SCHEMA_V186 | SCHEMA_V187 | SCHEMA_V188 | SCHEMA_V189 | SCHEMA_V190 | SCHEMA_V191
-        | SAVE_SCHEMA_VERSION => Schema::V186,
+        | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SCHEMA_V196 | SCHEMA_V197
+        | SCHEMA_V198 | SCHEMA_V199 | SCHEMA_V200 | SCHEMA_V201 | SCHEMA_V202 | SCHEMA_V203
+        | SCHEMA_V204 | SCHEMA_V205 | SCHEMA_V206 | SCHEMA_V207 | SCHEMA_V208 | SCHEMA_V209
+        | SCHEMA_V210 | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -997,6 +1004,7 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V10 {
         let bytes = single_chunk(reader, SECTION_MARKET)?;
         people.markets = decode_markets(&bytes, rules)?;
+        people.money = decode_money_beliefs(&bytes, rules)?;
     }
     // Before schema 11 there were no firms.
     if schema >= Schema::V11 {
@@ -1021,6 +1029,8 @@ pub(super) fn decode<R: Read + Seek>(
         if schema >= Schema::V94 {
             people.fire_trust = decode_fire_trust(&bytes)?;
         }
+        // Enrolments to learn and today's sessions (schema 193): none in older saves.
+        decode_enrolments(&bytes, rules, &mut people)?;
         // A technique founders bring that the content has added since the save was made is
         // given as a founder of their age would bring it, like a new skill.
         people.give_new_founder_knowledge(
@@ -1191,6 +1201,8 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V143 {
         let bytes = single_chunk(reader, SECTION_CONSIGNMENTS)?;
         people.consignments = decode_consignments(&bytes, rules)?;
+        people.kept = decode_kept(&bytes, rules)?;
+        people.notes = decode_notes(&bytes, rules)?;
     }
     // Ways (schema 140); before, none.
     if schema >= Schema::V140 {
@@ -1206,6 +1218,8 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V75 {
         let bytes = single_chunk(reader, SECTION_SICKNESS)?;
         people.sickness = decode_sickness(&bytes, rules)?;
+        people.met = decode_met(&bytes)?;
+        people.staffed = decode_staffed(&bytes)?;
     }
     // What people shed (schema 76); before, nothing lies anywhere.
     if schema >= Schema::V76 {
@@ -2144,6 +2158,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             year: m.year,
                             wet_lost_h: m.wet_lost_h,
                             late_fire_h: m.late_fire_h,
+                            untended_days: m.untended_days,
                         },
                     )
                 })
@@ -2244,6 +2259,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     storehouse: p.storehouse.map_or(0, PermanentId::get),
                     hall: p.hall.map_or(0, PermanentId::get),
                     tower: p.tower.map_or(0, PermanentId::get),
+                    sickhouse: p.sickhouse.map_or(0, PermanentId::get),
                     measured_losses,
                 },
             )
@@ -2355,6 +2371,10 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::FiresUnseen => 30,
         IssueKind::LoadsCarried => 31,
         IssueKind::DarkTakings => 32,
+        IssueKind::Untaught => 33,
+        IssueKind::UnknowingCare => 34,
+        IssueKind::Contagion => 35,
+        IssueKind::Untended => 36,
     }
 }
 
@@ -2494,6 +2514,10 @@ fn decode_polities(
                 30 => IssueKind::FiresUnseen,
                 31 => IssueKind::LoadsCarried,
                 32 => IssueKind::DarkTakings,
+                33 => IssueKind::Untaught,
+                34 => IssueKind::UnknowingCare,
+                35 => IssueKind::Contagion,
+                36 => IssueKind::Untended,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -3132,6 +3156,7 @@ fn decode_polities(
                 roof_fires: m.roof_fires(),
                 wet_lost_h: 0.0,
                 late_fire_h: 0.0,
+                untended_days: 0.0,
             });
         }
         // The losses measured beside them (schema 166); before, none.
@@ -3148,7 +3173,9 @@ fn decode_polities(
                     && l.wet_lost_h().is_finite()
                     && l.wet_lost_h() >= 0.0
                     && l.late_fire_h().is_finite()
-                    && l.late_fire_h() >= 0.0;
+                    && l.late_fire_h() >= 0.0
+                    && l.untended_days().is_finite()
+                    && l.untended_days() >= 0.0;
                 if !ok {
                     return Err(bad(format!(
                         "polity {id} measures its losses out of order, or out of range"
@@ -3156,6 +3183,8 @@ fn decode_polities(
                 }
                 m.wet_lost_h = l.wet_lost_h();
                 m.late_fire_h = l.late_fire_h();
+                // Severe days untended (schema 206): none in older saves.
+                m.untended_days = l.untended_days();
             }
         }
         if measured.len() > civ_agents::polity::MEASURED_YEARS {
@@ -3206,6 +3235,7 @@ fn decode_polities(
         let storehouse = PermanentId::from_raw(p.storehouse());
         let hall = PermanentId::from_raw(p.hall());
         let tower = PermanentId::from_raw(p.tower());
+        let sickhouse = PermanentId::from_raw(p.sickhouse());
         // Patron gifts (schema 131, M7c slice BY).
         let mut patron_gifts = Vec::new();
         for g in p.patron_gifts().iter().flatten() {
@@ -3381,6 +3411,7 @@ fn decode_polities(
             storehouse,
             hall,
             tower,
+            sickhouse,
         });
     }
     Ok(out)
@@ -5562,6 +5593,9 @@ fn encode_households(
                     admired: raw(h.admired),
                     midden_kg: h.midden.kg,
                     midden_at: h.midden.at.minutes(),
+                    midden_carried: h.midden.carried,
+                    midden_x: h.midden.site.0,
+                    midden_y: h.midden.site.1,
                     water_use_l: h.water_use_l,
                     water_walk_min: h.water_walk_min,
                     flood_home_cm: h.flood_memory.home_depth_cm,
@@ -5916,9 +5950,12 @@ fn decode_households(
                         "household {hh_id} has a midden of {kg} kg"
                     )));
                 }
+                // Where it was carried from the water (schema 205): never, in older saves.
                 civ_agents::person::Midden {
                     kg,
                     at: time(h.midden_at()),
+                    carried: h.midden_carried(),
+                    site: (h.midden_x(), h.midden_y()),
                 }
             },
             flood_memory: if schema >= Schema::V93 {
@@ -7073,6 +7110,8 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::TakenDown => 64,
         ChronicleKind::LineLaid => 65,
         ChronicleKind::StationsOpened => 66,
+        ChronicleKind::RecordWritten => 67,
+        ChronicleKind::RecordLost => 68,
     }
 }
 
@@ -7144,6 +7183,8 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         64 => Some(ChronicleKind::TakenDown),
         65 => Some(ChronicleKind::LineLaid),
         66 => Some(ChronicleKind::StationsOpened),
+        67 => Some(ChronicleKind::RecordWritten),
+        68 => Some(ChronicleKind::RecordLost),
         _ => None,
     }
 }
@@ -7824,6 +7865,7 @@ fn encode_plots(plots: &[Plot]) -> Vec<u8> {
                         PlotUse::Work => save::PlotUse::Work,
                         PlotUse::Hall => save::PlotUse::Hall,
                         PlotUse::Tower => save::PlotUse::Tower,
+                        PlotUse::Sickhouse => save::PlotUse::Sickhouse,
                     },
                     since: p.since.minutes(),
                     receipt_weighed: p.receipt.map_or(0, |r| r.weighed),
@@ -7852,6 +7894,7 @@ fn decode_plots(bytes: &[u8]) -> Result<Vec<Plot>, LoadError> {
             save::PlotUse::Work => PlotUse::Work,
             save::PlotUse::Hall => PlotUse::Hall,
             save::PlotUse::Tower => PlotUse::Tower,
+            save::PlotUse::Sickhouse => PlotUse::Sickhouse,
             other => {
                 return Err(LoadError::Malformed(format!(
                     "plot {id} has use {}",
@@ -8387,14 +8430,62 @@ fn encode_markets(pop: &Population, goods: &[&str]) -> Vec<u8> {
         })
         .collect();
     let list = fbb.create_vector(&list);
+    let beliefs: Vec<_> = pop
+        .money
+        .iter()
+        .map(|b| {
+            save::MoneyBelief::create(
+                &mut fbb,
+                &save::MoneyBeliefArgs {
+                    household: b.household.get(),
+                    good: u32::from(b.good),
+                    bought_h: b.bought_h,
+                    paid: b.paid,
+                    taken: b.taken,
+                    refused: b.refused,
+                    day: b.day,
+                },
+            )
+        })
+        .collect();
+    let beliefs = fbb.create_vector(&beliefs);
     let root = save::Markets::create(
         &mut fbb,
         &save::MarketsArgs {
             markets: Some(list),
             goods: Some(good_dictionary),
+            beliefs: Some(beliefs),
         },
     );
     finish(fbb, root)
+}
+
+/// Each household's beliefs of each money (schema 208, M10d slice EF); none before.
+fn decode_money_beliefs(bytes: &[u8], rules: &Rules) -> Result<Vec<MoneyBelief>, LoadError> {
+    let root = section_root::<save::Markets>(bytes).map_err(|e| unreadable(SECTION_MARKET, &e))?;
+    let goods = good_map(&read_strings(root.goods()), rules);
+    let mut out = Vec::new();
+    for b in root.beliefs().iter().flatten() {
+        let household = required(b.household(), "a money belief's household")?;
+        let what = || format!("household {household}'s belief of a money");
+        // A money the content no longer has is forgotten.
+        let Some(good) = saved_good(&goods, b.good(), what)? else {
+            continue;
+        };
+        out.push(MoneyBelief {
+            household,
+            good,
+            bought_h: b.bought_h(),
+            paid: b.paid(),
+            taken: b.taken(),
+            refused: b.refused(),
+            day: b.day(),
+        });
+    }
+    // By household and money, in the loaded content's order of goods.
+    out.sort_by_key(|b| (b.household, b.good));
+    out.dedup_by_key(|b| (b.household, b.good));
+    Ok(out)
 }
 
 fn decode_markets(bytes: &[u8], rules: &Rules) -> Result<Vec<Market>, LoadError> {
@@ -8942,6 +9033,59 @@ fn encode_knowledge(pop: &Population, techniques: &[&str]) -> Vec<u8> {
         })
         .collect();
     let fire_trust = fbb.create_vector(&fire_trust);
+    // Enrolments and today's sessions (schema 193, M10c slice EB): techniques index the list.
+    let enrolments: Vec<save::EnrolmentSave> = pop
+        .enrolments
+        .iter()
+        .map(|e| {
+            save::EnrolmentSave::new(
+                e.teacher.get(),
+                e.learner.get(),
+                e.payer.get(),
+                e.technique,
+                e.fee_kcal,
+                e.since,
+                e.paid,
+            )
+        })
+        .collect();
+    let enrolments = fbb.create_vector(&enrolments);
+    let sessions = |list: &[civ_agents::knowledge::Session]| -> Vec<save::SessionSave> {
+        list.iter()
+            .map(|s| save::SessionSave::new(s.person.get(), s.technique, s.minutes))
+            .collect()
+    };
+    let taught = fbb.create_vector(&sessions(&pop.taught));
+    let studied = fbb.create_vector(&sessions(&pop.studied));
+    // Households untaught (schema 194, M10c slice EB, third part).
+    let untaught: Vec<save::UntaughtSave> = pop
+        .untaught
+        .iter()
+        .map(|u| save::UntaughtSave::new(u.household.get(), u.technique, u.day))
+        .collect();
+    let untaught = fbb.create_vector(&untaught);
+    // Written records and the writing toward them (schema 195, M10c slice EC).
+    let writings: Vec<save::RecordSave> = pop
+        .writings
+        .iter()
+        .map(|r| {
+            save::RecordSave::new(
+                r.id.get(),
+                r.holder.get(),
+                r.maker.get(),
+                r.technique,
+                r.made,
+            )
+        })
+        .collect();
+    let writings = fbb.create_vector(&writings);
+    let written = fbb.create_vector(&sessions(&pop.written));
+    let kept: Vec<u64> = pop
+        .writings
+        .iter()
+        .map(|r| r.building.map_or(0, PermanentId::get))
+        .collect();
+    let writings_kept = fbb.create_vector(&kept);
     let root = save::Knowledge::create(
         &mut fbb,
         &save::KnowledgeArgs {
@@ -8950,6 +9094,13 @@ fn encode_knowledge(pop: &Population, techniques: &[&str]) -> Vec<u8> {
             trust: Some(trust),
             elsewhere,
             fire_trust: Some(fire_trust),
+            enrolments: Some(enrolments),
+            taught: Some(taught),
+            studied: Some(studied),
+            untaught: Some(untaught),
+            writings: Some(writings),
+            written: Some(written),
+            writings_kept: Some(writings_kept),
         },
     );
     finish(fbb, root)
@@ -9000,6 +9151,91 @@ fn decode_trust(bytes: &[u8], rules: &Rules) -> Result<Vec<Trust>, LoadError> {
         });
     }
     Ok(out)
+}
+
+/// Enrolments to learn from another household and today's sessions (schema 193, M10c slice EB),
+/// households untaught (schema 194) and written records (schema 195), from the knowledge section: one naming a technique the loaded content no longer has, or
+/// nobody, drops out.
+fn decode_enrolments(
+    bytes: &[u8],
+    rules: &Rules,
+    people: &mut Population,
+) -> Result<(), LoadError> {
+    let root = section_root::<save::Knowledge>(bytes).map_err(|e| unreadable(SECTION_KNOW, &e))?;
+    let ids: Vec<Option<usize>> = read_strings(root.techniques())
+        .iter()
+        .map(|id| rules.catalog.technique_index(id))
+        .collect();
+    let technique = |t: u16| {
+        ids.get(usize::from(t))
+            .copied()
+            .flatten()
+            .and_then(|i| u16::try_from(i).ok())
+    };
+    for e in root.enrolments().into_iter().flatten() {
+        let (Some(teacher), Some(learner), Some(payer), Some(t)) = (
+            PermanentId::from_raw(e.teacher()),
+            PermanentId::from_raw(e.learner()),
+            PermanentId::from_raw(e.payer()),
+            technique(e.technique()),
+        ) else {
+            continue;
+        };
+        people.enrolments.push(civ_agents::knowledge::Enrolment {
+            teacher,
+            learner,
+            technique: t,
+            fee_kcal: e.fee_kcal(),
+            payer,
+            since: e.since(),
+            paid: e.paid(),
+        });
+    }
+    let sessions = |list: Option<civ_schema::flatbuffers::Vector<'_, save::SessionSave>>| {
+        list.into_iter()
+            .flatten()
+            .filter_map(|s| {
+                Some(civ_agents::knowledge::Session {
+                    person: PermanentId::from_raw(s.person())?,
+                    technique: technique(s.technique())?,
+                    minutes: s.minutes(),
+                })
+            })
+            .collect::<Vec<_>>()
+    };
+    people.taught = sessions(root.taught());
+    people.studied = sessions(root.studied());
+    people.written = sessions(root.written());
+    let kept: Vec<u64> = root.writings_kept().into_iter().flatten().collect();
+    people.writings = root
+        .writings()
+        .into_iter()
+        .flatten()
+        .enumerate()
+        .filter_map(|(i, r)| {
+            Some(civ_agents::knowledge::Record {
+                id: PermanentId::from_raw(r.id())?,
+                technique: technique(r.technique())?,
+                holder: PermanentId::from_raw(r.holder())?,
+                maker: PermanentId::from_raw(r.maker())?,
+                made: r.made(),
+                building: kept.get(i).copied().and_then(PermanentId::from_raw),
+            })
+        })
+        .collect();
+    people.untaught = root
+        .untaught()
+        .into_iter()
+        .flatten()
+        .filter_map(|u| {
+            Some(civ_agents::knowledge::Untaught {
+                household: PermanentId::from_raw(u.household())?,
+                technique: technique(u.technique())?,
+                day: u.day(),
+            })
+        })
+        .collect();
+    Ok(())
 }
 
 /// Fire caution (schema 94); malformed or repeated records are refused.
@@ -12219,9 +12455,164 @@ fn encode_consignments(people: &Population, rules: &Rules) -> Vec<u8> {
         })
         .collect();
     let list = fbb.create_vector(&list);
-    let root =
-        save::ConsignmentsSave::create(&mut fbb, &save::ConsignmentsSaveArgs { list: Some(list) });
+    let kept: Vec<_> = people
+        .kept
+        .iter()
+        .map(|k| {
+            let held: Vec<_> = k
+                .stores
+                .iter()
+                .enumerate()
+                .filter(|&(_, &x)| x != 0.0)
+                .filter_map(|(g, &amount)| {
+                    let good = fbb.create_string(&goods.get(g)?.id);
+                    Some(save::ConsignedGoodSave::create(
+                        &mut fbb,
+                        &save::ConsignedGoodSaveArgs {
+                            good: Some(good),
+                            amount,
+                        },
+                    ))
+                })
+                .collect();
+            let held = fbb.create_vector(&held);
+            save::KeptSave::create(
+                &mut fbb,
+                &save::KeptSaveArgs {
+                    id: k.id.get(),
+                    depositor: k.depositor.get(),
+                    keeper: k.keeper.get(),
+                    since: k.since,
+                    fee_day: k.fee_day,
+                    stores_at: k.stores_at.minutes(),
+                    goods: Some(held),
+                    receipt_by: k.receipt.map_or(0, |(by, _)| by.get()),
+                    receipt_day: k.receipt.map_or(0, |(_, day)| day),
+                    noted: k.noted,
+                },
+            )
+        })
+        .collect();
+    let kept = fbb.create_vector(&kept);
+    // Notes (schema 211, M10d slice EH).
+    let notes = &people.notes;
+    let issues: Vec<_> = notes
+        .issues
+        .iter()
+        .map(|c| {
+            let good =
+                fbb.create_string(goods.get(usize::from(c.good)).map_or("", |d| d.id.as_str()));
+            save::NoteIssueSave::create(
+                &mut fbb,
+                &save::NoteIssueSaveArgs {
+                    id: c.id,
+                    issuer: c.issuer.get(),
+                    good: Some(good),
+                    kg: c.kg,
+                    count: c.count,
+                    presented: c.presented,
+                    refused: c.refused,
+                    refused_day: c.refused_day,
+                },
+            )
+        })
+        .collect();
+    let note_issues = fbb.create_vector(&issues);
+    let purses: Vec<save::PurseSave> = notes
+        .purses
+        .iter()
+        .flat_map(|p| {
+            p.counts
+                .iter()
+                .map(move |&(issue, n)| save::PurseSave::new(p.holder.get(), issue, n))
+        })
+        .collect();
+    let note_purses = fbb.create_vector(&purses);
+    let root = save::ConsignmentsSave::create(
+        &mut fbb,
+        &save::ConsignmentsSaveArgs {
+            list: Some(list),
+            kept: Some(kept),
+            note_issues: Some(note_issues),
+            note_purses: Some(note_purses),
+        },
+    );
     finish(fbb, root)
+}
+
+/// The goods kept for others saved in `bytes` (schema 209, M10d slice EG; their receipts schema
+/// 210, none before); none before. A good the loaded content no longer has is let go.
+fn decode_kept(bytes: &[u8], rules: &Rules) -> Result<Vec<civ_agents::custody::Kept>, LoadError> {
+    use civ_agents::custody::Kept;
+    let goods = &rules.catalog.goods;
+    let root = section_root::<save::ConsignmentsSave>(bytes)
+        .map_err(|e| unreadable(SECTION_CONSIGNMENTS, &e))?;
+    let mut out = Vec::new();
+    for k in root.kept().iter().flatten() {
+        let id = required(k.id(), "goods kept for another")?;
+        let mut kept = Kept::new(
+            id,
+            (
+                required(k.depositor(), "kept goods' depositor")?,
+                required(k.keeper(), "kept goods' keeper")?,
+            ),
+            SimTime::from_minutes(k.stores_at()),
+            goods.len(),
+        );
+        kept.since = k.since();
+        kept.fee_day = k.fee_day();
+        kept.receipt = PermanentId::from_raw(k.receipt_by()).map(|by| (by, k.receipt_day()));
+        kept.noted = k.noted();
+        for g in k.goods().iter().flatten() {
+            let name = g.good().unwrap_or("");
+            if let Some(i) = goods.iter().position(|d| d.id == name) {
+                kept.stores[i] = g.amount();
+            }
+        }
+        out.push(kept);
+    }
+    Ok(out)
+}
+
+/// The notes saved in `bytes` (schema 211, M10d slice EH); none before. An issue in a good the
+/// loaded content no longer has is let go with its pieces.
+fn decode_notes(bytes: &[u8], rules: &Rules) -> Result<civ_agents::notes::Notes, LoadError> {
+    use civ_agents::notes::{Issue, Notes};
+    let goods = &rules.catalog.goods;
+    let root = section_root::<save::ConsignmentsSave>(bytes)
+        .map_err(|e| unreadable(SECTION_CONSIGNMENTS, &e))?;
+    let mut notes = Notes::default();
+    for c in root.note_issues().iter().flatten() {
+        let name = c.good().unwrap_or("");
+        let Some(good) = goods.iter().position(|d| d.id == name) else {
+            continue;
+        };
+        notes.issues.push(Issue {
+            id: c.id(),
+            issuer: required(c.issuer(), "a note issue's issuer")?,
+            good: u16::try_from(good)
+                .map_err(|_| LoadError::Malformed("a note issue's good".to_owned()))?,
+            kg: c.kg(),
+            count: c.count(),
+            presented: c.presented(),
+            refused: c.refused(),
+            refused_day: c.refused_day(),
+        });
+    }
+    for p in root.note_purses().iter().flatten() {
+        if notes.issue(p.issue()).is_none() {
+            continue;
+        }
+        let holder = required(p.holder(), "a note purse's holder")?;
+        match notes.purses.last_mut() {
+            Some(last) if last.holder == holder => last.counts.push((p.issue(), p.count())),
+            _ => notes.purses.push(civ_agents::coin::Purse {
+                holder,
+                counts: vec![(p.issue(), p.count())],
+            }),
+        }
+    }
+    Ok(notes)
 }
 
 /// The loads in transit saved in `bytes`. A good the loaded content no longer has is let go.
@@ -12807,6 +13198,48 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
     };
     let calls = fbb.create_vector(&calls_of(false));
     let birth_calls = fbb.create_vector(&calls_of(true));
+    // Calls to inoculate (schema 199, M10c slice ED).
+    let inoculation_calls: Vec<_> = people
+        .sickness
+        .inoculation_calls
+        .iter()
+        .map(|c| save::CareCallSave::new(c.caller.get(), c.carer.get(), c.fee_kcal, c.day, c.paid))
+        .collect();
+    let inoculation_calls = fbb.create_vector(&inoculation_calls);
+    // Those vaccinated (schema 200, M10c slice ED, third part).
+    let vaccinated: Vec<_> = people
+        .sickness
+        .vaccinated
+        .iter()
+        .map(|v| {
+            let disease = fbb.create_string(
+                rules
+                    .catalog
+                    .diseases
+                    .get(usize::from(v.disease))
+                    .map_or("", |d| d.id.as_str()),
+            );
+            save::VaccinatedSave::create(
+                &mut fbb,
+                &save::VaccinatedSaveArgs {
+                    person: v.person.get(),
+                    disease: Some(disease),
+                    day: v.day,
+                    full_until: v.full_until,
+                    by: v.by.map_or(0, |b| b.get()),
+                },
+            )
+        })
+        .collect();
+    let vaccinated = fbb.create_vector(&vaccinated);
+    // The registers of the sick (schema 203, M10c slice EE, second part).
+    let register: Vec<_> = people
+        .sickness
+        .register
+        .iter()
+        .map(|r| save::RegisterSave::new(r.polity.get(), r.day, r.household.get(), r.kind))
+        .collect();
+    let register = fbb.create_vector(&register);
     let attended: Vec<_> = people
         .sickness
         .attended
@@ -12821,6 +13254,52 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
         .map(|(p, &d)| save::TendedSave::new(p.get(), d))
         .collect();
     let tended = fbb.create_vector(&tended);
+    // Deaths in unknowing paid care (schema 197, M10c slice EC, third part).
+    let unknowing: Vec<_> = people
+        .sickness
+        .unknowing
+        .iter()
+        .map(|u| {
+            let disease = fbb.create_string(
+                rules
+                    .catalog
+                    .diseases
+                    .get(usize::from(u.disease))
+                    .map_or("", |d| d.id.as_str()),
+            );
+            save::UnknowingSave::create(
+                &mut fbb,
+                &save::UnknowingSaveArgs {
+                    household: u.household.get(),
+                    disease: Some(disease),
+                    day: u.day,
+                },
+            )
+        })
+        .collect();
+    let unknowing = fbb.create_vector(&unknowing);
+    // Those lying in sickhouses, and today's carers there (schema 207, M10c slice EE, fourth
+    // part).
+    let admitted: Vec<_> = people
+        .sickness
+        .admitted
+        .iter()
+        .map(|a| save::AdmittedSave::new(a.person.get(), a.building.get(), a.day))
+        .collect();
+    let admitted = fbb.create_vector(&admitted);
+    let staffed: Vec<_> = people
+        .staffed
+        .iter()
+        .map(|&(p, b)| save::StaffedSave::new(p.get(), b.get()))
+        .collect();
+    let staffed = fbb.create_vector(&staffed);
+    // Today's company kept (schema 198, M10c slice ED).
+    let met: Vec<_> = people
+        .met
+        .iter()
+        .map(|&(a, b, h)| save::CompanySave::new(a.get(), b.get(), h))
+        .collect();
+    let met = fbb.create_vector(&met);
     let root = save::SicknessSave::create(
         &mut fbb,
         &save::SicknessSaveArgs {
@@ -12830,6 +13309,13 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
             tended: Some(tended),
             birth_calls: Some(birth_calls),
             attended: Some(attended),
+            unknowing: Some(unknowing),
+            met: Some(met),
+            admitted: Some(admitted),
+            staffed: Some(staffed),
+            inoculation_calls: Some(inoculation_calls),
+            vaccinated: Some(vaccinated),
+            register: Some(register),
         },
     );
     finish(fbb, root)
@@ -13704,6 +14190,42 @@ fn validate_flood_records(
 }
 
 /// An infection of a disease the loaded content no longer has is let go.
+/// Today's company at the hearth kept for a disease passing by it (schema 198, M10c slice ED):
+/// none in older saves; a pair naming nobody is let go.
+/// Today's carers at sickhouses (schema 207): none in older saves.
+fn decode_staffed(bytes: &[u8]) -> Result<Vec<(PermanentId, PermanentId)>, LoadError> {
+    let root =
+        section_root::<save::SicknessSave>(bytes).map_err(|e| unreadable(SECTION_SICKNESS, &e))?;
+    Ok(root
+        .staffed()
+        .into_iter()
+        .flatten()
+        .filter_map(|s| {
+            Some((
+                PermanentId::from_raw(s.carer())?,
+                PermanentId::from_raw(s.building())?,
+            ))
+        })
+        .collect())
+}
+
+fn decode_met(bytes: &[u8]) -> Result<Vec<(PermanentId, PermanentId, f32)>, LoadError> {
+    let root =
+        section_root::<save::SicknessSave>(bytes).map_err(|e| unreadable(SECTION_SICKNESS, &e))?;
+    Ok(root
+        .met()
+        .into_iter()
+        .flatten()
+        .filter_map(|m| {
+            Some((
+                PermanentId::from_raw(m.a())?,
+                PermanentId::from_raw(m.b())?,
+                m.hours(),
+            ))
+        })
+        .collect())
+}
+
 fn decode_sickness(
     bytes: &[u8],
     rules: &Rules,
@@ -13815,6 +14337,88 @@ fn decode_sickness(
             day: a.day(),
             lived: a.lived(),
         });
+    }
+    // Calls to inoculate (schema 199): none in older saves.
+    for c in root.inoculation_calls().into_iter().flatten() {
+        let (Some(caller), Some(carer)) = (
+            PermanentId::from_raw(c.caller()),
+            PermanentId::from_raw(c.carer()),
+        ) else {
+            continue;
+        };
+        sickness
+            .inoculation_calls
+            .push(civ_agents::sickness::CareCall {
+                caller,
+                carer,
+                fee_kcal: c.fee_kcal(),
+                day: c.day(),
+                paid: c.paid(),
+                birth: false,
+            });
+    }
+    // Those vaccinated (schema 200): none in older saves; against a disease the loaded content no
+    // longer has, let go. Who vaccinated them (schema 201): nobody known in older saves.
+    for v in root.vaccinated().iter().flatten() {
+        let (Some(person), Some(disease)) = (
+            PermanentId::from_raw(v.person()),
+            rules.catalog.disease_index(v.disease().unwrap_or_default()),
+        ) else {
+            continue;
+        };
+        sickness.vaccinated.push(civ_agents::sickness::Vaccinated {
+            person,
+            disease: disease as u16,
+            day: v.day(),
+            full_until: v.full_until(),
+            by: PermanentId::from_raw(v.by()),
+        });
+    }
+    // Those lying in sickhouses (schema 207): none in older saves.
+    for a in root.admitted().into_iter().flatten() {
+        let (Some(person), Some(building)) = (
+            PermanentId::from_raw(a.person()),
+            PermanentId::from_raw(a.building()),
+        ) else {
+            continue;
+        };
+        sickness.admitted.push(civ_agents::sickness::Admitted {
+            person,
+            building,
+            day: a.day(),
+        });
+    }
+    // The registers of the sick (schema 203): none in older saves.
+    for r in root.register().into_iter().flatten() {
+        let (Some(polity), Some(household)) = (
+            PermanentId::from_raw(r.polity()),
+            PermanentId::from_raw(r.household()),
+        ) else {
+            continue;
+        };
+        sickness.register.push(civ_agents::sickness::RegisterEntry {
+            polity,
+            day: r.day(),
+            household,
+            kind: r.kind(),
+        });
+    }
+    // Deaths in unknowing paid care (schema 197): none in older saves; one of a disease the
+    // loaded content no longer has is let go.
+    for u in root.unknowing().iter().flatten() {
+        let (Some(household), Some(disease)) = (
+            PermanentId::from_raw(u.household()),
+            rules.catalog.disease_index(u.disease().unwrap_or_default()),
+        ) else {
+            continue;
+        };
+        sickness
+            .unknowing
+            .push(civ_agents::sickness::UnknowingCare {
+                household,
+                disease: disease as u16,
+                day: u.day(),
+            });
     }
     // Who tended the ill lately (schema 191, M10c slice EA): none in older saves.
     for t in root.tended().iter().flatten() {

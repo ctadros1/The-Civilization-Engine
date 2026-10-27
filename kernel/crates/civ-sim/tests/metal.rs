@@ -979,15 +979,77 @@ fn the_store_redeems_its_notes_from_its_grain_less_its_fee_and_refuses_beyond() 
     );
 }
 
+#[test]
+fn a_levy_taking_notes_takes_only_the_store_s_own_and_they_are_no_longer_out() {
+    // M10d slice EJ, second part: the household holds ten pieces of its store's notes, paid for
+    // work, and ten of a keeper's.
+    let (mut sim, hh, keeper) = mint_scene(3);
+    let polity = store_notes_scene(&mut sim, hh, keeper);
+    law_in_force(
+        &mut sim,
+        hh,
+        "core:policy/zealously_issue_notes",
+        None,
+        keeper,
+    );
+    let [note, grain] = ["note", "grain"].map(|g| good(&sim, &format!("core:good/{g}")));
+    sim.with_ctx_for_tests(|pop, ctx| pop.work_given_for_tests(ctx, polity, hh, 10.0));
+    let other = sim.people().person(keeper).expect("keeper").household;
+    let pop = sim.people_mut_for_tests();
+    let theirs = pop.notes.write(other, (grain, 1.0), 10.0, hh);
+    for (_, x) in pop.households.iter_mut() {
+        if x.id == hh {
+            x.stores[note] += 10.0;
+        }
+    }
+    let ours = pop
+        .notes
+        .issues
+        .iter()
+        .find(|c| c.issuer == polity)
+        .expect("the store's issue")
+        .id;
+    let (_, law) =
+        store_of_template_in_force(&mut sim, hh, "core:policy/zealously_store_grain_or_notes");
+    // Fifteen kilograms owed: it pays ten in the store's pieces, a piece a kilogram, and none in
+    // the keeper's, which the store does not take.
+    let kg =
+        sim.with_ctx_for_tests(|pop, ctx| pop.levy_in_money_for_tests(ctx, polity, law, hh, 15.0));
+    assert!((kg - 10.0).abs() < 1e-9, "{kg}");
+    let pop = sim.people();
+    assert!(pop.notes.held(hh, ours) < 1e-9);
+    assert!((pop.notes.held(hh, theirs) - 10.0).abs() < 1e-9);
+    assert!((pop.notes.held(polity, ours) - 10.0).abs() < 1e-9);
+    // Back in the store they are no longer out: it may write them again, all its ceiling.
+    let unpaid = sim.with_ctx_for_tests(|pop, ctx| pop.work_unpaid_for_tests(ctx, polity));
+    assert!(!unpaid);
+    sim.with_ctx_for_tests(|pop, ctx| pop.work_given_for_tests(ctx, polity, hh, 1000.0));
+    let c = sim.people().notes.issue(ours).expect("issue").count;
+    assert!(
+        (c - 1000.0).abs() < 1e-6,
+        "pieces re-paid before any is written: {c}"
+    );
+}
+
 /// Polity `hh`'s settlement's: the core common store in force at a tenth of each harvest, known to
 /// `hh`'s members (M7d slice CE3b). Returns the polity's id and the law's.
 fn common_store_in_force(sim: &mut Sim, hh: PermanentId) -> (PermanentId, PermanentId) {
+    store_of_template_in_force(sim, hh, "core:policy/common_store")
+}
+
+/// Polity `hh`'s settlement's: a common store of core template `template` in force at a tenth of
+/// each harvest, known to `hh`'s members. Returns the polity's id and the law's.
+fn store_of_template_in_force(
+    sim: &mut Sim,
+    hh: PermanentId,
+    template: &str,
+) -> (PermanentId, PermanentId) {
     let sponsor = sim
         .people()
         .household(hh)
         .and_then(|x| x.members.first().copied())
         .expect("a member");
-    let polity = law_in_force(sim, hh, "core:policy/common_store", None, sponsor);
+    let polity = law_in_force(sim, hh, template, None, sponsor);
     let members = sim
         .people()
         .household(hh)

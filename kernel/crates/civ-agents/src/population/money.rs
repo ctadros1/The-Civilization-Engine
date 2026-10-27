@@ -231,6 +231,35 @@ impl Population {
         levy + owed
     }
 
+    /// What household `hh` holds of money `good` that its store, polity `polity`'s, takes for
+    /// dues: of notes, only the pieces of the polity's own issue (M10d slice EJ, second part).
+    pub(super) fn dues_held(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        good: usize,
+        polity: PermanentId,
+    ) -> f64 {
+        let note = ctx
+            .catalog
+            .goods
+            .get(good)
+            .and_then(|g| g.money.as_ref())
+            .is_some_and(|m| m.note);
+        let held = hh.stores.get(good).copied().unwrap_or(0.0).max(0.0);
+        if !note {
+            return held;
+        }
+        let own: f64 = self
+            .notes
+            .issues
+            .iter()
+            .filter(|c| c.issuer == polity)
+            .map(|c| self.notes.held(hh.id, c.id))
+            .sum();
+        own.min(held)
+    }
+
     /// The money polity `pi`'s common store in force takes and its rate, if one does.
     fn store_medium(&self, ctx: &Ctx, pi: usize) -> Option<crate::polity::MediumDef> {
         self.polities[pi]
@@ -279,7 +308,7 @@ impl Population {
         let Some(hh) = self.household(ob.debtor) else {
             return 0.0;
         };
-        let held = hh.stores.get(m.good).copied().unwrap_or(0.0).max(0.0);
+        let held = self.dues_held(ctx, hh, m.good, ob.beneficiary);
         let left = ob.left_kcal();
         if held <= 1e-9 || per_piece <= 0.0 || left <= 1.0 {
             return 0.0;

@@ -1,0 +1,32 @@
+# A common store whose levy may be paid in the polity's own notes (M10d slice EJ, second part;
+# ADR-0035 §10; brief m10-money §5: dues in notes, the `[medium]` table naming the note good;
+# research 08-06 §1.4: an authority that accepts a medium for its dues makes it more useful). As
+# the common store, a share of every household's threshed grain goes into a store kept at the
+# hearth, and a household short of food may ask it for some; but the levy, and a fine or ground
+# rent owed the store, may be paid in notes, a piece for each kilogram of grain owed. Only pieces
+# of the polity's own issue pay it, which the store takes back first, and which are no longer
+# out once in the store. A household pays in them what it holds when their other uses are worth
+# less to it than the grain; and under the law a piece of its store's notes is worth at least the
+# kilogram it pays for. The rate is a tuning value, about par with what a piece is redeemed for.
+# Whether anyone proposes it, and at which share, and whether a gathering passes it, is people's
+# choice. Its id sorts after every older template's: hearth talk about a question and a saved
+# law are keyed by a template's place in id order, so an id sorting earlier would shift theirs.
+kind = "policy"
+id = "core:policy/zealously_store_grain_or_notes"
+name = "Common store taking notes"
+description = "A share of each harvest goes into a store at the hearth, payable in the store's own notes."
+does = "common_store"
+answers = ["food_short"]
+question = "whether to keep a common store whose levy its own notes may pay"
+levy_shares = [0.05, 0.1, 0.2]
+relief_days = 5.0
+
+[medium]
+good = "core:good/note"
+per_kg = 1.0
+
+# An authoring judgement, not a measurement: as for the common store.
+[bears]
+"core:value/security" = 1.0
+"core:value/autonomy" = -0.5
+"core:value/reciprocity" = 0.5

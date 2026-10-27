@@ -2671,6 +2671,7 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         "core:policy/zealously_hear_the_bearer",
         "core:policy/zealously_issue_notes",
         "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_store_grain_or_notes",
     ];
     assert!(
         reg.catalog
@@ -2706,6 +2707,7 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
         "core:policy/zealously_hear_the_bearer",
         "core:policy/zealously_issue_notes",
         "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_store_grain_or_notes",
     ];
     assert!(
         reg.catalog
@@ -2782,6 +2784,7 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
         "core:policy/zealously_hear_the_bearer",
         "core:policy/zealously_issue_notes",
         "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_store_grain_or_notes",
     ];
     assert!(
         reg.catalog
@@ -2816,6 +2819,7 @@ fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
         "core:policy/zealously_hear_the_bearer",
         "core:policy/zealously_issue_notes",
         "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_store_grain_or_notes",
     ];
     assert!(
         reg.catalog
@@ -2861,6 +2865,7 @@ fn the_core_lets_a_polity_name_a_health_officer_who_can_write() {
         "core:policy/zealously_hear_the_bearer",
         "core:policy/zealously_issue_notes",
         "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_store_grain_or_notes",
     ];
     assert!(
         reg.catalog
@@ -2900,6 +2905,7 @@ fn the_core_lets_a_polity_clear_middens_from_the_water() {
         "core:policy/zealously_hear_the_bearer",
         "core:policy/zealously_issue_notes",
         "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_store_grain_or_notes",
     ];
     assert!(
         reg.catalog
@@ -2933,6 +2939,7 @@ fn the_core_lets_a_polity_raise_a_sickhouse_where_the_sick_lay_untended() {
         "core:policy/zealously_hear_the_bearer",
         "core:policy/zealously_issue_notes",
         "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_store_grain_or_notes",
     ];
     assert!(
         reg.catalog
@@ -3106,6 +3113,9 @@ fn policy_templates_keep_their_places() {
         "core:policy/yourselves_yonder_with_middens",
         "core:policy/yourselves_zone_a_sickhouse",
         "core:policy/zealously_hear_the_bearer",
+        "core:policy/zealously_issue_notes",
+        "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_store_grain_or_notes",
     ];
     assert!(
         ids.starts_with(&kept),

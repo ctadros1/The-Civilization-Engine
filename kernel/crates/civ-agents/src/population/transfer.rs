@@ -467,12 +467,20 @@ impl Population {
             // issuer's door a holder presents those of the issue it redeems, moved by the caller.
             if channel != Channel::Redeemed && goods[l.good].money.as_ref().is_some_and(|m| m.note)
             {
-                // Those it believes least that their keepers pay, of least worth, first.
+                // Those it believes least that their keepers pay, of least worth, first; to their
+                // issuer, its own first, which it surely takes (M10d slice EJ, second part).
                 let worth: Vec<(u32, f64)> = self
                     .notes
                     .issues
                     .iter()
-                    .map(|c| (c.id, Self::note_belief(c) * f64::from(c.kg)))
+                    .map(|c| {
+                        let w = if c.issuer == l.to {
+                            -1.0
+                        } else {
+                            Self::note_belief(c) * f64::from(c.kg)
+                        };
+                        (c.id, w)
+                    })
                     .collect();
                 let worth = |issue: u32| {
                     worth

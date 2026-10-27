@@ -7547,6 +7547,20 @@ and M6a gives rivers a daily flow.
       paid and does not suspend; the templates load with their terms. **Not built yet:** dues in
       notes (part 2); legal tender, suspended redemption and the fiat label, and the observer of a
       store's notes (part 3).
+      *As built, second part (2026-10-27): dues in notes.* A common store template whose
+      `[medium]` names the note good (`zealously_store_grain_or_notes`, a piece for each
+      kilogram of grain owed; brief §5, research 08-06 §1.4): its levy, and a fine or ground rent
+      owed the store, may be paid in notes, but only in pieces of the polity's own issue; another
+      keeper's notes pay none of it. Any payment of notes to their issuer now gives it its own
+      pieces first, which it surely takes. Pieces back in the store are no longer out, so the
+      store pays them for work again before it writes any more. A household pays in them what it
+      holds when their other uses are worth less to it than the grain, as with coin, and the
+      levy's floor under a piece is the content's existing `levy_floor`. **Tested:** a household
+      holding ten of its store's pieces and ten of a keeper's owes fifteen kilograms: it pays ten
+      in the store's and none in the keeper's; the store holds its ten, may write its whole
+      ceiling again, and pays them first for work. **Not built:** the levy floor counts all notes
+      a household holds, not only its store's issue, so a household holding only a keeper's
+      notes under such a levy values them at the floor too.
     - **EK**: counterfeiting.
     - **EL**: the M10 demo, time-boxed, nudges logged.
 

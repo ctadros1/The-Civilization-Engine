@@ -5312,7 +5312,7 @@ impl Population {
         let Some(hh) = self.household(household) else {
             return 0.0;
         };
-        let held = hh.stores.get(m.good).copied().unwrap_or(0.0).max(0.0);
+        let held = self.dues_held(ctx, hh, m.good, self.polities[pi].id);
         if held <= 1e-9 || per_kg <= 0.0 || owed <= 1e-9 {
             return 0.0;
         }

@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 197
+kernel_content_api = 198
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2671,6 +2671,8 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         "core:policy/zealously_hear_the_bearer",
         "core:policy/zealously_issue_notes",
         "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_tender_notes",
+        "core:policy/zealously_withhold_redemption",
     ];
     assert!(
         reg.catalog
@@ -2706,6 +2708,8 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
         "core:policy/zealously_hear_the_bearer",
         "core:policy/zealously_issue_notes",
         "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_tender_notes",
+        "core:policy/zealously_withhold_redemption",
     ];
     assert!(
         reg.catalog
@@ -2782,6 +2786,8 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
         "core:policy/zealously_hear_the_bearer",
         "core:policy/zealously_issue_notes",
         "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_tender_notes",
+        "core:policy/zealously_withhold_redemption",
     ];
     assert!(
         reg.catalog
@@ -2816,6 +2822,8 @@ fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
         "core:policy/zealously_hear_the_bearer",
         "core:policy/zealously_issue_notes",
         "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_tender_notes",
+        "core:policy/zealously_withhold_redemption",
     ];
     assert!(
         reg.catalog
@@ -2861,6 +2869,8 @@ fn the_core_lets_a_polity_name_a_health_officer_who_can_write() {
         "core:policy/zealously_hear_the_bearer",
         "core:policy/zealously_issue_notes",
         "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_tender_notes",
+        "core:policy/zealously_withhold_redemption",
     ];
     assert!(
         reg.catalog
@@ -2900,6 +2910,8 @@ fn the_core_lets_a_polity_clear_middens_from_the_water() {
         "core:policy/zealously_hear_the_bearer",
         "core:policy/zealously_issue_notes",
         "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_tender_notes",
+        "core:policy/zealously_withhold_redemption",
     ];
     assert!(
         reg.catalog
@@ -2933,6 +2945,8 @@ fn the_core_lets_a_polity_raise_a_sickhouse_where_the_sick_lay_untended() {
         "core:policy/zealously_hear_the_bearer",
         "core:policy/zealously_issue_notes",
         "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_tender_notes",
+        "core:policy/zealously_withhold_redemption",
     ];
     assert!(
         reg.catalog
@@ -3108,6 +3122,8 @@ fn policy_templates_keep_their_places() {
         "core:policy/zealously_hear_the_bearer",
         "core:policy/zealously_issue_notes",
         "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_tender_notes",
+        "core:policy/zealously_withhold_redemption",
     ];
     assert!(
         ids.starts_with(&kept),
@@ -3156,6 +3172,14 @@ fn a_store_issues_notes_redeemable_for_grain_and_pays_work_in_them() {
     let pay = find("core:policy/zealously_pay_work_in_notes");
     assert_eq!(pay.kind, PolicyKind::PayWork);
     assert_eq!(pay.answers, vec![IssueKind::WorkUnpaid]);
+    // Third part: legal tender answers loans unpaid; redemption suspended answers the store's
+    // refusals.
+    let tender = find("core:policy/zealously_tender_notes");
+    assert_eq!(tender.kind, PolicyKind::LegalTender);
+    assert_eq!(tender.answers, vec![IssueKind::DebtsUnpaid]);
+    let suspend = find("core:policy/zealously_withhold_redemption");
+    assert_eq!(suspend.kind, PolicyKind::SuspendRedemption);
+    assert_eq!(suspend.answers, vec![IssueKind::StoreNotesRefused]);
     assert_eq!(
         c.goods[pay.pay.expect("its rate").good].id,
         "core:good/note"

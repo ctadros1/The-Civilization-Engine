@@ -1551,6 +1551,8 @@ impl PolicyFile {
                 | PolicyKind::ClearMiddens
                 | PolicyKind::BearerHeard
                 | PolicyKind::IssueNotes
+                | PolicyKind::LegalTender
+                | PolicyKind::SuspendRedemption
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
@@ -1625,6 +1627,8 @@ impl PolicyFile {
                 | PolicyKind::ClearMiddens
                 | PolicyKind::BearerHeard
                 | PolicyKind::IssueNotes
+                | PolicyKind::LegalTender
+                | PolicyKind::SuspendRedemption
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding,
             )

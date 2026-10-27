@@ -132,8 +132,8 @@ use super::{
     SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, SCHEMA_V194,
     SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, SCHEMA_V199, SCHEMA_V200, SCHEMA_V201,
     SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, SCHEMA_V205, SCHEMA_V206, SCHEMA_V207, SCHEMA_V208,
-    SCHEMA_V209, SCHEMA_V210, SCHEMA_V211, SCHEMA_V212, SCHEMA_V213, SCHEMA_V214, finish, section,
-    section_root, single_chunk, unreadable,
+    SCHEMA_V209, SCHEMA_V210, SCHEMA_V211, SCHEMA_V212, SCHEMA_V213, SCHEMA_V214, SCHEMA_V215,
+    finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -917,7 +917,7 @@ pub(super) fn decode<R: Read + Seek>(
         | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SCHEMA_V196 | SCHEMA_V197
         | SCHEMA_V198 | SCHEMA_V199 | SCHEMA_V200 | SCHEMA_V201 | SCHEMA_V202 | SCHEMA_V203
         | SCHEMA_V204 | SCHEMA_V205 | SCHEMA_V206 | SCHEMA_V207 | SCHEMA_V208 | SCHEMA_V209
-        | SCHEMA_V210 | SCHEMA_V211 | SCHEMA_V212 | SCHEMA_V213 | SCHEMA_V214
+        | SCHEMA_V210 | SCHEMA_V211 | SCHEMA_V212 | SCHEMA_V213 | SCHEMA_V214 | SCHEMA_V215
         | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
@@ -2379,6 +2379,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::Untended => 36,
         IssueKind::NotesRefused => 37,
         IssueKind::WorkUnpaid => 38,
+        IssueKind::StoreNotesRefused => 39,
     }
 }
 
@@ -2524,6 +2525,7 @@ fn decode_polities(
                 36 => IssueKind::Untended,
                 37 => IssueKind::NotesRefused,
                 38 => IssueKind::WorkUnpaid,
+                39 => IssueKind::StoreNotesRefused,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {

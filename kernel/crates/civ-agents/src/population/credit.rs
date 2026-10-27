@@ -475,6 +475,10 @@ impl Population {
                     continue;
                 }
             }
+            // Under legal tender it pays in the store's notes first what they are worth less to
+            // it than the good (M10d slice EJ, third part).
+            self.tender_on_loan(ctx, i);
+            let c = self.order.credit.claims[i].clone();
             let pay = c.left().min(self.can_give(ctx, c.debtor, good));
             if self.pay_loan(ctx, c.debtor, c.creditor, good, pay) {
                 self.order.credit.claims[i].paid += pay as f32;

@@ -428,6 +428,26 @@ impl Population {
         })
     }
 
+    /// Whether polity `issuer`'s store pays none of its own notes, under a law of redemption
+    /// suspended in force (M10d slice EJ, third part); false for any other issuer.
+    pub fn store_suspends(&self, issuer: PermanentId) -> bool {
+        self.polities.iter().any(|p| {
+            p.id == issuer
+                && p.laws.iter().any(|l| {
+                    l.status == LawStatus::InForce && l.kind == PolicyKind::SuspendRedemption
+                })
+        })
+    }
+
+    /// Whether a law of legal tender is in force in polity `pi` (M10d slice EJ, third part).
+    pub fn tender_in_force(&self, pi: usize) -> bool {
+        self.polities.get(pi).is_some_and(|p| {
+            p.laws
+                .iter()
+                .any(|l| l.status == LawStatus::InForce && l.kind == PolicyKind::LegalTender)
+        })
+    }
+
     /// Polity `pi`'s own notes as a medium of what is owed its store, under a law of notes issued
     /// in force that has its store take them (M10d slice EJ, second part): only pieces of its own
     /// issue, at the law's rate.

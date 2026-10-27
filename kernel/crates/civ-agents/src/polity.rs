@@ -202,11 +202,21 @@ pub enum PolicyKind {
     /// ([`NotesDef`]), each redeemable at the store for so much of a good less a fee, or not at
     /// all. A store issues only to spend: what it spends them on is pay for common work.
     IssueNotes,
+    /// Legal tender (M10d slice EJ, third part; ADR-0035 §10; brief m10-money §5): a creditor of
+    /// the polity of a loan in a good must take the polity's own notes for it, at the rate its
+    /// store takes them for dues, so a debtor pays in them what they are worth less to it than
+    /// the good.
+    LegalTender,
+    /// Redemption suspended (M10d slice EJ, third part; ADR-0035 §10; brief m10-money §5): the
+    /// store pays none of its own notes in the good they promise while the law is in force; what
+    /// they buy and what dues they pay remain. A store's notes nobody may redeem are what the
+    /// observer calls fiat.
+    SuspendRedemption,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 41] = [
+    pub const ALL: [PolicyKind; 43] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -248,6 +258,8 @@ impl PolicyKind {
         PolicyKind::ClearMiddens,
         PolicyKind::BearerHeard,
         PolicyKind::IssueNotes,
+        PolicyKind::LegalTender,
+        PolicyKind::SuspendRedemption,
     ];
 
     /// The authored name.
@@ -294,6 +306,8 @@ impl PolicyKind {
             PolicyKind::ClearMiddens => "clear_middens",
             PolicyKind::BearerHeard => "bearer_heard",
             PolicyKind::IssueNotes => "issue_notes",
+            PolicyKind::LegalTender => "legal_tender",
+            PolicyKind::SuspendRedemption => "suspend_redemption",
         }
     }
 
@@ -437,11 +451,14 @@ pub enum IssueKind {
     /// The store could not pay an hour of the common work a law of its asks under its law of pay
     /// for common work, for want of what it pays in (M10d slice EJ): what issuing notes answers.
     WorkUnpaid,
+    /// The store refused pieces of its own notes presented for the good they promise, for want
+    /// of it, within the month (M10d slice EJ, third part): what suspending redemption answers.
+    StoreNotesRefused,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 39] = [
+    pub const ALL: [IssueKind; 40] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -481,6 +498,7 @@ impl IssueKind {
         IssueKind::Untended,
         IssueKind::NotesRefused,
         IssueKind::WorkUnpaid,
+        IssueKind::StoreNotesRefused,
     ];
 
     /// The authored name.
@@ -525,6 +543,7 @@ impl IssueKind {
             IssueKind::Untended => "untended",
             IssueKind::NotesRefused => "notes_refused",
             IssueKind::WorkUnpaid => "work_unpaid",
+            IssueKind::StoreNotesRefused => "store_notes_refused",
         }
     }
 
@@ -602,6 +621,9 @@ impl IssueKind {
                 "notes their households held were refused at the keeper's door"
             }
             IssueKind::WorkUnpaid => "the store could not pay for the common work it asked",
+            IssueKind::StoreNotesRefused => {
+                "the store could not pay its notes in the good they promise"
+            }
         }
     }
 }
@@ -2123,6 +2145,8 @@ pub fn ending_words(
         Some(PolicyKind::ClearMiddens) => "the clearing of middens from the water".to_owned(),
         Some(PolicyKind::BearerHeard) => "the hearing of refused notes".to_owned(),
         Some(PolicyKind::IssueNotes) => "the store's notes".to_owned(),
+        Some(PolicyKind::LegalTender) => "the store's notes as legal tender".to_owned(),
+        Some(PolicyKind::SuspendRedemption) => "the suspension of the store's notes".to_owned(),
         Some(PolicyKind::Licence) => "the licence to tend the sick for pay".to_owned(),
         Some(PolicyKind::KeepApart) => "the keeping apart of the sick".to_owned(),
         Some(PolicyKind::AgainstTaking) => "the law against taking".to_owned(),

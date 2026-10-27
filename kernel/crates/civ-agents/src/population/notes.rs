@@ -99,6 +99,10 @@ impl Population {
         if c.issuer == hh.id {
             return (cost > 0.0 && !hh.members.is_empty()).then_some(kg * cost);
         }
+        // Notes nobody may redeem pay nothing at the door (M10d slice EJ, third part).
+        if self.store_suspends(c.issuer) {
+            return None;
+        }
         let door = self.issuer_door(ctx, c.issuer, hh.settlement)?;
         let metres = f64::from(door.0 - hh.home.0).hypot(f64::from(door.1 - hh.home.1));
         let walk_h = 2.0 * metres / WALK_M_S / 3600.0 / NOTE_CARRY;
@@ -174,7 +178,7 @@ impl Population {
             };
             // Notes nobody redeems are not presented (M10d slice EJ).
             let at_door = self.issuer_door(ctx, c.issuer, hh.settlement).is_some();
-            if !at_door || c.issuer == hh.id || c.kg <= 0.0 {
+            if !at_door || c.issuer == hh.id || c.kg <= 0.0 || self.store_suspends(c.issuer) {
                 continue;
             }
             // Its settlement heard the keeper refuse lately, or a debtor of its loans in them
@@ -320,6 +324,188 @@ impl Population {
             c.lent += pieces;
         }
         true
+    }
+
+    /// What suspending the redemption of polity `pi`'s store's notes would bring each of
+    /// `households` and cost it, kcal, in household order (M10d slice EJ, third part): its share
+    /// of the good the store would no longer pay out for the pieces out of it, and the good its
+    /// own pieces would no longer fetch.
+    pub(super) fn suspend_stakes(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        households: &[PermanentId],
+    ) -> Vec<(PermanentId, f64, f64)> {
+        let goods = &ctx.catalog.goods;
+        let polity = self.polities[pi].id;
+        let mut out: Vec<(PermanentId, f64, f64)> =
+            households.iter().map(|&h| (h, 0.0, 0.0)).collect();
+        out.sort_by_key(|x| x.0);
+        let n = out.len().max(1) as f64;
+        for c in self.notes.issues.iter().filter(|c| c.issuer == polity) {
+            let kcal = f64::from(c.kg)
+                * goods
+                    .get(usize::from(c.good))
+                    .map_or(0.0, |g| g.kcal_per_kg);
+            let out_of_store = (c.count - self.notes.held(polity, c.id)).max(0.0);
+            for x in &mut out {
+                x.1 += out_of_store * kcal / n;
+                x.2 += self.notes.held(x.0, c.id) * kcal;
+            }
+        }
+        out
+    }
+
+    /// What legal tender in polity `pi` would bring each of `households` as a debtor and cost it
+    /// as a creditor, kcal, in household order (M10d slice EJ, third part): for each loan open
+    /// between them, the good the debtor could pay in the store's notes it holds, at the rate its
+    /// store takes them, times how much less the notes are worth to it than the good.
+    pub(super) fn tender_stakes(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        households: &[PermanentId],
+    ) -> Vec<(PermanentId, f64, f64)> {
+        let goods = &ctx.catalog.goods;
+        let mut out: Vec<(PermanentId, f64, f64)> =
+            households.iter().map(|&h| (h, 0.0, 0.0)).collect();
+        out.sort_by_key(|x| x.0);
+        let Some(m) = self.notes_dues_medium(ctx, pi) else {
+            return out;
+        };
+        let polity = self.polities[pi].id;
+        let per_kg = f64::from(m.per_kg);
+        for c in self
+            .order
+            .credit
+            .claims
+            .iter()
+            .filter(|c| c.standing == crate::credit::Standing::Open)
+        {
+            let Some(hh) = self.household(c.debtor) else {
+                continue;
+            };
+            let good = usize::from(c.good);
+            let held = self.dues_held(ctx, hh, m.good, polity);
+            let kg = c.left().min(held / per_kg);
+            if kg <= 1e-9 || per_kg <= 0.0 {
+                continue;
+            }
+            let costs = self.own_costs_of(ctx, hh);
+            let good_h = costs.get(good).copied().flatten().unwrap_or(0.0);
+            let unit_h = self
+                .pay_worth_raw(ctx, hh, m.good, costs.get(m.good).copied().flatten(), held)
+                .unwrap_or(0.0);
+            if good_h <= 0.0 {
+                continue;
+            }
+            let discount = (1.0 - unit_h * per_kg / good_h).clamp(0.0, 1.0);
+            let kcal = kg * goods.get(good).map_or(0.0, |g| g.kcal_per_kg) * discount;
+            if let Ok(i) = out.binary_search_by_key(&c.debtor, |x| x.0) {
+                out[i].1 += kcal;
+            }
+            if let Ok(i) = out.binary_search_by_key(&c.creditor, |x| x.0) {
+                out[i].2 += kcal;
+            }
+        }
+        out
+    }
+
+    /// Under legal tender in the creditor's polity (M10d slice EJ, third part), the debtor of
+    /// loan `i` pays what it can of it in the store's own notes first, when they are worth less
+    /// to it than the good, at the rate its store takes them; the creditor must take them.
+    /// Returns the kilograms of the good paid so.
+    pub(super) fn tender_on_loan(&mut self, ctx: &Ctx, i: usize) -> f64 {
+        let c = self.order.credit.claims[i].clone();
+        let Some(pi) = self
+            .household(c.creditor)
+            .and_then(|x| x.settlement)
+            .and_then(|s| self.polity_of(s))
+        else {
+            return 0.0;
+        };
+        if !self.tender_in_force(pi) {
+            return 0.0;
+        }
+        let Some(m) = self.notes_dues_medium(ctx, pi) else {
+            return 0.0;
+        };
+        let polity = self.polities[pi].id;
+        let Some(hh) = self.household(c.debtor) else {
+            return 0.0;
+        };
+        let per_kg = f64::from(m.per_kg);
+        let held = self.dues_held(ctx, hh, m.good, polity);
+        let left = c.left();
+        if held <= 1e-9 || per_kg <= 0.0 || left <= 1e-9 {
+            return 0.0;
+        }
+        let good = usize::from(c.good);
+        let costs = self.own_costs_of(ctx, hh);
+        let good_h = costs.get(good).copied().flatten().unwrap_or(0.0);
+        let unit_h = self
+            .pay_worth_raw(ctx, hh, m.good, costs.get(m.good).copied().flatten(), held)
+            .unwrap_or(0.0);
+        if unit_h * per_kg >= good_h {
+            return 0.0;
+        }
+        let units = (left * per_kg).min(held);
+        let before: Vec<(u32, f64)> = self
+            .notes
+            .purse(c.debtor)
+            .map(|p| p.counts.clone())
+            .unwrap_or_default();
+        let leg = Leg {
+            from: c.debtor,
+            to: c.creditor,
+            good: m.good,
+            amount: units,
+        };
+        if !self.transfer(
+            ctx.now,
+            ctx.params,
+            &ctx.catalog.goods,
+            &[leg],
+            Channel::Repaid,
+        ) {
+            return 0.0;
+        }
+        // Only the store's own pieces are tender: any other issue's that moved go back, and as
+        // many of the store's go instead.
+        let mut wrong = 0.0;
+        for (id, b) in before {
+            let moved = b - self.notes.held(c.debtor, id);
+            let own = self.notes.issue(id).is_some_and(|x| x.issuer == polity);
+            if moved > 1e-9 && !own {
+                self.notes.give_issue(c.creditor, c.debtor, id, moved);
+                wrong += moved;
+            }
+        }
+        let own: Vec<u32> = self
+            .notes
+            .issues
+            .iter()
+            .filter(|x| x.issuer == polity)
+            .map(|x| x.id)
+            .collect();
+        for id in own {
+            if wrong <= 1e-9 {
+                break;
+            }
+            let n = wrong.min(self.notes.held(c.debtor, id));
+            self.notes.give_issue(c.debtor, c.creditor, id, n);
+            wrong -= n;
+        }
+        let kg = units / per_kg;
+        self.order.credit.claims[i].paid += kg as f32;
+        kg
+    }
+
+    /// The debtor of loan `i` pays what it would of it in notes under legal tender
+    /// ([`Self::tender_on_loan`]): for tests. Returns the kilograms paid so.
+    #[doc(hidden)]
+    pub fn tender_on_loan_for_tests(&mut self, ctx: &Ctx, i: usize) -> f64 {
+        self.tender_on_loan(ctx, i)
     }
 
     /// What keeper household `household` may lend in its notes ([`Self::note_lending`]): for

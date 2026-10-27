@@ -116,6 +116,12 @@ pub(super) struct Forecasts {
     /// by template index and then household id (M10d slice EJ): its share of the template's
     /// ceiling, at what a piece would pay it, at what its hours bring in food.
     store_notes: Vec<(u16, Vec<(PermanentId, f64)>)>,
+    /// What suspending its store's redemption would bring each household and cost it, kcal, by
+    /// household id (M10d slice EJ, third part).
+    suspend: Vec<(PermanentId, f64, f64)>,
+    /// What legal tender would bring each household as a debtor and cost it as a creditor,
+    /// kcal, by household id (M10d slice EJ, third part).
+    tender: Vec<(PermanentId, f64, f64)>,
     /// What a school would spare each household that could not send a child to learn within the
     /// year, kcal, by household id (M10c slice EB, third part).
     schooling: Vec<(PermanentId, f64)>,
@@ -804,6 +810,19 @@ impl Forecasts {
                 let counted = kg / 2.0 * pieces * piece_h;
                 crate::polity::kept_gain(o, (kg * saved_h + counted) * kcal, pp)
                     - crate::polity::levy_cost(o, work, pp)
+            }
+            // Redemption suspended and legal tender (M10d slice EJ, third part): what it keeps
+            // or saves against what it loses.
+            Some(k @ (PolicyKind::SuspendRedemption | PolicyKind::LegalTender)) => {
+                let stakes = if k == PolicyKind::SuspendRedemption {
+                    &self.suspend
+                } else {
+                    &self.tender
+                };
+                let (to, from) = stakes
+                    .binary_search_by_key(&h, |d| d.0)
+                    .map_or((0.0, 0.0), |i| (stakes[i].1, stakes[i].2));
+                crate::polity::against_gain(o, to, from, pp)
             }
             // Notes issued (M10d slice EJ): the household's share of the pieces the store may
             // write, as it would value them.
@@ -1895,6 +1914,8 @@ impl Population {
             count_piece_h,
             pay: self.pay_forecasts(ctx, pi, households),
             store_notes: self.store_notes_forecasts(ctx, pi, households),
+            suspend: self.suspend_stakes(ctx, pi, households),
+            tender: self.tender_stakes(ctx, pi, households),
             schooling: self.schooling(ctx, households, adults),
             licences: self.licence_forecasts(ctx, households),
             keep_apart: self.keep_apart_forecasts(ctx, households, adults),
@@ -2896,6 +2917,14 @@ impl Population {
         {
             issues.push(IssueKind::NotesRefused);
         }
+        // Its store refused its own notes within the month (M10d slice EJ, third part).
+        let id = self.polities[pi].id;
+        let day = ctx.now.day_index();
+        if self.notes.issues.iter().any(|c| {
+            c.issuer == id && c.refused_day >= 0 && day - c.refused_day <= super::custody::FEE_DAYS
+        }) {
+            issues.push(IssueKind::StoreNotesRefused);
+        }
         let polity = &self.polities[pi];
         // A watch may have one more while takings continue (M4c slice AI: a watch of several):
         // food taken from a household here since the newest watcher was named.
@@ -3409,6 +3438,14 @@ impl Population {
                     PolicyKind::LendFromStore => moves.push(blank),
                     // Pay for common work (M7d slice CE3a): one law, its rate the template's.
                     PolicyKind::PayWork => moves.push(blank),
+                    // Legal tender and redemption suspended (M10d slice EJ, third part): one law;
+                    // legal tender only where the store takes its own notes for dues.
+                    PolicyKind::LegalTender => {
+                        if self.notes_dues_medium(ctx, pi).is_some() {
+                            moves.push(blank);
+                        }
+                    }
+                    PolicyKind::SuspendRedemption => moves.push(blank),
                     // Debts heard (M7d slice CB): one law, its remedy the template's; it
                     // replaces a law of debts heard of another template in force.
                     // Bearer heard likewise (M10d slice EI, third part), and notes issued (slice

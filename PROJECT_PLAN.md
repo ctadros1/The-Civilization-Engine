@@ -7563,6 +7563,27 @@ and M6a gives rivers a daily flow.
       the store's and none in the keeper's; the store holds its ten, may write its whole ceiling
       again, and pays them first for work; the template's term loads. **Not built:** the levy
       floor counts all notes a household holds, not only its store's issue.
+      *As built, third part (2026-10-27): legal tender, redemption suspended, fiat; EJ done.*
+      Two appended policy kinds and templates (content API 198; ADR-0035 §10; brief §5) and an
+      appended issue (saves 216). *Redemption suspended* answers *the store's notes refused*
+      (it refused pieces of its own notes for want of their good within the month): while in
+      force the store pays none, holders present none, and a piece is worth only what it buys
+      and the dues floor, its redemption term gone; repeal restores it. Nothing forces or rescues
+      (brief §11). *Legal tender* answers *debts unpaid*, offered only where the store takes its
+      own notes for dues: a creditor of the polity's households must take the store's notes for
+      a loan in a good, at that rate, so a debtor pays in them first what they are worth less to
+      it than the good; only the store's own pieces are tender. Households weigh suspension by
+      their share of the grain the store keeps against what their pieces would fetch, and legal
+      tender by what a debtor saves and a creditor loses. Fiat is a label, not a state: a
+      market's summary tells the store's notes out, what a piece pays and what was presented
+      and refused, and while redemption is suspended says they are fiat, paying only dues and
+      what they buy; under legal tender, that creditors must take them. **Tested:** suspended,
+      the store keeps its grain, nothing is presented, a piece is worth less than when it paid
+      grain, and the summary says fiat; under legal tender a debtor pays a 15 kg loan in fifteen
+      of the store's pieces and keeps a keeper's notes, and without it pays none; the templates
+      answer their issues. **Slice EJ is done.** **Not built:** a creditor refusing tender and
+      being heard as the debtor's case (creditors here always take it, as the law compels);
+      another polity's notes valued at all; legal tender for wages or prices.
     - **EK**: counterfeiting.
     - **EL**: the M10 demo, time-boxed, nudges logged.
 

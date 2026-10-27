@@ -1,0 +1,21 @@
+# Redemption suspended (M10d slice EJ, third part; ADR-0035 §10; brief m10-money §5: "the store
+# stops paying notes in their good. Holders' beliefs answer"). Where the store could not pay its
+# own notes in the good they promise (the issue `store_notes_refused`), anyone may propose that it
+# pay none of them while the law stands. Its notes then pay only what they buy and what dues they
+# pay: what the observer calls fiat. Whether they keep their worth is the levy's and the market's
+# answer, not the law's; repealing it restores redemption. Nothing forces a suspension or rescues
+# a store (brief §11). Whether anyone proposes it, and whether a gathering passes it, is people's.
+# Its id sorts after every older template's: hearth talk about a question and a saved law are
+# keyed by a template's place in id order, so an id sorting earlier would shift theirs.
+kind = "policy"
+id = "core:policy/zealously_withhold_redemption"
+name = "Redemption suspended"
+description = "The store pays none of its notes in grain while the law stands; they pay only dues and what they buy."
+does = "suspend_redemption"
+answers = ["store_notes_refused"]
+question = "whether the store stops paying its notes in grain"
+
+# An authoring judgement, not a measurement: the store's grain kept at holders' cost.
+[bears]
+"core:value/security" = 0.5
+"core:value/reciprocity" = -0.5

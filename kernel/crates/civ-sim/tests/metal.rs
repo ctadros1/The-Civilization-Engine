@@ -1031,6 +1031,156 @@ fn a_store_issuing_notes_takes_only_its_own_for_its_levy_and_they_are_no_longer_
     );
 }
 
+#[test]
+fn under_redemption_suspended_the_store_pays_none_and_its_notes_are_called_fiat() {
+    // M10d slice EJ, third part: the household holds fifty of its store's pieces, paid for work,
+    // and the store holds 100 kg of grain.
+    let (mut sim, hh, keeper) = mint_scene(3);
+    let polity = store_notes_scene(&mut sim, hh, keeper);
+    law_in_force(
+        &mut sim,
+        hh,
+        "core:policy/zealously_issue_notes",
+        None,
+        keeper,
+    );
+    let [note, grain] = ["note", "grain"].map(|g| good(&sim, &format!("core:good/{g}")));
+    sim.with_ctx_for_tests(|pop, ctx| pop.work_given_for_tests(ctx, polity, hh, 50.0));
+    let n = sim.rules().catalog.goods.len();
+    let pop = sim.people_mut_for_tests();
+    let pi = pop
+        .polities
+        .iter()
+        .position(|p| p.id == polity)
+        .expect("polity");
+    pop.polities[pi].stores.resize(n, 0.0);
+    pop.polities[pi].stores[grain] = 100.0;
+    let settlement = pop.polities[pi].settlement;
+    let issue = pop
+        .notes
+        .issues
+        .iter()
+        .find(|c| c.issuer == polity)
+        .expect("issue")
+        .id;
+    let worth = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.pay_worth_for_tests(ctx, hh, note, 50.0))
+            .unwrap_or(0.0)
+    };
+    let redeemable = worth(&mut sim);
+    assert!(redeemable > 0.0, "a piece is worth the grain it pays");
+    // Under the law the store pays none: a piece is worth no grain at its door, nothing is
+    // presented, and what is presented anyway is refused.
+    law_in_force(
+        &mut sim,
+        hh,
+        "core:policy/zealously_withhold_redemption",
+        None,
+        keeper,
+    );
+    assert!(
+        worth(&mut sim) < redeemable,
+        "{} against {redeemable}",
+        worth(&mut sim)
+    );
+    sim.with_ctx_for_tests(|pop, ctx| pop.notes_review_for_tests(ctx, hh));
+    assert_eq!(
+        sim.people().notes.issue(issue).expect("issue").presented,
+        0.0
+    );
+    let words = civ_sim::frames::markets::notes_words(&sim, settlement);
+    assert!(words.contains("The store's notes: 50 out"), "{words}");
+    assert!(words.contains("they are fiat"), "{words}");
+    let pop = sim.people();
+    let pi = pop
+        .polities
+        .iter()
+        .position(|p| p.id == polity)
+        .expect("polity");
+    assert!(
+        (pop.polities[pi].stores[grain] - 100.0).abs() < 1e-9,
+        "the store kept its grain"
+    );
+}
+
+#[test]
+fn under_legal_tender_a_debtor_pays_a_loan_in_the_store_s_own_notes() {
+    // M10d slice EJ, third part: the household holds twenty of its store's pieces, paid for
+    // work, and ten of a keeper's, and owes another household 15 kg of grain due today.
+    let (mut sim, hh, keeper) = mint_scene(3);
+    let polity = store_notes_scene(&mut sim, hh, keeper);
+    law_in_force(
+        &mut sim,
+        hh,
+        "core:policy/zealously_issue_notes",
+        None,
+        keeper,
+    );
+    let [note, grain] = ["note", "grain"].map(|g| good(&sim, &format!("core:good/{g}")));
+    sim.with_ctx_for_tests(|pop, ctx| pop.work_given_for_tests(ctx, polity, hh, 20.0));
+    let creditor = sim.people().person(keeper).expect("keeper").household;
+    let today = sim.now().day_index();
+    let pop = sim.people_mut_for_tests();
+    let theirs = pop.notes.write(creditor, (grain, 1.0), 10.0, hh);
+    for (_, x) in pop.households.iter_mut() {
+        if x.id == hh {
+            x.stores[note] += 10.0;
+        }
+    }
+    let ours = pop
+        .notes
+        .issues
+        .iter()
+        .find(|c| c.issuer == polity)
+        .expect("the store's issue")
+        .id;
+    let credit = &mut pop.order.credit;
+    credit.next += 1;
+    credit.claims.push(civ_agents::credit::Claim {
+        id: credit.next,
+        creditor,
+        debtor: hh,
+        good: u16::try_from(grain).expect("a good"),
+        lent: 15.0,
+        owed: 15.0,
+        paid: 0.0,
+        made: today - 30,
+        due: today,
+        standing: civ_agents::credit::Standing::Open,
+        witnesses: [hh, creditor],
+        pledge: None,
+        answer: None,
+        asks: 0,
+        extensions: 0,
+        taken: None,
+        by_guarantor: 0.0,
+        recourse: None,
+    });
+    let i = pop.order.credit.claims.len() - 1;
+    // Without the law the creditor need take no notes.
+    let kg = sim.with_ctx_for_tests(|pop, ctx| pop.tender_on_loan_for_tests(ctx, i));
+    assert_eq!(kg, 0.0);
+    // Under it the debtor pays the whole 15 kg in fifteen of the store's pieces, a piece a
+    // kilogram as its store takes them; the keeper's notes are no tender and stay with it.
+    law_in_force(
+        &mut sim,
+        hh,
+        "core:policy/zealously_tender_notes",
+        None,
+        keeper,
+    );
+    let kg = sim.with_ctx_for_tests(|pop, ctx| pop.tender_on_loan_for_tests(ctx, i));
+    assert!((kg - 15.0).abs() < 1e-9, "{kg}");
+    let pop = sim.people();
+    assert!(pop.order.credit.claims[i].left() < 1e-6);
+    assert!((pop.notes.held(creditor, ours) - 15.0).abs() < 1e-9);
+    assert!((pop.notes.held(hh, ours) - 5.0).abs() < 1e-9);
+    assert!(
+        (pop.notes.held(hh, theirs) - 10.0).abs() < 1e-9,
+        "the keeper's stayed"
+    );
+}
+
 /// Polity `hh`'s settlement's: the core common store in force at a tenth of each harvest, known to
 /// `hh`'s members (M7d slice CE3b). Returns the polity's id and the law's.
 fn common_store_in_force(sim: &mut Sim, hh: PermanentId) -> (PermanentId, PermanentId) {

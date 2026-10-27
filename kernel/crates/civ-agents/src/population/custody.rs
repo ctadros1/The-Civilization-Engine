@@ -393,6 +393,11 @@ impl Population {
                 || self
                     .household(issuer)
                     .is_some_and(|x| !x.members.is_empty());
+            // A store under a law of redemption suspended pays none (M10d slice EJ, third part).
+            if store.is_some() && self.store_suspends(issuer) {
+                self.notes.note_presented(issue, pieces, pieces, day);
+                continue;
+            }
             // Suspended, it pays none, unless what is behind them covers every piece out.
             if alive && c.suspended_until > day {
                 let covered = self.note_behind(ctx, c) + 1e-6 >= c.count * kg;

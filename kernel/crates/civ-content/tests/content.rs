@@ -3008,6 +3008,82 @@ fn smallpox_may_be_vaccinated_against_with_matter_only_its_knowers_make() {
 }
 
 #[test]
+fn policy_templates_keep_their_places() {
+    // A saved law and hearth talk about a question name a template by its place in id order, so
+    // a new template's id must sort after every older one's: this list is only ever appended to.
+    let reg = registry(load(&repo_content()));
+    let ids: Vec<&str> = reg.catalog.policies.iter().map(|p| p.id.as_str()).collect();
+    let kept = [
+        "core:policy/against_raiding",
+        "core:policy/against_taking",
+        "core:policy/amend_custom",
+        "core:policy/close_the_custom",
+        "core:policy/common_store",
+        "core:policy/curfew",
+        "core:policy/debts_heard",
+        "core:policy/debts_heard_time",
+        "core:policy/duty_on_tools",
+        "core:policy/duty_on_tools_collected",
+        "core:policy/embargo",
+        "core:policy/enclose",
+        "core:policy/hear_by_elders",
+        "core:policy/hear_by_panel",
+        "core:policy/hearer_by_precedent",
+        "core:policy/keep_store",
+        "core:policy/keep_watch",
+        "core:policy/lend_from_store",
+        "core:policy/licence_tools",
+        "core:policy/limit_daylight_work",
+        "core:policy/limit_levy",
+        "core:policy/mint",
+        "core:policy/mint_light",
+        "core:policy/name_a_hearer",
+        "core:policy/pay_work",
+        "core:policy/recognize_organization",
+        "core:policy/repeal",
+        "core:policy/seat_a_council",
+        "core:policy/send_band",
+        "core:policy/staple_tools",
+        "core:policy/wild_ground",
+        "core:policy/word_given",
+        "core:policy/works_crossing",
+        "core:policy/works_source_closed",
+        "core:policy/works_well",
+        "core:policy/works_wet_bank",
+        "core:policy/works_wet_bank_kept",
+        "core:policy/works_wrought_roofs",
+        "core:policy/works_wrought_spacing",
+        "core:policy/works_wrought_walls",
+        "core:policy/works_wrought_wells",
+        "core:policy/works_wrought_worked_fires",
+        "core:policy/year_of_peace",
+        "core:policy/yoke_of_a_held_village",
+        "core:policy/your_turn_keeping_the_store",
+        "core:policy/your_year_keeping_the_store",
+        "core:policy/yours_to_clear_a_passing_place",
+        "core:policy/yours_to_plan_the_ground",
+        "core:policy/yours_to_stay_low",
+        "core:policy/yours_to_tie_the_walls",
+        "core:policy/yourselves_raise_a_storehouse",
+        "core:policy/yourselves_roof_a_hall",
+        "core:policy/yourselves_watch_from_a_tower",
+        "core:policy/yourselves_work_a_line_to_the_pit",
+        "core:policy/yourselves_work_the_street_lamps",
+        "core:policy/yourselves_work_with_a_teacher",
+        "core:policy/yourselves_work_with_carers_who_know",
+        "core:policy/yourselves_work_without_meeting_the_sick",
+        "core:policy/yourselves_write_down_the_sick",
+        "core:policy/yourselves_yonder_with_middens",
+        "core:policy/yourselves_zone_a_sickhouse",
+        "core:policy/zealously_hear_the_bearer",
+    ];
+    assert!(
+        ids.starts_with(&kept),
+        "a template's id sorts before an older one's: {ids:?}"
+    );
+}
+
+#[test]
 fn bearer_heard_hears_notes_refused_and_imposes_what_is_owed() {
     // M10d slice EI, third part (content API 195): the template answers notes refused at their
     // keeper's door, and a finding imposes what is still owed, as debts heard does for loans.
@@ -3017,7 +3093,7 @@ fn bearer_heard_hears_notes_refused_and_imposes_what_is_owed() {
         .catalog
         .policies
         .iter()
-        .find(|p| p.id == "core:policy/bearer_heard")
+        .find(|p| p.id == "core:policy/zealously_hear_the_bearer")
         .expect("the bearer heard template");
     assert_eq!(def.kind, PolicyKind::BearerHeard);
     assert_eq!(def.answers, vec![IssueKind::NotesRefused]);

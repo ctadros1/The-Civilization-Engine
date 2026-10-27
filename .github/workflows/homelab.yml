@@ -9,7 +9,7 @@ on:
       suite:
         description: Checks to run
         type: choice
-        options: [full, health, long]
+        options: [full, health, long, demo]
         default: full
       runner:
         description: Pool or a specific machine (an offline specific machine queues)
@@ -111,3 +111,33 @@ jobs:
             ${{ runner.temp }}/dashboard.json
           if-no-files-found: ignore
           retention-days: 14
+  # A milestone demo's long run (M10 slice EL), dispatched by the owner: the example's record is
+  # kept as an artifact even when the run is cut short.
+  demo:
+    if: github.actor == 'ctadros1' && inputs.suite == 'demo'
+    runs-on: [self-hosted, Linux, X64, tce-ci, tce-long]
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Attach local Rust build directories
+        if: runner.environment == 'self-hosted'
+        run: tools/ci/prepare-workspace.sh
+      - name: Build and live the M10 demo
+        shell: bash
+        working-directory: kernel
+        run: |
+          set -euo pipefail
+          cargo build --locked --release -p civ-sim --example m10_world
+          mkdir -p "$RUNNER_TEMP/m10-saves"
+          target/release/examples/m10_world "$RUNNER_TEMP/m10-saves" 2>&1 | tee "$RUNNER_TEMP/m10-demo.txt"
+      - name: Keep the demo's record
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: homelab-m10-demo
+          path: ${{ runner.temp }}/m10-demo.txt
+          if-no-files-found: ignore
+          retention-days: 30

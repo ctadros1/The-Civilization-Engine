@@ -752,14 +752,17 @@ pub struct PolicyDef {
     pub notes: Option<NotesDef>,
 }
 
-/// The terms of a polity's notes (M10d slice EJ; brief m10-money §5; research 08-07 on Sichuan's
-/// jiaozi): the most pieces the store may have out at once, the good and kilograms of it a piece
-/// is redeemed for at the store, if any, and the share of that the store keeps as its fee.
+/// The terms of a polity's notes (M10d slice EJ; brief m10-money §5; research 08-06 §2.1 on
+/// Sichuan's jiaozi): the most pieces the store may have out at once, the good and kilograms of it
+/// a piece is redeemed for at the store, if any, and the share of that the store keeps as its fee;
+/// and the pieces its store takes for each kilogram of grain owed it, levy, fine or ground rent (0
+/// for none: second part; research 08-06 §1.4).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct NotesDef {
     pub ceiling: f32,
     pub redeem: Option<(usize, f32)>,
     pub fee: f32,
+    pub dues_per_kg: f32,
 }
 
 /// The terms of a law clearing middens from the water (M10c slice EE, third part): how far from

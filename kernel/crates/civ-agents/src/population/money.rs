@@ -190,19 +190,30 @@ impl Population {
             return 0.0;
         };
         let grain_held = stores.get(grain).copied().unwrap_or(0.0).max(0.0);
+        let notes = self.notes_dues_medium(ctx, pi);
         let levy = polity
             .laws
             .iter()
             .filter(|l| taken(l) && hh.members.iter().any(|&m| l.knows(m)))
             .filter_map(|l| {
-                let m = ctx.catalog.policies.get(usize::from(l.policy))?.medium?;
+                // The store's own notes, where its law of notes issued has it take them (M10d
+                // slice EJ, second part), or the levy's money.
+                let m = notes.filter(|m| m.good == g).or(ctx
+                    .catalog
+                    .policies
+                    .get(usize::from(l.policy))?
+                    .medium)?;
                 (m.good == g && m.per_kg > 0.0)
                     .then(|| f64::from(l.levy_share) * grain_held * f64::from(m.per_kg))
             })
             .fold(0.0, f64::max);
         // And what it owes the store, a fine or ground rent, it may pay in it (M10d slice EF,
         // third part).
-        let owed = match self.store_medium(ctx, pi).filter(|m| m.good == g) {
+        let owed = match [notes, self.store_medium(ctx, pi)]
+            .into_iter()
+            .flatten()
+            .find(|m| m.good == g)
+        {
             Some(m) => {
                 let per_piece = Self::medium_kcal(ctx, &m);
                 let kcal: f64 = self
@@ -293,14 +304,24 @@ impl Population {
     /// part; ADR-0035 §8; research 08-06 §1.4): as far as it holds the money, and only when a unit
     /// would otherwise bring it less than the grain it pays for, as the levy is paid in it. The
     /// payer gives what is worth least to it. Returns the kcal discharged.
+    /// Under a law of notes issued that has its store take them, it pays in the store's own
+    /// notes first (M10d slice EJ, second part).
     pub(super) fn dues_in_money(&mut self, ctx: &Ctx, k: usize) -> f64 {
         let ob = self.order.obligations[k];
         let Some(pi) = self.polities.iter().position(|p| p.id == ob.beneficiary) else {
             return 0.0;
         };
-        let Some(m) = self.store_medium(ctx, pi) else {
-            return 0.0;
-        };
+        let media = [self.notes_dues_medium(ctx, pi), self.store_medium(ctx, pi)];
+        let mut paid = 0.0;
+        for m in media.into_iter().flatten() {
+            paid += self.dues_in_medium(ctx, k, m);
+        }
+        paid
+    }
+
+    /// [`Self::dues_in_money`] in one medium `m`.
+    fn dues_in_medium(&mut self, ctx: &Ctx, k: usize, m: crate::polity::MediumDef) -> f64 {
+        let ob = self.order.obligations[k];
         let Some(grain) = ctx.catalog.crops.get(ctx.params.farm.crop).map(|c| c.good) else {
             return 0.0;
         };

@@ -347,6 +347,9 @@ impl Population {
         let grain = ctx.catalog.crops.get(ctx.params.farm.crop)?.good;
         let grain_h = costs.get(grain).copied().flatten()?;
         let grain_held = hh.stores.get(grain).copied().unwrap_or(0.0).max(0.0);
+        // The store's own notes, where its law of notes issued has it take them (M10d slice EJ,
+        // second part), or the levy's money.
+        let notes = self.notes_dues_medium(ctx, pi).filter(|m| m.good == p);
         self.polities[pi]
             .laws
             .iter()
@@ -356,7 +359,7 @@ impl Population {
             })
             .filter(|l| l.levy_share > 0.0 && hh.members.iter().any(|&m| l.knows(m)))
             .filter_map(|l| {
-                let m = ctx.catalog.policies.get(usize::from(l.policy))?.medium?;
+                let m = notes.or(ctx.catalog.policies.get(usize::from(l.policy))?.medium)?;
                 if m.good != p || m.per_kg <= 0.0 {
                     return None;
                 }

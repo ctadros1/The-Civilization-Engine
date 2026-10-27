@@ -290,6 +290,10 @@ pub struct NotesFile {
     /// The share of what a piece is redeemed for the store keeps, 0-1.
     #[serde(default)]
     pub fee: f64,
+    /// Pieces the store takes for each kilogram of grain owed it, levy, fine or ground rent
+    /// (content API 197); 0, or left out, for none.
+    #[serde(default)]
+    pub dues_per_kg: f64,
 }
 
 /// What a household believes a register of the sick spares it, in a policy file (content API
@@ -607,6 +611,7 @@ impl PolicyFile {
             ceiling: n.ceiling as f32,
             redeem,
             fee: n.fee as f32,
+            dues_per_kg: n.dues_per_kg as f32,
         })
     }
 
@@ -1253,6 +1258,12 @@ impl PolicyFile {
                     p.push(format!(
                         "`notes.ceiling` must be above 0 and at most 1e9 (got {})",
                         n.ceiling
+                    ));
+                }
+                if !(n.dues_per_kg.is_finite() && (0.0..=1000.0).contains(&n.dues_per_kg)) {
+                    p.push(format!(
+                        "`notes.dues_per_kg` must be between 0 and 1000 (got {})",
+                        n.dues_per_kg
                     ));
                 }
                 if !(n.fee.is_finite() && (0.0..1.0).contains(&n.fee)) {

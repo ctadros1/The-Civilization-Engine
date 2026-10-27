@@ -428,6 +428,26 @@ impl Population {
         })
     }
 
+    /// Polity `pi`'s own notes as a medium of what is owed its store, under a law of notes issued
+    /// in force that has its store take them (M10d slice EJ, second part): only pieces of its own
+    /// issue, at the law's rate.
+    pub(super) fn notes_dues_medium(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+    ) -> Option<crate::polity::MediumDef> {
+        let def = self.store_notes_of(ctx, pi)?;
+        let good = ctx
+            .catalog
+            .goods
+            .iter()
+            .position(|g| g.money.as_ref().is_some_and(|m| m.note))?;
+        (def.dues_per_kg > 0.0).then_some(crate::polity::MediumDef {
+            good,
+            per_kg: def.dues_per_kg,
+        })
+    }
+
     /// Polity `pi`'s issue under terms `def` (M10d slice EJ): the redemption good, and what a
     /// piece pays of it net of the store's fee; for notes nobody redeems, the note good and
     /// nothing.

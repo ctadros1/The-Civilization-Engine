@@ -980,7 +980,7 @@ fn the_store_redeems_its_notes_from_its_grain_less_its_fee_and_refuses_beyond() 
 }
 
 #[test]
-fn a_levy_taking_notes_takes_only_the_store_s_own_and_they_are_no_longer_out() {
+fn a_store_issuing_notes_takes_only_its_own_for_its_levy_and_they_are_no_longer_out() {
     // M10d slice EJ, second part: the household holds ten pieces of its store's notes, paid for
     // work, and ten of a keeper's.
     let (mut sim, hh, keeper) = mint_scene(3);
@@ -1009,10 +1009,10 @@ fn a_levy_taking_notes_takes_only_the_store_s_own_and_they_are_no_longer_out() {
         .find(|c| c.issuer == polity)
         .expect("the store's issue")
         .id;
-    let (_, law) =
-        store_of_template_in_force(&mut sim, hh, "core:policy/zealously_store_grain_or_notes");
-    // Fifteen kilograms owed: it pays ten in the store's pieces, a piece a kilogram, and none in
-    // the keeper's, which the store does not take.
+    let (_, law) = common_store_in_force(&mut sim, hh);
+    // Fifteen kilograms owed: under notes issued its store takes its own notes for dues, so it
+    // pays ten in the store's pieces, a piece a kilogram, and none in the keeper's, which the
+    // store does not take; it holds no coin for the rest.
     let kg =
         sim.with_ctx_for_tests(|pop, ctx| pop.levy_in_money_for_tests(ctx, polity, law, hh, 15.0));
     assert!((kg - 10.0).abs() < 1e-9, "{kg}");
@@ -1034,22 +1034,12 @@ fn a_levy_taking_notes_takes_only_the_store_s_own_and_they_are_no_longer_out() {
 /// Polity `hh`'s settlement's: the core common store in force at a tenth of each harvest, known to
 /// `hh`'s members (M7d slice CE3b). Returns the polity's id and the law's.
 fn common_store_in_force(sim: &mut Sim, hh: PermanentId) -> (PermanentId, PermanentId) {
-    store_of_template_in_force(sim, hh, "core:policy/common_store")
-}
-
-/// Polity `hh`'s settlement's: a common store of core template `template` in force at a tenth of
-/// each harvest, known to `hh`'s members. Returns the polity's id and the law's.
-fn store_of_template_in_force(
-    sim: &mut Sim,
-    hh: PermanentId,
-    template: &str,
-) -> (PermanentId, PermanentId) {
     let sponsor = sim
         .people()
         .household(hh)
         .and_then(|x| x.members.first().copied())
         .expect("a member");
-    let polity = law_in_force(sim, hh, template, None, sponsor);
+    let polity = law_in_force(sim, hh, "core:policy/common_store", None, sponsor);
     let members = sim
         .people()
         .household(hh)

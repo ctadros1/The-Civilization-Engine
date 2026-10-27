@@ -5291,6 +5291,8 @@ impl Population {
     /// it holds some and what a unit would otherwise bring it ([`Population::pay_worth_raw`]) is
     /// worth less than the grain it pays for: the payer gives what is worth least to it. Returns
     /// the kilograms of grain paid for so.
+    /// Under a law of notes issued that has its store take them, it pays in the store's own notes
+    /// first (M10d slice EJ, second part).
     fn levy_in_money(
         &mut self,
         ctx: &Ctx,
@@ -5300,14 +5302,29 @@ impl Population {
         grain: usize,
         owed: f64,
     ) -> f64 {
-        let Some(m) = ctx
-            .catalog
-            .policies
-            .get(usize::from(self.polities[pi].laws[li].policy))
-            .and_then(|d| d.medium)
-        else {
-            return 0.0;
-        };
+        let media = [
+            self.notes_dues_medium(ctx, pi),
+            ctx.catalog
+                .policies
+                .get(usize::from(self.polities[pi].laws[li].policy))
+                .and_then(|d| d.medium),
+        ];
+        let mut paid = 0.0;
+        for m in media.into_iter().flatten() {
+            paid += self.levy_in_medium(ctx, (pi, li), household, (grain, owed - paid), m);
+        }
+        paid
+    }
+
+    /// [`Self::levy_in_money`] in one medium `m`, `owed` kilograms of grain left to pay.
+    fn levy_in_medium(
+        &mut self,
+        ctx: &Ctx,
+        (pi, li): (usize, usize),
+        household: PermanentId,
+        (grain, owed): (usize, f64),
+        m: crate::polity::MediumDef,
+    ) -> f64 {
         let per_kg = f64::from(m.per_kg);
         let Some(hh) = self.household(household) else {
             return 0.0;

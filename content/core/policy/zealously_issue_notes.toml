@@ -5,7 +5,11 @@
 # household who can write writes, up to `ceiling` pieces out of the store at once, each redeemable
 # at the store for `kg` of `redeem` less the store's `fee`. A store issues only to spend, and a
 # piece back in the store is no liability; what it spends them on is pay for common work, under a
-# law paying in notes. The ceiling is a tuning value, about a year's grain for a few households.
+# law paying in notes. The store takes its own notes back for what is owed it, a levy, fine or
+# ground rent, `dues_per_kg` pieces for each kilogram of grain owed (second part; research 08-06
+# §1.4: an authority that accepts a medium for its dues makes it more useful); only its own
+# pieces pay it, and back in the store they are no longer out. The ceiling is a tuning value,
+# about a year's grain for a few households.
 # Whether anyone proposes it, and whether a gathering passes it, is people's. Its id sorts after
 # every older template's: hearth talk about a question and a saved law are keyed by a template's
 # place in id order, so an id sorting earlier would shift theirs.
@@ -22,6 +26,7 @@ ceiling = 1000.0
 redeem = "core:good/grain"
 kg = 1.0
 fee = 0.03
+dues_per_kg = 1.0
 
 # An authoring judgement, not a measurement: a promise the store keeps to all alike.
 [bears]

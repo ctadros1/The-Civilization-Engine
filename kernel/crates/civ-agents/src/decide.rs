@@ -1352,11 +1352,7 @@ pub fn candidates(
                         let heat = kg * patch.fuel_ratio;
                         let worth = heat / (heat + half);
                         let target = f.fuel_target_days.max(1e-6);
-                        // Fuel that will not last the day counts twice over: a cold hearth
-                        // tonight is not put off for the fields as a thin stock is (a tuning
-                        // value).
-                        let short = (1.0 - f.fuel_days / target).clamp(0.0, 1.0)
-                            + (1.0 - f.fuel_days).clamp(0.0, 1.0);
+                        let short = (1.0 - f.fuel_days / target).clamp(0.0, 1.0);
                         let room = target / (target + patch.stored_days.max(0.0));
                         term(&mut terms, Reason::FuelShortage, w.w_fuel * short * worth);
                         term(&mut terms, Reason::UsefulWork, w.w_work * worth * room);
@@ -3181,80 +3177,6 @@ mod tests {
                 .iter()
                 .any(|t| t.reason == Reason::Deadline)
         );
-    }
-
-    #[test]
-    fn a_hearth_that_will_not_last_the_day_comes_before_the_fields() {
-        // Good 0 is firewood, gathered by hand; the field's work is pressing.
-        let defs = vec![
-            ActivityDef {
-                resource: Some(0),
-                ..activity("gather_wood", Behavior::Gather, Vec::new(), 1.0)
-            },
-            activity("prepare_field", Behavior::Farm, Vec::new(), 1.0),
-        ];
-        let wood = |_: usize| {
-            Some(PatchOption {
-                patch: 3,
-                walk_min: 10.0,
-                kg_per_hour: 20.0,
-                purpose: GoodUse::Fuel,
-                kcal_per_kg: 0.0,
-                fuel_ratio: 1.0,
-                stored_days: 0.0,
-                need_kg: 0.0,
-                urgency: 1.0,
-                tool_need_kg: 0.0,
-                tool_blocked: false,
-                at: (50.0, 0.0),
-                deposit: None,
-                by_ride: None,
-            })
-        };
-        let shop = Workshop {
-            free_tools: &[],
-            held_tools: &[],
-            best_make: &|_, _| Err((Reason::NoMaterials, None)),
-            makes_tool: &|_| false,
-            knows: &|_| true,
-        };
-        let totals = |fuel_days: f64| {
-            let f = Facts {
-                fuel_days,
-                ..facts()
-            };
-            let (cands, _) = candidates(
-                &defs,
-                &weights(),
-                &f,
-                &limits(),
-                &wood,
-                &|_| Ok(field()),
-                None,
-                &|| None,
-                &|| None,
-                &|| Err(Reason::NoReport),
-                &|| None,
-                Err(Reason::Built),
-                &shop,
-                &|| Err(Reason::NoProblem),
-                &|| Err(Reason::WouldNotTake),
-                &Vec::new,
-            );
-            let of = |def: u16| {
-                cands
-                    .iter()
-                    .find(|c| c.scored.def == def)
-                    .map(|c| c.scored.total)
-                    .expect("scored")
-            };
-            (of(0), of(1))
-        };
-        // A day and more in store: the fields first. None for tonight: the wood.
-        let (wood_then, field_then) = totals(1.5);
-        assert!(field_then > wood_then, "{wood_then} {field_then}");
-        let (wood_now, field_now) = totals(0.0);
-        assert!(wood_now > field_now, "{wood_now} {field_now}");
     }
 
     #[test]

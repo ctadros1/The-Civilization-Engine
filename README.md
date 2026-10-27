@@ -26,10 +26,12 @@ The current observer presents an early farming world. M10 adds industrial system
 
 ## Project status
 
-- **M0–M9 complete:** from settlement life and institutions through transport, city planning and household-level resolution across many settlements. The 100,000-person performance target was measured and missed; the plan records the amended gate.
-- **M10a–M10b implemented:** industrial power and works, water mills, fuel and iron production, railways, trains, freight, gas networks and lighting.
-- **M10c implemented:** care beyond the household, birth care, teaching, literacy and records, inoculation, disease reporting and a shared sickhouse.
-- **M10d underway:** household money valuation, custody and receipts, redeemable notes, lending, runs and suspension, and the *bearer heard* rule are implemented. Polity-issued notes, counterfeiting and the complete M10 demonstration remain planned.
+- **M0–M9 · Implemented:** settlement life, institutions, cities and many-settlement simulation.
+- **M10a–M10c · Implemented:** industry, transport, services and public health.
+- **M10d · In progress:** household money and redeemable notes. Polity-issued notes, counterfeiting and the complete M10 demo remain planned.
+- **Future scope:** modern-era systems and the Unreal client.
+
+See the [project plan](PROJECT_PLAN.md) and [development journal](docs/development-journal/README.md) for milestone details and implementation evidence.
 
 ## Latest live demo: M9, many settlements
 

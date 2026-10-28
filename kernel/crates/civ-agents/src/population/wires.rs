@@ -490,13 +490,16 @@ impl Population {
             cut_off: false,
             lit_until: -1,
             cause: Cause::Served,
+            asked: 0,
+            served: 0,
         });
     }
 
     /// The wire's evening (M11a; ADR-0036 §4): for each station with lines, in the order its
     /// first line was made, homes along its lines weigh hooking up (the fifth part), then its
     /// dynamos' current from its shafts today ([`Population::electric_kw`]) is dispatched down its
-    /// tree ([`civ_land::wire::dispatch`]); each hookup on it keeps its cause, one served is lit
+    /// tree ([`civ_land::wire::dispatch`]); each hookup on it keeps its cause and writes the evening
+    /// into its service record, one served is lit
     /// for [`super::gas::GAS_EVENING_H`] from now, as a gas burner is, and each household served
     /// pays the station by the meter. Nothing where no line is laid or the land lays none.
     pub(super) fn wire_evening(&mut self, ctx: &mut Ctx) {
@@ -530,6 +533,7 @@ impl Population {
                 civ_land::wire::dispatch(&wires.lines, &mine, station, output, &params);
             for (&i, cause) in on.iter().zip(causes) {
                 let h = &mut wires.hookups[i];
+                h.record(cause);
                 h.cause = cause;
                 if cause == Cause::Served {
                     h.lit_until = until;

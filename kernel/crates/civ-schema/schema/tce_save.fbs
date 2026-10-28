@@ -3922,6 +3922,10 @@ table WireHookupSave {
   // served, 1 station short, 2 line full, 3 line down, 4 cut off).
   lit_until: long = -1 (id: 5);
   cause: ubyte (id: 6);
+  // Its service record (M11a; ADR-0036 §4): of its last 32 evenings of dispatch, those it asked
+  // current on and those it was served, a bit an evening, the newest lowest.
+  asked: uint (id: 7);
+  served: uint (id: 8);
 }
 
 table WiresSave {

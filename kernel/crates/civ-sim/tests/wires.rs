@@ -85,6 +85,8 @@ fn lines_and_hookups_save_and_load_exactly() {
         cut_off: true,
         lit_until: 1_234,
         cause: civ_land::wire::Cause::LineFull,
+        asked: 0b1011,
+        served: 0b0010,
     });
     let before = sim.land().wires.clone();
     let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
@@ -569,7 +571,9 @@ fn a_station_that_knows_the_dynamo_strings_a_line_to_homes_that_pay_by_the_meter
     let words = wire_words_seen(&sim, theirs[0].building);
     assert!(
         words.starts_with("Current: 0.2 kW from ")
-            && words.ends_with(&format!("; lit until {clock}")),
+            && words.ends_with(&format!(
+                "; lit until {clock}; served 1 of 1 evening asked in the last 30"
+            )),
         "{words}"
     );
     let station_first = sim
@@ -630,7 +634,7 @@ fn a_station_that_knows_the_dynamo_strings_a_line_to_homes_that_pay_by_the_meter
     assert_eq!(of(&sim).cause, Cause::CutOff);
     let words = wire_words_seen(&sim, of(&sim).building);
     assert!(
-        words.ends_with("; cut off: its account went unpaid"),
+        words.contains("; cut off: its account went unpaid; served 2 of 2 evenings asked"),
         "{words}"
     );
     for (&g, &kg) in food.iter().zip(&held) {
@@ -639,5 +643,12 @@ fn a_station_that_knows_the_dynamo_strings_a_line_to_homes_that_pay_by_the_meter
     sim.with_ctx_for_tests(|pop, ctx| pop.wire_evening_for_tests(ctx));
     let h = of(&sim);
     assert!(!h.cut_off && h.cause == Cause::Served, "{h:?}");
+    // Its record: four evenings, three asked (not the one cut off), all three served.
+    assert_eq!(h.record_of(30), (3, 3));
+    let words = wire_words_seen(&sim, h.building);
+    assert!(
+        words.ends_with("; served 3 of 3 evenings asked in the last 30"),
+        "{words}"
+    );
     let _ = far;
 }

@@ -826,8 +826,16 @@ pub(crate) fn wire_words(sim: &Sim, b: &Building) -> String {
                 Cause::CutOff => "cut off: its account went unpaid".to_owned(),
             }
         };
+        // Its service record (ADR-0036 §4): of the evenings it asked, those it was served.
+        let (asked, served) = k.record_of(30);
+        let record = if asked > 0 {
+            let evenings = if asked == 1 { "evening" } else { "evenings" };
+            format!("; served {served} of {asked} {evenings} asked in the last 30")
+        } else {
+            String::new()
+        };
         said.push(format!(
-            "Current: {:.1} kW from {station}; {state}",
+            "Current: {:.1} kW from {station}; {state}{record}",
             k.ask_kw
         ));
     }

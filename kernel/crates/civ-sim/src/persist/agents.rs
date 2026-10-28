@@ -13048,6 +13048,8 @@ fn encode_wires(wires: &civ_land::wire::Wires) -> Vec<u8> {
                     cut_off: h.cut_off,
                     lit_until: h.lit_until,
                     cause: h.cause.code(),
+                    asked: h.asked,
+                    served: h.served,
                 },
             )
         })
@@ -13091,6 +13093,8 @@ fn decode_wires(bytes: &[u8], tag: SectionTag) -> Result<civ_land::wire::Wires, 
             cut_off: h.cut_off(),
             lit_until: h.lit_until(),
             cause: civ_land::wire::Cause::from_code(h.cause()),
+            asked: h.asked(),
+            served: h.served(),
         });
     }
     Ok(wires)

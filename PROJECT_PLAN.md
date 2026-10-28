@@ -7843,6 +7843,17 @@ and M6a gives rivers a daily flow.
       a home's current lit until the evening's end, the station feeding 2 lines, a member's light
       by the wire, and a home cut off for its account; the web decodes the line and the building's
       current, and a village with no station has no line to draw.
+    - *M11a, seventh part (2026-10-29): the service record.* Each hookup keeps, of its last 32
+      evenings of dispatch, those it asked current on (not cut off) and those it was served, a bit
+      an evening (saved, appended within the unreleased saves 220): ADR-0036 §4's rolling record
+      of power asked and delivered, read with its ask and the evening's hours. A building's page
+      adds it ("served 27 of 29 evenings asked in the last 30"). **Tested:** four evenings, one
+      cut off, record three asked and two served; older than 32 evenings falls out; in the
+      station's scene a home served, then cut off, then restored reads 3 of 3 asked. **Not
+      built:** the hourly dispatch, which waits for anything that varies within an evening (a
+      motor's hours; power by wire is deferred, ADR-0036 §3): with light alone an evening's four
+      hours dispatched together serve exactly as four hourly dispatches would, since a station's
+      current is reckoned from its shafts by the day.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

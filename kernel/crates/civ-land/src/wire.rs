@@ -99,8 +99,10 @@ impl Cause {
 }
 
 /// A building hooked up to a line, the household that keeps it, the kilowatts it asks in the hour,
-/// whether its account is cut off, and its last evening: the minute it is lit until (-1 never)
-/// and why it was or was not served.
+/// whether its account is cut off, its last evening: the minute it is lit until (-1 never) and why
+/// it was or was not served, and its service record (ADR-0036 §4): of its last 32 evenings of
+/// dispatch, those it asked current on (not cut off) and those it was served, a bit an evening,
+/// the newest lowest.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Hookup {
     pub building: PermanentId,
@@ -110,6 +112,26 @@ pub struct Hookup {
     pub cut_off: bool,
     pub lit_until: i64,
     pub cause: Cause,
+    pub asked: u32,
+    pub served: u32,
+}
+
+impl Hookup {
+    /// Writes an evening's dispatch into its record: asked unless cut off, served by `cause`.
+    pub fn record(&mut self, cause: Cause) {
+        self.asked = (self.asked << 1) | u32::from(!self.cut_off);
+        self.served = (self.served << 1) | u32::from(cause == Cause::Served);
+    }
+
+    /// Of its last `n` evenings of dispatch (at most 32), how many it asked current on and how many
+    /// it was served.
+    pub fn record_of(&self, n: u32) -> (u32, u32) {
+        let mask = if n >= 32 { u32::MAX } else { (1u32 << n) - 1 };
+        (
+            (self.asked & mask).count_ones(),
+            (self.served & mask).count_ones(),
+        )
+    }
 }
 
 /// Every line and hookup, in the order made (saved in the `wires` section, schema 220).
@@ -259,7 +281,29 @@ mod tests {
             cut_off: false,
             lit_until: -1,
             cause: Cause::Served,
+            asked: 0,
+            served: 0,
         }
+    }
+
+    #[test]
+    fn a_hookups_record_keeps_the_evenings_it_asked_and_was_served() {
+        let mut h = hookup(1, 1, 0.2);
+        h.record(Cause::Served);
+        h.record(Cause::StationShort);
+        h.cut_off = true;
+        h.record(Cause::CutOff);
+        h.cut_off = false;
+        h.record(Cause::Served);
+        // Four evenings: three asked (not the one cut off), two of them served.
+        assert_eq!(h.record_of(30), (3, 2));
+        // The last two: the newest asked and served, the one before cut off.
+        assert_eq!(h.record_of(2), (1, 1));
+        // Older than 32 evenings falls out of the record.
+        for _ in 0..32 {
+            h.record(Cause::LineFull);
+        }
+        assert_eq!(h.record_of(32), (32, 0));
     }
 
     #[test]

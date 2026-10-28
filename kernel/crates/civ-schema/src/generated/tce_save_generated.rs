@@ -66882,6 +66882,8 @@ impl<'a> WireHookupSave<'a> {
   pub const VT_CUT_OFF: ::flatbuffers::VOffsetT = 12;
   pub const VT_LIT_UNTIL: ::flatbuffers::VOffsetT = 14;
   pub const VT_CAUSE: ::flatbuffers::VOffsetT = 16;
+  pub const VT_ASKED: ::flatbuffers::VOffsetT = 18;
+  pub const VT_SERVED: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -66898,6 +66900,8 @@ impl<'a> WireHookupSave<'a> {
     builder.add_line(args.line);
     builder.add_household(args.household);
     builder.add_building(args.building);
+    builder.add_served(args.served);
+    builder.add_asked(args.asked);
     builder.add_cause(args.cause);
     builder.add_cut_off(args.cut_off);
     builder.finish()
@@ -66953,6 +66957,20 @@ impl<'a> WireHookupSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u8>(WireHookupSave::VT_CAUSE, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn asked(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WireHookupSave::VT_ASKED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn served(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WireHookupSave::VT_SERVED, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WireHookupSave<'_> {
@@ -66968,6 +66986,8 @@ impl ::flatbuffers::Verifiable for WireHookupSave<'_> {
      .visit_field::<bool>("cut_off", Self::VT_CUT_OFF, false)?
      .visit_field::<i64>("lit_until", Self::VT_LIT_UNTIL, false)?
      .visit_field::<u8>("cause", Self::VT_CAUSE, false)?
+     .visit_field::<u32>("asked", Self::VT_ASKED, false)?
+     .visit_field::<u32>("served", Self::VT_SERVED, false)?
      .finish();
     Ok(())
   }
@@ -66980,6 +67000,8 @@ pub struct WireHookupSaveArgs {
     pub cut_off: bool,
     pub lit_until: i64,
     pub cause: u8,
+    pub asked: u32,
+    pub served: u32,
 }
 impl<'a> Default for WireHookupSaveArgs {
   #[inline]
@@ -66992,6 +67014,8 @@ impl<'a> Default for WireHookupSaveArgs {
       cut_off: false,
       lit_until: -1,
       cause: 0,
+      asked: 0,
+      served: 0,
     }
   }
 }
@@ -67030,6 +67054,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WireHookupSaveBuilder<'a, 'b,
     self.fbb_.push_slot::<u8>(WireHookupSave::VT_CAUSE, cause, 0);
   }
   #[inline]
+  pub fn add_asked(&mut self, asked: u32) {
+    self.fbb_.push_slot::<u32>(WireHookupSave::VT_ASKED, asked, 0);
+  }
+  #[inline]
+  pub fn add_served(&mut self, served: u32) {
+    self.fbb_.push_slot::<u32>(WireHookupSave::VT_SERVED, served, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WireHookupSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WireHookupSaveBuilder {
@@ -67054,6 +67086,8 @@ impl ::core::fmt::Debug for WireHookupSave<'_> {
       ds.field("cut_off", &self.cut_off());
       ds.field("lit_until", &self.lit_until());
       ds.field("cause", &self.cause());
+      ds.field("asked", &self.asked());
+      ds.field("served", &self.served());
       ds.finish()
   }
 }

@@ -1828,3 +1828,9 @@ Content API 191 (M10c slice EE, fourth part) adds the building use `sickhouse` a
 `untended` (severe cases of the polity's households lay ill with nobody tending them, measured, and
 no sickhouse raised). The core adds `building/sickhouse` and `policy/yourselves_zone_a_sickhouse`,
 a raising together answering it.
+
+Content API 201 (M11a, first part; ADR-0036 §2) adds the `[power]` source `shaft`: a fixed tool
+turned by the shaft of a wheel or an engine set beside it, delivering `efficiency` of that shaft's
+work up to `rated_kw`. The first is `good/dynamo` (10 kW at 80 %, design priors), made by
+`recipe/build_dynamo` under `technique/dynamo`, which no work tries toward, so only the observer can
+bring it. Nothing reads a dynamo yet.

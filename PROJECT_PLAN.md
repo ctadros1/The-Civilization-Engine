@@ -7711,6 +7711,16 @@ and M6a gives rivers a daily flow.
     a radial tree dispatched by the served hour; light and power by wire; who builds and pays),
     **M11b** engines that move and transit, **M11c** the telegraph, **M11d** the demo. Modern
     architecture and waste wait for their research. Slices are named when the ADR is accepted.
+    - *M11a, first part (2026-10-28, on ADR-0036 as proposed): the dynamo as vocabulary.* A `[power]`
+      source `shaft` (content API 201); `good/dynamo` (a fixed tool, 10 kW at 80 %, design
+      priors), `recipe/build_dynamo` and `technique/dynamo`, which no work tries toward, so only the
+      observer brings it. Nothing reads a dynamo yet. **Proved:** with the files and without them,
+      the village of 500 (90 days) and three of 400 (60 days) live the same: every line of the
+      bench's report (time use, counts, land, knowledge records) and the chronicle's digest are
+      equal. The sections that hold vectors by the catalogue's goods, techniques or activities
+      (people, houses, market, firms, deposits, polity, order, factions, places, know, receipts)
+      differ by their length alone: even a material good nobody makes moves them (checked), so
+      M10's gate clause is read as its slices read it, by what is lived.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

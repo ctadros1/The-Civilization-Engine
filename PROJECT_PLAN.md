@@ -7781,6 +7781,16 @@ and M6a gives rivers a daily flow.
       lit home, for a lamp's ignition hazard and the homes-lit count (`lamp_lit_home` and
       `lit_homes` now read the land). With no hookup none of these changes. **Tested:** the served
       far home is lit until four hours on and not after; the lamps and fire suites pass unchanged.
+    - *M11a, fourth part, second step (2026-10-28): a dynamo wanted where known, and a home lit by
+      its own station.* A household wants a dynamo at each ready installation it owns only where it
+      knows a way of making one (`cap_power_wants` now takes its knowledge; none elsewhere, as
+      before). Each midnight a household holding a whole dynamo beside a ready installation of its
+      own hooks its finished home up on a line of no length from its own station, asking 0.2 kW
+      (`HOME_LIGHT_KW`, a design prior: a few 60 W lamps), lit at the evening's dispatch. Power by
+      wire to powered recipes waits: they need the household's own wheel, and motors are deferred
+      (ADR-0036 §3 Defer). **Tested:** no hookup without a dynamo; with one, one whole line and one
+      hookup, served at the evening, and a second review adds nothing. **Proved:** the village of
+      500 gives every section's digest equal to the first step's but `meta`.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

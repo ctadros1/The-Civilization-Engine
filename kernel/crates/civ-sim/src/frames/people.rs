@@ -1862,7 +1862,7 @@ pub fn light_words(sim: &Sim, id: PermanentId) -> String {
         return String::new();
     };
     if let Some(until) = sim.land.gas.lit_until(x.id, now.minutes()) {
-        let working = people.lamp_lit_home(catalog, params, &sim.land.gas, now, x.id)
+        let working = people.lamp_lit_home(catalog, params, &sim.land, now, x.id)
             && !p.asleep
             && civ_agents::population::Population::works_by_lamp(catalog, p);
         return if working {
@@ -1903,7 +1903,7 @@ pub fn light_words(sim: &Sim, id: PermanentId) -> String {
     } else {
         format!("no {fuel}")
     };
-    let working = people.lamp_lit_home(catalog, params, &sim.land.gas, now, x.id)
+    let working = people.lamp_lit_home(catalog, params, &sim.land, now, x.id)
         && !p.asleep
         && civ_agents::population::Population::works_by_lamp(catalog, p);
     if working {

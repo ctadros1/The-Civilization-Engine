@@ -240,6 +240,8 @@ fn a_line_is_begun_along_ways_with_leave_and_strung_by_work_and_copper() {
     let h = sim.land().wires.hookups[0].clone();
     assert_eq!((h.cause, h.lit_until), (Cause::Served, now + 240));
     assert_eq!(sim.land().wires.lit_until(far, now), Some(now + 240));
+    // Its home is lit, as a gas burner lights one, for work and sight after dark.
+    assert!(sim.land().wires.lit(far, now) && !sim.land().wires.lit(far, now + 240));
     // Cut off, it is dark again at the next evening, keeping why.
     sim.land_mut_for_tests().wires.hookups[0].cut_off = true;
     sim.with_ctx_for_tests(|pop, ctx| pop.wire_evening_for_tests(ctx));

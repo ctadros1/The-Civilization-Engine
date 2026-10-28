@@ -6369,13 +6369,14 @@ impl Population {
     /// in hunger, and never the seed for the ground already cropped), the recipe's tools worn by
     /// the time worked, and their skill practised.
     /// Whether a lamp burns for work at household `household`'s home at `now` (M10b slice DU):
-    /// it holds a whole lamp and its fuel, or its burners are lit by gas (`gas`, M10b slice DY),
-    /// it is dark, and one of its members awake at home is at work kept to daylight.
+    /// it holds a whole lamp and its fuel, or its burners are lit by gas (M10b slice DY) or its
+    /// home by the wire (M11a) on `land`, it is dark, and one of its members awake at home is at
+    /// work kept to daylight.
     pub fn lamp_lit_home(
         &self,
         catalog: &crate::params::Catalog,
         params: &PeopleParams,
-        gas: &civ_land::gas::Gas,
+        land: &civ_land::Land,
         now: SimTime,
         household: PermanentId,
     ) -> bool {
@@ -6384,7 +6385,9 @@ impl Population {
         };
         let t = now.minutes() as f64;
         dark_at(params, now)
-            && (lamp_of(&catalog.goods, &x.stores).is_some() || gas.lit(household, now.minutes()))
+            && (lamp_of(&catalog.goods, &x.stores).is_some()
+                || land.gas.lit(household, now.minutes())
+                || land.wires.lit(household, now.minutes()))
             && x.members.iter().any(|&m| {
                 self.person(m).is_some_and(|q| {
                     let at = q.position_at(t);
@@ -6401,7 +6404,7 @@ impl Population {
         &self,
         catalog: &crate::params::Catalog,
         params: &PeopleParams,
-        gas: &civ_land::gas::Gas,
+        land: &civ_land::Land,
         now: SimTime,
     ) -> usize {
         if self.order.lamp_first_lit.is_none() || !dark_at(params, now) {
@@ -6409,7 +6412,7 @@ impl Population {
         }
         self.households
             .iter()
-            .filter(|(_, x)| self.lamp_lit_home(catalog, params, gas, now, x.id))
+            .filter(|(_, x)| self.lamp_lit_home(catalog, params, land, now, x.id))
             .count()
     }
 
@@ -6552,7 +6555,10 @@ impl Population {
             if def.daylight_only {
                 let end = self.enact_end.unwrap_or(now);
                 let dark_h = dark_minutes(params, end, minutes) / 60.0;
-                if dark_h > 0.0 && ctx.land.gas.lit(household, end.minutes() - 1) {
+                if dark_h > 0.0
+                    && (ctx.land.gas.lit(household, end.minutes() - 1)
+                        || ctx.land.wires.lit(household, end.minutes() - 1))
+                {
                     // Burners lit by gas burn none of the household's fuel: it came by the main
                     // (M10b slice DY).
                     lit = Some(end);

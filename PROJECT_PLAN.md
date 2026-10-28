@@ -7776,6 +7776,11 @@ and M6a gives rivers a daily flow.
       off, it is dark at the next evening with that cause. **Proved:** against the build before,
       the village of 500 gives every section's digest equal but `meta`, `content` and the new,
       empty `wires`, and every line of the bench's report equal.
+      *Second step (2026-10-28):* a home lit by the wire counts wherever one lit by gas does: for
+      work after dark at home (burning none of the household's fuel), for sight after dark at a
+      lit home, for a lamp's ignition hazard and the homes-lit count (`lamp_lit_home` and
+      `lit_homes` now read the land). With no hookup none of these changes. **Tested:** the served
+      far home is lit until four hours on and not after; the lamps and fire suites pass unchanged.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

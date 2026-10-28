@@ -388,7 +388,7 @@ fn the_observer_counts_lit_homes_and_says_who_works_by_lamplight() {
         sim.people().lit_homes(
             &sim.rules().catalog,
             &sim.rules().people,
-            &sim.land().gas,
+            sim.land(),
             sim.now(),
         )
     };

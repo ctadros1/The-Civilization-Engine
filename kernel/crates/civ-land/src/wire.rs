@@ -118,6 +118,11 @@ pub struct Wires {
 }
 
 impl Wires {
+    /// Whether a hookup of `household` is lit by the wire at `minute`.
+    pub fn lit(&self, household: PermanentId, minute: i64) -> bool {
+        self.lit_until(household, minute).is_some()
+    }
+
     /// The minute a hookup of `household` served at `minute` is lit until, if any is.
     pub fn lit_until(&self, household: PermanentId, minute: i64) -> Option<i64> {
         self.hookups

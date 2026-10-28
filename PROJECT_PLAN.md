@@ -7648,7 +7648,18 @@ and M6a gives rivers a daily flow.
       without firewood for days, and smoke's firewood check fails on a rare world (ria_coast
       seed 1, identity `2a8290890b6c9197770f94fd618adee3`); counting fuel that will not last the
       day twice over fixes it but moves fifteen scenario tests that choose their actors from the
-      unfolding world, which are to be reworked first.
+      unfolding world, which are to be reworked first. *Fixed (2026-10-29):* the fix is in, with
+      a decision test that a hearth that will not last the day comes before pressing field work,
+      and the scenes reworked so that what each test claims no longer rests on the world's
+      unfolding: a borrower holds a sown field and the lender holds the rest; a guarantor is
+      regarded by the lender; the learner's household has no knapper of its own; a fire scene's
+      homes are stocked with wood; the variolation scenes count every household that called;
+      raiders are close to everyone at home, so whoever weighs peace weighs what they give up.
+      Two faults in the engine surfaced and are fixed: a lamp lit in a household-resolved day
+      burned past its part's end (enactments are now clamped to the part, as blocks were), and a
+      faction's petition against an office filled by lot named a nominee whom the lot then
+      overrode (it now names nobody and asks for another drawn by lot, as any proposal of such an
+      office does).
     - **EL**: the M10 demo, time-boxed, nudges logged.
       *As built, first part (2026-10-27): the demo's example, and the gate's bench measured.*
       `civ-sim --example m10_world <saves> [groups] [people] [years] [size]` (default six groups

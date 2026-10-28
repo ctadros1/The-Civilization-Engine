@@ -1583,8 +1583,18 @@ fn a_household_that_believes_smallpox_near_calls_a_variolator_and_its_people_are
     // They call, and the variolator comes: its people not protected take it, inoculated by them.
     let mut saved = false;
     let mut inoculated = Vec::new();
+    // Every household that called someone to inoculate it: others tied to the dead may call
+    // the variolator too.
+    let mut callers = std::collections::BTreeSet::new();
     for _ in 0..14 {
         sim.advance_minutes(DAY / 4).expect("lives");
+        callers.extend(
+            sim.people()
+                .sickness
+                .inoculation_calls
+                .iter()
+                .map(|c| c.caller),
+        );
         if !saved && !sim.people().sickness.inoculation_calls.is_empty() {
             let loaded = reloaded(&mut sim);
             assert_eq!(
@@ -1601,15 +1611,21 @@ fn a_household_that_believes_smallpox_near_calls_a_variolator_and_its_people_are
             .filter(|e| e.acquired == civ_agents::sickness::Acquired::Inoculated { by: variolator })
             .map(|e| (e.person, e.household))
             .collect();
-        if !inoculated.is_empty() {
+        if inoculated.iter().any(|&(_, h)| h == Some(home)) {
             break;
         }
     }
     assert!(saved, "the call stood at a quarter-day");
-    assert!(!inoculated.is_empty(), "someone was inoculated");
     assert!(
-        inoculated.iter().all(|&(_, h)| h == Some(home)),
-        "{inoculated:?}"
+        inoculated.iter().any(|&(_, h)| h == Some(home)),
+        "someone of the calling household was inoculated: {inoculated:?}"
+    );
+    // Nobody is inoculated whose household did not call.
+    assert!(
+        inoculated
+            .iter()
+            .all(|&(_, h)| h.is_some_and(|h| callers.contains(&h))),
+        "{inoculated:?} against callers {callers:?}"
     );
     // The variolator's page says whom they inoculated (fourth part).
     let n = inoculated.len();
@@ -1725,8 +1741,18 @@ fn a_household_calls_a_vaccinator_before_a_variolator_and_its_people_are_vaccina
     let mut made = false;
     let mut called_words = false;
     let mut vaccinated = Vec::new();
+    // Every household that called someone to inoculate it: others tied to the dead may call too.
+    let mut callers = std::collections::BTreeSet::new();
+    let home_members = sim.people().household(home).expect("home").members.clone();
     for _ in 0..40 {
         sim.advance_minutes(DAY / 8).expect("lives");
+        callers.extend(
+            sim.people()
+                .sickness
+                .inoculation_calls
+                .iter()
+                .map(|c| c.caller),
+        );
         if !sim.people().sickness.inoculation_calls.is_empty() {
             let words = civ_sim::frames::sickness::care_words(&sim, vaccinator);
             called_words |= words.contains("Their household is called to inoculate the people of");
@@ -1742,17 +1768,22 @@ fn a_household_calls_a_vaccinator_before_a_variolator_and_its_people_are_vaccina
             .filter(|v| v.disease == disease)
             .map(|v| v.person)
             .collect();
-        if !vaccinated.is_empty() {
+        if vaccinated.iter().any(|m| home_members.contains(m)) {
             break;
         }
     }
     assert!(made, "matter was made for the call");
-    assert!(!vaccinated.is_empty(), "someone was vaccinated");
-    let people = sim.people();
-    let x = people.household(home).expect("home");
     assert!(
-        vaccinated.iter().all(|m| x.members.contains(m)),
-        "{vaccinated:?}"
+        vaccinated.iter().any(|m| home_members.contains(m)),
+        "someone of the calling household was vaccinated: {vaccinated:?}"
+    );
+    let people = sim.people();
+    // Nobody is vaccinated whose household did not call.
+    assert!(
+        vaccinated.iter().all(|&m| people
+            .person(m)
+            .is_some_and(|p| callers.contains(&p.household))),
+        "{vaccinated:?} against callers {callers:?}"
     );
     assert!(
         !people.sickness.episodes().iter().any(|e| matches!(

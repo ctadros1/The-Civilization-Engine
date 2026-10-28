@@ -1190,8 +1190,26 @@ fn villages_that_raided_each_other_seek_peace_and_the_word_is_weighed_at_both_ga
     } = neighbours(&[], [&[], &[]]);
     keep_store(&mut sim, polities[0], None, 2_000.0);
     keep_store(&mut sim, polities[1], None, 2_000.0);
-    // Each taker's household is not among those the other village's people know.
+    // Each taker's household is not among those the other village's people know, and is close to
+    // everyone at home: whoever of its village weighs terms weighs what the takers give up.
     let need = sim.rules().people.household.daily_kcal_per_person as f32;
+    let tp = sim.rules().people.ties.clone();
+    let today = sim.now().day_index();
+    for s in 0..2 {
+        let taker_hh = *homes[s].last().expect("households");
+        let takers = sim
+            .people()
+            .household(taker_hh)
+            .expect("household")
+            .members
+            .clone();
+        let pop = sim.people_mut_for_tests();
+        for &x in &takers {
+            for &y in adults[s].iter().filter(|&&y| y != x) {
+                pop.ties.record(x, y, Act::Hearth, 400.0, 0.0, today, &tp);
+            }
+        }
+    }
     for s in [1, 0] {
         let taker_hh = *homes[s].last().expect("households");
         let taker = sim.people().household(taker_hh).expect("household").members[0];

@@ -2318,6 +2318,26 @@ impl Population {
         self.fields_indexed = land.fields.len();
     }
 
+    /// Every field household `from` holds or works passes to household `to`, as if it had
+    /// changed hands: for tests that need one household alone to hold fields.
+    #[doc(hidden)]
+    pub fn move_fields_for_tests(
+        &mut self,
+        land: &mut civ_land::Land,
+        from: PermanentId,
+        to: PermanentId,
+    ) {
+        for f in &mut land.fields {
+            if f.household == from {
+                f.household = to;
+            }
+            if f.holder == civ_land::fields::Party::Household(from) {
+                f.holder = civ_land::fields::Party::Household(to);
+            }
+        }
+        self.fields_moved();
+    }
+
     /// A field has changed hands: [`Self::fields_of`] looks at every field until midnight.
     pub(crate) fn fields_moved(&mut self) {
         if self.fields_indexed > 0 {

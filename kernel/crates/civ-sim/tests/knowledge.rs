@@ -630,9 +630,16 @@ fn a_learner_enrolled_with_a_knower_of_another_household_studies_with_them_and_l
             })
             .expect("two households with grown knappers");
         let day = sim.now().day_index();
+        // Nobody of the learner's household knaps, so the teacher is the only one to learn from.
+        let home = sim
+            .people()
+            .household(payer)
+            .expect("household")
+            .members
+            .clone();
         let pop = sim.people_mut_for_tests();
         for (_, p) in pop.people.iter_mut() {
-            if p.id == learner {
+            if home.contains(&p.id) {
                 p.knows.retain(|k| usize::from(k.technique) != knapping);
             }
         }

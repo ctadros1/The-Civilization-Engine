@@ -2047,7 +2047,7 @@ pub fn law_words(
     if def.is_some_and(|d| d.kind == PolicyKind::KeepStore) {
         return match law.holder {
             Some(h) => format!("{} as keeper of the common store{instead}", name_of(h)),
-            None => "someone as keeper of the common store".to_owned(),
+            None => format!("someone as keeper of the common store{instead}"),
         };
     }
     if let Some(l) = def
@@ -2103,7 +2103,7 @@ pub fn law_words(
                 "{} to keep watch over the stores at night{instead}",
                 name_of(h)
             ),
-            None => "someone to keep watch over the stores at night".to_owned(),
+            None => format!("someone to keep watch over the stores at night{instead}"),
         };
     }
     if let Some(m) = def

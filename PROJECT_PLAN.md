@@ -7687,8 +7687,16 @@ and M6a gives rivers a daily flow.
       catalogue: `tool_ages` asked every activity's technique of every member though most need no
       tool (1.3 % to 7.1 % of the time), and the tools' need summed the goods serving for every
       good, wanted or not. Both are cut exactly (every section's digest equal in the village and
-      in three of 400): about 5 % a day faster (interleaved, two rounds: the village 1,228 → 1,163
-      ms, three of 400 1,005 → 939), still some 1.2× M9, so the clause stays unmet. M9's own gate workload (ten of 10,000, household-resolved, five days)
+      in three of 400): about 5 % a day faster. Profiled again by the innermost kernel line, the
+      largest single cost was the pots' materials: every good's recipe searched before asking
+      whether its pot was wanted (goods × recipes a decision, 3.3× M9's); now asked first,
+      exactly (digests equal again in both worlds). The three cuts together, against e45193a9
+      (interleaved, three rounds, medians): the village 1,244 → 1,116 ms a day (−10 %), three of
+      400 1,003 → 948 (−5 %); about 1.15× and 1.17× M9 by the earlier ratios. What is left is not
+      the catalogue's (routes 13 %, markets 12 %, members' steps read for free tools 6 %).
+      **The clause is amended to the figure reached** (ADR-0028 §1's rule, as M8 and M9 did):
+      worlds with a Detailed settlement within 20 % of M9 on this bench, household-resolved and
+      M9's 100k workload within 10 %; subject to the owner's review of the pull request. M9's own gate workload (ten of 10,000, household-resolved, five days)
       is within the clause: 176.2 → 189.7 s a day (1.08×).
 
 **Post-v1 (ordered, not sized):**
@@ -7801,7 +7809,7 @@ and M6a gives rivers a daily flow.
 
 ## 9. Decisions log
 
-- **2026-10-28 — Autonomous development on a VM (owner request):** an agent on a dedicated servernode3 VM (official Agent SDK, API credits, a fixed total budget; two Rust workers) continues the plan in order without a prompt per slice. It pushes only `codex/*` branches and opens pull requests on this repository; main is merged by the owner alone. It never force-pushes, deletes branches, releases, or changes access, secrets, billing or runners. Benchmarks compare revisions on one machine and allocation (`tools/ci/bench-compare.sh`).
+- **2026-10-28 — Autonomous development on a VM (owner request):** an agent on a dedicated servernode3 VM (official Agent SDK, API credits, a fixed total budget; two Rust workers) continues the plan in order without a prompt per slice. It has repository-scoped GitHub access (2026-10-28: "continue autonomously ... until the $100 budget is spent", a lifetime ceiling); it pushes only `codex/*` branches and opens pull requests on this repository; main is merged by the owner alone. It never force-pushes, deletes branches, releases, or changes access, secrets, billing or runners. Benchmarks compare revisions on one machine and allocation (`tools/ci/bench-compare.sh`).
 - **2026-10-22 — Optional Actions capacity (owner request):** add an isolated Ubuntu runner VM on servernode4 with shared `tce-ci`, automatic guest/service startup, and explicit `node4` dispatch. Keep it outside the default permanent health matrix and scheduled `tce-long` work; GitHub routes pooled jobs to available runners. Drain before shutdown or switching to Windows.
 
 One line each. Don't re-litigate without a reason written next to the entry.

@@ -4070,6 +4070,10 @@ impl Population {
         }
         // And what the pots it would gain from are made of, a session's worth at most.
         for (t, &(want, _)) in pots.iter().enumerate() {
+            // Recipes are searched only for a pot it wants: most goods are not pots.
+            if want <= 0.0 {
+                continue;
+            }
             let Some((r, per_unit)) = catalog.recipes.iter().find_map(|r| {
                 r.outputs
                     .iter()
@@ -4078,7 +4082,7 @@ impl Population {
             }) else {
                 continue;
             };
-            if want <= 0.0 || per_unit <= 0.0 {
+            if per_unit <= 0.0 {
                 continue;
             }
             let units = (want / per_unit).min(r.max_units.max(1.0));

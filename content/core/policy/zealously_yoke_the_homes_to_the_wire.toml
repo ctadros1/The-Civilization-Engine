@@ -1,0 +1,25 @@
+# A line of current strung together (M11a, eighth part; ADR-0036 §6: "a polity may build one by
+# law as it lays a line together"; shaped as `build_line`). Where a station of the settlement has
+# current to spare and two or more homes that would be lit by the wire lie beyond its lines, and a
+# line strung together from the station would spare those homes more over its life than its
+# stringing and copper (the issue `homes_unlit`), anyone may propose that the polity string it. A
+# household weighs it by the hours a year light by wire would spare it against its lamp or its
+# work, less its share of the stringing spread over the line's life, each hour worth the food an
+# hour of its own work brings; a household beyond the line gains nothing and is still asked its
+# share. Once passed, the polity marks the line out from the station's home, the station's to
+# serve, and each household is asked an equal share of the stringing: its people give it as they
+# choose, from their own copper, and nothing follows a share not given. Homes along it hook up and
+# pay the station by the meter as along any line. Whether anyone proposes one, whether it passes,
+# and whether it is finished, is people's choice. Its id sorts after every older template's:
+# hearth talk about a question and a saved law are keyed by a template's place in id order.
+kind = "policy"
+id = "core:policy/zealously_yoke_the_homes_to_the_wire"
+name = "Line of current strung together"
+description = "The polity strings a line of current from a station to homes it would light, and each household is asked an equal share of the work."
+does = "lay_current"
+answers = ["homes_unlit"]
+
+# An authoring judgement, not a measurement, as for a line of track laid together: a share of
+# every household's hours is asked.
+[bears]
+"core:value/autonomy" = -0.5

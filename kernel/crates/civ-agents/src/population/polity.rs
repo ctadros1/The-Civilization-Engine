@@ -64,6 +64,10 @@ pub(super) struct Forecasts {
     /// dig, if anywhere (M10b slice DX, third part): its pit cell, work, a wagon's life and what
     /// it would spare each household a year.
     pub(super) line: Option<super::way_works::PublicWay>,
+    /// Where the settlement's people could string a line of current together from a station, if
+    /// anywhere (M11a, eighth part): the home cell it runs to, its stringing, a line's life and
+    /// what light by wire would spare each household along it a year, with the station it leaves.
+    pub(super) current: Option<(PermanentId, super::way_works::PublicWay)>,
     /// What raising each building its templates name would bring, where its loss is measured
     /// (M8d slice DC).
     pub(super) raises: Vec<super::raising::PublicRaise>,
@@ -562,14 +566,16 @@ impl Forecasts {
             // A passing place cleared together (M8b slice CQ, third part), as a bank: the food a
             // year the waiting it would spare the household could bring, less what its share of
             // the work, spread over the place's life, could.
-            Some(kind @ (PolicyKind::BuildWay | PolicyKind::BuildLine)) => {
+            Some(
+                kind @ (PolicyKind::BuildWay | PolicyKind::BuildLine | PolicyKind::LayCurrent),
+            ) => {
                 // A line laid together (M10b slice DX, third part) as a passing place: what it
                 // would spare the household a year against its share of the work over a wagon's
-                // life.
-                let p = if kind == PolicyKind::BuildLine {
-                    self.line.as_ref()
-                } else {
-                    self.way.as_ref()
+                // life; a line of current strung together (M11a, eighth part), over a line's.
+                let p = match kind {
+                    PolicyKind::BuildLine => self.line.as_ref(),
+                    PolicyKind::LayCurrent => self.current.as_ref().map(|c| &c.1),
+                    _ => self.way.as_ref(),
                 };
                 let Some(p) = p else {
                     return 0.0;
@@ -1702,6 +1708,8 @@ impl Population {
         self.with_way(ctx, &mut fc, way, households);
         let line = self.public_line(ctx, settlement, households);
         self.with_line(ctx, &mut fc, line, households);
+        let current = self.public_current(ctx, settlement, households);
+        self.with_current(ctx, &mut fc, current, households);
         let raises = self.public_raises(ctx, pi, households);
         self.with_raises(ctx, &mut fc, raises, households);
         fc
@@ -1724,6 +1732,25 @@ impl Population {
                 .collect();
         }
         fc.line = line;
+    }
+
+    /// Adds to forecasts `fc` the line of current `current` the settlement's people could string
+    /// together (M11a, eighth part), with what an hour of each household's work brings it if it
+    /// was not reckoned already.
+    fn with_current(
+        &self,
+        ctx: &Ctx,
+        fc: &mut Forecasts,
+        current: Option<(PermanentId, super::way_works::PublicWay)>,
+        households: &[PermanentId],
+    ) {
+        if current.is_some() && fc.hour_kcal.is_empty() {
+            fc.hour_kcal = households
+                .iter()
+                .filter_map(|&h| Some((h, self.hour_kcal(ctx, self.household(h)?))))
+                .collect();
+        }
+        fc.current = current;
     }
 
     /// Adds to forecasts `fc` the passing place `way` the settlement's people could clear
@@ -1903,6 +1930,7 @@ impl Population {
             worn,
             way: None,
             line: None,
+            current: None,
             raises: Vec::new(),
             plans: Vec::new(),
             enclosure: None,
@@ -2833,6 +2861,16 @@ impl Population {
         if line.is_some() {
             issues.push(IssueKind::LoadsCarried);
         }
+        // Homes that would be lit by the wire lie beyond a station's lines, where a line strung
+        // together would repay its stringing (M11a, eighth part).
+        let current = self.public_current(ctx, settlement, &households);
+        let current_homes: Vec<PermanentId> = current
+            .as_ref()
+            .map(|c| c.1.saves.iter().map(|s| s.0).collect())
+            .unwrap_or_default();
+        if current.is_some() {
+            issues.push(IssueKind::HomesUnlit);
+        }
         // Something taken from its households after dark that nobody saw, where someone knows how
         // to make a light and lamps could stand on its ways (M10b slice DY, fourth part).
         if self.dark_takings(ctx, pi, &households) {
@@ -2897,6 +2935,7 @@ impl Population {
                         | PolicyKind::Enclose
                         | PolicyKind::BuildWay
                         | PolicyKind::BuildLine
+                        | PolicyKind::LayCurrent
                         | PolicyKind::RaiseBuilding
                 )
         });
@@ -3009,7 +3048,10 @@ impl Population {
                 }
                 // Another passing place once none is being cleared (M8b slice CQ, third part:
                 // `public_way` holds to one at a time).
-                if d.kind == PolicyKind::BuildWay || d.kind == PolicyKind::BuildLine {
+                if d.kind == PolicyKind::BuildWay
+                    || d.kind == PolicyKind::BuildLine
+                    || d.kind == PolicyKind::LayCurrent
+                {
                     return true;
                 }
                 // Another building raised together, of a program none is raised of
@@ -3084,6 +3126,7 @@ impl Population {
         self.with_enclosure(ctx, &mut fc, settlement, &households);
         self.with_way(ctx, &mut fc, way, &households);
         self.with_line(ctx, &mut fc, line, &households);
+        self.with_current(ctx, &mut fc, current, &households);
         let raises = self.public_raises(ctx, pi, &households);
         self.with_raises(ctx, &mut fc, raises, &households);
         // The plans a sponsor could lay, for each plan template open (M8c slice CT, second part).
@@ -3141,6 +3184,9 @@ impl Population {
                             // And those who dig where a line would repay its laying (M10b
                             // slice DX, third part).
                             .chain(&line_diggers)
+                            // And those whose homes lie dark beyond a station's lines where a
+                            // line strung together would repay its stringing (M11a, eighth part).
+                            .chain(&current_homes)
                             .filter_map(|&h| self.elder_of(h, now, params)),
                     )
                     // And whoever holds that a source sickens (M6a slice BA).
@@ -3754,6 +3800,17 @@ impl Population {
                             moves.push(MoveOption {
                                 site: Some(p.cell),
                                 target: None,
+                                ..blank
+                            });
+                        }
+                    }
+                    // A line of current strung together from a station (M11a, eighth part),
+                    // named by the home cell it runs to, the station its target.
+                    PolicyKind::LayCurrent => {
+                        if let Some((station, p)) = &fc.current {
+                            moves.push(MoveOption {
+                                site: Some(p.cell),
+                                target: Some(*station),
                                 ..blank
                             });
                         }
@@ -4462,7 +4519,9 @@ impl Population {
         }
         // A passing place names its cell, as the settlement's people would clear it now, and
         // keeps what each household reckoned it would spare it (M8b slice CQ, third part).
-        if (def.kind == PolicyKind::BuildWay || def.kind == PolicyKind::BuildLine)
+        if (def.kind == PolicyKind::BuildWay
+            || def.kind == PolicyKind::BuildLine
+            || def.kind == PolicyKind::LayCurrent)
             && let Some(cell) = m.site
         {
             let settlement = self.polities[pi].settlement;
@@ -4475,10 +4534,15 @@ impl Population {
             households.sort_unstable();
             // A line names its pit's cell as a passing place names its own (M10b slice DX, third
             // part).
-            let found = if def.kind == PolicyKind::BuildLine {
-                self.public_line(ctx, settlement, &households)
-            } else {
-                self.public_way(ctx, settlement, &households)
+            let found = match def.kind {
+                PolicyKind::BuildLine => self.public_line(ctx, settlement, &households),
+                // A line of current names the home cell it runs to and its station (M11a,
+                // eighth part).
+                PolicyKind::LayCurrent => self
+                    .public_current(ctx, settlement, &households)
+                    .filter(|c| Some(c.0) == m.target)
+                    .map(|c| c.1),
+                _ => self.public_way(ctx, settlement, &households),
             };
             if let Some(p) = found.filter(|p| p.cell == cell) {
                 let polity = &mut self.polities[pi];
@@ -4848,6 +4912,10 @@ impl Population {
         // slice DX, third part).
         if outcome == Outcome::Passed && kind == PolicyKind::BuildLine {
             self.begin_public_line(ctx, pi, law_id);
+        }
+        // A line of current passed is marked out at once from its station (M11a, eighth part).
+        if outcome == Outcome::Passed && kind == PolicyKind::LayCurrent {
+            self.begin_public_current(ctx, pi, law_id);
         }
         // Streets lit by law have their lamps set at once, unlit until the lamplighter's round
         // (M10b slice DY, fourth part).

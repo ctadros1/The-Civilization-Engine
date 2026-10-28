@@ -88,6 +88,23 @@ impl Population {
                 .any(|(i, s)| s.owner == x.id && ctx.land.installation_ready(i))
     }
 
+    /// Whether cell `cell` lies on or beside a whole, unbroken line of station `station`, where a
+    /// home may hook up without another line.
+    fn by_a_line(ctx: &Ctx, station: PermanentId, cell: u32) -> bool {
+        let w = i64::from(ctx.map.width.max(1));
+        let (px, py) = (i64::from(cell) % w, i64::from(cell) / w);
+        ctx.land
+            .wires
+            .lines
+            .iter()
+            .filter(|l| l.station == station && l.whole() && !l.broken)
+            .any(|l| {
+                l.cells.iter().any(|&c| {
+                    ((i64::from(c) % w) - px).abs() <= 1 && ((i64::from(c) / w) - py).abs() <= 1
+                })
+            })
+    }
+
     /// Household `h`'s finished, standing home, if it has one.
     fn finished_home(ctx: &Ctx, h: PermanentId) -> Option<PermanentId> {
         ctx.land
@@ -156,10 +173,17 @@ impl Population {
     /// hour of a home's current, in hours of its own food, costs it less than an hour of its work,
     /// or than an hour of a lamp it holds whole, as gas light is weighed.
     fn wants_wire(&self, ctx: &Ctx, x: &Household) -> bool {
+        self.wire_spares_h(ctx, x) > 0.0
+    }
+
+    /// The hours of its own an hour of light by wire at the meter would spare household `x`: an
+    /// hour of its work, or of a lamp it holds whole, the least, less what the hour's current
+    /// costs it in its own food. Nothing (or less) where it puts no figure on its food.
+    fn wire_spares_h(&self, ctx: &Ctx, x: &Household) -> f64 {
         let goods = &ctx.catalog.goods;
         let costs = self.own_costs_of(ctx, x);
         let Some(per_kcal) = hours_per_kcal(goods, &costs) else {
-            return false;
+            return 0.0;
         };
         let lamp_hour = goods
             .iter()
@@ -171,7 +195,222 @@ impl Population {
             })
             .filter_map(|(g, _)| super::light_hour_cost(goods, &costs, g))
             .fold(1.0f64, f64::min);
-        HOME_LIGHT_KW * meter_kcal_kwh(ctx) * per_kcal < lamp_hour
+        lamp_hour - HOME_LIGHT_KW * meter_kcal_kwh(ctx) * per_kcal
+    }
+
+    /// Where the settlement's people could string a line of current together (M11a, eighth part;
+    /// ADR-0036 §6), if anywhere, with the station it leaves: from the home of a household whose
+    /// dynamo turns beside its own installation and that has current to spare, to a home of the
+    /// settlement, along ways with leave, where two or more homes along it, not yet hooked up,
+    /// would have light by wire, as many as the spare current serves, and none of the polity's
+    /// lines of current is being strung. Each such household is reckoned to spare a year an
+    /// evening's hours of its lamp or work less its current at the meter; the line chosen is the
+    /// one whose pooled hours spared over a line's life most exceed its stringing and its copper
+    /// at the cheapest any of the settlement's households can have it. As a passing place: the
+    /// home cell it runs to, its stringing, a line's life, what it spares each of those
+    /// households, and the settlement's households who would share its work.
+    pub(crate) fn public_current(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+        households: &[PermanentId],
+    ) -> Option<(PermanentId, super::way_works::PublicWay)> {
+        let params = ctx.land_params.wire?;
+        if ctx.land.installations.is_empty()
+            || !ctx
+                .catalog
+                .policies
+                .iter()
+                .any(|d| d.kind == crate::polity::PolicyKind::LayCurrent)
+        {
+            return None;
+        }
+        let dynamos = Self::dynamo_goods(ctx);
+        let ours: Vec<&Household> = households
+            .iter()
+            .filter_map(|&h| self.household(h))
+            .filter(|x| x.settlement == Some(settlement) && !x.members.is_empty())
+            .collect();
+        let stations: Vec<&Household> = ours
+            .iter()
+            .copied()
+            .filter(|x| Self::turns_dynamo(ctx, x, &dynamos))
+            .collect();
+        if stations.is_empty() {
+            return None;
+        }
+        // One line at a time: none of the polity's being strung.
+        let wires = &ctx.land.wires;
+        if let Some(pi) = self.polity_of(settlement)
+            && self.polities[pi].ways.iter().any(|(_, s)| {
+                s.work
+                    .is_some_and(|w| wires.lines.iter().any(|l| l.id == w && !l.whole()))
+            })
+        {
+            return None;
+        }
+        // Copper at the cheapest any of the settlement's households can have it (what they hold
+        // counts as in hand where none can put a figure on it).
+        let copper_h = ours
+            .iter()
+            .filter_map(|x| {
+                self.own_costs_of(ctx, x)
+                    .get(params.good)
+                    .copied()
+                    .flatten()
+            })
+            .reduce(f64::min);
+        let copper_held: f64 = ours
+            .iter()
+            .map(|x| x.stores.get(params.good).copied().unwrap_or(0.0).max(0.0))
+            .sum();
+        let year = super::gas::GAS_EVENING_H * DAYS_PER_YEAR as f64;
+        // Homes not yet hooked up, with what light by wire would spare each a year.
+        let homes: Vec<(PermanentId, u32, f64)> = ours
+            .iter()
+            .filter(|x| {
+                !wires.hookups.iter().any(|h| h.household == x.id)
+                    && Self::finished_home(ctx, x.id).is_some()
+            })
+            .map(|x| {
+                (
+                    x.id,
+                    cell_of(ctx.map, x.home) as u32,
+                    self.wire_spares_h(ctx, x) * year,
+                )
+            })
+            .filter(|h| h.2 > 0.0)
+            .collect();
+        let w = i64::from(ctx.map.width.max(1));
+        let mut best: Option<(f64, PermanentId, super::way_works::PublicWay)> = None;
+        for s in stations {
+            let asked: f64 = wires
+                .hookups
+                .iter()
+                .filter(|h| {
+                    !h.cut_off
+                        && wires
+                            .lines
+                            .iter()
+                            .any(|l| l.id == h.line && l.station == s.id)
+                })
+                .map(|h| h.ask_kw)
+                .sum();
+            let slots = ((self.electric_kw(ctx, s.id) - asked) / HOME_LIGHT_KW)
+                .floor()
+                .max(0.0) as usize;
+            if slots < 2 {
+                continue;
+            }
+            let from = cell_of(ctx.map, s.home) as u32;
+            // Homes by one of its lines already hook up without another.
+            let beyond: Vec<(PermanentId, u32, f64)> = homes
+                .iter()
+                .copied()
+                .filter(|h| h.0 != s.id && !Self::by_a_line(ctx, s.id, h.1))
+                .collect();
+            for &(_, to, _) in &beyond {
+                let Some((cells, length_m)) =
+                    self.wire_route(ctx, s.id, from, to).filter(|r| r.1 >= 1e-3)
+                else {
+                    continue;
+                };
+                let kg = length_m * params.good_kg_m;
+                let copper = match copper_h {
+                    Some(h) => kg * h,
+                    None if copper_held + 1e-9 >= kg => 0.0,
+                    None => continue,
+                };
+                let near = |cell: u32| {
+                    let (px, py) = (i64::from(cell) % w, i64::from(cell) / w);
+                    cells.iter().any(|&c| {
+                        ((i64::from(c) % w) - px).abs() <= 1 && ((i64::from(c) / w) - py).abs() <= 1
+                    })
+                };
+                let mut saves: Vec<(PermanentId, f64)> = beyond
+                    .iter()
+                    .filter(|h| near(h.1))
+                    .map(|h| (h.0, h.2))
+                    .collect();
+                // As many as its spare current serves, those it would spare most first.
+                saves.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+                saves.truncate(slots);
+                if saves.len() < 2 {
+                    continue;
+                }
+                saves.sort_unstable_by_key(|s| s.0);
+                let line = super::way_works::PublicWay {
+                    cell: to,
+                    labour_h: length_m * params.lay_h_m,
+                    life: params.life_years,
+                    saves,
+                    households: ours.len(),
+                };
+                let net = line.pooled_net_h() - copper;
+                if net > 0.0 && best.as_ref().is_none_or(|(b, _, _)| net > *b) {
+                    best = Some((net, s.id, line));
+                }
+            }
+        }
+        best.map(|b| (b.1, b.2))
+    }
+
+    /// Where the settlement's people could string a line of current together, as its station,
+    /// the home cell it runs to, its stringing and what it would spare each household a year:
+    /// for tests.
+    #[doc(hidden)]
+    #[allow(clippy::type_complexity)]
+    pub fn public_current_for_tests(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+    ) -> Option<(PermanentId, u32, f64, Vec<(PermanentId, f64)>)> {
+        let mut households: Vec<PermanentId> = self.households.iter().map(|(_, x)| x.id).collect();
+        households.sort_unstable();
+        self.public_current(ctx, settlement, &households)
+            .map(|(s, p)| (s, p.cell, p.labour_h, p.saves))
+    }
+
+    /// The line of current law `law` of polity `pi` passed names is marked out at once from its
+    /// station's home to the home cell it names (M11a, eighth part), the station's to serve, its
+    /// stringing the polity's households'.
+    pub(super) fn begin_public_current(&mut self, ctx: &mut Ctx, pi: usize, law: PermanentId) {
+        let polity = &self.polities[pi];
+        let Some(site) = polity
+            .ways
+            .iter()
+            .find(|s| s.0 == law)
+            .map(|s| s.1)
+            .filter(|s| s.work.is_none())
+        else {
+            return;
+        };
+        let Some(station) = polity
+            .laws
+            .iter()
+            .find(|l| l.id == law)
+            .and_then(|l| l.target)
+        else {
+            return;
+        };
+        let Some(from) = self
+            .household(station)
+            .map(|x| cell_of(ctx.map, x.home) as u32)
+        else {
+            return;
+        };
+        let Some(line) = self.begin_line(ctx, station, from, site.cell, None) else {
+            return;
+        };
+        if let Some(s) = self.polities[pi].ways.iter_mut().find(|s| s.0 == law) {
+            s.1.work = Some(line);
+        }
+    }
+
+    /// The line of current law `law` of polity `pi` passed names is marked out: for tests.
+    #[doc(hidden)]
+    pub fn begin_public_current_for_tests(&mut self, ctx: &mut Ctx, pi: usize, law: PermanentId) {
+        self.begin_public_current(ctx, pi, law);
     }
 
     /// What a line from station `station`'s home to each other home of its settlement would repay
@@ -261,12 +500,17 @@ impl Population {
                     && Self::finished_home(ctx, y.id).is_some()
             })
             .map(|(_, y)| (cell_of(ctx.map, y.home) as u32, self.wants_wire(ctx, y)))
+            // Homes by one of its lines already hook up without another.
+            .filter(|&(c, _)| !Self::by_a_line(ctx, station, c))
             .collect();
         for &(to, wants) in &homes {
             if !wants {
                 continue;
             }
-            let Some((cells, length_m)) = self.wire_route(ctx, station, from, to) else {
+            let Some((cells, length_m)) = self
+                .wire_route(ctx, station, from, to)
+                .filter(|r| r.1 >= 1e-3)
+            else {
                 continue;
             };
             let near = |cell: u32| {
@@ -432,9 +676,10 @@ impl Population {
         Some(id)
     }
 
-    /// `hours` of work by someone of `household` on its station's line `line`: a metre strung
-    /// each `lay_h_m` hours, each taking its conductor from the household's store, no more than
-    /// the conductor held allows or the line has left.
+    /// `hours` of work by someone of `household` on its station's line `line`, or on a line its
+    /// polity strings by law (M11a, eighth part): a metre strung each `lay_h_m` hours, each taking
+    /// its conductor from the household's store, no more than the conductor held allows or the
+    /// line has left. On a polity's, the hours it took are the household's given to the law.
     pub(super) fn line_work(
         &mut self,
         ctx: &mut Ctx,
@@ -445,12 +690,23 @@ impl Population {
         let Some(params) = ctx.land_params.wire else {
             return;
         };
-        let Some(l) = ctx
-            .land
-            .wires
-            .lines
-            .iter_mut()
-            .find(|l| l.id == line && l.station == household && !l.whole())
+        // The polity whose law strings it, if one does, and the law, where `household` is of it.
+        let public = self
+            .household(household)
+            .and_then(|x| x.settlement)
+            .and_then(|s| self.polity_of(s))
+            .and_then(|pi| {
+                let law = self.polities[pi]
+                    .ways
+                    .iter()
+                    .find(|s| s.1.work == Some(line))?
+                    .0;
+                Some((pi, law))
+            });
+        let Some(l) =
+            ctx.land.wires.lines.iter_mut().find(|l| {
+                l.id == line && (l.station == household || public.is_some()) && !l.whole()
+            })
         else {
             return;
         };
@@ -469,6 +725,11 @@ impl Population {
         if used > 0.0 {
             x.stores[params.good] = held - used;
             x.flows.add(Flow::Used, params.good, used);
+        }
+        if let Some((pi, law)) = public
+            && metres > 0.0
+        {
+            self.polities[pi].give_to_way(law, household, (metres * params.lay_h_m) as f32);
         }
     }
 

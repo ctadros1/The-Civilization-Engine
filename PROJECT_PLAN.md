@@ -7854,6 +7854,30 @@ and M6a gives rivers a daily flow.
       motor's hours; power by wire is deferred, ADR-0036 §3): with light alone an evening's four
       hours dispatched together serve exactly as four hourly dispatches would, since a station's
       current is reckoned from its shafts by the day.
+    - *M11a, eighth part (2026-10-29): a line of current strung together by law (ADR-0036 §6).*
+      An appended policy kind and template, `lay_current` (`zealously_yoke_the_homes_to_the_wire`,
+      sorting last; content API 203), answers an appended issue, `homes_unlit` (save code 41):
+      where a household of the settlement turns a dynamo beside its own installation with current
+      to spare for two or more homes, and two or more homes not yet hooked up and not beside any of
+      its lines would be lit by the wire along a route from its home along ways with leave, the
+      settlement's people could string that line together. Each such household is reckoned to
+      spare a year an evening's hours of its lamp or work less its current at the meter; the line
+      chosen is the one whose pooled hours spared over a line's life most exceed its stringing and
+      its copper at the cheapest any household can have it (copper held counts as in hand where
+      none can put a figure on it). As a line of track laid together: a household weighs it by
+      what it would spare it against its share of the stringing over the line's life; the elders
+      of the dark homes deliberate; the move names the home cell the line runs to and the station
+      it leaves. Passed, the polity marks the line out from the station's home, the station's to
+      serve; each household of the polity strings its share as way work from its own copper,
+      counted toward its share; homes along it hook up and pay the station by the meter as along
+      any line. Neither reckoning now begins a line of no length, nor counts homes already beside
+      one of the station's lines (they hook up without another). **Tested:** without a way to the
+      far homes nothing reaches them; with one, a line from the station that serves both is
+      reckoned; it is proposed for `homes_unlit` naming the station, records its site and what
+      it spares a far home, reads as a line of current strung together, is marked out from the
+      station's home on passing, is kept across a save, is strung whole by the two far
+      households' shares from their own copper (each counted toward its share), and at the
+      evening both hook up, are served and pay by the meter.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

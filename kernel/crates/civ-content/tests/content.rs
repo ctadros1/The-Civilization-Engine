@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 202
+kernel_content_api = 203
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2755,6 +2755,7 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
+        "core:policy/zealously_yoke_the_homes_to_the_wire",
     ];
     assert!(
         reg.catalog
@@ -2793,6 +2794,7 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
+        "core:policy/zealously_yoke_the_homes_to_the_wire",
     ];
     assert!(
         reg.catalog
@@ -2872,6 +2874,7 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
+        "core:policy/zealously_yoke_the_homes_to_the_wire",
     ];
     assert!(
         reg.catalog
@@ -2909,6 +2912,7 @@ fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
+        "core:policy/zealously_yoke_the_homes_to_the_wire",
     ];
     assert!(
         reg.catalog
@@ -2957,6 +2961,7 @@ fn the_core_lets_a_polity_name_a_health_officer_who_can_write() {
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
+        "core:policy/zealously_yoke_the_homes_to_the_wire",
     ];
     assert!(
         reg.catalog
@@ -2999,6 +3004,7 @@ fn the_core_lets_a_polity_clear_middens_from_the_water() {
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
+        "core:policy/zealously_yoke_the_homes_to_the_wire",
     ];
     assert!(
         reg.catalog
@@ -3035,6 +3041,7 @@ fn the_core_lets_a_polity_raise_a_sickhouse_where_the_sick_lay_untended() {
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
+        "core:policy/zealously_yoke_the_homes_to_the_wire",
     ];
     assert!(
         reg.catalog
@@ -3213,6 +3220,7 @@ fn policy_templates_keep_their_places() {
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
+        "core:policy/zealously_yoke_the_homes_to_the_wire",
     ];
     assert!(
         ids.starts_with(&kept),

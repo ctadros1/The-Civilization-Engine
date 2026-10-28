@@ -652,3 +652,266 @@ fn a_station_that_knows_the_dynamo_strings_a_line_to_homes_that_pay_by_the_meter
     );
     let _ = far;
 }
+
+#[test]
+fn a_polity_strings_a_line_of_current_together_to_homes_beyond_a_stations_lines() {
+    use civ_agents::polity::{IssueKind, LawStatus, Outcome, PolicyKind};
+    use civ_land::ways::{Keeper, Rank, Segment, Surface, WALK, Way};
+    let mut sim = world();
+    sim.advance_minutes(10 * 24 * 60).expect("lives");
+    let dwellings: Vec<PermanentId> = sim
+        .land()
+        .buildings
+        .iter()
+        .filter(|b| sim.rules().catalog.is_dwelling(&b.spec.program))
+        .map(|b| b.id)
+        .collect();
+    for b in &mut sim.land_mut_for_tests().buildings {
+        if dwellings.contains(&b.id) {
+            b.stage = civ_grammar::Stage::ALL.len() as _;
+        }
+    }
+    let map = sim.map().clone();
+    let cell = |at: (f32, f32)| civ_agents::population::cell_of(&map, at) as u32;
+    let homes: Vec<(PermanentId, u32)> = sim
+        .land()
+        .buildings
+        .iter()
+        .filter(|b| dwellings.contains(&b.id))
+        .filter_map(|b| {
+            let h = sim.people().household(b.household)?;
+            Some((h.id, cell(h.home)))
+        })
+        .collect();
+    let (station, from) = homes[0];
+    let settlement = sim
+        .people()
+        .household(station)
+        .and_then(|x| x.settlement)
+        .expect("of a settlement");
+    let w = i64::from(map.width);
+    let apart = |a: u32, b: u32| {
+        (i64::from(a) % w - i64::from(b) % w)
+            .abs()
+            .max((i64::from(a) / w - i64::from(b) / w).abs())
+    };
+    let (far, to) = homes
+        .iter()
+        .copied()
+        .find(|&(h, c)| h != station && apart(c, from) >= 3)
+        .expect("a home some cells off");
+    // A second home beside the far one, beyond the station's reach too.
+    let beside = homes
+        .iter()
+        .map(|h| h.0)
+        .find(|&h| h != station && h != far)
+        .expect("another home");
+    let far_home = sim.people().household(far).expect("far").home;
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == beside {
+            x.home = far_home;
+        }
+    }
+    // A station: a water installation and a dynamo beside it, its own home hooked up.
+    let reach = (0..sim.land().reach_discharges.len())
+        .max_by(|&a, &b| sim.land().reach_discharges[a].total_cmp(&sim.land().reach_discharges[b]))
+        .expect("a reach") as u32;
+    let at = sim.people().household(station).expect("station").home;
+    let mill = sim.allocate_id_for_tests();
+    sim.land_mut_for_tests()
+        .installations
+        .push(civ_land::power::Installation {
+            id: mill,
+            reach,
+            at: [f64::from(at.0), f64::from(at.1)],
+            head_m: 4.0,
+            race_m3s: 1.0,
+            efficiency: 0.5,
+            rated_kw: 6.0,
+            owner: station,
+            building: None,
+        });
+    let goods = sim.rules().catalog.goods.clone();
+    let dynamo = goods
+        .iter()
+        .position(|g| g.id == "core:good/dynamo")
+        .expect("the dynamo");
+    let params = sim.rules().land.wire.expect("the core lays lines");
+    set(&mut sim, station, dynamo, 1.0);
+    for (h, _) in &homes {
+        set(&mut sim, *h, params.good, 100.0);
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.wire_reviews_for_tests(ctx));
+    let public = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.public_current_for_tests(ctx, settlement))
+    };
+    // No way runs to the far homes: no line to string together reaches them.
+    assert!(public(&mut sim).is_none_or(|p| p.1 != to));
+    let cells = straight(map.width, from, to);
+    let way = sim.allocate_id_for_tests();
+    let today = sim.now().day_index();
+    sim.land_mut_for_tests().ways.add(Way {
+        id: way,
+        begun: today,
+        segments: vec![Segment {
+            cells: cells[1..cells.len() - 1].to_vec(),
+            corridor_m: 4.0,
+            built_m: 4.0,
+            usable_m: 4.0,
+            surface: Surface::Cleared,
+            keeper: Keeper::Nobody,
+            kept: today,
+        }],
+        modes: WALK,
+        trips: 0.0,
+        trips_day: today,
+        rank: Rank::Lane,
+        track: None,
+    });
+    // Along the way the two far homes would be lit by a line strung together from the station.
+    let (st, end, labour_h, saves) = public(&mut sim).expect("a line to string together");
+    // It leaves the station; the home it runs to is the one whose line serves most for least.
+    assert_eq!(st, station);
+    assert!(labour_h > 0.0, "{labour_h}");
+    assert!(
+        saves.iter().any(|s| s.0 == far) && saves.iter().any(|s| s.0 == beside),
+        "{saves:?}"
+    );
+    // Someone proposes that the polity string it, for their homes lie dark beyond the wire.
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.settlement == settlement)
+        .expect("a polity");
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    let mut proposed = None;
+    for _ in 0..12 {
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[pi].gathering = None;
+            for l in &mut pop.polities[pi].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        match sim.people().polities[pi].agenda().cloned() {
+            Some(l) if l.kind == PolicyKind::LayCurrent => {
+                proposed = Some(l);
+                break;
+            }
+            Some(_) => continue,
+            None => break,
+        }
+    }
+    let law = proposed.expect("a line of current proposed");
+    assert_eq!(
+        (law.issue, law.target),
+        (IssueKind::HomesUnlit, Some(station))
+    );
+    let id = law.id;
+    let site = sim.people().polities[pi]
+        .way_site_of(id)
+        .expect("its site recorded");
+    assert_eq!((site.cell, site.work), (end, None));
+    assert!(sim.people().polities[pi].way_saves_of(id, far) > 0.0);
+    // Passed and known, the polity marks the line out from the station's home.
+    let adults: Vec<PermanentId> = sim
+        .people()
+        .people
+        .iter()
+        .filter(|(_, p)| p.age_years(sim.now()) >= 16.0)
+        .map(|(_, p)| p.id)
+        .collect();
+    {
+        let pop = sim.people_mut_for_tests();
+        pop.every_adult_deliberates = false;
+        let p = &mut pop.polities[pi];
+        p.gathering = None;
+        let l = p.laws.iter_mut().find(|l| l.id == id).expect("the law");
+        l.status = LawStatus::InForce;
+        l.outcome = Some(Outcome::Passed);
+        l.known = adults.iter().map(|&a| (a, today)).collect();
+    }
+    let words = sim.people().polities[pi].words_of(
+        &sim.people().polities[pi]
+            .laws
+            .iter()
+            .find(|l| l.id == id)
+            .expect("the law")
+            .clone(),
+        &sim.rules().catalog.policies,
+        &|_| String::new(),
+    );
+    assert!(words.contains("line of current strung together"), "{words}");
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_public_current_for_tests(ctx, pi, id));
+    let line = sim.people().polities[pi]
+        .way_site_of(id)
+        .and_then(|s| s.work)
+        .expect("the line marked out");
+    let l = sim
+        .land()
+        .wires
+        .lines
+        .iter()
+        .find(|l| l.id == line)
+        .cloned()
+        .expect("the line");
+    assert_eq!(
+        (l.station, l.cells.first(), l.cells.last()),
+        (station, Some(&from), Some(&end))
+    );
+    assert!(!l.whole());
+    // Saved and loaded while it is marked out, the line is kept.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves_dir =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(
+        &mut sim,
+        &saves_dir,
+        commons_persist::SaveKind::Manual,
+        "law",
+    )
+    .expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.land().wires, sim.land().wires);
+    assert_eq!(
+        loaded.people().polities[pi].way_site_of(id),
+        sim.people().polities[pi].way_site_of(id)
+    );
+    // The far households' shares string it, each from its own copper, counted toward its share.
+    let half = l.length_m * params.lay_h_m / 2.0 + 1.0;
+    for h in [far, beside] {
+        sim.with_ctx_for_tests(|pop, ctx| pop.way_work_for_tests(ctx, h, line, half));
+    }
+    let strung = sim
+        .land()
+        .wires
+        .lines
+        .iter()
+        .find(|l| l.id == line)
+        .cloned()
+        .expect("the line");
+    assert!(strung.whole(), "{strung:?}");
+    for h in [far, beside] {
+        assert!(sim.people().polities[pi].way_given_by(id, h) > 0.0);
+        let copper = sim.people().household(h).expect("home").stores[params.good];
+        assert!(copper < 100.0, "its own copper strung: {copper}");
+    }
+    // At the evening the far homes hook up to it, are lit, and pay the station by the meter.
+    sim.with_ctx_for_tests(|pop, ctx| pop.wire_evening_for_tests(ctx));
+    for h in [far, beside] {
+        let k = sim
+            .land()
+            .wires
+            .hookups
+            .iter()
+            .find(|k| k.household == h)
+            .cloned()
+            .expect("hooked up");
+        assert_eq!((k.line, k.cause), (line, Cause::Served));
+    }
+    assert!(paid_by_meter(&sim) > 0.0);
+}

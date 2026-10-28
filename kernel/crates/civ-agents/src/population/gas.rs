@@ -103,9 +103,10 @@ pub struct MainReckoning {
 pub const GAS_EVENING_H: f64 = 4.0;
 
 impl Population {
-    /// Schedules today's lighting of gas at dusk (M10b slice DY), while any main is laid.
+    /// Schedules today's lighting of gas at dusk (M10b slice DY), while any main is laid, and of
+    /// the wire's evening while any line is (M11a).
     pub(super) fn schedule_gas(&mut self, ctx: &mut Ctx) {
-        if ctx.land.gas.mains.is_empty() {
+        if ctx.land.gas.mains.is_empty() && ctx.land.wires.lines.is_empty() {
             return;
         }
         let doy = civ_land::day_of_year(ctx.now.day_index());

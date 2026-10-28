@@ -6,7 +6,7 @@ use std::sync::OnceLock;
 
 use civ_content::ContentRegistry;
 use civ_core::PermanentId;
-use civ_land::wire::{Hookup, Line};
+use civ_land::wire::{Cause, Hookup, Line};
 use civ_sim::{NewWorld, Sim, persist};
 
 fn content() -> &'static ContentRegistry {
@@ -80,6 +80,8 @@ fn lines_and_hookups_save_and_load_exactly() {
         line: id(9_100_002),
         ask_kw: 0.3,
         cut_off: true,
+        lit_until: 1_234,
+        cause: civ_land::wire::Cause::LineFull,
     });
     let before = sim.land().wires.clone();
     let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
@@ -129,7 +131,7 @@ fn a_line_is_begun_along_ways_with_leave_and_strung_by_work_and_copper() {
         .map(|(_, h)| (h.id, cell(h.home)))
         .collect();
     let (station, from) = homes[0];
-    let (_, to) = homes
+    let (far, to) = homes
         .iter()
         .copied()
         .find(|&(h, c)| {
@@ -193,4 +195,53 @@ fn a_line_is_begun_along_ways_with_leave_and_strung_by_work_and_copper() {
     set_copper(&mut sim, 1e6);
     sim.with_ctx_for_tests(|pop, ctx| pop.line_work_for_tests(ctx, station, line, 1e6));
     assert!(sim.land().wires.lines[0].whole());
+    // The far home hooks up, asking 0.3 kW. The station has no drive: it is short.
+    let building = sim.allocate_id_for_tests();
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_hookup(ctx, building, far, line, 0.3));
+    sim.with_ctx_for_tests(|pop, ctx| pop.wire_evening_for_tests(ctx));
+    let h = sim.land().wires.hookups[0].clone();
+    assert_eq!((h.cause, h.lit_until), (Cause::StationShort, -1));
+    // A water installation at the station's home on the reach that carries most, and a dynamo
+    // beside it: the far home is lit for the evening.
+    let reach = (0..sim.land().reach_discharges.len())
+        .max_by(|&a, &b| sim.land().reach_discharges[a].total_cmp(&sim.land().reach_discharges[b]))
+        .expect("a reach") as u32;
+    let home = sim.people().household(station).expect("station").home;
+    let mill = sim.allocate_id_for_tests();
+    sim.land_mut_for_tests()
+        .installations
+        .push(civ_land::power::Installation {
+            id: mill,
+            reach,
+            at: [f64::from(home.0), f64::from(home.1)],
+            head_m: 2.0,
+            race_m3s: 0.5,
+            efficiency: 0.3,
+            rated_kw: 3.0,
+            owner: station,
+            building: None,
+        });
+    let dynamo = sim
+        .rules()
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/dynamo")
+        .expect("the dynamo");
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == station {
+            x.stores[dynamo] = 1.0;
+        }
+    }
+    let current = sim.with_ctx_for_tests(|pop, ctx| pop.electric_kw(ctx, station));
+    assert!(current > 0.3, "the dynamo gives {current} kW");
+    let now = sim.now().minutes();
+    sim.with_ctx_for_tests(|pop, ctx| pop.wire_evening_for_tests(ctx));
+    let h = sim.land().wires.hookups[0].clone();
+    assert_eq!((h.cause, h.lit_until), (Cause::Served, now + 240));
+    assert_eq!(sim.land().wires.lit_until(far, now), Some(now + 240));
+    // Cut off, it is dark again at the next evening, keeping why.
+    sim.land_mut_for_tests().wires.hookups[0].cut_off = true;
+    sim.with_ctx_for_tests(|pop, ctx| pop.wire_evening_for_tests(ctx));
+    assert_eq!(sim.land().wires.hookups[0].cause, Cause::CutOff);
 }

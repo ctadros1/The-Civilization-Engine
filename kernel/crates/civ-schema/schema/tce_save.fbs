@@ -3915,6 +3915,10 @@ table WireHookupSave {
   line: ulong (id: 2);
   ask_kw: double (id: 3);
   cut_off: bool (id: 4);
+  // Its last evening: the minute it is lit until (-1 never) and why it was or was not served (0
+  // served, 1 station short, 2 line full, 3 line down, 4 cut off).
+  lit_until: long = -1 (id: 5);
+  cause: ubyte (id: 6);
 }
 
 table WiresSave {

@@ -1,11 +1,13 @@
 //! Lines of current begun and laid (M11a, third part, fourth step; ADR-0036 §3): a line is routed
 //! along ways whose keepers give leave, as a gas main is, marked out at its length with nothing
 //! laid, and strung by its station's household a metre at a time from the conductor it holds. It
-//! carries current only once whole. Nobody begins one in a lived day yet.
+//! carries current only once whole. A building hooked up to a line is served each evening as far
+//! as its station's current and its lines carry it (ADR-0036 §4), lit as a gas burner lights it.
+//! Nobody begins a line or hooks up a building in a lived day yet.
 
 use civ_core::PermanentId;
 use civ_land::ways::Keeper;
-use civ_land::wire::Line;
+use civ_land::wire::{Cause, Hookup, Line};
 
 use super::*;
 
@@ -92,6 +94,76 @@ impl Population {
             x.stores[params.good] = held - used;
             x.flows.add(Flow::Used, params.good, used);
         }
+    }
+
+    /// Hooks building `building` of household `household` up to line `line`, asking `ask_kw` an
+    /// hour; never yet lit.
+    pub fn begin_hookup(
+        &self,
+        ctx: &mut Ctx,
+        building: PermanentId,
+        household: PermanentId,
+        line: PermanentId,
+        ask_kw: f64,
+    ) {
+        ctx.land.wires.hookups.push(Hookup {
+            building,
+            household,
+            line,
+            ask_kw,
+            cut_off: false,
+            lit_until: -1,
+            cause: Cause::Served,
+        });
+    }
+
+    /// The wire's evening (M11a; ADR-0036 §4): for each station with lines, in the order its
+    /// first line was made, its dynamos' current from its shafts today
+    /// ([`Population::electric_kw`]) is dispatched down its tree ([`civ_land::wire::dispatch`]);
+    /// each hookup on it keeps its cause, and one served is lit for [`super::gas::GAS_EVENING_H`]
+    /// from now, as a gas burner is. Nothing where no line is laid or the land lays none.
+    pub(super) fn wire_evening(&mut self, ctx: &mut Ctx) {
+        let Some(params) = ctx.land_params.wire else {
+            return;
+        };
+        if ctx.land.wires.lines.is_empty() {
+            return;
+        }
+        let mut stations: Vec<PermanentId> = Vec::new();
+        for l in &ctx.land.wires.lines {
+            if !stations.contains(&l.station) {
+                stations.push(l.station);
+            }
+        }
+        let until = ctx.now.minutes() + (super::gas::GAS_EVENING_H * 60.0).round() as i64;
+        for station in stations {
+            let output = self.electric_kw(ctx, station);
+            let wires = &mut ctx.land.wires;
+            let on: Vec<usize> = (0..wires.hookups.len())
+                .filter(|&i| {
+                    wires
+                        .lines
+                        .iter()
+                        .any(|l| l.id == wires.hookups[i].line && l.station == station)
+                })
+                .collect();
+            let mine: Vec<Hookup> = on.iter().map(|&i| wires.hookups[i].clone()).collect();
+            let (causes, _) =
+                civ_land::wire::dispatch(&wires.lines, &mine, station, output, &params);
+            for (&i, cause) in on.iter().zip(causes) {
+                let h = &mut wires.hookups[i];
+                h.cause = cause;
+                if cause == Cause::Served {
+                    h.lit_until = until;
+                }
+            }
+        }
+    }
+
+    /// The wire's evening now: for tests.
+    #[doc(hidden)]
+    pub fn wire_evening_for_tests(&mut self, ctx: &mut Ctx) {
+        self.wire_evening(ctx);
     }
 
     /// `hours` of work by someone of `household` on line `line`: for tests.

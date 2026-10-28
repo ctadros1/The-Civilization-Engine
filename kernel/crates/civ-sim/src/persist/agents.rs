@@ -13045,6 +13045,8 @@ fn encode_wires(wires: &civ_land::wire::Wires) -> Vec<u8> {
                     line: h.line.get(),
                     ask_kw: h.ask_kw,
                     cut_off: h.cut_off,
+                    lit_until: h.lit_until,
+                    cause: h.cause.code(),
                 },
             )
         })
@@ -13085,6 +13087,8 @@ fn decode_wires(bytes: &[u8], tag: SectionTag) -> Result<civ_land::wire::Wires, 
             line: required(h.line(), "a hookup's line")?,
             ask_kw: h.ask_kw(),
             cut_off: h.cut_off(),
+            lit_until: h.lit_until(),
+            cause: civ_land::wire::Cause::from_code(h.cause()),
         });
     }
     Ok(wires)

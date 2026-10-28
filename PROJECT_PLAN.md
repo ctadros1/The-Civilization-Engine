@@ -7763,6 +7763,19 @@ and M6a gives rivers a daily flow.
       lines is a later part. **Tested:** no route without a way; along a way kept by nobody the
       line runs from one home to the other, unlaid; without copper nothing is strung, copper for
       ten metres strings ten whatever the hours, and enough strings it whole.
+    - *M11a, fourth part, first step (2026-10-28): hookups, the evening's dispatch and light by
+      wire.* A building may be hooked up to a line, asking kilowatts an hour, and keeps its last
+      evening (lit until, and why or why not; saved, schema 220). At dusk, where any line is laid,
+      the evening that lights gas also dispatches each station's current from its dynamos today
+      down its tree, and a hookup served is lit for gas light's four hours: its household's light
+      after dark is the longest of its lamp's, its gas burners' and the wire's. Served hours are
+      the evening's for now (ADR-0036 §4's hourly dispatch reduced to gas light's cadence; a
+      motor's hours wait for power by wire). Nobody hooks up a building in a lived day yet.
+      **Tested:** a far home hooked up to a whole line is left dark with the station short until
+      the station holds a dynamo beside its water installation, then lit until four hours on; cut
+      off, it is dark at the next evening with that cause. **Proved:** against the build before,
+      the village of 500 gives every section's digest equal but `meta`, `content` and the new,
+      empty `wires`, and every line of the bench's report equal.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

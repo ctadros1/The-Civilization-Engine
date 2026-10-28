@@ -1832,7 +1832,10 @@ impl Population {
             AgentEvent::BandLook => self.band_look(ctx),
             AgentEvent::Gates => self.keep_gates(ctx),
             AgentEvent::Trains => self.trains_due(ctx),
-            AgentEvent::Gas => self.gas_evening(ctx),
+            AgentEvent::Gas => {
+                self.gas_evening(ctx);
+                self.wire_evening(ctx);
+            }
             AgentEvent::Pass {
                 person,
                 version,
@@ -3695,12 +3698,21 @@ impl Population {
             until_sunrise_min: until_sunrise as f64,
             // Light for the evening: the lamp's fuel, or the burners' gas lit until they go out
             // (M10b slice DY).
-            lamp_min: lamp_of(goods, &stores).map_or(0.0, |l| l.3).max(
-                ctx.land
-                    .gas
-                    .lit_until(hh_id, now.minutes())
-                    .map_or(0.0, |u| (u - now.minutes()) as f64),
-            ),
+            lamp_min: lamp_of(goods, &stores)
+                .map_or(0.0, |l| l.3)
+                .max(
+                    ctx.land
+                        .gas
+                        .lit_until(hh_id, now.minutes())
+                        .map_or(0.0, |u| (u - now.minutes()) as f64),
+                )
+                // Or the wire's light, served for the evening (M11a).
+                .max(
+                    ctx.land
+                        .wires
+                        .lit_until(hh_id, now.minutes())
+                        .map_or(0.0, |u| (u - now.minutes()) as f64),
+                ),
             food_days: stock / kcal_day.max(1.0),
             food_target_days: params.household.food_target_days,
             food_outlook_days,

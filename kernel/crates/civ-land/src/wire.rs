@@ -72,8 +72,33 @@ pub enum Cause {
     CutOff,
 }
 
+impl Cause {
+    /// As saved.
+    pub fn code(self) -> u8 {
+        match self {
+            Cause::Served => 0,
+            Cause::StationShort => 1,
+            Cause::LineFull => 2,
+            Cause::LineDown => 3,
+            Cause::CutOff => 4,
+        }
+    }
+
+    /// From its saved code; an unknown one reads as served.
+    pub fn from_code(code: u8) -> Cause {
+        match code {
+            1 => Cause::StationShort,
+            2 => Cause::LineFull,
+            3 => Cause::LineDown,
+            4 => Cause::CutOff,
+            _ => Cause::Served,
+        }
+    }
+}
+
 /// A building hooked up to a line, the household that keeps it, the kilowatts it asks in the hour,
-/// and whether its account is cut off.
+/// whether its account is cut off, and its last evening: the minute it is lit until (-1 never)
+/// and why it was or was not served.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Hookup {
     pub building: PermanentId,
@@ -81,6 +106,8 @@ pub struct Hookup {
     pub line: PermanentId,
     pub ask_kw: f64,
     pub cut_off: bool,
+    pub lit_until: i64,
+    pub cause: Cause,
 }
 
 /// Every line and hookup, in the order made (saved in the `wires` section, schema 220).
@@ -88,6 +115,19 @@ pub struct Hookup {
 pub struct Wires {
     pub lines: Vec<Line>,
     pub hookups: Vec<Hookup>,
+}
+
+impl Wires {
+    /// The minute a hookup of `household` served at `minute` is lit until, if any is.
+    pub fn lit_until(&self, household: PermanentId, minute: i64) -> Option<i64> {
+        self.hookups
+            .iter()
+            .filter(|h| {
+                h.household == household && h.cause == Cause::Served && minute < h.lit_until
+            })
+            .map(|h| h.lit_until)
+            .max()
+    }
 }
 
 /// One hour's dispatch from station `station` giving `output_kw` (ADR-0036 §4): each hookup on its
@@ -209,6 +249,8 @@ mod tests {
             line: id(line),
             ask_kw,
             cut_off: false,
+            lit_until: -1,
+            cause: Cause::Served,
         }
     }
 

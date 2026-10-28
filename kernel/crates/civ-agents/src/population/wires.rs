@@ -3,7 +3,8 @@
 //! laid, and strung by its station's household a metre at a time from the conductor it holds. It
 //! carries current only once whole. A building hooked up to a line is served each evening as far
 //! as its station's current and its lines carry it (ADR-0036 §4), lit as a gas burner lights it.
-//! Nobody begins a line or hooks up a building in a lived day yet.
+//! A household whose dynamo turns beside its own installation hooks its home up to it (the fourth
+//! part); lines to other homes, and who weighs them, come after.
 
 use civ_core::PermanentId;
 use civ_land::ways::Keeper;
@@ -11,7 +12,76 @@ use civ_land::wire::{Cause, Hookup, Line};
 
 use super::*;
 
+/// The kilowatts a home hooked up to the wire asks of an evening (a design prior: a few
+/// incandescent lamps of the 1880s at some 60 W each; research 07-13 §5.2 E04).
+pub const HOME_LIGHT_KW: f64 = 0.2;
+
 impl Population {
+    /// Each midnight, a household that holds a whole dynamo beside an installation of its own that
+    /// is ready, and whose finished home is hooked up to nothing, hooks it up on a line from its
+    /// own station of no length (M11a, fourth part; ADR-0036 §6: its own use first). Nothing where
+    /// the land lays no line or no installation stands.
+    pub(super) fn wire_reviews(&mut self, ctx: &mut Ctx) {
+        if ctx.land_params.wire.is_none() || ctx.land.installations.is_empty() {
+            return;
+        }
+        let dynamos: Vec<usize> = ctx
+            .catalog
+            .goods
+            .iter()
+            .enumerate()
+            .filter(|(_, d)| {
+                d.power
+                    .is_some_and(|p| p.source == crate::params::PowerSource::Shaft)
+            })
+            .map(|(g, _)| g)
+            .collect();
+        if dynamos.is_empty() {
+            return;
+        }
+        let mut due: Vec<(PermanentId, PermanentId, u32)> = Vec::new();
+        for (_, x) in self.households.iter() {
+            if !dynamos
+                .iter()
+                .any(|&g| x.stores.get(g).copied().unwrap_or(0.0) >= 1.0 - 1e-9)
+            {
+                continue;
+            }
+            let turning = ctx
+                .land
+                .installations
+                .iter()
+                .enumerate()
+                .any(|(i, s)| s.owner == x.id && ctx.land.installation_ready(i));
+            if !turning {
+                continue;
+            }
+            let Some(home) = ctx.land.buildings.iter().find(|b| {
+                b.household == x.id
+                    && b.finished()
+                    && b.standing()
+                    && ctx.catalog.is_dwelling(&b.spec.program)
+            }) else {
+                continue;
+            };
+            if ctx.land.wires.hookups.iter().any(|h| h.building == home.id) {
+                continue;
+            }
+            due.push((x.id, home.id, cell_of(ctx.map, x.home) as u32));
+        }
+        for (household, building, cell) in due {
+            if let Some(line) = self.begin_line(ctx, household, cell, cell, None) {
+                self.begin_hookup(ctx, building, household, line, HOME_LIGHT_KW);
+            }
+        }
+    }
+
+    /// The midnight review of hooking homes up: for tests.
+    #[doc(hidden)]
+    pub fn wire_reviews_for_tests(&mut self, ctx: &mut Ctx) {
+        self.wire_reviews(ctx);
+    }
+
     /// Begins a line for household `station` from cell `from` to cell `to`, hanging from line
     /// `parent` (`None` for one leaving the station): routed along ways whose stretches' keepers
     /// give leave, nobody's, the household's own or its polity's

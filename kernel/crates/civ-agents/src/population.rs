@@ -3860,7 +3860,7 @@ impl Population {
             .collect();
         let knows = |t: usize| self.household_knows(&hh.members, t);
         let mut wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
-        cap_power_wants(ctx, hh.id, &mut wants);
+        cap_power_wants(ctx, hh.id, &knows, &mut wants);
         let costs_once = OnceCell::new();
         let costs = || {
             costs_once
@@ -7809,6 +7809,7 @@ impl Population {
         self.engine_runs(ctx, day);
         // Gas mains weighed by the works whose day it is (M10b slice DY, fourth part).
         self.main_reviews(ctx, day);
+        self.wire_reviews(ctx);
         // A child sent to learn a craft the household buys (M10c slice EB, second part).
         self.enrol_reviews(ctx, day);
         // And the wells (M6a slice AY, step three): what was drawn taken from the water table, a
@@ -8127,9 +8128,15 @@ pub(crate) fn crew_of(goods: &[GoodDef], recipe: &crate::params::RecipeDef) -> u
 
 /// Caps `holder`'s want of each powered tool at the places it has to set one: a wheel at the
 /// installations it owns whose headraces are dug (M10a slice DR), an engine at the pits it has
-/// chosen to set one at (M10a slice DS, fourth part). A wheel or an engine is wanted only where
-/// one can be set.
-pub(crate) fn cap_power_wants(ctx: &Ctx, holder: PermanentId, wants: &mut [f64]) {
+/// chosen to set one at (M10a slice DS, fourth part), and a dynamo at those installations where
+/// its household `knows` a way of making one (M11a). A wheel, an engine or a dynamo is wanted
+/// only where one can be set.
+pub(crate) fn cap_power_wants(
+    ctx: &Ctx,
+    holder: PermanentId,
+    knows: &dyn Fn(usize) -> bool,
+    wants: &mut [f64],
+) {
     use crate::params::PowerSource;
     let (mut sites, mut pits) = (None, None);
     for (g, want) in wants.iter_mut().enumerate() {
@@ -8158,8 +8165,25 @@ pub(crate) fn cap_power_wants(ctx: &Ctx, holder: PermanentId, wants: &mut [f64])
                     .filter(|e| e.owner == holder)
                     .count()
             }),
-            // A dynamo is driven by a wheel or an engine; nothing sets one yet (M11a).
-            PowerSource::Shaft => 0,
+            // A dynamo turned by an installation's shaft, wanted only by a household that knows a
+            // way of making one (M11a, fourth part).
+            PowerSource::Shaft => {
+                let known = ctx.catalog.recipes.iter().any(|r| {
+                    r.outputs.iter().any(|&(o, _)| o == g) && r.technique.is_some_and(knows)
+                });
+                if known {
+                    *sites.get_or_insert_with(|| {
+                        ctx.land
+                            .installations
+                            .iter()
+                            .enumerate()
+                            .filter(|&(i, x)| x.owner == holder && ctx.land.installation_ready(i))
+                            .count()
+                    })
+                } else {
+                    0
+                }
+            }
         };
         *want = want.min(n as f64);
     }

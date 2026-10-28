@@ -247,3 +247,70 @@ fn a_line_is_begun_along_ways_with_leave_and_strung_by_work_and_copper() {
     sim.with_ctx_for_tests(|pop, ctx| pop.wire_evening_for_tests(ctx));
     assert_eq!(sim.land().wires.hookups[0].cause, Cause::CutOff);
 }
+
+#[test]
+fn a_household_whose_dynamo_turns_beside_its_installation_lights_its_own_home() {
+    let mut sim = world();
+    // Ten days for homes to be begun; one of them, finished.
+    sim.advance_minutes(10 * 24 * 60).expect("lives");
+    let (station, home_id) = {
+        let land = sim.land();
+        let b = land
+            .buildings
+            .iter()
+            .find(|b| sim.rules().catalog.is_dwelling(&b.spec.program))
+            .expect("a home");
+        (b.household, b.id)
+    };
+    for b in &mut sim.land_mut_for_tests().buildings {
+        if b.id == home_id {
+            b.stage = civ_grammar::Stage::ALL.len() as _;
+        }
+    }
+    let reach = (0..sim.land().reach_discharges.len())
+        .max_by(|&a, &b| sim.land().reach_discharges[a].total_cmp(&sim.land().reach_discharges[b]))
+        .expect("a reach") as u32;
+    let at = sim.people().household(station).expect("station").home;
+    let mill = sim.allocate_id_for_tests();
+    sim.land_mut_for_tests()
+        .installations
+        .push(civ_land::power::Installation {
+            id: mill,
+            reach,
+            at: [f64::from(at.0), f64::from(at.1)],
+            head_m: 2.0,
+            race_m3s: 0.5,
+            efficiency: 0.3,
+            rated_kw: 3.0,
+            owner: station,
+            building: None,
+        });
+    // Without a dynamo it hooks nothing up.
+    sim.with_ctx_for_tests(|pop, ctx| pop.wire_reviews_for_tests(ctx));
+    assert!(sim.land().wires.hookups.is_empty());
+    let dynamo = sim
+        .rules()
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/dynamo")
+        .expect("the dynamo");
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == station {
+            x.stores[dynamo] = 1.0;
+        }
+    }
+    // With one, its home is hooked up on a line of its own station, whole at once, and lit at the
+    // evening; a second review adds nothing.
+    sim.with_ctx_for_tests(|pop, ctx| pop.wire_reviews_for_tests(ctx));
+    sim.with_ctx_for_tests(|pop, ctx| pop.wire_reviews_for_tests(ctx));
+    let wires = sim.land().wires.clone();
+    assert_eq!((wires.lines.len(), wires.hookups.len()), (1, 1));
+    assert!(wires.lines[0].whole() && wires.lines[0].station == station);
+    assert_eq!(
+        (wires.hookups[0].building, wires.hookups[0].household),
+        (home_id, station)
+    );
+    sim.with_ctx_for_tests(|pop, ctx| pop.wire_evening_for_tests(ctx));
+    assert_eq!(sim.land().wires.hookups[0].cause, Cause::Served);
+}

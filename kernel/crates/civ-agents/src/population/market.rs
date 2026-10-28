@@ -611,7 +611,7 @@ impl Population {
             .collect();
         let knows = |t: usize| self.household_knows(&hh.members, t);
         let mut wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
-        super::cap_power_wants(ctx, hh.id, &mut wants);
+        super::cap_power_wants(ctx, hh.id, &knows, &mut wants);
         let can_work = |r: &crate::params::RecipeDef| self.can_work_way(ctx, hh, stores, r);
         let costs_once = std::cell::OnceCell::new();
         let costs = || {

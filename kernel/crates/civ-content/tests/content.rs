@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 201
+kernel_content_api = 202
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2568,6 +2568,57 @@ fn a_holder_names_the_gas_it_keeps_and_a_burner_its_piped_gas() {
         report.diagnostics[0]
             .message
             .contains("core:good/marsh_gas")
+    );
+}
+
+#[test]
+fn a_land_profile_says_what_a_line_of_current_takes_and_its_good_must_exist() {
+    // M11a, third part (content API 202; ADR-0036 §3): the core strings copper lines at 110 V,
+    // 0.62 kg and half an hour a metre, 0.001 ohms a metre out and back, passing 6 kW for forty
+    // years.
+    let reg = registry(load(&repo_content()));
+    let w = reg.land.params.wire.expect("the core can lay lines");
+    let copper = reg
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/copper")
+        .expect("copper");
+    assert_eq!(w.good, copper);
+    assert_eq!(
+        (
+            w.good_kg_m,
+            w.lay_h_m,
+            w.rating_kw,
+            w.voltage_v,
+            w.ohm_per_m,
+            w.life_years
+        ),
+        (0.62, 0.5, 6.0, 110.0, 0.001, 40.0)
+    );
+    let preset = real_preset();
+    let land = real("land/temperate_valley.toml").replace(
+        "[wire]\ngood = \"core:good/copper\"",
+        "[wire]\ngood = \"core:good/silver\"",
+    );
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert_eq!(codes(&report), vec!["E2006"]);
+    assert!(report.diagnostics[0].message.contains("core:good/silver"));
+    let land = real("land/temperate_valley.toml").replace("voltage_v = 110.0", "voltage_v = 0.0");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains("wire.voltage_v")),
+        "{:?}",
+        report.diagnostics
     );
 }
 

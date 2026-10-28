@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 201;
+pub const KERNEL_CONTENT_API: u32 = 202;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -735,6 +735,11 @@ fn resolve(
                 && good_index(&g.good).is_none()
             {
                 missing(c, parsed, &d.rel, "gas main good", &g.good);
+            }
+            if let Some(w) = &d.file.wire
+                && good_index(&w.good).is_none()
+            {
+                missing(c, parsed, &d.rel, "wire good", &w.good);
             }
             d.file.params(&good_index).map(|params| LandProfile {
                 id: d.file.id.clone(),

@@ -7,15 +7,24 @@
 
 use civ_core::PermanentId;
 
-/// The world's direct current and the wire it is carried on (design priors: Edison's 110 V
-/// systems of the 1880s, research 07-13 §5.2 E05; a copper conductor of about 35 mm², 0.0005 Ω a
-/// metre, out and back). Authored in content once lines are laid.
+/// The world's direct current and the line it is carried on (M11a, third part; ADR-0036 §3).
+/// Authored in the land profile's `[wire]` (content API 202).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WireParams {
     /// The one voltage of the world's direct current, volts.
     pub voltage_v: f64,
     /// Resistance of a metre of line, out and back, ohms.
     pub ohm_per_m: f64,
+    /// The good its conductor is made of (an index into the catalog's goods).
+    pub good: usize,
+    /// Kilograms of that good a metre of line takes, out and back.
+    pub good_kg_m: f64,
+    /// Hours of a capable adult's work to set poles and string a metre of line.
+    pub lay_h_m: f64,
+    /// The most a line passes, kW.
+    pub rating_kw: f64,
+    /// The years a line laid serves.
+    pub life_years: f64,
 }
 
 /// A line: the station's holder whose current it carries, the line it hangs from (`None` for one
@@ -171,6 +180,11 @@ mod tests {
     const P: WireParams = WireParams {
         voltage_v: 110.0,
         ohm_per_m: 0.0005,
+        good: 0,
+        good_kg_m: 0.6,
+        lay_h_m: 0.5,
+        rating_kw: 6.0,
+        life_years: 40.0,
     };
 
     fn line(n: u64, parent: Option<u64>, rating_kw: f64, length_m: f64) -> Line {

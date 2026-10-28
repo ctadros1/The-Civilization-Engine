@@ -7748,6 +7748,12 @@ and M6a gives rivers a daily flow.
       section is empty. **Tested:** two lines (one hanging from the other, part laid and broken) and
       a cut-off hookup load equal, and every section's bytes are equal after save and load; the
       round trip's section count is 45 land sections.
+    - *M11a, third part, third step (2026-10-28): the wire authored.* The land profile's `[wire]`
+      (content API 202): the conductor's good and kilograms a metre, hours a metre to string, a
+      line's rating, the world's voltage, a metre's resistance out and back and a line's life;
+      the core's copper at 0.62 kg and half an hour a metre, 6 kW, 110 V, 0.001 Ω (35 mm² out and
+      back), forty years, all design priors. **Tested:** the core's loads with copper; an unknown
+      good is E2006 and a voltage of 0 is out of range.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

@@ -193,6 +193,9 @@ pub struct LandParams {
     pub track: Option<rail::TrackParams>,
     /// What laying a gas main takes (M10b slice DY, third part); `None` where no main is laid.
     pub gas_main: Option<gas::MainParams>,
+    /// What laying a line of current takes and how it carries (M11a, third part); `None` where no
+    /// line is laid.
+    pub wire: Option<wire::WireParams>,
     /// How what people shed moves through the ground and water (ADR-0021 §4).
     pub contamination: ContaminationParams,
 }
@@ -2075,6 +2078,7 @@ mod tests {
             way_works: ways::WayWorkParams::default(),
             track: None,
             gas_main: None,
+            wire: None,
             contamination: ContaminationParams::default(),
         }
     }

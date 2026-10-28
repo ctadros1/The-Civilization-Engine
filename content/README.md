@@ -1834,3 +1834,11 @@ turned by the shaft of a wheel or an engine set beside it, delivering `efficienc
 work up to `rated_kw`. The first is `good/dynamo` (10 kW at 80 %, design priors), made by
 `recipe/build_dynamo` under `technique/dynamo`, which no work tries toward, so only the observer can
 bring it. Nothing reads a dynamo yet.
+
+Content API 202 (M11a, third part; ADR-0036 §3) adds the land profile's optional `[wire]`: what
+laying a line of current takes and how it carries. `good` (must exist) and `good_kg_m` are the
+conductor a metre of line takes out and back, `lay_h_m` the hours of work to set poles and string a
+metre, `rating_kw` the most a line passes, `voltage_v` the world's one direct-current voltage,
+`ohm_per_m` a metre's resistance out and back (losses are I²R at that voltage), and `life_years`
+how long a line serves; each above 0 and in range. The core's: copper, 0.62 kg and half an hour a
+metre, 6 kW, 110 V, 0.001 ohms, forty years (design priors). A profile without it lays no line.

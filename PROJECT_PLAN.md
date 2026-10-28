@@ -7754,6 +7754,15 @@ and M6a gives rivers a daily flow.
       the core's copper at 0.62 kg and half an hour a metre, 6 kW, 110 V, 0.001 Ω (35 mm² out and
       back), forty years, all design priors. **Tested:** the core's loads with copper; an unknown
       good is E2006 and a voltage of 0 is out of range.
+    - *M11a, third part, fourth step (2026-10-28): lines begun and strung.* `Population::begin_line`
+      routes a line for a station's household from one cell to another along ways whose keepers
+      give leave (the gas main's `plan_main`), hanging from a parent line or the station, marked out
+      at its length with nothing laid and rated by `[wire]`; a line keeps its cells (saved, schema
+      220). Its household strings it a metre each `lay_h_m` hours from the copper it holds, and it
+      carries only once whole. Nobody begins one in a lived day yet: who weighs a station and its
+      lines is a later part. **Tested:** no route without a way; along a way kept by nobody the
+      line runs from one home to the other, unlaid; without copper nothing is strung, copper for
+      ten metres strings ten whatever the hours, and enough strings it whole.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

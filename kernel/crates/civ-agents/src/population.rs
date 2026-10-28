@@ -86,6 +86,7 @@ mod trains;
 mod wagons;
 mod war;
 mod way_works;
+mod wires;
 pub use crime::TakeProbe;
 pub use payments::Burden;
 pub use resolution::{DayBlock, NOT_TAKEN, SwitchInvariants};

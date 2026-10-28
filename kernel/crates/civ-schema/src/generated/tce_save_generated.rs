@@ -66650,6 +66650,7 @@ impl<'a> WireLineSave<'a> {
   pub const VT_LENGTH_M: ::flatbuffers::VOffsetT = 12;
   pub const VT_LAID_M: ::flatbuffers::VOffsetT = 14;
   pub const VT_BROKEN: ::flatbuffers::VOffsetT = 16;
+  pub const VT_CELLS: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -66658,7 +66659,7 @@ impl<'a> WireLineSave<'a> {
   #[allow(unused_mut)]
   pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
     _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args WireLineSaveArgs
+    args: &'args WireLineSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<WireLineSave<'bldr>> {
     let mut builder = WireLineSaveBuilder::new(_fbb);
     builder.add_laid_m(args.laid_m);
@@ -66667,6 +66668,7 @@ impl<'a> WireLineSave<'a> {
     builder.add_parent(args.parent);
     builder.add_station(args.station);
     builder.add_id(args.id);
+    if let Some(x) = args.cells { builder.add_cells(x); }
     builder.add_broken(args.broken);
     builder.finish()
   }
@@ -66721,6 +66723,13 @@ impl<'a> WireLineSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<bool>(WireLineSave::VT_BROKEN, Some(false)).unwrap()}
   }
+  #[inline]
+  pub fn cells(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(WireLineSave::VT_CELLS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WireLineSave<'_> {
@@ -66736,11 +66745,12 @@ impl ::flatbuffers::Verifiable for WireLineSave<'_> {
      .visit_field::<f64>("length_m", Self::VT_LENGTH_M, false)?
      .visit_field::<f64>("laid_m", Self::VT_LAID_M, false)?
      .visit_field::<bool>("broken", Self::VT_BROKEN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("cells", Self::VT_CELLS, false)?
      .finish();
     Ok(())
   }
 }
-pub struct WireLineSaveArgs {
+pub struct WireLineSaveArgs<'a> {
     pub id: u64,
     pub station: u64,
     pub parent: u64,
@@ -66748,8 +66758,9 @@ pub struct WireLineSaveArgs {
     pub length_m: f64,
     pub laid_m: f64,
     pub broken: bool,
+    pub cells: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
 }
-impl<'a> Default for WireLineSaveArgs {
+impl<'a> Default for WireLineSaveArgs<'a> {
   #[inline]
   fn default() -> Self {
     WireLineSaveArgs {
@@ -66760,6 +66771,7 @@ impl<'a> Default for WireLineSaveArgs {
       length_m: 0.0,
       laid_m: 0.0,
       broken: false,
+      cells: None,
     }
   }
 }
@@ -66798,6 +66810,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WireLineSaveBuilder<'a, 'b, A
     self.fbb_.push_slot::<bool>(WireLineSave::VT_BROKEN, broken, false);
   }
   #[inline]
+  pub fn add_cells(&mut self, cells: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WireLineSave::VT_CELLS, cells);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WireLineSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WireLineSaveBuilder {
@@ -66822,6 +66838,7 @@ impl ::core::fmt::Debug for WireLineSave<'_> {
       ds.field("length_m", &self.length_m());
       ds.field("laid_m", &self.laid_m());
       ds.field("broken", &self.broken());
+      ds.field("cells", &self.cells());
       ds.finish()
   }
 }

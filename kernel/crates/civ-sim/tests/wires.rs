@@ -58,6 +58,7 @@ fn lines_and_hookups_save_and_load_exactly() {
         id: id(9_100_001),
         station,
         parent: None,
+        cells: vec![10, 11, 12],
         rating_kw: 6.0,
         length_m: 180.5,
         laid_m: 180.5,
@@ -67,6 +68,7 @@ fn lines_and_hookups_save_and_load_exactly() {
         id: id(9_100_002),
         station,
         parent: Some(id(9_100_001)),
+        cells: vec![12, 780],
         rating_kw: 2.0,
         length_m: 75.0,
         laid_m: 12.25,
@@ -99,4 +101,96 @@ fn lines_and_hookups_save_and_load_exactly() {
         a.iter().any(|s| s.tag.to_string() == "wires"),
         "a wires section"
     );
+}
+
+fn straight(width: u32, a: u32, b: u32) -> Vec<u32> {
+    let w = i64::from(width);
+    let (mut x, mut y) = (i64::from(a) % w, i64::from(a) / w);
+    let (bx, by) = (i64::from(b) % w, i64::from(b) / w);
+    let mut cells = vec![a];
+    while (x, y) != (bx, by) {
+        x += (bx - x).signum();
+        y += (by - y).signum();
+        cells.push((y * w + x) as u32);
+    }
+    cells
+}
+
+#[test]
+fn a_line_is_begun_along_ways_with_leave_and_strung_by_work_and_copper() {
+    use civ_land::ways::{Keeper, Rank, Segment, Surface, WALK, Way};
+    let mut sim = world();
+    let map = sim.map().clone();
+    let cell = |at: (f32, f32)| civ_agents::population::cell_of(&map, at) as u32;
+    let homes: Vec<(PermanentId, u32)> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| (h.id, cell(h.home)))
+        .collect();
+    let (station, from) = homes[0];
+    let (_, to) = homes
+        .iter()
+        .copied()
+        .find(|&(h, c)| {
+            let w = i64::from(map.width);
+            let d = (i64::from(c) % w - i64::from(from) % w)
+                .abs()
+                .max((i64::from(c) / w - i64::from(from) / w).abs());
+            h != station && d >= 3
+        })
+        .expect("a home some cells off");
+    // No way between them: no route, no line.
+    let begin = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.begin_line(ctx, station, from, to, None))
+    };
+    assert!(begin(&mut sim).is_none());
+    let cells = straight(map.width, from, to);
+    let way = sim.allocate_id_for_tests();
+    let today = sim.now().day_index();
+    sim.land_mut_for_tests().ways.add(Way {
+        id: way,
+        begun: today,
+        segments: vec![Segment {
+            cells: cells[1..cells.len() - 1].to_vec(),
+            corridor_m: 4.0,
+            built_m: 4.0,
+            usable_m: 4.0,
+            surface: Surface::Cleared,
+            keeper: Keeper::Nobody,
+            kept: today,
+        }],
+        modes: WALK,
+        trips: 0.0,
+        trips_day: today,
+        rank: Rank::Lane,
+        track: None,
+    });
+    let line = begin(&mut sim).expect("a route along the way");
+    let params = sim.rules().land.wire.expect("the core lays lines");
+    let l = sim.land().wires.lines[0].clone();
+    assert_eq!((l.id, l.station, l.parent), (line, station, None));
+    assert_eq!((l.cells.first(), l.cells.last()), (Some(&from), Some(&to)));
+    assert!(l.length_m > 0.0 && l.laid_m == 0.0 && !l.whole());
+    assert_eq!(l.rating_kw, params.rating_kw);
+    // Without copper no metre is strung; with copper for ten metres, ten hours string ten metres.
+    let copper = params.good;
+    let set_copper = |sim: &mut Sim, kg: f64| {
+        for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+            if x.id == station {
+                x.stores[copper] = kg;
+            }
+        }
+    };
+    set_copper(&mut sim, 0.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.line_work_for_tests(ctx, station, line, 10.0));
+    assert_eq!(sim.land().wires.lines[0].laid_m, 0.0);
+    set_copper(&mut sim, 10.0 * params.good_kg_m);
+    sim.with_ctx_for_tests(|pop, ctx| pop.line_work_for_tests(ctx, station, line, 100.0));
+    let laid = sim.land().wires.lines[0].laid_m;
+    assert!((laid - 10.0).abs() < 1e-9, "the copper bounds it: {laid}");
+    // With copper enough, the rest is strung and the line is whole.
+    set_copper(&mut sim, 1e6);
+    sim.with_ctx_for_tests(|pop, ctx| pop.line_work_for_tests(ctx, station, line, 1e6));
+    assert!(sim.land().wires.lines[0].whole());
 }

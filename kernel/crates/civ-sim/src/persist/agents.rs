@@ -13017,9 +13017,11 @@ fn encode_wires(wires: &civ_land::wire::Wires) -> Vec<u8> {
         .lines
         .iter()
         .map(|l| {
+            let cells = fbb.create_vector(&l.cells);
             save::WireLineSave::create(
                 &mut fbb,
                 &save::WireLineSaveArgs {
+                    cells: Some(cells),
                     id: l.id.get(),
                     station: l.station.get(),
                     parent: l.parent.map_or(0, |p| p.get()),
@@ -13069,6 +13071,7 @@ fn decode_wires(bytes: &[u8], tag: SectionTag) -> Result<civ_land::wire::Wires, 
             id: required(l.id(), "a line of current")?,
             station: required(l.station(), "a line's station")?,
             parent: PermanentId::from_raw(l.parent()),
+            cells: l.cells().map(|v| v.iter().collect()).unwrap_or_default(),
             rating_kw: l.rating_kw(),
             length_m: l.length_m(),
             laid_m: l.laid_m(),

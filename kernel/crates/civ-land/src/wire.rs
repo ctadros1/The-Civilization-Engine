@@ -28,13 +28,15 @@ pub struct WireParams {
 }
 
 /// A line: the station's holder whose current it carries, the line it hangs from (`None` for one
-/// leaving the station), the most it passes, kW, its length and how much of it is laid, metres,
-/// and whether it is broken. It carries only once whole.
+/// leaving the station), the cells it runs along from its start, the most it passes, kW, its
+/// length and how much of it is laid, metres, and whether it is broken. It carries only once
+/// whole.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Line {
     pub id: PermanentId,
     pub station: PermanentId,
     pub parent: Option<PermanentId>,
+    pub cells: Vec<u32>,
     pub rating_kw: f64,
     pub length_m: f64,
     pub laid_m: f64,
@@ -192,6 +194,7 @@ mod tests {
             id: id(n),
             station: id(1),
             parent: parent.map(id),
+            cells: Vec::new(),
             rating_kw,
             length_m,
             laid_m: length_m,

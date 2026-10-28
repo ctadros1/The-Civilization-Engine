@@ -18,6 +18,7 @@ commons-persist = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+pprof = "0.15"
 
 [lints]
 workspace = true

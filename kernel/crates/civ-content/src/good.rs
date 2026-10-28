@@ -242,10 +242,10 @@ impl GoodFile {
                 technique: None,
             }),
             power: self.power.as_ref().map(|w| GoodPower {
-                source: if w.source == "fuel" {
-                    PowerSource::Fuel
-                } else {
-                    PowerSource::Water
+                source: match w.source.as_str() {
+                    "fuel" => PowerSource::Fuel,
+                    "shaft" => PowerSource::Shaft,
+                    _ => PowerSource::Water,
                 },
                 rated_kw: w.rated_kw,
                 efficiency: w.efficiency,
@@ -302,9 +302,9 @@ impl GoodFile {
             }
         }
         if let Some(w) = &self.power {
-            if !matches!(w.source.as_str(), "water" | "fuel") {
+            if !matches!(w.source.as_str(), "water" | "fuel" | "shaft") {
                 p.push(format!(
-                    "unknown `power.source` `{}` (known: water, fuel)",
+                    "unknown `power.source` `{}` (known: water, fuel, shaft)",
                     w.source
                 ));
             }

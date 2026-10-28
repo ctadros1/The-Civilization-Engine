@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 200
+kernel_content_api = 201
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -491,6 +491,36 @@ fn a_wheel_says_the_power_it_delivers_and_a_recipe_the_power_it_takes() {
             report.diagnostics[0].message
         );
     }
+}
+
+#[test]
+fn a_dynamo_is_driven_by_a_shaft() {
+    // M11a, first part (content API 201; ADR-0036 §2): `shaft` is a power source, and the core's
+    // dynamo is a fixed tool turned by one, under a technique nobody finds.
+    let dynamo = format!(
+        "{}\n[power]\nsource = \"shaft\"\nrated_kw = 10.0\nefficiency = 0.8\n",
+        real("good/kiln.toml")
+    );
+    let fine = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        ("good/kiln.toml", &dynamo),
+    ]);
+    assert!(fine.diagnostics.is_empty(), "{:?}", fine.diagnostics);
+    let root = civ_content::find_content_root(std::path::Path::new(env!("CARGO_MANIFEST_DIR")))
+        .expect("content root");
+    let catalog = civ_content::load(&root).registry.expect("loads").catalog;
+    let g = catalog
+        .goods
+        .iter()
+        .find(|g| g.id == "core:good/dynamo")
+        .expect("the dynamo");
+    let power = g.power.expect("powered");
+    assert_eq!(power.source, civ_agents::params::PowerSource::Shaft);
+    assert!(g.tool.as_ref().is_some_and(|t| t.fixed));
+    let t = catalog
+        .technique_index("core:technique/dynamo")
+        .expect("the technique");
+    assert!(catalog.techniques[t].tried_in.is_empty(), "nobody finds it");
 }
 
 #[test]

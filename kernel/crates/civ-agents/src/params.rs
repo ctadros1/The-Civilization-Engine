@@ -501,6 +501,8 @@ pub enum PowerSource {
     Water,
     /// A fuel burned in it (an engine, slice DS).
     Fuel,
+    /// The shaft of a wheel or an engine it is set beside (a dynamo, M11a; ADR-0036 §2).
+    Shaft,
 }
 
 /// The power a wheel or an engine delivers (M10a slice DR; research 07-06 §2.2): its source, the

@@ -1,0 +1,20 @@
+# Building a dynamo: an iron frame and cores, copper wound about them, a commutator, set on a
+# timber bed beside the shaft that will turn it (M11a, first part; ADR-0036 §2). 600 hours of a
+# smith's work (a design prior, under the engine's 2,000: a smaller machine, more exacting
+# winding). Nobody knows how yet.
+kind = "recipe"
+id = "core:recipe/build_dynamo"
+name = "Build a dynamo"
+skill = "core:skill/smithing"
+technique = "core:technique/dynamo"
+unit_h = 600.0
+session_h = 0.0
+max_units = 1.0
+tools = []
+inputs = [
+  { good = "core:good/copper", amount = 120.0 },
+  { good = "core:good/iron", amount = 200.0 },
+  { good = "core:good/timber", amount = 100.0 },
+]
+outputs = [{ good = "core:good/dynamo", amount = 1.0 }]
+session_inputs = []

@@ -8123,6 +8123,8 @@ pub(crate) fn cap_power_wants(ctx: &Ctx, holder: PermanentId, wants: &mut [f64])
                     .filter(|e| e.owner == holder)
                     .count()
             }),
+            // A dynamo is driven by a wheel or an engine; nothing sets one yet (M11a).
+            PowerSource::Shaft => 0,
         };
         *want = want.min(n as f64);
     }

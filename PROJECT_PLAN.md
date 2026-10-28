@@ -7704,6 +7704,13 @@ and M6a gives rivers a daily flow.
 - **M10, Industrial content:** planned above (ADR-0033, ADR-0034, ADR-0035).
 - **M11, Modern content:** electricity and a power grid, motor vehicles,
   transit, telecom, modern architecture primitives, waste.
+  - *Design proposed (2026-10-28, §9 "M11 design"):* two briefs (`docs/briefs/m11-power.md`,
+    `m11-movement.md`) and [ADR-0036](decisions/0036-electricity-and-the-telegraph.md), status
+    Proposed until the owner accepts it. Parts: **M11a** electricity (a dynamo at an existing
+    water installation or engine; a wire laid along ways like a gas main, rated and losing I²R;
+    a radial tree dispatched by the served hour; light and power by wire; who builds and pays),
+    **M11b** engines that move and transit, **M11c** the telegraph, **M11d** the demo. Modern
+    architecture and waste wait for their research. Slices are named when the ADR is accepted.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 
@@ -7809,6 +7816,7 @@ and M6a gives rivers a daily flow.
 
 ## 9. Decisions log
 
+- **M11 design (2026-10-28, plan §7, proposed):** from two briefs (`docs/briefs/m11-power.md`, `m11-movement.md`), which read 07-13 and 12-09 against the code, [ADR-0036](decisions/0036-electricity-and-the-telegraph.md), Proposed. Electricity stands on M10's machinery (power at a site, engines, mains with connections, the meter, light): radial, direct current at one voltage, dispatched by the served hour, service records and no bonus for a connection; far techniques (AC, turbines, nuclear, photovoltaics) left to the observer. Engines are components, motor vehicles are timed by power over pull, transit reuses runs, and a telegraph's messages enter the existing hearing paths. Modern architecture and waste wait for research. Accepted only when the owner merges it.
 - **2026-10-28 — Autonomous development on a VM (owner request):** an agent on a dedicated servernode3 VM (official Agent SDK, API credits, a fixed total budget; two Rust workers) continues the plan in order without a prompt per slice. It has repository-scoped GitHub access (2026-10-28: "continue autonomously ... until the $100 budget is spent", a lifetime ceiling); it pushes only `codex/*` branches and opens pull requests on this repository; main is merged by the owner alone. It never force-pushes, deletes branches, releases, or changes access, secrets, billing or runners. Benchmarks compare revisions on one machine and allocation (`tools/ci/bench-compare.sh`).
 - **2026-10-22 — Optional Actions capacity (owner request):** add an isolated Ubuntu runner VM on servernode4 with shared `tce-ci`, automatic guest/service startup, and explicit `node4` dispatch. Keep it outside the default permanent health matrix and scheduled `tce-long` work; GitHub routes pooled jobs to available runners. Drain before shutdown or switching to Windows.
 

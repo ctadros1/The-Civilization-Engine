@@ -13010,7 +13010,7 @@ fn encode_gas(gas: &civ_land::gas::Gas) -> Vec<u8> {
     finish(fbb, root)
 }
 
-/// Reads [`encode_gas`]'s section.
+/// The land's lines of current and hookups, in the order made (schema 220).
 fn encode_wires(wires: &civ_land::wire::Wires) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let lines: Vec<_> = wires
@@ -13029,6 +13029,7 @@ fn encode_wires(wires: &civ_land::wire::Wires) -> Vec<u8> {
                     length_m: l.length_m,
                     laid_m: l.laid_m,
                     broken: l.broken,
+                    worth_h: l.worth_h,
                 },
             )
         })
@@ -13078,6 +13079,7 @@ fn decode_wires(bytes: &[u8], tag: SectionTag) -> Result<civ_land::wire::Wires, 
             length_m: l.length_m(),
             laid_m: l.laid_m(),
             broken: l.broken(),
+            worth_h: l.worth_h(),
         });
     }
     for h in root.hookups().iter().flatten() {

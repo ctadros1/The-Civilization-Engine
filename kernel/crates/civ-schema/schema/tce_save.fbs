@@ -3907,6 +3907,9 @@ table WireLineSave {
   broken: bool (id: 6);
   // The cells it runs along from its start.
   cells: [uint] (id: 7);
+  // The hours a year its station reckoned the homes along it would repay when it was begun (M11a,
+  // fifth part).
+  worth_h: double (id: 8);
 }
 
 table WireHookupSave {

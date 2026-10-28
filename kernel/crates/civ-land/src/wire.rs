@@ -29,8 +29,9 @@ pub struct WireParams {
 
 /// A line: the station's holder whose current it carries, the line it hangs from (`None` for one
 /// leaving the station), the cells it runs along from its start, the most it passes, kW, its
-/// length and how much of it is laid, metres, and whether it is broken. It carries only once
-/// whole.
+/// length and how much of it is laid, metres, whether it is broken, and the hours a year its station
+/// reckoned the homes along it would repay when it was begun (none for its own home's). It carries
+/// only once whole.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Line {
     pub id: PermanentId,
@@ -41,6 +42,7 @@ pub struct Line {
     pub length_m: f64,
     pub laid_m: f64,
     pub broken: bool,
+    pub worth_h: f64,
 }
 
 impl Line {
@@ -244,6 +246,7 @@ mod tests {
             length_m,
             laid_m: length_m,
             broken: false,
+            worth_h: 0.0,
         }
     }
 

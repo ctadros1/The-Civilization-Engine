@@ -7802,6 +7802,33 @@ and M6a gives rivers a daily flow.
       (ADR-0036 §3 Defer). **Tested:** no hookup without a dynamo; with one, one whole line and one
       hookup, served at the evening, and a second review adds nothing. **Proved:** the village of
       500 gives every section's digest equal to the first step's but `meta`.
+    - *M11a, fifth part (2026-10-29): lines to other homes, the meter and cut-off.* A household
+      whose dynamo turns beside its own installation and that knows how a dynamo is made weighs,
+      on its day of the year and with no line of its own still being strung, a line from its home
+      to each other home of its settlement along ways with leave, as a gasworks weighs a main: the
+      homes along a route, its end's among them, not yet hooked up, that would have light by wire,
+      as many as the current it has to spare serves at `HOME_LIGHT_KW`, would each repay an
+      evening's current a day at the meter, in hours of the station's own food; against that, a
+      metre's stringing and its copper at the station's own cost. It begins the best where the
+      homes repay more over the line's life than stringing it takes, and the line keeps what it
+      was reckoned to repay (`worth_h`, appended within the unreleased saves 220); its people
+      string it as way work, as a main's works lays its pipe. At each evening, before dispatch,
+      a household whose home lies on or beside a whole, unbroken line of the station hooks its
+      finished home up where an hour of its current at the meter, in hours of its own food, costs
+      it less than an hour of its work or of a lamp it holds whole, and it holds an evening's
+      price; after dispatch each household served pays the station by the meter on a new `Wire`
+      ledger channel, in food. **The meter's price is a design prior** (`METER_FOOD_DAYS_KWH`, a
+      tenth of a person's day's food a kilowatt-hour, some 200 kcal a home's evening): research
+      07-13 asks for prices set where they are paid rather than money carried over, and no report
+      gives one. One that cannot pay all is cut off, and restored once it holds an evening's price
+      again. **Tested:** not knowing how a dynamo is made, a station weighs no line, and knowing,
+      none reaches a home without a way; along a way the far home would repay a line over its
+      life and the best is begun, keeping its reckoned worth, and no second while it is strung;
+      strung whole, the homes along it hook up at the evening, are served and each pays an
+      evening's price; one left with no food is served, cannot pay and is cut off, dark at the
+      next evening with that cause, and restored and served once it has food again. **Not
+      built:** a polity's line by law (ADR-0036 §6), the observer of the wire, and the hourly
+      dispatch (served hours are still the evening's).
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

@@ -66651,6 +66651,7 @@ impl<'a> WireLineSave<'a> {
   pub const VT_LAID_M: ::flatbuffers::VOffsetT = 14;
   pub const VT_BROKEN: ::flatbuffers::VOffsetT = 16;
   pub const VT_CELLS: ::flatbuffers::VOffsetT = 18;
+  pub const VT_WORTH_H: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -66662,6 +66663,7 @@ impl<'a> WireLineSave<'a> {
     args: &'args WireLineSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<WireLineSave<'bldr>> {
     let mut builder = WireLineSaveBuilder::new(_fbb);
+    builder.add_worth_h(args.worth_h);
     builder.add_laid_m(args.laid_m);
     builder.add_length_m(args.length_m);
     builder.add_rating_kw(args.rating_kw);
@@ -66730,6 +66732,13 @@ impl<'a> WireLineSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(WireLineSave::VT_CELLS, None)}
   }
+  #[inline]
+  pub fn worth_h(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WireLineSave::VT_WORTH_H, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WireLineSave<'_> {
@@ -66746,6 +66755,7 @@ impl ::flatbuffers::Verifiable for WireLineSave<'_> {
      .visit_field::<f64>("laid_m", Self::VT_LAID_M, false)?
      .visit_field::<bool>("broken", Self::VT_BROKEN, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("cells", Self::VT_CELLS, false)?
+     .visit_field::<f64>("worth_h", Self::VT_WORTH_H, false)?
      .finish();
     Ok(())
   }
@@ -66759,6 +66769,7 @@ pub struct WireLineSaveArgs<'a> {
     pub laid_m: f64,
     pub broken: bool,
     pub cells: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub worth_h: f64,
 }
 impl<'a> Default for WireLineSaveArgs<'a> {
   #[inline]
@@ -66772,6 +66783,7 @@ impl<'a> Default for WireLineSaveArgs<'a> {
       laid_m: 0.0,
       broken: false,
       cells: None,
+      worth_h: 0.0,
     }
   }
 }
@@ -66814,6 +66826,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WireLineSaveBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WireLineSave::VT_CELLS, cells);
   }
   #[inline]
+  pub fn add_worth_h(&mut self, worth_h: f64) {
+    self.fbb_.push_slot::<f64>(WireLineSave::VT_WORTH_H, worth_h, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WireLineSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WireLineSaveBuilder {
@@ -66839,6 +66855,7 @@ impl ::core::fmt::Debug for WireLineSave<'_> {
       ds.field("laid_m", &self.laid_m());
       ds.field("broken", &self.broken());
       ds.field("cells", &self.cells());
+      ds.field("worth_h", &self.worth_h());
       ds.finish()
   }
 }

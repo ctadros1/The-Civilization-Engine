@@ -7829,7 +7829,8 @@ impl Population {
         self.engine_runs(ctx, day);
         // Gas mains weighed by the works whose day it is (M10b slice DY, fourth part).
         self.main_reviews(ctx, day);
-        self.wire_reviews(ctx);
+        // The wire's homes hooked up, and lines weighed by the stations whose day it is (M11a).
+        self.wire_reviews(ctx, day);
         // A child sent to learn a craft the household buys (M10c slice EB, second part).
         self.enrol_reviews(ctx, day);
         // And the wells (M6a slice AY, step three): what was drawn taken from the water table, a

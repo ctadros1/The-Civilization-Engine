@@ -43,6 +43,7 @@ pub mod water;
 pub mod ways;
 pub mod weather;
 pub mod wells;
+pub mod wire;
 
 pub use buildings::{
     AllotRule, Allotment, BuildWork, Building, BuildingState, GroupCondition, GroupState,

@@ -7730,6 +7730,18 @@ and M6a gives rivers a daily flow.
       3 kW through one dynamo give 2.4; 20 kW fill one at 10 and two give 16; a worn one, a still
       shaft and a wheel alone give none; a household's water mill gives 80 % of its kilowatts as
       current once its holder holds a dynamo, and none before.
+    - *M11a, third part, first step (2026-10-28): the wire's dispatch, pure.* `civ_land::wire`:
+      lines in a radial tree from a station (each hanging from a parent line or the station), with
+      a rating and a length laid; hookups at buildings asking kilowatts; and an hour's `dispatch`
+      serving hookups in the order given, whole or not at all, where every line up to the station is
+      whole and unbroken and can pass the flow, and the station covers what it delivers and every
+      line's I²R losses at the world's one voltage (design priors: 110 V, 0.0005 Ω a metre out and
+      back). Causes kept apart: station short, line full, line down, cut off. Not saved or lived yet
+      (the second step puts lines and hookups in the land, saved, and lays them by work).
+      **Tested:** 5 kW over 200 m lose 207 W and twice the power four times as much; a full
+      branch and a full trunk refuse in turn; a station 0.05 kW short refuses the hookup whose
+      losses tip it; a line not whole, a missing line, another station's tree and a cut-off
+      account each give their own cause.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

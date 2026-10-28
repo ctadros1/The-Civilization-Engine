@@ -8018,6 +8018,22 @@ pub(crate) fn power_kw_of(ctx: &Ctx, holder: PermanentId) -> f64 {
         .sum()
 }
 
+impl Population {
+    /// The kilowatts of current `holder`'s whole dynamos give today from the shafts of the
+    /// installations it owns (M11a, second part; ADR-0036 §2), a household's or a firm's. Nothing
+    /// reads it yet: the wire and its dispatch are the parts after.
+    pub fn electric_kw(&self, ctx: &Ctx, holder: PermanentId) -> f64 {
+        let stores = match self.household(holder) {
+            Some(h) => h.stores.as_slice(),
+            None => match self.firm(holder) {
+                Some(f) => f.stores.as_slice(),
+                None => return 0.0,
+            },
+        };
+        make::dynamo_kw(&ctx.catalog.goods, stores, power_kw_of(ctx, holder))
+    }
+}
+
 /// The lamp a household holding `stores` lights for work after dark (M10b slice DU; ADR-0034
 /// §9): of the whole lamps it holds whose fuel it has (a piped burner is none: its gas comes by a
 /// main, M10b slice DY), the one whose fuel lasts longest, as the

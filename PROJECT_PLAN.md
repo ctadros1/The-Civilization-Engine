@@ -7721,6 +7721,15 @@ and M6a gives rivers a daily flow.
       (people, houses, market, firms, deposits, polity, order, factions, places, know, receipts)
       differ by their length alone: even a material good nobody makes moves them (checked), so
       M10's gate clause is read as its slices read it, by what is lived.
+    - *M11a, second part (2026-10-28): a dynamo's current from its drive.* `make::dynamo_kw`: each
+      whole dynamo takes as much of a shaft's kilowatts as its rating over its efficiency allows and
+      gives its efficiency of them as current; a worn one gives nothing. `Population::electric_kw`
+      reads a household's or a firm's dynamos against the shafts of the installations it owns
+      today (`power_kw_of`); engines' shafts join when an engine is set beside one. Nothing in a
+      lived day calls it yet (the wire and its dispatch are next), so no world changes. **Tested:**
+      3 kW through one dynamo give 2.4; 20 kW fill one at 10 and two give 16; a worn one, a still
+      shaft and a wheel alone give none; a household's water mill gives 80 % of its kilowatts as
+      current once its holder holds a dynamo, and none before.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

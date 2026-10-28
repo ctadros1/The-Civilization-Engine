@@ -11,6 +11,10 @@ on:
         type: choice
         options: [full, health, long, demo, bench]
         default: full
+      years:
+        description: The demo suite's years lived (the first full run reached eleven in its six hours)
+        type: string
+        default: '8'
       base:
         description: The bench suite's base revision, timed against this one (default M9's close)
         type: string
@@ -132,11 +136,13 @@ jobs:
       - name: Build and live the M10 demo
         shell: bash
         working-directory: kernel
+        env:
+          YEARS: ${{ inputs.years }}
         run: |
           set -euo pipefail
           cargo build --locked --release -p civ-sim --example m10_world
           mkdir -p "$RUNNER_TEMP/m10-saves"
-          target/release/examples/m10_world "$RUNNER_TEMP/m10-saves" 2>&1 | tee "$RUNNER_TEMP/m10-demo.txt"
+          target/release/examples/m10_world "$RUNNER_TEMP/m10-saves" 6 120 "$YEARS" 2048 2>&1 | tee "$RUNNER_TEMP/m10-demo.txt"
       - name: Keep the demo's record
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

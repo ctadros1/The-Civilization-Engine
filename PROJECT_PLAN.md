@@ -7650,6 +7650,46 @@ and M6a gives rivers a daily flow.
       day twice over fixes it but moves fifteen scenario tests that choose their actors from the
       unfolding world, which are to be reworked first.
     - **EL**: the M10 demo, time-boxed, nudges logged.
+      *As built, first part (2026-10-27): the demo's example, and the gate's bench measured.*
+      `civ-sim --example m10_world <saves> [groups] [people] [years] [size]` (default six groups
+      of 120 on 2,048 cells, fifteen years at Max, resolution by focus on the first): on the
+      first day the observer gives the eldest of the largest household of every other settlement
+      19 M10 techniques by the god tool, logged as `INTRODUCED`; the rest are the control. Each
+      year it prints, settlement by settlement, who knows any of it, mills, engines, workshops,
+      lines laid, gas mains, street lamps, the M10 laws in force, notes out and records written;
+      at the end the M10 laws proposed, the chronicle's lines and records, whether each control
+      took any of it up, the speed, and a save and load. Nothing is nudged. homelab.yml's `demo`
+      suite lives it on the long runner (owner-dispatched; the record is kept as an artifact).
+      **Checked small** (two groups of 40, one year, 512 cells, on the development VM): the
+      taught one wrote down 18 of the 19 (not lamps, which a child may learn at home, so they
+      were not its only knower; not checked further), the control stayed as founded, 87 people
+      saved and loaded. **The full run** (homelab run 40580457779, `demos/m10/m10-demo.txt`) was
+      cut by the job's six-hour limit after eleven of fifteen years, so it has no final save and
+      load. 720 people became 976. In the taught settlements: Sedgehollow's knower wrote 36
+      records, its people set a water mill in year 9 and had 821 notes out in year 11;
+      Stonefield set a mill in year 10 and Thorndale in year 11; three records each there. No
+      engine, line, gas main, street lamp or M10 law. The three controls knew none of it and used
+      none of it in any year. Nothing was nudged. The rest of the account (who built what and
+      why, from the chronicle) needs a run that finishes: the suite's timeout or a shorter span.
+      **The gate's bench, measured** (`tools/ci/bench-compare.sh`: M9's close 31439f4e and
+      e45193a9 built alike and timed on the development VM, 8 × Xeon E5-2680 v4, pinned to four
+      CPUs, interleaved, three rounds; medians, ms a simulated day): a village of 500 for 90 days
+      914 → 1,167 (**1.28×**); three settlements of 400, two household-resolved, 60 days at Max
+      793 → 984 (**1.24×**); ten of 60, all household-resolved, 40 days at Max 1,640 → 1,464
+      (0.89×, slice DO's route caches). Final populations equal on both sides. **The bench
+      clause is not met** where a settlement is Detailed. By part (village of 500, two rounds):
+      M10a +19 %, M10b +11 %, M10c and M10d nothing. By slice (one round): DO 0, DP +71 ms, DQ
+      +8, DR +5, DS +34, DT +54, DU +15, DV–DX +3, DY +83. The steps follow the goods and
+      recipes each slice added (DP 7 and 6, DT 4 and 7, DY 4 and 4; DV–DX none), not its other
+      activities (M10c's eight services, behind quiet checks, cost nothing). **Why (sampled, 40 days of the village, M9 against M10):** leaving out
+      `make` work nobody of the household knows before weighing it left every digest equal but
+      saved no time, so it was not kept. What grew was work per decision that scales with the
+      catalogue: `tool_ages` asked every activity's technique of every member though most need no
+      tool (1.3 % to 7.1 % of the time), and the tools' need summed the goods serving for every
+      good, wanted or not. Both are cut exactly (every section's digest equal in the village and
+      in three of 400): about 5 % a day faster (interleaved, two rounds: the village 1,228 → 1,163
+      ms, three of 400 1,005 → 939), still some 1.2× M9, so the clause stays unmet. M9's own gate workload (ten of 10,000, household-resolved, five days)
+      is within the clause: 176.2 → 189.7 s a day (1.08×).
 
 **Post-v1 (ordered, not sized):**
 - **M9, Aggregate LOD & scale:** planned above (ADR-0032).
@@ -7761,6 +7801,7 @@ and M6a gives rivers a daily flow.
 
 ## 9. Decisions log
 
+- **2026-10-28 — Autonomous development on a VM (owner request):** an agent on a dedicated servernode3 VM (official Agent SDK, API credits, a fixed total budget; two Rust workers) continues the plan in order without a prompt per slice. It pushes only `codex/*` branches and opens pull requests on this repository; main is merged by the owner alone. It never force-pushes, deletes branches, releases, or changes access, secrets, billing or runners. Benchmarks compare revisions on one machine and allocation (`tools/ci/bench-compare.sh`).
 - **2026-10-22 — Optional Actions capacity (owner request):** add an isolated Ubuntu runner VM on servernode4 with shared `tce-ci`, automatic guest/service startup, and explicit `node4` dispatch. Keep it outside the default permanent health matrix and scheduled `tce-long` work; GitHub routes pooled jobs to available runners. Drain before shutdown or switching to Windows.
 
 One line each. Don't re-litigate without a reason written next to the entry.

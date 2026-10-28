@@ -3937,8 +3937,15 @@ impl Population {
             }
         }
         let held_of = |g: usize| stores.get(g).copied().unwrap_or(0.0).max(0.0);
+        // Nothing is needed of a good not wanted, so the goods serving for it are not summed.
         let tool_need: Vec<f64> = (0..goods.len())
-            .map(|g| make::tool_need(wants[g], make::serving(goods, g).map(held_of).sum()))
+            .map(|g| {
+                if wants[g] <= 0.0 {
+                    0.0
+                } else {
+                    make::tool_need(wants[g], make::serving(goods, g).map(held_of).sum())
+                }
+            })
             .collect();
         // Pots: as many more as would keep the food that lies anywhere but a raised floor or a
         // pot, and the food the next would keep over the store horizon (M3b slice Q).

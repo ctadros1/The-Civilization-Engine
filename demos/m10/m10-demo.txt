@@ -1,0 +1,85 @@
+world (seed 1, 2048 cells): 720 people in 6 settlements, founded in 32.8 s
+day 59: INTRODUCED (observer): Ada of Thorndale comes to know the M10 vocabulary (19 techniques)
+Hazeldale: the control, as founded
+day 59: INTRODUCED (observer): Ulric of Stonefield comes to know the M10 vocabulary (19 techniques)
+Elmbank: the control, as founded
+day 59: INTRODUCED (observer): Kael of Sedgehollow comes to know the M10 vocabulary (19 techniques)
+Sedgewick: the control, as founded
+the founding day lived to midnight in 4.2 s
+year 1: 760 people in 6 settlements; 2.47 s a day
+  Thorndale (taught): 126 people, 5 knowing any of it; 0 mills, 0 engines, 8 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Hazeldale (control): 129 people, 0 knowing any of it; 0 mills, 0 engines, 7 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Stonefield (taught): 127 people, 2 knowing any of it; 0 mills, 0 engines, 10 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Elmbank (control): 131 people, 0 knowing any of it; 0 mills, 0 engines, 3 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Sedgehollow (taught): 121 people, 3 knowing any of it; 0 mills, 0 engines, 8 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 18 records written
+  Sedgewick (control): 126 people, 0 knowing any of it; 0 mills, 0 engines, 8 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+year 2: 785 people in 6 settlements; 3.35 s a day
+  Thorndale (taught): 128 people, 5 knowing any of it; 0 mills, 0 engines, 3 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Hazeldale (control): 134 people, 0 knowing any of it; 0 mills, 0 engines, 4 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Stonefield (taught): 133 people, 2 knowing any of it; 0 mills, 0 engines, 5 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Elmbank (control): 134 people, 0 knowing any of it; 0 mills, 0 engines, 3 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Sedgehollow (taught): 126 people, 3 knowing any of it; 0 mills, 0 engines, 9 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 26 records written
+  Sedgewick (control): 130 people, 0 knowing any of it; 0 mills, 0 engines, 4 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+year 3: 808 people in 6 settlements; 2.69 s a day
+  Thorndale (taught): 134 people, 5 knowing any of it; 0 mills, 0 engines, 2 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Hazeldale (control): 134 people, 0 knowing any of it; 0 mills, 0 engines, 11 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Stonefield (taught): 138 people, 3 knowing any of it; 0 mills, 0 engines, 6 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Elmbank (control): 140 people, 0 knowing any of it; 0 mills, 0 engines, 4 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Sedgehollow (taught): 129 people, 4 knowing any of it; 0 mills, 0 engines, 7 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 36 records written
+  Sedgewick (control): 133 people, 0 knowing any of it; 0 mills, 0 engines, 14 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+year 4: 851 people in 6 settlements; 4.00 s a day
+  Thorndale (taught): 138 people, 6 knowing any of it; 0 mills, 0 engines, 4 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Hazeldale (control): 140 people, 0 knowing any of it; 0 mills, 0 engines, 3 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Stonefield (taught): 148 people, 3 knowing any of it; 0 mills, 0 engines, 2 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Elmbank (control): 151 people, 0 knowing any of it; 0 mills, 0 engines, 23 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Sedgehollow (taught): 137 people, 5 knowing any of it; 0 mills, 0 engines, 6 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 36 records written
+  Sedgewick (control): 137 people, 0 knowing any of it; 0 mills, 0 engines, 7 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+year 5: 858 people in 6 settlements; 3.53 s a day
+  Thorndale (taught): 143 people, 7 knowing any of it; 0 mills, 0 engines, 4 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Hazeldale (control): 139 people, 0 knowing any of it; 0 mills, 0 engines, 10 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Stonefield (taught): 143 people, 3 knowing any of it; 0 mills, 0 engines, 3 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Elmbank (control): 150 people, 0 knowing any of it; 0 mills, 0 engines, 6 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Sedgehollow (taught): 142 people, 5 knowing any of it; 0 mills, 0 engines, 4 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 36 records written
+  Sedgewick (control): 141 people, 0 knowing any of it; 0 mills, 0 engines, 5 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+year 6: 888 people in 6 settlements; 3.08 s a day
+  Thorndale (taught): 147 people, 7 knowing any of it; 0 mills, 0 engines, 1 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Hazeldale (control): 145 people, 0 knowing any of it; 0 mills, 0 engines, 6 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Stonefield (taught): 143 people, 2 knowing any of it; 0 mills, 0 engines, 4 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Elmbank (control): 157 people, 0 knowing any of it; 0 mills, 0 engines, 8 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Sedgehollow (taught): 148 people, 6 knowing any of it; 0 mills, 0 engines, 8 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 36 records written
+  Sedgewick (control): 148 people, 0 knowing any of it; 0 mills, 0 engines, 4 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+year 7: 906 people in 6 settlements; 2.09 s a day
+  Thorndale (taught): 150 people, 7 knowing any of it; 0 mills, 0 engines, 8 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Hazeldale (control): 151 people, 0 knowing any of it; 0 mills, 0 engines, 17 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Stonefield (taught): 150 people, 2 knowing any of it; 0 mills, 0 engines, 1 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Elmbank (control): 160 people, 0 knowing any of it; 0 mills, 0 engines, 6 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Sedgehollow (taught): 149 people, 7 knowing any of it; 0 mills, 0 engines, 13 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 36 records written
+  Sedgewick (control): 146 people, 0 knowing any of it; 0 mills, 0 engines, 3 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+year 8: 926 people in 6 settlements; 4.11 s a day
+  Thorndale (taught): 152 people, 8 knowing any of it; 0 mills, 0 engines, 2 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Hazeldale (control): 154 people, 0 knowing any of it; 0 mills, 0 engines, 8 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Stonefield (taught): 152 people, 2 knowing any of it; 0 mills, 0 engines, 5 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Elmbank (control): 167 people, 0 knowing any of it; 0 mills, 0 engines, 12 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Sedgehollow (taught): 154 people, 7 knowing any of it; 0 mills, 0 engines, 13 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 36 records written
+  Sedgewick (control): 147 people, 0 knowing any of it; 0 mills, 0 engines, 4 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+year 9: 945 people in 6 settlements; 4.61 s a day
+  Thorndale (taught): 158 people, 8 knowing any of it; 0 mills, 0 engines, 4 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Hazeldale (control): 155 people, 0 knowing any of it; 0 mills, 0 engines, 2 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Stonefield (taught): 152 people, 2 knowing any of it; 0 mills, 0 engines, 1 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Elmbank (control): 171 people, 0 knowing any of it; 0 mills, 0 engines, 11 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Sedgehollow (taught): 157 people, 7 knowing any of it; 1 mills, 0 engines, 10 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 36 records written
+  Sedgewick (control): 152 people, 0 knowing any of it; 0 mills, 0 engines, 3 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+year 10: 967 people in 6 settlements; 3.72 s a day
+  Thorndale (taught): 159 people, 8 knowing any of it; 0 mills, 0 engines, 11 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Hazeldale (control): 158 people, 0 knowing any of it; 0 mills, 0 engines, 10 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Stonefield (taught): 153 people, 2 knowing any of it; 1 mills, 0 engines, 4 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Elmbank (control): 173 people, 0 knowing any of it; 0 mills, 0 engines, 19 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Sedgehollow (taught): 163 people, 7 knowing any of it; 1 mills, 0 engines, 5 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 36 records written
+  Sedgewick (control): 161 people, 0 knowing any of it; 0 mills, 0 engines, 5 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+year 11: 976 people in 6 settlements; 2.81 s a day
+  Thorndale (taught): 157 people, 9 knowing any of it; 1 mills, 0 engines, 3 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Hazeldale (control): 163 people, 0 knowing any of it; 0 mills, 0 engines, 15 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Stonefield (taught): 161 people, 2 knowing any of it; 1 mills, 0 engines, 0 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 3 records written
+  Elmbank (control): 170 people, 0 knowing any of it; 0 mills, 0 engines, 9 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written
+  Sedgehollow (taught): 167 people, 7 knowing any of it; 1 mills, 0 engines, 5 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 821 notes out; 36 records written
+  Sedgewick (control): 158 people, 0 knowing any of it; 0 mills, 0 engines, 4 workshops open, 0 lines laid, 0 gas mains, 0 street lamps; laws: none of M10's; 0 notes out; 0 records written

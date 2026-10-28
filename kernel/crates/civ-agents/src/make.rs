@@ -74,6 +74,10 @@ pub fn tool_ages(catalog: &crate::params::Catalog, known: &dyn Fn(usize) -> bool
         None => known(t),
     };
     for a in &catalog.activities {
+        // Work that needs no tool is not asked about: most do, and asking reads every member.
+        if catalog.tools_of(a).next().is_none() {
+            continue;
+        }
         let usable = catalog.technique_of(a).is_none_or(&mut knows);
         for t in catalog.tools_of(a) {
             if let Some(age) = ages.get_mut(t) {

@@ -69,6 +69,7 @@ function hut(over: Partial<BuildingInfo> = {}): BuildingInfo {
     site: "",
     gas: "",
     records: "",
+    wire: "",
     ...over,
   };
 }
@@ -256,6 +257,12 @@ describe("buildings on the map", () => {
     });
     expect(buildingWords(dark)).toMatch(/; Gas: 1 burner on Ada's main; not lit on its last evening: the main could not/);
     expect(buildingWords(hut({ stage: 5, roofed: true }))).not.toMatch(/Gas/);
+  });
+
+  it("say how the wire serves them, hooked up to a line or as a station (wire 1.107)", () => {
+    const cut = hut({ stage: 5, roofed: true, wire: "Current: 0.2 kW from Ada's station; cut off: its account went unpaid" });
+    expect(buildingWords(cut)).toMatch(/; Current: 0\.2 kW from Ada's station; cut off: its account went unpaid$/);
+    expect(buildingWords(hut({ stage: 5, roofed: true }))).not.toMatch(/Current/);
   });
 
   it("glow while they burn, show charred once burnt out, and say so in the readout", () => {

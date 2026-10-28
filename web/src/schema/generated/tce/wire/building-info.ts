@@ -365,8 +365,15 @@ records(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+wire():string|null
+wire(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+wire(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 106);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startBuildingInfo(builder:flatbuffers.Builder) {
-  builder.startObject(51);
+  builder.startObject(52);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -650,6 +657,10 @@ static addGas(builder:flatbuffers.Builder, gasOffset:flatbuffers.Offset) {
 
 static addRecords(builder:flatbuffers.Builder, recordsOffset:flatbuffers.Offset) {
   builder.addFieldOffset(50, recordsOffset, 0);
+}
+
+static addWire(builder:flatbuffers.Builder, wireOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(51, wireOffset, 0);
 }
 
 static endBuildingInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

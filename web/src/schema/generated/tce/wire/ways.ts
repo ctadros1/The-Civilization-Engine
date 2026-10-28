@@ -4,6 +4,7 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { CurrentLineInfo } from '../../tce/wire/current-line-info.js';
 import { GasMainInfo } from '../../tce/wire/gas-main-info.js';
 import { StreetLampInfo } from '../../tce/wire/street-lamp-info.js';
 import { WayInfo } from '../../tce/wire/way-info.js';
@@ -62,8 +63,18 @@ lampsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+currents(index: number, obj?:CurrentLineInfo):CurrentLineInfo|null {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? (obj || new CurrentLineInfo()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+currentsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startWays(builder:flatbuffers.Builder) {
-  builder.startObject(4);
+  builder.startObject(5);
 }
 
 static addRev(builder:flatbuffers.Builder, rev:bigint) {
@@ -118,17 +129,34 @@ static startLampsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addCurrents(builder:flatbuffers.Builder, currentsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(4, currentsOffset, 0);
+}
+
+static createCurrentsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startCurrentsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endWays(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createWays(builder:flatbuffers.Builder, rev:bigint, waysOffset:flatbuffers.Offset, mainsOffset:flatbuffers.Offset, lampsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createWays(builder:flatbuffers.Builder, rev:bigint, waysOffset:flatbuffers.Offset, mainsOffset:flatbuffers.Offset, lampsOffset:flatbuffers.Offset, currentsOffset:flatbuffers.Offset):flatbuffers.Offset {
   Ways.startWays(builder);
   Ways.addRev(builder, rev);
   Ways.addWays(builder, waysOffset);
   Ways.addMains(builder, mainsOffset);
   Ways.addLamps(builder, lampsOffset);
+  Ways.addCurrents(builder, currentsOffset);
   return Ways.endWays(builder);
 }
 }

@@ -606,6 +606,9 @@ struct GasMainInfoBuilder;
 struct StreetLampInfo;
 struct StreetLampInfoBuilder;
 
+struct CurrentLineInfo;
+struct CurrentLineInfoBuilder;
+
 struct Ways;
 struct WaysBuilder;
 
@@ -13808,7 +13811,8 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_FIRE_WORDS = 98,
     VT_SITE = 100,
     VT_GAS = 102,
-    VT_RECORDS = 104
+    VT_RECORDS = 104,
+    VT_WIRE = 106
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -13963,6 +13967,9 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *records() const {
     return GetPointer<const ::flatbuffers::String *>(VT_RECORDS);
   }
+  const ::flatbuffers::String *wire() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WIRE);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -14040,6 +14047,8 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyString(gas()) &&
            VerifyOffset(verifier, VT_RECORDS) &&
            verifier.VerifyString(records()) &&
+           VerifyOffset(verifier, VT_WIRE) &&
+           verifier.VerifyString(wire()) &&
            verifier.EndTable();
   }
 };
@@ -14201,6 +14210,9 @@ struct BuildingInfoBuilder {
   void add_records(::flatbuffers::Offset<::flatbuffers::String> records) {
     fbb_.AddOffset(BuildingInfo::VT_RECORDS, records);
   }
+  void add_wire(::flatbuffers::Offset<::flatbuffers::String> wire) {
+    fbb_.AddOffset(BuildingInfo::VT_WIRE, wire);
+  }
   explicit BuildingInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -14264,7 +14276,8 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
     ::flatbuffers::Offset<::flatbuffers::String> fire_words = 0,
     ::flatbuffers::Offset<::flatbuffers::String> site = 0,
     ::flatbuffers::Offset<::flatbuffers::String> gas = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> records = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> records = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> wire = 0) {
   BuildingInfoBuilder builder_(_fbb);
   builder_.add_style_from(style_from);
   builder_.add_firm(firm);
@@ -14272,6 +14285,7 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
   builder_.add_settlement(settlement);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_wire(wire);
   builder_.add_records(records);
   builder_.add_gas(gas);
   builder_.add_site(site);
@@ -14377,7 +14391,8 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
     const char *fire_words = nullptr,
     const char *site = nullptr,
     const char *gas = nullptr,
-    const char *records = nullptr) {
+    const char *records = nullptr,
+    const char *wire = nullptr) {
   auto program__ = program ? _fbb.CreateString(program) : 0;
   auto stage_name__ = stage_name ? _fbb.CreateString(stage_name) : 0;
   auto outline__ = outline ? _fbb.CreateVectorOfStructs<tce::wire::Vec2>(*outline) : 0;
@@ -14400,6 +14415,7 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
   auto site__ = site ? _fbb.CreateString(site) : 0;
   auto gas__ = gas ? _fbb.CreateString(gas) : 0;
   auto records__ = records ? _fbb.CreateString(records) : 0;
+  auto wire__ = wire ? _fbb.CreateString(wire) : 0;
   return tce::wire::CreateBuildingInfo(
       _fbb,
       id,
@@ -14452,7 +14468,8 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
       fire_words__,
       site__,
       gas__,
-      records__);
+      records__,
+      wire__);
 }
 
 struct Buildings FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -25984,6 +26001,174 @@ inline ::flatbuffers::Offset<StreetLampInfo> CreateStreetLampInfoDirect(
       words__);
 }
 
+struct CurrentLineInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef CurrentLineInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_STATION = 6,
+    VT_POINTS = 8,
+    VT_LENGTH_M = 10,
+    VT_LAID = 12,
+    VT_RATING_KW = 14,
+    VT_BROKEN = 16,
+    VT_HOMES = 18,
+    VT_LIT = 20,
+    VT_WORDS = 22
+  };
+  uint64_t id() const {
+    return GetField<uint64_t>(VT_ID, 0);
+  }
+  uint64_t station() const {
+    return GetField<uint64_t>(VT_STATION, 0);
+  }
+  const ::flatbuffers::Vector<float> *points() const {
+    return GetPointer<const ::flatbuffers::Vector<float> *>(VT_POINTS);
+  }
+  float length_m() const {
+    return GetField<float>(VT_LENGTH_M, 0.0f);
+  }
+  float laid() const {
+    return GetField<float>(VT_LAID, 0.0f);
+  }
+  float rating_kw() const {
+    return GetField<float>(VT_RATING_KW, 0.0f);
+  }
+  bool broken() const {
+    return GetField<uint8_t>(VT_BROKEN, 0) != 0;
+  }
+  uint32_t homes() const {
+    return GetField<uint32_t>(VT_HOMES, 0);
+  }
+  uint32_t lit() const {
+    return GetField<uint32_t>(VT_LIT, 0);
+  }
+  const ::flatbuffers::String *words() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_ID, 8) &&
+           VerifyField<uint64_t>(verifier, VT_STATION, 8) &&
+           VerifyOffset(verifier, VT_POINTS) &&
+           verifier.VerifyVector(points()) &&
+           VerifyField<float>(verifier, VT_LENGTH_M, 4) &&
+           VerifyField<float>(verifier, VT_LAID, 4) &&
+           VerifyField<float>(verifier, VT_RATING_KW, 4) &&
+           VerifyField<uint8_t>(verifier, VT_BROKEN, 1) &&
+           VerifyField<uint32_t>(verifier, VT_HOMES, 4) &&
+           VerifyField<uint32_t>(verifier, VT_LIT, 4) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyString(words()) &&
+           verifier.EndTable();
+  }
+};
+
+struct CurrentLineInfoBuilder {
+  typedef CurrentLineInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint64_t id) {
+    fbb_.AddElement<uint64_t>(CurrentLineInfo::VT_ID, id, 0);
+  }
+  void add_station(uint64_t station) {
+    fbb_.AddElement<uint64_t>(CurrentLineInfo::VT_STATION, station, 0);
+  }
+  void add_points(::flatbuffers::Offset<::flatbuffers::Vector<float>> points) {
+    fbb_.AddOffset(CurrentLineInfo::VT_POINTS, points);
+  }
+  void add_length_m(float length_m) {
+    fbb_.AddElement<float>(CurrentLineInfo::VT_LENGTH_M, length_m, 0.0f);
+  }
+  void add_laid(float laid) {
+    fbb_.AddElement<float>(CurrentLineInfo::VT_LAID, laid, 0.0f);
+  }
+  void add_rating_kw(float rating_kw) {
+    fbb_.AddElement<float>(CurrentLineInfo::VT_RATING_KW, rating_kw, 0.0f);
+  }
+  void add_broken(bool broken) {
+    fbb_.AddElement<uint8_t>(CurrentLineInfo::VT_BROKEN, static_cast<uint8_t>(broken), 0);
+  }
+  void add_homes(uint32_t homes) {
+    fbb_.AddElement<uint32_t>(CurrentLineInfo::VT_HOMES, homes, 0);
+  }
+  void add_lit(uint32_t lit) {
+    fbb_.AddElement<uint32_t>(CurrentLineInfo::VT_LIT, lit, 0);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
+    fbb_.AddOffset(CurrentLineInfo::VT_WORDS, words);
+  }
+  explicit CurrentLineInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<CurrentLineInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<CurrentLineInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<CurrentLineInfo> CreateCurrentLineInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    uint64_t station = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<float>> points = 0,
+    float length_m = 0.0f,
+    float laid = 0.0f,
+    float rating_kw = 0.0f,
+    bool broken = false,
+    uint32_t homes = 0,
+    uint32_t lit = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+  CurrentLineInfoBuilder builder_(_fbb);
+  builder_.add_station(station);
+  builder_.add_id(id);
+  builder_.add_words(words);
+  builder_.add_lit(lit);
+  builder_.add_homes(homes);
+  builder_.add_rating_kw(rating_kw);
+  builder_.add_laid(laid);
+  builder_.add_length_m(length_m);
+  builder_.add_points(points);
+  builder_.add_broken(broken);
+  return builder_.Finish();
+}
+
+struct CurrentLineInfo::Traits {
+  using type = CurrentLineInfo;
+  static auto constexpr Create = CreateCurrentLineInfo;
+};
+
+inline ::flatbuffers::Offset<CurrentLineInfo> CreateCurrentLineInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    uint64_t station = 0,
+    const std::vector<float> *points = nullptr,
+    float length_m = 0.0f,
+    float laid = 0.0f,
+    float rating_kw = 0.0f,
+    bool broken = false,
+    uint32_t homes = 0,
+    uint32_t lit = 0,
+    const char *words = nullptr) {
+  auto points__ = points ? _fbb.CreateVector<float>(*points) : 0;
+  auto words__ = words ? _fbb.CreateString(words) : 0;
+  return tce::wire::CreateCurrentLineInfo(
+      _fbb,
+      id,
+      station,
+      points__,
+      length_m,
+      laid,
+      rating_kw,
+      broken,
+      homes,
+      lit,
+      words__);
+}
+
 struct Ways FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef WaysBuilder Builder;
   struct Traits;
@@ -25991,7 +26176,8 @@ struct Ways FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_REV = 4,
     VT_WAYS = 6,
     VT_MAINS = 8,
-    VT_LAMPS = 10
+    VT_LAMPS = 10,
+    VT_CURRENTS = 12
   };
   uint64_t rev() const {
     return GetField<uint64_t>(VT_REV, 0);
@@ -26004,6 +26190,9 @@ struct Ways FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StreetLampInfo>> *lamps() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StreetLampInfo>> *>(VT_LAMPS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CurrentLineInfo>> *currents() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CurrentLineInfo>> *>(VT_CURRENTS);
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -26018,6 +26207,9 @@ struct Ways FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_LAMPS) &&
            verifier.VerifyVector(lamps()) &&
            verifier.VerifyVectorOfTables(lamps()) &&
+           VerifyOffset(verifier, VT_CURRENTS) &&
+           verifier.VerifyVector(currents()) &&
+           verifier.VerifyVectorOfTables(currents()) &&
            verifier.EndTable();
   }
 };
@@ -26038,6 +26230,9 @@ struct WaysBuilder {
   void add_lamps(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StreetLampInfo>>> lamps) {
     fbb_.AddOffset(Ways::VT_LAMPS, lamps);
   }
+  void add_currents(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CurrentLineInfo>>> currents) {
+    fbb_.AddOffset(Ways::VT_CURRENTS, currents);
+  }
   explicit WaysBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -26054,9 +26249,11 @@ inline ::flatbuffers::Offset<Ways> CreateWays(
     uint64_t rev = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WayInfo>>> ways = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::GasMainInfo>>> mains = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StreetLampInfo>>> lamps = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StreetLampInfo>>> lamps = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CurrentLineInfo>>> currents = 0) {
   WaysBuilder builder_(_fbb);
   builder_.add_rev(rev);
+  builder_.add_currents(currents);
   builder_.add_lamps(lamps);
   builder_.add_mains(mains);
   builder_.add_ways(ways);
@@ -26073,16 +26270,19 @@ inline ::flatbuffers::Offset<Ways> CreateWaysDirect(
     uint64_t rev = 0,
     const std::vector<::flatbuffers::Offset<tce::wire::WayInfo>> *ways = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::GasMainInfo>> *mains = nullptr,
-    const std::vector<::flatbuffers::Offset<tce::wire::StreetLampInfo>> *lamps = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::StreetLampInfo>> *lamps = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::CurrentLineInfo>> *currents = nullptr) {
   auto ways__ = ways ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::WayInfo>>(*ways) : 0;
   auto mains__ = mains ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::GasMainInfo>>(*mains) : 0;
   auto lamps__ = lamps ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::StreetLampInfo>>(*lamps) : 0;
+  auto currents__ = currents ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::CurrentLineInfo>>(*currents) : 0;
   return tce::wire::CreateWays(
       _fbb,
       rev,
       ways__,
       mains__,
-      lamps__);
+      lamps__,
+      currents__);
 }
 
 struct VehicleInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

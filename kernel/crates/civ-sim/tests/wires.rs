@@ -356,6 +356,45 @@ fn set(sim: &mut Sim, household: PermanentId, g: usize, kg: f64) {
     }
 }
 
+/// The ways layer's lines of current as the observer reads them (wire 1.107): each line's
+/// buildings hooked up, those lit now, its share strung and its words.
+fn currents_seen(sim: &Sim) -> Vec<(u32, u32, f32, String)> {
+    let bytes = civ_sim::frames::ways::ways_response(sim);
+    let response =
+        civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&bytes).expect("wire");
+    let ways = response.body_as_ways().expect("ways");
+    ways.currents()
+        .expect("lines of current")
+        .iter()
+        .map(|l| {
+            (
+                l.homes(),
+                l.lit(),
+                l.laid(),
+                l.words().unwrap_or_default().to_owned(),
+            )
+        })
+        .collect()
+}
+
+/// Building `id`'s current in words as the observer reads them (wire 1.107).
+fn wire_words_seen(sim: &Sim, id: PermanentId) -> String {
+    let bytes = civ_sim::frames::buildings::buildings_response(sim);
+    let response =
+        civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&bytes).expect("wire");
+    response
+        .body_as_buildings()
+        .expect("buildings")
+        .buildings()
+        .expect("a list")
+        .iter()
+        .find(|b| b.id() == id.get())
+        .expect("the building")
+        .wire()
+        .unwrap_or_default()
+        .to_owned()
+}
+
 fn paid_by_meter(sim: &Sim) -> f64 {
     let goods = &sim.rules().catalog.goods;
     (0..goods.len())
@@ -482,6 +521,11 @@ fn a_station_that_knows_the_dynamo_strings_a_line_to_homes_that_pay_by_the_meter
         (station, None, Some(&best.to))
     );
     assert!(!l.whole() && (l.worth_h - best.worth_h_year).abs() < 1e-9);
+    // The observer sees it marked out, nothing strung.
+    let seen = currents_seen(&sim);
+    assert_eq!(seen.len(), 2);
+    assert!(seen[1].3.ends_with(", 0% strung."), "{}", seen[1].3);
+    assert_eq!(seen[1].2, 0.0);
     // A second review begins none while it is being strung.
     sim.with_ctx_for_tests(|pop, ctx| pop.review_wire_line_for_tests(ctx, station));
     assert_eq!(sim.land().wires.lines.len(), 2);
@@ -502,6 +546,54 @@ fn a_station_that_knows_the_dynamo_strings_a_line_to_homes_that_pay_by_the_meter
         theirs
             .iter()
             .all(|h| h.cause == Cause::Served && h.household != station)
+    );
+    // The observer sees the line strung and its homes lit, each building's current, the station,
+    // and a member's light.
+    let seen = currents_seen(&sim);
+    let n = theirs.len() as u32;
+    assert_eq!((seen[1].0, seen[1].1, seen[1].2), (n, n, 1.0));
+    let homes = if n == 1 {
+        "1 home hooked up".to_owned()
+    } else {
+        format!("{n} homes hooked up")
+    };
+    assert!(
+        seen[1].3.ends_with(&format!(
+            ", strung, passing up to 6.0 kW; {homes}, {n} lit now."
+        )),
+        "{}",
+        seen[1].3
+    );
+    let until = theirs[0].lit_until;
+    let clock = format!("{:02}:{:02}", (until % 1440) / 60, until % 60);
+    let words = wire_words_seen(&sim, theirs[0].building);
+    assert!(
+        words.starts_with("Current: 0.2 kW from ")
+            && words.ends_with(&format!("; lit until {clock}")),
+        "{words}"
+    );
+    let station_first = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.household == station)
+        .expect("the station's building")
+        .id;
+    let words = wire_words_seen(&sim, station_first);
+    assert!(
+        words.contains("Station: a dynamo beside its own water installation; feeds 2 lines, "),
+        "{words}"
+    );
+    let member = sim
+        .people()
+        .household(theirs[0].household)
+        .expect("home")
+        .members[0];
+    let light = civ_sim::frames::people::light_words(&sim, member);
+    assert!(
+        light == "Working by electric light at home"
+            || light == format!("Their home is lit by the wire until {clock}"),
+        "{light}"
     );
     let evening = 0.2 * 4.0 * 0.1 * sim.rules().people.household.daily_kcal_per_person;
     let paid = paid_by_meter(&sim);
@@ -536,6 +628,11 @@ fn a_station_that_knows_the_dynamo_strings_a_line_to_homes_that_pay_by_the_meter
     assert!(of(&sim).cut_off);
     sim.with_ctx_for_tests(|pop, ctx| pop.wire_evening_for_tests(ctx));
     assert_eq!(of(&sim).cause, Cause::CutOff);
+    let words = wire_words_seen(&sim, of(&sim).building);
+    assert!(
+        words.ends_with("; cut off: its account went unpaid"),
+        "{words}"
+    );
     for (&g, &kg) in food.iter().zip(&held) {
         set(&mut sim, poor, g, kg);
     }

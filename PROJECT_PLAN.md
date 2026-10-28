@@ -7827,8 +7827,22 @@ and M6a gives rivers a daily flow.
       strung whole, the homes along it hook up at the evening, are served and each pays an
       evening's price; one left with no food is served, cannot pay and is cut off, dark at the
       next evening with that cause, and restored and served once it has food again. **Not
-      built:** a polity's line by law (ADR-0036 §6), the observer of the wire, and the hourly
-      dispatch (served hours are still the evening's).
+      built:** a polity's line by law (ADR-0036 §6) and the hourly dispatch (served hours are
+      still the evening's).
+    - *M11a, sixth part (2026-10-29): the observer of the wire.* Wire 1.107: the ways layer lists
+      every line of current (its route from its station, length and share strung, rating, broken,
+      buildings hooked up and lit now, in words: "Line of current of 120 m from Ada's station,
+      strung, passing up to 6.0 kW; 2 homes hooked up, 2 lit now"), and the ways' revision follows
+      lines and hookups' evenings. A building's page says its current: what it asks from whose
+      station and how its last evening went, lit until when or dark by its cause (station short,
+      a line full, a line down or unstrung, cut off); a household's first building reads as its
+      station, its dynamos and the lines and homes it feeds. A person's light reads electric light
+      where their home is lit by the wire. The map draws lines in copper, fainter while strung and
+      red once broken, and the pointer reads one out. **Tested:** in the station's scene the
+      observer sees the line marked out at 0% strung, then strung with its homes hooked up and lit,
+      a home's current lit until the evening's end, the station feeding 2 lines, a member's light
+      by the wire, and a home cut off for its account; the web decodes the line and the building's
+      current, and a village with no station has no line to draw.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

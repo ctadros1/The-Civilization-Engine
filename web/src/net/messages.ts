@@ -609,6 +609,10 @@ export interface BuildingInfo {
   /** Wire 1.106 (M10c slice EC): the records kept in it, each with its writer ("Records: laying
    * out by cord and stake, by Nell"); empty for none. */
   records: string;
+  /** Wire 1.107 (M11a): its current in the kernel's words: hooked up to a line, what it asks and how
+   * its last evening went ("Current: 0.2 kW from Ada's station; lit until 22:40"), or the station
+   * its household keeps; empty for neither. */
+  wire: string;
 }
 
 /** How a building stands to its latest fire (wire 1.68). */
@@ -1903,6 +1907,27 @@ export interface WaysInfo {
   /** Wire 1.103 (M10b slice DY): every gas main and street lamp, in the order made. */
   mains: GasMainInfo[];
   lamps: StreetLampInfo[];
+  /** Wire 1.107 (M11a): every line of current, in the order made. */
+  currents: CurrentLineInfo[];
+}
+
+/** A line of current (wire 1.107, M11a; ADR-0036 §3). */
+export interface CurrentLineInfo {
+  id: number;
+  /** The household whose station feeds it. */
+  station: number;
+  /** Its centre line from the station, metres from the map's north-west corner. */
+  points: [number, number][];
+  lengthM: number;
+  /** The share of it strung, 0–1; it carries current only once whole. */
+  laid: number;
+  ratingKw: number;
+  broken: boolean;
+  /** The buildings hooked up to it, and those lit now. */
+  homes: number;
+  lit: number;
+  /** In the kernel's words: "Line of current of 120 m from Ada's station, 40% strung." */
+  words: string;
 }
 
 /** A boat or a cart (wire 1.86, M8b slices CO and CP; ADR-0029 §3), a wagon on its line (wire
@@ -3242,7 +3267,26 @@ function ways(w: W.Ways): WaysInfo {
     if (!l) continue;
     lamps.push({ x: l.x(), y: l.y(), lit: l.lit(), words: l.words() ?? "" });
   }
-  return { rev: Number(w.rev()), ways: list, mains, lamps };
+  const currents: CurrentLineInfo[] = [];
+  for (let i = 0; i < w.currentsLength(); i++) {
+    const c = w.currents(i);
+    if (!c) continue;
+    const points: [number, number][] = [];
+    for (let k = 0; k + 1 < c.pointsLength(); k += 2) points.push([c.points(k) ?? 0, c.points(k + 1) ?? 0]);
+    currents.push({
+      id: Number(c.id()),
+      station: Number(c.station()),
+      points,
+      lengthM: c.lengthM(),
+      laid: c.laid(),
+      ratingKw: c.ratingKw(),
+      broken: c.broken(),
+      homes: c.homes(),
+      lit: c.lit(),
+      words: c.words() ?? "",
+    });
+  }
+  return { rev: Number(w.rev()), ways: list, mains, lamps, currents };
 }
 
 function vehicles(w: W.Vehicles): VehiclesInfo {
@@ -4195,6 +4239,7 @@ function buildings(f: W.Buildings): { rev: number; buildings: BuildingInfo[] } {
       site: x.site() ?? "",
       gas: x.gas() ?? "",
       records: x.records() ?? "",
+      wire: x.wire() ?? "",
     });
   }
   return { rev: Number(f.rev()), buildings: out };

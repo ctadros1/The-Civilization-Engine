@@ -710,6 +710,7 @@ describe("decoders", () => {
     const site = b.createString("chosen over 5 others: 34 hours less walking and levelling over 5 years than the next best");
     const gas = b.createString("Gas: 1 burner on Ada's main; lit until 22:40");
     const records = b.createString("Records: laying out by cord and stake, by Nell");
+    const current = b.createString("Current: 0.2 kW from Ada's station; lit until 22:40");
     const group = W.GroupInfo.createGroupInfo(
       b,
       0x0700,
@@ -764,6 +765,7 @@ describe("decoders", () => {
     W.BuildingInfo.addSite(b, site);
     W.BuildingInfo.addGas(b, gas);
     W.BuildingInfo.addRecords(b, records);
+    W.BuildingInfo.addWire(b, current);
     const info = W.BuildingInfo.endBuildingInfo(b);
     const list = W.Buildings.createBuildingsVector(b, [info]);
     const buildings = W.Buildings.createBuildings(b, 77n, list);
@@ -838,6 +840,7 @@ describe("decoders", () => {
           site: "chosen over 5 others: 34 hours less walking and levelling over 5 years than the next best",
           gas: "Gas: 1 burner on Ada's main; lit until 22:40",
           records: "Records: laying out by cord and stake, by Nell",
+          wire: "Current: 0.2 kW from Ada's station; lit until 22:40",
         },
       ],
     });
@@ -1321,7 +1324,12 @@ describe("decoders", () => {
     const lampWords = b.createString("Street lamp of Ashford, set by its law to light the streets; burning until 05:42.");
     const lamp = W.StreetLampInfo.createStreetLampInfo(b, 30, 12, true, lampWords);
     const lamps = W.Ways.createLampsVector(b, [lamp]);
-    const ways = W.Ways.createWays(b, 5n, list, mains, lamps);
+    // Wire 1.107: a line of current a quarter strung.
+    const currentPoints = W.CurrentLineInfo.createPointsVector(b, [10, 20, 50, 20]);
+    const currentWords = b.createString("Line of current of 40 m from Ada's station, 25% strung.");
+    const current = W.CurrentLineInfo.createCurrentLineInfo(b, 91n, 7n, currentPoints, 40, 0.25, 6, false, 0, 0, currentWords);
+    const currents = W.Ways.createCurrentsVector(b, [current]);
+    const ways = W.Ways.createWays(b, 5n, list, mains, lamps, currents);
     const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Ways, ways)));
     expect(body.kind).toBe("ways");
     if (body.kind !== "ways") return;
@@ -1400,6 +1408,23 @@ describe("decoders", () => {
           y: 12,
           lit: true,
           words: "Street lamp of Ashford, set by its law to light the streets; burning until 05:42.",
+        },
+      ],
+      currents: [
+        {
+          id: 91,
+          station: 7,
+          points: [
+            [10, 20],
+            [50, 20],
+          ],
+          lengthM: 40,
+          laid: 0.25,
+          ratingKw: 6,
+          broken: false,
+          homes: 0,
+          lit: 0,
+          words: "Line of current of 40 m from Ada's station, 25% strung.",
         },
       ],
     });

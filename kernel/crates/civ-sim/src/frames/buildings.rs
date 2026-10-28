@@ -574,6 +574,7 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
             let site = fbb.create_string(&site);
             let gas = fbb.create_string(&gas_words(sim, b));
             let records = fbb.create_string(&records_words(sim, b));
+            let current = fbb.create_string(&wire_words(sim, b));
             wire::BuildingInfo::create(
                 &mut fbb,
                 &wire::BuildingInfoArgs {
@@ -629,6 +630,7 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                     site: Some(site),
                     gas: Some(gas),
                     records: Some(records),
+                    wire: Some(current),
                 },
             )
         })
@@ -773,6 +775,108 @@ pub(crate) fn gas_words(sim: &Sim, b: &Building) -> String {
                     "1 home connected".to_owned()
                 } else {
                     format!("{homes} homes connected")
+                };
+                out.push_str(&format!("; feeds {feeds}, {homes}"));
+            }
+            said.push(out);
+        }
+    }
+    said.join(". ")
+}
+
+/// Building `b`'s current in words (wire 1.107, M11a, fifth part): hooked up to a line, what it asks
+/// and how its last evening went ("Current: 0.2 kW from Ada's station; lit until 22:40"), and for a
+/// household's first building, the station it keeps ("Station: a dynamo beside its own water
+/// installation; feeds 2 lines, 3 homes hooked up"); empty for neither.
+pub(crate) fn wire_words(sim: &Sim, b: &Building) -> String {
+    use civ_land::wire::Cause;
+    let wires = &sim.land.wires;
+    let now = sim.now().minutes();
+    let mut said = Vec::new();
+    if let Some(k) = wires.hookups.iter().find(|k| k.building == b.id) {
+        let line = wires.lines.iter().find(|l| l.id == k.line);
+        let station = line.map_or_else(
+            || "a station".to_owned(),
+            |l| {
+                let s = super::ways::keeper(sim, civ_land::ways::Keeper::Household(l.station));
+                format!("{}'s station", s.trim_end_matches("'s household"))
+            },
+        );
+        let state = if k.cut_off {
+            "cut off: its account went unpaid".to_owned()
+        } else if line.is_some_and(|l| !l.whole()) {
+            "waiting for the line to be strung".to_owned()
+        } else if k.lit_until < 0 && k.cause == Cause::Served {
+            "not yet lit".to_owned()
+        } else {
+            match k.cause {
+                Cause::Served if now < k.lit_until => {
+                    format!("lit until {}", super::ways::clock_at(k.lit_until))
+                }
+                Cause::Served => "lit on its last evening".to_owned(),
+                Cause::StationShort => {
+                    "not lit on its last evening: the station gave too little".to_owned()
+                }
+                Cause::LineFull => {
+                    "not lit on its last evening: a line could not pass it".to_owned()
+                }
+                Cause::LineDown => {
+                    "not lit on its last evening: a line is down or unstrung".to_owned()
+                }
+                Cause::CutOff => "cut off: its account went unpaid".to_owned(),
+            }
+        };
+        said.push(format!(
+            "Current: {:.1} kW from {station}; {state}",
+            k.ask_kw
+        ));
+    }
+    let is_first = sim
+        .land
+        .buildings
+        .iter()
+        .find(|o| o.household == b.household)
+        .is_some_and(|o| o.id == b.id);
+    let catalog = &sim.rules.catalog;
+    if is_first && let Some(x) = sim.people.household(b.household) {
+        let dynamos = catalog
+            .goods
+            .iter()
+            .enumerate()
+            .filter(|(g, d)| {
+                d.power
+                    .is_some_and(|p| p.source == civ_agents::params::PowerSource::Shaft)
+                    && x.stores.get(*g).copied().unwrap_or(0.0) >= 1.0 - 1e-9
+            })
+            .map(|(g, _)| x.stores[g].floor() as u32)
+            .sum::<u32>();
+        let owns = sim.land.installations.iter().any(|s| s.owner == x.id);
+        if dynamos > 0 && owns {
+            let mut out = if dynamos == 1 {
+                "Station: a dynamo beside its own water installation".to_owned()
+            } else {
+                format!("Station: {dynamos} dynamos beside its own water installation")
+            };
+            let lines: Vec<_> = wires
+                .lines
+                .iter()
+                .filter(|l| l.station == b.household)
+                .collect();
+            if !lines.is_empty() {
+                let homes = wires
+                    .hookups
+                    .iter()
+                    .filter(|k| lines.iter().any(|l| l.id == k.line))
+                    .count();
+                let feeds = if lines.len() == 1 {
+                    "1 line".to_owned()
+                } else {
+                    format!("{} lines", lines.len())
+                };
+                let homes = if homes == 1 {
+                    "1 home hooked up".to_owned()
+                } else {
+                    format!("{homes} homes hooked up")
                 };
                 out.push_str(&format!("; feeds {feeds}, {homes}"));
             }

@@ -1478,6 +1478,12 @@ table BuildingInfo {
   // Wire 1.106 (M10c slice EC): the records kept in it, each with its writer ("Records: laying
   // out by cord and stake, by Nell"); empty for none.
   records: string (id: 50);
+  // Wire 1.107 (M11a, fifth part): its current in words: a building hooked up to a line, what it
+  // asks and how its last evening went, lit or not and why ("Current: 0.2 kW from Ada's station;
+  // lit until 22:40"); the station of the household that keeps it, its dynamos and the lines and
+  // homes it feeds ("Station: a dynamo beside its own water installation; feeds 2 lines, 3 homes
+  // hooked up"); empty for neither.
+  wire: string (id: 51);
 }
 
 table Buildings {
@@ -2955,6 +2961,23 @@ table StreetLampInfo {
   words: string (id: 3);
 }
 
+// Wire 1.107 (M11a, fifth part; ADR-0036 §3): a line of current: the household whose station
+// feeds it; its centre line from the station, metres from the map's north-west corner, as x, y
+// pairs; its length, metres, and the share of it strung, 0-1; the most it passes, kW; whether it
+// is broken; the buildings hooked up to it and those lit now; and the line in words.
+table CurrentLineInfo {
+  id: ulong (id: 0);
+  station: ulong (id: 1);
+  points: [float] (id: 2);
+  length_m: float (id: 3);
+  laid: float (id: 4);
+  rating_kw: float (id: 5);
+  broken: bool (id: 6);
+  homes: uint (id: 7);
+  lit: uint (id: 8);
+  words: string (id: 9);
+}
+
 // Wire 1.84: every way, in the order begun.
 table Ways {
   rev: ulong (id: 0);
@@ -2962,6 +2985,8 @@ table Ways {
   // Wire 1.103 (M10b slice DY, fifth part): every gas main and street lamp, in the order made.
   mains: [GasMainInfo] (id: 2);
   lamps: [StreetLampInfo] (id: 3);
+  // Wire 1.107 (M11a, fifth part): every line of current, in the order made.
+  currents: [CurrentLineInfo] (id: 4);
 }
 
 // Wire 1.86 (M8b slices CO and CP): a boat or a cart: its mode (0 a boat, 1 a cart; 2 a wagon on

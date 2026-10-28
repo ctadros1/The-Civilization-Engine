@@ -31,6 +31,7 @@ export { CoverageSource } from './wire/coverage-source.js';
 export { CropInfo } from './wire/crop-info.js';
 export { CrossingInfo } from './wire/crossing-info.js';
 export { Crossings } from './wire/crossings.js';
+export { CurrentLineInfo } from './wire/current-line-info.js';
 export { DayWeather } from './wire/day-weather.js';
 export { Decision } from './wire/decision.js';
 export { DepositInfo } from './wire/deposit-info.js';

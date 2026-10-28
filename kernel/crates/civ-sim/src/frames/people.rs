@@ -1851,7 +1851,7 @@ pub fn teaching_words(sim: &Sim, id: PermanentId) -> String {
 /// Person `id`'s light, in words (wire 1.99, M10b slice DU): at work by lamplight now, or the
 /// lamp their household holds and the hours of light its fuel gives; empty when it holds none.
 /// A home lit by gas from a main now (wire 1.103, M10b slice DY): at work by gaslight, or lit by
-/// gas until its burners go out.
+/// gas until its burners go out; and by the wire (wire 1.107, M11a), by electric light.
 pub fn light_words(sim: &Sim, id: PermanentId) -> String {
     let people = sim.people();
     let (catalog, params, now) = (&sim.rules().catalog, &sim.rules().people, sim.now());
@@ -1870,6 +1870,19 @@ pub fn light_words(sim: &Sim, id: PermanentId) -> String {
         } else {
             format!(
                 "Their home is lit by gas until {}",
+                super::ways::clock_at(until)
+            )
+        };
+    }
+    if let Some(until) = sim.land.wires.lit_until(x.id, now.minutes()) {
+        let working = people.lamp_lit_home(catalog, params, &sim.land, now, x.id)
+            && !p.asleep
+            && civ_agents::population::Population::works_by_lamp(catalog, p);
+        return if working {
+            "Working by electric light at home".to_owned()
+        } else {
+            format!(
+                "Their home is lit by the wire until {}",
                 super::ways::clock_at(until)
             )
         };

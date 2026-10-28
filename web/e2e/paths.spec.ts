@@ -56,6 +56,8 @@ test("a village shows the trails its people wore", async ({ page }) => {
     // slice DY).
     expect((await page.evaluate(() => window.__TCE__.map())).mains).toEqual([]);
     expect((await page.evaluate(() => window.__TCE__.map())).lamps).toEqual([]);
+    // Nobody keeps a station, so there is no line of current to draw (M11a).
+    expect((await page.evaluate(() => window.__TCE__.map())).currents).toEqual([]);
     // Nobody has made a boat or a cart yet, so there is none to draw (M8b slice CP).
     expect(await page.evaluate(() => window.__TCE__.state().vehiclesRev)).toBe(0);
     expect((await page.evaluate(() => window.__TCE__.map())).vehicles).toEqual([]);

@@ -66627,6 +66627,481 @@ impl ::core::fmt::Debug for GasSave<'_> {
       ds.finish()
   }
 }
+pub enum WireLineSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WireLineSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WireLineSave<'a> {
+  type Inner = WireLineSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WireLineSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_STATION: ::flatbuffers::VOffsetT = 6;
+  pub const VT_PARENT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_RATING_KW: ::flatbuffers::VOffsetT = 10;
+  pub const VT_LENGTH_M: ::flatbuffers::VOffsetT = 12;
+  pub const VT_LAID_M: ::flatbuffers::VOffsetT = 14;
+  pub const VT_BROKEN: ::flatbuffers::VOffsetT = 16;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WireLineSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WireLineSaveArgs
+  ) -> ::flatbuffers::WIPOffset<WireLineSave<'bldr>> {
+    let mut builder = WireLineSaveBuilder::new(_fbb);
+    builder.add_laid_m(args.laid_m);
+    builder.add_length_m(args.length_m);
+    builder.add_rating_kw(args.rating_kw);
+    builder.add_parent(args.parent);
+    builder.add_station(args.station);
+    builder.add_id(args.id);
+    builder.add_broken(args.broken);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WireLineSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn station(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WireLineSave::VT_STATION, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn parent(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WireLineSave::VT_PARENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn rating_kw(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WireLineSave::VT_RATING_KW, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn length_m(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WireLineSave::VT_LENGTH_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn laid_m(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WireLineSave::VT_LAID_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn broken(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(WireLineSave::VT_BROKEN, Some(false)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WireLineSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("station", Self::VT_STATION, false)?
+     .visit_field::<u64>("parent", Self::VT_PARENT, false)?
+     .visit_field::<f64>("rating_kw", Self::VT_RATING_KW, false)?
+     .visit_field::<f64>("length_m", Self::VT_LENGTH_M, false)?
+     .visit_field::<f64>("laid_m", Self::VT_LAID_M, false)?
+     .visit_field::<bool>("broken", Self::VT_BROKEN, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WireLineSaveArgs {
+    pub id: u64,
+    pub station: u64,
+    pub parent: u64,
+    pub rating_kw: f64,
+    pub length_m: f64,
+    pub laid_m: f64,
+    pub broken: bool,
+}
+impl<'a> Default for WireLineSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    WireLineSaveArgs {
+      id: 0,
+      station: 0,
+      parent: 0,
+      rating_kw: 0.0,
+      length_m: 0.0,
+      laid_m: 0.0,
+      broken: false,
+    }
+  }
+}
+
+pub struct WireLineSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WireLineSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(WireLineSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_station(&mut self, station: u64) {
+    self.fbb_.push_slot::<u64>(WireLineSave::VT_STATION, station, 0);
+  }
+  #[inline]
+  pub fn add_parent(&mut self, parent: u64) {
+    self.fbb_.push_slot::<u64>(WireLineSave::VT_PARENT, parent, 0);
+  }
+  #[inline]
+  pub fn add_rating_kw(&mut self, rating_kw: f64) {
+    self.fbb_.push_slot::<f64>(WireLineSave::VT_RATING_KW, rating_kw, 0.0);
+  }
+  #[inline]
+  pub fn add_length_m(&mut self, length_m: f64) {
+    self.fbb_.push_slot::<f64>(WireLineSave::VT_LENGTH_M, length_m, 0.0);
+  }
+  #[inline]
+  pub fn add_laid_m(&mut self, laid_m: f64) {
+    self.fbb_.push_slot::<f64>(WireLineSave::VT_LAID_M, laid_m, 0.0);
+  }
+  #[inline]
+  pub fn add_broken(&mut self, broken: bool) {
+    self.fbb_.push_slot::<bool>(WireLineSave::VT_BROKEN, broken, false);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WireLineSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WireLineSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WireLineSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WireLineSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WireLineSave");
+      ds.field("id", &self.id());
+      ds.field("station", &self.station());
+      ds.field("parent", &self.parent());
+      ds.field("rating_kw", &self.rating_kw());
+      ds.field("length_m", &self.length_m());
+      ds.field("laid_m", &self.laid_m());
+      ds.field("broken", &self.broken());
+      ds.finish()
+  }
+}
+pub enum WireHookupSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WireHookupSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WireHookupSave<'a> {
+  type Inner = WireHookupSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WireHookupSave<'a> {
+  pub const VT_BUILDING: ::flatbuffers::VOffsetT = 4;
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 6;
+  pub const VT_LINE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_ASK_KW: ::flatbuffers::VOffsetT = 10;
+  pub const VT_CUT_OFF: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WireHookupSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WireHookupSaveArgs
+  ) -> ::flatbuffers::WIPOffset<WireHookupSave<'bldr>> {
+    let mut builder = WireHookupSaveBuilder::new(_fbb);
+    builder.add_ask_kw(args.ask_kw);
+    builder.add_line(args.line);
+    builder.add_household(args.household);
+    builder.add_building(args.building);
+    builder.add_cut_off(args.cut_off);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn building(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WireHookupSave::VT_BUILDING, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WireHookupSave::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn line(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WireHookupSave::VT_LINE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ask_kw(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WireHookupSave::VT_ASK_KW, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn cut_off(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(WireHookupSave::VT_CUT_OFF, Some(false)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WireHookupSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("building", Self::VT_BUILDING, false)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<u64>("line", Self::VT_LINE, false)?
+     .visit_field::<f64>("ask_kw", Self::VT_ASK_KW, false)?
+     .visit_field::<bool>("cut_off", Self::VT_CUT_OFF, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WireHookupSaveArgs {
+    pub building: u64,
+    pub household: u64,
+    pub line: u64,
+    pub ask_kw: f64,
+    pub cut_off: bool,
+}
+impl<'a> Default for WireHookupSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    WireHookupSaveArgs {
+      building: 0,
+      household: 0,
+      line: 0,
+      ask_kw: 0.0,
+      cut_off: false,
+    }
+  }
+}
+
+pub struct WireHookupSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WireHookupSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_building(&mut self, building: u64) {
+    self.fbb_.push_slot::<u64>(WireHookupSave::VT_BUILDING, building, 0);
+  }
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(WireHookupSave::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_line(&mut self, line: u64) {
+    self.fbb_.push_slot::<u64>(WireHookupSave::VT_LINE, line, 0);
+  }
+  #[inline]
+  pub fn add_ask_kw(&mut self, ask_kw: f64) {
+    self.fbb_.push_slot::<f64>(WireHookupSave::VT_ASK_KW, ask_kw, 0.0);
+  }
+  #[inline]
+  pub fn add_cut_off(&mut self, cut_off: bool) {
+    self.fbb_.push_slot::<bool>(WireHookupSave::VT_CUT_OFF, cut_off, false);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WireHookupSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WireHookupSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WireHookupSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WireHookupSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WireHookupSave");
+      ds.field("building", &self.building());
+      ds.field("household", &self.household());
+      ds.field("line", &self.line());
+      ds.field("ask_kw", &self.ask_kw());
+      ds.field("cut_off", &self.cut_off());
+      ds.finish()
+  }
+}
+pub enum WiresSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WiresSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WiresSave<'a> {
+  type Inner = WiresSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WiresSave<'a> {
+  pub const VT_LINES: ::flatbuffers::VOffsetT = 4;
+  pub const VT_HOOKUPS: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WiresSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WiresSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<WiresSave<'bldr>> {
+    let mut builder = WiresSaveBuilder::new(_fbb);
+    if let Some(x) = args.hookups { builder.add_hookups(x); }
+    if let Some(x) = args.lines { builder.add_lines(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn lines(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WireLineSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WireLineSave>>>>(WiresSave::VT_LINES, None)}
+  }
+  #[inline]
+  pub fn hookups(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WireHookupSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WireHookupSave>>>>(WiresSave::VT_HOOKUPS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WiresSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WireLineSave>>>>("lines", Self::VT_LINES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WireHookupSave>>>>("hookups", Self::VT_HOOKUPS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WiresSaveArgs<'a> {
+    pub lines: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WireLineSave<'a>>>>>,
+    pub hookups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WireHookupSave<'a>>>>>,
+}
+impl<'a> Default for WiresSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WiresSaveArgs {
+      lines: None,
+      hookups: None,
+    }
+  }
+}
+
+pub struct WiresSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WiresSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_lines(&mut self, lines: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<WireLineSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WiresSave::VT_LINES, lines);
+  }
+  #[inline]
+  pub fn add_hookups(&mut self, hookups: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<WireHookupSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WiresSave::VT_HOOKUPS, hookups);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WiresSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WiresSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WiresSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WiresSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WiresSave");
+      ds.field("lines", &self.lines());
+      ds.field("hookups", &self.hookups());
+      ds.finish()
+  }
+}
 pub enum ConsignedGoodSaveOffset {}
 #[derive(Copy, Clone, PartialEq)]
 

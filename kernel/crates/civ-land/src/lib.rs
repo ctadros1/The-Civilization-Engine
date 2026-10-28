@@ -442,6 +442,8 @@ pub struct Land {
     /// Gas mains and the buildings connected to them (M10b slice DY, third part; ADR-0034 §8),
     /// with each connection's last evening. Saved.
     pub gas: gas::Gas,
+    /// Lines of current and the buildings hooked up to them (M11a; ADR-0036 §3).
+    pub wires: wire::Wires,
     /// Water under the ground and the rivers' runoff store (M6a slice AY, ADR-0021 §1–§2): the
     /// heads and the store saved, the aquifer derived.
     pub water: Water,
@@ -684,6 +686,7 @@ impl Land {
             wagons: boats::Boats::default(),
             runs: Default::default(),
             gas: Default::default(),
+            wires: Default::default(),
             enclosures: enclosures::Enclosures::default(),
             water: Water::default(),
             wells: wells::Wells::default(),

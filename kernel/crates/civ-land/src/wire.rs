@@ -2,7 +2,8 @@
 //! and the buildings hooked up to them; an hour's dispatch shares a station's output down its tree,
 //! each line passing what its rating allows less its I²R losses, hookups served in the order made
 //! and one left unserved keeping its cause (research 12-09 §5.2–§5.4; 07-13 §1.3). Pure functions
-//! of their inputs: nothing here is saved or lived yet.
+//! of their inputs; lines and hookups are saved with the land (schema 220), and nothing lays or
+//! dispatches them in a lived day yet.
 
 use civ_core::PermanentId;
 
@@ -69,6 +70,13 @@ pub struct Hookup {
     pub line: PermanentId,
     pub ask_kw: f64,
     pub cut_off: bool,
+}
+
+/// Every line and hookup, in the order made (saved in the `wires` section, schema 220).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Wires {
+    pub lines: Vec<Line>,
+    pub hookups: Vec<Hookup>,
 }
 
 /// One hour's dispatch from station `station` giving `output_kw` (ADR-0036 §4): each hookup on its

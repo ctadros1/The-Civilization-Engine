@@ -3893,6 +3893,33 @@ table GasSave {
   lamps: [StreetLampSave] (id: 2);
 }
 
+// The wire (schema 220, M11a, third part, second step; ADR-0036 §3-§4): each line's station holder,
+// the line it hangs from (0 for one leaving the station), its rating, kW, its length and how much
+// of it is laid, metres, and whether it is broken; each hookup's building, household, line, the
+// kilowatts it asks in an hour and whether its account is cut off.
+table WireLineSave {
+  id: ulong (id: 0);
+  station: ulong (id: 1);
+  parent: ulong (id: 2);
+  rating_kw: double (id: 3);
+  length_m: double (id: 4);
+  laid_m: double (id: 5);
+  broken: bool (id: 6);
+}
+
+table WireHookupSave {
+  building: ulong (id: 0);
+  household: ulong (id: 1);
+  line: ulong (id: 2);
+  ask_kw: double (id: 3);
+  cut_off: bool (id: 4);
+}
+
+table WiresSave {
+  lines: [WireLineSave] (id: 0);
+  hookups: [WireHookupSave] (id: 1);
+}
+
 // Goods in transit (schema 143, M8b slice CO; ADR-0029 §3): each load's owner household, carrier
 // and boat, the settlements it is from and bound for, when it was loaded and when what it holds
 // was last brought up to date, and what it holds by good content id.

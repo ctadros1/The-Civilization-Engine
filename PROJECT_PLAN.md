@@ -7742,6 +7742,12 @@ and M6a gives rivers a daily flow.
       branch and a full trunk refuse in turn; a station 0.05 kW short refuses the hookup whose
       losses tip it; a line not whole, a missing line, another station's tree and a cut-off
       account each give their own cause.
+    - *M11a, third part, second step (2026-10-28): the wire saved.* The land holds `wires` (lines
+      and hookups, in the order made), saved in a `wires` section of their own (saves 220; a save
+      before loads with none). Nothing lays a line or hooks a building up yet, so every world's
+      section is empty. **Tested:** two lines (one hanging from the other, part laid and broken) and
+      a cut-off hookup load equal, and every section's bytes are equal after save and load; the
+      round trip's section count is 45 land sections.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

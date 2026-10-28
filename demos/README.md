@@ -38,6 +38,7 @@ three taught settlements set water mills, wrote records and one issued notes; th
 took nothing up. There is no M10 video yet.
 
 - [Eleven-year M10 run report (cut short)](m10/m10-demo.txt)
+- [Eight-year M10 run report, saved and loaded](m10/m10-demo-8y.txt)
 - [Industry and water-power guide](../docs/development-journal/industry-and-power.md)
 
 ## Earlier titled observer video: M6a, water and sickness

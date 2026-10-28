@@ -7669,8 +7669,17 @@ and M6a gives rivers a daily flow.
       records, its people set a water mill in year 9 and had 821 notes out in year 11;
       Stonefield set a mill in year 10 and Thorndale in year 11; three records each there. No
       engine, line, gas main, street lamp or M10 law. The three controls knew none of it and used
-      none of it in any year. Nothing was nudged. The rest of the account (who built what and
-      why, from the chronicle) needs a run that finishes: the suite's timeout or a shorter span.
+      none of it in any year. Nothing was nudged. *The run that finished* (homelab run 40751625525, the suite's `years`
+      input at 8, `demos/m10/m10-demo-8y.txt`, built with this slice's three exact cuts): its
+      first eight years are the cut-short run's line for line (people each year, knowers, workshops
+      and records in every settlement), a world-scale check that the cuts change nothing lived. By
+      year 8: 926 people; the taught settlements' knowers 8, 2 and 7, records 3, 3 and 36; no mill
+      yet (the first came in year 9 of the longer run), no engine, line, gas main, street lamp,
+      M10 law or note; the controls as founded. Saved (20.7 MB) and loaded with all 926; 3.21 s a
+      day (p50 1.05 s, p95 14.7 s), 0.051 simulated years a real minute. **What the demo shows:**
+      the vocabulary is taken up slowly and only where it was taught: records within the first
+      year, mills from the ninth, notes in the eleventh; nothing heavier (engines, rail, gas) in
+      eleven years, and the controls took none of it up. Nothing was nudged.
       **The gate's bench, measured** (`tools/ci/bench-compare.sh`: M9's close 31439f4e and
       e45193a9 built alike and timed on the development VM, 8 × Xeon E5-2680 v4, pinned to four
       CPUs, interleaved, three rounds; medians, ms a simulated day): a village of 500 for 90 days

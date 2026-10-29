@@ -374,8 +374,29 @@ fn a_household_asks_by_wire_what_is_offered_before_it_walks_and_acts_on_the_answ
     assert_eq!(t2.stage, TelegramStage::Answering);
     assert!(t2.due > t.due);
     // Answered at its minute with what the market's sellers offer as they stand, told by the far
-    // operator, and walked home.
+    // operator, and walked home; with it the word the operator heard of a fire there.
     setup(&mut sim);
+    let far_operator = sim
+        .with_ctx_for_tests(|pop, ctx| pop.telegraph_office(ctx, b))
+        .expect("an office")
+        .0;
+    let today = sim.now().day_index();
+    let fire = {
+        let word = &mut sim.people_mut_for_tests().word;
+        let c = word.make(civ_agents::word::Claim {
+            id: 0,
+            kind: civ_agents::word::ClaimKind::Fire,
+            settlement: sb,
+            day: today,
+            subject: None,
+            grievance: None,
+            suspected: None,
+            fire: None,
+            event: None,
+        });
+        word.hear(far_operator, c, today, None, None);
+        c
+    };
     sim.advance_minutes(t2.due - sim.now().minutes() + 1)
         .expect("lives");
     let t3 = sim.people().reports.telegrams[&h].clone();
@@ -408,6 +429,20 @@ fn a_household_asks_by_wire_what_is_offered_before_it_walks_and_acts_on_the_answ
             .any(|r| r.market == sb && r.how == ReportHow::Told && r.from == Some(operator))
     );
     assert!(sim.people().reports.errands.contains_key(&h));
+    // Each of its people heard of the fire, told by the far operator.
+    let members = sim.people().household(h).expect("h").members.clone();
+    assert!(!members.is_empty());
+    for m in members {
+        let heard = sim
+            .people()
+            .word
+            .heard_by(m)
+            .iter()
+            .find(|x| x.claim == fire)
+            .copied()
+            .expect("heard of the fire");
+        assert_eq!(heard.from, Some(far_operator));
+    }
     assert!(!waits(&mut sim));
     // Asked again where the seller has nothing left: the answer lets the errand go.
     sim.people_mut_for_tests().reports.errands.insert(h, errand);
@@ -425,6 +460,8 @@ fn a_household_asks_by_wire_what_is_offered_before_it_walks_and_acts_on_the_answ
         due: now,
         stage,
         answer: Vec::new(),
+        claims: Vec::new(),
+        teller: None,
     };
     sim.people_mut_for_tests()
         .reports
@@ -471,6 +508,8 @@ fn a_telegram_waiting_on_its_answer_saves_and_loads_exactly() {
                 how: ReportHow::Told,
                 from: Some(b),
             }],
+            claims: vec![7, 9],
+            teller: Some(b),
         },
     );
     let before = sim.people().reports.clone();
@@ -587,6 +626,8 @@ fn the_observer_shows_offices_their_wires_and_who_waits_on_an_answer() {
             due: now + 600,
             stage: TelegramStage::Asked,
             answer: Vec::new(),
+            claims: Vec::new(),
+            teller: None,
         },
     );
     assert!(seen(&sim)[0].2.ends_with(", strung; 1 telegram on it now."));

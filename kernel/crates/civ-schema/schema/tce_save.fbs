@@ -2860,6 +2860,9 @@ table TelegramSave {
   due: long = -1 (id: 5);
   stage: ubyte (id: 6);
   answer: [PriceReportSave] (id: 7);
+  // The word the answer carries, by claim, and the far operator who told it (0 none).
+  claims: [uint] (id: 8);
+  teller: ulong (id: 9);
 }
 
 // Schema 53 (M5a slice AN, ADR-0018 §5): a household's leaning toward moving to `settlement`,

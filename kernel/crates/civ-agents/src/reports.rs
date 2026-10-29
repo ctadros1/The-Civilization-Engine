@@ -254,6 +254,10 @@ pub struct Telegram {
     pub stage: TelegramStage,
     /// The answer, once given: what the market's sellers offered then, told by the far operator.
     pub answer: Vec<PriceReport>,
+    /// And the word the far operator had heard of the market's settlement that was still news
+    /// then (ADR-0036 §8: what carriers carry), by claim, and who told it.
+    pub claims: Vec<u32>,
+    pub teller: Option<PermanentId>,
 }
 
 impl PriceReports {

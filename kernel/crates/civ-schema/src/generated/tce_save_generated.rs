@@ -53567,6 +53567,8 @@ impl<'a> TelegramSave<'a> {
   pub const VT_DUE: ::flatbuffers::VOffsetT = 14;
   pub const VT_STAGE: ::flatbuffers::VOffsetT = 16;
   pub const VT_ANSWER: ::flatbuffers::VOffsetT = 18;
+  pub const VT_CLAIMS: ::flatbuffers::VOffsetT = 20;
+  pub const VT_TELLER: ::flatbuffers::VOffsetT = 22;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -53578,12 +53580,14 @@ impl<'a> TelegramSave<'a> {
     args: &'args TelegramSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<TelegramSave<'bldr>> {
     let mut builder = TelegramSaveBuilder::new(_fbb);
+    builder.add_teller(args.teller);
     builder.add_due(args.due);
     builder.add_handed(args.handed);
     builder.add_market(args.market);
     builder.add_far(args.far);
     builder.add_near(args.near);
     builder.add_household(args.household);
+    if let Some(x) = args.claims { builder.add_claims(x); }
     if let Some(x) = args.answer { builder.add_answer(x); }
     builder.add_stage(args.stage);
     builder.finish()
@@ -53646,6 +53650,20 @@ impl<'a> TelegramSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PriceReportSave>>>>(TelegramSave::VT_ANSWER, None)}
   }
+  #[inline]
+  pub fn claims(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(TelegramSave::VT_CLAIMS, None)}
+  }
+  #[inline]
+  pub fn teller(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TelegramSave::VT_TELLER, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for TelegramSave<'_> {
@@ -53662,6 +53680,8 @@ impl ::flatbuffers::Verifiable for TelegramSave<'_> {
      .visit_field::<i64>("due", Self::VT_DUE, false)?
      .visit_field::<u8>("stage", Self::VT_STAGE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PriceReportSave>>>>("answer", Self::VT_ANSWER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("claims", Self::VT_CLAIMS, false)?
+     .visit_field::<u64>("teller", Self::VT_TELLER, false)?
      .finish();
     Ok(())
   }
@@ -53675,6 +53695,8 @@ pub struct TelegramSaveArgs<'a> {
     pub due: i64,
     pub stage: u8,
     pub answer: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PriceReportSave<'a>>>>>,
+    pub claims: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub teller: u64,
 }
 impl<'a> Default for TelegramSaveArgs<'a> {
   #[inline]
@@ -53688,6 +53710,8 @@ impl<'a> Default for TelegramSaveArgs<'a> {
       due: -1,
       stage: 0,
       answer: None,
+      claims: None,
+      teller: 0,
     }
   }
 }
@@ -53730,6 +53754,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TelegramSaveBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TelegramSave::VT_ANSWER, answer);
   }
   #[inline]
+  pub fn add_claims(&mut self, claims: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TelegramSave::VT_CLAIMS, claims);
+  }
+  #[inline]
+  pub fn add_teller(&mut self, teller: u64) {
+    self.fbb_.push_slot::<u64>(TelegramSave::VT_TELLER, teller, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TelegramSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TelegramSaveBuilder {
@@ -53755,6 +53787,8 @@ impl ::core::fmt::Debug for TelegramSave<'_> {
       ds.field("due", &self.due());
       ds.field("stage", &self.stage());
       ds.field("answer", &self.answer());
+      ds.field("claims", &self.claims());
+      ds.field("teller", &self.teller());
       ds.finish()
   }
 }

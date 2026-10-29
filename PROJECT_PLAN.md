@@ -7962,7 +7962,11 @@ and M6a gives rivers a daily flow.
       delivered as a report; the errand kept where the seller still offers, let go where not;
       lost with the wire down; saved and loaded exactly. **Simplified:** the operators' hours are
       not taken from their households' days; the walk to hand one in is folded into the fee; the
-      far office answers unpaid; news and a polity's word do not yet go by wire.
+      far office answers unpaid; a polity's word does not yet go by wire. *Since (2026-10-29):*
+      the answer also carries the word the far operator has heard of the market's settlement that
+      is still news by the hearth's rule, and each of the asking household's people hears it as
+      told by that operator (saved with the telegram). **Tested:** a fire the far operator heard
+      of is heard by every member of the asking household, from that operator.
     - *M11c, fourth part (2026-10-29): the observer of the telegraph; M11c done as far as
       ADR-0036 §8 takes it.* Wire 1.108: the ways layer's lines carry telegraph wires too, flagged
       (`telegraph`), drawn thinner in dark iron, in words ("Telegraph wire of 2400 m from Ada's

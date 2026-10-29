@@ -464,6 +464,8 @@ impl Population {
             due: -1,
             stage: TelegramStage::Handed,
             answer: Vec::new(),
+            claims: Vec::new(),
+            teller: None,
         })
     }
 
@@ -634,7 +636,7 @@ impl Population {
             };
             if t.stage == TelegramStage::Walking {
                 self.reports.telegrams.remove(&sender);
-                self.deliver_telegram(sender, &t);
+                self.deliver_telegram(ctx, sender, &t);
                 continue;
             }
             let far_operator = self.telegraph_office(ctx, t.far).map(|o| o.0);
@@ -670,11 +672,32 @@ impl Population {
                 self.reports.telegrams.remove(&sender);
                 continue;
             };
+            // The word the far operator has heard of the market's settlement, still news.
+            let claims: Vec<u32> = match (stage, far_operator) {
+                (TelegramStage::Walking, Some(o)) => {
+                    let day = ctx.now.day_index();
+                    self.word
+                        .heard_by(o)
+                        .iter()
+                        .filter(|h| {
+                            self.word.claim(h.claim).is_some_and(|c| {
+                                c.settlement == t.market
+                                    && super::word::hearth_chance(c, day, &ctx.params.word)
+                                        .is_some()
+                            })
+                        })
+                        .map(|h| h.claim)
+                        .collect()
+                }
+                _ => Vec::new(),
+            };
             if let Some(x) = self.reports.telegrams.get_mut(&sender) {
                 x.stage = stage;
                 x.due = due;
                 if stage == TelegramStage::Walking {
                     x.answer = answer;
+                    x.claims = claims;
+                    x.teller = far_operator;
                 }
             }
             ctx.schedule
@@ -689,14 +712,26 @@ impl Population {
     }
 
     /// Household `sender` receives the answer to telegram `t`: it holds each offer as a report
-    /// told by the far operator, and lets go an errand to that market where nothing it meant to
-    /// fetch from its seller, in what it meant to pay, is offered.
-    fn deliver_telegram(&mut self, sender: PermanentId, t: &Telegram) {
-        if self.household(sender).is_none() {
+    /// told by the far operator, each of its people hears the word the answer carries, still
+    /// there to be heard, as told by that operator, and it lets go an errand to that market where
+    /// nothing it meant to fetch from its seller, in what it meant to pay, is offered.
+    fn deliver_telegram(&mut self, ctx: &Ctx, sender: PermanentId, t: &Telegram) {
+        let Some(members) = self.household(sender).map(|x| x.members.clone()) else {
             return;
-        }
+        };
         for r in &t.answer {
             self.reports.note(sender, *r);
+        }
+        if let Some(teller) = t.teller {
+            let day = ctx.now.day_index();
+            for &claim in &t.claims {
+                if self.word.claim(claim).is_none() {
+                    continue;
+                }
+                for &m in &members {
+                    self.hear_told(m, claim, day, teller, None);
+                }
+            }
         }
         let gone = self.reports.errands.get(&sender).is_some_and(|e| {
             e.market == t.market

@@ -10782,6 +10782,7 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
             })
             .collect();
         let answer = fbb.create_vector(&answer);
+        let claims = fbb.create_vector(&t.claims);
         telegrams.push(save::TelegramSave::create(
             &mut fbb,
             &save::TelegramSaveArgs {
@@ -10793,6 +10794,8 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
                 due: t.due,
                 stage: t.stage.code(),
                 answer: Some(answer),
+                claims: Some(claims),
+                teller: t.teller.map_or(0, PermanentId::get),
             },
         ));
     }
@@ -11160,6 +11163,8 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
                     LoadError::Malformed(format!("unknown stage of a telegram {}", t.stage()))
                 })?,
                 answer,
+                claims: t.claims().map(|v| v.iter().collect()).unwrap_or_default(),
+                teller: PermanentId::from_raw(t.teller()),
             },
         );
     }

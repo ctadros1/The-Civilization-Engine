@@ -1461,10 +1461,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for TradeChannel {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_EVENT_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_EVENT_KIND: u8 = 7;
+pub const ENUM_MAX_EVENT_KIND: u8 = 8;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_EVENT_KIND: [EventKind; 8] = [
+pub const ENUM_VALUES_EVENT_KIND: [EventKind; 9] = [
   EventKind::AgentStep,
   EventKind::FireStep,
   EventKind::Ignite,
@@ -1473,6 +1473,7 @@ pub const ENUM_VALUES_EVENT_KIND: [EventKind; 8] = [
   EventKind::Pass,
   EventKind::Trains,
   EventKind::Gas,
+  EventKind::Telegraph,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1488,9 +1489,10 @@ impl EventKind {
   pub const Pass: Self = Self(5);
   pub const Trains: Self = Self(6);
   pub const Gas: Self = Self(7);
+  pub const Telegraph: Self = Self(8);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 7;
+  pub const ENUM_MAX: u8 = 8;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::AgentStep,
     Self::FireStep,
@@ -1500,6 +1502,7 @@ impl EventKind {
     Self::Pass,
     Self::Trains,
     Self::Gas,
+    Self::Telegraph,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1512,6 +1515,7 @@ impl EventKind {
       Self::Pass => Some("Pass"),
       Self::Trains => Some("Trains"),
       Self::Gas => Some("Gas"),
+      Self::Telegraph => Some("Telegraph"),
       _ => None,
     }
   }
@@ -53539,6 +53543,221 @@ impl ::core::fmt::Debug for PriceReportSave<'_> {
       ds.finish()
   }
 }
+pub enum TelegramSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TelegramSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for TelegramSave<'a> {
+  type Inner = TelegramSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> TelegramSave<'a> {
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NEAR: ::flatbuffers::VOffsetT = 6;
+  pub const VT_FAR: ::flatbuffers::VOffsetT = 8;
+  pub const VT_MARKET: ::flatbuffers::VOffsetT = 10;
+  pub const VT_HANDED: ::flatbuffers::VOffsetT = 12;
+  pub const VT_DUE: ::flatbuffers::VOffsetT = 14;
+  pub const VT_STAGE: ::flatbuffers::VOffsetT = 16;
+  pub const VT_ANSWER: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    TelegramSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args TelegramSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<TelegramSave<'bldr>> {
+    let mut builder = TelegramSaveBuilder::new(_fbb);
+    builder.add_due(args.due);
+    builder.add_handed(args.handed);
+    builder.add_market(args.market);
+    builder.add_far(args.far);
+    builder.add_near(args.near);
+    builder.add_household(args.household);
+    if let Some(x) = args.answer { builder.add_answer(x); }
+    builder.add_stage(args.stage);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TelegramSave::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn near(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TelegramSave::VT_NEAR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn far(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TelegramSave::VT_FAR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn market(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TelegramSave::VT_MARKET, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn handed(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(TelegramSave::VT_HANDED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn due(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(TelegramSave::VT_DUE, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn stage(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(TelegramSave::VT_STAGE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn answer(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PriceReportSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PriceReportSave>>>>(TelegramSave::VT_ANSWER, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for TelegramSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<u64>("near", Self::VT_NEAR, false)?
+     .visit_field::<u64>("far", Self::VT_FAR, false)?
+     .visit_field::<u64>("market", Self::VT_MARKET, false)?
+     .visit_field::<i64>("handed", Self::VT_HANDED, false)?
+     .visit_field::<i64>("due", Self::VT_DUE, false)?
+     .visit_field::<u8>("stage", Self::VT_STAGE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PriceReportSave>>>>("answer", Self::VT_ANSWER, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TelegramSaveArgs<'a> {
+    pub household: u64,
+    pub near: u64,
+    pub far: u64,
+    pub market: u64,
+    pub handed: i64,
+    pub due: i64,
+    pub stage: u8,
+    pub answer: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PriceReportSave<'a>>>>>,
+}
+impl<'a> Default for TelegramSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TelegramSaveArgs {
+      household: 0,
+      near: 0,
+      far: 0,
+      market: 0,
+      handed: 0,
+      due: -1,
+      stage: 0,
+      answer: None,
+    }
+  }
+}
+
+pub struct TelegramSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TelegramSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(TelegramSave::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_near(&mut self, near: u64) {
+    self.fbb_.push_slot::<u64>(TelegramSave::VT_NEAR, near, 0);
+  }
+  #[inline]
+  pub fn add_far(&mut self, far: u64) {
+    self.fbb_.push_slot::<u64>(TelegramSave::VT_FAR, far, 0);
+  }
+  #[inline]
+  pub fn add_market(&mut self, market: u64) {
+    self.fbb_.push_slot::<u64>(TelegramSave::VT_MARKET, market, 0);
+  }
+  #[inline]
+  pub fn add_handed(&mut self, handed: i64) {
+    self.fbb_.push_slot::<i64>(TelegramSave::VT_HANDED, handed, 0);
+  }
+  #[inline]
+  pub fn add_due(&mut self, due: i64) {
+    self.fbb_.push_slot::<i64>(TelegramSave::VT_DUE, due, -1);
+  }
+  #[inline]
+  pub fn add_stage(&mut self, stage: u8) {
+    self.fbb_.push_slot::<u8>(TelegramSave::VT_STAGE, stage, 0);
+  }
+  #[inline]
+  pub fn add_answer(&mut self, answer: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<PriceReportSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TelegramSave::VT_ANSWER, answer);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TelegramSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    TelegramSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<TelegramSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for TelegramSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("TelegramSave");
+      ds.field("household", &self.household());
+      ds.field("near", &self.near());
+      ds.field("far", &self.far());
+      ds.field("market", &self.market());
+      ds.field("handed", &self.handed());
+      ds.field("due", &self.due());
+      ds.field("stage", &self.stage());
+      ds.field("answer", &self.answer());
+      ds.finish()
+  }
+}
 pub enum LeaningSaveOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -53834,6 +54053,7 @@ impl<'a> PlacesSave<'a> {
   pub const VT_DRAWS_DAY: ::flatbuffers::VOffsetT = 36;
   pub const VT_DRAW_PATCHES: ::flatbuffers::VOffsetT = 38;
   pub const VT_DRAW_LITRES: ::flatbuffers::VOffsetT = 40;
+  pub const VT_TELEGRAMS: ::flatbuffers::VOffsetT = 42;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -53846,6 +54066,7 @@ impl<'a> PlacesSave<'a> {
   ) -> ::flatbuffers::WIPOffset<PlacesSave<'bldr>> {
     let mut builder = PlacesSaveBuilder::new(_fbb);
     builder.add_draws_day(args.draws_day);
+    if let Some(x) = args.telegrams { builder.add_telegrams(x); }
     if let Some(x) = args.draw_litres { builder.add_draw_litres(x); }
     if let Some(x) = args.draw_patches { builder.add_draw_patches(x); }
     if let Some(x) = args.worked_by { builder.add_worked_by(x); }
@@ -54001,6 +54222,13 @@ impl<'a> PlacesSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(PlacesSave::VT_DRAW_LITRES, None)}
   }
+  #[inline]
+  pub fn telegrams(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TelegramSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TelegramSave>>>>(PlacesSave::VT_TELEGRAMS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PlacesSave<'_> {
@@ -54028,6 +54256,7 @@ impl ::flatbuffers::Verifiable for PlacesSave<'_> {
      .visit_field::<i64>("draws_day", Self::VT_DRAWS_DAY, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("draw_patches", Self::VT_DRAW_PATCHES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("draw_litres", Self::VT_DRAW_LITRES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TelegramSave>>>>("telegrams", Self::VT_TELEGRAMS, false)?
      .finish();
     Ok(())
   }
@@ -54052,6 +54281,7 @@ pub struct PlacesSaveArgs<'a> {
     pub draws_day: i64,
     pub draw_patches: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
     pub draw_litres: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+    pub telegrams: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TelegramSave<'a>>>>>,
 }
 impl<'a> Default for PlacesSaveArgs<'a> {
   #[inline]
@@ -54076,6 +54306,7 @@ impl<'a> Default for PlacesSaveArgs<'a> {
       draws_day: 0,
       draw_patches: None,
       draw_litres: None,
+      telegrams: None,
     }
   }
 }
@@ -54162,6 +54393,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlacesSaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_DRAW_LITRES, draw_litres);
   }
   #[inline]
+  pub fn add_telegrams(&mut self, telegrams: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<TelegramSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_TELEGRAMS, telegrams);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlacesSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PlacesSaveBuilder {
@@ -54198,6 +54433,7 @@ impl ::core::fmt::Debug for PlacesSave<'_> {
       ds.field("draws_day", &self.draws_day());
       ds.field("draw_patches", &self.draw_patches());
       ds.field("draw_litres", &self.draw_litres());
+      ds.field("telegrams", &self.telegrams());
       ds.finish()
   }
 }

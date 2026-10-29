@@ -199,6 +199,61 @@ pub struct PriceReports {
     pub held: BTreeMap<PermanentId, Vec<PriceReport>>,
     /// The errand each household means to run, if any (M5b slice AQ).
     pub errands: BTreeMap<PermanentId, Errand>,
+    /// The telegram each household has asked by and waits on the answer to, if any (M11c).
+    pub telegrams: BTreeMap<PermanentId, Telegram>,
+}
+
+/// Where a telegram stands (M11c; ADR-0036 §8).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum TelegramStage {
+    /// Handed in at the near office at a review, not yet in its operator's queue.
+    Handed = 0,
+    /// In the near office's queue, sent at `due`.
+    Asked = 1,
+    /// Come to the far office, in its operator's queue, answered at `due`.
+    Answering = 2,
+    /// Its answer come back to the near office, walked to the household that asked, there at
+    /// `due`.
+    Walking = 3,
+}
+
+impl TelegramStage {
+    /// Its save code.
+    pub fn code(self) -> u8 {
+        self as u8
+    }
+
+    /// The stage with this save code.
+    pub fn from_code(code: u8) -> Option<TelegramStage> {
+        [
+            TelegramStage::Handed,
+            TelegramStage::Asked,
+            TelegramStage::Answering,
+            TelegramStage::Walking,
+        ]
+        .into_iter()
+        .find(|s| s.code() == code)
+    }
+}
+
+/// A telegram (M11c; ADR-0036 §8): a household about to run an errand to another settlement's
+/// market asks by wire what is offered there before it walks. It is handed in at an office of its
+/// own settlement, sent on to an office of the market's, answered there with what the market's
+/// sellers offer as they stand, told by its operator, and the answer walked from the near office
+/// to the household that asked.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Telegram {
+    /// The office households it is handed in at and sent to.
+    pub near: PermanentId,
+    pub far: PermanentId,
+    /// The settlement whose market it asks after.
+    pub market: PermanentId,
+    /// The minute it was handed in, and the minute its next step is due (-1 not yet queued).
+    pub handed: i64,
+    pub due: i64,
+    pub stage: TelegramStage,
+    /// The answer, once given: what the market's sellers offered then, told by the far operator.
+    pub answer: Vec<PriceReport>,
 }
 
 impl PriceReports {
@@ -270,6 +325,7 @@ impl PriceReports {
     pub fn forget(&mut self, household: PermanentId) {
         self.held.remove(&household);
         self.errands.remove(&household);
+        self.telegrams.remove(&household);
     }
 
     /// Reports older than `max_age_days` on `day` are let go, and so are those of markets that
@@ -290,6 +346,7 @@ impl PriceReports {
         });
         self.errands
             .retain(|&h, e| home(h).is_some_and(|home| home != Some(e.market)));
+        self.telegrams.retain(|&h, _| home(h).is_some());
     }
 
     /// What is wrong with these records, given the settlement a household lives in (none for a

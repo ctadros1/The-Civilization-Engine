@@ -247,3 +247,250 @@ fn an_office_strings_a_wire_to_another_where_its_errands_there_would_repay_it() 
         assert!(p.bytes == q.bytes, "section `{}` differs", p.tag);
     }
 }
+
+/// The second household of settlement `s` (with people), other than `not`.
+fn another(sim: &Sim, s: PermanentId, not: PermanentId) -> PermanentId {
+    sim.people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .filter(|h| h.settlement == Some(s) && !h.members.is_empty() && h.id != not)
+        .map(|h| h.id)
+        .min()
+        .expect("another household")
+}
+
+#[test]
+fn a_household_asks_by_wire_what_is_offered_before_it_walks_and_acts_on_the_answer() {
+    use civ_agents::ledger::Channel;
+    use civ_agents::market::Offer;
+    use civ_agents::reports::{Errand, ReportHow, TelegramStage};
+    let mut sim = world();
+    let [(a, sa, _), (b, sb, _)] = pair(&sim);
+    office(&mut sim, a);
+    office(&mut sim, b);
+    let (h, y) = (another(&sim, sa, a), another(&sim, sb, b));
+    let food = sim
+        .rules()
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.purpose == civ_agents::params::GoodUse::Food && g.kcal_per_kg > 0.0)
+        .expect("a food");
+    let offer = Offer {
+        good: food as u16,
+        payment: food as u16,
+        price: 1.0,
+        units: 40.0,
+        ask_h: 0.5,
+    };
+    let errand = Errand {
+        market: sb,
+        seller: y,
+        firm: false,
+        good: food as u16,
+        payment: food as u16,
+        units: 10.0,
+        home_h: 1.0,
+        share: 0.5,
+        day: sim.now().day_index(),
+        by_boat: None,
+        by_cart: None,
+    };
+    let setup = |sim: &mut Sim| {
+        for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+            if x.id == y {
+                x.offers = vec![offer];
+            }
+        }
+        sim.people_mut_for_tests().reports.errands.insert(h, errand);
+    };
+    setup(&mut sim);
+    let year = sim
+        .now()
+        .day_index()
+        .div_euclid(civ_core::time::DAYS_PER_YEAR);
+    sim.people_mut_for_tests()
+        .contacts
+        .years
+        .entry((year, sa, sb))
+        .or_default()
+        .missed[0] = 50;
+    let ask =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.hand_in_telegram_for_tests(ctx, h));
+    // No wire between the offices: nothing to ask by.
+    assert!(!ask(&mut sim));
+    let wire = sim.allocate_id_for_tests();
+    sim.land_mut_for_tests()
+        .wires
+        .telegraphs
+        .push(civ_land::wire::Telegraph {
+            id: wire,
+            a,
+            b,
+            cells: vec![0, 1],
+            length_m: 100.0,
+            laid_m: 50.0,
+            broken: false,
+            worth_h: 1.0,
+        });
+    assert!(!ask(&mut sim), "not while it is being strung");
+    sim.land_mut_for_tests().wires.telegraphs[0].laid_m = 100.0;
+    // With trips there going for nothing, it asks, and only once.
+    assert!(ask(&mut sim));
+    assert!(!ask(&mut sim));
+    let waits =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.waits_on_telegram_for_tests(ctx, h));
+    assert!(waits(&mut sim), "it waits on the answer before it sets out");
+    let t = sim.people().reports.telegrams[&h].clone();
+    assert_eq!(
+        (t.near, t.far, t.market, t.stage),
+        (a, b, sb, TelegramStage::Handed)
+    );
+    // Handed in, it pays the office a fee in food and waits in its operator's queue: sent within
+    // the hours the office is kept.
+    let paid = |sim: &Sim| -> f64 {
+        let goods = &sim.rules().catalog.goods;
+        (0..goods.len())
+            .map(|g| sim.people().transfers.get(Channel::Telegraph, g) * goods[g].kcal_per_kg)
+            .sum()
+    };
+    sim.with_ctx_for_tests(|pop, ctx| pop.telegrams_handed_for_tests(ctx));
+    let fee = civ_agents::population::TELEGRAM_FEE_FOOD_DAYS
+        * sim.rules().people.household.daily_kcal_per_person;
+    assert!(
+        (paid(&sim) - fee).abs() < 1e-6 * fee,
+        "{} of {fee}",
+        paid(&sim)
+    );
+    let t = sim.people().reports.telegrams[&h].clone();
+    assert_eq!(t.stage, TelegramStage::Asked);
+    let of_day = t.due.rem_euclid(1440);
+    assert!(t.due > sim.now().minutes() && (8 * 60..=20 * 60 + 10).contains(&of_day));
+    // Sent at its minute, it waits in the far office's queue.
+    sim.advance_minutes(t.due - sim.now().minutes() + 1)
+        .expect("lives");
+    let t2 = sim.people().reports.telegrams[&h].clone();
+    assert_eq!(t2.stage, TelegramStage::Answering);
+    assert!(t2.due > t.due);
+    // Answered at its minute with what the market's sellers offer as they stand, told by the far
+    // operator, and walked home.
+    setup(&mut sim);
+    sim.advance_minutes(t2.due - sim.now().minutes() + 1)
+        .expect("lives");
+    let t3 = sim.people().reports.telegrams[&h].clone();
+    assert_eq!(t3.stage, TelegramStage::Walking);
+    let operator = sim
+        .with_ctx_for_tests(|pop, ctx| pop.telegraph_office(ctx, b))
+        .expect("an office")
+        .0;
+    let told = t3
+        .answer
+        .iter()
+        .find(|r| r.seller == y)
+        .copied()
+        .expect("the seller's offer");
+    assert_eq!(
+        (told.market, told.good, told.units, told.how, told.from),
+        (sb, food as u16, 40.0, ReportHow::Told, Some(operator))
+    );
+    assert_eq!(told.day, t2.due.div_euclid(1440));
+    // Delivered, it holds it as a report, and its errand stands: the seller still offers it.
+    setup(&mut sim);
+    sim.advance_minutes(t3.due - sim.now().minutes() + 1)
+        .expect("lives");
+    assert!(!sim.people().reports.telegrams.contains_key(&h));
+    assert!(
+        sim.people()
+            .reports
+            .of(h)
+            .iter()
+            .any(|r| r.market == sb && r.how == ReportHow::Told && r.from == Some(operator))
+    );
+    assert!(sim.people().reports.errands.contains_key(&h));
+    assert!(!waits(&mut sim));
+    // Asked again where the seller has nothing left: the answer lets the errand go.
+    sim.people_mut_for_tests().reports.errands.insert(h, errand);
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == y {
+            x.offers.clear();
+        }
+    }
+    let now = sim.now().minutes();
+    let blank = |stage| civ_agents::reports::Telegram {
+        near: a,
+        far: b,
+        market: sb,
+        handed: now,
+        due: now,
+        stage,
+        answer: Vec::new(),
+    };
+    sim.people_mut_for_tests()
+        .reports
+        .telegrams
+        .insert(h, blank(TelegramStage::Walking));
+    sim.with_ctx_for_tests(|pop, ctx| pop.telegrams_due_for_tests(ctx));
+    assert!(!sim.people().reports.telegrams.contains_key(&h));
+    assert!(!sim.people().reports.errands.contains_key(&h));
+    // A telegram whose wire is down is lost.
+    sim.land_mut_for_tests().wires.telegraphs[0].broken = true;
+    sim.people_mut_for_tests()
+        .reports
+        .telegrams
+        .insert(h, blank(TelegramStage::Asked));
+    sim.with_ctx_for_tests(|pop, ctx| pop.telegrams_due_for_tests(ctx));
+    assert!(!sim.people().reports.telegrams.contains_key(&h));
+}
+
+#[test]
+fn a_telegram_waiting_on_its_answer_saves_and_loads_exactly() {
+    use civ_agents::reports::{PriceReport, ReportHow, Telegram, TelegramStage};
+    let mut sim = world();
+    let [(a, _, _), (b, sb, _)] = pair(&sim);
+    let h = another(&sim, sim.land().settlements[0].id, a);
+    sim.people_mut_for_tests().reports.telegrams.insert(
+        h,
+        Telegram {
+            near: a,
+            far: b,
+            market: sb,
+            handed: 120,
+            due: 610,
+            stage: TelegramStage::Walking,
+            answer: vec![PriceReport {
+                market: sb,
+                seller: b,
+                firm: false,
+                good: 3,
+                payment: 4,
+                price: 1.5,
+                ask_h: 0.25,
+                units: 12.0,
+                day: 0,
+                how: ReportHow::Told,
+                from: Some(b),
+            }],
+        },
+    );
+    let before = sim.people().reports.clone();
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(
+        &mut sim,
+        &saves,
+        commons_persist::SaveKind::Manual,
+        "telegrams",
+    )
+    .expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.people().reports, before);
+    let (x, y) = (
+        persist::encode_sections(&sim),
+        persist::encode_sections(&loaded),
+    );
+    for (p, q) in x.iter().zip(&y) {
+        assert!(p.bytes == q.bytes, "section `{}` differs", p.tag);
+    }
+}

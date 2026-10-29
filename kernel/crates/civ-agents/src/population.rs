@@ -251,6 +251,9 @@ pub enum AgentEvent {
     /// Gas is lit at dusk (M10b slice DY, third part): each main's evening is checked and its
     /// connections lit or not. Pending each day while any main is laid.
     Gas,
+    /// A telegram's step is due (M11c): each telegram whose step is due is sent, answered or
+    /// delivered. Pending while any telegram is.
+    Telegraph,
     /// A walker reaches a bottleneck on their walk (M8b slice CN, ADR-0029 §4).
     Pass {
         /// Who.
@@ -1838,6 +1841,7 @@ impl Population {
                 self.gas_evening(ctx);
                 self.wire_evening(ctx);
             }
+            AgentEvent::Telegraph => self.telegrams_due(ctx),
             AgentEvent::Pass {
                 person,
                 version,
@@ -7865,6 +7869,8 @@ impl Population {
         self.record_convergence(ctx);
         // Households whose day it is review what they offer and on what terms.
         self.review_offers(ctx, day);
+        // Telegrams handed in at the reviews queued and paid for (M11c).
+        self.telegrams_handed(ctx);
         // Goods kept for households with no roof of their own (M10d slice EG, second part).
         self.custody_day(ctx, day);
         // Those that found a boat would save them more walking over its life than making it

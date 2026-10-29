@@ -7940,6 +7940,29 @@ and M6a gives rivers a daily flow.
       worth; the wire begun runs from home to home, is strung only by its office and only from
       its copper, and saves and loads exactly. **Simplified:** the wire is the `[wire]` profile's
       copper conductor, not a telegraph's iron.
+    - *M11c, third part (2026-10-29): telegrams.* At its review, a household that plans an errand
+      to another settlement's market, where an office of its own settlement is joined by a whole
+      wire to an office of the market's, asks by wire what is offered there first where the
+      chance its trip finds nothing to buy (its settlement's trips there this year and last that
+      bought nothing, of all, each kind counted from one) times the walk there and back is worth
+      more than the fee in its own hours of food, and it holds the fee. Handed in, it pays the
+      office the fee in food (an appended `Telegraph` channel) and waits in its operator's queue:
+      one message every sixty over its messages an hour minutes, in the order handed in, while
+      the office is kept (eight to eight, a design prior); sent, it waits in the far operator's;
+      answered, the answer is what the market's sellers offer as they stand, told by that
+      operator, walked from the near office to the household's home. Delivered, the household
+      holds each offer as a report told by that operator (ADR-0036 §8: what carriers carry, by
+      the existing paths), and lets its errand go where nothing it meant to fetch from its
+      seller is offered. It sets out on its errand only once answered, or after two days. A
+      telegram whose offices or wire are gone is lost, the fee kept. Telegrams are saved with
+      the price reports (appended within the unreleased saves 220) and their steps are agent
+      events (an appended event kind). **Tested:** no wire, or one being strung, no asking; asked
+      once only; the fee paid in food; sent within the office's hours, queued at the far office,
+      answered with the seller's offer as it stands told by its operator on the day answered,
+      delivered as a report; the errand kept where the seller still offers, let go where not;
+      lost with the wire down; saved and loaded exactly. **Simplified:** the operators' hours are
+      not taken from their households' days; the walk to hand one in is folded into the fee; the
+      far office answers unpaid; news and a polity's word do not yet go by wire.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

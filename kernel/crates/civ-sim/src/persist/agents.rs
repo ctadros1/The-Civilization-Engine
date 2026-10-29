@@ -9374,6 +9374,7 @@ fn encode_events(sim: &Sim) -> Vec<u8> {
                 SimEvent::Agent(AgentEvent::Gates) => (save::EventKind::Gates, 0, 0, 0),
                 SimEvent::Agent(AgentEvent::Trains) => (save::EventKind::Trains, 0, 0, 0),
                 SimEvent::Agent(AgentEvent::Gas) => (save::EventKind::Gas, 0, 0, 0),
+                SimEvent::Agent(AgentEvent::Telegraph) => (save::EventKind::Telegraph, 0, 0, 0),
                 SimEvent::Agent(AgentEvent::Pass {
                     person,
                     version,
@@ -9423,6 +9424,7 @@ fn decode_events(bytes: &[u8]) -> Result<Vec<PendingEvent<SimEvent>>, LoadError>
             save::EventKind::Gates => SimEvent::Agent(AgentEvent::Gates),
             save::EventKind::Trains => SimEvent::Agent(AgentEvent::Trains),
             save::EventKind::Gas => SimEvent::Agent(AgentEvent::Gas),
+            save::EventKind::Telegraph => SimEvent::Agent(AgentEvent::Telegraph),
             save::EventKind::Pass => SimEvent::Agent(AgentEvent::Pass {
                 person: required(e.person(), "a passage's walker")?,
                 version: e.version(),
@@ -10525,6 +10527,7 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
     let conv = &people.convergence;
     let good_dictionary = (!people.reports.held.is_empty()
         || !people.reports.errands.is_empty()
+        || !people.reports.telegrams.is_empty()
         || !conv.gaps.is_empty()
         || !conv.carried.is_empty())
     .then(|| strings(&mut fbb, goods));
@@ -10752,6 +10755,48 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
         })
         .collect();
     let errands = (!errands.is_empty()).then(|| fbb.create_vector(&errands));
+    // Telegrams waiting on their answers (M11c).
+    let mut telegrams = Vec::new();
+    for (&h, t) in &people.reports.telegrams {
+        let answer: Vec<_> = t
+            .answer
+            .iter()
+            .map(|r| {
+                save::PriceReportSave::create(
+                    &mut fbb,
+                    &save::PriceReportSaveArgs {
+                        household: h.get(),
+                        market: r.market.get(),
+                        seller: r.seller.get(),
+                        firm: r.firm,
+                        good: u32::from(r.good),
+                        payment: u32::from(r.payment),
+                        price: r.price,
+                        ask_h: r.ask_h,
+                        units: r.units,
+                        day: r.day,
+                        how: r.how.code(),
+                        from: r.from.map_or(0, PermanentId::get),
+                    },
+                )
+            })
+            .collect();
+        let answer = fbb.create_vector(&answer);
+        telegrams.push(save::TelegramSave::create(
+            &mut fbb,
+            &save::TelegramSaveArgs {
+                household: h.get(),
+                near: t.near.get(),
+                far: t.far.get(),
+                market: t.market.get(),
+                handed: t.handed,
+                due: t.due,
+                stage: t.stage.code(),
+                answer: Some(answer),
+            },
+        ));
+    }
+    let telegrams = (!telegrams.is_empty()).then(|| fbb.create_vector(&telegrams));
     // Buildings seen in other settlements (schema 59).
     let seen: Vec<_> = people
         .seen_away
@@ -10879,6 +10924,7 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
             draws_day: draws.day,
             draw_patches,
             draw_litres,
+            telegrams,
         },
     );
     finish(fbb, root)
@@ -11070,6 +11116,50 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
                 } else {
                     None
                 },
+            },
+        );
+    }
+    // Telegrams waiting on their answers (M11c): an offer of a good the content no longer has
+    // is left out of an answer.
+    for t in root.telegrams().iter().flatten() {
+        use civ_agents::reports::{PriceReport, ReportHow, Telegram, TelegramStage};
+        let household = required(t.household(), "a telegram's household")?;
+        let what = || format!("a telegram of household {household}");
+        let mut answer = Vec::new();
+        for r in t.answer().iter().flatten() {
+            let good = saved_good(&report_goods, r.good(), what)?;
+            let payment = saved_good(&report_goods, r.payment(), what)?;
+            let (Some(good), Some(payment)) = (good, payment) else {
+                continue;
+            };
+            answer.push(PriceReport {
+                market: required(r.market(), "an answer's market")?,
+                seller: required(r.seller(), "an answer's seller")?,
+                firm: r.firm(),
+                good,
+                payment,
+                price: r.price(),
+                ask_h: r.ask_h(),
+                units: r.units(),
+                day: r.day(),
+                how: ReportHow::from_code(r.how()).ok_or_else(|| {
+                    LoadError::Malformed(format!("unknown way of a price report {}", r.how()))
+                })?,
+                from: PermanentId::from_raw(r.from()),
+            });
+        }
+        reports.telegrams.insert(
+            household,
+            Telegram {
+                near: required(t.near(), "a telegram's office")?,
+                far: required(t.far(), "a telegram's far office")?,
+                market: required(t.market(), "a telegram's market")?,
+                handed: t.handed(),
+                due: t.due(),
+                stage: TelegramStage::from_code(t.stage()).ok_or_else(|| {
+                    LoadError::Malformed(format!("unknown stage of a telegram {}", t.stage()))
+                })?,
+                answer,
             },
         );
     }

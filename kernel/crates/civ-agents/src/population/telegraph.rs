@@ -4,18 +4,38 @@
 //! as a station weighs a line: what the errands its settlement's households ran to that market in
 //! a year would pay it in fees, had each asked first by wire, against stringing the wire along
 //! ways with leave and its conductor. It begins the best that repays over a wire's life and strings
-//! it as its way work. A wire carries messages only once whole (the second part: what is sent).
+//! it as its way work. A wire carries messages only once whole.
+//!
+//! What is sent (the third part): a household about to run an errand to another settlement's
+//! market, where an office of its own settlement is joined by a whole wire to an office of the
+//! market's, asks by wire what is offered there before it walks, where the chance its trip finds
+//! nothing to buy (as its settlement's trips there have gone) times the walk there and back is
+//! worth more to it than the fee. The telegram waits in each operator's queue, sent in the order
+//! handed in while the office is kept; the far operator answers with what the market's sellers
+//! offer as they stand, and the answer is walked to the household, which holds it as price
+//! reports told by that operator and lets its errand go if nothing it meant to fetch is offered.
+//! It waits on the answer before it sets out, two days at most.
 
 use civ_core::time::DAYS_PER_YEAR;
-use civ_core::{PermanentId, Rng64};
+use civ_core::{PermanentId, Rng64, SimTime};
 use civ_land::wire::Telegraph;
 
 use super::*;
 use crate::decide::WayFacts;
+use crate::ledger::Channel;
+use crate::reports::{Errand, PriceReport, ReportHow, Telegram, TelegramStage};
 
 /// What a message handed in at an office costs, in days of one person's food (a design prior, as
 /// the meter's price is: some 125 kcal at 2,500 a day, an hour or so of a labourer's food).
 pub const TELEGRAM_FEE_FOOD_DAYS: f64 = 0.05;
+
+/// The longest a household waits on the answer to its telegram before it sets out on its errand
+/// regardless, minutes.
+pub const TELEGRAM_WAIT_MIN: i64 = 2 * MINUTES_PER_DAY;
+
+/// The minutes of the day an office is kept, from and until (a design prior: eight to eight).
+const OFFICE_OPENS_MIN: i64 = 8 * 60;
+const OFFICE_CLOSES_MIN: i64 = 20 * 60;
 
 /// Keyed-randomness purpose of an office's day of the year for weighing a wire.
 const PURPOSE_TELEGRAPH_REVIEW: u64 = 0x7465_6c65_6772_6170; // "telegrap"
@@ -335,5 +355,347 @@ impl Population {
         hours: f64,
     ) {
         self.telegraph_work(ctx, household, wire, hours);
+    }
+}
+
+impl Population {
+    /// Whether offices `x` and `y` are joined by a whole, unbroken telegraph wire.
+    fn wired(ctx: &Ctx, x: PermanentId, y: PermanentId) -> bool {
+        ctx.land
+            .wires
+            .telegraphs
+            .iter()
+            .any(|t| t.joins(x, y) && t.whole() && !t.broken)
+    }
+
+    /// The offices household `hh` would ask through after the market of settlement `market`
+    /// (M11c): an office of its own settlement joined by a whole wire to an office of the
+    /// market's; the nearest such office to its home, and of its wires the first by id.
+    pub(super) fn telegraph_route(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        market: PermanentId,
+    ) -> Option<(PermanentId, PermanentId)> {
+        let home = hh.settlement?;
+        let settlement_of = |h: PermanentId| self.household(h).and_then(|x| x.settlement);
+        let mut routes: Vec<(f32, PermanentId, PermanentId)> = ctx
+            .land
+            .wires
+            .telegraphs
+            .iter()
+            .filter(|t| t.whole() && !t.broken)
+            .flat_map(|t| [(t.a, t.b), (t.b, t.a)])
+            .filter(|&(n, f)| {
+                settlement_of(n) == Some(home)
+                    && settlement_of(f) == Some(market)
+                    && self.telegraph_office(ctx, n).is_some()
+                    && self.telegraph_office(ctx, f).is_some()
+            })
+            .filter_map(|(n, f)| {
+                let at = self.household(n)?.home;
+                Some(((at.0 - hh.home.0).hypot(at.1 - hh.home.1), n, f))
+            })
+            .collect();
+        routes.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
+        routes.first().map(|&(_, n, f)| (n, f))
+    }
+
+    /// The telegram household `hh`, with its `stores` and the `costs` it puts on goods, about to
+    /// run errand `e`, would hand in, if it would ask by wire first (M11c): one it has not
+    /// already asked by, that holds the fee in food, where the chance its trip finds nothing to
+    /// buy (its settlement's trips to that market this year and last that bought nothing, of all
+    /// of them, each kind counted from one) times the walk there and back, hours, is worth more
+    /// than the fee in its own hours of food.
+    pub(super) fn telegraph_ask(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        e: &Errand,
+        stores: &[f64],
+        costs: &[Option<f64>],
+    ) -> Option<Telegram> {
+        if self.reports.telegrams.contains_key(&hh.id) || hh.settlement == Some(e.market) {
+            return None;
+        }
+        let route = self.telegraph_route(ctx, hh, e.market)?;
+        let goods = &ctx.catalog.goods;
+        let per_kcal = super::wires::hours_per_kcal(goods, costs)?;
+        let food: f64 = goods
+            .iter()
+            .enumerate()
+            .filter(|(_, d)| d.purpose == GoodUse::Food && d.kcal_per_kg > 0.0 && !d.kept_back())
+            .map(|(g, d)| stores.get(g).copied().unwrap_or(0.0).max(0.0) * d.kcal_per_kg)
+            .sum();
+        if food < fee_kcal(ctx) {
+            return None;
+        }
+        let year = ctx.now.day_index().div_euclid(DAYS_PER_YEAR);
+        let (mut bought, mut missed) = (0u32, 0u32);
+        for y in [year - 1, year] {
+            if let Some(c) = self.contacts.years.get(&(y, hh.settlement?, e.market)) {
+                bought += c.bought;
+                missed += c.missed.iter().sum::<u32>();
+            }
+        }
+        let miss = f64::from(missed + 1) / f64::from(bought + missed + 2);
+        let at = self.seller_home(e.seller, e.firm, e.market)?;
+        let pace = ctx.params.nav.tobler_ms(0.0).max(1e-6);
+        let trip_h = 2.0 * f64::from((at.0 - hh.home.0).hypot(at.1 - hh.home.1)) / pace / 3600.0;
+        (miss * trip_h > fee_kcal(ctx) * per_kcal).then(|| Telegram {
+            near: route.0,
+            far: route.1,
+            market: e.market,
+            handed: ctx.now.minutes(),
+            due: -1,
+            stage: TelegramStage::Handed,
+            answer: Vec::new(),
+        })
+    }
+
+    /// Household `household` weighs asking by wire about the errand it means to run, as at its
+    /// review, and hands the telegram in if it would: for tests.
+    #[doc(hidden)]
+    pub fn hand_in_telegram_for_tests(&mut self, ctx: &Ctx, household: PermanentId) -> bool {
+        let Some(x) = self.household(household) else {
+            return false;
+        };
+        let Some(e) = self.reports.errands.get(&household).copied() else {
+            return false;
+        };
+        let stores = stores_now(x, ctx.now, ctx.params, &ctx.catalog.goods);
+        let costs = self.own_costs_of(ctx, x);
+        let Some(t) = self.telegraph_ask(ctx, x, &e, &stores, &costs) else {
+            return false;
+        };
+        self.reports.telegrams.insert(household, t);
+        true
+    }
+
+    /// Whether household `household` waits on a telegram before it sets out on its errand: for
+    /// tests.
+    #[doc(hidden)]
+    pub fn waits_on_telegram_for_tests(&self, ctx: &Ctx, household: PermanentId) -> bool {
+        self.reports
+            .errands
+            .get(&household)
+            .is_some_and(|e| self.waits_on_telegram(ctx, household, e.market))
+    }
+
+    /// Whether household `household` waits on the answer to a telegram after the market of
+    /// settlement `market` before it sets out there (two days at most from handing it in).
+    pub(super) fn waits_on_telegram(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        market: PermanentId,
+    ) -> bool {
+        self.reports
+            .telegrams
+            .get(&household)
+            .is_some_and(|t| t.market == market && ctx.now.minutes() - t.handed < TELEGRAM_WAIT_MIN)
+    }
+
+    /// The minute office `office`'s operator sends its next message at or after minute `after`:
+    /// one every sixty over its messages an hour minutes after the last in its queue, within the
+    /// hours the office is kept. `None` where it is no office.
+    fn office_slot(&self, ctx: &Ctx, office: PermanentId, after: i64) -> Option<i64> {
+        let (_, rate) = self.telegraph_office(ctx, office)?;
+        let gap = (60.0 / rate.max(1e-6)).ceil().max(1.0) as i64;
+        let last = self
+            .reports
+            .telegrams
+            .values()
+            .filter(|t| match t.stage {
+                TelegramStage::Asked => t.near == office,
+                TelegramStage::Answering => t.far == office,
+                _ => false,
+            })
+            .map(|t| t.due)
+            .max()
+            .unwrap_or(i64::MIN);
+        let t = after.max(last) + gap;
+        let start = t - t.rem_euclid(MINUTES_PER_DAY);
+        Some(match t - start {
+            m if m < OFFICE_OPENS_MIN + gap => start + OFFICE_OPENS_MIN + gap,
+            m if m > OFFICE_CLOSES_MIN => start + MINUTES_PER_DAY + OFFICE_OPENS_MIN + gap,
+            _ => t,
+        })
+    }
+
+    /// The telegrams handed in at today's reviews (M11c): each pays its office the fee in food
+    /// and joins its operator's queue. One whose office is no more is not sent.
+    pub(super) fn telegrams_handed(&mut self, ctx: &mut Ctx) {
+        let handed: Vec<PermanentId> = self
+            .reports
+            .telegrams
+            .iter()
+            .filter(|(_, t)| t.stage == TelegramStage::Handed)
+            .map(|(&h, _)| h)
+            .collect();
+        let now = ctx.now.minutes();
+        for sender in handed {
+            let Some(near) = self.reports.telegrams.get(&sender).map(|t| t.near) else {
+                continue;
+            };
+            let Some(due) = self.office_slot(ctx, near, now) else {
+                self.reports.telegrams.remove(&sender);
+                continue;
+            };
+            if sender != near {
+                self.pay_food_by(ctx, sender, near, fee_kcal(ctx), Channel::Telegraph);
+            }
+            if let Some(t) = self.reports.telegrams.get_mut(&sender) {
+                t.stage = TelegramStage::Asked;
+                t.due = due;
+            }
+            ctx.schedule
+                .push((SimTime::from_minutes(due), AgentEvent::Telegraph));
+        }
+    }
+
+    /// The telegrams queued at today's reviews: for tests.
+    #[doc(hidden)]
+    pub fn telegrams_handed_for_tests(&mut self, ctx: &mut Ctx) {
+        self.telegrams_handed(ctx);
+    }
+
+    /// What the sellers of settlement `market` offer as they stand, as reports told on `day` by
+    /// `teller`: every household's offers and every open workshop's.
+    fn market_offers(
+        &self,
+        market: PermanentId,
+        day: i64,
+        teller: PermanentId,
+    ) -> Vec<PriceReport> {
+        let sellers = self
+            .households
+            .iter()
+            .map(|(_, x)| x)
+            .filter(|x| x.settlement == Some(market))
+            .map(|x| (x.id, false, x.offers.as_slice()))
+            .chain(
+                self.firms
+                    .iter()
+                    .filter(|f| f.is_open() && f.settlement == Some(market))
+                    .map(|f| (f.id, true, f.offers.as_slice())),
+            );
+        let mut out = Vec::new();
+        for (seller, firm, offers) in sellers {
+            for o in offers {
+                out.push(PriceReport {
+                    market,
+                    seller,
+                    firm,
+                    good: o.good,
+                    payment: o.payment,
+                    price: o.price,
+                    ask_h: o.ask_h,
+                    units: o.units,
+                    day,
+                    how: ReportHow::Told,
+                    from: Some(teller),
+                });
+            }
+        }
+        out
+    }
+
+    /// Each telegram whose step is due now takes it (M11c): one asked is sent and joins the far
+    /// operator's queue; one come there is answered with what its market's sellers offer as they
+    /// stand, and walked from the near office to the household that asked; one walked there is
+    /// delivered. One whose offices or wire are gone is lost, the fee kept.
+    pub(super) fn telegrams_due(&mut self, ctx: &mut Ctx) {
+        let now = ctx.now.minutes();
+        let due: Vec<PermanentId> = self
+            .reports
+            .telegrams
+            .iter()
+            .filter(|(_, t)| t.stage != TelegramStage::Handed && (0..=now).contains(&t.due))
+            .map(|(&h, _)| h)
+            .collect();
+        for sender in due {
+            let Some(t) = self.reports.telegrams.get(&sender).cloned() else {
+                continue;
+            };
+            if t.stage == TelegramStage::Walking {
+                self.reports.telegrams.remove(&sender);
+                self.deliver_telegram(sender, &t);
+                continue;
+            }
+            let far_operator = self.telegraph_office(ctx, t.far).map(|o| o.0);
+            let up = self.telegraph_office(ctx, t.near).is_some()
+                && far_operator.is_some()
+                && Self::wired(ctx, t.near, t.far);
+            let next = match (up, t.stage) {
+                (true, TelegramStage::Asked) => self
+                    .office_slot(ctx, t.far, now)
+                    .map(|d| (TelegramStage::Answering, d, Vec::new())),
+                (true, _) => {
+                    let pace = ctx.params.nav.tobler_ms(0.0).max(1e-6);
+                    let walk = match (self.household(t.near), self.household(sender)) {
+                        (Some(n), Some(x)) => {
+                            f64::from((n.home.0 - x.home.0).hypot(n.home.1 - x.home.1))
+                                / pace
+                                / 60.0
+                        }
+                        _ => 0.0,
+                    };
+                    let answer = far_operator
+                        .map(|o| self.market_offers(t.market, ctx.now.day_index(), o))
+                        .unwrap_or_default();
+                    Some((
+                        TelegramStage::Walking,
+                        now + (walk.ceil() as i64).max(1),
+                        answer,
+                    ))
+                }
+                (false, _) => None,
+            };
+            let Some((stage, due, answer)) = next else {
+                self.reports.telegrams.remove(&sender);
+                continue;
+            };
+            if let Some(x) = self.reports.telegrams.get_mut(&sender) {
+                x.stage = stage;
+                x.due = due;
+                if stage == TelegramStage::Walking {
+                    x.answer = answer;
+                }
+            }
+            ctx.schedule
+                .push((SimTime::from_minutes(due), AgentEvent::Telegraph));
+        }
+    }
+
+    /// The telegrams whose step is due now: for tests.
+    #[doc(hidden)]
+    pub fn telegrams_due_for_tests(&mut self, ctx: &mut Ctx) {
+        self.telegrams_due(ctx);
+    }
+
+    /// Household `sender` receives the answer to telegram `t`: it holds each offer as a report
+    /// told by the far operator, and lets go an errand to that market where nothing it meant to
+    /// fetch from its seller, in what it meant to pay, is offered.
+    fn deliver_telegram(&mut self, sender: PermanentId, t: &Telegram) {
+        if self.household(sender).is_none() {
+            return;
+        }
+        for r in &t.answer {
+            self.reports.note(sender, *r);
+        }
+        let gone = self.reports.errands.get(&sender).is_some_and(|e| {
+            e.market == t.market
+                && !t.answer.iter().any(|r| {
+                    r.seller == e.seller
+                        && r.firm == e.firm
+                        && r.good == e.good
+                        && r.payment == e.payment
+                        && r.units > 0.0
+                })
+        });
+        if gone {
+            self.reports.errands.remove(&sender);
+        }
     }
 }

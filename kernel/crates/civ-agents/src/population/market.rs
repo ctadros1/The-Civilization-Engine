@@ -855,10 +855,19 @@ impl Population {
                     .get(usize::from(e.good))
                     .is_none_or(|d| !staples.contains(&d.purpose))
             });
+            // Where it could ask by wire what is offered there first, and it is worth the fee
+            // (M11c).
+            let ask = errand.and_then(|e| {
+                self.household(id)
+                    .and_then(|x| self.telegraph_ask(ctx, x, &e, &stores, &costs))
+            });
             if let Some(x) = self.household_mut_by_id(id) {
                 x.offers = rows;
             }
             self.money_refusals(ctx, id, settlement, &spare_money, &money_wanted);
+            if let Some(t) = ask {
+                self.reports.telegrams.insert(id, t);
+            }
             match errand {
                 Some(e) => {
                     self.reports.errands.insert(id, e);
@@ -1858,7 +1867,7 @@ impl Population {
 
     /// Where `seller`, a household or workshop (`firm`) reported in `market`'s, now sells: its
     /// home, or its owners'. None if it no longer lives there, or the workshop closed.
-    fn seller_home(
+    pub(super) fn seller_home(
         &self,
         seller: PermanentId,
         firm: bool,
@@ -2336,6 +2345,10 @@ impl Population {
         let reach = reach?;
         let review_days = i64::from(ctx.params.market.review_days.max(1));
         if hh.settlement == Some(e.market) || ctx.now.day_index() - e.day >= review_days {
+            return None;
+        }
+        // It waits on the answer to a telegram it asked by (M11c).
+        if self.waits_on_telegram(ctx, hh.id, e.market) {
             return None;
         }
         let at = self.seller_home(e.seller, e.firm, e.market)?;

@@ -2724,7 +2724,7 @@ table FactionsSave {
 // Schema 88 (M6b slice BC): FireStep, a minute of every fire burning, pending whenever one burns.
 // Schema 89 (M6b slice BD): Ignite, a home's fires in use may escape (`person` holds the
 // building's id).
-enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2, BandLook = 3, Gates = 4, Pass = 5, Trains = 6, Gas = 7 }
+enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2, BandLook = 3, Gates = 4, Pass = 5, Trains = 6, Gas = 7, Telegraph = 8 }
 
 table PendingEvent {
   at: long (id: 0);
@@ -2847,6 +2847,21 @@ table PriceReportSave {
   from: ulong (id: 11);
 }
 
+// A telegram (M11c; ADR-0036 §8): the household that asked, the offices it was handed in at and
+// sent to, the settlement whose market it asks after, the minute handed in and the minute its next
+// step is due (-1 not yet queued), its stage (0 handed in, 1 in the near queue, 2 in the far
+// queue, 3 its answer walked home) and the answer, its goods named in the section's `goods`.
+table TelegramSave {
+  household: ulong (id: 0);
+  near: ulong (id: 1);
+  far: ulong (id: 2);
+  market: ulong (id: 3);
+  handed: long (id: 4);
+  due: long = -1 (id: 5);
+  stage: ubyte (id: 6);
+  answer: [PriceReportSave] (id: 7);
+}
+
 // Schema 53 (M5a slice AN, ADR-0018 §5): a household's leaning toward moving to `settlement`,
 // which has won `reviews` of its reviews running, the last on `day`.
 table LeaningSave {
@@ -2901,6 +2916,8 @@ table PlacesSave {
   draws_day: long (id: 16);
   draw_patches: [uint] (id: 17);
   draw_litres: [double] (id: 18);
+  // M11c (appended within schema 220): each household's telegram waiting on its answer.
+  telegrams: [TelegramSave] (id: 19);
 }
 
 // Section "relation" (schema 63, M5c slice AT, ADR-0020 §3): what each person believes of the

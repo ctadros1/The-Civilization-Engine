@@ -7983,6 +7983,18 @@ and M6a gives rivers a daily flow.
       office to be. Nobody knows these techniques unless the observer brings them, so a world
       without them lives as before. **Tested:** each want appears only with its last condition
       met.
+    - *M11d, first part (2026-10-29): the demo's example.* civ-sim's `m11_world` founds several
+      groups apart, and on the first day the observer gives one person of every other settlement
+      the M11 vocabulary (dynamo, gas engine, road engine, telegraphy) and what it stands on
+      (water wheels, metals and copper, lamps and gas, letters, the wheel), logged; the rest are
+      the control. It lives the world at Max and prints, each year and settlement, who knows any
+      of it, dynamos, stations, lines of current strung, homes hooked up and lit, gas engines,
+      telegraph offices and wires, telegrams waiting, motor carts and the lay-current law in
+      force, with what has been paid by the meter and in telegram fees; then the M11 laws
+      proposed, whether the control took any of it up, the speed, and a save and load. The
+      homelab `demo` suite now chooses the milestone's example (`m11_world` by default).
+      **Checked:** two groups of 30 for a year live, print and save and load (nothing of M11 is
+      built in a year that small; the long run is the homelab's).
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

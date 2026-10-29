@@ -859,11 +859,25 @@ pub(crate) fn wire_words(sim: &Sim, b: &Building) -> String {
             .map(|(g, _)| x.stores[g].floor() as u32)
             .sum::<u32>();
         let owns = sim.land.installations.iter().any(|s| s.owner == x.id);
-        if dynamos > 0 && owns {
+        // An engine that burns a named fuel turns them too (M11b, first part).
+        let engine = catalog.goods.iter().enumerate().find(|(g, d)| {
+            d.power.is_some_and(|p| {
+                p.source == civ_agents::params::PowerSource::Fuel && p.fuel.is_some()
+            }) && x.stores.get(*g).copied().unwrap_or(0.0) >= 1.0 - 1e-9
+        });
+        if dynamos > 0 && (owns || engine.is_some()) {
+            let beside = match (owns, engine) {
+                (true, Some((_, e))) => format!(
+                    "its own water installation and its {}",
+                    e.name.to_lowercase()
+                ),
+                (false, Some((_, e))) => format!("its {}", e.name.to_lowercase()),
+                _ => "its own water installation".to_owned(),
+            };
             let mut out = if dynamos == 1 {
-                "Station: a dynamo beside its own water installation".to_owned()
+                format!("Station: a dynamo beside {beside}")
             } else {
-                format!("Station: {dynamos} dynamos beside its own water installation")
+                format!("Station: {dynamos} dynamos beside {beside}")
             };
             let lines: Vec<_> = wires
                 .lines

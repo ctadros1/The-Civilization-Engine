@@ -512,6 +512,9 @@ pub struct GoodPower {
     pub source: PowerSource,
     pub rated_kw: f64,
     pub efficiency: f64,
+    /// The one fuel an engine burns, by good index (M11b, first part; research 07-13 §1.5: fuels
+    /// are not interchangeable across engines); `None` for one that burns any fuel by its heat.
+    pub fuel: Option<usize>,
 }
 
 /// The light a lamp gives (M10b slice DU; ADR-0034 §9): the fuel it burns and how fast. Light's

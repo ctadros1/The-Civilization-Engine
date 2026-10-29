@@ -75,17 +75,20 @@ impl Population {
             .collect()
     }
 
-    /// Whether household `x` holds a whole dynamo beside an installation of its own that is ready.
+    /// Whether household `x` holds a whole dynamo beside an installation of its own that is ready,
+    /// or beside an engine it holds with the fuel it burns for an evening (M11b, first part).
     fn turns_dynamo(ctx: &Ctx, x: &Household, dynamos: &[usize]) -> bool {
         dynamos
             .iter()
             .any(|&g| x.stores.get(g).copied().unwrap_or(0.0) >= 1.0 - 1e-9)
-            && ctx
+            && (ctx
                 .land
                 .installations
                 .iter()
                 .enumerate()
                 .any(|(i, s)| s.owner == x.id && ctx.land.installation_ready(i))
+                || super::engine_kw(&ctx.catalog.goods, &x.stores, super::gas::GAS_EVENING_H).0
+                    > 0.0)
     }
 
     /// Whether cell `cell` lies on or beside a whole, unbroken line of station `station`, where a
@@ -125,7 +128,7 @@ impl Population {
     /// stations whose day of the year it is weigh a line to other homes (the fifth part). Nothing
     /// where the land lays no line or no installation stands.
     pub(super) fn wire_reviews(&mut self, ctx: &mut Ctx, day: i64) {
-        if ctx.land_params.wire.is_none() || ctx.land.installations.is_empty() {
+        if ctx.land_params.wire.is_none() {
             return;
         }
         let dynamos = Self::dynamo_goods(ctx);
@@ -216,12 +219,11 @@ impl Population {
         households: &[PermanentId],
     ) -> Option<(PermanentId, super::way_works::PublicWay)> {
         let params = ctx.land_params.wire?;
-        if ctx.land.installations.is_empty()
-            || !ctx
-                .catalog
-                .policies
-                .iter()
-                .any(|d| d.kind == crate::polity::PolicyKind::LayCurrent)
+        if !ctx
+            .catalog
+            .policies
+            .iter()
+            .any(|d| d.kind == crate::polity::PolicyKind::LayCurrent)
         {
             return None;
         }
@@ -790,7 +792,7 @@ impl Population {
                 })
                 .collect();
             let mine: Vec<Hookup> = on.iter().map(|&i| wires.hookups[i].clone()).collect();
-            let (causes, _) =
+            let (causes, sent) =
                 civ_land::wire::dispatch(&wires.lines, &mine, station, output, &params);
             for (&i, cause) in on.iter().zip(causes) {
                 let h = &mut wires.hookups[i];
@@ -801,6 +803,36 @@ impl Population {
                 }
             }
             self.wire_pay(ctx, station, until);
+            self.burn_for_current(ctx, station, sent);
+        }
+    }
+
+    /// Station `station` sent `sent_kw` of current down its tree, losses included, for the
+    /// evening's hours: its engines that burn a named fuel give what its installations' shafts do
+    /// not, burning that fuel from its stores (M11b, first part).
+    fn burn_for_current(&mut self, ctx: &Ctx, station: PermanentId, sent_kw: f64) {
+        if sent_kw <= 0.0 {
+            return;
+        }
+        let goods = &ctx.catalog.goods;
+        let water = super::power_kw_of(ctx, station);
+        let hours = super::gas::GAS_EVENING_H;
+        let Some(x) = self.household_mut(station) else {
+            return;
+        };
+        let shaft = make::dynamo_shaft_kw(goods, &x.stores, sent_kw);
+        let from_engines = (shaft - water).max(0.0) * hours;
+        if from_engines <= 0.0 {
+            return;
+        }
+        let (_, burned) = super::engine_work(goods, &x.stores, from_engines, hours);
+        for (f, kg) in burned {
+            let held = x.stores.get(f).copied().unwrap_or(0.0);
+            let kg = kg.min(held.max(0.0));
+            if kg > 0.0 {
+                x.stores[f] = held - kg;
+                x.flows.add(Flow::Used, f, kg);
+            }
         }
     }
 

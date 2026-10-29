@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 203
+kernel_content_api = 204
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -3317,4 +3317,45 @@ fn a_law_against_counterfeiting_answers_false_notes_found_and_always_owes_someth
     assert_eq!(law.bundles.len(), 3);
     assert!(law.bundles.iter().all(|b| b.compensation_days > 0.0));
     assert!(law.bundles.iter().any(|b| b.exile));
+}
+
+#[test]
+fn an_engine_may_name_the_one_fuel_it_burns_and_the_core_gas_engine_burns_coal_gas() {
+    // M11b, first part (content API 204; ADR-0036 §7): `[power] fuel` names the good an engine
+    // burns; only an engine names one, and the good must exist. The core's gas engine burns coal
+    // gas at 12 %, 3 kW; the atmospheric engine names none, burning any fuel by its heat.
+    let reg = registry(load(&repo_content()));
+    let index = |id: &str| reg.catalog.goods.iter().position(|g| g.id == id);
+    let engine = reg.catalog.goods[index("core:good/gas_engine").expect("a gas engine")]
+        .power
+        .expect("it delivers power");
+    assert_eq!(engine.fuel, index("core:good/coal_gas"));
+    assert_eq!((engine.rated_kw, engine.efficiency), (3.0, 0.12));
+    let old = reg.catalog.goods[index("core:good/atmospheric_engine").expect("an engine")]
+        .power
+        .expect("it delivers power");
+    assert_eq!(old.fuel, None);
+    let body = real("good/gas_engine.toml");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        (
+            "good/gas_engine.toml",
+            &body.replace("core:good/coal_gas", "core:good/marsh_gas"),
+        ),
+    ]);
+    assert_eq!(codes(&report), vec!["E2006"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("core:good/marsh_gas")
+    );
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        (
+            "good/gas_engine.toml",
+            &body.replace("source = \"fuel\"", "source = \"water\""),
+        ),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(report.diagnostics[0].message.contains("power.fuel"));
 }

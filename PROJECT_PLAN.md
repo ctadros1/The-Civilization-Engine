@@ -7878,6 +7878,28 @@ and M6a gives rivers a daily flow.
       station's home on passing, is kept across a save, is strung whole by the two far
       households' shares from their own copper (each counted toward its share), and at the
       evening both hook up, are served and pay by the meter.
+    - *M11a is done as far as ADR-0036 (proposed) takes it without motors:* power by wire to a
+      recipe that takes power waits with motors (the power brief §3 defers motors replacing
+      shafts inside a works), and with it a station's anchor use (§6); the hourly dispatch waits
+      for anything that varies within an evening (see the seventh part).
+    - *M11b, first part (2026-10-29): the gas engine.* `[power]` may name `fuel`, the one good an
+      engine burns (content API 204; research 07-13 §1.5: fuels are not interchangeable across
+      engines); `good/gas_engine` (a fixed tool, 3 kW at 12 %, burning coal gas, design priors of
+      an 1870s gas engine of a few horsepower), `recipe/build_gas_engine` (iron, a little copper,
+      timber) and `technique/gas_engine`, which no work tries toward, so only the observer brings
+      it. Held beside a dynamo, an engine that burns a named fuel turns it as a wheel does
+      (ADR-0036 §2, §7): its rating counts toward the station's shaft for as long as the fuel it
+      holds lasts an evening at its efficiency (3.6 / (MJ η) kg a kWh), so a station may stand
+      where no water falls; after the evening's dispatch, the shaft the current sent (losses
+      included) took beyond the station's installations is burned from its fuel. An engine that
+      names a fuel is not set at a pit, nor weighed for one: pits keep the engines that burn any
+      fuel by its heat. A station's page names its engine. **Tested:** 2.4 kW of current took 3
+      kW of shaft and the inverse holds across a dynamo's range; the core's gas engine burns coal
+      gas and the atmospheric engine names none; a named fuel that is no good is E2006 and one on
+      a wheel is refused; a household with a dynamo and no water hooks nothing up until it holds
+      a gas engine and gas, then is lit at the evening, its 0.2 kW for four hours burning exactly
+      0.75 kg of gas, and out of gas its station is short. **Not built:** who wants a gas engine
+      (nobody makes one unasked yet), and an engine set at a pump or a mill.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 203;
+pub const KERNEL_CONTENT_API: u32 = 204;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1492,6 +1492,20 @@ fn resolve(
             lamps.push((g, f));
         }
     }
+    // The one fuel an engine burns (M11b, first part).
+    let mut engines: Vec<(usize, Option<usize>)> = Vec::new();
+    for d in &parsed.goods {
+        let Some(id) = d.file.power.as_ref().and_then(|w| w.fuel.as_deref()) else {
+            continue;
+        };
+        let f = good_index(id);
+        if f.is_none() {
+            missing(c, parsed, &d.rel, "power.fuel", id);
+        }
+        if let Some(g) = good_index(&d.file.id) {
+            engines.push((g, f));
+        }
+    }
     // The good a holder keeps (M10b slice DY).
     let mut holders: Vec<(usize, Option<usize>)> = Vec::new();
     for d in &parsed.goods {
@@ -1520,6 +1534,11 @@ fn resolve(
     for (g, f) in lamps {
         if let Some(l) = goods[g].light.as_mut() {
             l.fuel = f;
+        }
+    }
+    for (g, f) in engines {
+        if let Some(w) = goods[g].power.as_mut() {
+            w.fuel = f;
         }
     }
     for (g, held) in holders {

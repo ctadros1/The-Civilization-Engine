@@ -91,6 +91,10 @@ pub(crate) struct PowerFile {
     /// The share of its source's power it turns into work, above 0 and at most 1 (research
     /// 07-06 §2.2).
     pub efficiency: f64,
+    /// Content API 204 (M11b, first part): the one good an engine burns, by content id; left out
+    /// for one that burns any fuel by its heat. Only an engine (`fuel`) names one.
+    #[serde(default)]
+    pub fuel: Option<String>,
 }
 
 /// What a good gives burned (M10a slice DP, ADR-0033 §1).
@@ -249,6 +253,8 @@ impl GoodFile {
                 },
                 rated_kw: w.rated_kw,
                 efficiency: w.efficiency,
+                // Resolved once the goods are known (`civ_content::compile`).
+                fuel: None,
             }),
             light: self.light.as_ref().map(|l| GoodLight {
                 // Resolved once the goods are known (`civ_content::compile`).
@@ -325,6 +331,9 @@ impl GoodFile {
                     "only a fixed tool delivers power: `[power]` needs `[tool] fixed = true`"
                         .to_owned(),
                 );
+            }
+            if w.fuel.is_some() && w.source != "fuel" {
+                p.push("only an engine names a `power.fuel`: set `source = \"fuel\"`".to_owned());
             }
         }
         if let Some(l) = &self.light {

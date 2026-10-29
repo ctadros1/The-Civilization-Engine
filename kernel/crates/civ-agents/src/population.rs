@@ -8061,8 +8061,9 @@ pub(crate) fn power_kw_of(ctx: &Ctx, holder: PermanentId) -> f64 {
 
 impl Population {
     /// The kilowatts of current `holder`'s whole dynamos give today from the shafts of the
-    /// installations it owns (M11a, second part; ADR-0036 §2), a household's or a firm's. Nothing
-    /// reads it yet: the wire and its dispatch are the parts after.
+    /// installations it owns (M11a, second part; ADR-0036 §2), a household's or a firm's, and of
+    /// the engines that burn a named fuel it holds, for an evening's hours on the fuel it holds
+    /// (M11b, first part; ADR-0036 §7).
     pub fn electric_kw(&self, ctx: &Ctx, holder: PermanentId) -> f64 {
         let stores = match self.household(holder) {
             Some(h) => h.stores.as_slice(),
@@ -8071,8 +8072,66 @@ impl Population {
                 None => return 0.0,
             },
         };
-        make::dynamo_kw(&ctx.catalog.goods, stores, power_kw_of(ctx, holder))
+        let shaft =
+            power_kw_of(ctx, holder) + engine_kw(&ctx.catalog.goods, stores, gas::GAS_EVENING_H).0;
+        make::dynamo_kw(&ctx.catalog.goods, stores, shaft)
     }
+}
+
+/// The shaft kilowatts the engines that burn a named fuel in `stores` give for `hours` (M11b,
+/// first part; ADR-0036 §7: an engine set where power is used is a drive as a wheel is), and the
+/// kilograms of each fuel that takes: each whole engine, in the catalogue's order, gives its
+/// rating for as long as the fuel left lasts at its efficiency (research 07-06 §2.3: 3.6 /
+/// (MJ η) kg a kWh). An engine that burns any fuel by its heat is set at a pit, not here.
+pub(crate) fn engine_kw(goods: &[GoodDef], stores: &[f64], hours: f64) -> (f64, Vec<(usize, f64)>) {
+    engine_work(goods, stores, f64::INFINITY, hours)
+}
+
+/// As [`engine_kw`], giving no more than `want_kwh` of shaft work over the `hours`.
+pub(crate) fn engine_work(
+    goods: &[GoodDef],
+    stores: &[f64],
+    want_kwh: f64,
+    hours: f64,
+) -> (f64, Vec<(usize, f64)>) {
+    let hours = hours.max(1e-9);
+    let mut want = want_kwh.max(0.0);
+    let mut burned: Vec<(usize, f64)> = Vec::new();
+    let mut kwh = 0.0;
+    for d in goods.iter().enumerate() {
+        let (g, d) = d;
+        let Some(p) = d
+            .power
+            .filter(|p| p.source == crate::params::PowerSource::Fuel)
+        else {
+            continue;
+        };
+        let Some(f) = p.fuel else {
+            continue;
+        };
+        let whole = (stores.get(g).copied().unwrap_or(0.0) + 1e-9)
+            .floor()
+            .max(0.0);
+        let mj = goods
+            .get(f)
+            .and_then(|x| x.fuel)
+            .map_or(0.0, |x| x.mj_per_kg);
+        if whole <= 0.0 || mj <= 0.0 || want <= 0.0 {
+            continue;
+        }
+        let used: f64 = burned.iter().filter(|b| b.0 == f).map(|b| b.1).sum();
+        let held = (stores.get(f).copied().unwrap_or(0.0) - used).max(0.0);
+        let give = (whole * p.rated_kw * hours)
+            .min(held * mj * p.efficiency / 3.6)
+            .min(want);
+        if give <= 0.0 {
+            continue;
+        }
+        burned.push((f, civ_land::power::fuel_kg(give, mj, p.efficiency)));
+        kwh += give;
+        want -= give;
+    }
+    (kwh / hours, burned)
 }
 
 /// The lamp a household holding `stores` lights for work after dark (M10b slice DU; ADR-0034

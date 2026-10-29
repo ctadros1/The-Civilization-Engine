@@ -915,3 +915,62 @@ fn a_polity_strings_a_line_of_current_together_to_homes_beyond_a_stations_lines(
     }
     assert!(paid_by_meter(&sim) > 0.0);
 }
+
+#[test]
+fn a_gas_engine_turns_a_dynamo_where_no_water_falls_burning_its_gas_by_the_current_sent() {
+    // M11b, first part (ADR-0036 §2, §7): an engine that burns a named fuel, held beside a dynamo,
+    // turns it as a wheel does, for as long as its fuel lasts.
+    let mut sim = world();
+    sim.advance_minutes(10 * 24 * 60).expect("lives");
+    let (station, home_id) = {
+        let land = sim.land();
+        let b = land
+            .buildings
+            .iter()
+            .find(|b| sim.rules().catalog.is_dwelling(&b.spec.program))
+            .expect("a home");
+        (b.household, b.id)
+    };
+    for b in &mut sim.land_mut_for_tests().buildings {
+        if b.id == home_id {
+            b.stage = civ_grammar::Stage::ALL.len() as _;
+        }
+    }
+    let goods = sim.rules().catalog.goods.clone();
+    let index = |id: &str| goods.iter().position(|g| g.id == id).expect(id);
+    let (dynamo, engine, gas) = (
+        index("core:good/dynamo"),
+        index("core:good/gas_engine"),
+        index("core:good/coal_gas"),
+    );
+    assert!(
+        sim.land().installations.iter().all(|s| s.owner != station),
+        "no water of its own"
+    );
+    set(&mut sim, station, dynamo, 1.0);
+    set(&mut sim, station, gas, 0.0);
+    // A dynamo with no shaft turns nothing, so nothing is hooked up.
+    sim.with_ctx_for_tests(|pop, ctx| pop.wire_reviews_for_tests(ctx));
+    assert!(sim.land().wires.hookups.is_empty());
+    // An engine without gas turns nothing either.
+    set(&mut sim, station, engine, 1.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.wire_reviews_for_tests(ctx));
+    assert!(sim.land().wires.hookups.is_empty());
+    // With gas held, the engine turns the dynamo: its home is hooked up and lit at the evening.
+    set(&mut sim, station, gas, 10.0);
+    let current = sim.with_ctx_for_tests(|pop, ctx| pop.electric_kw(ctx, station));
+    // 3 kW of shaft at 80 % (10 kg of gas would run it longer than an evening).
+    assert!((current - 2.4).abs() < 1e-9, "{current}");
+    sim.with_ctx_for_tests(|pop, ctx| pop.wire_reviews_for_tests(ctx));
+    assert_eq!(sim.land().wires.hookups.len(), 1);
+    sim.with_ctx_for_tests(|pop, ctx| pop.wire_evening_for_tests(ctx));
+    assert_eq!(sim.land().wires.hookups[0].cause, Cause::Served);
+    // Its home's 0.2 kW on a line of no length took 0.25 kW of shaft for 4 hours: 1 kWh, burning
+    // 3.6 / (40 MJ x 12 %) = 0.75 kg of gas.
+    let left = sim.people().household(station).expect("station").stores[gas];
+    assert!((left - 9.25).abs() < 1e-9, "{left}");
+    // Out of gas, the engine stops, and the station is short at the next evening.
+    set(&mut sim, station, gas, 0.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.wire_evening_for_tests(ctx));
+    assert_eq!(sim.land().wires.hookups[0].cause, Cause::StationShort);
+}

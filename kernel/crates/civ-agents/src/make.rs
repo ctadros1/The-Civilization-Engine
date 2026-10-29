@@ -227,6 +227,33 @@ pub fn dynamo_kw(goods: &[GoodDef], stores: &[f64], shaft_kw: f64) -> f64 {
     out
 }
 
+/// The kilowatts of shaft work the whole dynamos in `stores` take to give `current_kw` of current
+/// (M11b, first part): [`dynamo_kw`] turned about, each kind in the catalogue's order giving as
+/// much as its whole machines' ratings allow at its `efficiency`. What they cannot give takes no
+/// shaft.
+pub fn dynamo_shaft_kw(goods: &[GoodDef], stores: &[f64], current_kw: f64) -> f64 {
+    let mut left = current_kw.max(0.0);
+    let mut shaft = 0.0;
+    for (g, d) in goods.iter().enumerate() {
+        let Some(p) = d
+            .power
+            .filter(|p| p.source == crate::params::PowerSource::Shaft)
+        else {
+            continue;
+        };
+        let whole = (stores.get(g).copied().unwrap_or(0.0) + 1e-9)
+            .floor()
+            .max(0.0);
+        if whole <= 0.0 || p.efficiency <= 0.0 || left <= 0.0 {
+            continue;
+        }
+        let give = left.min(whole * p.rated_kw);
+        shaft += give / p.efficiency;
+        left -= give;
+    }
+    shaft
+}
+
 /// Hours of use a standard tool of `g` lasts (0 for no tool).
 pub fn life_of(goods: &[GoodDef], g: usize) -> f64 {
     goods
@@ -494,12 +521,14 @@ mod tests {
             source: crate::params::PowerSource::Shaft,
             rated_kw: 10.0,
             efficiency: 0.8,
+            fuel: None,
         });
         let mut wheel = good("wheel", GoodUse::Tool, 0.0, Eaten::Never);
         wheel.power = Some(crate::params::GoodPower {
             source: crate::params::PowerSource::Water,
             rated_kw: 3.0,
             efficiency: 0.3,
+            fuel: None,
         });
         let goods = vec![wheel, dynamo];
         // 3 kW of shaft through one dynamo: 2.4 kW of current.
@@ -511,6 +540,15 @@ mod tests {
         assert_eq!(dynamo_kw(&goods, &[0.0, 0.9], 3.0), 0.0);
         assert_eq!(dynamo_kw(&goods, &[0.0, 1.0], 0.0), 0.0);
         assert_eq!(dynamo_kw(&goods, &[5.0, 0.0], 3.0), 0.0);
+        // Turned about (M11b, first part): 2.4 kW of current took 3 kW of shaft; what the dynamos
+        // cannot give takes none.
+        assert!((dynamo_shaft_kw(&goods, &[1.0, 1.0], 2.4) - 3.0).abs() < 1e-9);
+        assert!((dynamo_shaft_kw(&goods, &[0.0, 1.0], 25.0) - 12.5).abs() < 1e-9);
+        assert_eq!(dynamo_shaft_kw(&goods, &[0.0, 0.0], 1.0), 0.0);
+        for kw in [0.5, 3.0, 9.0, 20.0] {
+            let c = dynamo_kw(&goods, &[0.0, 2.0], kw);
+            assert!((dynamo_shaft_kw(&goods, &[0.0, 2.0], c) - kw).abs() < 1e-9);
+        }
     }
 
     fn good(id: &str, purpose: GoodUse, kcal: f64, eaten: Eaten) -> GoodDef {

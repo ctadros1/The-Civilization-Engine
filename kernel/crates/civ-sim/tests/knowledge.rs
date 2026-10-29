@@ -1171,7 +1171,13 @@ fn a_sole_knower_who_can_write_writes_a_craft_down_and_a_reader_learns_it_from_t
         (record.technique as usize, record.holder, record.maker),
         (laying_out, home, writer)
     );
-    assert!(sim.people().written.is_empty());
+    // Its hours are spent; the writer may already be at the next thing only they know.
+    assert!(
+        sim.people()
+            .written
+            .iter()
+            .all(|s| usize::from(s.technique) != laying_out)
+    );
     let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
     let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
     let at = persist::save(&mut sim, &saves, SaveKind::Manual, "record").expect("saves");

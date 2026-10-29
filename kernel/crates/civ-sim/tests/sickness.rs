@@ -1586,7 +1586,9 @@ fn a_household_that_believes_smallpox_near_calls_a_variolator_and_its_people_are
     // Every household that called someone to inoculate it: others tied to the dead may call
     // the variolator too.
     let mut callers = std::collections::BTreeSet::new();
-    for _ in 0..14 {
+    // Within the fortnight a call stands, the variolator answering others who called first as
+    // their days allow.
+    for _ in 0..14 * 4 {
         sim.advance_minutes(DAY / 4).expect("lives");
         callers.extend(
             sim.people()
@@ -2155,8 +2157,13 @@ fn severe_days_untended_put_a_sickhouse_before_the_gathering() {
     let mut sim = village(1);
     to_morning(&mut sim, 8 * 60);
     let (index, _) = someone_with_family(&sim);
-    sim.plague(index, SMALLPOX).expect("brought");
+    // The whole household takes it at once: while its people lie ill, nobody well is at home to
+    // tend the worst of them.
     let home = sim.people().person(index).expect("alive").household;
+    let members = sim.people().household(home).expect("home").members.clone();
+    for m in members {
+        sim.plague(m, SMALLPOX).expect("brought");
+    }
     let settlement = sim
         .people()
         .household(home)

@@ -7953,6 +7953,23 @@ and M6a gives rivers a daily flow.
       of the light only raises the shortage. **Tested:** a decide test (dry at mid-morning, the
       water before the fields; a day and a half at home, the fields first), the replayed world,
       the firewood world of the hearth fix, and the ten smoke worlds.
+      **Scenes reworked:** the homelab chain then failed fifteen scenario tests in eight targets.
+      Measured first (a village of 30, three days half-hourly, before and after): water fetched
+      in 0.4 % and 0.2 % of the samples, stores 0.6 to 1.5 days at home; the day's other work
+      moved by a few points, so the change perturbs and does not crowd out. Each scene now sets
+      what its claim rests on: a band set on taking (a band of five without grievance can give
+      way to one householder, and three raid scenes are about what follows a taking); B's people
+      in both view scenes hold that A does not keep its word as well as that it harms them, and
+      the values the terms bear on as most do (a trespass alone caps warmth near −0.5 by the
+      view's design, too little against a household's gain); both sellers stocked until they
+      offer; the stale-report trip finds every offer dear and is told again daily of the terms it
+      went by, payable in the grain it can spare; the sickhouse scene's household takes smallpox
+      at once, so nobody well is home to tend; the mill scene's people keep what they learned in
+      forty days; the lamp scene looks day by day for making by daylight. Two time bounds are
+      widened: the way is cleared within the year (it reached a tread wide on day 250 before the
+      change, just inside its old 200 days, at the same pace), and the variolator has the
+      fortnight a call stands. One check is narrowed: once a record is written its hours are
+      spent, though the writer may begin the next. No outcome assertion was dropped.
     - *M11c, first part (2026-10-29): telegraphy as vocabulary.* `technique/telegraphy` (requires
       writing; no work tries toward it), `good/telegraph_instrument` (a fixed tool: key, sounder
       and local cells, so the telegraph does not wait for a station; research 07-13 §1.7) and its

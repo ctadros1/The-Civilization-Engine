@@ -417,10 +417,22 @@ fn neighbours_each_claiming_what_the_other_works_agree_on_leave_and_it_is_in_for
     saves_and_goes_on_alike(&mut sim, DAY);
 }
 
+/// Everyone of `people` holds every value as most do: what a law bears on adds nothing to their
+/// stance, so what they believe of the other polity weighs against what their households gain.
+fn as_most_do(sim: &mut Sim, people: &[PermanentId]) {
+    for h in sim.people_mut_for_tests().values.held.iter_mut() {
+        if people.contains(&h.holder) {
+            h.v = 0.0;
+        }
+    }
+}
+
 #[test]
 fn people_who_believe_the_other_village_harms_them_weigh_it_against_an_agreement() {
-    // As the first test, but everyone of B believes A's people harm theirs: each saw them
-    // trespass on ten days lately (ADR-0020 §3: a view weighs as regard for a sponsor does).
+    // As the first test, but everyone of B believes A's people harm theirs and do not keep their
+    // word: each saw them trespass on ten days lately and knows of payments owed that never came
+    // (ADR-0020 §3: a view weighs as regard for a sponsor does). What the terms bear on they hold
+    // as most do, so what they believe of A is what weighs against what their households gain.
     let Neighbours {
         mut sim,
         polities,
@@ -433,6 +445,8 @@ fn people_who_believe_the_other_village_harms_them_weigh_it_against_an_agreement
     for &p in &adults[1] {
         pop.polity_views
             .record(p, polities[0], ViewAct::SawTrespass, 10.0, today, &rp);
+        pop.polity_views
+            .record(p, polities[0], ViewAct::PaymentMissed, 10.0, today, &rp);
     }
     let warmth = pop
         .polity_views
@@ -440,6 +454,7 @@ fn people_who_believe_the_other_village_harms_them_weigh_it_against_an_agreement
         .expect("a view")
         .warmth();
     assert!(warmth < -0.4, "{warmth}");
+    as_most_do(&mut sim, &adults[1]);
     let mut made = None;
     for _ in 0..60 {
         sim.advance_minutes(DAY).expect("lives");
@@ -485,8 +500,10 @@ fn people_who_believe_the_other_village_harms_them_weigh_it_against_an_agreement
 
 #[test]
 fn a_gathering_turns_down_terms_its_negotiator_expected_to_pass_by_what_those_who_came_believe() {
-    // As the first test, but most of B's people believe A's people harm theirs: each saw them
-    // trespass these past weeks. Only the few of B whom A's people know think nothing of A. Whoever
+    // As the first test, but most of B's people believe A's people harm theirs and do not keep
+    // their word: each saw them trespass these past weeks and knows of payments owed that never
+    // came; what the terms bear on they hold as most do. Only the few of B whom A's people know
+    // think nothing of A. Whoever
     // of B meets A's seeker is one of those few, and expects B's gathering to back terms by what
     // its members' households stand to gain and whom they regard (nobody sees another's view):
     // the two agree, and B's gathering turns it down by what those who came believe (M5's fourth
@@ -503,7 +520,10 @@ fn a_gathering_turns_down_terms_its_negotiator_expected_to_pass_by_what_those_wh
     for &p in adults[1].iter().skip(3) {
         pop.polity_views
             .record(p, polities[0], ViewAct::SawTrespass, 30.0, today, &rp);
+        pop.polity_views
+            .record(p, polities[0], ViewAct::PaymentMissed, 30.0, today, &rp);
     }
+    as_most_do(&mut sim, &adults[1]);
     let mut decided = None;
     for _ in 0..60 {
         sim.advance_minutes(DAY).expect("lives");

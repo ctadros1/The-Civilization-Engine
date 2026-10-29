@@ -94,6 +94,11 @@ fn a_household_that_grinds_by_hand_sets_a_mill_where_a_race_falls_and_turns_it_o
             "core:technique/jointed_frame",
             "core:technique/water_wheel",
         ] {
+            // What they came to know in the village's forty days they keep.
+            let i = sim.rules().catalog.technique_index(t).expect(t);
+            if sim.people().person(who).is_some_and(|p| p.knows(i)) {
+                continue;
+            }
             sim.introduce_technique(who, t, false).expect("introduced");
         }
     }

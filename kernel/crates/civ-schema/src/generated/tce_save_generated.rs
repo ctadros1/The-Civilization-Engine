@@ -62015,6 +62015,8 @@ impl<'a> ErrandSave<'a> {
   pub const VT_UNLOAD_MIN: ::flatbuffers::VOffsetT = 36;
   pub const VT_BY_CART: ::flatbuffers::VOffsetT = 38;
   pub const VT_CART: ::flatbuffers::VOffsetT = 40;
+  pub const VT_RIDE: ::flatbuffers::VOffsetT = 42;
+  pub const VT_RIDE_MIN: ::flatbuffers::VOffsetT = 44;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -62026,12 +62028,14 @@ impl<'a> ErrandSave<'a> {
     args: &'args ErrandSaveArgs
   ) -> ::flatbuffers::WIPOffset<ErrandSave<'bldr>> {
     let mut builder = ErrandSaveBuilder::new(_fbb);
+    builder.add_ride(args.ride);
     builder.add_cart(args.cart);
     builder.add_boat(args.boat);
     builder.add_day(args.day);
     builder.add_seller(args.seller);
     builder.add_market(args.market);
     builder.add_household(args.household);
+    builder.add_ride_min(args.ride_min);
     builder.add_unload_min(args.unload_min);
     builder.add_load_min(args.load_min);
     builder.add_travel_min(args.travel_min);
@@ -62182,6 +62186,20 @@ impl<'a> ErrandSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(ErrandSave::VT_CART, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn ride(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ErrandSave::VT_RIDE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ride_min(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(ErrandSave::VT_RIDE_MIN, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for ErrandSave<'_> {
@@ -62209,6 +62227,8 @@ impl ::flatbuffers::Verifiable for ErrandSave<'_> {
      .visit_field::<f32>("unload_min", Self::VT_UNLOAD_MIN, false)?
      .visit_field::<bool>("by_cart", Self::VT_BY_CART, false)?
      .visit_field::<u64>("cart", Self::VT_CART, false)?
+     .visit_field::<u64>("ride", Self::VT_RIDE, false)?
+     .visit_field::<f32>("ride_min", Self::VT_RIDE_MIN, false)?
      .finish();
     Ok(())
   }
@@ -62233,6 +62253,8 @@ pub struct ErrandSaveArgs {
     pub unload_min: f32,
     pub by_cart: bool,
     pub cart: u64,
+    pub ride: u64,
+    pub ride_min: f32,
 }
 impl<'a> Default for ErrandSaveArgs {
   #[inline]
@@ -62257,6 +62279,8 @@ impl<'a> Default for ErrandSaveArgs {
       unload_min: 0.0,
       by_cart: false,
       cart: 0,
+      ride: 0,
+      ride_min: 0.0,
     }
   }
 }
@@ -62343,6 +62367,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ErrandSaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot::<u64>(ErrandSave::VT_CART, cart, 0);
   }
   #[inline]
+  pub fn add_ride(&mut self, ride: u64) {
+    self.fbb_.push_slot::<u64>(ErrandSave::VT_RIDE, ride, 0);
+  }
+  #[inline]
+  pub fn add_ride_min(&mut self, ride_min: f32) {
+    self.fbb_.push_slot::<f32>(ErrandSave::VT_RIDE_MIN, ride_min, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ErrandSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ErrandSaveBuilder {
@@ -62379,6 +62411,8 @@ impl ::core::fmt::Debug for ErrandSave<'_> {
       ds.field("unload_min", &self.unload_min());
       ds.field("by_cart", &self.by_cart());
       ds.field("cart", &self.cart());
+      ds.field("ride", &self.ride());
+      ds.field("ride_min", &self.ride_min());
       ds.finish()
   }
 }
@@ -66043,6 +66077,272 @@ impl ::core::fmt::Debug for RunSave<'_> {
       ds.finish()
   }
 }
+pub enum RoadLineSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RoadLineSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for RoadLineSave<'a> {
+  type Inner = RoadLineSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> RoadLineSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_OPERATOR: ::flatbuffers::VOffsetT = 6;
+  pub const VT_CART: ::flatbuffers::VOffsetT = 8;
+  pub const VT_MARKET: ::flatbuffers::VOffsetT = 10;
+  pub const VT_CELLS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_MINUTES: ::flatbuffers::VOffsetT = 14;
+  pub const VT_RUNS_A_DAY: ::flatbuffers::VOffsetT = 16;
+  pub const VT_FARE_KCAL: ::flatbuffers::VOffsetT = 18;
+  pub const VT_RIDERS: ::flatbuffers::VOffsetT = 20;
+  pub const VT_SINCE: ::flatbuffers::VOffsetT = 22;
+  pub const VT_LAST_RUN: ::flatbuffers::VOffsetT = 24;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    RoadLineSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args RoadLineSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<RoadLineSave<'bldr>> {
+    let mut builder = RoadLineSaveBuilder::new(_fbb);
+    builder.add_last_run(args.last_run);
+    builder.add_since(args.since);
+    builder.add_market(args.market);
+    builder.add_cart(args.cart);
+    builder.add_operator(args.operator);
+    builder.add_id(args.id);
+    builder.add_riders(args.riders);
+    builder.add_fare_kcal(args.fare_kcal);
+    if let Some(x) = args.minutes { builder.add_minutes(x); }
+    if let Some(x) = args.cells { builder.add_cells(x); }
+    builder.add_runs_a_day(args.runs_a_day);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RoadLineSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn operator(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RoadLineSave::VT_OPERATOR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn cart(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RoadLineSave::VT_CART, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn market(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RoadLineSave::VT_MARKET, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn cells(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(RoadLineSave::VT_CELLS, None)}
+  }
+  #[inline]
+  pub fn minutes(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(RoadLineSave::VT_MINUTES, None)}
+  }
+  #[inline]
+  pub fn runs_a_day(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(RoadLineSave::VT_RUNS_A_DAY, Some(1)).unwrap()}
+  }
+  #[inline]
+  pub fn fare_kcal(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(RoadLineSave::VT_FARE_KCAL, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn riders(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RoadLineSave::VT_RIDERS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn since(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RoadLineSave::VT_SINCE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn last_run(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RoadLineSave::VT_LAST_RUN, Some(-1)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for RoadLineSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("operator", Self::VT_OPERATOR, false)?
+     .visit_field::<u64>("cart", Self::VT_CART, false)?
+     .visit_field::<u64>("market", Self::VT_MARKET, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("cells", Self::VT_CELLS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("minutes", Self::VT_MINUTES, false)?
+     .visit_field::<u8>("runs_a_day", Self::VT_RUNS_A_DAY, false)?
+     .visit_field::<f32>("fare_kcal", Self::VT_FARE_KCAL, false)?
+     .visit_field::<u32>("riders", Self::VT_RIDERS, false)?
+     .visit_field::<i64>("since", Self::VT_SINCE, false)?
+     .visit_field::<i64>("last_run", Self::VT_LAST_RUN, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RoadLineSaveArgs<'a> {
+    pub id: u64,
+    pub operator: u64,
+    pub cart: u64,
+    pub market: u64,
+    pub cells: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub minutes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub runs_a_day: u8,
+    pub fare_kcal: f32,
+    pub riders: u32,
+    pub since: i64,
+    pub last_run: i64,
+}
+impl<'a> Default for RoadLineSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    RoadLineSaveArgs {
+      id: 0,
+      operator: 0,
+      cart: 0,
+      market: 0,
+      cells: None,
+      minutes: None,
+      runs_a_day: 1,
+      fare_kcal: 0.0,
+      riders: 0,
+      since: 0,
+      last_run: -1,
+    }
+  }
+}
+
+pub struct RoadLineSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RoadLineSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(RoadLineSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_operator(&mut self, operator: u64) {
+    self.fbb_.push_slot::<u64>(RoadLineSave::VT_OPERATOR, operator, 0);
+  }
+  #[inline]
+  pub fn add_cart(&mut self, cart: u64) {
+    self.fbb_.push_slot::<u64>(RoadLineSave::VT_CART, cart, 0);
+  }
+  #[inline]
+  pub fn add_market(&mut self, market: u64) {
+    self.fbb_.push_slot::<u64>(RoadLineSave::VT_MARKET, market, 0);
+  }
+  #[inline]
+  pub fn add_cells(&mut self, cells: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoadLineSave::VT_CELLS, cells);
+  }
+  #[inline]
+  pub fn add_minutes(&mut self, minutes: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoadLineSave::VT_MINUTES, minutes);
+  }
+  #[inline]
+  pub fn add_runs_a_day(&mut self, runs_a_day: u8) {
+    self.fbb_.push_slot::<u8>(RoadLineSave::VT_RUNS_A_DAY, runs_a_day, 1);
+  }
+  #[inline]
+  pub fn add_fare_kcal(&mut self, fare_kcal: f32) {
+    self.fbb_.push_slot::<f32>(RoadLineSave::VT_FARE_KCAL, fare_kcal, 0.0);
+  }
+  #[inline]
+  pub fn add_riders(&mut self, riders: u32) {
+    self.fbb_.push_slot::<u32>(RoadLineSave::VT_RIDERS, riders, 0);
+  }
+  #[inline]
+  pub fn add_since(&mut self, since: i64) {
+    self.fbb_.push_slot::<i64>(RoadLineSave::VT_SINCE, since, 0);
+  }
+  #[inline]
+  pub fn add_last_run(&mut self, last_run: i64) {
+    self.fbb_.push_slot::<i64>(RoadLineSave::VT_LAST_RUN, last_run, -1);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RoadLineSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    RoadLineSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<RoadLineSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for RoadLineSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("RoadLineSave");
+      ds.field("id", &self.id());
+      ds.field("operator", &self.operator());
+      ds.field("cart", &self.cart());
+      ds.field("market", &self.market());
+      ds.field("cells", &self.cells());
+      ds.field("minutes", &self.minutes());
+      ds.field("runs_a_day", &self.runs_a_day());
+      ds.field("fare_kcal", &self.fare_kcal());
+      ds.field("riders", &self.riders());
+      ds.field("since", &self.since());
+      ds.field("last_run", &self.last_run());
+      ds.finish()
+  }
+}
 pub enum RunsSaveOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -66062,6 +66362,7 @@ impl<'a> RunsSave<'a> {
   pub const VT_LINES: ::flatbuffers::VOffsetT = 4;
   pub const VT_LIST: ::flatbuffers::VOffsetT = 6;
   pub const VT_REVISION: ::flatbuffers::VOffsetT = 8;
+  pub const VT_ROADS: ::flatbuffers::VOffsetT = 10;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -66073,6 +66374,7 @@ impl<'a> RunsSave<'a> {
     args: &'args RunsSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<RunsSave<'bldr>> {
     let mut builder = RunsSaveBuilder::new(_fbb);
+    if let Some(x) = args.roads { builder.add_roads(x); }
     builder.add_revision(args.revision);
     if let Some(x) = args.list { builder.add_list(x); }
     if let Some(x) = args.lines { builder.add_lines(x); }
@@ -66101,6 +66403,13 @@ impl<'a> RunsSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(RunsSave::VT_REVISION, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn roads(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RoadLineSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RoadLineSave>>>>(RunsSave::VT_ROADS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for RunsSave<'_> {
@@ -66112,6 +66421,7 @@ impl ::flatbuffers::Verifiable for RunsSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RailLineSave>>>>("lines", Self::VT_LINES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RunSave>>>>("list", Self::VT_LIST, false)?
      .visit_field::<u32>("revision", Self::VT_REVISION, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RoadLineSave>>>>("roads", Self::VT_ROADS, false)?
      .finish();
     Ok(())
   }
@@ -66120,6 +66430,7 @@ pub struct RunsSaveArgs<'a> {
     pub lines: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RailLineSave<'a>>>>>,
     pub list: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RunSave<'a>>>>>,
     pub revision: u32,
+    pub roads: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RoadLineSave<'a>>>>>,
 }
 impl<'a> Default for RunsSaveArgs<'a> {
   #[inline]
@@ -66128,6 +66439,7 @@ impl<'a> Default for RunsSaveArgs<'a> {
       lines: None,
       list: None,
       revision: 0,
+      roads: None,
     }
   }
 }
@@ -66150,6 +66462,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RunsSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u32>(RunsSave::VT_REVISION, revision, 0);
   }
   #[inline]
+  pub fn add_roads(&mut self, roads: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<RoadLineSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RunsSave::VT_ROADS, roads);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RunsSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RunsSaveBuilder {
@@ -66170,6 +66486,7 @@ impl ::core::fmt::Debug for RunsSave<'_> {
       ds.field("lines", &self.lines());
       ds.field("list", &self.list());
       ds.field("revision", &self.revision());
+      ds.field("roads", &self.roads());
       ds.finish()
   }
 }

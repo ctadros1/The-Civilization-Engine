@@ -10750,6 +10750,8 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
                         .unwrap_or(0.0),
                     by_cart: e.by_cart.is_some(),
                     cart: e.by_cart.map_or(0, |c| c.cart.get()),
+                    ride: e.by_ride.map_or(0, |r| r.line.get()),
+                    ride_min: e.by_ride.map_or(0.0, |r| r.travel_min),
                 },
             )
         })
@@ -11119,6 +11121,11 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
                 } else {
                     None
                 },
+                // M11b, third part: before, none.
+                by_ride: PermanentId::from_raw(e.ride()).map(|line| civ_agents::reports::ByRide {
+                    line,
+                    travel_min: e.ride_min(),
+                }),
             },
         );
     }
@@ -12965,14 +12972,40 @@ fn encode_runs(runs: &civ_land::trains::Runs) -> Vec<u8> {
             )
         })
         .collect();
+    let roads: Vec<_> = runs
+        .roads
+        .iter()
+        .map(|r| {
+            let cells = fbb.create_vector(&r.cells);
+            let minutes = fbb.create_vector(&r.minutes);
+            save::RoadLineSave::create(
+                &mut fbb,
+                &save::RoadLineSaveArgs {
+                    id: r.id.get(),
+                    operator: r.operator.get(),
+                    cart: r.cart.get(),
+                    market: r.market.get(),
+                    cells: Some(cells),
+                    minutes: Some(minutes),
+                    runs_a_day: r.runs_a_day,
+                    fare_kcal: r.fare_kcal,
+                    riders: r.riders,
+                    since: r.since,
+                    last_run: r.last_run,
+                },
+            )
+        })
+        .collect();
     let lines = fbb.create_vector(&lines);
     let list = fbb.create_vector(&list);
+    let roads = fbb.create_vector(&roads);
     let root = save::RunsSave::create(
         &mut fbb,
         &save::RunsSaveArgs {
             lines: Some(lines),
             list: Some(list),
             revision: runs.revision(),
+            roads: Some(roads),
         },
     );
     finish(fbb, root)
@@ -13032,7 +13065,32 @@ fn decode_runs(bytes: &[u8], tag: SectionTag) -> Result<civ_land::trains::Runs, 
                 .unwrap_or_default(),
         });
     }
-    Ok(Runs::from_saved(lines, list, root.revision()))
+    let mut runs = Runs::from_saved(lines, list, root.revision());
+    // Road lines (M11b, third part); before, none.
+    for r in root.roads().iter().flatten() {
+        let cells: Vec<u32> = r.cells().map(|v| v.iter().collect()).unwrap_or_default();
+        let minutes: Vec<f32> = r.minutes().map(|v| v.iter().collect()).unwrap_or_default();
+        let id = required(r.id(), "a road line")?;
+        if cells.len() != minutes.len() || cells.is_empty() {
+            return Err(LoadError::Malformed(format!(
+                "road line {id} has a broken route"
+            )));
+        }
+        runs.roads.push(civ_land::trains::RoadLine {
+            id,
+            operator: required(r.operator(), "a road line's keeper")?,
+            cart: required(r.cart(), "a road line's cart")?,
+            market: required(r.market(), "a road line's settlement")?,
+            cells,
+            minutes,
+            runs_a_day: r.runs_a_day().max(1),
+            fare_kcal: r.fare_kcal(),
+            riders: r.riders(),
+            since: r.since(),
+            last_run: r.last_run(),
+        });
+    }
+    Ok(runs)
 }
 
 /// Gas mains and connections (schema 186, M10b slice DY).

@@ -7919,6 +7919,26 @@ and M6a gives rivers a daily flow.
       cart in the catalogue it could make (the handcart sorts before the road engine), so a
       motor cart is weighed only where no handcart could be made; and a motor cart's wear by
       use.
+    - *M11b, third part (2026-10-29): road transit.* A household that keeps a motor cart weighs,
+      on its day of the year, posting runs from its door to the hearth of the settlement its own
+      settlement's people ran the most errands to in a year (at least one a month, a design
+      prior), along its cart's way; it posts a run a day there, the fare the run's fuel at its own
+      cost, in kcal of food, shared over the riders it expects a run. A year on it sets its runs a
+      day (up to four) by the rides taken, as many as a run seats each (a rider and what they
+      carry at 100 kg), and its fare by them, and stops where nobody rode or its cart is gone
+      (road lines saved with the runs, appended within the unreleased saves 220). Someone on an
+      errand to that market rides out and back where the walks to and from its ends, half the time
+      between its runs waiting, the rides and the fare in its own hours of food cost it less than
+      walking (a fourth way beside foot, boat and cart, a hand load; saved with the errand); they
+      ride the timetable as a train's riders do, out from the keeper's door and back from the far
+      hearth a run's time and a turn later, in Detailed and household-resolved days alike, paying
+      the fare in food (`Fare`); the cart burns a run's fuel when the first rider of a departure
+      boards, and a run whose keeper lacks it does not go. A rail line's engine is now always a
+      rail vehicle, never a motor cart. **Tested:** no cart, or no errands, no line; posted with
+      a fare; a rider at the station rides to the far end, the fare paid in food, the run's coal
+      burned once for its first two riders, back on the run home burning its own; no coal, no
+      ride; saved and loaded exactly; the cart gone, the runs stop. **Simplified:** riders ride
+      the timetable, not the cart (as on rail); the keeper's driving takes none of its hours.
     - *M11c, first part (2026-10-29): telegraphy as vocabulary.* `technique/telegraphy` (requires
       writing; no work tries toward it), `good/telegraph_instrument` (a fixed tool: key, sounder
       and local cells, so the telegraph does not wait for a station; research 07-13 §1.7) and its

@@ -1246,6 +1246,7 @@ impl Population {
             worth: d.worth,
             by_boat: None,
             by_cart: None,
+            by_ride: None,
         })
     }
 
@@ -1862,6 +1863,7 @@ impl Population {
             worth: d.worth,
             by_boat: None,
             by_cart: None,
+            by_ride: None,
         })
     }
 
@@ -2042,7 +2044,24 @@ impl Population {
             let on_foot = (walk_h * 60.0 <= f64::from(fetch.max_walk_minutes))
                 .then(|| priced(carry, 2.0 * walk_h, 0.0))
                 .flatten()
-                .map(|o| (o, None, None));
+                .map(|o| (o, None, None, None));
+            // By a road line's motor cart, out and back (M11b, third part): its walks, waits and
+            // rides against the walk, its fare in the household's own hours of food, a hand load.
+            let by_ride = self.road_legs(ctx, hh, r.market, at, pace).and_then(
+                |(line, _, travel_h, fare_kcal)| {
+                    let per_kcal = super::wires::hours_per_kcal(goods, costs)?;
+                    (travel_h * 30.0 <= f64::from(fetch.max_walk_minutes))
+                        .then(|| priced(carry, travel_h + fare_kcal * per_kcal, 0.0))
+                        .flatten()
+                        .map(|o| {
+                            let ride = crate::reports::ByRide {
+                                line,
+                                travel_min: (travel_h * 60.0) as f32,
+                            };
+                            (o, None, None, Some(ride))
+                        })
+                },
+            );
             // By the household's boat (M8b slice CO, ADR-0029 §3): hours against hours, the
             // whole chain (to the boat, the water both ways, from the landing to the door,
             // handling at each end) against the walk, a boat's load against a hand load.
@@ -2070,7 +2089,7 @@ impl Population {
                             load_min: (units * load_h * 60.0) as f32,
                             unload_min: (units * unload_h * 60.0) as f32,
                         };
-                        ((units, net, share), Some(way), None)
+                        ((units, net, share), Some(way), None, None)
                     })
                 });
             // By the household's cart (M8b slice CP, ADR-0029 §3): the cart pulled empty to the
@@ -2100,7 +2119,7 @@ impl Population {
                             load_min: (units * handle_h * 60.0) as f32,
                             unload_min: (units * handle_h * 60.0) as f32,
                         };
-                        ((units, net, share), None, Some(way))
+                        ((units, net, share), None, Some(way), None)
                     })
                 });
             // By a boat it could make: the hours it would keep beyond what the walk keeps.
@@ -2112,7 +2131,7 @@ impl Population {
                     .and_then(|v| self.way_by_water(ctx, hh, v, c.bank, at, pace))
                     .and_then(|w| afloat(&w))
             {
-                let walked = on_foot.map_or(0.0, |((u, n, _), _, _)| u * n);
+                let walked = on_foot.map_or(0.0, |((u, n, _), _, _, _)| u * n);
                 gain_h = gain_h.max((units * net - walked) * home_h);
             }
             // By a cart it could make: likewise.
@@ -2124,15 +2143,16 @@ impl Population {
                     .and_then(|v| self.way_by_wheels(ctx, hh, v, at))
                     .and_then(|w| wheeled(&w))
             {
-                let walked = on_foot.map_or(0.0, |((u, n, _), _, _)| u * n);
+                let walked = on_foot.map_or(0.0, |((u, n, _), _, _, _)| u * n);
                 cart_gain_h = cart_gain_h.max((units * net - walked) * home_h);
             }
-            // The way it keeps the largest share by; the walk, then the boat, on a tie.
-            let chosen = [on_foot, by_boat, by_cart]
+            // The way it keeps the largest share by; the walk, then the boat, the cart and the
+            // ride, on a tie.
+            let chosen = [on_foot, by_boat, by_cart, by_ride]
                 .into_iter()
                 .flatten()
                 .reduce(|a, b| if b.0.1 > a.0.1 + 1e-9 { b } else { a });
-            let Some(((units, net, share), way, cart_way)) = chosen else {
+            let Some(((units, net, share), way, cart_way, ride)) = chosen else {
                 continue;
             };
             if best_net.is_none_or(|b| net > b + 1e-9) {
@@ -2149,6 +2169,7 @@ impl Population {
                     day,
                     by_boat: way,
                     by_cart: cart_way,
+                    by_ride: ride,
                 });
             }
         }
@@ -2393,6 +2414,19 @@ impl Population {
             }
             None => (walk_min, None),
         };
+        // By a road line (M11b, third part): only while the line still runs; its travel as
+        // planned, half of it each way.
+        let (walk_min, by_ride) = match e.by_ride {
+            Some(r) => {
+                let pace = ctx.params.nav.tobler_ms(0.0);
+                let (line, legs, _, _) = self.road_legs(ctx, hh, e.market, at, pace)?;
+                if line != r.line {
+                    return None;
+                }
+                (f64::from(r.travel_min) / 2.0, Some(legs))
+            }
+            None => (walk_min, None),
+        };
         Some(TradeOption {
             seller: e.seller,
             firm: e.firm,
@@ -2404,6 +2438,7 @@ impl Population {
             },
             by_boat,
             by_cart,
+            by_ride,
         })
     }
 

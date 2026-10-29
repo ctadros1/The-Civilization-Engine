@@ -162,6 +162,16 @@ pub struct Errand {
     pub by_boat: Option<ByBoat>,
     /// Its way by cart, when the household means to take its cart (M8b slice CP).
     pub by_cart: Option<ByCart>,
+    /// Its way by a road line's motor cart, when the household means to ride (M11b, third part).
+    pub by_ride: Option<ByRide>,
+}
+
+/// An errand's ride on a road line (M11b, third part): the line, and the minutes there and back as
+/// planned (walks, waits and rides).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ByRide {
+    pub line: PermanentId,
+    pub travel_min: f32,
 }
 
 /// An errand's way by cart (M8b slice CP; ADR-0029 §3): the household's cart, which stands at

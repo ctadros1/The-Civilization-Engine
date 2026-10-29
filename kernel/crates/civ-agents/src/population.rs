@@ -84,6 +84,7 @@ mod opinion;
 mod payments;
 mod telegraph;
 mod trains;
+mod transit;
 mod wagons;
 mod war;
 mod way_works;
@@ -93,6 +94,7 @@ pub use payments::Burden;
 pub use resolution::{DayBlock, NOT_TAKEN, SwitchInvariants};
 pub use sickhouse::sickhouse_bed_m2;
 pub use telegraph::{TELEGRAM_FEE_FOOD_DAYS, TelegraphReckoning};
+pub use transit::RoadRide;
 mod credit;
 mod custody;
 mod patronage;
@@ -7839,6 +7841,8 @@ impl Population {
         self.wire_reviews(ctx, day);
         // Telegraph wires weighed by the offices whose day it is (M11c).
         self.telegraph_reviews(ctx, day);
+        // Road lines weighed by the motor carts' keepers whose day it is (M11b, third part).
+        self.transit_reviews(ctx, day);
         // A child sent to learn a craft the household buys (M10c slice EB, second part).
         self.enrol_reviews(ctx, day);
         // And the wells (M6a slice AY, step three): what was drawn taken from the water table, a

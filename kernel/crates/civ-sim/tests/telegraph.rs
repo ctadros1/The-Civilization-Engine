@@ -296,6 +296,7 @@ fn a_household_asks_by_wire_what_is_offered_before_it_walks_and_acts_on_the_answ
         day: sim.now().day_index(),
         by_boat: None,
         by_cart: None,
+        by_ride: None,
     };
     let setup = |sim: &mut Sim| {
         for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
@@ -613,6 +614,7 @@ fn the_observer_shows_offices_their_wires_and_who_waits_on_an_answer() {
         day: sim.now().day_index(),
         by_boat: None,
         by_cart: None,
+        by_ride: None,
     };
     sim.people_mut_for_tests().reports.errands.insert(h, errand);
     let now = sim.now().minutes();

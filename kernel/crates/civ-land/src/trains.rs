@@ -213,12 +213,47 @@ pub enum RunEvent {
     },
 }
 
-/// Every line's loops and every run, departed, running or arrived.
+/// A road line (M11b, third part; ADR-0036 §7): a motor cart's posted runs from its keeper's door
+/// to another settlement's hearth and back, along the cart's way, by a timetable, taking riders
+/// for a fare. Riders ride the timetable; the cart burns a run's fuel when the first rider of a
+/// departure boards.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RoadLine {
+    pub id: PermanentId,
+    /// The household that keeps the cart and posts its runs.
+    pub operator: PermanentId,
+    /// Its motor cart, by record.
+    pub cart: PermanentId,
+    /// The settlement whose hearth it runs to.
+    pub market: PermanentId,
+    /// The cells it runs along from its keeper's door to the hearth, and the minutes on reaching
+    /// each, out.
+    pub cells: Vec<u32>,
+    pub minutes: Vec<f32>,
+    pub runs_a_day: u8,
+    /// A ride's fare, kcal of food.
+    pub fare_kcal: f32,
+    /// The rides taken since day `since`.
+    pub riders: u32,
+    pub since: i64,
+    /// The minute (absolute) of the last departure whose fuel was burned, either way.
+    pub last_run: i64,
+}
+
+impl RoadLine {
+    /// Its minutes one way.
+    pub fn run_min(&self) -> f32 {
+        self.minutes.last().copied().unwrap_or(0.0)
+    }
+}
+
+/// Every line's loops and every run, departed, running or arrived; and the road lines (M11b).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Runs {
     pub lines: Vec<Line>,
     pub list: Vec<Run>,
     revision: u32,
+    pub roads: Vec<RoadLine>,
 }
 
 impl Runs {
@@ -228,6 +263,7 @@ impl Runs {
             lines,
             list,
             revision,
+            roads: Vec::new(),
         }
     }
 

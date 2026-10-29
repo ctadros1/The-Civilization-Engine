@@ -596,6 +596,9 @@ pub struct TradeOption {
     /// The way by the household's cart, when it goes by cart (M8b slice CP); `walk_min` is then
     /// half the travel there and back.
     pub by_cart: Option<CartLegs>,
+    /// The way by a road line's motor cart, out and back, when it rides (M11b, third part);
+    /// `walk_min` is then half the travel there and back.
+    pub by_ride: Option<crate::population::RoadRide>,
 }
 
 /// A trip's handling by cart (M8b slice CP): the minutes its load takes to load at the seller's
@@ -1758,7 +1761,22 @@ pub fn candidates(
                                 unload: true,
                             },
                         ],
-                        None => vec![Step::Walk { to: t.at }, work, Step::Walk { to: f.home }],
+                        None => match t.by_ride {
+                            // To the station, out on the motor cart, to the door; back to the
+                            // far end, home on the cart, and home.
+                            Some(r) => vec![
+                                Step::Walk { to: r.station },
+                                Step::Ride { to: r.out_to },
+                                Step::Walk { to: t.at },
+                                work,
+                                Step::Walk { to: r.end_at },
+                                Step::Ride { to: r.back_to },
+                                Step::Walk { to: f.home },
+                            ],
+                            None => {
+                                vec![Step::Walk { to: t.at }, work, Step::Walk { to: f.home }]
+                            }
+                        },
                     },
                 };
                 let target = if t.firm {

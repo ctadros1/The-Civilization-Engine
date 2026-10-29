@@ -1263,8 +1263,12 @@ pub fn candidates(
                     excluded.push((id, Reason::Unreachable));
                     continue;
                 }
-                let mut short =
-                    (1.0 - f.water_days / f.water_target_days.max(1e-6)).clamp(0.0, 1.0);
+                // Water that will not last the day counts twice over, as fuel does: a dry home by
+                // noon is not put off for the fields until dusk as a thin store is (a tuning
+                // value; smoke's water check on ria_coast seed 5).
+                let mut short = (1.0 - f.water_days / f.water_target_days.max(1e-6))
+                    .clamp(0.0, 1.0)
+                    + (1.0 - f.water_days).clamp(0.0, 1.0);
                 // No water is fetched in the dark: late in the day, what is at home must last
                 // until morning, through the first meal and the trip to the water at first light.
                 // In the last of the light it counts as a full shortage; once the light left would
@@ -1275,7 +1279,7 @@ pub fn candidates(
                     if f.daylight_left_min < trip + f64::from(limits.meal_min) {
                         short = (w.w_hunger * w.max_hunger_drive + w.w_water) / w.w_water.max(1e-6);
                     } else if f.daylight_left_min < LAST_WATER_BEFORE_DARK_MIN {
-                        short = 1.0;
+                        short = short.max(1.0);
                     }
                 }
                 term(&mut terms, Reason::WaterShortage, w.w_water * short);
@@ -3580,6 +3584,76 @@ mod tests {
         let (cands, excluded) = score(&defs, &[], &lacking, &none);
         assert!(cands.is_empty());
         assert_eq!(excluded, vec![(0, Reason::NoTool)]);
+    }
+
+    #[test]
+    fn a_home_dry_by_noon_fetches_water_before_the_fields() {
+        // Mid-morning, the field's work pressing: with a day's water and more at home the fields
+        // come first; with none, the water (smoke's water check on ria_coast seed 5).
+        let mut fetch = activity("fetch_water", Behavior::FetchWater, Vec::new(), 1.0);
+        fetch.min_minutes = 5;
+        fetch.max_walk_minutes = 45;
+        let defs = vec![
+            fetch,
+            activity("prepare_field", Behavior::Farm, Vec::new(), 1.0),
+        ];
+        let water = WaterOption {
+            cell: 1,
+            walk_min: 10.0,
+            at: (50.0, 0.0),
+            well: None,
+            lift_min: 0.0,
+        };
+        let shop = Workshop {
+            free_tools: &[],
+            held_tools: &[],
+            best_make: &|_, _| Err((Reason::NoMaterials, None)),
+            makes_tool: &|_| false,
+            knows: &|_| true,
+        };
+        // The core content's weight on water.
+        let w = DecisionParams {
+            w_water: 8.0,
+            ..weights()
+        };
+        let totals = |water_days: f64| {
+            let f = Facts {
+                water_days,
+                dark: false,
+                daylight_left_min: 480.0,
+                ..facts()
+            };
+            let (cands, _) = candidates(
+                &defs,
+                &w,
+                &f,
+                &limits(),
+                &|_| None,
+                &|_| Ok(field()),
+                Some(water),
+                &|| None,
+                &|| None,
+                &|| Err(Reason::NoReport),
+                &|| None,
+                Err(Reason::Built),
+                &shop,
+                &|| Err(Reason::NoProblem),
+                &|| Err(Reason::WouldNotTake),
+                &Vec::new,
+            );
+            let of = |def: u16| {
+                cands
+                    .iter()
+                    .find(|c| c.scored.def == def)
+                    .map(|c| c.scored.total)
+                    .expect("scored")
+            };
+            (of(0), of(1))
+        };
+        let (water_then, field_then) = totals(1.5);
+        assert!(field_then > water_then, "{water_then} {field_then}");
+        let (water_now, field_now) = totals(0.0);
+        assert!(water_now > field_now, "{water_now} {field_now}");
     }
 
     #[test]

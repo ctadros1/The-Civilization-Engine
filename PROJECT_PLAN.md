@@ -7944,6 +7944,15 @@ and M6a gives rivers a daily flow.
       59"), and an errand ridden says so. **Observed:** with the road engine's priors (6 kW at
       5 %) an hour's run burns some 17 kg of coal, so a ride shared by two costs days of food and
       is seldom worth it beside the walk; that is what the priors give, not tuned.
+    - *Water before the fields (2026-10-29).* The homelab chain's smoke failed on ria_coast seed
+      5 (identity d40b4027d63d10af063b92510d21170b): a household of five had no water at day 30.
+      Bisected to the hearth fix (1452d50), which only moved its days; traced half-hourly, in the
+      sowing window it fetched once a day at dusk, about 45 L against 100 L a day, and sat dry
+      from 05:30 until the next dusk while field work outbid a water shortage capped at its
+      weight. Water that will not last the day now counts twice over, as fuel does, and the last
+      of the light only raises the shortage. **Tested:** a decide test (dry at mid-morning, the
+      water before the fields; a day and a half at home, the fields first), the replayed world,
+      the firewood world of the hearth fix, and the ten smoke worlds.
     - *M11c, first part (2026-10-29): telegraphy as vocabulary.* `technique/telegraphy` (requires
       writing; no work tries toward it), `good/telegraph_instrument` (a fixed tool: key, sounder
       and local cells, so the telegraph does not wait for a station; research 07-13 §1.7) and its

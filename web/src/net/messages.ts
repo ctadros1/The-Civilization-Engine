@@ -1928,6 +1928,9 @@ export interface CurrentLineInfo {
   lit: number;
   /** In the kernel's words: "Line of current of 120 m from Ada's station, 40% strung." */
   words: string;
+  /** Wire 1.108 (M11c): a telegraph wire between two offices, carrying messages, not current;
+   * `station` is the office that strings it. */
+  telegraph: boolean;
 }
 
 /** A boat or a cart (wire 1.86, M8b slices CO and CP; ADR-0029 §3), a wagon on its line (wire
@@ -3284,6 +3287,7 @@ function ways(w: W.Ways): WaysInfo {
       homes: c.homes(),
       lit: c.lit(),
       words: c.words() ?? "",
+      telegraph: c.telegraph(),
     });
   }
   return { rev: Number(w.rev()), ways: list, mains, lamps, currents };

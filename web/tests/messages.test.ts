@@ -1327,8 +1327,12 @@ describe("decoders", () => {
     // Wire 1.107: a line of current a quarter strung.
     const currentPoints = W.CurrentLineInfo.createPointsVector(b, [10, 20, 50, 20]);
     const currentWords = b.createString("Line of current of 40 m from Ada's station, 25% strung.");
-    const current = W.CurrentLineInfo.createCurrentLineInfo(b, 91n, 7n, currentPoints, 40, 0.25, 6, false, 0, 0, currentWords);
-    const currents = W.Ways.createCurrentsVector(b, [current]);
+    const current = W.CurrentLineInfo.createCurrentLineInfo(b, 91n, 7n, currentPoints, 40, 0.25, 6, false, 0, 0, currentWords, false);
+    // Wire 1.108: a telegraph wire, strung.
+    const wirePoints = W.CurrentLineInfo.createPointsVector(b, [10, 30, 90, 30]);
+    const wireWords = b.createString("Telegraph wire of 80 m from Ada's office to Bran's at Elmhollow, strung.");
+    const telegraph = W.CurrentLineInfo.createCurrentLineInfo(b, 92n, 7n, wirePoints, 80, 1, 0, false, 0, 0, wireWords, true);
+    const currents = W.Ways.createCurrentsVector(b, [current, telegraph]);
     const ways = W.Ways.createWays(b, 5n, list, mains, lamps, currents);
     const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Ways, ways)));
     expect(body.kind).toBe("ways");
@@ -1425,6 +1429,23 @@ describe("decoders", () => {
           homes: 0,
           lit: 0,
           words: "Line of current of 40 m from Ada's station, 25% strung.",
+          telegraph: false,
+        },
+        {
+          id: 92,
+          station: 7,
+          points: [
+            [10, 30],
+            [90, 30],
+          ],
+          lengthM: 80,
+          laid: 1,
+          ratingKw: 0,
+          broken: false,
+          homes: 0,
+          lit: 0,
+          words: "Telegraph wire of 80 m from Ada's office to Bran's at Elmhollow, strung.",
+          telegraph: true,
         },
       ],
     });

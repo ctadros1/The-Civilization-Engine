@@ -26014,7 +26014,8 @@ struct CurrentLineInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_BROKEN = 16,
     VT_HOMES = 18,
     VT_LIT = 20,
-    VT_WORDS = 22
+    VT_WORDS = 22,
+    VT_TELEGRAPH = 24
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -26046,6 +26047,9 @@ struct CurrentLineInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *words() const {
     return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
   }
+  bool telegraph() const {
+    return GetField<uint8_t>(VT_TELEGRAPH, 0) != 0;
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -26061,6 +26065,7 @@ struct CurrentLineInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint32_t>(verifier, VT_LIT, 4) &&
            VerifyOffset(verifier, VT_WORDS) &&
            verifier.VerifyString(words()) &&
+           VerifyField<uint8_t>(verifier, VT_TELEGRAPH, 1) &&
            verifier.EndTable();
   }
 };
@@ -26099,6 +26104,9 @@ struct CurrentLineInfoBuilder {
   void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
     fbb_.AddOffset(CurrentLineInfo::VT_WORDS, words);
   }
+  void add_telegraph(bool telegraph) {
+    fbb_.AddElement<uint8_t>(CurrentLineInfo::VT_TELEGRAPH, static_cast<uint8_t>(telegraph), 0);
+  }
   explicit CurrentLineInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -26121,7 +26129,8 @@ inline ::flatbuffers::Offset<CurrentLineInfo> CreateCurrentLineInfo(
     bool broken = false,
     uint32_t homes = 0,
     uint32_t lit = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0,
+    bool telegraph = false) {
   CurrentLineInfoBuilder builder_(_fbb);
   builder_.add_station(station);
   builder_.add_id(id);
@@ -26132,6 +26141,7 @@ inline ::flatbuffers::Offset<CurrentLineInfo> CreateCurrentLineInfo(
   builder_.add_laid(laid);
   builder_.add_length_m(length_m);
   builder_.add_points(points);
+  builder_.add_telegraph(telegraph);
   builder_.add_broken(broken);
   return builder_.Finish();
 }
@@ -26152,7 +26162,8 @@ inline ::flatbuffers::Offset<CurrentLineInfo> CreateCurrentLineInfoDirect(
     bool broken = false,
     uint32_t homes = 0,
     uint32_t lit = 0,
-    const char *words = nullptr) {
+    const char *words = nullptr,
+    bool telegraph = false) {
   auto points__ = points ? _fbb.CreateVector<float>(*points) : 0;
   auto words__ = words ? _fbb.CreateString(words) : 0;
   return tce::wire::CreateCurrentLineInfo(
@@ -26166,7 +26177,8 @@ inline ::flatbuffers::Offset<CurrentLineInfo> CreateCurrentLineInfoDirect(
       broken,
       homes,
       lit,
-      words__);
+      words__,
+      telegraph);
 }
 
 struct Ways FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

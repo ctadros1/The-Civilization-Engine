@@ -846,6 +846,49 @@ pub(crate) fn wire_words(sim: &Sim, b: &Building) -> String {
         .find(|o| o.household == b.household)
         .is_some_and(|o| o.id == b.id);
     let catalog = &sim.rules.catalog;
+    // A telegraph office (M11c): its operator, its wires and the telegrams in its queue.
+    if is_first
+        && let Some((operator, _)) = sim.people.office_of(
+            &sim.rules.catalog,
+            &sim.rules.people,
+            sim.now(),
+            b.household,
+        )
+    {
+        let wires_to = wires
+            .telegraphs
+            .iter()
+            .filter(|t| (t.a == b.household || t.b == b.household) && t.whole() && !t.broken)
+            .count();
+        let queued = sim
+            .people
+            .reports
+            .telegrams
+            .values()
+            .filter(|t| match t.stage {
+                civ_agents::reports::TelegramStage::Asked => t.near == b.household,
+                civ_agents::reports::TelegramStage::Answering => t.far == b.household,
+                _ => false,
+            })
+            .count();
+        let wired = match wires_to {
+            0 => "no wire strung yet".to_owned(),
+            1 => "1 wire".to_owned(),
+            n => format!("{n} wires"),
+        };
+        let queue = match queued {
+            0 => "nothing in its queue".to_owned(),
+            1 => "1 telegram in its queue".to_owned(),
+            n => format!("{n} telegrams in its queue"),
+        };
+        said.push(format!(
+            "Telegraph office kept by {}; {wired}, {queue}",
+            sim.people
+                .records
+                .get(&operator)
+                .map_or("someone", |r| r.given.as_str())
+        ));
+    }
     if is_first && let Some(x) = sim.people.household(b.household) {
         let dynamos = catalog
             .goods

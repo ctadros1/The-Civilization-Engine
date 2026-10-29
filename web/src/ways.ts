@@ -19,6 +19,8 @@ export const BROKEN_MAIN_COLOUR = 0xa03a2a;
 /** A line of current's copper on its poles, and one broken (M11a). */
 export const CURRENT_COLOUR = 0xb87333;
 export const BROKEN_CURRENT_COLOUR = 0xa03a2a;
+/** A telegraph wire's dark iron line on its poles (M11c). */
+export const TELEGRAPH_COLOUR = 0x3a3a3a;
 /** A street lamp burning, and one dark (M10b slice DY). */
 export const LAMP_LIT_COLOUR = 0xffd27a;
 export const LAMP_DARK_COLOUR = 0x4a4a48;
@@ -158,10 +160,12 @@ export function wayWords(way: WayInfo, s: WaySegmentInfo): string {
 }
 
 /** How a line of current is drawn (M11a): a thin copper line along its route, fainter the less of it
- * is strung (never fainter than about a quarter, so a line marked out shows), and red if broken. */
+ * is strung (never fainter than about a quarter, so a line marked out shows), and red if broken. A
+ * telegraph wire (M11c) is drawn the same way in dark iron, thinner. */
 export function currentLook(l: CurrentLineInfo): { colour: number; alpha: number; widthM: number } {
   const laid = Math.min(1, Math.max(0, l.laid));
-  return { colour: l.broken ? BROKEN_CURRENT_COLOUR : CURRENT_COLOUR, alpha: 0.25 + 0.65 * laid, widthM: 0.3 };
+  const colour = l.broken ? BROKEN_CURRENT_COLOUR : l.telegraph ? TELEGRAPH_COLOUR : CURRENT_COLOUR;
+  return { colour, alpha: 0.25 + 0.65 * laid, widthM: l.telegraph ? 0.2 : 0.3 };
 }
 
 /** The line of current whose route passes within `slackM` of the point, the nearest; a station's

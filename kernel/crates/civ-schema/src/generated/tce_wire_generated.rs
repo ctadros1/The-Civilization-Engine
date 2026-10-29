@@ -40816,6 +40816,7 @@ impl<'a> CurrentLineInfo<'a> {
   pub const VT_HOMES: ::flatbuffers::VOffsetT = 18;
   pub const VT_LIT: ::flatbuffers::VOffsetT = 20;
   pub const VT_WORDS: ::flatbuffers::VOffsetT = 22;
+  pub const VT_TELEGRAPH: ::flatbuffers::VOffsetT = 24;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -40836,6 +40837,7 @@ impl<'a> CurrentLineInfo<'a> {
     builder.add_laid(args.laid);
     builder.add_length_m(args.length_m);
     if let Some(x) = args.points { builder.add_points(x); }
+    builder.add_telegraph(args.telegraph);
     builder.add_broken(args.broken);
     builder.finish()
   }
@@ -40911,6 +40913,13 @@ impl<'a> CurrentLineInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(CurrentLineInfo::VT_WORDS, None)}
   }
+  #[inline]
+  pub fn telegraph(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(CurrentLineInfo::VT_TELEGRAPH, Some(false)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for CurrentLineInfo<'_> {
@@ -40929,6 +40938,7 @@ impl ::flatbuffers::Verifiable for CurrentLineInfo<'_> {
      .visit_field::<u32>("homes", Self::VT_HOMES, false)?
      .visit_field::<u32>("lit", Self::VT_LIT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .visit_field::<bool>("telegraph", Self::VT_TELEGRAPH, false)?
      .finish();
     Ok(())
   }
@@ -40944,6 +40954,7 @@ pub struct CurrentLineInfoArgs<'a> {
     pub homes: u32,
     pub lit: u32,
     pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub telegraph: bool,
 }
 impl<'a> Default for CurrentLineInfoArgs<'a> {
   #[inline]
@@ -40959,6 +40970,7 @@ impl<'a> Default for CurrentLineInfoArgs<'a> {
       homes: 0,
       lit: 0,
       words: None,
+      telegraph: false,
     }
   }
 }
@@ -41009,6 +41021,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CurrentLineInfoBuilder<'a, 'b
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CurrentLineInfo::VT_WORDS, words);
   }
   #[inline]
+  pub fn add_telegraph(&mut self, telegraph: bool) {
+    self.fbb_.push_slot::<bool>(CurrentLineInfo::VT_TELEGRAPH, telegraph, false);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CurrentLineInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     CurrentLineInfoBuilder {
@@ -41036,6 +41052,7 @@ impl ::core::fmt::Debug for CurrentLineInfo<'_> {
       ds.field("homes", &self.homes());
       ds.field("lit", &self.lit());
       ds.field("words", &self.words());
+      ds.field("telegraph", &self.telegraph());
       ds.finish()
   }
 }

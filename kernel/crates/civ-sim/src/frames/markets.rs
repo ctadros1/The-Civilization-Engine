@@ -455,12 +455,27 @@ pub fn errand_words(sim: &Sim, household: PermanentId) -> String {
         1 => "yesterday".to_owned(),
         n => format!("{n} days ago"),
     };
-    format!(
+    let mut out = format!(
         "Their household means to fetch {} from {} at {} to sell at home; planned {when}",
         amount(d, f64::from(e.units)),
         seller_name(sim, e.seller),
         place_name(sim, Some(e.market))
-    )
+    );
+    // Asked by wire what is offered there first (M11c).
+    if let Some(t) = sim
+        .people
+        .reports
+        .telegrams
+        .get(&household)
+        .filter(|t| t.market == e.market)
+    {
+        let office = super::ways::keeper(sim, civ_land::ways::Keeper::Household(t.near));
+        out.push_str(&format!(
+            "; waiting on an answer by telegraph, asked at {}'s office",
+            office.trim_end_matches("'s household")
+        ));
+    }
+    out
 }
 
 /// A market in words: its money if it has one, or how far it is from one.

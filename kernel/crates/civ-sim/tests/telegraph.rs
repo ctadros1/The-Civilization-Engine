@@ -494,3 +494,132 @@ fn a_telegram_waiting_on_its_answer_saves_and_loads_exactly() {
         assert!(p.bytes == q.bytes, "section `{}` differs", p.tag);
     }
 }
+
+#[test]
+fn the_observer_shows_offices_their_wires_and_who_waits_on_an_answer() {
+    use civ_agents::reports::{Errand, Telegram, TelegramStage};
+    let mut sim = world();
+    // Ten days for homes to stand.
+    sim.advance_minutes(10 * 24 * 60).expect("lives");
+    let [(_, sa, _), (b, sb, _)] = pair(&sim);
+    let a = sim
+        .land()
+        .buildings
+        .iter()
+        .map(|x| x.household)
+        .filter(|&h| sim.people().household(h).and_then(|x| x.settlement) == Some(sa))
+        .min()
+        .expect("a household with a building");
+    office(&mut sim, a);
+    office(&mut sim, b);
+    let wire = sim.allocate_id_for_tests();
+    sim.land_mut_for_tests()
+        .wires
+        .telegraphs
+        .push(civ_land::wire::Telegraph {
+            id: wire,
+            a,
+            b,
+            cells: vec![0, 1, 2],
+            length_m: 2400.0,
+            laid_m: 960.0,
+            broken: false,
+            worth_h: 1.0,
+        });
+    let seen = |sim: &Sim| -> Vec<(bool, f32, String)> {
+        let bytes = civ_sim::frames::ways::ways_response(sim);
+        let response =
+            civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&bytes).expect("wire");
+        response
+            .body_as_ways()
+            .expect("ways")
+            .currents()
+            .expect("lines")
+            .iter()
+            .map(|l| {
+                (
+                    l.telegraph(),
+                    l.laid(),
+                    l.words().unwrap_or_default().to_owned(),
+                )
+            })
+            .collect()
+    };
+    let rev = civ_sim::frames::ways::ways_rev(&sim);
+    let s = seen(&sim);
+    assert_eq!(s.len(), 1);
+    assert!(s[0].0 && (s[0].1 - 0.4).abs() < 1e-6, "{s:?}");
+    assert!(
+        s[0].2.starts_with("Telegraph wire of 2400 m from ") && s[0].2.ends_with(", 40% strung."),
+        "{}",
+        s[0].2
+    );
+    sim.land_mut_for_tests().wires.telegraphs[0].laid_m = 2400.0;
+    assert_ne!(
+        civ_sim::frames::ways::ways_rev(&sim),
+        rev,
+        "strung, the layer changes"
+    );
+    // A household of the first settlement waits on an answer about its errand there.
+    let h = another(&sim, sa, a);
+    let errand = Errand {
+        market: sb,
+        seller: b,
+        firm: false,
+        good: 0,
+        payment: 0,
+        units: 1.0,
+        home_h: 1.0,
+        share: 0.5,
+        day: sim.now().day_index(),
+        by_boat: None,
+        by_cart: None,
+    };
+    sim.people_mut_for_tests().reports.errands.insert(h, errand);
+    let now = sim.now().minutes();
+    sim.people_mut_for_tests().reports.telegrams.insert(
+        h,
+        Telegram {
+            near: a,
+            far: b,
+            market: sb,
+            handed: now,
+            due: now + 600,
+            stage: TelegramStage::Asked,
+            answer: Vec::new(),
+        },
+    );
+    assert!(seen(&sim)[0].2.ends_with(", strung; 1 telegram on it now."));
+    let words = civ_sim::frames::markets::errand_words(&sim, h);
+    assert!(
+        words.contains("; waiting on an answer by telegraph, asked at "),
+        "{words}"
+    );
+    // The office's home says it is one, who keeps it and what waits in its queue.
+    let home = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|x| x.household == a)
+        .map(|x| x.id)
+        .expect("its first building");
+    let bytes = civ_sim::frames::buildings::buildings_response(&sim);
+    let response =
+        civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&bytes).expect("wire");
+    let words = response
+        .body_as_buildings()
+        .expect("buildings")
+        .buildings()
+        .expect("a list")
+        .iter()
+        .find(|x| x.id() == home.get())
+        .expect("its home")
+        .wire()
+        .unwrap_or_default()
+        .to_owned();
+    assert!(
+        words.contains("Telegraph office kept by ")
+            && words.contains("; 1 wire, 1 telegram in its queue"),
+        "{words}"
+    );
+}

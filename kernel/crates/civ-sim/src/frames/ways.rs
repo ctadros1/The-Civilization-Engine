@@ -21,7 +21,10 @@ use crate::Sim;
 pub fn ways_rev(sim: &Sim) -> u64 {
     let gas = &sim.land.gas;
     let wires = &sim.land.wires;
-    let no_gas = gas.mains.is_empty() && gas.lamps.is_empty() && wires.lines.is_empty();
+    let no_gas = gas.mains.is_empty()
+        && gas.lamps.is_empty()
+        && wires.lines.is_empty()
+        && wires.telegraphs.is_empty();
     if sim.land.ways.list.is_empty() && no_gas {
         return 0;
     }
@@ -68,6 +71,11 @@ pub fn ways_rev(sim: &Sim) -> u64 {
         mix(l.id.get());
         mix(l.laid_m.to_bits());
         mix(u64::from(l.broken));
+    }
+    for t in &wires.telegraphs {
+        mix(t.id.get());
+        mix(t.laid_m.to_bits());
+        mix(u64::from(t.broken));
     }
     for k in &wires.hookups {
         mix(k.building.get());
@@ -129,6 +137,47 @@ fn main_words(sim: &Sim, m: &Main, homes: u32, lit: u32) -> String {
     out.push_str(&format!("; {homes}"));
     if lit > 0 {
         out.push_str(&format!(", {lit} lit now"));
+    }
+    out.push('.');
+    out
+}
+
+/// A telegraph wire in words (wire 1.108, M11c): "Telegraph wire of 2400 m from Ada's office to
+/// Bran's at Elmhollow, 40% strung." Once strung: "..., strung; 2 telegrams on it now."
+fn telegraph_words(sim: &Sim, t: &civ_land::wire::Telegraph) -> String {
+    let office = |h: civ_core::PermanentId| {
+        keeper(sim, Keeper::Household(h))
+            .trim_end_matches("'s household")
+            .to_owned()
+    };
+    let far = sim.people.household(t.b).and_then(|x| x.settlement);
+    let mut out = format!(
+        "Telegraph wire of {:.0} m from {}'s office to {}'s at {}",
+        t.length_m,
+        office(t.a),
+        office(t.b),
+        super::people::place_name(sim, far)
+    );
+    if !t.whole() {
+        let laid = (t.laid_m / t.length_m.max(1e-3)).clamp(0.0, 1.0);
+        out.push_str(&format!(", {:.0}% strung.", (laid * 100.0).floor()));
+        return out;
+    }
+    out.push_str(", strung");
+    if t.broken {
+        out.push_str("; broken");
+    }
+    let on = sim
+        .people
+        .reports
+        .telegrams
+        .values()
+        .filter(|m| t.joins(m.near, m.far))
+        .count();
+    match on {
+        0 => {}
+        1 => out.push_str("; 1 telegram on it now"),
+        n => out.push_str(&format!("; {n} telegrams on it now")),
     }
     out.push('.');
     out
@@ -504,6 +553,37 @@ pub fn ways_response(sim: &Sim) -> Vec<u8> {
                 homes,
                 lit,
                 words: Some(text),
+                telegraph: false,
+            },
+        ));
+    }
+    // And the telegraph wires (M11c), drawn as lines are.
+    for t in &wires.telegraphs {
+        let centres: Vec<(f32, f32)> = t
+            .cells
+            .iter()
+            .map(|&c| civ_agents::population::cell_centre(map, c as usize))
+            .collect();
+        let points: Vec<f32> = simplify_indices(&centres, map.cell_size_m)
+            .into_iter()
+            .flat_map(|i| [centres[i].0, centres[i].1])
+            .collect();
+        let points = fbb.create_vector(&points);
+        let text = fbb.create_string(&telegraph_words(sim, t));
+        currents.push(wire::CurrentLineInfo::create(
+            &mut fbb,
+            &wire::CurrentLineInfoArgs {
+                id: t.id.get(),
+                station: t.a.get(),
+                points: Some(points),
+                length_m: t.length_m as f32,
+                laid: (t.laid_m / t.length_m.max(1e-3)).clamp(0.0, 1.0) as f32,
+                rating_kw: 0.0,
+                broken: t.broken,
+                homes: 0,
+                lit: 0,
+                words: Some(text),
+                telegraph: true,
             },
         ));
     }

@@ -2976,6 +2976,9 @@ table CurrentLineInfo {
   homes: uint (id: 7);
   lit: uint (id: 8);
   words: string (id: 9);
+  // Wire 1.108 (M11c): a telegraph wire between two offices, carrying messages, not current;
+  // `station` is the office that strings it.
+  telegraph: bool (id: 10);
 }
 
 // Wire 1.84: every way, in the order begun.

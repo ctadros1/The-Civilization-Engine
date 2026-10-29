@@ -73,14 +73,28 @@ impl Population {
     /// id) can write and knows every technique of a recipe making that instrument. The best of
     /// its instruments where it holds several kinds.
     pub fn telegraph_office(&self, ctx: &Ctx, office: PermanentId) -> Option<(PermanentId, f64)> {
+        self.office_of(ctx.catalog, ctx.params, ctx.now, office)
+    }
+
+    /// [`Population::telegraph_office`] by the catalogue, people parameters and time alone, for
+    /// the observer.
+    pub fn office_of(
+        &self,
+        catalog: &Catalog,
+        params: &PeopleParams,
+        now: SimTime,
+        office: PermanentId,
+    ) -> Option<(PermanentId, f64)> {
         let x = self.household(office)?;
-        let writing = Self::letter_technique(ctx.catalog, Behavior::Write)?;
-        Self::telegraph_goods(ctx)
-            .into_iter()
+        let writing = Self::letter_technique(catalog, Behavior::Write)?;
+        catalog
+            .goods
+            .iter()
+            .enumerate()
+            .filter_map(|(g, d)| Some((g, d.telegraph?.messages_h)))
             .filter(|&(g, _)| x.stores.get(g).copied().unwrap_or(0.0) >= 1.0 - 1e-9)
             .filter_map(|(g, rate)| {
-                let needs: Vec<usize> = ctx
-                    .catalog
+                let needs: Vec<usize> = catalog
                     .recipes
                     .iter()
                     .filter(|r| r.outputs.iter().any(|&(o, _)| o == g))
@@ -88,7 +102,7 @@ impl Population {
                     .collect();
                 let operator = x.members.iter().copied().filter(|&m| {
                     self.person(m).is_some_and(|p| {
-                        p.age_years(ctx.now) >= ctx.params.family.independent_age
+                        p.age_years(now) >= params.family.independent_age
                             && p.knows(writing)
                             && needs.iter().all(|&t| p.knows(t))
                     })

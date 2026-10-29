@@ -84,8 +84,13 @@ words(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+telegraph():boolean {
+  const offset = this.bb!.__offset(this.bb_pos, 24);
+  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
+}
+
 static startCurrentLineInfo(builder:flatbuffers.Builder) {
-  builder.startObject(10);
+  builder.startObject(11);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -145,12 +150,16 @@ static addWords(builder:flatbuffers.Builder, wordsOffset:flatbuffers.Offset) {
   builder.addFieldOffset(9, wordsOffset, 0);
 }
 
+static addTelegraph(builder:flatbuffers.Builder, telegraph:boolean) {
+  builder.addFieldInt8(10, +telegraph, +false);
+}
+
 static endCurrentLineInfo(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createCurrentLineInfo(builder:flatbuffers.Builder, id:bigint, station:bigint, pointsOffset:flatbuffers.Offset, lengthM:number, laid:number, ratingKw:number, broken:boolean, homes:number, lit:number, wordsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createCurrentLineInfo(builder:flatbuffers.Builder, id:bigint, station:bigint, pointsOffset:flatbuffers.Offset, lengthM:number, laid:number, ratingKw:number, broken:boolean, homes:number, lit:number, wordsOffset:flatbuffers.Offset, telegraph:boolean):flatbuffers.Offset {
   CurrentLineInfo.startCurrentLineInfo(builder);
   CurrentLineInfo.addId(builder, id);
   CurrentLineInfo.addStation(builder, station);
@@ -162,6 +171,7 @@ static createCurrentLineInfo(builder:flatbuffers.Builder, id:bigint, station:big
   CurrentLineInfo.addHomes(builder, homes);
   CurrentLineInfo.addLit(builder, lit);
   CurrentLineInfo.addWords(builder, wordsOffset);
+  CurrentLineInfo.addTelegraph(builder, telegraph);
   return CurrentLineInfo.endCurrentLineInfo(builder);
 }
 }

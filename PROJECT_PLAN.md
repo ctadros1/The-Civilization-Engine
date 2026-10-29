@@ -7963,6 +7963,15 @@ and M6a gives rivers a daily flow.
       lost with the wire down; saved and loaded exactly. **Simplified:** the operators' hours are
       not taken from their households' days; the walk to hand one in is folded into the fee; the
       far office answers unpaid; news and a polity's word do not yet go by wire.
+    - *M11c, fourth part (2026-10-29): the observer of the telegraph; M11c done as far as
+      ADR-0036 §8 takes it.* Wire 1.108: the ways layer's lines carry telegraph wires too, flagged
+      (`telegraph`), drawn thinner in dark iron, in words ("Telegraph wire of 2400 m from Ada's
+      office to Bran's at Elmhollow, 40% strung." / "..., strung; 1 telegram on it now."); an
+      office's home says it is one ("Telegraph office kept by Ada; 1 wire, 1 telegram in its
+      queue"); a household's errand says when it waits on an answer by telegraph and where it
+      asked. **Tested:** kernel (the layer's flag, share strung and words, its revision moving as
+      a wire is strung, the office's and the errand's words) and web (decoding the flag, the
+      look).
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

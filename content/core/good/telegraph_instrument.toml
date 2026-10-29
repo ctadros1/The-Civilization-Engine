@@ -1,0 +1,18 @@
+# A telegraph instrument (M11c; ADR-0036 §8): a key, a sounder and the cells of a battery that
+# work a line, an office's fixed tool. It needs no current from a station (research 07-13 §1.7:
+# local batteries; the telegraph does not wait for the grid).
+kind = "good"
+id = "core:good/telegraph_instrument"
+name = "Telegraph instrument"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 30000.0
+per_worker = 0.0
+fixed = true

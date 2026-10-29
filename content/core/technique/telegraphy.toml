@@ -1,0 +1,18 @@
+# Telegraphy (M11c; ADR-0036 §8; research 07-13 §1.7, §5.6 T01): sending words over a wire as a
+# code of long and short marks, and reading them at the other end. An operator must also write.
+# A far technique of its age: no work tries toward it, so only the observer brings it; what
+# follows from it (offices, wires between them, messages handed in) is people's choice.
+kind = "technique"
+id = "core:technique/telegraphy"
+name = "Telegraphy"
+can = "send words over a wire by a code of marks, and read them at the other end"
+domain = "core:skill/smithing"
+requires = [["core:technique/writing"]]
+tried_in = []
+needs = []
+e50_h = 400000.0                 # unused while no work tries toward it
+learn_h = 300.0
+upbringing = true
+
+[answers]
+spoilage = []

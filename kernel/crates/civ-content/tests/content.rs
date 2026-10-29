@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 204
+kernel_content_api = 205
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2412,7 +2412,8 @@ fn a_locomotive_is_a_rail_vehicle_with_an_engine_burning_a_fuel() {
             report.diagnostics
         );
     }
-    // A cart with an engine is refused.
+    // A cart with an engine is a motor vehicle since content API 205 (M11b, second part): it
+    // loads, its engine kept (a boat's is refused: see the road engine's test).
     let cart = format!(
         "{HANDCART}\n[engine]\nfuel = \"core:good/coal\"\nefficiency = 0.03\ntop_speed_m_s = 2.2\n"
     );
@@ -2420,14 +2421,14 @@ fn a_locomotive_is_a_rail_vehicle_with_an_engine_burning_a_fuel() {
         ("worldgen/river_valley.toml", &preset),
         ("vehicle/test_handcart.toml", &cart),
     ]);
-    assert!(
-        report
-            .diagnostics
-            .iter()
-            .any(|d| d.message.contains("`[engine]` is a rail vehicle's")),
-        "{:?}",
-        report.diagnostics
-    );
+    assert!(report.diagnostics.is_empty(), "{:?}", report.diagnostics);
+    let catalog = &report.registry.as_ref().expect("content").catalog;
+    let motor = catalog
+        .vehicles
+        .iter()
+        .find(|v| v.id.ends_with("test_handcart"))
+        .expect("the cart");
+    assert!(motor.engine.is_some_and(|e| e.top_speed_m_s == 2.2));
 }
 
 #[test]
@@ -3358,4 +3359,43 @@ fn an_engine_may_name_the_one_fuel_it_burns_and_the_core_gas_engine_burns_coal_g
     ]);
     assert_eq!(codes(&report), vec!["E3001"]);
     assert!(report.diagnostics[0].message.contains("power.fuel"));
+}
+
+#[test]
+fn a_cart_may_carry_an_engine_and_the_core_road_engine_burns_coal() {
+    // M11b, second part (content API 205; ADR-0036 §7): an `[engine]` is a rail vehicle's or a
+    // cart's, never a boat's.
+    let reg = registry(load(&repo_content()));
+    let v = reg
+        .catalog
+        .vehicle_index("core:vehicle/road_engine")
+        .map(|i| reg.catalog.vehicles[i].clone())
+        .expect("a road engine");
+    let coal = reg
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/coal")
+        .expect("coal");
+    let e = v.engine.expect("an engine");
+    assert_eq!(v.mode, civ_agents::params::VehicleMode::Cart);
+    assert_eq!((e.fuel, e.efficiency, e.top_speed_m_s), (coal, 0.05, 2.2));
+    let dugout = real("vehicle/dugout.toml");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        (
+            "vehicle/dugout.toml",
+            &format!(
+                "{dugout}\n[engine]\nfuel = \"core:good/coal\"\nefficiency = 0.05\ntop_speed_m_s = 2.0\n"
+            ),
+        ),
+    ]);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains("not a boat's")),
+        "{:?}",
+        report.diagnostics
+    );
 }

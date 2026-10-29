@@ -1,0 +1,35 @@
+# A road engine (M11b, second part; ADR-0036 §7: "a motor vehicle is a vehicle whose speed and load
+# on a way come from its power over its pull, the way's grade and roughness, burning fuel by its
+# work"; research 07-13 §1.6, §5.3 C06). A cart whose puller is an engine burning coal: it goes
+# where a cart goes, on ways as wide as it is, never across open ground; its speed is its engine's
+# power over the pull its load needs on the way's roughness and grade, no faster than its top
+# speed; and a trip burns coal by the hours its engine runs. The figures are design priors of the
+# order of a mid-nineteenth-century traction engine (some 8 horsepower, 6 t, a walking pace's
+# limit on public roads), not measurements. Making one needs a technique no work tries toward:
+# only the observer brings it.
+kind = "vehicle"
+id = "core:vehicle/road_engine"
+name = "Road engine"
+mode = "cart"
+technique = "core:technique/road_engine"
+skill = "core:skill/smithing"
+tool = ""
+good = "core:good/iron"
+material_kg = 4000.0
+labour_h = 2500.0
+crew = 2
+payload_kg = 4000.0
+width_m = 2.0
+life_years = 20.0
+handling_kg_min = 10.0
+tare_kg = 6000.0
+way_resistance = 0.03
+trail_resistance = 0.08
+pull_n = 9000.0
+power_w = 6000.0
+brake_grade = 0.08
+
+[engine]
+fuel = "core:good/coal"
+efficiency = 0.05
+top_speed_m_s = 2.2

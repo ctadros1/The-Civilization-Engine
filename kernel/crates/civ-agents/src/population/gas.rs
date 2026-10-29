@@ -32,7 +32,11 @@ pub fn meter_price(catalog: &Catalog, gas: usize) -> Option<(usize, f64)> {
 /// What a unit of good `g` costs a household whose own costs are `costs`, hours (M10b slice DY,
 /// fourth part): its own figure, or for a fuel it has none for (coal, dug rather than made), the
 /// heat of it in the hearth's measure (firewood) at its own cost of that.
-fn fuel_hours(goods: &[crate::params::GoodDef], costs: &[Option<f64>], g: usize) -> Option<f64> {
+pub(super) fn fuel_hours(
+    goods: &[crate::params::GoodDef],
+    costs: &[Option<f64>],
+    g: usize,
+) -> Option<f64> {
     costs.get(g).copied().flatten().or_else(|| {
         let measure = goods.iter().position(|d| {
             d.purpose == GoodUse::Fuel && d.fuel.is_none_or(|f| f.technique.is_none())

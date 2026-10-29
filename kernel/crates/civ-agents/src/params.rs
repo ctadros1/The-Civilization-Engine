@@ -1174,7 +1174,8 @@ pub struct RailEngine {
 
 impl VehicleDef {
     /// How the ground sees a cart of this vehicle carrying `load_kg`, pulled by someone who walks
-    /// at `walk_m_s` (M8b slice CP).
+    /// at `walk_m_s` (M8b slice CP), or driven by its engine, no faster than its top speed (M11b,
+    /// second part).
     pub fn wheels(&self, load_kg: f64, walk_m_s: f64) -> civ_land::carting::Wheels {
         civ_land::carting::Wheels {
             mass_kg: self.tare_kg + load_kg.max(0.0),
@@ -1183,9 +1184,20 @@ impl VehicleDef {
             trail_c: self.trail_resistance,
             pull_n: self.pull_n,
             power_w: self.power_w,
-            walk_m_s,
+            walk_m_s: self.engine.map_or(walk_m_s, |e| e.top_speed_m_s),
             brake_grade: self.brake_grade,
         }
+    }
+
+    /// The fuel a motor cart of this vehicle burns on a trip of `travel_min` minutes (M11b,
+    /// second part; ADR-0036 §7): its engine running at its power the whole way, over its
+    /// efficiency and its fuel's heat (research 07-06 §2.3), by good index and kilograms. `None`
+    /// for a vehicle without an engine, or a rail vehicle (whose runs burn by their work).
+    pub fn trip_fuel(&self, goods: &[GoodDef], travel_min: f64) -> Option<(usize, f64)> {
+        let e = self.engine.filter(|_| self.mode == VehicleMode::Cart)?;
+        let mj = goods.get(e.fuel)?.fuel?.mj_per_kg;
+        let kwh = self.power_w / 1000.0 * travel_min.max(0.0) / 60.0;
+        Some((e.fuel, civ_land::power::fuel_kg(kwh, mj, e.efficiency)))
     }
 
     /// How its track sees a wagon of this vehicle carrying `load_kg`, pushed by someone who

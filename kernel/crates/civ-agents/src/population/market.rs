@@ -56,6 +56,8 @@ struct CartWay {
     travel_h: f64,
     payload_kg: f64,
     handling_kg_min: f64,
+    /// The fuel a motor cart burns on the trip, by good index and kilograms (M11b, second part).
+    fuel: Option<(usize, f64)>,
 }
 /// Least a food stays good for to be offered, days: food that keeps (grain), not food made to
 /// be eaten soon (bread).
@@ -1251,6 +1253,16 @@ impl Population {
         seller: PermanentId,
         who: PermanentId,
     ) {
+        // A motor cart burned its fuel getting here and will going home (M11b, second part).
+        if let Some(c) = self
+            .reports
+            .errands
+            .get(&buyer)
+            .filter(|e| e.seller == seller)
+            .and_then(|e| e.by_cart)
+        {
+            self.burn_trip_fuel(ctx, buyer, c);
+        }
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let Some(hh) = self.household(buyer) else {
             return;
@@ -2055,10 +2067,16 @@ impl Population {
             // By the household's cart (M8b slice CP, ADR-0029 §3): the cart pulled empty to the
             // door and loaded back, pushed between each door and the ground it goes on, and
             // each kilogram loaded at the seller's door and unloaded at home.
+            // A motor cart's fuel is paid for too, at the household's own cost of it (M11b, second
+            // part); one it cannot put a figure on rules the motor cart out.
             let wheeled = |w: &CartWay| {
                 let handle_h = 1.0 / (w.handling_kg_min * 60.0);
+                let fuel_h = match w.fuel {
+                    Some((f, kg)) => kg * super::gas::fuel_hours(goods, costs, f)?,
+                    None => 0.0,
+                };
                 (w.travel_h * 30.0 <= f64::from(fetch.max_walk_minutes))
-                    .then(|| priced(w.payload_kg, w.travel_h, 2.0 * handle_h))
+                    .then(|| priced(w.payload_kg, w.travel_h + fuel_h, 2.0 * handle_h))
                     .flatten()
                     .map(|o| (o, handle_h))
             };
@@ -2178,8 +2196,61 @@ impl Population {
         self.way_by_wheels(ctx, hh, v, at).map(|w| (c.id, w))
     }
 
+    /// The way by household `hh`'s cart at its door to `at` and back, as its hours of travel and
+    /// the fuel a motor cart burns on it: for tests.
+    #[doc(hidden)]
+    pub fn cart_way_for_tests(
+        &self,
+        ctx: &Ctx,
+        hh: PermanentId,
+        at: (f32, f32),
+    ) -> Option<(f64, Option<(usize, f64)>)> {
+        let x = self.household(hh)?;
+        self.cart_way(ctx, x, at).map(|(_, w)| (w.travel_h, w.fuel))
+    }
+
+    /// Household `hh` burns the fuel its motor cart's trip `c` takes, as at a seller's door: for
+    /// tests.
+    #[doc(hidden)]
+    pub fn burn_trip_fuel_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        hh: PermanentId,
+        c: crate::reports::ByCart,
+    ) {
+        self.burn_trip_fuel(ctx, hh, c);
+    }
+
+    /// Household `hh` burns the fuel its motor cart's trip `c` takes (M11b, second part): what
+    /// [`crate::params::VehicleDef::trip_fuel`] says for its travel as planned, as far as it holds
+    /// it; nothing for a cart without an engine.
+    fn burn_trip_fuel(&mut self, ctx: &Ctx, hh: PermanentId, c: crate::reports::ByCart) {
+        let goods = &ctx.catalog.goods;
+        let Some((f, kg)) = ctx
+            .land
+            .carts
+            .list
+            .iter()
+            .find(|x| x.id == c.cart)
+            .and_then(|x| ctx.catalog.vehicles.get(usize::from(x.vehicle)))
+            .and_then(|v| v.trip_fuel(goods, f64::from(c.travel_min)))
+        else {
+            return;
+        };
+        let Some(x) = self.household_mut(hh) else {
+            return;
+        };
+        let held = x.stores.get(f).copied().unwrap_or(0.0).max(0.0);
+        let burned = kg.min(held);
+        if burned > 0.0 {
+            x.stores[f] = held - burned;
+            x.flows.add(super::Flow::Used, f, burned);
+        }
+    }
+
     /// The way by a cart of vehicle `v` standing at household `hh`'s door, as
-    /// [`Population::cart_way`] finds it.
+    /// [`Population::cart_way`] finds it; a motor cart (M11b, second part) only where `hh` holds
+    /// the fuel the trip burns.
     fn way_by_wheels(
         &self,
         ctx: &Ctx,
@@ -2198,10 +2269,17 @@ impl Population {
             ctx.land
                 .cart_way(ctx.map, &v.wheels(v.payload_kg, walk), at, hh.home)?;
         let travel_h = (there.seconds + there_legs + back.seconds + back_legs) / 3600.0;
+        let fuel = v.trip_fuel(&ctx.catalog.goods, travel_h * 60.0);
+        if let Some((f, kg)) = fuel
+            && hh.stores.get(f).copied().unwrap_or(0.0) + 1e-9 < kg
+        {
+            return None;
+        }
         Some(CartWay {
             travel_h,
             payload_kg: v.payload_kg,
             handling_kg_min: v.handling_kg_min,
+            fuel,
         })
     }
 

@@ -7900,6 +7900,25 @@ and M6a gives rivers a daily flow.
       a gas engine and gas, then is lit at the evening, its 0.2 kW for four hours burning exactly
       0.75 kg of gas, and out of gas its station is short. **Not built:** who wants a gas engine
       (nobody makes one unasked yet), and an engine set at a pump or a mill.
+    - *M11b, second part (2026-10-29): the motor vehicle.* A cart may carry an `[engine]` (content
+      API 205; ADR-0036 §7; research 07-13 §1.5–§1.6, §5.3 C06): its puller is then its engine,
+      its wheels' speed its `power_w` over the pull its load needs on the way's roughness and
+      grade, no faster than its engine's top speed rather than a walker's pace, going only where
+      a cart goes (a way as wide as it is, never open ground). A trip burns its fuel by the hours
+      its engine runs at its power, over its efficiency and the fuel's heat; an errand by motor
+      cart pays that fuel at the household's own cost of it in its reckoning (one it can put no
+      figure on rules the motor cart out), a household without the trip's fuel cannot take it,
+      and the fuel is burned at the seller's door. `vehicle/road_engine` (6 kW, 2.2 m/s at most,
+      6 t carrying 4 t, 2 m wide, coal at 5 %; design priors of a mid-century traction engine)
+      and `technique/road_engine`, which no work tries toward, so only the observer brings it.
+      **Tested:** along a way serving carts between two doors, a handcart goes with no fuel; the
+      road engine goes nowhere without coal, nor with less than the trip burns, and with it goes
+      quicker than the handcart, its coal exactly 3.6 x its power's kWh over 25.8 MJ x 5 %;
+      burned at the seller's door; a cart with an engine loads and a boat with one is refused.
+      **Not built:** choosing between kinds of cart: a household weighs making only the first
+      cart in the catalogue it could make (the handcart sorts before the road engine), so a
+      motor cart is weighed only where no handcart could be made; and a motor cart's wear by
+      use.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

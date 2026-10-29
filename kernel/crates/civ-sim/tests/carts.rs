@@ -194,3 +194,146 @@ fn a_cart_keeps_to_the_trails_people_wore_by_the_quickest_way() {
     }
     assert!(joined > 0, "some trail cells are joined for a cart");
 }
+
+#[test]
+fn a_road_engine_goes_as_a_cart_goes_at_its_engines_speed_and_only_with_coal_for_the_trip() {
+    // M11b, second part (ADR-0036 §7): a motor cart is a cart whose puller is its engine.
+    use civ_land::ways::{CART, Keeper, Rank, Segment, Surface, WALK, Way};
+    let mut sim = village(1);
+    sim.advance_minutes(10 * DAY).expect("lives");
+    let map = sim.map().clone();
+    let w = i64::from(map.width);
+    let cell = |at: (f32, f32)| civ_agents::population::cell_of(&map, at) as u32;
+    let straight = |a: u32, b: u32| {
+        let (mut x, mut y) = (i64::from(a) % w, i64::from(a) / w);
+        let (bx, by) = (i64::from(b) % w, i64::from(b) / w);
+        let mut cells = vec![a];
+        while (x, y) != (bx, by) {
+            x += (bx - x).signum();
+            y += (by - y).signum();
+            cells.push((y * w + x) as u32);
+        }
+        cells
+    };
+    let homes: Vec<(civ_core::PermanentId, (f32, f32))> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| (h.id, h.home))
+        .collect();
+    // A household and another some cells off, a straight line of dry land between their doors.
+    let (owner, from, to_at, cells) = homes
+        .iter()
+        .flat_map(|a| homes.iter().map(move |b| (a, b)))
+        .find_map(|(&(a, at_a), &(b, at_b))| {
+            let cells = straight(cell(at_a), cell(at_b));
+            (a != b
+                && cells.len() >= 5
+                && cells.iter().all(|&c| map.water[c as usize] == WATER_LAND))
+            .then_some((a, cell(at_a), at_b, cells))
+        })
+        .expect("two doors with dry land between");
+    // A way serving carts, wide enough for the engine, from door to door.
+    let way = sim.allocate_id_for_tests();
+    let today = sim.now().day_index();
+    let land = sim.land_mut_for_tests();
+    land.ways.add(Way {
+        id: way,
+        begun: today,
+        segments: vec![Segment {
+            cells: cells.clone(),
+            corridor_m: 4.0,
+            built_m: 4.0,
+            usable_m: 4.0,
+            surface: Surface::Cleared,
+            keeper: Keeper::Nobody,
+            kept: today,
+        }],
+        modes: WALK | CART,
+        trips: 0.0,
+        trips_day: today,
+        rank: Rank::Lane,
+        track: None,
+    });
+    land.ways.changed();
+    let catalog = &sim.rules().catalog;
+    let engine = catalog
+        .vehicle_index("core:vehicle/road_engine")
+        .expect("a road engine");
+    let handcart = catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart");
+    let coal = catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/coal")
+        .expect("coal");
+    let def = catalog.vehicles[engine].clone();
+    let goods = catalog.goods.clone();
+    let put = |sim: &mut Sim, vehicle: usize| {
+        let id = sim.allocate_id_for_tests();
+        let land = sim.land_mut_for_tests();
+        land.carts.list.clear();
+        land.carts.list.push(civ_land::boats::Boat {
+            id,
+            vehicle: vehicle as u16,
+            owner,
+            at: from,
+            made: today,
+            wear: 0.0,
+            labour_h: 0.0,
+            work_h: 0.0,
+            saves_h_year: 0.0,
+            crew: (0, 0),
+        });
+        land.carts.changed();
+        id
+    };
+    let set_coal = |sim: &mut Sim, kg: f64| {
+        for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+            if x.id == owner {
+                x.stores[coal] = kg;
+            }
+        }
+    };
+    let way_of = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.cart_way_for_tests(ctx, owner, to_at))
+    };
+    // A handcart there and back: no fuel.
+    put(&mut sim, handcart);
+    let (by_hand, none) = way_of(&mut sim).expect("a handcart goes along the way");
+    assert_eq!(none, None);
+    // The road engine without coal goes nowhere.
+    let cart = put(&mut sim, engine);
+    set_coal(&mut sim, 0.0);
+    assert_eq!(way_of(&mut sim), None);
+    // With coal it goes, quicker than the handcart, burning its power's work over its efficiency.
+    set_coal(&mut sim, 1_000.0);
+    let (by_engine, fuel) = way_of(&mut sim).expect("the engine goes with coal");
+    assert!(
+        by_engine < by_hand,
+        "{by_engine} h against {by_hand} h by hand"
+    );
+    let (f, kg) = fuel.expect("it burns coal");
+    let want = 3.6 * (def.power_w / 1000.0 * by_engine) / (25.8 * 0.05);
+    assert_eq!(f, coal);
+    assert!((kg - want).abs() < 1e-6, "{kg} against {want}");
+    // Without enough for the trip it goes nowhere either.
+    set_coal(&mut sim, kg * 0.5);
+    assert_eq!(way_of(&mut sim), None);
+    // At the seller's door the trip's coal is burned.
+    set_coal(&mut sim, 1_000.0);
+    let trip = civ_agents::reports::ByCart {
+        cart,
+        travel_min: (by_engine * 60.0) as f32,
+        load_min: 1.0,
+        unload_min: 1.0,
+    };
+    sim.with_ctx_for_tests(|pop, ctx| pop.burn_trip_fuel_for_tests(ctx, owner, trip));
+    let left = sim.people().household(owner).expect("owner").stores[coal];
+    let burned = def
+        .trip_fuel(&goods, f64::from(trip.travel_min))
+        .expect("fuel")
+        .1;
+    assert!((1_000.0 - left - burned).abs() < 1e-6, "{left}");
+}

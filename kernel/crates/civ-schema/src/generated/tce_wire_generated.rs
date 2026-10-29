@@ -22914,6 +22914,7 @@ impl<'a> BuildingInfo<'a> {
   pub const VT_GAS: ::flatbuffers::VOffsetT = 102;
   pub const VT_RECORDS: ::flatbuffers::VOffsetT = 104;
   pub const VT_WIRE: ::flatbuffers::VOffsetT = 106;
+  pub const VT_ROAD: ::flatbuffers::VOffsetT = 108;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -22931,6 +22932,7 @@ impl<'a> BuildingInfo<'a> {
     builder.add_settlement(args.settlement);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    if let Some(x) = args.road { builder.add_road(x); }
     if let Some(x) = args.wire { builder.add_wire(x); }
     if let Some(x) = args.records { builder.add_records(x); }
     if let Some(x) = args.gas { builder.add_gas(x); }
@@ -23345,6 +23347,13 @@ impl<'a> BuildingInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_WIRE, None)}
   }
+  #[inline]
+  pub fn road(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_ROAD, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
@@ -23405,6 +23414,7 @@ impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("gas", Self::VT_GAS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("records", Self::VT_RECORDS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("wire", Self::VT_WIRE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("road", Self::VT_ROAD, false)?
      .finish();
     Ok(())
   }
@@ -23462,6 +23472,7 @@ pub struct BuildingInfoArgs<'a> {
     pub gas: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub records: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub wire: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub road: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for BuildingInfoArgs<'a> {
   #[inline]
@@ -23519,6 +23530,7 @@ impl<'a> Default for BuildingInfoArgs<'a> {
       gas: None,
       records: None,
       wire: None,
+      road: None,
     }
   }
 }
@@ -23737,6 +23749,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingInfoBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_WIRE, wire);
   }
   #[inline]
+  pub fn add_road(&mut self, road: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_ROAD, road);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BuildingInfoBuilder {
@@ -23806,6 +23822,7 @@ impl ::core::fmt::Debug for BuildingInfo<'_> {
       ds.field("gas", &self.gas());
       ds.field("records", &self.records());
       ds.field("wire", &self.wire());
+      ds.field("road", &self.road());
       ds.finish()
   }
 }

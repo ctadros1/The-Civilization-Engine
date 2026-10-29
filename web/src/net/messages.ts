@@ -613,6 +613,10 @@ export interface BuildingInfo {
    * its last evening went ("Current: 0.2 kW from Ada's station; lit until 22:40"), or the station
    * its household keeps; empty for neither. */
   wire: string;
+  /** Wire 1.109 (M11b): the road line its household keeps, in the kernel's words ("Motor cart runs
+   * to Elmhollow: 1 a day, leaving at 06:00, back at 07:12; fare 210 kcal; 4 rides since day
+   * 120"), on its first building; empty for none. */
+  road: string;
 }
 
 /** How a building stands to its latest fire (wire 1.68). */
@@ -4244,6 +4248,7 @@ function buildings(f: W.Buildings): { rev: number; buildings: BuildingInfo[] } {
       gas: x.gas() ?? "",
       records: x.records() ?? "",
       wire: x.wire() ?? "",
+      road: x.road() ?? "",
     });
   }
   return { rev: Number(f.rev()), buildings: out };

@@ -259,6 +259,60 @@ fn a_motor_carts_keeper_posts_runs_to_a_market_and_riders_pay_their_fare_in_food
     .expect("saves");
     let loaded = persist::load(&saved.path, content()).expect("loads");
     assert_eq!(loaded.land().runs, before);
+    // What the observer says: an errand ridden there, and the keeper's runs on its first building
+    // once its home stands.
+    let line_id = sim.land().runs.roads[0].id;
+    let now_day = sim.now().day_index();
+    sim.people_mut_for_tests().reports.errands.insert(
+        rider,
+        civ_agents::reports::Errand {
+            market,
+            seller: keeper,
+            firm: false,
+            good: 0,
+            payment: 0,
+            units: 1.0,
+            home_h: 1.0,
+            share: 0.5,
+            day: now_day,
+            by_boat: None,
+            by_cart: None,
+            by_ride: Some(civ_agents::reports::ByRide {
+                line: line_id,
+                travel_min: 90.0,
+            }),
+        },
+    );
+    let words = civ_sim::frames::markets::errand_words(&sim, rider);
+    assert!(words.contains("motor cart there and back"), "{words}");
+    sim.advance_minutes(10 * 24 * 60).expect("lives");
+    if let Some(home_id) = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.household == keeper)
+        .map(|b| b.id)
+        && !sim.land().runs.roads.is_empty()
+    {
+        let bytes = civ_sim::frames::buildings::buildings_response(&sim);
+        let response =
+            civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&bytes).expect("wire");
+        let words = response
+            .body_as_buildings()
+            .expect("buildings")
+            .buildings()
+            .expect("a list")
+            .iter()
+            .find(|b| b.id() == home_id.get())
+            .expect("its home")
+            .road()
+            .unwrap_or_default()
+            .to_owned();
+        assert!(
+            words.starts_with("Motor cart runs to ") && words.contains("a day, leaving at 06:00"),
+            "{words}"
+        );
+    }
     // Its cart gone, the keeper stops its runs.
     sim.land_mut_for_tests().carts.list.clear();
     review(&mut sim);

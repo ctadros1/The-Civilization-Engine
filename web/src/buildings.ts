@@ -65,7 +65,9 @@ export function buildingWords(b: BuildingInfo): string {
   const records = b.records ? `; ${b.records}` : "";
   // Wire 1.107: its current, hooked up to a line or a station.
   const current = b.wire ? `; ${b.wire}` : "";
-  return `${shapeWords(b)}: ${b.status}${fire}${shows}${upkeep}${kept}${style}${site}${gas}${records}${current}`;
+  // Wire 1.109: the road line its household keeps.
+  const road = b.road ? `; ${b.road}` : "";
+  return `${shapeWords(b)}: ${b.status}${fire}${shows}${upkeep}${kept}${style}${site}${gas}${records}${current}${road}`;
 }
 
 /** A building's program and shape: "hut of 30 m², room for 5", or a frame building's bays,

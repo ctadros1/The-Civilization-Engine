@@ -41,6 +41,17 @@ pub struct RoadRide {
     pub back_to: u32,
 }
 
+/// The minutes of the day road line `l`'s runs leave each end: out from its keeper's door by its
+/// timetable, back from the hearth a run's minutes and a turn later.
+pub fn road_departures(l: &RoadLine, back: bool) -> Vec<i64> {
+    let out = departures(l.runs_a_day.clamp(1, MOST_RUNS_A_DAY));
+    if !back {
+        return out;
+    }
+    let later = f64::from(l.run_min()).ceil() as i64 + TURN_MIN;
+    out.into_iter().map(|m| m + later).collect()
+}
+
 impl Population {
     /// Household `x`'s made motor cart, and its vehicle: a cart whose vehicle has an engine.
     fn motor_cart(ctx: &Ctx, x: PermanentId) -> Option<(PermanentId, usize)> {
@@ -217,17 +228,6 @@ impl Population {
         self.review_road_line(ctx, operator, day);
     }
 
-    /// The minutes of the day road line `l`'s runs leave each end: out from its keeper's door by
-    /// its timetable, back from the hearth a run's minutes and a turn later.
-    fn road_departures(l: &RoadLine, back: bool) -> Vec<i64> {
-        let out = departures(l.runs_a_day.clamp(1, MOST_RUNS_A_DAY));
-        if !back {
-            return out;
-        }
-        let later = f64::from(l.run_min()).ceil() as i64 + TURN_MIN;
-        out.into_iter().map(|m| m + later).collect()
-    }
-
     /// A ride on a road line from cell `from` to cell `to` (M11b, third part), its ends, either
     /// way, with its cart still made and kept by its keeper, and a departure still to come today
     /// at `minute` of the day or later: as a train's [`Population::ride_from`] gives one, the fare
@@ -261,7 +261,7 @@ impl Population {
             else {
                 continue;
             };
-            let depart = Self::road_departures(l, back)
+            let depart = road_departures(l, back)
                 .into_iter()
                 .find(|&m| m >= minute && m < MINUTES_PER_DAY)?;
             let run = f64::from(l.run_min());

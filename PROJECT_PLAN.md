@@ -7939,6 +7939,11 @@ and M6a gives rivers a daily flow.
       burned once for its first two riders, back on the run home burning its own; no coal, no
       ride; saved and loaded exactly; the cart gone, the runs stop. **Simplified:** riders ride
       the timetable, not the cart (as on rail); the keeper's driving takes none of its hours.
+      *Its observer (wire 1.109):* the keeper's first building says its runs ("Motor cart runs to
+      Alderwick: 1 a day, leaving at 06:00, back at 07:18; fare 17243 kcal; 3 rides since day
+      59"), and an errand ridden says so. **Observed:** with the road engine's priors (6 kW at
+      5 %) an hour's run burns some 17 kg of coal, so a ride shared by two costs days of food and
+      is seldom worth it beside the walk; that is what the priors give, not tuned.
     - *M11c, first part (2026-10-29): telegraphy as vocabulary.* `technique/telegraphy` (requires
       writing; no work tries toward it), `good/telegraph_instrument` (a fixed tool: key, sounder
       and local cells, so the telegraph does not wait for a station; research 07-13 §1.7) and its

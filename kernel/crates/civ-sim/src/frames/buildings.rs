@@ -48,6 +48,14 @@ pub fn buildings_rev(sim: &Sim) -> u64 {
             .wrapping_add(u64::from(c.cut_off) << 12)
             .wrapping_add(u64::from(c.lit_from <= now && now < c.lit_until) << 13)
     });
+    // A road line's timetable, fare and rides (wire 1.109).
+    let gas = sim.land.runs.roads.iter().fold(gas, |rev, l| {
+        rev.wrapping_mul(31)
+            .wrapping_add(l.id.get())
+            .wrapping_add(u64::from(l.runs_a_day) << 8)
+            .wrapping_add(u64::from(l.riders) << 16)
+            .wrapping_add(u64::from(l.fare_kcal.to_bits()))
+    });
     sim.land.buildings.iter().fold(gas, |rev, b| {
         let condition = b.condition.iter().fold(0u64, |sum, c| {
             sum.wrapping_add((f64::from(c.loss) * 1e4).round().max(0.0) as u64)
@@ -575,6 +583,7 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
             let gas = fbb.create_string(&gas_words(sim, b));
             let records = fbb.create_string(&records_words(sim, b));
             let current = fbb.create_string(&wire_words(sim, b));
+            let road = fbb.create_string(&road_words(sim, b));
             wire::BuildingInfo::create(
                 &mut fbb,
                 &wire::BuildingInfoArgs {
@@ -631,6 +640,7 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                     gas: Some(gas),
                     records: Some(records),
                     wire: Some(current),
+                    road: Some(road),
                 },
             )
         })
@@ -788,6 +798,47 @@ pub(crate) fn gas_words(sim: &Sim, b: &Building) -> String {
 /// and how its last evening went ("Current: 0.2 kW from Ada's station; lit until 22:40"), and for a
 /// household's first building, the station it keeps ("Station: a dynamo beside its own water
 /// installation; feeds 2 lines, 3 homes hooked up"); empty for neither.
+/// The road line building `b`'s household keeps, in words (wire 1.109, M11b, third part), on its
+/// first building: "Motor cart runs to Elmhollow: 1 a day, leaving at 06:00, back at 07:12; fare
+/// 210 kcal; 4 rides since day 120". Empty where it keeps none.
+pub(crate) fn road_words(sim: &Sim, b: &Building) -> String {
+    let first = sim
+        .land
+        .buildings
+        .iter()
+        .find(|o| o.household == b.household)
+        .is_some_and(|o| o.id == b.id);
+    let Some(l) = sim
+        .land
+        .runs
+        .roads
+        .iter()
+        .find(|l| l.operator == b.household)
+        .filter(|_| first)
+    else {
+        return String::new();
+    };
+    let place = super::people::place_name(sim, Some(l.market));
+    let runs = l.runs_a_day.max(1);
+    let out = civ_agents::population::road_departures(l, false);
+    let back = civ_agents::population::road_departures(l, true);
+    let clock = |m: i64| super::ways::clock_at(m);
+    let leaving: Vec<String> = out.iter().map(|&m| clock(m)).collect();
+    let returning: Vec<String> = back.iter().map(|&m| clock(m)).collect();
+    let rides = match l.riders {
+        1 => "1 ride".to_owned(),
+        n => format!("{n} rides"),
+    };
+    format!(
+        "Motor cart runs to {place}: {runs} a day, leaving at {}, back at {}; fare {:.0} kcal; \
+         {rides} since day {}",
+        leaving.join(", "),
+        returning.join(", "),
+        l.fare_kcal,
+        l.since
+    )
+}
+
 pub(crate) fn wire_words(sim: &Sim, b: &Building) -> String {
     use civ_land::wire::Cause;
     let wires = &sim.land.wires;

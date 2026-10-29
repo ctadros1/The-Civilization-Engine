@@ -841,6 +841,7 @@ describe("decoders", () => {
           gas: "Gas: 1 burner on Ada's main; lit until 22:40",
           records: "Records: laying out by cord and stake, by Nell",
           wire: "Current: 0.2 kW from Ada's station; lit until 22:40",
+          road: "",
         },
       ],
     });

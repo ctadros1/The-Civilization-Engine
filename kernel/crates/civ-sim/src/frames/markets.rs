@@ -461,6 +461,16 @@ pub fn errand_words(sim: &Sim, household: PermanentId) -> String {
         seller_name(sim, e.seller),
         place_name(sim, Some(e.market))
     );
+    // Riding a road line's motor cart there and back (M11b, third part).
+    if let Some(r) = e.by_ride
+        && let Some(l) = sim.land.runs.roads.iter().find(|l| l.id == r.line)
+    {
+        let keeper = super::ways::keeper(sim, civ_land::ways::Keeper::Household(l.operator));
+        out.push_str(&format!(
+            ", riding {}'s motor cart there and back",
+            keeper.trim_end_matches("'s household")
+        ));
+    }
     // Asked by wire what is offered there first (M11c).
     if let Some(t) = sim
         .people

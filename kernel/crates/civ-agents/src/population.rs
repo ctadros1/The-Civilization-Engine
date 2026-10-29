@@ -94,7 +94,7 @@ pub use payments::Burden;
 pub use resolution::{DayBlock, NOT_TAKEN, SwitchInvariants};
 pub use sickhouse::sickhouse_bed_m2;
 pub use telegraph::{TELEGRAM_FEE_FOOD_DAYS, TelegraphReckoning};
-pub use transit::RoadRide;
+pub use transit::{RoadRide, road_departures};
 mod credit;
 mod custody;
 mod patronage;

@@ -13812,7 +13812,8 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_SITE = 100,
     VT_GAS = 102,
     VT_RECORDS = 104,
-    VT_WIRE = 106
+    VT_WIRE = 106,
+    VT_ROAD = 108
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -13970,6 +13971,9 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *wire() const {
     return GetPointer<const ::flatbuffers::String *>(VT_WIRE);
   }
+  const ::flatbuffers::String *road() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_ROAD);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -14049,6 +14053,8 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyString(records()) &&
            VerifyOffset(verifier, VT_WIRE) &&
            verifier.VerifyString(wire()) &&
+           VerifyOffset(verifier, VT_ROAD) &&
+           verifier.VerifyString(road()) &&
            verifier.EndTable();
   }
 };
@@ -14213,6 +14219,9 @@ struct BuildingInfoBuilder {
   void add_wire(::flatbuffers::Offset<::flatbuffers::String> wire) {
     fbb_.AddOffset(BuildingInfo::VT_WIRE, wire);
   }
+  void add_road(::flatbuffers::Offset<::flatbuffers::String> road) {
+    fbb_.AddOffset(BuildingInfo::VT_ROAD, road);
+  }
   explicit BuildingInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -14277,7 +14286,8 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
     ::flatbuffers::Offset<::flatbuffers::String> site = 0,
     ::flatbuffers::Offset<::flatbuffers::String> gas = 0,
     ::flatbuffers::Offset<::flatbuffers::String> records = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> wire = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> wire = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> road = 0) {
   BuildingInfoBuilder builder_(_fbb);
   builder_.add_style_from(style_from);
   builder_.add_firm(firm);
@@ -14285,6 +14295,7 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
   builder_.add_settlement(settlement);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_road(road);
   builder_.add_wire(wire);
   builder_.add_records(records);
   builder_.add_gas(gas);
@@ -14392,7 +14403,8 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
     const char *site = nullptr,
     const char *gas = nullptr,
     const char *records = nullptr,
-    const char *wire = nullptr) {
+    const char *wire = nullptr,
+    const char *road = nullptr) {
   auto program__ = program ? _fbb.CreateString(program) : 0;
   auto stage_name__ = stage_name ? _fbb.CreateString(stage_name) : 0;
   auto outline__ = outline ? _fbb.CreateVectorOfStructs<tce::wire::Vec2>(*outline) : 0;
@@ -14416,6 +14428,7 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
   auto gas__ = gas ? _fbb.CreateString(gas) : 0;
   auto records__ = records ? _fbb.CreateString(records) : 0;
   auto wire__ = wire ? _fbb.CreateString(wire) : 0;
+  auto road__ = road ? _fbb.CreateString(road) : 0;
   return tce::wire::CreateBuildingInfo(
       _fbb,
       id,
@@ -14469,7 +14482,8 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
       site__,
       gas__,
       records__,
-      wire__);
+      wire__,
+      road__);
 }
 
 struct Buildings FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

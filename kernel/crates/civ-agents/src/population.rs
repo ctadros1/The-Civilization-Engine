@@ -3886,7 +3886,7 @@ impl Population {
             .collect();
         let knows = |t: usize| self.household_knows(&hh.members, t);
         let mut wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
-        cap_power_wants(ctx, hh.id, &knows, &mut wants);
+        self.cap_power_wants(ctx, &hh, &knows, &mut wants);
         let costs_once = OnceCell::new();
         let costs = || {
             costs_once
@@ -8216,66 +8216,131 @@ pub(crate) fn crew_of(goods: &[GoodDef], recipe: &crate::params::RecipeDef) -> u
         .max(1)
 }
 
-/// Caps `holder`'s want of each powered tool at the places it has to set one: a wheel at the
-/// installations it owns whose headraces are dug (M10a slice DR), an engine at the pits it has
-/// chosen to set one at (M10a slice DS, fourth part), and a dynamo at those installations where
-/// its household `knows` a way of making one (M11a). A wheel, an engine or a dynamo is wanted
-/// only where one can be set.
-pub(crate) fn cap_power_wants(
-    ctx: &Ctx,
-    holder: PermanentId,
-    knows: &dyn Fn(usize) -> bool,
-    wants: &mut [f64],
-) {
-    use crate::params::PowerSource;
-    let (mut sites, mut pits) = (None, None);
-    for (g, want) in wants.iter_mut().enumerate() {
-        let Some(source) = ctx
-            .catalog
-            .goods
-            .get(g)
-            .and_then(|x| x.power.as_ref())
-            .map(|p| p.source)
-        else {
-            continue;
+impl Population {
+    /// Caps household `hh`'s want of each powered tool at the places it has to set one: a wheel
+    /// at the installations it owns whose headraces are dug (M10a slice DR), an engine at the pits
+    /// it has chosen to set one at (M10a slice DS, fourth part), and a dynamo at those
+    /// installations where its household `knows` a way of making one (M11a). A wheel, an engine or
+    /// a dynamo is wanted only where one can be set. Where it has no installation ready, an
+    /// engine that burns a named fuel turns a dynamo instead (M11b, first part): it is wanted by
+    /// a household that knows a way of making it and a dynamo and holds its fuel, and a dynamo by
+    /// one that holds such an engine whole. A telegraph instrument (M11c) is wanted, one, by a
+    /// household that knows a way of making it, where someone of it can write and someone of
+    /// another settlement knows the technique of a recipe making it, a far office to be.
+    pub(crate) fn cap_power_wants(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        knows: &dyn Fn(usize) -> bool,
+        wants: &mut [f64],
+    ) {
+        use crate::params::PowerSource;
+        let holder = hh.id;
+        let goods = &ctx.catalog.goods;
+        let recipe_known = |g: usize| {
+            ctx.catalog
+                .recipes
+                .iter()
+                .any(|r| r.outputs.iter().any(|&(o, _)| o == g) && r.technique.is_some_and(knows))
         };
-        let n = match source {
-            PowerSource::Water => *sites.get_or_insert_with(|| {
+        let whole = |g: usize| hh.stores.get(g).copied().unwrap_or(0.0) >= 1.0 - 1e-9;
+        let sites = std::cell::OnceCell::new();
+        let sites = || {
+            *sites.get_or_init(|| {
                 ctx.land
                     .installations
                     .iter()
                     .enumerate()
                     .filter(|&(i, x)| x.owner == holder && ctx.land.installation_ready(i))
                     .count()
-            }),
-            PowerSource::Fuel => *pits.get_or_insert_with(|| {
-                ctx.land
-                    .engines
-                    .iter()
-                    .filter(|e| e.owner == holder)
-                    .count()
-            }),
-            // A dynamo turned by an installation's shaft, wanted only by a household that knows a
-            // way of making one (M11a, fourth part).
-            PowerSource::Shaft => {
-                let known = ctx.catalog.recipes.iter().any(|r| {
-                    r.outputs.iter().any(|&(o, _)| o == g) && r.technique.is_some_and(knows)
-                });
-                if known {
-                    *sites.get_or_insert_with(|| {
-                        ctx.land
-                            .installations
-                            .iter()
-                            .enumerate()
-                            .filter(|&(i, x)| x.owner == holder && ctx.land.installation_ready(i))
-                            .count()
-                    })
-                } else {
-                    0
-                }
-            }
+            })
         };
-        *want = want.min(n as f64);
+        let pits = || {
+            ctx.land
+                .engines
+                .iter()
+                .filter(|e| e.owner == holder)
+                .count()
+        };
+        // An engine that burns a named fuel, held whole, to turn a dynamo.
+        let named_engine = || {
+            goods.iter().enumerate().any(|(g, d)| {
+                d.power
+                    .is_some_and(|p| p.source == PowerSource::Fuel && p.fuel.is_some())
+                    && whole(g)
+            })
+        };
+        let dynamo_known = || {
+            goods.iter().enumerate().any(|(g, d)| {
+                d.power.is_some_and(|p| p.source == PowerSource::Shaft) && recipe_known(g)
+            })
+        };
+        for (g, want) in wants.iter_mut().enumerate() {
+            let Some(d) = goods.get(g) else {
+                continue;
+            };
+            if d.telegraph.is_some() && d.power.is_none() {
+                *want = want.min(f64::from(u8::from(
+                    self.wants_instrument(ctx, hh, g, knows),
+                )));
+                continue;
+            }
+            let Some(p) = d.power.as_ref() else {
+                continue;
+            };
+            let n = match (p.source, p.fuel) {
+                (PowerSource::Water, _) => sites(),
+                (PowerSource::Fuel, None) => pits(),
+                (PowerSource::Fuel, Some(fuel)) => usize::from(
+                    sites() == 0
+                        && recipe_known(g)
+                        && dynamo_known()
+                        && hh.stores.get(fuel).copied().unwrap_or(0.0) > 0.0,
+                ),
+                (PowerSource::Shaft, _) if recipe_known(g) => {
+                    sites().max(usize::from(named_engine()))
+                }
+                (PowerSource::Shaft, _) => 0,
+            };
+            *want = want.min(n as f64);
+        }
+    }
+
+    /// Whether household `hh` wants telegraph instrument `g` (M11c): it knows a way of making it,
+    /// someone of it can write, and someone of another settlement knows the technique of a
+    /// recipe making it.
+    fn wants_instrument(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        g: usize,
+        knows: &dyn Fn(usize) -> bool,
+    ) -> bool {
+        let Some(home) = hh.settlement else {
+            return false;
+        };
+        let Some(writing) = Self::letter_technique(ctx.catalog, Behavior::Write) else {
+            return false;
+        };
+        let techniques: Vec<usize> = ctx
+            .catalog
+            .recipes
+            .iter()
+            .filter(|r| r.outputs.iter().any(|&(o, _)| o == g))
+            .filter_map(|r| r.technique)
+            .collect();
+        if techniques.is_empty() || !techniques.iter().any(|&t| knows(t)) || !knows(writing) {
+            return false;
+        }
+        self.households
+            .iter()
+            .map(|(_, y)| y)
+            .filter(|y| y.settlement.is_some_and(|s| s != home))
+            .flat_map(|y| y.members.iter())
+            .any(|&m| {
+                self.person(m)
+                    .is_some_and(|q| techniques.iter().any(|&t| q.knows(t)))
+            })
     }
 }
 

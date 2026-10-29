@@ -623,3 +623,19 @@ fn the_observer_shows_offices_their_wires_and_who_waits_on_an_answer() {
         "{words}"
     );
 }
+
+#[test]
+fn a_household_that_knows_the_telegraph_and_writes_wants_an_instrument_where_another_settlement_knows_it()
+ {
+    let mut sim = world();
+    let [(a, _, _), (b, _, _)] = pair(&sim);
+    let instrument = good(&sim, "core:good/telegraph_instrument");
+    let keep =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.keep_for_tests(ctx, a)[instrument]);
+    assert_eq!(keep(&mut sim), 0.0, "nobody knows the telegraph");
+    teach(&mut sim, a, "core:technique/telegraphy");
+    teach(&mut sim, a, "core:technique/writing");
+    assert_eq!(keep(&mut sim), 0.0, "nobody elsewhere to wire to");
+    teach(&mut sim, b, "core:technique/telegraphy");
+    assert!(keep(&mut sim) >= 1.0, "one, to be an office");
+}

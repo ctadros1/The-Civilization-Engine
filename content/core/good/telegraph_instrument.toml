@@ -14,7 +14,7 @@ reserve_for = ""
 
 [tool]
 life_h = 30000.0
-per_worker = 0.0
+per_worker = 0.1
 fixed = true
 
 # Some twenty words at ten a minute, with writing out and handling: six messages an hour (a design

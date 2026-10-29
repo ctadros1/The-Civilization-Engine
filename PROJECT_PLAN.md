@@ -7972,6 +7972,17 @@ and M6a gives rivers a daily flow.
       asked. **Tested:** kernel (the layer's flag, share strung and words, its revision moving as
       a wire is strung, the office's and the errand's words) and web (decoding the flag, the
       look).
+    - *M11, wanted where they could be set (2026-10-29).* The dynamo, the gas engine and the
+      telegraph instrument were never wanted (`per_worker` 0), so in a lived world nobody made
+      them and stations and offices came only from goods handed over. Like a water wheel, each is
+      now wanted one at a time (`per_worker` 0.1) only where it could be set: a dynamo where its
+      household knows how one is made and a ready installation of its own, or a gas engine it
+      holds whole, could turn it; a gas engine where it knows how one and a dynamo are made, has
+      no water of its own and holds the gas it burns; an instrument where it knows how one is
+      made, someone of it writes, and someone of another settlement knows the technique, a far
+      office to be. Nobody knows these techniques unless the observer brings them, so a world
+      without them lives as before. **Tested:** each want appears only with its last condition
+      met.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

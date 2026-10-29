@@ -974,3 +974,38 @@ fn a_gas_engine_turns_a_dynamo_where_no_water_falls_burning_its_gas_by_the_curre
     sim.with_ctx_for_tests(|pop, ctx| pop.wire_evening_for_tests(ctx));
     assert_eq!(sim.land().wires.hookups[0].cause, Cause::StationShort);
 }
+
+#[test]
+fn a_dynamo_and_a_gas_engine_are_wanted_only_where_one_could_turn_the_other() {
+    // A household wants a dynamo only where it knows how one is made and a ready installation of
+    // its own, or a gas engine it holds, could turn it; and a gas engine where it knows how one
+    // and a dynamo are made, has no water of its own and holds the gas it burns.
+    let mut sim = world();
+    let station = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h.id)
+        .next()
+        .expect("a household");
+    let goods = sim.rules().catalog.goods.clone();
+    let index = |id: &str| goods.iter().position(|g| g.id == id).expect(id);
+    let (dynamo, engine, gas) = (
+        index("core:good/dynamo"),
+        index("core:good/gas_engine"),
+        index("core:good/coal_gas"),
+    );
+    let keep = |sim: &mut Sim, g: usize| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.keep_for_tests(ctx, station)[g])
+    };
+    assert_eq!((keep(&mut sim, dynamo), keep(&mut sim, engine)), (0.0, 0.0));
+    teach(&mut sim, station, "core:technique/dynamo");
+    teach(&mut sim, station, "core:technique/gas_engine");
+    // Knowing how is not enough: nothing to turn one, and no gas to burn.
+    assert_eq!((keep(&mut sim, dynamo), keep(&mut sim, engine)), (0.0, 0.0));
+    // Holding gas, it wants an engine to burn it; holding the engine, a dynamo to turn.
+    set(&mut sim, station, gas, 5.0);
+    assert!(keep(&mut sim, engine) >= 1.0);
+    set(&mut sim, station, engine, 1.0);
+    assert!(keep(&mut sim, dynamo) >= 1.0);
+}

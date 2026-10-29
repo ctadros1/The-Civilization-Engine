@@ -469,7 +469,18 @@ pub struct PatchOption {
     /// For digging: a ride out to the pit on a line's train, where it is quicker for its fare
     /// than walking there (M10b slice DX, fourth part).
     pub by_ride: Option<RideLegs>,
+    /// For digging where the settlement knows no body of the good within reach: a walk to look
+    /// for one over the kind of ground it lies in, out to `at`, across to this point and home, and
+    /// the minutes of the whole loop (M11d; ADR-0010 §1: a body is found when a route passes near
+    /// it). Nothing is dug.
+    pub prospect: Option<((f32, f32), f64)>,
 }
+
+/// What a walk over the right ground to look for a body is worth, in loads of what the household
+/// is short of (M11d): a body found gives many loads, and a day's walk finds one with well under
+/// certainty, so about one load's worth together. A tuning value, logged as a nudge (plan §9):
+/// the research gives no figure for how often prospecting found an outcrop.
+pub const PROSPECT_HOPE: f64 = 1.0;
 
 /// A ride out on a line's train (M10b slice DX, fourth part): the station to walk to, and the
 /// line's end cell to ride to.
@@ -1304,6 +1315,42 @@ pub fn candidates(
                     continue;
                 };
                 let walk = patch.walk_min;
+                // A walk to look for a body nobody here knows of (M11d): out, across and home, in
+                // daylight, worth what a found body would bring toward the tools it is for, as
+                // far as such a walk is believed to find one.
+                if let Some((across, out_and_home)) = patch.prospect {
+                    if def.daylight_only && light < out_and_home + 20.0 {
+                        excluded.push((id, Reason::NotInDark));
+                        continue;
+                    }
+                    if patch.tool_need_kg <= 0.0 {
+                        excluded.push((id, Reason::NotNeeded));
+                        continue;
+                    }
+                    let scale = patch.tool_need_kg.min(limits.carry_kg);
+                    let found = scale / (scale + scale / 2.0).max(1e-6);
+                    term(&mut terms, Reason::Tools, w.w_tools * found * PROSPECT_HOPE);
+                    if patch.tool_blocked {
+                        term(
+                            &mut terms,
+                            Reason::Deadline,
+                            w.w_deadline * found * PROSPECT_HOPE,
+                        );
+                    }
+                    // Only walking: nothing is dug.
+                    term(
+                        &mut terms,
+                        Reason::Walking,
+                        -w.w_walk_hour * out_and_home / 60.0,
+                    );
+                    let steps = vec![
+                        Step::Walk { to: patch.at },
+                        Step::Walk { to: across },
+                        Step::Walk { to: f.home },
+                    ];
+                    out.push(finish(id, Target::None, terms, steps));
+                    continue;
+                }
                 // How long daylight allows, after the walk there and back.
                 let room = if def.daylight_only {
                     light - 2.0 * walk - 20.0
@@ -3231,6 +3278,7 @@ mod tests {
                 at: (50.0, 0.0),
                 deposit: None,
                 by_ride: None,
+                prospect: None,
             })
         };
         let shop = Workshop {
@@ -3307,6 +3355,7 @@ mod tests {
                 at: (50.0, 0.0),
                 deposit: None,
                 by_ride: None,
+                prospect: None,
             })
         };
         let none = |_: usize| false;

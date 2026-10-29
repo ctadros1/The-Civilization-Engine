@@ -735,3 +735,63 @@ fn an_office_to_be_short_of_iron_keeps_bog_ore_toward_its_instrument_once_it_kno
     assert!(k[ore] >= 80.0 - 1e-6, "the ore: {}", k[ore]);
     assert!(k[charcoal] > 0.0, "the charcoal: {}", k[charcoal]);
 }
+
+/// Prospecting (M11d): an office to be short of its instrument's copper, whose settlement knows no
+/// body of copper ore, sends someone to look over the kind of ground it lies in, and finds an
+/// outcrop where they look; the same household without the want does not go, and in the same days
+/// nobody's other walks pass near it.
+#[test]
+fn an_office_to_be_short_of_copper_looks_for_it_and_finds_an_outcrop_nobody_passed() {
+    let found = |want: bool| -> bool {
+        let mut sim = world();
+        let [(a, sa, _), (b, _, _)] = pair(&sim);
+        let ore = good(&sim, "core:good/copper_ore");
+        let max_walk = sim
+            .rules()
+            .catalog
+            .activities
+            .iter()
+            .find(|x| x.id == "core:activity/dig_ore")
+            .map(|x| f64::from(x.max_walk_minutes))
+            .expect("digging ore");
+        // An outcrop where the household would look on one of the coming days, twenty minutes to
+        // half an hour out, beyond the ground its daily round crosses: the same place whether or
+        // not it wants copper.
+        let today = sim.now().day_index();
+        let at = (today + 1..today + 30)
+            .find_map(|day| {
+                sim.with_ctx_for_tests(|pop, ctx| {
+                    pop.prospect_points_for_tests(ctx, a, ore, max_walk, day)
+                })
+                .filter(|p| (20.0..30.0).contains(&p.walk_min))
+                .map(|p| p.at)
+            })
+            .expect("copper ground within half an hour of home");
+        let body = sim
+            .place_deposit(at, "core:good/copper_ore", 10.0, true)
+            .expect("placed");
+        if want {
+            for t in [
+                "core:technique/telegraphy",
+                "core:technique/writing",
+                "core:technique/copper_smelting",
+            ] {
+                teach(&mut sim, a, t);
+            }
+            teach(&mut sim, b, "core:technique/telegraphy");
+            for (g, kg) in [("core:good/iron", 8.0), ("core:good/timber", 4.0)] {
+                let g = good(&sim, g);
+                set(&mut sim, a, g, kg);
+            }
+        }
+        for _ in 0..30 {
+            sim.advance_minutes(24 * 60).expect("advances");
+            if sim.people().knows_deposit(sa, body) {
+                return true;
+            }
+        }
+        false
+    };
+    assert!(found(true), "it looked and found the outcrop");
+    assert!(!found(false), "nobody passed near it without looking");
+}

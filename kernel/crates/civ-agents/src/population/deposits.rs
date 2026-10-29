@@ -38,7 +38,115 @@ fn to_segment(p: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64 {
     (p.0 - (a.0 + t * dx)).hypot(p.1 - (a.1 + t * dy))
 }
 
+/// Places drawn to look at when choosing where to prospect (M11d): enough to find ground of the
+/// right kind within reach where there is any, few enough to draw on every decision.
+const PROSPECT_DRAWS: usize = 32;
+
+/// Its key in the world's draws.
+const PURPOSE_PROSPECT: u64 = 0x7072_6f73_7065_6374; // "prospect"
+
+/// A walk to look for a body (M11d): out to `at`, across to `across`, and home; `walk_min` is the
+/// walk out and `loop_min` the whole of it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Prospect {
+    pub at: (f32, f32),
+    pub across: (f32, f32),
+    pub walk_min: f64,
+    pub loop_min: f64,
+}
+
 impl Population {
+    /// Where someone of household `household` would look on day `day` for a body of good `good`
+    /// (M11d): two places drawn afresh each day on ground of the slope the land profile's rule for
+    /// it lays bodies on, within `max_walk_min` of its home by its walking field `reach`, the first
+    /// and the one farthest from it, and the walks. None where the profile lays no such body or no
+    /// such ground is in reach.
+    /// Looking finds what walking brings ([`Self::look_for_deposits`]).
+    pub(super) fn prospect_points(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        reach: &TravelField,
+        good: usize,
+        max_walk_min: f64,
+        day: i64,
+    ) -> Option<Prospect> {
+        let home = self.household(household)?.home;
+        let rule = ctx.land_params.deposits.iter().find(|r| r.good == good)?;
+        let map = ctx.map;
+        let mut rng = Rng64::from_key(&[ctx.seed, PURPOSE_PROSPECT, household.get(), day as u64]);
+        // As far as a walk of that long goes at an easy pace off the trails.
+        let radius =
+            max_walk_min * 60.0 * ctx.params.nav.tobler_ms(0.0) * ctx.params.nav.offtrail_factor;
+        let (w, h) = (map.width as f64, map.height as f64);
+        let cell_m = f64::from(map.cell_size_m);
+        let mut found: Vec<((f32, f32), f64)> = Vec::new();
+        for _ in 0..PROSPECT_DRAWS {
+            let angle = rng.next_f64() * std::f64::consts::TAU;
+            let r = radius * rng.next_f64().sqrt();
+            let (x, y) = (
+                f64::from(home.0) + r * angle.cos(),
+                f64::from(home.1) + r * angle.sin(),
+            );
+            if !(x >= 0.0 && y >= 0.0 && x < w * cell_m && y < h * cell_m) {
+                continue;
+            }
+            let at = (x as f32, y as f32);
+            let cell = cell_of(map, at);
+            if map.water[cell] != WATER_LAND {
+                continue;
+            }
+            let slope = f64::from(civ_world::terrain::slope_at(map, cell));
+            if slope < rule.slope.0 || slope > rule.slope.1 {
+                continue;
+            }
+            let Some(secs) = reach.seconds_to(cell) else {
+                continue;
+            };
+            let walk = f64::from(secs) / 60.0;
+            if walk <= max_walk_min {
+                found.push((at, walk));
+            }
+        }
+        // Anywhere of the kind within reach, a day at a time: with no memory of where they have
+        // looked, the search covers the ground over the days, a near place worth more than a far.
+        // From there across to the place of the day's draws farthest from it, and home: a loop
+        // over the ground rather than out and back along one line.
+        let &(at, walk_min) = found.first()?;
+        let span = |p: (f32, f32)| f64::from((p.0 - at.0).hypot(p.1 - at.1));
+        let (across, back_min) = found
+            .iter()
+            .copied()
+            .max_by(|a, b| span(a.0).total_cmp(&span(b.0)))
+            .unwrap_or((at, walk_min));
+        let pace = (ctx.params.nav.tobler_ms(0.0) * ctx.params.nav.offtrail_factor).max(0.1);
+        let loop_min = walk_min + span(across) / pace / 60.0 + back_min;
+        Some(Prospect {
+            at,
+            across,
+            walk_min,
+            loop_min,
+        })
+    }
+
+    /// Where someone of household `household` would look on day `day` for a body of good `good`
+    /// within `max_walk_min` of home ([`Self::prospect_points`]), by its settlement's walking field
+    /// once one is drawn: for tests.
+    #[doc(hidden)]
+    pub fn prospect_points_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        good: usize,
+        max_walk_min: f64,
+        day: i64,
+    ) -> Option<Prospect> {
+        let hh = self.household(household)?;
+        let key = hh.settlement.unwrap_or(household);
+        let reach = &self.homes.get(&key)?.reach;
+        self.prospect_points(ctx, household, reach, good, max_walk_min, day)
+    }
+
     /// Whether settlement `settlement` knows deposit `deposit`.
     pub fn knows_deposit(&self, settlement: PermanentId, deposit: PermanentId) -> bool {
         self.deposits_known

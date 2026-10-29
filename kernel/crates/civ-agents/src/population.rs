@@ -117,7 +117,7 @@ mod wells;
 pub use wells::WellWeighed;
 mod word;
 
-pub use deposits::{DepositKnown, FIND_M};
+pub use deposits::{DepositKnown, FIND_M, Prospect};
 pub use influence::{PURPOSE_IDEOLOGY_HEARD, Reached};
 pub use loads::{
     DIES_IN_RUIN, DIES_UNDER_FLOOR, DIES_UNDER_ROOF, LIVE_PA, SNOW_TOLD_PA, SPILLED,
@@ -4262,11 +4262,55 @@ impl Population {
                                 at,
                                 deposit: Some(d.id),
                                 by_ride: None,
+                                prospect: None,
                             },
                         ));
                     }
                 }
-                let mut o = best.map(|(_, o)| o)?;
+                // Knowing no body of it within reach, nor any patch where it is gathered, and short
+                // of it for a tool, someone may go and look for one over the kind of ground it lies
+                // in (M11d).
+                let Some((_, mut o)) = best else {
+                    let gathers_it = hh.known.iter().any(|k| {
+                        land_params
+                            .resources
+                            .get(usize::from(k.resource))
+                            .is_some_and(|r| r.good == g)
+                    });
+                    if tool_need_kg <= 0.0 || gathers_it {
+                        return None;
+                    }
+                    let deposits::Prospect {
+                        at,
+                        across,
+                        walk_min,
+                        loop_min,
+                    } = self.prospect_points(
+                        ctx,
+                        hh.id,
+                        reach,
+                        g,
+                        f64::from(a.max_walk_minutes),
+                        ctx.now.day_index(),
+                    )?;
+                    return Some(PatchOption {
+                        patch: 0,
+                        walk_min,
+                        kg_per_hour: 0.0,
+                        purpose: good.purpose,
+                        kcal_per_kg: good.kcal_per_kg,
+                        fuel_ratio: heat_of(g),
+                        stored_days: 0.0,
+                        need_kg,
+                        urgency: build_urgency,
+                        tool_need_kg,
+                        tool_blocked: tool_material_blocked.get(g).copied().unwrap_or(false),
+                        at,
+                        deposit: None,
+                        by_ride: None,
+                        prospect: Some((across, loop_min)),
+                    });
+                };
                 // Out to the pit on a line's train (M10b slice DX, fourth part), where the ride's
                 // minutes and its fare, at the household's own cost of the fuel it is paid in,
                 // come to less than the walk; home on foot.
@@ -4389,6 +4433,7 @@ impl Population {
                             at: cell_centre(map, cell as usize),
                             deposit: None,
                             by_ride: None,
+                            prospect: None,
                         },
                     ));
                 }

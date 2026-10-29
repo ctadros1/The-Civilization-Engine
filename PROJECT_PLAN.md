@@ -8073,6 +8073,23 @@ and M6a gives rivers a daily flow.
       30, three years): a taught settlement gathers bog ore and smelts and forges its iron, keeps
       1,879 kg of ore toward a dynamo once its water installation stands, and copper, dug only at
       a deposit its settlement knows, is what it waits on now. The long run is the homelab's.
+    - *M11d, third part (2026-10-29): the second long run, and prospecting.* The homelab's run on
+      5727ef1 (run 40840541556; eight years, 3.0 s a day, saved and loaded at 927 people) smelted
+      and forged iron in all three taught settlements from the first year, each holding the eight
+      kilograms its instrument wants, and found no copper anywhere in eight years: none held, no
+      ore. The record now also says, at the founding, where each taught settlement's nearest
+      body of copper ore lies: Thorndale's 3.5 km off and showing, Sedgehollow's 1.7 km and
+      buried (its nearest showing one 2.2 km), Stonefield's 0.5 km and showing, which nobody passed
+      in eight years, as a body is found only when a walk happens near it. Households now prospect (§9 NUDGE): one short of a dug
+      material for a tool, knowing no body of it in reach and having worked no patch where it is
+      gathered, walks a loop over the slope such bodies lie on, through a place drawn each day
+      and the day's draw farthest from it. **Tested:** an office to be short of copper, whose
+      settlement knows none, finds an outcrop on ground it searches; the same household without
+      the want does not go, and nobody else passes it in thirty days. Traced on the demo's own
+      world (not long-run): Stonefield's people prospect, but its homes lie at the map's edge, so
+      only 101 days a year draw copper ground within reach, and no day's loop passes its
+      outcrop; finding a body of ten or twenty metres by search stays rare, as it was. The
+      deposit, digging, coal, metal, iron, works and telegraph targets pass.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 
@@ -8178,6 +8195,17 @@ and M6a gives rivers a daily flow.
 
 ## 9. Decisions log
 
+- **Design priors for prospecting (2026-10-29, M11d's third part, ADR-0010 §1):** NUDGE: a
+  household short of a dug material for a tool, whose settlement knows no body of it within reach
+  and which has worked no patch where it is gathered, may send someone on a walk over ground of the
+  slope the land profile lays such bodies on: out to a place drawn that day within the digging
+  activity's walk, across to the day's draw farthest from it, and home (32 draws, nothing
+  remembered of where they looked). The walk is worth one load of what is short
+  (`PROSPECT_HOPE` 1.0: a found body gives many loads and a day's search finds one with well under
+  certainty), less its walking; nothing is dug, and a body is found as on any walk, when the route
+  passes within 50 m of a showing one. None of it is measured; the research gives no figure for how
+  often prospecting found an outcrop. Revisited when a demo shows a settlement that wants copper
+  and never finds any within a day's walk where bodies lie.
 - **M11 design (2026-10-28, plan §7, proposed):** from two briefs (`docs/briefs/m11-power.md`, `m11-movement.md`), which read 07-13 and 12-09 against the code, [ADR-0036](decisions/0036-electricity-and-the-telegraph.md), Proposed. Electricity stands on M10's machinery (power at a site, engines, mains with connections, the meter, light): radial, direct current at one voltage, dispatched by the served hour, service records and no bonus for a connection; far techniques (AC, turbines, nuclear, photovoltaics) left to the observer. Engines are components, motor vehicles are timed by power over pull, transit reuses runs, and a telegraph's messages enter the existing hearing paths. Modern architecture and waste wait for research. Accepted only when the owner merges it.
 - **2026-10-28 — Autonomous development on a VM (owner request):** an agent on a dedicated servernode3 VM (official Agent SDK, API credits, a fixed total budget; two Rust workers) continues the plan in order without a prompt per slice. It has repository-scoped GitHub access (2026-10-28: "continue autonomously ... until the $100 budget is spent", a lifetime ceiling); it pushes only `codex/*` branches and opens pull requests on this repository; main is merged by the owner alone. It never force-pushes, deletes branches, releases, or changes access, secrets, billing or runners. Benchmarks compare revisions on one machine and allocation (`tools/ci/bench-compare.sh`).
 - **2026-10-22 — Optional Actions capacity (owner request):** add an isolated Ubuntu runner VM on servernode4 with shared `tce-ci`, automatic guest/service startup, and explicit `node4` dispatch. Keep it outside the default permanent health matrix and scheduled `tce-long` work; GitHub routes pooled jobs to available runners. Drain before shutdown or switching to Windows.

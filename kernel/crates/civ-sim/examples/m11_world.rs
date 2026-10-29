@@ -331,6 +331,54 @@ fn way_there(sim: &mut Sim, s: PermanentId, known: &[usize]) -> String {
     )
 }
 
+/// Where the copper lies from settlement `s`'s hearth, in words: the nearest body of copper ore,
+/// how far and whether it shows at the surface (where a walker passing within
+/// `civ_agents::population::deposits::FIND_M` finds it), and how many lie on the map. Copper
+/// is also picked where it weathers out on upland ground, which this does not measure.
+fn copper_near(sim: &Sim, s: PermanentId) -> String {
+    let Some(copper) = sim.rules().catalog.good_index("core:good/copper_ore") else {
+        return "no copper ore in the content".to_owned();
+    };
+    let Some(hearth) = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|x| x.id == s)
+        .map(|x| x.hearth_m)
+    else {
+        return "no hearth".to_owned();
+    };
+    let bodies: Vec<_> = sim
+        .land()
+        .deposits
+        .iter()
+        .filter(|d| usize::from(d.body.good) == copper)
+        .collect();
+    let nearest = bodies
+        .iter()
+        .map(|d| {
+            let (x, y) = (d.body.at_cm.0 as f64 / 100.0, d.body.at_cm.1 as f64 / 100.0);
+            (
+                (x - f64::from(hearth.0)).hypot(y - f64::from(hearth.1)),
+                d.body.exposed,
+            )
+        })
+        .min_by(|a, b| a.0.total_cmp(&b.0));
+    match nearest {
+        Some((m, exposed)) => format!(
+            "copper: the nearest body of its ore {:.1} km from the hearth, {}; {} on the map",
+            m / 1000.0,
+            if exposed {
+                "showing at the surface"
+            } else {
+                "buried"
+            },
+            bodies.len()
+        ),
+        None => "copper: no body of its ore on the map".to_owned(),
+    }
+}
+
 /// What has been paid on `channel`, kcal of food, world-wide.
 fn paid(sim: &Sim, channel: Channel) -> f64 {
     let goods = &sim.rules().catalog.goods;
@@ -409,6 +457,7 @@ fn make(saves: &Path, groups: u32, people: u32, years: i64, size: u32) -> Result
             sim.people().name_of(p),
             VOCABULARY.len()
         ));
+        say(format!("  {}", copper_near(&sim, s)));
     }
     let started = Instant::now();
     sim.advance_to_midnight().map_err(|e| e.to_string())?;

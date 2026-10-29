@@ -13056,13 +13056,35 @@ fn encode_wires(wires: &civ_land::wire::Wires) -> Vec<u8> {
             )
         })
         .collect();
+    let telegraphs: Vec<_> = wires
+        .telegraphs
+        .iter()
+        .map(|t| {
+            let cells = fbb.create_vector(&t.cells);
+            save::TelegraphSave::create(
+                &mut fbb,
+                &save::TelegraphSaveArgs {
+                    cells: Some(cells),
+                    id: t.id.get(),
+                    a: t.a.get(),
+                    b: t.b.get(),
+                    length_m: t.length_m,
+                    laid_m: t.laid_m,
+                    broken: t.broken,
+                    worth_h: t.worth_h,
+                },
+            )
+        })
+        .collect();
     let lines = fbb.create_vector(&lines);
     let hookups = fbb.create_vector(&hookups);
+    let telegraphs = fbb.create_vector(&telegraphs);
     let root = save::WiresSave::create(
         &mut fbb,
         &save::WiresSaveArgs {
             lines: Some(lines),
             hookups: Some(hookups),
+            telegraphs: Some(telegraphs),
         },
     );
     fbb.finish(root, None);
@@ -13070,7 +13092,7 @@ fn encode_wires(wires: &civ_land::wire::Wires) -> Vec<u8> {
 }
 
 fn decode_wires(bytes: &[u8], tag: SectionTag) -> Result<civ_land::wire::Wires, LoadError> {
-    use civ_land::wire::{Hookup, Line, Wires};
+    use civ_land::wire::{Hookup, Line, Telegraph, Wires};
     let root = section_root::<save::WiresSave>(bytes).map_err(|e| unreadable(tag, &e))?;
     let mut wires = Wires::default();
     for l in root.lines().iter().flatten() {
@@ -13097,6 +13119,18 @@ fn decode_wires(bytes: &[u8], tag: SectionTag) -> Result<civ_land::wire::Wires, 
             cause: civ_land::wire::Cause::from_code(h.cause()),
             asked: h.asked(),
             served: h.served(),
+        });
+    }
+    for t in root.telegraphs().iter().flatten() {
+        wires.telegraphs.push(Telegraph {
+            id: required(t.id(), "a telegraph wire")?,
+            a: required(t.a(), "a telegraph wire's office")?,
+            b: required(t.b(), "a telegraph wire's far office")?,
+            cells: t.cells().map(|v| v.iter().collect()).unwrap_or_default(),
+            length_m: t.length_m(),
+            laid_m: t.laid_m(),
+            broken: t.broken(),
+            worth_h: t.worth_h(),
         });
     }
     Ok(wires)

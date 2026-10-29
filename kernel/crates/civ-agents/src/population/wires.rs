@@ -50,7 +50,10 @@ fn meter_kcal_kwh(ctx: &Ctx) -> f64 {
 
 /// The hours of its own work a kcal of food costs a household whose own costs are `costs`: its
 /// cheapest food it puts a figure on. `None` where it puts one on none.
-fn hours_per_kcal(goods: &[crate::params::GoodDef], costs: &[Option<f64>]) -> Option<f64> {
+pub(super) fn hours_per_kcal(
+    goods: &[crate::params::GoodDef],
+    costs: &[Option<f64>],
+) -> Option<f64> {
     goods
         .iter()
         .enumerate()
@@ -622,7 +625,7 @@ impl Population {
 
     /// The route of a line for household `station` from cell `from` to cell `to` and its length,
     /// metres, as [`Population::begin_line`] lays it.
-    fn wire_route(
+    pub(super) fn wire_route(
         &self,
         ctx: &Ctx,
         station: PermanentId,

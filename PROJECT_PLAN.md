@@ -7919,6 +7919,27 @@ and M6a gives rivers a daily flow.
       cart in the catalogue it could make (the handcart sorts before the road engine), so a
       motor cart is weighed only where no handcart could be made; and a motor cart's wear by
       use.
+    - *M11c, first part (2026-10-29): telegraphy as vocabulary.* `technique/telegraphy` (requires
+      writing; no work tries toward it), `good/telegraph_instrument` (a fixed tool: key, sounder
+      and local cells, so the telegraph does not wait for a station; research 07-13 §1.7) and its
+      smith's recipe in copper, iron and timber.
+    - *M11c, second part (2026-10-29): offices and the wire between them.* A good may send by wire
+      (`[telegraph] messages_h`, content API 206; the instrument six an hour, a design prior). An
+      office is a household holding a whole instrument and someone grown of it who can write and
+      knows every technique of a recipe making it, its operator (derived, not saved). On its day
+      of the year an office weighs a wire to each office of another settlement it has none with,
+      as a station weighs a line: routed along ways with leave from its home to the other's,
+      worth a year the fee (a twentieth of a person's day's food a message, a design prior) in
+      its own hours of food for each errand its settlement's people ran to that market in a
+      year (the more of this year's and last year's contacts, bought or not), as though each had
+      asked by wire first; against stringing and conductor at the wire's rates. It begins the
+      best that repays over a wire's life and strings it as its way work; the far office strings
+      none. Telegraph wires are kept with the land's wires (appended within the unreleased saves
+      220) and carry nothing yet. **Tested:** an instrument without a writer is no office; with
+      no errands, or no way between the offices, no wire is reckoned; half the errands, half the
+      worth; the wire begun runs from home to home, is strung only by its office and only from
+      its copper, and saves and loads exactly. **Simplified:** the wire is the `[wire]` profile's
+      copper conductor, not a telegraph's iron.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

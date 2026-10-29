@@ -482,6 +482,16 @@ pub struct GoodDef {
     /// What it holds as a gas holder (M10b slice DY, ADR-0034 §8; content API 172): `None` for a
     /// good that holds nothing apart.
     pub holder: Option<GoodHolder>,
+    /// What it sends as a telegraph instrument (M11c, ADR-0036 §8; content API 206): `None` for
+    /// a good that is not one.
+    pub telegraph: Option<GoodTelegraph>,
+}
+
+/// What a telegraph instrument sends (M11c; ADR-0036 §8): the messages its operator sends an
+/// hour (a design prior in the core content: some twenty words at ten a minute, with handling).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GoodTelegraph {
+    pub messages_h: f64,
 }
 
 /// What a holder keeps (M10b slice DY; ADR-0034 §8): a good that keeps only in it, and how many

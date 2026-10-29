@@ -557,6 +557,7 @@ mod tests {
             power: None,
             light: None,
             holder: None,
+            telegraph: None,
             money: None,
             id: id.into(),
             name: id.into(),
@@ -701,6 +702,7 @@ mod tests {
             power: None,
             light: None,
             holder: None,
+            telegraph: None,
             half_life_days: 3.0,
             ..good("meat", GoodUse::Food, 1500.0, Eaten::Cooked)
         });
@@ -710,6 +712,7 @@ mod tests {
             power: None,
             light: None,
             holder: None,
+            telegraph: None,
             half_life_days: 180.0,
             ..good("dried", GoodUse::Food, 3750.0, Eaten::Raw)
         });

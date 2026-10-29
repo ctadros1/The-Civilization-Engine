@@ -3928,9 +3928,25 @@ table WireHookupSave {
   served: uint (id: 8);
 }
 
+// A telegraph wire between two offices (M11c; ADR-0036 §8): the households it joins (the first
+// strings it), its cells from the first's home, its length, metres strung, whether broken, and the
+// hours a year the first reckoned it would repay.
+table TelegraphSave {
+  id: ulong (id: 0);
+  a: ulong (id: 1);
+  b: ulong (id: 2);
+  cells: [uint] (id: 3);
+  length_m: double (id: 4);
+  laid_m: double (id: 5);
+  broken: bool (id: 6);
+  worth_h: double (id: 7);
+}
+
 table WiresSave {
   lines: [WireLineSave] (id: 0);
   hookups: [WireHookupSave] (id: 1);
+  // Telegraph wires (M11c, appended within schema 220).
+  telegraphs: [TelegraphSave] (id: 2);
 }
 
 // Goods in transit (schema 143, M8b slice CO; ADR-0029 §3): each load's owner household, carrier

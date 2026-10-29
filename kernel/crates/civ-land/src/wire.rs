@@ -134,11 +134,43 @@ impl Hookup {
     }
 }
 
-/// Every line and hookup, in the order made (saved in the `wires` section, schema 220).
+/// A telegraph wire between two offices (M11c; ADR-0036 §8): strung as a line is, along ways
+/// from office `a`'s home to office `b`'s, by `a`'s household. It carries messages only once whole
+/// and unbroken, and no current.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Telegraph {
+    pub id: PermanentId,
+    /// The office households it joins: the one that strings it, and the far one.
+    pub a: PermanentId,
+    pub b: PermanentId,
+    /// The cells it runs along from `a`'s home.
+    pub cells: Vec<u32>,
+    pub length_m: f64,
+    pub laid_m: f64,
+    pub broken: bool,
+    /// The hours a year `a` reckoned it would repay when it was begun.
+    pub worth_h: f64,
+}
+
+impl Telegraph {
+    /// Whether every metre of it is strung.
+    pub fn whole(&self) -> bool {
+        self.laid_m + 1e-9 >= self.length_m
+    }
+
+    /// Whether it carries messages between offices `x` and `y`, either way round.
+    pub fn joins(&self, x: PermanentId, y: PermanentId) -> bool {
+        (self.a == x && self.b == y) || (self.a == y && self.b == x)
+    }
+}
+
+/// Every line and hookup, in the order made (saved in the `wires` section, schema 220), and every
+/// telegraph wire (M11c, appended within schema 220).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Wires {
     pub lines: Vec<Line>,
     pub hookups: Vec<Hookup>,
+    pub telegraphs: Vec<Telegraph>,
 }
 
 impl Wires {
@@ -284,6 +316,25 @@ mod tests {
             asked: 0,
             served: 0,
         }
+    }
+
+    #[test]
+    fn a_telegraph_carries_only_whole_and_joins_its_offices_either_way() {
+        let mut t = Telegraph {
+            id: id(9),
+            a: id(1),
+            b: id(2),
+            cells: vec![10, 11, 12],
+            length_m: 300.0,
+            laid_m: 150.0,
+            broken: false,
+            worth_h: 0.0,
+        };
+        assert!(!t.whole());
+        t.laid_m = 300.0;
+        assert!(t.whole());
+        assert!(t.joins(id(1), id(2)) && t.joins(id(2), id(1)));
+        assert!(!t.joins(id(1), id(3)));
     }
 
     #[test]

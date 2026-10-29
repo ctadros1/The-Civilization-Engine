@@ -2,8 +2,8 @@
 //! gathers, stores or eats is decided by people at run time.
 
 use civ_agents::params::{
-    Eaten, GoodDef, GoodFire, GoodFuel, GoodHolder, GoodLight, GoodPower, GoodUse, MoneyDef,
-    PowerSource, StoreDef, ToolDef,
+    Eaten, GoodDef, GoodFire, GoodFuel, GoodHolder, GoodLight, GoodPower, GoodTelegraph, GoodUse,
+    MoneyDef, PowerSource, StoreDef, ToolDef,
 };
 use civ_agents::structure::Timber;
 use serde::Deserialize;
@@ -54,6 +54,17 @@ pub(crate) struct GoodFile {
     /// Content API 172 (M10b slice DY): what it holds as a gas holder; only a fixed tool.
     #[serde(default)]
     pub holder: Option<HolderFile>,
+    /// Content API 206 (M11c): what it sends as a telegraph instrument; only a fixed tool.
+    #[serde(default)]
+    pub telegraph: Option<TelegraphFile>,
+}
+
+/// What a telegraph instrument sends (M11c, ADR-0036 §8).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct TelegraphFile {
+    /// Messages its operator sends an hour, above 0 and at most 60.
+    pub messages_h: f64,
 }
 
 /// What a holder keeps (M10b slice DY, ADR-0034 §8).
@@ -267,6 +278,9 @@ impl GoodFile {
                 good: None,
                 kg: h.kg,
             }),
+            telegraph: self.telegraph.as_ref().map(|t| GoodTelegraph {
+                messages_h: t.messages_h,
+            }),
         })
     }
 
@@ -357,6 +371,20 @@ impl GoodFile {
             if !self.tool.as_ref().is_some_and(|t| t.fixed) {
                 p.push(
                     "only a fixed tool holds apart: `[holder]` needs `[tool] fixed = true`"
+                        .to_owned(),
+                );
+            }
+        }
+        if let Some(t) = &self.telegraph {
+            if !(t.messages_h.is_finite() && t.messages_h > 0.0 && t.messages_h <= 60.0) {
+                p.push(format!(
+                    "`telegraph.messages_h` must be above 0 and at most 60 (got {})",
+                    t.messages_h
+                ));
+            }
+            if !self.tool.as_ref().is_some_and(|t| t.fixed) {
+                p.push(
+                    "only a fixed tool sends by wire: `[telegraph]` needs `[tool] fixed = true`"
                         .to_owned(),
                 );
             }

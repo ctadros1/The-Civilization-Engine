@@ -16,3 +16,8 @@ reserve_for = ""
 life_h = 30000.0
 per_worker = 0.0
 fixed = true
+
+# Some twenty words at ten a minute, with writing out and handling: six messages an hour (a design
+# prior).
+[telegraph]
+messages_h = 6.0

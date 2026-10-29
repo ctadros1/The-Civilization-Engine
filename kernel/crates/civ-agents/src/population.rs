@@ -82,6 +82,7 @@ mod norm;
 mod notes;
 mod opinion;
 mod payments;
+mod telegraph;
 mod trains;
 mod wagons;
 mod war;
@@ -91,6 +92,7 @@ pub use crime::TakeProbe;
 pub use payments::Burden;
 pub use resolution::{DayBlock, NOT_TAKEN, SwitchInvariants};
 pub use sickhouse::sickhouse_bed_m2;
+pub use telegraph::{TELEGRAM_FEE_FOOD_DAYS, TelegraphReckoning};
 mod credit;
 mod custody;
 mod patronage;
@@ -7831,6 +7833,8 @@ impl Population {
         self.main_reviews(ctx, day);
         // The wire's homes hooked up, and lines weighed by the stations whose day it is (M11a).
         self.wire_reviews(ctx, day);
+        // Telegraph wires weighed by the offices whose day it is (M11c).
+        self.telegraph_reviews(ctx, day);
         // A child sent to learn a craft the household buys (M10c slice EB, second part).
         self.enrol_reviews(ctx, day);
         // And the wells (M6a slice AY, step three): what was drawn taken from the water table, a
@@ -8339,6 +8343,7 @@ mod tests {
             power: None,
             light: None,
             holder: None,
+            telegraph: None,
             money: None,
             id: id.into(),
             name: id.into(),

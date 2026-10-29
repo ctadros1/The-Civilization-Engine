@@ -549,6 +549,10 @@ impl Population {
         if let Some(f) = self.wire_line_facts(ctx, x) {
             return Some(f);
         }
+        // A telegraph wire its office is stringing (M11c).
+        if let Some(f) = self.telegraph_facts(ctx, x) {
+            return Some(f);
+        }
         let pi = self.polity_of(x.settlement?)?;
         let polity = &self.polities[pi];
         let (law, site, way, left_h) = polity.ways.iter().find_map(|(l, site)| {
@@ -666,6 +670,11 @@ impl Population {
         // And a line of current by its station's (M11a, fifth part).
         if ctx.land.wires.lines.iter().any(|l| l.id == way) {
             self.line_work(ctx, household, way, hours);
+            return;
+        }
+        // And a telegraph wire by its office's (M11c).
+        if ctx.land.wires.telegraphs.iter().any(|t| t.id == way) {
+            self.telegraph_work(ctx, household, way, hours);
             return;
         }
         let works = ctx.land_params.way_works;

@@ -67091,6 +67091,221 @@ impl ::core::fmt::Debug for WireHookupSave<'_> {
       ds.finish()
   }
 }
+pub enum TelegraphSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TelegraphSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for TelegraphSave<'a> {
+  type Inner = TelegraphSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> TelegraphSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_A: ::flatbuffers::VOffsetT = 6;
+  pub const VT_B: ::flatbuffers::VOffsetT = 8;
+  pub const VT_CELLS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_LENGTH_M: ::flatbuffers::VOffsetT = 12;
+  pub const VT_LAID_M: ::flatbuffers::VOffsetT = 14;
+  pub const VT_BROKEN: ::flatbuffers::VOffsetT = 16;
+  pub const VT_WORTH_H: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    TelegraphSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args TelegraphSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<TelegraphSave<'bldr>> {
+    let mut builder = TelegraphSaveBuilder::new(_fbb);
+    builder.add_worth_h(args.worth_h);
+    builder.add_laid_m(args.laid_m);
+    builder.add_length_m(args.length_m);
+    builder.add_b(args.b);
+    builder.add_a(args.a);
+    builder.add_id(args.id);
+    if let Some(x) = args.cells { builder.add_cells(x); }
+    builder.add_broken(args.broken);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TelegraphSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn a(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TelegraphSave::VT_A, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn b(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TelegraphSave::VT_B, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn cells(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(TelegraphSave::VT_CELLS, None)}
+  }
+  #[inline]
+  pub fn length_m(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(TelegraphSave::VT_LENGTH_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn laid_m(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(TelegraphSave::VT_LAID_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn broken(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(TelegraphSave::VT_BROKEN, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn worth_h(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(TelegraphSave::VT_WORTH_H, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for TelegraphSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("a", Self::VT_A, false)?
+     .visit_field::<u64>("b", Self::VT_B, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("cells", Self::VT_CELLS, false)?
+     .visit_field::<f64>("length_m", Self::VT_LENGTH_M, false)?
+     .visit_field::<f64>("laid_m", Self::VT_LAID_M, false)?
+     .visit_field::<bool>("broken", Self::VT_BROKEN, false)?
+     .visit_field::<f64>("worth_h", Self::VT_WORTH_H, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TelegraphSaveArgs<'a> {
+    pub id: u64,
+    pub a: u64,
+    pub b: u64,
+    pub cells: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub length_m: f64,
+    pub laid_m: f64,
+    pub broken: bool,
+    pub worth_h: f64,
+}
+impl<'a> Default for TelegraphSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TelegraphSaveArgs {
+      id: 0,
+      a: 0,
+      b: 0,
+      cells: None,
+      length_m: 0.0,
+      laid_m: 0.0,
+      broken: false,
+      worth_h: 0.0,
+    }
+  }
+}
+
+pub struct TelegraphSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TelegraphSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(TelegraphSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_a(&mut self, a: u64) {
+    self.fbb_.push_slot::<u64>(TelegraphSave::VT_A, a, 0);
+  }
+  #[inline]
+  pub fn add_b(&mut self, b: u64) {
+    self.fbb_.push_slot::<u64>(TelegraphSave::VT_B, b, 0);
+  }
+  #[inline]
+  pub fn add_cells(&mut self, cells: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TelegraphSave::VT_CELLS, cells);
+  }
+  #[inline]
+  pub fn add_length_m(&mut self, length_m: f64) {
+    self.fbb_.push_slot::<f64>(TelegraphSave::VT_LENGTH_M, length_m, 0.0);
+  }
+  #[inline]
+  pub fn add_laid_m(&mut self, laid_m: f64) {
+    self.fbb_.push_slot::<f64>(TelegraphSave::VT_LAID_M, laid_m, 0.0);
+  }
+  #[inline]
+  pub fn add_broken(&mut self, broken: bool) {
+    self.fbb_.push_slot::<bool>(TelegraphSave::VT_BROKEN, broken, false);
+  }
+  #[inline]
+  pub fn add_worth_h(&mut self, worth_h: f64) {
+    self.fbb_.push_slot::<f64>(TelegraphSave::VT_WORTH_H, worth_h, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TelegraphSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    TelegraphSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<TelegraphSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for TelegraphSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("TelegraphSave");
+      ds.field("id", &self.id());
+      ds.field("a", &self.a());
+      ds.field("b", &self.b());
+      ds.field("cells", &self.cells());
+      ds.field("length_m", &self.length_m());
+      ds.field("laid_m", &self.laid_m());
+      ds.field("broken", &self.broken());
+      ds.field("worth_h", &self.worth_h());
+      ds.finish()
+  }
+}
 pub enum WiresSaveOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -67109,6 +67324,7 @@ impl<'a> ::flatbuffers::Follow<'a> for WiresSave<'a> {
 impl<'a> WiresSave<'a> {
   pub const VT_LINES: ::flatbuffers::VOffsetT = 4;
   pub const VT_HOOKUPS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_TELEGRAPHS: ::flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -67120,6 +67336,7 @@ impl<'a> WiresSave<'a> {
     args: &'args WiresSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<WiresSave<'bldr>> {
     let mut builder = WiresSaveBuilder::new(_fbb);
+    if let Some(x) = args.telegraphs { builder.add_telegraphs(x); }
     if let Some(x) = args.hookups { builder.add_hookups(x); }
     if let Some(x) = args.lines { builder.add_lines(x); }
     builder.finish()
@@ -67140,6 +67357,13 @@ impl<'a> WiresSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WireHookupSave>>>>(WiresSave::VT_HOOKUPS, None)}
   }
+  #[inline]
+  pub fn telegraphs(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TelegraphSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TelegraphSave>>>>(WiresSave::VT_TELEGRAPHS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WiresSave<'_> {
@@ -67150,6 +67374,7 @@ impl ::flatbuffers::Verifiable for WiresSave<'_> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WireLineSave>>>>("lines", Self::VT_LINES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WireHookupSave>>>>("hookups", Self::VT_HOOKUPS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TelegraphSave>>>>("telegraphs", Self::VT_TELEGRAPHS, false)?
      .finish();
     Ok(())
   }
@@ -67157,6 +67382,7 @@ impl ::flatbuffers::Verifiable for WiresSave<'_> {
 pub struct WiresSaveArgs<'a> {
     pub lines: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WireLineSave<'a>>>>>,
     pub hookups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WireHookupSave<'a>>>>>,
+    pub telegraphs: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TelegraphSave<'a>>>>>,
 }
 impl<'a> Default for WiresSaveArgs<'a> {
   #[inline]
@@ -67164,6 +67390,7 @@ impl<'a> Default for WiresSaveArgs<'a> {
     WiresSaveArgs {
       lines: None,
       hookups: None,
+      telegraphs: None,
     }
   }
 }
@@ -67180,6 +67407,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WiresSaveBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_hookups(&mut self, hookups: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<WireHookupSave<'b >>>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WiresSave::VT_HOOKUPS, hookups);
+  }
+  #[inline]
+  pub fn add_telegraphs(&mut self, telegraphs: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<TelegraphSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WiresSave::VT_TELEGRAPHS, telegraphs);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WiresSaveBuilder<'a, 'b, A> {
@@ -67201,6 +67432,7 @@ impl ::core::fmt::Debug for WiresSave<'_> {
     let mut ds = f.debug_struct("WiresSave");
       ds.field("lines", &self.lines());
       ds.field("hookups", &self.hookups());
+      ds.field("telegraphs", &self.telegraphs());
       ds.finish()
   }
 }

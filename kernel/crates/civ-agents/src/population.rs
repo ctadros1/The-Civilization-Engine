@@ -4039,37 +4039,20 @@ impl Population {
                 continue;
             };
             let blocked = make::tools_for(goods, t, &held_of) < decide::MIN_TOOL;
+            let mut wanting = market::MaterialWants {
+                need: &mut tool_material,
+                blocked: &mut tool_material_blocked,
+                made_for: &mut made_for,
+            };
             for &(g, amount) in &r.inputs {
-                let short = (amount - held_of(g)).max(0.0);
-                if let Some(m) = tool_material.get_mut(g) {
-                    *m += short;
-                }
-                if blocked && let Some(b) = tool_material_blocked.get_mut(g) {
-                    *b = true;
-                }
-                // A material it makes itself, and what that is made of.
-                let Some((made, per_unit)) = catalog.recipes.iter().find_map(|m| {
-                    m.outputs
-                        .iter()
-                        .find(|&&(o, _)| o == g)
-                        .filter(|_| short > 0.0 && can_work(m))
-                        .map(|&(_, a)| (m, a))
-                }) else {
-                    continue;
-                };
-                if per_unit <= 0.0 {
-                    continue;
-                }
-                made_for[g] = Some((t, *need));
-                let units = short / per_unit;
-                for &(i, a) in &made.inputs {
-                    if let Some(m) = tool_material.get_mut(i) {
-                        *m += (a * units - held_of(i)).max(0.0);
-                    }
-                    if blocked && let Some(b) = tool_material_blocked.get_mut(i) {
-                        *b = true;
-                    }
-                }
+                wanting.toward(
+                    catalog,
+                    &held_of,
+                    &can_work,
+                    (t, *need, blocked),
+                    (g, amount),
+                    market::MATERIAL_DEPTH,
+                );
             }
         }
         // A whole lamp it holds wants its fuel, to `LAMP_FUEL_HOURS` of light: made as a tool's

@@ -682,3 +682,56 @@ fn a_household_that_knows_the_telegraph_and_writes_wants_an_instrument_where_ano
     teach(&mut sim, b, "core:technique/telegraphy");
     assert!(keep(&mut sim) >= 1.0, "one, to be an office");
 }
+
+/// A tool's materials are kept as many steps back as the household knows the way (M11d, from the
+/// demo): an office to be short of the instrument's iron keeps the bloom it is forged from, and
+/// the bog ore and charcoal the bloom is smelted with, once it knows how to burn charcoal; until
+/// then the bloomery is no way it can work and no ore is kept.
+#[test]
+fn an_office_to_be_short_of_iron_keeps_bog_ore_toward_its_instrument_once_it_knows_the_whole_way() {
+    let mut sim = world();
+    let [(a, _, _), (b, _, _)] = pair(&sim);
+    let [instrument, copper, timber, iron, bloom, ore, charcoal] = [
+        "core:good/telegraph_instrument",
+        "core:good/copper",
+        "core:good/timber",
+        "core:good/iron",
+        "core:good/iron_bloom",
+        "core:good/iron_ore",
+        "core:good/charcoal",
+    ]
+    .map(|id| good(&sim, id));
+    for t in [
+        "core:technique/telegraphy",
+        "core:technique/writing",
+        "core:technique/bloomery",
+        "core:technique/forging",
+    ] {
+        teach(&mut sim, a, t);
+    }
+    teach(&mut sim, b, "core:technique/telegraphy");
+    for (g, kg) in [
+        (copper, 10.0),
+        (timber, 4.0),
+        (iron, 0.0),
+        (bloom, 0.0),
+        (ore, 0.0),
+        (charcoal, 0.0),
+    ] {
+        set(&mut sim, a, g, kg);
+    }
+    let keep = |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.keep_for_tests(ctx, a));
+    let k = keep(&mut sim);
+    assert!(k[instrument] >= 1.0, "wanted");
+    assert!(k[iron] >= 8.0, "its iron is kept: {}", k[iron]);
+    assert_eq!(
+        k[ore], 0.0,
+        "no charcoal to be had: the bloomery is no way yet"
+    );
+    teach(&mut sim, a, "core:technique/charcoal_burning");
+    let k = keep(&mut sim);
+    // Eight kilograms of bar from ten of bloom, and that from eighty of ore and its charcoal.
+    assert!(k[bloom] >= 10.0 - 1e-6, "the bloom: {}", k[bloom]);
+    assert!(k[ore] >= 80.0 - 1e-6, "the ore: {}", k[ore]);
+    assert!(k[charcoal] > 0.0, "the charcoal: {}", k[charcoal]);
+}

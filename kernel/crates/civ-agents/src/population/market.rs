@@ -187,9 +187,12 @@ impl Population {
 
     /// Whether household `hh`, holding `stores`, can work recipe `r` as a way to a tool (M7d
     /// slice CE): someone in it knows its technique, and each input it is short of comes from a
-    /// place it knows (a patch it has worked, a deposit its settlement knows) or is made, by a
-    /// recipe it knows, of inputs it holds or knows where to find. A way it believes cheap but
-    /// cannot get the makings of is no way.
+    /// place it knows (a patch it has worked, a deposit its settlement knows) or one it could
+    /// search out (a gathering it can do, as for bog ore or reeds), or is made, by a
+    /// recipe it knows, of inputs it holds or knows where to find, or makes so in turn, as many
+    /// steps back as it keeps materials ([`MATERIAL_DEPTH`]: bar from bloom, bloom from ore and
+    /// charcoal, charcoal from wood). A way it believes cheap but cannot get the makings of is no
+    /// way.
     pub(crate) fn can_work_way(
         &self,
         ctx: &Ctx,
@@ -213,15 +216,21 @@ impl Population {
                     .any(|d| usize::from(d.body.good) == g && self.knows_deposit(s, d.id))
             })
         };
-        let gets = |g: usize, amount: f64| held(g) >= amount - 1e-9 || found(g);
+        // Or that someone of it could go and gather where such a thing grows or lies, as it
+        // searches for any patch (bog ore, reeds), not only one it has worked.
+        let gathered = |g: usize| {
+            catalog.activities.iter().any(|a| {
+                a.behavior == crate::params::Behavior::Gather
+                    && a.technique.is_none_or(&knows)
+                    && a.resource
+                        .and_then(|r| ctx.land_params.resources.get(r))
+                        .is_some_and(|res| res.good == g)
+            })
+        };
+        let gets = |g: usize, amount: f64| held(g) >= amount - 1e-9 || found(g) || gathered(g);
         r.technique.is_none_or(&knows)
             && r.inputs.iter().all(|&(g, amount)| {
-                gets(g, amount)
-                    || catalog.recipes.iter().any(|m| {
-                        m.technique.is_none_or(&knows)
-                            && m.outputs.iter().any(|&(o, a)| o == g && a > 0.0)
-                            && m.inputs.iter().all(|&(i, a)| gets(i, a))
-                    })
+                gets(g, amount) || makes(catalog, &knows, &gets, g, MATERIAL_DEPTH - 1)
             })
     }
 
@@ -636,25 +645,14 @@ impl Population {
                     .and_then(|r| catalog.recipes.get(r))
             {
                 for &(g, amount) in &r.inputs {
-                    if let Some(k) = keep.get_mut(g) {
-                        *k += amount;
-                    }
-                    // What it makes that material of, as far as it is short of it.
-                    let short = (amount - held(g)).max(0.0);
-                    let made = catalog.recipes.iter().find_map(|m| {
-                        m.outputs
-                            .iter()
-                            .find(|&&(o, a)| o == g && a > 0.0)
-                            .filter(|_| short > 0.0 && can_work(m))
-                            .map(|&(_, a)| (m, a))
-                    });
-                    if let Some((m, per_unit)) = made {
-                        for &(i, a) in &m.inputs {
-                            if let Some(k) = keep.get_mut(i) {
-                                *k += a * short / per_unit;
-                            }
-                        }
-                    }
+                    keep_made_of(
+                        catalog,
+                        &held,
+                        &can_work,
+                        &mut keep,
+                        (g, amount),
+                        MATERIAL_DEPTH,
+                    );
                 }
             }
         }
@@ -2646,6 +2644,129 @@ impl Population {
 
 /// Food a household with `stores` is short of, kcal, and what it keeps of food, kcal: what it
 /// keeps (`keep`, by good) less what it has, by energy.
+/// Whether good `g` is made by a recipe whose technique the household `knows`, of inputs it
+/// `gets` (holds or knows where to find) or makes so in turn, up to `depth` steps further back.
+fn makes(
+    catalog: &crate::params::Catalog,
+    knows: &dyn Fn(usize) -> bool,
+    gets: &dyn Fn(usize, f64) -> bool,
+    g: usize,
+    depth: u32,
+) -> bool {
+    catalog.recipes.iter().any(|m| {
+        m.outputs.iter().any(|&(o, a)| o == g && a > 0.0)
+            && m.technique.is_none_or(knows)
+            && m.inputs.iter().all(|&(i, a)| {
+                gets(i, a) || (depth > 0 && makes(catalog, knows, gets, i, depth - 1))
+            })
+    })
+}
+
+/// What a household short of a tool must bring or make toward it, by good (M7d slice CE): how
+/// much it is short of each material, whether the tool is one its work waits on, and the tool
+/// each material it makes itself is for.
+pub(super) struct MaterialWants<'a> {
+    pub need: &'a mut Vec<f64>,
+    pub blocked: &'a mut Vec<bool>,
+    pub made_for: &'a mut Vec<Option<(usize, f64)>>,
+}
+
+impl MaterialWants<'_> {
+    /// `amount` of good `g` toward tool `t`, needed `need` (its work waiting on it if `blocked`):
+    /// what it is short of beyond what it holds (`held`), and, where it makes that itself by the
+    /// first recipe it can work (`can_work`), what that is made of in turn, `depth` steps on.
+    pub(super) fn toward(
+        &mut self,
+        catalog: &crate::params::Catalog,
+        held: &dyn Fn(usize) -> f64,
+        can_work: &dyn Fn(&crate::params::RecipeDef) -> bool,
+        (t, need, blocked): (usize, f64, bool),
+        (g, amount): (usize, f64),
+        depth: u32,
+    ) {
+        let short = (amount - held(g)).max(0.0);
+        if let Some(m) = self.need.get_mut(g) {
+            *m += short;
+        }
+        if blocked && let Some(b) = self.blocked.get_mut(g) {
+            *b = true;
+        }
+        if depth == 0 {
+            return;
+        }
+        // A material it makes itself, and what that is made of.
+        let Some((made, per_unit)) = catalog.recipes.iter().find_map(|m| {
+            m.outputs
+                .iter()
+                .find(|&&(o, _)| o == g)
+                .filter(|_| short > 0.0 && can_work(m))
+                .map(|&(_, a)| (m, a))
+        }) else {
+            return;
+        };
+        if per_unit <= 0.0 {
+            return;
+        }
+        if let Some(f) = self.made_for.get_mut(g) {
+            *f = Some((t, need));
+        }
+        let units = short / per_unit;
+        for &(i, a) in &made.inputs {
+            self.toward(
+                catalog,
+                held,
+                can_work,
+                (t, need, blocked),
+                (i, a * units),
+                depth - 1,
+            );
+        }
+    }
+}
+
+/// How many steps back from a tool a household that lacks it keeps what it is made of: the tool's
+/// materials, what those are made of, and so on (bar from bloom, bloom from ore and charcoal,
+/// charcoal from wood), as far as it is short at each step and knows a way to make it.
+pub(super) const MATERIAL_DEPTH: u32 = 3;
+
+/// Keeps `amount` of good `g` toward a tool household lacks, and, `depth` steps on, what it makes
+/// that of as far as it is short of it (`held`), by the first recipe it can work (`can_work`).
+fn keep_made_of(
+    catalog: &crate::params::Catalog,
+    held: &dyn Fn(usize) -> f64,
+    can_work: &dyn Fn(&crate::params::RecipeDef) -> bool,
+    keep: &mut [f64],
+    (g, amount): (usize, f64),
+    depth: u32,
+) {
+    if let Some(k) = keep.get_mut(g) {
+        *k += amount;
+    }
+    if depth == 0 {
+        return;
+    }
+    let short = (amount - held(g)).max(0.0);
+    let made = catalog.recipes.iter().find_map(|m| {
+        m.outputs
+            .iter()
+            .find(|&&(o, a)| o == g && a > 0.0)
+            .filter(|_| short > 0.0 && can_work(m))
+            .map(|&(_, a)| (m, a))
+    });
+    if let Some((m, per_unit)) = made {
+        for &(i, a) in &m.inputs {
+            keep_made_of(
+                catalog,
+                held,
+                can_work,
+                keep,
+                (i, a * short / per_unit),
+                depth - 1,
+            );
+        }
+    }
+}
+
 pub(super) fn food_short(goods: &[GoodDef], keep: &[f64], stores: &[f64]) -> (f64, f64) {
     let food = stock_kcal(stores, goods);
     let food_keep: f64 = goods

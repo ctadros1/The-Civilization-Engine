@@ -13,7 +13,11 @@
 //! knows any of it, dynamos held, stations, lines of current (strung of begun), homes hooked up
 //! and lit on their last evening, gas engines, telegraph offices, telegraph wires (strung of
 //! begun), telegrams waiting, motor carts, and the M11 law in force; and world-wide what has been
-//! paid by the meter and in telegram fees. At the end it prints the M11 laws proposed, saves,
+//! paid by the meter and in telegram fees; and for each taught settlement the way there: how many
+//! households knowing any of it want a dynamo, a gas engine or a telegraph instrument, what they
+//! hold of copper ore, copper, iron ore and iron (and keep of the last two) and coal gas, and the
+//! water installations owned there. At the
+//! end it prints the M11 laws proposed, saves,
 //! loads, and says whether the control settlements took any of it up.
 //!
 //! ```sh
@@ -44,10 +48,12 @@ const SIZE: u32 = 2048;
 const DAY: i64 = 24 * 60;
 const NAME: &str = "Current and Wire";
 
-/// What M11 stands on (M10's power, metals, gas and letters) and M11's own vocabulary (plan §7,
-/// M11; ADR-0036): the dynamo, the gas engine, the road engine and telegraphy.
-const VOCABULARY: [&str; 16] = [
+/// What M11 stands on (M10's power, metals and the charcoal they are smelted and forged with, gas
+/// and letters) and M11's own vocabulary (plan §7, M11; ADR-0036): the dynamo, the gas engine, the
+/// road engine and telegraphy.
+const VOCABULARY: [&str; 17] = [
     "core:technique/water_wheel",
+    "core:technique/charcoal_burning",
     "core:technique/coal_burning",
     "core:technique/coking",
     "core:technique/bloomery",
@@ -234,6 +240,97 @@ fn in_use(sim: &Sim, s: PermanentId, known: &[usize]) -> (String, bool) {
     )
 }
 
+/// The way to the M11 vocabulary in taught settlement `s`, in words: the households whose people
+/// know any of it, how many of them want a dynamo, a gas engine or a telegraph instrument (what
+/// they keep of it, from their stores now), what they hold of what those are made of, and the
+/// water installations its households own, where a dynamo could be set. Why none is built yet, if
+/// none is.
+fn way_there(sim: &mut Sim, s: PermanentId, known: &[usize]) -> String {
+    let index = |id: &str| sim.rules().catalog.good_index(id);
+    let [dynamo, engine, instrument, ore, copper, iron_ore, iron, gas] = [
+        "core:good/dynamo",
+        "core:good/gas_engine",
+        "core:good/telegraph_instrument",
+        "core:good/copper_ore",
+        "core:good/copper",
+        "core:good/iron_ore",
+        "core:good/iron",
+        "core:good/coal_gas",
+    ]
+    .map(index);
+    let homes: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .filter(|h| h.settlement == Some(s))
+        .filter(|h| {
+            h.members.iter().any(|&m| {
+                sim.people()
+                    .person(m)
+                    .is_some_and(|p| known.iter().any(|&t| p.knows(t)))
+            })
+        })
+        .map(|h| h.id)
+        .collect();
+    let keeps: Vec<Vec<f64>> = homes
+        .iter()
+        .map(|&h| sim.with_ctx_for_tests(|pop, ctx| pop.keep_for_tests(ctx, h)))
+        .collect();
+    let wanting = |g: Option<usize>| {
+        g.map_or(0, |g| {
+            keeps
+                .iter()
+                .filter(|k| k.get(g).is_some_and(|&x| x > 0.0))
+                .count()
+        })
+    };
+    let kept = |g: Option<usize>| -> f64 {
+        g.map_or(0.0, |g| {
+            keeps.iter().map(|k| k.get(g).copied().unwrap_or(0.0)).sum()
+        })
+    };
+    let pop = sim.people();
+    let held = |g: Option<usize>| -> f64 {
+        g.map_or(0.0, |g| {
+            homes
+                .iter()
+                .filter_map(|&h| pop.household(h))
+                .map(|h| h.stores.get(g).copied().unwrap_or(0.0))
+                .sum()
+        })
+    };
+    let ours: BTreeSet<PermanentId> = pop
+        .households
+        .iter()
+        .filter(|(_, h)| h.settlement == Some(s))
+        .map(|(_, h)| h.id)
+        .collect();
+    let installations = sim
+        .land()
+        .installations
+        .iter()
+        .filter(|i| ours.contains(&i.owner))
+        .count();
+    format!(
+        "the way there: {} households knowing any of it; wanting a dynamo {}, a gas engine {}, a \
+         telegraph instrument {}; holding copper ore {:.0} kg, copper {:.0} kg, iron ore {:.0} \
+         of {:.0} kg kept, iron {:.0} of {:.0} kg kept, coal gas {:.0}; {installations} water \
+         installations owned here",
+        homes.len(),
+        wanting(dynamo),
+        wanting(engine),
+        wanting(instrument),
+        held(ore),
+        held(copper),
+        held(iron_ore),
+        kept(iron_ore),
+        held(iron),
+        kept(iron),
+        held(gas),
+    )
+}
+
 /// What has been paid on `channel`, kcal of food, world-wide.
 fn paid(sim: &Sim, channel: Channel) -> f64 {
     let goods = &sim.rules().catalog.goods;
@@ -343,14 +440,23 @@ fn make(saves: &Path, groups: u32, people: u32, years: i64, size: u32) -> Result
                 paid(&sim, Channel::Wire),
                 paid(&sim, Channel::Telegraph)
             ));
-            for s in &sim.land().settlements {
-                let (words, _) = in_use(&sim, s.id, &known);
-                let mark = if taught.contains(&s.id) {
+            let settlements: Vec<(PermanentId, String)> = sim
+                .land()
+                .settlements
+                .iter()
+                .map(|s| (s.id, s.name.clone()))
+                .collect();
+            for (id, name) in settlements {
+                let (words, _) = in_use(&sim, id, &known);
+                let mark = if taught.contains(&id) {
                     "taught"
                 } else {
                     "control"
                 };
-                say(format!("  {} ({mark}): {words}", s.name));
+                say(format!("  {name} ({mark}): {words}"));
+                if taught.contains(&id) {
+                    say(format!("    {}", way_there(&mut sim, id, &known)));
+                }
             }
         }
     }

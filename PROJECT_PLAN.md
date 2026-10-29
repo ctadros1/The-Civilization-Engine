@@ -8050,6 +8050,29 @@ and M6a gives rivers a daily flow.
       homelab `demo` suite now chooses the milestone's example (`m11_world` by default).
       **Checked:** two groups of 30 for a year live, print and save and load (nothing of M11 is
       built in a year that small; the long run is the homelab's).
+    - *M11d, second part (2026-10-29): what the first long run showed, and the way to iron.* The
+      homelab's run of `m11_world` (run 40804895098, on 32d722f: six groups of 120, eight years
+      at Max, 3.2 s a day, saved and loaded at 925 people) built nothing of M11 anywhere: two to
+      seven knowers in each taught settlement, no dynamo, office, wire, gas engine or motor cart,
+      no M11 law; the controls as founded. Traced in a small world with a new line in the record
+      (*the way there*: households knowing any of it that want a dynamo, a gas engine or a
+      telegraph instrument, what they hold of copper ore, copper, iron ore and iron and keep of
+      the last two, coal gas, and the water installations owned there): an office to be wanted
+      its instrument from the first year and held its copper, but kept iron and never iron ore.
+      Two faults: **the demos' vocabulary lacked charcoal burning**, which every bloom is
+      smelted and every bar forged with (M10's demo too, which set no engine in eleven years; both
+      now teach it); and **a tool's makings were walked only two steps back**, so bar from bloom
+      from ore was no way anyone could work, and a gathered material counted only from a patch
+      already worked. A household now keeps, brings and makes a lacking tool's materials, and
+      weighs whether it can work a way, as many as three steps back (bar, bloom, ore and
+      charcoal, wood), as far as it is short at each and knows how; a material some gathering it
+      can do brings counts as one it can get, since gathering searches for any place of its kind.
+      **Tested:** an office to be short of its instrument's iron keeps no ore while it cannot
+      make charcoal, and keeps the bloom and 80 kg of bog ore once it can; the iron, metal, coal,
+      works, telegraph, wires and firms targets pass unchanged. **Checked small** (four groups of
+      30, three years): a taught settlement gathers bog ore and smelts and forges its iron, keeps
+      1,879 kg of ore toward a dynamo once its water installation stands, and copper, dug only at
+      a deposit its settlement knows, is what it waits on now. The long run is the homelab's.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

@@ -2,7 +2,9 @@
 # kilogram of pig against the bloomery's 8 and 12 a kilogram of bloom (a charcoal blast furnace
 # recovers most of the ore's iron and burns two to three times the iron's weight in charcoal, tuning
 # values within 07-05 §2.2's envelope), 0.6 hours of its crew's work a kilogram and 0.5 kWh of the
-# wheel's blast. Four at it together.
+# wheel's blast. Four at it together. The ore's earth runs off as 0.6 kg of slag a kilogram of pig
+# (ADR-0038 §2; a design prior within research 12-10 §5.7's 0.5-1.0 for an ore poorer than the
+# modern 60-66 % iron).
 kind = "recipe"
 id = "core:recipe/smelt_pig_iron"
 name = "Smelt pig iron"
@@ -14,5 +16,5 @@ max_units = 0.0
 kwh_per_unit = 0.5
 tools = ["core:good/water_wheel", "core:good/blast_furnace"]
 inputs = [{ good = "core:good/iron_ore", amount = 2.0 }, { good = "core:good/charcoal", amount = 3.0 }]
-outputs = [{ good = "core:good/pig_iron", amount = 1.0 }]
+outputs = [{ good = "core:good/pig_iron", amount = 1.0 }, { good = "core:good/slag", amount = 0.6 }]
 session_inputs = []

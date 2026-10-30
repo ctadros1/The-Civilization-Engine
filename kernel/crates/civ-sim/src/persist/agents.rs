@@ -5622,6 +5622,7 @@ fn encode_households(
                     midden_carried: h.midden.carried,
                     midden_x: h.midden.site.0,
                     midden_y: h.midden.site.1,
+                    midden_ash_kg: h.midden.ash_kg,
                     water_use_l: h.water_use_l,
                     water_walk_min: h.water_walk_min,
                     flood_home_cm: h.flood_memory.home_depth_cm,
@@ -5977,9 +5978,17 @@ fn decode_households(
                         "household {hh_id} has a midden of {kg} kg"
                     )));
                 }
+                // Its ash (ADR-0038 §2, appended within saves 220): none, in older saves.
+                let ash_kg = h.midden_ash_kg();
+                if !(ash_kg.is_finite() && ash_kg >= 0.0) {
+                    return Err(LoadError::Malformed(format!(
+                        "household {hh_id} has {ash_kg} kg of ash in its midden"
+                    )));
+                }
                 // Where it was carried from the water (schema 205): never, in older saves.
                 civ_agents::person::Midden {
                     kg,
+                    ash_kg,
                     at: time(h.midden_at()),
                     carried: h.midden_carried(),
                     site: (h.midden_x(), h.midden_y()),

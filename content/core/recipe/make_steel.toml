@@ -1,6 +1,9 @@
 # Making steel: pig iron melted and blown in the converter until its carbon burns out, 1.15 kg of
 # pig a kilogram of steel (the rest lost to the blow and the slag, a tuning value), 0.05 hours of
 # its crew's work and 0.1 kWh of the wheel's blast a kilogram (design priors; research 11-14 §2.2).
+# The 0.15 kg the steel does not keep is left as slag (ADR-0038 §2; a design prior: the iron, silicon
+# and manganese the blow burns go to the slag with the oxygen they take, about what its carbon loses
+# to the air).
 kind = "recipe"
 id = "core:recipe/make_steel"
 name = "Make steel"
@@ -12,5 +15,5 @@ max_units = 0.0
 kwh_per_unit = 0.1
 tools = ["core:good/water_wheel", "core:good/converter"]
 inputs = [{ good = "core:good/pig_iron", amount = 1.15 }]
-outputs = [{ good = "core:good/steel", amount = 1.0 }]
+outputs = [{ good = "core:good/steel", amount = 1.0 }, { good = "core:good/slag", amount = 0.15 }]
 session_inputs = []

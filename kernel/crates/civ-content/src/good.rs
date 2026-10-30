@@ -120,6 +120,10 @@ pub(crate) struct FuelFile {
     /// hearth; none, the default, for a fuel anyone burns.
     #[serde(default)]
     pub technique: Option<String>,
+    /// Content API 209 (M11f, ADR-0038 §2): kilograms of ash a kilogram burned leaves; 0, the
+    /// default, for none.
+    #[serde(default)]
+    pub ash_share: f64,
 }
 
 /// How a good burns (M6b slice BC; ADR-0022 §4, §5).
@@ -260,6 +264,7 @@ impl GoodFile {
                 smoke: f.smoke,
                 // Resolved once the techniques are known (`civ_content::compile`).
                 technique: None,
+                ash_share: f.ash_share,
             }),
             power: self.power.as_ref().map(|w| GoodPower {
                 source: match w.source.as_str() {
@@ -323,6 +328,12 @@ impl GoodFile {
                 p.push(format!(
                     "`fuel.smoke` must be between 0 and 10 (got {})",
                     f.smoke
+                ));
+            }
+            if !(f.ash_share.is_finite() && (0.0..=0.5).contains(&f.ash_share)) {
+                p.push(format!(
+                    "`fuel.ash_share` must be between 0 and 0.5 (got {})",
+                    f.ash_share
                 ));
             }
         }

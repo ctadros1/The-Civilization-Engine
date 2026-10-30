@@ -18,3 +18,6 @@ reserve_for = ""
 mj_per_kg = 25.8
 smoke = 2.0                      # tuning: a smokier fire than wood's; the research gives no figure
 technique = "core:technique/coal_burning"
+# Ash a kilogram burned leaves (ADR-0038 §2; research 12-10 §2.1: 11.3 %, a US sample mean; seams
+# vary, and a grate's unburnt cinder is not counted).
+ash_share = 0.11

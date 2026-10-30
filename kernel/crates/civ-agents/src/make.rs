@@ -426,11 +426,49 @@ pub fn start(
     units
 }
 
+/// The content id of the good a works' fuel leaves its ash as (ADR-0038 §2). A catalogue
+/// without it keeps no ash from making.
+pub const ASH: &str = "core:good/ash";
+
+/// Kilograms of ash a session making `units` of `recipe` leaves (ADR-0038 §2): each fuel it takes,
+/// by unit and by session, times its `ash_share`, less the ash the fuels it gives keep (coke keeps
+/// its coal's ash, charcoal its wood's), never below none.
+pub fn ash_left(recipe: &RecipeDef, goods: &[GoodDef], units: f64) -> f64 {
+    let share = |g: usize| {
+        goods
+            .get(g)
+            .and_then(|d| d.fuel)
+            .map_or(0.0, |f| f.ash_share.max(0.0))
+    };
+    let burned: f64 = recipe
+        .session_inputs
+        .iter()
+        .map(|&(g, a)| a * share(g))
+        .chain(recipe.inputs.iter().map(|&(g, a)| a * units * share(g)))
+        .sum();
+    let kept: f64 = recipe
+        .outputs
+        .iter()
+        .map(|&(g, a)| a * units * share(g))
+        .sum();
+    (burned - kept).max(0.0)
+}
+
 /// Gives the outputs of `units` of `recipe` to `stores`, tools made worth `quality` standard
-/// tools each: the end of a session, or the opening of a batch (M10a slice DP).
+/// tools each, and the ash its fuel leaves ([`ash_left`], ADR-0038 §2): the end of a session, or
+/// the opening of a batch (M10a slice DP).
 pub fn give(recipe: &RecipeDef, stores: &mut [f64], goods: &[GoodDef], units: f64, quality: f64) {
     if !(units > 0.0 && units.is_finite()) {
         return;
+    }
+    let ash = ash_left(recipe, goods, units);
+    if ash > 0.0
+        && let Some(s) = goods
+            .iter()
+            .position(|d| d.id == ASH)
+            .and_then(|a| stores.get_mut(a))
+    {
+        *s += ash;
     }
     for &(g, amount) in &recipe.outputs {
         let q = if goods.get(g).is_some_and(|d| d.tool.is_some()) {

@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 208
+kernel_content_api = 209
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -372,8 +372,13 @@ fn wells_check_their_numbers_and_need_their_lining_inside_their_shaft() {
 
 #[test]
 fn a_fuel_says_what_it_gives_burned() {
-    // M10a slice DP (content API 158): a fuel carries its heat and smoke, in range.
+    // M10a slice DP (content API 158): a fuel carries its heat and smoke, in range, and (content
+    // API 209, ADR-0038 §2) an ash share in range.
     let real_wood = real("good/firewood.toml");
+    // The whole `[fuel]` table, which ends the file.
+    let without_fuel = real_wood
+        .find("[fuel]")
+        .map_or(real_wood.clone(), |at| real_wood[..at].to_owned());
     for (body, needle) in [
         (
             real_wood.replace("mj_per_kg = 15.6", "mj_per_kg = 0.2"),
@@ -384,9 +389,10 @@ fn a_fuel_says_what_it_gives_burned() {
             "fuel.smoke",
         ),
         (
-            real_wood.replace("[fuel]\nmj_per_kg = 15.6\nsmoke = 1.0\n", ""),
-            "a `[fuel]` table",
+            real_wood.replace("ash_share = 0.005", "ash_share = 0.9"),
+            "fuel.ash_share",
         ),
+        (without_fuel, "a `[fuel]` table"),
     ] {
         assert_ne!(body, real_wood, "{needle}: the fixture changed nothing");
         let report = load_fixture(&[

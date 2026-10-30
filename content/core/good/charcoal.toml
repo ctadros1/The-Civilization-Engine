@@ -16,3 +16,6 @@ reserve_for = ""
 [fuel]
 mj_per_kg = 29.5
 smoke = 0.2
+# Ash a kilogram burned leaves (ADR-0038 §2): a design prior, the ash of the five kilograms of wood
+# it was charred from (12-10 §2.1: wood 0.3-1.0 %) kept in the one.
+ash_share = 0.03

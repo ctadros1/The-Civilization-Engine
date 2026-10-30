@@ -1,6 +1,8 @@
 # Smelting pig iron on coke: as on charcoal, but 3.5 kg of coke a kilogram of pig (a tuning value:
 # coke burns a little less readily and the early coke furnaces ran hungrier, research 07-06 §2.3's
-# 28.2 MJ a kilogram against charcoal's 29.5) and a harder blast, 0.7 kWh a kilogram.
+# 28.2 MJ a kilogram against charcoal's 29.5) and a harder blast, 0.7 kWh a kilogram. The same ore
+# leaves the same 0.6 kg of slag a kilogram of pig (ADR-0038 §2; a design prior within research
+# 12-10 §5.7's 0.5-1.0); the coke's ash is kept apart, as `good/ash`.
 kind = "recipe"
 id = "core:recipe/smelt_pig_iron_with_coke"
 name = "Smelt pig iron with coke"
@@ -12,5 +14,5 @@ max_units = 0.0
 kwh_per_unit = 0.7
 tools = ["core:good/water_wheel", "core:good/blast_furnace"]
 inputs = [{ good = "core:good/iron_ore", amount = 2.0 }, { good = "core:good/coke", amount = 3.5 }]
-outputs = [{ good = "core:good/pig_iron", amount = 1.0 }]
+outputs = [{ good = "core:good/pig_iron", amount = 1.0 }, { good = "core:good/slag", amount = 0.6 }]
 session_inputs = []

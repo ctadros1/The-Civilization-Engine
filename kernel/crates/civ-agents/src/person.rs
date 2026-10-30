@@ -990,11 +990,16 @@ impl FloodMemory {
 
 /// A household's midden beside its home: the heap of ash, food waste, sweepings and dung (research
 /// 12-02 §3: early farming middens mixed domestic waste, ash and fecal material), kilograms as it
-/// stood at `at` ([`crate::params::MiddenParams::after`] brings it up to date).
+/// stood at `at` ([`crate::params::MiddenParams::after`] brings it up to date), and the ash of what
+/// its hearth burned (ADR-0038 §2).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Midden {
-    /// Kilograms in the heap.
+    /// Kilograms in the heap's decaying share: what dungs a field and what wastes at its
+    /// half-life.
     pub kg: f64,
+    /// Kilograms of ash from the hearth's fuel (ADR-0038 §2): inert, it never decays, is not dung
+    /// and carries nothing to the water. It lies wherever the heap lies.
+    pub ash_kg: f64,
     /// When it was last brought up to date.
     pub at: SimTime,
     /// The day it was last carried away from the water under a law clearing middens, -1 never
@@ -1009,6 +1014,7 @@ impl Midden {
     pub fn begun(t: SimTime) -> Midden {
         Midden {
             kg: 0.0,
+            ash_kg: 0.0,
             at: t,
             carried: -1,
             site: (0.0, 0.0),
@@ -1195,10 +1201,22 @@ impl Household {
         goods: &[GoodDef],
         fuel_kg_per_day: &dyn Fn(i64) -> f64,
     ) -> Vec<f64> {
+        self.stores_and_ash_at_time(t, goods, fuel_kg_per_day).0
+    }
+
+    /// The stores at `t` as [`Household::stores_at_time`] gives them, and the kilograms of ash
+    /// the fuel burned by then leaves (each fuel burned times its `ash_share`, ADR-0038 §2).
+    fn stores_and_ash_at_time(
+        &self,
+        t: SimTime,
+        goods: &[GoodDef],
+        fuel_kg_per_day: &dyn Fn(i64) -> f64,
+    ) -> (Vec<f64>, f64) {
         let (t0, t1) = (self.stores_at.minutes(), t.minutes());
         let mut out = self.stores.clone();
+        let mut ash = 0.0;
         if t1 <= t0 {
-            return out;
+            return (out, ash);
         }
         let days = (t1 - t0) as f64 / MINUTES_PER_DAY as f64;
         let mut burned = burned_kg(t0, t1, fuel_kg_per_day);
@@ -1239,15 +1257,16 @@ impl Household {
                 let take = (burned / per_kg).min(*kg);
                 *kg -= take;
                 burned -= take * per_kg;
+                ash += take * g.fuel.map_or(0.0, |f| f.ash_share.max(0.0));
             }
         }
         // Gas beyond its holders' room is lost to the air (M10b slice DY).
         crate::make::keep_to_holders(goods, &mut out);
-        out
+        (out, ash)
     }
 
     /// Brings the stores up to `t` (see [`Household::stores_at_time`]), counting what spoiled and
-    /// what burned.
+    /// what burned; the ash of what burned goes on the heap (ADR-0038 §2).
     pub fn settle_stores(
         &mut self,
         t: SimTime,
@@ -1255,7 +1274,8 @@ impl Household {
         fuel_kg_per_day: &dyn Fn(i64) -> f64,
     ) {
         if t > self.stores_at {
-            let after = self.stores_at_time(t, goods, fuel_kg_per_day);
+            let (after, ash) = self.stores_and_ash_at_time(t, goods, fuel_kg_per_day);
+            self.midden.ash_kg += ash;
             for (g, (b, a)) in self.stores.iter().zip(&after).enumerate() {
                 let lost = b - a;
                 if lost > 0.0 {
@@ -1585,6 +1605,7 @@ mod tests {
             mj_per_kg: 15.6,
             smoke: 1.0,
             technique: None,
+            ash_share: 0.0,
         });
         let mut dense = goods[2].clone();
         dense.id = "dense".into();
@@ -1592,6 +1613,7 @@ mod tests {
             mj_per_kg: 31.2,
             smoke: 0.2,
             technique: None,
+            ash_share: 0.0,
         });
         goods.push(dense);
         let per_day = |_: i64| 10.0;

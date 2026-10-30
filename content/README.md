@@ -1862,3 +1862,16 @@ char; when the fire burns out each keeps that share of what it carried, and the 
 whether it still stands. The core gives `good/steel_section` 0.4 (research 11-14 §1.6, §2.1: about
 0.6 of yield at 550 °C, 0.4 at 600 °C). Protection in minutes and the `ProtectedFrame` rule are
 deferred.
+
+Content API 209 (M11f, first part; ADR-0038 §2) adds `[fuel]`'s optional `ash_share` (0–0.5,
+default 0): kilograms of ash a kilogram of the good leaves burned. What a household's hearth burns
+puts its ash on the household's heap, an inert share that never decays, dungs no field and carries
+nothing to the water. What a recipe takes of a fuel, by unit or by session, leaves its ash in the
+maker's store as `good/ash`, less the ash the fuels it gives keep (coke keeps its coal's, charcoal
+its wood's). The core gives firewood 0.005 and coal 0.11 (research 12-10 §2.1), charcoal 0.03 and
+coke 0.10 (design priors), and adds the residues `good/ash`, `good/slag`, `good/coal_tar` and
+`good/ammoniacal_liquor`, all materials that keep. `recipe/make_gas` gives 0.05 kg of tar and
+0.13 kg of liquor a kilogram of coal besides its gas and coke (12-10 §5.7); the bloomery leaves
+6 kg of slag a kilogram of bloom, the blast furnace 0.6 a kilogram of pig on charcoal or coke, the
+finery 0.35 a kilogram of bar and the converter 0.15 a kilogram of steel (design priors; 12-10 §5.7
+for the furnace). Nobody wants a residue unless a recipe takes one.

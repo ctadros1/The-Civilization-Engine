@@ -507,6 +507,9 @@ table Household {
   midden_carried: long = -1 (id: 27);
   midden_x: float (id: 28);
   midden_y: float (id: 29);
+  // Schema 220 (M11f, ADR-0038 §2; appended within the unreleased saves 220): kilograms of ash in
+  // its midden, which never decays; absent, none.
+  midden_ash_kg: double (id: 30);
 }
 
 // A household's count at a mill review (schema 174): the day and the kilograms it had made in

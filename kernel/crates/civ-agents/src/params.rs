@@ -552,6 +552,9 @@ pub struct GoodFuel {
     /// techniques (M10a slice DS: burning coal is a technique of its own, ADR-0033 §1); `None`
     /// for a fuel anyone burns.
     pub technique: Option<usize>,
+    /// Kilograms of ash a kilogram burned leaves (ADR-0038 §2; research 12-10 §2.1: coal about
+    /// 0.11, wood 0.003-0.01); 0 for none.
+    pub ash_share: f64,
 }
 
 /// What a kilogram of `goods[g]` stands for at the hearth, in kilograms of the first fuel among

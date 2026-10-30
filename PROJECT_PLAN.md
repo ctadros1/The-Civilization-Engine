@@ -8153,6 +8153,27 @@ and M6a gives rivers a daily flow.
       and roundtrip targets pass. **Not yet:** protection by encasement in minutes and the
       `ProtectedFrame` rule (ADR-0037 §5), which wait for a skeleton anyone builds. **M11e is done**
       as narrowed: cement, steel and rolling; the steel skeleton; fire on bare steel.
+    - *M11f, first part (2026-10-30): the heap's ash, and residues as goods* (ADR-0038 §2). A fuel's
+      `[fuel]` table takes `ash_share` (firewood 0.005 and coal 0.11, research 12-10 §2.1; charcoal
+      0.03 and coke 0.10, design priors). What a household burns at its hearth adds its ash to its
+      heap's new `ash_kg`, which never decays, is not dung and carries nothing to water; carried from
+      the water, it goes with the heap. Making leaves in the maker's store, as `ash`, the ash of the
+      fuels it burns net of what its fuel outputs keep (coke keeps its coal's ash, charcoal its
+      wood's), once for household, firm and household-resolved making alike. Recipes keep their
+      residues: `make_gas` gives coal tar 0.05 and ammoniacal liquor 0.13 a kilogram of coal (12-10
+      §5.7), so with its ash a kilogram of coal goes 1.015 kg out; pig iron leaves 0.6 kg of slag
+      (12-10 §5.7's 0.5–1.0), fining 0.35, steel 0.15, the bloomery 6.0 a kilogram of bloom (design
+      priors from each recipe's own figures). Residues take no room under a roof (only goods that
+      spoil do), are offered by nobody (they have no cost) and read by no want. **Changed in lived
+      worlds:** heaps gain ash, and the stores of households and works that bake, burn lime, fire or
+      smelt pile ash and slag; held slag now counts as a remain of a lost smelting technique, as a
+      slag heap is on the ground. Saves 220 (unreleased) gains the heap's ash; content API 209.
+      **Tested:** a residues target (hearth ash at 0.005 that does not decay while the heap's
+      decaying share halves as before, manuring and contagion reading the decaying share alone; the
+      gas and iron recipes' mass; a works burning coke for pig keeping its ash; the heap's ash saved
+      and loaded); the contagion, crime, soil, iron, gas, firms, works, coal, metal, telegraph,
+      steel, roundtrip, batches, people, mills and lamps targets; the smoke's ten worlds. **Not
+      yet:** ash from engines and locomotives, and forging's slag.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

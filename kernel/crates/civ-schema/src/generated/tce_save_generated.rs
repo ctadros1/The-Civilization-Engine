@@ -32125,6 +32125,7 @@ impl<'a> Household<'a> {
   pub const VT_MIDDEN_CARRIED: ::flatbuffers::VOffsetT = 58;
   pub const VT_MIDDEN_X: ::flatbuffers::VOffsetT = 60;
   pub const VT_MIDDEN_Y: ::flatbuffers::VOffsetT = 62;
+  pub const VT_MIDDEN_ASH_KG: ::flatbuffers::VOffsetT = 64;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -32136,6 +32137,7 @@ impl<'a> Household<'a> {
     args: &'args HouseholdArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Household<'bldr>> {
     let mut builder = HouseholdBuilder::new(_fbb);
+    builder.add_midden_ash_kg(args.midden_ash_kg);
     builder.add_midden_carried(args.midden_carried);
     builder.add_flood_day(args.flood_day);
     builder.add_water_use_l(args.water_use_l);
@@ -32380,6 +32382,13 @@ impl<'a> Household<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(Household::VT_MIDDEN_Y, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn midden_ash_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(Household::VT_MIDDEN_ASH_KG, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Household<'_> {
@@ -32418,6 +32427,7 @@ impl ::flatbuffers::Verifiable for Household<'_> {
      .visit_field::<i64>("midden_carried", Self::VT_MIDDEN_CARRIED, false)?
      .visit_field::<f32>("midden_x", Self::VT_MIDDEN_X, false)?
      .visit_field::<f32>("midden_y", Self::VT_MIDDEN_Y, false)?
+     .visit_field::<f64>("midden_ash_kg", Self::VT_MIDDEN_ASH_KG, false)?
      .finish();
     Ok(())
   }
@@ -32453,6 +32463,7 @@ pub struct HouseholdArgs<'a> {
     pub midden_carried: i64,
     pub midden_x: f32,
     pub midden_y: f32,
+    pub midden_ash_kg: f64,
 }
 impl<'a> Default for HouseholdArgs<'a> {
   #[inline]
@@ -32488,6 +32499,7 @@ impl<'a> Default for HouseholdArgs<'a> {
       midden_carried: -1,
       midden_x: 0.0,
       midden_y: 0.0,
+      midden_ash_kg: 0.0,
     }
   }
 }
@@ -32618,6 +32630,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HouseholdBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(Household::VT_MIDDEN_Y, midden_y, 0.0);
   }
   #[inline]
+  pub fn add_midden_ash_kg(&mut self, midden_ash_kg: f64) {
+    self.fbb_.push_slot::<f64>(Household::VT_MIDDEN_ASH_KG, midden_ash_kg, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HouseholdBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HouseholdBuilder {
@@ -32665,6 +32681,7 @@ impl ::core::fmt::Debug for Household<'_> {
       ds.field("midden_carried", &self.midden_carried());
       ds.field("midden_x", &self.midden_x());
       ds.field("midden_y", &self.midden_y());
+      ds.field("midden_ash_kg", &self.midden_ash_kg());
       ds.finish()
   }
 }

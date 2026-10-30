@@ -1,6 +1,6 @@
 # Research topics
 
-170 deep-research topics across 16 domains, from the simulation engine to how each part of a society works. 165 are needed before v1 (M0–M8); the rest come after. Priorities: 100 High, 63 Medium, 7 Low.
+171 deep-research topics across 16 domains, from the simulation engine to how each part of a society works. 165 are needed before v1 (M0–M8); the rest come after. Priorities: 100 High, 64 Medium, 7 Low.
 
 ## Research files
 
@@ -236,12 +236,13 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 |---|---|---|---|
 | 07-12 | [Preconditions and cluster of the Industrial Revolution](07-technology/12-industrialization.md) | Technology and knowledge | Low |
 
-### M11: Modern content (2)
+### M11: Modern content (3)
 
 | ID | Topic | Domain | Priority |
 |---|---|---|---|
 | 07-13 | [Modern technology: electricity, combustion and telecommunications](07-technology/13-modern-tech.md) | Technology and knowledge | Low |
 | 12-09 | [Electric power, gas and modern utilities](12-services-infrastructure/09-modern-utilities.md) | City services and infrastructure | Low |
+| 11-14 | [Modern construction: iron and steel frames, reinforced concrete, glass, elevators and the tall building](11-architecture-construction/14-modern-construction.md) | Architecture and construction | Medium |
 
 ### M12: LLM notables, multi-viewer, close-up fidelity (1)
 
@@ -417,7 +418,7 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 | 10-08 | [Urban density and crowding across history](10-settlements-urbanism/08-density-crowding.md) | M8 | Medium | Simulation |
 | 10-09 | [Procedural city and parcel generation techniques](10-settlements-urbanism/09-procedural-city-generation.md) | M1 | High | Engineering |
 
-### 11. Architecture and construction (13)
+### 11. Architecture and construction (14)
 
 | ID | Topic | Needed by | Priority | Type |
 |---|---|---|---|---|
@@ -434,6 +435,7 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 | 11-11 | [Fortifications: forms, costs and effectiveness](11-architecture-construction/11-fortifications.md) | M5 | Medium | Simulation |
 | 11-12 | [Earthworks: terraces, canals, levees and leveling](11-architecture-construction/12-earthworks.md) | M3 | Medium | Simulation |
 | 11-13 | [Interior layouts and room use](11-architecture-construction/13-interior-programs.md) | M6 | Low | Simulation |
+| 11-14 | [Modern construction: iron and steel frames, reinforced concrete, glass, elevators and the tall building](11-architecture-construction/14-modern-construction.md) | M11 | Medium | Simulation |
 
 ### 12. City services and infrastructure (9)
 

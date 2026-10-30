@@ -717,7 +717,7 @@ fn granary(at: (i32, i32)) -> civ_grammar::BuildingSpec {
     params[fp::WALL_CM] = 15;
     civ_grammar::BuildingSpec {
         program: "core:building/granary".into(),
-        version: civ_grammar::FRAME_VERSION,
+        version: civ_grammar::FRAME_DESIGN_VERSION,
         footprint: civ_grammar::Footprint::Rect {
             x: at.0,
             y: at.1,
@@ -778,6 +778,52 @@ fn frame_buildings_and_their_plots_survive_a_save_and_load_exactly() {
     assert_eq!(loaded.land().buildings, sim.land().buildings);
     assert_eq!(loaded.land().plots, sim.land().plots);
     // Saved again, every section is what it was.
+    let mut again = loaded;
+    let resaved = persist::save(&mut again, &dir, SaveKind::Manual, "again").expect("saves");
+    assert_eq!(digests(&resaved.chunks), digests(&saved.chunks));
+}
+
+#[test]
+fn a_steel_skeleton_survives_a_save_and_load_exactly() {
+    // Frame version 4 (ADR-0037 §3): its spec names five materials and saves as any other.
+    let mut sim = load_first();
+    let (household, home) = {
+        let b = sim.land().buildings.first().expect("a home under way");
+        (b.household, b.spec.footprint.centre())
+    };
+    let catalog = &sim.rules().catalog;
+    let def = &catalog.buildings[catalog
+        .building_index("core:building/workshop")
+        .expect("the workshop")];
+    let at = (
+        (home.0 - 2_000) as f32 / 100.0,
+        (home.1 + 500) as f32 / 100.0,
+    );
+    let shape = civ_agents::build::Shape::Bays {
+        bays: 2,
+        storeys: 1,
+        lofts: 1,
+    };
+    let mut spec =
+        civ_agents::build::design_shape(def, &catalog.goods, shape, at, None).expect("designed");
+    spec.version = civ_grammar::FRAME_VERSION;
+    spec.params[civ_grammar::frame_params::POST_SYSTEM] = 2;
+    spec.materials.push("core:good/steel_section".into());
+    civ_grammar::expand(&spec, &def.rules).expect("a steel skeleton");
+    let id = sim
+        .place_building_for_tests(household, spec.clone(), Stage::ALL.len() as u8)
+        .expect("placed");
+    let dir = scratch_dir("skeleton");
+    let saved = persist::save(&mut sim, &dir, SaveKind::Manual, "skeleton").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    let b = loaded
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.id == id)
+        .expect("the workshop");
+    assert_eq!(b.spec, spec);
+    assert_eq!(loaded.land().buildings, sim.land().buildings);
     let mut again = loaded;
     let resaved = persist::save(&mut again, &dir, SaveKind::Manual, "again").expect("saves");
     assert_eq!(digests(&resaved.chunks), digests(&saved.chunks));

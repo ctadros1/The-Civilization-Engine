@@ -23,6 +23,9 @@ pub const GRAMMARS: [&str; 2] = ["hut", "frame"];
 pub const HUT_SLOTS: [&str; 3] = ["timber", "wattle", "thatch"];
 /// A frame's material slots, in slot order (`civ_grammar::frame_materials`).
 pub const FRAME_SLOTS: [&str; 4] = ["timber", "wattle", "covering", "boards"];
+/// A frame's optional fifth slot, a steel skeleton's members (`frame_materials::FRAME`, ADR-0037
+/// §3): content API 207.
+pub const FRAME_SKELETON_SLOT: &str = "frame";
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -75,12 +78,20 @@ pub(crate) struct SystemsFile {
     /// Mass walls tied at each storey.
     #[serde(default)]
     pub wall_ties: String,
+    /// A steel skeleton, frame version 4's post system (ADR-0037 §3; content API 207).
+    #[serde(default)]
+    pub skeleton: String,
 }
 
 impl SystemsFile {
     /// The technique ids, in the order of [`civ_agents::params::BuildingDef::systems`].
-    pub fn ids(&self) -> [&str; 3] {
-        [&self.trussed_roof, &self.storeyed_posts, &self.wall_ties]
+    pub fn ids(&self) -> [&str; 4] {
+        [
+            &self.trussed_roof,
+            &self.storeyed_posts,
+            &self.wall_ties,
+            &self.skeleton,
+        ]
     }
 }
 
@@ -197,6 +208,10 @@ pub(crate) struct Frame {
     pub loft_kg_per_m2: f64,
     pub living_kg_per_m2: f64,
     pub timber_kg_per_m3: f64,
+    /// A steel skeleton's members' weight over their envelope (ADR-0037 §3; content API 207); 0,
+    /// the default, where the program has no skeleton.
+    #[serde(default)]
+    pub frame_kg_per_m3: f64,
     pub groundwork_h_per_m2: f64,
     pub posthole_h: f64,
     pub post_h: f64,
@@ -254,15 +269,18 @@ impl BuildingFile {
         Grammar::from_name(&self.grammar)
     }
 
-    /// Its material slots in slot order, with the good each names (`""` when missing).
+    /// Its material slots in slot order, with the good each names (`""` when missing): a frame's
+    /// skeleton slot last, only when it names one.
     pub fn slots(&self) -> Vec<(&'static str, &str)> {
-        let names: &[&'static str] = match self.grammar() {
-            Some(Grammar::Frame) => &FRAME_SLOTS,
-            _ => &HUT_SLOTS,
-        };
+        let frame = self.grammar() == Some(Grammar::Frame);
+        let names: &[&'static str] = if frame { &FRAME_SLOTS } else { &HUT_SLOTS };
+        let skeleton = (frame && self.materials.contains_key(FRAME_SKELETON_SLOT))
+            .then_some(FRAME_SKELETON_SLOT);
         names
             .iter()
-            .map(|&n| (n, self.materials.get(n).map_or("", String::as_str)))
+            .copied()
+            .chain(skeleton)
+            .map(|n| (n, self.materials.get(n).map_or("", String::as_str)))
             .collect()
     }
 
@@ -332,6 +350,7 @@ impl BuildingFile {
                     loft_kg_per_m2: f.loft_kg_per_m2,
                     living_kg_per_m2: f.living_kg_per_m2,
                     timber_kg_per_m3: f.timber_kg_per_m3,
+                    frame_kg_per_m3: f.frame_kg_per_m3,
                     groundwork_h_per_m2: f.groundwork_h_per_m2,
                     posthole_h: f.posthole_h,
                     post_h: f.post_h,
@@ -396,7 +415,7 @@ impl BuildingFile {
             shapes: Vec::new(),
             skill,
             upkeep: self.upkeep.upkeep(),
-            systems: [None; 3],
+            systems: [None; 4],
         };
         def.shapes = civ_agents::build::shapes(&def, goods);
         Some(def)
@@ -421,7 +440,10 @@ impl BuildingFile {
                 known.join(", ")
             ));
         }
-        let slots: Vec<&str> = self.slots().iter().map(|(n, _)| *n).collect();
+        let mut slots: Vec<&str> = self.slots().iter().map(|(n, _)| *n).collect();
+        if grammar == Grammar::Frame && !slots.contains(&FRAME_SKELETON_SLOT) {
+            slots.push(FRAME_SKELETON_SLOT);
+        }
         for (slot, _) in self.slots().iter().filter(|(_, id)| id.is_empty()) {
             p.push(format!("`materials.{slot}` is missing"));
         }
@@ -629,8 +651,22 @@ impl BuildingFile {
             ("store_kg_per_m2", f.store_kg_per_m2),
             ("loft_kg_per_m2", f.loft_kg_per_m2),
             ("living_kg_per_m2", f.living_kg_per_m2),
+            ("frame_kg_per_m3", f.frame_kg_per_m3),
         ] {
             not_negative(p, t, name, v);
+        }
+        // A steel skeleton needs its members' good and weight (ADR-0037 §3).
+        let skeleton = self
+            .systems
+            .as_ref()
+            .is_some_and(|s| !s.skeleton.is_empty());
+        if skeleton
+            && (!self.materials.contains_key(FRAME_SKELETON_SLOT) || f.frame_kg_per_m3 <= 0.0)
+        {
+            p.push(
+                "`systems.skeleton` needs `materials.frame` and a positive `frame.frame_kg_per_m3`"
+                    .to_owned(),
+            );
         }
         for (name, v) in [
             ("floor_m2_per_sleeper", f.floor_m2_per_sleeper),

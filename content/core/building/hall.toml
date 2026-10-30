@@ -23,10 +23,11 @@ wall_cm = 15
 overhang_cm = 50
 joist_cm = 15
 
-[systems]                        # what opens frame version 3's systems (ADR-0031 §2)
+[systems]                        # what opens frame version 3's and 4's systems (ADR-0031 §2, ADR-0037 §3)
 trussed_roof = "core:technique/trussed_roof"
 storeyed_posts = "core:technique/storeyed_frame"
 wall_ties = "core:technique/tied_masonry"
+skeleton = "core:technique/skeleton_frame"   # frame version 4 (ADR-0037 §3)
 
 [upkeep]
 # How its parts wear and decay (ADR-0009 §4): for each kind, the share of its section or covering
@@ -46,6 +47,7 @@ timber = "core:good/timber"
 wattle = "core:good/timber"
 covering = "core:good/thatch"
 boards = "core:good/timber"
+frame = "core:good/steel_section"   # a skeleton's posts, beams and joists (ADR-0037 §3)
 
 [frame]
 bays = [4, 4]                    # one shape: the hall people raise (design prior)
@@ -78,6 +80,9 @@ store_kg_per_m2 = 500.0
 loft_kg_per_m2 = 150.0
 living_kg_per_m2 = 100.0
 timber_kg_per_m3 = 760.0
+# A skeleton's members over their envelope: steel's 7850 kg/m³ times an I-section's 0.1425 of the
+# envelope's area (ADR-0037 §3; the design prior of steel_section's [timber]).
+frame_kg_per_m3 = 1119.0
 groundwork_h_per_m2 = 3.0
 posthole_h = 0.8
 post_h = 12.0

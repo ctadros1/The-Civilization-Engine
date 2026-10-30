@@ -10,3 +10,17 @@ sheltered_half_life_days = 0.0
 eaten = "never"
 shared = false
 reserve_for = ""
+
+[timber]
+# How a steel member carries as the structure check reads it: drawn as the envelope of the round
+# timber member it replaces, with its properties spread over that envelope (ADR-0037 §3-§4; a
+# design prior). An I-section of 235 MPa yield and 210 GPa (research 11-14 §2.1 leaves modern
+# grades to the standard) has about 0.14 of the envelope's area and about 0.29 of its section
+# modulus and second moment, so it bends at 235 x 0.29, crushes at 235 x 0.1425 and is as stiff
+# as 210 x 0.29 over the envelope. Steel does not creep at a building's loads and keeps its
+# strength under load carried for years.
+bending_mpa = 68.0
+compression_mpa = 33.5
+stiffness_gpa = 61.0
+creep = 0.0
+sustained = 1.0

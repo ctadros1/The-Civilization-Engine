@@ -164,6 +164,20 @@ pub fn roof_cos(e: &Expansion) -> f64 {
     }
 }
 
+/// What group `g` of a building of program `def` is made of as the checks read it: the
+/// `[timber]` of the good its material slot names in the program's materials, a steel skeleton's
+/// slot its sections' (ADR-0037 §4); `None` for no slot or a good without one.
+pub fn group_timber(
+    goods: &[crate::params::GoodDef],
+    def: &crate::params::BuildingDef,
+    g: &Group,
+) -> Option<Timber> {
+    g.material
+        .and_then(|slot| def.materials.get(usize::from(slot)))
+        .and_then(|&good| goods.get(good))
+        .and_then(|good| good.timber)
+}
+
 /// A member's own weight, newtons.
 fn own_weight(g: &Group) -> f64 {
     let (area, _, _) = section(g);

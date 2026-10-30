@@ -318,12 +318,7 @@ impl Population {
             },
             ..loads
         };
-        let timber = |g: &Group| {
-            g.material
-                .and_then(|slot| def.materials.get(usize::from(slot)))
-                .and_then(|&good| catalog.goods.get(good))
-                .and_then(|good| good.timber)
-        };
+        let timber = |g: &Group| structure::group_timber(&catalog.goods, def, g);
         let b = &mut ctx.land.buildings[i];
         let mut fell: Vec<Fell> = Vec::new();
         let mut torn = false;

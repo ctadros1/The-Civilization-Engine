@@ -2727,7 +2727,8 @@ impl Population {
                 knows_mud_brick: knows_technique("core:technique/mud_brick"),
                 knows_firing: knows_technique("core:technique/firing"),
                 knows_lime: knows_technique("core:technique/lime_burning"),
-                // The version 3 systems its program opens to a technique someone of it knows.
+                // The version 3 and 4 systems its program opens to a technique someone of it
+                // knows (ADR-0031 §2, ADR-0037 §3).
                 knows_systems: program.systems.map(|t| {
                     t.is_some_and(|t| {
                         hh.members

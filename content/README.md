@@ -299,7 +299,7 @@ building skill and `[upkeep]`.
 | | `technique` | The technique building it needs (ADR-0008). |
 | | `skill` | The skill building and mending it use and train (a skill id, or `""`): its builders' average level sets how evenly its parts are made (ADR-0009 §6). |
 | `upkeep` | `covering`, `posts`, `infill`, `under_leak` | How its parts wear (ADR-0009 §4), each `[share lost a year, share at which it shows]`: the roof's covering in the weather; posts at their foot, times the wetness of the habitat it stands in; walls' infill at their foot; and roofed timber (beams, joists, rafters, a raised floor) times the share of the roof over it that leaks. Shares lost a year are zero or more, thresholds above 0 and at most 1. A part is lost entirely at a loss of 1: a covering is gone, posts give way (a ruin). |
-| `materials` | a hut's `timber`, `wattle`, `thatch`; a frame's `timber`, `wattle`, `covering`, `boards` | The good each material slot is made of (good ids, each a `material`). |
+| `materials` | a hut's `timber`, `wattle`, `thatch`; a frame's `timber`, `wattle`, `covering`, `boards`, and optionally `frame` (content API 207) | The good each material slot is made of (good ids, each a `material`); `frame` is a steel skeleton's posts, beams and joists (ADR-0037 §3). |
 | `rules` (a hut's) | `radius_cm`, `eave_cm`, `pitch_deg` | Allowed ranges, `[least, most]`. |
 | | `floor_base_m2`, `floor_m2_per_sleeper` | The floor a household needs whatever its size and per resident; the hut's radius follows, rounded up to whole decimetres. |
 | | `store_kg_per_m2` | Goods its floor holds besides living on it, kilograms a square metre. |
@@ -318,6 +318,7 @@ A frame program's rules are a `[frame]` table instead:
 | `floor_base_m2`, `floor_m2_per_sleeper`, `work_m2_per_worker` | Living floor a household needs whatever its size and per resident; floor a place to work takes. |
 | `store_kg_per_m2`, `loft_kg_per_m2`, `living_kg_per_m2` | Goods a store's floor, a loft and living or working floor hold, kilograms a square metre. |
 | `timber_kg_per_m3` | The timber's density: posts, beams, rafters, joists and boards are costed from their sizes. |
+| `frame_kg_per_m3` | A steel skeleton's members' weight over their envelope (content API 207; 0, the default, for none): its posts, beams and joists are costed from their sizes at it. |
 | `groundwork_h_per_m2`, `posthole_h`, `post_h`, `beam_h_per_m`, `rafter_h`, `joist_h_per_m`, `wattle_h_per_m2`, `daub_h_per_m3`, `thatch_h_per_m2`, `finish_h_per_m2`, `decking_h_per_m2`, `ladder_h` | Person-hours of a capable adult for each part. All positive. |
 | `wattle_kg_per_m2`, `thatch_kg_per_m2`, `ladder_kg` | Material in each part besides the timber its sizes give. |
 | `mass_wall_cm` | A mass wall's allowed thickness from frame version 3, `[least, most]` (before it, mass walls are held to `wall_cm`). |
@@ -1842,3 +1843,15 @@ metre, `rating_kw` the most a line passes, `voltage_v` the world's one direct-cu
 `ohm_per_m` a metre's resistance out and back (losses are I²R at that voltage), and `life_years`
 how long a line serves; each above 0 and in range. The core's: copper, 0.62 kg and half an hour a
 metre, 6 kW, 110 V, 0.001 ohms, forty years (design priors). A profile without it lays no line.
+
+Content API 207 (M11e, second part; ADR-0037 §3) brings frame version 4's steel skeleton. A frame
+program's `[systems]` may name `skeleton`, the technique that opens it; its `[materials]` may name
+`frame`, a fifth slot holding the good a skeleton's posts, plates, tie and cross beams and joists
+are made of; and its `[frame]` may give `frame_kg_per_m3`, what a cubic metre of those members
+weighs over their envelope (zero or more, 0 by default). A program naming `skeleton` needs both. A
+skeleton member is checked by its good's `[timber]` strengths, spread over the envelope of the
+round member it replaces. The core adds `technique/skeleton_frame` (requiring `rolling` and
+`jointed_frame`, tried toward in building huts, a far technique nobody starts knowing), gives
+`good/steel_section` a `[timber]` table (an I-section of 235 MPa and 210 GPa smeared over its
+envelope: 68 MPa in bending, 33.5 in compression, 61 GPa, no creep), and offers the skeleton in the
+workshop and the hall at 1119 kg/m³ (design priors).

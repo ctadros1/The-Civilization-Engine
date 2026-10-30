@@ -3413,7 +3413,7 @@ mod tests {
                     knows_mud_brick: false,
                     knows_firing: false,
                     knows_lime: false,
-                    knows_systems: [false; 3],
+                    knows_systems: [false; 4],
                 }),
             )
             .expect("design");

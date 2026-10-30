@@ -107,6 +107,30 @@ are content and saved specs: the save schema, wire and content API bump; no new 
 - **Raising v3's storey cap.** It would change what v3 buildings are; versions are frozen.
 - **A modern-era height allowance.** Forbidden: no eras, and height is a choice in hours.
 
+## Amendment (2026-10-30): narrowed as built
+
+Decided by Claude under the owner's standing authority, by the time box (plan §9):
+
+- **§3, the skeleton only.** Frame version 4 adds post system 2, a steel skeleton: storeyed posts
+  (allowed on one storey too) whose posts, plates, tie and cross beams and joists take a fifth
+  material slot, `frame`, named by the program with its `frame_kg_per_m3`; walls are infill
+  (wall kind 0). The reinforced-concrete frame is deferred with mass infill, and `MAX_STOREYS`
+  stays 4 in version 4 (taller needs a new `Level` and wire change, and nobody builds tall until
+  letting storeys exists, §7).
+- **§4, steel smeared over its member's envelope.** A steel member is drawn as the envelope of the
+  timber member it replaces, with an I-section's properties spread over it (a design prior:
+  bending 68 MPa, compression 33.5, stiffness 61 GPa, no creep, from 235 MPa and 210 GPa at about
+  0.14 of the envelope's area and 0.29 of its section modulus), so `structure.rs`'s checks apply
+  unchanged. Concrete's age curve waits with the concrete frame. A skeleton member's own weight in
+  the checks still uses the program's timber density, and its labour timber's: both simplifications.
+- **The designer** offers the skeleton where its builders know `skeleton_frame` and the program
+  names it, and takes it only when it takes fewer hours and fewer kilograms than the timber design
+  and more of neither, as it reaches for no version 3 system but ties. With the core content steel
+  weighs more than the timber it replaces for the same labour, so the designer never takes it; a
+  skeleton is built only where a design is given one (the observer, or a later designer that
+  sizes for spans timber cannot carry). Recorded, not nudged.
+- **§5, fire on bare steel,** is the next part.
+
 ## Revisit when
 
 - Letting storeys is designed: lifts and wind follow.

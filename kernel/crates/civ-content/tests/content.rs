@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 206
+kernel_content_api = 207
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -970,19 +970,42 @@ fn buildings_check_their_numbers_and_materials() {
     );
     // Frame programs: a longhouse, a raised granary and a workshop, their rules from `[frame]`.
     let c = &reg.catalog;
-    for (id, use_, raised) in [
+    for (id, use_, raised, skeleton) in [
         (
             "core:building/longhouse",
             civ_land::PlotUse::Dwelling,
             false,
+            false,
         ),
-        ("core:building/granary", civ_land::PlotUse::Store, true),
-        ("core:building/workshop", civ_land::PlotUse::Work, false),
+        (
+            "core:building/granary",
+            civ_land::PlotUse::Store,
+            true,
+            false,
+        ),
+        (
+            "core:building/workshop",
+            civ_land::PlotUse::Work,
+            false,
+            true,
+        ),
     ] {
         let b = &c.buildings[c.building_index(id).expect(id)];
         assert_eq!(b.grammar(), civ_grammar::Grammar::Frame, "{id}");
         assert_eq!(b.use_, use_, "{id}");
-        assert_eq!(b.materials.len(), civ_grammar::frame_materials::COUNT);
+        // A workshop names a fifth material, its steel skeleton's (ADR-0037 §3).
+        let slots = if skeleton {
+            civ_grammar::frame_materials::COUNT_V4
+        } else {
+            civ_grammar::frame_materials::COUNT
+        };
+        assert_eq!(b.materials.len(), slots, "{id}");
+        if skeleton {
+            assert_eq!(
+                c.goods[b.materials[usize::from(civ_grammar::frame_materials::FRAME)]].id,
+                "core:good/steel_section"
+            );
+        }
         assert_eq!(
             b.technique.map(|t| c.techniques[t].id.as_str()),
             Some("core:technique/jointed_frame")
@@ -999,6 +1022,7 @@ fn buildings_check_their_numbers_and_materials() {
                 Some("core:technique/trussed_roof"),
                 Some("core:technique/storeyed_frame"),
                 Some("core:technique/tied_masonry"),
+                skeleton.then_some("core:technique/skeleton_frame"),
             ],
             "{id}"
         );
@@ -1018,9 +1042,15 @@ fn buildings_check_their_numbers_and_materials() {
         params[fp::JOIST_CM] = if raised { r.joist_cm.0 } else { 0 };
         params[fp::POST_CM] = r.post_cm.0;
         params[fp::WALL_CM] = r.wall_cm.0;
+        // Under the version its materials are named for: a skeleton's five from version 4.
+        let version = if skeleton {
+            civ_grammar::FRAME_VERSION
+        } else {
+            civ_grammar::FRAME_DESIGN_VERSION
+        };
         let spec = civ_grammar::BuildingSpec {
             program: id.to_owned(),
-            version: civ_grammar::FRAME_VERSION,
+            version,
             footprint: civ_grammar::Footprint::Rect {
                 x: 100_000,
                 y: 100_000,
@@ -1035,6 +1065,17 @@ fn buildings_check_their_numbers_and_materials() {
         };
         let e = civ_grammar::expand(&spec, &b.rules).unwrap_or_else(|e| panic!("{id}: {e}"));
         assert!(e.total_labour_h() > 0.0, "{id}");
+        // A workshop's least building as a steel skeleton expands too, its frame of sections.
+        if skeleton {
+            let mut steel = spec.clone();
+            steel.params[fp::POST_SYSTEM] = 2;
+            let e = civ_grammar::expand(&steel, &b.rules).unwrap_or_else(|e| panic!("{id}: {e}"));
+            let frame = &e.stages[civ_grammar::Stage::Frame.index()].materials_kg;
+            assert!(
+                frame[usize::from(civ_grammar::frame_materials::FRAME)] > 0.0,
+                "{id}"
+            );
+        }
     }
     // Framing and the systems it opens are found by building huts (M8d slice CZ); none is known
     // to founders.
@@ -1053,6 +1094,23 @@ fn buildings_check_their_numbers_and_materials() {
         assert!(c.techniques[t].tried_in.contains(&building_huts), "{id}");
         assert!(c.techniques[t].e50_h < 100_000.0, "{id} can be found");
     }
+    // A steel skeleton is tried toward there too, far off, and stands on rolling and framing
+    // (ADR-0037 §3).
+    let skeleton = c
+        .techniques
+        .iter()
+        .find(|t| t.id == "core:technique/skeleton_frame")
+        .expect("a steel skeleton");
+    assert!(skeleton.tried_in.contains(&building_huts));
+    assert!(skeleton.e50_h >= 100_000.0);
+    let named = |id: &str| c.techniques.iter().position(|t| t.id == id).expect(id);
+    assert_eq!(
+        skeleton.requires,
+        [vec![
+            named("core:technique/rolling"),
+            named("core:technique/jointed_frame")
+        ]]
+    );
     assert_eq!(hut.use_, civ_land::PlotUse::Dwelling);
     let real_longhouse = real("building/longhouse.toml");
     for (from, to, needle) in [
@@ -1076,6 +1134,17 @@ fn buildings_check_their_numbers_and_materials() {
             "needs `[rules]`",
         ),
         ("decking_cm = 4 ", "decking_cm = 0 ", "`frame.decking_cm`"),
+        // A steel skeleton needs its members' good and weight (ADR-0037 §3).
+        (
+            "wall_ties = \"core:technique/tied_masonry\"",
+            "wall_ties = \"core:technique/tied_masonry\"\nskeleton = \"core:technique/tied_masonry\"",
+            "`systems.skeleton` needs `materials.frame`",
+        ),
+        (
+            "timber_kg_per_m3 = 760.0",
+            "timber_kg_per_m3 = 760.0\nframe_kg_per_m3 = -1.0",
+            "`frame.frame_kg_per_m3`",
+        ),
     ] {
         let body = real_longhouse.replace(from, to);
         assert_ne!(body, real_longhouse, "{needle}: the edit applies");

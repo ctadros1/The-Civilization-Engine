@@ -77,7 +77,9 @@ pub fn techniques_used(
         .enumerate()
     {
         if spec.params.get(param).is_some_and(|&v| v != 0) {
-            out.extend(def.systems[i]);
+            // Post system 2 is a steel skeleton, opened by its own technique (ADR-0037 §3).
+            let skeleton = param == fp::POST_SYSTEM && spec.params[param] == 2;
+            out.extend(def.systems[if skeleton { 3 } else { i }]);
         }
     }
     out.sort_unstable();

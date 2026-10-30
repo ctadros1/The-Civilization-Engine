@@ -317,8 +317,9 @@ pub fn seen_from_m(land: &civ_land::Land, b: &civ_land::Building, sight_m: f64) 
 }
 
 /// What frame building `spec` was built with beyond what version 2 builds, in words (ADR-0031
-/// §1): a trussed roof, posts a storey high, walls tied at each storey, walls thinning storey by
-/// storey, each storey's windows and a stair. Empty before version 3.
+/// §1): a trussed roof, posts a storey high or a steel skeleton (version 4, ADR-0037 §3), walls
+/// tied at each storey, walls thinning storey by storey, each storey's windows and a stair. Empty
+/// before version 3.
 pub fn system_words(spec: &BuildingSpec) -> Vec<String> {
     use frame_params as fp;
     if spec.version < 3 {
@@ -333,6 +334,9 @@ pub fn system_words(spec: &BuildingSpec) -> Vec<String> {
     }
     if p[fp::POST_SYSTEM] == 1 {
         words.push("posts a storey high".to_owned());
+    }
+    if p[fp::POST_SYSTEM] == 2 {
+        words.push("a steel skeleton".to_owned());
     }
     if p[fp::TIES] == 1 {
         words.push("walls tied at each storey".to_owned());
@@ -635,5 +639,11 @@ mod tests {
                 "a stair to every storey",
             ]
         );
+        // Version 4's steel skeleton (ADR-0037 §3).
+        let mut skeleton = spec.clone();
+        skeleton.version = 4;
+        skeleton.params = [0; civ_grammar::PARAMS];
+        skeleton.params[fp::POST_SYSTEM] = 2;
+        assert_eq!(system_words(&skeleton), ["a steel skeleton"]);
     }
 }

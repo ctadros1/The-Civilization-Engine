@@ -1340,8 +1340,9 @@ pub struct BuildingDef {
     /// How its parts wear and decay (ADR-0009 §4).
     pub upkeep: Upkeep,
     /// The technique that opens each of frame version 3's systems, by index in the techniques:
-    /// a trussed roof, storeyed posts and wall ties (ADR-0031 §2); `None` where none does.
-    pub systems: [Option<usize>; 3],
+    /// a trussed roof, storeyed posts and wall ties (ADR-0031 §2), and version 4's steel skeleton
+    /// (ADR-0037 §3); `None` where none does.
+    pub systems: [Option<usize>; 4],
 }
 
 /// How one kind of a building's parts wears or decays (ADR-0009 §4).

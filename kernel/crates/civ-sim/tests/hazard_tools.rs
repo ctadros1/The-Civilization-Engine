@@ -675,7 +675,7 @@ fn rubble_longhouse(
             knows_mud_brick: false,
             knows_firing: false,
             knows_lime: false,
-            knows_systems: [false, false, tied],
+            knows_systems: [false, false, tied, false],
         }),
     )
     .expect("design");
@@ -1007,7 +1007,7 @@ fn a_rubble_wall_shaken_down_makes_its_settlement_build_rubble_walls_thicker() {
                 knows_mud_brick: false,
                 knows_firing: false,
                 knows_lime: false,
-                knows_systems: [false; 3],
+                knows_systems: [false; 4],
             }),
         )
         .expect("design");

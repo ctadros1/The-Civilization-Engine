@@ -576,7 +576,7 @@ fn a_shaken_village_proposes_tied_walls_only_where_someone_ties_them_and_its_tal
                 knows_mud_brick: false,
                 knows_firing: false,
                 knows_lime: false,
-                knows_systems: [false; 3],
+                knows_systems: [false; 4],
             }),
         )
         .expect("design");

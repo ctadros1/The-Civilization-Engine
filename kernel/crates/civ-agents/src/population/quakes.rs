@@ -163,12 +163,7 @@ impl Population {
             return (Vec::new(), Vec::new());
         };
         let loads = loads_on(b, &e, kept);
-        let timber = |g: &Group| {
-            g.material
-                .and_then(|slot| def.materials.get(usize::from(slot)))
-                .and_then(|&good| catalog.goods.get(good))
-                .and_then(|good| good.timber)
-        };
+        let timber = |g: &Group| crate::structure::group_timber(&catalog.goods, def, g);
         let shows = def.upkeep.infill.shows_at as f32;
         let quakes = &self.quakes;
         let b = &mut ctx.land.buildings[i];

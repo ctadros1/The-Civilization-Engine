@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 206;
+pub const KERNEL_CONTENT_API: u32 = 207;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -803,7 +803,7 @@ fn resolve(
         };
         let technique = gate(c, parsed, &technique_index, &d.rel, &d.file.technique);
         // The techniques that open its version 3 systems (ADR-0031 §2).
-        let mut systems = [None; 3];
+        let mut systems = [None; 4];
         if let Some(named) = &d.file.systems {
             for (slot, id) in named.ids().into_iter().enumerate() {
                 match gate(c, parsed, &technique_index, &d.rel, id) {

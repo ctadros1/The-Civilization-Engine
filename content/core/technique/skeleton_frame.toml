@@ -1,0 +1,20 @@
+# A steel skeleton: rolled columns standing storey on storey, with girders, beams and joists of
+# rolled sections between them, so the frame carries the floors and the walls are only infill
+# between its posts (research 11-14 §1.1; ADR-0037 §3). Found by those who frame buildings and
+# know how sections are rolled, with sections at home: a far technique (a design prior). Learnt
+# in 200 hours beside a knower, and at home by children who build (a design prior). Founders do
+# not bring it.
+kind = "technique"
+id = "core:technique/skeleton_frame"
+name = "A steel skeleton"
+can = "frame a building of rolled steel columns, girders and joists, its walls infill between them"
+domain = "core:skill/building"
+requires = [["core:technique/rolling", "core:technique/jointed_frame"]]
+tried_in = ["core:activity/build_hut"]
+needs = ["core:good/steel_section"]
+e50_h = 400000.0
+learn_h = 200.0
+upbringing = true
+
+[answers]
+spoilage = []

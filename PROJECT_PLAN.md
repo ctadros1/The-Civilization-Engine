@@ -8118,6 +8118,27 @@ and M6a gives rivers a daily flow.
       knowing it and each technique stands on the works before it, and a works blows pig to steel
       only with three at the converter and rolls sections only with four at the mill, at the
       recipes' figures; the mills target passes again.
+    - *M11e, second part (2026-10-30): frame version 4, the steel skeleton* (ADR-0037 §3–§4 and its
+      amendment). `FRAME_VERSION` 4: version 3 plus post system 2, a steel skeleton laid as storeyed
+      posts (one storey allowed) whose posts, plates, tie and cross beams and joists take a fifth
+      material slot `frame` at the program's `frame_kg_per_m3`; refused by name in versions 1–3,
+      with mass walls, without a frame density, and with four materials. Versions 1–3 expand as
+      before (every golden passes). `steel_section` carries an I-section's properties smeared over
+      its member's envelope (68 / 33.5 MPa, 61 GPa, a design prior), so the margins need no change;
+      `structure::group_timber` resolves a group's material for the loads and quakes checks. The
+      workshop and hall offer the skeleton (`skeleton_frame`, a far technique requiring rolling and
+      jointed frames; 1,119 kg/m³). The designer takes it only when it costs fewer hours and kilograms
+      than the timber design and more of neither, and writes version 4 only then; with the core
+      content it never does (steel weighs more for the same labour), as it reaches for no version 3
+      system but ties. Content API 207; saves and wire unchanged (materials are a saved list).
+      **Tested:** grammar (version 4 without a skeleton is version 3; the skeleton's slot-4 parts,
+      groups and kilograms; one storey; each refusal); a skeleton workshop's posts, joists and tie
+      beams checked as steel and its rafters as timber, a steel member standing (margin above 1.2)
+      under the load a timber one of its size fails; a skeleton workshop raised by its household
+      from its sections; builders who do not know it, or find it dearer, design every frame shape
+      exactly as before and 30 lived days build no version 4 frame; a skeleton workshop saves and
+      loads exactly. **Not yet:** fire on bare steel (next), concrete frames, mass infill, more
+      than four storeys, lifts, wind, letting storeys.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 
@@ -8247,6 +8268,8 @@ and M6a gives rivers a daily flow.
   passes within 50 m of a showing one. None of it is measured; the research gives no figure for how
   often prospecting found an outcrop. Revisited when a demo shows a settlement that wants copper
   and never finds any within a day's walk where bodies lie.
+- **Stacked PRs merged (2026-10-30, ctadros1/The-Civilization-Engine #23, #22, #21):** Decided by Claude under standing owner authority (2026-10-30). #23 into `codex/m11-design`, then #22 into `codex/m10-gate-bench`, then #21 into `claude/claude-verification`, each by a merge commit (no squash, rebase or force-push; no branch deleted). *Reason:* homelab chain 41 passed on 56e01b0 (#23's head), every merged tree has that commit's code (the rest is M10's demo record and the plan), and their decisions are recorded (M10's bench clause, ADR-0036). `claude/claude-verification` is not `main`; nothing was merged into `main`, which is the owner's. Work continues on `codex/m11e-construction-waste`.
+- **ADR-0037 narrowed as built (2026-10-30, M11e's second part):** Decided by Claude under standing owner authority (2026-10-30). Frame version 4 is the steel skeleton alone, at most four storeys; the concrete frame, mass infill and taller frames are deferred. *Reason:* the time box: a taller frame needs a new `Level` and wire change, and nobody builds tall while nobody lets a storey (ADR-0037 §7); the skeleton is the primitive the others build on. The designer never chooses it with the core content; recorded, not nudged.
 - **M11's modern architecture and waste designed (2026-10-30, plan §7; research 11-14 and 12-10, written for it; brief `docs/briefs/m11-building-waste.md`; [ADR-0037](decisions/0037-frames-of-steel-and-concrete.md), [ADR-0038](decisions/0038-refuse-tips-and-residues.md)):** Decided by Claude under standing owner authority (2026-10-30). The owner asked for the research, ADRs and build to be done without asking. **Construction:** cement, steel and rolling as recipes on M10's chain; frame version 4 beside frozen 1–3 (12 storeys at most) with a steel skeleton and a reinforced-concrete frame, each storey's enclosure carried by the frame; steel's and concrete's own checks, concrete's strength by its age; bare steel weakening in a full burn. *Reason:* a frozen new version reuses v3's assembly and checks, as v3 was added beside v1 and v2; the report's separate `tower` grammar would duplicate them. **Deferred:** lifts, wind and letting storeys (the reason anyone builds tall; a residence change needing its own design), glass. Most lived worlds will build no frame; that is a correct outcome, not a reason to nudge. **Waste:** the heap gains an inert ash share fed by fuel's `ash_share`; recipes keep their residues (tar, liquor, slag) as goods so mass closes; tips as site records on the contamination links; `refuse_to_tip`; a firm's refuse round paid per call on a `Refuse` channel; a destructor as an engine burning refuse. *Reason:* mass conservation (12-02 §5.2) and refuse following fuel (12-10 §1.1) are the reports' central findings; sewers wait for a sewer design. The research reports were written from web sources, several read only as search summaries; each marks those figures, and none is load-bearing here without a design prior's label.
 - **M11 design (2026-10-28, plan §7, proposed):** from two briefs (`docs/briefs/m11-power.md`, `m11-movement.md`), which read 07-13 and 12-09 against the code, [ADR-0036](decisions/0036-electricity-and-the-telegraph.md), Proposed. Electricity stands on M10's machinery (power at a site, engines, mains with connections, the meter, light): radial, direct current at one voltage, dispatched by the served hour, service records and no bonus for a connection; far techniques (AC, turbines, nuclear, photovoltaics) left to the observer. Engines are components, motor vehicles are timed by power over pull, transit reuses runs, and a telegraph's messages enter the existing hearing paths. Modern architecture and waste wait for research. Accepted only when the owner merges it.
 - **2026-10-28 — Autonomous development on a VM (owner request):** an agent on a dedicated servernode3 VM (official Agent SDK, API credits, a fixed total budget; two Rust workers) continues the plan in order without a prompt per slice. It has repository-scoped GitHub access (2026-10-28: "continue autonomously ... until the $100 budget is spent", a lifetime ceiling); it pushes only `codex/*` branches and opens pull requests on this repository; main is merged by the owner alone. It never force-pushes, deletes branches, releases, or changes access, secrets, billing or runners. Benchmarks compare revisions on one machine and allocation (`tools/ci/bench-compare.sh`).

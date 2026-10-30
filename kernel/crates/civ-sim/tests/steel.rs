@@ -1,6 +1,8 @@
 //! Cement, steel and rolling (M11e, first part; ADR-0037 §2): the chain's recipes sit in research
 //! 11-14's envelopes, nobody starts knowing it, and a works blows pig to steel and rolls it into
-//! sections only with each machine's crew at it.
+//! sections only with each machine's crew at it. A steel skeleton (M11e, second part; ADR-0037
+//! §3-§4): a workshop framed in sections is raised of them and its members are checked as steel,
+//! and builders who do not know it design as before.
 
 use std::path::Path;
 use std::sync::OnceLock;
@@ -285,4 +287,259 @@ fn a_works_blows_pig_to_steel_and_rolls_sections_only_with_each_machines_crew() 
         (coal_before - owned(&sim, coal) - 0.3 * rolled).abs() < 1e-6,
         "0.3 kg of coal to reheat a kilogram"
     );
+}
+
+/// The first household and its home.
+fn first_household(sim: &Sim) -> (PermanentId, (f32, f32)) {
+    let (_, h) = sim
+        .people()
+        .households
+        .iter()
+        .min_by_key(|(_, h)| h.id)
+        .expect("a household");
+    (h.id, h.home)
+}
+
+/// The workshop of two bays with a loft its builders design, and the same as a steel skeleton
+/// (frame version 4: post system 2, steel sections in the fifth slot).
+fn workshops(sim: &Sim, at: (f32, f32)) -> (civ_grammar::BuildingSpec, civ_grammar::BuildingSpec) {
+    use civ_grammar::frame_params as fp;
+    let catalog = &sim.rules().catalog;
+    let def = workshop(sim);
+    let shape = civ_agents::build::Shape::Bays {
+        bays: 2,
+        storeys: 1,
+        lofts: 1,
+    };
+    let timber =
+        civ_agents::build::design_shape(def, &catalog.goods, shape, at, None).expect("a workshop");
+    let mut steel = timber.clone();
+    steel.version = 4;
+    steel.params[fp::POST_SYSTEM] = 2;
+    steel.materials.push("core:good/steel_section".into());
+    (timber, steel)
+}
+
+fn workshop(sim: &Sim) -> &civ_agents::params::BuildingDef {
+    let catalog = &sim.rules().catalog;
+    &catalog.buildings[catalog
+        .building_index("core:building/workshop")
+        .expect("a workshop")]
+}
+
+fn sound(group: u32, now: civ_core::SimTime) -> civ_land::GroupCondition {
+    civ_land::GroupCondition {
+        group,
+        quality: 1.0,
+        loss: 0.0,
+        installed: now,
+        repaired: now,
+        state: civ_land::GroupState::Sound,
+    }
+}
+
+#[test]
+fn a_skeleton_workshop_is_framed_in_sections_and_its_members_are_checked_as_steel() {
+    use civ_agents::structure::{Loads, group_timber, margin};
+    use civ_grammar::{GroupKind, Stage, frame_materials};
+    let sim = world(2);
+    let (_, home) = first_household(&sim);
+    let catalog = &sim.rules().catalog;
+    let def = workshop(&sim);
+    let (timber, steel) = workshops(&sim, (home.0 + 20.0, home.1));
+    let wood = civ_grammar::expand(&timber, &def.rules).expect("timber expands");
+    let e = civ_grammar::expand(&steel, &def.rules).expect("the skeleton expands");
+    // Its frame takes sections where the timber one took poles, at the program's density.
+    let frame = &e.stages[Stage::Frame.index()].materials_kg;
+    let sections = frame[usize::from(frame_materials::FRAME)];
+    assert!(sections > 0.0);
+    let poles =
+        wood.stages[Stage::Frame.index()].materials_kg[usize::from(frame_materials::TIMBER)];
+    assert!(
+        (frame[usize::from(frame_materials::TIMBER)] + sections * 760.0 / 1119.0 - poles).abs()
+            < 1e-6
+    );
+    // It used the skeleton's technique, and the timber one did not.
+    let skeleton = technique(&sim, "skeleton_frame");
+    assert!(civ_agents::rules::techniques_used(catalog, &steel, def).contains(&skeleton));
+    assert!(
+        !civ_agents::rules::techniques_used(catalog, &steel, def)
+            .contains(&technique(&sim, "storeyed_frame"))
+    );
+    assert!(!civ_agents::rules::techniques_used(catalog, &timber, def).contains(&skeleton));
+    // Its posts and joists are checked with steel's properties, its rafters with timber's.
+    let section = catalog.goods[good(&sim, "steel_section")]
+        .timber
+        .expect("steel's");
+    let oak = catalog.goods[good(&sim, "timber")]
+        .timber
+        .expect("timber's");
+    let group = |e: &civ_grammar::Expansion, kind: GroupKind| {
+        *e.groups.iter().find(|g| g.kind == kind).expect("a group")
+    };
+    for kind in [GroupKind::Posts, GroupKind::LoftJoists, GroupKind::TieBeams] {
+        assert_eq!(
+            group_timber(&catalog.goods, def, &group(&e, kind)),
+            Some(section)
+        );
+        assert_eq!(
+            group_timber(&catalog.goods, def, &group(&wood, kind)),
+            Some(oak)
+        );
+    }
+    assert_eq!(
+        group_timber(&catalog.goods, def, &group(&e, GroupKind::RoofFrame)),
+        Some(oak)
+    );
+    // Loaded until the timber member gives way, the steel one of the same size still stands.
+    let now = sim.now();
+    for (kind, load) in [
+        (
+            GroupKind::LoftJoists,
+            Box::new(|pa: f64| Loads {
+                loft_pa: pa,
+                ..Loads::default()
+            }) as Box<dyn Fn(f64) -> Loads>,
+        ),
+        (
+            GroupKind::Posts,
+            Box::new(|pa: f64| Loads {
+                loft_pa: pa,
+                ..Loads::default()
+            }),
+        ),
+    ] {
+        let check = |e: &civ_grammar::Expansion, pa: f64| {
+            let g = group(e, kind);
+            let t = group_timber(&catalog.goods, def, &g).expect("a material");
+            margin(&g, &sound(g.id, now), e, &load(pa), &t).strength
+        };
+        let mut pa = 100.0;
+        while check(&wood, pa) >= 1.0 {
+            pa *= 1.05;
+            assert!(pa < 1e9, "{kind:?} never gives way");
+        }
+        assert!(check(&wood, pa) > 0.9, "{kind:?}");
+        assert!(
+            check(&e, pa) > 1.2,
+            "{kind:?}: {} at {pa} Pa",
+            check(&e, pa)
+        );
+    }
+}
+
+#[test]
+fn a_skeleton_workshop_is_raised_of_steel_sections() {
+    use civ_grammar::{Stage, frame_materials};
+    let mut sim = world(2);
+    let (household, home) = first_household(&sim);
+    let (_, steel) = workshops(&sim, (home.0 + 20.0, home.1));
+    let def = workshop(&sim).clone();
+    let e = civ_grammar::expand(&steel, &def.rules).expect("the skeleton expands");
+    let sections = e.stages[Stage::Frame.index()].materials_kg[usize::from(frame_materials::FRAME)];
+    // Framers, its ground worked and the frame to raise, with sections, poles and thatch at hand.
+    let who = grown(&sim)
+        .into_iter()
+        .find(|&(h, _)| h == household)
+        .map(|(_, p)| p)
+        .expect("an adult");
+    sim.introduce_technique(who, "core:technique/jointed_frame", false)
+        .expect("introduced");
+    let id = sim
+        .place_building_for_tests(household, steel, 1)
+        .expect("placed");
+    set(
+        &mut sim,
+        household,
+        &[
+            ("steel_section", sections + 500.0),
+            ("timber", 5_000.0),
+            ("thatch", 5_000.0),
+        ],
+    );
+    let section = good(&sim, "steel_section");
+    let held = |sim: &Sim| {
+        sim.people()
+            .households
+            .iter()
+            .find(|(_, h)| h.id == household)
+            .map(|(_, h)| h.stores[section])
+            .expect("household")
+    };
+    let stage = |sim: &Sim| {
+        sim.land()
+            .buildings
+            .iter()
+            .find(|b| b.id == id)
+            .expect("the workshop")
+            .stage
+    };
+    for _ in 0..120 {
+        if stage(&sim) > 1 {
+            break;
+        }
+        sim.advance_minutes(24 * 60).expect("advances");
+    }
+    assert!(stage(&sim) > 1, "its frame was raised");
+    // The frame took its sections.
+    let used = sections + 500.0 - held(&sim);
+    assert!(
+        (used - sections).abs() < 1e-3 * sections,
+        "{used} of {sections} kg"
+    );
+}
+
+#[test]
+fn builders_who_do_not_know_a_skeleton_design_as_before() {
+    use civ_agents::build::{FireDesign, design_cautious, design_shape, shapes};
+    let sim = world(2);
+    let catalog = &sim.rules().catalog;
+    for def in &catalog.buildings {
+        let civ_grammar::ProgramRules::Frame(_) = &def.rules else {
+            continue;
+        };
+        // Every shape a frame program is built in is a version 3 design of four materials, and
+        // what each costs is what the content compiled.
+        assert_eq!(shapes(def, &catalog.goods), def.shapes, "{}", def.id);
+        for c in &def.shapes {
+            let spec = design_shape(def, &catalog.goods, c.shape, (0.0, 0.0), None).expect("one");
+            assert_eq!(
+                spec.version,
+                civ_grammar::FRAME_DESIGN_VERSION,
+                "{}",
+                def.id
+            );
+            assert_eq!(spec.materials.len(), civ_grammar::frame_materials::COUNT);
+            assert_eq!(spec.params[civ_grammar::frame_params::POST_SYSTEM], 0);
+            // Builders who know nothing of it, and those who know it and find it dearer than
+            // timber (steel heavier at the same work), design the same.
+            for knows in [false, true] {
+                let fire = FireDesign {
+                    knows_systems: [false, false, false, knows],
+                    ..Default::default()
+                };
+                let designed = design_cautious(
+                    def,
+                    &catalog.goods,
+                    c.shape,
+                    (0.0, 0.0),
+                    None,
+                    1.0,
+                    None,
+                    Some(fire),
+                );
+                assert_eq!(designed.as_ref(), Some(&spec), "{} {knows}", def.id);
+            }
+        }
+    }
+    // A world lived where nobody knows it builds no version 4 frame.
+    let mut sim = sim;
+    for _ in 0..30 {
+        sim.advance_minutes(24 * 60).expect("advances");
+    }
+    let skeleton = technique(&sim, "skeleton_frame");
+    assert!(sim.people().people.iter().all(|(_, p)| !p.knows(skeleton)));
+    for b in &sim.land().buildings {
+        assert!(b.spec.version <= 3, "{:?}", b.spec);
+    }
 }

@@ -243,7 +243,7 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 | 07-13 | [Modern technology: electricity, combustion and telecommunications](07-technology/13-modern-tech.md) | Technology and knowledge | Low |
 | 12-09 | [Electric power, gas and modern utilities](12-services-infrastructure/09-modern-utilities.md) | City services and infrastructure | Low |
 | 11-14 | [Modern construction: iron and steel frames, reinforced concrete, glass, elevators and the tall building](11-architecture-construction/14-modern-construction.md) | Architecture and construction | Medium |
-| 12-10 | [Modern waste: refuse, tips, destructors, salvage and industrial residues](12-services-infrastructure/10-modern-waste.md) | City services and infrastructure | Medium |
+| 12-10 | [Modern waste: refuse, collection, disposal, sewage treatment and industrial residues](12-services-infrastructure/10-modern-waste.md) | City services and infrastructure | Medium |
 
 ### M12: LLM notables, multi-viewer, close-up fidelity (1)
 
@@ -451,7 +451,7 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 | 12-07 | [Emergency dispatch and service coverage models](12-services-infrastructure/07-emergency-response.md) | M6 | Medium | Simulation |
 | 12-08 | [Public works: organization, financing and maintenance](12-services-infrastructure/08-public-works.md) | M6 | Medium | Simulation |
 | 12-09 | [Electric power, gas and modern utilities](12-services-infrastructure/09-modern-utilities.md) | M11 | Low | Simulation |
-| 12-10 | [Modern waste: refuse, tips, destructors, salvage and industrial residues](12-services-infrastructure/10-modern-waste.md) | M11 | Medium | Simulation |
+| 12-10 | [Modern waste: refuse, collection, disposal, sewage treatment and industrial residues](12-services-infrastructure/10-modern-waste.md) | M11 | Medium | Simulation |
 
 ### 13. Diplomacy and war (9)
 

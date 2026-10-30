@@ -89,6 +89,7 @@ and run log together.
 | M8 · Growing city and structural response | Completed: transport, planning, structural behavior and public buildings; engineering/run evidence, no standalone observer video | [Current status and evidence](../PROJECT_PLAN.md#7-milestones) |
 | M9 · Aggregate LOD and scale | Ten-settlement lived run and titled observer video; the 100,000-person speed target was missed and amended | [M9 video, report and runner](m9/) · [run details](../PROJECT_PLAN.md#9-decisions-log) |
 | M10a · Power and the works | In progress: water-power installations, powered recipes and household-built mills; no milestone video | [Technical guide](../docs/development-journal/industry-and-power.md) · [current plan](../PROJECT_PLAN.md#7-milestones) |
+| M12 · Model deliberator and viewers | Partly implemented: a stand-in policy (not a model) chooses at the polity review and a recorded replay relives its choices; a driver and a spectator page on one host. Close-up fidelity awaits the Unreal client | [Run report and screenshots](#m12-2026-10-30) · [runner](../kernel/crates/civ-sim/examples/m12_world.rs) · [capture spec](../web/e2e/m12-demo.spec.ts) |
 
 Some milestone demo scripts intentionally explore emergent outcomes and can take a long time. They
 run only when requested with `TCE_DEMO=1`; they may try more than one world and report what
@@ -148,3 +149,32 @@ opened at the end each have their name, household, parents, knowledge and the bl
 they are in, and the save of 28 MB loads with everyone there. It ran at 0.039 simulated years a
 real minute. The gate's figure at 100,000 (ADR-0032, amendment of slice DN) is measured with
 `bench_village`.
+
+## M12 (2026-10-30)
+
+The M12 demo is `civ-sim --example m12_world <saves> 2 3 2 100 1024`, recorded in
+[`demos/m12/m12-deliberator.txt`](m12/m12-deliberator.txt): two founding groups of 100 on a map of
+1024 cells, saved on their founding day, then that save lived two years three times. First by rules
+alone; then with a **stand-in** for a model, a fixed policy written for the demo (it proposes the
+listed move with the most expected support when that support is at least one half, and otherwise
+does not answer, so rules choose), saved at the end; then from the founding save again in `Recorded`
+mode, answered from the second run's save. No language model was run. Rules alone proposed 64 laws,
+of which 39 passed (in force or since ended). With the stand-in, 64 reviews offered moves: it
+proposed at 61 and left 3 to rules, which proposed at 2; 64 laws were proposed, not all the same
+ones, and 50 passed. The recorded replay read the 63 saved answers, asked no provider, and ended
+with all 65 save sections byte-equal to the stand-in run's. In every run the people fell from 210 to
+about 150 in the second year. The three runs took 48 minutes here in the `simcheck` profile. What
+the gatherings did with each proposal was theirs; the report lists every law in the government
+panel's words, including "chose by the model" or "chose by rule (the model did not answer)".
+
+The two screenshots are one host with two pages on a small world (`TCE_DEMO=1
+TCE_SHOTS_DIR=../demos/m12 npm run test:e2e -- m12-demo.spec.ts` from `web/`): the first page drives
+and has the hand-over list; the second watches, says who drives, and has every command control
+disabled.
+
+- [Run report: rules, the stand-in and the recorded replay](m12/m12-deliberator.txt)
+- [Driver page](m12/m12-driver.png)
+- [Spectator page](m12/m12-spectator.png)
+
+Close-up fidelity (MetaHuman-grade notables) is Unreal work and waits, with M2's client, for the
+owner's Windows PC.

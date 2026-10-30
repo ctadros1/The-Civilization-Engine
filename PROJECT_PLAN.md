@@ -8308,6 +8308,19 @@ and M6a gives rivers a daily flow.
     hand-over told to all, the driver leaving, LAN without or with a wrong token refused and with
     it a spectator, origins) and its unit tests; the web's unit tests (221) and a two-page
     Playwright spec (driver and spectator, hand-over, the driver closing) among 30 browser specs.
+  - *M12c (2026-10-30): the demo.* civ-sim's `m12_world` founds two settlements of 100, saves the
+    founding day, and lives it three ways: rules alone; with a **stand-in** provider (a fixed policy,
+    not a model: it proposes the listed move with the most expected support where that is at least
+    0.5, and leaves the rest to rules); and loaded again in `recorded` mode from the stand-in run's
+    answers. Two years (`demos/m12/m12-deliberator.txt`): rules alone proposed 64 laws and passed 39;
+    the stand-in was asked at 64 reviews, chose at 61 and left 3 to rules, and 64 laws were proposed
+    and 50 passed, not all the same ones; the recorded run read the 63 saved answers, asked no
+    provider, and every one of its 65 save sections was byte-equal to the stand-in run's. No real
+    model was run. Two screenshots (`demos/m12/m12-driver.png`, `m12-spectator.png`, from the
+    `TCE_DEMO`-gated `web/e2e/m12-demo.spec.ts`) show a driver ("You drive", the hand-over list) and
+    a spectator ("You are watching; Ada drives", its controls greyed). The demos guide and README
+    status are updated. **M12 is done as far as cloud sessions can build it;** close-up fidelity
+    (MetaHuman-grade notables) waits with M2's Unreal client for the owner's PC.
 
 ---
 

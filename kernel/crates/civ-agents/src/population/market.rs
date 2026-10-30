@@ -2265,15 +2265,8 @@ impl Population {
         else {
             return;
         };
-        let Some(x) = self.household_mut(hh) else {
-            return;
-        };
-        let held = x.stores.get(f).copied().unwrap_or(0.0).max(0.0);
-        let burned = kg.min(held);
-        if burned > 0.0 {
-            x.stores[f] = held - burned;
-            x.flows.add(super::Flow::Used, f, burned);
-        }
+        // Its ash stays with the household (ADR-0038 §5).
+        self.burn_engine_fuel(goods, hh, f, kg);
     }
 
     /// The way by a cart of vehicle `v` standing at household `hh`'s door, as

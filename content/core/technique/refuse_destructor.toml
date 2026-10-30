@@ -1,0 +1,23 @@
+# Burning a town's refuse in a lined furnace to raise steam (M11f, fourth part; ADR-0038 §5;
+# research 12-10 §1.5: the Nottingham destructor began systematic refuse burning in 1874, and
+# destructors were a recipe that had to compete on cost). It needs an engine-builder's forging and
+# a kiln-burner's craft for the furnace's firebrick lining: burning lime or firing. Found by those
+# who burn lime or make gas, holding iron; half of them would need 500,000 qualified hours (a far
+# technique, as gas making). Learnt in 400 hours beside a knower. Founders do not bring it.
+kind = "technique"
+id = "core:technique/refuse_destructor"
+name = "The refuse destructor"
+can = "build a furnace that burns refuse to raise steam for an engine"
+domain = "core:skill/smithing"
+requires = [
+  ["core:technique/forging", "core:technique/lime_burning"],
+  ["core:technique/forging", "core:technique/firing"],
+]
+tried_in = ["core:activity/burn_lime", "core:activity/make_gas"]
+needs = ["core:good/iron"]
+e50_h = 500000.0
+learn_h = 400.0
+upbringing = true
+
+[answers]
+spoilage = []

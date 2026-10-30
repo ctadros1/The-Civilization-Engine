@@ -1908,3 +1908,15 @@ days, design priors in the kernel), each home paying a fee in food a call on the
 channel; a home joins only where the fees cost it less, by its hours, than the carrying a law asks
 of it. The core's `policy/zealously_zone_a_round_for_refuse` answers `source_suspected` and
 `heaps_near` with 7 days and 4 hours (design priors).
+
+M11f's fourth part (ADR-0038 §5) adds no field; content API stays 211. The kernel reads
+`core:good/refuse` by id: a household holding a whole engine whose `[power]` `fuel` is that good
+draws from its polity's open tip, each midnight, what its engines would burn at their rating over
+an evening, less what it holds, the tip's decaying kilograms and that share of each disease load
+moving into its store; burning refuse destroys the load it held. Every engine's fuel (a station's,
+a pit's, a locomotive's or a motor cart's) now leaves its `ash_share` as `good/ash` in its keeper's
+store. The core adds `good/refuse` (a material, 3.87 MJ a kilogram, 0.15 of coal's, research 12-10
+§2.2; `ash_share` 0.3, 12-10 §5.5's 25–35 %), `good/destructor` (a fixed tool, 6 kW at 5 %, burning
+refuse), `recipe/build_destructor` (8,000 kg of brick, 1,200 of iron, 200 of timber, 3,000 hours),
+its activity, and `technique/refuse_destructor` (forging with lime burning or firing; tried in
+burning lime and making gas, holding iron; 500,000 hours to half). The figures are design priors.

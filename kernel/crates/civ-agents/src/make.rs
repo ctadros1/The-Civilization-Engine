@@ -454,6 +454,28 @@ pub fn ash_left(recipe: &RecipeDef, goods: &[GoodDef], units: f64) -> f64 {
     (burned - kept).max(0.0)
 }
 
+/// Leaves in `stores`, as `ash`, the ash of `kg` of fuel good `fuel` burned in an engine
+/// (ADR-0038 §5): `kg` times its `ash_share`. Returns the ash good's index and the kilograms left;
+/// `None` where it leaves none or the catalogue has no ash.
+pub fn leave_ash(
+    goods: &[GoodDef],
+    stores: &mut [f64],
+    fuel: usize,
+    kg: f64,
+) -> Option<(usize, f64)> {
+    let share = goods
+        .get(fuel)
+        .and_then(|d| d.fuel)
+        .map_or(0.0, |f| f.ash_share.max(0.0));
+    let ash = kg.max(0.0) * share;
+    if !(ash > 0.0 && ash.is_finite()) {
+        return None;
+    }
+    let a = goods.iter().position(|d| d.id == ASH)?;
+    *stores.get_mut(a)? += ash;
+    Some((a, ash))
+}
+
 /// Gives the outputs of `units` of `recipe` to `stores`, tools made worth `quality` standard
 /// tools each, and the ash its fuel leaves ([`ash_left`], ADR-0038 §2): the end of a session, or
 /// the opening of a batch (M10a slice DP).

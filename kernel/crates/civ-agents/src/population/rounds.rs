@@ -584,12 +584,9 @@ impl Population {
                 ash_kg,
             });
         }
-        if let Some((fuel, kg)) = burn
-            && let Some(x) = self.household_mut(r.operator)
-        {
-            let held = x.stores.get(fuel).copied().unwrap_or(0.0);
-            x.stores[fuel] = (held - kg).max(0.0);
-            x.flows.add(Flow::Used, fuel, kg);
+        if let Some((fuel, kg)) = burn {
+            // Its ash stays with the operator (ADR-0038 §5).
+            self.burn_engine_fuel(&ctx.catalog.goods, r.operator, fuel, kg);
         }
         if r.law.is_some() {
             let polity = self.polities[pi].id;

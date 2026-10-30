@@ -1758,6 +1758,56 @@ pub fn services_words(sim: &Sim, polity: &civ_agents::polity::Polity) -> Vec<Str
     for r in &polity.rounds {
         out.push(round_words(sim, polity, r));
     }
+    // The destructors that draw from its tip (M11f, fourth part; ADR-0038 §5).
+    out.extend(destructor_words(sim, polity));
+    out
+}
+
+/// The destructors drawing refuse from polity `polity`'s open tip, in words (ADR-0038 §5): "Wren's
+/// household's refuse destructor, 6 kW, burns refuse drawn from the tip north of the hearth, up
+/// to 447 kg an evening".
+fn destructor_words(sim: &Sim, polity: &civ_agents::polity::Polity) -> Vec<String> {
+    let goods = &sim.rules.catalog.goods;
+    let Some(refuse) = goods
+        .iter()
+        .position(|d| d.id == civ_agents::population::REFUSE)
+    else {
+        return Vec::new();
+    };
+    let engines: Vec<(usize, f64)> = (0..goods.len())
+        .filter_map(|g| {
+            let (f, kg) = civ_agents::population::engine_evening_kg(goods, g)?;
+            (f == refuse).then_some((g, kg))
+        })
+        .collect();
+    let mut out = Vec::new();
+    for (_, x) in sim.people.households.iter() {
+        let Some((pi, ti)) = sim.people.refuse_tip_of(x.id) else {
+            continue;
+        };
+        let Some(p) = sim.people.polities.get(pi).filter(|p| p.id == polity.id) else {
+            continue;
+        };
+        for &(g, kg) in &engines {
+            let n = x.stores.get(g).copied().unwrap_or(0.0).floor().max(0.0);
+            if n < 1.0 {
+                continue;
+            }
+            let rated = goods[g].power.map_or(0.0, |w| w.rated_kw) * n;
+            let name = goods[g].name.to_lowercase();
+            out.push(format!(
+                "{}'s {}, {rated:.0} kW, burns refuse drawn from {}, up to {:.0} kg an evening",
+                super::markets::capitalized(&super::people::household_name(sim, x.id)),
+                if n > 1.0 {
+                    format!("{n:.0} {name}s")
+                } else {
+                    name
+                },
+                tip_words(sim, p, &p.tips[ti]),
+                kg * n,
+            ));
+        }
+    }
     out
 }
 

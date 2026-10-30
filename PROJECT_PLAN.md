@@ -8232,6 +8232,29 @@ and M6a gives rivers a daily flow.
       the law's round paid from the store and dropped with it); tips, residues, transit, rail,
       crime, contagion, polity, rules, roundtrip, money, wires, telegraph and sickness; the ten smoke
       worlds.
+    - *M11f, fourth part (2026-10-30): the destructor* (ADR-0038 §5). Refuse is a good
+      (`core:good/refuse`, a fuel of 3.87 MJ a kilogram, 0.15 of coal's, leaving 0.3 as ash: 12-10
+      §2.2 and §5.5, design priors). A destructor is a fixed tool engine burning it (6 kW at 5 %,
+      about 54 kWh of shaft and 43 of current a tonne, inside 12-10's 15–80), opened by
+      `refuse_destructor` (forging with lime burning or firing; tried in burning lime and making gas,
+      a far technique) and built of brick, iron and timber. A household holding one draws, each
+      midnight, what it would burn in an evening from its polity's open tip: the tip's decaying
+      kilograms move into its store and that share of each disease load to a new contagion node,
+      ended in the burning. It drives a dynamo by the engines' existing path, and a destructor is
+      wanted only where its keeper knows it and the dynamo, owns no water installation and the tip
+      holds refuse. **Every engine now leaves its fuel's ash** (pit engines, stations, locomotives,
+      road engines), closing the first part's gap: coal-fired engines' keepers pile ash at 0.11 of
+      what they burn; transit and rounds now count the fuel actually burned. The station and the
+      polity page name a destructor ("a dynamo beside its refuse destructor, 6 kW, burning up to
+      447 kg of refuse an evening"). Content API and saves unchanged (contagion node code 6 within
+      saves 220). **Simplified:** the draw is settled at midnight; only households draw.
+      **Tested:** a destructor target (power at refuse's energy and its ash; the burned load ended;
+      a draw from the tip conserving mass and load; an atmospheric engine on coal leaving 0.11 ash
+      and a gas engine on coal gas none; nobody wanting one without both techniques and refuse at
+      the tip; save, load and go on alike); tips, rounds, residues, wires, gas, telegraph, rail,
+      transit, coal, works, roundtrip, contagion, carts, sickness, suspicion, mills, discovery,
+      knowledge, firms, iron and lamps; the ten smoke worlds. **M11f is done**, and with it M11's
+      modern architecture and waste as designed.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

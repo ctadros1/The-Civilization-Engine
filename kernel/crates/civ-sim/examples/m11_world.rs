@@ -162,10 +162,18 @@ fn in_use(sim: &Sim, s: PermanentId, known: &[usize]) -> (String, bool) {
             .sum()
     };
     let dynamos = held(&|d| d.power.is_some_and(|p| p.source == PowerSource::Shaft));
+    // An engine burning refuse is a destructor (M11f, fourth part; ADR-0038 §5).
+    let burns_refuse = |d: &civ_agents::params::GoodDef| {
+        d.power
+            .and_then(|p| p.fuel)
+            .is_some_and(|f| goods[f].id == civ_agents::population::REFUSE)
+    };
     let gas_engines = held(&|d| {
         d.power
             .is_some_and(|p| p.source == PowerSource::Fuel && p.fuel.is_some())
+            && !burns_refuse(d)
     });
+    let destructors = held(&|d| burns_refuse(d));
     let wires = &land.wires;
     let stations: BTreeSet<PermanentId> = wires
         .lines
@@ -212,7 +220,7 @@ fn in_use(sim: &Sim, s: PermanentId, known: &[usize]) -> (String, bool) {
         .filter(|l| l.status == LawStatus::InForce && LAWS.contains(&l.kind))
         .map(|l| l.kind.name())
         .collect();
-    let any = dynamos + gas_engines > 0.0
+    let any = dynamos + gas_engines + destructors > 0.0
         || !lines.is_empty()
         || !hookups.is_empty()
         || offices > 0
@@ -223,7 +231,7 @@ fn in_use(sim: &Sim, s: PermanentId, known: &[usize]) -> (String, bool) {
         format!(
             "{residents} people, {knowers} knowing any of it; {dynamos:.0} dynamos, {} stations, \
              {strung} of {} lines of current strung, {} homes hooked up ({lit} lit on their last \
-             evening), {gas_engines:.0} gas engines; {offices} telegraph offices, {wired} of {} \
+             evening), {gas_engines:.0} gas engines, {destructors:.0} refuse destructors; {offices} telegraph offices, {wired} of {} \
              telegraph wires strung, {waiting} telegrams waiting; {motor_carts} motor carts; \
              laws: {}",
             stations.len(),

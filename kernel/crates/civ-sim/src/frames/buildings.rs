@@ -993,12 +993,27 @@ pub(crate) fn wire_words(sim: &Sim, b: &Building) -> String {
             }) && x.stores.get(*g).copied().unwrap_or(0.0) >= 1.0 - 1e-9
         });
         if dynamos > 0 && (owns || engine.is_some()) {
+            // The engine, its rating and what it burns at it over an evening (ADR-0038 §5): "its
+            // refuse destructor, 6 kW, burning up to 447 kg of refuse an evening".
+            let engine = engine.map(|(g, e)| {
+                let n = x.stores[g].floor() as u32;
+                let name = e.name.to_lowercase();
+                let rated = e.power.map_or(0.0, |p| p.rated_kw) * f64::from(n);
+                let burns = civ_agents::population::engine_evening_kg(&catalog.goods, g)
+                    .map(|(f, kg)| {
+                        format!(
+                            ", burning up to {:.0} kg of {} an evening",
+                            kg * f64::from(n),
+                            catalog.goods[f].name.to_lowercase()
+                        )
+                    })
+                    .unwrap_or_default();
+                let which = if n == 1 { name } else { format!("{n} {name}s") };
+                format!("{which}, {rated:.0} kW{burns}")
+            });
             let beside = match (owns, engine) {
-                (true, Some((_, e))) => format!(
-                    "its own water installation and its {}",
-                    e.name.to_lowercase()
-                ),
-                (false, Some((_, e))) => format!("its {}", e.name.to_lowercase()),
+                (true, Some(e)) => format!("its own water installation and its {e}"),
+                (false, Some(e)) => format!("its {e}"),
                 _ => "its own water installation".to_owned(),
             };
             let mut out = if dynamos == 1 {

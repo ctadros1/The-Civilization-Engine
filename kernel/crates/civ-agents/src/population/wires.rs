@@ -812,7 +812,8 @@ impl Population {
 
     /// Station `station` sent `sent_kw` of current down its tree, losses included, for the
     /// evening's hours: its engines that burn a named fuel give what its installations' shafts do
-    /// not, burning that fuel from its stores (M11b, first part).
+    /// not, burning that fuel from its stores (M11b, first part) and leaving its ash (ADR-0038
+    /// §5).
     fn burn_for_current(&mut self, ctx: &Ctx, station: PermanentId, sent_kw: f64) {
         if sent_kw <= 0.0 {
             return;
@@ -829,13 +830,9 @@ impl Population {
             return;
         }
         let (_, burned) = super::engine_work(goods, &x.stores, from_engines, hours);
+        // Each fuel leaves its ash, and refuse its load ends with it (ADR-0038 §5).
         for (f, kg) in burned {
-            let held = x.stores.get(f).copied().unwrap_or(0.0);
-            let kg = kg.min(held.max(0.0));
-            if kg > 0.0 {
-                x.stores[f] = held - kg;
-                x.flows.add(Flow::Used, f, kg);
-            }
+            self.burn_engine_fuel(goods, station, f, kg);
         }
     }
 

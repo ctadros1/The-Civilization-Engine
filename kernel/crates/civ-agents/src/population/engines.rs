@@ -349,6 +349,8 @@ impl Population {
             }
             let burn = (kwh * per_kwh).min(o.stores[g].max(0.0));
             o.stores[g] -= burn;
+            // Its ash stays in the owner's store (ADR-0038 §5), counted made below.
+            make::leave_ash(goods, &mut o.stores, g, burn);
             done += burn / per_kwh;
             kwh -= burn / per_kwh;
         }

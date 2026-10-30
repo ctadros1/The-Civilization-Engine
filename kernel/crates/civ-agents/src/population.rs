@@ -47,6 +47,7 @@ mod contagion;
 mod crime;
 mod crossings;
 mod deposits;
+mod destructor;
 mod digging;
 mod ditches;
 mod duties;
@@ -92,6 +93,7 @@ mod war;
 mod way_works;
 mod wires;
 pub use crime::TakeProbe;
+pub use destructor::{REFUSE, engine_evening_kg};
 pub use payments::Burden;
 pub use resolution::{DayBlock, NOT_TAKEN, SwitchInvariants};
 pub use rounds::{MAX_ROUND_HOMES, ROUND_EVERY_DAYS};
@@ -7873,6 +7875,9 @@ impl Population {
         self.engine_runs(ctx, day);
         // Gas mains weighed by the works whose day it is (M10b slice DY, fourth part).
         self.main_reviews(ctx, day);
+        // Refuse drawn from tips by the destructors' keepers, before their stations are weighed
+        // (M11f, fourth part; ADR-0038 §5).
+        self.refuse_draws(ctx);
         // The wire's homes hooked up, and lines weighed by the stations whose day it is (M11a).
         self.wire_reviews(ctx, day);
         // Telegraph wires weighed by the offices whose day it is (M11c).
@@ -8267,7 +8272,8 @@ impl Population {
     /// a dynamo is wanted only where one can be set. Where it has no installation ready, an
     /// engine that burns a named fuel turns a dynamo instead (M11b, first part): it is wanted by
     /// a household that knows a way of making it and a dynamo and holds its fuel, and a dynamo by
-    /// one that holds such an engine whole. A telegraph instrument (M11c) is wanted, one, by a
+    /// one that holds such an engine whole. A destructor's refuse is at hand where its polity's
+    /// open tip holds some (ADR-0038 §5). A telegraph instrument (M11c) is wanted, one, by a
     /// household that knows a way of making it, where someone of it can write and someone of
     /// another settlement knows the technique of a recipe making it, a far office to be.
     pub(crate) fn cap_power_wants(
@@ -8338,7 +8344,8 @@ impl Population {
                     sites() == 0
                         && recipe_known(g)
                         && dynamo_known()
-                        && hh.stores.get(fuel).copied().unwrap_or(0.0) > 0.0,
+                        && (hh.stores.get(fuel).copied().unwrap_or(0.0) > 0.0
+                            || self.refuse_at_hand(ctx, hh, fuel)),
                 ),
                 (PowerSource::Shaft, _) if recipe_known(g) => {
                     sites().max(usize::from(named_engine()))

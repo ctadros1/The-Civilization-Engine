@@ -1,0 +1,28 @@
+# A refuse destructor (M11f, fourth part; ADR-0038 §5; research 12-10 §1.5, §5.5): a furnace cell
+# lined with firebrick under a boiler, whose steam works an engine. An engine whose one fuel is
+# refuse, as the gas engine's is coal gas (ADR-0036 §2, §7): held beside a dynamo it turns it.
+# 6 kW at 5 % are design priors: a small cell and engine of the 1880s (Nottingham's first cells,
+# 1874; York's plant took 40-60 t a day, 12-10 §2.2). At refuse's 3.87 MJ a kilogram that is some
+# 54 kWh of shaft a tonne, about 43 kWh of current through a dynamo, within the 15-80 kWh a tonne
+# twenty combined stations gave (12-10 §2.2).
+kind = "good"
+id = "core:good/destructor"
+name = "Refuse destructor"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 40000.0
+per_worker = 0.1
+fixed = true
+
+[power]
+source = "fuel"
+rated_kw = 6.0
+efficiency = 0.05
+fuel = "core:good/refuse"

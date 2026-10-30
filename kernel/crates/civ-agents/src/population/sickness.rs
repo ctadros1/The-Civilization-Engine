@@ -311,7 +311,7 @@ impl Population {
             settlement.is_none_or(|s| self.household(h).is_some_and(|x| x.settlement == Some(s)))
         };
         let node_ours = |n: Node| match n {
-            Node::Midden(h) | Node::Store(h) => ours(h),
+            Node::Midden(h) | Node::Store(h) | Node::Refuse(h) => ours(h),
             // A tip, by the settlement of the polity that keeps it (ADR-0038 §3).
             Node::Tip(t) => self
                 .tip_settlement(t)

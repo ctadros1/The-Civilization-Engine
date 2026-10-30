@@ -24,6 +24,9 @@ pub enum Node {
     Store(PermanentId),
     /// A tip, by its id (M11f, second part; ADR-0038 §3): what heaps carried there held.
     Tip(PermanentId),
+    /// The refuse a household holds as a good, drawn from a tip to be burned (M11f, fourth part;
+    /// ADR-0038 §5): what it held of a disease, which burning it destroys.
+    Refuse(PermanentId),
 }
 
 impl Node {
@@ -36,6 +39,7 @@ impl Node {
             Node::Reach(r) => (3, u64::from(r)),
             Node::Store(h) => (4, h.get()),
             Node::Tip(t) => (5, t.get()),
+            Node::Refuse(h) => (6, h.get()),
         }
     }
 
@@ -48,6 +52,7 @@ impl Node {
             3 => Node::Reach(u32::try_from(n).ok()?),
             4 => Node::Store(PermanentId::from_raw(n)?),
             5 => Node::Tip(PermanentId::from_raw(n)?),
+            6 => Node::Refuse(PermanentId::from_raw(n)?),
             _ => return None,
         })
     }

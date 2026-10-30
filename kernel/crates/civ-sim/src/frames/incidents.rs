@@ -1492,6 +1492,11 @@ fn node_words(sim: &Sim, node: Node) -> String {
             "the stored water of {}",
             super::people::household_name(sim, h)
         ),
+        // Refuse drawn to be burned (M11f, fourth part; ADR-0038 §5).
+        Node::Refuse(h) => format!(
+            "the refuse held by {}",
+            super::people::household_name(sim, h)
+        ),
         other => source_words(sim, other),
     }
 }

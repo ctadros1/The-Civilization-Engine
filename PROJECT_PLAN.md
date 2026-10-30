@@ -8174,6 +8174,29 @@ and M6a gives rivers a daily flow.
       and loaded); the contagion, crime, soil, iron, gas, firms, works, coal, metal, telegraph,
       steel, roundtrip, batches, people, mills and lamps targets; the smoke's ten worlds. **Not
       yet:** ash from engines and locomotives, and forging's slag.
+    - *M11f, second part (2026-10-30): tips, and a law that names one* (ADR-0038 §3). A tip is a
+      polity's saved record (place, the law that opened it, day, kilograms of decaying refuse and of
+      ash, the households that tipped); its pathogen load is a contagion node of its own
+      (`Node::Tip`), washing and seeping by the same links as a heap's from its place. The law
+      `refuse_to_tip` (`PolicyKind` appended; content terms `from_m` 30, `every_days` 30 and its
+      weighing as `clear_middens`', design priors) opens one tip at enactment on clear dry ground
+      more than `from_m` from every home, open well, spring and stream (and any `midden_from_wells`
+      rule's distance), nearest the settlement's homes; where none qualifies it opens none and
+      nobody carries. Under it a household that would comply carries its whole heap there by day
+      at most every `every_days`, by `clear_middens`' walk: its decaying share and ash arrive at the
+      tip exactly and its disease loads move whole to the tip as recorded carried moves; it
+      supersedes `clear_middens` for that household. It answers `source_suspected` and a new issue,
+      `heaps_near` (a heap over 500 kg within 30 m of another household's home), which opens the
+      move and weighs toward nothing. The polity page tells the law's breaches and each tip ("The
+      tip 50 m north of the hearth holds 3.2 t, 0.4 t of it ash, from 14 households"). Saves 220
+      (unreleased) gains tips and the heap's last tipping; content API 210; wire unchanged.
+      **Changed without the law:** only that `heaps_near` can now open the move in long-lived
+      clustered villages. **Tested:** a tips target (mass and load carried exactly, the tip clear of
+      every source and home, supersession, words, save and load; no place, no tip; the tip's load
+      reaching the well below it as a heap's at its place would and no other; no tip without the
+      law; `heaps_near` raised); crime, contagion, suspicion, sickness, residues, wells, water,
+      polity, rules and roundtrip; the ten smoke worlds. **Not yet:** carrying by loads, what
+      becomes of a tip over the years.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

@@ -510,6 +510,9 @@ table Household {
   // Schema 220 (M11f, ADR-0038 §2; appended within the unreleased saves 220): kilograms of ash in
   // its midden, which never decays; absent, none.
   midden_ash_kg: double (id: 30);
+  // Schema 220 (M11f, second part; ADR-0038 §3; appended within the unreleased saves 220): the day
+  // its midden was last carried to a tip (-1 never); absent, never.
+  midden_tipped: long = -1 (id: 31);
 }
 
 // A household's count at a mill review (schema 174): the day and the kilograms it had made in
@@ -1684,6 +1687,23 @@ table PolitySave {
   // Schema 207 (M10c slice EE, fourth part): the sickhouse it raised that stands finished (0 when
   // none).
   sickhouse: ulong (id: 49);
+  // Schema 220 (M11f, second part; ADR-0038 §3; appended within the unreleased saves 220): the
+  // tips its laws opened, in the order opened; absent, none.
+  tips: [TipSave] (id: 50);
+}
+
+// A tip a polity's law opened (schema 220, M11f, second part; ADR-0038 §3): its id (its contagion
+// node's), the law that opened it, the day opened, where it lies, metres, the kilograms tipped of
+// heaps' decaying share and of their ash, and the households that tipped there, sorted.
+table TipSave {
+  id: ulong (id: 0);
+  law: ulong (id: 1);
+  opened: long (id: 2);
+  x: float (id: 3);
+  y: float (id: 4);
+  kg: double (id: 5);
+  ash_kg: double (id: 6);
+  households: [ulong] (id: 7);
 }
 
 // A year's measured losses beside `MeasuredSave` (schema 166, M8d slice DC): the year, and the
@@ -3385,7 +3405,8 @@ table ThrownSave {
 
 // A place a load lies or passes (schema 76, M6a slice AZ, step two; ADR-0021 §4): `code` 0 a
 // person shedding it (`id` theirs), 1 a household's heap (`id` the household), 2 a well (`id`
-// its), 3 a river reach (`id` its index), 4 a household's stored water (`id` the household).
+// its), 3 a river reach (`id` its index), 4 a household's stored water (`id` the household); from
+// schema 220, 5 a tip (`id` its: M11f, second part; ADR-0038 §3).
 struct NodeSave {
   code: ubyte;
   id: ulong;
@@ -3416,7 +3437,7 @@ struct TransitSave {
 }
 
 // One move of a load on `day`: `how` 0 shed, 1 washed off, 2 soaked in, 3 arrived through the
-// ground, 4 drawn with water.
+// ground, 4 drawn with water; from schema 220, 5 carried with a heap to a tip.
 struct MoveSave {
   day: long;
   from: NodeSave;

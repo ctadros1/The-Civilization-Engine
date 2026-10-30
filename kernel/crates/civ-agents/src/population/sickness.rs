@@ -42,6 +42,8 @@ impl Population {
         self.lapse_calls(ctx, day);
         // Each law clearing middens counts the day's breaches (M10c slice EE, third part).
         self.middens_day(ctx, day);
+        // And each law carrying refuse to a tip (M11f, second part; ADR-0038 §3).
+        self.tips_day(ctx, day);
         // Yesterday's company at the hearth, kept while a disease passing by company ran, and
         // yesterday's carers at a sickhouse (M10c slice EE, fourth part).
         let met = std::mem::take(&mut self.met);
@@ -302,7 +304,7 @@ impl Population {
     }
 
     /// What is left of `disease` with settlement `settlement`'s households (anyone's for `None`),
-    /// doses: in their heaps and stored water, in their wells and their polity's, and on its way
+    /// doses: in their heaps and stored water, in their wells and their polity's and its tips, and on its way
     /// through the ground to any of those. What reaches a river is carried off by the next day.
     fn disease_left(&self, ctx: &Ctx, disease: u16, settlement: Option<PermanentId>) -> f64 {
         let ours = |h: PermanentId| {
@@ -310,6 +312,10 @@ impl Population {
         };
         let node_ours = |n: Node| match n {
             Node::Midden(h) | Node::Store(h) => ours(h),
+            // A tip, by the settlement of the polity that keeps it (ADR-0038 §3).
+            Node::Tip(t) => self
+                .tip_settlement(t)
+                .is_some_and(|s| settlement.is_none_or(|x| x == s)),
             Node::Well(w) => ctx.land.wells.get(w).is_some_and(|w| {
                 ours(w.household)
                     || w.polity.is_some_and(|p| {

@@ -227,24 +227,26 @@ impl Population {
         let params = &ctx.land_params.contamination;
         let wash =
             (params.wash_per_mm * ctx.land.water.last_surplus_mm).clamp(0.0, params.wash_max);
-        let heaps: Vec<(PermanentId, u16)> = self
+        // Tips wash and seep as heaps do, from their own place (M11f, second part; ADR-0038 §3).
+        let heaps: Vec<(Node, u16)> = self
             .contagion
             .loads
             .keys()
-            .filter_map(|&(node, d)| match node {
-                Node::Midden(h) => Some((h, d)),
-                _ => None,
-            })
+            .filter(|&&(node, _)| matches!(node, Node::Midden(_) | Node::Tip(_)))
+            .copied()
             .collect();
-        for (household, disease) in heaps {
-            let from = Node::Midden(household);
+        for (from, disease) in heaps {
             // Where it lies: carried from the water under a law clearing middens, or at home
-            // (M10c slice EE, third part).
-            let Some(home) = self
-                .household(household)
-                .map(|x| self.midden_place(ctx, x, day))
-            else {
-                // A heap whose household is no more is let go with it.
+            // (M10c slice EE, third part); or the tip's place.
+            let place = match from {
+                Node::Midden(household) => self
+                    .household(household)
+                    .map(|x| self.midden_place(ctx, x, day)),
+                Node::Tip(tip) => self.tip_place(tip),
+                _ => None,
+            };
+            let Some(home) = place else {
+                // A heap whose household is no more, or a tip nobody keeps, is let go with it.
                 self.contagion.take(from, disease, 1.0);
                 continue;
             };

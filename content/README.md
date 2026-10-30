@@ -1875,3 +1875,20 @@ coke 0.10 (design priors), and adds the residues `good/ash`, `good/slag`, `good/
 6 kg of slag a kilogram of bloom, the blast furnace 0.6 a kilogram of pig on charcoal or coke, the
 finery 0.35 a kilogram of bar and the converter 0.15 a kilogram of steel (design priors; 12-10 §5.7
 for the furnace). Nobody wants a residue unless a recipe takes one.
+
+Content API 210 (M11f, second part; ADR-0038 §3) adds the policy kind `refuse_to_tip` and the issue
+`heaps_near`. A `refuse_to_tip` template needs a `[tip]` table, which no other kind may have:
+`from_m` (1–1000 m; the tip stands farther than this from every open well, spring and stream and
+from every home, and from every open well as far as a `midden_from_wells` rule in force asks),
+`every_days` (1–365; a household carries its heap there at most this often), `carry_h` (0–24, the
+hours a carrying takes as a household weighs it), `avoided_share` (0–1, the share of its deaths of
+disease within the year it believes a cleaner place would have spared), and `heap_kg` (1–100,000)
+and `heap_near_m` (1–1000): a household's heap, decaying share and ash, heavier than `heap_kg`
+within `heap_near_m` of another household's home raises `heaps_near`. Passing the law opens one
+tip, once, on the clear dry ground nearest the settlement's homes that qualifies; where none does,
+no tip opens and nobody carries. Under it a household's member carries the whole heap there, walked
+as carrying a midden from the water is (`behavior = "midden"`); its decaying share, its ash and its
+load of a disease move to the tip, whose load washes and seeps to the water from the tip's place as
+a heap's does. It is kept by choice and supersedes `clear_middens` for a household once its tip is
+open. The core's `policy/zealously_zone_a_refuse_tip` answers `source_suspected` and `heaps_near`
+with 30 m, 30 days, an hour, a fifth, 500 kg and 30 m (design priors).

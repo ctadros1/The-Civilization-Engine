@@ -21,7 +21,11 @@ impl Population {
     }
 
     /// The nearest open well or stream cell within `radius_m` of `at`, if any: its place.
-    fn nearest_source(ctx: &Ctx, at: (f32, f32), radius_m: f64) -> Option<((f32, f32), f64)> {
+    pub(super) fn nearest_source(
+        ctx: &Ctx,
+        at: (f32, f32),
+        radius_m: f64,
+    ) -> Option<((f32, f32), f64)> {
         let (ax, ay) = (f64::from(at.0), f64::from(at.1));
         let mut best: Option<((f32, f32), f64)> = None;
         let mut take = |p: (f32, f32), d: f64| {
@@ -129,6 +133,11 @@ impl Population {
         hh: &Household,
         dark: bool,
     ) -> Option<WatchFacts> {
+        // Under a law carrying refuse to an open tip, that law asks instead (M11f, second part;
+        // ADR-0038 §3).
+        if let Some(tip) = self.tip_facts(ctx, person, hh, dark) {
+            return tip;
+        }
         if dark {
             return None;
         }
@@ -163,12 +172,16 @@ impl Population {
         })
     }
 
-    /// Person `person` carried their household's heap to `pos` (M10c slice EE, third part).
+    /// Person `person` carried their household's heap to `pos` (M10c slice EE, third part): to
+    /// the tip, under a law carrying refuse to an open one (M11f, second part; ADR-0038 §3).
     pub(super) fn carry_midden(&mut self, ctx: &Ctx, person: PermanentId, pos: (f32, f32)) {
         let day = ctx.now.day_index();
         let Some(h) = self.person(person).map(|p| p.household) else {
             return;
         };
+        if self.carry_to_tip(ctx, h, pos) {
+            return;
+        }
         if let Some(x) = self.household_mut(h) {
             x.midden.carried = day;
             x.midden.site = pos;
@@ -178,7 +191,8 @@ impl Population {
 
     /// The day's breaches of each law clearing middens (M10c slice EE, third part): a household
     /// of its settlement whose home lies near the water and whose heap was not carried within its
-    /// days breaks it.
+    /// days breaks it, unless a law carrying refuse to an open tip asks of it instead (ADR-0038
+    /// §3).
     pub(super) fn middens_day(&mut self, ctx: &Ctx, day: i64) {
         let laws: Vec<(usize, usize, PermanentId, MiddensDef)> = self
             .polities
@@ -211,6 +225,7 @@ impl Population {
                 .filter(|x| x.settlement == Some(settlement) && !x.members.is_empty())
                 .filter(|x| !Self::midden_carried(x, &def, day))
                 .filter(|x| Self::nearest_source(ctx, x.home, distance).is_some())
+                .filter(|x| self.tip_law(ctx, x).is_none())
                 .count() as u32;
             if let Some(law) = self.polities[pi].laws.get_mut(li) {
                 law.compliance.broken += broken;

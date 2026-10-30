@@ -1,0 +1,37 @@
+# Refuse carried to a tip (M11f, second part; ADR-0038 §3; brief m11-building-waste §2.4; research
+# 12-10 §1.4, §1.9, §5.4, §5.9: tips are places with neighbours, and laws followed seen nuisance).
+# Where someone suspects that the water at a source sickens (the issue `source_suspected`), or a
+# household's heap, its decaying share and its ash, has grown past 500 kg within 30 m of another
+# household's home (the issue `heaps_near`; design priors), anyone may propose that the polity
+# open a tip and that each household carry its heap there. Once passed, the polity names one
+# place, at least 30 m from every open well, spring and stream and from every home, the nearest
+# such clear ground to the settlement's homes; where there is none, no tip opens and nobody
+# carries. A household carries its whole heap there at most every 30 days (a design prior), and
+# what it held, of refuse, ash and of any disease, lies at the tip from then on. It is kept by
+# choice, as clearing middens is, which it supersedes for a household under both; a household
+# that has not carried its heap within the days breaks it, though nobody brings that before
+# anyone. A household weighs the law by a fifth of its deaths of disease within the year, which it
+# believes a cleaner place would have spared, against an hour of carrying every 30 days (design
+# priors). Its id sorts after every older template's: hearth talk about a question and a saved
+# law are keyed by a template's place in id order.
+kind = "policy"
+id = "core:policy/zealously_zone_a_refuse_tip"
+name = "Refuse to the tip"
+description = "The polity opens a tip clear of every source and home, and each household carries its heap there."
+does = "refuse_to_tip"
+answers = ["source_suspected", "heaps_near"]
+question = "whether households carry their heaps to a tip clear of the water and the homes"
+
+[tip]
+from_m = 30.0
+every_days = 30
+carry_h = 1.0
+avoided_share = 0.2
+heap_kg = 500.0
+heap_near_m = 30.0
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement: the water and the homes kept cleaner, by everyone's work.
+[bears]
+"core:value/security" = 0.5
+"core:value/reciprocity" = 0.25

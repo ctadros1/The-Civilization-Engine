@@ -1478,6 +1478,16 @@ fn node_words(sim: &Sim, node: Node) -> String {
     match node {
         Node::Midden(h) => format!("the heap of {}", super::people::household_name(sim, h)),
         Node::Person(p) => sim.people.name_of(p),
+        // A tip (M11f, second part; ADR-0038 §3), by where it lies.
+        Node::Tip(t) => sim
+            .people
+            .polities
+            .iter()
+            .find_map(|p| Some((p, p.tips.iter().find(|x| x.id == t)?)))
+            .map_or_else(
+                || "a tip".to_owned(),
+                |(p, x)| super::government::tip_words(sim, p, x),
+            ),
         Node::Store(h) => format!(
             "the stored water of {}",
             super::people::household_name(sim, h)

@@ -1007,6 +1007,9 @@ pub struct Midden {
     pub carried: i64,
     /// Where it was carried, metres.
     pub site: (f32, f32),
+    /// The day it was last carried to a tip under a law carrying refuse to one, -1 never (M11f,
+    /// second part; ADR-0038 §3): what was in it then went to the tip.
+    pub tipped: i64,
 }
 
 impl Midden {
@@ -1018,6 +1021,7 @@ impl Midden {
             at: t,
             carried: -1,
             site: (0.0, 0.0),
+            tipped: -1,
         }
     }
 

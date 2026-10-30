@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 209
+kernel_content_api = 210
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2838,6 +2838,7 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
         "core:policy/zealously_yoke_the_homes_to_the_wire",
+        "core:policy/zealously_zone_a_refuse_tip",
     ];
     assert!(
         reg.catalog
@@ -2877,6 +2878,7 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
         "core:policy/zealously_yoke_the_homes_to_the_wire",
+        "core:policy/zealously_zone_a_refuse_tip",
     ];
     assert!(
         reg.catalog
@@ -2957,6 +2959,7 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
         "core:policy/zealously_yoke_the_homes_to_the_wire",
+        "core:policy/zealously_zone_a_refuse_tip",
     ];
     assert!(
         reg.catalog
@@ -2995,6 +2998,7 @@ fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
         "core:policy/zealously_yoke_the_homes_to_the_wire",
+        "core:policy/zealously_zone_a_refuse_tip",
     ];
     assert!(
         reg.catalog
@@ -3044,6 +3048,7 @@ fn the_core_lets_a_polity_name_a_health_officer_who_can_write() {
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
         "core:policy/zealously_yoke_the_homes_to_the_wire",
+        "core:policy/zealously_zone_a_refuse_tip",
     ];
     assert!(
         reg.catalog
@@ -3087,6 +3092,7 @@ fn the_core_lets_a_polity_clear_middens_from_the_water() {
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
         "core:policy/zealously_yoke_the_homes_to_the_wire",
+        "core:policy/zealously_zone_a_refuse_tip",
     ];
     assert!(
         reg.catalog
@@ -3124,6 +3130,7 @@ fn the_core_lets_a_polity_raise_a_sickhouse_where_the_sick_lay_untended() {
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
         "core:policy/zealously_yoke_the_homes_to_the_wire",
+        "core:policy/zealously_zone_a_refuse_tip",
     ];
     assert!(
         reg.catalog
@@ -3303,11 +3310,80 @@ fn policy_templates_keep_their_places() {
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
         "core:policy/zealously_yoke_the_homes_to_the_wire",
+        "core:policy/zealously_zone_a_refuse_tip",
     ];
     assert!(
         ids.starts_with(&kept),
         "a template's id sorts before an older one's: {ids:?}"
     );
+}
+
+#[test]
+fn the_core_lets_a_polity_carry_refuse_to_a_tip() {
+    // M11f, second part (content API 210; ADR-0038 §3): the template answers a suspected source
+    // and heaps grown large beside others' homes, and names a tip 30 m from every source and home
+    // that households carry their heaps to at most every 30 days.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/zealously_zone_a_refuse_tip")
+        .expect("the tip template");
+    assert_eq!(def.kind, PolicyKind::RefuseToTip);
+    assert_eq!(
+        def.answers,
+        vec![IssueKind::SourceSuspected, IssueKind::HeapsNear]
+    );
+    assert!(def.middens.is_none());
+    let t = def.tip.expect("its terms");
+    assert_eq!((t.from_m, t.every_days), (30.0, 30));
+    assert_eq!((t.heap_kg, t.heap_near_m), (500.0, 30.0));
+    assert!(t.carry_h > 0.0 && t.avoided_share > 0.0);
+    // Its id sorts after every older template's.
+    assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
+}
+
+#[test]
+fn a_tip_template_needs_its_terms_and_only_it_has_them() {
+    // ADR-0038 §3: `tip` only for `refuse_to_tip`, which must have it, within its bounds.
+    let base = |does: &str, tip: &str| {
+        format!(
+            "kind = \"policy\"\nid = \"core:policy/t\"\nname = \"T\"\ndescription = \"T.\"\n\
+             does = \"{does}\"\nanswers = [\"heaps_near\"]\n{tip}"
+        )
+    };
+    let terms = "[tip]\nfrom_m = 30.0\nevery_days = 30\ncarry_h = 1.0\navoided_share = 0.2\n\
+                 heap_kg = 500.0\nheap_near_m = 30.0\n";
+    let preset = real_preset();
+    let ok = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("policy/t.toml", &base("refuse_to_tip", terms)),
+    ]);
+    assert!(ok.diagnostics.is_empty(), "{:?}", ok.diagnostics);
+    for (does, tip) in [
+        ("refuse_to_tip", String::new()),
+        ("clear_middens", terms.to_owned()),
+        (
+            "refuse_to_tip",
+            terms.replace("every_days = 30", "every_days = 0"),
+        ),
+        (
+            "refuse_to_tip",
+            terms.replace("from_m = 30.0", "from_m = 0.0"),
+        ),
+    ] {
+        let bad = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("policy/t.toml", &base(does, &tip)),
+        ]);
+        assert!(
+            bad.diagnostics.iter().any(|d| d.message.contains("tip")),
+            "{does} with {tip:?}: {:?}",
+            bad.diagnostics
+        );
+    }
 }
 
 #[test]

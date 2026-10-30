@@ -137,6 +137,10 @@ pub(crate) struct PolicyFile {
     /// its terms.
     #[serde(default)]
     pub middens: Option<MiddensFile>,
+    /// For refuse carried to a tip (`refuse_to_tip`, content API 210, M11f, second part;
+    /// ADR-0038 §3): its terms.
+    #[serde(default)]
+    pub tip: Option<TipFile>,
     /// For notes issued (`issue_notes`, content API 196, M10d slice EJ): their terms.
     #[serde(default)]
     pub notes: Option<NotesFile>,
@@ -272,6 +276,26 @@ pub struct MiddensFile {
     /// The share of a household's deaths of disease within the year it believes cleaner water
     /// would have spared, 0-1.
     pub avoided_share: f32,
+}
+
+/// The terms of carrying refuse to a tip in a policy file (content API 210, M11f, second part;
+/// ADR-0038 §3).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct TipFile {
+    /// How far the tip stands from every open well, spring, stream and home, metres.
+    pub from_m: f32,
+    /// The fewest days between a household's carryings.
+    pub every_days: u16,
+    /// The hours a carrying takes, as a household weighs it.
+    pub carry_h: f32,
+    /// The share of a household's deaths of disease within the year it believes a cleaner place
+    /// would have spared, 0-1.
+    pub avoided_share: f32,
+    /// Kilograms of a heap, decaying share and ash, past which it raises `heaps_near`.
+    pub heap_kg: f32,
+    /// How near another household's home such a heap raises it, metres.
+    pub heap_near_m: f32,
 }
 
 /// The terms of a polity's notes in a policy file (content API 196, M10d slice EJ).
@@ -752,6 +776,14 @@ impl PolicyFile {
                     carry_h: m.carry_h,
                     avoided_share: m.avoided_share,
                 }),
+            tip: self.tip.as_ref().map(|t| civ_agents::polity::TipDef {
+                from_m: t.from_m,
+                every_days: t.every_days,
+                carry_h: t.carry_h,
+                avoided_share: t.avoided_share,
+                heap_kg: t.heap_kg,
+                heap_near_m: t.heap_near_m,
+            }),
             // Resolved apart, with the good ([`PolicyFile::notes_def`]).
             notes: None,
             plan: self.plan.as_ref().map(|g| civ_agents::polity::PlanDef {
@@ -1249,6 +1281,36 @@ impl PolicyFile {
                 p.push("`middens` is for `does = \"clear_middens\"`".to_owned());
             }
         }
+        // A tip's terms (M11f, second part; ADR-0038 §3): only for `refuse_to_tip`, which must
+        // have them.
+        match (&self.tip, PolicyKind::from_name(&self.does)) {
+            (None, Some(PolicyKind::RefuseToTip)) => {
+                p.push("a `refuse_to_tip` template needs a `tip` table".to_owned());
+            }
+            (Some(t), Some(PolicyKind::RefuseToTip)) => {
+                for (name, v, lo, hi) in [
+                    ("from_m", t.from_m, 1.0, 1000.0),
+                    ("carry_h", t.carry_h, 0.0, 24.0),
+                    ("avoided_share", t.avoided_share, 0.0, 1.0),
+                    ("heap_kg", t.heap_kg, 1.0, 100_000.0),
+                    ("heap_near_m", t.heap_near_m, 1.0, 1000.0),
+                ] {
+                    if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                        p.push(format!(
+                            "`tip.{name}` must be between {lo} and {hi} (got {v})"
+                        ));
+                    }
+                }
+                if !(1..=365).contains(&t.every_days) {
+                    p.push(format!(
+                        "`tip.every_days` must be between 1 and 365 (got {})",
+                        t.every_days
+                    ));
+                }
+            }
+            (None, _) => {}
+            (Some(_), _) => p.push("`tip` is for `does = \"refuse_to_tip\"`".to_owned()),
+        }
         // A polity's notes' terms (M10d slice EJ): only for `issue_notes`, which must have them.
         match (&self.notes, PolicyKind::from_name(&self.does)) {
             (None, Some(PolicyKind::IssueNotes)) => {
@@ -1551,6 +1613,7 @@ impl PolicyFile {
                 | PolicyKind::KeepApart
                 | PolicyKind::KeepRegister
                 | PolicyKind::ClearMiddens
+                | PolicyKind::RefuseToTip
                 | PolicyKind::BearerHeard
                 | PolicyKind::IssueNotes
                 | PolicyKind::LegalTender
@@ -1630,6 +1693,7 @@ impl PolicyFile {
                 | PolicyKind::KeepApart
                 | PolicyKind::KeepRegister
                 | PolicyKind::ClearMiddens
+                | PolicyKind::RefuseToTip
                 | PolicyKind::BearerHeard
                 | PolicyKind::IssueNotes
                 | PolicyKind::LegalTender
@@ -1939,6 +2003,7 @@ mod tests {
             holder_needs: None,
             register: None,
             middens: None,
+            tip: None,
             notes: None,
         }
     }

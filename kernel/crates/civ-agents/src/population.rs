@@ -83,6 +83,7 @@ mod notes;
 mod opinion;
 mod payments;
 mod telegraph;
+mod tips;
 mod trains;
 mod transit;
 mod wagons;

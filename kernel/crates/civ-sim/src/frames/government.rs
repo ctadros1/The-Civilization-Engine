@@ -1650,7 +1650,9 @@ fn protected_price_words(
 /// A polity's services, in words (M10c slice EE, fourth part), for its offices: "Register of the
 /// sick: 3 households entered sick within the spell, 1 death of disease within the year, 6 homes
 /// seen on rounds"; "Sickhouse: 2 of 12 beds taken; 1 tended there today"; and for the sick kept
-/// apart and the middens cleared, how often their laws were broken.
+/// apart, the middens cleared and refuse carried to a tip, how often their laws were broken; and
+/// its tips, where each lies and what it holds (ADR-0038 §3): "The tip 50 m north of the hearth
+/// holds 3.2 t, 0.4 t of it ash, from 14 households".
 pub fn services_words(sim: &Sim, polity: &civ_agents::polity::Polity) -> Vec<String> {
     use civ_agents::polity::{LawStatus, PolicyKind};
     let pop = sim.people();
@@ -1725,6 +1727,7 @@ pub fn services_words(sim: &Sim, polity: &civ_agents::polity::Polity) -> Vec<Str
         let what = match l.kind {
             PolicyKind::KeepApart => "Keeping the sick apart",
             PolicyKind::ClearMiddens => "Middens from the water",
+            PolicyKind::RefuseToTip => "Refuse to the tip",
             _ => continue,
         };
         out.push(format!(
@@ -1732,5 +1735,44 @@ pub fn services_words(sim: &Sim, polity: &civ_agents::polity::Polity) -> Vec<Str
             l.compliance.broken, l.compliance.broken_unaware
         ));
     }
+    // Its tips and what lies in them (M11f, second part; ADR-0038 §3).
+    for t in &polity.tips {
+        let n = t.households.len();
+        let tonnes = |kg: f64| {
+            if kg < 1000.0 {
+                format!("{kg:.0} kg")
+            } else {
+                format!("{:.1} t", kg / 1000.0)
+            }
+        };
+        out.push(format!(
+            "{} holds {}, {} of it ash, from {} household{}",
+            super::markets::capitalized(&tip_words(sim, polity, t)),
+            tonnes(t.kg + t.ash_kg),
+            tonnes(t.ash_kg),
+            n,
+            if n == 1 { "" } else { "s" }
+        ));
+    }
     out
+}
+
+/// Where a polity's tip lies, in words (M11f, second part; ADR-0038 §3): "the tip 150 m east of
+/// the hearth".
+pub fn tip_words(
+    sim: &Sim,
+    polity: &civ_agents::polity::Polity,
+    tip: &civ_agents::polity::Tip,
+) -> String {
+    sim.land
+        .settlements
+        .iter()
+        .find(|s| s.id == polity.settlement)
+        .map_or_else(
+            || "the tip".to_owned(),
+            |s| match super::people::bearing(s.hearth_m, tip.place).as_str() {
+                "here" => "the tip by the hearth".to_owned(),
+                b => format!("the tip {b} of the hearth"),
+            },
+        )
 }

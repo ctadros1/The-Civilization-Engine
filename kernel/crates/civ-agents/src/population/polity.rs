@@ -146,6 +146,9 @@ pub(super) struct Forecasts {
     /// What clearing middens from the water would bring each household and cost it, kcal a
     /// year, by household id (M10c slice EE, third part).
     middens: Vec<(PermanentId, f64, f64)>,
+    /// What carrying refuse to a tip would bring each household and cost it, kcal a year, by
+    /// household id (M11f, second part; ADR-0038 §3).
+    tips: Vec<(PermanentId, f64, f64)>,
 }
 
 /// What a household weighs a trade law by (M7c slice BV, ADR-0026 §1): its settlement's
@@ -447,6 +450,17 @@ impl Forecasts {
             Some(PolicyKind::ClearMiddens) => {
                 let (gain, cost) = self
                     .middens
+                    .iter()
+                    .find(|s| s.0 == h)
+                    .map_or((0.0, 0.0), |s| (s.1, s.2));
+                crate::polity::against_gain(o, gain, cost, pp)
+            }
+            // Refuse carried to a tip (M11f, second part; ADR-0038 §3), as clearing middens: the
+            // share of its deaths of disease it believes a cleaner place would have spared, less
+            // its carrying.
+            Some(PolicyKind::RefuseToTip) => {
+                let (gain, cost) = self
+                    .tips
                     .iter()
                     .find(|s| s.0 == h)
                     .map_or((0.0, 0.0), |s| (s.1, s.2));
@@ -1980,6 +1994,7 @@ impl Population {
             keep_apart: self.keep_apart_forecasts(ctx, households, adults),
             registers: self.register_forecasts(ctx, households),
             middens: self.middens_forecasts(ctx, households),
+            tips: self.tips_forecasts(ctx, households),
             adults: {
                 let mut a = adults.to_vec();
                 a.sort_unstable();
@@ -2871,6 +2886,11 @@ impl Population {
         if current.is_some() {
             issues.push(IssueKind::HomesUnlit);
         }
+        // A household's heap grew large beside another's home (M11f, second part; ADR-0038 §3).
+        let heaps_near = self.heaps_near(ctx, &households);
+        if !heaps_near.is_empty() {
+            issues.push(IssueKind::HeapsNear);
+        }
         // Something taken from its households after dark that nobody saw, where someone knows how
         // to make a light and lamps could stand on its ways (M10b slice DY, fourth part).
         if self.dark_takings(ctx, pi, &households) {
@@ -3187,6 +3207,9 @@ impl Population {
                             // And those whose homes lie dark beyond a station's lines where a
                             // line strung together would repay its stringing (M11a, eighth part).
                             .chain(&current_homes)
+                            // And those whose heap grew large beside another's home (M11f,
+                            // second part).
+                            .chain(&heaps_near)
                             .filter_map(|&h| self.elder_of(h, now, params)),
                     )
                     // And whoever holds that a source sickens (M6a slice BA).
@@ -4009,6 +4032,21 @@ impl Population {
                     PolicyKind::ClearMiddens => {
                         if !self.word.suspicions_of(d).is_empty() {
                             moves.push(blank);
+                        }
+                    }
+                    // Refuse carried to a tip (M11f, second part; ADR-0038 §3): where they
+                    // suspect a source of water, or a heap grew large beside another's home.
+                    PolicyKind::RefuseToTip => {
+                        if !self.word.suspicions_of(d).is_empty() {
+                            moves.push(MoveOption {
+                                issue: IssueKind::SourceSuspected,
+                                ..blank
+                            });
+                        } else if issues.contains(&IssueKind::HeapsNear) {
+                            moves.push(MoveOption {
+                                issue: IssueKind::HeapsNear,
+                                ..blank
+                            });
                         }
                     }
                     // Keeping the sick apart (M10c slice EE, first part): where one of theirs died
@@ -4916,6 +4954,11 @@ impl Population {
         // A line of current passed is marked out at once from its station (M11a, eighth part).
         if outcome == Outcome::Passed && kind == PolicyKind::LayCurrent {
             self.begin_public_current(ctx, pi, law_id);
+        }
+        // A tip passed is opened at once where a place qualifies, the polity's (M11f, second part;
+        // ADR-0038 §3).
+        if outcome == Outcome::Passed && kind == PolicyKind::RefuseToTip {
+            self.open_tip(ctx, pi, law_id);
         }
         // Streets lit by law have their lamps set at once, unlit until the lamplighter's round
         // (M10b slice DY, fourth part).

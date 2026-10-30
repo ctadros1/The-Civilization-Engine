@@ -220,11 +220,15 @@ pub enum PolicyKind {
     /// line from a station of the settlement to homes that would be lit by it, each household
     /// asked an equal share of the stringing, as a line of track is laid together.
     LayCurrent,
+    /// Refuse carried to a tip (M11f, second part; ADR-0038 §3): passing it opens a tip the
+    /// polity names, clear of every source and home, and each household is asked to carry its
+    /// heap there; kept by choice, as clearing middens is, which it supersedes for a household.
+    RefuseToTip,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 45] = [
+    pub const ALL: [PolicyKind; 46] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -270,6 +274,7 @@ impl PolicyKind {
         PolicyKind::SuspendRedemption,
         PolicyKind::AgainstCounterfeiting,
         PolicyKind::LayCurrent,
+        PolicyKind::RefuseToTip,
     ];
 
     /// The authored name.
@@ -320,6 +325,7 @@ impl PolicyKind {
             PolicyKind::SuspendRedemption => "suspend_redemption",
             PolicyKind::AgainstCounterfeiting => "against_counterfeiting",
             PolicyKind::LayCurrent => "lay_current",
+            PolicyKind::RefuseToTip => "refuse_to_tip",
         }
     }
 
@@ -474,11 +480,15 @@ pub enum IssueKind {
     /// with current to spare, where a line strung together would spare them more than its
     /// stringing (M11a, eighth part): what `lay_current` answers.
     HomesUnlit,
+    /// A household's heap of the settlement, its decaying share and its ash, grew past the
+    /// content's size within the content's distance of another household's home (M11f, second
+    /// part; ADR-0038 §3): what `refuse_to_tip` answers.
+    HeapsNear,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 42] = [
+    pub const ALL: [IssueKind; 43] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -521,6 +531,7 @@ impl IssueKind {
         IssueKind::StoreNotesRefused,
         IssueKind::FalseNotesFound,
         IssueKind::HomesUnlit,
+        IssueKind::HeapsNear,
     ];
 
     /// The authored name.
@@ -568,6 +579,7 @@ impl IssueKind {
             IssueKind::StoreNotesRefused => "store_notes_refused",
             IssueKind::FalseNotesFound => "false_notes_found",
             IssueKind::HomesUnlit => "homes_unlit",
+            IssueKind::HeapsNear => "heaps_near",
         }
     }
 
@@ -652,6 +664,7 @@ impl IssueKind {
             IssueKind::HomesUnlit => {
                 "their homes lay dark beyond the wire of a station with current to spare"
             }
+            IssueKind::HeapsNear => "households' heaps grew large beside others' homes",
         }
     }
 }
@@ -798,6 +811,8 @@ pub struct PolicyDef {
     pub register: Option<RegisterDef>,
     /// For clearing middens from the water: its terms (M10c slice EE, third part).
     pub middens: Option<MiddensDef>,
+    /// For refuse carried to a tip: its terms (M11f, second part; ADR-0038 §3).
+    pub tip: Option<TipDef>,
     /// For notes issued: their terms (M10d slice EJ).
     pub notes: Option<NotesDef>,
 }
@@ -826,6 +841,45 @@ pub struct MiddensDef {
     pub keep_days: u16,
     pub carry_h: f32,
     pub avoided_share: f32,
+}
+
+/// The terms of a law carrying refuse to a tip (M11f, second part; ADR-0038 §3): how far the tip
+/// stands from every open well, spring, stream and home, metres; how many days at least between a
+/// household's carryings; the hours a carrying takes and the share of its deaths of disease within
+/// the year a household believes a cleaner place would have spared (design priors it weighs); and
+/// the heap, kilograms, and the distance from another's home, metres, past which a heap raises
+/// the issue `heaps_near`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TipDef {
+    pub from_m: f32,
+    pub every_days: u16,
+    pub carry_h: f32,
+    pub avoided_share: f32,
+    pub heap_kg: f32,
+    pub heap_near_m: f32,
+}
+
+/// A tip a polity opened under a law carrying refuse to one (M11f, second part; ADR-0038 §3): a
+/// place, and what was tipped there, kilograms of the heaps' decaying share and of their ash. What
+/// a heap carried held of a disease lies at the contagion node [`crate::contagion::Node::Tip`].
+/// Saved.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Tip {
+    /// Permanent id: its contagion node's.
+    pub id: PermanentId,
+    /// The law that opened it.
+    pub law: PermanentId,
+    /// The day it was opened.
+    pub opened: i64,
+    /// Where it lies, metres.
+    pub place: (f32, f32),
+    /// Kilograms tipped of the heaps' decaying share, as they were tipped (it does not decay
+    /// here: ADR-0038 §6 defers what becomes of a tip).
+    pub kg: f64,
+    /// Kilograms of ash tipped.
+    pub ash_kg: f64,
+    /// The households that tipped here, by id, sorted.
+    pub households: Vec<PermanentId>,
 }
 
 /// What a household believes a register of the sick spares it (M10c slice EE, second part): the
@@ -2100,6 +2154,17 @@ pub fn law_words(
             m.distance_m
         );
     }
+    // Refuse carried to a tip (M11f, second part; ADR-0038 §3).
+    if let Some(t) = def
+        .filter(|d| d.kind == PolicyKind::RefuseToTip)
+        .and_then(|d| d.tip)
+    {
+        return format!(
+            "that each household carries its heap to a tip at least {:.0} m from every source and \
+             home, at most every {} days",
+            t.from_m, t.every_days
+        );
+    }
     if def.is_some_and(|d| d.kind == PolicyKind::KeepRegister) {
         return match law.holder {
             Some(h) => format!("{} to keep a register of the sick{instead}", name_of(h)),
@@ -2184,6 +2249,7 @@ pub fn ending_words(
         Some(PolicyKind::KeepSchool) => who("keeping of the school"),
         Some(PolicyKind::KeepRegister) => who("keeping of the register of the sick"),
         Some(PolicyKind::ClearMiddens) => "the clearing of middens from the water".to_owned(),
+        Some(PolicyKind::RefuseToTip) => "the carrying of refuse to the tip".to_owned(),
         Some(PolicyKind::BearerHeard) => "the hearing of refused notes".to_owned(),
         Some(PolicyKind::IssueNotes) => "the store's notes".to_owned(),
         Some(PolicyKind::LegalTender) => "the store's notes as legal tender".to_owned(),
@@ -2538,6 +2604,8 @@ pub struct Polity {
     /// What its settlements measured of the losses a public building would answer, a year each,
     /// the latest [`MEASURED_YEARS`] (M8d slice DC, ADR-0031 §6).
     pub measured: Vec<Measured>,
+    /// The tips its laws opened, in the order opened (M11f, second part; ADR-0038 §3).
+    pub tips: Vec<Tip>,
 }
 
 /// Years of [`Measured`] a polity keeps.
@@ -2989,6 +3057,7 @@ impl Polity {
             elections: Vec::new(),
             patron_gifts: Vec::new(),
             measured: Vec::new(),
+            tips: Vec::new(),
         }
     }
 
@@ -3993,6 +4062,7 @@ pub(crate) mod tests {
             holder_needs: None,
             register: None,
             middens: None,
+            tip: None,
             notes: None,
         };
         let policies = [
@@ -4119,6 +4189,7 @@ pub(crate) mod tests {
             holder_needs: None,
             register: None,
             middens: None,
+            tip: None,
             notes: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
@@ -4353,6 +4424,7 @@ pub(crate) mod tests {
             holder_needs: None,
             register: None,
             middens: None,
+            tip: None,
             notes: None,
         }];
         assert!(

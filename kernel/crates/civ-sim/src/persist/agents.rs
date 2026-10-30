@@ -2201,6 +2201,29 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 .collect();
             let raises = (!raises.is_empty()).then(|| fbb.create_vector(&raises));
             let raise_given = bank_share_rows(&mut fbb, &p.raise_given);
+            // Its tips (schema 220, M11f, second part; ADR-0038 §3).
+            let tips: Vec<_> = p
+                .tips
+                .iter()
+                .map(|t| {
+                    let households: Vec<u64> = t.households.iter().map(|h| h.get()).collect();
+                    let households = fbb.create_vector(&households);
+                    save::TipSave::create(
+                        &mut fbb,
+                        &save::TipSaveArgs {
+                            id: t.id.get(),
+                            law: t.law.get(),
+                            opened: t.opened,
+                            x: t.place.0,
+                            y: t.place.1,
+                            kg: t.kg,
+                            ash_kg: t.ash_kg,
+                            households: Some(households),
+                        },
+                    )
+                })
+                .collect();
+            let tips = (!tips.is_empty()).then(|| fbb.create_vector(&tips));
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -2275,6 +2298,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     tower: p.tower.map_or(0, PermanentId::get),
                     sickhouse: p.sickhouse.map_or(0, PermanentId::get),
                     measured_losses,
+                    tips,
                 },
             )
         })
@@ -2394,6 +2418,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::StoreNotesRefused => 39,
         IssueKind::FalseNotesFound => 40,
         IssueKind::HomesUnlit => 41,
+        IssueKind::HeapsNear => 42,
     }
 }
 
@@ -2542,6 +2567,7 @@ fn decode_polities(
                 39 => IssueKind::StoreNotesRefused,
                 40 => IssueKind::FalseNotesFound,
                 41 => IssueKind::HomesUnlit,
+                42 => IssueKind::HeapsNear,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -3260,6 +3286,37 @@ fn decode_polities(
         let hall = PermanentId::from_raw(p.hall());
         let tower = PermanentId::from_raw(p.tower());
         let sickhouse = PermanentId::from_raw(p.sickhouse());
+        // Its tips (ADR-0038 §3, appended within saves 220): none, in older saves.
+        let mut tips = Vec::new();
+        for t in p.tips().iter().flatten() {
+            let tip = required(t.id(), "a tip")?;
+            let (kg, ash_kg, place) = (t.kg(), t.ash_kg(), (t.x(), t.y()));
+            if !(kg.is_finite() && kg >= 0.0 && ash_kg.is_finite() && ash_kg >= 0.0)
+                || !(place.0.is_finite() && place.1.is_finite())
+            {
+                return Err(bad(format!("polity {id}'s tip {tip} is malformed")));
+            }
+            let households = t
+                .households()
+                .iter()
+                .flatten()
+                .map(|raw| required(raw, "a household that tipped"))
+                .collect::<Result<Vec<_>, _>>()?;
+            if !households.windows(2).all(|w| w[0] < w[1]) {
+                return Err(bad(format!(
+                    "polity {id}'s tip {tip} lists households out of order"
+                )));
+            }
+            tips.push(civ_agents::polity::Tip {
+                id: tip,
+                law: required(t.law(), "a tip's law")?,
+                opened: t.opened(),
+                place,
+                kg,
+                ash_kg,
+                households,
+            });
+        }
         // Patron gifts (schema 131, M7c slice BY).
         let mut patron_gifts = Vec::new();
         for g in p.patron_gifts().iter().flatten() {
@@ -3436,6 +3493,7 @@ fn decode_polities(
             hall,
             tower,
             sickhouse,
+            tips,
         });
     }
     Ok(out)
@@ -5623,6 +5681,7 @@ fn encode_households(
                     midden_x: h.midden.site.0,
                     midden_y: h.midden.site.1,
                     midden_ash_kg: h.midden.ash_kg,
+                    midden_tipped: h.midden.tipped,
                     water_use_l: h.water_use_l,
                     water_walk_min: h.water_walk_min,
                     flood_home_cm: h.flood_memory.home_depth_cm,
@@ -5992,6 +6051,9 @@ fn decode_households(
                     at: time(h.midden_at()),
                     carried: h.midden_carried(),
                     site: (h.midden_x(), h.midden_y()),
+                    // Carried to a tip (ADR-0038 §3, appended within saves 220): never, in older
+                    // saves.
+                    tipped: h.midden_tipped(),
                 }
             },
             flood_memory: if schema >= Schema::V93 {

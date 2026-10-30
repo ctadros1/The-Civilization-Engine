@@ -32126,6 +32126,7 @@ impl<'a> Household<'a> {
   pub const VT_MIDDEN_X: ::flatbuffers::VOffsetT = 60;
   pub const VT_MIDDEN_Y: ::flatbuffers::VOffsetT = 62;
   pub const VT_MIDDEN_ASH_KG: ::flatbuffers::VOffsetT = 64;
+  pub const VT_MIDDEN_TIPPED: ::flatbuffers::VOffsetT = 66;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -32137,6 +32138,7 @@ impl<'a> Household<'a> {
     args: &'args HouseholdArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Household<'bldr>> {
     let mut builder = HouseholdBuilder::new(_fbb);
+    builder.add_midden_tipped(args.midden_tipped);
     builder.add_midden_ash_kg(args.midden_ash_kg);
     builder.add_midden_carried(args.midden_carried);
     builder.add_flood_day(args.flood_day);
@@ -32389,6 +32391,13 @@ impl<'a> Household<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f64>(Household::VT_MIDDEN_ASH_KG, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn midden_tipped(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Household::VT_MIDDEN_TIPPED, Some(-1)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Household<'_> {
@@ -32428,6 +32437,7 @@ impl ::flatbuffers::Verifiable for Household<'_> {
      .visit_field::<f32>("midden_x", Self::VT_MIDDEN_X, false)?
      .visit_field::<f32>("midden_y", Self::VT_MIDDEN_Y, false)?
      .visit_field::<f64>("midden_ash_kg", Self::VT_MIDDEN_ASH_KG, false)?
+     .visit_field::<i64>("midden_tipped", Self::VT_MIDDEN_TIPPED, false)?
      .finish();
     Ok(())
   }
@@ -32464,6 +32474,7 @@ pub struct HouseholdArgs<'a> {
     pub midden_x: f32,
     pub midden_y: f32,
     pub midden_ash_kg: f64,
+    pub midden_tipped: i64,
 }
 impl<'a> Default for HouseholdArgs<'a> {
   #[inline]
@@ -32500,6 +32511,7 @@ impl<'a> Default for HouseholdArgs<'a> {
       midden_x: 0.0,
       midden_y: 0.0,
       midden_ash_kg: 0.0,
+      midden_tipped: -1,
     }
   }
 }
@@ -32634,6 +32646,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HouseholdBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f64>(Household::VT_MIDDEN_ASH_KG, midden_ash_kg, 0.0);
   }
   #[inline]
+  pub fn add_midden_tipped(&mut self, midden_tipped: i64) {
+    self.fbb_.push_slot::<i64>(Household::VT_MIDDEN_TIPPED, midden_tipped, -1);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HouseholdBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HouseholdBuilder {
@@ -32682,6 +32698,7 @@ impl ::core::fmt::Debug for Household<'_> {
       ds.field("midden_x", &self.midden_x());
       ds.field("midden_y", &self.midden_y());
       ds.field("midden_ash_kg", &self.midden_ash_kg());
+      ds.field("midden_tipped", &self.midden_tipped());
       ds.finish()
   }
 }
@@ -43071,6 +43088,7 @@ impl<'a> PolitySave<'a> {
   pub const VT_MEASURED_LOSSES: ::flatbuffers::VOffsetT = 98;
   pub const VT_TOWER: ::flatbuffers::VOffsetT = 100;
   pub const VT_SICKHOUSE: ::flatbuffers::VOffsetT = 102;
+  pub const VT_TIPS: ::flatbuffers::VOffsetT = 104;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -43094,6 +43112,7 @@ impl<'a> PolitySave<'a> {
     builder.add_founded(args.founded);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.tips { builder.add_tips(x); }
     if let Some(x) = args.measured_losses { builder.add_measured_losses(x); }
     if let Some(x) = args.raise_given { builder.add_raise_given(x); }
     if let Some(x) = args.raises { builder.add_raises(x); }
@@ -43486,6 +43505,13 @@ impl<'a> PolitySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(PolitySave::VT_SICKHOUSE, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn tips(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TipSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TipSave>>>>(PolitySave::VT_TIPS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolitySave<'_> {
@@ -43544,6 +43570,7 @@ impl ::flatbuffers::Verifiable for PolitySave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MeasuredLossSave>>>>("measured_losses", Self::VT_MEASURED_LOSSES, false)?
      .visit_field::<u64>("tower", Self::VT_TOWER, false)?
      .visit_field::<u64>("sickhouse", Self::VT_SICKHOUSE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TipSave>>>>("tips", Self::VT_TIPS, false)?
      .finish();
     Ok(())
   }
@@ -43599,6 +43626,7 @@ pub struct PolitySaveArgs<'a> {
     pub measured_losses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MeasuredLossSave<'a>>>>>,
     pub tower: u64,
     pub sickhouse: u64,
+    pub tips: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TipSave<'a>>>>>,
 }
 impl<'a> Default for PolitySaveArgs<'a> {
   #[inline]
@@ -43654,6 +43682,7 @@ impl<'a> Default for PolitySaveArgs<'a> {
       measured_losses: None,
       tower: 0,
       sickhouse: 0,
+      tips: None,
     }
   }
 }
@@ -43864,6 +43893,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot::<u64>(PolitySave::VT_SICKHOUSE, sickhouse, 0);
   }
   #[inline]
+  pub fn add_tips(&mut self, tips: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<TipSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_TIPS, tips);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitySaveBuilder {
@@ -43931,6 +43964,222 @@ impl ::core::fmt::Debug for PolitySave<'_> {
       ds.field("measured_losses", &self.measured_losses());
       ds.field("tower", &self.tower());
       ds.field("sickhouse", &self.sickhouse());
+      ds.field("tips", &self.tips());
+      ds.finish()
+  }
+}
+pub enum TipSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TipSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for TipSave<'a> {
+  type Inner = TipSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> TipSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 6;
+  pub const VT_OPENED: ::flatbuffers::VOffsetT = 8;
+  pub const VT_X: ::flatbuffers::VOffsetT = 10;
+  pub const VT_Y: ::flatbuffers::VOffsetT = 12;
+  pub const VT_KG: ::flatbuffers::VOffsetT = 14;
+  pub const VT_ASH_KG: ::flatbuffers::VOffsetT = 16;
+  pub const VT_HOUSEHOLDS: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    TipSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args TipSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<TipSave<'bldr>> {
+    let mut builder = TipSaveBuilder::new(_fbb);
+    builder.add_ash_kg(args.ash_kg);
+    builder.add_kg(args.kg);
+    builder.add_opened(args.opened);
+    builder.add_law(args.law);
+    builder.add_id(args.id);
+    if let Some(x) = args.households { builder.add_households(x); }
+    builder.add_y(args.y);
+    builder.add_x(args.x);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TipSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TipSave::VT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn opened(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(TipSave::VT_OPENED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn x(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TipSave::VT_X, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn y(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TipSave::VT_Y, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(TipSave::VT_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn ash_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(TipSave::VT_ASH_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn households(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(TipSave::VT_HOUSEHOLDS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for TipSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<i64>("opened", Self::VT_OPENED, false)?
+     .visit_field::<f32>("x", Self::VT_X, false)?
+     .visit_field::<f32>("y", Self::VT_Y, false)?
+     .visit_field::<f64>("kg", Self::VT_KG, false)?
+     .visit_field::<f64>("ash_kg", Self::VT_ASH_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("households", Self::VT_HOUSEHOLDS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TipSaveArgs<'a> {
+    pub id: u64,
+    pub law: u64,
+    pub opened: i64,
+    pub x: f32,
+    pub y: f32,
+    pub kg: f64,
+    pub ash_kg: f64,
+    pub households: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+}
+impl<'a> Default for TipSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TipSaveArgs {
+      id: 0,
+      law: 0,
+      opened: 0,
+      x: 0.0,
+      y: 0.0,
+      kg: 0.0,
+      ash_kg: 0.0,
+      households: None,
+    }
+  }
+}
+
+pub struct TipSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TipSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(TipSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(TipSave::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn add_opened(&mut self, opened: i64) {
+    self.fbb_.push_slot::<i64>(TipSave::VT_OPENED, opened, 0);
+  }
+  #[inline]
+  pub fn add_x(&mut self, x: f32) {
+    self.fbb_.push_slot::<f32>(TipSave::VT_X, x, 0.0);
+  }
+  #[inline]
+  pub fn add_y(&mut self, y: f32) {
+    self.fbb_.push_slot::<f32>(TipSave::VT_Y, y, 0.0);
+  }
+  #[inline]
+  pub fn add_kg(&mut self, kg: f64) {
+    self.fbb_.push_slot::<f64>(TipSave::VT_KG, kg, 0.0);
+  }
+  #[inline]
+  pub fn add_ash_kg(&mut self, ash_kg: f64) {
+    self.fbb_.push_slot::<f64>(TipSave::VT_ASH_KG, ash_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_households(&mut self, households: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TipSave::VT_HOUSEHOLDS, households);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TipSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    TipSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<TipSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for TipSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("TipSave");
+      ds.field("id", &self.id());
+      ds.field("law", &self.law());
+      ds.field("opened", &self.opened());
+      ds.field("x", &self.x());
+      ds.field("y", &self.y());
+      ds.field("kg", &self.kg());
+      ds.field("ash_kg", &self.ash_kg());
+      ds.field("households", &self.households());
       ds.finish()
   }
 }

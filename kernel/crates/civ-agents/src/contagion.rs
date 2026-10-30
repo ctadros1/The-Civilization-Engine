@@ -1,7 +1,7 @@
 //! What people shed of a disease, where it lies and where it goes (M6a slice AZ, step two;
 //! ADR-0021 §4; research 12-02 §5.2-§5.3, 03-02 §1.6). Loads are kept in households' heaps, in
-//! wells, in river reaches (what passes them today) and in households' stored water, the last by
-//! where the water was drawn; a load soaking through the ground is on its way to a well or a river
+//! wells, in river reaches (what passes them today), in tips (ADR-0038 §3) and in households'
+//! stored water, the last by where the water was drawn; a load soaking through the ground is on its way to a well or a river
 //! until the day it arrives. Every move is recorded. Nothing makes a load but someone shedding
 //! (12-02 §1.1), and no choice reads one.
 
@@ -22,6 +22,8 @@ pub enum Node {
     Reach(u32),
     /// A household's stored water.
     Store(PermanentId),
+    /// A tip, by its id (M11f, second part; ADR-0038 §3): what heaps carried there held.
+    Tip(PermanentId),
 }
 
 impl Node {
@@ -33,6 +35,7 @@ impl Node {
             Node::Well(w) => (2, w.get()),
             Node::Reach(r) => (3, u64::from(r)),
             Node::Store(h) => (4, h.get()),
+            Node::Tip(t) => (5, t.get()),
         }
     }
 
@@ -44,6 +47,7 @@ impl Node {
             2 => Node::Well(PermanentId::from_raw(n)?),
             3 => Node::Reach(u32::try_from(n).ok()?),
             4 => Node::Store(PermanentId::from_raw(n)?),
+            5 => Node::Tip(PermanentId::from_raw(n)?),
             _ => return None,
         })
     }
@@ -62,6 +66,8 @@ pub enum How {
     Arrived = 3,
     /// Drawn with water into a household's store.
     Drawn = 4,
+    /// Carried with a heap to a tip (M11f, second part; ADR-0038 §3).
+    Carried = 5,
 }
 
 impl How {
@@ -70,9 +76,16 @@ impl How {
     }
 
     pub fn from_code(code: u8) -> Option<How> {
-        [How::Shed, How::Runoff, How::Seep, How::Arrived, How::Drawn]
-            .get(usize::from(code))
-            .copied()
+        [
+            How::Shed,
+            How::Runoff,
+            How::Seep,
+            How::Arrived,
+            How::Drawn,
+            How::Carried,
+        ]
+        .get(usize::from(code))
+        .copied()
     }
 }
 
@@ -299,7 +312,7 @@ mod tests {
         c.record(Move { day: 4, ..m });
         assert_eq!(c.moves.len(), 3);
         assert_eq!(c.moves[0].amount, 2.0);
-        for code in 0..5u8 {
+        for code in 0..6u8 {
             let n = Node::from_code(code, 7).expect("a node");
             assert_eq!(n.code(), (code, 7));
         }

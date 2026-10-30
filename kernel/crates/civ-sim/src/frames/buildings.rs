@@ -56,6 +56,19 @@ pub fn buildings_rev(sim: &Sim) -> u64 {
             .wrapping_add(u64::from(l.riders) << 16)
             .wrapping_add(u64::from(l.fare_kcal.to_bits()))
     });
+    // A refuse round's homes, fee and last run (M11f, third part; ADR-0038 §4).
+    let gas = sim
+        .people
+        .polities
+        .iter()
+        .flat_map(|p| &p.rounds)
+        .fold(gas, |rev, r| {
+            rev.wrapping_mul(31)
+                .wrapping_add(r.id.get())
+                .wrapping_add((r.homes.len() as u64) << 8)
+                .wrapping_add((r.last_run.max(0) as u64) << 16)
+                .wrapping_add(u64::from(r.fee_kcal.to_bits()))
+        });
     sim.land.buildings.iter().fold(gas, |rev, b| {
         let condition = b.condition.iter().fold(0u64, |sum, c| {
             sum.wrapping_add((f64::from(c.loss) * 1e4).round().max(0.0) as u64)
@@ -800,7 +813,9 @@ pub(crate) fn gas_words(sim: &Sim, b: &Building) -> String {
 /// installation; feeds 2 lines, 3 homes hooked up"); empty for neither.
 /// The road line building `b`'s household keeps, in words (wire 1.109, M11b, third part), on its
 /// first building: "Motor cart runs to Elmhollow: 1 a day, leaving at 06:00, back at 07:12; fare
-/// 210 kcal; 4 rides since day 120". Empty where it keeps none.
+/// 210 kcal; 4 rides since day 120". Empty where it keeps none. And the refuse rounds it works
+/// (M11f, third part; ADR-0038 §4), as the polity's page tells them: "Ada's refuse round calls at
+/// 12 homes every 7 days and carries to the tip north of the hearth; 3.1 t carried this year".
 pub(crate) fn road_words(sim: &Sim, b: &Building) -> String {
     let first = sim
         .land
@@ -808,6 +823,24 @@ pub(crate) fn road_words(sim: &Sim, b: &Building) -> String {
         .iter()
         .find(|o| o.household == b.household)
         .is_some_and(|o| o.id == b.id);
+    let rounds: Vec<String> = sim
+        .people
+        .polities
+        .iter()
+        .flat_map(|p| p.rounds.iter().map(move |r| (p, r)))
+        .filter(|(_, r)| first && r.operator == b.household)
+        .map(|(p, r)| super::government::round_words(sim, p, r))
+        .collect();
+    let road = line_words(sim, b, first);
+    std::iter::once(road)
+        .chain(rounds)
+        .filter(|w| !w.is_empty())
+        .collect::<Vec<_>>()
+        .join(". ")
+}
+
+/// The road line building `b`'s household keeps, in words, where `b` is its first building.
+fn line_words(sim: &Sim, b: &Building, first: bool) -> String {
     let Some(l) = sim
         .land
         .runs

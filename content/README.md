@@ -1892,3 +1892,19 @@ load of a disease move to the tip, whose load washes and seeps to the water from
 a heap's does. It is kept by choice and supersedes `clear_middens` for a household once its tip is
 open. The core's `policy/zealously_zone_a_refuse_tip` answers `source_suspected` and `heaps_near`
 with 30 m, 30 days, an hour, a fifth, 500 kg and 30 m (design priors).
+
+Content API 211 (M11f, third part; ADR-0038 §4) adds the policy kind `collect_refuse`. A
+`collect_refuse` template needs a `[round]` table, which no other kind may have: `every_days` (1–365;
+the days between the round's runs) and `round_h` (0–24, the hours a run takes as a household weighs
+the law against the carrying it would be spared). Passing the law, where the polity keeps a tip a
+law carrying refuse to one opened and is still in force, has a household of the settlement that
+keeps a cart (the greatest payload) work a refuse round to that tip: every `every_days` it calls at
+the settlement's other homes in turn, empties each heap, its decaying share and its ash, into the
+cart up to the vehicle's `payload_kg`, and tips the load there, its disease loads moving with it;
+homes beyond what a run carries wait for the next. The homes pay nothing; the keeper's hours are
+common work, paid from the store under a `pay_work` law, and with nothing to pay them the round does
+not go. Apart from any law, a household keeping a cart may post a round of its own (a run every 7
+days, design priors in the kernel), each home paying a fee in food a call on the `Refuse` ledger
+channel; a home joins only where the fees cost it less, by its hours, than the carrying a law asks
+of it. The core's `policy/zealously_zone_a_round_for_refuse` answers `source_suspected` and
+`heaps_near` with 7 days and 4 hours (design priors).

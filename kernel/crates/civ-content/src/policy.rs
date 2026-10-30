@@ -141,6 +141,10 @@ pub(crate) struct PolicyFile {
     /// ADR-0038 §3): its terms.
     #[serde(default)]
     pub tip: Option<TipFile>,
+    /// For refuse collected by law (`collect_refuse`, content API 211, M11f, third part;
+    /// ADR-0038 §4): its round's terms.
+    #[serde(default)]
+    pub round: Option<RoundFile>,
     /// For notes issued (`issue_notes`, content API 196, M10d slice EJ): their terms.
     #[serde(default)]
     pub notes: Option<NotesFile>,
@@ -296,6 +300,17 @@ pub struct TipFile {
     pub heap_kg: f32,
     /// How near another household's home such a heap raises it, metres.
     pub heap_near_m: f32,
+}
+
+/// The terms of a refuse round run by law in a policy file (content API 211, M11f, third part;
+/// ADR-0038 §4).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct RoundFile {
+    /// Days between the round's runs.
+    pub every_days: u16,
+    /// The hours a run takes, as a household weighs the law.
+    pub round_h: f32,
 }
 
 /// The terms of a polity's notes in a policy file (content API 196, M10d slice EJ).
@@ -783,6 +798,10 @@ impl PolicyFile {
                 avoided_share: t.avoided_share,
                 heap_kg: t.heap_kg,
                 heap_near_m: t.heap_near_m,
+            }),
+            round: self.round.as_ref().map(|r| civ_agents::polity::RoundDef {
+                every_days: r.every_days,
+                round_h: r.round_h,
             }),
             // Resolved apart, with the good ([`PolicyFile::notes_def`]).
             notes: None,
@@ -1311,6 +1330,29 @@ impl PolicyFile {
             (None, _) => {}
             (Some(_), _) => p.push("`tip` is for `does = \"refuse_to_tip\"`".to_owned()),
         }
+        // A refuse round's terms (M11f, third part; ADR-0038 §4): only for `collect_refuse`,
+        // which must have them.
+        match (&self.round, PolicyKind::from_name(&self.does)) {
+            (None, Some(PolicyKind::CollectRefuse)) => {
+                p.push("a `collect_refuse` template needs a `round` table".to_owned());
+            }
+            (Some(r), Some(PolicyKind::CollectRefuse)) => {
+                if !(1..=365).contains(&r.every_days) {
+                    p.push(format!(
+                        "`round.every_days` must be between 1 and 365 (got {})",
+                        r.every_days
+                    ));
+                }
+                if !(r.round_h.is_finite() && (0.0..=24.0).contains(&r.round_h)) {
+                    p.push(format!(
+                        "`round.round_h` must be between 0 and 24 (got {})",
+                        r.round_h
+                    ));
+                }
+            }
+            (None, _) => {}
+            (Some(_), _) => p.push("`round` is for `does = \"collect_refuse\"`".to_owned()),
+        }
         // A polity's notes' terms (M10d slice EJ): only for `issue_notes`, which must have them.
         match (&self.notes, PolicyKind::from_name(&self.does)) {
             (None, Some(PolicyKind::IssueNotes)) => {
@@ -1614,6 +1656,7 @@ impl PolicyFile {
                 | PolicyKind::KeepRegister
                 | PolicyKind::ClearMiddens
                 | PolicyKind::RefuseToTip
+                | PolicyKind::CollectRefuse
                 | PolicyKind::BearerHeard
                 | PolicyKind::IssueNotes
                 | PolicyKind::LegalTender
@@ -1694,6 +1737,7 @@ impl PolicyFile {
                 | PolicyKind::KeepRegister
                 | PolicyKind::ClearMiddens
                 | PolicyKind::RefuseToTip
+                | PolicyKind::CollectRefuse
                 | PolicyKind::BearerHeard
                 | PolicyKind::IssueNotes
                 | PolicyKind::LegalTender
@@ -2004,6 +2048,7 @@ mod tests {
             register: None,
             middens: None,
             tip: None,
+            round: None,
             notes: None,
         }
     }

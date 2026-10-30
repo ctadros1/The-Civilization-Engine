@@ -149,6 +149,9 @@ pub(super) struct Forecasts {
     /// What carrying refuse to a tip would bring each household and cost it, kcal a year, by
     /// household id (M11f, second part; ADR-0038 §3).
     tips: Vec<(PermanentId, f64, f64)>,
+    /// What a refuse round run by law would bring each household and cost it, kcal a year, by
+    /// household id (M11f, third part; ADR-0038 §4).
+    rounds: Vec<(PermanentId, f64, f64)>,
 }
 
 /// What a household weighs a trade law by (M7c slice BV, ADR-0026 §1): its settlement's
@@ -458,6 +461,16 @@ impl Forecasts {
             // Refuse carried to a tip (M11f, second part; ADR-0038 §3), as clearing middens: the
             // share of its deaths of disease it believes a cleaner place would have spared, less
             // its carrying.
+            // Refuse collected by law (M11f, third part; ADR-0038 §4): the carrying a law asks of it
+            // that the round spares, less its share of the round's hours paid from the store.
+            Some(PolicyKind::CollectRefuse) => {
+                let (gain, cost) = self
+                    .rounds
+                    .iter()
+                    .find(|s| s.0 == h)
+                    .map_or((0.0, 0.0), |s| (s.1, s.2));
+                crate::polity::against_gain(o, gain, cost, pp)
+            }
             Some(PolicyKind::RefuseToTip) => {
                 let (gain, cost) = self
                     .tips
@@ -1995,6 +2008,7 @@ impl Population {
             registers: self.register_forecasts(ctx, households),
             middens: self.middens_forecasts(ctx, households),
             tips: self.tips_forecasts(ctx, households),
+            rounds: self.rounds_forecasts(ctx, households),
             adults: {
                 let mut a = adults.to_vec();
                 a.sort_unstable();
@@ -4049,6 +4063,22 @@ impl Population {
                             });
                         }
                     }
+                    // Refuse collected by law (M11f, third part; ADR-0038 §4): as carrying refuse
+                    // to a tip, and only where the polity keeps an open tip.
+                    PolicyKind::CollectRefuse => {
+                        let open = self.round_tip(pi).is_some();
+                        if open && !self.word.suspicions_of(d).is_empty() {
+                            moves.push(MoveOption {
+                                issue: IssueKind::SourceSuspected,
+                                ..blank
+                            });
+                        } else if open && issues.contains(&IssueKind::HeapsNear) {
+                            moves.push(MoveOption {
+                                issue: IssueKind::HeapsNear,
+                                ..blank
+                            });
+                        }
+                    }
                     // Keeping the sick apart (M10c slice EE, first part): where one of theirs died
                     // of a sickness passing at home or in company within the year.
                     PolicyKind::KeepApart => {
@@ -4959,6 +4989,12 @@ impl Population {
         // ADR-0038 §3).
         if outcome == Outcome::Passed && kind == PolicyKind::RefuseToTip {
             self.open_tip(ctx, pi, law_id);
+        }
+        // A refuse round passed is posted at once where a tip is open and someone keeps a cart
+        // (M11f, third part; ADR-0038 §4).
+        if outcome == Outcome::Passed && kind == PolicyKind::CollectRefuse {
+            let day = ctx.now.day_index();
+            self.law_rounds(ctx, day);
         }
         // Streets lit by law have their lamps set at once, unlit until the lamplighter's round
         // (M10b slice DY, fourth part).

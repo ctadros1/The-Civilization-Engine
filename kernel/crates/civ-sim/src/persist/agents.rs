@@ -2224,6 +2224,57 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let tips = (!tips.is_empty()).then(|| fbb.create_vector(&tips));
+            // Its refuse rounds (schema 220, M11f, third part; ADR-0038 §4).
+            let rounds: Vec<_> = p
+                .rounds
+                .iter()
+                .map(|r| {
+                    let homes: Vec<u64> = r.homes.iter().map(|h| h.get()).collect();
+                    let homes = fbb.create_vector(&homes);
+                    let runs: Vec<_> = r
+                        .runs
+                        .iter()
+                        .map(|x| {
+                            let households: Vec<u64> =
+                                x.calls.iter().map(|c| c.household.get()).collect();
+                            let kg: Vec<f64> = x.calls.iter().map(|c| c.kg).collect();
+                            let ash_kg: Vec<f64> = x.calls.iter().map(|c| c.ash_kg).collect();
+                            let households = fbb.create_vector(&households);
+                            let kg = fbb.create_vector(&kg);
+                            let ash_kg = fbb.create_vector(&ash_kg);
+                            save::RoundRunSave::create(
+                                &mut fbb,
+                                &save::RoundRunSaveArgs {
+                                    day: x.day,
+                                    hours: x.hours,
+                                    households: Some(households),
+                                    kg: Some(kg),
+                                    ash_kg: Some(ash_kg),
+                                },
+                            )
+                        })
+                        .collect();
+                    let runs = fbb.create_vector(&runs);
+                    save::RefuseRoundSave::create(
+                        &mut fbb,
+                        &save::RefuseRoundSaveArgs {
+                            id: r.id.get(),
+                            operator: r.operator.get(),
+                            cart: r.cart.get(),
+                            tip: r.tip.get(),
+                            law: r.law.map_or(0, PermanentId::get),
+                            homes: Some(homes),
+                            every_days: r.every_days,
+                            fee_kcal: r.fee_kcal,
+                            since: r.since,
+                            last_run: r.last_run,
+                            next: r.next,
+                            runs: Some(runs),
+                        },
+                    )
+                })
+                .collect();
+            let rounds = (!rounds.is_empty()).then(|| fbb.create_vector(&rounds));
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -2299,6 +2350,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     sickhouse: p.sickhouse.map_or(0, PermanentId::get),
                     measured_losses,
                     tips,
+                    rounds,
                 },
             )
         })
@@ -3317,6 +3369,64 @@ fn decode_polities(
                 households,
             });
         }
+        // Its refuse rounds (ADR-0038 §4, appended within saves 220): none, in older saves.
+        let mut rounds = Vec::new();
+        for r in p.rounds().iter().flatten() {
+            let round = required(r.id(), "a refuse round")?;
+            let fee_kcal = r.fee_kcal();
+            if !(fee_kcal.is_finite() && fee_kcal >= 0.0) || r.every_days() == 0 {
+                return Err(bad(format!(
+                    "polity {id}'s refuse round {round} is malformed"
+                )));
+            }
+            let homes = r
+                .homes()
+                .iter()
+                .flatten()
+                .map(|raw| required(raw, "a home on a refuse round"))
+                .collect::<Result<Vec<_>, _>>()?;
+            let mut runs = Vec::new();
+            for x in r.runs().iter().flatten() {
+                let households: Vec<u64> = x.households().iter().flatten().collect();
+                let kg: Vec<f64> = x.kg().iter().flatten().collect();
+                let ash_kg: Vec<f64> = x.ash_kg().iter().flatten().collect();
+                if kg.len() != households.len()
+                    || ash_kg.len() != households.len()
+                    || !kg.iter().chain(&ash_kg).all(|v| v.is_finite() && *v >= 0.0)
+                {
+                    return Err(bad(format!(
+                        "polity {id}'s refuse round {round} has a malformed run"
+                    )));
+                }
+                let mut calls = Vec::with_capacity(households.len());
+                for ((raw, kg), ash_kg) in households.into_iter().zip(kg).zip(ash_kg) {
+                    calls.push(civ_agents::polity::RoundCall {
+                        household: required(raw, "a home called at")?,
+                        kg,
+                        ash_kg,
+                    });
+                }
+                runs.push(civ_agents::polity::RoundRun {
+                    day: x.day(),
+                    hours: x.hours(),
+                    calls,
+                });
+            }
+            rounds.push(civ_agents::polity::RefuseRound {
+                id: round,
+                operator: required(r.operator(), "a refuse round's keeper")?,
+                cart: required(r.cart(), "a refuse round's cart")?,
+                tip: required(r.tip(), "a refuse round's tip")?,
+                law: PermanentId::from_raw(r.law()),
+                homes,
+                every_days: r.every_days(),
+                fee_kcal,
+                since: r.since(),
+                last_run: r.last_run(),
+                next: r.next(),
+                runs,
+            });
+        }
         // Patron gifts (schema 131, M7c slice BY).
         let mut patron_gifts = Vec::new();
         for g in p.patron_gifts().iter().flatten() {
@@ -3494,6 +3604,7 @@ fn decode_polities(
             tower,
             sickhouse,
             tips,
+            rounds,
         });
     }
     Ok(out)

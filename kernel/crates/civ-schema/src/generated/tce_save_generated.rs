@@ -43089,6 +43089,7 @@ impl<'a> PolitySave<'a> {
   pub const VT_TOWER: ::flatbuffers::VOffsetT = 100;
   pub const VT_SICKHOUSE: ::flatbuffers::VOffsetT = 102;
   pub const VT_TIPS: ::flatbuffers::VOffsetT = 104;
+  pub const VT_ROUNDS: ::flatbuffers::VOffsetT = 106;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -43112,6 +43113,7 @@ impl<'a> PolitySave<'a> {
     builder.add_founded(args.founded);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.rounds { builder.add_rounds(x); }
     if let Some(x) = args.tips { builder.add_tips(x); }
     if let Some(x) = args.measured_losses { builder.add_measured_losses(x); }
     if let Some(x) = args.raise_given { builder.add_raise_given(x); }
@@ -43512,6 +43514,13 @@ impl<'a> PolitySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TipSave>>>>(PolitySave::VT_TIPS, None)}
   }
+  #[inline]
+  pub fn rounds(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RefuseRoundSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RefuseRoundSave>>>>(PolitySave::VT_ROUNDS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolitySave<'_> {
@@ -43571,6 +43580,7 @@ impl ::flatbuffers::Verifiable for PolitySave<'_> {
      .visit_field::<u64>("tower", Self::VT_TOWER, false)?
      .visit_field::<u64>("sickhouse", Self::VT_SICKHOUSE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TipSave>>>>("tips", Self::VT_TIPS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RefuseRoundSave>>>>("rounds", Self::VT_ROUNDS, false)?
      .finish();
     Ok(())
   }
@@ -43627,6 +43637,7 @@ pub struct PolitySaveArgs<'a> {
     pub tower: u64,
     pub sickhouse: u64,
     pub tips: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TipSave<'a>>>>>,
+    pub rounds: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RefuseRoundSave<'a>>>>>,
 }
 impl<'a> Default for PolitySaveArgs<'a> {
   #[inline]
@@ -43683,6 +43694,7 @@ impl<'a> Default for PolitySaveArgs<'a> {
       tower: 0,
       sickhouse: 0,
       tips: None,
+      rounds: None,
     }
   }
 }
@@ -43897,6 +43909,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_TIPS, tips);
   }
   #[inline]
+  pub fn add_rounds(&mut self, rounds: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<RefuseRoundSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_ROUNDS, rounds);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitySaveBuilder {
@@ -43965,6 +43981,454 @@ impl ::core::fmt::Debug for PolitySave<'_> {
       ds.field("tower", &self.tower());
       ds.field("sickhouse", &self.sickhouse());
       ds.field("tips", &self.tips());
+      ds.field("rounds", &self.rounds());
+      ds.finish()
+  }
+}
+pub enum RefuseRoundSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RefuseRoundSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for RefuseRoundSave<'a> {
+  type Inner = RefuseRoundSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> RefuseRoundSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_OPERATOR: ::flatbuffers::VOffsetT = 6;
+  pub const VT_CART: ::flatbuffers::VOffsetT = 8;
+  pub const VT_TIP: ::flatbuffers::VOffsetT = 10;
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 12;
+  pub const VT_HOMES: ::flatbuffers::VOffsetT = 14;
+  pub const VT_EVERY_DAYS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_FEE_KCAL: ::flatbuffers::VOffsetT = 18;
+  pub const VT_SINCE: ::flatbuffers::VOffsetT = 20;
+  pub const VT_LAST_RUN: ::flatbuffers::VOffsetT = 22;
+  pub const VT_NEXT: ::flatbuffers::VOffsetT = 24;
+  pub const VT_RUNS: ::flatbuffers::VOffsetT = 26;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    RefuseRoundSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args RefuseRoundSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<RefuseRoundSave<'bldr>> {
+    let mut builder = RefuseRoundSaveBuilder::new(_fbb);
+    builder.add_last_run(args.last_run);
+    builder.add_since(args.since);
+    builder.add_law(args.law);
+    builder.add_tip(args.tip);
+    builder.add_cart(args.cart);
+    builder.add_operator(args.operator);
+    builder.add_id(args.id);
+    if let Some(x) = args.runs { builder.add_runs(x); }
+    builder.add_next(args.next);
+    builder.add_fee_kcal(args.fee_kcal);
+    if let Some(x) = args.homes { builder.add_homes(x); }
+    builder.add_every_days(args.every_days);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RefuseRoundSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn operator(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RefuseRoundSave::VT_OPERATOR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn cart(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RefuseRoundSave::VT_CART, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn tip(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RefuseRoundSave::VT_TIP, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RefuseRoundSave::VT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn homes(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(RefuseRoundSave::VT_HOMES, None)}
+  }
+  #[inline]
+  pub fn every_days(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(RefuseRoundSave::VT_EVERY_DAYS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn fee_kcal(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(RefuseRoundSave::VT_FEE_KCAL, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn since(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RefuseRoundSave::VT_SINCE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn last_run(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RefuseRoundSave::VT_LAST_RUN, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn next(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RefuseRoundSave::VT_NEXT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn runs(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RoundRunSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RoundRunSave>>>>(RefuseRoundSave::VT_RUNS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for RefuseRoundSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("operator", Self::VT_OPERATOR, false)?
+     .visit_field::<u64>("cart", Self::VT_CART, false)?
+     .visit_field::<u64>("tip", Self::VT_TIP, false)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("homes", Self::VT_HOMES, false)?
+     .visit_field::<u16>("every_days", Self::VT_EVERY_DAYS, false)?
+     .visit_field::<f32>("fee_kcal", Self::VT_FEE_KCAL, false)?
+     .visit_field::<i64>("since", Self::VT_SINCE, false)?
+     .visit_field::<i64>("last_run", Self::VT_LAST_RUN, false)?
+     .visit_field::<u32>("next", Self::VT_NEXT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RoundRunSave>>>>("runs", Self::VT_RUNS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RefuseRoundSaveArgs<'a> {
+    pub id: u64,
+    pub operator: u64,
+    pub cart: u64,
+    pub tip: u64,
+    pub law: u64,
+    pub homes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub every_days: u16,
+    pub fee_kcal: f32,
+    pub since: i64,
+    pub last_run: i64,
+    pub next: u32,
+    pub runs: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RoundRunSave<'a>>>>>,
+}
+impl<'a> Default for RefuseRoundSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    RefuseRoundSaveArgs {
+      id: 0,
+      operator: 0,
+      cart: 0,
+      tip: 0,
+      law: 0,
+      homes: None,
+      every_days: 0,
+      fee_kcal: 0.0,
+      since: 0,
+      last_run: -1,
+      next: 0,
+      runs: None,
+    }
+  }
+}
+
+pub struct RefuseRoundSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RefuseRoundSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(RefuseRoundSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_operator(&mut self, operator: u64) {
+    self.fbb_.push_slot::<u64>(RefuseRoundSave::VT_OPERATOR, operator, 0);
+  }
+  #[inline]
+  pub fn add_cart(&mut self, cart: u64) {
+    self.fbb_.push_slot::<u64>(RefuseRoundSave::VT_CART, cart, 0);
+  }
+  #[inline]
+  pub fn add_tip(&mut self, tip: u64) {
+    self.fbb_.push_slot::<u64>(RefuseRoundSave::VT_TIP, tip, 0);
+  }
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(RefuseRoundSave::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn add_homes(&mut self, homes: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RefuseRoundSave::VT_HOMES, homes);
+  }
+  #[inline]
+  pub fn add_every_days(&mut self, every_days: u16) {
+    self.fbb_.push_slot::<u16>(RefuseRoundSave::VT_EVERY_DAYS, every_days, 0);
+  }
+  #[inline]
+  pub fn add_fee_kcal(&mut self, fee_kcal: f32) {
+    self.fbb_.push_slot::<f32>(RefuseRoundSave::VT_FEE_KCAL, fee_kcal, 0.0);
+  }
+  #[inline]
+  pub fn add_since(&mut self, since: i64) {
+    self.fbb_.push_slot::<i64>(RefuseRoundSave::VT_SINCE, since, 0);
+  }
+  #[inline]
+  pub fn add_last_run(&mut self, last_run: i64) {
+    self.fbb_.push_slot::<i64>(RefuseRoundSave::VT_LAST_RUN, last_run, -1);
+  }
+  #[inline]
+  pub fn add_next(&mut self, next: u32) {
+    self.fbb_.push_slot::<u32>(RefuseRoundSave::VT_NEXT, next, 0);
+  }
+  #[inline]
+  pub fn add_runs(&mut self, runs: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<RoundRunSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RefuseRoundSave::VT_RUNS, runs);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RefuseRoundSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    RefuseRoundSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<RefuseRoundSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for RefuseRoundSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("RefuseRoundSave");
+      ds.field("id", &self.id());
+      ds.field("operator", &self.operator());
+      ds.field("cart", &self.cart());
+      ds.field("tip", &self.tip());
+      ds.field("law", &self.law());
+      ds.field("homes", &self.homes());
+      ds.field("every_days", &self.every_days());
+      ds.field("fee_kcal", &self.fee_kcal());
+      ds.field("since", &self.since());
+      ds.field("last_run", &self.last_run());
+      ds.field("next", &self.next());
+      ds.field("runs", &self.runs());
+      ds.finish()
+  }
+}
+pub enum RoundRunSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RoundRunSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for RoundRunSave<'a> {
+  type Inner = RoundRunSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> RoundRunSave<'a> {
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_HOURS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_HOUSEHOLDS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_KG: ::flatbuffers::VOffsetT = 10;
+  pub const VT_ASH_KG: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    RoundRunSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args RoundRunSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<RoundRunSave<'bldr>> {
+    let mut builder = RoundRunSaveBuilder::new(_fbb);
+    builder.add_day(args.day);
+    if let Some(x) = args.ash_kg { builder.add_ash_kg(x); }
+    if let Some(x) = args.kg { builder.add_kg(x); }
+    if let Some(x) = args.households { builder.add_households(x); }
+    builder.add_hours(args.hours);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RoundRunSave::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn hours(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(RoundRunSave::VT_HOURS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn households(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(RoundRunSave::VT_HOUSEHOLDS, None)}
+  }
+  #[inline]
+  pub fn kg(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(RoundRunSave::VT_KG, None)}
+  }
+  #[inline]
+  pub fn ash_kg(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(RoundRunSave::VT_ASH_KG, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for RoundRunSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<f32>("hours", Self::VT_HOURS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("households", Self::VT_HOUSEHOLDS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("kg", Self::VT_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("ash_kg", Self::VT_ASH_KG, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RoundRunSaveArgs<'a> {
+    pub day: i64,
+    pub hours: f32,
+    pub households: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+    pub ash_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+}
+impl<'a> Default for RoundRunSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    RoundRunSaveArgs {
+      day: 0,
+      hours: 0.0,
+      households: None,
+      kg: None,
+      ash_kg: None,
+    }
+  }
+}
+
+pub struct RoundRunSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RoundRunSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(RoundRunSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_hours(&mut self, hours: f32) {
+    self.fbb_.push_slot::<f32>(RoundRunSave::VT_HOURS, hours, 0.0);
+  }
+  #[inline]
+  pub fn add_households(&mut self, households: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoundRunSave::VT_HOUSEHOLDS, households);
+  }
+  #[inline]
+  pub fn add_kg(&mut self, kg: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoundRunSave::VT_KG, kg);
+  }
+  #[inline]
+  pub fn add_ash_kg(&mut self, ash_kg: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoundRunSave::VT_ASH_KG, ash_kg);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RoundRunSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    RoundRunSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<RoundRunSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for RoundRunSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("RoundRunSave");
+      ds.field("day", &self.day());
+      ds.field("hours", &self.hours());
+      ds.field("households", &self.households());
+      ds.field("kg", &self.kg());
+      ds.field("ash_kg", &self.ash_kg());
       ds.finish()
   }
 }

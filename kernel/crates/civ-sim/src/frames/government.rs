@@ -1754,7 +1754,52 @@ pub fn services_words(sim: &Sim, polity: &civ_agents::polity::Polity) -> Vec<Str
             if n == 1 { "" } else { "s" }
         ));
     }
+    // Its refuse rounds (M11f, third part; ADR-0038 §4).
+    for r in &polity.rounds {
+        out.push(round_words(sim, polity, r));
+    }
     out
+}
+
+/// Kilograms in words: "40 kg" below a tonne, "3.1 t" from one.
+fn tonnes(kg: f64) -> String {
+    if kg < 1000.0 {
+        format!("{kg:.0} kg")
+    } else {
+        format!("{:.1} t", kg / 1000.0)
+    }
+}
+
+/// A refuse round in words (M11f, third part; ADR-0038 §4): "Ada's refuse round calls at 12 homes
+/// every 7 days and carries to the tip north of the hearth; 3.1 t carried this year; 40 kcal a
+/// call", or under a law, "The polity's refuse round, worked by Ada's household, ...; paid from
+/// the store".
+pub fn round_words(
+    sim: &Sim,
+    polity: &civ_agents::polity::Polity,
+    round: &civ_agents::polity::RefuseRound,
+) -> String {
+    let keeper = super::people::household_name(sim, round.operator);
+    let tip = polity.tips.iter().find(|t| t.id == round.tip).map_or_else(
+        || "a tip no longer kept".to_owned(),
+        |t| tip_words(sim, polity, t),
+    );
+    let who = match round.law {
+        Some(_) => format!("The polity's refuse round, worked by {keeper},"),
+        None => format!("{}'s refuse round", keeper.trim_end_matches("'s household")),
+    };
+    let n = round.homes.len();
+    let year = sim.now().day_index() - civ_core::time::DAYS_PER_YEAR;
+    let pay = match round.law {
+        Some(_) => "paid from the store".to_owned(),
+        None => format!("{:.0} kcal a call", round.fee_kcal),
+    };
+    format!(
+        "{who} calls at {n} home{} every {} days and carries to {tip}; {} carried this year; {pay}",
+        if n == 1 { "" } else { "s" },
+        round.every_days,
+        tonnes(round.carried_since(year + 1)),
+    )
 }
 
 /// Where a polity's tip lies, in words (M11f, second part; ADR-0038 §3): "the tip 150 m east of

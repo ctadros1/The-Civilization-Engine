@@ -93,7 +93,7 @@ impl Population {
     /// The kcal of food household `operator` puts on the fuel of a run of `minutes` by its cart's
     /// vehicle `vehicle`, at its own cost of the fuel and of food; `None` where it puts no figure
     /// on either.
-    fn run_cost_kcal(
+    pub(super) fn run_cost_kcal(
         &self,
         ctx: &Ctx,
         operator: PermanentId,

@@ -82,6 +82,7 @@ mod norm;
 mod notes;
 mod opinion;
 mod payments;
+mod rounds;
 mod telegraph;
 mod tips;
 mod trains;
@@ -93,6 +94,7 @@ mod wires;
 pub use crime::TakeProbe;
 pub use payments::Burden;
 pub use resolution::{DayBlock, NOT_TAKEN, SwitchInvariants};
+pub use rounds::{MAX_ROUND_HOMES, ROUND_EVERY_DAYS};
 pub use sickhouse::sickhouse_bed_m2;
 pub use telegraph::{TELEGRAM_FEE_FOOD_DAYS, TelegraphReckoning};
 pub use transit::{RoadRide, road_departures};
@@ -7877,6 +7879,9 @@ impl Population {
         self.telegraph_reviews(ctx, day);
         // Road lines weighed by the motor carts' keepers whose day it is (M11b, third part).
         self.transit_reviews(ctx, day);
+        // Refuse rounds kept by law, weighed by the carts' keepers whose day it is, and run on
+        // their days (M11f, third part; ADR-0038 §4).
+        self.refuse_day(ctx, day);
         // A child sent to learn a craft the household buys (M10c slice EB, second part).
         self.enrol_reviews(ctx, day);
         // And the wells (M6a slice AY, step three): what was drawn taken from the water table, a

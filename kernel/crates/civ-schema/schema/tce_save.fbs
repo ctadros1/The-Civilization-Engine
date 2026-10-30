@@ -1690,6 +1690,39 @@ table PolitySave {
   // Schema 220 (M11f, second part; ADR-0038 §3; appended within the unreleased saves 220): the
   // tips its laws opened, in the order opened; absent, none.
   tips: [TipSave] (id: 50);
+  // Schema 220 (M11f, third part; ADR-0038 §4; appended within the unreleased saves 220): the
+  // refuse rounds that carry to its tips, in the order posted; absent, none.
+  rounds: [RefuseRoundSave] (id: 51);
+}
+
+// A refuse round (schema 220, M11f, third part; ADR-0038 §4): its id, the household that works it
+// and its cart, the tip it carries to, the law collecting refuse it runs under (0 none: then its
+// homes pay `fee_kcal` a call), the homes it calls at in calling order, the days between runs, the
+// day posted and the day of its last run (-1 never), the index of the home its next run calls at
+// first, and its runs within the last year, oldest first.
+table RefuseRoundSave {
+  id: ulong (id: 0);
+  operator: ulong (id: 1);
+  cart: ulong (id: 2);
+  tip: ulong (id: 3);
+  law: ulong (id: 4);
+  homes: [ulong] (id: 5);
+  every_days: ushort (id: 6);
+  fee_kcal: float (id: 7);
+  since: long (id: 8);
+  last_run: long = -1 (id: 9);
+  next: uint (id: 10);
+  runs: [RoundRunSave] (id: 11);
+}
+
+// A refuse round's run (schema 220, ADR-0038 §4): the day, its keeper's hours, and the homes
+// called at in order with the kilograms of each heap's decaying share and of its ash loaded.
+table RoundRunSave {
+  day: long (id: 0);
+  hours: float (id: 1);
+  households: [ulong] (id: 2);
+  kg: [double] (id: 3);
+  ash_kg: [double] (id: 4);
 }
 
 // A tip a polity's law opened (schema 220, M11f, second part; ADR-0038 §3): its id (its contagion

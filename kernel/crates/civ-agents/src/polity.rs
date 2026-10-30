@@ -224,11 +224,15 @@ pub enum PolicyKind {
     /// polity names, clear of every source and home, and each household is asked to carry its
     /// heap there; kept by choice, as clearing middens is, which it supersedes for a household.
     RefuseToTip,
+    /// Refuse collected by law (M11f, third part; ADR-0038 §4): where a tip is open, the polity
+    /// runs a refuse round to it worked by a household with a cart, its hours paid from the store
+    /// as common work rather than by fees; kept by choice, as the others.
+    CollectRefuse,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 46] = [
+    pub const ALL: [PolicyKind; 47] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -275,6 +279,7 @@ impl PolicyKind {
         PolicyKind::AgainstCounterfeiting,
         PolicyKind::LayCurrent,
         PolicyKind::RefuseToTip,
+        PolicyKind::CollectRefuse,
     ];
 
     /// The authored name.
@@ -326,6 +331,7 @@ impl PolicyKind {
             PolicyKind::AgainstCounterfeiting => "against_counterfeiting",
             PolicyKind::LayCurrent => "lay_current",
             PolicyKind::RefuseToTip => "refuse_to_tip",
+            PolicyKind::CollectRefuse => "collect_refuse",
         }
     }
 
@@ -813,6 +819,8 @@ pub struct PolicyDef {
     pub middens: Option<MiddensDef>,
     /// For refuse carried to a tip: its terms (M11f, second part; ADR-0038 §3).
     pub tip: Option<TipDef>,
+    /// For refuse collected by law: its round's terms (M11f, third part; ADR-0038 §4).
+    pub round: Option<RoundDef>,
     /// For notes issued: their terms (M10d slice EJ).
     pub notes: Option<NotesDef>,
 }
@@ -857,6 +865,75 @@ pub struct TipDef {
     pub avoided_share: f32,
     pub heap_kg: f32,
     pub heap_near_m: f32,
+}
+
+/// The terms of a law collecting refuse (M11f, third part; ADR-0038 §4): the days between its
+/// round's runs, and the hours a run takes as a household weighs the law (a design prior).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RoundDef {
+    pub every_days: u16,
+    pub round_h: f32,
+}
+
+/// One home's heap loaded on a refuse round's run (ADR-0038 §4): the household, and the kilograms
+/// of its decaying share and of its ash that went into the cart and on to the tip.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RoundCall {
+    pub household: PermanentId,
+    pub kg: f64,
+    pub ash_kg: f64,
+}
+
+/// A refuse round's run (ADR-0038 §4): the day, its keeper's hours on it, and the homes called at
+/// in order with what each gave.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RoundRun {
+    pub day: i64,
+    pub hours: f32,
+    pub calls: Vec<RoundCall>,
+}
+
+/// A refuse round (M11f, third part; ADR-0038 §4): a household keeping a cart calls at the homes on
+/// it every so many days, empties their heaps into the cart up to its payload and tips the load at
+/// the tip it names. Posted by the household for a fee per call in food (the `Refuse` channel), or
+/// run under a law collecting refuse, its hours paid from the store. Kept by the polity whose tip
+/// it carries to. Saved.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RefuseRound {
+    pub id: PermanentId,
+    /// The household that works it, and its cart.
+    pub operator: PermanentId,
+    pub cart: PermanentId,
+    /// The tip it carries to.
+    pub tip: PermanentId,
+    /// The law collecting refuse it runs under, if any: then the store pays its hours and homes
+    /// pay no fee.
+    pub law: Option<PermanentId>,
+    /// The homes it calls at, by household, in calling order.
+    pub homes: Vec<PermanentId>,
+    /// Days between runs.
+    pub every_days: u16,
+    /// A call's fee, kcal of food (0 under a law).
+    pub fee_kcal: f32,
+    /// The day it was posted, and the day of its last run (-1 never).
+    pub since: i64,
+    pub last_run: i64,
+    /// The index in `homes` its next run calls at first: homes a run could not carry wait.
+    pub next: u32,
+    /// Its runs within the last year, oldest first.
+    pub runs: Vec<RoundRun>,
+}
+
+impl RefuseRound {
+    /// Kilograms it carried, decaying share and ash, on runs since day `since`.
+    pub fn carried_since(&self, since: i64) -> f64 {
+        self.runs
+            .iter()
+            .filter(|r| r.day >= since)
+            .flat_map(|r| &r.calls)
+            .map(|c| c.kg + c.ash_kg)
+            .sum()
+    }
 }
 
 /// A tip a polity opened under a law carrying refuse to one (M11f, second part; ADR-0038 §3): a
@@ -2154,6 +2231,17 @@ pub fn law_words(
             m.distance_m
         );
     }
+    // Refuse collected by law (M11f, third part; ADR-0038 §4).
+    if let Some(r) = def
+        .filter(|d| d.kind == PolicyKind::CollectRefuse)
+        .and_then(|d| d.round)
+    {
+        return format!(
+            "that a refuse round empties the households' heaps into a cart every {} days and \
+             carries them to the tip, its hours paid from the store",
+            r.every_days
+        );
+    }
     // Refuse carried to a tip (M11f, second part; ADR-0038 §3).
     if let Some(t) = def
         .filter(|d| d.kind == PolicyKind::RefuseToTip)
@@ -2250,6 +2338,7 @@ pub fn ending_words(
         Some(PolicyKind::KeepRegister) => who("keeping of the register of the sick"),
         Some(PolicyKind::ClearMiddens) => "the clearing of middens from the water".to_owned(),
         Some(PolicyKind::RefuseToTip) => "the carrying of refuse to the tip".to_owned(),
+        Some(PolicyKind::CollectRefuse) => "the collecting of refuse".to_owned(),
         Some(PolicyKind::BearerHeard) => "the hearing of refused notes".to_owned(),
         Some(PolicyKind::IssueNotes) => "the store's notes".to_owned(),
         Some(PolicyKind::LegalTender) => "the store's notes as legal tender".to_owned(),
@@ -2606,6 +2695,9 @@ pub struct Polity {
     pub measured: Vec<Measured>,
     /// The tips its laws opened, in the order opened (M11f, second part; ADR-0038 §3).
     pub tips: Vec<Tip>,
+    /// The refuse rounds that carry to its tips, in the order posted (M11f, third part;
+    /// ADR-0038 §4).
+    pub rounds: Vec<RefuseRound>,
 }
 
 /// Years of [`Measured`] a polity keeps.
@@ -3058,6 +3150,7 @@ impl Polity {
             patron_gifts: Vec::new(),
             measured: Vec::new(),
             tips: Vec::new(),
+            rounds: Vec::new(),
         }
     }
 
@@ -4063,6 +4156,7 @@ pub(crate) mod tests {
             register: None,
             middens: None,
             tip: None,
+            round: None,
             notes: None,
         };
         let policies = [
@@ -4190,6 +4284,7 @@ pub(crate) mod tests {
             register: None,
             middens: None,
             tip: None,
+            round: None,
             notes: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
@@ -4425,6 +4520,7 @@ pub(crate) mod tests {
             register: None,
             middens: None,
             tip: None,
+            round: None,
             notes: None,
         }];
         assert!(

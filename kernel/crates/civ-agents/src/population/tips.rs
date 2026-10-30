@@ -281,15 +281,40 @@ impl Population {
 
     /// Empties household `household`'s heap into tip `ti` of polity `pi` now.
     fn tip_heap(&mut self, ctx: &Ctx, household: PermanentId, pi: usize, ti: usize) {
+        self.tip_share(ctx, household, pi, ti, 1.0);
+    }
+
+    /// Moves share `share` (0-1) of household `household`'s heap, its decaying share and its ash,
+    /// into tip `ti` of polity `pi` now, with that share of what it holds of each disease,
+    /// recorded as carried (ADR-0038 §3, and a refuse round's call, §4); the heap counts as
+    /// tipped today. Returns the kilograms moved of its decaying share and of its ash.
+    pub(super) fn tip_share(
+        &mut self,
+        ctx: &Ctx,
+        household: PermanentId,
+        pi: usize,
+        ti: usize,
+        share: f64,
+    ) -> (f64, f64) {
         let day = ctx.now.day_index();
+        let share = share.clamp(0.0, 1.0);
         let Some(x) = self.household_mut(household) else {
-            return;
+            return (0.0, 0.0);
         };
         let members = x.members.len();
         x.midden.settle(ctx.now, members, &ctx.params.midden);
-        let (kg, ash_kg) = (x.midden.kg, x.midden.ash_kg);
-        x.midden.kg = 0.0;
-        x.midden.ash_kg = 0.0;
+        let (kg, ash_kg) = if share >= 1.0 {
+            (x.midden.kg, x.midden.ash_kg)
+        } else {
+            (x.midden.kg * share, x.midden.ash_kg * share)
+        };
+        if share >= 1.0 {
+            x.midden.kg = 0.0;
+            x.midden.ash_kg = 0.0;
+        } else {
+            x.midden.kg -= kg;
+            x.midden.ash_kg -= ash_kg;
+        }
         x.midden.tipped = day;
         let tip = &mut self.polities[pi].tips[ti];
         tip.kg += kg;
@@ -307,7 +332,7 @@ impl Population {
             .map(|&(_, d)| d)
             .collect();
         for disease in diseases {
-            let amount = self.contagion.take(from, disease, 1.0);
+            let amount = self.contagion.take(from, disease, share);
             self.contagion.add(to, disease, amount);
             self.contagion.record(Move {
                 day,
@@ -319,6 +344,7 @@ impl Population {
             });
         }
         self.changed(household);
+        (kg, ash_kg)
     }
 
     /// The day's breaches of each law carrying refuse to a tip (ADR-0038 §3): a household of its

@@ -8209,6 +8209,29 @@ and M6a gives rivers a daily flow.
       2,000 kg, against 0-18 kg held. Record: `demos/m11/m11-demo-8y.txt`. **Time box reached**
       (plan §9): three eight-year runs and two fixes (the materials walk, prospecting); the iron
       chain's last kilograms are left as the next run's question, not tuned here.
+    - *M11f, third part (2026-10-30): the refuse round* (ADR-0038 §4). Once a year a household with a
+      made cart (handcart or motor cart) weighs a round to its polity's open tip: the nearest 40
+      homes of its settlement in nearest-next order, a run's time from its cart's way and handling,
+      and a fee a call of its hours at its `hour_kcal` (and a motor cart's fuel) over the homes a
+      run serves, dropping homes that would not join until the fee is stable; it posts only if a
+      run fits a working day, and re-plans or withdraws at its next review. Every 7 days (a design
+      prior) a run calls from where the last left off, empties each heap's decaying share and ash
+      into the cart up to its payload (the last home part-emptied and called first next time), and
+      tips at the tip exactly as carrying does, disease loads moving by share; each home pays its
+      fee in food on a new `Refuse` channel. A home joins only if its fees a year cost less than the
+      carrying a law asks of it (`refuse_to_tip`, or `clear_middens` near water); under no law it
+      never joins. No tip, or its law ended, and nothing loads. **`collect_refuse`** (appended):
+      the settlement's best cart keeper works the round for every other home free, its hours paid by
+      `pay_work` from the store, dropped with the law. The polity page and the keeper's building tell
+      the round ("Wren's refuse round calls at 9 homes every 7 days and carries to the tip 50 m north
+      of the hearth; 150 kg carried this year; 154 kcal a call"). Saves 220 (unreleased) gains rounds;
+      content API 211; wire unchanged. **Simplified:** runs are settled at midnight as road lines are,
+      not walked by the operator's members. **Tested:** a rounds target (payload, part loads, every
+      kilogram and disease load traced, fees conserved on the ledger, words, a second run on its day,
+      save and load; no tip or an ended law, no load and the round withdrawn; the joining threshold;
+      the law's round paid from the store and dropped with it); tips, residues, transit, rail,
+      crime, contagion, polity, rules, roundtrip, money, wires, telegraph and sickness; the ten smoke
+      worlds.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

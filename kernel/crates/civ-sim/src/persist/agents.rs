@@ -175,7 +175,8 @@ pub const SECTION_DEPOSITS: SectionTag = SectionTag::new("deposits");
 pub const SECTION_EARTH: SectionTag = SectionTag::new("earth");
 /// Section "ties" (schema 28): what each person remembers of others (ADR-0014).
 pub const SECTION_TIES: SectionTag = SectionTag::new("ties");
-/// Section: each settlement's polity, its laws and its store (schema 29, ADR-0013).
+/// Section: each settlement's polity, its laws and its store (schema 29, ADR-0013); with the
+/// model's answers to notables' deliberations (schema 220, ADR-0039 §4).
 pub const SECTION_POLITY: SectionTag = SectionTag::new("polity");
 /// Section: takings, what people believe of them, and what households owe (schema 31, ADR-0015).
 pub const SECTION_ORDER: SectionTag = SectionTag::new("order");
@@ -1074,6 +1075,7 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V29 {
         let bytes = single_chunk(reader, SECTION_POLITY)?;
         people.polities = decode_polities(&bytes, rules)?;
+        people.deliberation.answers = decode_answers(&bytes)?;
         // Explicit migration: schemas through 103 had asked no bank mending.
         if schema < Schema::V104
             && people.polities.iter().any(|p| {
@@ -2356,12 +2358,51 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
         })
         .collect();
     let list = fbb.create_vector(&list);
+    // The model's answers (schema 220, M12a; ADR-0039 §4).
+    let saved = &pop.deliberation.answers;
+    let answer_providers = (!saved.providers.is_empty()).then(|| {
+        let list: Vec<_> = saved
+            .providers
+            .iter()
+            .map(|p| {
+                let kind = fbb.create_string(&p.kind);
+                let model = fbb.create_string(&p.model);
+                save::ProviderSave::create(
+                    &mut fbb,
+                    &save::ProviderSaveArgs {
+                        kind: Some(kind),
+                        model: Some(model),
+                    },
+                )
+            })
+            .collect();
+        fbb.create_vector(&list)
+    });
+    let answers = (!saved.answers.is_empty()).then(|| {
+        let list: Vec<save::AnswerSave> = saved
+            .answers
+            .iter()
+            .map(|a| {
+                save::AnswerSave::new(
+                    a.notable.get(),
+                    a.day,
+                    a.digest,
+                    a.chosen.map_or(-1, i32::from),
+                    a.by.code(),
+                    a.provider,
+                )
+            })
+            .collect();
+        fbb.create_vector(&list)
+    });
     let root = save::Polities::create(
         &mut fbb,
         &save::PolitiesArgs {
             polities: Some(list),
             goods: Some(good_dictionary),
             policies: Some(policy_dictionary),
+            answer_providers,
+            answers,
         },
     );
     finish(fbb, root)
@@ -2481,6 +2522,58 @@ fn outcome_code(o: civ_agents::polity::Outcome) -> u8 {
 /// The polities of a save. A law naming a policy template the loaded content lacks, or any code
 /// this build does not know, refuses the save: a constitution is never rewritten to fit
 /// (ADR-0013 §2).
+/// The model's answers kept beside the polities (ADR-0039 §4, appended within saves 220): none,
+/// in older saves.
+fn decode_answers(bytes: &[u8]) -> Result<civ_agents::deliberation::Answers, LoadError> {
+    use civ_agents::deliberation::{Answers, ChosenBy, ProviderFingerprint, SavedAnswer};
+    let root = section_root::<save::Polities>(bytes).map_err(|e| unreadable(SECTION_POLITY, &e))?;
+    let providers: Vec<ProviderFingerprint> = root
+        .answer_providers()
+        .iter()
+        .flatten()
+        .map(|p| ProviderFingerprint {
+            kind: p.kind().unwrap_or_default().to_owned(),
+            model: p.model().unwrap_or_default().to_owned(),
+        })
+        .collect();
+    let mut answers = Vec::new();
+    let mut last_day = i64::MIN;
+    for a in root.answers().iter().flatten() {
+        let notable = required(a.notable(), "a notable's saved answer")?;
+        let by = ChosenBy::from_code(a.by());
+        let chosen = match a.chosen() {
+            -1 => Some(None),
+            c => u16::try_from(c).ok().map(Some),
+        };
+        let (Some(by), Some(chosen)) = (by, chosen) else {
+            return Err(LoadError::Malformed(format!(
+                "{notable}'s saved answer on day {} is malformed",
+                a.day()
+            )));
+        };
+        // Kept by day, and a move rules made is kept only where it made one.
+        if a.day() < last_day
+            || usize::from(a.provider()) >= providers.len()
+            || (by == ChosenBy::RuleFallback && chosen.is_none())
+        {
+            return Err(LoadError::Malformed(format!(
+                "{notable}'s saved answer on day {} is out of order or names no provider",
+                a.day()
+            )));
+        }
+        last_day = a.day();
+        answers.push(SavedAnswer {
+            notable,
+            day: a.day(),
+            digest: a.digest(),
+            chosen,
+            by,
+            provider: a.provider(),
+        });
+    }
+    Ok(Answers { providers, answers })
+}
+
 fn decode_polities(
     bytes: &[u8],
     rules: &Rules,

@@ -5,6 +5,7 @@
 //! - [`server`]: HTTP and the observer WebSocket (ADR-0001), on 127.0.0.1 only.
 //! - [`protocol`]: requests and the host's payloads.
 //! - [`session`]: the saves directory, the session marker and crash recovery.
+//! - [`deliberator`]: rules, recorded answers or a model's, for notables' moves (ADR-0039 §3).
 //! - [`commands`], [`smoke`], [`economy`], [`report`], [`weather`] and [`paths`]: the command
 //!   line.
 
@@ -14,6 +15,7 @@ pub mod commands;
 pub mod consistency;
 pub mod crossings;
 pub mod dashboard;
+pub mod deliberator;
 pub mod economy;
 pub mod engine;
 pub mod neighbours;

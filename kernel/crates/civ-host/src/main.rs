@@ -9,6 +9,7 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use anyhow::Context;
+use civ_host::deliberator::{DeliberatorSetting, HttpProvider};
 use civ_host::engine::{self, EngineConfig};
 use civ_host::session::SessionMarker;
 use civ_host::{commands, paths, protocol, server, smoke};
@@ -183,6 +184,31 @@ struct ServeArgs {
     /// Open the observer in the default browser.
     #[arg(long)]
     open: bool,
+    /// How notables choose their moves (ADR-0039 §3): by rule alone, by answers read back from
+    /// a save, or by a model behind an OpenAI-compatible chat-completions endpoint, whose API
+    /// key, if it needs one, is read from the environment variable TCE_LLM_KEY.
+    #[arg(long, value_enum, default_value_t = DeliberatorArg::Rule)]
+    deliberator: DeliberatorArg,
+    /// The chat-completions endpoint for `--deliberator http`.
+    #[arg(long, default_value = civ_host::deliberator::DEFAULT_URL)]
+    llm_url: String,
+    /// The model to name to the endpoint for `--deliberator http` [default: none named].
+    #[arg(long, default_value = "")]
+    llm_model: String,
+    /// For `--deliberator recorded`: read answers from this save instead of each world's own.
+    #[arg(long)]
+    answers: Option<PathBuf>,
+}
+
+/// `--deliberator`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+enum DeliberatorArg {
+    /// Rules alone (the default).
+    Rule,
+    /// Answers read back from a save; rules where none was saved.
+    Recorded,
+    /// A model behind an OpenAI-compatible chat-completions endpoint.
+    Http,
 }
 
 impl Default for ServeArgs {
@@ -192,8 +218,63 @@ impl Default for ServeArgs {
             port: DEFAULT_PORT,
             web: None,
             open: false,
+            deliberator: DeliberatorArg::Rule,
+            llm_url: civ_host::deliberator::DEFAULT_URL.to_owned(),
+            llm_model: String::new(),
+            answers: None,
         }
     }
+}
+
+/// The session's deliberator from `serve`'s arguments, and a line saying what it is (never the
+/// key).
+fn deliberator_of(
+    args: &ServeArgs,
+    content: &civ_content::ContentRegistry,
+) -> anyhow::Result<(DeliberatorSetting, String)> {
+    Ok(match args.deliberator {
+        DeliberatorArg::Rule => (DeliberatorSetting::Rule, "by rule".to_owned()),
+        DeliberatorArg::Recorded => match &args.answers {
+            None => (
+                DeliberatorSetting::Recorded(None),
+                "by the answers each world saved, else by rule".to_owned(),
+            ),
+            Some(path) => {
+                let sim = civ_sim::persist::load(path, content)
+                    .map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
+                let answers = sim.saved_answers().clone();
+                let n = answers.answers.len();
+                (
+                    DeliberatorSetting::Recorded(Some(Arc::new(answers))),
+                    format!(
+                        "by the {n} answers saved in {}, else by rule",
+                        path.display()
+                    ),
+                )
+            }
+        },
+        DeliberatorArg::Http => {
+            let provider = HttpProvider::new(
+                &args.llm_url,
+                &args.llm_model,
+                HttpProvider::key_from_env(),
+                civ_host::deliberator::DEADLINE,
+                civ_host::deliberator::PER_HOUR,
+            )
+            .map_err(anyhow::Error::msg)?;
+            let key = if provider.has_key() {
+                "with the key from TCE_LLM_KEY"
+            } else {
+                "with no key"
+            };
+            let line = format!(
+                "by the model at {} {key}, at most {} requests an hour, else by rule",
+                args.llm_url,
+                civ_host::deliberator::PER_HOUR
+            );
+            (DeliberatorSetting::Http(provider), line)
+        }
+    })
 }
 
 #[derive(Args)]
@@ -457,10 +538,15 @@ fn weather(args: WeatherArgs) -> anyhow::Result<ExitCode> {
 }
 
 fn serve(args: ServeArgs) -> anyhow::Result<ExitCode> {
-    let layout = paths::locate(args.folders.content, args.folders.saves, args.web)?;
+    let layout = paths::locate(
+        args.folders.content.clone(),
+        args.folders.saves.clone(),
+        args.web.clone(),
+    )?;
     let content = Arc::new(commands::load_content(&layout.content)?);
     std::fs::create_dir_all(&layout.saves)
         .with_context(|| format!("could not create {}", layout.saves.display()))?;
+    let (deliberator, deliberates) = deliberator_of(&args, &content)?;
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
@@ -476,11 +562,9 @@ fn serve(args: ServeArgs) -> anyhow::Result<ExitCode> {
             })?;
         let addr = listener.local_addr()?;
         let previous = SessionMarker::left_behind(&layout.saves);
-        let engine = engine::start(
-            EngineConfig::new(Arc::clone(&content), layout.saves.clone()),
-            previous,
-        )
-        .context("the engine could not start")?;
+        let mut config = EngineConfig::new(Arc::clone(&content), layout.saves.clone());
+        config.deliberator = deliberator;
+        let engine = engine::start(config, previous).context("the engine could not start")?;
         let app = server::router(
             engine.channels.clone(),
             protocol::welcome_payload(&content),
@@ -490,6 +574,7 @@ fn serve(args: ServeArgs) -> anyhow::Result<ExitCode> {
         let url = format!("http://{addr}/");
         println!("The Civilization Engine is running at {url} (Ctrl+C to stop)");
         println!("  saves: {}", layout.saves.display());
+        println!("  notables choose {deliberates}");
         match &layout.web {
             Some(web) => println!("  web shell: {}", web.display()),
             None => println!("  web shell: not built (the page explains how to build it)"),

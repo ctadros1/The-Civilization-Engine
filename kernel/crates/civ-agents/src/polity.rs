@@ -3916,13 +3916,16 @@ pub struct MoveOption {
 pub struct Choice {
     /// The move made, by index in the options; `None` for making none.
     pub chosen: Option<usize>,
-    /// Each option's score, points, in order; then the outside option's.
+    /// Each option's score, points, in order; then the outside option's. The rule deliberator's
+    /// scores, whoever chose (ADR-0039 §4).
     pub scores: Vec<f64>,
+    /// Who chose (ADR-0039 §4).
+    pub by: crate::deliberation::ChosenBy,
 }
 
 /// How a person who may make institutional moves chooses among them (ADR-0013 §5): from a copy
-/// of the facts and the moves available, a choice and its receipt. A rule-based one now; another
-/// (an LLM's, plan §8) can stand in its place.
+/// of the facts and the moves available, a choice and its receipt. The rule-based one; a model may
+/// choose in its place through [`crate::deliberation`] (ADR-0039 §2).
 pub trait Deliberator {
     /// Chooses among `moves` or none, with `u` a keyed draw in 0-1.
     fn choose(&self, moves: &[MoveOption], u: f64) -> Choice;
@@ -3956,6 +3959,7 @@ impl Deliberator for RuleDeliberator<'_> {
         Choice {
             chosen: picked.filter(|&i| i < moves.len()),
             scores,
+            by: crate::deliberation::ChosenBy::Rule,
         }
     }
 }

@@ -627,3 +627,194 @@ fn a_keeper_drawn_by_lot_keeps_for_a_term_and_cannot_be_drawn_again_at_once() {
     assert_eq!((l.status, l.holder), (LawStatus::Lapsed, None));
     saves_and_goes_on_alike(&mut sim, content(), DAY);
 }
+
+/// A stub model (ADR-0039 §3): answers each request with `pick` of its moves, and counts them.
+struct Stub {
+    pick: fn(usize) -> civ_agents::deliberation::ModelAnswer,
+    asked: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+}
+
+impl civ_agents::deliberation::ModelProvider for Stub {
+    fn fingerprint(&self) -> civ_agents::deliberation::ProviderFingerprint {
+        civ_agents::deliberation::ProviderFingerprint {
+            kind: "stub".into(),
+            model: "test".into(),
+        }
+    }
+    fn answer(
+        &mut self,
+        request: &civ_agents::deliberation::DeliberationRequest,
+    ) -> civ_agents::deliberation::ModelAnswer {
+        self.asked
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        (self.pick)(request.moves.len())
+    }
+}
+
+/// Every law proposed: polity, sponsor, day, template.
+fn proposals(sim: &Sim) -> Vec<(usize, u64, i64, u16)> {
+    sim.people()
+        .polities
+        .iter()
+        .enumerate()
+        .flat_map(|(i, p)| {
+            p.laws
+                .iter()
+                .map(move |l| (i, l.sponsor.get(), l.proposed.day_index(), l.policy))
+        })
+        .collect()
+}
+
+/// Each law's "because" in the government panel's words.
+fn issues(sim: &Sim) -> Vec<String> {
+    let payload = civ_sim::frames::government::government_response(sim);
+    let info = civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&payload)
+        .expect("a response")
+        .body_as_government()
+        .expect("the government");
+    info.polities()
+        .expect("polities")
+        .iter()
+        .flat_map(|p| p.laws().expect("laws").iter())
+        .map(|l| l.issue().unwrap_or_default().to_owned())
+        .collect()
+}
+
+fn sections(sim: &Sim) -> Vec<(String, Vec<u8>)> {
+    persist::encode_sections(sim)
+        .into_iter()
+        .map(|s| (s.tag.to_string(), s.bytes))
+        .collect()
+}
+
+#[test]
+fn a_model_chooses_among_the_moves_and_a_recorded_world_relives_its_choices() {
+    use civ_agents::deliberation::{ChosenBy, DeliberationMode, ModelAnswer};
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    // A lean village about to weigh moves, saved.
+    let mut sure = content().clone();
+    sure.people.params.polity.temperature = 0.05;
+    let mut sim = world_with(&sure, 3);
+    sim.advance_minutes(95 * DAY).expect("advances");
+    empty_food(&mut sim);
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let start = persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "lean")
+        .expect("saves")
+        .path;
+    let days = 21;
+    let live = |mode: Option<DeliberationMode>| {
+        let mut s = persist::load(&start, &sure).expect("loads");
+        assert!(
+            matches!(s.deliberation(), DeliberationMode::Rule),
+            "a loaded world is rule-only"
+        );
+        if let Some(m) = mode {
+            s.set_deliberation(m);
+        }
+        s.advance_minutes(days * DAY).expect("advances");
+        s
+    };
+    let stub = |pick: fn(usize) -> ModelAnswer| {
+        let asked = Arc::new(AtomicUsize::new(0));
+        let mode = DeliberationMode::Model(Box::new(Stub {
+            pick,
+            asked: Arc::clone(&asked),
+        }));
+        (mode, asked)
+    };
+    // Rules alone.
+    let rule = live(None);
+    assert!(
+        !proposals(&rule).is_empty(),
+        "a lean village proposes within three weeks"
+    );
+    assert!(rule.saved_answers().answers.is_empty());
+    assert!(issues(&rule).iter().all(|w| !w.contains("chose by")));
+
+    // A model that never answers, or names no listed move: rules choose on the same draws, and
+    // every section but the kept moves rules made is the rule-only world's.
+    for pick in [
+        (|_| ModelAnswer::Unanswered) as fn(usize) -> ModelAnswer,
+        |n| ModelAnswer::Move(n),
+        |_| ModelAnswer::Refused,
+    ] {
+        let (mode, asked) = stub(pick);
+        let mut fallen = live(Some(mode));
+        assert!(asked.load(Ordering::Relaxed) > 0, "the model was asked");
+        assert_eq!(proposals(&fallen), proposals(&rule));
+        let saved = fallen.saved_answers().clone();
+        assert!(!saved.answers.is_empty(), "the moves rules made are kept");
+        for (_, sponsor, day, _) in proposals(&fallen) {
+            let by = saved.chosen_by(civ_core::PermanentId::from_raw(sponsor).expect("id"), day);
+            assert_eq!(by, Some(ChosenBy::RuleFallback));
+        }
+        let said = issues(&fallen);
+        assert!(
+            said.iter()
+                .all(|w| w.ends_with("; chose by rule (the model did not answer)")),
+            "{said:?}"
+        );
+        fallen.people_mut_for_tests().deliberation.answers = Default::default();
+        assert!(sections(&fallen) == sections(&rule), "{:?}", pick(1));
+    }
+
+    // A model that makes the last move offered: it makes it, and the receipt says so.
+    let (mode, asked) = stub(|n| ModelAnswer::Move(n - 1));
+    let mut chosen = live(Some(mode));
+    assert!(asked.load(Ordering::Relaxed) > 0);
+    let saved = chosen.saved_answers().clone();
+    assert!(
+        saved
+            .answers
+            .iter()
+            .all(|a| a.by == ChosenBy::Model && a.chosen.is_some()),
+        "every answer accepted"
+    );
+    let made = proposals(&chosen);
+    assert!(!made.is_empty());
+    for (_, sponsor, day, _) in &made {
+        let by = saved.chosen_by(civ_core::PermanentId::from_raw(*sponsor).expect("id"), *day);
+        assert_eq!(by, Some(ChosenBy::Model));
+    }
+    let said = issues(&chosen);
+    assert!(
+        said.iter().all(|w| w.ends_with("; chose by the model")),
+        "{said:?}"
+    );
+    assert_eq!(saved.providers.len(), 1);
+    assert_eq!(saved.providers[0].kind, "stub");
+
+    // Saved and loaded, the answers are kept exactly; and the start, loaded and replaying them
+    // without the model, lives the same weeks to the same bytes.
+    let end = persist::save(
+        &mut chosen,
+        &saves,
+        commons_persist::SaveKind::Manual,
+        "model",
+    )
+    .expect("saves")
+    .path;
+    let loaded = persist::load(&end, &sure).expect("loads");
+    assert_eq!(loaded.saved_answers(), &saved);
+    assert!(sections(&loaded) == sections(&chosen), "saved exactly");
+    let replayed = live(Some(DeliberationMode::Recorded(saved.clone())));
+    assert_eq!(proposals(&replayed), made);
+    assert!(
+        sections(&replayed) == sections(&chosen),
+        "replay relives it"
+    );
+
+    // A model that makes none: nothing is proposed by those it answered.
+    let (mode, _) = stub(|_| ModelAnswer::None);
+    let none = live(Some(mode));
+    assert!(
+        none.saved_answers()
+            .answers
+            .iter()
+            .all(|a| a.chosen.is_none())
+    );
+    assert!(proposals(&none).is_empty(), "nobody proposes");
+}

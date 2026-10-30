@@ -7,8 +7,8 @@
 use super::*;
 use crate::decide::GatheringFacts;
 use crate::polity::{
-    Belief, Body, CustomVersion, Deliberator, Gathering, IssueKind, Law, LawStatus, Membership,
-    MoveOption, Outcome, Outlook, PolicyKind, Polity, RuleDeliberator, Stance, StanceRecord,
+    Belief, Body, CustomVersion, Gathering, IssueKind, Law, LawStatus, Membership, MoveOption,
+    Outcome, Outlook, PolicyKind, Polity, RuleDeliberator, Stance, StanceRecord,
 };
 use crate::word::Blamed;
 
@@ -4381,7 +4381,16 @@ impl Population {
             }
             let u =
                 Rng64::from_key(&[ctx.seed, PURPOSE_DELIBERATE, d.get(), day as u64]).next_f64();
-            let choice = deliberator.choose(&moves, u);
+            // A model may choose in the rule's place (ADR-0039 §2); rules decide on the same
+            // draw whatever it does not answer.
+            let request = (self.deliberation.consults() && !moves.is_empty()).then(|| {
+                crate::deliberation::request(d, self.name_of(d), day, &moves, policies, &|p| {
+                    self.name_of(p)
+                })
+            });
+            let choice = self
+                .deliberation
+                .decide(&deliberator, &moves, u, request.as_ref());
             if let Some(m) = choice.chosen.map(|i| moves[i]) {
                 let stakes: Vec<(PermanentId, f32)> = outlooks
                     .iter()

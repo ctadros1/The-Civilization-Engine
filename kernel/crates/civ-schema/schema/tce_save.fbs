@@ -2117,6 +2117,29 @@ table Polities {
   goods: [string] (id: 1);
   // Policy content ids at save time.
   policies: [string] (id: 2);
+  // Schema 220 (M12a; ADR-0039 §4; appended within the unreleased saves 220): the providers that
+  // answered notables' deliberations, and their answers in the order given; absent, none.
+  answer_providers: [ProviderSave] (id: 3);
+  answers: [AnswerSave] (id: 4);
+}
+
+// A provider that answered a deliberation (schema 220, ADR-0039 §4): the kind of endpoint and the
+// model's name. Never a key or an address.
+table ProviderSave {
+  kind: string (id: 0);
+  model: string (id: 1);
+}
+
+// A saved answer (schema 220, ADR-0039 §4): the notable, the day, the digest of the moves offered,
+// the move made by index (-1 none), who chose (0 the model, 1 rule after the model did not
+// answer) and the provider by index into `Polities.answer_providers`.
+struct AnswerSave {
+  notable: ulong;
+  day: long;
+  digest: ulong;
+  chosen: int;
+  by: ubyte;
+  provider: ushort;
 }
 
 // Section "order" (schema 31, ADR-0015): takings as they happened (the truth), what people believe

@@ -8266,6 +8266,31 @@ and M6a gives rivers a daily flow.
     for replay; cost limits. **M12b** viewers: the socket opened to the local network only at the
     owner's launch choice, with a token, and a driver and spectators. **M12c** their demo.
     Close-up fidelity waits with M2's Unreal client for the owner's PC.
+  - *M12a (2026-10-30): the model deliberator* (ADR-0039 §2–§5). At the polity review the kernel
+    always runs the rule deliberator on its keyed draw; where the session's mode is not rule-only it
+    also builds a request (the notable, the day, each move as plain data with its forecasts, and a
+    digest) and asks the host's provider, whose listed index or "none" becomes the choice; an index
+    outside the moves, a refused reply or no reply leaves the rule's choice on the same draw. The
+    receipt says who chose (`by`: rule, model, or rule because the model did not answer), and a
+    law's words say "chose by the model" or "chose by rule (the model did not answer)". Accepted
+    answers, and rules' choices where the model did not answer, are saved with the notable, day,
+    digest and provider (kind and model name); a `recorded` session answers from them, so a replay
+    reproduces its save byte for byte. The mode is a session setting, never saved: a rule-only world
+    builds no request and saves nothing new. The host's provider (`serve --deliberator
+    rule|recorded|http`, `--llm-url`, default a llama.cpp server on 127.0.0.1:8080, `--llm-model`,
+    `--answers <save>`) speaks the OpenAI chat-completions API with no tools; the request is sent as
+    JSON so in-world text is quoted; the reply must be digits only. One request in flight, 10 s a
+    request, 60 requests a real hour; past any, rules decide. A key is read only from `TCE_LLM_KEY`,
+    sent only as a bearer header, never logged or saved, and `serve` refuses to send one over plain
+    http to another machine. New dependency: `ureq` 3.5.0 (rustls), in civ-host only. Saves 220
+    (unreleased) gains answers; wire and content unchanged. **Tested:** the rule's choice and
+    scores kept for no, refused or out-of-range answers; an accepted answer saved and read back; a
+    lean village end to end under rule-only, three failing models, a model that picks and one that
+    makes none, then save, load and a recorded replay with every section byte-equal; the HTTP
+    provider against a local stub (numbering, none, garbage, the deadline, the hourly budget,
+    nobody listening, the key only in its header); polity, council, review, roundtrip,
+    determinism, forum and faction; the ten smoke worlds. **Not tested:** a real llama.cpp server
+    (none here).
 
 ---
 

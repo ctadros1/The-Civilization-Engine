@@ -19,6 +19,7 @@
 //! - [`ties`]: what people remember of one another, written by the acts they see (ADR-0014).
 //! - [`standing`]: what a settlement's adults think of one another, summed monthly, and notables.
 //! - [`crime`]: takings as the kernel's truth, what people believe of them, and what is owed.
+//! - [`deliberation`]: a model choosing among a notable's moves, and its saved answers (ADR-0039).
 //!
 //! The engine authors the vocabulary, never the plot (plan §1): activities, needs and their
 //! weights are content; what people do, and where, follows from their circumstances.
@@ -39,6 +40,7 @@ pub mod credit;
 pub mod crime;
 pub mod custody;
 pub mod decide;
+pub mod deliberation;
 pub mod demography;
 pub mod enclose;
 pub mod faction;

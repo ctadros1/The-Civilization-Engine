@@ -1216,6 +1216,24 @@ impl Sim {
         self.people.every_adult_deliberates = !on;
     }
 
+    /// Sets how notables choose their moves (ADR-0039 §3): rules alone, answers read back from
+    /// saved ones, or a provider the host owns. A session setting, never saved: a loaded world
+    /// is rule-only until set.
+    pub fn set_deliberation(&mut self, mode: civ_agents::deliberation::DeliberationMode) {
+        self.people.deliberation.mode = mode;
+    }
+
+    /// How notables choose their moves now (ADR-0039 §3).
+    pub fn deliberation(&self) -> &civ_agents::deliberation::DeliberationMode {
+        &self.people.deliberation.mode
+    }
+
+    /// The model's answers saved so far (ADR-0039 §4), for replay with
+    /// [`civ_agents::deliberation::DeliberationMode::Recorded`].
+    pub fn saved_answers(&self) -> &civ_agents::deliberation::Answers {
+        &self.people.deliberation.answers
+    }
+
     /// Redraws the scheduler's tie-break stream from `seed` (with the world's seed), so that the
     /// events of an instant from now on fall in another order: a test's hook for several lives of
     /// one world from one save (ADR-0011 §5, Gate B). A world never does it.

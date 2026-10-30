@@ -84,7 +84,15 @@ fn law_line<'a>(
         .and_then(|k| sim.rules.catalog.ideologies.get(usize::from(k)))
         .map(|d| format!(", as one who holds to {}", d.name))
         .unwrap_or_default();
-    let issue = fbb.create_string(&format!("{}{creed}", law.issue.words()));
+    // Who chose to propose it, where a model was asked (ADR-0039 §4).
+    let by = pop
+        .deliberation
+        .answers
+        .chosen_by(law.sponsor, law.proposed.day_index())
+        .and_then(|b| b.words())
+        .map(|w| format!("; {w}"))
+        .unwrap_or_default();
+    let issue = fbb.create_string(&format!("{}{creed}{by}", law.issue.words()));
     // Under the body that decided it, which an amendment since may have changed.
     let body = law.decided.map_or(&polity.body, |t| polity.body_at(t));
     let decision = decision_words(law, body).map(|w| fbb.create_string(&w));

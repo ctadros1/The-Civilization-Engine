@@ -41,6 +41,8 @@ toml = "1.1.6"
 tower-http = { version = "0.7.1", features = ["fs"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+# The host's model provider only (ADR-0039 §3): an HTTP client with rustls, no default features.
+ureq = { version = "=3.5.0", default-features = false, features = ["rustls"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

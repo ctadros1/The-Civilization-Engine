@@ -699,6 +699,9 @@ pub struct Population {
     /// review, not only the notables and those an issue reaches. A run setting for the gate that
     /// checks the tier, never saved; off unless set.
     pub every_adult_deliberates: bool,
+    /// How notables choose their moves, and the model's answers saved so far (ADR-0039 §2–§4):
+    /// the mode is a session setting, never saved; the answers are saved.
+    pub deliberation: crate::deliberation::Deliberation,
     /// Takings, what people believe of them, and what households owe for them (ADR-0015).
     pub order: crate::crime::Order,
     /// What people have heard and the grievances they hold (M4c slice AE, ADR-0016).

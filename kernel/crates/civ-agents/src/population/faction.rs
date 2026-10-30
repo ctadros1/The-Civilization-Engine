@@ -916,7 +916,11 @@ impl Population {
         // Another holder for the office (M4c slice AH).
         if law.kind != PolicyKind::CommonStore {
             let incumbent = law.holder?;
+            // An office filled by lot names nobody: the lot draws another among those who put
+            // their names in once it passes (M7a slice BN), as any proposal of it does.
+            let by_lot = def.tenure.is_some_and(|t| t.by_lot);
             let nominee = match asked {
+                _ if by_lot => incumbent,
                 Some(p) => p.nominee?,
                 None => {
                     let (day, tp) = (now.day_index(), &params.ties);
@@ -940,11 +944,11 @@ impl Population {
                         .1
                 }
             };
-            if nominee == incumbent || !adults.iter().any(|a| a.0 == nominee) {
+            if !by_lot && (nominee == incumbent || !adults.iter().any(|a| a.0 == nominee)) {
                 return None;
             }
             let m = MoveOption {
-                nominee: Some(nominee),
+                nominee: (!by_lot).then_some(nominee),
                 ..blank
             };
             let stakes = households

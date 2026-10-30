@@ -23,9 +23,9 @@ use civ_land::ways::RAIL;
 const DEPART_MIN: i64 = 6 * 60;
 /// The span of the day a line's timetable spreads its runs over, minutes from `DEPART_MIN`
 /// (M10b slice DX, second part): a design prior.
-const TIMETABLE_SPAN_MIN: i64 = 12 * 60;
+pub(super) const TIMETABLE_SPAN_MIN: i64 = 12 * 60;
 /// The most runs a day a timetable sets (a design prior).
-const MOST_RUNS_A_DAY: u8 = 4;
+pub(super) const MOST_RUNS_A_DAY: u8 = 4;
 /// The longest a rider waits at a station for a train, minutes (M10b slice DX, fourth part): a
 /// design prior; past it they walk.
 const MOST_RIDE_WAIT_MIN: i64 = 90;
@@ -63,15 +63,18 @@ pub(super) struct EngineLine {
     pub vehicle: usize,
 }
 
-/// A ride a train would give (M10b slice DX, fourth part; see [`Population::ride_from`]).
-struct Ride {
-    way: PermanentId,
-    operator: PermanentId,
-    wait_min: i64,
-    cells: Vec<u32>,
-    minutes: Vec<f64>,
-    fuel: usize,
-    fare_kg: f64,
+/// A ride a train would give (M10b slice DX, fourth part; see [`Population::ride_from`]), or a
+/// road line's motor cart (M11b, third part): then `road` is its departure's minute of the day,
+/// `way` the road line and `fare_kg` the fare in kcal of food.
+pub(super) struct Ride {
+    pub(super) way: PermanentId,
+    pub(super) operator: PermanentId,
+    pub(super) wait_min: i64,
+    pub(super) cells: Vec<u32>,
+    pub(super) minutes: Vec<f64>,
+    pub(super) fuel: usize,
+    pub(super) fare_kg: f64,
+    pub(super) road: Option<i64>,
 }
 
 impl Population {
@@ -821,6 +824,11 @@ impl Population {
     /// owner (the operator), the minutes to wait, the cells and the minutes after setting off at
     /// each, the fuel and the fare.
     fn ride_from(ctx: &Ctx, from: u32, to: u32, minute: i64) -> Option<Ride> {
+        Self::rail_ride(ctx, from, to, minute).or_else(|| Self::road_ride(ctx, from, to, minute))
+    }
+
+    /// [`Population::ride_from`] on a line of track.
+    fn rail_ride(ctx: &Ctx, from: u32, to: u32, minute: i64) -> Option<Ride> {
         if ctx.land.runs.lines.iter().all(|l| !l.stations) {
             return None;
         }
@@ -883,6 +891,7 @@ impl Population {
                 minutes,
                 fuel: engine.fuel,
                 fare_kg: f64::from(record.fare_kg),
+                road: None,
             });
         }
         None
@@ -904,6 +913,11 @@ impl Population {
         let ride = Self::ride_from(ctx, from, to, minute)?;
         if ride.wait_min > most_wait {
             return None;
+        }
+        // On a road line (M11b, third part): the fare in food, and the run's fuel burned by its
+        // first rider.
+        if let Some(depart) = ride.road {
+            return self.board_road(ctx, household, ride, depart);
         }
         // The fare, in the engines' fuel, from the household's store to the operator's.
         if ride.fare_kg > 0.0 && household != ride.operator {
@@ -1060,7 +1074,10 @@ impl Population {
 
     /// The engine the content makes, if any: the first rail vehicle with an engine.
     fn engine_vehicle(ctx: &Ctx) -> Option<usize> {
-        ctx.catalog.vehicles.iter().position(|v| v.engine.is_some())
+        ctx.catalog
+            .vehicles
+            .iter()
+            .position(|v| v.engine.is_some() && v.mode == crate::params::VehicleMode::Rail)
     }
 
     /// What an engine of vehicle `vehicle` on household `household`'s line from the pit it digs
@@ -1215,7 +1232,7 @@ impl Population {
 
 /// The minutes of the day a line running `runs` trains a day sets them off (M10b slice DX, second
 /// part): the first at [`DEPART_MIN`], the rest spread evenly over the timetable's span.
-fn departures(runs: u8) -> Vec<i64> {
+pub(super) fn departures(runs: u8) -> Vec<i64> {
     let n = i64::from(runs.max(1));
     (0..n)
         .map(|k| DEPART_MIN + k * TIMETABLE_SPAN_MIN / n)

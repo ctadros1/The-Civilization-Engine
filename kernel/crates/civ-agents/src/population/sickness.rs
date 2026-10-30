@@ -966,6 +966,18 @@ impl Population {
         to: PermanentId,
         kcal: f64,
     ) -> f64 {
+        self.pay_food_by(ctx, from, to, kcal, Channel::Fee)
+    }
+
+    /// [`Population::pay_food`], through `channel` (M11a, fifth part: the wire's meter).
+    pub(super) fn pay_food_by(
+        &mut self,
+        ctx: &Ctx,
+        from: PermanentId,
+        to: PermanentId,
+        kcal: f64,
+        channel: Channel,
+    ) -> f64 {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let Some(x) = self.household(from) else {
             return 0.0;
@@ -1001,7 +1013,7 @@ impl Population {
             });
             want -= kg * goods[g].kcal_per_kg;
         }
-        if legs.is_empty() || !self.transfer(now, params, goods, &legs, Channel::Fee) {
+        if legs.is_empty() || !self.transfer(now, params, goods, &legs, channel) {
             return 0.0;
         }
         self.changed(from);

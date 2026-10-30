@@ -320,10 +320,11 @@ impl Population {
         o.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
         o.stores.resize(goods.len(), 0.0);
         // The engine itself, whole, among the owner's things.
+        // An engine that burns one named fuel is not set at a pit (M11b, first part).
         let Some(engine) = (0..goods.len()).find(|&g| {
             goods[g]
                 .power
-                .is_some_and(|p| p.source == PowerSource::Fuel)
+                .is_some_and(|p| p.source == PowerSource::Fuel && p.fuel.is_none())
                 && o.stores[g] >= decide::MIN_TOOL
         }) else {
             return;
@@ -363,8 +364,8 @@ impl Population {
     }
 }
 
-/// The ways of making an engine: each recipe whose first output is a tool powered by fuel, with
-/// that tool, by index.
+/// The ways of making an engine: each recipe whose first output is a tool powered by any fuel by
+/// its heat (one that burns a named fuel is not set at a pit, M11b), with that tool, by index.
 fn engine_ways(catalog: &crate::params::Catalog) -> Vec<(usize, usize)> {
     catalog
         .recipes
@@ -372,7 +373,8 @@ fn engine_ways(catalog: &crate::params::Catalog) -> Vec<(usize, usize)> {
         .enumerate()
         .filter_map(|(r, d)| {
             let &(g, _) = d.outputs.first()?;
-            let fuel = catalog.goods.get(g)?.power?.source == PowerSource::Fuel;
+            let p = catalog.goods.get(g)?.power?;
+            let fuel = p.source == PowerSource::Fuel && p.fuel.is_none();
             fuel.then_some((r, g))
         })
         .collect()

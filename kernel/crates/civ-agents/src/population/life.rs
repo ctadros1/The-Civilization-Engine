@@ -151,12 +151,16 @@ impl Population {
         self.note_abandoned(ctx);
         // Price reports too old to act on are let go, and those of a household's own market
         // (it moved there) or of a household that is no more (M5b slice AP); errands with them.
-        if !self.reports.held.is_empty() || !self.reports.errands.is_empty() {
+        if !self.reports.held.is_empty()
+            || !self.reports.errands.is_empty()
+            || !self.reports.telegrams.is_empty()
+        {
             let homes: BTreeMap<PermanentId, Option<Option<PermanentId>>> = self
                 .reports
                 .held
                 .keys()
                 .chain(self.reports.errands.keys())
+                .chain(self.reports.telegrams.keys())
                 .map(|&h| (h, self.household(h).map(|x| x.settlement)))
                 .collect();
             let max_age = ctx.params.reports.max_age_days;

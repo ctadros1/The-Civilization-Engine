@@ -9,8 +9,21 @@ on:
       suite:
         description: Checks to run
         type: choice
-        options: [full, health, long, demo]
+        options: [full, health, long, demo, bench]
         default: full
+      years:
+        description: The demo suite's years lived (the first full run reached eleven in its six hours)
+        type: string
+        default: '8'
+      demo:
+        description: The demo suite's milestone example (M11d added m11_world)
+        type: choice
+        options: [m11_world, m10_world]
+        default: m11_world
+      base:
+        description: The bench suite's base revision, timed against this one (default M9's close)
+        type: string
+        default: 31439f4e
       runner:
         description: Pool or a specific machine (an offline specific machine queues)
         type: choice
@@ -111,7 +124,7 @@ jobs:
             ${{ runner.temp }}/dashboard.json
           if-no-files-found: ignore
           retention-days: 14
-  # A milestone demo's long run (M10 slice EL), dispatched by the owner: the example's record is
+  # A milestone demo's long run (M10 slice EL; M11d), dispatched by the owner: the example's record is
   # kept as an artifact even when the run is cut short.
   demo:
     if: github.actor == 'ctadros1' && inputs.suite == 'demo'
@@ -125,19 +138,51 @@ jobs:
       - name: Attach local Rust build directories
         if: runner.environment == 'self-hosted'
         run: tools/ci/prepare-workspace.sh
-      - name: Build and live the M10 demo
+      - name: Build and live the milestone demo
         shell: bash
         working-directory: kernel
+        env:
+          YEARS: ${{ inputs.years }}
+          DEMO: ${{ inputs.demo }}
         run: |
           set -euo pipefail
-          cargo build --locked --release -p civ-sim --example m10_world
-          mkdir -p "$RUNNER_TEMP/m10-saves"
-          target/release/examples/m10_world "$RUNNER_TEMP/m10-saves" 2>&1 | tee "$RUNNER_TEMP/m10-demo.txt"
+          cargo build --locked --release -p civ-sim --example "$DEMO"
+          mkdir -p "$RUNNER_TEMP/demo-saves"
+          "target/release/examples/$DEMO" "$RUNNER_TEMP/demo-saves" 6 120 "$YEARS" 2048 2>&1 | tee "$RUNNER_TEMP/demo.txt"
       - name: Keep the demo's record
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: homelab-m10-demo
-          path: ${{ runner.temp }}/m10-demo.txt
+          name: homelab-${{ inputs.demo }}-demo
+          path: ${{ runner.temp }}/demo.txt
+          if-no-files-found: ignore
+          retention-days: 30
+  # M10's gate (plan §7: the bench within 10 % of M9's figures), dispatched by the owner: the base
+  # revision and this one built and timed on the same runner and CPUs, interleaved, with M9's gate
+  # workload; the summary and every run's log are kept as an artifact.
+  bench:
+    if: github.actor == 'ctadros1' && inputs.suite == 'bench'
+    runs-on: [self-hosted, Linux, X64, tce-ci, tce-long]
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Time this revision against the base
+        shell: bash
+        env:
+          BASE: ${{ inputs.base }}
+          BENCH_GATE: '1'
+        run: tools/ci/bench-compare.sh "$BASE" HEAD "$RUNNER_TEMP/bench"
+      - name: Keep the bench's record
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: homelab-m10-bench
+          path: |
+            ${{ runner.temp }}/bench/summary.tsv
+            ${{ runner.temp }}/bench/environment.txt
+            ${{ runner.temp }}/bench/logs/
           if-no-files-found: ignore
           retention-days: 30

@@ -306,6 +306,34 @@ fn one_whose_duty_would_pay_organizes_those_who_sell_the_same_goods() {
     let mut sc = scene();
     assert!(until_bought(&mut sc, 10), "a purchase away");
     let seller_home = home_seller(&mut sc);
+    // The seller at the other settlement's door offers sickles still, as this one does: either
+    // sold out in the meantime is stocked again until both offer.
+    let far = households_of(&sc.sim, sc.b)[0];
+    let sickle = sc.sickle;
+    let offers = |sim: &Sim, h: PermanentId| {
+        sim.people()
+            .household(h)
+            .is_some_and(|x| x.offers.iter().any(|o| usize::from(o.good) == sickle))
+    };
+    for _ in 0..8 {
+        if offers(&sc.sim, far) && offers(&sc.sim, seller_home) {
+            break;
+        }
+        for h in [far, seller_home] {
+            if !offers(&sc.sim, h) {
+                set(
+                    &mut sc.sim,
+                    h,
+                    &[("core:good/sickle", 14.0), ("core:good/provisions", 40.0)],
+                );
+            }
+        }
+        sc.sim.advance_minutes(DAY).expect("advances");
+    }
+    assert!(
+        offers(&sc.sim, far) && offers(&sc.sim, seller_home),
+        "both offer sickles"
+    );
     let founder = adult_of(&sc.sim, seller_home);
     // What a duty on tools would bring the founder's household, against what organizing costs.
     let points = sc

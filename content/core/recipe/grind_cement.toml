@@ -1,0 +1,15 @@
+# Grinding clinker to cement under stones turned by a wheel: 0.04 kWh a kilogram (a design prior;
+# research 11-14 §2.2 gives the chain, not the grinding) and 0.01 hours of feeding and sacking.
+kind = "recipe"
+id = "core:recipe/grind_cement"
+name = "Grind cement"
+skill = "core:skill/milling"
+technique = "core:technique/portland_cement"
+unit_h = 0.01
+session_h = 0.0
+max_units = 0.0
+kwh_per_unit = 0.04
+tools = ["core:good/water_wheel"]
+inputs = [{ good = "core:good/cement_clinker", amount = 1.0 }]
+outputs = [{ good = "core:good/portland_cement", amount = 1.0 }]
+session_inputs = []

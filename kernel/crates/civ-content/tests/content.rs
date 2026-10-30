@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 200
+kernel_content_api = 206
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -491,6 +491,36 @@ fn a_wheel_says_the_power_it_delivers_and_a_recipe_the_power_it_takes() {
             report.diagnostics[0].message
         );
     }
+}
+
+#[test]
+fn a_dynamo_is_driven_by_a_shaft() {
+    // M11a, first part (content API 201; ADR-0036 §2): `shaft` is a power source, and the core's
+    // dynamo is a fixed tool turned by one, under a technique nobody finds.
+    let dynamo = format!(
+        "{}\n[power]\nsource = \"shaft\"\nrated_kw = 10.0\nefficiency = 0.8\n",
+        real("good/kiln.toml")
+    );
+    let fine = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        ("good/kiln.toml", &dynamo),
+    ]);
+    assert!(fine.diagnostics.is_empty(), "{:?}", fine.diagnostics);
+    let root = civ_content::find_content_root(std::path::Path::new(env!("CARGO_MANIFEST_DIR")))
+        .expect("content root");
+    let catalog = civ_content::load(&root).registry.expect("loads").catalog;
+    let g = catalog
+        .goods
+        .iter()
+        .find(|g| g.id == "core:good/dynamo")
+        .expect("the dynamo");
+    let power = g.power.expect("powered");
+    assert_eq!(power.source, civ_agents::params::PowerSource::Shaft);
+    assert!(g.tool.as_ref().is_some_and(|t| t.fixed));
+    let t = catalog
+        .technique_index("core:technique/dynamo")
+        .expect("the technique");
+    assert!(catalog.techniques[t].tried_in.is_empty(), "nobody finds it");
 }
 
 #[test]
@@ -2382,7 +2412,8 @@ fn a_locomotive_is_a_rail_vehicle_with_an_engine_burning_a_fuel() {
             report.diagnostics
         );
     }
-    // A cart with an engine is refused.
+    // A cart with an engine is a motor vehicle since content API 205 (M11b, second part): it
+    // loads, its engine kept (a boat's is refused: see the road engine's test).
     let cart = format!(
         "{HANDCART}\n[engine]\nfuel = \"core:good/coal\"\nefficiency = 0.03\ntop_speed_m_s = 2.2\n"
     );
@@ -2390,14 +2421,14 @@ fn a_locomotive_is_a_rail_vehicle_with_an_engine_burning_a_fuel() {
         ("worldgen/river_valley.toml", &preset),
         ("vehicle/test_handcart.toml", &cart),
     ]);
-    assert!(
-        report
-            .diagnostics
-            .iter()
-            .any(|d| d.message.contains("`[engine]` is a rail vehicle's")),
-        "{:?}",
-        report.diagnostics
-    );
+    assert!(report.diagnostics.is_empty(), "{:?}", report.diagnostics);
+    let catalog = &report.registry.as_ref().expect("content").catalog;
+    let motor = catalog
+        .vehicles
+        .iter()
+        .find(|v| v.id.ends_with("test_handcart"))
+        .expect("the cart");
+    assert!(motor.engine.is_some_and(|e| e.top_speed_m_s == 2.2));
 }
 
 #[test]
@@ -2542,6 +2573,57 @@ fn a_holder_names_the_gas_it_keeps_and_a_burner_its_piped_gas() {
 }
 
 #[test]
+fn a_land_profile_says_what_a_line_of_current_takes_and_its_good_must_exist() {
+    // M11a, third part (content API 202; ADR-0036 §3): the core strings copper lines at 110 V,
+    // 0.62 kg and half an hour a metre, 0.001 ohms a metre out and back, passing 6 kW for forty
+    // years.
+    let reg = registry(load(&repo_content()));
+    let w = reg.land.params.wire.expect("the core can lay lines");
+    let copper = reg
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/copper")
+        .expect("copper");
+    assert_eq!(w.good, copper);
+    assert_eq!(
+        (
+            w.good_kg_m,
+            w.lay_h_m,
+            w.rating_kw,
+            w.voltage_v,
+            w.ohm_per_m,
+            w.life_years
+        ),
+        (0.62, 0.5, 6.0, 110.0, 0.001, 40.0)
+    );
+    let preset = real_preset();
+    let land = real("land/temperate_valley.toml").replace(
+        "[wire]\ngood = \"core:good/copper\"",
+        "[wire]\ngood = \"core:good/silver\"",
+    );
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert_eq!(codes(&report), vec!["E2006"]);
+    assert!(report.diagnostics[0].message.contains("core:good/silver"));
+    let land = real("land/temperate_valley.toml").replace("voltage_v = 110.0", "voltage_v = 0.0");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains("wire.voltage_v")),
+        "{:?}",
+        report.diagnostics
+    );
+}
+
+#[test]
 fn a_land_profile_says_what_laying_a_gas_main_takes_and_its_good_must_exist() {
     // M10b slice DY, third part (content API 173): the core lays cast-iron mains at 25 kg and 3
     // hours a metre, carrying 6 kg of gas an hour.
@@ -2674,6 +2756,7 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
+        "core:policy/zealously_yoke_the_homes_to_the_wire",
     ];
     assert!(
         reg.catalog
@@ -2712,6 +2795,7 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
+        "core:policy/zealously_yoke_the_homes_to_the_wire",
     ];
     assert!(
         reg.catalog
@@ -2791,6 +2875,7 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
+        "core:policy/zealously_yoke_the_homes_to_the_wire",
     ];
     assert!(
         reg.catalog
@@ -2828,6 +2913,7 @@ fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
+        "core:policy/zealously_yoke_the_homes_to_the_wire",
     ];
     assert!(
         reg.catalog
@@ -2876,6 +2962,7 @@ fn the_core_lets_a_polity_name_a_health_officer_who_can_write() {
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
+        "core:policy/zealously_yoke_the_homes_to_the_wire",
     ];
     assert!(
         reg.catalog
@@ -2918,6 +3005,7 @@ fn the_core_lets_a_polity_clear_middens_from_the_water() {
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
+        "core:policy/zealously_yoke_the_homes_to_the_wire",
     ];
     assert!(
         reg.catalog
@@ -2954,6 +3042,7 @@ fn the_core_lets_a_polity_raise_a_sickhouse_where_the_sick_lay_untended() {
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
+        "core:policy/zealously_yoke_the_homes_to_the_wire",
     ];
     assert!(
         reg.catalog
@@ -3132,6 +3221,7 @@ fn policy_templates_keep_their_places() {
         "core:policy/zealously_tender_notes",
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
+        "core:policy/zealously_yoke_the_homes_to_the_wire",
     ];
     assert!(
         ids.starts_with(&kept),
@@ -3228,4 +3318,84 @@ fn a_law_against_counterfeiting_answers_false_notes_found_and_always_owes_someth
     assert_eq!(law.bundles.len(), 3);
     assert!(law.bundles.iter().all(|b| b.compensation_days > 0.0));
     assert!(law.bundles.iter().any(|b| b.exile));
+}
+
+#[test]
+fn an_engine_may_name_the_one_fuel_it_burns_and_the_core_gas_engine_burns_coal_gas() {
+    // M11b, first part (content API 204; ADR-0036 §7): `[power] fuel` names the good an engine
+    // burns; only an engine names one, and the good must exist. The core's gas engine burns coal
+    // gas at 12 %, 3 kW; the atmospheric engine names none, burning any fuel by its heat.
+    let reg = registry(load(&repo_content()));
+    let index = |id: &str| reg.catalog.goods.iter().position(|g| g.id == id);
+    let engine = reg.catalog.goods[index("core:good/gas_engine").expect("a gas engine")]
+        .power
+        .expect("it delivers power");
+    assert_eq!(engine.fuel, index("core:good/coal_gas"));
+    assert_eq!((engine.rated_kw, engine.efficiency), (3.0, 0.12));
+    let old = reg.catalog.goods[index("core:good/atmospheric_engine").expect("an engine")]
+        .power
+        .expect("it delivers power");
+    assert_eq!(old.fuel, None);
+    let body = real("good/gas_engine.toml");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        (
+            "good/gas_engine.toml",
+            &body.replace("core:good/coal_gas", "core:good/marsh_gas"),
+        ),
+    ]);
+    assert_eq!(codes(&report), vec!["E2006"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("core:good/marsh_gas")
+    );
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        (
+            "good/gas_engine.toml",
+            &body.replace("source = \"fuel\"", "source = \"water\""),
+        ),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(report.diagnostics[0].message.contains("power.fuel"));
+}
+
+#[test]
+fn a_cart_may_carry_an_engine_and_the_core_road_engine_burns_coal() {
+    // M11b, second part (content API 205; ADR-0036 §7): an `[engine]` is a rail vehicle's or a
+    // cart's, never a boat's.
+    let reg = registry(load(&repo_content()));
+    let v = reg
+        .catalog
+        .vehicle_index("core:vehicle/road_engine")
+        .map(|i| reg.catalog.vehicles[i].clone())
+        .expect("a road engine");
+    let coal = reg
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/coal")
+        .expect("coal");
+    let e = v.engine.expect("an engine");
+    assert_eq!(v.mode, civ_agents::params::VehicleMode::Cart);
+    assert_eq!((e.fuel, e.efficiency, e.top_speed_m_s), (coal, 0.05, 2.2));
+    let dugout = real("vehicle/dugout.toml");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        (
+            "vehicle/dugout.toml",
+            &format!(
+                "{dugout}\n[engine]\nfuel = \"core:good/coal\"\nefficiency = 0.05\ntop_speed_m_s = 2.0\n"
+            ),
+        ),
+    ]);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains("not a boat's")),
+        "{:?}",
+        report.diagnostics
+    );
 }

@@ -1,0 +1,12 @@
+# Rolled steel sections: beams and columns of an I or H shape, the members of a steel frame
+# (research 11-14 §1.1, §2.1; ADR-0037 §2-§3). Weighed by the kilogram. They keep.
+kind = "good"
+id = "core:good/steel_section"
+name = "Steel section"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

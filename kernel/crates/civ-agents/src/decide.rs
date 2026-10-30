@@ -469,7 +469,18 @@ pub struct PatchOption {
     /// For digging: a ride out to the pit on a line's train, where it is quicker for its fare
     /// than walking there (M10b slice DX, fourth part).
     pub by_ride: Option<RideLegs>,
+    /// For digging where the settlement knows no body of the good within reach: a walk to look
+    /// for one over the kind of ground it lies in, out to `at`, across to this point and home, and
+    /// the minutes of the whole loop (M11d; ADR-0010 §1: a body is found when a route passes near
+    /// it). Nothing is dug.
+    pub prospect: Option<((f32, f32), f64)>,
 }
+
+/// What a walk over the right ground to look for a body is worth, in loads of what the household
+/// is short of (M11d): a body found gives many loads, and a day's walk finds one with well under
+/// certainty, so about one load's worth together. A tuning value, logged as a nudge (plan §9):
+/// the research gives no figure for how often prospecting found an outcrop.
+pub const PROSPECT_HOPE: f64 = 1.0;
 
 /// A ride out on a line's train (M10b slice DX, fourth part): the station to walk to, and the
 /// line's end cell to ride to.
@@ -596,6 +607,9 @@ pub struct TradeOption {
     /// The way by the household's cart, when it goes by cart (M8b slice CP); `walk_min` is then
     /// half the travel there and back.
     pub by_cart: Option<CartLegs>,
+    /// The way by a road line's motor cart, out and back, when it rides (M11b, third part);
+    /// `walk_min` is then half the travel there and back.
+    pub by_ride: Option<crate::population::RoadRide>,
 }
 
 /// A trip's handling by cart (M8b slice CP): the minutes its load takes to load at the seller's
@@ -1260,8 +1274,12 @@ pub fn candidates(
                     excluded.push((id, Reason::Unreachable));
                     continue;
                 }
-                let mut short =
-                    (1.0 - f.water_days / f.water_target_days.max(1e-6)).clamp(0.0, 1.0);
+                // Water that will not last the day counts twice over, as fuel does: a dry home by
+                // noon is not put off for the fields until dusk as a thin store is (a tuning
+                // value; smoke's water check on ria_coast seed 5).
+                let mut short = (1.0 - f.water_days / f.water_target_days.max(1e-6))
+                    .clamp(0.0, 1.0)
+                    + (1.0 - f.water_days).clamp(0.0, 1.0);
                 // No water is fetched in the dark: late in the day, what is at home must last
                 // until morning, through the first meal and the trip to the water at first light.
                 // In the last of the light it counts as a full shortage; once the light left would
@@ -1272,7 +1290,7 @@ pub fn candidates(
                     if f.daylight_left_min < trip + f64::from(limits.meal_min) {
                         short = (w.w_hunger * w.max_hunger_drive + w.w_water) / w.w_water.max(1e-6);
                     } else if f.daylight_left_min < LAST_WATER_BEFORE_DARK_MIN {
-                        short = 1.0;
+                        short = short.max(1.0);
                     }
                 }
                 term(&mut terms, Reason::WaterShortage, w.w_water * short);
@@ -1297,6 +1315,42 @@ pub fn candidates(
                     continue;
                 };
                 let walk = patch.walk_min;
+                // A walk to look for a body nobody here knows of (M11d): out, across and home, in
+                // daylight, worth what a found body would bring toward the tools it is for, as
+                // far as such a walk is believed to find one.
+                if let Some((across, out_and_home)) = patch.prospect {
+                    if def.daylight_only && light < out_and_home + 20.0 {
+                        excluded.push((id, Reason::NotInDark));
+                        continue;
+                    }
+                    if patch.tool_need_kg <= 0.0 {
+                        excluded.push((id, Reason::NotNeeded));
+                        continue;
+                    }
+                    let scale = patch.tool_need_kg.min(limits.carry_kg);
+                    let found = scale / (scale + scale / 2.0).max(1e-6);
+                    term(&mut terms, Reason::Tools, w.w_tools * found * PROSPECT_HOPE);
+                    if patch.tool_blocked {
+                        term(
+                            &mut terms,
+                            Reason::Deadline,
+                            w.w_deadline * found * PROSPECT_HOPE,
+                        );
+                    }
+                    // Only walking: nothing is dug.
+                    term(
+                        &mut terms,
+                        Reason::Walking,
+                        -w.w_walk_hour * out_and_home / 60.0,
+                    );
+                    let steps = vec![
+                        Step::Walk { to: patch.at },
+                        Step::Walk { to: across },
+                        Step::Walk { to: f.home },
+                    ];
+                    out.push(finish(id, Target::None, terms, steps));
+                    continue;
+                }
                 // How long daylight allows, after the walk there and back.
                 let room = if def.daylight_only {
                     light - 2.0 * walk - 20.0
@@ -1352,7 +1406,11 @@ pub fn candidates(
                         let heat = kg * patch.fuel_ratio;
                         let worth = heat / (heat + half);
                         let target = f.fuel_target_days.max(1e-6);
-                        let short = (1.0 - f.fuel_days / target).clamp(0.0, 1.0);
+                        // Fuel that will not last the day counts twice over: a cold hearth
+                        // tonight is not put off for the fields as a thin stock is (a tuning
+                        // value).
+                        let short = (1.0 - f.fuel_days / target).clamp(0.0, 1.0)
+                            + (1.0 - f.fuel_days).clamp(0.0, 1.0);
                         let room = target / (target + patch.stored_days.max(0.0));
                         term(&mut terms, Reason::FuelShortage, w.w_fuel * short * worth);
                         term(&mut terms, Reason::UsefulWork, w.w_work * worth * room);
@@ -1754,7 +1812,22 @@ pub fn candidates(
                                 unload: true,
                             },
                         ],
-                        None => vec![Step::Walk { to: t.at }, work, Step::Walk { to: f.home }],
+                        None => match t.by_ride {
+                            // To the station, out on the motor cart, to the door; back to the
+                            // far end, home on the cart, and home.
+                            Some(r) => vec![
+                                Step::Walk { to: r.station },
+                                Step::Ride { to: r.out_to },
+                                Step::Walk { to: t.at },
+                                work,
+                                Step::Walk { to: r.end_at },
+                                Step::Ride { to: r.back_to },
+                                Step::Walk { to: f.home },
+                            ],
+                            None => {
+                                vec![Step::Walk { to: t.at }, work, Step::Walk { to: f.home }]
+                            }
+                        },
                     },
                 };
                 let target = if t.firm {
@@ -3180,6 +3253,81 @@ mod tests {
     }
 
     #[test]
+    fn a_hearth_that_will_not_last_the_day_comes_before_the_fields() {
+        // Good 0 is firewood, gathered by hand; the field's work is pressing.
+        let defs = vec![
+            ActivityDef {
+                resource: Some(0),
+                ..activity("gather_wood", Behavior::Gather, Vec::new(), 1.0)
+            },
+            activity("prepare_field", Behavior::Farm, Vec::new(), 1.0),
+        ];
+        let wood = |_: usize| {
+            Some(PatchOption {
+                patch: 3,
+                walk_min: 10.0,
+                kg_per_hour: 20.0,
+                purpose: GoodUse::Fuel,
+                kcal_per_kg: 0.0,
+                fuel_ratio: 1.0,
+                stored_days: 0.0,
+                need_kg: 0.0,
+                urgency: 1.0,
+                tool_need_kg: 0.0,
+                tool_blocked: false,
+                at: (50.0, 0.0),
+                deposit: None,
+                by_ride: None,
+                prospect: None,
+            })
+        };
+        let shop = Workshop {
+            free_tools: &[],
+            held_tools: &[],
+            best_make: &|_, _| Err((Reason::NoMaterials, None)),
+            makes_tool: &|_| false,
+            knows: &|_| true,
+        };
+        let totals = |fuel_days: f64| {
+            let f = Facts {
+                fuel_days,
+                ..facts()
+            };
+            let (cands, _) = candidates(
+                &defs,
+                &weights(),
+                &f,
+                &limits(),
+                &wood,
+                &|_| Ok(field()),
+                None,
+                &|| None,
+                &|| None,
+                &|| Err(Reason::NoReport),
+                &|| None,
+                Err(Reason::Built),
+                &shop,
+                &|| Err(Reason::NoProblem),
+                &|| Err(Reason::WouldNotTake),
+                &Vec::new,
+            );
+            let of = |def: u16| {
+                cands
+                    .iter()
+                    .find(|c| c.scored.def == def)
+                    .map(|c| c.scored.total)
+                    .expect("scored")
+            };
+            (of(0), of(1))
+        };
+        // A day and more in store: the fields first. None for tonight: the wood.
+        let (wood_then, field_then) = totals(1.5);
+        assert!(field_then > wood_then, "{wood_then} {field_then}");
+        let (wood_now, field_now) = totals(0.0);
+        assert!(wood_now > field_now, "{wood_now} {field_now}");
+    }
+
+    #[test]
     fn wood_is_cut_by_hand_only_in_a_household_without_an_axe() {
         // Good 0 is the axe. Cutting poles with it and cutting rods by hand gather the same wood
         // (resource 0), the second at a fifth of the rate.
@@ -3207,6 +3355,7 @@ mod tests {
                 at: (50.0, 0.0),
                 deposit: None,
                 by_ride: None,
+                prospect: None,
             })
         };
         let none = |_: usize| false;
@@ -3484,6 +3633,76 @@ mod tests {
         let (cands, excluded) = score(&defs, &[], &lacking, &none);
         assert!(cands.is_empty());
         assert_eq!(excluded, vec![(0, Reason::NoTool)]);
+    }
+
+    #[test]
+    fn a_home_dry_by_noon_fetches_water_before_the_fields() {
+        // Mid-morning, the field's work pressing: with a day's water and more at home the fields
+        // come first; with none, the water (smoke's water check on ria_coast seed 5).
+        let mut fetch = activity("fetch_water", Behavior::FetchWater, Vec::new(), 1.0);
+        fetch.min_minutes = 5;
+        fetch.max_walk_minutes = 45;
+        let defs = vec![
+            fetch,
+            activity("prepare_field", Behavior::Farm, Vec::new(), 1.0),
+        ];
+        let water = WaterOption {
+            cell: 1,
+            walk_min: 10.0,
+            at: (50.0, 0.0),
+            well: None,
+            lift_min: 0.0,
+        };
+        let shop = Workshop {
+            free_tools: &[],
+            held_tools: &[],
+            best_make: &|_, _| Err((Reason::NoMaterials, None)),
+            makes_tool: &|_| false,
+            knows: &|_| true,
+        };
+        // The core content's weight on water.
+        let w = DecisionParams {
+            w_water: 8.0,
+            ..weights()
+        };
+        let totals = |water_days: f64| {
+            let f = Facts {
+                water_days,
+                dark: false,
+                daylight_left_min: 480.0,
+                ..facts()
+            };
+            let (cands, _) = candidates(
+                &defs,
+                &w,
+                &f,
+                &limits(),
+                &|_| None,
+                &|_| Ok(field()),
+                Some(water),
+                &|| None,
+                &|| None,
+                &|| Err(Reason::NoReport),
+                &|| None,
+                Err(Reason::Built),
+                &shop,
+                &|| Err(Reason::NoProblem),
+                &|| Err(Reason::WouldNotTake),
+                &Vec::new,
+            );
+            let of = |def: u16| {
+                cands
+                    .iter()
+                    .find(|c| c.scored.def == def)
+                    .map(|c| c.scored.total)
+                    .expect("scored")
+            };
+            (of(0), of(1))
+        };
+        let (water_then, field_then) = totals(1.5);
+        assert!(field_then > water_then, "{water_then} {field_then}");
+        let (water_now, field_now) = totals(0.0);
+        assert!(water_now > field_now, "{water_now} {field_now}");
     }
 
     #[test]

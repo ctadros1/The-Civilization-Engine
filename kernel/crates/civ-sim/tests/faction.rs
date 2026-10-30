@@ -498,15 +498,32 @@ fn a_faction_against_the_keeper_petitions_for_another_and_the_gathering_weighs_b
     let pop = sim.people();
     let f = pop.factions.get(called.faction).expect("its faction");
     assert_eq!(f.against, Blamed::Office(old));
-    // It asks for another keeper in place of the one blamed.
+    // It asks for another keeper in place of the one blamed: someone named, or for an office
+    // filled by lot, nobody, the lot drawing another once it passes.
     assert_eq!(called.ends, old);
-    let nominee = called.nominee.expect("someone named");
-    assert_ne!(nominee, keeper);
+    let by_lot = pop
+        .polities
+        .iter()
+        .flat_map(|p| &p.laws)
+        .find(|l| l.id == old)
+        .and_then(|l| sim.rules().catalog.policies.get(usize::from(l.policy)))
+        .and_then(|d| d.tenure)
+        .is_some_and(|t| t.by_lot);
+    let nominee = if by_lot {
+        assert_eq!(called.nominee, None, "{called:?}");
+        None
+    } else {
+        let nominee = called.nominee.expect("someone named");
+        assert_ne!(nominee, keeper);
+        Some(nominee)
+    };
     let words = civ_sim::frames::word::petition_demand_words(&sim, &called);
-    assert!(
-        words.contains("as keeper of the common store in place of"),
-        "{words}"
-    );
+    let asked = if by_lot {
+        "another drawn by lot as keeper of the common store in place of"
+    } else {
+        "as keeper of the common store in place of"
+    };
+    assert!(words.contains(asked), "{words}");
     for _ in 0..12 {
         sim.advance_minutes(DAY).expect("advances");
         if sim.people().factions.petitions[0].answered {
@@ -519,16 +536,36 @@ fn a_faction_against_the_keeper_petitions_for_another_and_the_gathering_weighs_b
     let law = p.law.expect("it went before the gathering");
     let polity = &pop.polities[0];
     let l = polity.laws.iter().find(|l| l.id == law).expect("kept");
-    assert_eq!((l.holder, l.ends), (Some(nominee), Some(old)));
+    assert_eq!(l.ends, Some(old));
+    let passed = l.outcome == Some(Outcome::Passed);
+    if by_lot {
+        // The lot drew among those who backed it, so never the keeper in office; nobody, if it
+        // did not pass.
+        match l.holder {
+            Some(h) => {
+                assert!(passed, "{l:?}");
+                assert_ne!(h, keeper);
+                assert!(
+                    l.stances
+                        .iter()
+                        .any(|r| r.person == h && r.stance == civ_agents::polity::Stance::Support),
+                    "{l:?}"
+                );
+            }
+            None => assert!(!passed, "{l:?}"),
+        }
+    } else {
+        assert_eq!(l.holder, nominee);
+    }
     // The keeper in office did not back being replaced.
     if let Some(r) = l.stances.iter().find(|r| r.person == keeper) {
         assert!(r.regard <= 0.0, "{r:?}");
         assert_ne!(r.stance, civ_agents::polity::Stance::Support, "{r:?}");
     }
     let before = polity.laws.iter().find(|l| l.id == old).expect("kept");
-    if l.outcome == Some(Outcome::Passed) {
+    if passed {
         assert_eq!(before.status, LawStatus::Superseded);
-        assert_eq!(polity.keeper().map(|k| k.0), Some(nominee));
+        assert_eq!(polity.keeper().map(|k| k.0), l.holder);
     } else {
         assert_eq!(before.status, LawStatus::InForce);
         assert_eq!(polity.keeper().map(|k| k.0), Some(keeper));

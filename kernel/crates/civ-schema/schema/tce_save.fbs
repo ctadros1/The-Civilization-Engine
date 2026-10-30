@@ -2724,7 +2724,7 @@ table FactionsSave {
 // Schema 88 (M6b slice BC): FireStep, a minute of every fire burning, pending whenever one burns.
 // Schema 89 (M6b slice BD): Ignite, a home's fires in use may escape (`person` holds the
 // building's id).
-enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2, BandLook = 3, Gates = 4, Pass = 5, Trains = 6, Gas = 7 }
+enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2, BandLook = 3, Gates = 4, Pass = 5, Trains = 6, Gas = 7, Telegraph = 8 }
 
 table PendingEvent {
   at: long (id: 0);
@@ -2847,6 +2847,24 @@ table PriceReportSave {
   from: ulong (id: 11);
 }
 
+// A telegram (M11c; ADR-0036 §8): the household that asked, the offices it was handed in at and
+// sent to, the settlement whose market it asks after, the minute handed in and the minute its next
+// step is due (-1 not yet queued), its stage (0 handed in, 1 in the near queue, 2 in the far
+// queue, 3 its answer walked home) and the answer, its goods named in the section's `goods`.
+table TelegramSave {
+  household: ulong (id: 0);
+  near: ulong (id: 1);
+  far: ulong (id: 2);
+  market: ulong (id: 3);
+  handed: long (id: 4);
+  due: long = -1 (id: 5);
+  stage: ubyte (id: 6);
+  answer: [PriceReportSave] (id: 7);
+  // The word the answer carries, by claim, and the far operator who told it (0 none).
+  claims: [uint] (id: 8);
+  teller: ulong (id: 9);
+}
+
 // Schema 53 (M5a slice AN, ADR-0018 §5): a household's leaning toward moving to `settlement`,
 // which has won `reviews` of its reviews running, the last on `day`.
 table LeaningSave {
@@ -2901,6 +2919,8 @@ table PlacesSave {
   draws_day: long (id: 16);
   draw_patches: [uint] (id: 17);
   draw_litres: [double] (id: 18);
+  // M11c (appended within schema 220): each household's telegram waiting on its answer.
+  telegrams: [TelegramSave] (id: 19);
 }
 
 // Section "relation" (schema 63, M5c slice AT, ADR-0020 §3): what each person believes of the
@@ -3589,6 +3609,10 @@ table ErrandSave {
   // its travel, its loading at the seller's door and its unloading at home).
   by_cart: bool (id: 17);
   cart: ulong (id: 18);
+  // M11b, third part (appended within schema 220): its ride on a road line, if any (0 none), and
+  // the minutes there and back as planned.
+  ride: ulong (id: 19);
+  ride_min: float (id: 20);
 }
 
 // A good offered in both of a pair of settlements at a month's end (schema 57).
@@ -3839,10 +3863,29 @@ table RunSave {
   cars: [ulong] (id: 11);
 }
 
+// A road line (M11b, third part; appended within schema 220): its keeper household, motor cart and
+// the settlement it runs to; its cells from the door and the minutes on reaching each; runs a day,
+// fare (kcal of food), rides since day `since`, and the minute of the last run whose fuel burned.
+table RoadLineSave {
+  id: ulong (id: 0);
+  operator: ulong (id: 1);
+  cart: ulong (id: 2);
+  market: ulong (id: 3);
+  cells: [uint] (id: 4);
+  minutes: [float] (id: 5);
+  runs_a_day: ubyte = 1 (id: 6);
+  fare_kcal: float (id: 7);
+  riders: uint (id: 8);
+  since: long (id: 9);
+  last_run: long = -1 (id: 10);
+}
+
 table RunsSave {
   lines: [RailLineSave] (id: 0);
   list: [RunSave] (id: 1);
   revision: uint (id: 2);
+  // M11b, third part (appended within schema 220): the road lines.
+  roads: [RoadLineSave] (id: 3);
 }
 
 // Gas mains and connections (schema 186, M10b slice DY, third part; ADR-0034 §8): each main's
@@ -3891,6 +3934,62 @@ table GasSave {
   connections: [GasConnectionSave] (id: 1);
   // Schema 189: its street lamps; before, none.
   lamps: [StreetLampSave] (id: 2);
+}
+
+// The wire (schema 220, M11a, third part, second step; ADR-0036 §3-§4): each line's station holder,
+// the line it hangs from (0 for one leaving the station), its rating, kW, its length and how much
+// of it is laid, metres, and whether it is broken; each hookup's building, household, line, the
+// kilowatts it asks in an hour and whether its account is cut off.
+table WireLineSave {
+  id: ulong (id: 0);
+  station: ulong (id: 1);
+  parent: ulong (id: 2);
+  rating_kw: double (id: 3);
+  length_m: double (id: 4);
+  laid_m: double (id: 5);
+  broken: bool (id: 6);
+  // The cells it runs along from its start.
+  cells: [uint] (id: 7);
+  // The hours a year its station reckoned the homes along it would repay when it was begun (M11a,
+  // fifth part).
+  worth_h: double (id: 8);
+}
+
+table WireHookupSave {
+  building: ulong (id: 0);
+  household: ulong (id: 1);
+  line: ulong (id: 2);
+  ask_kw: double (id: 3);
+  cut_off: bool (id: 4);
+  // Its last evening: the minute it is lit until (-1 never) and why it was or was not served (0
+  // served, 1 station short, 2 line full, 3 line down, 4 cut off).
+  lit_until: long = -1 (id: 5);
+  cause: ubyte (id: 6);
+  // Its service record (M11a; ADR-0036 §4): of its last 32 evenings of dispatch, those it asked
+  // current on and those it was served, a bit an evening, the newest lowest.
+  asked: uint (id: 7);
+  served: uint (id: 8);
+}
+
+// A telegraph wire between two offices (M11c; ADR-0036 §8): the households it joins (the first
+// strings it), its cells from the first's home, its length, metres strung, whether broken, and the
+// hours a year the first reckoned it would repay.
+table TelegraphSave {
+  id: ulong (id: 0);
+  a: ulong (id: 1);
+  b: ulong (id: 2);
+  cells: [uint] (id: 3);
+  length_m: double (id: 4);
+  laid_m: double (id: 5);
+  broken: bool (id: 6);
+  worth_h: double (id: 7);
+}
+
+table WiresSave {
+  lines: [WireLineSave] (id: 0);
+  hookups: [WireHookupSave] (id: 1);
+  // Telegraph wires (M11c, appended within schema 220).
+  telegraphs: [TelegraphSave] (id: 2);
 }
 
 // Goods in transit (schema 143, M8b slice CO; ADR-0029 §3): each load's owner household, carrier

@@ -216,11 +216,15 @@ pub enum PolicyKind {
     /// household found to have passed false notes, refused at payment or kept at their issuer's
     /// door, owes the law's bundle, as one found to have taken does.
     AgainstCounterfeiting,
+    /// A line of current strung together (M11a, eighth part; ADR-0036 §6): the polity strings a
+    /// line from a station of the settlement to homes that would be lit by it, each household
+    /// asked an equal share of the stringing, as a line of track is laid together.
+    LayCurrent,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 44] = [
+    pub const ALL: [PolicyKind; 45] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -265,6 +269,7 @@ impl PolicyKind {
         PolicyKind::LegalTender,
         PolicyKind::SuspendRedemption,
         PolicyKind::AgainstCounterfeiting,
+        PolicyKind::LayCurrent,
     ];
 
     /// The authored name.
@@ -314,6 +319,7 @@ impl PolicyKind {
             PolicyKind::LegalTender => "legal_tender",
             PolicyKind::SuspendRedemption => "suspend_redemption",
             PolicyKind::AgainstCounterfeiting => "against_counterfeiting",
+            PolicyKind::LayCurrent => "lay_current",
         }
     }
 
@@ -464,11 +470,15 @@ pub enum IssueKind {
     /// issuer's door, within the memory of takings (M10d slice EK, third part): what a law
     /// against counterfeiting answers.
     FalseNotesFound,
+    /// Homes of the settlement that would be lit by the wire lie beyond any line of a station
+    /// with current to spare, where a line strung together would spare them more than its
+    /// stringing (M11a, eighth part): what `lay_current` answers.
+    HomesUnlit,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 41] = [
+    pub const ALL: [IssueKind; 42] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -510,6 +520,7 @@ impl IssueKind {
         IssueKind::WorkUnpaid,
         IssueKind::StoreNotesRefused,
         IssueKind::FalseNotesFound,
+        IssueKind::HomesUnlit,
     ];
 
     /// The authored name.
@@ -556,6 +567,7 @@ impl IssueKind {
             IssueKind::WorkUnpaid => "work_unpaid",
             IssueKind::StoreNotesRefused => "store_notes_refused",
             IssueKind::FalseNotesFound => "false_notes_found",
+            IssueKind::HomesUnlit => "homes_unlit",
         }
     }
 
@@ -637,6 +649,9 @@ impl IssueKind {
                 "the store could not pay its notes in the good they promise"
             }
             IssueKind::FalseNotesFound => "false notes were found passed among its households",
+            IssueKind::HomesUnlit => {
+                "their homes lay dark beyond the wire of a station with current to spare"
+            }
         }
     }
 }
@@ -1972,6 +1987,12 @@ pub fn law_words(
                 share of the work"
             .to_owned();
     }
+    // Without the site at hand (see [`Polity::words_of`]), only what it is (M11a, eighth part).
+    if def.is_some_and(|d| d.kind == PolicyKind::LayCurrent) {
+        return "a line of current strung together from a station to homes it would light, each \
+                household doing its share of the work"
+            .to_owned();
+    }
     // Without the site at hand (see [`Polity::words_of`]), only what it is (M8d slice DC).
     if let Some(d) = def.filter(|d| d.kind == PolicyKind::RaiseBuilding) {
         return format!(
@@ -2047,7 +2068,7 @@ pub fn law_words(
     if def.is_some_and(|d| d.kind == PolicyKind::KeepStore) {
         return match law.holder {
             Some(h) => format!("{} as keeper of the common store{instead}", name_of(h)),
-            None => "someone as keeper of the common store".to_owned(),
+            None => format!("someone as keeper of the common store{instead}"),
         };
     }
     if let Some(l) = def
@@ -2103,7 +2124,7 @@ pub fn law_words(
                 "{} to keep watch over the stores at night{instead}",
                 name_of(h)
             ),
-            None => "someone to keep watch over the stores at night".to_owned(),
+            None => format!("someone to keep watch over the stores at night{instead}"),
         };
     }
     if let Some(m) = def
@@ -2185,6 +2206,7 @@ pub fn ending_words(
         Some(PolicyKind::BuildWay) => "the work on a passing place".to_owned(),
         Some(PolicyKind::RaiseBuilding) => "the raising of a building together".to_owned(),
         Some(PolicyKind::BuildLine) => "the work on a line of track".to_owned(),
+        Some(PolicyKind::LayCurrent) => "the work on a line of current".to_owned(),
         Some(PolicyKind::Plan) => "the plan of streets and parcels".to_owned(),
         Some(PolicyKind::KeepBank) => "the keeping of a flood bank".to_owned(),
         Some(PolicyKind::BuildingRule) => "the rule for building".to_owned(),
@@ -3447,6 +3469,16 @@ impl Polity {
             return format!(
                 "a passing place cleared where carts wait, each household doing its share of {:.0} \
                  hours of work",
+                site.labour_h
+            );
+        }
+        // A line of current strung together says the work it asks (M11a, eighth part).
+        if kind == Some(PolicyKind::LayCurrent)
+            && let Some(site) = self.way_site_of(law.id)
+        {
+            return format!(
+                "a line of current strung together from a station to homes it would light, each \
+                 household doing its share of {:.0} hours of work",
                 site.labour_h
             );
         }

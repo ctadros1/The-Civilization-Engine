@@ -169,7 +169,7 @@ pub fn clock<'a>(fbb: &mut FlatBufferBuilder<'a>, sim: &Sim) -> WIPOffset<wire::
             lit_homes: sim.people().lit_homes(
                 &sim.rules().catalog,
                 &sim.rules().people,
-                &sim.land.gas,
+                &sim.land,
                 sim.now(),
             ) as u32,
             first_lamp_minute: sim

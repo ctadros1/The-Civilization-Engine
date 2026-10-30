@@ -482,6 +482,16 @@ pub struct GoodDef {
     /// What it holds as a gas holder (M10b slice DY, ADR-0034 §8; content API 172): `None` for a
     /// good that holds nothing apart.
     pub holder: Option<GoodHolder>,
+    /// What it sends as a telegraph instrument (M11c, ADR-0036 §8; content API 206): `None` for
+    /// a good that is not one.
+    pub telegraph: Option<GoodTelegraph>,
+}
+
+/// What a telegraph instrument sends (M11c; ADR-0036 §8): the messages its operator sends an
+/// hour (a design prior in the core content: some twenty words at ten a minute, with handling).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GoodTelegraph {
+    pub messages_h: f64,
 }
 
 /// What a holder keeps (M10b slice DY; ADR-0034 §8): a good that keeps only in it, and how many
@@ -501,6 +511,8 @@ pub enum PowerSource {
     Water,
     /// A fuel burned in it (an engine, slice DS).
     Fuel,
+    /// The shaft of a wheel or an engine it is set beside (a dynamo, M11a; ADR-0036 §2).
+    Shaft,
 }
 
 /// The power a wheel or an engine delivers (M10a slice DR; research 07-06 §2.2): its source, the
@@ -510,6 +522,9 @@ pub struct GoodPower {
     pub source: PowerSource,
     pub rated_kw: f64,
     pub efficiency: f64,
+    /// The one fuel an engine burns, by good index (M11b, first part; research 07-13 §1.5: fuels
+    /// are not interchangeable across engines); `None` for one that burns any fuel by its heat.
+    pub fuel: Option<usize>,
 }
 
 /// The light a lamp gives (M10b slice DU; ADR-0034 §9): the fuel it burns and how fast. Light's
@@ -1169,7 +1184,8 @@ pub struct RailEngine {
 
 impl VehicleDef {
     /// How the ground sees a cart of this vehicle carrying `load_kg`, pulled by someone who walks
-    /// at `walk_m_s` (M8b slice CP).
+    /// at `walk_m_s` (M8b slice CP), or driven by its engine, no faster than its top speed (M11b,
+    /// second part).
     pub fn wheels(&self, load_kg: f64, walk_m_s: f64) -> civ_land::carting::Wheels {
         civ_land::carting::Wheels {
             mass_kg: self.tare_kg + load_kg.max(0.0),
@@ -1178,9 +1194,20 @@ impl VehicleDef {
             trail_c: self.trail_resistance,
             pull_n: self.pull_n,
             power_w: self.power_w,
-            walk_m_s,
+            walk_m_s: self.engine.map_or(walk_m_s, |e| e.top_speed_m_s),
             brake_grade: self.brake_grade,
         }
+    }
+
+    /// The fuel a motor cart of this vehicle burns on a trip of `travel_min` minutes (M11b,
+    /// second part; ADR-0036 §7): its engine running at its power the whole way, over its
+    /// efficiency and its fuel's heat (research 07-06 §2.3), by good index and kilograms. `None`
+    /// for a vehicle without an engine, or a rail vehicle (whose runs burn by their work).
+    pub fn trip_fuel(&self, goods: &[GoodDef], travel_min: f64) -> Option<(usize, f64)> {
+        let e = self.engine.filter(|_| self.mode == VehicleMode::Cart)?;
+        let mj = goods.get(e.fuel)?.fuel?.mj_per_kg;
+        let kwh = self.power_w / 1000.0 * travel_min.max(0.0) / 60.0;
+        Some((e.fuel, civ_land::power::fuel_kg(kwh, mj, e.efficiency)))
     }
 
     /// How its track sees a wagon of this vehicle carrying `load_kg`, pushed by someone who

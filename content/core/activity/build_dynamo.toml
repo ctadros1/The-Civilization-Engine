@@ -1,0 +1,18 @@
+# Building a dynamo at home (M11a, first part): open only to a household that knows the dynamo,
+# which nobody does yet.
+kind = "activity"
+id = "core:activity/build_dynamo"
+name = "Build a dynamo"
+doing = "building a dynamo"
+behavior = "make"
+recipe = "core:recipe/build_dynamo"
+par = 4.0
+min_age_years = 14.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 480
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

@@ -703,13 +703,20 @@ pub fn refusal_law_words(sim: &Sim, r: &civ_agents::faction::Refusal) -> String 
 }
 
 /// What petition `p` asks for, in words (M4c slice AH): "an end to the common store's levy (the
-/// store gives what it holds)"; "Ada as keeper of the common store in place of Bo".
+/// store gives what it holds)"; "Ada as keeper of the common store in place of Bo"; "another drawn
+/// by lot as keeper of the common store in place of Bo".
 pub fn petition_demand_words(sim: &Sim, p: &civ_agents::faction::Petition) -> String {
     let pop = &sim.people;
     let def = sim.rules.catalog.policies.get(usize::from(p.policy));
-    let Some(nominee) = p.nominee else {
+    let office_kind = def.is_some_and(|d| {
+        matches!(
+            d.kind,
+            civ_agents::polity::PolicyKind::KeepStore | civ_agents::polity::PolicyKind::KeepWatch
+        )
+    });
+    if p.nominee.is_none() && !office_kind {
         return civ_agents::polity::replacing_words(def, p.levy_share);
-    };
+    }
     let held = pop
         .polities
         .iter()
@@ -721,7 +728,11 @@ pub fn petition_demand_words(sim: &Sim, p: &civ_agents::faction::Petition) -> St
         Some(civ_agents::polity::PolicyKind::KeepWatch) => "to keep watch over the stores at night",
         _ => "as keeper of the common store",
     };
-    format!("{} {office} in place of {held}", pop.name_of(nominee))
+    // An office filled by lot names nobody: the lot draws another once it passes.
+    let who = p
+        .nominee
+        .map_or_else(|| "another drawn by lot".to_owned(), |n| pop.name_of(n));
+    format!("{who} {office} in place of {held}")
 }
 
 /// The faction `p` belongs to, if any, and why (wire 1.40, ADR-0017 §2, §6).

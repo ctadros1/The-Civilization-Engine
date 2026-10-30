@@ -30,11 +30,16 @@ it does not present those screens as simulation behavior.
 - [Video production project and refresh steps](m6a/production/README.md)
 - [Aggregate resolution technical guide](../docs/development-journal/simulation-model.md#multiple-settlements-and-contact)
 
-## Current development: M10a, water power
+## Current development: M10, the industrial demo (run report only)
 
-M10a is in progress. Water-powered recipes, saved river installations and household-built mills
-are implemented through DR part 3; shared grinding, fuel and iron works remain ahead. There is no
-M10a milestone video yet. See the [industry and water-power guide](../docs/development-journal/industry-and-power.md).
+M10's demo runner is `kernel/crates/civ-sim/examples/m10_world.rs`. Its first full run was cut by
+the homelab job's six-hour limit after eleven of fifteen years, so it has no final save and load:
+three taught settlements set water mills, wrote records and one issued notes; the three controls
+took nothing up. There is no M10 video yet.
+
+- [Eleven-year M10 run report (cut short)](m10/m10-demo.txt)
+- [Eight-year M10 run report, saved and loaded](m10/m10-demo-8y.txt)
+- [Industry and water-power guide](../docs/development-journal/industry-and-power.md)
 
 ## Earlier titled observer video: M6a, water and sickness
 

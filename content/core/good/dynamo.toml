@@ -1,0 +1,25 @@
+# A dynamo: an iron frame, a wound armature and field coils, set beside a wheel or an engine and
+# turned by its shaft (M11a, first part; ADR-0036 §2). It turns 80 % of the shaft's work into
+# current, up to 10 kW (design priors: research 07-13 §5.2 gives the node, not a rating; early
+# workshop dynamos ran to a few kilowatts, Pearl Street's to about 100). It stands where it is built
+# and lasts 40,000 hours of turning (a tuning value, as the wheel). Nothing reads it yet.
+kind = "good"
+id = "core:good/dynamo"
+name = "Dynamo"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 40000.0
+per_worker = 0.1
+fixed = true
+
+[power]
+source = "shaft"
+rated_kw = 10.0
+efficiency = 0.8

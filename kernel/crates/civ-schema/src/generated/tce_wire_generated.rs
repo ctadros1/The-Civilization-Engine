@@ -22913,6 +22913,8 @@ impl<'a> BuildingInfo<'a> {
   pub const VT_SITE: ::flatbuffers::VOffsetT = 100;
   pub const VT_GAS: ::flatbuffers::VOffsetT = 102;
   pub const VT_RECORDS: ::flatbuffers::VOffsetT = 104;
+  pub const VT_WIRE: ::flatbuffers::VOffsetT = 106;
+  pub const VT_ROAD: ::flatbuffers::VOffsetT = 108;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -22930,6 +22932,8 @@ impl<'a> BuildingInfo<'a> {
     builder.add_settlement(args.settlement);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    if let Some(x) = args.road { builder.add_road(x); }
+    if let Some(x) = args.wire { builder.add_wire(x); }
     if let Some(x) = args.records { builder.add_records(x); }
     if let Some(x) = args.gas { builder.add_gas(x); }
     if let Some(x) = args.site { builder.add_site(x); }
@@ -23336,6 +23340,20 @@ impl<'a> BuildingInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_RECORDS, None)}
   }
+  #[inline]
+  pub fn wire(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_WIRE, None)}
+  }
+  #[inline]
+  pub fn road(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_ROAD, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
@@ -23395,6 +23413,8 @@ impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("site", Self::VT_SITE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("gas", Self::VT_GAS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("records", Self::VT_RECORDS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("wire", Self::VT_WIRE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("road", Self::VT_ROAD, false)?
      .finish();
     Ok(())
   }
@@ -23451,6 +23471,8 @@ pub struct BuildingInfoArgs<'a> {
     pub site: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub gas: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub records: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub wire: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub road: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for BuildingInfoArgs<'a> {
   #[inline]
@@ -23507,6 +23529,8 @@ impl<'a> Default for BuildingInfoArgs<'a> {
       site: None,
       gas: None,
       records: None,
+      wire: None,
+      road: None,
     }
   }
 }
@@ -23721,6 +23745,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingInfoBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_RECORDS, records);
   }
   #[inline]
+  pub fn add_wire(&mut self, wire: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_WIRE, wire);
+  }
+  #[inline]
+  pub fn add_road(&mut self, road: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_ROAD, road);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BuildingInfoBuilder {
@@ -23789,6 +23821,8 @@ impl ::core::fmt::Debug for BuildingInfo<'_> {
       ds.field("site", &self.site());
       ds.field("gas", &self.gas());
       ds.field("records", &self.records());
+      ds.field("wire", &self.wire());
+      ds.field("road", &self.road());
       ds.finish()
   }
 }
@@ -40773,6 +40807,272 @@ impl ::core::fmt::Debug for StreetLampInfo<'_> {
       ds.finish()
   }
 }
+pub enum CurrentLineInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct CurrentLineInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for CurrentLineInfo<'a> {
+  type Inner = CurrentLineInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> CurrentLineInfo<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_STATION: ::flatbuffers::VOffsetT = 6;
+  pub const VT_POINTS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_LENGTH_M: ::flatbuffers::VOffsetT = 10;
+  pub const VT_LAID: ::flatbuffers::VOffsetT = 12;
+  pub const VT_RATING_KW: ::flatbuffers::VOffsetT = 14;
+  pub const VT_BROKEN: ::flatbuffers::VOffsetT = 16;
+  pub const VT_HOMES: ::flatbuffers::VOffsetT = 18;
+  pub const VT_LIT: ::flatbuffers::VOffsetT = 20;
+  pub const VT_WORDS: ::flatbuffers::VOffsetT = 22;
+  pub const VT_TELEGRAPH: ::flatbuffers::VOffsetT = 24;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    CurrentLineInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args CurrentLineInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<CurrentLineInfo<'bldr>> {
+    let mut builder = CurrentLineInfoBuilder::new(_fbb);
+    builder.add_station(args.station);
+    builder.add_id(args.id);
+    if let Some(x) = args.words { builder.add_words(x); }
+    builder.add_lit(args.lit);
+    builder.add_homes(args.homes);
+    builder.add_rating_kw(args.rating_kw);
+    builder.add_laid(args.laid);
+    builder.add_length_m(args.length_m);
+    if let Some(x) = args.points { builder.add_points(x); }
+    builder.add_telegraph(args.telegraph);
+    builder.add_broken(args.broken);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CurrentLineInfo::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn station(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CurrentLineInfo::VT_STATION, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn points(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(CurrentLineInfo::VT_POINTS, None)}
+  }
+  #[inline]
+  pub fn length_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(CurrentLineInfo::VT_LENGTH_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn laid(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(CurrentLineInfo::VT_LAID, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn rating_kw(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(CurrentLineInfo::VT_RATING_KW, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn broken(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(CurrentLineInfo::VT_BROKEN, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn homes(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CurrentLineInfo::VT_HOMES, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn lit(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CurrentLineInfo::VT_LIT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn words(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(CurrentLineInfo::VT_WORDS, None)}
+  }
+  #[inline]
+  pub fn telegraph(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(CurrentLineInfo::VT_TELEGRAPH, Some(false)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for CurrentLineInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("station", Self::VT_STATION, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("points", Self::VT_POINTS, false)?
+     .visit_field::<f32>("length_m", Self::VT_LENGTH_M, false)?
+     .visit_field::<f32>("laid", Self::VT_LAID, false)?
+     .visit_field::<f32>("rating_kw", Self::VT_RATING_KW, false)?
+     .visit_field::<bool>("broken", Self::VT_BROKEN, false)?
+     .visit_field::<u32>("homes", Self::VT_HOMES, false)?
+     .visit_field::<u32>("lit", Self::VT_LIT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .visit_field::<bool>("telegraph", Self::VT_TELEGRAPH, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct CurrentLineInfoArgs<'a> {
+    pub id: u64,
+    pub station: u64,
+    pub points: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub length_m: f32,
+    pub laid: f32,
+    pub rating_kw: f32,
+    pub broken: bool,
+    pub homes: u32,
+    pub lit: u32,
+    pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub telegraph: bool,
+}
+impl<'a> Default for CurrentLineInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    CurrentLineInfoArgs {
+      id: 0,
+      station: 0,
+      points: None,
+      length_m: 0.0,
+      laid: 0.0,
+      rating_kw: 0.0,
+      broken: false,
+      homes: 0,
+      lit: 0,
+      words: None,
+      telegraph: false,
+    }
+  }
+}
+
+pub struct CurrentLineInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CurrentLineInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(CurrentLineInfo::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_station(&mut self, station: u64) {
+    self.fbb_.push_slot::<u64>(CurrentLineInfo::VT_STATION, station, 0);
+  }
+  #[inline]
+  pub fn add_points(&mut self, points: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CurrentLineInfo::VT_POINTS, points);
+  }
+  #[inline]
+  pub fn add_length_m(&mut self, length_m: f32) {
+    self.fbb_.push_slot::<f32>(CurrentLineInfo::VT_LENGTH_M, length_m, 0.0);
+  }
+  #[inline]
+  pub fn add_laid(&mut self, laid: f32) {
+    self.fbb_.push_slot::<f32>(CurrentLineInfo::VT_LAID, laid, 0.0);
+  }
+  #[inline]
+  pub fn add_rating_kw(&mut self, rating_kw: f32) {
+    self.fbb_.push_slot::<f32>(CurrentLineInfo::VT_RATING_KW, rating_kw, 0.0);
+  }
+  #[inline]
+  pub fn add_broken(&mut self, broken: bool) {
+    self.fbb_.push_slot::<bool>(CurrentLineInfo::VT_BROKEN, broken, false);
+  }
+  #[inline]
+  pub fn add_homes(&mut self, homes: u32) {
+    self.fbb_.push_slot::<u32>(CurrentLineInfo::VT_HOMES, homes, 0);
+  }
+  #[inline]
+  pub fn add_lit(&mut self, lit: u32) {
+    self.fbb_.push_slot::<u32>(CurrentLineInfo::VT_LIT, lit, 0);
+  }
+  #[inline]
+  pub fn add_words(&mut self, words: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CurrentLineInfo::VT_WORDS, words);
+  }
+  #[inline]
+  pub fn add_telegraph(&mut self, telegraph: bool) {
+    self.fbb_.push_slot::<bool>(CurrentLineInfo::VT_TELEGRAPH, telegraph, false);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CurrentLineInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    CurrentLineInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<CurrentLineInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for CurrentLineInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("CurrentLineInfo");
+      ds.field("id", &self.id());
+      ds.field("station", &self.station());
+      ds.field("points", &self.points());
+      ds.field("length_m", &self.length_m());
+      ds.field("laid", &self.laid());
+      ds.field("rating_kw", &self.rating_kw());
+      ds.field("broken", &self.broken());
+      ds.field("homes", &self.homes());
+      ds.field("lit", &self.lit());
+      ds.field("words", &self.words());
+      ds.field("telegraph", &self.telegraph());
+      ds.finish()
+  }
+}
 pub enum WaysOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -40793,6 +41093,7 @@ impl<'a> Ways<'a> {
   pub const VT_WAYS: ::flatbuffers::VOffsetT = 6;
   pub const VT_MAINS: ::flatbuffers::VOffsetT = 8;
   pub const VT_LAMPS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_CURRENTS: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -40805,6 +41106,7 @@ impl<'a> Ways<'a> {
   ) -> ::flatbuffers::WIPOffset<Ways<'bldr>> {
     let mut builder = WaysBuilder::new(_fbb);
     builder.add_rev(args.rev);
+    if let Some(x) = args.currents { builder.add_currents(x); }
     if let Some(x) = args.lamps { builder.add_lamps(x); }
     if let Some(x) = args.mains { builder.add_mains(x); }
     if let Some(x) = args.ways { builder.add_ways(x); }
@@ -40840,6 +41142,13 @@ impl<'a> Ways<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StreetLampInfo>>>>(Ways::VT_LAMPS, None)}
   }
+  #[inline]
+  pub fn currents(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CurrentLineInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CurrentLineInfo>>>>(Ways::VT_CURRENTS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Ways<'_> {
@@ -40852,6 +41161,7 @@ impl ::flatbuffers::Verifiable for Ways<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WayInfo>>>>("ways", Self::VT_WAYS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GasMainInfo>>>>("mains", Self::VT_MAINS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<StreetLampInfo>>>>("lamps", Self::VT_LAMPS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CurrentLineInfo>>>>("currents", Self::VT_CURRENTS, false)?
      .finish();
     Ok(())
   }
@@ -40861,6 +41171,7 @@ pub struct WaysArgs<'a> {
     pub ways: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WayInfo<'a>>>>>,
     pub mains: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GasMainInfo<'a>>>>>,
     pub lamps: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StreetLampInfo<'a>>>>>,
+    pub currents: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CurrentLineInfo<'a>>>>>,
 }
 impl<'a> Default for WaysArgs<'a> {
   #[inline]
@@ -40870,6 +41181,7 @@ impl<'a> Default for WaysArgs<'a> {
       ways: None,
       mains: None,
       lamps: None,
+      currents: None,
     }
   }
 }
@@ -40896,6 +41208,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WaysBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Ways::VT_LAMPS, lamps);
   }
   #[inline]
+  pub fn add_currents(&mut self, currents: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<CurrentLineInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Ways::VT_CURRENTS, currents);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WaysBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WaysBuilder {
@@ -40917,6 +41233,7 @@ impl ::core::fmt::Debug for Ways<'_> {
       ds.field("ways", &self.ways());
       ds.field("mains", &self.mains());
       ds.field("lamps", &self.lamps());
+      ds.field("currents", &self.currents());
       ds.finish()
   }
 }

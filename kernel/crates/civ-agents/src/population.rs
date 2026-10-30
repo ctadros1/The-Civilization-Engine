@@ -82,14 +82,19 @@ mod norm;
 mod notes;
 mod opinion;
 mod payments;
+mod telegraph;
 mod trains;
+mod transit;
 mod wagons;
 mod war;
 mod way_works;
+mod wires;
 pub use crime::TakeProbe;
 pub use payments::Burden;
 pub use resolution::{DayBlock, NOT_TAKEN, SwitchInvariants};
 pub use sickhouse::sickhouse_bed_m2;
+pub use telegraph::{TELEGRAM_FEE_FOOD_DAYS, TelegraphReckoning};
+pub use transit::{RoadRide, road_departures};
 mod credit;
 mod custody;
 mod patronage;
@@ -112,7 +117,7 @@ mod wells;
 pub use wells::WellWeighed;
 mod word;
 
-pub use deposits::{DepositKnown, FIND_M};
+pub use deposits::{DepositKnown, FIND_M, Prospect};
 pub use influence::{PURPOSE_IDEOLOGY_HEARD, Reached};
 pub use loads::{
     DIES_IN_RUIN, DIES_UNDER_FLOOR, DIES_UNDER_ROOF, LIVE_PA, SNOW_TOLD_PA, SPILLED,
@@ -248,6 +253,9 @@ pub enum AgentEvent {
     /// Gas is lit at dusk (M10b slice DY, third part): each main's evening is checked and its
     /// connections lit or not. Pending each day while any main is laid.
     Gas,
+    /// A telegram's step is due (M11c): each telegram whose step is due is sent, answered or
+    /// delivered. Pending while any telegram is.
+    Telegraph,
     /// A walker reaches a bottleneck on their walk (M8b slice CN, ADR-0029 §4).
     Pass {
         /// Who.
@@ -1831,7 +1839,11 @@ impl Population {
             AgentEvent::BandLook => self.band_look(ctx),
             AgentEvent::Gates => self.keep_gates(ctx),
             AgentEvent::Trains => self.trains_due(ctx),
-            AgentEvent::Gas => self.gas_evening(ctx),
+            AgentEvent::Gas => {
+                self.gas_evening(ctx);
+                self.wire_evening(ctx);
+            }
+            AgentEvent::Telegraph => self.telegrams_due(ctx),
             AgentEvent::Pass {
                 person,
                 version,
@@ -2312,6 +2324,26 @@ impl Population {
                 .push(i as u32);
         }
         self.fields_indexed = land.fields.len();
+    }
+
+    /// Every field household `from` holds or works passes to household `to`, as if it had
+    /// changed hands: for tests that need one household alone to hold fields.
+    #[doc(hidden)]
+    pub fn move_fields_for_tests(
+        &mut self,
+        land: &mut civ_land::Land,
+        from: PermanentId,
+        to: PermanentId,
+    ) {
+        for f in &mut land.fields {
+            if f.household == from {
+                f.household = to;
+            }
+            if f.holder == civ_land::fields::Party::Household(from) {
+                f.holder = civ_land::fields::Party::Household(to);
+            }
+        }
+        self.fields_moved();
     }
 
     /// A field has changed hands: [`Self::fields_of`] looks at every field until midnight.
@@ -3694,12 +3726,21 @@ impl Population {
             until_sunrise_min: until_sunrise as f64,
             // Light for the evening: the lamp's fuel, or the burners' gas lit until they go out
             // (M10b slice DY).
-            lamp_min: lamp_of(goods, &stores).map_or(0.0, |l| l.3).max(
-                ctx.land
-                    .gas
-                    .lit_until(hh_id, now.minutes())
-                    .map_or(0.0, |u| (u - now.minutes()) as f64),
-            ),
+            lamp_min: lamp_of(goods, &stores)
+                .map_or(0.0, |l| l.3)
+                .max(
+                    ctx.land
+                        .gas
+                        .lit_until(hh_id, now.minutes())
+                        .map_or(0.0, |u| (u - now.minutes()) as f64),
+                )
+                // Or the wire's light, served for the evening (M11a).
+                .max(
+                    ctx.land
+                        .wires
+                        .lit_until(hh_id, now.minutes())
+                        .map_or(0.0, |u| (u - now.minutes()) as f64),
+                ),
             food_days: stock / kcal_day.max(1.0),
             food_target_days: params.household.food_target_days,
             food_outlook_days,
@@ -3847,7 +3888,7 @@ impl Population {
             .collect();
         let knows = |t: usize| self.household_knows(&hh.members, t);
         let mut wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
-        cap_power_wants(ctx, hh.id, &mut wants);
+        self.cap_power_wants(ctx, &hh, &knows, &mut wants);
         let costs_once = OnceCell::new();
         let costs = || {
             costs_once
@@ -3937,8 +3978,15 @@ impl Population {
             }
         }
         let held_of = |g: usize| stores.get(g).copied().unwrap_or(0.0).max(0.0);
+        // Nothing is needed of a good not wanted, so the goods serving for it are not summed.
         let tool_need: Vec<f64> = (0..goods.len())
-            .map(|g| make::tool_need(wants[g], make::serving(goods, g).map(held_of).sum()))
+            .map(|g| {
+                if wants[g] <= 0.0 {
+                    0.0
+                } else {
+                    make::tool_need(wants[g], make::serving(goods, g).map(held_of).sum())
+                }
+            })
             .collect();
         // Pots: as many more as would keep the food that lies anywhere but a raised floor or a
         // pot, and the food the next would keep over the store horizon (M3b slice Q).
@@ -3963,6 +4011,7 @@ impl Population {
         let for_sale = self.for_sale(ctx, &hh, &stores, &tool_need);
         let mut tool_material = vec![0.0; goods.len()];
         let mut tool_material_blocked = vec![false; goods.len()];
+        let mut tool_material_raw = vec![false; goods.len()];
         // How each tool it needs is made: its own recipe, or a tool that serves for it that costs
         // fewer of its hours for each hour of use (M7d slice CE). And the materials those ways
         // need that it makes itself (copper for a copper axe): the tool each is for, and how
@@ -3991,37 +4040,21 @@ impl Population {
                 continue;
             };
             let blocked = make::tools_for(goods, t, &held_of) < decide::MIN_TOOL;
+            let mut wanting = market::MaterialWants {
+                need: &mut tool_material,
+                blocked: &mut tool_material_blocked,
+                made_for: &mut made_for,
+                raw: &mut tool_material_raw,
+            };
             for &(g, amount) in &r.inputs {
-                let short = (amount - held_of(g)).max(0.0);
-                if let Some(m) = tool_material.get_mut(g) {
-                    *m += short;
-                }
-                if blocked && let Some(b) = tool_material_blocked.get_mut(g) {
-                    *b = true;
-                }
-                // A material it makes itself, and what that is made of.
-                let Some((made, per_unit)) = catalog.recipes.iter().find_map(|m| {
-                    m.outputs
-                        .iter()
-                        .find(|&&(o, _)| o == g)
-                        .filter(|_| short > 0.0 && can_work(m))
-                        .map(|&(_, a)| (m, a))
-                }) else {
-                    continue;
-                };
-                if per_unit <= 0.0 {
-                    continue;
-                }
-                made_for[g] = Some((t, *need));
-                let units = short / per_unit;
-                for &(i, a) in &made.inputs {
-                    if let Some(m) = tool_material.get_mut(i) {
-                        *m += (a * units - held_of(i)).max(0.0);
-                    }
-                    if blocked && let Some(b) = tool_material_blocked.get_mut(i) {
-                        *b = true;
-                    }
-                }
+                wanting.toward(
+                    catalog,
+                    &held_of,
+                    &can_work,
+                    (t, *need, blocked),
+                    (g, amount),
+                    market::MATERIAL_DEPTH,
+                );
             }
         }
         // A whole lamp it holds wants its fuel, to `LAMP_FUEL_HOURS` of light: made as a tool's
@@ -4063,6 +4096,10 @@ impl Population {
         }
         // And what the pots it would gain from are made of, a session's worth at most.
         for (t, &(want, _)) in pots.iter().enumerate() {
+            // Recipes are searched only for a pot it wants: most goods are not pots.
+            if want <= 0.0 {
+                continue;
+            }
             let Some((r, per_unit)) = catalog.recipes.iter().find_map(|r| {
                 r.outputs
                     .iter()
@@ -4071,7 +4108,7 @@ impl Population {
             }) else {
                 continue;
             };
-            if want <= 0.0 || per_unit <= 0.0 {
+            if per_unit <= 0.0 {
                 continue;
             }
             let units = (want / per_unit).min(r.max_units.max(1.0));
@@ -4227,11 +4264,57 @@ impl Population {
                                 at,
                                 deposit: Some(d.id),
                                 by_ride: None,
+                                prospect: None,
                             },
                         ));
                     }
                 }
-                let mut o = best.map(|(_, o)| o)?;
+                // Knowing no body of it within reach, nor any patch where it is gathered, and short
+                // of it as what a tool's material is made of (ore for its metal, never the stone or
+                // wood of the tool itself), someone may go and look for one over the kind of ground
+                // it lies in (M11d).
+                let Some((_, mut o)) = best else {
+                    let gathers_it = hh.known.iter().any(|k| {
+                        land_params
+                            .resources
+                            .get(usize::from(k.resource))
+                            .is_some_and(|r| r.good == g)
+                    });
+                    let raw = tool_material_raw.get(g).copied().unwrap_or(false);
+                    if tool_need_kg <= 0.0 || gathers_it || !raw {
+                        return None;
+                    }
+                    let deposits::Prospect {
+                        at,
+                        across,
+                        walk_min,
+                        loop_min,
+                    } = self.prospect_points(
+                        ctx,
+                        hh.id,
+                        reach,
+                        g,
+                        f64::from(a.max_walk_minutes),
+                        ctx.now.day_index(),
+                    )?;
+                    return Some(PatchOption {
+                        patch: 0,
+                        walk_min,
+                        kg_per_hour: 0.0,
+                        purpose: good.purpose,
+                        kcal_per_kg: good.kcal_per_kg,
+                        fuel_ratio: heat_of(g),
+                        stored_days: 0.0,
+                        need_kg,
+                        urgency: build_urgency,
+                        tool_need_kg,
+                        tool_blocked: tool_material_blocked.get(g).copied().unwrap_or(false),
+                        at,
+                        deposit: None,
+                        by_ride: None,
+                        prospect: Some((across, loop_min)),
+                    });
+                };
                 // Out to the pit on a line's train (M10b slice DX, fourth part), where the ride's
                 // minutes and its fare, at the household's own cost of the fuel it is paid in,
                 // come to less than the walk; home on foot.
@@ -4354,6 +4437,7 @@ impl Population {
                             at: cell_centre(map, cell as usize),
                             deposit: None,
                             by_ride: None,
+                            prospect: None,
                         },
                     ));
                 }
@@ -6345,13 +6429,14 @@ impl Population {
     /// in hunger, and never the seed for the ground already cropped), the recipe's tools worn by
     /// the time worked, and their skill practised.
     /// Whether a lamp burns for work at household `household`'s home at `now` (M10b slice DU):
-    /// it holds a whole lamp and its fuel, or its burners are lit by gas (`gas`, M10b slice DY),
-    /// it is dark, and one of its members awake at home is at work kept to daylight.
+    /// it holds a whole lamp and its fuel, or its burners are lit by gas (M10b slice DY) or its
+    /// home by the wire (M11a) on `land`, it is dark, and one of its members awake at home is at
+    /// work kept to daylight.
     pub fn lamp_lit_home(
         &self,
         catalog: &crate::params::Catalog,
         params: &PeopleParams,
-        gas: &civ_land::gas::Gas,
+        land: &civ_land::Land,
         now: SimTime,
         household: PermanentId,
     ) -> bool {
@@ -6360,7 +6445,9 @@ impl Population {
         };
         let t = now.minutes() as f64;
         dark_at(params, now)
-            && (lamp_of(&catalog.goods, &x.stores).is_some() || gas.lit(household, now.minutes()))
+            && (lamp_of(&catalog.goods, &x.stores).is_some()
+                || land.gas.lit(household, now.minutes())
+                || land.wires.lit(household, now.minutes()))
             && x.members.iter().any(|&m| {
                 self.person(m).is_some_and(|q| {
                     let at = q.position_at(t);
@@ -6377,7 +6464,7 @@ impl Population {
         &self,
         catalog: &crate::params::Catalog,
         params: &PeopleParams,
-        gas: &civ_land::gas::Gas,
+        land: &civ_land::Land,
         now: SimTime,
     ) -> usize {
         if self.order.lamp_first_lit.is_none() || !dark_at(params, now) {
@@ -6385,7 +6472,7 @@ impl Population {
         }
         self.households
             .iter()
-            .filter(|(_, x)| self.lamp_lit_home(catalog, params, gas, now, x.id))
+            .filter(|(_, x)| self.lamp_lit_home(catalog, params, land, now, x.id))
             .count()
     }
 
@@ -6528,7 +6615,10 @@ impl Population {
             if def.daylight_only {
                 let end = self.enact_end.unwrap_or(now);
                 let dark_h = dark_minutes(params, end, minutes) / 60.0;
-                if dark_h > 0.0 && ctx.land.gas.lit(household, end.minutes() - 1) {
+                if dark_h > 0.0
+                    && (ctx.land.gas.lit(household, end.minutes() - 1)
+                        || ctx.land.wires.lit(household, end.minutes() - 1))
+                {
                     // Burners lit by gas burn none of the household's fuel: it came by the main
                     // (M10b slice DY).
                     lit = Some(end);
@@ -7779,6 +7869,12 @@ impl Population {
         self.engine_runs(ctx, day);
         // Gas mains weighed by the works whose day it is (M10b slice DY, fourth part).
         self.main_reviews(ctx, day);
+        // The wire's homes hooked up, and lines weighed by the stations whose day it is (M11a).
+        self.wire_reviews(ctx, day);
+        // Telegraph wires weighed by the offices whose day it is (M11c).
+        self.telegraph_reviews(ctx, day);
+        // Road lines weighed by the motor carts' keepers whose day it is (M11b, third part).
+        self.transit_reviews(ctx, day);
         // A child sent to learn a craft the household buys (M10c slice EB, second part).
         self.enrol_reviews(ctx, day);
         // And the wells (M6a slice AY, step three): what was drawn taken from the water table, a
@@ -7809,6 +7905,8 @@ impl Population {
         self.record_convergence(ctx);
         // Households whose day it is review what they offer and on what terms.
         self.review_offers(ctx, day);
+        // Telegrams handed in at the reviews queued and paid for (M11c).
+        self.telegrams_handed(ctx);
         // Goods kept for households with no roof of their own (M10d slice EG, second part).
         self.custody_day(ctx, day);
         // Those that found a boat would save them more walking over its life than making it
@@ -8007,6 +8105,81 @@ pub(crate) fn power_kw_of(ctx: &Ctx, holder: PermanentId) -> f64 {
         .sum()
 }
 
+impl Population {
+    /// The kilowatts of current `holder`'s whole dynamos give today from the shafts of the
+    /// installations it owns (M11a, second part; ADR-0036 §2), a household's or a firm's, and of
+    /// the engines that burn a named fuel it holds, for an evening's hours on the fuel it holds
+    /// (M11b, first part; ADR-0036 §7).
+    pub fn electric_kw(&self, ctx: &Ctx, holder: PermanentId) -> f64 {
+        let stores = match self.household(holder) {
+            Some(h) => h.stores.as_slice(),
+            None => match self.firm(holder) {
+                Some(f) => f.stores.as_slice(),
+                None => return 0.0,
+            },
+        };
+        let shaft =
+            power_kw_of(ctx, holder) + engine_kw(&ctx.catalog.goods, stores, gas::GAS_EVENING_H).0;
+        make::dynamo_kw(&ctx.catalog.goods, stores, shaft)
+    }
+}
+
+/// The shaft kilowatts the engines that burn a named fuel in `stores` give for `hours` (M11b,
+/// first part; ADR-0036 §7: an engine set where power is used is a drive as a wheel is), and the
+/// kilograms of each fuel that takes: each whole engine, in the catalogue's order, gives its
+/// rating for as long as the fuel left lasts at its efficiency (research 07-06 §2.3: 3.6 /
+/// (MJ η) kg a kWh). An engine that burns any fuel by its heat is set at a pit, not here.
+pub(crate) fn engine_kw(goods: &[GoodDef], stores: &[f64], hours: f64) -> (f64, Vec<(usize, f64)>) {
+    engine_work(goods, stores, f64::INFINITY, hours)
+}
+
+/// As [`engine_kw`], giving no more than `want_kwh` of shaft work over the `hours`.
+pub(crate) fn engine_work(
+    goods: &[GoodDef],
+    stores: &[f64],
+    want_kwh: f64,
+    hours: f64,
+) -> (f64, Vec<(usize, f64)>) {
+    let hours = hours.max(1e-9);
+    let mut want = want_kwh.max(0.0);
+    let mut burned: Vec<(usize, f64)> = Vec::new();
+    let mut kwh = 0.0;
+    for d in goods.iter().enumerate() {
+        let (g, d) = d;
+        let Some(p) = d
+            .power
+            .filter(|p| p.source == crate::params::PowerSource::Fuel)
+        else {
+            continue;
+        };
+        let Some(f) = p.fuel else {
+            continue;
+        };
+        let whole = (stores.get(g).copied().unwrap_or(0.0) + 1e-9)
+            .floor()
+            .max(0.0);
+        let mj = goods
+            .get(f)
+            .and_then(|x| x.fuel)
+            .map_or(0.0, |x| x.mj_per_kg);
+        if whole <= 0.0 || mj <= 0.0 || want <= 0.0 {
+            continue;
+        }
+        let used: f64 = burned.iter().filter(|b| b.0 == f).map(|b| b.1).sum();
+        let held = (stores.get(f).copied().unwrap_or(0.0) - used).max(0.0);
+        let give = (whole * p.rated_kw * hours)
+            .min(held * mj * p.efficiency / 3.6)
+            .min(want);
+        if give <= 0.0 {
+            continue;
+        }
+        burned.push((f, civ_land::power::fuel_kg(give, mj, p.efficiency)));
+        kwh += give;
+        want -= give;
+    }
+    (kwh / hours, burned)
+}
+
 /// The lamp a household holding `stores` lights for work after dark (M10b slice DU; ADR-0034
 /// §9): of the whole lamps it holds whose fuel it has (a piped burner is none: its gas comes by a
 /// main, M10b slice DY), the one whose fuel lasts longest, as the
@@ -8079,41 +8252,131 @@ pub(crate) fn crew_of(goods: &[GoodDef], recipe: &crate::params::RecipeDef) -> u
         .max(1)
 }
 
-/// Caps `holder`'s want of each powered tool at the places it has to set one: a wheel at the
-/// installations it owns whose headraces are dug (M10a slice DR), an engine at the pits it has
-/// chosen to set one at (M10a slice DS, fourth part). A wheel or an engine is wanted only where
-/// one can be set.
-pub(crate) fn cap_power_wants(ctx: &Ctx, holder: PermanentId, wants: &mut [f64]) {
-    use crate::params::PowerSource;
-    let (mut sites, mut pits) = (None, None);
-    for (g, want) in wants.iter_mut().enumerate() {
-        let Some(source) = ctx
-            .catalog
-            .goods
-            .get(g)
-            .and_then(|x| x.power.as_ref())
-            .map(|p| p.source)
-        else {
-            continue;
+impl Population {
+    /// Caps household `hh`'s want of each powered tool at the places it has to set one: a wheel
+    /// at the installations it owns whose headraces are dug (M10a slice DR), an engine at the pits
+    /// it has chosen to set one at (M10a slice DS, fourth part), and a dynamo at those
+    /// installations where its household `knows` a way of making one (M11a). A wheel, an engine or
+    /// a dynamo is wanted only where one can be set. Where it has no installation ready, an
+    /// engine that burns a named fuel turns a dynamo instead (M11b, first part): it is wanted by
+    /// a household that knows a way of making it and a dynamo and holds its fuel, and a dynamo by
+    /// one that holds such an engine whole. A telegraph instrument (M11c) is wanted, one, by a
+    /// household that knows a way of making it, where someone of it can write and someone of
+    /// another settlement knows the technique of a recipe making it, a far office to be.
+    pub(crate) fn cap_power_wants(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        knows: &dyn Fn(usize) -> bool,
+        wants: &mut [f64],
+    ) {
+        use crate::params::PowerSource;
+        let holder = hh.id;
+        let goods = &ctx.catalog.goods;
+        let recipe_known = |g: usize| {
+            ctx.catalog
+                .recipes
+                .iter()
+                .any(|r| r.outputs.iter().any(|&(o, _)| o == g) && r.technique.is_some_and(knows))
         };
-        let n = match source {
-            PowerSource::Water => *sites.get_or_insert_with(|| {
+        let whole = |g: usize| hh.stores.get(g).copied().unwrap_or(0.0) >= 1.0 - 1e-9;
+        let sites = std::cell::OnceCell::new();
+        let sites = || {
+            *sites.get_or_init(|| {
                 ctx.land
                     .installations
                     .iter()
                     .enumerate()
                     .filter(|&(i, x)| x.owner == holder && ctx.land.installation_ready(i))
                     .count()
-            }),
-            PowerSource::Fuel => *pits.get_or_insert_with(|| {
-                ctx.land
-                    .engines
-                    .iter()
-                    .filter(|e| e.owner == holder)
-                    .count()
-            }),
+            })
         };
-        *want = want.min(n as f64);
+        let pits = || {
+            ctx.land
+                .engines
+                .iter()
+                .filter(|e| e.owner == holder)
+                .count()
+        };
+        // An engine that burns a named fuel, held whole, to turn a dynamo.
+        let named_engine = || {
+            goods.iter().enumerate().any(|(g, d)| {
+                d.power
+                    .is_some_and(|p| p.source == PowerSource::Fuel && p.fuel.is_some())
+                    && whole(g)
+            })
+        };
+        let dynamo_known = || {
+            goods.iter().enumerate().any(|(g, d)| {
+                d.power.is_some_and(|p| p.source == PowerSource::Shaft) && recipe_known(g)
+            })
+        };
+        for (g, want) in wants.iter_mut().enumerate() {
+            let Some(d) = goods.get(g) else {
+                continue;
+            };
+            if d.telegraph.is_some() && d.power.is_none() {
+                *want = want.min(f64::from(u8::from(
+                    self.wants_instrument(ctx, hh, g, knows),
+                )));
+                continue;
+            }
+            let Some(p) = d.power.as_ref() else {
+                continue;
+            };
+            let n = match (p.source, p.fuel) {
+                (PowerSource::Water, _) => sites(),
+                (PowerSource::Fuel, None) => pits(),
+                (PowerSource::Fuel, Some(fuel)) => usize::from(
+                    sites() == 0
+                        && recipe_known(g)
+                        && dynamo_known()
+                        && hh.stores.get(fuel).copied().unwrap_or(0.0) > 0.0,
+                ),
+                (PowerSource::Shaft, _) if recipe_known(g) => {
+                    sites().max(usize::from(named_engine()))
+                }
+                (PowerSource::Shaft, _) => 0,
+            };
+            *want = want.min(n as f64);
+        }
+    }
+
+    /// Whether household `hh` wants telegraph instrument `g` (M11c): it knows a way of making it,
+    /// someone of it can write, and someone of another settlement knows the technique of a
+    /// recipe making it.
+    fn wants_instrument(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        g: usize,
+        knows: &dyn Fn(usize) -> bool,
+    ) -> bool {
+        let Some(home) = hh.settlement else {
+            return false;
+        };
+        let Some(writing) = Self::letter_technique(ctx.catalog, Behavior::Write) else {
+            return false;
+        };
+        let techniques: Vec<usize> = ctx
+            .catalog
+            .recipes
+            .iter()
+            .filter(|r| r.outputs.iter().any(|&(o, _)| o == g))
+            .filter_map(|r| r.technique)
+            .collect();
+        if techniques.is_empty() || !techniques.iter().any(|&t| knows(t)) || !knows(writing) {
+            return false;
+        }
+        self.households
+            .iter()
+            .map(|(_, y)| y)
+            .filter(|y| y.settlement.is_some_and(|s| s != home))
+            .flat_map(|y| y.members.iter())
+            .any(|&m| {
+                self.person(m)
+                    .is_some_and(|q| techniques.iter().any(|&t| q.knows(t)))
+            })
     }
 }
 
@@ -8187,6 +8450,7 @@ mod tests {
             power: None,
             light: None,
             holder: None,
+            telegraph: None,
             money: None,
             id: id.into(),
             name: id.into(),

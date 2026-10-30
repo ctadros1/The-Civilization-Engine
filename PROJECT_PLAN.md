@@ -7648,14 +7648,485 @@ and M6a gives rivers a daily flow.
       without firewood for days, and smoke's firewood check fails on a rare world (ria_coast
       seed 1, identity `2a8290890b6c9197770f94fd618adee3`); counting fuel that will not last the
       day twice over fixes it but moves fifteen scenario tests that choose their actors from the
-      unfolding world, which are to be reworked first.
+      unfolding world, which are to be reworked first. *Fixed (2026-10-29):* the fix is in, with
+      a decision test that a hearth that will not last the day comes before pressing field work,
+      and the scenes reworked so that what each test claims no longer rests on the world's
+      unfolding: a borrower holds a sown field and the lender holds the rest; a guarantor is
+      regarded by the lender; the learner's household has no knapper of its own; a fire scene's
+      homes are stocked with wood; the variolation scenes count every household that called;
+      raiders are close to everyone at home, so whoever weighs peace weighs what they give up.
+      Two faults in the engine surfaced and are fixed: a lamp lit in a household-resolved day
+      burned past its part's end (enactments are now clamped to the part, as blocks were), and a
+      faction's petition against an office filled by lot named a nominee whom the lot then
+      overrode (it now names nobody and asks for another drawn by lot, as any proposal of such an
+      office does).
     - **EL**: the M10 demo, time-boxed, nudges logged.
+      *As built, first part (2026-10-27): the demo's example, and the gate's bench measured.*
+      `civ-sim --example m10_world <saves> [groups] [people] [years] [size]` (default six groups
+      of 120 on 2,048 cells, fifteen years at Max, resolution by focus on the first): on the
+      first day the observer gives the eldest of the largest household of every other settlement
+      19 M10 techniques by the god tool, logged as `INTRODUCED`; the rest are the control. Each
+      year it prints, settlement by settlement, who knows any of it, mills, engines, workshops,
+      lines laid, gas mains, street lamps, the M10 laws in force, notes out and records written;
+      at the end the M10 laws proposed, the chronicle's lines and records, whether each control
+      took any of it up, the speed, and a save and load. Nothing is nudged. homelab.yml's `demo`
+      suite lives it on the long runner (owner-dispatched; the record is kept as an artifact).
+      **Checked small** (two groups of 40, one year, 512 cells, on the development VM): the
+      taught one wrote down 18 of the 19 (not lamps, which a child may learn at home, so they
+      were not its only knower; not checked further), the control stayed as founded, 87 people
+      saved and loaded. **The full run** (homelab run 40580457779, `demos/m10/m10-demo.txt`) was
+      cut by the job's six-hour limit after eleven of fifteen years, so it has no final save and
+      load. 720 people became 976. In the taught settlements: Sedgehollow's knower wrote 36
+      records, its people set a water mill in year 9 and had 821 notes out in year 11;
+      Stonefield set a mill in year 10 and Thorndale in year 11; three records each there. No
+      engine, line, gas main, street lamp or M10 law. The three controls knew none of it and used
+      none of it in any year. Nothing was nudged. *The run that finished* (homelab run 40751625525, the suite's `years`
+      input at 8, `demos/m10/m10-demo-8y.txt`, built with this slice's three exact cuts): its
+      first eight years are the cut-short run's line for line (people each year, knowers, workshops
+      and records in every settlement), a world-scale check that the cuts change nothing lived. By
+      year 8: 926 people; the taught settlements' knowers 8, 2 and 7, records 3, 3 and 36; no mill
+      yet (the first came in year 9 of the longer run), no engine, line, gas main, street lamp,
+      M10 law or note; the controls as founded. Saved (20.7 MB) and loaded with all 926; 3.21 s a
+      day (p50 1.05 s, p95 14.7 s), 0.051 simulated years a real minute. **What the demo shows:**
+      the vocabulary is taken up slowly and only where it was taught: records within the first
+      year, mills from the ninth, notes in the eleventh; nothing heavier (engines, rail, gas) in
+      eleven years, and the controls took none of it up. Nothing was nudged.
+      **The gate's bench, measured** (`tools/ci/bench-compare.sh`: M9's close 31439f4e and
+      e45193a9 built alike and timed on the development VM, 8 × Xeon E5-2680 v4, pinned to four
+      CPUs, interleaved, three rounds; medians, ms a simulated day): a village of 500 for 90 days
+      914 → 1,167 (**1.28×**); three settlements of 400, two household-resolved, 60 days at Max
+      793 → 984 (**1.24×**); ten of 60, all household-resolved, 40 days at Max 1,640 → 1,464
+      (0.89×, slice DO's route caches). Final populations equal on both sides. **The bench
+      clause is not met** where a settlement is Detailed. By part (village of 500, two rounds):
+      M10a +19 %, M10b +11 %, M10c and M10d nothing. By slice (one round): DO 0, DP +71 ms, DQ
+      +8, DR +5, DS +34, DT +54, DU +15, DV–DX +3, DY +83. The steps follow the goods and
+      recipes each slice added (DP 7 and 6, DT 4 and 7, DY 4 and 4; DV–DX none), not its other
+      activities (M10c's eight services, behind quiet checks, cost nothing). **Why (sampled, 40 days of the village, M9 against M10):** leaving out
+      `make` work nobody of the household knows before weighing it left every digest equal but
+      saved no time, so it was not kept. What grew was work per decision that scales with the
+      catalogue: `tool_ages` asked every activity's technique of every member though most need no
+      tool (1.3 % to 7.1 % of the time), and the tools' need summed the goods serving for every
+      good, wanted or not. Both are cut exactly (every section's digest equal in the village and
+      in three of 400): about 5 % a day faster. Profiled again by the innermost kernel line, the
+      largest single cost was the pots' materials: every good's recipe searched before asking
+      whether its pot was wanted (goods × recipes a decision, 3.3× M9's); now asked first,
+      exactly (digests equal again in both worlds). The three cuts together, against e45193a9
+      (interleaved, three rounds, medians): the village 1,244 → 1,116 ms a day (−10 %), three of
+      400 1,003 → 948 (−5 %); about 1.15× and 1.17× M9 by the earlier ratios. What is left is not
+      the catalogue's (routes 13 %, markets 12 %, members' steps read for free tools 6 %).
+      **The clause is amended to the figure reached** (ADR-0028 §1's rule, as M8 and M9 did):
+      worlds with a Detailed settlement within 20 % of M9 on this bench, household-resolved and
+      M9's 100k workload within 10 %; accepted under the owner's standing authority (§9,
+      2026-10-30). M9's own gate workload (ten of 10,000, household-resolved, five days)
+      is within the clause: 176.2 → 189.7 s a day (1.08×).
 
 **Post-v1 (ordered, not sized):**
 - **M9, Aggregate LOD & scale:** planned above (ADR-0032).
 - **M10, Industrial content:** planned above (ADR-0033, ADR-0034, ADR-0035).
 - **M11, Modern content:** electricity and a power grid, motor vehicles,
   transit, telecom, modern architecture primitives, waste.
+  - *Design proposed (2026-10-28, §9 "M11 design"):* two briefs (`docs/briefs/m11-power.md`,
+    `m11-movement.md`) and [ADR-0036](decisions/0036-electricity-and-the-telegraph.md), accepted
+    2026-10-30 with an as-built amendment (§9). Parts: **M11a** electricity (a dynamo at an existing
+    water installation or engine; a wire laid along ways like a gas main, rated and losing I²R;
+    a radial tree dispatched by the served hour; light and power by wire; who builds and pays),
+    **M11b** engines that move and transit, **M11c** the telegraph, **M11d** the demo. Modern
+    architecture and waste, designed 2026-10-30 from research 11-14 and 12-10 (brief
+    `docs/briefs/m11-building-waste.md`; [ADR-0037](decisions/0037-frames-of-steel-and-concrete.md)
+    and [ADR-0038](decisions/0038-refuse-tips-and-residues.md), accepted by Claude under the
+    owner's standing authority, §9): **M11e** frames of steel and concrete (cement, steel and
+    rolling as recipes; frame version 4 with a skeleton and a concrete frame carrying each storey's
+    enclosure; steel's and concrete's checks; fire on bare steel), **M11f** refuse and residues
+    (the heap's ash and residues as goods; tips and `refuse_to_tip`; the refuse round; the
+    destructor), then the demo's record again.
+    - *M11a, first part (2026-10-28, on ADR-0036 as proposed): the dynamo as vocabulary.* A `[power]`
+      source `shaft` (content API 201); `good/dynamo` (a fixed tool, 10 kW at 80 %, design
+      priors), `recipe/build_dynamo` and `technique/dynamo`, which no work tries toward, so only the
+      observer brings it. Nothing reads a dynamo yet. **Proved:** with the files and without them,
+      the village of 500 (90 days) and three of 400 (60 days) live the same: every line of the
+      bench's report (time use, counts, land, knowledge records) and the chronicle's digest are
+      equal. The sections that hold vectors by the catalogue's goods, techniques or activities
+      (people, houses, market, firms, deposits, polity, order, factions, places, know, receipts)
+      differ by their length alone: even a material good nobody makes moves them (checked), so
+      M10's gate clause is read as its slices read it, by what is lived.
+    - *M11a, second part (2026-10-28): a dynamo's current from its drive.* `make::dynamo_kw`: each
+      whole dynamo takes as much of a shaft's kilowatts as its rating over its efficiency allows and
+      gives its efficiency of them as current; a worn one gives nothing. `Population::electric_kw`
+      reads a household's or a firm's dynamos against the shafts of the installations it owns
+      today (`power_kw_of`); engines' shafts join when an engine is set beside one. Nothing in a
+      lived day calls it yet (the wire and its dispatch are next), so no world changes. **Tested:**
+      3 kW through one dynamo give 2.4; 20 kW fill one at 10 and two give 16; a worn one, a still
+      shaft and a wheel alone give none; a household's water mill gives 80 % of its kilowatts as
+      current once its holder holds a dynamo, and none before.
+    - *M11a, third part, first step (2026-10-28): the wire's dispatch, pure.* `civ_land::wire`:
+      lines in a radial tree from a station (each hanging from a parent line or the station), with
+      a rating and a length laid; hookups at buildings asking kilowatts; and an hour's `dispatch`
+      serving hookups in the order given, whole or not at all, where every line up to the station is
+      whole and unbroken and can pass the flow, and the station covers what it delivers and every
+      line's I²R losses at the world's one voltage (design priors: 110 V, 0.0005 Ω a metre out and
+      back). Causes kept apart: station short, line full, line down, cut off. Not saved or lived yet
+      (the second step puts lines and hookups in the land, saved, and lays them by work).
+      **Tested:** 5 kW over 200 m lose 207 W and twice the power four times as much; a full
+      branch and a full trunk refuse in turn; a station 0.05 kW short refuses the hookup whose
+      losses tip it; a line not whole, a missing line, another station's tree and a cut-off
+      account each give their own cause.
+    - *M11a, third part, second step (2026-10-28): the wire saved.* The land holds `wires` (lines
+      and hookups, in the order made), saved in a `wires` section of their own (saves 220; a save
+      before loads with none). Nothing lays a line or hooks a building up yet, so every world's
+      section is empty. **Tested:** two lines (one hanging from the other, part laid and broken) and
+      a cut-off hookup load equal, and every section's bytes are equal after save and load; the
+      round trip's section count is 45 land sections.
+    - *M11a, third part, third step (2026-10-28): the wire authored.* The land profile's `[wire]`
+      (content API 202): the conductor's good and kilograms a metre, hours a metre to string, a
+      line's rating, the world's voltage, a metre's resistance out and back and a line's life;
+      the core's copper at 0.62 kg and half an hour a metre, 6 kW, 110 V, 0.001 Ω (35 mm² out and
+      back), forty years, all design priors. **Tested:** the core's loads with copper; an unknown
+      good is E2006 and a voltage of 0 is out of range.
+    - *M11a, third part, fourth step (2026-10-28): lines begun and strung.* `Population::begin_line`
+      routes a line for a station's household from one cell to another along ways whose keepers
+      give leave (the gas main's `plan_main`), hanging from a parent line or the station, marked out
+      at its length with nothing laid and rated by `[wire]`; a line keeps its cells (saved, schema
+      220). Its household strings it a metre each `lay_h_m` hours from the copper it holds, and it
+      carries only once whole. Nobody begins one in a lived day yet: who weighs a station and its
+      lines is a later part. **Tested:** no route without a way; along a way kept by nobody the
+      line runs from one home to the other, unlaid; without copper nothing is strung, copper for
+      ten metres strings ten whatever the hours, and enough strings it whole.
+    - *M11a, fourth part, first step (2026-10-28): hookups, the evening's dispatch and light by
+      wire.* A building may be hooked up to a line, asking kilowatts an hour, and keeps its last
+      evening (lit until, and why or why not; saved, schema 220). At dusk, where any line is laid,
+      the evening that lights gas also dispatches each station's current from its dynamos today
+      down its tree, and a hookup served is lit for gas light's four hours: its household's light
+      after dark is the longest of its lamp's, its gas burners' and the wire's. Served hours are
+      the evening's for now (ADR-0036 §4's hourly dispatch reduced to gas light's cadence; a
+      motor's hours wait for power by wire). Nobody hooks up a building in a lived day yet.
+      **Tested:** a far home hooked up to a whole line is left dark with the station short until
+      the station holds a dynamo beside its water installation, then lit until four hours on; cut
+      off, it is dark at the next evening with that cause. **Proved:** against the build before,
+      the village of 500 gives every section's digest equal but `meta`, `content` and the new,
+      empty `wires`, and every line of the bench's report equal.
+      *Second step (2026-10-28):* a home lit by the wire counts wherever one lit by gas does: for
+      work after dark at home (burning none of the household's fuel), for sight after dark at a
+      lit home, for a lamp's ignition hazard and the homes-lit count (`lamp_lit_home` and
+      `lit_homes` now read the land). With no hookup none of these changes. **Tested:** the served
+      far home is lit until four hours on and not after; the lamps and fire suites pass unchanged.
+    - *M11a, fourth part, second step (2026-10-28): a dynamo wanted where known, and a home lit by
+      its own station.* A household wants a dynamo at each ready installation it owns only where it
+      knows a way of making one (`cap_power_wants` now takes its knowledge; none elsewhere, as
+      before). Each midnight a household holding a whole dynamo beside a ready installation of its
+      own hooks its finished home up on a line of no length from its own station, asking 0.2 kW
+      (`HOME_LIGHT_KW`, a design prior: a few 60 W lamps), lit at the evening's dispatch. Power by
+      wire to powered recipes waits: they need the household's own wheel, and motors are deferred
+      (ADR-0036 §3 Defer). **Tested:** no hookup without a dynamo; with one, one whole line and one
+      hookup, served at the evening, and a second review adds nothing. **Proved:** the village of
+      500 gives every section's digest equal to the first step's but `meta`.
+    - *M11a, fifth part (2026-10-29): lines to other homes, the meter and cut-off.* A household
+      whose dynamo turns beside its own installation and that knows how a dynamo is made weighs,
+      on its day of the year and with no line of its own still being strung, a line from its home
+      to each other home of its settlement along ways with leave, as a gasworks weighs a main: the
+      homes along a route, its end's among them, not yet hooked up, that would have light by wire,
+      as many as the current it has to spare serves at `HOME_LIGHT_KW`, would each repay an
+      evening's current a day at the meter, in hours of the station's own food; against that, a
+      metre's stringing and its copper at the station's own cost. It begins the best where the
+      homes repay more over the line's life than stringing it takes, and the line keeps what it
+      was reckoned to repay (`worth_h`, appended within the unreleased saves 220); its people
+      string it as way work, as a main's works lays its pipe. At each evening, before dispatch,
+      a household whose home lies on or beside a whole, unbroken line of the station hooks its
+      finished home up where an hour of its current at the meter, in hours of its own food, costs
+      it less than an hour of its work or of a lamp it holds whole, and it holds an evening's
+      price; after dispatch each household served pays the station by the meter on a new `Wire`
+      ledger channel, in food. **The meter's price is a design prior** (`METER_FOOD_DAYS_KWH`, a
+      tenth of a person's day's food a kilowatt-hour, some 200 kcal a home's evening): research
+      07-13 asks for prices set where they are paid rather than money carried over, and no report
+      gives one. One that cannot pay all is cut off, and restored once it holds an evening's price
+      again. **Tested:** not knowing how a dynamo is made, a station weighs no line, and knowing,
+      none reaches a home without a way; along a way the far home would repay a line over its
+      life and the best is begun, keeping its reckoned worth, and no second while it is strung;
+      strung whole, the homes along it hook up at the evening, are served and each pays an
+      evening's price; one left with no food is served, cannot pay and is cut off, dark at the
+      next evening with that cause, and restored and served once it has food again. **Not
+      built:** a polity's line by law (ADR-0036 §6) and the hourly dispatch (served hours are
+      still the evening's).
+    - *M11a, sixth part (2026-10-29): the observer of the wire.* Wire 1.107: the ways layer lists
+      every line of current (its route from its station, length and share strung, rating, broken,
+      buildings hooked up and lit now, in words: "Line of current of 120 m from Ada's station,
+      strung, passing up to 6.0 kW; 2 homes hooked up, 2 lit now"), and the ways' revision follows
+      lines and hookups' evenings. A building's page says its current: what it asks from whose
+      station and how its last evening went, lit until when or dark by its cause (station short,
+      a line full, a line down or unstrung, cut off); a household's first building reads as its
+      station, its dynamos and the lines and homes it feeds. A person's light reads electric light
+      where their home is lit by the wire. The map draws lines in copper, fainter while strung and
+      red once broken, and the pointer reads one out. **Tested:** in the station's scene the
+      observer sees the line marked out at 0% strung, then strung with its homes hooked up and lit,
+      a home's current lit until the evening's end, the station feeding 2 lines, a member's light
+      by the wire, and a home cut off for its account; the web decodes the line and the building's
+      current, and a village with no station has no line to draw.
+    - *M11a, seventh part (2026-10-29): the service record.* Each hookup keeps, of its last 32
+      evenings of dispatch, those it asked current on (not cut off) and those it was served, a bit
+      an evening (saved, appended within the unreleased saves 220): ADR-0036 §4's rolling record
+      of power asked and delivered, read with its ask and the evening's hours. A building's page
+      adds it ("served 27 of 29 evenings asked in the last 30"). **Tested:** four evenings, one
+      cut off, record three asked and two served; older than 32 evenings falls out; in the
+      station's scene a home served, then cut off, then restored reads 3 of 3 asked. **Not
+      built:** the hourly dispatch, which waits for anything that varies within an evening (a
+      motor's hours; power by wire is deferred, ADR-0036 §3): with light alone an evening's four
+      hours dispatched together serve exactly as four hourly dispatches would, since a station's
+      current is reckoned from its shafts by the day.
+    - *M11a, eighth part (2026-10-29): a line of current strung together by law (ADR-0036 §6).*
+      An appended policy kind and template, `lay_current` (`zealously_yoke_the_homes_to_the_wire`,
+      sorting last; content API 203), answers an appended issue, `homes_unlit` (save code 41):
+      where a household of the settlement turns a dynamo beside its own installation with current
+      to spare for two or more homes, and two or more homes not yet hooked up and not beside any of
+      its lines would be lit by the wire along a route from its home along ways with leave, the
+      settlement's people could string that line together. Each such household is reckoned to
+      spare a year an evening's hours of its lamp or work less its current at the meter; the line
+      chosen is the one whose pooled hours spared over a line's life most exceed its stringing and
+      its copper at the cheapest any household can have it (copper held counts as in hand where
+      none can put a figure on it). As a line of track laid together: a household weighs it by
+      what it would spare it against its share of the stringing over the line's life; the elders
+      of the dark homes deliberate; the move names the home cell the line runs to and the station
+      it leaves. Passed, the polity marks the line out from the station's home, the station's to
+      serve; each household of the polity strings its share as way work from its own copper,
+      counted toward its share; homes along it hook up and pay the station by the meter as along
+      any line. Neither reckoning now begins a line of no length, nor counts homes already beside
+      one of the station's lines (they hook up without another). **Tested:** without a way to the
+      far homes nothing reaches them; with one, a line from the station that serves both is
+      reckoned; it is proposed for `homes_unlit` naming the station, records its site and what
+      it spares a far home, reads as a line of current strung together, is marked out from the
+      station's home on passing, is kept across a save, is strung whole by the two far
+      households' shares from their own copper (each counted toward its share), and at the
+      evening both hook up, are served and pay by the meter.
+    - *M11a is done as far as ADR-0036 (proposed) takes it without motors:* power by wire to a
+      recipe that takes power waits with motors (the power brief §3 defers motors replacing
+      shafts inside a works), and with it a station's anchor use (§6); the hourly dispatch waits
+      for anything that varies within an evening (see the seventh part).
+    - *M11b, first part (2026-10-29): the gas engine.* `[power]` may name `fuel`, the one good an
+      engine burns (content API 204; research 07-13 §1.5: fuels are not interchangeable across
+      engines); `good/gas_engine` (a fixed tool, 3 kW at 12 %, burning coal gas, design priors of
+      an 1870s gas engine of a few horsepower), `recipe/build_gas_engine` (iron, a little copper,
+      timber) and `technique/gas_engine`, which no work tries toward, so only the observer brings
+      it. Held beside a dynamo, an engine that burns a named fuel turns it as a wheel does
+      (ADR-0036 §2, §7): its rating counts toward the station's shaft for as long as the fuel it
+      holds lasts an evening at its efficiency (3.6 / (MJ η) kg a kWh), so a station may stand
+      where no water falls; after the evening's dispatch, the shaft the current sent (losses
+      included) took beyond the station's installations is burned from its fuel. An engine that
+      names a fuel is not set at a pit, nor weighed for one: pits keep the engines that burn any
+      fuel by its heat. A station's page names its engine. **Tested:** 2.4 kW of current took 3
+      kW of shaft and the inverse holds across a dynamo's range; the core's gas engine burns coal
+      gas and the atmospheric engine names none; a named fuel that is no good is E2006 and one on
+      a wheel is refused; a household with a dynamo and no water hooks nothing up until it holds
+      a gas engine and gas, then is lit at the evening, its 0.2 kW for four hours burning exactly
+      0.75 kg of gas, and out of gas its station is short. **Not built:** who wants a gas engine
+      (nobody makes one unasked yet), and an engine set at a pump or a mill.
+    - *M11b, second part (2026-10-29): the motor vehicle.* A cart may carry an `[engine]` (content
+      API 205; ADR-0036 §7; research 07-13 §1.5–§1.6, §5.3 C06): its puller is then its engine,
+      its wheels' speed its `power_w` over the pull its load needs on the way's roughness and
+      grade, no faster than its engine's top speed rather than a walker's pace, going only where
+      a cart goes (a way as wide as it is, never open ground). A trip burns its fuel by the hours
+      its engine runs at its power, over its efficiency and the fuel's heat; an errand by motor
+      cart pays that fuel at the household's own cost of it in its reckoning (one it can put no
+      figure on rules the motor cart out), a household without the trip's fuel cannot take it,
+      and the fuel is burned at the seller's door. `vehicle/road_engine` (6 kW, 2.2 m/s at most,
+      6 t carrying 4 t, 2 m wide, coal at 5 %; design priors of a mid-century traction engine)
+      and `technique/road_engine`, which no work tries toward, so only the observer brings it.
+      **Tested:** along a way serving carts between two doors, a handcart goes with no fuel; the
+      road engine goes nowhere without coal, nor with less than the trip burns, and with it goes
+      quicker than the handcart, its coal exactly 3.6 x its power's kWh over 25.8 MJ x 5 %;
+      burned at the seller's door; a cart with an engine loads and a boat with one is refused.
+      **Not built:** choosing between kinds of cart: a household weighs making only the first
+      cart in the catalogue it could make (the handcart sorts before the road engine), so a
+      motor cart is weighed only where no handcart could be made; and a motor cart's wear by
+      use.
+    - *M11b, third part (2026-10-29): road transit.* A household that keeps a motor cart weighs,
+      on its day of the year, posting runs from its door to the hearth of the settlement its own
+      settlement's people ran the most errands to in a year (at least one a month, a design
+      prior), along its cart's way; it posts a run a day there, the fare the run's fuel at its own
+      cost, in kcal of food, shared over the riders it expects a run. A year on it sets its runs a
+      day (up to four) by the rides taken, as many as a run seats each (a rider and what they
+      carry at 100 kg), and its fare by them, and stops where nobody rode or its cart is gone
+      (road lines saved with the runs, appended within the unreleased saves 220). Someone on an
+      errand to that market rides out and back where the walks to and from its ends, half the time
+      between its runs waiting, the rides and the fare in its own hours of food cost it less than
+      walking (a fourth way beside foot, boat and cart, a hand load; saved with the errand); they
+      ride the timetable as a train's riders do, out from the keeper's door and back from the far
+      hearth a run's time and a turn later, in Detailed and household-resolved days alike, paying
+      the fare in food (`Fare`); the cart burns a run's fuel when the first rider of a departure
+      boards, and a run whose keeper lacks it does not go. A rail line's engine is now always a
+      rail vehicle, never a motor cart. **Tested:** no cart, or no errands, no line; posted with
+      a fare; a rider at the station rides to the far end, the fare paid in food, the run's coal
+      burned once for its first two riders, back on the run home burning its own; no coal, no
+      ride; saved and loaded exactly; the cart gone, the runs stop. **Simplified:** riders ride
+      the timetable, not the cart (as on rail); the keeper's driving takes none of its hours.
+      *Its observer (wire 1.109):* the keeper's first building says its runs ("Motor cart runs to
+      Alderwick: 1 a day, leaving at 06:00, back at 07:18; fare 17243 kcal; 3 rides since day
+      59"), and an errand ridden says so. **Observed:** with the road engine's priors (6 kW at
+      5 %) an hour's run burns some 17 kg of coal, so a ride shared by two costs days of food and
+      is seldom worth it beside the walk; that is what the priors give, not tuned.
+    - *Water before the fields (2026-10-29).* The homelab chain's smoke failed on ria_coast seed
+      5 (identity d40b4027d63d10af063b92510d21170b): a household of five had no water at day 30.
+      Bisected to the hearth fix (1452d50), which only moved its days; traced half-hourly, in the
+      sowing window it fetched once a day at dusk, about 45 L against 100 L a day, and sat dry
+      from 05:30 until the next dusk while field work outbid a water shortage capped at its
+      weight. Water that will not last the day now counts twice over, as fuel does, and the last
+      of the light only raises the shortage. **Tested:** a decide test (dry at mid-morning, the
+      water before the fields; a day and a half at home, the fields first), the replayed world,
+      the firewood world of the hearth fix, and the ten smoke worlds.
+      **Scenes reworked:** the homelab chain then failed fifteen scenario tests in eight targets.
+      Measured first (a village of 30, three days half-hourly, before and after): water fetched
+      in 0.4 % and 0.2 % of the samples, stores 0.6 to 1.5 days at home; the day's other work
+      moved by a few points, so the change perturbs and does not crowd out. Each scene now sets
+      what its claim rests on: a band set on taking (a band of five without grievance can give
+      way to one householder, and three raid scenes are about what follows a taking); B's people
+      in both view scenes hold that A does not keep its word as well as that it harms them, and
+      the values the terms bear on as most do (a trespass alone caps warmth near −0.5 by the
+      view's design, too little against a household's gain); both sellers stocked until they
+      offer; the stale-report trip finds every offer dear and is told again daily of the terms it
+      went by, payable in the grain it can spare; the sickhouse scene's household takes smallpox
+      at once, so nobody well is home to tend; the mill scene's people keep what they learned in
+      forty days; the lamp scene looks day by day for making by daylight. Two time bounds are
+      widened: the way is cleared within the year (it reached a tread wide on day 250 before the
+      change, just inside its old 200 days, at the same pace), and the variolator has the
+      fortnight a call stands. One check is narrowed: once a record is written its hours are
+      spent, though the writer may begin the next. No outcome assertion was dropped.
+    - *M11c, first part (2026-10-29): telegraphy as vocabulary.* `technique/telegraphy` (requires
+      writing; no work tries toward it), `good/telegraph_instrument` (a fixed tool: key, sounder
+      and local cells, so the telegraph does not wait for a station; research 07-13 §1.7) and its
+      smith's recipe in copper, iron and timber.
+    - *M11c, second part (2026-10-29): offices and the wire between them.* A good may send by wire
+      (`[telegraph] messages_h`, content API 206; the instrument six an hour, a design prior). An
+      office is a household holding a whole instrument and someone grown of it who can write and
+      knows every technique of a recipe making it, its operator (derived, not saved). On its day
+      of the year an office weighs a wire to each office of another settlement it has none with,
+      as a station weighs a line: routed along ways with leave from its home to the other's,
+      worth a year the fee (a twentieth of a person's day's food a message, a design prior) in
+      its own hours of food for each errand its settlement's people ran to that market in a
+      year (the more of this year's and last year's contacts, bought or not), as though each had
+      asked by wire first; against stringing and conductor at the wire's rates. It begins the
+      best that repays over a wire's life and strings it as its way work; the far office strings
+      none. Telegraph wires are kept with the land's wires (appended within the unreleased saves
+      220) and carry nothing yet. **Tested:** an instrument without a writer is no office; with
+      no errands, or no way between the offices, no wire is reckoned; half the errands, half the
+      worth; the wire begun runs from home to home, is strung only by its office and only from
+      its copper, and saves and loads exactly. **Simplified:** the wire is the `[wire]` profile's
+      copper conductor, not a telegraph's iron.
+    - *M11c, third part (2026-10-29): telegrams.* At its review, a household that plans an errand
+      to another settlement's market, where an office of its own settlement is joined by a whole
+      wire to an office of the market's, asks by wire what is offered there first where the
+      chance its trip finds nothing to buy (its settlement's trips there this year and last that
+      bought nothing, of all, each kind counted from one) times the walk there and back is worth
+      more than the fee in its own hours of food, and it holds the fee. Handed in, it pays the
+      office the fee in food (an appended `Telegraph` channel) and waits in its operator's queue:
+      one message every sixty over its messages an hour minutes, in the order handed in, while
+      the office is kept (eight to eight, a design prior); sent, it waits in the far operator's;
+      answered, the answer is what the market's sellers offer as they stand, told by that
+      operator, walked from the near office to the household's home. Delivered, the household
+      holds each offer as a report told by that operator (ADR-0036 §8: what carriers carry, by
+      the existing paths), and lets its errand go where nothing it meant to fetch from its
+      seller is offered. It sets out on its errand only once answered, or after two days. A
+      telegram whose offices or wire are gone is lost, the fee kept. Telegrams are saved with
+      the price reports (appended within the unreleased saves 220) and their steps are agent
+      events (an appended event kind). **Tested:** no wire, or one being strung, no asking; asked
+      once only; the fee paid in food; sent within the office's hours, queued at the far office,
+      answered with the seller's offer as it stands told by its operator on the day answered,
+      delivered as a report; the errand kept where the seller still offers, let go where not;
+      lost with the wire down; saved and loaded exactly. **Simplified:** the operators' hours are
+      not taken from their households' days; the walk to hand one in is folded into the fee; the
+      far office answers unpaid; a polity's word does not yet go by wire. *Since (2026-10-29):*
+      the answer also carries the word the far operator has heard of the market's settlement that
+      is still news by the hearth's rule, and each of the asking household's people hears it as
+      told by that operator (saved with the telegram). **Tested:** a fire the far operator heard
+      of is heard by every member of the asking household, from that operator.
+    - *M11c, fourth part (2026-10-29): the observer of the telegraph; M11c done as far as
+      ADR-0036 §8 takes it.* Wire 1.108: the ways layer's lines carry telegraph wires too, flagged
+      (`telegraph`), drawn thinner in dark iron, in words ("Telegraph wire of 2400 m from Ada's
+      office to Bran's at Elmhollow, 40% strung." / "..., strung; 1 telegram on it now."); an
+      office's home says it is one ("Telegraph office kept by Ada; 1 wire, 1 telegram in its
+      queue"); a household's errand says when it waits on an answer by telegraph and where it
+      asked. **Tested:** kernel (the layer's flag, share strung and words, its revision moving as
+      a wire is strung, the office's and the errand's words) and web (decoding the flag, the
+      look).
+    - *M11, wanted where they could be set (2026-10-29).* The dynamo, the gas engine and the
+      telegraph instrument were never wanted (`per_worker` 0), so in a lived world nobody made
+      them and stations and offices came only from goods handed over. Like a water wheel, each is
+      now wanted one at a time (`per_worker` 0.1) only where it could be set: a dynamo where its
+      household knows how one is made and a ready installation of its own, or a gas engine it
+      holds whole, could turn it; a gas engine where it knows how one and a dynamo are made, has
+      no water of its own and holds the gas it burns; an instrument where it knows how one is
+      made, someone of it writes, and someone of another settlement knows the technique, a far
+      office to be. Nobody knows these techniques unless the observer brings them, so a world
+      without them lives as before. **Tested:** each want appears only with its last condition
+      met.
+    - *M11d, first part (2026-10-29): the demo's example.* civ-sim's `m11_world` founds several
+      groups apart, and on the first day the observer gives one person of every other settlement
+      the M11 vocabulary (dynamo, gas engine, road engine, telegraphy) and what it stands on
+      (water wheels, metals and copper, lamps and gas, letters, the wheel), logged; the rest are
+      the control. It lives the world at Max and prints, each year and settlement, who knows any
+      of it, dynamos, stations, lines of current strung, homes hooked up and lit, gas engines,
+      telegraph offices and wires, telegrams waiting, motor carts and the lay-current law in
+      force, with what has been paid by the meter and in telegram fees; then the M11 laws
+      proposed, whether the control took any of it up, the speed, and a save and load. The
+      homelab `demo` suite now chooses the milestone's example (`m11_world` by default).
+      **Checked:** two groups of 30 for a year live, print and save and load (nothing of M11 is
+      built in a year that small; the long run is the homelab's).
+    - *M11d, second part (2026-10-29): what the first long run showed, and the way to iron.* The
+      homelab's run of `m11_world` (run 40804895098, on 32d722f: six groups of 120, eight years
+      at Max, 3.2 s a day, saved and loaded at 925 people) built nothing of M11 anywhere: two to
+      seven knowers in each taught settlement, no dynamo, office, wire, gas engine or motor cart,
+      no M11 law; the controls as founded. Traced in a small world with a new line in the record
+      (*the way there*: households knowing any of it that want a dynamo, a gas engine or a
+      telegraph instrument, what they hold of copper ore, copper, iron ore and iron and keep of
+      the last two, coal gas, and the water installations owned there): an office to be wanted
+      its instrument from the first year and held its copper, but kept iron and never iron ore.
+      Two faults: **the demos' vocabulary lacked charcoal burning**, which every bloom is
+      smelted and every bar forged with (M10's demo too, which set no engine in eleven years; both
+      now teach it); and **a tool's makings were walked only two steps back**, so bar from bloom
+      from ore was no way anyone could work, and a gathered material counted only from a patch
+      already worked. A household now keeps, brings and makes a lacking tool's materials, and
+      weighs whether it can work a way, as many as three steps back (bar, bloom, ore and
+      charcoal, wood), as far as it is short at each and knows how; a material some gathering it
+      can do brings counts as one it can get, since gathering searches for any place of its kind.
+      **Tested:** an office to be short of its instrument's iron keeps no ore while it cannot
+      make charcoal, and keeps the bloom and 80 kg of bog ore once it can; the iron, metal, coal,
+      works, telegraph, wires and firms targets pass unchanged. **Checked small** (four groups of
+      30, three years): a taught settlement gathers bog ore and smelts and forges its iron, keeps
+      1,879 kg of ore toward a dynamo once its water installation stands, and copper, dug only at
+      a deposit its settlement knows, is what it waits on now. The long run is the homelab's.
+    - *M11d, third part (2026-10-29): the second long run, and prospecting.* The homelab's run on
+      5727ef1 (run 40840541556; eight years, 3.0 s a day, saved and loaded at 927 people) smelted
+      and forged iron in all three taught settlements from the first year, each holding the eight
+      kilograms its instrument wants, and found no copper anywhere in eight years: none held, no
+      ore. The record now also says, at the founding, where each taught settlement's nearest
+      body of copper ore lies: Thorndale's 3.5 km off and showing, Sedgehollow's 1.7 km and
+      buried (its nearest showing one 2.2 km), Stonefield's 0.5 km and showing, which nobody passed
+      in eight years, as a body is found only when a walk happens near it. Households now prospect (§9 NUDGE): one short of a dug
+      material for a tool, knowing no body of it in reach and having worked no patch where it is
+      gathered, walks a loop over the slope such bodies lie on, through a place drawn each day
+      and the day's draw farthest from it. **Tested:** an office to be short of copper, whose
+      settlement knows none, finds an outcrop on ground it searches; the same household without
+      the want does not go, and nobody else passes it in thirty days. Traced on the demo's own
+      world (not long-run): Stonefield's people prospect, but its homes lie at the map's edge, so
+      only 101 days a year draw copper ground within reach, and no day's loop passes its
+      outcrop; finding a body of ten or twenty metres by search stays rare, as it was. The
+      deposit, digging, coal, metal, iron, works and telegraph targets pass. The homelab chain
+      (run 39) then failed seven targets: households of the early worlds went prospecting for a
+      tool's own stone or wood. Prospecting is now only for what a tool's material is made of
+      (ore for its metal); the seven targets and the telegraph target pass again.
+    - *M11e, first part (2026-10-30): cement, steel and rolling* (ADR-0037 §2). Content alone:
+      goods `cement_clinker`, `portland_cement`, `steel`, `steel_section` and `reinforcing_bar`;
+      fixed tools `converter` (a crew of three) and `rolling_mill` (four), each with its building
+      recipe; recipes `burn_clinker` (1.3 kg of stone and 0.4 of clay a kilogram, 200 kg of coal a
+      kiln of a tonne, a three-day burn), `grind_cement` (0.04 kWh a kilogram at a wheel),
+      `make_steel` (1.15 kg of pig, 0.1 kWh) and `roll_sections` and `roll_bar` (1.05 kg of steel and
+      0.3 of coal, 0.15 kWh); techniques `portland_cement` (tried in burning lime), `steelmaking`
+      (in fining pig) and `rolling` (in making steel), far ones that nobody starts knowing. Figures
+      beyond 11-14 §2.2 are design priors. **Found on the way:** grinding clinker turns on water,
+      so it became a mill's way, and a neighbour's mill was then sought by the first water way
+      whatever it made: grinding at a neighbour's for a toll now looks only at ways that make a food,
+      and a household weighing a mill of its own compares it with a neighbour's by the way it would
+      grind. In a world without cement both are what they were. **Tested:** the chain sits in
+      11-14 §2.2's envelopes (1.7 kg of raw a kilogram of clinker; 5.6 GJ a tonne), nobody starts
+      knowing it and each technique stands on the works before it, and a works blows pig to steel
+      only with three at the converter and rolls sections only with four at the mill, at the
+      recipes' figures; the mills target passes again.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 
@@ -7761,6 +8232,33 @@ and M6a gives rivers a daily flow.
 
 ## 9. Decisions log
 
+- **ADR-0036 accepted (2026-10-30, PR #22): Decided by Claude under standing owner authority
+  (2026-10-30).** Status Proposed to Accepted, with an "as built" amendment: dispatch by the evening,
+  not the hour; power by wire to recipes not built; an office is a household holding an instrument;
+  the gas engine burns coal gas; road transit as a motor cart's posted runs. Reason: M11a–M11c were
+  built on it and green on the homelab chain, and every departure is recorded with why.
+- **M10's bench clause (2026-10-30, PR #21; ADR-0028 §1): Decided by Claude under standing owner
+  authority (2026-10-30).** The amended clause is accepted: worlds with a Detailed settlement within
+  20 % of M9 on the gate's bench, household-resolved worlds and M9's 100k workload within 10 %.
+  Reason: ADR-0028 §1's own rule (profile, cut what can be cut exactly, then amend to the figure
+  reached) was followed, the three exact cuts left M10 at about 1.15× and 1.17× M9 where a
+  settlement is Detailed and within 10 % elsewhere, and the ADR's revisit line (a fifth more a
+  person-day) is not crossed.
+- **Design priors for prospecting (2026-10-29, M11d's third part, ADR-0010 §1):** NUDGE: a
+  household short of a dug material that a tool's material is made of (ore for its metal, never the
+  tool's own stone or wood), whose settlement knows no body of it within reach
+  and which has worked no patch where it is gathered, may send someone on a walk over ground of the
+  slope the land profile lays such bodies on: out to a place drawn that day within the digging
+  activity's walk, across to the day's draw farthest from it, and home (32 draws, nothing
+  remembered of where they looked). The walk is worth one load of what is short
+  (`PROSPECT_HOPE` 1.0: a found body gives many loads and a day's search finds one with well under
+  certainty), less its walking; nothing is dug, and a body is found as on any walk, when the route
+  passes within 50 m of a showing one. None of it is measured; the research gives no figure for how
+  often prospecting found an outcrop. Revisited when a demo shows a settlement that wants copper
+  and never finds any within a day's walk where bodies lie.
+- **M11's modern architecture and waste designed (2026-10-30, plan §7; research 11-14 and 12-10, written for it; brief `docs/briefs/m11-building-waste.md`; [ADR-0037](decisions/0037-frames-of-steel-and-concrete.md), [ADR-0038](decisions/0038-refuse-tips-and-residues.md)):** Decided by Claude under standing owner authority (2026-10-30). The owner asked for the research, ADRs and build to be done without asking. **Construction:** cement, steel and rolling as recipes on M10's chain; frame version 4 beside frozen 1–3 (12 storeys at most) with a steel skeleton and a reinforced-concrete frame, each storey's enclosure carried by the frame; steel's and concrete's own checks, concrete's strength by its age; bare steel weakening in a full burn. *Reason:* a frozen new version reuses v3's assembly and checks, as v3 was added beside v1 and v2; the report's separate `tower` grammar would duplicate them. **Deferred:** lifts, wind and letting storeys (the reason anyone builds tall; a residence change needing its own design), glass. Most lived worlds will build no frame; that is a correct outcome, not a reason to nudge. **Waste:** the heap gains an inert ash share fed by fuel's `ash_share`; recipes keep their residues (tar, liquor, slag) as goods so mass closes; tips as site records on the contamination links; `refuse_to_tip`; a firm's refuse round paid per call on a `Refuse` channel; a destructor as an engine burning refuse. *Reason:* mass conservation (12-02 §5.2) and refuse following fuel (12-10 §1.1) are the reports' central findings; sewers wait for a sewer design. The research reports were written from web sources, several read only as search summaries; each marks those figures, and none is load-bearing here without a design prior's label.
+- **M11 design (2026-10-28, plan §7, proposed):** from two briefs (`docs/briefs/m11-power.md`, `m11-movement.md`), which read 07-13 and 12-09 against the code, [ADR-0036](decisions/0036-electricity-and-the-telegraph.md), Proposed. Electricity stands on M10's machinery (power at a site, engines, mains with connections, the meter, light): radial, direct current at one voltage, dispatched by the served hour, service records and no bonus for a connection; far techniques (AC, turbines, nuclear, photovoltaics) left to the observer. Engines are components, motor vehicles are timed by power over pull, transit reuses runs, and a telegraph's messages enter the existing hearing paths. Modern architecture and waste wait for research. Accepted only when the owner merges it.
+- **2026-10-28 — Autonomous development on a VM (owner request):** an agent on a dedicated servernode3 VM (official Agent SDK, API credits, a fixed total budget; two Rust workers) continues the plan in order without a prompt per slice. It has repository-scoped GitHub access (2026-10-28: "continue autonomously ... until the $100 budget is spent", a lifetime ceiling); it pushes only `codex/*` branches and opens pull requests on this repository; main is merged by the owner alone. It never force-pushes, deletes branches, releases, or changes access, secrets, billing or runners. Benchmarks compare revisions on one machine and allocation (`tools/ci/bench-compare.sh`).
 - **2026-10-22 — Optional Actions capacity (owner request):** add an isolated Ubuntu runner VM on servernode4 with shared `tce-ci`, automatic guest/service startup, and explicit `node4` dispatch. Keep it outside the default permanent health matrix and scheduled `tce-long` work; GitHub routes pooled jobs to available runners. Drain before shutdown or switching to Windows.
 
 One line each. Don't re-litigate without a reason written next to the entry.

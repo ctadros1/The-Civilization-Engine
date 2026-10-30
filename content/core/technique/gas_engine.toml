@@ -1,0 +1,17 @@
+# The gas engine (M11b, first part; ADR-0036 §2: a far technique of its age, as the dynamo is). No
+# work tries toward it, so only the observer brings it into a world; what follows from it is
+# people's choice.
+kind = "technique"
+id = "core:technique/gas_engine"
+name = "The gas engine"
+can = "build an engine that turns a shaft by burning gas inside it"
+domain = "core:skill/smithing"
+requires = [["core:technique/forging"]]
+tried_in = []
+needs = []
+e50_h = 400000.0                 # unused while no work tries toward it
+learn_h = 400.0
+upbringing = true
+
+[answers]
+spoilage = []

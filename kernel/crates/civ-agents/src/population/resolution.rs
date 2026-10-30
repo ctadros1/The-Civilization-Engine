@@ -609,10 +609,13 @@ impl Population {
                                 company.push((m, minutes, (minutes / session.max(1)).max(1)));
                             }
                             // Each repetition is enacted now, its making's dark minutes
-                            // counted to when it would have ended in the day.
+                            // counted to when it would have ended in the day: within its part, as
+                            // its block is, so an afternoon's making that its shares round past
+                            // sunset burns no lamp the observer is not shown.
                             let each = lasts / f64::from(reps.max(1));
                             for k in 0..reps {
-                                let ends = start + (each * f64::from(k + 1)).round() as i64;
+                                let ends =
+                                    (start + (each * f64::from(k + 1)).round() as i64).min(to);
                                 self.enact_end = Some(midnight.plus_minutes(ends));
                                 self.enact(ctx, h, cand, part.site, &hh);
                             }

@@ -1,0 +1,16 @@
+# Rolling steel into beams and columns: reheated on 0.3 kg of coal a kilogram and passed through the grooved
+# rolls, 1.05 kg of steel a kilogram (the rest crops and scale), 0.05 hours of the crew's work and
+# 0.15 kWh of the wheel's a kilogram (design priors; research 11-14 §2.2).
+kind = "recipe"
+id = "core:recipe/roll_sections"
+name = "Roll steel sections"
+skill = "core:skill/smithing"
+technique = "core:technique/rolling"
+unit_h = 0.05
+session_h = 0.0
+max_units = 0.0
+kwh_per_unit = 0.15
+tools = ["core:good/water_wheel", "core:good/rolling_mill"]
+inputs = [{ good = "core:good/steel", amount = 1.05 }, { good = "core:good/coal", amount = 0.3 }]
+outputs = [{ good = "core:good/steel_section", amount = 1.0 }]
+session_inputs = []

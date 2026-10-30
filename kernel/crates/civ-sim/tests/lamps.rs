@@ -134,52 +134,59 @@ fn a_household_resolved_day_burns_tallow_only_for_making_after_dark() {
         x.stores[lamp] = 1.0;
         x.stores[tallow] = 10.0;
     }
-    let before: Vec<(PermanentId, f64)> = sim
-        .people()
-        .households
-        .iter()
-        .map(|(_, x)| (x.id, x.stores[tallow]))
-        .collect();
-    sim.advance_minutes(1440).expect("advances");
-    let day = sim.now();
-    let catalog = &sim.rules().catalog;
-    let latitude = sim.rules().people.latitude_deg;
-    let sun = civ_agents::needs::daylight(latitude, civ_land::day_of_year(day.day_index()));
-    let by_lamp = |def: u16| {
-        catalog.activities.get(usize::from(def)).is_some_and(|a| {
-            a.daylight_only
-                && a.behavior == civ_agents::params::Behavior::Make
-                && a.max_walk_minutes == 0
-        })
-    };
+    // Day by day, the tallow burned is the making after dark, until a day has had making by
+    // daylight too to tell the two apart.
     let (mut lit_day, mut checked) = (0i64, 0usize);
-    for (id, had) in before {
-        let Some(x) = sim.people().household(id) else {
-            continue;
+    for _ in 0..5 {
+        let before: Vec<(PermanentId, f64)> = sim
+            .people()
+            .households
+            .iter()
+            .map(|(_, x)| (x.id, x.stores[tallow]))
+            .collect();
+        sim.advance_minutes(1440).expect("advances");
+        let day = sim.now();
+        let catalog = &sim.rules().catalog;
+        let latitude = sim.rules().people.latitude_deg;
+        let sun = civ_agents::needs::daylight(latitude, civ_land::day_of_year(day.day_index()));
+        let by_lamp = |def: u16| {
+            catalog.activities.get(usize::from(def)).is_some_and(|a| {
+                a.daylight_only
+                    && a.behavior == civ_agents::params::Behavior::Make
+                    && a.max_walk_minutes == 0
+            })
         };
-        // The minutes its members' blocks put them making by lamp after sunset.
-        let mut dark = 0i64;
-        for &m in &x.members {
-            for minute in 0..1440i64 {
-                let Some(b) = sim.people().day_block(m, day.plus_minutes(minute)) else {
-                    continue;
-                };
-                if by_lamp(b.def) {
-                    if minute >= sun.1 {
-                        dark += 1;
-                    } else {
-                        lit_day += 1;
+        for (id, had) in before {
+            let Some(x) = sim.people().household(id) else {
+                continue;
+            };
+            // The minutes its members' blocks put them making by lamp after sunset.
+            let mut dark = 0i64;
+            for &m in &x.members {
+                for minute in 0..1440i64 {
+                    let Some(b) = sim.people().day_block(m, day.plus_minutes(minute)) else {
+                        continue;
+                    };
+                    if by_lamp(b.def) {
+                        if minute >= sun.1 {
+                            dark += 1;
+                        } else {
+                            lit_day += 1;
+                        }
                     }
                 }
             }
+            let burned = had - x.stores[tallow];
+            let expected = dark as f64 / 60.0 * 0.008;
+            assert!(
+                (burned - expected).abs() <= 0.002 + 0.1 * expected,
+                "household {id:?} burned {burned} kg for {dark} minutes after dark"
+            );
+            checked += 1;
         }
-        let burned = had - x.stores[tallow];
-        let expected = dark as f64 / 60.0 * 0.008;
-        assert!(
-            (burned - expected).abs() <= 0.002 + 0.1 * expected,
-            "household {id:?} burned {burned} kg for {dark} minutes after dark"
-        );
-        checked += 1;
+        if lit_day > 0 {
+            break;
+        }
     }
     assert!(checked > 0, "no household lived the day");
     assert!(
@@ -388,7 +395,7 @@ fn the_observer_counts_lit_homes_and_says_who_works_by_lamplight() {
         sim.people().lit_homes(
             &sim.rules().catalog,
             &sim.rules().people,
-            &sim.land().gas,
+            sim.land(),
             sim.now(),
         )
     };

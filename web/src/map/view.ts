@@ -26,7 +26,19 @@ import { Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js
 import { buildingAt, buildingMarks, type Mark } from "../buildings.js";
 import { homeAt, lensMarks, placeAt, type LensLayer } from "../coverage.js";
 import { crossingAt, crossingEnds, crossingLook } from "../crossings.js";
-import { lampAt, lampLook, lineLook, mainAt, mainLook, STATION_COLOUR, stationEnds, wayAt, wayLook } from "../ways.js";
+import {
+  currentAt,
+  currentLook,
+  lampAt,
+  lampLook,
+  lineLook,
+  mainAt,
+  mainLook,
+  STATION_COLOUR,
+  stationEnds,
+  wayAt,
+  wayLook,
+} from "../ways.js";
 import { vehicleAt, vehicleLook, vehiclePosition } from "../vehicles.js";
 import {
   BUILT_COLOUR,
@@ -55,6 +67,7 @@ import {
   type CoverageInfo,
   type CrossingInfo,
   type CrossingsInfo,
+  type CurrentLineInfo,
   type GasMainInfo,
   type StreetLampInfo,
   type WayInfo,
@@ -135,6 +148,8 @@ export interface PointerInfo {
   /** The gas main and the street lamp under the pointer, if any (M10b slice DY). */
   main: GasMainInfo | null;
   lamp: StreetLampInfo | null;
+  /** The line of current under the pointer, if any (M11a). */
+  current: CurrentLineInfo | null;
   /** The boat or cart under the pointer, if any (M8b slice CP). */
   vehicle: VehicleInfo | null;
   /** The plan under the pointer and which of its layers, if any (M8c slice CT). */
@@ -287,6 +302,7 @@ export class MapView {
   private ways: WayInfo[] = [];
   private mains: GasMainInfo[] = [];
   private lamps: StreetLampInfo[] = [];
+  private currents: CurrentLineInfo[] = [];
   private vehicles: VehicleInfo[] = [];
   private wayScale = 0;
   private readonly plansLayer = new Graphics();
@@ -416,6 +432,7 @@ export class MapView {
     this.ways = [];
     this.mains = [];
     this.lamps = [];
+    this.currents = [];
     this.waysLayer.clear();
     this.plans = [];
     this.plansLayer.clear();
@@ -604,6 +621,7 @@ export class MapView {
     this.ways = info?.ways ?? [];
     this.mains = info?.mains ?? [];
     this.lamps = info?.lamps ?? [];
+    this.currents = info?.currents ?? [];
     this.drawWays();
     if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
   }
@@ -611,7 +629,8 @@ export class MapView {
   /** Each stretch of a way along its centre line at its usable width, never thinner than about two
    * pixels, so a lane shows at any zoom. A line of track is drawn as its bed, with two rails at its
    * gauge once it is all laid. Over them, each gas main along its route, never thinner than a pixel,
-   * and each street lamp as a dot, haloed while it burns (M10b slice DY). */
+   * and each street lamp as a dot, haloed while it burns (M10b slice DY); and each line of current
+   * along its route (M11a). */
   private drawWays(): void {
     const g = this.waysLayer;
     g.clear();
@@ -660,6 +679,14 @@ export class MapView {
       const look = mainLook(m);
       g.moveTo(first[0], first[1]);
       if (rest.length === 0) g.lineTo(first[0] + 0.01, first[1]);
+      for (const [x, y] of rest) g.lineTo(x, y);
+      g.stroke({ width: Math.max(look.widthM, pxM), color: look.colour, alpha: look.alpha, cap: "round", join: "round" });
+    }
+    for (const c of this.currents) {
+      const [first, ...rest] = c.points;
+      if (!first || rest.length === 0) continue;
+      const look = currentLook(c);
+      g.moveTo(first[0], first[1]);
       for (const [x, y] of rest) g.lineTo(x, y);
       g.stroke({ width: Math.max(look.widthM, pxM), color: look.colour, alpha: look.alpha, cap: "round", join: "round" });
     }
@@ -1312,6 +1339,7 @@ export class MapView {
       way: wayAt(this.ways, xM, yM, 3 / this.scale),
       main: mainAt(this.mains, xM, yM, 3 / this.scale),
       lamp: lampAt(this.lamps, xM, yM, 4 / this.scale),
+      current: currentAt(this.currents, xM, yM, 3 / this.scale),
       vehicle:
         this.vehicles.length > 0 ? vehicleAt(this.vehicles, this.positionsById(), xM, yM, 6 / this.scale) : null,
       plan: planAt(this.plans, xM, yM),
@@ -1339,7 +1367,7 @@ export class MapView {
         this.drawTrails();
       }
       if (
-        (this.ways.length > 0 || this.mains.length > 0 || this.lamps.length > 0) &&
+        (this.ways.length > 0 || this.mains.length > 0 || this.lamps.length > 0 || this.currents.length > 0) &&
         Math.abs(Math.log(scale / this.wayScale)) > 0.15
       ) {
         this.drawWays();
@@ -1598,6 +1626,8 @@ export class MapView {
       // M10b slice DY: gas mains, their share laid and homes lit, and street lamps burning.
       mains: this.mains.map((m) => ({ id: m.id, laid: m.laid, homes: m.homes, lit: m.lit, words: m.words })),
       lamps: this.lamps.map((l) => ({ x: l.x, y: l.y, lit: l.lit, words: l.words })),
+      // M11a: lines of current, their share strung and homes lit.
+      currents: this.currents.map((c) => ({ id: c.id, laid: c.laid, homes: c.homes, lit: c.lit, words: c.words })),
       // M5c slice AW: crossings over water, where each lies and how far along it is.
       crossings: this.crossings.map((c) => ({
         x: (c.ax + c.bx) / 2,

@@ -94,6 +94,11 @@ fn a_household_that_grinds_by_hand_sets_a_mill_where_a_race_falls_and_turns_it_o
             "core:technique/jointed_frame",
             "core:technique/water_wheel",
         ] {
+            // What they came to know in the village's forty days they keep.
+            let i = sim.rules().catalog.technique_index(t).expect(t);
+            if sim.people().person(who).is_some_and(|p| p.knows(i)) {
+                continue;
+            }
             sim.introduce_technique(who, t, false).expect("introduced");
         }
     }
@@ -262,6 +267,34 @@ fn a_household_grinds_at_a_neighbours_mill_for_its_toll_and_builds_none_of_its_o
     let params = sim.rules().land.clone();
     let kw = sim.land().installation_kw(&params, 0);
     assert!(kw > 0.0, "the river turns the wheel");
+    // M11a, second part (ADR-0036 §2): the wheel's shaft gives no current without a dynamo, and
+    // 80 % of its power, up to 10 kW, with one whole dynamo set beside it.
+    assert_eq!(
+        sim.with_ctx_for_tests(|pop, ctx| pop.electric_kw(ctx, owner)),
+        0.0
+    );
+    let dynamo = sim
+        .rules()
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/dynamo")
+        .expect("the dynamo");
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == owner {
+            x.stores[dynamo] = 1.0;
+        }
+    }
+    let current = sim.with_ctx_for_tests(|pop, ctx| pop.electric_kw(ctx, owner));
+    assert!(
+        (current - (0.8 * kw).min(10.0)).abs() < 1e-9,
+        "{current} of {kw}"
+    );
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == owner {
+            x.stores[dynamo] = 0.0;
+        }
+    }
     // The observer sees the mill on the water layer, its power today and whose it is (wire 1.97).
     assert_ne!(civ_sim::frames::water::water_rev(&sim), 0);
     let payload = civ_sim::frames::water::water_response(&sim);

@@ -957,6 +957,17 @@ fn block_near_home(seed: u64, gap_m: f32, wind_ms: f32) -> (Sim, Sim, Vec<Perman
     // Hold scheduling tie-breaks fixed: this is a controlled response fixture, not a sample
     // of worlds with random identities. Ordinary simulations remain free to vary.
     let mut sim = Sim::create_for_tests(&world_spec(seed), content(), [7; 16]).expect("generates");
+    // An ordinary morning: every household has a few days' firewood at home, so nobody's day
+    // begins with the founding band's run for wood.
+    let firewood = content()
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/firewood")
+        .expect("firewood");
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        x.stores[firewood] = 30.0 * x.members.len() as f64;
+    }
     sim.advance_minutes(6 * 60).expect("advances");
     let (household, home) = first(&sim);
     let step = hut_span_m() + gap_m;

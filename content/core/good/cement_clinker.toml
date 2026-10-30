@@ -1,0 +1,13 @@
+# Cement clinker: limestone and clay burnt together hotter than lime is, until they sinter into
+# hard nodules (research 11-14 §1.7, §2.2; ADR-0037 §2). It must be ground to be cement. Weighed by
+# the kilogram. It keeps.
+kind = "good"
+id = "core:good/cement_clinker"
+name = "Cement clinker"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

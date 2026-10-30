@@ -1,0 +1,21 @@
+# A converter: a pear-shaped vessel of iron plate lined with refractory stone, tilted on trunnions,
+# through whose charge of molten pig air is blown until most of its carbon burns out (research
+# 11-14 §1.7, §2.2; ADR-0037 §2). Three at it together: one at the blast and tilt, two to charge and
+# pour (a design prior). It stands where it is built and lasts 20,000 hours of blowing before its
+# lining must be rebuilt (a tuning value).
+kind = "good"
+id = "core:good/converter"
+name = "Converter"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 20000.0
+per_worker = 0.05
+fixed = true
+crew = 3

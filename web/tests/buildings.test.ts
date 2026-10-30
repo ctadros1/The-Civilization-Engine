@@ -69,6 +69,8 @@ function hut(over: Partial<BuildingInfo> = {}): BuildingInfo {
     site: "",
     gas: "",
     records: "",
+    wire: "",
+    road: "",
     ...over,
   };
 }
@@ -256,6 +258,18 @@ describe("buildings on the map", () => {
     });
     expect(buildingWords(dark)).toMatch(/; Gas: 1 burner on Ada's main; not lit on its last evening: the main could not/);
     expect(buildingWords(hut({ stage: 5, roofed: true }))).not.toMatch(/Gas/);
+  });
+
+  it("say how the wire serves them, hooked up to a line or as a station (wire 1.107)", () => {
+    const cut = hut({ stage: 5, roofed: true, wire: "Current: 0.2 kW from Ada's station; cut off: its account went unpaid" });
+    expect(buildingWords(cut)).toMatch(/; Current: 0\.2 kW from Ada's station; cut off: its account went unpaid$/);
+    expect(buildingWords(hut({ stage: 5, roofed: true }))).not.toMatch(/Current/);
+  });
+
+  it("say the runs a motor cart's keeper posts (wire 1.109)", () => {
+    const words = "Motor cart runs to Elmhollow: 1 a day, leaving at 06:00, back at 07:12; fare 210 kcal; 4 rides since day 120";
+    expect(buildingWords(hut({ stage: 5, roofed: true, road: words }))).toMatch(/; Motor cart runs to Elmhollow: .* since day 120$/);
+    expect(buildingWords(hut({ stage: 5, roofed: true }))).not.toMatch(/Motor cart/);
   });
 
   it("glow while they burn, show charred once burnt out, and say so in the readout", () => {

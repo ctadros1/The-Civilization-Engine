@@ -1,0 +1,12 @@
+# Reinforcing bar: rolled steel rod, cast into concrete where a member is in tension (research
+# 11-14 §1.2; ADR-0037 §2, §4). Weighed by the kilogram. It keeps.
+kind = "good"
+id = "core:good/reinforcing_bar"
+name = "Reinforcing bar"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

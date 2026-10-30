@@ -2,8 +2,8 @@
 //! gathers, stores or eats is decided by people at run time.
 
 use civ_agents::params::{
-    Eaten, GoodDef, GoodFire, GoodFuel, GoodHolder, GoodLight, GoodPower, GoodUse, MoneyDef,
-    PowerSource, StoreDef, ToolDef,
+    Eaten, GoodDef, GoodFire, GoodFuel, GoodHolder, GoodLight, GoodPower, GoodTelegraph, GoodUse,
+    MoneyDef, PowerSource, StoreDef, ToolDef,
 };
 use civ_agents::structure::Timber;
 use serde::Deserialize;
@@ -54,6 +54,17 @@ pub(crate) struct GoodFile {
     /// Content API 172 (M10b slice DY): what it holds as a gas holder; only a fixed tool.
     #[serde(default)]
     pub holder: Option<HolderFile>,
+    /// Content API 206 (M11c): what it sends as a telegraph instrument; only a fixed tool.
+    #[serde(default)]
+    pub telegraph: Option<TelegraphFile>,
+}
+
+/// What a telegraph instrument sends (M11c, ADR-0036 §8).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct TelegraphFile {
+    /// Messages its operator sends an hour, above 0 and at most 60.
+    pub messages_h: f64,
 }
 
 /// What a holder keeps (M10b slice DY, ADR-0034 §8).
@@ -91,6 +102,10 @@ pub(crate) struct PowerFile {
     /// The share of its source's power it turns into work, above 0 and at most 1 (research
     /// 07-06 §2.2).
     pub efficiency: f64,
+    /// Content API 204 (M11b, first part): the one good an engine burns, by content id; left out
+    /// for one that burns any fuel by its heat. Only an engine (`fuel`) names one.
+    #[serde(default)]
+    pub fuel: Option<String>,
 }
 
 /// What a good gives burned (M10a slice DP, ADR-0033 §1).
@@ -242,13 +257,15 @@ impl GoodFile {
                 technique: None,
             }),
             power: self.power.as_ref().map(|w| GoodPower {
-                source: if w.source == "fuel" {
-                    PowerSource::Fuel
-                } else {
-                    PowerSource::Water
+                source: match w.source.as_str() {
+                    "fuel" => PowerSource::Fuel,
+                    "shaft" => PowerSource::Shaft,
+                    _ => PowerSource::Water,
                 },
                 rated_kw: w.rated_kw,
                 efficiency: w.efficiency,
+                // Resolved once the goods are known (`civ_content::compile`).
+                fuel: None,
             }),
             light: self.light.as_ref().map(|l| GoodLight {
                 // Resolved once the goods are known (`civ_content::compile`).
@@ -260,6 +277,9 @@ impl GoodFile {
                 // Resolved once the goods are known (`civ_content::compile`).
                 good: None,
                 kg: h.kg,
+            }),
+            telegraph: self.telegraph.as_ref().map(|t| GoodTelegraph {
+                messages_h: t.messages_h,
             }),
         })
     }
@@ -302,9 +322,9 @@ impl GoodFile {
             }
         }
         if let Some(w) = &self.power {
-            if !matches!(w.source.as_str(), "water" | "fuel") {
+            if !matches!(w.source.as_str(), "water" | "fuel" | "shaft") {
                 p.push(format!(
-                    "unknown `power.source` `{}` (known: water, fuel)",
+                    "unknown `power.source` `{}` (known: water, fuel, shaft)",
                     w.source
                 ));
             }
@@ -325,6 +345,9 @@ impl GoodFile {
                     "only a fixed tool delivers power: `[power]` needs `[tool] fixed = true`"
                         .to_owned(),
                 );
+            }
+            if w.fuel.is_some() && w.source != "fuel" {
+                p.push("only an engine names a `power.fuel`: set `source = \"fuel\"`".to_owned());
             }
         }
         if let Some(l) = &self.light {
@@ -348,6 +371,20 @@ impl GoodFile {
             if !self.tool.as_ref().is_some_and(|t| t.fixed) {
                 p.push(
                     "only a fixed tool holds apart: `[holder]` needs `[tool] fixed = true`"
+                        .to_owned(),
+                );
+            }
+        }
+        if let Some(t) = &self.telegraph {
+            if !(t.messages_h.is_finite() && t.messages_h > 0.0 && t.messages_h <= 60.0) {
+                p.push(format!(
+                    "`telegraph.messages_h` must be above 0 and at most 60 (got {})",
+                    t.messages_h
+                ));
+            }
+            if !self.tool.as_ref().is_some_and(|t| t.fixed) {
+                p.push(
+                    "only a fixed tool sends by wire: `[telegraph]` needs `[tool] fixed = true`"
                         .to_owned(),
                 );
             }

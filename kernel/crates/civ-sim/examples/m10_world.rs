@@ -43,10 +43,13 @@ const DAY: i64 = 24 * 60;
 const NAME: &str = "Wheels and Notes";
 
 /// The M10 vocabulary the observer introduces (plan §7, M10): power and the works, rail and gas
-/// light, care and letters. Notes need no technique of their own but writing.
-const VOCABULARY: [&str; 19] = [
+/// light, care and letters. Notes need no technique of their own but writing. Charcoal burning
+/// too, as every bloom is smelted and every bar forged with charcoal (found missing by the M11
+/// demo).
+const VOCABULARY: [&str; 20] = [
     "core:technique/water_wheel",
     "core:technique/water_hammer",
+    "core:technique/charcoal_burning",
     "core:technique/coal_burning",
     "core:technique/coking",
     "core:technique/bloomery",

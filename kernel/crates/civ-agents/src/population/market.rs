@@ -56,6 +56,8 @@ struct CartWay {
     travel_h: f64,
     payload_kg: f64,
     handling_kg_min: f64,
+    /// The fuel a motor cart burns on the trip, by good index and kilograms (M11b, second part).
+    fuel: Option<(usize, f64)>,
 }
 /// Least a food stays good for to be offered, days: food that keeps (grain), not food made to
 /// be eaten soon (bread).
@@ -185,9 +187,12 @@ impl Population {
 
     /// Whether household `hh`, holding `stores`, can work recipe `r` as a way to a tool (M7d
     /// slice CE): someone in it knows its technique, and each input it is short of comes from a
-    /// place it knows (a patch it has worked, a deposit its settlement knows) or is made, by a
-    /// recipe it knows, of inputs it holds or knows where to find. A way it believes cheap but
-    /// cannot get the makings of is no way.
+    /// place it knows (a patch it has worked, a deposit its settlement knows) or one it could
+    /// search out (a gathering it can do, as for bog ore or reeds), or is made, by a
+    /// recipe it knows, of inputs it holds or knows where to find, or makes so in turn, as many
+    /// steps back as it keeps materials ([`MATERIAL_DEPTH`]: bar from bloom, bloom from ore and
+    /// charcoal, charcoal from wood). A way it believes cheap but cannot get the makings of is no
+    /// way.
     pub(crate) fn can_work_way(
         &self,
         ctx: &Ctx,
@@ -211,15 +216,21 @@ impl Population {
                     .any(|d| usize::from(d.body.good) == g && self.knows_deposit(s, d.id))
             })
         };
-        let gets = |g: usize, amount: f64| held(g) >= amount - 1e-9 || found(g);
+        // Or that someone of it could go and gather where such a thing grows or lies, as it
+        // searches for any patch (bog ore, reeds), not only one it has worked.
+        let gathered = |g: usize| {
+            catalog.activities.iter().any(|a| {
+                a.behavior == crate::params::Behavior::Gather
+                    && a.technique.is_none_or(&knows)
+                    && a.resource
+                        .and_then(|r| ctx.land_params.resources.get(r))
+                        .is_some_and(|res| res.good == g)
+            })
+        };
+        let gets = |g: usize, amount: f64| held(g) >= amount - 1e-9 || found(g) || gathered(g);
         r.technique.is_none_or(&knows)
             && r.inputs.iter().all(|&(g, amount)| {
-                gets(g, amount)
-                    || catalog.recipes.iter().any(|m| {
-                        m.technique.is_none_or(&knows)
-                            && m.outputs.iter().any(|&(o, a)| o == g && a > 0.0)
-                            && m.inputs.iter().all(|&(i, a)| gets(i, a))
-                    })
+                gets(g, amount) || makes(catalog, &knows, &gets, g, MATERIAL_DEPTH - 1)
             })
     }
 
@@ -611,7 +622,7 @@ impl Population {
             .collect();
         let knows = |t: usize| self.household_knows(&hh.members, t);
         let mut wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
-        super::cap_power_wants(ctx, hh.id, &mut wants);
+        self.cap_power_wants(ctx, hh, &knows, &mut wants);
         let can_work = |r: &crate::params::RecipeDef| self.can_work_way(ctx, hh, stores, r);
         let costs_once = std::cell::OnceCell::new();
         let costs = || {
@@ -634,25 +645,14 @@ impl Population {
                     .and_then(|r| catalog.recipes.get(r))
             {
                 for &(g, amount) in &r.inputs {
-                    if let Some(k) = keep.get_mut(g) {
-                        *k += amount;
-                    }
-                    // What it makes that material of, as far as it is short of it.
-                    let short = (amount - held(g)).max(0.0);
-                    let made = catalog.recipes.iter().find_map(|m| {
-                        m.outputs
-                            .iter()
-                            .find(|&&(o, a)| o == g && a > 0.0)
-                            .filter(|_| short > 0.0 && can_work(m))
-                            .map(|&(_, a)| (m, a))
-                    });
-                    if let Some((m, per_unit)) = made {
-                        for &(i, a) in &m.inputs {
-                            if let Some(k) = keep.get_mut(i) {
-                                *k += a * short / per_unit;
-                            }
-                        }
-                    }
+                    keep_made_of(
+                        catalog,
+                        &held,
+                        &can_work,
+                        &mut keep,
+                        (g, amount),
+                        MATERIAL_DEPTH,
+                    );
                 }
             }
         }
@@ -853,10 +853,19 @@ impl Population {
                     .get(usize::from(e.good))
                     .is_none_or(|d| !staples.contains(&d.purpose))
             });
+            // Where it could ask by wire what is offered there first, and it is worth the fee
+            // (M11c).
+            let ask = errand.and_then(|e| {
+                self.household(id)
+                    .and_then(|x| self.telegraph_ask(ctx, x, &e, &stores, &costs))
+            });
             if let Some(x) = self.household_mut_by_id(id) {
                 x.offers = rows;
             }
             self.money_refusals(ctx, id, settlement, &spare_money, &money_wanted);
+            if let Some(t) = ask {
+                self.reports.telegrams.insert(id, t);
+            }
             match errand {
                 Some(e) => {
                     self.reports.errands.insert(id, e);
@@ -1235,6 +1244,7 @@ impl Population {
             worth: d.worth,
             by_boat: None,
             by_cart: None,
+            by_ride: None,
         })
     }
 
@@ -1251,6 +1261,16 @@ impl Population {
         seller: PermanentId,
         who: PermanentId,
     ) {
+        // A motor cart burned its fuel getting here and will going home (M11b, second part).
+        if let Some(c) = self
+            .reports
+            .errands
+            .get(&buyer)
+            .filter(|e| e.seller == seller)
+            .and_then(|e| e.by_cart)
+        {
+            self.burn_trip_fuel(ctx, buyer, c);
+        }
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let Some(hh) = self.household(buyer) else {
             return;
@@ -1841,12 +1861,13 @@ impl Population {
             worth: d.worth,
             by_boat: None,
             by_cart: None,
+            by_ride: None,
         })
     }
 
     /// Where `seller`, a household or workshop (`firm`) reported in `market`'s, now sells: its
     /// home, or its owners'. None if it no longer lives there, or the workshop closed.
-    fn seller_home(
+    pub(super) fn seller_home(
         &self,
         seller: PermanentId,
         firm: bool,
@@ -2021,7 +2042,24 @@ impl Population {
             let on_foot = (walk_h * 60.0 <= f64::from(fetch.max_walk_minutes))
                 .then(|| priced(carry, 2.0 * walk_h, 0.0))
                 .flatten()
-                .map(|o| (o, None, None));
+                .map(|o| (o, None, None, None));
+            // By a road line's motor cart, out and back (M11b, third part): its walks, waits and
+            // rides against the walk, its fare in the household's own hours of food, a hand load.
+            let by_ride = self.road_legs(ctx, hh, r.market, at, pace).and_then(
+                |(line, _, travel_h, fare_kcal)| {
+                    let per_kcal = super::wires::hours_per_kcal(goods, costs)?;
+                    (travel_h * 30.0 <= f64::from(fetch.max_walk_minutes))
+                        .then(|| priced(carry, travel_h + fare_kcal * per_kcal, 0.0))
+                        .flatten()
+                        .map(|o| {
+                            let ride = crate::reports::ByRide {
+                                line,
+                                travel_min: (travel_h * 60.0) as f32,
+                            };
+                            (o, None, None, Some(ride))
+                        })
+                },
+            );
             // By the household's boat (M8b slice CO, ADR-0029 §3): hours against hours, the
             // whole chain (to the boat, the water both ways, from the landing to the door,
             // handling at each end) against the walk, a boat's load against a hand load.
@@ -2049,16 +2087,22 @@ impl Population {
                             load_min: (units * load_h * 60.0) as f32,
                             unload_min: (units * unload_h * 60.0) as f32,
                         };
-                        ((units, net, share), Some(way), None)
+                        ((units, net, share), Some(way), None, None)
                     })
                 });
             // By the household's cart (M8b slice CP, ADR-0029 §3): the cart pulled empty to the
             // door and loaded back, pushed between each door and the ground it goes on, and
             // each kilogram loaded at the seller's door and unloaded at home.
+            // A motor cart's fuel is paid for too, at the household's own cost of it (M11b, second
+            // part); one it cannot put a figure on rules the motor cart out.
             let wheeled = |w: &CartWay| {
                 let handle_h = 1.0 / (w.handling_kg_min * 60.0);
+                let fuel_h = match w.fuel {
+                    Some((f, kg)) => kg * super::gas::fuel_hours(goods, costs, f)?,
+                    None => 0.0,
+                };
                 (w.travel_h * 30.0 <= f64::from(fetch.max_walk_minutes))
-                    .then(|| priced(w.payload_kg, w.travel_h, 2.0 * handle_h))
+                    .then(|| priced(w.payload_kg, w.travel_h + fuel_h, 2.0 * handle_h))
                     .flatten()
                     .map(|o| (o, handle_h))
             };
@@ -2073,7 +2117,7 @@ impl Population {
                             load_min: (units * handle_h * 60.0) as f32,
                             unload_min: (units * handle_h * 60.0) as f32,
                         };
-                        ((units, net, share), None, Some(way))
+                        ((units, net, share), None, Some(way), None)
                     })
                 });
             // By a boat it could make: the hours it would keep beyond what the walk keeps.
@@ -2085,7 +2129,7 @@ impl Population {
                     .and_then(|v| self.way_by_water(ctx, hh, v, c.bank, at, pace))
                     .and_then(|w| afloat(&w))
             {
-                let walked = on_foot.map_or(0.0, |((u, n, _), _, _)| u * n);
+                let walked = on_foot.map_or(0.0, |((u, n, _), _, _, _)| u * n);
                 gain_h = gain_h.max((units * net - walked) * home_h);
             }
             // By a cart it could make: likewise.
@@ -2097,15 +2141,16 @@ impl Population {
                     .and_then(|v| self.way_by_wheels(ctx, hh, v, at))
                     .and_then(|w| wheeled(&w))
             {
-                let walked = on_foot.map_or(0.0, |((u, n, _), _, _)| u * n);
+                let walked = on_foot.map_or(0.0, |((u, n, _), _, _, _)| u * n);
                 cart_gain_h = cart_gain_h.max((units * net - walked) * home_h);
             }
-            // The way it keeps the largest share by; the walk, then the boat, on a tie.
-            let chosen = [on_foot, by_boat, by_cart]
+            // The way it keeps the largest share by; the walk, then the boat, the cart and the
+            // ride, on a tie.
+            let chosen = [on_foot, by_boat, by_cart, by_ride]
                 .into_iter()
                 .flatten()
                 .reduce(|a, b| if b.0.1 > a.0.1 + 1e-9 { b } else { a });
-            let Some(((units, net, share), way, cart_way)) = chosen else {
+            let Some(((units, net, share), way, cart_way, ride)) = chosen else {
                 continue;
             };
             if best_net.is_none_or(|b| net > b + 1e-9) {
@@ -2122,6 +2167,7 @@ impl Population {
                     day,
                     by_boat: way,
                     by_cart: cart_way,
+                    by_ride: ride,
                 });
             }
         }
@@ -2178,8 +2224,61 @@ impl Population {
         self.way_by_wheels(ctx, hh, v, at).map(|w| (c.id, w))
     }
 
+    /// The way by household `hh`'s cart at its door to `at` and back, as its hours of travel and
+    /// the fuel a motor cart burns on it: for tests.
+    #[doc(hidden)]
+    pub fn cart_way_for_tests(
+        &self,
+        ctx: &Ctx,
+        hh: PermanentId,
+        at: (f32, f32),
+    ) -> Option<(f64, Option<(usize, f64)>)> {
+        let x = self.household(hh)?;
+        self.cart_way(ctx, x, at).map(|(_, w)| (w.travel_h, w.fuel))
+    }
+
+    /// Household `hh` burns the fuel its motor cart's trip `c` takes, as at a seller's door: for
+    /// tests.
+    #[doc(hidden)]
+    pub fn burn_trip_fuel_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        hh: PermanentId,
+        c: crate::reports::ByCart,
+    ) {
+        self.burn_trip_fuel(ctx, hh, c);
+    }
+
+    /// Household `hh` burns the fuel its motor cart's trip `c` takes (M11b, second part): what
+    /// [`crate::params::VehicleDef::trip_fuel`] says for its travel as planned, as far as it holds
+    /// it; nothing for a cart without an engine.
+    fn burn_trip_fuel(&mut self, ctx: &Ctx, hh: PermanentId, c: crate::reports::ByCart) {
+        let goods = &ctx.catalog.goods;
+        let Some((f, kg)) = ctx
+            .land
+            .carts
+            .list
+            .iter()
+            .find(|x| x.id == c.cart)
+            .and_then(|x| ctx.catalog.vehicles.get(usize::from(x.vehicle)))
+            .and_then(|v| v.trip_fuel(goods, f64::from(c.travel_min)))
+        else {
+            return;
+        };
+        let Some(x) = self.household_mut(hh) else {
+            return;
+        };
+        let held = x.stores.get(f).copied().unwrap_or(0.0).max(0.0);
+        let burned = kg.min(held);
+        if burned > 0.0 {
+            x.stores[f] = held - burned;
+            x.flows.add(super::Flow::Used, f, burned);
+        }
+    }
+
     /// The way by a cart of vehicle `v` standing at household `hh`'s door, as
-    /// [`Population::cart_way`] finds it.
+    /// [`Population::cart_way`] finds it; a motor cart (M11b, second part) only where `hh` holds
+    /// the fuel the trip burns.
     fn way_by_wheels(
         &self,
         ctx: &Ctx,
@@ -2198,10 +2297,17 @@ impl Population {
             ctx.land
                 .cart_way(ctx.map, &v.wheels(v.payload_kg, walk), at, hh.home)?;
         let travel_h = (there.seconds + there_legs + back.seconds + back_legs) / 3600.0;
+        let fuel = v.trip_fuel(&ctx.catalog.goods, travel_h * 60.0);
+        if let Some((f, kg)) = fuel
+            && hh.stores.get(f).copied().unwrap_or(0.0) + 1e-9 < kg
+        {
+            return None;
+        }
         Some(CartWay {
             travel_h,
             payload_kg: v.payload_kg,
             handling_kg_min: v.handling_kg_min,
+            fuel,
         })
     }
 
@@ -2260,6 +2366,10 @@ impl Population {
         if hh.settlement == Some(e.market) || ctx.now.day_index() - e.day >= review_days {
             return None;
         }
+        // It waits on the answer to a telegram it asked by (M11c).
+        if self.waits_on_telegram(ctx, hh.id, e.market) {
+            return None;
+        }
         let at = self.seller_home(e.seller, e.firm, e.market)?;
         // By boat (M8b slice CO): only while the boat is still drawn up where it was planned
         // from; its travel as planned, half of it each way.
@@ -2302,6 +2412,19 @@ impl Population {
             }
             None => (walk_min, None),
         };
+        // By a road line (M11b, third part): only while the line still runs; its travel as
+        // planned, half of it each way.
+        let (walk_min, by_ride) = match e.by_ride {
+            Some(r) => {
+                let pace = ctx.params.nav.tobler_ms(0.0);
+                let (line, legs, _, _) = self.road_legs(ctx, hh, e.market, at, pace)?;
+                if line != r.line {
+                    return None;
+                }
+                (f64::from(r.travel_min) / 2.0, Some(legs))
+            }
+            None => (walk_min, None),
+        };
         Some(TradeOption {
             seller: e.seller,
             firm: e.firm,
@@ -2313,6 +2436,7 @@ impl Population {
             },
             by_boat,
             by_cart,
+            by_ride,
         })
     }
 
@@ -2520,6 +2644,135 @@ impl Population {
 
 /// Food a household with `stores` is short of, kcal, and what it keeps of food, kcal: what it
 /// keeps (`keep`, by good) less what it has, by energy.
+/// Whether good `g` is made by a recipe whose technique the household `knows`, of inputs it
+/// `gets` (holds or knows where to find) or makes so in turn, up to `depth` steps further back.
+fn makes(
+    catalog: &crate::params::Catalog,
+    knows: &dyn Fn(usize) -> bool,
+    gets: &dyn Fn(usize, f64) -> bool,
+    g: usize,
+    depth: u32,
+) -> bool {
+    catalog.recipes.iter().any(|m| {
+        m.outputs.iter().any(|&(o, a)| o == g && a > 0.0)
+            && m.technique.is_none_or(knows)
+            && m.inputs.iter().all(|&(i, a)| {
+                gets(i, a) || (depth > 0 && makes(catalog, knows, gets, i, depth - 1))
+            })
+    })
+}
+
+/// What a household short of a tool must bring or make toward it, by good (M7d slice CE): how
+/// much it is short of each material, whether the tool is one its work waits on, and the tool
+/// each material it makes itself is for.
+pub(super) struct MaterialWants<'a> {
+    pub need: &'a mut Vec<f64>,
+    pub blocked: &'a mut Vec<bool>,
+    pub made_for: &'a mut Vec<Option<(usize, f64)>>,
+    /// Whether each good is wanted as what a material is made of (ore for a metal), not as one
+    /// of a tool's own materials (M11d: what a household goes prospecting for).
+    pub raw: &'a mut Vec<bool>,
+}
+
+impl MaterialWants<'_> {
+    /// `amount` of good `g` toward tool `t`, needed `need` (its work waiting on it if `blocked`):
+    /// what it is short of beyond what it holds (`held`), and, where it makes that itself by the
+    /// first recipe it can work (`can_work`), what that is made of in turn, `depth` steps on.
+    pub(super) fn toward(
+        &mut self,
+        catalog: &crate::params::Catalog,
+        held: &dyn Fn(usize) -> f64,
+        can_work: &dyn Fn(&crate::params::RecipeDef) -> bool,
+        (t, need, blocked): (usize, f64, bool),
+        (g, amount): (usize, f64),
+        depth: u32,
+    ) {
+        let short = (amount - held(g)).max(0.0);
+        if let Some(m) = self.need.get_mut(g) {
+            *m += short;
+        }
+        if blocked && let Some(b) = self.blocked.get_mut(g) {
+            *b = true;
+        }
+        if depth == 0 {
+            return;
+        }
+        // A material it makes itself, and what that is made of.
+        let Some((made, per_unit)) = catalog.recipes.iter().find_map(|m| {
+            m.outputs
+                .iter()
+                .find(|&&(o, _)| o == g)
+                .filter(|_| short > 0.0 && can_work(m))
+                .map(|&(_, a)| (m, a))
+        }) else {
+            return;
+        };
+        if per_unit <= 0.0 {
+            return;
+        }
+        if let Some(f) = self.made_for.get_mut(g) {
+            *f = Some((t, need));
+        }
+        let units = short / per_unit;
+        for &(i, a) in &made.inputs {
+            if let Some(r) = self.raw.get_mut(i) {
+                *r = true;
+            }
+            self.toward(
+                catalog,
+                held,
+                can_work,
+                (t, need, blocked),
+                (i, a * units),
+                depth - 1,
+            );
+        }
+    }
+}
+
+/// How many steps back from a tool a household that lacks it keeps what it is made of: the tool's
+/// materials, what those are made of, and so on (bar from bloom, bloom from ore and charcoal,
+/// charcoal from wood), as far as it is short at each step and knows a way to make it.
+pub(super) const MATERIAL_DEPTH: u32 = 3;
+
+/// Keeps `amount` of good `g` toward a tool household lacks, and, `depth` steps on, what it makes
+/// that of as far as it is short of it (`held`), by the first recipe it can work (`can_work`).
+fn keep_made_of(
+    catalog: &crate::params::Catalog,
+    held: &dyn Fn(usize) -> f64,
+    can_work: &dyn Fn(&crate::params::RecipeDef) -> bool,
+    keep: &mut [f64],
+    (g, amount): (usize, f64),
+    depth: u32,
+) {
+    if let Some(k) = keep.get_mut(g) {
+        *k += amount;
+    }
+    if depth == 0 {
+        return;
+    }
+    let short = (amount - held(g)).max(0.0);
+    let made = catalog.recipes.iter().find_map(|m| {
+        m.outputs
+            .iter()
+            .find(|&&(o, a)| o == g && a > 0.0)
+            .filter(|_| short > 0.0 && can_work(m))
+            .map(|&(_, a)| (m, a))
+    });
+    if let Some((m, per_unit)) = made {
+        for &(i, a) in &m.inputs {
+            keep_made_of(
+                catalog,
+                held,
+                can_work,
+                keep,
+                (i, a * short / per_unit),
+                depth - 1,
+            );
+        }
+    }
+}
+
 pub(super) fn food_short(goods: &[GoodDef], keep: &[f64], stores: &[f64]) -> (f64, f64) {
     let food = stock_kcal(stores, goods);
     let food_keep: f64 = goods

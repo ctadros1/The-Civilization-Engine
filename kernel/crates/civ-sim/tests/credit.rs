@@ -63,9 +63,9 @@ fn feed(sim: &mut Sim, h: PermanentId, kg: f64) {
     x.stores[grain] = kg;
 }
 
-/// A village of world 4, lived until a household holds fields: that household, its food gone, is
-/// to borrow; the largest other household, holding 3000 kg of grain, can lend; every other
-/// household holds no more than it keeps.
+/// A village of world 4, lived until a household holds a sown field: that household, its food gone, is
+/// to borrow; the largest other household, holding 3000 kg of grain and every other household's
+/// fields, can lend; every other household holds no food and no field.
 fn village() -> Scene {
     let mut sim = Sim::create_for_tests(
         &NewWorld {
@@ -84,7 +84,7 @@ fn village() -> Scene {
     .expect("generates");
     let grain = sim.rules().catalog.crops[0].good;
     let mut borrower = None;
-    for _ in 0..60 {
+    for _ in 0..120 {
         sim.advance_minutes(DAY).expect("lives");
         let fields = &sim.land().fields;
         borrower = sim
@@ -94,12 +94,16 @@ fn village() -> Scene {
             .map(|(_, h)| h)
             .filter(|h| !h.members.is_empty())
             .map(|h| h.id)
-            .find(|&h| fields.iter().any(|f| f.holder.household() == Some(h)));
+            .find(|&h| {
+                fields.iter().any(|f| {
+                    f.holder.household() == Some(h) && f.stage == civ_land::FieldStage::Sown
+                })
+            });
         if borrower.is_some() {
             break;
         }
     }
-    let borrower = borrower.expect("a household holds fields");
+    let borrower = borrower.expect("a household holds a sown field");
     let mut others: Vec<(usize, PermanentId)> = sim
         .people()
         .households
@@ -110,7 +114,11 @@ fn village() -> Scene {
         .collect();
     others.sort_unstable_by(|a, b| b.cmp(a));
     let lender = others[0].1;
+    // The borrower alone holds fields: any other household's pass to the lender, who has food
+    // to spare and no need to borrow, so no other short household has a harvest to borrow
+    // against however many broke ground on the same day.
     for &(_, h) in &others[1..] {
+        sim.with_ctx_for_tests(|pop, ctx| pop.move_fields_for_tests(ctx.land, h, lender));
         feed(&mut sim, h, 0.0);
     }
     feed(&mut sim, borrower, 0.0);
@@ -338,6 +346,24 @@ fn a_lender_that_would_refuse_lends_with_a_guarantor_who_pays_when_the_debtor_do
         .min()
         .expect("a third household");
     feed(&mut sc.sim, guarantor, 3000.0);
+    // The lender's household trusts the guarantor's, as neighbours long at one hearth do (the
+    // guarantor's worth to it is its regard and what it can spare, ADR-0027 §3), whatever ties
+    // the village's first weeks happened to make.
+    let (tp, today) = (sc.sim.rules().people.ties.clone(), sc.sim.now().day_index());
+    let members = |sim: &Sim, h: PermanentId| {
+        sim.people()
+            .household(h)
+            .map(|x| x.members.clone())
+            .unwrap_or_default()
+    };
+    let (from, to) = (members(&sc.sim, sc.lender), members(&sc.sim, guarantor));
+    let pop = sc.sim.people_mut_for_tests();
+    for &x in &from {
+        for &y in &to {
+            pop.ties
+                .record(x, y, civ_agents::ties::Act::Hearth, 400.0, 0.0, today, &tp);
+        }
+    }
     weigh(&mut sc.sim);
     let (i, c) = loan_of(&sc.sim, sc.borrower);
     let Some(Pledge::Guarantor(g)) = c.pledge else {

@@ -152,6 +152,10 @@ pub(crate) struct TimberFile {
     pub stiffness_gpa: f64,
     pub creep: f64,
     pub sustained: f64,
+    /// Content API 208 (M11e, third part): the share of its strength a bare member keeps once
+    /// its building has burnt out (ADR-0037 §5); absent, it chars as timber (ADR-0022 §5).
+    #[serde(default)]
+    pub burnt_keeps: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -231,6 +235,7 @@ impl GoodFile {
                 sustained: t.sustained,
                 // Timber's weight is the frame's (research 11-08 §2.1); only masonry reads it.
                 density_kg_m3: 760.0,
+                burnt_keeps: t.burnt_keeps,
             }),
             store: self.store.as_ref().map(|t| StoreDef {
                 keeps_kg: t.keeps_kg,
@@ -512,6 +517,13 @@ impl GoodFile {
                 p.push(format!(
                     "`timber.sustained` must be above 0 and at most 1 (got {})",
                     t.sustained
+                ));
+            }
+            if let Some(k) = t.burnt_keeps
+                && !(k.is_finite() && (0.0..=1.0).contains(&k))
+            {
+                p.push(format!(
+                    "`timber.burnt_keeps` must be between 0 and 1 (got {k})"
                 ));
             }
         }

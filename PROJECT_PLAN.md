@@ -8139,6 +8139,20 @@ and M6a gives rivers a daily flow.
       exactly as before and 30 lived days build no version 4 frame; a skeleton workshop saves and
       loads exactly. **Not yet:** fire on bare steel (next), concrete frames, mass infill, more
       than four storeys, lifts, wind, letting storeys.
+    - *M11e, third part (2026-10-30): fire on bare steel* (ADR-0037 §5). A good's `[timber]` table
+      takes `burnt_keeps`, the share of its strength a bare member keeps at a fire's heat
+      (steel sections 0.4: research 11-14 §1.6 and §2.1, about 40 % of yield at 600 °C). Steel does
+      not char. When a building burns out its steel members are weighed at that share by the
+      burn-out check, so whatever cannot carry its load then gives way; a member that stands cools
+      and regains its strength (11-14 §1.6: steel heated below about 600 °C recovers). Timber chars
+      exactly as before. The fire's page says "Its steel softened in the fire to about 40% of its
+      strength; what stood regained it as it cooled". Content API 208. **Tested:** a skeleton
+      workshop's steel does not char, stands unloaded and regains its strength, while its timber
+      rafters char; at the fire's heat each steel member's margin is 0.4 of its sound margin; a
+      timber workshop's burn leaves exactly the conditions it left before; the fire, hazard tools
+      and roundtrip targets pass. **Not yet:** protection by encasement in minutes and the
+      `ProtectedFrame` rule (ADR-0037 §5), which wait for a skeleton anyone builds. **M11e is done**
+      as narrowed: cement, steel and rolling; the steel skeleton; fire on bare steel.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

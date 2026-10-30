@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 207
+kernel_content_api = 208
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -1227,6 +1227,12 @@ fn buildings_check_their_numbers_and_materials() {
             "good/timber.toml",
             timber.replace("sustained = 0.6", "sustained = 1.5"),
             "`timber.sustained`",
+        ),
+        // What bare steel keeps of its strength after a full burn is a share (ADR-0037 §5).
+        (
+            "good/steel_section.toml",
+            real("good/steel_section.toml").replace("burnt_keeps = 0.4", "burnt_keeps = 1.2"),
+            "`timber.burnt_keeps`",
         ),
         (
             "good/grain.toml",

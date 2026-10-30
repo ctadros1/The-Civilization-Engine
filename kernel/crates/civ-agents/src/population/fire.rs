@@ -137,7 +137,8 @@ pub fn plot_boxes(land: &Land) -> FastMap<PermanentId, civ_land::RectCm> {
     land.plots.iter().map(|p| (p.id, p.rect)).collect()
 }
 
-/// The group kinds of timber members that char while a building is fully involved.
+/// The group kinds of timber members that char while a building is fully involved (members of a
+/// material that softens instead do not: ADR-0037 §5).
 fn chars(kind: GroupKind) -> bool {
     matches!(
         kind,
@@ -1688,8 +1689,8 @@ impl Population {
     }
 
     /// Fire `i` burns a minute: its covering goes, and while it is fully involved its timber
-    /// chars, the goods under its roof burn and sleepers inside are caught. Whether it has burnt
-    /// out.
+    /// chars, the goods under its roof burn and sleepers inside are caught; once it has burnt out
+    /// its bare steel keeps only its material's share of its strength. Whether it has burnt out.
     fn burn_minute(
         &mut self,
         ctx: &mut Ctx,
@@ -1719,9 +1720,30 @@ impl Population {
         let involved = |t: f64| (t - p.involve_minutes).clamp(0.0, p.involved_minutes);
         let char = p.char_mm(involved(m)) - p.char_mm(involved(m - 1.0));
         let out = stage == Stage::Out;
+        // Members of a material that softens rather than chars, with the share of their strength
+        // they keep once the building has burnt out (ADR-0037 §5).
+        let softens: Vec<(u32, f64)> = match (def, e.as_ref()) {
+            (Some(d), Some(e)) => e
+                .groups
+                .iter()
+                .filter_map(|g| {
+                    let t = crate::structure::group_timber(&ctx.catalog.goods, d, g)?;
+                    Some((g.id, t.burnt_keeps?))
+                })
+                .collect(),
+            _ => Vec::new(),
+        };
         {
             let b = &mut ctx.land.buildings[bi];
             for c in &mut b.condition {
+                if let Some(&(_, keeps)) = softens.iter().find(|&&(g, _)| g == c.group) {
+                    // Bare steel does not char: burnt out, it keeps `keeps` of what it carried,
+                    // and the load check weighs it so (ADR-0037 §5).
+                    if out {
+                        c.quality = (f64::from(c.quality) * keeps) as f32;
+                    }
+                    continue;
+                }
                 match GroupKind::of_group(c.group) {
                     Some(GroupKind::Covering) => {
                         c.loss = c.loss.max(burnt);
@@ -2138,6 +2160,43 @@ impl Population {
     /// Fire `i` has burnt out: it ends, its household's buildings are weighed against what they
     /// carry now, and the chronicle tells of it, or of its conflagration when that was its last
     /// fire.
+    /// Building `building`'s steel that stood at the fire's heat cools and regains its strength
+    /// (research 11-14 §1.6: steel heated below about 600 °C recovers on cooling; ADR-0037 §5):
+    /// a softened member that did not give way is as strong as before the fire.
+    fn steel_cooled(&mut self, ctx: &mut Ctx, building: PermanentId) {
+        let Some(bi) = ctx.land.buildings.iter().position(|b| b.id == building) else {
+            return;
+        };
+        let b = &ctx.land.buildings[bi];
+        let Some(def) = ctx
+            .catalog
+            .building_index(&b.spec.program)
+            .and_then(|d| ctx.catalog.buildings.get(d))
+        else {
+            return;
+        };
+        let Some(e) = self.expansion_of(b, def) else {
+            return;
+        };
+        let softens: Vec<(u32, f64)> = e
+            .groups
+            .iter()
+            .filter_map(|g| {
+                let t = crate::structure::group_timber(&ctx.catalog.goods, def, g)?;
+                Some((g.id, t.burnt_keeps?))
+            })
+            .filter(|&(_, keeps)| keeps > 0.0)
+            .collect();
+        for c in &mut ctx.land.buildings[bi].condition {
+            if c.state == civ_land::GroupState::Failed {
+                continue;
+            }
+            if let Some(&(_, keeps)) = softens.iter().find(|&&(g, _)| g == c.group) {
+                c.quality = (f64::from(c.quality) / keeps).min(1.0) as f32;
+            }
+        }
+    }
+
     fn burn_out(&mut self, ctx: &mut Ctx, i: usize) {
         let now = ctx.now;
         let (building, household, episode, settlement) = {
@@ -2159,10 +2218,12 @@ impl Population {
         self.households_remember_fire(ctx, i);
         // The records kept in it burned with it (M10c slice EC, second part).
         self.records_burned(ctx, building);
-        // What the fire left is weighed now: charred posts and beams may give way.
+        // What the fire left is weighed now: charred posts and beams, and steel softened at the
+        // fire's heat, may give way.
         if ctx.land.buildings.iter().any(|b| b.id == building) {
             self.buildings_changed(now, ctx.land, ctx.catalog, ctx.params, household);
             self.check_household(ctx, household, 0.0);
+            self.steel_cooled(ctx, building);
         }
         let f = self.fires.list[i].clone();
         let words_of = |me: &Self, ctx: &Ctx, building: PermanentId| -> String {

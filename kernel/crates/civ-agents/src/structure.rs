@@ -60,6 +60,9 @@ pub struct Timber {
     pub sustained: f64,
     /// A cubic metre's weight, kilograms: what a mass wall above weighs (frame version 3).
     pub density_kg_m3: f64,
+    /// The share of its strength a bare member keeps once its building has burnt out (ADR-0037
+    /// §5): steel softened by the fire. `None` for a material that chars instead (ADR-0022 §5).
+    pub burnt_keeps: Option<f64>,
 }
 
 /// What presses on a building now, pascals on the area each acts on.
@@ -637,6 +640,7 @@ mod tests {
             creep: 1.0,
             sustained: 0.6,
             density_kg_m3: 760.0,
+            burnt_keeps: None,
         }
     }
 
@@ -869,6 +873,7 @@ mod tests {
             creep: 0.0,
             sustained: 1.0,
             density_kg_m3: 1900.0,
+            burnt_keeps: None,
         }
     }
 

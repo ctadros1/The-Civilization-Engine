@@ -2,7 +2,9 @@
 //! 11-14's envelopes, nobody starts knowing it, and a works blows pig to steel and rolls it into
 //! sections only with each machine's crew at it. A steel skeleton (M11e, second part; ADR-0037
 //! §3-§4): a workshop framed in sections is raised of them and its members are checked as steel,
-//! and builders who do not know it design as before.
+//! and builders who do not know it design as before. Fire on bare steel (M11e, third part;
+//! ADR-0037 §5): burnt out, a skeleton's steel keeps 0.4 of its strength, and timber chars as
+//! before.
 
 use std::path::Path;
 use std::sync::OnceLock;
@@ -541,5 +543,178 @@ fn builders_who_do_not_know_a_skeleton_design_as_before() {
     assert!(sim.people().people.iter().all(|(_, p)| !p.knows(skeleton)));
     for b in &sim.land().buildings {
         assert!(b.spec.version <= 3, "{:?}", b.spec);
+    }
+}
+
+/// Workshop `spec`, finished, of the first household, burnt out in still dry air by the
+/// observer's hand: its conditions as raised and as the fire left them, and its id.
+fn burnt(
+    sim: &mut Sim,
+    spec: civ_grammar::BuildingSpec,
+) -> (
+    Vec<civ_land::GroupCondition>,
+    Vec<civ_land::GroupCondition>,
+    PermanentId,
+) {
+    let (household, _) = first_household(sim);
+    let id = sim
+        .place_building_for_tests(household, spec, civ_grammar::Stage::ALL.len() as u8)
+        .expect("placed");
+    let condition = |sim: &Sim| {
+        sim.land()
+            .buildings
+            .iter()
+            .find(|b| b.id == id)
+            .expect("the workshop")
+            .condition
+            .clone()
+    };
+    let before = condition(sim);
+    let w = &mut sim.land_mut_for_tests().weather;
+    w.today.wind_ms = 0.0;
+    w.today.gust_ms = 0.0;
+    w.today.fuel_moisture = 0.12;
+    sim.set_fire(id).expect("set alight");
+    for _ in 0..120 {
+        sim.advance_minutes(1).expect("advances");
+        let out = sim
+            .people()
+            .fires
+            .list
+            .iter()
+            .any(|f| f.building == id && f.ended.is_some());
+        if out {
+            break;
+        }
+    }
+    let f = sim
+        .people()
+        .fires
+        .list
+        .iter()
+        .find(|f| f.building == id)
+        .expect("its fire");
+    assert!(f.ended.is_some(), "it burnt out");
+    (before, condition(sim), id)
+}
+
+#[test]
+fn a_skeleton_softens_to_four_tenths_at_the_fires_heat_and_what_stands_regains_its_strength() {
+    use civ_agents::structure::{Loads, group_timber, margin};
+    use civ_grammar::GroupKind;
+    let mut sim = world(2);
+    let (_, home) = first_household(&sim);
+    let (_, steel) = workshops(&sim, (home.0 + 40.0, home.1));
+    let def = workshop(&sim).clone();
+    let e = civ_grammar::expand(&steel, &def.rules).expect("the skeleton expands");
+    let goods = sim.rules().catalog.goods.clone();
+    // Steel sections soften to 0.4 of their strength (11-14 §2.1, at 600 °C); timber chars.
+    let section = goods[good(&sim, "steel_section")].timber.expect("steel's");
+    assert_eq!(section.burnt_keeps, Some(0.4));
+    assert_eq!(
+        goods[good(&sim, "timber")]
+            .timber
+            .expect("timber's")
+            .burnt_keeps,
+        None
+    );
+    let (before, after, id) = burnt(&mut sim, steel);
+    let of = |e: &civ_grammar::Expansion, group: u32| {
+        *e.groups.iter().find(|g| g.id == group).expect("a group")
+    };
+    let mut steel_groups = 0;
+    for (was, now) in before.iter().zip(&after) {
+        let g = of(&e, now.group);
+        if group_timber(&goods, &def, &g) == Some(section) {
+            // Its steel did not char; unloaded, it stood at the fire's heat and regained its
+            // strength as it cooled (11-14 §1.6).
+            steel_groups += 1;
+            assert_eq!(now.loss, 0.0, "{:?}", g.kind);
+            assert_ne!(now.state, civ_land::GroupState::Failed, "{:?}", g.kind);
+            assert!(
+                (f64::from(now.quality) - f64::from(was.quality)).abs() < 1e-6,
+                "{:?}: {} of {}",
+                g.kind,
+                now.quality,
+                was.quality
+            );
+        } else if g.kind == GroupKind::RoofFrame {
+            // Its rafters are timber and char as before.
+            assert!(now.loss > 0.0 && now.quality == was.quality);
+        }
+    }
+    assert!(steel_groups >= 3, "{steel_groups} steel groups");
+    // At the fire's heat, as the burn-out check weighs it, each member's margin is 0.4 of its
+    // sound margin: under a loft load it carries with less than 2.5 to spare, it gives way.
+    let load = Loads {
+        loft_pa: 2_000.0,
+        ..Loads::default()
+    };
+    for kind in [GroupKind::Posts, GroupKind::LoftJoists] {
+        let g = *e.groups.iter().find(|g| g.kind == kind).expect("a group");
+        let c = *before
+            .iter()
+            .find(|c| c.group == g.id)
+            .expect("its condition");
+        let hot = civ_land::GroupCondition {
+            quality: c.quality * 0.4,
+            ..c
+        };
+        let (sound, heated) = (
+            margin(&g, &c, &e, &load, &section).strength,
+            margin(&g, &hot, &e, &load, &section).strength,
+        );
+        assert!(sound > 1.0, "{kind:?}: {sound}");
+        assert!(
+            (heated / sound - 0.4).abs() < 1e-6,
+            "{kind:?}: {heated} of {sound}"
+        );
+    }
+    // The fire's page says its steel softened, and that its timber charred.
+    let fire = sim
+        .people()
+        .fires
+        .list
+        .iter()
+        .find(|f| f.building == id)
+        .expect("its fire")
+        .id;
+    // Its words ride in the page's bytes as they are written.
+    let bytes =
+        civ_sim::frames::incidents::incident_response(&sim, civ_sim::frames::incidents::FIRE, fire)
+            .expect("a page");
+    let page = String::from_utf8_lossy(&bytes).into_owned();
+    assert!(
+        page.contains("Its steel softened in the fire to about 40% of its strength; what stood regained it as it cooled"),
+        "{page}"
+    );
+    assert!(page.contains("Its timber charred"), "{page}");
+}
+
+#[test]
+fn a_burnt_out_timber_workshop_chars_as_before() {
+    let mut sim = world(2);
+    let (_, home) = first_household(&sim);
+    let (timber, _) = workshops(&sim, (home.0 + 40.0, home.1));
+    let (before, after, _) = burnt(&mut sim, timber);
+    // Exactly what the fire left before steel was given a share to keep (ADR-0022 §5): thirty
+    // minutes' char on posts, joists and tie beams, more of the thinner rafters, half the infill,
+    // no covering, and every quality as built.
+    use civ_grammar::GroupKind;
+    for (was, now) in before.iter().zip(&after) {
+        assert_eq!(now.quality, was.quality, "{}", now.group);
+        let loss = match GroupKind::of_group(now.group) {
+            Some(GroupKind::Posts | GroupKind::LoftJoists | GroupKind::TieBeams) => 0.273_214_58,
+            Some(GroupKind::RoofFrame) => 0.409_821_78,
+            Some(GroupKind::Infill) => 0.5,
+            Some(GroupKind::Covering) => 1.0,
+            _ => 0.0,
+        };
+        assert!(
+            (now.loss - loss).abs() < 1e-6,
+            "{:?}: {} not {loss}",
+            GroupKind::of_group(now.group),
+            now.loss
+        );
     }
 }

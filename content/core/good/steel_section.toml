@@ -24,3 +24,7 @@ compression_mpa = 33.5
 stiffness_gpa = 61.0
 creep = 0.0
 sustained = 1.0
+# Bare steel loses strength as it heats rather than charring: about 0.6 of its yield at 550 C and
+# 0.4 at 600 C (research 11-14 §1.6, §2.1). A member left bare through a full burn keeps 0.4 of
+# its strength (ADR-0037 §5).
+burnt_keeps = 0.4

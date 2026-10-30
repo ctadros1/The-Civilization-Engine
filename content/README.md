@@ -242,7 +242,7 @@ Something people carry home and keep.
 | `shared` | When brought home it is shared among every household of the settlement, by members. |
 | `reserve_for` | The food it is kept back from, like seed from grain, or `""`: a recipe that needs that food takes this one only in real hunger, and never the seed to sow the ground already cropped. |
 | `[tool]` | For a tool only: `life_h`, the hours of use a standard tool lasts (stores count tools in standard tools, so 2.4 sickles are two and what is left of a third, ADR-0006); `per_adult`, how many a household wants for each member of working age (rounded up; 0 for none); `fixed`, it stays where it was made and is never carried off: founders and families the observer sends bring none of it (an oven). |
-| `[timber]` | For a material built with as timber only (content API 16, ADR-0009 §5): `bending_mpa`, `compression_mpa` and `stiffness_gpa`, its strength in bending and in compression along the grain and its stiffness; `creep`, how much further it bends under load carried for years than at first (φ); `sustained`, the share of its strength it keeps under such load (above 0, at most 1). Members of a material without it carry nothing in the checks. |
+| `[timber]` | For a material built with as timber only (content API 16, ADR-0009 §5): `bending_mpa`, `compression_mpa` and `stiffness_gpa`, its strength in bending and in compression along the grain and its stiffness; `creep`, how much further it bends under load carried for years than at first (φ); `sustained`, the share of its strength it keeps under such load (above 0, at most 1); optional `burnt_keeps` (0 to 1, content API 208, ADR-0037 §5), the share of its strength a bare member keeps once its building has burnt out, for a material that softens rather than chars (absent, its members char). Members of a material without it carry nothing in the checks. |
 | `[store]` | For a store only (content API 20, ADR-0010 §2): `keeps_kg` (above 0, at most 1000), the kilograms of food one keeps as a raised floor keeps them. A store stands under a roof in the room it keeps: a household counts each as turning that many kilograms of the room in its lofts and on its floors into raised room, and makes more while food lies in its lofts and on its floors that would keep better in one. Stores add no room, and food in the open gains nothing from them. |
 
 People eat the most perishable food that can be eaten first. A material or tool is never eaten,
@@ -1855,3 +1855,10 @@ round member it replaces. The core adds `technique/skeleton_frame` (requiring `r
 `good/steel_section` a `[timber]` table (an I-section of 235 MPa and 210 GPa smeared over its
 envelope: 68 MPa in bending, 33.5 in compression, 61 GPa, no creep), and offers the skeleton in the
 workshop and the hall at 1119 kg/m³ (design priors).
+
+Content API 208 (M11e, third part; ADR-0037 §5) adds `[timber]`'s optional `burnt_keeps`: the share
+of its strength a bare member of the good keeps once its building has burnt out. Such members do not
+char; when the fire burns out each keeps that share of what it carried, and the daily check decides
+whether it still stands. The core gives `good/steel_section` 0.4 (research 11-14 §1.6, §2.1: about
+0.6 of yield at 550 °C, 0.4 at 600 °C). Protection in minutes and the `ProtectedFrame` rule are
+deferred.

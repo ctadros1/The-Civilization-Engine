@@ -1,0 +1,21 @@
+# A rolling mill: pairs of grooved iron rolls in a stand, turned by a shaft, through which hot steel
+# is passed again and again until it takes the groove's shape, with a reheating furnace beside it
+# (research 11-14 §1.7, §2.2; ADR-0037 §2). Four at it together: a furnaceman, two at the rolls and
+# one to catch (a design prior). It stands where it is built and lasts 40,000 hours of rolling (a
+# tuning value, as the blast furnace).
+kind = "good"
+id = "core:good/rolling_mill"
+name = "Rolling mill"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 40000.0
+per_worker = 0.05
+fixed = true
+crew = 4

@@ -1,0 +1,17 @@
+# Grinding clinker to cement at a wheel, in daylight (ADR-0037 §2).
+kind = "activity"
+id = "core:activity/grind_cement"
+name = "Grind cement"
+doing = "grinding cement"
+behavior = "make"
+recipe = "core:recipe/grind_cement"
+par = 4.0
+min_age_years = 14.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 480
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

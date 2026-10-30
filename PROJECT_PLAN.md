@@ -8101,6 +8101,23 @@ and M6a gives rivers a daily flow.
       (run 39) then failed seven targets: households of the early worlds went prospecting for a
       tool's own stone or wood. Prospecting is now only for what a tool's material is made of
       (ore for its metal); the seven targets and the telegraph target pass again.
+    - *M11e, first part (2026-10-30): cement, steel and rolling* (ADR-0037 §2). Content alone:
+      goods `cement_clinker`, `portland_cement`, `steel`, `steel_section` and `reinforcing_bar`;
+      fixed tools `converter` (a crew of three) and `rolling_mill` (four), each with its building
+      recipe; recipes `burn_clinker` (1.3 kg of stone and 0.4 of clay a kilogram, 200 kg of coal a
+      kiln of a tonne, a three-day burn), `grind_cement` (0.04 kWh a kilogram at a wheel),
+      `make_steel` (1.15 kg of pig, 0.1 kWh) and `roll_sections` and `roll_bar` (1.05 kg of steel and
+      0.3 of coal, 0.15 kWh); techniques `portland_cement` (tried in burning lime), `steelmaking`
+      (in fining pig) and `rolling` (in making steel), far ones that nobody starts knowing. Figures
+      beyond 11-14 §2.2 are design priors. **Found on the way:** grinding clinker turns on water,
+      so it became a mill's way, and a neighbour's mill was then sought by the first water way
+      whatever it made: grinding at a neighbour's for a toll now looks only at ways that make a food,
+      and a household weighing a mill of its own compares it with a neighbour's by the way it would
+      grind. In a world without cement both are what they were. **Tested:** the chain sits in
+      11-14 §2.2's envelopes (1.7 kg of raw a kilogram of clinker; 5.6 GJ a tonne), nobody starts
+      knowing it and each technique stands on the works before it, and a works blows pig to steel
+      only with three at the converter and rolls sections only with four at the mill, at the
+      recipes' figures; the mills target passes again.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 

@@ -1,0 +1,17 @@
+# Steelmaking: blowing air through molten pig iron until most of its carbon burns out (research
+# 11-14 §1.7, §2.2; ADR-0037 §2). Found by those who fine pig iron, with pig at home (a far
+# technique). Learnt in 400 hours beside a knower. Founders do not bring it.
+kind = "technique"
+id = "core:technique/steelmaking"
+name = "Steelmaking"
+can = "blow molten pig iron to steel in a converter"
+domain = "core:skill/smithing"
+requires = [["core:technique/blast_furnace"]]
+tried_in = ["core:activity/fine_pig_iron"]
+needs = ["core:good/pig_iron"]
+e50_h = 400000.0
+learn_h = 400.0
+upbringing = true
+
+[answers]
+spoilage = []

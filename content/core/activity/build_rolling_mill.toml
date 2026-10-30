@@ -1,0 +1,17 @@
+# Building a rolling mill at home, in daylight (ADR-0037 §2).
+kind = "activity"
+id = "core:activity/build_rolling_mill"
+name = "Build a rolling mill"
+doing = "building a rolling mill"
+behavior = "make"
+recipe = "core:recipe/build_rolling_mill"
+par = 4.0
+min_age_years = 14.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 480
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

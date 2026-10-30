@@ -170,9 +170,15 @@ impl Population {
             return;
         };
         // A mill of its own spares only what grinding at a neighbour's for its toll would not
-        // (M10a slice DR, fourth part): the toll's flour and a round trip for each load.
+        // (M10a slice DR, fourth part): the toll's flour and a round trip for each load, by the
+        // way it would grind and only where neighbours grind that way for a toll.
         let key = x.settlement.unwrap_or(x.id);
-        let saved = match self.nearest_mill(ctx, x, key, ways) {
+        let by_toll = toll_ways(ctx.catalog)
+            .iter()
+            .any(|w| w.recipe == way.recipe)
+            .then(|| self.nearest_mill(ctx, x, key, std::slice::from_ref(&way)))
+            .flatten();
+        let saved = match by_toll {
             None => saved,
             Some((_, w, walk_min)) => {
                 let r = &ctx.catalog.recipes[w.recipe];
@@ -319,7 +325,7 @@ impl Population {
         if owns {
             return None;
         }
-        let ways = powered_ways(ctx.catalog);
+        let ways = toll_ways(ctx.catalog);
         let (i, way, walk_min) = self.nearest_mill(ctx, x, field_key, &ways)?;
         let r = &ctx.catalog.recipes[way.recipe];
         let (&(grain, per_in), &(flour, per)) = (r.inputs.first()?, r.outputs.first()?);
@@ -406,7 +412,7 @@ impl Population {
         if owner == household || !ctx.land.installation_ready(i) {
             return;
         }
-        let ways = powered_ways(ctx.catalog);
+        let ways = toll_ways(ctx.catalog);
         let Some(way) = self.household(owner).and_then(|o| {
             ways.iter()
                 .copied()
@@ -634,6 +640,22 @@ fn powered_ways(catalog: &crate::params::Catalog) -> Vec<PoweredWay> {
                     power,
                 })
             })
+        })
+        .collect()
+}
+
+/// The water ways a neighbour grinds at another's mill for a toll: those that make a food, as
+/// grinding grain to flour does (M10a slice DR, fourth part). Grinding clinker to cement turns
+/// on water too (M11e, first part), but nobody carries their grain to it.
+fn toll_ways(catalog: &crate::params::Catalog) -> Vec<PoweredWay> {
+    powered_ways(catalog)
+        .into_iter()
+        .filter(|w| {
+            catalog.recipes[w.recipe]
+                .outputs
+                .first()
+                .and_then(|&(g, _)| catalog.goods.get(g))
+                .is_some_and(|g| g.kcal_per_kg > 0.0)
         })
         .collect()
 }

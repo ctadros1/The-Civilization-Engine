@@ -1,0 +1,18 @@
+# Burning cement clinker: limestone and clay ground together and burnt in a kiln hotter and longer
+# than lime, 1.3 kg of stone and 0.4 kg of clay a kilogram of clinker (research 11-14 §2.2: about
+# 1.7 t of raw material a tonne), on 0.2 kg of coal a kilogram (a design prior within §2.2's 3.0-6.5
+# GJ a tonne at coal's 28 MJ a kilogram), 30 hours of charging, firing and drawing a tonne, and a
+# burn that runs three days whoever tends it (a design prior; ADR-0037 §2).
+kind = "recipe"
+id = "core:recipe/burn_clinker"
+name = "Burn cement clinker"
+skill = "core:skill/pottery"
+technique = "core:technique/portland_cement"
+unit_h = 0.03
+session_h = 4.0
+max_units = 1000.0
+tools = ["core:good/kiln"]
+inputs = [{ good = "core:good/stone", amount = 1.3 }, { good = "core:good/clay", amount = 0.4 }]
+outputs = [{ good = "core:good/cement_clinker", amount = 1.0 }]
+session_inputs = [{ good = "core:good/coal", amount = 200.0 }]
+elapsed_days = 3.0

@@ -7,29 +7,40 @@
 //! The socket refuses pages served from anywhere but this machine (a browser's `Origin`), so a
 //! web site open in the same browser cannot drive the host, and it can require a token in its
 //! address (`/ws?token=…`), as the kernel's panel server does (research 14-10 §4.5, ADR-0005 §6).
+//!
+//! Viewers (ADR-0039 §6): each connection drives or watches. The first connection from this
+//! machine drives; every other watches, receiving what the driver does and answered its queries,
+//! its commands refused, until the driver hands over. The host may be opened to the local network
+//! (`Access::lan`), and then requires its token.
 
+use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::sync::{Arc, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use axum::Router;
+use axum::extract::rejection::ExtensionRejection;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::{RawQuery, State};
+use axum::extract::{ConnectInfo, RawQuery, State};
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::get;
 use civ_schema::wire;
 use commons_wire::{FrameKind, Sequencer};
-use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio::sync::{broadcast, mpsc, oneshot, watch};
 use tower_http::services::{ServeDir, ServeFile};
 
 use crate::engine::{Channels, Msg, Reply};
-use crate::protocol::{self, EventRecord, Incoming};
+use crate::protocol::{self, EventRecord, Incoming, Request, ViewerEntry};
 
 /// How long a client has to say hello.
 const HELLO_TIMEOUT: Duration = Duration::from_secs(10);
 /// Largest WebSocket message accepted from a client.
 const MAX_CLIENT_MESSAGE: usize = 1 << 20;
+/// Longest client name kept from a hello, in characters.
+const MAX_CLIENT_NAME: usize = 64;
+/// Why a spectator's command is refused (ADR-0039 §6).
+pub const SPECTATOR_REFUSAL: &str = "a spectator may not command; ask the driver to hand over";
 
 const MISSING_WEB_SHELL: &str = r#"<!doctype html>
 <html lang="en">
@@ -53,6 +64,67 @@ pub struct Access {
     /// A token the socket's address must carry as `?token=…`; `None` lets anyone on this machine
     /// connect.
     pub token: Option<String>,
+    /// Open to the local network (ADR-0039 §6): pages served by this host at any of its
+    /// addresses may connect, and a token is required (without one, nobody may).
+    pub lan: bool,
+}
+
+/// Who is connected to the observer socket and who drives (ADR-0039 §6).
+#[derive(Debug, Default)]
+struct Roster {
+    last_id: u64,
+    driver: Option<u64>,
+    /// Oldest first.
+    viewers: Vec<ViewerEntry>,
+}
+
+impl Roster {
+    /// Adds a connection; the first from this machine while nobody drives drives. Returns its id.
+    fn join(&mut self, name: String, local: bool) -> u64 {
+        self.last_id += 1;
+        let id = self.last_id;
+        self.viewers.push(ViewerEntry { id, name, local });
+        if self.driver.is_none() && local {
+            self.driver = Some(id);
+        }
+        id
+    }
+
+    /// Removes a connection; if it drove, the oldest remaining from this machine drives, else
+    /// nobody does.
+    fn leave(&mut self, id: u64) {
+        self.viewers.retain(|v| v.id != id);
+        if self.driver == Some(id) {
+            self.driver = self.viewers.iter().find(|v| v.local).map(|v| v.id);
+        }
+    }
+
+    fn drives(&self, id: u64) -> bool {
+        self.driver == Some(id)
+    }
+
+    /// The driver `from` hands the driving to the connection `to`.
+    fn hand_over(&mut self, from: u64, to: u64) -> Result<(), (wire::ErrorCode, String)> {
+        if !self.drives(from) {
+            return Err((wire::ErrorCode::NotDriver, SPECTATOR_REFUSAL.to_owned()));
+        }
+        if to == from {
+            return Err((wire::ErrorCode::BadRequest, "you drive already".to_owned()));
+        }
+        if !self.viewers.iter().any(|v| v.id == to) {
+            return Err((
+                wire::ErrorCode::NotFound,
+                format!("no viewer {to} is connected"),
+            ));
+        }
+        self.driver = Some(to);
+        Ok(())
+    }
+
+    /// The `Events` payload with the viewers, for connection `you`.
+    fn payload(&self, you: u64) -> Vec<u8> {
+        protocol::viewers_payload(you, self.driver.unwrap_or(0), &self.viewers)
+    }
 }
 
 #[derive(Clone)]
@@ -60,10 +132,38 @@ struct AppState {
     channels: Channels,
     welcome: Arc<Vec<u8>>,
     access: Arc<Access>,
+    roster: Arc<Mutex<Roster>>,
+    /// Bumped whenever a connection comes, goes or changes role.
+    roles: Arc<watch::Sender<u64>>,
+}
+
+impl AppState {
+    fn roster(&self) -> std::sync::MutexGuard<'_, Roster> {
+        self.roster.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn roles_changed(&self) {
+        self.roles.send_modify(|n| *n = n.wrapping_add(1));
+    }
+}
+
+/// Takes a connection off the roster when it ends, however it ends.
+struct Leave {
+    state: AppState,
+    id: u64,
+}
+
+impl Drop for Leave {
+    fn drop(&mut self) {
+        self.state.roster().leave(self.id);
+        self.state.roles_changed();
+    }
 }
 
 /// The HTTP application: `/ws`, `/healthz`, and the web shell from `web_dir` (or a page saying
-/// how to build it).
+/// how to build it). Serve it with connect info (`into_make_service_with_connect_info`) so the
+/// socket knows who connects from this machine; without it, every connection counts as from
+/// this machine unless `access.lan` is set, and then none does.
 pub fn router(
     channels: Channels,
     welcome: Vec<u8>,
@@ -74,6 +174,8 @@ pub fn router(
         channels,
         welcome: Arc::new(welcome),
         access: Arc::new(access),
+        roster: Arc::default(),
+        roles: Arc::new(watch::Sender::new(0)),
     };
     let app = Router::new()
         .route("/ws", get(upgrade))
@@ -97,15 +199,26 @@ async fn upgrade(
     State(state): State<AppState>,
     headers: HeaderMap,
     RawQuery(query): RawQuery,
+    peer: Result<ConnectInfo<SocketAddr>, ExtensionRejection>,
 ) -> Response {
     let origin = headers
         .get(header::ORIGIN)
         .map(|v| v.to_str().unwrap_or("?"));
-    if let Some(origin) = origin.filter(|o| !is_local_origin(o)) {
+    let host = headers.get(header::HOST).and_then(|v| v.to_str().ok());
+    let lan = state.access.lan;
+    if let Some(origin) = origin.filter(|o| !origin_allowed(o, host, lan)) {
         tracing::warn!("refused an observer from {origin}");
         return (
             StatusCode::FORBIDDEN,
             "pages from other sites may not connect",
+        )
+            .into_response();
+    }
+    if lan && state.access.token.is_none() {
+        tracing::warn!("refused an observer: the local network needs a token, and none is set");
+        return (
+            StatusCode::FORBIDDEN,
+            "this socket needs its session's token",
         )
             .into_response();
     }
@@ -123,9 +236,13 @@ async fn upgrade(
                 .into_response();
         }
     }
+    let local = match peer {
+        Ok(ConnectInfo(addr)) => addr.ip().to_canonical().is_loopback(),
+        Err(_) => !lan,
+    };
     ws.max_message_size(MAX_CLIENT_MESSAGE)
         .on_upgrade(move |socket| async move {
-            if let Err(e) = connection(socket, state).await {
+            if let Err(e) = connection(socket, state, local).await {
                 tracing::debug!("an observer connection ended: {e}");
             }
         })
@@ -150,6 +267,25 @@ pub fn is_local_origin(origin: &str) -> bool {
         host.to_ascii_lowercase().as_str(),
         "127.0.0.1" | "localhost" | "[::1]"
     )
+}
+
+/// Whether a page from `origin` may open the socket: one served from this machine, or, open to
+/// the local network, one this host served (its origin names the address the request came to,
+/// `host`) (ADR-0039 §6).
+pub fn origin_allowed(origin: &str, host: Option<&str>, lan: bool) -> bool {
+    if is_local_origin(origin) {
+        return true;
+    }
+    if !lan {
+        return false;
+    }
+    let Some(host) = host.filter(|h| !h.is_empty()) else {
+        return false;
+    };
+    origin
+        .strip_prefix("http://")
+        .or_else(|| origin.strip_prefix("https://"))
+        .is_some_and(|authority| authority.eq_ignore_ascii_case(host))
 }
 
 /// Compares two secrets in time that does not depend on where they differ.
@@ -188,7 +324,7 @@ fn error_frame(
     )
 }
 
-async fn connection(mut socket: WebSocket, state: AppState) -> anyhow::Result<()> {
+async fn connection(mut socket: WebSocket, state: AppState, local: bool) -> anyhow::Result<()> {
     let Ok(Some(first)) = tokio::time::timeout(HELLO_TIMEOUT, next_binary(&mut socket)).await
     else {
         return Ok(());
@@ -212,10 +348,32 @@ async fn connection(mut socket: WebSocket, state: AppState) -> anyhow::Result<()
             return Ok(());
         }
     };
-    tracing::info!("observer connected: {client}");
+    let name: String = client.chars().take(MAX_CLIENT_NAME).collect();
+    let id = state.roster().join(name, local);
+    let _leave = Leave {
+        state: state.clone(),
+        id,
+    };
+    // Subscribe after joining, then tell the roster as it stands: later changes arrive through
+    // `roles`.
+    let mut roles = state.roles.subscribe();
+    state.roles_changed();
+    roles.borrow_and_update();
+    let place = if local {
+        "this machine"
+    } else {
+        "the local network"
+    };
+    tracing::info!("observer {id} connected from {place}: {client}");
     send(
         &mut socket,
         protocol::frame(&mut seq, FrameKind::Welcome, 0, 0, &state.welcome)?,
+    )
+    .await?;
+    let viewers = state.roster().payload(id);
+    send(
+        &mut socket,
+        protocol::frame(&mut seq, FrameKind::Events, 0, current.sim_time, &viewers)?,
     )
     .await?;
 
@@ -245,7 +403,7 @@ async fn connection(mut socket: WebSocket, state: AppState) -> anyhow::Result<()
                 None | Some(Ok(Message::Close(_))) => break,
                 Some(Err(e)) => return Err(e.into()),
                 Some(Ok(Message::Binary(bytes))) => {
-                    if let Some(frame) = on_frame(&bytes, &state, &reply_tx, &mut seq)? {
+                    if let Some(frame) = on_frame(&bytes, &state, id, &reply_tx, &mut seq)? {
                         send(&mut socket, frame).await?;
                     }
                 }
@@ -296,6 +454,12 @@ async fn connection(mut socket: WebSocket, state: AppState) -> anyhow::Result<()
                 }
                 Err(broadcast::error::RecvError::Closed) => break,
             },
+            Ok(()) = roles.changed() => {
+                let viewers = state.roster().payload(id);
+                let sim_time = snapshots.borrow().sim_time;
+                let frame = protocol::frame(&mut seq, FrameKind::Events, 0, sim_time, &viewers)?;
+                send(&mut socket, frame).await?;
+            },
             Some((correlation, reply)) = replies.recv() => {
                 let frame = match reply {
                     Reply::Response(payload) => {
@@ -309,7 +473,7 @@ async fn connection(mut socket: WebSocket, state: AppState) -> anyhow::Result<()
             },
         }
     }
-    tracing::info!("observer disconnected: {client}");
+    tracing::info!("observer {id} disconnected: {client}");
     Ok(())
 }
 
@@ -343,21 +507,44 @@ fn catch_up(
     .map(Some)
 }
 
-/// Handles a frame from the client. Returns a frame to send at once (an error), or `None` when
-/// the request went to the engine; its reply arrives through `replies`.
+/// Handles a frame from connection `id`. Returns a frame to send at once (an error, or the answer
+/// to a hand-over), or `None` when the request went to the engine; its reply arrives through
+/// `replies`. Only the driver's commands reach the engine (ADR-0039 §6).
 fn on_frame(
     bytes: &[u8],
     state: &AppState,
+    id: u64,
     replies: &mpsc::UnboundedSender<(u64, Reply)>,
     seq: &mut Sequencer,
 ) -> Result<Option<Vec<u8>>, commons_wire::WireError> {
-    let (correlation, request) = match protocol::read_request(bytes) {
-        Ok(Incoming::Request(correlation, request)) => (correlation, request),
-        Ok(Incoming::Nothing) => return Ok(None),
+    let (kind, correlation, request) = match protocol::read_frame(bytes) {
+        Ok((kind, Incoming::Request(correlation, request))) => (kind, correlation, request),
+        Ok((_, Incoming::Nothing)) => return Ok(None),
         Err(refusal) => {
             return error_frame(seq, refusal.correlation, refusal.code, &refusal.message).map(Some);
         }
     };
+    if let Request::HandOver { to } = request {
+        let handed = state.roster().hand_over(id, to);
+        return match handed {
+            Ok(()) => {
+                state.roles_changed();
+                tracing::info!("observer {id} handed the driving to observer {to}");
+                let ack = protocol::ack_response(&format!("viewer {to} drives now"));
+                protocol::frame(seq, FrameKind::Response, correlation, 0, &ack).map(Some)
+            }
+            Err((code, why)) => error_frame(seq, correlation, code, &why).map(Some),
+        };
+    }
+    if kind == FrameKind::Command && !state.roster().drives(id) {
+        return error_frame(
+            seq,
+            correlation,
+            wire::ErrorCode::NotDriver,
+            SPECTATOR_REFUSAL,
+        )
+        .map(Some);
+    }
     let (tx, rx) = oneshot::channel();
     if state
         .channels
@@ -413,6 +600,69 @@ mod tests {
         ] {
             assert!(!is_local_origin(origin), "{origin}");
         }
+    }
+
+    #[test]
+    fn the_local_network_may_connect_only_from_pages_this_host_served() {
+        let host = Some("192.168.1.5:7420");
+        for lan in [false, true] {
+            assert!(origin_allowed("http://127.0.0.1:7420", host, lan));
+        }
+        assert!(!origin_allowed("http://192.168.1.5:7420", host, false));
+        assert!(origin_allowed("http://192.168.1.5:7420", host, true));
+        for origin in [
+            "http://192.168.1.5:7421",
+            "http://192.168.1.5",
+            "http://192.168.1.5:7420.example.com",
+            "https://example.com",
+            "null",
+        ] {
+            assert!(!origin_allowed(origin, host, true), "{origin}");
+        }
+        assert!(!origin_allowed("http://192.168.1.5:7420", None, true));
+        assert!(!origin_allowed("http://", Some(""), true));
+    }
+
+    #[test]
+    fn the_first_local_viewer_drives_and_the_oldest_local_one_takes_over() {
+        let mut r = Roster::default();
+        let far = r.join("far".to_owned(), false);
+        assert_eq!(
+            r.driver, None,
+            "a viewer on the network never drives by arriving"
+        );
+        let a = r.join("a".to_owned(), true);
+        let b = r.join("b".to_owned(), true);
+        let c = r.join("c".to_owned(), true);
+        assert!(r.drives(a) && !r.drives(b) && !r.drives(far));
+        assert_eq!(
+            r.hand_over(b, c).map_err(|e| e.0),
+            Err(wire::ErrorCode::NotDriver)
+        );
+        assert_eq!(
+            r.hand_over(a, 99).map_err(|e| e.0),
+            Err(wire::ErrorCode::NotFound)
+        );
+        assert_eq!(
+            r.hand_over(a, a).map_err(|e| e.0),
+            Err(wire::ErrorCode::BadRequest)
+        );
+        assert_eq!(r.hand_over(a, far), Ok(()));
+        assert!(r.drives(far));
+        r.leave(far);
+        assert!(r.drives(a), "the oldest left from this machine drives");
+        r.leave(b);
+        assert!(r.drives(a));
+        r.leave(a);
+        assert!(r.drives(c));
+        r.leave(c);
+        assert_eq!(r.driver, None);
+        assert!(r.viewers.is_empty());
+        let d = r.join("d".to_owned(), true);
+        assert!(
+            r.drives(d),
+            "the first from this machine while nobody drives"
+        );
     }
 
     #[test]

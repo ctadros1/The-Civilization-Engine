@@ -8291,6 +8291,23 @@ and M6a gives rivers a daily flow.
     nobody listening, the key only in its header); polity, council, review, roundtrip,
     determinism, forum and faction; the ten smoke worlds. **Not tested:** a real llama.cpp server
     (none here).
+  - *M12b (2026-10-30): more than one viewer* (ADR-0039 §6). By default the host binds 127.0.0.1
+    exactly as before. `serve --viewers lan` binds every interface and then requires a token
+    (`--token`, or a random 128-bit one printed once in the startup address); in that mode a page
+    served by the host itself is accepted as an origin, other sites still refused, and tokens are
+    compared in constant time. Each connection drives or watches: the first loopback connection
+    drives while nobody does; every other connection, and every LAN one, watches, receiving
+    snapshots, events and query replies; its commands are refused (`NotDriver`: "a spectator may
+    not command; ask the driver to hand over"). The driver hands over to a named viewer
+    (`HandOver`); when it leaves, the oldest remaining loopback connection drives, else nobody.
+    Every connection is told its role and who drives after Welcome and on each change. The web
+    observer shows "You drive" or "You are watching; Ada drives" (`?name=` names a page), disables
+    every command control for a spectator with the reason, and gives the driver a hand-over list.
+    The kernel's panel server shares the roles. Wire 1.110; saves and content unchanged.
+    **Tested:** the host's socket tests (drive and watch with the reason, queries answered,
+    hand-over told to all, the driver leaving, LAN without or with a wrong token refused and with
+    it a spectator, origins) and its unit tests; the web's unit tests (221) and a two-page
+    Playwright spec (driver and spectator, hand-over, the driver closing) among 30 browser specs.
 
 ---
 

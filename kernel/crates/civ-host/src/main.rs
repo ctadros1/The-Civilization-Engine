@@ -32,7 +32,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Serve the web observer on 127.0.0.1 (what runs when no command is given).
+    /// Serve the web observer on 127.0.0.1, or with `--viewers lan` on every interface (what runs
+    /// when no command is given).
     Serve(ServeArgs),
     /// Generate a world from a seed and save it.
     New(NewArgs),
@@ -198,6 +199,24 @@ struct ServeArgs {
     /// For `--deliberator recorded`: read answers from this save instead of each world's own.
     #[arg(long)]
     answers: Option<PathBuf>,
+    /// Who may watch (ADR-0039 §6): this machine alone, or the local network too, which binds
+    /// every interface and requires a session token.
+    #[arg(long, value_enum, default_value_t = ViewersArg::Local)]
+    viewers: ViewersArg,
+    /// The session token the observer's address must carry (`?token=…`): letters, digits, `-`,
+    /// `_`, `.` or `~`. With `--viewers lan` and none given, a random one is made and printed
+    /// once, in the address.
+    #[arg(long)]
+    token: Option<String>,
+}
+
+/// `--viewers` (ADR-0039 §6).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+enum ViewersArg {
+    /// This machine alone, on 127.0.0.1 (the default).
+    Local,
+    /// The local network too: every interface, with a token required.
+    Lan,
 }
 
 /// `--deliberator`.
@@ -222,6 +241,8 @@ impl Default for ServeArgs {
             llm_url: civ_host::deliberator::DEFAULT_URL.to_owned(),
             llm_model: String::new(),
             answers: None,
+            viewers: ViewersArg::Local,
+            token: None,
         }
     }
 }
@@ -547,15 +568,26 @@ fn serve(args: ServeArgs) -> anyhow::Result<ExitCode> {
     std::fs::create_dir_all(&layout.saves)
         .with_context(|| format!("could not create {}", layout.saves.display()))?;
     let (deliberator, deliberates) = deliberator_of(&args, &content)?;
+    let lan = args.viewers == ViewersArg::Lan;
+    let token = match &args.token {
+        Some(token) => Some(checked_token(token)?),
+        None if lan => Some(random_token()?),
+        None => None,
+    };
+    let bind = if lan {
+        Ipv4Addr::UNSPECIFIED
+    } else {
+        Ipv4Addr::LOCALHOST
+    };
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
     runtime.block_on(async move {
-        let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, args.port))
+        let listener = tokio::net::TcpListener::bind((bind, args.port))
             .await
             .with_context(|| {
                 format!(
-                    "port {} on 127.0.0.1 is not available (is another civ-host running? choose \
+                    "port {} on {bind} is not available (is another civ-host running? choose \
                      another with --port)",
                     args.port
                 )
@@ -569,10 +601,28 @@ fn serve(args: ServeArgs) -> anyhow::Result<ExitCode> {
             engine.channels.clone(),
             protocol::welcome_payload(&content),
             layout.web.clone(),
-            server::Access::default(),
+            server::Access {
+                token: token.clone(),
+                lan,
+            },
         );
-        let url = format!("http://{addr}/");
+        let port = addr.port();
+        // The token is printed here alone, in the address (ADR-0039 §6).
+        let url = match &token {
+            Some(token) => format!("http://127.0.0.1:{port}/?token={token}"),
+            None => format!("http://127.0.0.1:{port}/"),
+        };
         println!("The Civilization Engine is running at {url} (Ctrl+C to stop)");
+        if lan {
+            let at = lan_address().map_or_else(
+                || "this machine's address".to_owned(),
+                |ip| format!("http://{ip}:{port}/"),
+            );
+            println!(
+                "  viewers: the local network may watch at {at} with the same ?token=; this \
+                 machine's first page drives"
+            );
+        }
         println!("  saves: {}", layout.saves.display());
         println!("  notables choose {deliberates}");
         match &layout.web {
@@ -582,9 +632,12 @@ fn serve(args: ServeArgs) -> anyhow::Result<ExitCode> {
         if args.open {
             open_browser(&url);
         }
-        let served = axum::serve(listener, app)
-            .with_graceful_shutdown(shutdown_signal())
-            .await;
+        let served = axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .with_graceful_shutdown(shutdown_signal())
+        .await;
         // The terminal may be gone by now (a closed window, a killed `| tee`), and `println!`
         // panics then. Nothing may stop the save.
         let _ = writeln!(
@@ -659,8 +712,34 @@ fn open_browser(url: &str) {
     #[cfg(all(unix, not(target_os = "macos")))]
     let opened = std::process::Command::new("xdg-open").arg(url).spawn();
     if let Err(e) = opened {
-        eprintln!("could not open a browser ({e}); open {url} yourself");
+        eprintln!("could not open a browser ({e}); open the address above yourself");
     }
+}
+
+/// A session token as given to `--token`: one that passes through an address unchanged.
+fn checked_token(token: &str) -> anyhow::Result<String> {
+    let fits = |c: char| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '~');
+    if token.is_empty() || !token.chars().all(fits) {
+        anyhow::bail!("--token takes letters, digits, '-', '_', '.' or '~' only");
+    }
+    Ok(token.to_owned())
+}
+
+/// A fresh session token: 128 bits from the operating system, as hex (as the kernel's panel
+/// server makes its own, ADR-0005 §6).
+fn random_token() -> anyhow::Result<String> {
+    let mut bytes = [0u8; 16];
+    getrandom::fill(&mut bytes).map_err(|e| anyhow::anyhow!("no random token: {e}"))?;
+    Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
+}
+
+/// This machine's address on the local network, as the route out of it would use; `None` when
+/// it has none. Nothing is sent.
+fn lan_address() -> Option<std::net::IpAddr> {
+    let socket = std::net::UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).ok()?;
+    socket.connect((Ipv4Addr::new(192, 0, 2, 1), 9)).ok()?;
+    let ip = socket.local_addr().ok()?.ip();
+    (!ip.is_unspecified() && !ip.is_loopback()).then_some(ip)
 }
 
 fn new(args: NewArgs) -> anyhow::Result<ExitCode> {
@@ -921,5 +1000,42 @@ fn run_smoke(args: SmokeArgs) -> anyhow::Result<ExitCode> {
     } else {
         println!("{failed} of {} smoke worlds FAILED", results.len());
         Ok(ExitCode::FAILURE)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn viewers_stay_on_this_machine_unless_the_network_is_asked_for() {
+        let Ok(Cli {
+            command: Some(Command::Serve(args)),
+        }) = Cli::try_parse_from(["civ-host", "serve"])
+        else {
+            panic!("serve parses");
+        };
+        assert_eq!(args.viewers, ViewersArg::Local);
+        assert_eq!(args.token, None);
+        assert_eq!(ServeArgs::default().viewers, ViewersArg::Local);
+        let Ok(Cli {
+            command: Some(Command::Serve(args)),
+        }) = Cli::try_parse_from(["civ-host", "serve", "--viewers", "lan"])
+        else {
+            panic!("serve --viewers lan parses");
+        };
+        assert_eq!(args.viewers, ViewersArg::Lan);
+    }
+
+    #[test]
+    fn tokens_pass_through_an_address_unchanged() {
+        assert!(checked_token("0123abcd-_.~XYZ").is_ok());
+        for bad in ["", "a b", "a&b", "a=b", "é"] {
+            assert!(checked_token(bad).is_err(), "{bad}");
+        }
+        let token = random_token().expect("random");
+        assert_eq!(token.len(), 32);
+        assert!(checked_token(&token).is_ok());
+        assert_ne!(token, random_token().expect("random"));
     }
 }

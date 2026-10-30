@@ -477,6 +477,10 @@ impl Engine {
                 ramp_years,
             } => self.force_climate(offset_c, wet_factor, ramp_years),
             Request::SetFire { building } => self.set_fire(building),
+            Request::HandOver { .. } => Reply::Error(
+                wire::ErrorCode::BadRequest,
+                "only a connection to the observer socket can hand over the driving".to_owned(),
+            ),
             Request::RaiseRiver {
                 reach,
                 discharge_m3s,

@@ -9,5 +9,6 @@ export enum ErrorCode {
   NoWorld = 3,
   NotFound = 4,
   Incompatible = 5,
-  Internal = 6
+  Internal = 6,
+  NotDriver = 7
 }

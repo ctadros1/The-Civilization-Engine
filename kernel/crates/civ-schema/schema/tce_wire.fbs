@@ -19,7 +19,12 @@ enum RasterFormat : ubyte { U8 = 0, U16 = 1, U32 = 2, F32 = 3 }
 
 enum EventKind : ubyte { Info = 0, WorldCreated = 1, Saved = 2, Loaded = 3, Autosaved = 4, Warning = 5, Failure = 6 }
 
-enum ErrorCode : ushort { Unknown = 0, BadRequest = 1, Busy = 2, NoWorld = 3, NotFound = 4, Incompatible = 5, Internal = 6 }
+// Wire 1.110 (M12b, ADR-0039 §6): NotDriver refuses a spectator's command.
+enum ErrorCode : ushort { Unknown = 0, BadRequest = 1, Busy = 2, NoWorld = 3, NotFound = 4, Incompatible = 5, Internal = 6, NotDriver = 7 }
+
+// Wire 1.110 (M12b, ADR-0039 §6): a connection's role. The driver commands the world and its
+// time; a spectator receives what the driver does and may query, not command.
+enum ViewerRole : ubyte { Spectator = 0, Driver = 1 }
 
 enum Sex : ubyte { Female = 0, Male = 1 }
 
@@ -452,8 +457,34 @@ table Event {
   text: string (id: 4);
 }
 
+// Wire 1.110 (M12b, ADR-0039 §6): one connection to the observer socket.
+table ViewerInfo {
+  id: ulong (id: 0);
+  // The client's name from its hello.
+  name: string (id: 1);
+  // Connects from this machine (a loopback address); otherwise from the local network.
+  local: bool (id: 2);
+  role: ViewerRole (id: 3);
+}
+
+// Wire 1.110: who watches and who drives, as this connection sees it, carried by an Events frame
+// (Events.viewers).
+table Viewers {
+  // This connection's id and role.
+  you: ulong (id: 0);
+  role: ViewerRole (id: 1);
+  // The connection that drives; 0 when none does.
+  driver: ulong (id: 2);
+  // Every connection, oldest first.
+  viewers: [ViewerInfo] (id: 3);
+}
+
 table Events {
   events: [Event] (id: 0);
+  // Wire 1.110 (M12b, ADR-0039 §6): who watches and who drives. The host sends an Events frame
+  // with it right after Welcome and again whenever a connection comes, goes or changes role,
+  // with no events then; absent otherwise.
+  viewers: Viewers (id: 1);
 }
 
 // ---- Commands: change state ----------------------------------------------------------------
@@ -603,6 +634,12 @@ table ForceClimate {
   ramp_years: uint (id: 2);
 }
 
+// Wire 1.110 (M12b, ADR-0039 §6): the driver hands the driving to the connection `to` (a
+// ViewerInfo id); refused from anyone but the driver.
+table HandOver {
+  to: ulong (id: 0);
+}
+
 // Wire 1.68 (M6b slice BC, step three; ADR-0022 §14): the observer sets a building's covering
 // alight; it burns as any fire does, and what follows is the fire's and people's. Refused for a
 // building that is not roofed, already burns, or has no covering left to burn.
@@ -642,7 +679,7 @@ table SetResolution {
   follow_person: ulong (id: 3);
 }
 
-union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless, SendWave, Plague, Drought, SetFire, RaiseRiver, SendStorm, Shake, SetResolution, ForceClimate }
+union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless, SendWave, Plague, Drought, SetFire, RaiseRiver, SendStorm, Shake, SetResolution, ForceClimate, HandOver }
 
 table Command {
   body: CommandBody (id: 1);

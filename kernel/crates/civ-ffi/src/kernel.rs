@@ -498,6 +498,7 @@ impl Panels {
             config.web_dir.clone(),
             server::Access {
                 token: Some(token.clone()),
+                lan: false,
             },
         );
         let (stop, stopped) = oneshot::channel::<()>();

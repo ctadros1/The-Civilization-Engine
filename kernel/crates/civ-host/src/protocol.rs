@@ -136,6 +136,12 @@ pub enum Request {
         wind_speed_ms: f32,
         direction_deg: f32,
     },
+    /// Hand the driving to another connection to the observer socket (wire 1.110, ADR-0039 §6).
+    /// The socket's server answers it; the engine refuses it from anywhere else.
+    HandOver {
+        /// The connection's id, as `Viewers` lists it.
+        to: u64,
+    },
     /// Have settlements away from the observer's focus household-resolved, or not (wire 1.93,
     /// M9b slice DK, ADR-0032 §6). A run setting.
     SetResolution {
@@ -414,6 +420,12 @@ pub struct Refusal {
 /// Reads a client's frame once the session is open: a command or query in a schema this host
 /// speaks, or a heartbeat.
 pub fn read_request(bytes: &[u8]) -> Result<Incoming, Refusal> {
+    read_frame(bytes).map(|(_, incoming)| incoming)
+}
+
+/// [`read_request`], with the frame's kind: a command changes the world or its time, a query only
+/// reads (ADR-0001), which is what a spectator may send (ADR-0039 §6).
+pub fn read_frame(bytes: &[u8]) -> Result<(FrameKind, Incoming), Refusal> {
     let refuse = |correlation, code, message: String| Refusal {
         correlation,
         code,
@@ -429,7 +441,7 @@ pub fn read_request(bytes: &[u8]) -> Result<Incoming, Refusal> {
     let meta = frame.header.meta;
     match meta.kind {
         FrameKind::Command | FrameKind::Query => {}
-        FrameKind::Heartbeat | FrameKind::Hello => return Ok(Incoming::Nothing),
+        FrameKind::Heartbeat | FrameKind::Hello => return Ok((meta.kind, Incoming::Nothing)),
         other => {
             return Err(refuse(
                 meta.correlation,
@@ -446,7 +458,7 @@ pub fn read_request(bytes: &[u8]) -> Result<Incoming, Refusal> {
         ));
     }
     decode_request(meta.kind, frame.payload)
-        .map(|request| Incoming::Request(meta.correlation, request))
+        .map(|request| (meta.kind, Incoming::Request(meta.correlation, request)))
         .map_err(|why| refuse(meta.correlation, wire::ErrorCode::BadRequest, why))
 }
 
@@ -636,6 +648,12 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         months: b.months(),
                         depth: b.depth(),
                     })
+                }
+                wire::CommandBody::HandOver => {
+                    let b = command
+                        .body_as_hand_over()
+                        .ok_or_else(|| missing("command"))?;
+                    Ok(Request::HandOver { to: b.to() })
                 }
                 wire::CommandBody::ForceClimate => {
                     let b = command
@@ -1153,6 +1171,7 @@ pub fn events_payload(events: &[EventRecord]) -> Vec<u8> {
         &mut fbb,
         &wire::EventsArgs {
             events: Some(items),
+            viewers: None,
         },
     );
     finish(fbb, root)
@@ -1198,6 +1217,65 @@ pub fn ack_response(message: &str) -> Vec<u8> {
         },
     );
     response(fbb, wire::ResponseBody::Ack, ack)
+}
+
+/// One connection to the observer socket, as `Viewers` lists it (wire 1.110, ADR-0039 §6).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ViewerEntry {
+    /// The connection's id, from 1.
+    pub id: u64,
+    /// The client's name from its hello.
+    pub name: String,
+    /// Connects from a loopback address.
+    pub local: bool,
+}
+
+fn viewer_role(driver: bool) -> wire::ViewerRole {
+    if driver {
+        wire::ViewerRole::Driver
+    } else {
+        wire::ViewerRole::Spectator
+    }
+}
+
+/// The `Events` payload telling connection `you` who watches and who drives, with no events:
+/// `driver` is 0 when nobody does (wire 1.110, ADR-0039 §6).
+pub fn viewers_payload(you: u64, driver: u64, viewers: &[ViewerEntry]) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let list: Vec<_> = viewers
+        .iter()
+        .map(|v| {
+            let name = fbb.create_string(&v.name);
+            wire::ViewerInfo::create(
+                &mut fbb,
+                &wire::ViewerInfoArgs {
+                    id: v.id,
+                    name: Some(name),
+                    local: v.local,
+                    role: viewer_role(v.id == driver),
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let body = wire::Viewers::create(
+        &mut fbb,
+        &wire::ViewersArgs {
+            you,
+            role: viewer_role(you == driver && driver != 0),
+            driver,
+            viewers: Some(list),
+        },
+    );
+    let events = fbb.create_vector::<flatbuffers::WIPOffset<wire::Event>>(&[]);
+    let root = wire::Events::create(
+        &mut fbb,
+        &wire::EventsArgs {
+            events: Some(events),
+            viewers: Some(body),
+        },
+    );
+    finish(fbb, root)
 }
 
 /// A `Response` listing saves.
@@ -1808,5 +1886,69 @@ mod tests {
         assert_eq!(c.header.meta.sequence, 0);
         // Responses must answer a request.
         assert!(frame(&mut seq, FrameKind::Response, 0, 0, &[]).is_err());
+    }
+
+    #[test]
+    fn a_hand_over_decodes_and_the_viewers_encode() {
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::HandOver::create(&mut fbb, &wire::HandOverArgs { to: 3 });
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::HandOver,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::HandOver { to: 3 })
+        );
+
+        let entries = [
+            ViewerEntry {
+                id: 1,
+                name: "Ada".to_owned(),
+                local: true,
+            },
+            ViewerEntry {
+                id: 2,
+                name: "tce-web".to_owned(),
+                local: false,
+            },
+        ];
+        let bytes = viewers_payload(2, 1, &entries);
+        let events = flatbuffers::root::<wire::Events>(&bytes).expect("decodes");
+        assert_eq!(events.events().map(|e| e.len()), Some(0));
+        let v = events.viewers().expect("viewers");
+        assert_eq!(
+            (v.you(), v.role(), v.driver()),
+            (2, wire::ViewerRole::Spectator, 1)
+        );
+        let listed: Vec<_> = v
+            .viewers()
+            .iter()
+            .flatten()
+            .map(|c| {
+                (
+                    c.id(),
+                    c.name().unwrap_or_default().to_owned(),
+                    c.local(),
+                    c.role(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            listed,
+            vec![
+                (1, "Ada".to_owned(), true, wire::ViewerRole::Driver),
+                (2, "tce-web".to_owned(), false, wire::ViewerRole::Spectator),
+            ]
+        );
+        let nobody = viewers_payload(2, 0, &entries);
+        let v = flatbuffers::root::<wire::Events>(&nobody)
+            .expect("decodes")
+            .viewers()
+            .expect("viewers");
+        assert_eq!((v.role(), v.driver()), (wire::ViewerRole::Spectator, 0));
     }
 }

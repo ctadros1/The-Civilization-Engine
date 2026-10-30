@@ -38,6 +38,14 @@ three taught settlements set water mills, wrote records and one issued notes; th
 took nothing up. There is no M10 video yet.
 
 - [Eleven-year M10 run report (cut short)](m10/m10-demo.txt)
+
+M11's demo runner is `kernel/crates/civ-sim/examples/m11_world.rs`: six settlements of 120, three
+taught M11's vocabulary by the observer and three as controls. Its third eight-year run found copper
+by prospecting at Sedgehollow and came to want a dynamo in two settlements, but built no instrument,
+dynamo or line in eight years; the controls lived as before, and the world saved and loaded with
+all 909 people. See the plan's M11d entries for what each run showed.
+
+- [Eight-year M11 run report](m11/m11-demo-8y.txt)
 - [Industry and water-power guide](../docs/development-journal/industry-and-power.md)
 
 ## Earlier titled observer video: M6a, water and sickness

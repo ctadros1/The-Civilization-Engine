@@ -4011,6 +4011,7 @@ impl Population {
         let for_sale = self.for_sale(ctx, &hh, &stores, &tool_need);
         let mut tool_material = vec![0.0; goods.len()];
         let mut tool_material_blocked = vec![false; goods.len()];
+        let mut tool_material_raw = vec![false; goods.len()];
         // How each tool it needs is made: its own recipe, or a tool that serves for it that costs
         // fewer of its hours for each hour of use (M7d slice CE). And the materials those ways
         // need that it makes itself (copper for a copper axe): the tool each is for, and how
@@ -4043,6 +4044,7 @@ impl Population {
                 need: &mut tool_material,
                 blocked: &mut tool_material_blocked,
                 made_for: &mut made_for,
+                raw: &mut tool_material_raw,
             };
             for &(g, amount) in &r.inputs {
                 wanting.toward(
@@ -4268,8 +4270,9 @@ impl Population {
                     }
                 }
                 // Knowing no body of it within reach, nor any patch where it is gathered, and short
-                // of it for a tool, someone may go and look for one over the kind of ground it lies
-                // in (M11d).
+                // of it as what a tool's material is made of (ore for its metal, never the stone or
+                // wood of the tool itself), someone may go and look for one over the kind of ground
+                // it lies in (M11d).
                 let Some((_, mut o)) = best else {
                     let gathers_it = hh.known.iter().any(|k| {
                         land_params
@@ -4277,7 +4280,8 @@ impl Population {
                             .get(usize::from(k.resource))
                             .is_some_and(|r| r.good == g)
                     });
-                    if tool_need_kg <= 0.0 || gathers_it {
+                    let raw = tool_material_raw.get(g).copied().unwrap_or(false);
+                    if tool_need_kg <= 0.0 || gathers_it || !raw {
                         return None;
                     }
                     let deposits::Prospect {

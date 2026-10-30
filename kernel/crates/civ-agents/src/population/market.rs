@@ -2669,6 +2669,9 @@ pub(super) struct MaterialWants<'a> {
     pub need: &'a mut Vec<f64>,
     pub blocked: &'a mut Vec<bool>,
     pub made_for: &'a mut Vec<Option<(usize, f64)>>,
+    /// Whether each good is wanted as what a material is made of (ore for a metal), not as one
+    /// of a tool's own materials (M11d: what a household goes prospecting for).
+    pub raw: &'a mut Vec<bool>,
 }
 
 impl MaterialWants<'_> {
@@ -2712,6 +2715,9 @@ impl MaterialWants<'_> {
         }
         let units = short / per_unit;
         for &(i, a) in &made.inputs {
+            if let Some(r) = self.raw.get_mut(i) {
+                *r = true;
+            }
             self.toward(
                 catalog,
                 held,

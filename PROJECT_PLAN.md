@@ -8089,7 +8089,10 @@ and M6a gives rivers a daily flow.
       world (not long-run): Stonefield's people prospect, but its homes lie at the map's edge, so
       only 101 days a year draw copper ground within reach, and no day's loop passes its
       outcrop; finding a body of ten or twenty metres by search stays rare, as it was. The
-      deposit, digging, coal, metal, iron, works and telegraph targets pass.
+      deposit, digging, coal, metal, iron, works and telegraph targets pass. The homelab chain
+      (run 39) then failed seven targets: households of the early worlds went prospecting for a
+      tool's own stone or wood. Prospecting is now only for what a tool's material is made of
+      (ore for its metal); the seven targets and the telegraph target pass again.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
 
@@ -8196,7 +8199,8 @@ and M6a gives rivers a daily flow.
 ## 9. Decisions log
 
 - **Design priors for prospecting (2026-10-29, M11d's third part, ADR-0010 §1):** NUDGE: a
-  household short of a dug material for a tool, whose settlement knows no body of it within reach
+  household short of a dug material that a tool's material is made of (ore for its metal, never the
+  tool's own stone or wood), whose settlement knows no body of it within reach
   and which has worked no patch where it is gathered, may send someone on a walk over ground of the
   slope the land profile lays such bodies on: out to a place drawn that day within the digging
   activity's walk, across to the day's draw farthest from it, and home (32 draws, nothing

@@ -42,7 +42,7 @@ the milestone is too big and gets split.
 | [0033](0033-power-fuel-and-the-works.md) | Power, fuel and the works | Accepted | M10 |
 | [0034](0034-rail-and-gas-light.md) | Rail and gas light | Accepted | M10 |
 | [0035](0035-services-letters-and-notes.md) | Services, letters and notes | Accepted | M10 |
-| [0036](0036-electricity-and-the-telegraph.md) | Electricity and the telegraph | Proposed | M11 |
+| [0036](0036-electricity-and-the-telegraph.md) | Electricity and the telegraph | Accepted | M11 |
 
 ## Template
 

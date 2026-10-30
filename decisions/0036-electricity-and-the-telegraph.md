@@ -1,6 +1,6 @@
 # ADR-0036: Electricity and the telegraph
 
-Status: Proposed
+Status: Accepted (2026-10-30, by Claude under the owner's standing authority; amended as built below)
 Date: 2026-10-28
 Milestone: M11
 Amends: ADR-0033 §3 (power at a site may drive a dynamo), ADR-0034 §8 and §9 (a second carrier on
@@ -99,8 +99,36 @@ sections, empty where nobody knows the techniques; the save schema, wire and con
 - **Telegraph as instant settlement-wide knowledge.** It would make an office omniscient (07-13
   §1.7).
 
+## Amendment (2026-10-30): as built
+
+Accepted with what M11a–M11d showed (plan §7, M11's entries):
+
+- **§2.** A dynamo's current is reckoned by the day from the shafts its keeper owns
+  (`make::dynamo_kw`, 10 kW at 80 % in the core, design priors). The compact fuel engine burns the
+  one fuel its good names (the core's gas engine, coal gas only); out of fuel its station is short.
+- **§4.** Dispatch runs once an evening, at gas light's dusk, for its four served hours, not hour
+  by hour: with light the only use by wire, one evening's dispatch serves exactly as four hourly
+  ones would. The service record is each hookup's last 32 evenings asked and served.
+- **§5.** Light by wire is built and read wherever light is read. Power by wire to a powered recipe
+  is not built: a works with its own drive is served by its drive, and nothing yet wants current
+  within an evening.
+- **§6.** As written: a station's household weighs a line by what the homes along it would repay at
+  the meter (a design prior in food, on the `Wire` channel), cut-off and restoration as written; a
+  polity strings one together by the `lay_current` law against the `homes_unlit` issue.
+- **§7.** The motor cart is the road engine (a vehicle whose engine is its puller). Transit is a road
+  line: a motor cart's posted runs from its operator's home to a market, fares in food, as rail's
+  runs are kept.
+- **§8.** An office is a household that holds a whole telegraph instrument, with a member who writes
+  and knows the code, not a building use: the instrument is a fixed tool. Wires are strung as lines
+  are. A telegram asks what a far market offers and is answered by the far operator with the offers
+  and the news the far settlement holds; the answer enters the existing hearing paths.
+- **§9.** As written (saves 220, wire 1.109, content API 206).
+- **The demo (M11d)** showed that a tool's makings must be walked more than two steps back (bar,
+  bloom, ore and charcoal) and that a household short of ore may prospect for it (plan §9, NUDGE).
+
 ## Revisit when
 
 - Two stations' trees meet and people would interconnect them.
 - An hour is too coarse to show an evening peak or an outage's effect.
 - Far techniques are found in lived worlds often enough to need their own chains.
+- Power by wire is wanted by a recipe within an evening: dispatch then goes hourly (§4).

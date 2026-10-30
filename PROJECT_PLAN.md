@@ -7707,7 +7707,8 @@ and M6a gives rivers a daily flow.
       the catalogue's (routes 13 %, markets 12 %, members' steps read for free tools 6 %).
       **The clause is amended to the figure reached** (ADR-0028 §1's rule, as M8 and M9 did):
       worlds with a Detailed settlement within 20 % of M9 on this bench, household-resolved and
-      M9's 100k workload within 10 %; subject to the owner's review of the pull request. M9's own gate workload (ten of 10,000, household-resolved, five days)
+      M9's 100k workload within 10 %; accepted under the owner's standing authority (§9,
+      2026-10-30). M9's own gate workload (ten of 10,000, household-resolved, five days)
       is within the clause: 176.2 → 189.7 s a day (1.08×).
 
 **Post-v1 (ordered, not sized):**
@@ -7716,8 +7717,8 @@ and M6a gives rivers a daily flow.
 - **M11, Modern content:** electricity and a power grid, motor vehicles,
   transit, telecom, modern architecture primitives, waste.
   - *Design proposed (2026-10-28, §9 "M11 design"):* two briefs (`docs/briefs/m11-power.md`,
-    `m11-movement.md`) and [ADR-0036](decisions/0036-electricity-and-the-telegraph.md), status
-    Proposed until the owner accepts it. Parts: **M11a** electricity (a dynamo at an existing
+    `m11-movement.md`) and [ADR-0036](decisions/0036-electricity-and-the-telegraph.md), accepted
+    2026-10-30 with an as-built amendment (§9). Parts: **M11a** electricity (a dynamo at an existing
     water installation or engine; a wire laid along ways like a gas main, rated and losing I²R;
     a radial tree dispatched by the served hour; light and power by wire; who builds and pays),
     **M11b** engines that move and transit, **M11c** the telegraph, **M11d** the demo. Modern
@@ -8198,6 +8199,18 @@ and M6a gives rivers a daily flow.
 
 ## 9. Decisions log
 
+- **ADR-0036 accepted (2026-10-30, PR #22): Decided by Claude under standing owner authority
+  (2026-10-30).** Status Proposed to Accepted, with an "as built" amendment: dispatch by the evening,
+  not the hour; power by wire to recipes not built; an office is a household holding an instrument;
+  the gas engine burns coal gas; road transit as a motor cart's posted runs. Reason: M11a–M11c were
+  built on it and green on the homelab chain, and every departure is recorded with why.
+- **M10's bench clause (2026-10-30, PR #21; ADR-0028 §1): Decided by Claude under standing owner
+  authority (2026-10-30).** The amended clause is accepted: worlds with a Detailed settlement within
+  20 % of M9 on the gate's bench, household-resolved worlds and M9's 100k workload within 10 %.
+  Reason: ADR-0028 §1's own rule (profile, cut what can be cut exactly, then amend to the figure
+  reached) was followed, the three exact cuts left M10 at about 1.15× and 1.17× M9 where a
+  settlement is Detailed and within 10 % elsewhere, and the ADR's revisit line (a fifth more a
+  person-day) is not crossed.
 - **Design priors for prospecting (2026-10-29, M11d's third part, ADR-0010 §1):** NUDGE: a
   household short of a dug material that a tool's material is made of (ore for its metal, never the
   tool's own stone or wood), whose settlement knows no body of it within reach

@@ -558,8 +558,10 @@ fn a_trip_by_a_report_gone_stale_buys_nothing_and_is_counted_with_why() {
     } = scene();
     past_midnight(&mut sim);
     plant_reports(&mut sim, buyer, seller, sickle);
-    assert!(held_of(&sim, buyer, seller, sickle).len() >= 2);
-    // The seller now asks more for a sickle than the buyer holds of anything.
+    let as_they_were = held_of(&sim, buyer, seller, sickle);
+    assert!(as_they_were.len() >= 2);
+    // The seller now asks more for a sickle, and for whatever else it offers, than the buyer
+    // holds of anything.
     let dear = |sim: &mut Sim| {
         let pop = sim.people_mut_for_tests();
         let (_, h) = pop
@@ -567,11 +569,7 @@ fn a_trip_by_a_report_gone_stale_buys_nothing_and_is_counted_with_why() {
             .iter_mut()
             .find(|(_, h)| h.id == seller)
             .expect("seller");
-        for o in h
-            .offers
-            .iter_mut()
-            .filter(|o| usize::from(o.good) == sickle)
-        {
+        for o in h.offers.iter_mut() {
             o.price = 1e6;
         }
     };
@@ -603,9 +601,9 @@ fn a_trip_by_a_report_gone_stale_buys_nothing_and_is_counted_with_why() {
         "{held:?}"
     );
 
-    // Told again of the terms it went by, it walks to a seller who has sold out.
+    // Told again of the terms it went by, each day until it goes (word that the seller has none
+    // left may reach it first from others who went), it walks to a seller who has sold out.
     past_midnight(&mut sim);
-    plant_reports_as_they_were(&mut sim, buyer, seller, sickle);
     let sold_out = |sim: &mut Sim| {
         let pop = sim.people_mut_for_tests();
         let (_, h) = pop
@@ -617,6 +615,17 @@ fn a_trip_by_a_report_gone_stale_buys_nothing_and_is_counted_with_why() {
         h.stores[sickle] = 0.0;
     };
     for _ in 0..10 {
+        let day = sim.now().day_index();
+        for r in &as_they_were {
+            sim.people_mut_for_tests().reports.note(
+                buyer,
+                PriceReport {
+                    day,
+                    how: ReportHow::Told,
+                    ..*r
+                },
+            );
+        }
         sold_out(&mut sim);
         sim.advance_minutes(DAY).expect("advances");
         if contact(&sim, a, b).1[Missed::SoldOut as usize] > 0 {
@@ -698,29 +707,6 @@ fn a_trip_to_a_seller_who_holds_less_than_its_terms_say_is_counted_and_not_made_
     // Nobody of the household goes back for what is not there.
     sim.advance_minutes(3 * DAY).expect("advances");
     assert_eq!(contact(&sim, a, b).1, [1, 0, 0, 0]);
-}
-
-/// A report `household` is told today of `seller`'s sickles at the terms it took for provisions
-/// as the scene began.
-fn plant_reports_as_they_were(
-    sim: &mut Sim,
-    household: PermanentId,
-    seller: PermanentId,
-    sickle: usize,
-) {
-    let day = sim.now().day_index();
-    let held = held_of(sim, household, seller, sickle)[0];
-    let provisions = good(sim, "core:good/provisions") as u16;
-    sim.people_mut_for_tests().reports.note(
-        household,
-        PriceReport {
-            payment: provisions,
-            price: 3.0,
-            day,
-            how: ReportHow::Told,
-            ..held
-        },
-    );
 }
 
 #[test]
@@ -2426,9 +2412,10 @@ fn a_household_lays_a_way_where_its_carts_drag_on_worn_trail_and_its_carts_then_
     );
     // Saved and loaded while it is being laid, the world goes on alike.
     saves_and_goes_on_alike(&mut sim, 60);
-    // Its people clear it until it is a tread wide.
+    // Its people clear it until it is a tread wide, within the year, as the field work and the
+    // rest of the household's life leave them time.
     let mut worked = false;
-    for _ in 0..200 * 24 * 6 {
+    for _ in 0..365 * 24 * 6 {
         sim.advance_minutes(10).expect("advances");
         worked |= sim.people().people.iter().any(|(_, p)| {
             p.household == buyer && p.act.target == civ_agents::person::Target::Way(way.id)

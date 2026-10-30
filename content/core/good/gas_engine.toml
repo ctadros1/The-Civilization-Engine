@@ -1,0 +1,27 @@
+# A gas engine (M11b, first part; ADR-0036 §2, §7: "A compact fuel engine is a tool good with shaft
+# power and the fuel it burns; set where power is used, it is a drive as a wheel is"; research
+# 07-13 §5.3 C02, the brief m11-movement §2: "a gas engine can burn town gas from M10b's
+# holders"). A fixed tool that burns coal gas, and only coal gas, for shaft work; held beside a
+# dynamo it turns it, as a wheel does. 3 kW at 12 % are design priors of the order of an 1870s
+# four-stroke gas engine of a few horsepower, not measurements.
+kind = "good"
+id = "core:good/gas_engine"
+name = "Gas engine"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 40000.0
+per_worker = 0.1
+fixed = true
+
+[power]
+source = "fuel"
+rated_kw = 3.0
+efficiency = 0.12
+fuel = "core:good/coal_gas"

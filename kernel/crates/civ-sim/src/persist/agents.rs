@@ -133,7 +133,8 @@ use super::{
     SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, SCHEMA_V199, SCHEMA_V200, SCHEMA_V201,
     SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, SCHEMA_V205, SCHEMA_V206, SCHEMA_V207, SCHEMA_V208,
     SCHEMA_V209, SCHEMA_V210, SCHEMA_V211, SCHEMA_V212, SCHEMA_V213, SCHEMA_V214, SCHEMA_V215,
-    SCHEMA_V216, SCHEMA_V217, SCHEMA_V218, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V216, SCHEMA_V217, SCHEMA_V218, SCHEMA_V219, finish, section, section_root,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -214,6 +215,8 @@ pub const SECTION_WAGONS: SectionTag = SectionTag::new("wagons");
 pub const SECTION_RUNS: SectionTag = SectionTag::new("runs");
 /// Section: gas mains and connections (schema 186, M10b slice DY).
 pub const SECTION_GAS: SectionTag = SectionTag::new("gas");
+/// Section: lines of current and hookups (schema 220, M11a).
+pub const SECTION_WIRES: SectionTag = SectionTag::new("wires");
 /// Section: goods in transit by boat (schema 143, M8b slice CO).
 pub const SECTION_CONSIGNMENTS: SectionTag = SectionTag::new("consigns");
 /// Section: wells (schema 74, M6a slice AY, step three).
@@ -348,6 +351,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         ),
         section(SECTION_RUNS, 0, encode_runs(&sim.land.runs)),
         section(SECTION_GAS, 0, encode_gas(&sim.land.gas)),
+        section(SECTION_WIRES, 0, encode_wires(&sim.land.wires)),
         section(
             SECTION_CONSIGNMENTS,
             0,
@@ -713,6 +717,8 @@ enum Schema {
     V182,
     /// Gas mains and connections (M10b slice DY: the `gas` section).
     V186,
+    /// Lines of current and hookups (M11a: the `wires` section).
+    V220,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -918,7 +924,8 @@ pub(super) fn decode<R: Read + Seek>(
         | SCHEMA_V198 | SCHEMA_V199 | SCHEMA_V200 | SCHEMA_V201 | SCHEMA_V202 | SCHEMA_V203
         | SCHEMA_V204 | SCHEMA_V205 | SCHEMA_V206 | SCHEMA_V207 | SCHEMA_V208 | SCHEMA_V209
         | SCHEMA_V210 | SCHEMA_V211 | SCHEMA_V212 | SCHEMA_V213 | SCHEMA_V214 | SCHEMA_V215
-        | SCHEMA_V216 | SCHEMA_V217 | SCHEMA_V218 | SAVE_SCHEMA_VERSION => Schema::V186,
+        | SCHEMA_V216 | SCHEMA_V217 | SCHEMA_V218 | SCHEMA_V219 => Schema::V186,
+        SAVE_SCHEMA_VERSION => Schema::V220,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1198,6 +1205,11 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V186 {
         let bytes = single_chunk(reader, SECTION_GAS)?;
         land.gas = decode_gas(&bytes, SECTION_GAS)?;
+    }
+    // Lines of current and hookups (schema 220); before, none.
+    if schema >= Schema::V220 {
+        let bytes = single_chunk(reader, SECTION_WIRES)?;
+        land.wires = decode_wires(&bytes, SECTION_WIRES)?;
     }
     // Goods in transit (schema 143); before, none.
     if schema >= Schema::V143 {
@@ -2381,6 +2393,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::WorkUnpaid => 38,
         IssueKind::StoreNotesRefused => 39,
         IssueKind::FalseNotesFound => 40,
+        IssueKind::HomesUnlit => 41,
     }
 }
 
@@ -2528,6 +2541,7 @@ fn decode_polities(
                 38 => IssueKind::WorkUnpaid,
                 39 => IssueKind::StoreNotesRefused,
                 40 => IssueKind::FalseNotesFound,
+                41 => IssueKind::HomesUnlit,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -4635,6 +4649,7 @@ fn decode_land(
         wagons: Default::default(),
         runs: Default::default(),
         gas: Default::default(),
+        wires: Default::default(),
         // The heads and the store below (schema 72 on); the aquifer derived.
         water: Default::default(),
         // Read from its own section (schema 74 on).
@@ -5446,7 +5461,8 @@ fn carried(
         | Schema::V171
         | Schema::V181
         | Schema::V182
-        | Schema::V186 => {
+        | Schema::V186
+        | Schema::V220 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5832,7 +5848,8 @@ fn decode_households(
             | Schema::V171
             | Schema::V181
             | Schema::V182
-            | Schema::V186 => {
+            | Schema::V186
+            | Schema::V220 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -9357,6 +9374,7 @@ fn encode_events(sim: &Sim) -> Vec<u8> {
                 SimEvent::Agent(AgentEvent::Gates) => (save::EventKind::Gates, 0, 0, 0),
                 SimEvent::Agent(AgentEvent::Trains) => (save::EventKind::Trains, 0, 0, 0),
                 SimEvent::Agent(AgentEvent::Gas) => (save::EventKind::Gas, 0, 0, 0),
+                SimEvent::Agent(AgentEvent::Telegraph) => (save::EventKind::Telegraph, 0, 0, 0),
                 SimEvent::Agent(AgentEvent::Pass {
                     person,
                     version,
@@ -9406,6 +9424,7 @@ fn decode_events(bytes: &[u8]) -> Result<Vec<PendingEvent<SimEvent>>, LoadError>
             save::EventKind::Gates => SimEvent::Agent(AgentEvent::Gates),
             save::EventKind::Trains => SimEvent::Agent(AgentEvent::Trains),
             save::EventKind::Gas => SimEvent::Agent(AgentEvent::Gas),
+            save::EventKind::Telegraph => SimEvent::Agent(AgentEvent::Telegraph),
             save::EventKind::Pass => SimEvent::Agent(AgentEvent::Pass {
                 person: required(e.person(), "a passage's walker")?,
                 version: e.version(),
@@ -10508,6 +10527,7 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
     let conv = &people.convergence;
     let good_dictionary = (!people.reports.held.is_empty()
         || !people.reports.errands.is_empty()
+        || !people.reports.telegrams.is_empty()
         || !conv.gaps.is_empty()
         || !conv.carried.is_empty())
     .then(|| strings(&mut fbb, goods));
@@ -10730,11 +10750,58 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
                         .unwrap_or(0.0),
                     by_cart: e.by_cart.is_some(),
                     cart: e.by_cart.map_or(0, |c| c.cart.get()),
+                    ride: e.by_ride.map_or(0, |r| r.line.get()),
+                    ride_min: e.by_ride.map_or(0.0, |r| r.travel_min),
                 },
             )
         })
         .collect();
     let errands = (!errands.is_empty()).then(|| fbb.create_vector(&errands));
+    // Telegrams waiting on their answers (M11c).
+    let mut telegrams = Vec::new();
+    for (&h, t) in &people.reports.telegrams {
+        let answer: Vec<_> = t
+            .answer
+            .iter()
+            .map(|r| {
+                save::PriceReportSave::create(
+                    &mut fbb,
+                    &save::PriceReportSaveArgs {
+                        household: h.get(),
+                        market: r.market.get(),
+                        seller: r.seller.get(),
+                        firm: r.firm,
+                        good: u32::from(r.good),
+                        payment: u32::from(r.payment),
+                        price: r.price,
+                        ask_h: r.ask_h,
+                        units: r.units,
+                        day: r.day,
+                        how: r.how.code(),
+                        from: r.from.map_or(0, PermanentId::get),
+                    },
+                )
+            })
+            .collect();
+        let answer = fbb.create_vector(&answer);
+        let claims = fbb.create_vector(&t.claims);
+        telegrams.push(save::TelegramSave::create(
+            &mut fbb,
+            &save::TelegramSaveArgs {
+                household: h.get(),
+                near: t.near.get(),
+                far: t.far.get(),
+                market: t.market.get(),
+                handed: t.handed,
+                due: t.due,
+                stage: t.stage.code(),
+                answer: Some(answer),
+                claims: Some(claims),
+                teller: t.teller.map_or(0, PermanentId::get),
+            },
+        ));
+    }
+    let telegrams = (!telegrams.is_empty()).then(|| fbb.create_vector(&telegrams));
     // Buildings seen in other settlements (schema 59).
     let seen: Vec<_> = people
         .seen_away
@@ -10862,6 +10929,7 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
             draws_day: draws.day,
             draw_patches,
             draw_litres,
+            telegrams,
         },
     );
     finish(fbb, root)
@@ -11053,6 +11121,57 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
                 } else {
                     None
                 },
+                // M11b, third part: before, none.
+                by_ride: PermanentId::from_raw(e.ride()).map(|line| civ_agents::reports::ByRide {
+                    line,
+                    travel_min: e.ride_min(),
+                }),
+            },
+        );
+    }
+    // Telegrams waiting on their answers (M11c): an offer of a good the content no longer has
+    // is left out of an answer.
+    for t in root.telegrams().iter().flatten() {
+        use civ_agents::reports::{PriceReport, ReportHow, Telegram, TelegramStage};
+        let household = required(t.household(), "a telegram's household")?;
+        let what = || format!("a telegram of household {household}");
+        let mut answer = Vec::new();
+        for r in t.answer().iter().flatten() {
+            let good = saved_good(&report_goods, r.good(), what)?;
+            let payment = saved_good(&report_goods, r.payment(), what)?;
+            let (Some(good), Some(payment)) = (good, payment) else {
+                continue;
+            };
+            answer.push(PriceReport {
+                market: required(r.market(), "an answer's market")?,
+                seller: required(r.seller(), "an answer's seller")?,
+                firm: r.firm(),
+                good,
+                payment,
+                price: r.price(),
+                ask_h: r.ask_h(),
+                units: r.units(),
+                day: r.day(),
+                how: ReportHow::from_code(r.how()).ok_or_else(|| {
+                    LoadError::Malformed(format!("unknown way of a price report {}", r.how()))
+                })?,
+                from: PermanentId::from_raw(r.from()),
+            });
+        }
+        reports.telegrams.insert(
+            household,
+            Telegram {
+                near: required(t.near(), "a telegram's office")?,
+                far: required(t.far(), "a telegram's far office")?,
+                market: required(t.market(), "a telegram's market")?,
+                handed: t.handed(),
+                due: t.due(),
+                stage: TelegramStage::from_code(t.stage()).ok_or_else(|| {
+                    LoadError::Malformed(format!("unknown stage of a telegram {}", t.stage()))
+                })?,
+                answer,
+                claims: t.claims().map(|v| v.iter().collect()).unwrap_or_default(),
+                teller: PermanentId::from_raw(t.teller()),
             },
         );
     }
@@ -12853,14 +12972,40 @@ fn encode_runs(runs: &civ_land::trains::Runs) -> Vec<u8> {
             )
         })
         .collect();
+    let roads: Vec<_> = runs
+        .roads
+        .iter()
+        .map(|r| {
+            let cells = fbb.create_vector(&r.cells);
+            let minutes = fbb.create_vector(&r.minutes);
+            save::RoadLineSave::create(
+                &mut fbb,
+                &save::RoadLineSaveArgs {
+                    id: r.id.get(),
+                    operator: r.operator.get(),
+                    cart: r.cart.get(),
+                    market: r.market.get(),
+                    cells: Some(cells),
+                    minutes: Some(minutes),
+                    runs_a_day: r.runs_a_day,
+                    fare_kcal: r.fare_kcal,
+                    riders: r.riders,
+                    since: r.since,
+                    last_run: r.last_run,
+                },
+            )
+        })
+        .collect();
     let lines = fbb.create_vector(&lines);
     let list = fbb.create_vector(&list);
+    let roads = fbb.create_vector(&roads);
     let root = save::RunsSave::create(
         &mut fbb,
         &save::RunsSaveArgs {
             lines: Some(lines),
             list: Some(list),
             revision: runs.revision(),
+            roads: Some(roads),
         },
     );
     finish(fbb, root)
@@ -12920,7 +13065,32 @@ fn decode_runs(bytes: &[u8], tag: SectionTag) -> Result<civ_land::trains::Runs, 
                 .unwrap_or_default(),
         });
     }
-    Ok(Runs::from_saved(lines, list, root.revision()))
+    let mut runs = Runs::from_saved(lines, list, root.revision());
+    // Road lines (M11b, third part); before, none.
+    for r in root.roads().iter().flatten() {
+        let cells: Vec<u32> = r.cells().map(|v| v.iter().collect()).unwrap_or_default();
+        let minutes: Vec<f32> = r.minutes().map(|v| v.iter().collect()).unwrap_or_default();
+        let id = required(r.id(), "a road line")?;
+        if cells.len() != minutes.len() || cells.is_empty() {
+            return Err(LoadError::Malformed(format!(
+                "road line {id} has a broken route"
+            )));
+        }
+        runs.roads.push(civ_land::trains::RoadLine {
+            id,
+            operator: required(r.operator(), "a road line's keeper")?,
+            cart: required(r.cart(), "a road line's cart")?,
+            market: required(r.market(), "a road line's settlement")?,
+            cells,
+            minutes,
+            runs_a_day: r.runs_a_day().max(1),
+            fare_kcal: r.fare_kcal(),
+            riders: r.riders(),
+            since: r.since(),
+            last_run: r.last_run(),
+        });
+    }
+    Ok(runs)
 }
 
 /// Gas mains and connections (schema 186, M10b slice DY).
@@ -12995,7 +13165,130 @@ fn encode_gas(gas: &civ_land::gas::Gas) -> Vec<u8> {
     finish(fbb, root)
 }
 
-/// Reads [`encode_gas`]'s section.
+/// The land's lines of current and hookups, in the order made (schema 220).
+fn encode_wires(wires: &civ_land::wire::Wires) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let lines: Vec<_> = wires
+        .lines
+        .iter()
+        .map(|l| {
+            let cells = fbb.create_vector(&l.cells);
+            save::WireLineSave::create(
+                &mut fbb,
+                &save::WireLineSaveArgs {
+                    cells: Some(cells),
+                    id: l.id.get(),
+                    station: l.station.get(),
+                    parent: l.parent.map_or(0, |p| p.get()),
+                    rating_kw: l.rating_kw,
+                    length_m: l.length_m,
+                    laid_m: l.laid_m,
+                    broken: l.broken,
+                    worth_h: l.worth_h,
+                },
+            )
+        })
+        .collect();
+    let hookups: Vec<_> = wires
+        .hookups
+        .iter()
+        .map(|h| {
+            save::WireHookupSave::create(
+                &mut fbb,
+                &save::WireHookupSaveArgs {
+                    building: h.building.get(),
+                    household: h.household.get(),
+                    line: h.line.get(),
+                    ask_kw: h.ask_kw,
+                    cut_off: h.cut_off,
+                    lit_until: h.lit_until,
+                    cause: h.cause.code(),
+                    asked: h.asked,
+                    served: h.served,
+                },
+            )
+        })
+        .collect();
+    let telegraphs: Vec<_> = wires
+        .telegraphs
+        .iter()
+        .map(|t| {
+            let cells = fbb.create_vector(&t.cells);
+            save::TelegraphSave::create(
+                &mut fbb,
+                &save::TelegraphSaveArgs {
+                    cells: Some(cells),
+                    id: t.id.get(),
+                    a: t.a.get(),
+                    b: t.b.get(),
+                    length_m: t.length_m,
+                    laid_m: t.laid_m,
+                    broken: t.broken,
+                    worth_h: t.worth_h,
+                },
+            )
+        })
+        .collect();
+    let lines = fbb.create_vector(&lines);
+    let hookups = fbb.create_vector(&hookups);
+    let telegraphs = fbb.create_vector(&telegraphs);
+    let root = save::WiresSave::create(
+        &mut fbb,
+        &save::WiresSaveArgs {
+            lines: Some(lines),
+            hookups: Some(hookups),
+            telegraphs: Some(telegraphs),
+        },
+    );
+    fbb.finish(root, None);
+    fbb.finished_data().to_vec()
+}
+
+fn decode_wires(bytes: &[u8], tag: SectionTag) -> Result<civ_land::wire::Wires, LoadError> {
+    use civ_land::wire::{Hookup, Line, Telegraph, Wires};
+    let root = section_root::<save::WiresSave>(bytes).map_err(|e| unreadable(tag, &e))?;
+    let mut wires = Wires::default();
+    for l in root.lines().iter().flatten() {
+        wires.lines.push(Line {
+            id: required(l.id(), "a line of current")?,
+            station: required(l.station(), "a line's station")?,
+            parent: PermanentId::from_raw(l.parent()),
+            cells: l.cells().map(|v| v.iter().collect()).unwrap_or_default(),
+            rating_kw: l.rating_kw(),
+            length_m: l.length_m(),
+            laid_m: l.laid_m(),
+            broken: l.broken(),
+            worth_h: l.worth_h(),
+        });
+    }
+    for h in root.hookups().iter().flatten() {
+        wires.hookups.push(Hookup {
+            building: required(h.building(), "a hookup's building")?,
+            household: required(h.household(), "a hookup's household")?,
+            line: required(h.line(), "a hookup's line")?,
+            ask_kw: h.ask_kw(),
+            cut_off: h.cut_off(),
+            lit_until: h.lit_until(),
+            cause: civ_land::wire::Cause::from_code(h.cause()),
+            asked: h.asked(),
+            served: h.served(),
+        });
+    }
+    for t in root.telegraphs().iter().flatten() {
+        wires.telegraphs.push(Telegraph {
+            id: required(t.id(), "a telegraph wire")?,
+            a: required(t.a(), "a telegraph wire's office")?,
+            b: required(t.b(), "a telegraph wire's far office")?,
+            cells: t.cells().map(|v| v.iter().collect()).unwrap_or_default(),
+            length_m: t.length_m(),
+            laid_m: t.laid_m(),
+            broken: t.broken(),
+            worth_h: t.worth_h(),
+        });
+    }
+    Ok(wires)
+}
+
 fn decode_gas(bytes: &[u8], tag: SectionTag) -> Result<civ_land::gas::Gas, LoadError> {
     use civ_land::gas::{Cause, Connection, Gas, Main, StreetLamp};
     let root = section_root::<save::GasSave>(bytes).map_err(|e| unreadable(tag, &e))?;

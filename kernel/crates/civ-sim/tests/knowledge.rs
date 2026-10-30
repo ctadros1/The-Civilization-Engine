@@ -630,9 +630,16 @@ fn a_learner_enrolled_with_a_knower_of_another_household_studies_with_them_and_l
             })
             .expect("two households with grown knappers");
         let day = sim.now().day_index();
+        // Nobody of the learner's household knaps, so the teacher is the only one to learn from.
+        let home = sim
+            .people()
+            .household(payer)
+            .expect("household")
+            .members
+            .clone();
         let pop = sim.people_mut_for_tests();
         for (_, p) in pop.people.iter_mut() {
-            if p.id == learner {
+            if home.contains(&p.id) {
                 p.knows.retain(|k| usize::from(k.technique) != knapping);
             }
         }
@@ -1164,7 +1171,13 @@ fn a_sole_knower_who_can_write_writes_a_craft_down_and_a_reader_learns_it_from_t
         (record.technique as usize, record.holder, record.maker),
         (laying_out, home, writer)
     );
-    assert!(sim.people().written.is_empty());
+    // Its hours are spent; the writer may already be at the next thing only they know.
+    assert!(
+        sim.people()
+            .written
+            .iter()
+            .all(|s| usize::from(s.technique) != laying_out)
+    );
     let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
     let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
     let at = persist::save(&mut sim, &saves, SaveKind::Manual, "record").expect("saves");

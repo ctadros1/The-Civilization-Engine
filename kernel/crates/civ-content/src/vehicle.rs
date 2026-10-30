@@ -4,7 +4,8 @@
 //! one does. M8's modes are the boat and the handcart (`cart`, content API 135, M8b slice CP):
 //! a boat's water and paddling fields are a boat's only, a cart's mass, resistances and puller
 //! a cart's only. A rail vehicle may have an `[engine]` (content API 170, M10b slice DW): then it
-//! pulls by its fuel, its `pull_n` and `power_w` the engine's.
+//! pulls by its fuel, its `pull_n` and `power_w` the engine's. So may a cart (content API 205,
+//! M11b): a motor vehicle, no faster than its engine's top speed rather than its puller's walk.
 
 use civ_agents::params::{RailEngine, VehicleDef, VehicleMode};
 use serde::Deserialize;
@@ -78,7 +79,7 @@ pub(crate) struct VehicleFile {
     pub rail_resistance: f64,
     #[serde(default)]
     pub gauge_m: f64,
-    /// A rail vehicle's engine, if it pulls (content API 170).
+    /// A rail vehicle's engine, if it pulls (content API 170), or a cart's (content API 205).
     #[serde(default)]
     pub engine: Option<EngineFile>,
 }
@@ -212,8 +213,8 @@ impl VehicleFile {
         };
         ranges.extend_from_slice(own);
         if let Some(e) = &self.engine {
-            if mode != Some(VehicleMode::Rail) {
-                p.push("`[engine]` is a rail vehicle's, not this vehicle's".to_owned());
+            if !matches!(mode, Some(VehicleMode::Rail | VehicleMode::Cart)) {
+                p.push("`[engine]` is a rail vehicle's or a cart's, not a boat's".to_owned());
             }
             ranges.push(("engine.efficiency", e.efficiency, 0.001, 0.5));
             ranges.push(("engine.top_speed_m_s", e.top_speed_m_s, 0.1, 50.0));

@@ -464,7 +464,8 @@ pub struct Petition {
     pub called: SimTime,
     pub day: i64,
     /// The demand: a law of template `policy` in place of law `ends`, taking `levy_share` (none
-    /// at 0) for a store, or naming `nominee` for an office.
+    /// at 0) for a store, or naming `nominee` for an office (nobody for one filled by lot, which
+    /// the lot draws once it passes).
     pub policy: u16,
     pub levy_share: f32,
     pub nominee: Option<PermanentId>,

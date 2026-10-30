@@ -1,0 +1,19 @@
+# Turning a shaft's work into current: a machine of iron and insulated copper wound about magnets,
+# driven by a wheel or an engine already set (research 07-13 §5.2 E03, practical dynamo
+# manufacture, 1866-67; the M11 power brief §2; ADR-0036 §2). Nobody finds it yet: no work tries
+# toward it, so only the observer can bring it (M11a, first part). Learnt in 400 hours beside a
+# knower (a tuning value, as the atmospheric engine). Founders do not bring it.
+kind = "technique"
+id = "core:technique/dynamo"
+name = "The dynamo"
+can = "build a machine that turns a wheel's or an engine's work into current"
+domain = "core:skill/smithing"
+requires = [["core:technique/forging"]]
+tried_in = []
+needs = []
+e50_h = 400000.0                 # unused while no work tries toward it
+learn_h = 400.0
+upbringing = true
+
+[answers]
+spoilage = []

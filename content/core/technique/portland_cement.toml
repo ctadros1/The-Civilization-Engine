@@ -1,0 +1,18 @@
+# Portland cement: limestone and clay burnt to clinker hotter than lime and ground fine with a
+# wheel's power (research 11-14 §1.7, §2.2; ADR-0037 §2). Found by those who burn lime with stone,
+# clay and coal at home; half of them would need 400,000 qualified hours (a far technique, as the
+# blast furnace). Learnt in 300 hours beside a knower. Founders do not bring it.
+kind = "technique"
+id = "core:technique/portland_cement"
+name = "Portland cement"
+can = "burn limestone and clay to clinker and grind it to a cement that sets under water"
+domain = "core:skill/pottery"
+requires = [["core:technique/lime_burning", "core:technique/water_wheel"]]
+tried_in = ["core:activity/burn_lime"]
+needs = ["core:good/stone", "core:good/clay", "core:good/coal"]
+e50_h = 400000.0
+learn_h = 300.0
+upbringing = true
+
+[answers]
+spoilage = []

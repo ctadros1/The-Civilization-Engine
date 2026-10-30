@@ -571,6 +571,8 @@ pub const SCHEMA_V216: u32 = 216;
 pub const SCHEMA_V217: u32 = 217;
 /// False notes told apart, before their finders were kept.
 pub const SCHEMA_V218: u32 = 218;
+/// False notes' finders kept, before the wire (M11a: the `wires` section).
+pub const SCHEMA_V219: u32 = 219;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

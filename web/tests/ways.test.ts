@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import type { GasMainInfo, StreetLampInfo, WayInfo, WaySegmentInfo } from "../src/net/messages.js";
+import type { CurrentLineInfo, GasMainInfo, StreetLampInfo, WayInfo, WaySegmentInfo } from "../src/net/messages.js";
 import {
   BED_COLOUR,
+  BROKEN_CURRENT_COLOUR,
   BROKEN_MAIN_COLOUR,
+  CURRENT_COLOUR,
+  TELEGRAPH_COLOUR,
+  currentLook,
   EARTH_COLOUR,
   GRAVEL_COLOUR,
   LAMP_DARK_COLOUR,
@@ -178,5 +182,31 @@ describe("ways", () => {
     expect(mainAt([main()], 40, 20, 2)).toBeNull();
     expect(lampAt([lamp(true)], 41, 12, 2)?.words).toBe("burning");
     expect(lampAt([lamp(true)], 40, 20, 2)).toBeNull();
+  });
+});
+
+describe("the wire's look", () => {
+  const line = (telegraph: boolean, broken = false, laid = 1): CurrentLineInfo => ({
+    id: 1,
+    station: 2,
+    points: [
+      [0, 0],
+      [10, 0],
+    ],
+    lengthM: 10,
+    laid,
+    ratingKw: telegraph ? 0 : 6,
+    broken,
+    homes: 0,
+    lit: 0,
+    words: "",
+    telegraph,
+  });
+
+  it("draws a telegraph wire in dark iron, thinner than copper, and red when broken (wire 1.108)", () => {
+    expect(currentLook(line(false))).toEqual({ colour: CURRENT_COLOUR, alpha: 0.9, widthM: 0.3 });
+    expect(currentLook(line(true))).toEqual({ colour: TELEGRAPH_COLOUR, alpha: 0.9, widthM: 0.2 });
+    expect(currentLook(line(true, true)).colour).toBe(BROKEN_CURRENT_COLOUR);
+    expect(currentLook(line(true, false, 0)).alpha).toBeCloseTo(0.25);
   });
 });

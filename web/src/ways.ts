@@ -1,7 +1,7 @@
 // Ways people have worked on (M8b slice CM; ADR-0029 §1, §9): how a way's stretches are drawn and
 // which way the pointer is on. The kernel decides everything, the rank included; this only shows it.
 
-import type { GasMainInfo, StreetLampInfo, WayInfo, WaySegmentInfo } from "./net/messages.js";
+import type { CurrentLineInfo, GasMainInfo, StreetLampInfo, WayInfo, WaySegmentInfo } from "./net/messages.js";
 
 /** Bare earth and shaped earth, gravel, and a timber causeway. */
 export const EARTH_COLOUR = 0xb59a6a;
@@ -16,6 +16,11 @@ export const STATION_COLOUR = 0x6b4f3a;
 /** A gas main's iron pipe, and one broken (M10b slice DY). */
 export const MAIN_COLOUR = 0x3d4a5c;
 export const BROKEN_MAIN_COLOUR = 0xa03a2a;
+/** A line of current's copper on its poles, and one broken (M11a). */
+export const CURRENT_COLOUR = 0xb87333;
+export const BROKEN_CURRENT_COLOUR = 0xa03a2a;
+/** A telegraph wire's dark iron line on its poles (M11c). */
+export const TELEGRAPH_COLOUR = 0x3a3a3a;
 /** A street lamp burning, and one dark (M10b slice DY). */
 export const LAMP_LIT_COLOUR = 0xffd27a;
 export const LAMP_DARK_COLOUR = 0x4a4a48;
@@ -152,4 +157,33 @@ export function wayWords(way: WayInfo, s: WaySegmentInfo): string {
   }
   const condition = s.condition >= 0.75 ? "good" : s.condition >= 0.4 ? "fair" : "poor";
   return `${way.words} This stretch ${s.surface}, ${s.usableM.toFixed(1)} m of a ${s.corridorM.toFixed(1)} m corridor${kept}, in ${condition} condition.`;
+}
+
+/** How a line of current is drawn (M11a): a thin copper line along its route, fainter the less of it
+ * is strung (never fainter than about a quarter, so a line marked out shows), and red if broken. A
+ * telegraph wire (M11c) is drawn the same way in dark iron, thinner. */
+export function currentLook(l: CurrentLineInfo): { colour: number; alpha: number; widthM: number } {
+  const laid = Math.min(1, Math.max(0, l.laid));
+  const colour = l.broken ? BROKEN_CURRENT_COLOUR : l.telegraph ? TELEGRAPH_COLOUR : CURRENT_COLOUR;
+  return { colour, alpha: 0.25 + 0.65 * laid, widthM: l.telegraph ? 0.2 : 0.3 };
+}
+
+/** The line of current whose route passes within `slackM` of the point, the nearest; a station's
+ * line of no length is found at its one point. */
+export function currentAt(list: CurrentLineInfo[], xM: number, yM: number, slackM: number): CurrentLineInfo | null {
+  let best: CurrentLineInfo | null = null;
+  let bestD = Infinity;
+  for (const l of list) {
+    const p = l.points;
+    for (let i = 0; i < p.length; i++) {
+      const [x0, y0] = p[i]!;
+      const [x1, y1] = p[Math.min(i + 1, p.length - 1)]!;
+      const d = distanceToSegment(xM, yM, x0, y0, x1, y1);
+      if (d <= slackM && d < bestD) {
+        best = l;
+        bestD = d;
+      }
+    }
+  }
+  return best;
 }

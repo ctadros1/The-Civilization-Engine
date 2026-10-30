@@ -59,6 +59,10 @@ pub(crate) struct LandFile {
     /// out lays no main.
     #[serde(default)]
     pub gas_main: Option<GasMainFile>,
+    /// What laying a line of current takes and how it carries (content API 202, M11a). A profile
+    /// that leaves it out lays no line.
+    #[serde(default)]
+    pub wire: Option<WireFile>,
 }
 
 /// What laying a gas main takes (content API 173) and how long one lasts (174): see
@@ -70,6 +74,20 @@ pub(crate) struct GasMainFile {
     pub good_kg_m: f64,
     pub lay_h_m: f64,
     pub capacity_kg_h: f32,
+    pub life_years: f64,
+}
+
+/// What laying a line of current takes and how it carries (content API 202): see
+/// [`civ_land::wire::WireParams`].
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct WireFile {
+    pub good: String,
+    pub good_kg_m: f64,
+    pub lay_h_m: f64,
+    pub rating_kw: f64,
+    pub voltage_v: f64,
+    pub ohm_per_m: f64,
     pub life_years: f64,
 }
 
@@ -777,6 +795,18 @@ impl LandFile {
                 }),
                 None => None,
             },
+            wire: match &self.wire {
+                Some(w) => Some(civ_land::wire::WireParams {
+                    voltage_v: w.voltage_v,
+                    ohm_per_m: w.ohm_per_m,
+                    good: good_index(&w.good)?,
+                    good_kg_m: w.good_kg_m,
+                    lay_h_m: w.lay_h_m,
+                    rating_kw: w.rating_kw,
+                    life_years: w.life_years,
+                }),
+                None => None,
+            },
         })
     }
 
@@ -938,6 +968,22 @@ impl LandFile {
                 if !(v.is_finite() && v > lo && v <= hi) {
                     p.push(format!(
                         "`gas_main.{field}` must be above {lo} and at most {hi}"
+                    ));
+                }
+            }
+        }
+        if let Some(w) = &self.wire {
+            for (field, v, lo, hi) in [
+                ("good_kg_m", w.good_kg_m, 0.0, 1_000.0),
+                ("lay_h_m", w.lay_h_m, 0.0, 1_000.0),
+                ("rating_kw", w.rating_kw, 0.0, 100_000.0),
+                ("voltage_v", w.voltage_v, 0.0, 1_000_000.0),
+                ("ohm_per_m", w.ohm_per_m, 0.0, 1.0),
+                ("life_years", w.life_years, 0.0, 1_000.0),
+            ] {
+                if !(v.is_finite() && v > lo && v <= hi) {
+                    p.push(format!(
+                        "`wire.{field}` must be above {lo} and at most {hi}"
                     ));
                 }
             }

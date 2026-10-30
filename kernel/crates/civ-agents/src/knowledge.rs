@@ -378,6 +378,7 @@ mod tests {
             power: None,
             light: None,
             holder: None,
+            telegraph: None,
             money: None,
             id: id.into(),
             name: id.into(),

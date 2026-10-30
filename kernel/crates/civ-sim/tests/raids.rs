@@ -312,6 +312,16 @@ fn a_band(sim: &mut Sim, a: PermanentId, b: PermanentId, n: usize, muster_hour: 
     id
 }
 
+/// A band set on taking: its people stand against whoever stands at the household until they
+/// have taken (the scene's matter is what follows a taking, not whether one is made).
+fn set_on_taking(sim: &mut Sim) {
+    sim.rules_mut_for_tests()
+        .expect("rules of its own")
+        .people
+        .bands
+        .will_band = 8.0;
+}
+
 #[test]
 fn a_band_musters_walks_to_the_household_meets_whoever_stands_and_comes_home() {
     use civ_agents::war::BandStage;
@@ -460,6 +470,7 @@ fn who_stayed_home_loses_regard_those_about_see_the_band_and_all_there_know_of_t
     use civ_agents::war::BandStage;
     use civ_agents::word::ClaimKind;
     let mut sim = two_villages(3, 30);
+    set_on_taking(&mut sim);
     sim.advance_minutes(DAY).expect("advances");
     let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
     let id = a_band(&mut sim, a, b, 5, 10);
@@ -788,6 +799,7 @@ fn under_a_law_against_raiding_a_raid_comes_before_the_raiders_own_gathering() {
     // led it.
     use civ_agents::polity::PolicyKind;
     let mut sim = two_villages(3, 30);
+    set_on_taking(&mut sim);
     sim.advance_minutes(DAY).expect("advances");
     let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
     let law = a_raid_law(&mut sim, a, PolicyKind::AgainstRaiding, None, None);
@@ -917,6 +929,7 @@ fn under_a_word_against_raiding_a_raid_comes_before_the_raiders_own_gathering() 
     // law that gave the word, as under a law against raiding; the word is kept in a save.
     use civ_agents::agreements::Clause;
     let mut sim = two_villages(3, 30);
+    set_on_taking(&mut sim);
     sim.advance_minutes(DAY).expect("advances");
     let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
     let (agreement, law) = a_word(&mut sim, a, b, vec![Clause::NoRaids { from: 0 }]);
@@ -1017,6 +1030,7 @@ fn a_word_binds_only_the_side_that_gave_it() {
     // goes before no gathering where no law against raiding is in force.
     use civ_agents::agreements::Clause;
     let mut sim = two_villages(3, 30);
+    set_on_taking(&mut sim);
     sim.advance_minutes(DAY).expect("advances");
     let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
     a_word(&mut sim, a, b, vec![Clause::NoRaids { from: 1 }]);

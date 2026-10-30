@@ -1,0 +1,15 @@
+# Building a converter: a vessel of 2,000 kg of iron plate on trunnions, lined with 3,000 kg of
+# refractory stone, its tuyeres and blast pipe fitted to a wheel's blowing engine. 1,500 hours
+# (tuning values; research 11-14 §2.2 names the vessel but no hours).
+kind = "recipe"
+id = "core:recipe/build_converter"
+name = "Build a converter"
+skill = "core:skill/smithing"
+technique = "core:technique/steelmaking"
+unit_h = 1500.0
+session_h = 0.0
+max_units = 1.0
+tools = []
+inputs = [{ good = "core:good/iron", amount = 2000.0 }, { good = "core:good/stone", amount = 3000.0 }]
+outputs = [{ good = "core:good/converter", amount = 1.0 }]
+session_inputs = []

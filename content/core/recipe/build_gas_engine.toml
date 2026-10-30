@@ -1,0 +1,19 @@
+# Building a gas engine (M11b, first part): a smith's work in iron, with a little copper for its
+# valves and timber for its bed. The amounts and hours are design priors (an engine of a few
+# horsepower weighed something under a tonne).
+kind = "recipe"
+id = "core:recipe/build_gas_engine"
+name = "Build a gas engine"
+skill = "core:skill/smithing"
+technique = "core:technique/gas_engine"
+unit_h = 800.0
+session_h = 0.0
+max_units = 1.0
+tools = []
+inputs = [
+  { good = "core:good/iron", amount = 600.0 },
+  { good = "core:good/copper", amount = 30.0 },
+  { good = "core:good/timber", amount = 60.0 },
+]
+outputs = [{ good = "core:good/gas_engine", amount = 1.0 }]
+session_inputs = []

@@ -545,15 +545,42 @@ impl Population {
         if let Some(f) = self.main_facts(ctx, x) {
             return Some(f);
         }
+        // A line of current its station is stringing to other homes (M11a, fifth part).
+        if let Some(f) = self.wire_line_facts(ctx, x) {
+            return Some(f);
+        }
+        // A telegraph wire its office is stringing (M11c).
+        if let Some(f) = self.telegraph_facts(ctx, x) {
+            return Some(f);
+        }
         let pi = self.polity_of(x.settlement?)?;
         let polity = &self.polities[pi];
         let (law, site, way, left_h) = polity.ways.iter().find_map(|(l, site)| {
             let law = polity.laws.iter().find(|k| {
                 k.id == *l
                     && k.status == LawStatus::InForce
-                    && (k.kind == PolicyKind::BuildWay || k.kind == PolicyKind::BuildLine)
+                    && matches!(
+                        k.kind,
+                        PolicyKind::BuildWay | PolicyKind::BuildLine | PolicyKind::LayCurrent
+                    )
                     && k.knows(person)
             })?;
+            // A line of current strung together (M11a, eighth part): its stringing left, where
+            // the household holds a metre's copper.
+            if law.kind == PolicyKind::LayCurrent {
+                let params = ctx.land_params.wire?;
+                let line = ctx
+                    .land
+                    .wires
+                    .lines
+                    .iter()
+                    .find(|w| Some(w.id) == site.work && !w.whole() && !w.broken)?;
+                if x.stores.get(params.good).copied().unwrap_or(0.0) < params.good_kg_m {
+                    return None;
+                }
+                let left = (line.length_m - line.laid_m).max(0.0) * params.lay_h_m;
+                return Some((law, *site, line.id, left));
+            }
             let w = ctx
                 .land
                 .ways
@@ -601,13 +628,17 @@ impl Population {
             walk_min,
             left_h,
             saves_per_hour: f64::from(polity.way_saves_of(law.id, x.id))
-                * if law.kind == PolicyKind::BuildLine {
+                * match law.kind {
                     // A line's spared hours last a wagon's life (M10b slice DX, third part).
-                    Self::wagon_vehicle(ctx)
+                    PolicyKind::BuildLine => Self::wagon_vehicle(ctx)
                         .and_then(|v| ctx.catalog.vehicles.get(v))
-                        .map_or(works.passing_life_years, |d| d.life_years)
-                } else {
-                    works.passing_life_years
+                        .map_or(works.passing_life_years, |d| d.life_years),
+                    // A line of current's, the line's (M11a, eighth part).
+                    PolicyKind::LayCurrent => ctx
+                        .land_params
+                        .wire
+                        .map_or(works.passing_life_years, |w| w.life_years),
+                    _ => works.passing_life_years,
                 }
                 / site.labour_h.max(1e-6),
             duty,
@@ -634,6 +665,16 @@ impl Population {
         // A gas main is laid by its works' own work (M10b slice DY, fourth part).
         if ctx.land.gas.mains.iter().any(|m| m.id == way) {
             self.main_work(ctx, household, way, hours);
+            return;
+        }
+        // And a line of current by its station's (M11a, fifth part).
+        if ctx.land.wires.lines.iter().any(|l| l.id == way) {
+            self.line_work(ctx, household, way, hours);
+            return;
+        }
+        // And a telegraph wire by its office's (M11c).
+        if ctx.land.wires.telegraphs.iter().any(|t| t.id == way) {
+            self.telegraph_work(ctx, household, way, hours);
             return;
         }
         let works = ctx.land_params.way_works;

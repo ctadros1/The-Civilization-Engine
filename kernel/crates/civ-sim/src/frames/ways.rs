@@ -15,10 +15,16 @@ use crate::Sim;
 /// survey while there are any, mixed with what each line's record shows (its stations,
 /// timetable, fare and tallies, M10b slice DX) and what the gas mains and street lamps show (how
 /// much of each main is laid, each connection's last evening and whether its burners are lit,
-/// each lamp and whether it burns now, M10b slice DY); 0 when the world has none of them.
+/// each lamp and whether it burns now, M10b slice DY) and what the lines of current show (how much
+/// of each is strung, each hookup's last evening and whether it is lit, M11a); 0 when the world
+/// has none of them.
 pub fn ways_rev(sim: &Sim) -> u64 {
     let gas = &sim.land.gas;
-    let no_gas = gas.mains.is_empty() && gas.lamps.is_empty();
+    let wires = &sim.land.wires;
+    let no_gas = gas.mains.is_empty()
+        && gas.lamps.is_empty()
+        && wires.lines.is_empty()
+        && wires.telegraphs.is_empty();
     if sim.land.ways.list.is_empty() && no_gas {
         return 0;
     }
@@ -60,6 +66,23 @@ pub fn ways_rev(sim: &Sim) -> u64 {
     for l in &gas.lamps {
         mix(u64::from(l.cell));
         mix(u64::from(now < l.lit_until));
+    }
+    for l in &wires.lines {
+        mix(l.id.get());
+        mix(l.laid_m.to_bits());
+        mix(u64::from(l.broken));
+    }
+    for t in &wires.telegraphs {
+        mix(t.id.get());
+        mix(t.laid_m.to_bits());
+        mix(u64::from(t.broken));
+    }
+    for k in &wires.hookups {
+        mix(k.building.get());
+        mix(k.lit_until as u64);
+        mix(u64::from(k.cause.code()));
+        mix(u64::from(k.cut_off));
+        mix(u64::from(now < k.lit_until));
     }
     h.max(1)
 }
@@ -110,6 +133,90 @@ fn main_words(sim: &Sim, m: &Main, homes: u32, lit: u32) -> String {
         0 => "no homes connected".to_owned(),
         1 => "1 home connected".to_owned(),
         n => format!("{n} homes connected"),
+    };
+    out.push_str(&format!("; {homes}"));
+    if lit > 0 {
+        out.push_str(&format!(", {lit} lit now"));
+    }
+    out.push('.');
+    out
+}
+
+/// A telegraph wire in words (wire 1.108, M11c): "Telegraph wire of 2400 m from Ada's office to
+/// Bran's at Elmhollow, 40% strung." Once strung: "..., strung; 2 telegrams on it now."
+fn telegraph_words(sim: &Sim, t: &civ_land::wire::Telegraph) -> String {
+    let office = |h: civ_core::PermanentId| {
+        keeper(sim, Keeper::Household(h))
+            .trim_end_matches("'s household")
+            .to_owned()
+    };
+    let far = sim.people.household(t.b).and_then(|x| x.settlement);
+    let mut out = format!(
+        "Telegraph wire of {:.0} m from {}'s office to {}'s at {}",
+        t.length_m,
+        office(t.a),
+        office(t.b),
+        super::people::place_name(sim, far)
+    );
+    if !t.whole() {
+        let laid = (t.laid_m / t.length_m.max(1e-3)).clamp(0.0, 1.0);
+        out.push_str(&format!(", {:.0}% strung.", (laid * 100.0).floor()));
+        return out;
+    }
+    out.push_str(", strung");
+    if t.broken {
+        out.push_str("; broken");
+    }
+    let on = sim
+        .people
+        .reports
+        .telegrams
+        .values()
+        .filter(|m| t.joins(m.near, m.far))
+        .count();
+    match on {
+        0 => {}
+        1 => out.push_str("; 1 telegram on it now"),
+        n => out.push_str(&format!("; {n} telegrams on it now")),
+    }
+    out.push('.');
+    out
+}
+
+/// A line of current in words (wire 1.107, M11a, fifth part): "Line of current of 120 m from Ada's
+/// station, 40% strung." Once strung: "Line of current of 120 m from Ada's station, strung,
+/// passing up to 6.0 kW; 2 homes hooked up, 1 lit now." A station's line to its own home has no
+/// length: "Line of current at Ada's station; 1 home hooked up."
+fn current_words(sim: &Sim, l: &civ_land::wire::Line, homes: u32, lit: u32) -> String {
+    let station = keeper(sim, Keeper::Household(l.station));
+    let station = station.trim_end_matches("'s household");
+    let mut out = if l.length_m < 1e-3 {
+        format!("Line of current at {station}'s station")
+    } else {
+        format!(
+            "Line of current of {:.0} m from {station}'s station",
+            l.length_m
+        )
+    };
+    if !l.whole() {
+        let laid = if l.length_m > 0.0 {
+            (l.laid_m / l.length_m).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        out.push_str(&format!(", {:.0}% strung.", (laid * 100.0).floor()));
+        return out;
+    }
+    if l.length_m >= 1e-3 {
+        out.push_str(&format!(", strung, passing up to {:.1} kW", l.rating_kw));
+    }
+    if l.broken {
+        out.push_str("; broken");
+    }
+    let homes = match homes {
+        0 => "no homes hooked up".to_owned(),
+        1 => "1 home hooked up".to_owned(),
+        n => format!("{n} homes hooked up"),
     };
     out.push_str(&format!("; {homes}"));
     if lit > 0 {
@@ -407,6 +514,80 @@ pub fn ways_response(sim: &Sim) -> Vec<u8> {
         ));
     }
     let lamps = fbb.create_vector(&lamps);
+    // The lines of current (M11a, fifth part).
+    let wires = &sim.land.wires;
+    let mut currents = Vec::with_capacity(wires.lines.len());
+    for l in &wires.lines {
+        let centres: Vec<(f32, f32)> = l
+            .cells
+            .iter()
+            .map(|&c| civ_agents::population::cell_centre(map, c as usize))
+            .collect();
+        let points: Vec<f32> = simplify_indices(&centres, map.cell_size_m)
+            .into_iter()
+            .flat_map(|i| [centres[i].0, centres[i].1])
+            .collect();
+        let points = fbb.create_vector(&points);
+        let on: Vec<_> = wires.hookups.iter().filter(|k| k.line == l.id).collect();
+        let homes = on.len() as u32;
+        let lit = on
+            .iter()
+            .filter(|k| k.cause == civ_land::wire::Cause::Served && now < k.lit_until)
+            .count() as u32;
+        let text = fbb.create_string(&current_words(sim, l, homes, lit));
+        let laid = if l.length_m > 0.0 {
+            (l.laid_m / l.length_m).clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
+        currents.push(wire::CurrentLineInfo::create(
+            &mut fbb,
+            &wire::CurrentLineInfoArgs {
+                id: l.id.get(),
+                station: l.station.get(),
+                points: Some(points),
+                length_m: l.length_m as f32,
+                laid: laid as f32,
+                rating_kw: l.rating_kw as f32,
+                broken: l.broken,
+                homes,
+                lit,
+                words: Some(text),
+                telegraph: false,
+            },
+        ));
+    }
+    // And the telegraph wires (M11c), drawn as lines are.
+    for t in &wires.telegraphs {
+        let centres: Vec<(f32, f32)> = t
+            .cells
+            .iter()
+            .map(|&c| civ_agents::population::cell_centre(map, c as usize))
+            .collect();
+        let points: Vec<f32> = simplify_indices(&centres, map.cell_size_m)
+            .into_iter()
+            .flat_map(|i| [centres[i].0, centres[i].1])
+            .collect();
+        let points = fbb.create_vector(&points);
+        let text = fbb.create_string(&telegraph_words(sim, t));
+        currents.push(wire::CurrentLineInfo::create(
+            &mut fbb,
+            &wire::CurrentLineInfoArgs {
+                id: t.id.get(),
+                station: t.a.get(),
+                points: Some(points),
+                length_m: t.length_m as f32,
+                laid: (t.laid_m / t.length_m.max(1e-3)).clamp(0.0, 1.0) as f32,
+                rating_kw: 0.0,
+                broken: t.broken,
+                homes: 0,
+                lit: 0,
+                words: Some(text),
+                telegraph: true,
+            },
+        ));
+    }
+    let currents = fbb.create_vector(&currents);
     let body = wire::Ways::create(
         &mut fbb,
         &wire::WaysArgs {
@@ -414,6 +595,7 @@ pub fn ways_response(sim: &Sim) -> Vec<u8> {
             ways: Some(list),
             mains: Some(mains),
             lamps: Some(lamps),
+            currents: Some(currents),
         },
     );
     response(fbb, wire::ResponseBody::Ways, body)

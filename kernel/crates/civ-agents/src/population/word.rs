@@ -39,7 +39,7 @@ fn claim_key(c: &Claim) -> u64 {
 /// Whether claim `c` is told as news on `day`, and how likely a companion at the hearth is to tell
 /// it: a call still ahead, or a household's sickness or a suspicion still held (pruning lets
 /// either go when it is no longer news).
-fn hearth_chance(c: &Claim, day: i64, wp: &crate::word::WordParams) -> Option<f64> {
+pub(super) fn hearth_chance(c: &Claim, day: i64, wp: &crate::word::WordParams) -> Option<f64> {
     if call_ahead(c, day) {
         Some(wp.share_urgent)
     } else if matches!(
@@ -309,7 +309,7 @@ impl Population {
 
     /// `listener` hears claim `claim` from `teller` on `day`; word of a raid on their own
     /// settlement sets their household weighing where to live at once (ADR-0023 §10).
-    fn hear_told(
+    pub(super) fn hear_told(
         &mut self,
         listener: PermanentId,
         claim: u32,

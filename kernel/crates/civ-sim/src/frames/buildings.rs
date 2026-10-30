@@ -48,6 +48,14 @@ pub fn buildings_rev(sim: &Sim) -> u64 {
             .wrapping_add(u64::from(c.cut_off) << 12)
             .wrapping_add(u64::from(c.lit_from <= now && now < c.lit_until) << 13)
     });
+    // A road line's timetable, fare and rides (wire 1.109).
+    let gas = sim.land.runs.roads.iter().fold(gas, |rev, l| {
+        rev.wrapping_mul(31)
+            .wrapping_add(l.id.get())
+            .wrapping_add(u64::from(l.runs_a_day) << 8)
+            .wrapping_add(u64::from(l.riders) << 16)
+            .wrapping_add(u64::from(l.fare_kcal.to_bits()))
+    });
     sim.land.buildings.iter().fold(gas, |rev, b| {
         let condition = b.condition.iter().fold(0u64, |sum, c| {
             sum.wrapping_add((f64::from(c.loss) * 1e4).round().max(0.0) as u64)
@@ -574,6 +582,8 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
             let site = fbb.create_string(&site);
             let gas = fbb.create_string(&gas_words(sim, b));
             let records = fbb.create_string(&records_words(sim, b));
+            let current = fbb.create_string(&wire_words(sim, b));
+            let road = fbb.create_string(&road_words(sim, b));
             wire::BuildingInfo::create(
                 &mut fbb,
                 &wire::BuildingInfoArgs {
@@ -629,6 +639,8 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                     site: Some(site),
                     gas: Some(gas),
                     records: Some(records),
+                    wire: Some(current),
+                    road: Some(road),
                 },
             )
         })
@@ -773,6 +785,214 @@ pub(crate) fn gas_words(sim: &Sim, b: &Building) -> String {
                     "1 home connected".to_owned()
                 } else {
                     format!("{homes} homes connected")
+                };
+                out.push_str(&format!("; feeds {feeds}, {homes}"));
+            }
+            said.push(out);
+        }
+    }
+    said.join(". ")
+}
+
+/// Building `b`'s current in words (wire 1.107, M11a, fifth part): hooked up to a line, what it asks
+/// and how its last evening went ("Current: 0.2 kW from Ada's station; lit until 22:40"), and for a
+/// household's first building, the station it keeps ("Station: a dynamo beside its own water
+/// installation; feeds 2 lines, 3 homes hooked up"); empty for neither.
+/// The road line building `b`'s household keeps, in words (wire 1.109, M11b, third part), on its
+/// first building: "Motor cart runs to Elmhollow: 1 a day, leaving at 06:00, back at 07:12; fare
+/// 210 kcal; 4 rides since day 120". Empty where it keeps none.
+pub(crate) fn road_words(sim: &Sim, b: &Building) -> String {
+    let first = sim
+        .land
+        .buildings
+        .iter()
+        .find(|o| o.household == b.household)
+        .is_some_and(|o| o.id == b.id);
+    let Some(l) = sim
+        .land
+        .runs
+        .roads
+        .iter()
+        .find(|l| l.operator == b.household)
+        .filter(|_| first)
+    else {
+        return String::new();
+    };
+    let place = super::people::place_name(sim, Some(l.market));
+    let runs = l.runs_a_day.max(1);
+    let out = civ_agents::population::road_departures(l, false);
+    let back = civ_agents::population::road_departures(l, true);
+    let clock = |m: i64| super::ways::clock_at(m);
+    let leaving: Vec<String> = out.iter().map(|&m| clock(m)).collect();
+    let returning: Vec<String> = back.iter().map(|&m| clock(m)).collect();
+    let rides = match l.riders {
+        1 => "1 ride".to_owned(),
+        n => format!("{n} rides"),
+    };
+    format!(
+        "Motor cart runs to {place}: {runs} a day, leaving at {}, back at {}; fare {:.0} kcal; \
+         {rides} since day {}",
+        leaving.join(", "),
+        returning.join(", "),
+        l.fare_kcal,
+        l.since
+    )
+}
+
+pub(crate) fn wire_words(sim: &Sim, b: &Building) -> String {
+    use civ_land::wire::Cause;
+    let wires = &sim.land.wires;
+    let now = sim.now().minutes();
+    let mut said = Vec::new();
+    if let Some(k) = wires.hookups.iter().find(|k| k.building == b.id) {
+        let line = wires.lines.iter().find(|l| l.id == k.line);
+        let station = line.map_or_else(
+            || "a station".to_owned(),
+            |l| {
+                let s = super::ways::keeper(sim, civ_land::ways::Keeper::Household(l.station));
+                format!("{}'s station", s.trim_end_matches("'s household"))
+            },
+        );
+        let state = if k.cut_off {
+            "cut off: its account went unpaid".to_owned()
+        } else if line.is_some_and(|l| !l.whole()) {
+            "waiting for the line to be strung".to_owned()
+        } else if k.lit_until < 0 && k.cause == Cause::Served {
+            "not yet lit".to_owned()
+        } else {
+            match k.cause {
+                Cause::Served if now < k.lit_until => {
+                    format!("lit until {}", super::ways::clock_at(k.lit_until))
+                }
+                Cause::Served => "lit on its last evening".to_owned(),
+                Cause::StationShort => {
+                    "not lit on its last evening: the station gave too little".to_owned()
+                }
+                Cause::LineFull => {
+                    "not lit on its last evening: a line could not pass it".to_owned()
+                }
+                Cause::LineDown => {
+                    "not lit on its last evening: a line is down or unstrung".to_owned()
+                }
+                Cause::CutOff => "cut off: its account went unpaid".to_owned(),
+            }
+        };
+        // Its service record (ADR-0036 §4): of the evenings it asked, those it was served.
+        let (asked, served) = k.record_of(30);
+        let record = if asked > 0 {
+            let evenings = if asked == 1 { "evening" } else { "evenings" };
+            format!("; served {served} of {asked} {evenings} asked in the last 30")
+        } else {
+            String::new()
+        };
+        said.push(format!(
+            "Current: {:.1} kW from {station}; {state}{record}",
+            k.ask_kw
+        ));
+    }
+    let is_first = sim
+        .land
+        .buildings
+        .iter()
+        .find(|o| o.household == b.household)
+        .is_some_and(|o| o.id == b.id);
+    let catalog = &sim.rules.catalog;
+    // A telegraph office (M11c): its operator, its wires and the telegrams in its queue.
+    if is_first
+        && let Some((operator, _)) = sim.people.office_of(
+            &sim.rules.catalog,
+            &sim.rules.people,
+            sim.now(),
+            b.household,
+        )
+    {
+        let wires_to = wires
+            .telegraphs
+            .iter()
+            .filter(|t| (t.a == b.household || t.b == b.household) && t.whole() && !t.broken)
+            .count();
+        let queued = sim
+            .people
+            .reports
+            .telegrams
+            .values()
+            .filter(|t| match t.stage {
+                civ_agents::reports::TelegramStage::Asked => t.near == b.household,
+                civ_agents::reports::TelegramStage::Answering => t.far == b.household,
+                _ => false,
+            })
+            .count();
+        let wired = match wires_to {
+            0 => "no wire strung yet".to_owned(),
+            1 => "1 wire".to_owned(),
+            n => format!("{n} wires"),
+        };
+        let queue = match queued {
+            0 => "nothing in its queue".to_owned(),
+            1 => "1 telegram in its queue".to_owned(),
+            n => format!("{n} telegrams in its queue"),
+        };
+        said.push(format!(
+            "Telegraph office kept by {}; {wired}, {queue}",
+            sim.people
+                .records
+                .get(&operator)
+                .map_or("someone", |r| r.given.as_str())
+        ));
+    }
+    if is_first && let Some(x) = sim.people.household(b.household) {
+        let dynamos = catalog
+            .goods
+            .iter()
+            .enumerate()
+            .filter(|(g, d)| {
+                d.power
+                    .is_some_and(|p| p.source == civ_agents::params::PowerSource::Shaft)
+                    && x.stores.get(*g).copied().unwrap_or(0.0) >= 1.0 - 1e-9
+            })
+            .map(|(g, _)| x.stores[g].floor() as u32)
+            .sum::<u32>();
+        let owns = sim.land.installations.iter().any(|s| s.owner == x.id);
+        // An engine that burns a named fuel turns them too (M11b, first part).
+        let engine = catalog.goods.iter().enumerate().find(|(g, d)| {
+            d.power.is_some_and(|p| {
+                p.source == civ_agents::params::PowerSource::Fuel && p.fuel.is_some()
+            }) && x.stores.get(*g).copied().unwrap_or(0.0) >= 1.0 - 1e-9
+        });
+        if dynamos > 0 && (owns || engine.is_some()) {
+            let beside = match (owns, engine) {
+                (true, Some((_, e))) => format!(
+                    "its own water installation and its {}",
+                    e.name.to_lowercase()
+                ),
+                (false, Some((_, e))) => format!("its {}", e.name.to_lowercase()),
+                _ => "its own water installation".to_owned(),
+            };
+            let mut out = if dynamos == 1 {
+                format!("Station: a dynamo beside {beside}")
+            } else {
+                format!("Station: {dynamos} dynamos beside {beside}")
+            };
+            let lines: Vec<_> = wires
+                .lines
+                .iter()
+                .filter(|l| l.station == b.household)
+                .collect();
+            if !lines.is_empty() {
+                let homes = wires
+                    .hookups
+                    .iter()
+                    .filter(|k| lines.iter().any(|l| l.id == k.line))
+                    .count();
+                let feeds = if lines.len() == 1 {
+                    "1 line".to_owned()
+                } else {
+                    format!("{} lines", lines.len())
+                };
+                let homes = if homes == 1 {
+                    "1 home hooked up".to_owned()
+                } else {
+                    format!("{homes} homes hooked up")
                 };
                 out.push_str(&format!("; feeds {feeds}, {homes}"));
             }

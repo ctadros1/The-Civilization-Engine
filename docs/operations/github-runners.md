@@ -19,6 +19,7 @@ GitHub routes `[self-hosted, Linux, X64, tce-ci]` to any matching online, idle r
 - `suite=full`: commons/kernel formatting, clippy and tests; content and smoke; generated schema; web build/unit tests; host release build and browser tests.
 - `suite=health`: check both permanent runners, or only node4 when explicitly selected; verify tools and lack of sudo.
 - `suite=long`: ten-year smoke, consistency, notables, and fifty-year dashboard on `tce-long`.
+- `suite=long` and `suite=demo` run on `tce-long` unless a runner is chosen: `runner=node4` pins them to the optional node so two long simulations can run at once. Benchmarks stay on `tce-long`, whose baseline was measured there.
 
 The full-chain runner choice defaults to `tce-ci` (the available pool); `node1`, `node3`, and `node4` explicitly pin it. Health checks address both permanent nodes by default; explicitly choosing node4 checks only that optional runner. Neither full nor long jobs depend on both health jobs. Scheduled long jobs use node3; PR versions keep their GitHub-hosted Linux lane. Each runner processes only one job at a time, so long jobs queue rather than compete inside a VM.
 

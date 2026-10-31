@@ -93,7 +93,8 @@ jobs:
           retention-days: 7
   long:
     if: github.actor == 'ctadros1' && inputs.suite == 'long'
-    runs-on: [self-hosted, Linux, X64, tce-ci, tce-long]
+    # tce-long (node3) unless a runner is chosen: node4 runs long jobs too when pinned.
+    runs-on: [self-hosted, Linux, X64, tce-ci, '${{ inputs.runner != ''tce-ci'' && inputs.runner || ''tce-long'' }}']
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -128,7 +129,8 @@ jobs:
   # kept as an artifact even when the run is cut short.
   demo:
     if: github.actor == 'ctadros1' && inputs.suite == 'demo'
-    runs-on: [self-hosted, Linux, X64, tce-ci, tce-long]
+    # tce-long (node3) unless a runner is chosen: node4 runs long jobs too when pinned.
+    runs-on: [self-hosted, Linux, X64, tce-ci, '${{ inputs.runner != ''tce-ci'' && inputs.runner || ''tce-long'' }}']
     timeout-minutes: 360
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

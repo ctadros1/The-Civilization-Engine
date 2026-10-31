@@ -5106,6 +5106,7 @@ impl Population {
                 }
             }
             polity.body = new;
+            polity.lapse_seats_beyond_custom();
             polity.versions.push(CustomVersion {
                 body: new,
                 since: now,

@@ -3084,6 +3084,14 @@ pub struct CustomVersion {
 }
 
 impl Polity {
+    /// Seats the present custom no longer has lapse at once: a council made smaller keeps its
+    /// first seats, and a body that is no longer a council keeps none (ADR-0024 §1: a council
+    /// counts its seats, so none beyond them may sit).
+    pub fn lapse_seats_beyond_custom(&mut self) {
+        let n = self.body.seats.map_or(0, |s| s.n);
+        self.seated.retain(|s| s.seat < n);
+    }
+
     /// The body that decided what it decided at `t`: the version of the custom in force before
     /// then (one that began at `t` was made by what was decided then, under the one before).
     pub fn body_at(&self, t: SimTime) -> &Body {
@@ -3974,6 +3982,41 @@ pub(crate) mod tests {
 
     fn pid(n: u64) -> PermanentId {
         PermanentId::from_raw(n).expect("non-zero")
+    }
+
+    /// Homelab run 15's ten-year smoke (ria_coast seed 3): a council amended to fewer seats kept
+    /// its extra holders until the next election, so six sat where five seats were counted.
+    #[test]
+    fn seats_a_smaller_council_no_longer_has_lapse_at_once() {
+        use crate::seats::{Seat, SeatMethod, Seats};
+        let t = |day: i64| SimTime::from_minutes(day * 24 * 60);
+        let mut polity = Polity::found(pid(1), pid(2), t(0), &params());
+        let seats = |n: u8| Seats {
+            n,
+            electorate: Membership::Adults,
+            method: SeatMethod::Election,
+            term_days: 365,
+            by_settlement: false,
+        };
+        polity.body.seats = Some(seats(7));
+        polity.seated = (0..7u8)
+            .map(|i| Seat {
+                seat: i,
+                holder: pid(100 + u64::from(i)),
+                since: 0,
+                until: 400,
+                election: 1,
+            })
+            .collect();
+        polity.body.seats = Some(seats(5));
+        polity.lapse_seats_beyond_custom();
+        assert_eq!(polity.seated.len(), 5);
+        assert!(polity.seated.iter().all(|s| s.seat < 5));
+        assert!(polity.seated.len() as u32 <= polity.body.eligible(0));
+        // A body that is no longer a council keeps no seats.
+        polity.body.seats = None;
+        polity.lapse_seats_beyond_custom();
+        assert!(polity.seated.is_empty());
     }
 
     #[test]

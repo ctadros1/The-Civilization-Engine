@@ -447,3 +447,226 @@ fn a_steel_skeleton_of_five_to_twelve_storeys_expands_saves_and_loads() {
     loaded.advance_minutes(DAY).expect("lives");
     same(&sim, &loaded, "a day on");
 }
+
+/// `tall_design(storeys)` as a steel skeleton however low, with posts `post_cm` across and
+/// storeys `eave_cm` high.
+fn frame_of(storeys: u8, post_cm: i32, eave_cm: i32, at: (f32, f32)) -> civ_grammar::BuildingSpec {
+    use civ_grammar::frame_params as fp;
+    let mut spec = tall_design(storeys, at);
+    if spec.version < 4 {
+        spec.version = 4;
+        spec.params[fp::POST_SYSTEM] = 2;
+        spec.materials.push("core:good/steel_section".to_owned());
+    }
+    spec.params[fp::POST_CM] = post_cm;
+    spec.params[fp::EAVE_CM] = eave_cm;
+    spec
+}
+
+fn workshop_def() -> &'static civ_agents::params::BuildingDef {
+    let catalog = &tall_content().catalog;
+    &catalog.buildings[catalog
+        .building_index("core:building/workshop")
+        .expect("a workshop")]
+}
+
+/// The states of building `b`'s posts, by storey.
+fn posts_states(sim: &Sim, b: PermanentId) -> Vec<(usize, civ_land::GroupState)> {
+    let b = sim.land().buildings.iter().find(|x| x.id == b).expect("it");
+    b.condition
+        .iter()
+        .filter(|c| {
+            civ_grammar::GroupKind::of_group(c.group) == Some(civ_grammar::GroupKind::Posts)
+        })
+        .map(|c| {
+            let t = civ_grammar::Level::from_code((c.group >> 24) as u8)
+                .and_then(civ_grammar::Level::storey_index)
+                .expect("a storey");
+            (t, c.state)
+        })
+        .collect()
+}
+
+/// The least wind margin of building `b`'s posts under a gust of `q_pa`, and its sway over its
+/// height with the storey swaying most.
+fn wind_on(sim: &Sim, b: PermanentId, q_pa: f64) -> (f64, Option<(f64, usize)>) {
+    use civ_agents::structure;
+    let def = workshop_def();
+    let goods = &tall_content().catalog.goods;
+    let b = sim.land().buildings.iter().find(|x| x.id == b).expect("it");
+    let e = civ_grammar::expand(&b.spec, &def.rules).expect("expands");
+    let least = e
+        .groups
+        .iter()
+        .filter(|g| g.kind == civ_grammar::GroupKind::Posts)
+        .map(|g| {
+            let c = b.group(g.id).expect("its condition");
+            let t = structure::group_timber(goods, def, g).expect("steel");
+            structure::wind_margin(g, c, &e, &t, q_pa).strength
+        })
+        .fold(f64::INFINITY, f64::min);
+    let drift = structure::wind_drift(&e, q_pa, |g| {
+        structure::group_timber(goods, def, g).map(|t| t.stiffness_pa)
+    });
+    (least, drift)
+}
+
+fn storm(sim: &mut Sim, h: PermanentId, q_pa: f64) {
+    sim.with_ctx_for_tests(|pop, ctx| pop.storm_for_tests(ctx, h, q_pa, 0));
+}
+
+#[test]
+fn a_storm_fails_a_weak_tall_frame_sways_a_flexible_one_and_leaves_lower_frames_be() {
+    use civ_agents::structure;
+    use civ_land::GroupState;
+    let mut sim = tall_world();
+    let mut ids: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .filter(|x| !x.members.is_empty())
+        .map(|x| x.id)
+        .collect();
+    ids.sort_unstable();
+    let (h1, h2) = (ids[0], ids[1]);
+    let home = sim.people().household(h1).expect("it").home;
+    let finished = Stage::ALL.len() as u8;
+    // Eight storeys of posts 12 cm across, 3 m a storey; four of the same; and, another's, six.
+    let weak = sim
+        .place_building_for_tests(
+            h1,
+            frame_of(8, 12, 300, (home.0 + 30.0, home.1 + 30.0)),
+            finished,
+        )
+        .expect("placed");
+    let low = sim
+        .place_building_for_tests(
+            h1,
+            frame_of(4, 12, 300, (home.0 + 60.0, home.1 + 30.0)),
+            finished,
+        )
+        .expect("placed");
+    let swaying = sim
+        .place_building_for_tests(
+            h2,
+            frame_of(6, 12, 300, (home.0 + 90.0, home.1 + 30.0)),
+            finished,
+        )
+        .expect("placed");
+    // A calm day: each stands under its own weight.
+    for h in [h1, h2] {
+        storm(&mut sim, h, 0.0);
+    }
+    for b in [weak, low, swaying] {
+        assert!(
+            posts_states(&sim, b)
+                .iter()
+                .all(|&(_, s)| s == GroupState::Sound),
+            "{:?}",
+            posts_states(&sim, b)
+        );
+    }
+    // The wind's shear on the six storeys' first: the gust's q times 1.3 on its broad face (two
+    // bays of 3 m and its walls' thickness), 3 m a storey, six storeys high.
+    let e = {
+        let b = sim
+            .land()
+            .buildings
+            .iter()
+            .find(|x| x.id == swaying)
+            .expect("it");
+        civ_grammar::expand(&b.spec, &workshop_def().rules).expect("expands")
+    };
+    let face = {
+        let o = &e.outline;
+        (0..o.len())
+            .map(|i| {
+                let (a, b) = (o[i], o[(i + 1) % o.len()]);
+                f64::from(b.0 - a.0).hypot(f64::from(b.1 - a.1)) / 100.0
+            })
+            .fold(0.0, f64::max)
+    };
+    assert!((6.0..6.5).contains(&face), "{face}");
+    let shears = structure::wind_shears(&e, 400.0);
+    assert_eq!(shears.len(), 6);
+    assert!(
+        (shears[0] - 400.0 * 1.3 * face * 3.0 * 6.0).abs() < 1e-6,
+        "{shears:?}"
+    );
+    assert!((shears[5] - 400.0 * 1.3 * face * 3.0).abs() < 1e-6);
+    // Four storeys are not weighed against the wind at all.
+    assert_eq!(wind_on(&sim, low, 400.0), (f64::INFINITY, None));
+    // The least gust that sways the six storeys past H/500 leaves every post of it beyond showing
+    // the strain.
+    let q = (1..400)
+        .map(|i| f64::from(i) * 5.0)
+        .find(|&q| {
+            wind_on(&sim, swaying, q)
+                .1
+                .is_some_and(|(d, _)| d > structure::DRIFT_SHOWS)
+        })
+        .expect("a gust that sways it");
+    let (least, drift) = wind_on(&sim, swaying, q);
+    assert!(least > structure::STRAIN_SHOWS, "{least} at {q} Pa");
+    let (_, most) = drift.expect("it sways");
+    assert_eq!(most, 0, "the first storey sways most");
+    // The eight storeys give way under that gust.
+    assert!(
+        wind_on(&sim, weak, q).0 < 1.0,
+        "{:?}",
+        wind_on(&sim, weak, q)
+    );
+    storm(&mut sim, h2, q);
+    let states = posts_states(&sim, swaying);
+    assert!(states.iter().all(|&(_, s)| s != GroupState::Failed));
+    assert!(
+        states
+            .iter()
+            .all(|&(t, s)| (s == GroupState::Symptom) == (t == most)),
+        "{states:?}"
+    );
+    let b = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|x| x.id == swaying)
+        .expect("it");
+    assert!(b.standing());
+    let words = civ_agents::condition::symptoms(b, &workshop_def().upkeep);
+    assert!(
+        words.contains("the posts lean on the first storey"),
+        "{words}"
+    );
+    // The same storm on the eight storeys and the four: the eight's posts give way, the four's
+    // stand as on a calm day.
+    storm(&mut sim, h1, q);
+    assert!(
+        posts_states(&sim, weak)
+            .iter()
+            .any(|&(_, s)| s == GroupState::Failed),
+        "{:?}",
+        posts_states(&sim, weak)
+    );
+    let b = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|x| x.id == weak)
+        .expect("it");
+    assert!(!b.standing() || b.condition.iter().any(|c| c.state == GroupState::Failed));
+    assert!(
+        posts_states(&sim, low)
+            .iter()
+            .all(|&(_, s)| s == GroupState::Sound),
+        "{:?}",
+        posts_states(&sim, low)
+    );
+    // A calm day after: the sway no longer shows.
+    storm(&mut sim, h2, 0.0);
+    assert!(
+        posts_states(&sim, swaying)
+            .iter()
+            .all(|&(_, s)| s == GroupState::Sound)
+    );
+}

@@ -1,6 +1,8 @@
 //! Buildings weighed against what they carry, each day (ADR-0009 §5; M3b slice P): the goods in
 //! their lofts and on their floors, people on floors off the ground, their roofs' covering, the
-//! month's storm on its day and the snow lying on their roofs (ADR-0012 §5). A group shows when its margin runs low or it sags, and
+//! month's storm on its day and the snow lying on their roofs (ADR-0012 §5), and on a frame of more
+//! than four storeys the storm's gust on its face (ADR-0042 §4). A group shows when its margin runs
+//! low, it sags or its frame sways past H/500, and
 //! gives way below a margin of 1: a loft or a floor drops what it holds, a broken tie beam brings
 //! its lofts down, rafters that break bring the roof in, and posts that give way leave a ruin.
 //! Those inside may die. Nothing here decides what anyone stores, builds or mends.
@@ -319,6 +321,14 @@ impl Population {
             ..loads
         };
         let timber = |g: &Group| structure::group_timber(&catalog.goods, def, g);
+        // A frame of more than four storeys meets the storm's gust on its face too, and sways
+        // (ADR-0042 §4): past H/500, the posts of the storey swaying most show it.
+        let wind =
+            (storm > 0.0 && structure::storeys(&e) > structure::WIND_FROM_STOREYS).then_some(storm);
+        let swaying = wind
+            .and_then(|q| structure::wind_drift(&e, q, |g| timber(g).map(|t| t.stiffness_pa)))
+            .filter(|&(drift, _)| drift > structure::DRIFT_SHOWS)
+            .map(|(_, t)| t);
         let b = &mut ctx.land.buildings[i];
         let mut fell: Vec<Fell> = Vec::new();
         let mut torn = false;
@@ -384,7 +394,23 @@ impl Population {
                 }
             } else {
                 timber(g).map_or(GroupState::Sound, |t| {
-                    structure::margin(g, c, &e, &loads, &t).state()
+                    let state = structure::margin(g, c, &e, &loads, &t).state();
+                    match wind {
+                        Some(q) if g.kind == GroupKind::Posts => {
+                            let sways = swaying.is_some_and(|s| {
+                                Level::from_code((g.id >> 24) as u8).and_then(Level::storey_index)
+                                    == Some(s)
+                            });
+                            let shows = if sways {
+                                GroupState::Symptom
+                            } else {
+                                GroupState::Sound
+                            };
+                            let wind = structure::wind_margin(g, c, &e, &t, q).state();
+                            condition::worse(condition::worse(state, wind), shows)
+                        }
+                        _ => state,
+                    }
                 })
             };
             c.state = condition::worse(wear, load);

@@ -618,6 +618,149 @@ pub fn lateral_margin(
     }
 }
 
+/// The pressure coefficient of the wind on a tall frame's face (ADR-0042 §4: windward and leeward
+/// faces together; a design prior).
+pub const WIND_CP: f64 = 1.3;
+
+/// A frame's sway under the wind over its height past which it shows (ADR-0042 §4; research
+/// 11-14 §1.4, §2.4: about H/500, serviceability, never a failure).
+pub const DRIFT_SHOWS: f64 = 1.0 / 500.0;
+
+/// The most storeys a frame may have and not be weighed against the wind (ADR-0042 §4).
+pub const WIND_FROM_STOREYS: usize = 4;
+
+/// How many storeys building `e` has: one more than its highest storey's index.
+pub fn storeys(e: &Expansion) -> usize {
+    e.spaces
+        .iter()
+        .filter_map(|s| s.level.storey_index())
+        .max()
+        .map_or(0, |t| t + 1)
+}
+
+/// The width of building `e`'s broadest face, metres: the longest side of its outline. The
+/// storm is taken square on it, whatever its direction (ADR-0042 §4; a simplification).
+fn face_m(e: &Expansion) -> f64 {
+    let pts = &e.outline;
+    (0..pts.len())
+        .map(|i| {
+            let ((x0, y0), (x1, y1)) = (pts[i], pts[(i + 1) % pts.len()]);
+            f64::from(x1 - x0).hypot(f64::from(y1 - y0)) / 100.0
+        })
+        .fold(0.0, f64::max)
+}
+
+/// The posts of each storey of building `e`, the first's first, and each storey's height,
+/// metres (its posts' length).
+fn storey_posts(e: &Expansion) -> Vec<(Vec<&Group>, f64)> {
+    let n = storeys(e);
+    (0..n)
+        .map(|t| {
+            let posts: Vec<&Group> = e
+                .groups
+                .iter()
+                .filter(|g| g.kind == GroupKind::Posts && storey(level_of(g)) == Some(t))
+                .collect();
+            let h = posts
+                .iter()
+                .map(|g| f64::from(g.length_cm.max(0)) / 100.0)
+                .fold(0.0, f64::max);
+            (posts, h)
+        })
+        .collect()
+}
+
+/// The wind's shear on each storey of building `e` under a gust of `q_pa` (`½ρv²`), newtons:
+/// the pressure `q·Cp` on its broadest face, storey by storey, carried down to each storey by
+/// those above it (ADR-0042 §4). Empty for a frame of [`WIND_FROM_STOREYS`] storeys or fewer, or
+/// no gust.
+pub fn wind_shears(e: &Expansion, q_pa: f64) -> Vec<f64> {
+    let posts = storey_posts(e);
+    if q_pa <= 0.0 || posts.len() <= WIND_FROM_STOREYS {
+        return Vec::new();
+    }
+    let p = q_pa * WIND_CP * face_m(e);
+    let mut above = 0.0;
+    let mut out = vec![0.0; posts.len()];
+    for t in (0..posts.len()).rev() {
+        above += p * posts[t].1;
+        out[t] = above;
+    }
+    out
+}
+
+/// How near post group `g` of building `e`, in condition `c`, made of `t`, is to giving way under
+/// a gust of `q_pa` on a frame of more than [`WIND_FROM_STOREYS`] storeys (ADR-0042 §4, on
+/// ADR-0031 §3's lateral mode): its storey's wind shear shared among its posts, each bent as a
+/// member fixed at both ends by the skeleton's rigid joints (`M = V·h/2`). Other groups, lower
+/// frames and calm days carry nothing this way.
+pub fn wind_margin(g: &Group, c: &GroupCondition, e: &Expansion, t: &Timber, q_pa: f64) -> Margin {
+    if g.kind != GroupKind::Posts || g.material.is_none() {
+        return Margin::NONE;
+    }
+    let shears = wind_shears(e, q_pa);
+    let Some(here) = storey(level_of(g)) else {
+        return Margin::NONE;
+    };
+    let Some(&v) = shears.get(here) else {
+        return Margin::NONE;
+    };
+    let count: u32 = e
+        .groups
+        .iter()
+        .filter(|p| p.kind == GroupKind::Posts && storey(level_of(p)) == Some(here))
+        .map(|p| p.count.max(1))
+        .sum();
+    let h = f64::from(g.length_cm.max(0)) / 100.0;
+    let (_, z, _) = section(g);
+    let moment = v / f64::from(count.max(1)) * h / 2.0;
+    if moment <= 0.0 || z <= 0.0 {
+        return Margin::NONE;
+    }
+    let q = f64::from(c.quality).max(0.0);
+    let left = (1.0 - f64::from(c.loss)).clamp(0.0, 1.0);
+    Margin {
+        strength: t.bending_pa * z * q * left.powi(3) / moment,
+        sag: 0.0,
+    }
+}
+
+/// How far building `e` sways under a gust of `q_pa`, over its height, and the storey that sways
+/// most for its height (ADR-0042 §4): each storey's shear over its posts' stiffness against
+/// sway, each post fixed at both ends (`12·E·I/h³`), `stiffness` giving a post group's modulus.
+/// `None` for a frame of [`WIND_FROM_STOREYS`] storeys or fewer, or no gust; a storey with no
+/// stiffness sways without bound.
+pub fn wind_drift(
+    e: &Expansion,
+    q_pa: f64,
+    stiffness: impl Fn(&Group) -> Option<f64>,
+) -> Option<(f64, usize)> {
+    let shears = wind_shears(e, q_pa);
+    if shears.is_empty() {
+        return None;
+    }
+    let posts = storey_posts(e);
+    let (mut drift, mut height) = (0.0, 0.0);
+    let mut worst = (0.0, 0);
+    for (t, ((groups, h), v)) in posts.iter().zip(&shears).enumerate() {
+        let k: f64 = groups
+            .iter()
+            .map(|g| {
+                let (_, _, i) = section(g);
+                let modulus = stiffness(g).unwrap_or(0.0);
+                12.0 * modulus * i / h.max(1e-6).powi(3) * f64::from(g.count.max(1))
+            })
+            .sum();
+        let d = if k > 0.0 { v / k } else { f64::INFINITY };
+        drift += d;
+        height += h;
+        if d / h.max(1e-6) > worst.0 {
+            worst = (d / h.max(1e-6), t);
+        }
+    }
+    (height > 0.0).then(|| (drift / height, worst.1))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

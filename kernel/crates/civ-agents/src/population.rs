@@ -104,6 +104,7 @@ pub use transit::{RoadRide, road_departures};
 mod credit;
 mod custody;
 mod letting;
+mod lifts;
 mod patronage;
 mod places;
 mod polity;
@@ -8643,6 +8644,7 @@ mod tests {
             light: None,
             holder: None,
             telegraph: None,
+            lift: None,
             money: None,
             id: id.into(),
             name: id.into(),

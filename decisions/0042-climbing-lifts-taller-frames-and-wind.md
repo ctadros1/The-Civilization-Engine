@@ -83,3 +83,40 @@ saved section (a lift is a held tool; storeys are in the spec).
 
 - Frames above eight storeys appear in lived worlds: lift groups, express zones, braced frames.
 - Glass is made: curtain walls change a face's wind load and weight.
+
+## Amendment (2026-10-31): as built
+
+Decided by Claude under the owner's standing authority, by the time box (plan §9):
+
+- **§1, reckoned, not lived.** The climb enters a home's design hours (the shapes weighed with
+  their ground, ADR-0031 §6) for the storeys its members would sleep on, filled from the ground up
+  (`floor_base_m2` first, then `floor_m2_per_sleeper` each), and a lodger's weighing of a room for
+  the storey the room lies on, the highest storey of the home with floor to spare, lets filled from
+  the top down. People's days do not spend it: nobody's day is longer for living upstairs. A
+  design's rent credit (ADR-0040 §5) is not discounted by the storey the spare floor lies on; the
+  lodger's weighing discounts it, and asking rents follow.
+- **§2, a light-traffic wait, and the quicker of the two.** A household's few calls against a
+  car's load seldom queue, so a trip out and back by lift is twice a wait for the car to come half
+  the building and a ride to the ground, each with a stop (a car calling at every one of ten
+  storeys of 3.5 m runs its round in about 130 s, inside 11-14 §2.5's 90–180 s); a person takes
+  the lift only where that is quicker than the stair, so a lift never makes a floor dearer. Power
+  that day is the keeper's installations' and fuel engines' shaft, for four hours on the fuel it
+  holds (a design prior), at least the drive's kW, or a hookup of the keeper's on a wire that was
+  served. The lift burns no fuel, draws nothing in the wire's dispatch and pays no meter; its rated
+  load is recorded and not read (no capacity, no queue). A household's whole lifts stand in its
+  finished frame buildings of version 4 and more than one storey, one each, the tallest first; the
+  shaft's 7 m² comes off every storey's sleeping floor. Nobody wants a lift (`per_worker` 0, as a
+  settling tank): only a household given one, or one that knows how and makes it, holds one. A
+  home's design does not weigh a lift (homes are designed at version 3).
+- **§3, a skeleton program may allow twelve storeys.** A frame program that offers a skeleton may
+  give storeys up to twelve; its builders design a shape above four storeys as a skeleton where
+  they know it, however dear (no timber frame stands so tall); a version 4 expansion may have 256
+  groups. The core's skeleton programs (workshop, hall) keep one storey and its homes have no
+  skeleton, so no lived world can build above four storeys yet. The wire carries no spaces: a
+  group's id carries its level's code in its top byte, and wire 1.111 says the new codes may come.
+- **§4, posts, square on the broad face, the day it blows.** The wind case checks posts only
+  (beams and joints are the skeleton's rigid joints, unchecked), takes the storm square on the
+  building's broadest face whatever its direction, leaves the roof and gables out of the face, and
+  reckons the sway from sound sections. A sway past H/500 shows on the posts of the storey swaying
+  most for the storm's day; the next calm day it is gone. The designer does not size posts for
+  wind.

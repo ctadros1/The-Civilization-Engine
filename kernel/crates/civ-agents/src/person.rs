@@ -1428,6 +1428,7 @@ mod tests {
             light: None,
             holder: None,
             telegraph: None,
+            lift: None,
             money: None,
             id: id.into(),
             name: id.into(),

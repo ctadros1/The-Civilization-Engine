@@ -310,6 +310,22 @@ fn tall_content() -> &'static ContentRegistry {
         if let civ_grammar::ProgramRules::Frame(r) = &mut c.catalog.buildings[i].rules {
             r.storeys = (1, civ_grammar::MAX_STOREYS_V4);
         }
+        // And the longhouse may be raised on a skeleton too, to let its floors (ADR-0042 §2).
+        let steel = c
+            .catalog
+            .goods
+            .iter()
+            .position(|g| g.id == "core:good/steel_section")
+            .expect("steel sections");
+        let i = c
+            .catalog
+            .building_index("core:building/longhouse")
+            .expect("a longhouse");
+        c.catalog.buildings[i].materials.push(steel);
+        if let civ_grammar::ProgramRules::Frame(r) = &mut c.catalog.buildings[i].rules {
+            r.storeys = (1, civ_grammar::MAX_STOREYS_V4);
+            r.frame_kg_per_m3 = 1119.0;
+        }
         c
     })
 }
@@ -611,12 +627,13 @@ fn a_storm_fails_a_weak_tall_frame_sways_a_flexible_one_and_leaves_lower_frames_
     assert!(least > structure::STRAIN_SHOWS, "{least} at {q} Pa");
     let (_, most) = drift.expect("it sways");
     assert_eq!(most, 0, "the first storey sways most");
-    // The eight storeys give way under that gust.
-    assert!(
-        wind_on(&sim, weak, q).0 < 1.0,
-        "{:?}",
-        wind_on(&sim, weak, q)
-    );
+    // The eight storeys of the same posts give way under a gust at most six times the one that
+    // sways the six (each post's quality is drawn as it is built): the least gust that fails them.
+    let q_weak = (1..400)
+        .map(|i| f64::from(i) * 5.0)
+        .find(|&q| wind_on(&sim, weak, q).0 < 1.0)
+        .expect("a gust that fails it");
+    assert!(q_weak <= 6.0 * q, "{q_weak} against {q}");
     storm(&mut sim, h2, q);
     let states = posts_states(&sim, swaying);
     assert!(states.iter().all(|&(_, s)| s != GroupState::Failed));
@@ -638,9 +655,9 @@ fn a_storm_fails_a_weak_tall_frame_sways_a_flexible_one_and_leaves_lower_frames_
         words.contains("the posts lean on the first storey"),
         "{words}"
     );
-    // The same storm on the eight storeys and the four: the eight's posts give way, the four's
+    // That storm on the eight storeys and the four: the eight's posts give way, the four's
     // stand as on a calm day.
-    storm(&mut sim, h1, q);
+    storm(&mut sim, h1, q_weak);
     assert!(
         posts_states(&sim, weak)
             .iter()
@@ -669,4 +686,131 @@ fn a_storm_fails_a_weak_tall_frame_sways_a_flexible_one_and_leaves_lower_frames_
             .iter()
             .all(|&(_, s)| s == GroupState::Sound)
     );
+}
+
+/// A skeleton longhouse of `storeys` storeys and two bays for household `h` at `at`, finished.
+fn tall_home(sim: &mut Sim, h: PermanentId, storeys: u8, at: (f32, f32)) -> PermanentId {
+    let catalog = &tall_content().catalog;
+    let def = &catalog.buildings[catalog
+        .building_index("core:building/longhouse")
+        .expect("a longhouse")];
+    let spec = build::design_cautious(
+        def,
+        &catalog.goods,
+        Shape::Bays {
+            bays: 2,
+            storeys,
+            lofts: 0,
+        },
+        at,
+        None,
+        1.0,
+        None,
+        Some(build::FireDesign {
+            knows_systems: [false, false, false, true],
+            ..Default::default()
+        }),
+    )
+    .expect("a design");
+    assert_eq!(spec.version, 4);
+    sim.place_building_for_tests(h, spec, Stage::ALL.len() as u8)
+        .expect("placed")
+}
+
+fn set_store(sim: &mut Sim, h: PermanentId, good_id: &str, kg: f64) {
+    let g = good(sim, good_id);
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == h {
+            x.stores[g] = kg;
+        }
+    }
+}
+
+fn trip_s(sim: &mut Sim, b: PermanentId, storey: usize) -> f64 {
+    sim.with_ctx_for_tests(|pop, ctx| pop.trip_s_for_tests(ctx, b, storey))
+}
+
+#[test]
+fn a_powered_lift_takes_the_climb_out_of_upper_floors_and_an_unpowered_one_does_not() {
+    let mut sim = tall_world();
+    let h = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .find(|x| !x.members.is_empty())
+        .map(|x| x.id)
+        .expect("a household");
+    let home = sim.people().household(h).expect("it").home;
+    let b = tall_home(&mut sim, h, 10, (home.0 + 40.0, home.1 + 40.0));
+    let spec = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|x| x.id == b)
+        .expect("it")
+        .spec
+        .clone();
+    let storey_m = f64::from(spec.params[civ_grammar::frame_params::EAVE_CM]) / 100.0;
+    let stair = |t: usize| t as f64 * 23.0;
+    let floor = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.living_floor_for_tests(ctx, b))
+            .expect("a home")
+    };
+    let (bare, bare_by) = floor(&mut sim);
+    assert_eq!(bare_by.len(), 10);
+    // No lift: the stair.
+    assert_eq!(trip_s(&mut sim, b, 9), stair(9));
+    // A lift without power: still the stair, but its shaft takes 7 m² of every storey.
+    set_store(&mut sim, h, "core:good/lift", 1.0);
+    assert_eq!(trip_s(&mut sim, b, 9), stair(9));
+    let (shafted, by) = floor(&mut sim);
+    assert!(
+        (bare - shafted - 10.0 * 7.0).abs() < 1e-9,
+        "{bare} {shafted}"
+    );
+    for (a, b) in bare_by.iter().zip(&by) {
+        assert!((a - b - 7.0).abs() < 1e-9);
+    }
+    // Hooked up to a wire that served it: the wait and the ride, where quicker than the stair.
+    let lift = sim.rules().catalog.goods[good(&sim, "core:good/lift")]
+        .lift
+        .expect("a lift");
+    let line = civ_core::PermanentId::from_raw(999_999).expect("an id");
+    let now = sim.now().minutes();
+    sim.land_mut_for_tests()
+        .wires
+        .hookups
+        .push(civ_land::wire::Hookup {
+            building: b,
+            household: h,
+            line,
+            ask_kw: 0.2,
+            cut_off: false,
+            lit_until: now,
+            cause: civ_land::wire::Cause::Served,
+            asked: 1,
+            served: 1,
+        });
+    let ride = civ_agents::climb::lift_trip_s(&lift, 9, 10, storey_m);
+    assert!(ride < stair(9));
+    assert!((trip_s(&mut sim, b, 9) - ride).abs() < 1e-9);
+    // From the second storey the stair is still quicker, and the ground climbs nothing.
+    assert_eq!(trip_s(&mut sim, b, 1), stair(1));
+    assert_eq!(trip_s(&mut sim, b, 0), 0.0);
+    // Cut off: the stair again.
+    sim.land_mut_for_tests().wires.hookups[0].cut_off = true;
+    assert_eq!(trip_s(&mut sim, b, 9), stair(9));
+    // Engines with their fuel for the lift's hours drive it as well; without the fuel, they do
+    // not.
+    let gas_engine = good(&sim, "core:good/gas_engine");
+    let rated = sim.rules().catalog.goods[gas_engine]
+        .power
+        .expect("power")
+        .rated_kw;
+    let engines = (lift.drive_kw / rated).ceil();
+    set_store(&mut sim, h, "core:good/gas_engine", engines);
+    assert_eq!(trip_s(&mut sim, b, 9), stair(9), "no gas");
+    set_store(&mut sim, h, "core:good/coal_gas", 1_000.0);
+    assert!((trip_s(&mut sim, b, 9) - ride).abs() < 1e-9);
 }

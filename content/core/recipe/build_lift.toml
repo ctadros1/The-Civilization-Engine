@@ -1,0 +1,21 @@
+# Building a passenger lift (ADR-0042 §2): the car, its guides and counterweight of rolled steel,
+# its ropes and drive of iron and copper, and its car's lining of timber. 1,200 hours, 1,500 kg of
+# steel sections, 400 kg of iron, 60 kg of copper and 150 kg of timber are design priors (the
+# research gives speeds and round trips, not a lift's hours or weights).
+kind = "recipe"
+id = "core:recipe/build_lift"
+name = "Build a passenger lift"
+skill = "core:skill/smithing"
+technique = "core:technique/passenger_lift"
+unit_h = 1200.0
+session_h = 0.0
+max_units = 1.0
+tools = []
+inputs = [
+  { good = "core:good/steel_section", amount = 1500.0 },
+  { good = "core:good/iron", amount = 400.0 },
+  { good = "core:good/copper", amount = 60.0 },
+  { good = "core:good/timber", amount = 150.0 },
+]
+outputs = [{ good = "core:good/lift", amount = 1.0 }]
+session_inputs = []

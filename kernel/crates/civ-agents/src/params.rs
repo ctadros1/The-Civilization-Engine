@@ -485,6 +485,20 @@ pub struct GoodDef {
     /// What it sends as a telegraph instrument (M11c, ADR-0036 §8; content API 206): `None` for
     /// a good that is not one.
     pub telegraph: Option<GoodTelegraph>,
+    /// What it does as a passenger lift (ADR-0042 §2; content API 215); a fixed tool only.
+    pub lift: Option<GoodLift>,
+}
+
+/// What a passenger lift does (ADR-0042 §2): a car of `rated_kg` running at `speed_ms`, driven by
+/// `drive_kw`, stopping `stop_s` at each landing, its shaft and landing taking `shaft_m2` of floor
+/// on every storey it serves. Design priors in the core content.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GoodLift {
+    pub rated_kg: f64,
+    pub speed_ms: f64,
+    pub drive_kw: f64,
+    pub stop_s: f64,
+    pub shaft_m2: f64,
 }
 
 /// What a telegraph instrument sends (M11c; ADR-0036 §8): the messages its operator sends an

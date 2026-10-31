@@ -944,6 +944,7 @@ mod tests {
             light: None,
             holder: None,
             telegraph: None,
+            lift: None,
             money: None,
             id: format!("core:good/{}", name.to_lowercase()),
             name: name.into(),

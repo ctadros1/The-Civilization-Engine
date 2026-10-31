@@ -1977,3 +1977,22 @@ twelve storeys, each above the fourth laid out as the fourth (its openings, its 
 the stair to the next); three storeys or more need the stair. Its builders design a shape above four
 storeys as a skeleton where they know it, however dear, since no timber frame stands so tall;
 other programs keep at most four. The core's workshop and hall keep one storey.
+
+Content API 215 (ADR-0042 §2) adds a good's optional `[lift]` table, allowed only on a fixed tool:
+`rated_kg` (1–100,000; the car's rated load), `speed_ms` (0.01–20; its speed), `drive_kw`
+(0.01–10,000; what its drive needs), `stop_s` (0–600; seconds at each landing) and `shaft_m2`
+(0–100; the floor its shaft and landing take on every storey). A household's whole lifts stand in
+its finished frame buildings of version 4 and more than one storey, one each, the tallest first.
+Each takes `shaft_m2` of sleeping floor from every storey of its building. While its keeper has
+power that day (its installations' and its fuel engines' shaft, for four hours on the fuel it
+holds, at least `drive_kw`, or a hookup of its on a wire that was served), a trip out and back
+from a storey above the ground takes twice a wait for the car to come half the building and a ride
+to the ground, each with a stop, where that is quicker than the stair; this is the climb a lodger
+counts for a room there. Nothing else reads a lift: nobody wants one yet, so only a household given
+one, or one that knows how and makes it, holds one. The core adds `good/lift` (630 kg, 1 m/s,
+7.5 kW, 10 s, 7 m²), `technique/passenger_lift` (the steel skeleton with an atmospheric or gas
+engine or the dynamo; tried in building dynamos and gas engines, holding steel sections; 500,000
+hours to half), `recipe/build_lift` (1,500 kg of steel sections, 400 of iron, 60 of copper and 150
+of timber, 1,200 hours) and its activity. The figures are design priors (research 11-14 §2.4,
+§2.5: a car calling at every one of ten storeys of 3.5 m runs its round in about 130 s, inside
+90–180 s).

@@ -2,8 +2,8 @@
 //! gathers, stores or eats is decided by people at run time.
 
 use civ_agents::params::{
-    Eaten, GoodDef, GoodFire, GoodFuel, GoodHolder, GoodLight, GoodPower, GoodTelegraph, GoodUse,
-    MoneyDef, PowerSource, StoreDef, ToolDef,
+    Eaten, GoodDef, GoodFire, GoodFuel, GoodHolder, GoodLift, GoodLight, GoodPower, GoodTelegraph,
+    GoodUse, MoneyDef, PowerSource, StoreDef, ToolDef,
 };
 use civ_agents::structure::Timber;
 use serde::Deserialize;
@@ -57,6 +57,20 @@ pub(crate) struct GoodFile {
     /// Content API 206 (M11c): what it sends as a telegraph instrument; only a fixed tool.
     #[serde(default)]
     pub telegraph: Option<TelegraphFile>,
+    /// Content API 215 (ADR-0042 §2): what it does as a passenger lift; only a fixed tool.
+    #[serde(default)]
+    pub lift: Option<LiftFile>,
+}
+
+/// What a passenger lift does (ADR-0042 §2). See [`civ_agents::params::GoodLift`].
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct LiftFile {
+    pub rated_kg: f64,
+    pub speed_ms: f64,
+    pub drive_kw: f64,
+    pub stop_s: f64,
+    pub shaft_m2: f64,
 }
 
 /// What a telegraph instrument sends (M11c, ADR-0036 §8).
@@ -291,6 +305,13 @@ impl GoodFile {
             telegraph: self.telegraph.as_ref().map(|t| GoodTelegraph {
                 messages_h: t.messages_h,
             }),
+            lift: self.lift.as_ref().map(|l| GoodLift {
+                rated_kg: l.rated_kg,
+                speed_ms: l.speed_ms,
+                drive_kw: l.drive_kw,
+                stop_s: l.stop_s,
+                shaft_m2: l.shaft_m2,
+            }),
         })
     }
 
@@ -387,6 +408,25 @@ impl GoodFile {
             if !self.tool.as_ref().is_some_and(|t| t.fixed) {
                 p.push(
                     "only a fixed tool holds apart: `[holder]` needs `[tool] fixed = true`"
+                        .to_owned(),
+                );
+            }
+        }
+        if let Some(l) = &self.lift {
+            for (name, v, lo, hi) in [
+                ("lift.rated_kg", l.rated_kg, 1.0, 100_000.0),
+                ("lift.speed_ms", l.speed_ms, 0.01, 20.0),
+                ("lift.drive_kw", l.drive_kw, 0.01, 10_000.0),
+                ("lift.stop_s", l.stop_s, 0.0, 600.0),
+                ("lift.shaft_m2", l.shaft_m2, 0.0, 100.0),
+            ] {
+                if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                    p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+                }
+            }
+            if !self.tool.as_ref().is_some_and(|t| t.fixed) {
+                p.push(
+                    "only a fixed tool stands in a building: `[lift]` needs `[tool] fixed = true`"
                         .to_owned(),
                 );
             }

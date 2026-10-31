@@ -54,6 +54,7 @@ impl Population {
     /// one with the most sleeping floor (ADR-0040 §1). `None` for a lodger, which lets nothing.
     pub(super) fn let_home(
         &self,
+        land: &Land,
         catalog: &Catalog,
         x: &Household,
         homes: &[&Building],
@@ -69,7 +70,7 @@ impl Population {
             else {
                 continue;
             };
-            let Some((living, by_storey)) = self.living_floor(b, def) else {
+            let Some((living, by_storey)) = self.living_floor(land, catalog, b, def) else {
                 continue;
             };
             let (base, per) = sleeping(def);
@@ -90,9 +91,12 @@ impl Population {
         best.map(|(home, by_storey)| self.with_let_storey(x, home, &by_storey))
     }
 
-    /// Building `b`'s sleeping floor under program `def`, m², in all and by storey.
+    /// Building `b`'s sleeping floor under program `def`, m², in all and by storey: less, on
+    /// every storey, what a lift's shaft standing in it takes (ADR-0042 §2).
     fn living_floor(
         &self,
+        land: &Land,
+        catalog: &Catalog,
         b: &Building,
         def: &crate::params::BuildingDef,
     ) -> Option<(f64, Vec<f64>)> {
@@ -102,12 +106,17 @@ impl Population {
                 crate::climb::living_by_storey(e),
             )
         };
-        match self.expansions.get(&b.id) {
-            Some(e) => Some(of(e)),
-            None => civ_grammar::expand(&b.spec, &def.rules)
-                .ok()
-                .map(|e| of(&e)),
+        let (living, mut by_storey) = match self.expansions.get(&b.id) {
+            Some(e) => of(e),
+            None => of(&civ_grammar::expand(&b.spec, &def.rules).ok()?),
+        };
+        let Some(lift) = self.lift_in(land, &catalog.goods, b) else {
+            return Some((living, by_storey));
+        };
+        for a in &mut by_storey {
+            *a = (*a - lift.shaft_m2).max(0.0);
         }
+        Some((by_storey.iter().sum(), by_storey))
     }
 
     /// `home` of household `x`, with the storey a let in it would lie on: the highest with floor
@@ -302,7 +311,7 @@ impl Population {
             let Some(homes) = dwellings.get(&x.id) else {
                 continue;
             };
-            let Some(home) = self.let_home(ctx.catalog, x, homes) else {
+            let Some(home) = self.let_home(ctx.land, ctx.catalog, x, homes) else {
                 continue;
             };
             let m2 = self.spare_m2(x, &home, None);
@@ -490,7 +499,7 @@ impl Population {
         let def = catalog
             .building_index(&b.spec.program)
             .and_then(|i| catalog.buildings.get(i))?;
-        let (living, by_storey) = self.living_floor(b, def)?;
+        let (living, by_storey) = self.living_floor(land, catalog, b, def)?;
         let (base, per) = sleeping(def);
         let home = LetHome {
             building: b.id,
@@ -615,11 +624,12 @@ impl Population {
     }
 
     /// Hours a year a lodging household of `n` members making `trips_year` trips would climb to
-    /// a room in `home` (building `b`), on the storey its floor lies on (ADR-0042 §1).
+    /// a room in `home` (building `b`), on the storey its floor lies on, by the stair or its
+    /// building's powered lift (ADR-0042 §1–§2).
     fn room_climb_h_year(
         &self,
         ctx: &Ctx,
-        _b: &Building,
+        b: &Building,
         home: &LetHome,
         n: usize,
         trips_year: f64,
@@ -628,8 +638,7 @@ impl Population {
         if t == 0 {
             return 0.0;
         }
-        let climbing = &ctx.params.climbing;
-        crate::climb::climb_h_year(&vec![t; n], trips_year, |t| climbing.stair_trip_s(t))
+        crate::climb::climb_h_year(&vec![t; n], trips_year, |t| self.trip_s_in(ctx, b, t))
     }
 
     /// Household `h` takes floor in `landlord`'s `home` for `rent_kcal` a month reckoned in
@@ -725,6 +734,21 @@ impl Population {
     pub fn letting_day_for_tests(&mut self, ctx: &mut Ctx, seek: &[PermanentId]) {
         let day = ctx.now.day_index();
         self.letting_with(ctx, day, Some(seek));
+    }
+
+    /// Building `building`'s sleeping floor, in all and by storey, less a lift's shaft: for tests.
+    #[doc(hidden)]
+    pub fn living_floor_for_tests(
+        &self,
+        ctx: &Ctx,
+        building: PermanentId,
+    ) -> Option<(f64, Vec<f64>)> {
+        let b = ctx.land.buildings.iter().find(|b| b.id == building)?;
+        let def = ctx
+            .catalog
+            .building_index(&b.spec.program)
+            .and_then(|i| ctx.catalog.buildings.get(i))?;
+        self.living_floor(ctx.land, ctx.catalog, b, def)
     }
 
     /// The hours a year household `household` would count `spare_m2` of a home's floor as

@@ -33,6 +33,35 @@ impl ClimbParams {
     }
 }
 
+/// Seconds a trip out and back from storey `storey` (0 the first) of a building of `storeys`
+/// storeys, each `storey_m` high, takes by lift `lift` (ADR-0042 §2): twice a wait for the car to
+/// come half the building and a ride between the storey and the ground, each with a stop. A
+/// household's few calls against a car's load seldom queue, so the wait is the car's run, not its
+/// round (a closed form; research 11-14 §2.5).
+pub fn lift_trip_s(
+    lift: &crate::params::GoodLift,
+    storey: usize,
+    storeys: usize,
+    storey_m: f64,
+) -> f64 {
+    if storey == 0 {
+        return 0.0;
+    }
+    let v = lift.speed_ms.max(1e-3);
+    let h = storey_m.max(0.0);
+    let wait = storeys.saturating_sub(1) as f64 * h / (2.0 * v) + lift.stop_s.max(0.0);
+    let ride = storey as f64 * h / v + lift.stop_s.max(0.0);
+    2.0 * (wait + ride)
+}
+
+/// Seconds lift `lift`'s car takes to run its round of a building of `storeys` storeys, each
+/// `storey_m` high, stopping at every storey above the ground: what research 11-14 §2.5's prior of
+/// 90–180 s at 10–20 floors checks.
+pub fn lift_round_s(lift: &crate::params::GoodLift, storeys: usize, storey_m: f64) -> f64 {
+    let above = storeys.saturating_sub(1) as f64;
+    2.0 * above * storey_m.max(0.0) / lift.speed_ms.max(1e-3) + above * lift.stop_s.max(0.0)
+}
+
 /// Living (sleeping) floor of each storey of expansion `e`, square metres, the first storey's
 /// first; lofts and the roof hold none.
 pub fn living_by_storey(e: &Expansion) -> Vec<f64> {
@@ -130,6 +159,29 @@ mod tests {
         assert_eq!(let_storey(&by, 20.0, 30.0), 1);
         assert_eq!(let_storey(&[40.0], 20.0, 0.0), 0);
         assert_eq!(let_storey(&by, 80.0, 0.0), 0);
+    }
+
+    #[test]
+    fn a_lift_waits_and_rides_and_its_round_is_within_the_priors() {
+        let lift = crate::params::GoodLift {
+            rated_kg: 630.0,
+            speed_ms: 1.0,
+            drive_kw: 7.5,
+            stop_s: 10.0,
+            shaft_m2: 7.0,
+        };
+        // Ten storeys of 3.5 m: a round of 2 × 31.5 m at 1 m/s and nine stops.
+        let round = lift_round_s(&lift, 10, 3.5);
+        assert!((round - 153.0).abs() < 1e-9);
+        assert!((90.0..=180.0).contains(&round));
+        // From the tenth storey: twice a wait of 15.75 s and a stop, and a ride of 31.5 s and a
+        // stop, against 207 s by the stair.
+        let p = ClimbParams::default();
+        assert!((lift_trip_s(&lift, 9, 10, 3.5) - 2.0 * (25.75 + 41.5)).abs() < 1e-9);
+        assert!(lift_trip_s(&lift, 9, 10, 3.5) < p.stair_trip_s(9));
+        // From the second, the stair is quicker.
+        assert!(lift_trip_s(&lift, 1, 10, 3.5) > p.stair_trip_s(1));
+        assert_eq!(lift_trip_s(&lift, 0, 10, 3.5), 0.0);
     }
 
     #[test]

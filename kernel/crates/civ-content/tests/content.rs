@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 214
+kernel_content_api = 215
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -3785,4 +3785,89 @@ fn a_program_offering_a_steel_skeleton_may_rise_to_twelve_storeys() {
         "storeys = [1, 2]",
         "storeys = [1, 5]"
     ));
+}
+
+#[test]
+fn a_passenger_lift_is_a_fixed_tool_of_a_far_technique_on_the_skeleton_and_an_engine() {
+    // ADR-0042 §2 (content API 215): a lift's figures, its technique and its recipe and activity.
+    let root = civ_content::find_content_root(std::path::Path::new(env!("CARGO_MANIFEST_DIR")))
+        .expect("content root");
+    let catalog = civ_content::load(&root).registry.expect("loads").catalog;
+    let g = catalog
+        .goods
+        .iter()
+        .find(|g| g.id == "core:good/lift")
+        .expect("the lift");
+    let lift = g.lift.expect("a lift's figures");
+    assert_eq!(
+        (
+            lift.rated_kg,
+            lift.speed_ms,
+            lift.drive_kw,
+            lift.stop_s,
+            lift.shaft_m2
+        ),
+        (630.0, 1.0, 7.5, 10.0, 7.0)
+    );
+    // A fixed tool no work needs and nobody wants: only a household given or making one holds it.
+    assert!(
+        g.tool
+            .as_ref()
+            .is_some_and(|t| t.fixed && t.per_worker == 0.0)
+    );
+    let t = &catalog.techniques[catalog
+        .technique_index("core:technique/passenger_lift")
+        .expect("the technique")];
+    let named = |id: &str| {
+        catalog
+            .techniques
+            .iter()
+            .position(|t| t.id == id)
+            .expect(id)
+    };
+    let skeleton = named("core:technique/skeleton_frame");
+    assert_eq!(t.requires.len(), 3);
+    assert!(
+        t.requires
+            .iter()
+            .all(|r| r.contains(&skeleton) && r.len() == 2)
+    );
+    assert!(
+        t.requires
+            .iter()
+            .any(|r| r.contains(&named("core:technique/dynamo")))
+    );
+    assert!(t.e50_h >= 100_000.0, "a far technique");
+    let recipe = catalog
+        .recipes
+        .iter()
+        .position(|r| r.id == "core:recipe/build_lift")
+        .expect("its recipe");
+    assert!(catalog.activities.iter().any(|a| a.recipe == Some(recipe)));
+    // Figures out of range, or a lift that is not a fixed tool, are refused.
+    let real_lift = real("good/lift.toml");
+    for (from, to, needle) in [
+        ("speed_ms = 1.0", "speed_ms = 0.0", "`lift.speed_ms`"),
+        ("shaft_m2 = 7.0", "shaft_m2 = -7.0", "`lift.shaft_m2`"),
+        (
+            "fixed = true",
+            "fixed = false",
+            "`[lift]` needs `[tool] fixed = true`",
+        ),
+    ] {
+        let body = real_lift.replace(from, to);
+        assert_ne!(body, real_lift, "{needle}: the edit applies");
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &real_preset()),
+            ("good/lift.toml", &body),
+        ]);
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|d| d.message.contains(needle)),
+            "{needle}: {:?}",
+            report.diagnostics
+        );
+    }
 }

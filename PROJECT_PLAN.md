@@ -8394,6 +8394,65 @@ and M6a gives rivers a daily flow.
       home that month, behaviour, and each site costs the same). The clause is not amended here.
       **Tested:** civ-agents' unit tests, roundtrip, market, firms, metal, iron, steel, lamps,
       hazard_tools, wires, telegraph, money, credit; the ten smoke worlds' first month.
+    - *Climbing, lifts, taller frames and wind (2026-10-31, backlog; [ADR-0042](decisions/0042-climbing-lifts-taller-frames-and-wind.md)
+      and its as-built amendment).* Four parts. **Climbing is hours:** a household's members sleep
+      on a home's storeys filled from the ground up (`floor_base_m2`, then `floor_m2_per_sleeper`
+      each), and each member's share of the household's trips out and back (its goings, ADR-0030
+      §1) costs its storeys' climb at the people profile's new `[climbing]` priors (15 s a storey up,
+      8 down; 11-14 §2.5). A home's design adds it, over the years a site is weighed, to each shape's
+      building and ground hours; a household seeking a room adds a month of it for the storey the
+      room lies on, the highest of the home with floor to spare (lets filled from the top down).
+      **Frame version 4 to twelve storeys:** `Level` gains the fifth to twelfth storeys (codes 6 to
+      13, appended); a steel skeleton of version 4 may rise to twelve (`MAX_STOREYS_V4`), each storey
+      above the fourth laid out as the fourth (its openings, infill and a flight of the stair); the
+      stair is required from three, a lift never; versions 1 to 3 and timber frames keep four, their
+      goldens unchanged; a version 4 expansion may have 256 groups (twelve bays of twelve storeys,
+      lofted, take 199). A program offering a skeleton may allow twelve storeys, and a shape above four
+      is designed as a skeleton where its builders know it. **Wind:** a frame of more than four
+      storeys meets the month's storm on its day as `q·1.3` on its broadest face, storey by storey,
+      each storey's posts sharing its shear bent as members fixed at both ends; posts failing give way
+      as any group does, and a sway past H/500 (each storey's shear over its posts' `12EI/h³`) shows
+      on the posts of the storey swaying most that day ("the posts lean on the first storey").
+      **Lifts:** `core:good/lift` (a fixed tool: 630 kg, 1 m/s, 7.5 kW, 10 s a stop, 7 m² of shaft a
+      storey; design priors), technique `passenger_lift` (the skeleton with an atmospheric or gas
+      engine or the dynamo; tried in building dynamos and gas engines; 500,000 hours to half), its
+      recipe and activity. A household's whole lifts stand in its finished version 4 frames, the
+      tallest first; each takes its shaft from every storey's sleeping floor; while its keeper has
+      power that day (installations' and fuel engines' shaft for four hours on the fuel held, or a
+      served wire hookup), a trip from a storey above the ground takes twice a wait for the car to
+      come half the building and a ride, each with a stop, where quicker than the stair (ten storeys
+      of 3.5 m: a round of 153 s, inside 11-14 §2.5's 90–180). Nobody wants a lift (`per_worker` 0):
+      with 0.1, as first written, every grown household wanted one as a tool no work needs, and the
+      lift's iron, among what that tool asked for, kept a telegraph scene's household from burning
+      any charcoal in 60 days (with the iron taken out of the recipe it burned as before); the
+      settling tank's rule was taken. **Versions:** content API 214 (`[climbing]`)
+      and 215 (`[lift]` on a good, the lift's content); wire 1.111 (a group's id may carry the new
+      level codes; no field changed, generated code unchanged); saves unchanged (a fallen building
+      remembered may have up to twelve storeys). **Changed in lived worlds:** nothing seen: the ten
+      smoke worlds' first month pass, and no targeted scene moved; a home's shape choice can now
+      tilt from one putting members upstairs, but core longhouses rise two storeys at most and no
+      core program allows a skeleton home or more than four storeys, so no lived world builds tall
+      or holds a lift. **Tested:** a tall target (a design counting the climb of members sleeping
+      upstairs in proportion to trips; a lodger taking the first-storey room of two alike and the
+      upper one only when it asks enough less; skeletons of five, eight and twelve storeys
+      expanding, standing, saving and loading exactly and living a day on alike; at the least gust
+      that sways six storeys of 12 cm posts past H/500 their first storey leaning, none failing, eight
+      storeys of the same failing under the least gust that fails them and four standing as on a calm
+      day, the sway gone the next calm day; a powered lift's wait and ride in place of a tenth
+      storey's 207 s of stair, the stair kept from the second storey, without power, cut off from
+      the wire or with engines but no gas, the shaft's 7 m² off every storey); grammar (twelve
+      storeys laid out as the fourth, thirteen refused, timber held to four), the designer, content
+      (a skeleton program to twelve storeys, the lift's figures, technique, recipe and refusals),
+      civ-agents' unit tests (296), civ-content (14 + 70), civ-grammar (38), civ-schema; letting,
+      homes, roundtrip, custody, people, rules, steel, public_buildings, fire, hazard_tools, upkeep,
+      weather, style, wires, gas, telegraph, knowledge, discovery, firms, market, iron, metal, works,
+      coal, residues, destructor, mills, lamps, sewers, tips; web build and unit tests; schema check;
+      clippy; content validate; the ten smoke worlds. **Not yet:** a lived world that builds above
+      four storeys or a skeleton home (no core program offers one), anyone wanting a lift, a lift
+      burning fuel or drawing on the wire's dispatch and meter, its capacity and queues, a lift
+      that breaks, the observer's words for a lift, wind on beams and joints or from the storm's
+      own direction, the designer sizing posts for wind, a sway that lingers past the storm's day,
+      and people's days spending the climb they reckon.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads
@@ -8590,6 +8649,7 @@ and M6a gives rivers a daily flow.
 - **M11d's demo time-boxed (2026-10-30, M11d's fourth part):** Decided by Claude under standing owner authority (2026-10-30). M11's demo is closed on its third eight-year run: copper found by prospecting, a dynamo and an instrument wanted, nothing electrified or wired. *Reason:* the time box (plan §1: time-box emergence); three long runs found and fixed two faults, and what remains (a wanter holding 5-8 of the 8 kg of iron it keeps for years) is the next question, not a reason to tune. NUDGE: none taken; if a later run is wanted, look first at why a household short of a few kilograms of iron for an instrument does not smelt or buy them.
 - **The notables' gate recalibrated (2026-10-31, ADR-0014 §4; homelab runs 41181916197, 41193677992 and 41197786000):** Decided by Claude under standing owner authority (2026-10-31). The gate failed on three aggregates (river valley's moved −35.8 %, the coast's enacted +47.6 % and moved +30.6 %, against 25 %, 40 % and 25 %), identically on every revision since at least M11d's fifth part. A calibration showed each difference within three standard errors of the tier's own spread today: the fixtures' polities, which proposed nothing (valley) or about four laws (coast) when the tolerances were set on 2026-10-08, now propose 7–21 a run with standard deviations up to 11. The gate's runs are doubled (10 a side, 12 to calibrate) and its tolerances reset by the 2026-10-08 rule unchanged (three standard errors of a difference of two means, the larger fixture's, rounded up to the next 5 %): proposals 105 %, enacted 55 %, offices 85 %, moved 95 %. With ten runs a side, on the working head, every aggregate is within them (the coast's enacted +16 %, moved −8 %; the valley's proposals +82.5 %, from one every-adult run of about 60 proposals). *Reason:* the 2026-10-08 precedent fixed the tier, not the tolerances, because a cause was found (a trigger ADR-0014 §4 names was missing); here the runs show no such cause, only wider politics, and the rule that set the tolerances is the rule that resets them. *What it gives up:* at this spread the gate catches a tier that suppresses politics outright, not one that halves proposals; a gate on a test of both runs' spreads would hold its power as politics changes (backlog E).
 - **Climbing, lifts, taller frames and wind designed (2026-10-31, backlog B; ADR-0037 §7's remaining deferrals; research 11-14 §1.4–§1.5, §2.4–§2.5; [ADR-0042](decisions/0042-climbing-lifts-taller-frames-and-wind.md)):** Decided by Claude under standing owner authority (2026-10-31). Climbing above the ground is hours in a design's and a lodger's reckoning (15 s a storey up, 8 down, design priors); a lift is a powered fixed tool that replaces climbing with a wait and a ride while its building has power, its shaft taking floor; frame version 4 rises to twelve storeys (`Level` appended); frames above four storeys meet the month's storm as wind on their lateral mode, with drift past H/500 a symptom. *Reason:* letting now gives height a reason; the report's rule puts circulation in hours, not a bonus. Lift groups and braced frames wait.
+- **ADR-0042 narrowed as built (2026-10-31; [ADR-0042](decisions/0042-climbing-lifts-taller-frames-and-wind.md)'s amendment):** Decided by Claude under standing owner authority (2026-10-31). The climb is reckoned in designs and a lodger's weighing, not spent in people's days; a lift's trip is a light-traffic wait and ride taken only where quicker than the stair, its power the keeper's shaft for four hours or a served hookup, burning and drawing nothing, its load unread, and nobody wants one; a program offering a skeleton may allow twelve storeys, but the core's keep their storeys, so no lived world builds tall yet; wind checks posts only, square on the broad face, its sway shown for the storm's day. *Reason:* the time box: each is the smallest rule that gives the ADR's consequence (upper floors dearer, a powered lift cheapening them, tall frames failing or swaying in storms); the rest is on the backlog as the plan entry's "Not yet".
 - **Sewers and treatment designed (2026-10-31, backlog C; ADR-0038 §6's deferral; research 12-02 §1.5, 12-10 §1.7 and §5.8; [ADR-0041](decisions/0041-sewers-and-treatment.md)):** Decided by Claude under standing owner authority (2026-10-31). A sewer is a carrier laid by gravity along ways to an outfall on a reach (refused where it would rise; capacity by section); connected homes send their heap's new decaying share and its disease loads to the outfall's reach, relocating, not destroying, them; a polity lays one by `lay_sewer`; settling at the outfall splits off sludge (a refuse good) and a sewage farm takes load as dung up to its area. *Reason:* the reports' central rule (a sewer relocates load; treatment transforms part of it) on the kernel's carrier and contagion patterns. Pumping, biological treatment, discharge standards and blockage are deferred.
 - **Letting rooms designed (2026-10-31, backlog B; ADR-0037 §7's first deferral; research 08-19 §1.3–§1.5, §5; [ADR-0040](decisions/0040-letting-rooms.md)):** Decided by Claude under standing owner authority (2026-10-31). A roofless household may lodge in a home with spare sleeping floor, paying a monthly rent in food on the `Rent` channel at the landlord's asking rent, which moves a tenth with turned-away offers and vacancy; lodgers count as sheltered; a home's design counts the rent its spare floor would bring where lets have been seen. *Reason:* ADR-0037 found that nobody builds tall while nobody lets floors, and the kernel already has roofless households, custody and field leases to stand on; 08-19's search-and-contract shape on review days keeps it cheap. Rooms as partitions, landlords who do not live there, and rent law are deferred.
 - **Autonomous mode made a rule (2026-10-31):** the owner's words: "keep developing the project until I manually stop it. Keep proceeding through milestones autonomously." Claude had stopped the hourly loop on 2026-10-30 under a stop condition it wrote itself ("when everything buildable here is done"), counting its own deferrals and the Unreal work it cannot build as done. `AGENTS.md` now has an "Autonomous mode" section: only the owner stops the loop; the backlog never runs dry (plan §7's "Not yet" lines, ADR deferrals, §8's open questions, demos' open questions, then improvement passes); blocked work is logged and skipped; "done" is a report; narrowing is not finishing. `CLAUDE.md` points to it.

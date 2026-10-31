@@ -268,7 +268,7 @@ fn home_seller(sc: &mut Scene) -> PermanentId {
         .find_map(|(_, p)| {
             p.knows
                 .iter()
-                .find(|k| usize::from(k.technique) == knapping)
+                .find(|k| usize::from(k.technique) == knapping && k.known)
                 .copied()
         })
         .expect("someone knows knapping");
@@ -279,9 +279,10 @@ fn home_seller(sc: &mut Scene) -> PermanentId {
         .expect("household")
         .members
         .clone();
+    // Someone still learning it, or a member who had begun to, does not count: they know it.
     for (_, p) in sc.sim.people_mut_for_tests().people.iter_mut() {
-        if members.contains(&p.id) && !p.knows.iter().any(|k| usize::from(k.technique) == knapping)
-        {
+        if members.contains(&p.id) && !p.knows(knapping) {
+            p.knows.retain(|k| usize::from(k.technique) != knapping);
             p.knows.push(known);
             p.knows.sort_by_key(|k| k.technique);
         }

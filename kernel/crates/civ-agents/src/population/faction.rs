@@ -1549,6 +1549,7 @@ impl Population {
             }
         }
         polity.body = body;
+        polity.lapse_seats_beyond_custom();
         polity.versions.push(CustomVersion {
             body,
             since: now,

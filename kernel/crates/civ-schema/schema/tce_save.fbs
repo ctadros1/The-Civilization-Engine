@@ -1693,6 +1693,43 @@ table PolitySave {
   // Schema 220 (M11f, third part; ADR-0038 §4; appended within the unreleased saves 220): the
   // refuse rounds that carry to its tips, in the order posted; absent, none.
   rounds: [RefuseRoundSave] (id: 51);
+  // Schema 220 (ADR-0041 §1-§4; appended within the unreleased saves 220): the sewers its laws
+  // lay, in the order begun; absent, none.
+  sewers: [SewerSave] (id: 52);
+}
+
+// A sewer a polity's law lays (schema 220, ADR-0041 §1-§4): its id (its settling tank's contagion
+// node's), the law, the day begun, its cells from head to outfall, the outfall's reach, its length
+// and how much is laid, metres, what it carries a day, kg, whether it is broken, the household
+// keeping its tank (0: the polity's store), its connections in the order made, and its last day:
+// the day (-1 never), the kilograms that went in and that settled as sludge.
+table SewerSave {
+  id: ulong (id: 0);
+  law: ulong (id: 1);
+  begun: long (id: 2);
+  cells: [uint] (id: 3);
+  reach: uint (id: 4);
+  length_m: float (id: 5);
+  laid_m: float (id: 6);
+  capacity_kg_day: float (id: 7);
+  broken: bool (id: 8);
+  keeper: ulong (id: 9);
+  connections: [SewerConnectionSave] (id: 10);
+  day: long = -1 (id: 11);
+  entered_kg: double (id: 12);
+  settled_kg: double (id: 13);
+}
+
+// A home's privy connected to a sewer (schema 220, ADR-0041 §2): its household and building, the
+// day it connected, and its last day: the day (-1 never), the kilograms that went in, and why (0
+// served, 1 the sewer full, 2 broken).
+struct SewerConnectionSave {
+  household: ulong;
+  building: ulong;
+  since: long;
+  day: long;
+  kg: double;
+  cause: ubyte;
 }
 
 // A refuse round (schema 220, M11f, third part; ADR-0038 §4): its id, the household that works it
@@ -3462,7 +3499,8 @@ table ThrownSave {
 // A place a load lies or passes (schema 76, M6a slice AZ, step two; ADR-0021 §4): `code` 0 a
 // person shedding it (`id` theirs), 1 a household's heap (`id` the household), 2 a well (`id`
 // its), 3 a river reach (`id` its index), 4 a household's stored water (`id` the household); from
-// schema 220, 5 a tip (`id` its: M11f, second part; ADR-0038 §3).
+// schema 220, 5 a tip (`id` its: M11f, second part; ADR-0038 §3), 6 refuse a household holds
+// (`id` the household: ADR-0038 §5) and 7 a sewer's settling tank (`id` the sewer's: ADR-0041 §4).
 struct NodeSave {
   code: ubyte;
   id: ulong;
@@ -3493,7 +3531,7 @@ struct TransitSave {
 }
 
 // One move of a load on `day`: `how` 0 shed, 1 washed off, 2 soaked in, 3 arrived through the
-// ground, 4 drawn with water; from schema 220, 5 carried with a heap to a tip.
+// ground, 4 drawn with water; from schema 220, 5 carried with a heap to a tip or by a sewer.
 struct MoveSave {
   day: long;
   from: NodeSave;

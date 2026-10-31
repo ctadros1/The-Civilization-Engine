@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 212
+kernel_content_api = 213
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2856,6 +2856,7 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         "core:policy/zealously_yoke_the_homes_to_the_wire",
         "core:policy/zealously_zone_a_refuse_tip",
         "core:policy/zealously_zone_a_round_for_refuse",
+        "core:policy/zealously_zone_a_sewer_to_the_river",
     ];
     assert!(
         reg.catalog
@@ -2897,6 +2898,7 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
         "core:policy/zealously_yoke_the_homes_to_the_wire",
         "core:policy/zealously_zone_a_refuse_tip",
         "core:policy/zealously_zone_a_round_for_refuse",
+        "core:policy/zealously_zone_a_sewer_to_the_river",
     ];
     assert!(
         reg.catalog
@@ -2979,6 +2981,7 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
         "core:policy/zealously_yoke_the_homes_to_the_wire",
         "core:policy/zealously_zone_a_refuse_tip",
         "core:policy/zealously_zone_a_round_for_refuse",
+        "core:policy/zealously_zone_a_sewer_to_the_river",
     ];
     assert!(
         reg.catalog
@@ -3019,6 +3022,7 @@ fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
         "core:policy/zealously_yoke_the_homes_to_the_wire",
         "core:policy/zealously_zone_a_refuse_tip",
         "core:policy/zealously_zone_a_round_for_refuse",
+        "core:policy/zealously_zone_a_sewer_to_the_river",
     ];
     assert!(
         reg.catalog
@@ -3070,6 +3074,7 @@ fn the_core_lets_a_polity_name_a_health_officer_who_can_write() {
         "core:policy/zealously_yoke_the_homes_to_the_wire",
         "core:policy/zealously_zone_a_refuse_tip",
         "core:policy/zealously_zone_a_round_for_refuse",
+        "core:policy/zealously_zone_a_sewer_to_the_river",
     ];
     assert!(
         reg.catalog
@@ -3115,6 +3120,7 @@ fn the_core_lets_a_polity_clear_middens_from_the_water() {
         "core:policy/zealously_yoke_the_homes_to_the_wire",
         "core:policy/zealously_zone_a_refuse_tip",
         "core:policy/zealously_zone_a_round_for_refuse",
+        "core:policy/zealously_zone_a_sewer_to_the_river",
     ];
     assert!(
         reg.catalog
@@ -3154,6 +3160,7 @@ fn the_core_lets_a_polity_raise_a_sickhouse_where_the_sick_lay_untended() {
         "core:policy/zealously_yoke_the_homes_to_the_wire",
         "core:policy/zealously_zone_a_refuse_tip",
         "core:policy/zealously_zone_a_round_for_refuse",
+        "core:policy/zealously_zone_a_sewer_to_the_river",
     ];
     assert!(
         reg.catalog
@@ -3335,6 +3342,7 @@ fn policy_templates_keep_their_places() {
         "core:policy/zealously_yoke_the_homes_to_the_wire",
         "core:policy/zealously_zone_a_refuse_tip",
         "core:policy/zealously_zone_a_round_for_refuse",
+        "core:policy/zealously_zone_a_sewer_to_the_river",
     ];
     assert!(
         ids.starts_with(&kept),
@@ -3366,7 +3374,10 @@ fn the_core_lets_a_polity_carry_refuse_to_a_tip() {
     assert_eq!((t.heap_kg, t.heap_near_m), (500.0, 30.0));
     assert!(t.carry_h > 0.0 && t.avoided_share > 0.0);
     // Its id sorts after every older template's (the refuse round's, M11f third part, is newer).
-    let newer = ["core:policy/zealously_zone_a_round_for_refuse"];
+    let newer = [
+        "core:policy/zealously_zone_a_round_for_refuse",
+        "core:policy/zealously_zone_a_sewer_to_the_river",
+    ];
     assert!(
         reg.catalog
             .policies
@@ -3437,8 +3448,14 @@ fn the_core_lets_a_polity_run_a_refuse_round_by_law() {
     let r = def.round.expect("its terms");
     assert_eq!(r.every_days, 7);
     assert!(r.round_h > 0.0);
-    // Its id sorts after every older template's.
-    assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
+    // Its id sorts after every older template's (the sewer's, ADR-0041, is newer).
+    let newer = ["core:policy/zealously_zone_a_sewer_to_the_river"];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
 }
 
 #[test]
@@ -3649,5 +3666,91 @@ fn a_cart_may_carry_an_engine_and_the_core_road_engine_burns_coal() {
             .any(|d| d.message.contains("not a boat's")),
         "{:?}",
         report.diagnostics
+    );
+}
+
+#[test]
+fn the_core_lets_a_polity_lay_a_sewer_to_the_river() {
+    // ADR-0041 §1-§4 (content API 213): the template answers a suspected source and heaps near
+    // homes, with its terms and goods resolved.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/zealously_zone_a_sewer_to_the_river")
+        .expect("the sewer template");
+    assert_eq!(def.kind, PolicyKind::LaySewer);
+    assert_eq!(
+        def.answers,
+        vec![IssueKind::SourceSuspected, IssueKind::HeapsNear]
+    );
+    let s = def.sewer.as_ref().expect("its terms");
+    let good = |id: &str| reg.catalog.goods.iter().position(|g| g.id == id);
+    assert_eq!(
+        s.walls,
+        vec![
+            good("core:good/brick").expect("brick"),
+            good("core:good/stone").expect("stone")
+        ]
+    );
+    assert_eq!(s.binders.len(), 2);
+    assert_eq!((s.fall, s.settle_share, s.connect_h), (0.002, 0.5, 0.0));
+    assert_eq!(s.tank, good("core:good/settling_tank"));
+    assert_eq!(s.sludge, good("core:good/sludge"));
+    // Its id sorts after every older template's.
+    assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
+}
+
+#[test]
+fn a_sewer_template_needs_its_terms_and_only_it_has_them() {
+    // ADR-0041 §1: `sewer` only for `lay_sewer`, which must have it, within its bounds.
+    let base = |does: &str, sewer: &str| {
+        format!(
+            "kind = \"policy\"\nid = \"core:policy/t\"\nname = \"T\"\ndescription = \"T.\"\n\
+             does = \"{does}\"\nanswers = [\"heaps_near\"]\n{sewer}"
+        )
+    };
+    let terms = "[sewer]\nwalls = [\"core:good/x\"]\nwalls_kg_m = 1000.0\nbinders = \
+                 [\"core:good/y\"]\nbinder_kg_m = 50.0\nlay_h_m = 10.0\nfall = 0.002\n\
+                 capacity_kg_day = 1000.0\nlife_years = 50.0\nconnect_h = 0.0\n\
+                 avoided_share = 0.2\nsettle_share = 0.5\n";
+    let preset = real_preset();
+    for (does, sewer, says) in [
+        ("lay_sewer", String::new(), "needs a `sewer` table"),
+        ("clear_middens", terms.to_owned(), "`sewer` is for"),
+        (
+            "lay_sewer",
+            terms.replace("fall = 0.002", "fall = 0.0"),
+            "`sewer.fall` must be between",
+        ),
+        (
+            "lay_sewer",
+            terms.replace("settle_share = 0.5", "settle_share = 2.0"),
+            "`sewer.settle_share` must be between",
+        ),
+    ] {
+        let bad = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("policy/t.toml", &base(does, &sewer)),
+        ]);
+        assert!(
+            bad.diagnostics.iter().any(|d| d.message.contains(says)),
+            "{does} with {sewer:?}: {:?}",
+            bad.diagnostics
+        );
+    }
+    // Goods it names must exist.
+    let bad = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("policy/t.toml", &base("lay_sewer", terms)),
+    ]);
+    assert!(
+        bad.diagnostics
+            .iter()
+            .any(|d| d.message.contains("core:good/x")),
+        "{:?}",
+        bad.diagnostics
     );
 }

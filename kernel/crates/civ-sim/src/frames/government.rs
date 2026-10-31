@@ -1660,7 +1660,7 @@ fn protected_price_words(
 /// seen on rounds"; "Sickhouse: 2 of 12 beds taken; 1 tended there today"; and for the sick kept
 /// apart, the middens cleared and refuse carried to a tip, how often their laws were broken; and
 /// its tips, where each lies and what it holds (ADR-0038 §3): "The tip 50 m north of the hearth
-/// holds 3.2 t, 0.4 t of it ash, from 14 households".
+/// holds 3.2 t, 0.4 t of it ash, from 14 households"; and its sewers ([`sewer_words`]).
 pub fn services_words(sim: &Sim, polity: &civ_agents::polity::Polity) -> Vec<String> {
     use civ_agents::polity::{LawStatus, PolicyKind};
     let pop = sim.people();
@@ -1768,7 +1768,82 @@ pub fn services_words(sim: &Sim, polity: &civ_agents::polity::Polity) -> Vec<Str
     }
     // The destructors that draw from its tip (M11f, fourth part; ADR-0038 §5).
     out.extend(destructor_words(sim, polity));
+    // Its sewers (ADR-0041 §5).
+    for w in &polity.sewers {
+        out.push(sewer_words(sim, polity, w));
+    }
     out
+}
+
+/// A sewer in words (ADR-0041 §5): "A sewer of 420 m from 60 m north of the hearth to the river
+/// 300 m south of the hearth; 18 homes joined; 140 kg a day to the river", with what its tank
+/// settles, how many it could not take, and while it is laid, how much of it is.
+pub fn sewer_words(
+    sim: &Sim,
+    polity: &civ_agents::polity::Polity,
+    sewer: &civ_agents::polity::Sewer,
+) -> String {
+    use civ_agents::polity::SewerCause;
+    let map = &sim.map;
+    let size = map.cell_size_m;
+    let centre = |cell: u32| {
+        let w = map.width.max(1);
+        (
+            ((cell % w) as f32 + 0.5) * size,
+            ((cell / w) as f32 + 0.5) * size,
+        )
+    };
+    let hearth = sim
+        .land
+        .settlements
+        .iter()
+        .find(|s| s.id == polity.settlement)
+        .map(|s| s.hearth_m);
+    let place = |cell: Option<&u32>| match (hearth, cell) {
+        (Some(h), Some(&c)) => match super::people::bearing(h, centre(c)).as_str() {
+            "here" => "by the hearth".to_owned(),
+            b => format!("{b} of the hearth"),
+        },
+        _ => "somewhere".to_owned(),
+    };
+    let head = place(sewer.cells.first());
+    let outfall = place(sewer.cells.last());
+    let mut words = format!(
+        "A sewer of {:.0} m from {head} to the river {outfall}",
+        sewer.length_m
+    );
+    if !sewer.whole() {
+        words.push_str(&format!("; {:.0} m of it laid", sewer.laid_m));
+        return words;
+    }
+    if sewer.broken {
+        words.push_str("; broken");
+    }
+    let n = sewer.connections.len();
+    words.push_str(&format!(
+        "; {n} home{} joined",
+        if n == 1 { "" } else { "s" }
+    ));
+    let today = |c: &&civ_agents::polity::SewerConnection| c.day == sewer.day;
+    let full = sewer
+        .connections
+        .iter()
+        .filter(today)
+        .filter(|c| c.cause == SewerCause::Overloaded)
+        .count();
+    if full > 0 {
+        words.push_str(&format!(", {full} it could not take"));
+    }
+    if sewer.day >= 0 {
+        words.push_str(&format!(
+            "; {} a day to the river",
+            tonnes(sewer.entered_kg - sewer.settled_kg)
+        ));
+        if sewer.settled_kg > 0.0 {
+            words.push_str(&format!(", {} settled as sludge", tonnes(sewer.settled_kg)));
+        }
+    }
+    words
 }
 
 /// The destructors drawing refuse from polity `polity`'s open tip, in words (ADR-0038 §5): "Wren's

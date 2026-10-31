@@ -1931,3 +1931,32 @@ floor is a roofed, finished dwelling's sleeping floor beyond `floor_base_m2` +
 `floor_m2_per_sleeper` × its members, less what it lets; a lodger takes `floor_m2_per_sleeper` × its
 members. The core's early farmers ask a day of food a person a month, a step of a tenth, and weigh
 8 homes (design priors).
+
+Content API 213 (ADR-0041 §1–§4) adds the policy kind `lay_sewer`. A `lay_sewer` template needs a
+`[sewer]` table, which no other kind may have: `walls` and `binders` (goods, any one of each: what a
+metre's walls are built of and bound with), `walls_kg_m` (0–100,000) and `binder_kg_m` (0–10,000;
+kilograms a metre takes), `lay_h_m` (0.01–1000; hours a metre's digging, walling and filling in
+takes), `fall` (0.0001–0.5; the least fall it keeps over each step, a share of its length: a route
+that would rise or fall less is refused), `capacity_kg_day` (1–10,000,000; kilograms of heaps'
+decaying share it carries a day), `life_years` (1–500), `connect_h` (0–1000; the hours a home's
+connection takes once, 0 free), `avoided_share` (0–1; the share of its deaths of disease within the
+year a household believes a sewer would have spared), `settle_share` (0–1; the share of a day's
+load, mass and each disease, a settling tank settles), and optionally `tank` (the fixed tool that
+settles, held whole by the sewer's keeper, the polity's store) and `sludge` (the good what settles
+becomes). Where someone suspects a source, or a heap grew large beside another's home, and a sewer
+from one of the settlement's homes to a river, falling all the way along ways kept by nobody, the
+polity or its households, would spare the homes beside it more over its life than its laying and
+materials, anyone may propose it; passed, the polity marks it out, and each household is asked an
+equal share of the laying, given from its own walls and binder (common work, paid under
+`pay_work`). Laid whole, homes beside it with a building connect: for nothing where the connection
+is free and no law asks them to carry their heap, or where what `refuse_to_tip`, `clear_middens` or
+a round's fees ask of them a year exceeds `connect_h`. Each day a connected home's heap gives what it
+would have gained of its decaying share (its ash still heaps), served in the order connected while
+the capacity lasts; what its people shed that day goes with it to the outfall's river reach,
+recorded as carried. A settling tank keeps `settle_share` of both as sludge in its keeper's store and
+at the tank. The core's `policy/zealously_zone_a_sewer_to_the_river` answers `source_suspected` and
+`heaps_near` with brick or stone at a tonne a metre, quicklime or cement at 50 kg, 10 hours a metre,
+1 in 500, 1,000 kg a day, 50 years, a free connection, a fifth and a half (design priors). The core
+adds `good/settling_tank` (a fixed tool), `good/sludge` (a material), `technique/settling` (burning
+lime or firing; tried in no work, so only the observer brings it) and `recipe/build_settling_tank`
+(6,000 kg of brick and 300 of quicklime, 1,500 hours) with its activity.

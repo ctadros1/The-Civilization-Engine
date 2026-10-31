@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 212;
+pub const KERNEL_CONTENT_API: u32 = 213;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1151,6 +1151,23 @@ fn resolve(
                 Some(_) => {}
             }
         }
+        // A sewer's goods are content (ADR-0041 §1, §4).
+        if let Some(s) = &d.file.sewer {
+            for (field, ids) in [("sewer.walls", &s.walls), ("sewer.binders", &s.binders)] {
+                for g in ids {
+                    if good_index(g).is_none() {
+                        missing(c, parsed, &d.rel, field, g);
+                    }
+                }
+            }
+            for (field, g) in [("sewer.tank", &s.tank), ("sewer.sludge", &s.sludge)] {
+                if let Some(g) = g
+                    && good_index(g).is_none()
+                {
+                    missing(c, parsed, &d.rel, field, g);
+                }
+            }
+        }
         // A polity's notes are redeemed in a good that is not itself a money (M10d slice EJ).
         if let Some(r) = d.file.notes.as_ref().and_then(|n| n.redeem.as_ref()) {
             match good_index(r) {
@@ -1229,6 +1246,7 @@ fn resolve(
             def.pay = d.file.pay_def(&good_index);
             def.medium = d.file.medium_def(&good_index);
             def.notes = d.file.notes_def(&good_index);
+            def.sewer = d.file.sewer_def(&good_index);
             def.licence = d.file.licence.as_ref().and_then(|l| {
                 Some(civ_agents::polity::LicenceDef {
                     technique: technique_index(&l.technique)?,

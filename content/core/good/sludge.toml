@@ -1,0 +1,13 @@
+# Sludge: what settles out of a sewer's flow in a settling tank (ADR-0041 §4; research 12-10 §1.7:
+# "the sludge is a residue that must itself be carried, dried, spread, dumped or burned"). A refuse,
+# held by the tank's keeper; what it held of a disease lies at the tank. Nobody carries it on yet.
+kind = "good"
+id = "core:good/sludge"
+name = "Sludge"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

@@ -44,6 +44,8 @@ impl Population {
         self.middens_day(ctx, day);
         // And each law carrying refuse to a tip (M11f, second part; ADR-0038 §3).
         self.tips_day(ctx, day);
+        // Each sewer carries its connections' day (ADR-0041 §2).
+        self.sewers_day(ctx, day);
         // Yesterday's company at the hearth, kept while a disease passing by company ran, and
         // yesterday's carers at a sickhouse (M10c slice EE, fourth part).
         let met = std::mem::take(&mut self.met);
@@ -315,6 +317,10 @@ impl Population {
             // A tip, by the settlement of the polity that keeps it (ADR-0038 §3).
             Node::Tip(t) => self
                 .tip_settlement(t)
+                .is_some_and(|s| settlement.is_none_or(|x| x == s)),
+            // A sewer's settling tank, likewise (ADR-0041 §4).
+            Node::Sewer(t) => self
+                .sewer_settlement(t)
                 .is_some_and(|s| settlement.is_none_or(|x| x == s)),
             Node::Well(w) => ctx.land.wells.get(w).is_some_and(|w| {
                 ours(w.household)

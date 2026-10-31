@@ -68,6 +68,9 @@ pub(super) struct Forecasts {
     /// anywhere (M11a, eighth part): the home cell it runs to, its stringing, a line's life and
     /// what light by wire would spare each household along it a year, with the station it leaves.
     pub(super) current: Option<(PermanentId, super::way_works::PublicWay)>,
+    /// Where the settlement's people could lay a sewer together, if anywhere (ADR-0041 §3): its
+    /// head cell, its laying, its life and what it would spare each household beside it a year.
+    pub(super) sewer: Option<super::way_works::PublicWay>,
     /// What raising each building its templates name would bring, where its loss is measured
     /// (M8d slice DC).
     pub(super) raises: Vec<super::raising::PublicRaise>,
@@ -594,7 +597,10 @@ impl Forecasts {
             // year the waiting it would spare the household could bring, less what its share of
             // the work, spread over the place's life, could.
             Some(
-                kind @ (PolicyKind::BuildWay | PolicyKind::BuildLine | PolicyKind::LayCurrent),
+                kind @ (PolicyKind::BuildWay
+                | PolicyKind::BuildLine
+                | PolicyKind::LayCurrent
+                | PolicyKind::LaySewer),
             ) => {
                 // A line laid together (M10b slice DX, third part) as a passing place: what it
                 // would spare the household a year against its share of the work over a wagon's
@@ -602,6 +608,8 @@ impl Forecasts {
                 let p = match kind {
                     PolicyKind::BuildLine => self.line.as_ref(),
                     PolicyKind::LayCurrent => self.current.as_ref().map(|c| &c.1),
+                    // A sewer laid together (ADR-0041 §3), over a sewer's life.
+                    PolicyKind::LaySewer => self.sewer.as_ref(),
                     _ => self.way.as_ref(),
                 };
                 let Some(p) = p else {
@@ -1737,6 +1745,8 @@ impl Population {
         self.with_line(ctx, &mut fc, line, households);
         let current = self.public_current(ctx, settlement, households);
         self.with_current(ctx, &mut fc, current, households);
+        let sewer = self.public_sewer(ctx, settlement, households);
+        self.with_sewer(ctx, &mut fc, sewer, households);
         let raises = self.public_raises(ctx, pi, households);
         self.with_raises(ctx, &mut fc, raises, households);
         fc
@@ -1778,6 +1788,25 @@ impl Population {
                 .collect();
         }
         fc.current = current;
+    }
+
+    /// Adds to forecasts `fc` the sewer `sewer` the settlement's people could lay together
+    /// (ADR-0041 §3), with what an hour of each household's work brings it if it was not reckoned
+    /// already.
+    fn with_sewer(
+        &self,
+        ctx: &Ctx,
+        fc: &mut Forecasts,
+        sewer: Option<super::way_works::PublicWay>,
+        households: &[PermanentId],
+    ) {
+        if sewer.is_some() && fc.hour_kcal.is_empty() {
+            fc.hour_kcal = households
+                .iter()
+                .filter_map(|&h| Some((h, self.hour_kcal(ctx, self.household(h)?))))
+                .collect();
+        }
+        fc.sewer = sewer;
     }
 
     /// Adds to forecasts `fc` the passing place `way` the settlement's people could clear
@@ -1958,6 +1987,7 @@ impl Population {
             way: None,
             line: None,
             current: None,
+            sewer: None,
             raises: Vec::new(),
             plans: Vec::new(),
             enclosure: None,
@@ -2970,6 +3000,7 @@ impl Population {
                         | PolicyKind::BuildWay
                         | PolicyKind::BuildLine
                         | PolicyKind::LayCurrent
+                        | PolicyKind::LaySewer
                         | PolicyKind::RaiseBuilding
                 )
         });
@@ -3085,6 +3116,7 @@ impl Population {
                 if d.kind == PolicyKind::BuildWay
                     || d.kind == PolicyKind::BuildLine
                     || d.kind == PolicyKind::LayCurrent
+                    || d.kind == PolicyKind::LaySewer
                 {
                     return true;
                 }
@@ -4048,6 +4080,28 @@ impl Population {
                             moves.push(blank);
                         }
                     }
+                    // A sewer laid together (ADR-0041 §3), named by its head cell: where they
+                    // suspect a source of water, or a heap grew large beside another's home, and
+                    // a sewer falling to the river would spare those beside it more than its work.
+                    PolicyKind::LaySewer => {
+                        if let Some(p) = &fc.sewer {
+                            let issue = if !self.word.suspicions_of(d).is_empty() {
+                                Some(IssueKind::SourceSuspected)
+                            } else if issues.contains(&IssueKind::HeapsNear) {
+                                Some(IssueKind::HeapsNear)
+                            } else {
+                                None
+                            };
+                            if let Some(issue) = issue {
+                                moves.push(MoveOption {
+                                    issue,
+                                    site: Some(p.cell),
+                                    target: None,
+                                    ..blank
+                                });
+                            }
+                        }
+                    }
                     // Refuse carried to a tip (M11f, second part; ADR-0038 §3): where they
                     // suspect a source of water, or a heap grew large beside another's home.
                     PolicyKind::RefuseToTip => {
@@ -4598,7 +4652,8 @@ impl Population {
         // keeps what each household reckoned it would spare it (M8b slice CQ, third part).
         if (def.kind == PolicyKind::BuildWay
             || def.kind == PolicyKind::BuildLine
-            || def.kind == PolicyKind::LayCurrent)
+            || def.kind == PolicyKind::LayCurrent
+            || def.kind == PolicyKind::LaySewer)
             && let Some(cell) = m.site
         {
             let settlement = self.polities[pi].settlement;
@@ -4619,6 +4674,8 @@ impl Population {
                     .public_current(ctx, settlement, &households)
                     .filter(|c| Some(c.0) == m.target)
                     .map(|c| c.1),
+                // A sewer names its head cell (ADR-0041 §3).
+                PolicyKind::LaySewer => self.public_sewer(ctx, settlement, &households),
                 _ => self.public_way(ctx, settlement, &households),
             };
             if let Some(p) = found.filter(|p| p.cell == cell) {
@@ -4994,6 +5051,10 @@ impl Population {
         if outcome == Outcome::Passed && kind == PolicyKind::LayCurrent {
             self.begin_public_current(ctx, pi, law_id);
         }
+        // A sewer passed is marked out at once from its head (ADR-0041 §3).
+        if outcome == Outcome::Passed && kind == PolicyKind::LaySewer {
+            self.begin_public_sewer(ctx, pi, law_id);
+        }
         // A tip passed is opened at once where a place qualifies, the polity's (M11f, second part;
         // ADR-0038 §3).
         if outcome == Outcome::Passed && kind == PolicyKind::RefuseToTip {
@@ -5106,6 +5167,7 @@ impl Population {
                 }
             }
             polity.body = new;
+            polity.lapse_seats_beyond_custom();
             polity.versions.push(CustomVersion {
                 body: new,
                 since: now,

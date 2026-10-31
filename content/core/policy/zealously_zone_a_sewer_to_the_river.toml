@@ -1,0 +1,46 @@
+# A sewer laid together (ADR-0041 §1-§4; research 12-02 §1.5, §5.2; 12-10 §1.7, §5.8; shaped as
+# `lay_current`). Where someone suspects that the water at a source sickens (the issue
+# `source_suspected`), or a household's heap has grown large beside another's home (`heaps_near`),
+# and a sewer from one of the settlement's homes to the river, falling all the way along its ways at
+# no less than 1 in 500, would spare the homes beside it more over its life than its laying and its
+# walls, anyone may propose that the polity lay it. A household beside it weighs it by the hours a
+# year the laws ask of it to carry its heap, and a fifth of its deaths of disease within the year,
+# less its share of the laying spread over the sewer's life; one not beside it gains nothing and is
+# still asked its share. Once passed, the polity marks the sewer out, and each household is asked
+# an equal share of the laying: its people give it as they choose, from their own brick or stone
+# and lime or cement, paid where a law pays for common work. Laid whole, homes beside it connect
+# their privies (a connection is free, a design prior) and each day their heaps' new decaying share
+# and what their people shed go to the river below the outfall, up to what the sewer carries a day;
+# a settling tank its keeper holds at the outfall keeps half of it as sludge. A metre takes 10 hours
+# (digging two metres down, walling and filling in), a tonne of brick or stone and 50 kg of lime or
+# cement; it carries 1,000 kg of heaps' decaying share a day, some 2,000 people's; it serves 50
+# years. All are design priors. Its id sorts after every older template's: hearth talk about a
+# question and a saved law are keyed by a template's place in id order.
+kind = "policy"
+id = "core:policy/zealously_zone_a_sewer_to_the_river"
+name = "Sewer laid together"
+description = "The polity lays a sewer from the homes down to the river, and each household is asked an equal share of the work."
+does = "lay_sewer"
+answers = ["source_suspected", "heaps_near"]
+question = "whether the polity lays a sewer from the homes down to the river"
+
+[sewer]
+walls = ["core:good/brick", "core:good/stone"]
+walls_kg_m = 1000.0
+binders = ["core:good/quicklime", "core:good/portland_cement"]
+binder_kg_m = 50.0
+lay_h_m = 10.0
+fall = 0.002
+capacity_kg_day = 1000.0
+life_years = 50.0
+connect_h = 0.0
+avoided_share = 0.2
+settle_share = 0.5
+tank = "core:good/settling_tank"
+sludge = "core:good/sludge"
+
+# An authoring judgement, not a measurement, as for a line laid together: a share of every
+# household's hours is asked, for cleaner homes.
+[bears]
+"core:value/autonomy" = -0.5
+"core:value/security" = 0.25

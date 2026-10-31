@@ -150,7 +150,7 @@ impl Population {
 
     /// Puts move `m`'s load at its end now and records it; a load too small to record dies on
     /// the way.
-    fn deliver(&mut self, ctx: &Ctx, m: Move) {
+    pub(super) fn deliver(&mut self, ctx: &Ctx, m: Move) {
         if m.amount <= NEGLIGIBLE {
             return;
         }
@@ -220,9 +220,12 @@ impl Population {
                 amount,
             });
         }
-        for m in shed {
+        for &m in &shed {
             self.deliver(ctx, m);
         }
+        // What homes served by a sewer today shed goes with their share to its outfall
+        // (ADR-0041 §2).
+        self.sewer_loads(ctx, day, &shed);
         // The day's surplus washes heaps off, and a share of each soaks in.
         let params = &ctx.land_params.contamination;
         let wash =

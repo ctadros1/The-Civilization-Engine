@@ -8370,6 +8370,49 @@ and M6a gives rivers a daily flow.
       of where they looked; this run meets its revisit condition. Nothing nudged. **Not yet:** a
       memory of the ground looked over; plots, and the founders' fields (laid before bodies are
       placed), may still cover an outcrop.
+    - *M11d, tenth part (2026-10-31): why Thorndale's wanter never cut the bog ore half an hour
+      out, found and fixed* (backlog A). Probed on the demo's world (seed 1, 2048 cells, living
+      the record's life: Thorndale's wanter held 5.0 of its 8 kg of iron from day 150 to day 390
+      and 6.2 at day 490), with every place to cut bog ore its decision weighed, each day. **A
+      block not yet worked was expected to give its ore spread over bare ground too:** a trip
+      works the richest patch of the block of three patches a side it ranges over, at that
+      patch's density (`Land::gather_around`), while what people expect of a block they have not
+      worked (`Land::typical_yields`) pooled the block's ore over the whole block's ground. Bog
+      ore lies in single wet patches among bare ones, so the patch holding 43.3 units, 44 to 47
+      minutes out on the worn trails, was expected to give 1.35 units an hour where working it
+      gives about 4, and was worth 0.89-0.91 against 1.35-1.39 for a block 75-80 minutes out
+      holding 110 units in four patches (expected 2.56): that block was the trip weighed and
+      never taken. Nothing else stood in the way: the household knew neither place, neither walk
+      reached the activity's 90 minutes, and bog ore is a kilogram a unit and never renews. A
+      block's stock is now pooled over the ground that holds it, so one rich patch among bare ones
+      is expected to give what working it gives (4.27 an hour for the 43.3 units). Continued from
+      day 490, the wanter held 8.0 kg of iron by day 520. **Tried and not kept:** expecting
+      exactly what the harvest takes (its richest patch at each step) also raised blocks whose
+      ground all holds some, unevenly: on the first day's walks wood was found richer, a body of
+      clay passed and dug, and six scenes moved (a workshop begun a month late behind pots and an
+      oven, a proposal to keep the sick apart not made, the charcoal scene's iron 3.4 kg against
+      the 4 it asks);
+      left for a slice that can weigh those. **Found, not fixed:** a place is remembered by the
+      mean return of all the hours worked there, fading over the resource's renewal (ten years at
+      most, for bog ore that never renews), so the rich patch the wanter emptied in its first
+      year (0.6 units left) is still believed to give 1.28 an hour, worth 1.06, second only to the
+      far block; a stock that only falls would be judged by its latest returns, a change to how
+      `KnownPatch` weighs evidence (saved), left for a design. **Prospecting, measured for the
+      prior's revisit** (plan section 9, "Design priors for prospecting"): sampled every ten
+      minutes from the teaching to a year on (days 60 to 425; a household-resolved day by its
+      blocks), the wanters walked looking for copper 4,030 person-hours at Thorndale (11 a day)
+      and 13,320 at Stonefield (36 a day, about 60 in summer) and found none; nobody else there
+      looked. **Tested:** a civ-land target (a block whose ore lies in one patch is expected to
+      give what the harvest takes there: 8.94 units, where 4.48 were expected before) and a scene
+      (a household short of bog ore for its instrument, its ore in one patch of 45 units 34 minutes
+      from the hearth and 108 spread over a block 75 minutes out, cuts the near patch to 0.9 in
+      30 days and has forged 1.9 kg of iron; before, it touched neither), both failing with the
+      fix reverted. The organization scene's seller at home was taught knapping by copying the
+      first knapping record found, which in the moved world was someone who had only heard of
+      it; it now copies one who knows it, as its comment says. Telegraph, iron, metal, deposits,
+      coal, works, firms, market, people, homes, knowledge, steel, residues, letting, custody,
+      lamps, mills, gas, credit, levees, organization, sickness, roundtrip, civ-agents' and
+      civ-land's own; the smoke. Nothing nudged.
     - *Sewers and settling (2026-10-31, backlog D; [ADR-0041](decisions/0041-sewers-and-treatment.md)).*
       A polity lays a sewer by a `lay_sewer` law (`PolicyKind` appended; it answers
       `source_suspected` and `heaps_near` on `lay_current`'s machinery: forecast, way site, common

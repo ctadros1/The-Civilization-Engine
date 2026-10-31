@@ -1,0 +1,15 @@
+M11 demo: civ-sim example m11_world, eight years, homelab run 41226389829 (node3, 2 h 43 min) on
+e0ff592 (fields kept off outcrops and the first trail out, M11d's ninth and eleventh parts; the
+tenth part's bog-ore fix came later). Excerpted from the job log: year 8 and the end.
+
+year 8: 918 people in 6 settlements; every settlement: 0 dynamos, 0 stations, 0 lines, 0 gas
+engines, 0 destructors, 0 telegraph offices or wires, 0 motor carts; laws: none of M11's
+The way there (wanting a dynamo / gas engine / telegraph instrument; copper ore, copper; iron ore and iron held of kept; installations):
+year 8  Thorndale   0/0/1; copper ore 0, copper 0; iron ore 17 of 0, iron 8 of 8; 0
+        Stonefield  0/0/0; copper ore 0, copper 0; iron ore 1 of 0, iron 8 of 0; 0
+        Sedgehollow 1/0/1; copper ore 0, copper 0; iron ore 0 of 2060, iron 4 of 210; 1 installation
+lived 2920 days, to day 2980; 918 people
+the M11 laws proposed: none
+controls Hazeldale, Elmbank, Sedgewick: as before (153, 161, 151 people; nothing of M11)
+speed: 3.30 s a day on average (p50 1.14 s, p95 14.16 s), 0.050 simulated years a real minute (node3)
+saved (21.3 MB) and loaded: 918 people against 918

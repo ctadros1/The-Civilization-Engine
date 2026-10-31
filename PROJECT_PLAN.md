@@ -8413,6 +8413,21 @@ and M6a gives rivers a daily flow.
       coal, works, firms, market, people, homes, knowledge, steel, residues, letting, custody,
       lamps, mills, gas, credit, levees, organization, sickness, roundtrip, civ-agents' and
       civ-land's own; the smoke. Nothing nudged.
+    - *M11d, eleventh part (2026-10-31): the fifth eight-year run, and the first trail out.*
+      Homelab run 41226389829 on e0ff592 (node3, 2 h 43 min): 918 people, saved and loaded whole;
+      nothing of M11 built or proposed, the controls as before. With fields kept off outcrops,
+      Thorndale's wanter held 8 of the 8 kg of iron it keeps and 17 kg of ore by year 8 (5-6 kg
+      for eight years before); copper was dug nowhere, every taught settlement's nearest body
+      lying beyond the digging walk or across water (ninth part). The tenth part's bog-ore fix
+      came after this run. **The first trail out.** Homelab run 41211124574's ten-year smoke
+      failed river valley 4 and ria coast 3 for want of a first trail in their first year; a
+      bisect (run 41215879902) showed it turning on small changes since before M11d's fifth part,
+      and the smoke's new margin (run 41220757680) showed why: river valley 4 had worn 101 trails,
+      the longest 1,062 m, but the survey cuts trails at every junction and the stretch passing the
+      hearth was 110 m, the nearest of 150 m passing 104 m from it. A trail out is now the stretch
+      passing the hearth carried on, from each end, along the longest stretch meeting it there (ends
+      within a cell and a half), as far as it goes; a single stretch long enough is taken as before
+      (`first_trail_out`, a unit test). The smoke's failure says how near a trail came.
     - *Sewers and settling (2026-10-31, backlog D; [ADR-0041](decisions/0041-sewers-and-treatment.md)).*
       A polity lays a sewer by a `lay_sewer` law (`PolicyKind` appended; it answers
       `source_suspected` and `heaps_near` on `lay_current`'s machinery: forecast, way site, common

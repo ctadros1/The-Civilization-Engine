@@ -8321,6 +8321,31 @@ and M6a gives rivers a daily flow.
       term. A tool's own firing wood and a pot's are weighed as before the sixth part. **Tested:** the
       four targets pass; telegraph (with the charcoal scene), iron, metal, coal, works, firms, market,
       people, homes, knowledge, steel, residues, letting, custody, lamps, mills, gas.
+    - *Sewers and settling (2026-10-31, backlog D; [ADR-0041](decisions/0041-sewers-and-treatment.md)).*
+      A polity lays a sewer by a `lay_sewer` law (`PolicyKind` appended; it answers
+      `source_suspected` and `heaps_near` on `lay_current`'s machinery: forecast, way site, common
+      work, `pay_work`): a route along ways from a head among the settlement's homes to a river cell,
+      the outfall on that cell's reach, falling at least 1 in 500 every step by the land's heights
+      (a rise is refused); a metre laid each 10 hours with 1,000 kg of brick or stone and 50 kg of
+      lime or cement (design priors). The forecast weighs what each home beside it would be spared a
+      year (the carrying hours tip, middens or round-fee laws ask, and a fifth of its deaths from
+      disease) against labour and materials, with two homes at least. Once whole, homes on or beside
+      it connect (free while `connect_h` is 0; else when a year's carrying exceeds it), served in
+      order up to 1,000 kg a day: each day the heap's new decaying share (not its ash) and its loads
+      go to the outfall's reach as recorded carried moves, exactly conserved; connections past the
+      capacity keep their heaps. A settling tank (technique `settling`, brought only by the
+      observer; its recipe and activity) held by the keeper settles half the day's mass to `sludge`
+      and half of each load to a sewer node (contagion code 7). Content API 213; saves 220
+      (unreleased) gains sewers and their connections; the services and outbreak words name them.
+      **Without the law nothing changes** (a sewer day on a world without one leaves every section
+      byte-identical). **Tested:** a sewers target (a rising route refused; laying in part and whole;
+      mass and loads conserved, 460 of 460 doses carried; street heaps light while an unconnected
+      heap grows; capacity in order; a broken sewer serving nobody; settling by the prior; save and
+      load exact; the forecast choosing a sewer when a tip law asks homes to carry); tips, rounds,
+      residues, contagion, sickness, suspicion, wells, water, gas, wires, polity, rules, roundtrip,
+      letting and crime; the ten smoke worlds. **Not yet:** the sewage farm (§4), mending a broken
+      sewer (nothing breaks one yet), sludge carried to a tip, connection work as an activity, and a
+      lived world where a polity lays one.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

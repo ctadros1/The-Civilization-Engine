@@ -84,6 +84,7 @@ mod notes;
 mod opinion;
 mod payments;
 mod rounds;
+mod sewers;
 mod telegraph;
 mod tips;
 mod trains;

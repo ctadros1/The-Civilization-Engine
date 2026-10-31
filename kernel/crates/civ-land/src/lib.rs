@@ -37,6 +37,7 @@ pub mod pits;
 pub mod plans;
 pub mod power;
 pub mod rail;
+pub mod sewers;
 pub mod soil;
 pub mod trains;
 pub mod water;

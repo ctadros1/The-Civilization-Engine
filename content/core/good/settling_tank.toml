@@ -1,0 +1,20 @@
+# A settling tank at a sewer's outfall (ADR-0041 §4; research 12-10 §1.7, §5.8): brick tanks laid
+# in lime where the flow stands long enough for its solids to sink. Held whole by a sewer's keeper
+# (its polity's store, or a household), it settles the sewer's `settle_share` of each day's load as
+# sludge. 40,000 hours of life is a design prior. It stays where it was built; a household that
+# knows settling may build one (`recipe/build_settling_tank`).
+kind = "good"
+id = "core:good/settling_tank"
+name = "Settling tank"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 40000.0
+per_worker = 0.0
+fixed = true

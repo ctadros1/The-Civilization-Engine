@@ -145,6 +145,9 @@ pub(crate) struct PolicyFile {
     /// ADR-0038 §4): its round's terms.
     #[serde(default)]
     pub round: Option<RoundFile>,
+    /// For a sewer laid together (`lay_sewer`, content API 213; ADR-0041 §1-§4): its terms.
+    #[serde(default)]
+    pub sewer: Option<SewerFile>,
     /// For notes issued (`issue_notes`, content API 196, M10d slice EJ): their terms.
     #[serde(default)]
     pub notes: Option<NotesFile>,
@@ -311,6 +314,42 @@ pub struct RoundFile {
     pub every_days: u16,
     /// The hours a run takes, as a household weighs the law.
     pub round_h: f32,
+}
+
+/// The terms of a sewer laid together in a policy file (content API 213; ADR-0041 §1-§4), design
+/// priors all.
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct SewerFile {
+    /// The goods its walls may be built of, any one (ids).
+    pub walls: Vec<String>,
+    /// Kilograms of them a metre takes.
+    pub walls_kg_m: f32,
+    /// The goods that bind its walls, any one (ids): lime or cement.
+    pub binders: Vec<String>,
+    /// Kilograms of them a metre takes.
+    pub binder_kg_m: f32,
+    /// Hours of a capable adult's work to dig, wall and fill in a metre.
+    pub lay_h_m: f32,
+    /// The least fall it keeps, a share of its length (1 in 500 is 0.002).
+    pub fall: f32,
+    /// What it carries a day, kilograms of heaps' decaying share.
+    pub capacity_kg_day: f32,
+    /// The years it serves, over which a household weighs it.
+    pub life_years: f32,
+    /// The hours a home's connection takes once (0: free).
+    pub connect_h: f32,
+    /// The share of a household's deaths of disease within the year it believes a sewer would
+    /// have spared, 0-1.
+    pub avoided_share: f32,
+    /// The share of a day's load, mass and each disease, a settling tank settles as sludge, 0-1.
+    pub settle_share: f32,
+    /// The fixed tool that settles at the outfall (an id), if any.
+    #[serde(default)]
+    pub tank: Option<String>,
+    /// The good what settles becomes (an id), if any.
+    #[serde(default)]
+    pub sludge: Option<String>,
 }
 
 /// The terms of a polity's notes in a policy file (content API 196, M10d slice EJ).
@@ -654,6 +693,30 @@ impl PolicyFile {
         })
     }
 
+    /// A sewer's terms, its goods found by `good_index` (ADR-0041 §1-§4); goods not found are
+    /// left out (the validator reports them).
+    pub fn sewer_def(
+        &self,
+        good_index: &dyn Fn(&str) -> Option<usize>,
+    ) -> Option<civ_agents::polity::SewerDef> {
+        let s = self.sewer.as_ref()?;
+        Some(civ_agents::polity::SewerDef {
+            walls: s.walls.iter().filter_map(|g| good_index(g)).collect(),
+            walls_kg_m: s.walls_kg_m,
+            binders: s.binders.iter().filter_map(|g| good_index(g)).collect(),
+            binder_kg_m: s.binder_kg_m,
+            lay_h_m: s.lay_h_m,
+            fall: s.fall,
+            capacity_kg_day: s.capacity_kg_day,
+            life_years: s.life_years,
+            connect_h: s.connect_h,
+            avoided_share: s.avoided_share,
+            settle_share: s.settle_share,
+            tank: s.tank.as_deref().and_then(good_index),
+            sludge: s.sludge.as_deref().and_then(good_index),
+        })
+    }
+
     /// The fee a plan's parcel is given for, its good found by `good_index` (M8c slice CU).
     pub fn plan_fee(&self, good_index: &dyn Fn(&str) -> Option<usize>) -> Option<(usize, f32)> {
         let f = self.plan.as_ref()?.fee.as_ref()?;
@@ -803,6 +866,8 @@ impl PolicyFile {
                 every_days: r.every_days,
                 round_h: r.round_h,
             }),
+            // Resolved apart, with the goods ([`PolicyFile::sewer_def`]).
+            sewer: None,
             // Resolved apart, with the good ([`PolicyFile::notes_def`]).
             notes: None,
             plan: self.plan.as_ref().map(|g| civ_agents::polity::PlanDef {
@@ -1353,6 +1418,36 @@ impl PolicyFile {
             (None, _) => {}
             (Some(_), _) => p.push("`round` is for `does = \"collect_refuse\"`".to_owned()),
         }
+        // A sewer's terms (ADR-0041 §1-§4): only for `lay_sewer`, which must have them.
+        match (&self.sewer, PolicyKind::from_name(&self.does)) {
+            (None, Some(PolicyKind::LaySewer)) => {
+                p.push("a `lay_sewer` template needs a `sewer` table".to_owned());
+            }
+            (Some(s), Some(PolicyKind::LaySewer)) => {
+                for (name, v, lo, hi) in [
+                    ("walls_kg_m", s.walls_kg_m, 0.0, 100_000.0),
+                    ("binder_kg_m", s.binder_kg_m, 0.0, 10_000.0),
+                    ("lay_h_m", s.lay_h_m, 0.01, 1000.0),
+                    ("fall", s.fall, 0.0001, 0.5),
+                    ("capacity_kg_day", s.capacity_kg_day, 1.0, 10_000_000.0),
+                    ("life_years", s.life_years, 1.0, 500.0),
+                    ("connect_h", s.connect_h, 0.0, 1000.0),
+                    ("avoided_share", s.avoided_share, 0.0, 1.0),
+                    ("settle_share", s.settle_share, 0.0, 1.0),
+                ] {
+                    if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                        p.push(format!(
+                            "`sewer.{name}` must be between {lo} and {hi} (got {v})"
+                        ));
+                    }
+                }
+                if s.walls.is_empty() || s.binders.is_empty() {
+                    p.push("`sewer.walls` and `sewer.binders` each name a good".to_owned());
+                }
+            }
+            (None, _) => {}
+            (Some(_), _) => p.push("`sewer` is for `does = \"lay_sewer\"`".to_owned()),
+        }
         // A polity's notes' terms (M10d slice EJ): only for `issue_notes`, which must have them.
         match (&self.notes, PolicyKind::from_name(&self.does)) {
             (None, Some(PolicyKind::IssueNotes)) => {
@@ -1657,6 +1752,7 @@ impl PolicyFile {
                 | PolicyKind::ClearMiddens
                 | PolicyKind::RefuseToTip
                 | PolicyKind::CollectRefuse
+                | PolicyKind::LaySewer
                 | PolicyKind::BearerHeard
                 | PolicyKind::IssueNotes
                 | PolicyKind::LegalTender
@@ -1738,6 +1834,7 @@ impl PolicyFile {
                 | PolicyKind::ClearMiddens
                 | PolicyKind::RefuseToTip
                 | PolicyKind::CollectRefuse
+                | PolicyKind::LaySewer
                 | PolicyKind::BearerHeard
                 | PolicyKind::IssueNotes
                 | PolicyKind::LegalTender
@@ -2049,6 +2146,7 @@ mod tests {
             middens: None,
             tip: None,
             round: None,
+            sewer: None,
             notes: None,
         }
     }

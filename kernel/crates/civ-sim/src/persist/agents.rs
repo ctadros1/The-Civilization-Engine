@@ -2278,6 +2278,49 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let rounds = (!rounds.is_empty()).then(|| fbb.create_vector(&rounds));
+            // Its sewers (schema 220; ADR-0041 §1-§4).
+            let sewers: Vec<_> = p
+                .sewers
+                .iter()
+                .map(|w| {
+                    let cells = fbb.create_vector(&w.cells);
+                    let connections: Vec<save::SewerConnectionSave> = w
+                        .connections
+                        .iter()
+                        .map(|c| {
+                            save::SewerConnectionSave::new(
+                                c.household.get(),
+                                c.building.get(),
+                                c.since,
+                                c.day,
+                                c.kg,
+                                c.cause.code(),
+                            )
+                        })
+                        .collect();
+                    let connections = fbb.create_vector(&connections);
+                    save::SewerSave::create(
+                        &mut fbb,
+                        &save::SewerSaveArgs {
+                            id: w.id.get(),
+                            law: w.law.get(),
+                            begun: w.begun,
+                            cells: Some(cells),
+                            reach: w.reach,
+                            length_m: w.length_m,
+                            laid_m: w.laid_m,
+                            capacity_kg_day: w.capacity_kg_day,
+                            broken: w.broken,
+                            keeper: w.keeper.map_or(0, PermanentId::get),
+                            connections: Some(connections),
+                            day: w.day,
+                            entered_kg: w.entered_kg,
+                            settled_kg: w.settled_kg,
+                        },
+                    )
+                })
+                .collect();
+            let sewers = (!sewers.is_empty()).then(|| fbb.create_vector(&sewers));
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -2354,6 +2397,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     measured_losses,
                     tips,
                     rounds,
+                    sewers,
                 },
             )
         })
@@ -3521,6 +3565,54 @@ fn decode_polities(
                 runs,
             });
         }
+        // Its sewers (ADR-0041 §1-§4, appended within saves 220): none, in older saves.
+        let mut sewers = Vec::new();
+        for w in p.sewers().iter().flatten() {
+            let sewer = required(w.id(), "a sewer")?;
+            let (entered_kg, settled_kg) = (w.entered_kg(), w.settled_kg());
+            if !(entered_kg.is_finite()
+                && settled_kg.is_finite()
+                && entered_kg >= 0.0
+                && settled_kg >= 0.0
+                && w.length_m().is_finite()
+                && w.laid_m().is_finite()
+                && w.capacity_kg_day().is_finite())
+            {
+                return Err(bad(format!("polity {id}'s sewer {sewer} is malformed")));
+            }
+            let mut connections = Vec::new();
+            for c in w.connections().iter().flatten() {
+                if !(c.kg().is_finite() && c.kg() >= 0.0) {
+                    return Err(bad(format!(
+                        "polity {id}'s sewer {sewer} has a malformed connection"
+                    )));
+                }
+                connections.push(civ_agents::polity::SewerConnection {
+                    household: required(c.household(), "a sewer's connection")?,
+                    building: required(c.building(), "a sewer connection's building")?,
+                    since: c.since(),
+                    day: c.day(),
+                    kg: c.kg(),
+                    cause: civ_agents::polity::SewerCause::from_code(c.cause()),
+                });
+            }
+            sewers.push(civ_agents::polity::Sewer {
+                id: sewer,
+                law: required(w.law(), "a sewer's law")?,
+                begun: w.begun(),
+                cells: w.cells().map(|v| v.iter().collect()).unwrap_or_default(),
+                reach: w.reach(),
+                length_m: w.length_m(),
+                laid_m: w.laid_m(),
+                capacity_kg_day: w.capacity_kg_day(),
+                broken: w.broken(),
+                keeper: PermanentId::from_raw(w.keeper()),
+                connections,
+                day: w.day(),
+                entered_kg,
+                settled_kg,
+            });
+        }
         // Patron gifts (schema 131, M7c slice BY).
         let mut patron_gifts = Vec::new();
         for g in p.patron_gifts().iter().flatten() {
@@ -3699,6 +3791,7 @@ fn decode_polities(
             sickhouse,
             tips,
             rounds,
+            sewers,
         });
     }
     Ok(out)

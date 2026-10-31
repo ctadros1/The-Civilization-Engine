@@ -27,6 +27,9 @@ pub enum Node {
     /// The refuse a household holds as a good, drawn from a tip to be burned (M11f, fourth part;
     /// ADR-0038 §5): what it held of a disease, which burning it destroys.
     Refuse(PermanentId),
+    /// A sewer's settling tank at its outfall, by the sewer's id (ADR-0041 §4): what settled
+    /// there with the sludge.
+    Sewer(PermanentId),
 }
 
 impl Node {
@@ -40,6 +43,7 @@ impl Node {
             Node::Store(h) => (4, h.get()),
             Node::Tip(t) => (5, t.get()),
             Node::Refuse(h) => (6, h.get()),
+            Node::Sewer(s) => (7, s.get()),
         }
     }
 
@@ -53,6 +57,7 @@ impl Node {
             4 => Node::Store(PermanentId::from_raw(n)?),
             5 => Node::Tip(PermanentId::from_raw(n)?),
             6 => Node::Refuse(PermanentId::from_raw(n)?),
+            7 => Node::Sewer(PermanentId::from_raw(n)?),
             _ => return None,
         })
     }
@@ -71,7 +76,8 @@ pub enum How {
     Arrived = 3,
     /// Drawn with water into a household's store.
     Drawn = 4,
-    /// Carried with a heap to a tip (M11f, second part; ADR-0038 §3).
+    /// Carried with a heap to a tip (M11f, second part; ADR-0038 §3), or by a sewer to its
+    /// outfall (ADR-0041 §2).
     Carried = 5,
 }
 
@@ -317,7 +323,7 @@ mod tests {
         c.record(Move { day: 4, ..m });
         assert_eq!(c.moves.len(), 3);
         assert_eq!(c.moves[0].amount, 2.0);
-        for code in 0..6u8 {
+        for code in 0..8u8 {
             let n = Node::from_code(code, 7).expect("a node");
             assert_eq!(n.code(), (code, 7));
         }

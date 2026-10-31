@@ -1497,6 +1497,8 @@ fn node_words(sim: &Sim, node: Node) -> String {
             "the refuse held by {}",
             super::people::household_name(sim, h)
         ),
+        // A sewer's settling tank (ADR-0041 §4).
+        Node::Sewer(_) => "a sewer's settling tank".to_owned(),
         other => source_words(sim, other),
     }
 }
@@ -1528,7 +1530,7 @@ fn fouled_lines(sim: &Sim, o: &Outbreak, key: SourceKey) -> Vec<String> {
     for m in sim.people.contagion.moves.iter().filter(|m| {
         m.disease == o.disease
             && into(m.to)
-            && (m.how == How::Runoff || m.how == How::Arrived)
+            && (m.how == How::Runoff || m.how == How::Arrived || m.how == How::Carried)
             && m.day >= since
             && m.day <= until
     }) {
@@ -1551,6 +1553,9 @@ fn fouled_lines(sim: &Sim, o: &Outbreak, key: SourceKey) -> Vec<String> {
         .map(|(&(from, how), &(_, doses))| {
             let way = if how == How::Runoff.code() {
                 "washed from"
+            } else if how == How::Carried.code() {
+                // Into a river only a sewer carries (ADR-0041 §2).
+                "carried by a sewer from"
             } else {
                 "seeped through the ground from"
             };

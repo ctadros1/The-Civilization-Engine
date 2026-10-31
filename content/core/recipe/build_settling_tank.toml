@@ -1,0 +1,18 @@
+# Building a settling tank (ADR-0041 §4; research 12-10 §1.7): brick tanks laid in lime at a
+# sewer's outfall. 1,500 hours, 6,000 kg of brick and 300 kg of quicklime are design priors (the
+# research gives what settling removes, not what a tank takes).
+kind = "recipe"
+id = "core:recipe/build_settling_tank"
+name = "Build a settling tank"
+skill = "core:skill/pottery"
+technique = "core:technique/settling"
+unit_h = 1500.0
+session_h = 0.0
+max_units = 1.0
+tools = []
+inputs = [
+  { good = "core:good/brick", amount = 6000.0 },
+  { good = "core:good/quicklime", amount = 300.0 },
+]
+outputs = [{ good = "core:good/settling_tank", amount = 1.0 }]
+session_inputs = []

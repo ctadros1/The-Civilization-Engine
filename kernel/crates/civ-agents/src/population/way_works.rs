@@ -561,10 +561,20 @@ impl Population {
                     && k.status == LawStatus::InForce
                     && matches!(
                         k.kind,
-                        PolicyKind::BuildWay | PolicyKind::BuildLine | PolicyKind::LayCurrent
+                        PolicyKind::BuildWay
+                            | PolicyKind::BuildLine
+                            | PolicyKind::LayCurrent
+                            | PolicyKind::LaySewer
                     )
                     && k.knows(person)
             })?;
+            // A sewer laid together (ADR-0041 §1): its laying left, where the household holds a
+            // metre's walls and binder.
+            if law.kind == PolicyKind::LaySewer {
+                let sewer = site.work?;
+                let left = self.sewer_left_h(ctx, x, sewer)?;
+                return Some((law, *site, sewer, left));
+            }
             // A line of current strung together (M11a, eighth part): its stringing left, where
             // the household holds a metre's copper.
             if law.kind == PolicyKind::LayCurrent {
@@ -633,6 +643,9 @@ impl Population {
                     PolicyKind::BuildLine => Self::wagon_vehicle(ctx)
                         .and_then(|v| ctx.catalog.vehicles.get(v))
                         .map_or(works.passing_life_years, |d| d.life_years),
+                    // A sewer's, the sewer's (ADR-0041 §3).
+                    PolicyKind::LaySewer => Self::sewer_def(ctx)
+                        .map_or(works.passing_life_years, |d| f64::from(d.life_years)),
                     // A line of current's, the line's (M11a, eighth part).
                     PolicyKind::LayCurrent => ctx
                         .land_params
@@ -670,6 +683,11 @@ impl Population {
         // And a line of current by its station's (M11a, fifth part).
         if ctx.land.wires.lines.iter().any(|l| l.id == way) {
             self.line_work(ctx, household, way, hours);
+            return;
+        }
+        // And a sewer by its polity's households (ADR-0041 §1).
+        if self.is_sewer(way) {
+            self.sewer_work(ctx, household, way, hours);
             return;
         }
         // And a telegraph wire by its office's (M11c).

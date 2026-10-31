@@ -573,10 +573,67 @@ impl LongRun {
                 .iter()
                 .any(|e| e.kind == civ_agents::ChronicleKind::FirstTrail)
         {
-            failures.push("no trail worn out of the settlement in its first year".to_owned());
+            failures.push(format!(
+                "no trail worn out of the settlement in its first year ({})",
+                trail_margin(sim)
+            ));
         }
         failures
     }
+}
+
+/// How near each settlement came to its first trail (M11d's eighth part: two ten-year worlds wore
+/// none, the outcome turning on small differences in where people walked): the trails surveyed,
+/// the longest, and the nearest any trail of the length needed passes to the hearth.
+fn trail_margin(sim: &Sim) -> String {
+    let land = sim.land();
+    let trails = land.wear.trails();
+    let near = |hearth: (f32, f32), t: &civ_land::paths::Trail| {
+        t.points
+            .windows(2)
+            .map(|w| {
+                let (a, b) = (w[0], w[1]);
+                let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+                let len2 = dx * dx + dy * dy;
+                let u = if len2 > 0.0 {
+                    (((hearth.0 - a.0) * dx + (hearth.1 - a.1) * dy) / len2).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
+                (hearth.0 - (a.0 + u * dx)).hypot(hearth.1 - (a.1 + u * dy))
+            })
+            .fold(f32::INFINITY, f32::min)
+    };
+    let longest = trails.iter().map(|t| t.length_m()).fold(0.0_f32, f32::max);
+    let per: Vec<String> = land
+        .settlements
+        .iter()
+        .map(|s| {
+            let nearest = trails
+                .iter()
+                .filter(|t| t.length_m() >= civ_agents::population::FIRST_TRAIL_M)
+                .map(|t| near(s.hearth_m, t))
+                .fold(f32::INFINITY, f32::min);
+            let nearest_any = trails
+                .iter()
+                .map(|t| (near(s.hearth_m, t), t.length_m()))
+                .fold((f32::INFINITY, 0.0_f32), |a, b| if b.0 < a.0 { b } else { a });
+            format!(
+                "{}: a trail of {:.0} m or more passes {:.0} m from the hearth at nearest (within {:.0} m needed); the nearest trail of any length, {:.0} m long, passes {:.0} m",
+                s.name,
+                civ_agents::population::FIRST_TRAIL_M,
+                nearest,
+                civ_agents::population::FIRST_TRAIL_NEAR_M,
+                nearest_any.1,
+                nearest_any.0
+            )
+        })
+        .collect();
+    format!(
+        "{} trails surveyed, the longest {longest:.0} m; {}",
+        trails.len(),
+        per.join("; ")
+    )
 }
 
 fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {

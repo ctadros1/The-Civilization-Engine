@@ -47,6 +47,7 @@ the milestone is too big and gets split.
 | [0038](0038-refuse-tips-and-residues.md) | Refuse, tips and residues | Accepted | M11 |
 | [0039](0039-a-model-deliberator-and-viewers.md) | A model deliberator, and more than one viewer | Accepted | M12 |
 | [0040](0040-letting-rooms.md) | Letting rooms | Accepted | M11 (deferrals) |
+| [0041](0041-sewers-and-treatment.md) | Sewers and treatment | Accepted | M11 (deferrals) |
 
 ## Template
 

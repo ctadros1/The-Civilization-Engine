@@ -832,20 +832,20 @@ struct HomePlan {
     deadline: i64,
 }
 
-/// Whether what [`site_inputs`] reads may have changed, cheaply: fields, plots and earthworks are
-/// only ever added, and none is moved, so their counts say whether any has been; and the count
-/// of moves of households' homes; and the ground the household looks over, which its home's view
-/// can redraw within a day (floodwater changes what ground it can break, M6b slice BF). While
-/// these stand, a site found earlier in the day stands.
-type SiteStamp = (usize, usize, usize, u64, Option<civ_land::RectCm>);
+/// Whether what [`site_inputs`] reads may have changed, cheaply: fields, plots, earthworks and
+/// deposits are only ever added, and none is moved, so their counts say whether any has been; and
+/// the count of moves of households' homes; and the ground the household looks over, which its
+/// home's view can redraw within a day (floodwater changes what ground it can break, M6b slice
+/// BF). While these stand, a site found earlier in the day stands.
+type SiteStamp = (usize, usize, usize, usize, u64, Option<civ_land::RectCm>);
 
 /// What finding new ground for a field reads that can change within a day, as one number: the
-/// fields, plots and earthworks laid out on `ground` (the ground the search looks at,
-/// [`farm::site_ground`]; elsewhere they cannot change what it finds) and the homes and hearth it
-/// keeps clear of. A site found earlier in the day is kept only while this is the same, so a world
-/// saved and loaded within a day finds the same ground as one lived straight on (ADR-0011 §5; a
-/// site kept from before a neighbour's field was marked out made the two differ about one world
-/// in a hundred).
+/// fields, plots, earthworks and bodies showing at the surface on `ground` (the ground the search
+/// looks at, [`farm::site_ground`]; elsewhere they cannot change what it finds) and the homes and
+/// hearth it keeps clear of. A site found earlier in the day is kept only while this is the same,
+/// so a world saved and loaded within a day finds the same ground as one lived straight on
+/// (ADR-0011 §5; a site kept from before a neighbour's field was marked out made the two differ
+/// about one world in a hundred).
 fn site_inputs(
     land: &civ_land::Land,
     ground: Option<civ_land::RectCm>,
@@ -861,10 +861,26 @@ fn site_inputs(
     let fields = land.fields.iter().map(|f| f.rect).filter(on);
     let plots = land.plots.iter().map(|p| p.rect).filter(on);
     let works = land.earthworks.iter().map(|w| w.rect).filter(on);
+    // Bodies showing at the surface, which fields keep off, by the square round each.
+    let outcrops = land
+        .deposits
+        .iter()
+        .filter(|d| d.body.exposed)
+        .map(|d| {
+            let r = d.body.radius_cm;
+            civ_land::RectCm {
+                x: (d.body.at_cm.0 - i64::from(r)) as i32,
+                y: (d.body.at_cm.1 - i64::from(r)) as i32,
+                w: 2 * r,
+                h: 2 * r,
+            }
+        })
+        .filter(on);
     for (list, rects) in [
         (1u64, fields.collect::<Vec<_>>()),
         (2, plots.collect()),
         (3, works.collect()),
+        (4, outcrops.collect()),
     ] {
         mix(list);
         mix(rects.len() as u64);
@@ -2362,6 +2378,7 @@ impl Population {
             land.fields.len(),
             land.plots.len(),
             land.earthworks.len(),
+            land.deposits.len(),
             self.homes_moved,
             ground,
         );

@@ -930,3 +930,80 @@ fn a_household_short_of_charcoal_for_its_instruments_iron_gathers_wood_and_burns
         "half the instrument's iron: {most_iron:.1} kg at most"
     );
 }
+
+/// Ground where a body shows at the surface is not broken for a field (M11d, ninth part): a
+/// household short only of copper for its instrument, with copper ore showing on open ground a
+/// few minutes' walk from home, finds it, digs it and smelts the copper. Before, a neighbour's
+/// field was marked out over the outcrop on the fifth day; no pit could go on a field, so the body
+/// was known and could never be dug, and the household walked out looking for another every day
+/// for 120 days and held no ore.
+#[test]
+fn a_household_short_of_copper_digs_ore_showing_near_home_where_a_field_would_have_covered_it() {
+    let mut sim = world();
+    let [(a, sa, home_cell), (b, _, _)] = pair(&sim);
+    let [instrument, copper, timber, iron] = [
+        "core:good/telegraph_instrument",
+        "core:good/copper",
+        "core:good/timber",
+        "core:good/iron",
+    ]
+    .map(|id| good(&sim, id));
+    for t in [
+        "core:technique/telegraphy",
+        "core:technique/writing",
+        "core:technique/copper_smelting",
+    ] {
+        teach(&mut sim, a, t);
+    }
+    teach(&mut sim, b, "core:technique/telegraphy");
+    set(&mut sim, a, iron, 8.0);
+    set(&mut sim, a, timber, 4.0);
+    // An outcrop 300 m from home on the first bearing whose ground round it is within a quarter
+    // of an hour's walk on worn trails (the first bearing, east, lies across a river): on this
+    // map, open arable ground south of the settlement.
+    let home = sim.people().household(a).expect("household").home;
+    let map = sim.map().clone();
+    let w = map.width as i64;
+    let at = (0..16)
+        .map(|k| {
+            let bearing = k as f32 * std::f32::consts::TAU / 16.0;
+            (
+                home.0 + 300.0 * bearing.cos(),
+                home.1 + 300.0 * bearing.sin(),
+            )
+        })
+        .find(|&at| {
+            let cell = civ_agents::population::cell_of(&map, at) as i64;
+            sim.with_ctx_for_tests(|_, ctx| {
+                let field =
+                    ctx.nav
+                        .travel_field(&ctx.map.elevation, home_cell as usize, 900.0, &|_| 1.0);
+                (-2..=2).all(|dy| {
+                    (-2..=2).all(|dx| field.seconds_to((cell + dy * w + dx) as usize).is_some())
+                })
+            })
+        })
+        .expect("open ground 300 m from home");
+    let body = sim
+        .place_deposit(at, "core:good/copper_ore", 10.0, true)
+        .expect("placed");
+    let mut made = 0.0f64;
+    for _ in 0..60 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        let s = &sim.people().household(a).expect("household").stores;
+        // Its copper, and the copper built into the instrument so far.
+        made = made.max(s[copper] + 10.0 * s[instrument]);
+    }
+    let dug = sim
+        .land()
+        .deposits
+        .iter()
+        .find(|d| d.id == body)
+        .map_or(0.0, |d| d.taken_kg);
+    assert!(
+        sim.people().knows_deposit(sa, body),
+        "the outcrop was found"
+    );
+    assert!(dug > 0.0, "its ore was dug: {dug:.1} kg");
+    assert!(made >= 1.0, "copper was smelted from it: {made:.2} kg");
+}

@@ -130,6 +130,9 @@ Reports read: 11-12 (earthworks), 03-05 (resource geology), 03-01 (terrain gener
 - As built (slice Q's third step): a pit or heap needs dry land and no other earthwork, plot or
   field on its square, and plots and fields keep their usual gaps from pits and heaps. Every earthwork's change to the ground is reproduced from its record alone:
   a platform as far as it is done, and a pit or heap as the earth it holds or lacks.
+- As built (M11d, ninth part): a new field also keeps its gap from a body showing at the surface,
+  known or not, as ground that is outcrop rather than soil: a field marked out over one left no
+  square on it for a pit, so the body, once found, could never be dug.
 
 ### 4. Saves and boundary
 

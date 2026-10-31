@@ -695,10 +695,20 @@ pub fn site_ground(map: &WorldMap, cells: &[(u32, f32)], params: &PeopleParams) 
     })
 }
 
+/// Whether `rect` comes within `reach_cm` of a body's centre `at_cm`: onto its outcrop, or
+/// into the gap a field keeps from it.
+fn on_outcrop(rect: &RectCm, at_cm: (i64, i64), reach_cm: i64) -> bool {
+    let (x0, y0) = (i64::from(rect.x), i64::from(rect.y));
+    let (x1, y1) = (x0 + i64::from(rect.w), y0 + i64::from(rect.h));
+    let dx = (x0 - at_cm.0).max(at_cm.0 - x1).max(0);
+    let dy = (y0 - at_cm.1).max(at_cm.1 - y1).max(0);
+    (dx as f64).hypot(dy as f64) < reach_cm as f64
+}
+
 /// Looks for new ground for a field of side `params.farm.field_m` among `cells`, the breakable
-/// cells within the farthest field walk of a home ([`breakable_in_reach`]), clear of other fields
-/// and of `homes`: samples `params.farm.site_candidates` of them with a draw keyed by `key`, and
-/// keeps the one worth most for `crop` ([`site_value`]).
+/// cells within the farthest field walk of a home ([`breakable_in_reach`]), clear of other fields,
+/// of `homes` and of where a body shows at the surface: samples `params.farm.site_candidates` of
+/// them with a draw keyed by `key`, and keeps the one worth most for `crop` ([`site_value`]).
 #[allow(clippy::too_many_arguments)]
 pub fn find_site(
     map: &WorldMap,
@@ -779,6 +789,20 @@ pub fn find_site(
         .chain(land.wells.list.iter().map(|w| w.rect))
         .filter(|r| r.near(&around, FIELD_GAP_CM))
         .collect();
+    // Ground where a body shows at the surface is its outcrop, not soil to break (ADR-0010 §1):
+    // a field keeps its gap from it, as from a pit, so the body can still be dug.
+    let outcrops: Vec<((i64, i64), i64)> = land
+        .deposits
+        .iter()
+        .filter(|d| d.body.exposed)
+        .map(|d| {
+            (
+                d.body.at_cm,
+                i64::from(d.body.radius_cm) + i64::from(FIELD_GAP_CM),
+            )
+        })
+        .filter(|&(at, r)| on_outcrop(&around, at, r))
+        .collect();
     let near_homes: Vec<(f32, f32)> = homes
         .iter()
         .copied()
@@ -790,6 +814,9 @@ pub fn find_site(
             continue;
         }
         if !near_homes.iter().all(|&h| home_gap(&rect, h) >= HOME_GAP_M) {
+            continue;
+        }
+        if outcrops.iter().any(|&(at, r)| on_outcrop(&rect, at, r)) {
             continue;
         }
         // Every cell under it must be arable dry ground; its ground is their patches' richness.

@@ -27,6 +27,9 @@ pub(super) struct LetHome {
     pub base_m2: f64,
     /// Its centre, metres.
     pub centre: (f32, f32),
+    /// The storey a let in it lies on now, 0 the first (ADR-0042 §1): the highest with floor to
+    /// spare.
+    pub let_storey: u8,
 }
 
 /// A home with spare floor as a day's seekers see it: its landlord, the landlord's settlement, the
@@ -58,7 +61,7 @@ impl Population {
         if self.lodges(x.id) {
             return None;
         }
-        let mut best: Option<LetHome> = None;
+        let mut best: Option<(LetHome, Vec<f64>)> = None;
         for &b in homes {
             let Some(def) = catalog
                 .building_index(&b.spec.program)
@@ -66,25 +69,60 @@ impl Population {
             else {
                 continue;
             };
-            let living = match self.expansions.get(&b.id) {
-                Some(e) => e.floor_by_use[civ_grammar::SpaceUse::Living.index()],
-                None => match civ_grammar::expand(&b.spec, &def.rules) {
-                    Ok(e) => e.floor_by_use[civ_grammar::SpaceUse::Living.index()],
-                    Err(_) => continue,
-                },
+            let Some((living, by_storey)) = self.living_floor(b, def) else {
+                continue;
             };
             let (base, per) = sleeping(def);
-            if best.is_none_or(|h| living > h.living_m2) {
-                best = Some(LetHome {
-                    building: b.id,
-                    living_m2: living,
-                    per_sleeper_m2: per,
-                    base_m2: base,
-                    centre: build::centre_m(&b.spec),
-                });
+            if best.as_ref().is_none_or(|h| living > h.0.living_m2) {
+                best = Some((
+                    LetHome {
+                        building: b.id,
+                        living_m2: living,
+                        per_sleeper_m2: per,
+                        base_m2: base,
+                        centre: build::centre_m(&b.spec),
+                        let_storey: 0,
+                    },
+                    by_storey,
+                ));
             }
         }
-        best
+        best.map(|(home, by_storey)| self.with_let_storey(x, home, &by_storey))
+    }
+
+    /// Building `b`'s sleeping floor under program `def`, m², in all and by storey.
+    fn living_floor(
+        &self,
+        b: &Building,
+        def: &crate::params::BuildingDef,
+    ) -> Option<(f64, Vec<f64>)> {
+        let of = |e: &civ_grammar::Expansion| {
+            (
+                e.floor_by_use[civ_grammar::SpaceUse::Living.index()],
+                crate::climb::living_by_storey(e),
+            )
+        };
+        match self.expansions.get(&b.id) {
+            Some(e) => Some(of(e)),
+            None => civ_grammar::expand(&b.spec, &def.rules)
+                .ok()
+                .map(|e| of(&e)),
+        }
+    }
+
+    /// `home` of household `x`, with the storey a let in it would lie on: the highest with floor
+    /// to spare once its own members' floor is taken from the ground up and what it lets from the
+    /// top down (ADR-0042 §1).
+    fn with_let_storey(&self, x: &Household, mut home: LetHome, by_storey: &[f64]) -> LetHome {
+        let own = home.base_m2 + home.per_sleeper_m2 * x.members.len() as f64;
+        let let_m2: f64 = self
+            .letting
+            .letting(x.id)
+            .filter(|l| l.building == home.building)
+            .map(|l| l.floor_m2)
+            .sum();
+        home.let_storey = crate::climb::let_storey(by_storey, own, let_m2).min(255) as u8;
+        home
     }
 
     /// The floor household `x` has spare in `home`: its sleeping floor beyond what its own
@@ -452,21 +490,17 @@ impl Population {
         let def = catalog
             .building_index(&b.spec.program)
             .and_then(|i| catalog.buildings.get(i))?;
-        let living = match self.expansions.get(&b.id) {
-            Some(e) => e.floor_by_use[civ_grammar::SpaceUse::Living.index()],
-            None => {
-                civ_grammar::expand(&b.spec, &def.rules).ok()?.floor_by_use
-                    [civ_grammar::SpaceUse::Living.index()]
-            }
-        };
+        let (living, by_storey) = self.living_floor(b, def)?;
         let (base, per) = sleeping(def);
-        Some(LetHome {
+        let home = LetHome {
             building: b.id,
             living_m2: living,
             per_sleeper_m2: per,
             base_m2: base,
             centre: build::centre_m(&b.spec),
-        })
+            let_storey: 0,
+        };
+        Some(self.with_let_storey(x, home, &by_storey))
     }
 
     /// The room household `h` would take, if any (ADR-0040 §2): of up to `candidates` homes of
@@ -548,6 +582,8 @@ impl Population {
         let places = self.goings_of(ctx, x);
         let speed = ctx.nav.params().top_speed_ms().max(0.1);
         let walks_now = siting::walk_hours_year(x.home, &places, speed);
+        // Its trips out and back a year, each climbing to the room's storey (ADR-0042 §1).
+        let trips_year: f64 = places.iter().map(|p| p.1).sum();
         let daily = params.household.daily_kcal_per_person * n as f64;
         let mut best: Option<(f64, PermanentId, LetHome, f64)> = None;
         for (_, &(landlord, _, home, _)) in near {
@@ -557,6 +593,7 @@ impl Population {
             let rent_kcal = self.letting.asking_of(landlord, &params.letting) * daily;
             let rent_h = rent_kcal / hour_kcal;
             let walk_h = (siting::walk_hours_year(home.centre, &places, speed) - walks_now) / 12.0;
+            let climb_h = self.room_climb_h_year(ctx, b, &home, n, trips_year) / 12.0;
             // What its goods would keep under the room's share of the roof over a month.
             let share = (home.per_sleeper_m2 * n as f64 / build::floor_m2(&b.spec).max(1e-9))
                 .clamp(0.0, 1.0);
@@ -569,12 +606,30 @@ impl Population {
                 params.household.raised_store_factor,
                 RENT_DAYS as f64,
             );
-            let net = rent_h + walk_h - kept_h - fee_h;
+            let net = rent_h + walk_h + climb_h - kept_h - fee_h;
             if net < 0.0 && best.as_ref().is_none_or(|b| net < b.0) {
                 best = Some((net, landlord, home, rent_kcal));
             }
         }
         best.map(|(_, landlord, home, rent_kcal)| (landlord, home, rent_kcal, good))
+    }
+
+    /// Hours a year a lodging household of `n` members making `trips_year` trips would climb to
+    /// a room in `home` (building `b`), on the storey its floor lies on (ADR-0042 §1).
+    fn room_climb_h_year(
+        &self,
+        ctx: &Ctx,
+        _b: &Building,
+        home: &LetHome,
+        n: usize,
+        trips_year: f64,
+    ) -> f64 {
+        let t = usize::from(home.let_storey);
+        if t == 0 {
+            return 0.0;
+        }
+        let climbing = &ctx.params.climbing;
+        crate::climb::climb_h_year(&vec![t; n], trips_year, |t| climbing.stair_trip_s(t))
     }
 
     /// Household `h` takes floor in `landlord`'s `home` for `rent_kcal` a month reckoned in

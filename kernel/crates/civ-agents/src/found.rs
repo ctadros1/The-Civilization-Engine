@@ -1882,6 +1882,7 @@ pub(crate) mod tests {
             enclosures: crate::enclose::EnclosureParams::core(),
             credit: crate::credit::CreditParams::default(),
             letting: crate::letting::LettingParams::default(),
+            climbing: crate::climb::ClimbParams::default(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,

@@ -3091,13 +3091,19 @@ impl Population {
                         years * self.rent_credit_h_year(ctx, hh, spare)
                     })
             };
+            // What its members would climb to the storeys they sleep on, on the trips they make,
+            // over the same years (ADR-0042 §1).
+            let trips_year: f64 = places.iter().map(|p| p.1).sum();
+            let climb_h = |shape: build::Shape| {
+                years * Self::design_climb_h_year(ctx, hh, program, shape, trips_year)
+            };
             let mut best: Option<(f64, NewHome)> = None;
             for shape in std::iter::once(chosen).chain(compact) {
                 let Some(home) = choose_home((p, shape), first) else {
                     continue;
                 };
                 let ground_h = home.receipt.map_or(0.0, |r| f64::from(r.hours));
-                let total = shape_h(shape) + ground_h - rent_h(shape);
+                let total = shape_h(shape) + ground_h - rent_h(shape) + climb_h(shape);
                 if best.as_ref().is_none_or(|(b, _)| total < *b) {
                     best = Some((total, home));
                 }
@@ -3117,6 +3123,48 @@ impl Population {
                 .ok_or(Unbuilt::Nothing)
                 .or_else(|_| home_on_ground(home_choice(Some(current)), false)),
         }
+    }
+
+    /// Hours a year household `hh`'s members, making `trips_year` trips out and back, would climb
+    /// to the storeys they would sleep on in `shape` of `program`, filled from the ground up, by
+    /// the stair (ADR-0042 §1). 0 for a shape of one storey, or whose first storey holds them all.
+    fn design_climb_h_year(
+        ctx: &Ctx,
+        hh: &Household,
+        program: &crate::params::BuildingDef,
+        shape: build::Shape,
+        trips_year: f64,
+    ) -> f64 {
+        let Some(c) = program.shapes.iter().find(|c| c.shape == shape) else {
+            return 0.0;
+        };
+        let (base_m2, per_m2) = letting::sleeping(program);
+        let storeys =
+            crate::climb::members_storeys(&c.living_by_storey, base_m2, per_m2, hh.members.len());
+        let climbing = &ctx.params.climbing;
+        crate::climb::climb_h_year(&storeys, trips_year, |t| climbing.stair_trip_s(t))
+    }
+
+    /// Hours a year household `household`'s members would climb in `shape` of program
+    /// `program_id` on the trips they now make (ADR-0042 §1): for tests.
+    #[doc(hidden)]
+    pub fn design_climb_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        program_id: &str,
+        shape: build::Shape,
+    ) -> f64 {
+        let (Some(hh), Some(program)) = (
+            self.household(household),
+            ctx.catalog
+                .building_index(program_id)
+                .and_then(|i| ctx.catalog.buildings.get(i)),
+        ) else {
+            return 0.0;
+        };
+        let trips_year: f64 = self.goings_of(ctx, hh).iter().map(|p| p.1).sum();
+        Self::design_climb_h_year(ctx, hh, program, shape, trips_year)
     }
 
     /// The workshops household `hh` would build beside its home on day `day`, each with the firm

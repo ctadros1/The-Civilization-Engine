@@ -89,6 +89,37 @@ pub(crate) struct PeopleFile {
     pub credit: CreditFile,
     /// How households let spare floor and seek a room (ADR-0040; content API 212).
     pub letting: LettingFile,
+    /// How long people take to climb to the storeys they live on (ADR-0042 §1; content API 214).
+    pub climbing: ClimbingFile,
+}
+
+/// How long people take to climb a storey by a stair (ADR-0042 §1; content API 214). See
+/// [`civ_agents::climb::ClimbParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ClimbingFile {
+    pub up_s_per_storey: f64,
+    pub down_s_per_storey: f64,
+}
+
+impl ClimbingFile {
+    fn params(&self) -> civ_agents::climb::ClimbParams {
+        civ_agents::climb::ClimbParams {
+            up_s_per_storey: self.up_s_per_storey,
+            down_s_per_storey: self.down_s_per_storey,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v) in [
+            ("climbing.up_s_per_storey", self.up_s_per_storey),
+            ("climbing.down_s_per_storey", self.down_s_per_storey),
+        ] {
+            if !(v.is_finite() && (0.0..=600.0).contains(&v)) {
+                p.push(format!("`{name}` must be between 0 and 600 (got {v})"));
+            }
+        }
+    }
 }
 
 /// How households let spare floor and seek a room (ADR-0040 §2; content API 212). See
@@ -2832,6 +2863,7 @@ impl PeopleFile {
             elections: self.elections.params(),
             credit: self.credit.params(),
             letting: self.letting.params(),
+            climbing: self.climbing.params(),
             relations: civ_agents::views::RelationsParams {
                 prior: self.relations.prior,
                 half_life_days: self.relations.half_life_days,
@@ -2882,6 +2914,7 @@ impl PeopleFile {
         self.elections.problems(&mut p);
         self.credit.problems(&mut p);
         self.letting.problems(&mut p);
+        self.climbing.problems(&mut p);
         if !(self.places.sight_m.is_finite() && (0.0..=10_000.0).contains(&self.places.sight_m)) {
             p.push(format!(
                 "`places.sight_m` must be between 0 and 10000 (got {})",

@@ -480,6 +480,8 @@ pub struct ShapeCost {
     pub floor_m2: f64,
     /// Living floor, square metres.
     pub living_m2: f64,
+    /// Living floor of each storey, the first's first, square metres (ADR-0042 §1: who climbs).
+    pub living_by_storey: Vec<f64>,
     /// Goods it holds under its roof, kilograms.
     pub storage_kg: f64,
     /// The same by kind of room: raised floors, lofts, other floors ([`civ_grammar::storage`]).
@@ -821,6 +823,7 @@ pub fn shapes(def: &BuildingDef, goods: &[GoodDef]) -> Vec<ShapeCost> {
                 materials_kg: e.total_materials_kg().iter().sum(),
                 floor_m2: e.floor_area_m2,
                 living_m2: e.floor_by_use[civ_grammar::SpaceUse::Living.index()],
+                living_by_storey: crate::climb::living_by_storey(&e),
                 storage_kg: e.storage_total_kg(),
                 room_kg: e.storage_kg,
                 work_places: e.work_places,

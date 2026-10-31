@@ -30,6 +30,7 @@ pub mod agreements;
 pub mod bridge;
 pub mod build;
 pub mod caution;
+pub mod climb;
 pub mod coin;
 pub mod condition;
 pub mod consignments;

@@ -1960,3 +1960,13 @@ at the tank. The core's `policy/zealously_zone_a_sewer_to_the_river` answers `so
 adds `good/settling_tank` (a fixed tool), `good/sludge` (a material), `technique/settling` (burning
 lime or firing; tried in no work, so only the observer brings it) and `recipe/build_settling_tank`
 (6,000 kg of brick and 300 of quicklime, 1,500 hours) with its activity.
+
+Content API 214 (ADR-0042 §1) adds the people profile's required `[climbing]` table:
+`up_s_per_storey` and `down_s_per_storey` (0–600; seconds a person takes to climb a storey by a
+stair, and to come down one). A household's members sleep on a home's storeys filled from the
+ground up (its `floor_base_m2` first, then `floor_m2_per_sleeper` each); each member's share of
+the household's trips out and back costs its storeys' climb. A home's design counts it, over the
+years a site is weighed, beside the shape's building and ground hours; a household seeking a room
+counts it for the storey the room lies on, the highest storey of the home with floor to spare
+(lets are filled from the top down), beside the rent and the walks. The core's early farmers climb
+in 15 s a storey and come down in 8 (design priors; research 11-14 §2.5: 10–20 s).

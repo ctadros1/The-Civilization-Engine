@@ -2404,6 +2404,8 @@ pub struct PeopleParams {
     pub credit: crate::credit::CreditParams,
     /// How households let spare floor and seek a room (ADR-0040; content API 212).
     pub letting: crate::letting::LettingParams,
+    /// How long people take to climb to the storeys they live on (ADR-0042 §1; content API 214).
+    pub climbing: crate::climb::ClimbParams,
     /// Names.
     pub names: NameParams,
 }

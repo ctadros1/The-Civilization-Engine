@@ -446,6 +446,17 @@ impl Level {
         }
     }
 
+    /// Which storey it is, 0 the first; `None` for a loft or the roof.
+    pub fn storey_index(self) -> Option<usize> {
+        match self {
+            Level::Ground => Some(0),
+            Level::Upper => Some(1),
+            Level::Third => Some(2),
+            Level::Fourth => Some(3),
+            Level::Loft | Level::Roof => None,
+        }
+    }
+
     /// Whether it is a storey above the first: the second, third or fourth.
     pub fn above_ground(self) -> bool {
         matches!(self, Level::Upper | Level::Third | Level::Fourth)

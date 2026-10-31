@@ -1585,3 +1585,12 @@ wage_days = 30
 asking_rent_food_days_per_person_month = 1.0
 step = 0.1
 candidates = 8
+
+[climbing]                       # climbing to upper storeys (ADR-0042 §1; research 11-14 §1.5, §2.5)
+# Content API 214. A household's members living above the ground climb their storeys on every trip
+# out and back: `up_s_per_storey` seconds a storey up by a stair and `down_s_per_storey` down. The
+# time enters a home's design hours for the storeys its own members would sleep on, and a lodger's
+# weighing of a room for the storey its floor lies on. Design priors (11-14 §2.5: 10–20 s a storey
+# walking up), unestimated.
+up_s_per_storey = 15.0
+down_s_per_storey = 8.0

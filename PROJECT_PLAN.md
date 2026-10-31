@@ -8730,6 +8730,15 @@ and M6a gives rivers a daily flow.
   reached) was followed, the three exact cuts left M10 at about 1.15× and 1.17× M9 where a
   settlement is Detailed and within 10 % elsewhere, and the ADR's revisit line (a fifth more a
   person-day) is not crossed.
+- **The bench after M11 and M12 (2026-10-31; ADR-0028 §1; homelab runs 41178074981 and
+  41239934460): Decided by Claude under standing owner authority (2026-10-31).** On d3e155a the
+  bench stood at 1.334× M9 (village of 500) and 1.285× (three of 400), past the clause; seven exact
+  cuts (4a80bde, every save section's digest unchanged; plan §7) bring the head (1d776c8, with
+  M11d's later fixes) to 1.201× and 1.185×, ten of 60 at 0.912× and the 100k gate at 0.967×. The
+  clause is not amended. Reason: ADR-0028 §1's rule is profile, cut exactly, then amend to the
+  figure reached; the village of 500 is 0.1 % past 20 %, inside the spread of a three-round
+  median, and what remains costly (route searches, 19-22 % of a village's days) can still be cut
+  exactly by a route cache, so the next speed pass (backlog E) is that, not a wider clause.
 - **Design priors for prospecting (2026-10-29, M11d's third part, ADR-0010 §1):** NUDGE: a
   household short of a dug material that a tool's material is made of (ore for its metal, never the
   tool's own stone or wood), whose settlement knows no body of it within reach

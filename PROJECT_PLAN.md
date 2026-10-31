@@ -8332,6 +8332,44 @@ and M6a gives rivers a daily flow.
       time box (plan section 9, "M11d's demo time-boxed"), these are the next questions, in order:
       why a household wanting an instrument, short only of copper, never digs a showing body of
       copper ore half a kilometre away; then why one keeping iron ore never digs any. Nothing nudged.
+    - *M11d, ninth part (2026-10-31): why Stonefield never dug its copper, found* (backlog A).
+      **Stonefield's body was near only on the map:** probed on the demo's world (seed 1, 2048
+      cells), the showing body 0.5 km from the hearth lies beyond a river nobody fords: no walk of
+      two hours from the hearth, even on worn trails, comes within 309 m of it, so no route passes
+      within the 50 m that finds it, and it could never be dug. Every other body of copper ore lies
+      beyond the digging walk (60 minutes off the trails; the nearest two, at 48 minutes on worn
+      trails, are buried). The wanter did prospect (in a household-resolved day the walk was
+      weighed at 4.5, Deadline 4 and Tools 2.7 less 2.1 of walking, and taken, three loops at a
+      time, in 75 of 174 weighings in its first month), over ground that held nothing to find.
+      Thorndale's nearest body, 3.5 km off, is likewise beyond the digging walk off the trails,
+      and its wanter prospected about 12-16 person-hours a day for most of a year without passing
+      near it. Neither is a fault: bodies are found by walking past them (ADR-0010 §1), and only
+      Sedgehollow has one showing within the walk (2.2 km, 56 minutes), where the third run found
+      copper. The demo's record now says how far each settlement's nearest body is on foot and,
+      where it lies beyond the walk, the nearest within it. **A fault found on the way:** in a
+      scene with copper ore showing on open ground 300 m from the wanter's home, a neighbour's
+      field was marked out over the outcrop on the fifth day (the body was found within the
+      hour); no pit goes on a field, so the body, known, could never be dug, and the household
+      walked out looking for another every day (60-70 person-hours a day) and held no ore in 120
+      days. A new field now keeps its gap from a body showing at the surface, known or not, as
+      outcrop rather than soil (ADR-0010 §3, as built); the day's site cache reads the bodies too.
+      **Tested:** the scene digs 633 kg of ore and smelts 14 kg of copper in 60 days, and none
+      with the fix reverted; the smallpox scene's look at who called a variolator, four times a
+      day, missed a household whose call was made and answered between two looks once fields
+      moved, and now looks every ten minutes (a closer look, not a looser test); telegraph, iron,
+      metal, deposits, coal, works, firms, market, people, homes, knowledge, steel, residues,
+      letting, custody, lamps, mills, gas, credit, levees, organization, sickness, roundtrip and
+      civ-agents' own; the ten smoke worlds' first month. **Thorndale's iron, narrowed, not
+      fixed:** its wanter gathered bog ore for a while in its first year, emptied the rich patch
+      16 minutes out (0.4 units left) and stopped at 5-5.5 of its 8 kg of iron; the bog ore trip
+      it then weighs is about 80 minutes out (Walking -5.3 against Tools 1.7 and Deadline 2.6),
+      never taken, while the patches nearer hold 4-5 units each. Why a patch still holding 43
+      units about half an hour out on worn trails is not the one weighed is the next question. The
+      copper prospecting that took its people's days meanwhile is the flat hope of the
+      prospecting prior (plan section 9, "Design priors for prospecting"), which remembers nothing
+      of where they looked; this run meets its revisit condition. Nothing nudged. **Not yet:** a
+      memory of the ground looked over; plots, and the founders' fields (laid before bodies are
+      placed), may still cover an outcrop.
     - *Sewers and settling (2026-10-31, backlog D; [ADR-0041](decisions/0041-sewers-and-treatment.md)).*
       A polity lays a sewer by a `lay_sewer` law (`PolicyKind` appended; it answers
       `source_suspected` and `heaps_near` on `lay_current`'s machinery: forecast, way site, common

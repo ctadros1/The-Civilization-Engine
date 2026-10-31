@@ -341,8 +341,11 @@ fn way_there(sim: &mut Sim, s: PermanentId, known: &[usize]) -> String {
 
 /// Where the copper lies from settlement `s`'s hearth, in words: the nearest body of copper ore,
 /// how far and whether it shows at the surface (where a walker passing within
-/// `civ_agents::population::deposits::FIND_M` finds it), and how many lie on the map. Copper
-/// is also picked where it weathers out on upland ground, which this does not measure.
+/// `civ_agents::population::deposits::FIND_M` finds it), whether it lies within the digging
+/// walk (`core:activity/dig_ore`'s longest walk, off the trails) and, if not, the nearest that
+/// does; and how many lie on the map. A body beyond water nobody can ford is near only on the map
+/// (M11d, ninth part: Stonefield's, 0.5 km off, was out of reach on foot). Copper is also picked
+/// where it weathers out on upland ground, which this does not measure.
 fn copper_near(sim: &Sim, s: PermanentId) -> String {
     let Some(copper) = sim.rules().catalog.good_index("core:good/copper_ore") else {
         return "no copper ore in the content".to_owned();
@@ -356,35 +359,66 @@ fn copper_near(sim: &Sim, s: PermanentId) -> String {
     else {
         return "no hearth".to_owned();
     };
-    let bodies: Vec<_> = sim
+    let walk_min = sim
+        .rules()
+        .catalog
+        .activities
+        .iter()
+        .find(|a| a.id == "core:activity/dig_ore")
+        .map_or(60, |a| a.max_walk_minutes);
+    let map = sim.map();
+    let reach = sim.nav().travel_field(
+        &map.elevation,
+        civ_agents::population::cell_of(map, hearth),
+        (f64::from(walk_min) * 60.0) as f32,
+        &|_| 0.0,
+    );
+    let mut bodies: Vec<(f64, bool, Option<f32>)> = sim
         .land()
         .deposits
         .iter()
         .filter(|d| usize::from(d.body.good) == copper)
-        .collect();
-    let nearest = bodies
-        .iter()
         .map(|d| {
-            let (x, y) = (d.body.at_cm.0 as f64 / 100.0, d.body.at_cm.1 as f64 / 100.0);
+            let at = (d.body.at_cm.0 as f64 / 100.0, d.body.at_cm.1 as f64 / 100.0);
+            let cell = civ_agents::population::cell_of(map, (at.0 as f32, at.1 as f32));
             (
-                (x - f64::from(hearth.0)).hypot(y - f64::from(hearth.1)),
+                (at.0 - f64::from(hearth.0)).hypot(at.1 - f64::from(hearth.1)),
                 d.body.exposed,
+                reach.seconds_to(cell).map(|t| t / 60.0),
             )
         })
-        .min_by(|a, b| a.0.total_cmp(&b.0));
-    match nearest {
-        Some((m, exposed)) => format!(
-            "copper: the nearest body of its ore {:.1} km from the hearth, {}; {} on the map",
-            m / 1000.0,
-            if exposed {
-                "showing at the surface"
-            } else {
-                "buried"
-            },
-            bodies.len()
-        ),
-        None => "copper: no body of its ore on the map".to_owned(),
-    }
+        .collect();
+    bodies.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let shows = |exposed: bool| {
+        if exposed {
+            "showing at the surface"
+        } else {
+            "buried"
+        }
+    };
+    let Some(&(m, exposed, walk)) = bodies.first() else {
+        return "copper: no body of its ore on the map".to_owned();
+    };
+    let reached = match walk {
+        Some(w) => format!("{w:.0} minutes' walk"),
+        None => {
+            let beyond = format!("beyond a walk of {walk_min} minutes from it");
+            match bodies.iter().find(|b| b.2.is_some()) {
+                Some(&(m, exposed, Some(w))) => format!(
+                    "{beyond}; the nearest within one {:.1} km, {w:.0} minutes' walk, {}",
+                    m / 1000.0,
+                    shows(exposed)
+                ),
+                _ => format!("{beyond}, as is every other"),
+            }
+        }
+    };
+    format!(
+        "copper: the nearest body of its ore {:.1} km from the hearth, {}, {reached}; {} on the map",
+        m / 1000.0,
+        shows(exposed),
+        bodies.len()
+    )
 }
 
 /// What has been paid on `channel`, kcal of food, world-wide.

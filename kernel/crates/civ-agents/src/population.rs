@@ -4041,6 +4041,12 @@ impl Population {
             })
             .collect();
         let mut made_for: Vec<Option<(usize, f64)>> = vec![None; goods.len()];
+        // A fuel goes toward a tool's materials beyond what its hearth keeps (M11d, sixth part).
+        let knows_any = |t: usize| self.household_knows(&hh.members, t);
+        let beyond_hearth = |g: usize| {
+            (held_of(g) - market::hearth_keep(params, goods, g, household_fuel_day, &knows_any))
+                .max(0.0)
+        };
         for (t, need) in tool_need.iter().enumerate() {
             if *need <= 0.0 && for_sale.get(t).copied().unwrap_or(0.0) <= 0.0 {
                 continue;
@@ -4058,7 +4064,7 @@ impl Population {
             for &(g, amount) in &r.inputs {
                 wanting.toward(
                     catalog,
-                    &held_of,
+                    &beyond_hearth,
                     &can_work,
                     (t, *need, blocked),
                     (g, amount),
@@ -4843,7 +4849,8 @@ impl Population {
             // a setup each session (M11d, fourth part: holding bloom and charcoal for a whole day
             // at the hearth, a household never forged its bar).
             let material = out_good.tool.is_none() && matches!(worth, MakeWorth::Tool { .. });
-            let session = if material && r.session_h <= 0.0 {
+            let setup = r.session_h > 0.0 || !r.session_inputs.is_empty();
+            let session = if material && !setup {
                 a.min_minutes
             } else {
                 a.max_minutes
@@ -4853,6 +4860,17 @@ impl Population {
             if units.is_nan() || units <= 1e-6 {
                 return Err((Reason::NoInputs, None));
             }
+            // With a setup each session (stacking a charcoal mound), splitting the work pays the
+            // setup again, so a session is made as large as the shortfall calls for, up to the
+            // longest, and one the makings at hand cut short is worth that share of it (M11d,
+            // sixth part: a mound of the hearth's few kilograms of wood held the burn ten days).
+            let worth = match worth {
+                MakeWorth::Tool { tool, need } if material && setup => MakeWorth::Tool {
+                    tool,
+                    need: need * (units / wanted.min(by_time)).min(1.0),
+                },
+                worth => worth,
+            };
             let worth = match worth {
                 MakeWorth::Food {
                     short,

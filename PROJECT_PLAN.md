@@ -8273,6 +8273,19 @@ and M6a gives rivers a daily flow.
       forges within 20; both fail with the fixes reverted; telegraph, iron, metal, deposits, works,
       coal, firms, market, people, homes, knowledge, steel, residues, wires, gas, destructor, mills,
       lamps.
+    - *M11d, sixth part (2026-10-31): wood toward a tool's charcoal.* A household wanting an
+      instrument with ore and copper at hand held at most 15 kg of charcoal and 0.3 kg of iron in 120
+      days: charcoal was burned only from the hearth's spare wood, because gathering a fuel weighed
+      the hearth alone. The tool-materials walk now counts a fuel beyond what the hearth keeps (the
+      hearth's own keep, `hearth_keep`, unchanged), and gathering it gains the same Tools and
+      Deadline terms a material's gathering has; the walks also follow a recipe's session inputs
+      (the firing's wood). A material whose recipe has a setup (`session_h` or session inputs) keeps
+      the size the shortfall calls for, as before, and is worth the share of a full session it
+      achieves, since every split pays the setup again. Wood gathered toward a tool is not held back
+      from the market. **Tested:** the scene now burns mounds of 50-100 kg, holds 8 kg of iron by about
+      day 46 and has the instrument about 0.58 built by day 71, when its copper runs out (it held 15 kg
+      of charcoal before); telegraph, iron, metal, coal, works, firms, market, people, homes,
+      knowledge, steel, residues, gas, wires, destructor, mills, lamps, batches, soil and deposits.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

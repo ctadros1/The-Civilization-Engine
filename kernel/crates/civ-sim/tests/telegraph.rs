@@ -874,3 +874,59 @@ fn a_household_with_bloom_and_charcoal_enough_for_a_long_day_forges_its_bar() {
         "it forged bar from its bloom: {left:.1} kg of 10 left"
     );
 }
+
+/// Wood toward a tool's charcoal (M11d, sixth part): a household that wants an instrument, holds
+/// its copper, timber and the ore for its iron, and knows the whole way from wood to bar gathers
+/// wood beyond its hearth's for charcoal and burns it in mounds the size its shortfall calls for,
+/// so the bloom and bar follow and the iron goes toward the instrument. Before, it burned only the
+/// hearth's spare wood, a few kilograms a mound, and in 120 days held at most 15 kg of charcoal and
+/// 0.3 kg of bar.
+#[test]
+fn a_household_short_of_charcoal_for_its_instruments_iron_gathers_wood_and_burns_it() {
+    let mut sim = world();
+    let [(a, _, _), (b, _, _)] = pair(&sim);
+    let [instrument, copper, timber, iron, ore, charcoal] = [
+        "core:good/telegraph_instrument",
+        "core:good/copper",
+        "core:good/timber",
+        "core:good/iron",
+        "core:good/iron_ore",
+        "core:good/charcoal",
+    ]
+    .map(|id| good(&sim, id));
+    for t in [
+        "core:technique/telegraphy",
+        "core:technique/writing",
+        "core:technique/charcoal_burning",
+        "core:technique/bloomery",
+        "core:technique/forging",
+    ] {
+        teach(&mut sim, a, t);
+    }
+    teach(&mut sim, b, "core:technique/telegraphy");
+    for (g, kg) in [
+        (copper, 10.0),
+        (timber, 4.0),
+        (iron, 0.0),
+        (ore, 80.0),
+        (charcoal, 0.0),
+    ] {
+        set(&mut sim, a, g, kg);
+    }
+    let (mut most_charcoal, mut most_iron) = (0.0f64, 0.0f64);
+    for _ in 0..60 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        let s = &sim.people().household(a).expect("household").stores;
+        most_charcoal = most_charcoal.max(s[charcoal]);
+        // Its bar, and the bar built into the instrument so far.
+        most_iron = most_iron.max(s[iron] + 8.0 * s[instrument]);
+    }
+    assert!(
+        most_charcoal >= 40.0,
+        "it burned charcoal: {most_charcoal:.1} kg at most"
+    );
+    assert!(
+        most_iron >= 4.0,
+        "half the instrument's iron: {most_iron:.1} kg at most"
+    );
+}

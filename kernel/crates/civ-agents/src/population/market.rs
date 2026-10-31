@@ -680,8 +680,7 @@ impl Population {
             // its hearth would burn only by a technique none of them knows is not kept for it
             // (M10a slice DS).
             if d.purpose == GoodUse::Fuel && d.fuel.and_then(|f| f.technique).is_none_or(knows) {
-                keep[g] = params.household.fuel_target_days * fuel_day
-                    / crate::params::fuel_ratio(goods, g);
+                keep[g] = hearth_keep(params, goods, g, fuel_day, &knows);
             }
             // What it builds with stays while it is not housed; a money is not built with.
             if d.purpose == GoodUse::Material && !housed && d.money.is_none() {
@@ -2707,7 +2706,7 @@ impl MaterialWants<'_> {
             *f = Some((t, need));
         }
         let units = short / per_unit;
-        for &(i, a) in &made.inputs {
+        for (i, a) in made_of(made, units) {
             if let Some(r) = self.raw.get_mut(i) {
                 *r = true;
             }
@@ -2716,10 +2715,46 @@ impl MaterialWants<'_> {
                 held,
                 can_work,
                 (t, need, blocked),
-                (i, a * units),
+                (i, a),
                 depth - 1,
             );
         }
+    }
+}
+
+/// What `units` of recipe `r` are made of, by good: its inputs for each unit, and its session
+/// inputs (the firing's wood) for as many sessions as its most a session takes to make them
+/// (M11d, sixth part).
+fn made_of(r: &RecipeDef, units: f64) -> impl Iterator<Item = (usize, f64)> + '_ {
+    let sessions = if r.max_units > 0.0 {
+        (units / r.max_units).ceil().max(1.0)
+    } else {
+        1.0
+    };
+    r.inputs.iter().map(move |&(i, a)| (i, a * units)).chain(
+        r.session_inputs
+            .iter()
+            .map(move |&(i, a)| (i, a * sessions)),
+    )
+}
+
+/// Kilograms of fuel `g` a household's hearth keeps, burning `fuel_day` kilograms of the first
+/// fuel a day: its days of that by the fuel's heat, if the hearth would burn it (no technique, or
+/// one it `knows`); 0 for anything else (M10a slice DS).
+pub(super) fn hearth_keep(
+    params: &PeopleParams,
+    goods: &[GoodDef],
+    g: usize,
+    fuel_day: f64,
+    knows: &dyn Fn(usize) -> bool,
+) -> f64 {
+    match goods.get(g) {
+        Some(d)
+            if d.purpose == GoodUse::Fuel && d.fuel.and_then(|f| f.technique).is_none_or(knows) =>
+        {
+            params.household.fuel_target_days * fuel_day / crate::params::fuel_ratio(goods, g)
+        }
+        _ => 0.0,
     }
 }
 
@@ -2753,15 +2788,8 @@ fn keep_made_of(
             .map(|&(_, a)| (m, a))
     });
     if let Some((m, per_unit)) = made {
-        for &(i, a) in &m.inputs {
-            keep_made_of(
-                catalog,
-                held,
-                can_work,
-                keep,
-                (i, a * short / per_unit),
-                depth - 1,
-            );
+        for (i, a) in made_of(m, short / per_unit) {
+            keep_made_of(catalog, held, can_work, keep, (i, a), depth - 1);
         }
     }
 }

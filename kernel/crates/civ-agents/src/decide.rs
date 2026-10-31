@@ -457,10 +457,10 @@ pub struct PatchOption {
     pub need_kg: f64,
     /// For a material: how pressing the building it is for is ([`BuildOption::urgency`]).
     pub urgency: f64,
-    /// For a material: kilograms of it the tools the household lacks are made of, beyond what
-    /// it holds.
+    /// For a material, or a fuel beyond its hearth's (M11d, sixth part): kilograms of it the tools
+    /// the household lacks are made of, beyond what it holds.
     pub tool_need_kg: f64,
-    /// For a material: whether work waits on the tool it is for.
+    /// For a material or fuel: whether work waits on the tool it is for.
     pub tool_blocked: bool,
     /// Where to stand, metres.
     pub at: (f32, f32),
@@ -1370,6 +1370,16 @@ pub fn candidates(
                     .max(1.0);
                 let hours = minutes / 60.0;
                 let kg = (patch.kg_per_hour * hours * pace).min(limits.carry_kg);
+                // A load is worth what it brings toward what is still needed: two thirds for a
+                // full one, or for one that brings all that is still missing.
+                let toward = |need: f64| {
+                    if need <= 0.0 {
+                        return 0.0;
+                    }
+                    let useful = kg.min(need);
+                    let scale = need.min(limits.carry_kg);
+                    useful / (useful + scale / 2.0).max(1e-6)
+                };
                 // A trip's worth saturates with what it brings (a response curve, research
                 // 01-09 §4.3): a haul of `trip_half_worth_days` of the household's need is worth
                 // half. Beyond any shortage, more of a good is worth less the more of that good
@@ -1418,22 +1428,21 @@ pub fn candidates(
                             // Food that needs cooking, and nothing to cook it on.
                             term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger * worth);
                         }
+                        // And toward what a tool's materials are made of beyond the hearth's
+                        // (wood for its charcoal), as a material is (M11d, sixth part).
+                        let tools = toward(patch.tool_need_kg);
+                        if tools > 0.0 {
+                            term(&mut terms, Reason::Tools, w.w_tools * tools);
+                            if patch.tool_blocked {
+                                term(&mut terms, Reason::Deadline, w.w_deadline * tools);
+                            }
+                        }
                     }
                     GoodUse::Material | GoodUse::Tool | GoodUse::Store => {
                         if patch.need_kg <= 0.0 && patch.tool_need_kg <= 0.0 {
                             excluded.push((id, Reason::NotNeeded));
                             continue;
                         }
-                        // A load is worth what it brings toward what is still needed: two thirds
-                        // for a full one, or for one that brings all that is still missing.
-                        let toward = |need: f64| {
-                            if need <= 0.0 {
-                                return 0.0;
-                            }
-                            let useful = kg.min(need);
-                            let scale = need.min(limits.carry_kg);
-                            useful / (useful + scale / 2.0).max(1e-6)
-                        };
                         let (build, tools) = (toward(patch.need_kg), toward(patch.tool_need_kg));
                         term(&mut terms, Reason::Shelter, w.w_shelter * build);
                         term(

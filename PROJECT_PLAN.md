@@ -8311,6 +8311,16 @@ and M6a gives rivers a daily flow.
       a world without roofless households unchanged); custody, homes, people, rules, roundtrip, firms,
       market, residues, tips, rounds and crime; the ten smoke worlds' first month. **Not yet:** a
       scene where a larger home wins a real choice because of rent.
+    - *M11d, seventh part (2026-10-31): the sixth part narrowed.* Homelab chain 54 on the sixth part
+      failed four scenario targets (credit, levees, organization, sickness): its walk measured a
+      tool's own wood (the oven's 30 kg of firing wood) against what was held beyond the hearth's
+      keep, and the new gathering term sent early villages' households out for it. The walk again
+      measures shortfalls against all that is held, as before; `MaterialWants` records separately a
+      fuel's shortfall beyond the hearth's keep only while following what a made material is made of
+      (wood for charcoal for bloom), and only that (`PatchOption::fuel_tool_kg`) reaches the gathering
+      term. A tool's own firing wood and a pot's are weighed as before the sixth part. **Tested:** the
+      four targets pass; telegraph (with the charcoal scene), iron, metal, coal, works, firms, market,
+      people, homes, knowledge, steel, residues, letting, custody, lamps, mills, gas.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

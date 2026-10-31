@@ -4110,7 +4110,9 @@ impl Population {
             })
             .collect();
         let mut made_for: Vec<Option<(usize, f64)>> = vec![None; goods.len()];
-        // A fuel goes toward a tool's materials beyond what its hearth keeps (M11d, sixth part).
+        // A fuel goes toward what a tool's materials are made of beyond what its hearth keeps
+        // (M11d, sixth part); the tool's own fuel and a pot's firing wood are weighed as before.
+        let mut tool_fuel = vec![0.0; goods.len()];
         let knows_any = |t: usize| self.household_knows(&hh.members, t);
         let beyond_hearth = |g: usize| {
             (held_of(g) - market::hearth_keep(params, goods, g, household_fuel_day, &knows_any))
@@ -4129,11 +4131,13 @@ impl Population {
                 blocked: &mut tool_material_blocked,
                 made_for: &mut made_for,
                 raw: &mut tool_material_raw,
+                fuel: &mut tool_fuel,
+                beyond_hearth: &beyond_hearth,
             };
             for &(g, amount) in &r.inputs {
                 wanting.toward(
                     catalog,
-                    &beyond_hearth,
+                    &held_of,
                     &can_work,
                     (t, *need, blocked),
                     (g, amount),
@@ -4284,6 +4288,7 @@ impl Population {
                 let good = catalog.goods.get(g)?;
                 let need_kg = build_need.get(g).copied().unwrap_or(0.0);
                 let tool_need_kg = tool_material.get(g).copied().unwrap_or(0.0);
+                let fuel_tool_kg = tool_fuel.get(g).copied().unwrap_or(0.0);
                 // A fuel is dug for the hearth, so where it would be dug is wanted too (M10a slice
                 // DS).
                 let needed = need_kg > 0.0 || tool_need_kg > 0.0 || good.purpose == GoodUse::Fuel;
@@ -4341,6 +4346,7 @@ impl Population {
                                 need_kg,
                                 urgency: build_urgency,
                                 tool_need_kg,
+                                fuel_tool_kg,
                                 tool_blocked: tool_material_blocked
                                     .get(g)
                                     .copied()
@@ -4392,6 +4398,7 @@ impl Population {
                         need_kg,
                         urgency: build_urgency,
                         tool_need_kg,
+                        fuel_tool_kg,
                         tool_blocked: tool_material_blocked.get(g).copied().unwrap_or(false),
                         at,
                         deposit: None,
@@ -4468,6 +4475,7 @@ impl Population {
                 GoodUse::Food | GoodUse::Fuel => (0.0, 0.0),
             };
             let tool_need_kg = tool_material.get(res.good).copied().unwrap_or(0.0);
+            let fuel_tool_kg = tool_fuel.get(res.good).copied().unwrap_or(0.0);
             let tool_blocked = tool_material_blocked
                 .get(res.good)
                 .copied()
@@ -4517,6 +4525,7 @@ impl Population {
                             need_kg,
                             urgency,
                             tool_need_kg,
+                            fuel_tool_kg,
                             tool_blocked,
                             at: cell_centre(map, cell as usize),
                             deposit: None,

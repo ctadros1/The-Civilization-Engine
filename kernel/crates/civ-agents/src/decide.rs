@@ -457,9 +457,12 @@ pub struct PatchOption {
     pub need_kg: f64,
     /// For a material: how pressing the building it is for is ([`BuildOption::urgency`]).
     pub urgency: f64,
-    /// For a material, or a fuel beyond its hearth's (M11d, sixth part): kilograms of it the tools
-    /// the household lacks are made of, beyond what it holds.
+    /// For a material: kilograms of it the tools the household lacks are made of, beyond what
+    /// it holds.
     pub tool_need_kg: f64,
+    /// For a fuel: kilograms of it the materials of the tools the household lacks are made of
+    /// (wood for their charcoal), beyond what its hearth keeps (M11d, sixth part).
+    pub fuel_tool_kg: f64,
     /// For a material or fuel: whether work waits on the tool it is for.
     pub tool_blocked: bool,
     /// Where to stand, metres.
@@ -1430,7 +1433,7 @@ pub fn candidates(
                         }
                         // And toward what a tool's materials are made of beyond the hearth's
                         // (wood for its charcoal), as a material is (M11d, sixth part).
-                        let tools = toward(patch.tool_need_kg);
+                        let tools = toward(patch.fuel_tool_kg);
                         if tools > 0.0 {
                             term(&mut terms, Reason::Tools, w.w_tools * tools);
                             if patch.tool_blocked {
@@ -3283,6 +3286,7 @@ mod tests {
                 need_kg: 0.0,
                 urgency: 1.0,
                 tool_need_kg: 0.0,
+                fuel_tool_kg: 0.0,
                 tool_blocked: false,
                 at: (50.0, 0.0),
                 deposit: None,
@@ -3360,6 +3364,7 @@ mod tests {
                 need_kg: 200.0,
                 urgency: 1.0,
                 tool_need_kg: 0.0,
+                fuel_tool_kg: 0.0,
                 tool_blocked: false,
                 at: (50.0, 0.0),
                 deposit: None,

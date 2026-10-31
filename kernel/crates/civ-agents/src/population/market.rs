@@ -2664,6 +2664,11 @@ pub(super) struct MaterialWants<'a> {
     /// Whether each good is wanted as what a material is made of (ore for a metal), not as one
     /// of a tool's own materials (M11d: what a household goes prospecting for).
     pub raw: &'a mut Vec<bool>,
+    /// Kilograms of each fuel beyond its hearth's keep that a material it makes is made of (wood
+    /// for charcoal), which gathering it is weighed toward (M11d, sixth part).
+    pub fuel: &'a mut Vec<f64>,
+    /// What it holds of a good beyond its hearth's keep.
+    pub beyond_hearth: &'a dyn Fn(usize) -> f64,
 }
 
 impl MaterialWants<'_> {
@@ -2709,6 +2714,14 @@ impl MaterialWants<'_> {
         for (i, a) in made_of(made, units) {
             if let Some(r) = self.raw.get_mut(i) {
                 *r = true;
+            }
+            if catalog
+                .goods
+                .get(i)
+                .is_some_and(|d| d.purpose == GoodUse::Fuel)
+                && let Some(f) = self.fuel.get_mut(i)
+            {
+                *f += (a - (self.beyond_hearth)(i)).max(0.0);
             }
             self.toward(
                 catalog,

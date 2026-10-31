@@ -449,6 +449,14 @@ struct SmokeArgs {
     /// sanity run: 10).
     #[arg(long, default_value_t = 0)]
     years: u32,
+    /// Live only this world, `preset:seed` (e.g. `core:worldgen/ria_coast:3`), to see a failing
+    /// one again.
+    #[arg(long)]
+    only: Option<String>,
+    /// Make the worlds with this identity (32 hex digits, as a failing world prints it) rather
+    /// than a fresh one: with `--only`, the failing world lives again exactly.
+    #[arg(long)]
+    identity: Option<String>,
 }
 
 fn main() -> ExitCode {
@@ -970,6 +978,34 @@ fn run_smoke(args: SmokeArgs) -> anyhow::Result<ExitCode> {
             civ_host::economy::MIN_WORKSHOPS
         );
     }
+    let only = match &args.only {
+        None => None,
+        Some(o) => {
+            let (preset, seed) = o
+                .rsplit_once(':')
+                .ok_or_else(|| anyhow::anyhow!("--only takes preset:seed, not {o}"))?;
+            let seed: u64 = seed.parse()?;
+            let i = content
+                .presets
+                .iter()
+                .position(|p| p.id == preset)
+                .ok_or_else(|| anyhow::anyhow!("no preset {preset}"))?;
+            Some((i, seed))
+        }
+    };
+    let identity = match &args.identity {
+        None => None,
+        Some(hex) => {
+            let bytes: Vec<u8> = (0..hex.len())
+                .step_by(2)
+                .map(|i| u8::from_str_radix(hex.get(i..i + 2).unwrap_or("x"), 16))
+                .collect::<Result<_, _>>()?;
+            Some(
+                <[u8; 16]>::try_from(bytes)
+                    .map_err(|_| anyhow::anyhow!("--identity takes 32 hex digits, not {hex}"))?,
+            )
+        }
+    };
     println!("{}", smoke::header());
     let results = smoke::run(
         &content,
@@ -977,6 +1013,8 @@ fn run_smoke(args: SmokeArgs) -> anyhow::Result<ExitCode> {
             size: args.size,
             seeds: args.seeds,
             years: args.years,
+            only,
+            identity,
         },
         &|result| println!("{}", smoke::format_result(result)),
     );

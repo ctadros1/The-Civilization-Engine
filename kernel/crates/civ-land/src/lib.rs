@@ -1527,12 +1527,9 @@ impl Land {
 
     /// What `hours` of a capable adult's work around each patch would gather of resource `r` if
     /// the land were at its equilibrium on `day`, units, by patch: what people expect of land they
-    /// have not worked. The stock of the block a trip ranges over is pooled over the ground that
-    /// holds it and drawn down as the work goes on, so a block with little of the resource
-    /// promises little however rich it is per hectare (a few cells of river hold few fish), and
-    /// one rich patch among bare ones promises what working it gives, as the harvest works where
-    /// the resource is ([`Land::gather_around`]; M11d, tenth part: pooling it over the bare
-    /// ground too promised a third of that).
+    /// have not worked. The stock of the block a trip ranges over is pooled and drawn down as the
+    /// work goes on, so a block with little of the resource promises little however rich it is
+    /// per hectare (a few cells of river hold few fish).
     pub fn typical_yields(&self, params: &LandParams, r: usize, hours: f64, day: i64) -> Vec<f32> {
         const STEPS: u32 = 12;
         let res = &params.resources[r];
@@ -1547,10 +1544,8 @@ impl Land {
             .map(|p| {
                 let (mut s, mut a) = (0.0, 0.0);
                 for q in self.block(p, res.range_patches) {
-                    if stock[q] > 0.0 {
-                        s += stock[q];
-                        a += area[q];
-                    }
+                    s += stock[q];
+                    a += area[q];
                 }
                 let half = res.half_rate_stock_per_ha * a;
                 if s <= 0.0 || half <= 0.0 {
@@ -2259,56 +2254,6 @@ mod tests {
         let rate = p.resources[2].max_rate_per_hour * stock / (stock + half);
         let short = land.typical_yields(&p, 2, 0.01, 400);
         assert!((f64::from(short[0]) - rate * 0.01).abs() < 1e-3 * rate * 0.01);
-    }
-
-    /// M11d, tenth part: a block whose ore lies in one patch is expected to give what working that
-    /// patch gives, as the harvest works the richest patch at its own density. Pooling the ore over
-    /// the block's bare ground too promised a third of it in the M11 demo, so a rich patch 45
-    /// minutes out lost to a block 75 minutes out holding more ore, spread thinner.
-    #[test]
-    fn expected_yields_are_what_the_harvest_takes_from_one_rich_patch_among_bare_ones() {
-        let mut p = params();
-        p.resources.push(ResourceParams {
-            id: "ore".into(),
-            name: "Ore".into(),
-            good: 3,
-            unit_kg: 1.0,
-            discrete: false,
-            in_water: false,
-            range_patches: 1,
-            // Only on the flat north-east patch.
-            growth: Growth::Deposit {
-                stock_per_ha: vec![0.0, 3000.0, 0.0],
-            },
-            max_rate_per_hour: 6.0,
-            half_rate_stock_per_ha: 3000.0,
-        });
-        let r = p.resources.len() - 1;
-        let mut land = create(&p, 1, 400);
-        let stock: Vec<f64> = (0..4).map(|q| land.equilibrium(&p, r, q, 400)).collect();
-        assert_eq!(stock.iter().filter(|&&s| s > 0.0).count(), 1, "{stock:?}");
-        for (q, s) in stock.iter().enumerate() {
-            land.stocks[r][q] = *s as f32;
-        }
-        let hours = 3.0;
-        let expected = land.typical_yields(&p, r, hours, 400);
-        let taken = land.gather_around(&p, r, 0, hours, 1.0);
-        assert!(taken > 0.0);
-        for y in &expected {
-            assert!(
-                (f64::from(*y) - taken).abs() < 1e-3 * taken,
-                "expected {y} against {taken} taken"
-            );
-        }
-        // The block's ore over the block's land, as before: well under what is taken.
-        let (s, a): (f64, f64) = (
-            stock.iter().sum(),
-            (0..4)
-                .map(|q| land.patches.resource_ha(&p.resources[r], q))
-                .sum(),
-        );
-        let pooled = 6.0 * s / (s + 3000.0 * a) * hours;
-        assert!(taken > 1.5 * pooled, "{taken} against {pooled} pooled");
     }
 
     #[test]

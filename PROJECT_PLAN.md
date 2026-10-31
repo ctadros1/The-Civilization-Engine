@@ -8413,6 +8413,12 @@ and M6a gives rivers a daily flow.
       coal, works, firms, market, people, homes, knowledge, steel, residues, letting, custody,
       lamps, mills, gas, credit, levees, organization, sickness, roundtrip, civ-agents' and
       civ-land's own; the smoke. Nothing nudged.
+      **Reverted (2026-10-31):** homelab chain 61 on 89ddaf0 failed eight scenes in five targets
+      the tenth part had not run (contagion's wells and heaps, settlements' "nobody went beyond the
+      map", tips, wells, word): pooling a block's stock over its holding patches raises every
+      patchy resource's expected yield, not only bog ore, and moves first days. The fix (2d0c29f)
+      is reverted (its regression scene with it) until those scenes are understood; Thorndale's
+      near bog ore is open again, its cause known.
     - *M11d, eleventh part (2026-10-31): the fifth eight-year run, and the first trail out.*
       Homelab run 41226389829 on e0ff592 (node3, 2 h 43 min): 918 people, saved and loaded whole;
       nothing of M11 built or proposed, the controls as before. With fields kept off outcrops,

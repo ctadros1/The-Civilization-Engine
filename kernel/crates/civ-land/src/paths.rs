@@ -304,6 +304,11 @@ impl Wear {
         &self.trails
     }
 
+    /// The side of a cell, metres.
+    pub fn cell_m(&self) -> f32 {
+        self.cell_m
+    }
+
     /// Tile index and position within it of a cell.
     pub fn locate(&self, cell: usize) -> (u32, usize) {
         let w = self.width as usize;

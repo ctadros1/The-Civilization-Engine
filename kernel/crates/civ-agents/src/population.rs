@@ -1060,6 +1060,66 @@ pub fn room_of(b: &Building, catalog: &Catalog) -> [f64; 3] {
 }
 
 /// Distance from `p` to the segment `a`–`b`, metres.
+/// A settlement's first trail out, if one has been worn (M2's chronicle; the smoke's check): a
+/// trail at least [`FIRST_TRAIL_M`] long passing within [`FIRST_TRAIL_NEAR_M`] of `hearth`, its
+/// length and the middle of its longest stretch. The survey cuts trails at every junction
+/// (`civ_land::paths`), and a hearth is where paths meet, so a trail out is the stretch that
+/// passes the hearth carried on, from each end, along the longest stretch that meets it there
+/// (ends within `join_m`), as far as the trail goes on. A single stretch long enough is taken as it
+/// is, as before.
+fn first_trail_out(
+    trails: &[civ_land::paths::Trail],
+    hearth: (f32, f32),
+    join_m: f32,
+) -> Option<(f32, (f32, f32))> {
+    let near = |t: &civ_land::paths::Trail| {
+        t.points
+            .windows(2)
+            .any(|w| segment_distance(hearth, w[0], w[1]) <= FIRST_TRAIL_NEAR_M)
+    };
+    let middle = |t: &civ_land::paths::Trail| t.points[t.points.len() / 2];
+    if let Some(t) = trails
+        .iter()
+        .filter(|t| t.points.len() >= 2 && t.length_m() >= FIRST_TRAIL_M && near(t))
+        .max_by(|a, b| a.length_m().total_cmp(&b.length_m()))
+    {
+        return Some((t.length_m(), middle(t)));
+    }
+    let ends = |t: &civ_land::paths::Trail| [t.points[0], t.points[t.points.len() - 1]];
+    let meets = |p: (f32, f32), q: (f32, f32)| (p.0 - q.0).hypot(p.1 - q.1) <= join_m;
+    let mut best: Option<(f32, (f32, f32))> = None;
+    for (si, start) in trails.iter().enumerate() {
+        if start.points.len() < 2 || !near(start) {
+            continue;
+        }
+        let mut used = vec![false; trails.len()];
+        used[si] = true;
+        let mut length = start.length_m();
+        let mut longest = si;
+        for end in ends(start) {
+            let mut at = end;
+            // Bounded: each step uses a stretch that no step has used.
+            while let Some(k) = (0..trails.len())
+                .filter(|&k| !used[k] && trails[k].points.len() >= 2)
+                .filter(|&k| ends(&trails[k]).iter().any(|&e| meets(e, at)))
+                .max_by(|&a, &b| trails[a].length_m().total_cmp(&trails[b].length_m()))
+            {
+                used[k] = true;
+                length += trails[k].length_m();
+                if trails[k].length_m() > trails[longest].length_m() {
+                    longest = k;
+                }
+                let [a, b] = ends(&trails[k]);
+                at = if meets(a, at) { b } else { a };
+            }
+        }
+        if length >= FIRST_TRAIL_M && best.is_none_or(|(l, _)| length > l) {
+            best = Some((length, middle(&trails[longest])));
+        }
+    }
+    best
+}
+
 fn segment_distance(p: (f32, f32), a: (f32, f32), b: (f32, f32)) -> f32 {
     let (dx, dy) = (b.0 - a.0, b.1 - a.1);
     let len2 = dx * dx + dy * dy;
@@ -7620,7 +7680,7 @@ impl Population {
 
     /// After the paths were surveyed: notes in the chronicle each settlement whose first trail out
     /// has been worn in, a trail at least [`FIRST_TRAIL_M`] long that passes within
-    /// [`FIRST_TRAIL_NEAR_M`] of its hearth.
+    /// [`FIRST_TRAIL_NEAR_M`] of its hearth ([`first_trail_out`]).
     pub fn note_trails(&mut self, land: &Land, now: SimTime) {
         for s in &land.settlements {
             let noted = self
@@ -7630,26 +7690,16 @@ impl Population {
             if noted {
                 continue;
             }
-            let best = land
-                .wear
-                .trails()
-                .iter()
-                .filter(|t| {
-                    t.length_m() >= FIRST_TRAIL_M
-                        && t.points
-                            .windows(2)
-                            .any(|w| segment_distance(s.hearth_m, w[0], w[1]) <= FIRST_TRAIL_NEAR_M)
-                })
-                .max_by(|a, b| a.length_m().total_cmp(&b.length_m()));
-            if let Some(t) = best {
-                let middle = t.points[t.points.len() / 2];
+            let join_m = 1.5 * land.wear.cell_m();
+            if let Some((length, middle)) = first_trail_out(land.wear.trails(), s.hearth_m, join_m)
+            {
                 self.chronicle_push(
                     now,
                     ChronicleKind::FirstTrail,
                     Vec::new(),
                     Some(s.id),
                     Some(middle),
-                    f64::from(t.length_m()),
+                    f64::from(length),
                     s.name.clone(),
                 );
             }
@@ -8576,6 +8626,50 @@ impl Population {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Homelab run 41211124574: river valley 4 wore 101 trails in its first year, the longest
+    /// 1,062 m, but the survey cut them at the junctions around the hearth, so the stretch passing
+    /// it was 110 m and no stretch of 150 m came within 80 m: no first trail was noted.
+    #[test]
+    fn a_trail_out_is_carried_on_past_the_junctions_around_the_hearth() {
+        let trail = |points: &[(f32, f32)]| civ_land::paths::Trail {
+            points: points.to_vec(),
+            wear: 1.0,
+        };
+        let hearth = (0.0, 0.0);
+        // From the hearth to a junction 60 m out; on 100 m east, and a 50 m spur north.
+        let cut = vec![
+            trail(&[(0.0, 0.0), (60.0, 0.0)]),
+            trail(&[(60.0, 0.0), (160.0, 0.0)]),
+            trail(&[(60.0, 0.0), (60.0, 50.0)]),
+        ];
+        let (length, middle) = first_trail_out(&cut, hearth, 6.0).expect("a trail out");
+        assert!((length - 160.0).abs() < 1e-3, "{length}");
+        assert_eq!(
+            middle,
+            (160.0, 0.0),
+            "the middle of the longest stretch, as stored"
+        );
+        // Too short even carried on: the hearth's stretch and the longer of the two beyond.
+        let short = vec![
+            trail(&[(0.0, 0.0), (60.0, 0.0)]),
+            trail(&[(60.0, 0.0), (120.0, 0.0)]),
+            trail(&[(60.0, 0.0), (60.0, 50.0)]),
+        ];
+        assert_eq!(first_trail_out(&short, hearth, 6.0), None);
+        // A long stretch far from the hearth, meeting nothing that passes it, is no trail out.
+        let far = vec![
+            trail(&[(0.0, 0.0), (30.0, 0.0)]),
+            trail(&[(300.0, 0.0), (600.0, 0.0)]),
+        ];
+        assert_eq!(first_trail_out(&far, hearth, 6.0), None);
+        // A single stretch long enough is taken as it is.
+        let whole = vec![trail(&[(0.0, 0.0), (100.0, 0.0), (200.0, 0.0)])];
+        assert_eq!(
+            first_trail_out(&whole, hearth, 6.0),
+            Some((200.0, (100.0, 0.0)))
+        );
+    }
     use crate::params::{Eaten, GoodUse};
 
     #[test]

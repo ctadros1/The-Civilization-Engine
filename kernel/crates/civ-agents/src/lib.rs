@@ -57,6 +57,7 @@ pub mod influence;
 pub mod irrigation;
 pub mod knowledge;
 pub mod ledger;
+pub mod letting;
 pub mod levees;
 pub mod make;
 pub mod market;

@@ -1573,3 +1573,15 @@ w_pay_cost = 2.0
 # worker's household and hires nobody until it has paid; it fails only if what it owes is unpaid
 # `wage_days` after the work (plan §9's "revisit with credit"). A design prior, unestimated.
 wage_days = 30
+
+[letting]                        # letting rooms (ADR-0040; research 08-19 §1.4, §5.2)
+# Content API 212. A household with spare sleeping floor in a roofed, finished home lets it to one
+# with no roof of its own at its asking rent: it starts from `asking_rent_food_days_per_person_month`
+# (days of the lodgers' food a person a month), moves up `step` after an offer it turned away for
+# want of room and down `step` after a review with spare floor and no lodger while households of
+# its settlement are roofless, never below 0. A household seeking a room weighs at most
+# `candidates` homes at a review (08-19 §5.2: k candidates, not every dwelling). Design priors,
+# unestimated.
+asking_rent_food_days_per_person_month = 1.0
+step = 0.1
+candidates = 8

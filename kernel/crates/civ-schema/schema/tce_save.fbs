@@ -4173,6 +4173,44 @@ table ConsignmentsSave {
   note_forgeries: [ForgerySave] (id: 5);
   // Schema 218 (M10d slice EK, second part): false pieces told apart, oldest first.
   note_found: [FalseFoundSave] (id: 6);
+  // Schema 220 (ADR-0040; appended within the unreleased saves 220): rooms let, in the order
+  // begun; the asking rents that moved from their profile's prior, by household ascending; and
+  // the lets begun within the last year, oldest first. Absent, none.
+  lets: [LetSave] (id: 7);
+  asking: [AskingRentSave] (id: 8);
+  lets_begun: [LetBegunSave] (id: 9);
+}
+
+// A room let (schema 220, ADR-0040 §3): the landlord and lodger households, the landlord's
+// building, the floor let (m²), the rent a month in kilograms of `good` (a content id), the day
+// begun, the day the next month's rent falls due, the day of its next review, months unpaid, and
+// where the lodger goes back to if it ends before the lodger has a roof (metres).
+table LetSave {
+  landlord: ulong (id: 0);
+  lodger: ulong (id: 1);
+  building: ulong (id: 2);
+  floor_m2: double (id: 3);
+  good: string (id: 4);
+  rent_kg: double (id: 5);
+  begun: long (id: 6);
+  due: long (id: 7);
+  next_review: long (id: 8);
+  unpaid: ubyte (id: 9);
+  own_home: Point (id: 10);
+}
+
+// A household's asking rent where it moved (schema 220, ADR-0040 §2): food-days a person a month.
+table AskingRentSave {
+  household: ulong (id: 0);
+  food_days: double (id: 1);
+}
+
+// A let begun (schema 220, ADR-0040 §5): the day, the landlord's settlement, and its rent in kcal
+// of food a square metre a month.
+table LetBegunSave {
+  day: long (id: 0);
+  settlement: ulong (id: 1);
+  kcal_per_m2_month: double (id: 2);
 }
 
 // Turn-taking at bottlenecks (schema 141, M8b slice CN; ADR-0029 §4). A facility as in

@@ -70434,6 +70434,9 @@ impl<'a> ConsignmentsSave<'a> {
   pub const VT_NOTE_DISHONOURED: ::flatbuffers::VOffsetT = 12;
   pub const VT_NOTE_FORGERIES: ::flatbuffers::VOffsetT = 14;
   pub const VT_NOTE_FOUND: ::flatbuffers::VOffsetT = 16;
+  pub const VT_LETS: ::flatbuffers::VOffsetT = 18;
+  pub const VT_ASKING: ::flatbuffers::VOffsetT = 20;
+  pub const VT_LETS_BEGUN: ::flatbuffers::VOffsetT = 22;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -70445,6 +70448,9 @@ impl<'a> ConsignmentsSave<'a> {
     args: &'args ConsignmentsSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<ConsignmentsSave<'bldr>> {
     let mut builder = ConsignmentsSaveBuilder::new(_fbb);
+    if let Some(x) = args.lets_begun { builder.add_lets_begun(x); }
+    if let Some(x) = args.asking { builder.add_asking(x); }
+    if let Some(x) = args.lets { builder.add_lets(x); }
     if let Some(x) = args.note_found { builder.add_note_found(x); }
     if let Some(x) = args.note_forgeries { builder.add_note_forgeries(x); }
     if let Some(x) = args.note_dishonoured { builder.add_note_dishonoured(x); }
@@ -70505,6 +70511,27 @@ impl<'a> ConsignmentsSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FalseFoundSave>>>>(ConsignmentsSave::VT_NOTE_FOUND, None)}
   }
+  #[inline]
+  pub fn lets(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LetSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LetSave>>>>(ConsignmentsSave::VT_LETS, None)}
+  }
+  #[inline]
+  pub fn asking(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<AskingRentSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<AskingRentSave>>>>(ConsignmentsSave::VT_ASKING, None)}
+  }
+  #[inline]
+  pub fn lets_begun(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LetBegunSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LetBegunSave>>>>(ConsignmentsSave::VT_LETS_BEGUN, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for ConsignmentsSave<'_> {
@@ -70520,6 +70547,9 @@ impl ::flatbuffers::Verifiable for ConsignmentsSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("note_dishonoured", Self::VT_NOTE_DISHONOURED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ForgerySave>>>>("note_forgeries", Self::VT_NOTE_FORGERIES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<FalseFoundSave>>>>("note_found", Self::VT_NOTE_FOUND, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<LetSave>>>>("lets", Self::VT_LETS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<AskingRentSave>>>>("asking", Self::VT_ASKING, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<LetBegunSave>>>>("lets_begun", Self::VT_LETS_BEGUN, false)?
      .finish();
     Ok(())
   }
@@ -70532,6 +70562,9 @@ pub struct ConsignmentsSaveArgs<'a> {
     pub note_dishonoured: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
     pub note_forgeries: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ForgerySave<'a>>>>>,
     pub note_found: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FalseFoundSave<'a>>>>>,
+    pub lets: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LetSave<'a>>>>>,
+    pub asking: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<AskingRentSave<'a>>>>>,
+    pub lets_begun: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LetBegunSave<'a>>>>>,
 }
 impl<'a> Default for ConsignmentsSaveArgs<'a> {
   #[inline]
@@ -70544,6 +70577,9 @@ impl<'a> Default for ConsignmentsSaveArgs<'a> {
       note_dishonoured: None,
       note_forgeries: None,
       note_found: None,
+      lets: None,
+      asking: None,
+      lets_begun: None,
     }
   }
 }
@@ -70582,6 +70618,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ConsignmentsSaveBuilder<'a, '
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConsignmentsSave::VT_NOTE_FOUND, note_found);
   }
   #[inline]
+  pub fn add_lets(&mut self, lets: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<LetSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConsignmentsSave::VT_LETS, lets);
+  }
+  #[inline]
+  pub fn add_asking(&mut self, asking: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<AskingRentSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConsignmentsSave::VT_ASKING, asking);
+  }
+  #[inline]
+  pub fn add_lets_begun(&mut self, lets_begun: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<LetBegunSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConsignmentsSave::VT_LETS_BEGUN, lets_begun);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ConsignmentsSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ConsignmentsSaveBuilder {
@@ -70606,6 +70654,518 @@ impl ::core::fmt::Debug for ConsignmentsSave<'_> {
       ds.field("note_dishonoured", &self.note_dishonoured());
       ds.field("note_forgeries", &self.note_forgeries());
       ds.field("note_found", &self.note_found());
+      ds.field("lets", &self.lets());
+      ds.field("asking", &self.asking());
+      ds.field("lets_begun", &self.lets_begun());
+      ds.finish()
+  }
+}
+pub enum LetSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct LetSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for LetSave<'a> {
+  type Inner = LetSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> LetSave<'a> {
+  pub const VT_LANDLORD: ::flatbuffers::VOffsetT = 4;
+  pub const VT_LODGER: ::flatbuffers::VOffsetT = 6;
+  pub const VT_BUILDING: ::flatbuffers::VOffsetT = 8;
+  pub const VT_FLOOR_M2: ::flatbuffers::VOffsetT = 10;
+  pub const VT_GOOD: ::flatbuffers::VOffsetT = 12;
+  pub const VT_RENT_KG: ::flatbuffers::VOffsetT = 14;
+  pub const VT_BEGUN: ::flatbuffers::VOffsetT = 16;
+  pub const VT_DUE: ::flatbuffers::VOffsetT = 18;
+  pub const VT_NEXT_REVIEW: ::flatbuffers::VOffsetT = 20;
+  pub const VT_UNPAID: ::flatbuffers::VOffsetT = 22;
+  pub const VT_OWN_HOME: ::flatbuffers::VOffsetT = 24;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    LetSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args LetSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<LetSave<'bldr>> {
+    let mut builder = LetSaveBuilder::new(_fbb);
+    builder.add_next_review(args.next_review);
+    builder.add_due(args.due);
+    builder.add_begun(args.begun);
+    builder.add_rent_kg(args.rent_kg);
+    builder.add_floor_m2(args.floor_m2);
+    builder.add_building(args.building);
+    builder.add_lodger(args.lodger);
+    builder.add_landlord(args.landlord);
+    if let Some(x) = args.own_home { builder.add_own_home(x); }
+    if let Some(x) = args.good { builder.add_good(x); }
+    builder.add_unpaid(args.unpaid);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn landlord(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LetSave::VT_LANDLORD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn lodger(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LetSave::VT_LODGER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn building(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LetSave::VT_BUILDING, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn floor_m2(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(LetSave::VT_FLOOR_M2, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn good(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(LetSave::VT_GOOD, None)}
+  }
+  #[inline]
+  pub fn rent_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(LetSave::VT_RENT_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn begun(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(LetSave::VT_BEGUN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn due(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(LetSave::VT_DUE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn next_review(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(LetSave::VT_NEXT_REVIEW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn unpaid(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(LetSave::VT_UNPAID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn own_home(&self) -> Option<&'a Point> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Point>(LetSave::VT_OWN_HOME, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for LetSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("landlord", Self::VT_LANDLORD, false)?
+     .visit_field::<u64>("lodger", Self::VT_LODGER, false)?
+     .visit_field::<u64>("building", Self::VT_BUILDING, false)?
+     .visit_field::<f64>("floor_m2", Self::VT_FLOOR_M2, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("good", Self::VT_GOOD, false)?
+     .visit_field::<f64>("rent_kg", Self::VT_RENT_KG, false)?
+     .visit_field::<i64>("begun", Self::VT_BEGUN, false)?
+     .visit_field::<i64>("due", Self::VT_DUE, false)?
+     .visit_field::<i64>("next_review", Self::VT_NEXT_REVIEW, false)?
+     .visit_field::<u8>("unpaid", Self::VT_UNPAID, false)?
+     .visit_field::<Point>("own_home", Self::VT_OWN_HOME, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct LetSaveArgs<'a> {
+    pub landlord: u64,
+    pub lodger: u64,
+    pub building: u64,
+    pub floor_m2: f64,
+    pub good: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub rent_kg: f64,
+    pub begun: i64,
+    pub due: i64,
+    pub next_review: i64,
+    pub unpaid: u8,
+    pub own_home: Option<&'a Point>,
+}
+impl<'a> Default for LetSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    LetSaveArgs {
+      landlord: 0,
+      lodger: 0,
+      building: 0,
+      floor_m2: 0.0,
+      good: None,
+      rent_kg: 0.0,
+      begun: 0,
+      due: 0,
+      next_review: 0,
+      unpaid: 0,
+      own_home: None,
+    }
+  }
+}
+
+pub struct LetSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LetSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_landlord(&mut self, landlord: u64) {
+    self.fbb_.push_slot::<u64>(LetSave::VT_LANDLORD, landlord, 0);
+  }
+  #[inline]
+  pub fn add_lodger(&mut self, lodger: u64) {
+    self.fbb_.push_slot::<u64>(LetSave::VT_LODGER, lodger, 0);
+  }
+  #[inline]
+  pub fn add_building(&mut self, building: u64) {
+    self.fbb_.push_slot::<u64>(LetSave::VT_BUILDING, building, 0);
+  }
+  #[inline]
+  pub fn add_floor_m2(&mut self, floor_m2: f64) {
+    self.fbb_.push_slot::<f64>(LetSave::VT_FLOOR_M2, floor_m2, 0.0);
+  }
+  #[inline]
+  pub fn add_good(&mut self, good: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(LetSave::VT_GOOD, good);
+  }
+  #[inline]
+  pub fn add_rent_kg(&mut self, rent_kg: f64) {
+    self.fbb_.push_slot::<f64>(LetSave::VT_RENT_KG, rent_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_begun(&mut self, begun: i64) {
+    self.fbb_.push_slot::<i64>(LetSave::VT_BEGUN, begun, 0);
+  }
+  #[inline]
+  pub fn add_due(&mut self, due: i64) {
+    self.fbb_.push_slot::<i64>(LetSave::VT_DUE, due, 0);
+  }
+  #[inline]
+  pub fn add_next_review(&mut self, next_review: i64) {
+    self.fbb_.push_slot::<i64>(LetSave::VT_NEXT_REVIEW, next_review, 0);
+  }
+  #[inline]
+  pub fn add_unpaid(&mut self, unpaid: u8) {
+    self.fbb_.push_slot::<u8>(LetSave::VT_UNPAID, unpaid, 0);
+  }
+  #[inline]
+  pub fn add_own_home(&mut self, own_home: &Point) {
+    self.fbb_.push_slot_always::<&Point>(LetSave::VT_OWN_HOME, own_home);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LetSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    LetSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<LetSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for LetSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("LetSave");
+      ds.field("landlord", &self.landlord());
+      ds.field("lodger", &self.lodger());
+      ds.field("building", &self.building());
+      ds.field("floor_m2", &self.floor_m2());
+      ds.field("good", &self.good());
+      ds.field("rent_kg", &self.rent_kg());
+      ds.field("begun", &self.begun());
+      ds.field("due", &self.due());
+      ds.field("next_review", &self.next_review());
+      ds.field("unpaid", &self.unpaid());
+      ds.field("own_home", &self.own_home());
+      ds.finish()
+  }
+}
+pub enum AskingRentSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct AskingRentSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for AskingRentSave<'a> {
+  type Inner = AskingRentSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> AskingRentSave<'a> {
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 4;
+  pub const VT_FOOD_DAYS: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    AskingRentSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args AskingRentSaveArgs
+  ) -> ::flatbuffers::WIPOffset<AskingRentSave<'bldr>> {
+    let mut builder = AskingRentSaveBuilder::new(_fbb);
+    builder.add_food_days(args.food_days);
+    builder.add_household(args.household);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(AskingRentSave::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn food_days(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(AskingRentSave::VT_FOOD_DAYS, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for AskingRentSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<f64>("food_days", Self::VT_FOOD_DAYS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct AskingRentSaveArgs {
+    pub household: u64,
+    pub food_days: f64,
+}
+impl<'a> Default for AskingRentSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    AskingRentSaveArgs {
+      household: 0,
+      food_days: 0.0,
+    }
+  }
+}
+
+pub struct AskingRentSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> AskingRentSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(AskingRentSave::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_food_days(&mut self, food_days: f64) {
+    self.fbb_.push_slot::<f64>(AskingRentSave::VT_FOOD_DAYS, food_days, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> AskingRentSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    AskingRentSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<AskingRentSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for AskingRentSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("AskingRentSave");
+      ds.field("household", &self.household());
+      ds.field("food_days", &self.food_days());
+      ds.finish()
+  }
+}
+pub enum LetBegunSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct LetBegunSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for LetBegunSave<'a> {
+  type Inner = LetBegunSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> LetBegunSave<'a> {
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_KCAL_PER_M2_MONTH: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    LetBegunSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args LetBegunSaveArgs
+  ) -> ::flatbuffers::WIPOffset<LetBegunSave<'bldr>> {
+    let mut builder = LetBegunSaveBuilder::new(_fbb);
+    builder.add_kcal_per_m2_month(args.kcal_per_m2_month);
+    builder.add_settlement(args.settlement);
+    builder.add_day(args.day);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(LetBegunSave::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LetBegunSave::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn kcal_per_m2_month(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(LetBegunSave::VT_KCAL_PER_M2_MONTH, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for LetBegunSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<f64>("kcal_per_m2_month", Self::VT_KCAL_PER_M2_MONTH, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct LetBegunSaveArgs {
+    pub day: i64,
+    pub settlement: u64,
+    pub kcal_per_m2_month: f64,
+}
+impl<'a> Default for LetBegunSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    LetBegunSaveArgs {
+      day: 0,
+      settlement: 0,
+      kcal_per_m2_month: 0.0,
+    }
+  }
+}
+
+pub struct LetBegunSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LetBegunSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(LetBegunSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(LetBegunSave::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_kcal_per_m2_month(&mut self, kcal_per_m2_month: f64) {
+    self.fbb_.push_slot::<f64>(LetBegunSave::VT_KCAL_PER_M2_MONTH, kcal_per_m2_month, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LetBegunSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    LetBegunSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<LetBegunSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for LetBegunSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("LetBegunSave");
+      ds.field("day", &self.day());
+      ds.field("settlement", &self.settlement());
+      ds.field("kcal_per_m2_month", &self.kcal_per_m2_month());
       ds.finish()
   }
 }

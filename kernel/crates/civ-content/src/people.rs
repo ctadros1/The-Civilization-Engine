@@ -87,6 +87,50 @@ pub(crate) struct PeopleFile {
     pub elections: ElectionsFile,
     /// How households borrow and lend food (M7d slice CA; content API 119).
     pub credit: CreditFile,
+    /// How households let spare floor and seek a room (ADR-0040; content API 212).
+    pub letting: LettingFile,
+}
+
+/// How households let spare floor and seek a room (ADR-0040 §2; content API 212). See
+/// [`civ_agents::letting::LettingParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct LettingFile {
+    pub asking_rent_food_days_per_person_month: f64,
+    pub step: f64,
+    pub candidates: u32,
+}
+
+impl LettingFile {
+    fn params(&self) -> civ_agents::letting::LettingParams {
+        civ_agents::letting::LettingParams {
+            asking_rent_food_days_per_person_month: self.asking_rent_food_days_per_person_month,
+            step: self.step,
+            candidates: self.candidates,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, lo, hi) in [
+            (
+                "letting.asking_rent_food_days_per_person_month",
+                self.asking_rent_food_days_per_person_month,
+                0.0,
+                365.0,
+            ),
+            ("letting.step", self.step, 0.0, 365.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        if !(1..=64).contains(&self.candidates) {
+            p.push(format!(
+                "`letting.candidates` must be between 1 and 64 (got {})",
+                self.candidates
+            ));
+        }
+    }
 }
 
 /// How households borrow and lend food (M7d slice CA, ADR-0027 §2; content API 119). See
@@ -2787,6 +2831,7 @@ impl PeopleFile {
             enclosures: self.enclosures.params(),
             elections: self.elections.params(),
             credit: self.credit.params(),
+            letting: self.letting.params(),
             relations: civ_agents::views::RelationsParams {
                 prior: self.relations.prior,
                 half_life_days: self.relations.half_life_days,
@@ -2836,6 +2881,7 @@ impl PeopleFile {
         self.enclosures.problems(&mut p);
         self.elections.problems(&mut p);
         self.credit.problems(&mut p);
+        self.letting.problems(&mut p);
         if !(self.places.sight_m.is_finite() && (0.0..=10_000.0).contains(&self.places.sight_m)) {
             p.push(format!(
                 "`places.sight_m` must be between 0 and 10000 (got {})",

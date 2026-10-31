@@ -1176,7 +1176,8 @@ impl Population {
         }
         self.sites.remove(&to);
         self.home_sites.remove(&to);
-        let shelter = super::shelter_of(ctx.land, ctx.catalog, ctx.params, to);
+        let shelter =
+            super::shelter_with(&self.letting.lets, ctx.land, ctx.catalog, ctx.params, to);
         if let Some(x) = self.household_mut(to) {
             (x.sheltered, x.keeping) = shelter;
         }

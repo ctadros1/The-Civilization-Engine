@@ -2402,6 +2402,8 @@ pub struct PeopleParams {
     pub enclosures: crate::enclose::EnclosureParams,
     /// How households borrow and lend food (M7d slice CA, ADR-0027 §2; content API 119).
     pub credit: crate::credit::CreditParams,
+    /// How households let spare floor and seek a room (ADR-0040; content API 212).
+    pub letting: crate::letting::LettingParams,
     /// Names.
     pub names: NameParams,
 }

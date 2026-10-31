@@ -8286,6 +8286,31 @@ and M6a gives rivers a daily flow.
       day 46 and has the instrument about 0.58 built by day 71, when its copper runs out (it held 15 kg
       of charcoal before); telegraph, iron, metal, coal, works, firms, market, people, homes,
       knowledge, steel, residues, gas, wires, destructor, mills, lamps, batches, soil and deposits.
+    - *Letting rooms (2026-10-31, backlog B; [ADR-0040](decisions/0040-letting-rooms.md)).* Each
+      midnight before custody, on its review day, a household with no roof (and no roof of its own
+      under way) weighs up to 8 homes of its settlement within its walking reach whose largest
+      roofed, finished dwelling has spare sleeping floor (its living floor less the landlord's own
+      need and what is let) enough for its members: the rent (the landlord's asking in food-days a
+      person a month, by its `hour_kcal`) and the change in its walks, against what its goods would
+      keep under that roof over a month and any custody fee it pays. It offers on the cheapest that
+      pays; a landlord whose floor has gone turns it away and asks a step more; one with spare floor
+      and no lodger asks a step less where someone in its settlement is roofless. The first month is
+      paid at once and each after on `Rent`; a second unpaid month ends the let, as do the lodger's
+      own roof, the landlord's need, or the building's loss. A lodger is sheltered, keeps its goods in
+      its floor's share of the room (the landlord's room less), sleeps at the landlord's building and
+      pays no custody fee. **A home's design** counts, for each shape weighed, the rent its spare floor
+      would bring at the settlement's recent rents (lets begun in the last year) times the share of
+      roofless households; none seen, nothing. Content `[letting]` (1 food-day a person a month, a
+      tenth's step, 8 candidates; design priors); content API 212; saves 220 (unreleased) gains lets,
+      asking rents and recent lets; words on the person and building pages. **Changed in lived
+      worlds:** none seen yet: in probes every household had a roof within about two months and early
+      homes had no spare floor while others were roofless, so lodging matters for households formed
+      or arriving later. **Tested:** a letting target (a let begun, paid and ended by a roof of the
+      lodger's own; arrears ending it; no let without floor or at too dear a rent, and asking rents
+      stepping; the design's rent credit only where lets were seen, by the formula; save and load;
+      a world without roofless households unchanged); custody, homes, people, rules, roundtrip, firms,
+      market, residues, tips, rounds and crime; the ten smoke worlds' first month. **Not yet:** a
+      scene where a larger home wins a real choice because of rent.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

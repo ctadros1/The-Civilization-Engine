@@ -303,7 +303,29 @@ pub fn status(sim: &Sim, b: &Building) -> String {
         .and_then(|d| build::stage_needs(&b.spec, d))
         .map(|stages| HomeWork::of(b, stages));
     let Some(stage) = b.stage() else {
-        return if b.standing() { "finished" } else { "a ruin" }.to_owned();
+        if !b.standing() {
+            return "a ruin".to_owned();
+        }
+        // Floor let in it (ADR-0040 §6): "finished; lets 9 m² to Bo's household".
+        let lets: Vec<String> = sim
+            .people
+            .letting
+            .lets
+            .iter()
+            .filter(|l| l.building == b.id)
+            .map(|l| {
+                format!(
+                    "lets {:.0} m² to {}",
+                    l.floor_m2,
+                    super::people::household_name(sim, l.lodger)
+                )
+            })
+            .collect();
+        return if lets.is_empty() {
+            "finished".to_owned()
+        } else {
+            format!("finished; {}", lets.join("; "))
+        };
     };
     let (Some(def), Some(work)) = (def, work) else {
         return format!("unfinished: the {}", stage.name());

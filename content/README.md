@@ -1920,3 +1920,14 @@ store. The core adds `good/refuse` (a material, 3.87 MJ a kilogram, 0.15 of coal
 refuse), `recipe/build_destructor` (8,000 kg of brick, 1,200 of iron, 200 of timber, 3,000 hours),
 its activity, and `technique/refuse_destructor` (forging with lime burning or firing; tried in
 burning lime and making gas, holding iron; 500,000 hours to half). The figures are design priors.
+
+Content API 212 (ADR-0040) adds the people profile's required `[letting]` table:
+`asking_rent_food_days_per_person_month` (0–365; the asking rent a household with spare sleeping
+floor starts from, in days of its lodgers' food a person a month), `step` (0–365; how far its
+asking rent moves up after an offer it turned away for want of room, and down after a review with
+spare floor and no lodger while households of its settlement are roofless, never below 0) and
+`candidates` (1–64; the most homes a household with no roof of its own weighs at a review). Spare
+floor is a roofed, finished dwelling's sleeping floor beyond `floor_base_m2` +
+`floor_m2_per_sleeper` × its members, less what it lets; a lodger takes `floor_m2_per_sleeper` × its
+members. The core's early farmers ask a day of food a person a month, a step of a tenth, and weigh
+8 homes (design priors).

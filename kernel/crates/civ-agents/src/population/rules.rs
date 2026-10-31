@@ -412,9 +412,10 @@ impl Population {
     }
 
     /// Whether household `x` is about to build (M6b slice BH): it has no roof enough for its
-    /// people, or its home has given way in part or whole.
+    /// people (a lodger has none of its own, ADR-0040), or its home has given way in part or whole.
     fn builds_soon(&self, ctx: &Ctx, x: &Household) -> bool {
         !x.sheltered
+            || self.lodges(x.id)
             || ctx.land.buildings.iter().any(|b| {
                 b.household == x.id
                     && ctx.catalog.is_dwelling(&b.spec.program)

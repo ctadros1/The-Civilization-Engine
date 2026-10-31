@@ -1881,6 +1881,7 @@ pub(crate) mod tests {
             elections: crate::seats::ElectionParams::core(),
             enclosures: crate::enclose::EnclosureParams::core(),
             credit: crate::credit::CreditParams::default(),
+            letting: crate::letting::LettingParams::default(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,

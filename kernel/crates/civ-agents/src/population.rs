@@ -102,6 +102,7 @@ pub use telegraph::{TELEGRAM_FEE_FOOD_DAYS, TelegraphReckoning};
 pub use transit::{RoadRide, road_departures};
 mod credit;
 mod custody;
+mod letting;
 mod patronage;
 mod places;
 mod polity;
@@ -787,6 +788,8 @@ pub struct Population {
     pub kept_flows: crate::person::Flows,
     /// Notes written and the purses holding them (M10d slice EH).
     pub notes: crate::notes::Notes,
+    /// Rooms let, asking rents and the lets begun lately (ADR-0040).
+    pub letting: crate::letting::Letting,
     /// Each cell a facility lies on, with it and its passage width, in cell order, and the
     /// crossings' and enclosures' revisions it stands for. Derived.
     facilities: Vec<(u32, crate::traffic::Facility, f32)>,
@@ -974,6 +977,48 @@ pub(crate) fn shelter_of(
         let room = room_of(b, catalog);
         keeping.raised_kg += room[storage::RAISED];
         keeping.roofed_kg += room[storage::LOFT] + room[storage::FLOOR];
+    }
+    (sheltered, keeping)
+}
+
+/// [`shelter_of`], with the lets household `household` is in (ADR-0040 §4): a lodger is sheltered
+/// and keeps its goods under its landlord's roof, up to its floor's share of the building's room,
+/// and the landlord has that much less room there. As [`shelter_of`] with no lets.
+pub(crate) fn shelter_with(
+    lets: &[crate::letting::Let],
+    land: &Land,
+    catalog: &Catalog,
+    params: &PeopleParams,
+    household: PermanentId,
+) -> (bool, crate::person::Keeping) {
+    use civ_grammar::storage;
+    let (mut sheltered, mut keeping) = shelter_of(land, catalog, params, household);
+    for l in lets
+        .iter()
+        .filter(|l| l.lodger == household || l.landlord == household)
+    {
+        let Some(b) = land
+            .buildings
+            .iter()
+            .find(|b| b.id == l.building && b.roofed())
+        else {
+            continue;
+        };
+        let share = (l.floor_m2 / build::floor_m2(&b.spec).max(1e-9)).clamp(0.0, 1.0);
+        if share <= 0.0 {
+            continue;
+        }
+        let room = room_of(b, catalog);
+        let raised = room[storage::RAISED] * share;
+        let roofed = (room[storage::LOFT] + room[storage::FLOOR]) * share;
+        if l.lodger == household {
+            sheltered = true;
+            keeping.raised_kg += raised;
+            keeping.roofed_kg += roofed;
+        } else if keeping.roofed_kg.is_finite() {
+            keeping.raised_kg = (keeping.raised_kg - raised).max(0.0);
+            keeping.roofed_kg = (keeping.roofed_kg - roofed).max(0.0);
+        }
     }
     (sheltered, keeping)
 }
@@ -1499,7 +1544,12 @@ impl Population {
         {
             let members = x.members.len().max(1);
             x.settle_stores(now, &catalog.goods, &|d| fuel_per_day(params, members, d));
-            (x.sheltered, x.keeping) = shelter_of(land, catalog, params, household);
+            (x.sheltered, x.keeping) =
+                shelter_with(&self.letting.lets, land, catalog, params, household);
+        }
+        // A let in a building no longer roofed ends at once (ADR-0040 §3).
+        if !self.letting.lets.is_empty() {
+            self.lets_standing(now, land, catalog, params);
         }
     }
 
@@ -1507,7 +1557,8 @@ impl Population {
     /// where it is not saved; [`shelter_of`]).
     pub fn derive_shelter(&mut self, land: &Land, catalog: &Catalog, params: &PeopleParams) {
         for (_, h) in self.households.iter_mut() {
-            (h.sheltered, h.keeping) = shelter_of(land, catalog, params, h.id);
+            (h.sheltered, h.keeping) =
+                shelter_with(&self.letting.lets, land, catalog, params, h.id);
         }
     }
 
@@ -3025,13 +3076,27 @@ impl Population {
                     .find(|c| c.shape == shape)
                     .map_or(0.0, |c| c.hours(carry))
             };
+            // What its spare sleeping floor would let for over the years a site is weighed, where
+            // lets have been seen (ADR-0040 §5).
+            let (base_m2, per_m2) = letting::sleeping(program);
+            let residents = hh.members.len().max(1) as f64;
+            let rent_h = |shape: build::Shape| {
+                program
+                    .shapes
+                    .iter()
+                    .find(|c| c.shape == shape)
+                    .map_or(0.0, |c| {
+                        let spare = c.living_m2 - base_m2 - per_m2 * residents;
+                        years * self.rent_credit_h_year(ctx, hh, spare)
+                    })
+            };
             let mut best: Option<(f64, NewHome)> = None;
             for shape in std::iter::once(chosen).chain(compact) {
                 let Some(home) = choose_home((p, shape), first) else {
                     continue;
                 };
                 let ground_h = home.receipt.map_or(0.0, |r| f64::from(r.hours));
-                let total = shape_h(shape) + ground_h;
+                let total = shape_h(shape) + ground_h - rent_h(shape);
                 if best.as_ref().is_none_or(|(b, _)| total < *b) {
                     best = Some((total, home));
                 }
@@ -3412,7 +3477,11 @@ impl Population {
         // Whether it keeps the rules for building in force that bind it (M6b slice BH).
         self.count_rule_keeping(ctx, household, id);
         let at = build::centre_m(&site.spec);
-        if !housed
+        // A lodger lives under its landlord's roof until its own is on (ADR-0040 §4): where it
+        // builds is where it goes back to if its let ends first.
+        if !housed && let Some(l) = self.letting.lets.iter_mut().find(|l| l.lodger == household) {
+            l.own_home = at;
+        } else if !housed
             && let Some(&hd) = self.hh_index.get(&household)
             && let Some(x) = self.households.get_mut(hd)
         {
@@ -7265,7 +7334,8 @@ impl Population {
             });
             condition::mend(b, repair.group, repair.share, &def.upkeep, now, rebuilt);
             let plot = b.plot;
-            (x.sheltered, x.keeping) = shelter_of(ctx.land, catalog, params, household);
+            (x.sheltered, x.keeping) =
+                shelter_with(&self.letting.lets, ctx.land, catalog, params, household);
             // Daub renewed is dug beside the building (ADR-0010 §2).
             let mended = e
                 .groups
@@ -7406,7 +7476,8 @@ impl Population {
         use_materials(x, def, &done.used_kg);
         if done.finished == Some(Stage::Finish) {
             // Its lofts and raised floors take goods from now on; stores were settled above.
-            (x.sheltered, x.keeping) = shelter_of(ctx.land, ctx.catalog, params, household);
+            (x.sheltered, x.keeping) =
+                shelter_with(&self.letting.lets, ctx.land, ctx.catalog, params, household);
         }
         if done.finished != Some(Stage::Roof) {
             return;
@@ -7452,7 +7523,8 @@ impl Population {
             .get(&household)
             .and_then(|&hd| self.households.get_mut(hd))
         {
-            (x.sheltered, x.keeping) = shelter_of(ctx.land, ctx.catalog, params, household);
+            (x.sheltered, x.keeping) =
+                shelter_with(&self.letting.lets, ctx.land, ctx.catalog, params, household);
         }
         let Some(bi) = ctx.land.buildings.iter().position(|b| b.id == building) else {
             return;
@@ -7951,6 +8023,9 @@ impl Population {
         self.review_offers(ctx, day);
         // Telegrams handed in at the reviews queued and paid for (M11c).
         self.telegrams_handed(ctx);
+        // Rooms let to households with no roof of their own, before what they leave in custody
+        // (ADR-0040).
+        self.letting_day(ctx, day);
         // Goods kept for households with no roof of their own (M10d slice EG, second part).
         self.custody_day(ctx, day);
         // Those that found a boat would save them more walking over its life than making it

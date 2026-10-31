@@ -1219,6 +1219,7 @@ pub(super) fn decode<R: Read + Seek>(
         people.consignments = decode_consignments(&bytes, rules)?;
         people.kept = decode_kept(&bytes, rules)?;
         people.notes = decode_notes(&bytes, rules)?;
+        people.letting = decode_letting(&bytes, rules)?;
     }
     // Ways (schema 140); before, none.
     if schema >= Schema::V140 {
@@ -12976,6 +12977,62 @@ fn encode_consignments(people: &Population, rules: &Rules) -> Vec<u8> {
         })
         .collect();
     let note_found = fbb.create_vector(&found);
+    // Rooms let, asking rents moved and lets begun lately (schema 220, ADR-0040).
+    let letting = &people.letting;
+    let lets: Vec<_> = letting
+        .lets
+        .iter()
+        .map(|l| {
+            let good = goods.get(l.good).map(|g| fbb.create_string(&g.id));
+            let own_home = save::Point::new(l.own_home.0, l.own_home.1);
+            save::LetSave::create(
+                &mut fbb,
+                &save::LetSaveArgs {
+                    landlord: l.landlord.get(),
+                    lodger: l.lodger.get(),
+                    building: l.building.get(),
+                    floor_m2: l.floor_m2,
+                    good,
+                    rent_kg: l.rent_kg,
+                    begun: l.begun,
+                    due: l.due,
+                    next_review: l.next_review,
+                    unpaid: l.unpaid,
+                    own_home: Some(&own_home),
+                },
+            )
+        })
+        .collect();
+    let lets = (!lets.is_empty()).then(|| fbb.create_vector(&lets));
+    let asking: Vec<_> = letting
+        .asking
+        .iter()
+        .map(|(h, &food_days)| {
+            save::AskingRentSave::create(
+                &mut fbb,
+                &save::AskingRentSaveArgs {
+                    household: h.get(),
+                    food_days,
+                },
+            )
+        })
+        .collect();
+    let asking = (!asking.is_empty()).then(|| fbb.create_vector(&asking));
+    let begun: Vec<_> = letting
+        .begun
+        .iter()
+        .map(|b| {
+            save::LetBegunSave::create(
+                &mut fbb,
+                &save::LetBegunSaveArgs {
+                    day: b.day,
+                    settlement: b.settlement.get(),
+                    kcal_per_m2_month: b.kcal_per_m2_month,
+                },
+            )
+        })
+        .collect();
+    let lets_begun = (!begun.is_empty()).then(|| fbb.create_vector(&begun));
     let root = save::ConsignmentsSave::create(
         &mut fbb,
         &save::ConsignmentsSaveArgs {
@@ -12986,9 +13043,66 @@ fn encode_consignments(people: &Population, rules: &Rules) -> Vec<u8> {
             note_dishonoured: Some(note_dishonoured),
             note_forgeries: Some(note_forgeries),
             note_found: Some(note_found),
+            lets,
+            asking,
+            lets_begun,
         },
     );
     finish(fbb, root)
+}
+
+/// The rooms let saved in `bytes` (schema 220, ADR-0040): none before. A let reckoned in a good
+/// the loaded content no longer has is let go.
+fn decode_letting(bytes: &[u8], rules: &Rules) -> Result<civ_agents::letting::Letting, LoadError> {
+    use civ_agents::letting::{Let, LetBegun, Letting};
+    let goods = &rules.catalog.goods;
+    let root = section_root::<save::ConsignmentsSave>(bytes)
+        .map_err(|e| unreadable(SECTION_CONSIGNMENTS, &e))?;
+    let mut out = Letting::default();
+    let fine = |v: f64| v.is_finite() && v >= 0.0;
+    for l in root.lets().iter().flatten() {
+        let name = l.good().unwrap_or("");
+        let Some(good) = goods.iter().position(|d| d.id == name) else {
+            continue;
+        };
+        if !(fine(l.floor_m2()) && fine(l.rent_kg())) {
+            return Err(LoadError::Malformed("a room let".to_owned()));
+        }
+        let own_home = l.own_home().map_or((0.0, 0.0), |p| (p.x(), p.y()));
+        out.lets.push(Let {
+            landlord: required(l.landlord(), "a let's landlord")?,
+            lodger: required(l.lodger(), "a let's lodger")?,
+            building: required(l.building(), "a let's building")?,
+            floor_m2: l.floor_m2(),
+            good,
+            rent_kg: l.rent_kg(),
+            begun: l.begun(),
+            due: l.due(),
+            next_review: l.next_review(),
+            unpaid: l.unpaid(),
+            own_home,
+        });
+    }
+    for a in root.asking().iter().flatten() {
+        if !fine(a.food_days()) {
+            return Err(LoadError::Malformed("an asking rent".to_owned()));
+        }
+        out.asking.insert(
+            required(a.household(), "an asking rent's household")?,
+            a.food_days(),
+        );
+    }
+    for b in root.lets_begun().iter().flatten() {
+        if !fine(b.kcal_per_m2_month()) {
+            return Err(LoadError::Malformed("a let begun".to_owned()));
+        }
+        out.begun.push(LetBegun {
+            day: b.day(),
+            settlement: required(b.settlement(), "a let's settlement")?,
+            kcal_per_m2_month: b.kcal_per_m2_month(),
+        });
+    }
+    Ok(out)
 }
 
 /// The goods kept for others saved in `bytes` (schema 209, M10d slice EG; their receipts schema

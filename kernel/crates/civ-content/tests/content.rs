@@ -279,6 +279,22 @@ fn the_repository_content_is_clean() {
     assert_eq!(rotary.requires[0].len(), 2);
 }
 
+/// Every recipe of the core pack is made by some work (M11d, fourth part: the telegraph
+/// instrument's and the gas engine's had none, so neither was ever built, however wanted).
+#[test]
+fn every_core_recipe_is_worked_by_an_activity() {
+    let reg = registry(load(&repo_content()));
+    let catalog = &reg.catalog;
+    let unworked: Vec<&str> = catalog
+        .recipes
+        .iter()
+        .enumerate()
+        .filter(|&(r, _)| !catalog.activities.iter().any(|a| a.recipe == Some(r)))
+        .map(|(_, d)| d.id.as_str())
+        .collect();
+    assert!(unworked.is_empty(), "no work makes {unworked:?}");
+}
+
 #[test]
 fn unknown_fields_are_errors_with_a_line() {
     let body = real_preset().replace("[uplift]", "[uplift]\nuplfit_mm_per_yr = 1.0");

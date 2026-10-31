@@ -4837,7 +4837,18 @@ impl Population {
             }) {
                 return Err((Reason::NoTool, Some(t)));
             }
-            let by_time = make::units_in(r, f64::from(a.max_minutes), speed);
+            // A material made toward a tool (bar for an instrument) is worth a session the same
+            // however long it is, while its effort grows with its hours, so one works the
+            // activity's shortest session, as one tries toward a technique, unless its recipe asks
+            // a setup each session (M11d, fourth part: holding bloom and charcoal for a whole day
+            // at the hearth, a household never forged its bar).
+            let material = out_good.tool.is_none() && matches!(worth, MakeWorth::Tool { .. });
+            let session = if material && r.session_h <= 0.0 {
+                a.min_minutes
+            } else {
+                a.max_minutes
+            };
+            let by_time = make::units_in(r, f64::from(session), speed);
             let units = from_inputs.min(wanted).min(by_time);
             if units.is_nan() || units <= 1e-6 {
                 return Err((Reason::NoInputs, None));

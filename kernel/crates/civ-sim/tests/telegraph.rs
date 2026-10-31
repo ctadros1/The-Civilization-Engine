@@ -795,3 +795,82 @@ fn an_office_to_be_short_of_copper_looks_for_it_and_finds_an_outcrop_nobody_pass
     assert!(found(true), "it looked and found the outcrop");
     assert!(!found(false), "nobody passed near it without looking");
 }
+
+/// A household that wants an instrument and holds what it is made of builds it (M11d, fourth
+/// part): until the recipe had a work that made it, an instrument wanted was never built.
+#[test]
+fn an_office_to_be_holding_its_copper_iron_and_timber_builds_its_instrument() {
+    let mut sim = world();
+    let [(a, _, _), (b, _, _)] = pair(&sim);
+    let [instrument, copper, timber, iron] = [
+        "core:good/telegraph_instrument",
+        "core:good/copper",
+        "core:good/timber",
+        "core:good/iron",
+    ]
+    .map(|id| good(&sim, id));
+    teach(&mut sim, a, "core:technique/telegraphy");
+    teach(&mut sim, a, "core:technique/writing");
+    teach(&mut sim, b, "core:technique/telegraphy");
+    for (g, kg) in [(copper, 20.0), (timber, 10.0), (iron, 16.0)] {
+        set(&mut sim, a, g, kg);
+    }
+    let held = |sim: &Sim, g: usize| sim.people().household(a).expect("household").stores[g];
+    for _ in 0..10 {
+        sim.advance_minutes(24 * 60).expect("advances");
+    }
+    assert!(
+        held(&sim, instrument) > 0.0,
+        "building it: {} of an instrument",
+        held(&sim, instrument)
+    );
+    assert!(held(&sim, iron) < 16.0, "its iron went into it");
+}
+
+/// A material made toward a tool is worth a session whatever its length, and its effort grows
+/// with its hours, so a household works the shortest session (M11d, fourth part): one holding the
+/// bloom and charcoal for a whole day at the hearth forges its instrument's bar, where before it
+/// never did (the session it weighed was a whole day of heavy work, never worth its effort).
+#[test]
+fn a_household_with_bloom_and_charcoal_enough_for_a_long_day_forges_its_bar() {
+    let mut sim = world();
+    let [(a, _, _), (b, _, _)] = pair(&sim);
+    let [instrument, timber, iron, bloom, charcoal] = [
+        "core:good/telegraph_instrument",
+        "core:good/timber",
+        "core:good/iron",
+        "core:good/iron_bloom",
+        "core:good/charcoal",
+    ]
+    .map(|id| good(&sim, id));
+    // Forging alone: the bloom it holds is all the bloom it has.
+    for t in [
+        "core:technique/telegraphy",
+        "core:technique/writing",
+        "core:technique/forging",
+    ] {
+        teach(&mut sim, a, t);
+    }
+    teach(&mut sim, b, "core:technique/telegraphy");
+    for (g, kg) in [
+        (timber, 10.0),
+        (iron, 0.0),
+        (bloom, 10.0),
+        (charcoal, 100.0),
+    ] {
+        set(&mut sim, a, g, kg);
+    }
+    let k = sim.with_ctx_for_tests(|pop, ctx| pop.keep_for_tests(ctx, a));
+    assert!(
+        k[instrument] >= 1.0 && k[iron] >= 8.0,
+        "it wants the instrument's iron"
+    );
+    for _ in 0..20 {
+        sim.advance_minutes(24 * 60).expect("advances");
+    }
+    let left = sim.people().household(a).expect("household").stores[bloom];
+    assert!(
+        left <= 5.0,
+        "it forged bar from its bloom: {left:.1} kg of 10 left"
+    );
+}

@@ -8255,6 +8255,24 @@ and M6a gives rivers a daily flow.
       transit, coal, works, roundtrip, contagion, carts, sickness, suspicion, mills, discovery,
       knowledge, firms, iron and lamps; the ten smoke worlds. **M11f is done**, and with it M11's
       modern architecture and waste as designed.
+    - *M11d, fifth part (2026-10-31): why nothing was built, found* (backlog A). **No activity made
+      the instrument:** `build_telegraph_instrument` and `build_gas_engine` were the only core recipes
+      no activity worked, so an instrument wanted with its materials held could never be built; both
+      now have plain make activities (as `build_dynamo`), and a content test holds that every core
+      recipe is worked by an activity. **Forging stalled once inputs were ample:** `best_make` sized a
+      material's session to the activity's longest (forge_bar 8 h, smelt_iron 10 h) while its worth
+      toward a tool is flat, so with bloom and charcoal enough for a long day forging was never worth
+      it (bloom 10 kg and iron 0 for 65 days in a probe); a material made toward a tool, with no
+      per-session setup, is now made in the activity's shortest session, as trying toward a
+      technique is sized. Tools themselves are unchanged. **Found, not fixed:** charcoal for a tool is
+      burned only from the hearth's wood, since gathering a fuel ignores a tool's need; valuing it so
+      piled wood but stalled the 8-hour burns (burning has a setup); left for a fix of session sizing
+      for recipes with a setup. The demo's "way there" line sums the knowing households, so
+      Sedgehollow's wanter held no iron itself. **Tested:** an office to be holding copper, iron and
+      timber builds its instrument within 10 days; a household with bloom and charcoal for a long day
+      forges within 20; both fail with the fixes reverted; telegraph, iron, metal, deposits, works,
+      coal, firms, market, people, homes, knowledge, steel, residues, wires, gas, destructor, mills,
+      lamps.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

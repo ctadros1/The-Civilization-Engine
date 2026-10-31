@@ -38,6 +38,57 @@ fn to_segment(p: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64 {
     (p.0 - (a.0 + t * dx)).hypot(p.1 - (a.1 + t * dy))
 }
 
+/// The side of a block of ground looked over, metres: twice how far a walker sees a body showing,
+/// so a walk that crosses a block has about seen it (ADR-0043 §2; a design prior).
+pub const LOOKED_BLOCK_M: f64 = 2.0 * FIND_M;
+
+/// Cells on the side of a block of ground looked over on `map`.
+pub fn looked_block_cells(map: &WorldMap) -> u32 {
+    ((LOOKED_BLOCK_M / f64::from(map.cell_size_m).max(1e-6)).round() as u32).max(1)
+}
+
+/// The block of ground looked over that holds `cell` of `map`: blocks of
+/// [`looked_block_cells`] a side, row by row from the map's corner.
+pub fn looked_block(map: &WorldMap, cell: usize) -> u32 {
+    let b = looked_block_cells(map) as usize;
+    let width = map.width as usize;
+    let cols = width.div_ceil(b);
+    let (x, y) = (cell % width, cell / width);
+    ((y / b) * cols + x / b) as u32
+}
+
+/// The ground each settlement's prospectors have walked over (ADR-0043 §2), by blocks of
+/// [`looked_block`], with the day each was first looked over. A household of no settlement keeps
+/// its own, under its own id. Nothing fades: a body showing at the surface does not appear later.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct GroundLooked {
+    by: BTreeMap<PermanentId, BTreeMap<u32, i32>>,
+}
+
+impl GroundLooked {
+    /// `key`'s prospectors looked over `block` on `day`; the first day is kept.
+    pub fn mark(&mut self, key: PermanentId, block: u32, day: i32) {
+        self.by.entry(key).or_default().entry(block).or_insert(day);
+    }
+
+    /// Whether `key`'s prospectors have looked over `block`.
+    pub fn looked(&self, key: PermanentId, block: u32) -> bool {
+        self.by.get(&key).is_some_and(|b| b.contains_key(&block))
+    }
+
+    /// How many blocks `key`'s prospectors have looked over.
+    pub fn blocks(&self, key: PermanentId) -> usize {
+        self.by.get(&key).map_or(0, BTreeMap::len)
+    }
+
+    /// Every block looked over, `(key, block, day)`, by key and block.
+    pub fn entries(&self) -> impl Iterator<Item = (PermanentId, u32, i32)> + '_ {
+        self.by
+            .iter()
+            .flat_map(|(&k, b)| b.iter().map(move |(&block, &day)| (k, block, day)))
+    }
+}
+
 /// Places drawn to look at when choosing where to prospect (M11d): enough to find ground of the
 /// right kind within reach where there is any, few enough to draw on every decision.
 const PROSPECT_DRAWS: usize = 32;
@@ -46,22 +97,25 @@ const PROSPECT_DRAWS: usize = 32;
 const PURPOSE_PROSPECT: u64 = 0x7072_6f73_7065_6374; // "prospect"
 
 /// A walk to look for a body (M11d): out to `at`, across to `across`, and home; `walk_min` is the
-/// walk out and `loop_min` the whole of it.
+/// walk out and `loop_min` the whole of it; `fresh` the share of the reachable ground of the right
+/// kind not yet looked over (ADR-0043 §3).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Prospect {
     pub at: (f32, f32),
     pub across: (f32, f32),
     pub walk_min: f64,
     pub loop_min: f64,
+    pub fresh: f64,
 }
 
 impl Population {
     /// Where someone of household `household` would look on day `day` for a body of good `good`
     /// (M11d): two places drawn afresh each day on ground of the slope the land profile's rule for
-    /// it lays bodies on, within `max_walk_min` of its home by its walking field `reach`, the first
-    /// and the one farthest from it, and the walks. None where the profile lays no such body or no
-    /// such ground is in reach.
-    /// Looking finds what walking brings ([`Self::look_for_deposits`]).
+    /// it lays bodies on, within `max_walk_min` of its home by its walking field `reach`, and not
+    /// yet looked over by its settlement's prospectors (ADR-0043 §3), the first and the one
+    /// farthest from it, the walks, and the share of such ground not yet looked over. None where
+    /// the profile lays no such body, no such ground is in reach, or all of it has been looked
+    /// over. Looking finds what walking brings ([`Self::look_for_deposits`]).
     pub(super) fn prospect_points(
         &self,
         ctx: &Ctx,
@@ -71,9 +125,19 @@ impl Population {
         max_walk_min: f64,
         day: i64,
     ) -> Option<Prospect> {
-        let home = self.household(household)?.home;
+        let hh = self.household(household)?;
+        let (home, key) = (hh.home, hh.settlement.unwrap_or(household));
         let rule = ctx.land_params.deposits.iter().find(|r| r.good == good)?;
         let map = ctx.map;
+        let kind = |cell: usize| {
+            let slope = f64::from(civ_world::terrain::slope_at(map, cell));
+            map.water[cell] == WATER_LAND
+                && slope >= rule.slope.0
+                && slope <= rule.slope.1
+                && reach
+                    .seconds_to(cell)
+                    .is_some_and(|s| f64::from(s) / 60.0 <= max_walk_min)
+        };
         let mut rng = Rng64::from_key(&[ctx.seed, PURPOSE_PROSPECT, household.get(), day as u64]);
         // As far as a walk of that long goes at an easy pace off the trails.
         let radius =
@@ -104,15 +168,52 @@ impl Population {
                 continue;
             };
             let walk = f64::from(secs) / 60.0;
-            if walk <= max_walk_min {
+            // Ground they have looked over already is not looked at again (ADR-0043 §3).
+            if walk <= max_walk_min && !self.ground_looked.looked(key, looked_block(map, cell)) {
                 found.push((at, walk));
             }
         }
-        // Anywhere of the kind within reach, a day at a time: with no memory of where they have
-        // looked, the search covers the ground over the days, a near place worth more than a far.
-        // From there across to the place of the day's draws farthest from it, and home: a loop
-        // over the ground rather than out and back along one line.
+        // Anywhere of the kind within reach not yet looked over, a day at a time: the search
+        // covers the ground over the days, a near place worth more than a far. From there across
+        // to the place of the day's draws farthest from it, and home: a loop over the ground
+        // rather than out and back along one line.
         let &(at, walk_min) = found.first()?;
+        // The share of the ground of the kind within reach not yet looked over, by blocks, each
+        // judged by its middle cell; none of the kind measured, all of it is fresh.
+        let fresh = if self.ground_looked.blocks(key) == 0 {
+            1.0
+        } else {
+            let b = looked_block_cells(map);
+            let side = f64::from(b) * cell_m;
+            let (cols, rows) = (map.width.div_ceil(b), map.height.div_ceil(b));
+            let span = |c: f64, n: u32| {
+                let lo = ((c - radius) / side).floor().max(0.0) as u32;
+                let hi = (((c + radius) / side).floor().max(0.0) as u32).min(n.saturating_sub(1));
+                lo..=hi
+            };
+            let (mut all, mut looked) = (0u32, 0u32);
+            for by in span(f64::from(home.1), rows) {
+                for bx in span(f64::from(home.0), cols) {
+                    let x = (bx * b + b / 2).min(map.width - 1);
+                    let y = (by * b + b / 2).min(map.height - 1);
+                    let cell = (y * map.width + x) as usize;
+                    if kind(cell) {
+                        all += 1;
+                        if self.ground_looked.looked(key, by * cols + bx) {
+                            looked += 1;
+                        }
+                    }
+                }
+            }
+            if all == 0 {
+                1.0
+            } else {
+                f64::from(all - looked) / f64::from(all)
+            }
+        };
+        if fresh <= 0.0 {
+            return None;
+        }
         let span = |p: (f32, f32)| f64::from((p.0 - at.0).hypot(p.1 - at.1));
         let (across, back_min) = found
             .iter()
@@ -126,7 +227,28 @@ impl Population {
             across,
             walk_min,
             loop_min,
+            fresh,
         })
+    }
+
+    /// Person `who` of household `household` walked the land cells `cells` looking for a body
+    /// (ADR-0043 §2): its settlement's prospectors have looked over the blocks they cross.
+    pub(super) fn look_over(
+        &mut self,
+        map: &WorldMap,
+        household: PermanentId,
+        cells: &[u32],
+        day: i64,
+    ) {
+        let Some(hh) = self.household(household) else {
+            return;
+        };
+        let key = hh.settlement.unwrap_or(household);
+        let day = i32::try_from(day).unwrap_or(i32::MAX);
+        for &c in cells {
+            self.ground_looked
+                .mark(key, looked_block(map, c as usize), day);
+        }
     }
 
     /// Where someone of household `household` would look on day `day` for a body of good `good`
@@ -241,7 +363,25 @@ impl Population {
 
 #[cfg(test)]
 mod tests {
-    use super::to_segment;
+    use super::{GroundLooked, to_segment};
+    use civ_core::PermanentId;
+
+    #[test]
+    fn ground_looked_over_keeps_the_first_day_for_each_settlement() {
+        let (s, t) = (
+            PermanentId::from_raw(3).expect("an id"),
+            PermanentId::from_raw(9).expect("an id"),
+        );
+        let mut g = GroundLooked::default();
+        g.mark(s, 40, 10);
+        g.mark(s, 40, 12);
+        g.mark(s, 7, 11);
+        g.mark(t, 40, 5);
+        assert!(g.looked(s, 40) && g.looked(t, 40) && !g.looked(t, 7));
+        assert_eq!((g.blocks(s), g.blocks(t)), (2, 1));
+        let all: Vec<_> = g.entries().collect();
+        assert_eq!(all, vec![(s, 7, 11), (s, 40, 10), (t, 40, 5)]);
+    }
 
     #[test]
     fn the_distance_to_a_segment_is_to_its_nearest_point() {

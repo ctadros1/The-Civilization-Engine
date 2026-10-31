@@ -1251,10 +1251,20 @@ struct DepositKnownEntry {
   finder: ulong;
 }
 
+// Schema 220 (ADR-0043 §2): the ground each settlement's prospectors have walked over, by key (a
+// settlement, or a household of none) and block (squares of twice the 50 m a walker sees, in the
+// map's cells, row by row from its corner), with the day each was first looked over.
+struct GroundLookedEntry {
+  key: ulong;
+  day: int;
+  block: uint;
+}
+
 table Deposits {
   goods: [string] (id: 0);
   bodies: [DepositBody] (id: 1);
   known: [DepositKnownEntry] (id: 2);
+  looked: [GroundLookedEntry] (id: 3);
 }
 
 // Section "earth" (schema 20): earthworks and what they have done to the ground (ADR-0010 §2-3).

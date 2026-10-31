@@ -23,7 +23,7 @@ use crate::build::{self, HomeWork};
 use crate::condition;
 use crate::decide::{
     self, BuildOption, Facts, FieldOption, GiverOption, Limits, MakeOption, MakeWorth, PatchOption,
-    WaterOption,
+    ProspectWalk, WaterOption,
 };
 use crate::farm::{self, FarmView, Site};
 use crate::history::{ChronicleEvent, ChronicleKind, PersonRecord, Reason, Receipt, Union};
@@ -125,7 +125,9 @@ mod wells;
 pub use wells::WellWeighed;
 mod word;
 
-pub use deposits::{DepositKnown, FIND_M, Prospect};
+pub use deposits::{
+    DepositKnown, FIND_M, GroundLooked, LOOKED_BLOCK_M, Prospect, looked_block, looked_block_cells,
+};
 pub use influence::{PURPOSE_IDEOLOGY_HEARD, Reached};
 pub use loads::{
     DIES_IN_RUIN, DIES_UNDER_FLOOR, DIES_UNDER_ROOF, LIVE_PA, SNOW_TOLD_PA, SPILLED,
@@ -692,6 +694,8 @@ pub struct Population {
     pub fire_trust: Vec<crate::caution::FireTrust>,
     /// The deposits each settlement knows, in the order they were found (ADR-0010 §1).
     pub deposits_known: Vec<DepositKnown>,
+    /// The ground each settlement's prospectors have looked over (ADR-0043 §2).
+    pub ground_looked: deposits::GroundLooked,
     /// What each person remembers of others (ADR-0014).
     pub ties: crate::ties::Ties,
     /// Each settlement's standing as worked out on the first of the month (ADR-0014 §3).
@@ -4511,6 +4515,7 @@ impl Population {
                         across,
                         walk_min,
                         loop_min,
+                        fresh,
                     } = self.prospect_points(
                         ctx,
                         hh.id,
@@ -4535,7 +4540,11 @@ impl Population {
                         at,
                         deposit: None,
                         by_ride: None,
-                        prospect: Some((across, loop_min)),
+                        prospect: Some(ProspectWalk {
+                            across,
+                            loop_min,
+                            fresh,
+                        }),
                     });
                 };
                 // Out to the pit on a line's train (M10b slice DX, fourth part), where the ride's
@@ -6188,6 +6197,12 @@ impl Population {
                         .ways
                         .walked(&cells, now.day_index(), civ_land::ways::WALK);
                     self.look_for_deposits(ctx, who, household, &trip.points);
+                    // A walk out to look for a body: the ground it crossed has been looked over
+                    // (ADR-0043 §2).
+                    if act_target == Target::None && def.as_ref().is_some_and(|d| d.digs.is_some())
+                    {
+                        self.look_over(map, household, &cells, now.day_index());
+                    }
                 }
             }
             Some(Step::Work { minutes }) => match def.as_ref().map(|d| d.behavior) {

@@ -1257,3 +1257,103 @@ fn a_household_that_cuts_a_patch_of_bog_ore_down_judges_it_by_what_is_left() {
     let cut: f64 = far.iter().map(|&p| 30.0 - stock(&sim, p)).sum();
     assert!(cut >= 5.0, "it cut {cut:.1} units of the ore further out");
 }
+
+/// Prospecting remembers where people have looked (ADR-0043 §2-§3): an office to be short of its
+/// instrument's copper, where no copper ore lies anywhere (no body, nothing to pick from the
+/// surface), looks over the ground of the kind within its reach, its hope falling as the ground is
+/// covered, and so looks for a bounded time; what it looked over is saved and loaded exactly.
+/// Before, each day's walk was drawn afresh and worth the same: in these six months the household
+/// walked 7,430 person-hours looking (627 in the first month, 1,907 in the fourth).
+#[test]
+fn an_office_to_be_short_of_copper_where_none_lies_stops_looking_once_its_ground_is_covered() {
+    let mut sim = world();
+    let [(a, sa, _), (b, _, _)] = pair(&sim);
+    let ore = good(&sim, "core:good/copper_ore");
+    // No copper ore anywhere: no body, and none to pick from the surface.
+    let r = sim
+        .rules()
+        .land
+        .resources
+        .iter()
+        .position(|x| x.good == ore)
+        .expect("surface copper ore");
+    {
+        let rules = sim.rules_mut_for_tests().expect("rules of its own");
+        let civ_land::Growth::Deposit { stock_per_ha } = &mut rules.land.resources[r].growth else {
+            panic!("copper ore is a deposit");
+        };
+        stock_per_ha.iter_mut().for_each(|s| *s = 0.0);
+    }
+    let land = sim.land_mut_for_tests();
+    land.deposits.retain(|d| usize::from(d.body.good) != ore);
+    land.stocks[r].iter_mut().for_each(|s| *s = 0.0);
+    sim.people_mut_for_tests().rebuild_indexes();
+    for t in [
+        "core:technique/telegraphy",
+        "core:technique/writing",
+        "core:technique/copper_smelting",
+    ] {
+        teach(&mut sim, a, t);
+    }
+    teach(&mut sim, b, "core:technique/telegraphy");
+    for (g, kg) in [("core:good/iron", 8.0), ("core:good/timber", 4.0)] {
+        let g = good(&sim, g);
+        set(&mut sim, a, g, kg);
+    }
+    let dig = sim
+        .rules()
+        .catalog
+        .activities
+        .iter()
+        .position(|x| x.id == "core:activity/dig_ore")
+        .expect("digging ore") as u16;
+    // Person-hours out looking, by a look every ten minutes, each thirty days.
+    let mut months = [0.0f64; 6];
+    for hours in months.iter_mut() {
+        for _ in 0..30 * 144 {
+            sim.advance_minutes(10).expect("advances");
+            let members = &sim.people().household(a).expect("household").members;
+            let out = sim
+                .people()
+                .people
+                .iter()
+                .filter(|(_, p)| {
+                    members.contains(&p.id)
+                        && p.act.def == dig
+                        && p.act.target == civ_agents::Target::None
+                })
+                .count();
+            *hours += out as f64 / 6.0;
+        }
+    }
+    let looked = sim.people().ground_looked.blocks(sa);
+    assert!(
+        months[0] > 0.0 && looked >= 50,
+        "it looked: {months:.0?} person-hours a month over {looked} blocks"
+    );
+    let all: f64 = months.iter().sum();
+    assert!(
+        all <= 150.0,
+        "it looked for {all:.0} person-hours in six months: {months:.0?}"
+    );
+    // The ground looked over is saved and loaded exactly.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(
+        &mut sim,
+        &saves,
+        commons_persist::SaveKind::Manual,
+        "looked over",
+    )
+    .expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.people().ground_looked, sim.people().ground_looked);
+    let (x, y) = (
+        persist::encode_sections(&sim),
+        persist::encode_sections(&loaded),
+    );
+    for (p, q) in x.iter().zip(&y) {
+        assert!(p.bytes == q.bytes, "section `{}` differs", p.tag);
+    }
+}

@@ -473,16 +473,26 @@ pub struct PatchOption {
     /// than walking there (M10b slice DX, fourth part).
     pub by_ride: Option<RideLegs>,
     /// For digging where the settlement knows no body of the good within reach: a walk to look
-    /// for one over the kind of ground it lies in, out to `at`, across to this point and home, and
-    /// the minutes of the whole loop (M11d; ADR-0010 §1: a body is found when a route passes near
-    /// it). Nothing is dug.
-    pub prospect: Option<((f32, f32), f64)>,
+    /// for one over the kind of ground it lies in, out to `at` and on ([`ProspectWalk`]; M11d;
+    /// ADR-0010 §1: a body is found when a route passes near it). Nothing is dug.
+    pub prospect: Option<ProspectWalk>,
+}
+
+/// A walk to look for a body (M11d): from `at` across to `across` and home, `loop_min` the
+/// minutes of the whole loop; `fresh` the share of the reachable ground of the right kind its
+/// settlement has not yet looked over, to which its hope is held (ADR-0043 §3).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ProspectWalk {
+    pub across: (f32, f32),
+    pub loop_min: f64,
+    pub fresh: f64,
 }
 
 /// What a walk over the right ground to look for a body is worth, in loads of what the household
 /// is short of (M11d): a body found gives many loads, and a day's walk finds one with well under
-/// certainty, so about one load's worth together. A tuning value, logged as a nudge (plan §9):
-/// the research gives no figure for how often prospecting found an outcrop.
+/// certainty, so about one load's worth together, while none of the ground has been looked over;
+/// it falls with the share looked over (ADR-0043 §3). A tuning value, logged as a nudge (plan
+/// §9): the research gives no figure for how often prospecting found an outcrop.
 pub const PROSPECT_HOPE: f64 = 1.0;
 
 /// A ride out on a line's train (M10b slice DX, fourth part): the station to walk to, and the
@@ -1321,7 +1331,12 @@ pub fn candidates(
                 // A walk to look for a body nobody here knows of (M11d): out, across and home, in
                 // daylight, worth what a found body would bring toward the tools it is for, as
                 // far as such a walk is believed to find one.
-                if let Some((across, out_and_home)) = patch.prospect {
+                if let Some(ProspectWalk {
+                    across,
+                    loop_min: out_and_home,
+                    fresh,
+                }) = patch.prospect
+                {
                     if def.daylight_only && light < out_and_home + 20.0 {
                         excluded.push((id, Reason::NotInDark));
                         continue;
@@ -1331,7 +1346,8 @@ pub fn candidates(
                         continue;
                     }
                     let scale = patch.tool_need_kg.min(limits.carry_kg);
-                    let found = scale / (scale + scale / 2.0).max(1e-6);
+                    // As far as the ground is fresh: where they have looked they found nothing.
+                    let found = scale / (scale + scale / 2.0).max(1e-6) * fresh.clamp(0.0, 1.0);
                     term(&mut terms, Reason::Tools, w.w_tools * found * PROSPECT_HOPE);
                     if patch.tool_blocked {
                         term(

@@ -5614,6 +5614,165 @@ impl<'a> DepositKnownEntry {
 
 }
 
+// struct GroundLookedEntry, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct GroundLookedEntry(pub [u8; 16]);
+impl Default for GroundLookedEntry { 
+  fn default() -> Self { 
+    Self([0; 16])
+  }
+}
+impl ::core::fmt::Debug for GroundLookedEntry {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("GroundLookedEntry")
+      .field("key", &self.key())
+      .field("day", &self.day())
+      .field("block", &self.block())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for GroundLookedEntry {}
+impl<'a> ::flatbuffers::Follow<'a> for GroundLookedEntry {
+  type Inner = &'a GroundLookedEntry;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a GroundLookedEntry>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a GroundLookedEntry {
+  type Inner = &'a GroundLookedEntry;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<GroundLookedEntry>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for GroundLookedEntry {
+    type Output = GroundLookedEntry;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const GroundLookedEntry as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for GroundLookedEntry {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> GroundLookedEntry {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    key: u64,
+    day: i32,
+    block: u32,
+  ) -> Self {
+    let mut s = Self([0; 16]);
+    s.set_key(key);
+    s.set_day(day);
+    s.set_block(block);
+    s
+  }
+
+  pub fn key(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_key(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn day(&self) -> i32 {
+    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_day(&mut self, x: i32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn block(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[12..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_block(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[12..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct EarthworkRecord, aligned to 8
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -41581,6 +41740,7 @@ impl<'a> Deposits<'a> {
   pub const VT_GOODS: ::flatbuffers::VOffsetT = 4;
   pub const VT_BODIES: ::flatbuffers::VOffsetT = 6;
   pub const VT_KNOWN: ::flatbuffers::VOffsetT = 8;
+  pub const VT_LOOKED: ::flatbuffers::VOffsetT = 10;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -41592,6 +41752,7 @@ impl<'a> Deposits<'a> {
     args: &'args DepositsArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Deposits<'bldr>> {
     let mut builder = DepositsBuilder::new(_fbb);
+    if let Some(x) = args.looked { builder.add_looked(x); }
     if let Some(x) = args.known { builder.add_known(x); }
     if let Some(x) = args.bodies { builder.add_bodies(x); }
     if let Some(x) = args.goods { builder.add_goods(x); }
@@ -41620,6 +41781,13 @@ impl<'a> Deposits<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, DepositKnownEntry>>>(Deposits::VT_KNOWN, None)}
   }
+  #[inline]
+  pub fn looked(&self) -> Option<::flatbuffers::Vector<'a, GroundLookedEntry>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, GroundLookedEntry>>>(Deposits::VT_LOOKED, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Deposits<'_> {
@@ -41631,6 +41799,7 @@ impl ::flatbuffers::Verifiable for Deposits<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("goods", Self::VT_GOODS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, DepositBody>>>("bodies", Self::VT_BODIES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, DepositKnownEntry>>>("known", Self::VT_KNOWN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, GroundLookedEntry>>>("looked", Self::VT_LOOKED, false)?
      .finish();
     Ok(())
   }
@@ -41639,6 +41808,7 @@ pub struct DepositsArgs<'a> {
     pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub bodies: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, DepositBody>>>,
     pub known: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, DepositKnownEntry>>>,
+    pub looked: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, GroundLookedEntry>>>,
 }
 impl<'a> Default for DepositsArgs<'a> {
   #[inline]
@@ -41647,6 +41817,7 @@ impl<'a> Default for DepositsArgs<'a> {
       goods: None,
       bodies: None,
       known: None,
+      looked: None,
     }
   }
 }
@@ -41669,6 +41840,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> DepositsBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Deposits::VT_KNOWN, known);
   }
   #[inline]
+  pub fn add_looked(&mut self, looked: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , GroundLookedEntry>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Deposits::VT_LOOKED, looked);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> DepositsBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     DepositsBuilder {
@@ -41689,6 +41864,7 @@ impl ::core::fmt::Debug for Deposits<'_> {
       ds.field("goods", &self.goods());
       ds.field("bodies", &self.bodies());
       ds.field("known", &self.known());
+      ds.field("looked", &self.looked());
       ds.finish()
   }
 }

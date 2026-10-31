@@ -80,7 +80,7 @@ use civ_agents::knowledge::{KnowledgeEvent, KnowledgeEventKind};
 use civ_agents::ledger::{Channel, Trade};
 use civ_agents::market::{Market, MoneyBelief, MonthOfTrade, Offer};
 use civ_agents::person::{Know, KnowSource};
-use civ_agents::population::DepositKnown;
+use civ_agents::population::{DepositKnown, GroundLooked};
 use civ_agents::seats::Seats;
 use civ_agents::wealth::{Spread, WealthYear};
 use civ_agents::{
@@ -1056,7 +1056,8 @@ pub(super) fn decode<R: Read + Seek>(
     // Deposits (schema 19); an older save places them from the seed once it is loaded.
     if schema >= Schema::V19 {
         let bytes = single_chunk(reader, SECTION_DEPOSITS)?;
-        (land.deposits, people.deposits_known) = decode_deposits(&bytes, rules)?;
+        (land.deposits, people.deposits_known, people.ground_looked) =
+            decode_deposits(&bytes, rules)?;
     }
     // Earthworks (schema 20); before them nobody had changed the ground.
     if schema >= Schema::V20 {
@@ -4441,23 +4442,30 @@ fn encode_deposits(land: &Land, pop: &Population, goods: &[&str]) -> Vec<u8> {
         })
         .collect();
     let known = fbb.create_vector(&known);
+    let looked: Vec<save::GroundLookedEntry> = pop
+        .ground_looked
+        .entries()
+        .map(|(key, block, day)| save::GroundLookedEntry::new(key.get(), day, block))
+        .collect();
+    let looked = fbb.create_vector(&looked);
     let root = save::Deposits::create(
         &mut fbb,
         &save::DepositsArgs {
             goods: Some(dictionary),
             bodies: Some(bodies),
             known: Some(known),
+            looked: Some(looked),
         },
     );
     finish(fbb, root)
 }
 
-/// The bodies and what each settlement knows of them. Knowledge of a body that was dropped goes
-/// with it.
+/// The bodies, what each settlement knows of them, and the ground its prospectors have looked over
+/// (none in a save without it). Knowledge of a body that was dropped goes with it.
 fn decode_deposits(
     bytes: &[u8],
     rules: &Rules,
-) -> Result<(Vec<Deposit>, Vec<DepositKnown>), LoadError> {
+) -> Result<(Vec<Deposit>, Vec<DepositKnown>, GroundLooked), LoadError> {
     let root =
         section_root::<save::Deposits>(bytes).map_err(|e| unreadable(SECTION_DEPOSITS, &e))?;
     let goods: Vec<Option<usize>> = read_strings(root.goods())
@@ -4505,7 +4513,11 @@ fn decode_deposits(
             at: time(k.at()),
         });
     }
-    Ok((out, known))
+    let mut looked = GroundLooked::default();
+    for g in root.looked().iter().flatten() {
+        looked.mark(required(g.key(), "ground looked over")?, g.block(), g.day());
+    }
+    Ok((out, known, looked))
 }
 
 // ---- Helpers -----------------------------------------------------------------------------------

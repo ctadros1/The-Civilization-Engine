@@ -8434,6 +8434,43 @@ and M6a gives rivers a daily flow.
       passing the hearth carried on, from each end, along the longest stretch meeting it there (ends
       within a cell and a half), as far as it goes; a single stretch long enough is taken as before
       (`first_trail_out`, a unit test). The smoke's failure says how near a trail came.
+    - *M11d, twelfth part (2026-10-31): what is left of a source, and where people have looked*
+      (backlog A; research 03-08, written for it; [ADR-0043](decisions/0043-what-is-left-and-where-people-have-looked.md)).
+      The tenth part's two faults of memory, fixed. **A stock that only falls is judged by what is
+      left:** a place of a resource that does not renew (stone, flint, copper ore, bog ore) is
+      remembered, on each visit, by the mean of the hours worked there as before, scaled by how much
+      less as many hours more there would give as the place was left than the visit gave
+      (`Land::yield_around`, taking nothing; `KnownPatch::saw_left`), and never fades back to what
+      land of its kind would give (`ResourceParams::memory_days`); resources that renew are
+      remembered as before. **Prospecting remembers where people have looked:** a settlement keeps
+      the 100 m blocks its prospectors' walks crossed, with the day each was first looked over
+      (`GroundLooked`); the day's draws keep only ground not yet looked over, and a walk's hope is
+      `PROSPECT_HOPE` times the share of the reachable ground of the right kind not yet looked over
+      (`ProspectWalk::fresh`), none when all is covered. Saves 220 (unreleased) gains the ground
+      looked over in the deposits section; content and wire unchanged. **Rebased onto the revert of
+      the tenth part's expectation** (1c0d729): the bog-ore scene is re-added only as this slice's
+      helper, its settlement beginning with three hours' knowledge of the near patch, since land of
+      its kind pooled over the bare ground round it is not expected to repay the walk. **Tried and
+      not kept:** remembering a place by the last sight of what was left alone follows whoever went
+      last; at a capable adult's pace flint was believed a quarter richer than its workers found it
+      (an instrument not begun in ten days, a sickhouse's care not grown), at the worker's pace the
+      charcoal scene burned its first mound twenty days late or (on all the hours) word's village
+      had a law of its own before its scene began and faction's petition seated another keeper.
+      Scaling the mean changes only what depletion changes. **Tested:** the bog-ore scene with no
+      other ore (over 150 days no trip to the near patch brings almost nothing, the patch is cut to
+      under 30 of its 45 units, its expectation ends within a tenth of what was first known of it
+      above what it gives, and ore laid over a block 45-55 minutes out is then cut; with the old
+      memory the household walked back for almost nothing on six days); an office to be short of
+      copper where no copper ore lies anywhere (57 person-hours looking in six months over 182
+      blocks, where without the memory it walked 7,430, 627 in the first month and 1,907 in the
+      fourth), its ground looked over saved and loaded exactly; the outcrop scene still finds its
+      body; civ-land's and civ-agents' own; 47 civ-sim targets (the list the M11d parts run, with
+      contagion, settlements, tips, wells, word and every other that gathers, digs or draws
+      water); the smoke. Nothing nudged; the flat hope of one
+      load on fresh ground stays the logged NUDGE. **Not yet:** the demo world measured again
+      (Thorndale's and Stonefield's person-hours of looking, and whether Thorndale's wanter goes on
+      from its emptied patch); ground looked over on errands, word of barren ground between
+      settlements, and deadwood (about 14 years to renew) under the new memory.
     - *Sewers and settling (2026-10-31, backlog D; [ADR-0041](decisions/0041-sewers-and-treatment.md)).*
       A polity lays a sewer by a `lay_sewer` law (`PolicyKind` appended; it answers
       `source_suspected` and `heaps_near` on `lay_current`'s machinery: forecast, way site, common

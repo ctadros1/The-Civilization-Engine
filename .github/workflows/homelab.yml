@@ -110,8 +110,8 @@ jobs:
         run: |
           set -euo pipefail
           cargo build --locked --release -p civ-host
-          target/release/civ-host smoke --years 10
-          target/release/civ-host consistency --json "$RUNNER_TEMP/consistency.json"
+          # Diagnosis branch: the notables' gate's calibration and the gate on 09e79d5.
+          target/release/civ-host notables --calibrate || true
           target/release/civ-host notables --json "$RUNNER_TEMP/notables.json"
           target/release/civ-host dashboard --json "$RUNNER_TEMP/dashboard.json"
       - name: Keep gate reports

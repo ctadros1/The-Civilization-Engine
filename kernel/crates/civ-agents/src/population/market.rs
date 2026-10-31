@@ -75,6 +75,15 @@ pub(crate) struct Holding {
     pub food_keep: f64,
 }
 
+/// What a decision has already worked out for its household now that the market would ask
+/// again: what each good costs it in its own hours (worked out when first wanted) and the tools
+/// it wants, capped by the power it could use. The same as asked afresh, only not asked twice.
+#[derive(Clone, Copy)]
+pub(crate) struct Known<'a> {
+    pub costs: &'a std::cell::OnceCell<Vec<Option<f64>>>,
+    pub wants: &'a [f64],
+}
+
 /// A vehicle a household could make that would keep it `gain_h` hours beyond the walk's on the
 /// best errand it weighed (M8b slice CO, third part; slice CP, third part): its catalog index and
 /// the cell it would be made at (a boat's bank, a cart's door).
@@ -578,6 +587,17 @@ impl Population {
     /// its members' work needs and a spare, what the tools it lacks are made of, its firewood,
     /// and what it builds with while it has no finished home or builds anything.
     pub(crate) fn holding_of(&self, ctx: &Ctx, hh: &Household, stores: &[f64]) -> Holding {
+        self.holding_with(ctx, hh, stores, None)
+    }
+
+    /// [`Self::holding_of`], with what the decision asking already knew of the household.
+    pub(crate) fn holding_with(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        stores: &[f64],
+        known: Option<Known<'_>>,
+    ) -> Holding {
         let (params, catalog) = (ctx.params, ctx.catalog);
         let goods = &catalog.goods;
         let n = goods.len();
@@ -621,10 +641,18 @@ impl Population {
             .map(|p| p.age_years(ctx.now))
             .collect();
         let knows = |t: usize| self.household_knows(&hh.members, t);
-        let mut wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
-        self.cap_power_wants(ctx, hh, &knows, &mut wants);
+        let wants = match known {
+            Some(k) => k.wants.to_vec(),
+            None => {
+                let mut wants =
+                    make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
+                self.cap_power_wants(ctx, hh, &knows, &mut wants);
+                wants
+            }
+        };
         let can_work = |r: &crate::params::RecipeDef| self.can_work_way(ctx, hh, stores, r);
-        let costs_once = std::cell::OnceCell::new();
+        let costs_here = std::cell::OnceCell::new();
+        let costs_once = known.map_or(&costs_here, |k| k.costs);
         let costs = || {
             costs_once
                 .get_or_init(|| self.own_costs_of(ctx, hh))
@@ -1039,6 +1067,7 @@ impl Population {
         stores: &[f64],
         walk_min: &dyn Fn((f32, f32)) -> Option<f64>,
         only: Option<PermanentId>,
+        known: Option<Known<'_>>,
     ) -> Option<Deal> {
         let settlement = hh.settlement?;
         let here = |s: Option<PermanentId>| only.is_some() || s == Some(settlement);
@@ -1085,7 +1114,7 @@ impl Population {
                     }),
             )
             .collect();
-        self.best_deal(ctx, hh, stores, sellers, walk_min)
+        self.best_deal(ctx, hh, stores, sellers, walk_min, known)
     }
 
     /// The best of `sellers`' offers for household `hh` with its `stores`, as
@@ -1098,6 +1127,7 @@ impl Population {
         stores: &[f64],
         sellers: Vec<Seller>,
         walk_min: &dyn Fn((f32, f32)) -> Option<f64>,
+        known: Option<Known<'_>>,
     ) -> Option<Deal> {
         let (params, goods) = (ctx.params, &ctx.catalog.goods);
         let held = |g: usize| stores.get(g).copied().unwrap_or(0.0).max(0.0);
@@ -1105,9 +1135,10 @@ impl Population {
             return None;
         }
         // Its own costs, worked out only once an offer is worth pricing (most are not).
-        let own_costs = std::cell::OnceCell::new();
+        let own_costs_here = std::cell::OnceCell::new();
+        let own_costs = known.map_or(&own_costs_here, |k| k.costs);
         let costs = || own_costs.get_or_init(|| self.own_costs_of(ctx, hh));
-        let holding = self.holding_of(ctx, hh, stores);
+        let holding = self.holding_with(ctx, hh, stores, known);
         // Food it is short of: what it keeps less what it has, by energy.
         let (short_kcal, food_keep) = food_short(goods, &holding.keep, stores);
         let lean = if food_keep > 0.0 {
@@ -1115,12 +1146,13 @@ impl Population {
         } else {
             0.0
         };
+        // How much of each tool it needs, reckoned at its first offer: many sellers offer the same.
+        let mut tool_needs: Vec<Option<f64>> = vec![None; goods.len()];
         let mut best: Option<Deal> = None;
         for s in sellers {
             let (seller, at, firm) = (s.id, s.at, s.firm);
-            let Some(walk) = s.walk_min.or_else(|| walk_min(at)) else {
-                continue;
-            };
+            // The walk to the seller, asked only once one of its offers is worth it (most are not).
+            let walk_once = std::cell::OnceCell::new();
             for o in s.offers.iter() {
                 let (g, p) = (usize::from(o.good), usize::from(o.payment));
                 let Some(d) = goods.get(g) else {
@@ -1129,9 +1161,11 @@ impl Population {
                 // What it would buy: a tool it needs (up to one standard tool, worn or not), or
                 // food it is short of (what one person carries, no more than it is short).
                 let (units, worth, own_h) = if d.tool.is_some() {
-                    let wanted = (holding.keep[g] - make::SPARE_TOOL).max(0.0);
-                    let all = make::serving(goods, make::served(goods, g)).map(held).sum();
-                    let need = make::tool_need(wanted, all);
+                    let need = *tool_needs[g].get_or_insert_with(|| {
+                        let wanted = (holding.keep[g] - make::SPARE_TOOL).max(0.0);
+                        let all = make::serving(goods, make::served(goods, g)).map(held).sum();
+                        make::tool_need(wanted, all)
+                    });
                     let units = f64::from(o.units).min(1.0);
                     if need <= 0.0 || units < MIN_OFFER_TOOL - 1e-6 {
                         continue;
@@ -1176,6 +1210,10 @@ impl Population {
                     continue;
                 };
                 let pay_h = paid * pay_cost * holding.want.get(p).copied().unwrap_or(0.0);
+                let Some(walk) = *walk_once.get_or_init(|| s.walk_min.or_else(|| walk_min(at)))
+                else {
+                    break;
+                };
                 // What it saves is believed as far as the seller's terms are (ADR-0019 §1); the
                 // walk is certain.
                 let saving = s.weight * (own_h - pay_h) - 2.0 * walk / 60.0;
@@ -1226,6 +1264,7 @@ impl Population {
         hh: &Household,
         stores: &[f64],
         reach: Option<&TravelField>,
+        known: Option<Known<'_>>,
     ) -> Option<TradeOption> {
         let reach = reach?;
         let walk = |at: (f32, f32)| {
@@ -1233,7 +1272,7 @@ impl Population {
                 .seconds_to(cell_of(ctx.map, at))
                 .map(|s| f64::from(s) / 60.0)
         };
-        let d = self.find_deal(ctx, hh, stores, &walk, None)?;
+        let d = self.find_deal(ctx, hh, stores, &walk, None, known)?;
         Some(TradeOption {
             seller: d.seller,
             firm: d.firm,
@@ -1288,7 +1327,7 @@ impl Population {
         };
         let away = market != settlement;
         let stores = stores_now(hh, now, params, goods);
-        let mut deal = self.find_deal(ctx, hh, &stores, &|_| Some(0.0), Some(seller));
+        let mut deal = self.find_deal(ctx, hh, &stores, &|_| Some(0.0), Some(seller), None);
         // Nothing for its own need: one on an errand buys to sell at home (M5b slice AQ,
         // ADR-0019 §6), or says why it could not.
         let mut missed = None;
@@ -1850,7 +1889,7 @@ impl Population {
                 weight: r.weight(day, rp.half_life_days),
             });
         }
-        let d = self.best_deal(ctx, hh, stores, sellers, &|_| None)?;
+        let d = self.best_deal(ctx, hh, stores, sellers, &|_| None, None)?;
         Some(TradeOption {
             seller: d.seller,
             firm: d.firm,

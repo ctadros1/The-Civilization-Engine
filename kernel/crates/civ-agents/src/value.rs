@@ -144,27 +144,33 @@ pub fn own_costs(
             )
         })
         .collect();
+    // Each recipe's level, and the work and quality it gives, are reckoned once, not every round:
+    // its level reads every member.
+    let mut paces: Vec<Option<Option<(f64, f64)>>> = vec![None; catalog.recipes.len()];
     for _ in 0..ROUNDS {
         let mut changed = false;
-        for r in &catalog.recipes {
+        for (ri, r) in catalog.recipes.iter().enumerate() {
             let Some(&(out, per)) = r.outputs.first() else {
                 continue;
             };
             // A recipe nobody in the household knows is no way for it to get a good
             // (ADR-0008 §1).
-            let Some(level) = level(r) else {
+            let pace = *paces[ri].get_or_insert_with(|| {
+                let level = level(r)?;
+                let skill = r.skill.and_then(|k| catalog.skills.get(k).map(|s| (k, s)));
+                let speed = skill
+                    .map_or(1.0, |(_, s)| interpolate(&s.speed, level))
+                    .max(1e-6);
+                let made_tool = catalog.goods.get(out).is_some_and(|g| g.tool.is_some());
+                let quality = match skill {
+                    Some((_, s)) if made_tool => interpolate(&s.quality, level).max(1e-6),
+                    _ => 1.0,
+                };
+                Some((r.unit_h / speed, quality))
+            });
+            let Some((work, quality)) = pace else {
                 continue;
             };
-            let skill = r.skill.and_then(|k| catalog.skills.get(k).map(|s| (k, s)));
-            let speed = skill
-                .map_or(1.0, |(_, s)| interpolate(&s.speed, level))
-                .max(1e-6);
-            let made_tool = catalog.goods.get(out).is_some_and(|g| g.tool.is_some());
-            let quality = match skill {
-                Some((_, s)) if made_tool => interpolate(&s.quality, level).max(1e-6),
-                _ => 1.0,
-            };
-            let work = r.unit_h / speed;
             let mut hours = Some(work);
             for &(g, amount) in &r.inputs {
                 hours = match (hours, cost.get(g).copied().flatten()) {

@@ -8346,6 +8346,43 @@ and M6a gives rivers a daily flow.
       letting and crime; the ten smoke worlds. **Not yet:** the sewage farm (§4), mending a broken
       sewer (nothing breaks one yet), sludge carried to a tip, connection work as an activity, and a
       lived world where a polity lays one.
+    - *The bench after M11 and M12: profiled and cut exactly (2026-10-31; ADR-0028 §1's rule).*
+      Homelab bench run 16 (M9's close against d3e155a) had the village of 500 at 1.33× M9
+      and three of 400 at 1.29×, against M10's close at about 1.15× and 1.17×. **Profiled**
+      (callgrind, the village of 500, days 31–35 through `profiled_day`; release build):
+      M10's close 25.5 G instructions, this branch 27.2 G (+6.5 %; the two villages live slightly
+      different months, 162 and 172 fields at the end). Nothing M11 or M12 named shows by itself:
+      the wire, gas, telegraph, transit, tips, rounds, destructor, letting and sewer days each
+      early-out in a world without them (about 0.1 % or less), prospecting is never reached
+      there, the tool-materials walk (`MaterialWants`) is 0.4 % and `cap_power_wants` (now asking
+      telegraph instruments, engines and refuse) 2.2 %. What grew is again the work per decision
+      that scales with the catalogue (goods 56 → 74, recipes 46 → 58): `way_to_tool` 4.9 →
+      7.1 %, `holding_of` 5.5 → 7.2 %, `tool_wants_for` 5.3 → 6.2 %, `own_costs`
+      8.3 → 8.1 % of a larger total. **Cut, each exactly:** (1) `own_costs` reckons each recipe's
+      level (which reads every member) and the work and quality it gives once, not in each of its
+      four rounds; (2) a decision asks `way_to_tool` only for a tool it needs or would make to sell,
+      the only ways it reads; (3) `cap_power_wants` skips goods not wanted (a cap only lowers);
+      (4) `tool_ages` skips untooled activities by their lists, not by building `tools_of`; (5)
+      the purchase a decision weighs takes the tools it already wanted and shares its own-cost
+      cell (`market::Known`) instead of working both out again in `holding_of` and `best_deal`;
+      (6) `best_deal` asks the walk to a seller only once one of its offers is worth it, and each
+      tool's need once a call, not once an offer; (7) `way_to_tool` walks the tools that serve for
+      one without gathering them first. **Exact:** every save section's digest (`--digest`) and
+      every other line the bench prints are equal before and after, in the village of 500 over 90
+      days and in three of 400 (household-resolved, Max) over 60, and over ten days lived on from
+      a save of the village at day 30. **Measured** (this container, 4 vCPU, the release build,
+      before and after interleaved, three rounds; medians, ms a simulated day): the village of
+      500 894 → 734 (−18 %), three of 400 812 → 750 (−8 %); the profiled days 27.2 →
+      22.2 G instructions. Applied to run 16's ratios, about 1.09× and 1.19× M9: a homelab
+      rerun is to confirm. **Left:** route searches (19–22 % of the village's days, behaviour,
+      not catalogue: walks the cache has not seen), the market's offer scan (`best_deal`, 11 %),
+      `keep_company` (0.4 → 0.9 G at the same calls; its body unchanged since M10, so what it is
+      handed grew), and in three of 400 the public plans' sites (`plans_weighed` → `home_site`,
+      17 % of days 31–34): profiled there, M10's close 24.0 G and this branch after the cuts
+      24.4 G, the difference those sites (977 households weighed against 1,238: more without a
+      home that month, behaviour, and each site costs the same). The clause is not amended here.
+      **Tested:** civ-agents' unit tests, roundtrip, market, firms, metal, iron, steel, lamps,
+      hazard_tools, wires, telegraph, money, credit; the ten smoke worlds' first month.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

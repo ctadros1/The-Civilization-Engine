@@ -75,7 +75,12 @@ pub fn tool_ages(catalog: &crate::params::Catalog, known: &dyn Fn(usize) -> bool
     };
     for a in &catalog.activities {
         // Work that needs no tool is not asked about: most do, and asking reads every member.
-        if catalog.tools_of(a).next().is_none() {
+        // (Its own list and its recipe's both empty: what `tools_of` would yield nothing for.)
+        let recipe_tools = a
+            .recipe
+            .and_then(|r| catalog.recipes.get(r))
+            .map_or(&[][..], |r| r.tools.as_slice());
+        if a.tools.is_empty() && recipe_tools.is_empty() {
             continue;
         }
         let usable = catalog.technique_of(a).is_none_or(&mut knows);
@@ -165,7 +170,8 @@ pub fn way_to_tool(
 ) -> Option<usize> {
     let makes = |r: &RecipeDef, g: usize| r.outputs.iter().any(|&(o, _)| o == g);
     let own = catalog.recipes.iter().position(|r| makes(r, t));
-    let others: Vec<(usize, usize)> = serving(&catalog.goods, t)
+    // Walked as they are weighed, not gathered first: most tools have no other.
+    let mut others = serving(&catalog.goods, t)
         .skip(1)
         .filter_map(|g| {
             catalog
@@ -174,8 +180,8 @@ pub fn way_to_tool(
                 .position(|r| makes(r, g) && can_work(r))
                 .map(|r| (g, r))
         })
-        .collect();
-    if others.is_empty() {
+        .peekable();
+    if others.peek().is_none() {
         return own;
     }
     let costs = costs();

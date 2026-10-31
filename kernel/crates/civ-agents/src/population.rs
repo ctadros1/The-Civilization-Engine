@@ -3968,6 +3968,8 @@ impl Population {
         let knows = |t: usize| self.household_knows(&hh.members, t);
         let mut wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
         self.cap_power_wants(ctx, &hh, &knows, &mut wants);
+        // As the market would ask them again for the purchase weighed below.
+        let tool_wants = wants.clone();
         let costs_once = OnceCell::new();
         let costs = || {
             costs_once
@@ -4096,9 +4098,12 @@ impl Population {
         // need that it makes itself (copper for a copper axe): the tool each is for, and how
         // much of it.
         let can_work = |r: &crate::params::RecipeDef| self.can_work_way(ctx, &hh, &stores, r);
+        // Only for a tool it needs or would make to sell: no other way is ever asked for.
         let ways: Vec<Option<usize>> = (0..goods.len())
             .map(|t| {
-                if goods[t].tool.is_none() {
+                if goods[t].tool.is_none()
+                    || (tool_need[t] <= 0.0 && for_sale.get(t).copied().unwrap_or(0.0) <= 0.0)
+                {
                     None
                 } else if goods[t].tool.as_ref().is_some_and(|x| x.serves.is_some()) {
                     catalog
@@ -4583,9 +4588,13 @@ impl Population {
         };
         // A purchase that costs the household fewer hours than getting the good itself.
         let trade = || {
-            *hh_view
-                .trade
-                .get_or_init(|| self.best_purchase(ctx, &hh, &stores, reach))
+            *hh_view.trade.get_or_init(|| {
+                let known = market::Known {
+                    costs: &costs_once,
+                    wants: &tool_wants,
+                };
+                self.best_purchase(ctx, &hh, &stores, reach, Some(known))
+            })
         };
         // One in another settlement, by a report (M5b slice AP, ADR-0019 §2). One of a household
         // goes at a time: what another is on the way to buy is not home yet, and two would walk
@@ -8442,6 +8451,10 @@ impl Population {
             })
         };
         for (g, want) in wants.iter_mut().enumerate() {
+            // Capping takes nothing from a good not wanted: it is not weighed.
+            if *want <= 0.0 {
+                continue;
+            }
             let Some(d) = goods.get(g) else {
                 continue;
             };

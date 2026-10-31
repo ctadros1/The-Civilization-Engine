@@ -521,7 +521,8 @@ pub fn symptoms(b: &Building, upkeep: &Upkeep) -> String {
     // A building of three storeys or more says which storey a wall, its posts or a floor is on.
     let tall = b.condition.iter().any(|c| {
         Level::from_code((c.group >> 24) as u8)
-            .is_some_and(|l| matches!(l, Level::Third | Level::Fourth))
+            .and_then(Level::storey_index)
+            .is_some_and(|t| t >= 2)
     });
     let mut shown: Vec<(f64, String)> = Vec::new();
     for c in &b.condition {

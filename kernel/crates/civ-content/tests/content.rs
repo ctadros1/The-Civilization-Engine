@@ -3754,3 +3754,35 @@ fn a_sewer_template_needs_its_terms_and_only_it_has_them() {
         bad.diagnostics
     );
 }
+
+#[test]
+fn a_program_offering_a_steel_skeleton_may_rise_to_twelve_storeys() {
+    // ADR-0042 §3: a skeleton of frame version 4 rises to twelve storeys; a program that offers
+    // one may allow them, and no program more, nor one without a skeleton more than four.
+    let preset = real_preset();
+    let storeys_said = |file: &str, from: &str, to: &str| {
+        let real = real(file);
+        let body = real.replace(from, to);
+        assert_ne!(body, real, "the edit applies");
+        let report = load_fixture(&[("worldgen/river_valley.toml", &preset), (file, &body)]);
+        report
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains("`frame.storeys`"))
+    };
+    assert!(!storeys_said(
+        "building/workshop.toml",
+        "storeys = [1, 1]",
+        "storeys = [1, 12]"
+    ));
+    assert!(storeys_said(
+        "building/workshop.toml",
+        "storeys = [1, 1]",
+        "storeys = [1, 13]"
+    ));
+    assert!(storeys_said(
+        "building/longhouse.toml",
+        "storeys = [1, 2]",
+        "storeys = [1, 5]"
+    ));
+}

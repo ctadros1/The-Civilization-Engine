@@ -45,7 +45,7 @@ export interface Frame {
 }
 
 /** The schema the web shell speaks: TCE 1.110 (civ-schema WIRE_SCHEMA). */
-export const TCE_SCHEMA: SchemaId = { tag: "TCE\0", major: 1, minor: 110 };
+export const TCE_SCHEMA: SchemaId = { tag: "TCE\0", major: 1, minor: 111 };
 
 export class WireError extends Error {}
 

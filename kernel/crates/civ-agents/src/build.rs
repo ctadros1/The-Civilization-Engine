@@ -595,7 +595,8 @@ pub struct FireDesign {
 /// is elevated, mass walls and tile roofs are chosen where known techniques permit (ADR-0022 §7, §10).
 /// Where its builders know a steel skeleton its program offers, a frame of infill walls is built
 /// as one (version 4, ADR-0037 §3) only when that takes fewer hours of work or kilograms of
-/// material than the timber design and more of neither.
+/// material than the timber design and more of neither, or when it has more storeys than a timber
+/// frame may (ADR-0042 §3).
 #[allow(clippy::too_many_arguments)]
 pub fn design_cautious(
     def: &BuildingDef,
@@ -753,7 +754,11 @@ pub fn design_cautious(
                 skeleton.version = SKELETON_VERSION;
                 skeleton.params[fp::POST_SYSTEM] = 2;
                 skeleton.materials.push(frame.id.clone());
-                if cheaper(&skeleton, &spec, &def.rules) {
+                // Above the storeys a timber frame may have, only a skeleton rises (ADR-0042 §3).
+                let beyond_timber = storeys > civ_grammar::frame_limits(spec.version).1;
+                if cheaper(&skeleton, &spec, &def.rules)
+                    || (beyond_timber && expand(&skeleton, &def.rules).is_ok())
+                {
                     return Some(skeleton);
                 }
             }
@@ -2172,5 +2177,36 @@ pub(crate) mod tests {
         );
         assert_eq!(rubble.version, civ_grammar::FRAME_DESIGN_VERSION);
         assert_eq!(rubble.params[frame_params::POST_SYSTEM], 0);
+        // Above four storeys only a skeleton stands (ADR-0042 §3): taken where it is known and
+        // the program allows the storeys, however dear; otherwise the design is the timber one,
+        // which its version refuses.
+        let mut tall = skeleton_def(1119.0);
+        if let ProgramRules::Frame(r) = &mut tall.rules {
+            r.storeys = (1, civ_grammar::MAX_STOREYS_V4);
+        }
+        let six = |fire: Option<FireDesign>| {
+            design_cautious(
+                &tall,
+                &goods,
+                Shape::Bays {
+                    bays: 2,
+                    storeys: 6,
+                    lofts: 0,
+                },
+                (0.0, 0.0),
+                None,
+                1.0,
+                None,
+                fire,
+            )
+            .expect("a design")
+        };
+        let steel = six(Some(knows(true)));
+        assert_eq!(steel.version, SKELETON_VERSION);
+        assert_eq!(steel.params[frame_params::STAIR], 1);
+        assert!(expand(&steel, &tall.rules).is_ok());
+        let timber = six(Some(knows(false)));
+        assert_eq!(timber.version, civ_grammar::FRAME_DESIGN_VERSION);
+        assert!(expand(&timber, &tall.rules).is_err());
     }
 }

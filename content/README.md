@@ -1970,3 +1970,10 @@ years a site is weighed, beside the shape's building and ground hours; a househo
 counts it for the storey the room lies on, the highest storey of the home with floor to spare
 (lets are filled from the top down), beside the rent and the walks. The core's early farmers climb
 in 15 s a storey and come down in 8 (design priors; research 11-14 §2.5: 10–20 s).
+
+Within content API 214 (ADR-0042 §3), a frame program that offers a steel skeleton
+(`systems.skeleton`) may give `frame.storeys` up to 12: a skeleton of frame version 4 rises to
+twelve storeys, each above the fourth laid out as the fourth (its openings, its infill, a flight of
+the stair to the next); three storeys or more need the stair. Its builders design a shape above four
+storeys as a skeleton where they know it, however dear, since no timber frame stands so tall;
+other programs keep at most four. The core's workshop and hall keep one storey.

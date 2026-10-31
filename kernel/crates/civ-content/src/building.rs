@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use civ_agents::params::{BuildingDef, FrameDesign};
 use civ_grammar::{
     FRAME_DESIGN_VERSION, FrameRules, Grammar, HutRules, Masonry, ProgramRules, SpaceUse,
-    frame_limits,
+    frame_limits, skeleton_limits,
 };
 use civ_land::PlotUse;
 use serde::Deserialize;
@@ -572,8 +572,17 @@ impl BuildingFile {
     fn frame_problems(&self, f: &Frame, p: &mut Vec<String>) {
         let t = "frame";
         ranged(p, t, "bays", f.bays[0], f.bays[1], 1);
-        // Held to the version builders design under (ADR-0031 §1).
-        let (most_bays, most_storeys) = frame_limits(FRAME_DESIGN_VERSION);
+        // Held to the version builders design under (ADR-0031 §1); a program offering a steel
+        // skeleton, to the skeleton's (ADR-0042 §3: twelve storeys).
+        let offers_skeleton = self
+            .systems
+            .as_ref()
+            .is_some_and(|s| !s.skeleton.is_empty());
+        let (most_bays, most_storeys) = if offers_skeleton {
+            skeleton_limits(civ_grammar::frame::FRAME_VERSION)
+        } else {
+            frame_limits(FRAME_DESIGN_VERSION)
+        };
         if f.bays[1] > most_bays {
             p.push(format!(
                 "`frame.bays` may reach at most {most_bays} (got {})",

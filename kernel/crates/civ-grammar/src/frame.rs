@@ -37,7 +37,9 @@
 //! Version 4 (ADR-0037 §3) is version 3 with one more post system, a steel skeleton: its posts are
 //! laid out as storeyed posts, on one storey as well, and its posts, plates, tie and cross beams
 //! and joists are of a fifth material, the frame's, weighed by the program's frame density. Its
-//! walls are infill between the posts. A version 4 spec names five materials.
+//! walls are infill between the posts. A version 4 spec names five materials. A skeleton of
+//! version 4 may rise to twelve storeys (ADR-0042 §3), each above the fourth laid out as the
+//! fourth is: its openings, its infill, and a flight of the stair to the next.
 
 use std::f64::consts::TAU;
 
@@ -54,13 +56,17 @@ pub const MAX_BAYS: i32 = 12;
 /// Most storeys a frame may have (versions 3 and 4, ADR-0031 §1; versions 1 and 2 have at most
 /// two: research 11-05 §2.2, one to three in timber).
 pub const MAX_STOREYS: u8 = 4;
+/// Most storeys a steel skeleton of version 4 may have (ADR-0042 §3): each above the fourth is
+/// laid out as the fourth is.
+pub const MAX_STOREYS_V4: u8 = 12;
 
 /// The frame version builders design under: version 3 since M8d slice CZ (ADR-0031 §2), whose
 /// specs with nothing of their own build what version 2 builds. Content's programs are held to
 /// what it allows. A design that takes a steel skeleton is written as version 4 (ADR-0037 §3).
 pub const FRAME_DESIGN_VERSION: u16 = 3;
 
-/// The most bays and storeys a frame of `version` may have.
+/// The most bays and storeys a frame of `version` may have, other than a steel skeleton
+/// ([`skeleton_limits`]).
 pub fn frame_limits(version: u16) -> (i32, u8) {
     if version >= 3 {
         (MAX_BAYS, MAX_STOREYS)
@@ -69,15 +75,30 @@ pub fn frame_limits(version: u16) -> (i32, u8) {
     }
 }
 
+/// The most bays and storeys a frame of `version` may have when its posts are a steel skeleton
+/// (ADR-0042 §3): twelve storeys from version 4.
+pub fn skeleton_limits(version: u16) -> (i32, u8) {
+    if version >= 4 {
+        (MAX_BAYS, MAX_STOREYS_V4)
+    } else {
+        frame_limits(version)
+    }
+}
+
 /// Most component groups an expansion may have (research 11-06 §5.1: 8 to 32).
 pub const MAX_GROUPS: usize = 32;
 /// Most component groups a version 3 expansion may have: a hall of twelve bays and four storeys
 /// keeps a group for each floor's joists in each bay.
 pub const MAX_GROUPS_V3: usize = 96;
+/// Most component groups a version 4 expansion may have: a skeleton of twelve bays and twelve
+/// storeys keeps a group for each floor's joists in each bay (ADR-0042 §3).
+pub const MAX_GROUPS_V4: usize = 256;
 
 /// The most component groups an expansion of frame `version` may have.
 pub fn max_groups(version: u16) -> usize {
-    if version >= 3 {
+    if version >= 4 {
+        MAX_GROUPS_V4
+    } else if version >= 3 {
         MAX_GROUPS_V3
     } else {
         MAX_GROUPS
@@ -448,7 +469,13 @@ impl<'r> Layout<'r> {
         if !(1..=FRAME_VERSION).contains(&spec.version) {
             return Err(GrammarError::UnknownVersion(spec.version));
         }
-        let (most_bays, most_storeys) = frame_limits(spec.version);
+        // A steel skeleton rises to twelve storeys in version 4 (ADR-0042 §3); its post system is
+        // checked below.
+        let (most_bays, most_storeys) = if spec.params[fp::POST_SYSTEM] == 2 {
+            skeleton_limits(spec.version)
+        } else {
+            frame_limits(spec.version)
+        };
         let Footprint::Rect {
             x: cx,
             y: cy,
@@ -648,6 +675,12 @@ impl<'r> Layout<'r> {
             }
             within("openings", v, (0, MAX_OPENING_PERMILLE))?;
             openings[t] = f64::from(v) / 1000.0;
+        }
+        // Each storey above the fourth is laid out as the fourth is (ADR-0042 §3).
+        if openings.len() > 4 {
+            let (fourth, wall_t) = (openings[3], storey_wt[3]);
+            openings[4..].fill(fourth);
+            storey_wt[4..].fill(wall_t);
         }
         let roof_system = p[fp::ROOF_SYSTEM];
         if !(0..=1).contains(&roof_system) {
@@ -2184,9 +2217,10 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
     for &(level, j, _) in &decks {
         let (kind, span) = match level {
             Level::Loft => (GroupKind::LoftJoists, l.w),
-            Level::Upper | Level::Third | Level::Fourth => (GroupKind::FloorJoists, l.w),
             // A raised floor, with its middle rail.
             Level::Ground | Level::Roof => (GroupKind::RaisedFloor, l.w / 2.0),
+            // The floor of a storey above the first.
+            _ => (GroupKind::FloorJoists, l.w),
         };
         out.push(GroupOf {
             level,
@@ -3693,6 +3727,110 @@ mod tests {
             .expect("a loft");
         assert_eq!(loft.material, Some(FRAME));
         assert!(e.stages[Stage::Frame.index()].materials_kg[usize::from(FRAME)] > 0.0);
+    }
+
+    #[test]
+    fn a_steel_skeleton_of_version_four_rises_to_twelve_storeys_laid_out_as_the_fourth() {
+        // ADR-0042 §3: storeys five to twelve, each laid out as the fourth, a stair required.
+        let r = skeleton_rules(FrameRules {
+            storeys: (1, MAX_STOREYS_V4),
+            ..tall_house()
+        });
+        let skeleton = |storeys: u8| {
+            let mut s = as_v4(&tall(storeys));
+            s.params[fp::POST_SYSTEM] = 2;
+            s.params[fp::OPENINGS + 3] = 300;
+            s
+        };
+        let four = expand_frame(&skeleton(4), &r).expect("four storeys");
+        for storeys in 5..=MAX_STOREYS_V4 {
+            let e = expand_frame(&skeleton(storeys), &r).expect("a tall skeleton expands");
+            let n = usize::from(storeys);
+            let levels: Vec<Level> = e
+                .spaces
+                .iter()
+                .map(|s| s.level)
+                .filter(|l| l.storey_index().is_some())
+                .collect();
+            assert_eq!(levels, (0..n).filter_map(Level::storey).collect::<Vec<_>>());
+            // Every storey above the fourth has the fourth's floor, walls and openings: those
+            // between give up two flights' floor, as the fourth does, and the top one, as a
+            // building of four's top does.
+            let floor = |e: &Expansion, t: usize| -> f64 {
+                e.spaces
+                    .iter()
+                    .filter(|s| s.level == Level::storey(t).expect("a storey"))
+                    .map(|s| s.area_m2)
+                    .sum()
+            };
+            for t in 4..n - 1 {
+                assert!((floor(&e, t) - floor(&e, 3)).abs() < 1e-9, "storey {t}");
+            }
+            assert!((floor(&e, n - 1) - floor(&four, 3)).abs() < 1e-9);
+            assert!(floor(&e, 3) < floor(&four, 3));
+            let windows = |level: Level| {
+                e.parts
+                    .iter()
+                    .filter(|p| p.kind == PartKind::Window && p.id >> 24 == u32::from(level.code()))
+                    .count()
+            };
+            let top = Level::storey(n - 1).expect("a storey");
+            assert!(windows(top) > 0 && windows(top) == windows(Level::Fourth));
+            // Its posts and floors are the skeleton's, on every storey; its groups stay within
+            // version 4's.
+            assert!(
+                e.parts
+                    .iter()
+                    .filter(|p| p.kind == PartKind::Post)
+                    .all(|p| p.material == Some(FRAME))
+            );
+            assert!(e.groups.len() <= max_groups(4));
+            // Taller costs more of everything.
+            assert!(e.total_labour_h() > four.total_labour_h());
+        }
+        // Twelve bays of twelve storeys, lofted throughout, stay within version 4's groups.
+        let mut hall = skeleton(MAX_STOREYS_V4);
+        hall.params[fp::BAYS] = 12;
+        hall.params[fp::LOFT_BAYS] = (1 << 12) - 1;
+        if let Footprint::Rect { length, .. } = &mut hall.footprint {
+            *length = 12 * 250;
+        }
+        let e = expand_frame(&hall, &r).expect("a hall of twelve bays and twelve storeys");
+        assert!(e.groups.len() > MAX_GROUPS_V3 && e.groups.len() <= max_groups(4));
+        // Past twelve, refused by name.
+        let mut thirteen = skeleton(MAX_STOREYS_V4);
+        thirteen.storeys = MAX_STOREYS_V4 + 1;
+        let r13 = FrameRules {
+            storeys: (1, 13),
+            ..r.clone()
+        };
+        assert!(expand_frame(&thirteen, &r13).is_err());
+        // A skeleton of three storeys or more needs its stair; a lift is never required.
+        let mut no_stair = skeleton(6);
+        no_stair.params[fp::STAIR] = 0;
+        assert_eq!(
+            expand_frame(&no_stair, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "6 storeys need a stair (parameter {})",
+                fp::STAIR
+            )))
+        );
+        // Timber frames, and every version before 4, keep four at most.
+        let mut timber = as_v4(&tall(4));
+        timber.storeys = 5;
+        timber.params[fp::POST_SYSTEM] = 1;
+        assert_eq!(
+            expand_frame(&timber, &r),
+            Err(GrammarError::OutOfRange(
+                "storeys 5 is outside 1..=4".into()
+            ))
+        );
+        let mut v3 = tall(4);
+        v3.storeys = 5;
+        assert!(expand_frame(&v3, &r).is_err());
+        assert_eq!(frame_limits(4), (MAX_BAYS, MAX_STOREYS));
+        assert_eq!(skeleton_limits(3), (MAX_BAYS, MAX_STOREYS));
+        assert_eq!(skeleton_limits(4), (MAX_BAYS, MAX_STOREYS_V4));
     }
 
     #[test]

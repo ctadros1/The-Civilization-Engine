@@ -25,8 +25,9 @@ pub mod frame;
 
 pub use frame::{
     FRAME_DESIGN_VERSION, FRAME_VERSION, FrameRules, MAX_BAYS, MAX_GROUPS, MAX_GROUPS_V3,
-    MAX_OPENING_PERMILLE, MAX_STOREYS, Masonry, STAIR_TILT_CENTIDEG, STAIR_WIDTH_CM, expand_frame,
-    frame_limits, frame_materials, frame_params, max_groups,
+    MAX_GROUPS_V4, MAX_OPENING_PERMILLE, MAX_STOREYS, MAX_STOREYS_V4, Masonry, STAIR_TILT_CENTIDEG,
+    STAIR_WIDTH_CM, expand_frame, frame_limits, frame_materials, frame_params, max_groups,
+    skeleton_limits,
 };
 
 /// Version of the hut grammar.
@@ -399,9 +400,52 @@ pub enum Level {
     Third,
     /// A fourth storey (frame version 3).
     Fourth,
+    /// The fifth to twelfth storeys (frame version 4's skeleton, ADR-0042 §3).
+    Fifth,
+    Sixth,
+    Seventh,
+    Eighth,
+    Ninth,
+    Tenth,
+    Eleventh,
+    Twelfth,
 }
 
 impl Level {
+    /// Every level, in code order.
+    const ALL: [Level; 14] = [
+        Level::Ground,
+        Level::Upper,
+        Level::Loft,
+        Level::Roof,
+        Level::Third,
+        Level::Fourth,
+        Level::Fifth,
+        Level::Sixth,
+        Level::Seventh,
+        Level::Eighth,
+        Level::Ninth,
+        Level::Tenth,
+        Level::Eleventh,
+        Level::Twelfth,
+    ];
+
+    /// The storeys, the first's first.
+    const STOREYS: [Level; 12] = [
+        Level::Ground,
+        Level::Upper,
+        Level::Third,
+        Level::Fourth,
+        Level::Fifth,
+        Level::Sixth,
+        Level::Seventh,
+        Level::Eighth,
+        Level::Ninth,
+        Level::Tenth,
+        Level::Eleventh,
+        Level::Twelfth,
+    ];
+
     /// A stable code (append only), the first part of a group's id.
     pub fn code(self) -> u8 {
         match self {
@@ -411,55 +455,44 @@ impl Level {
             Level::Roof => 3,
             Level::Third => 4,
             Level::Fourth => 5,
+            Level::Fifth => 6,
+            Level::Sixth => 7,
+            Level::Seventh => 8,
+            Level::Eighth => 9,
+            Level::Ninth => 10,
+            Level::Tenth => 11,
+            Level::Eleventh => 12,
+            Level::Twelfth => 13,
         }
     }
 
     /// The level with stable code `code`.
     pub fn from_code(code: u8) -> Option<Level> {
-        [
-            Level::Ground,
-            Level::Upper,
-            Level::Loft,
-            Level::Roof,
-            Level::Third,
-            Level::Fourth,
-        ]
-        .into_iter()
-        .find(|l| l.code() == code)
+        Level::ALL.into_iter().find(|l| l.code() == code)
     }
 
-    /// The level of storey `t`, 0 the first, up to the fourth.
+    /// The level of storey `t`, 0 the first, up to the twelfth.
     pub fn storey(t: usize) -> Option<Level> {
-        [Level::Ground, Level::Upper, Level::Third, Level::Fourth]
-            .get(t)
-            .copied()
-    }
-
-    /// Which storey it is, in words: "first" to "fourth"; `None` for a loft or the roof.
-    pub fn ordinal(self) -> Option<&'static str> {
-        match self {
-            Level::Ground => Some("first"),
-            Level::Upper => Some("second"),
-            Level::Third => Some("third"),
-            Level::Fourth => Some("fourth"),
-            Level::Loft | Level::Roof => None,
-        }
+        Level::STOREYS.get(t).copied()
     }
 
     /// Which storey it is, 0 the first; `None` for a loft or the roof.
     pub fn storey_index(self) -> Option<usize> {
-        match self {
-            Level::Ground => Some(0),
-            Level::Upper => Some(1),
-            Level::Third => Some(2),
-            Level::Fourth => Some(3),
-            Level::Loft | Level::Roof => None,
-        }
+        Level::STOREYS.iter().position(|&l| l == self)
     }
 
-    /// Whether it is a storey above the first: the second, third or fourth.
+    /// Which storey it is, in words: "first" to "twelfth"; `None` for a loft or the roof.
+    pub fn ordinal(self) -> Option<&'static str> {
+        const WORDS: [&str; 12] = [
+            "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth",
+            "tenth", "eleventh", "twelfth",
+        ];
+        self.storey_index().map(|t| WORDS[t])
+    }
+
+    /// Whether it is a storey above the first.
     pub fn above_ground(self) -> bool {
-        matches!(self, Level::Upper | Level::Third | Level::Fourth)
+        self.storey_index().is_some_and(|t| t > 0)
     }
 }
 

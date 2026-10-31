@@ -189,13 +189,7 @@ fn own_weight(g: &Group) -> f64 {
 
 /// The storey a level is, 0 the first; `None` for a loft, the roof or no level.
 fn storey(level: Option<Level>) -> Option<usize> {
-    match level? {
-        Level::Ground => Some(0),
-        Level::Upper => Some(1),
-        Level::Third => Some(2),
-        Level::Fourth => Some(3),
-        Level::Loft | Level::Roof => None,
-    }
+    level?.storey_index()
 }
 
 /// The level a group's id names.

@@ -6444,7 +6444,7 @@ fn decode_households(
                     let ok = l.hours().is_finite()
                         && l.hours() >= 0.0
                         && l.wall_kind() <= 3
-                        && (1..=civ_grammar::frame::MAX_STOREYS).contains(&l.storeys())
+                        && (1..=civ_grammar::frame::MAX_STOREYS_V4).contains(&l.storeys())
                         && building.is_some()
                         && out.last().is_none_or(|p| p.day <= l.day());
                     let (Some(building), true) = (building, ok) else {

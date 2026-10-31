@@ -1400,6 +1400,9 @@ enum BuildingState : ubyte { Standing = 0, Damaged = 1, Ruin = 2 }
 // The condition of one component group of a building (wire 1.17, ADR-0009 §4).
 table GroupInfo {
   // Its semantic id in the building's expansion, and its kind in words: "posts", "covering".
+  // The id's top byte is its level's code: 0 the first storey, 1 the second, 2 a loft, 3 the
+  // roof, 4 and 5 the third and fourth storeys, and (wire 1.111, ADR-0042 §3) 6 to 13 the fifth
+  // to twelfth storeys of a steel skeleton.
   id: uint (id: 0);
   kind: string (id: 1);
   // Its quality: a share of what sound members of its sizes carry, drawn once from its

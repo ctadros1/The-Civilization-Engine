@@ -296,3 +296,154 @@ fn a_lodger_weighs_the_climb_to_its_rooms_storey_so_upper_floors_let_for_less() 
         assert_eq!(l.landlord, taken, "asking {asking}");
     }
 }
+
+/// The core content with the workshop's program allowing a steel skeleton up to twelve storeys
+/// (ADR-0042 §3: content narrows per program; the core's workshop has one).
+fn tall_content() -> &'static ContentRegistry {
+    static CONTENT: OnceLock<ContentRegistry> = OnceLock::new();
+    CONTENT.get_or_init(|| {
+        let mut c = content().clone();
+        let i = c
+            .catalog
+            .building_index("core:building/workshop")
+            .expect("a workshop");
+        if let civ_grammar::ProgramRules::Frame(r) = &mut c.catalog.buildings[i].rules {
+            r.storeys = (1, civ_grammar::MAX_STOREYS_V4);
+        }
+        c
+    })
+}
+
+/// A world of the tall content, a day in.
+fn tall_world() -> Sim {
+    let mut sim = Sim::create_for_tests(
+        &NewWorld {
+            name: "Tall".to_owned(),
+            seed: 3,
+            preset_id: "core:worldgen/river_valley".to_owned(),
+            size_cells: 512,
+            band_size: 30,
+            neighbours: Vec::new(),
+            neighbours_known: false,
+            regime_id: String::new(),
+        },
+        tall_content(),
+        [8; 16],
+    )
+    .expect("generates");
+    sim.advance_minutes(DAY).expect("lives");
+    sim
+}
+
+/// The workshop of two bays and `storeys` storeys its builders would design knowing the steel
+/// skeleton, at `at`.
+fn tall_design(storeys: u8, at: (f32, f32)) -> civ_grammar::BuildingSpec {
+    let catalog = &tall_content().catalog;
+    let def = &catalog.buildings[catalog
+        .building_index("core:building/workshop")
+        .expect("a workshop")];
+    build::design_cautious(
+        def,
+        &catalog.goods,
+        Shape::Bays {
+            bays: 2,
+            storeys,
+            lofts: 0,
+        },
+        at,
+        None,
+        1.0,
+        None,
+        Some(build::FireDesign {
+            knows_systems: [false, false, false, true],
+            ..Default::default()
+        }),
+    )
+    .expect("a design")
+}
+
+#[test]
+fn a_steel_skeleton_of_five_to_twelve_storeys_expands_saves_and_loads() {
+    let mut sim = tall_world();
+    let catalog = &tall_content().catalog;
+    let def = &catalog.buildings[catalog
+        .building_index("core:building/workshop")
+        .expect("a workshop")];
+    let h = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .find(|x| !x.members.is_empty())
+        .map(|x| x.id)
+        .expect("a household");
+    let home = sim.people().household(h).expect("it").home;
+    let mut placed = Vec::new();
+    for (i, storeys) in [5_u8, 8, 12].into_iter().enumerate() {
+        let at = (home.0 + 30.0 * (i as f32 + 1.0), home.1 + 30.0);
+        let spec = tall_design(storeys, at);
+        assert_eq!(spec.version, 4, "a skeleton");
+        assert_eq!(spec.storeys, storeys);
+        let e = civ_grammar::expand(&spec, &def.rules).expect("it expands");
+        // One floor a storey, each of its own level, the top one's code in every group above.
+        let levels: Vec<civ_grammar::Level> = e
+            .spaces
+            .iter()
+            .map(|s| s.level)
+            .filter(|l| l.storey_index().is_some())
+            .collect();
+        assert_eq!(levels.len(), usize::from(storeys));
+        let top = civ_grammar::Level::storey(usize::from(storeys) - 1).expect("a storey");
+        assert_eq!(top.ordinal(), Some(["fifth", "eighth", "twelfth"][i]));
+        assert!(e.groups.iter().any(
+            |g| g.id >> 24 == u32::from(top.code()) && g.kind == civ_grammar::GroupKind::Posts
+        ));
+        // With the core's own workshop (one storey), the same design is refused.
+        let core = &content().catalog;
+        let core_def = &core.buildings[core.building_index("core:building/workshop").expect("it")];
+        assert!(civ_grammar::expand(&spec, &core_def.rules).is_err());
+        placed.push(
+            sim.place_building_for_tests(h, spec, Stage::ALL.len() as u8)
+                .expect("placed"),
+        );
+    }
+    // Every group of every storey has a condition, and the buildings stand.
+    for &b in &placed {
+        let b = sim.land().buildings.iter().find(|x| x.id == b).expect("it");
+        assert!(
+            b.condition.len() > 20 && b.finished(),
+            "{}",
+            b.condition.len()
+        );
+    }
+    sim.advance_minutes(DAY).expect("lives a day with them");
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = civ_sim::persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "tall")
+        .expect("saves");
+    let mut loaded = civ_sim::persist::load(&saved.path, tall_content()).expect("loads");
+    let same = |x: &Sim, y: &Sim, when: &str| {
+        let (x, y) = (
+            civ_sim::persist::encode_sections(x),
+            civ_sim::persist::encode_sections(y),
+        );
+        assert_eq!(x.len(), y.len());
+        for (p, q) in x.iter().zip(&y) {
+            assert!(p.bytes == q.bytes, "section `{}` differs {when}", p.tag);
+        }
+    };
+    same(&sim, &loaded, "on loading");
+    for &b in &placed {
+        let b = loaded
+            .land()
+            .buildings
+            .iter()
+            .find(|x| x.id == b)
+            .expect("loaded");
+        assert!(b.spec.storeys >= 5 && civ_grammar::expand(&b.spec, &def.rules).is_ok());
+    }
+    sim.advance_minutes(DAY).expect("lives");
+    loaded.advance_minutes(DAY).expect("lives");
+    same(&sim, &loaded, "a day on");
+}

@@ -109,7 +109,8 @@ jobs:
         run: |
           set -euo pipefail
           cargo build --locked --release -p civ-host
-          target/release/civ-host smoke --years 10
+          # Replay of homelab run 41178073067's failing world on d3e155a's code (laws 464-466).
+          target/release/civ-host smoke --years 10 --only core:worldgen/ria_coast:3 --identity 2be020aa374025cb0a263a23703727bf
           target/release/civ-host consistency --json "$RUNNER_TEMP/consistency.json"
           target/release/civ-host notables --json "$RUNNER_TEMP/notables.json"
           target/release/civ-host dashboard --json "$RUNNER_TEMP/dashboard.json"

@@ -27,5 +27,6 @@ PrivateTmp=yes
 WantedBy=multi-user.target
 UNIT
 systemctl daemon-reload
-systemctl enable --now tce-node4-watchdog.service
+systemctl enable tce-node4-watchdog.service
+systemctl restart tce-node4-watchdog.service
 systemctl is-active tce-node4-watchdog.service

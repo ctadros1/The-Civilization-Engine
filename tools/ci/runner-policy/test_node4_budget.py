@@ -34,7 +34,8 @@ class BudgetTests(unittest.TestCase):
             for pid, name, group, start in ((1, "Runner.Worker", "tce-actions-runner.service", 0),
                                             (2, "Runner.Worker", "other.service", 0),
                                             (3, "Runner.Listener", "tce-actions-runner.service", 0),
-                                            (4, "Runner.Worker", "tce-actions-runner.service", 2)):
+                                            (4, "Runner.Worker", "tce-actions-runner.service", 2),
+                                            (5, "Runner.Worker", "tce-actions-runner.service-other", 0)):
                 entry = proc / str(pid)
                 entry.mkdir()
                 (entry / "comm").write_text(name)

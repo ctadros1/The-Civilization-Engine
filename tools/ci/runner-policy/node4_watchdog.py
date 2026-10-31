@@ -17,7 +17,7 @@ def expired_workers(proc=Path("/proc"), clock_ticks=None):
         try:
             if (entry / "comm").read_text().strip() != "Runner.Worker":
                 continue
-            if "/tce-actions-runner.service" not in (entry / "cgroup").read_text():
+            if "tce-actions-runner.service" not in (entry / "cgroup").read_text().strip().split("/"):
                 continue
             fields = (entry / "stat").read_text().rsplit(")", 1)[1].split()
             started = int(fields[19]) / ticks

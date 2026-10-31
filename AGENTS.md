@@ -109,7 +109,10 @@ suite, smoke, content validator, commons, web build, unit and browser tests) on 
 cluster's self-hosted runners, by hand only (`workflow_dispatch` with a `ref`, the runner labels
 as a JSON list, and whether to install Chromium's system libraries), and keeps every step's log
 as an artifact. It takes no secrets and pushes nothing. GitHub dispatches a workflow only once
-it is on the default branch (`main`).
+it is on the default branch (`main`). Shared runner-label JSON uses capacity-aware routing: idle
+node4, then node3 and node1. Dispatch Homelab validation from main with its target `ref` for long
+runs/demos; budgets above six hours exclude node4. Benchmarks stay pinned to node3. See
+`docs/operations/github-runners.md` for policy labels, draining and explicit overrides.
 
 ## Rules for changes
 

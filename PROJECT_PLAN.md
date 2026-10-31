@@ -7633,6 +7633,8 @@ and M6a gives rivers a daily flow.
 
 ## 9. Decisions log
 
+- **2026-10-31 — Capacity-aware Actions routing (owner request):** prefer idle node4, then node3 and node1 via management-owned moving policy labels; use permanent machines for jobs that may exceed six hours, enforce a separate six-hour node4 admission/runtime ceiling, and retain node3 timing baselines. Dispatch the main workflow with a target `ref` so older development branches do not retain obsolete routing.
+
 - **2026-10-27 — M10 implementation status:** merged M10c slices EB–EE and M10d slices EF–EI. M10c is complete; M10d money includes household valuation, custody, redeemable notes, bounded lending, runs, suspension and the *bearer heard* rule. Wire 1.106, save schema 214, content API 195. M9 remains the latest committed observer video; no M10 capture was available. The remaining M10d scope is recorded in §7.
 - **2026-10-22 — Optional Actions capacity (owner request):** add an isolated Ubuntu runner VM on servernode4 with shared `tce-ci`, automatic guest/service startup, and explicit `node4` dispatch. Keep it outside the default permanent health matrix and scheduled `tce-long` work; GitHub routes pooled jobs to available runners. Drain before shutdown or switching to Windows.
 

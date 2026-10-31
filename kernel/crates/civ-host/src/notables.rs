@@ -32,9 +32,9 @@ use crate::smoke::LongRun;
 /// The last calendar year the runs live: from the first month to its end.
 pub const LAST_YEAR: i64 = 3;
 /// Runs with the tier and without it from each fixture.
-pub const RUNS: usize = 5;
+pub const RUNS: usize = 10;
 /// Runs with the tier from each fixture when calibrating.
-pub const CALIBRATION_RUNS: usize = 8;
+pub const CALIBRATION_RUNS: usize = 12;
 /// Standard errors of the difference of two means of [`RUNS`] runs each, at the spread with the
 /// tier, that a tolerance allows when calibrated.
 pub const CALIBRATION_SIGMAS: f64 = 3.0;

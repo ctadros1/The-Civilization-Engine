@@ -110,7 +110,7 @@ jobs:
         run: |
           set -euo pipefail
           cargo build --locked --release -p civ-host
-          # Diagnosis branch: the notables' gate's calibration and the gate on 09e79d5.
+          # Diagnosis branch: the notables' gate's calibration and the gate on the working head.
           target/release/civ-host notables --calibrate || true
           target/release/civ-host notables --json "$RUNNER_TEMP/notables.json"
           target/release/civ-host dashboard --json "$RUNNER_TEMP/dashboard.json"

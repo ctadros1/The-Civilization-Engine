@@ -46,6 +46,7 @@ dynamo or line in eight years; the controls lived as before, and the world saved
 all 909 people. See the plan's M11d entries for what each run showed.
 
 - [Eight-year M11 run report](m11/m11-demo-8y.txt)
+- [Eight-year M11 run report, fourth run (after M11d's seventh part)](m11/m11-demo-8y-64203ec.txt)
 - [Industry and water-power guide](../docs/development-journal/industry-and-power.md)
 
 ## Earlier titled observer video: M6a, water and sickness

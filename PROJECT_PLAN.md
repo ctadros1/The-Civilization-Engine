@@ -8321,6 +8321,17 @@ and M6a gives rivers a daily flow.
       term. A tool's own firing wood and a pot's are weighed as before the sixth part. **Tested:** the
       four targets pass; telegraph (with the charcoal scene), iron, metal, coal, works, firms, market,
       people, homes, knowledge, steel, residues, letting, custody, lamps, mills, gas.
+    - *M11d, eighth part (2026-10-31): the fourth eight-year run, recorded.* Homelab run
+      41197794948 on 64203ec (node4, 50 minutes; [record](demos/m11/m11-demo-8y-64203ec.txt)): 933
+      people, saved and loaded whole; nothing of M11 built or proposed in any settlement, the
+      controls as before. Two things stand out. **Copper:** none was dug or found in any taught
+      settlement in eight years (the third run found it at Sedgehollow), though Stonefield's nearest
+      body lay 0.5 km from the hearth, showing at the surface, and its wanter held all the 8 kg of
+      iron it keeps from year 1 and wanted an instrument until year 6. **Iron:** Thorndale's wanter
+      kept 25 kg of iron ore and held none for eight years, at 5-6 of its 8 kg of iron. Within the
+      time box (plan section 9, "M11d's demo time-boxed"), these are the next questions, in order:
+      why a household wanting an instrument, short only of copper, never digs a showing body of
+      copper ore half a kilometre away; then why one keeping iron ore never digs any. Nothing nudged.
     - *Sewers and settling (2026-10-31, backlog D; [ADR-0041](decisions/0041-sewers-and-treatment.md)).*
       A polity lays a sewer by a `lay_sewer` law (`PolicyKind` appended; it answers
       `source_suspected` and `heaps_near` on `lay_current`'s machinery: forecast, way site, common

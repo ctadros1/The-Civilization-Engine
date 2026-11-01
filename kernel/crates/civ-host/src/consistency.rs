@@ -39,7 +39,9 @@ pub const SIZE: u32 = 768;
 /// The calendar year the runs live: each fixture is saved on its first of January.
 pub const RUN_YEAR: i64 = 3;
 /// Runs in each mode from each fixture.
-pub const RUNS: usize = 5;
+/// Ten since 2026-11-01 (PROJECT_PLAN §9): five could not tell a few percent apart from one high
+/// sample at the coast's spread of the Gini of goods.
+pub const RUNS: usize = 10;
 /// Detailed runs from each fixture when calibrating.
 pub const CALIBRATION_RUNS: usize = 8;
 /// Standard errors of the difference of two means of [`RUNS`] runs each, at the Detailed spread,

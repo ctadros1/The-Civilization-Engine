@@ -40,7 +40,7 @@ wall_ties = "core:technique/tied_masonry"
 covering = [0.06, 0.15]          # [lost a year, leaks at]
 posts = [0.02, 0.3]              # [lost a year at the foot, rot shows at] (tuning)
 infill = [0.05, 0.2]             # [worn a year at the foot, shows at] (tuning)
-under_leak = [0.1, 0.3]          # [lost a year under a full leak, shows at] (tuning)
+under_leak = [0.1, 0.1]          # [lost a year under a full leak, shows at] (tuning: before it is too weak to carry)
 
 [materials]
 timber = "core:good/timber"

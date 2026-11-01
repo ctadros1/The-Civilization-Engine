@@ -813,3 +813,41 @@ fn worn_daub_is_renewed_with_earth_dug_beside_the_hut() {
         "{dug} m³ of the walls' {daub}"
     );
 }
+
+#[test]
+fn rafters_show_their_rot_while_they_still_carry_a_storm() {
+    // Timber under a leak must show its rot before rot has left it too weak for its roof: else
+    // a household has nothing to mend until the roof falls in (the 50-year dashboard's lived-in
+    // failures were mostly huts whose rafters broke rotted, below the share at which rot showed).
+    let u = &hut_def().upkeep;
+    let failed_at = |loss: f64| {
+        let (mut sim, household, hut) = housed(3);
+        let rafters = group_of(building(&sim, hut), GroupKind::RoofFrame);
+        for c in &mut building_mut(&mut sim, hut).condition {
+            if c.group == rafters {
+                // Poorly made: the low end of what builders draw.
+                c.quality = 0.5;
+                c.loss = loss as f32;
+            }
+        }
+        let before = sim
+            .people()
+            .chronicle
+            .iter()
+            .filter(|e| e.kind == ChronicleKind::BuildingFailed)
+            .count();
+        // A storm told as one: twice the landscape's median.
+        let storm = 2.0 * sim.rules().land.weather.storm_median_pa;
+        sim.with_ctx_for_tests(|pop, ctx| pop.storm_for_tests(ctx, household, storm, 0));
+        sim.people()
+            .chronicle
+            .iter()
+            .filter(|e| e.kind == ChronicleKind::BuildingFailed)
+            .count()
+            > before
+    };
+    let shows = u.under_leak.shows_at;
+    assert!(!failed_at(shows), "rafters gave way before their rot showed at {shows}");
+    // Left to rot well past it, they do give way.
+    assert!(failed_at(0.5), "rafters half rotted carried a storm");
+}

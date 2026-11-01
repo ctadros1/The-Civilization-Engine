@@ -571,7 +571,7 @@ pub struct Population {
     /// rectangle: the bed's height is the map's, which never changes while a world lives, so this
     /// is that drop again, not worked out afresh. Derived, never saved; emptied when it grows
     /// large.
-    drops: std::cell::RefCell<FastMap<(i32, i32, i32, i32), f64>>,
+    drops: std::sync::Mutex<FastMap<(i32, i32, i32, i32), f64>>,
     /// Per household, the new ground it would mark out for a field, as found on a day against the
     /// land as it then stood ([`site_inputs`]), with what that was read against ([`SiteStamp`]).
     sites: FastMap<PermanentId, (i64, u64, Option<Site>, SiteStamp)>,
@@ -2739,12 +2739,16 @@ impl Population {
         /// found: a drop not kept is worked out again).
         const MOST_KEPT: usize = 1 << 20;
         let key = (rect.x, rect.y, rect.w, rect.h);
-        if let Some(&drop) = self.drops.borrow().get(&key) {
+        // A poisoned lock still holds only plots' drops, each as true as when it was kept.
+        let mut drops = self
+            .drops
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(&drop) = drops.get(&key) {
             return drop;
         }
         let bed = |x: f64, y: f64| civ_land::earth::bed_height(map, (x, y));
         let drop = civ_land::earth::drop_across(rect, &bed);
-        let mut drops = self.drops.borrow_mut();
         if drops.len() >= MOST_KEPT {
             drops.clear();
         }

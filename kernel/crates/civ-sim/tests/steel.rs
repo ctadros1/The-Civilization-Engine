@@ -877,3 +877,51 @@ fn a_six_storey_concrete_hall_its_builders_design_stands_its_own_checks() {
         assert!(m > 1.0, "{:?} at {:#x}: {m}", g.kind, g.id);
     }
 }
+
+#[test]
+fn a_concrete_frames_walls_wait_a_week_for_its_forms_to_be_stripped() {
+    use civ_grammar::Stage;
+    let mut sim = world(2);
+    let (household, home) = first_household(&sim);
+    let cast = cast_workshop(&sim, (home.0 + 20.0, home.1));
+    let (timber, _) = workshops(&sim, (home.0 - 20.0, home.1));
+    let walls = Stage::Walls.index() as u8;
+    let cast_id = sim
+        .place_building_for_tests(household, cast, walls)
+        .expect("the concrete workshop placed");
+    let timber_id = sim
+        .place_building_for_tests(household, timber, walls)
+        .expect("the timber workshop placed");
+    let catalog = &sim.rules().catalog;
+    let def = workshop(&sim);
+    // The core's concrete is stripped at 7 days.
+    let curve = catalog.goods[good(&sim, "concrete")]
+        .timber
+        .and_then(|t| t.cast)
+        .expect("concrete cures");
+    assert_eq!(curve.strip_days, 7.0);
+    let building = |id| {
+        sim.land()
+            .buildings
+            .iter()
+            .find(|b| b.id == id)
+            .expect("a building")
+    };
+    let b = building(cast_id);
+    let until = civ_agents::build::curing_until(def, &catalog.goods, b).expect("it cures");
+    assert_eq!(
+        until.minutes() - b.stage_since.minutes(),
+        7 * civ_core::time::MINUTES_PER_DAY
+    );
+    // A timber frame's walls wait for nothing, nor does a concrete frame at any other stage.
+    assert_eq!(
+        civ_agents::build::curing_until(def, &catalog.goods, building(timber_id)),
+        None
+    );
+    let mut roofing = b.clone();
+    roofing.stage = Stage::Roof.index() as u8;
+    assert_eq!(
+        civ_agents::build::curing_until(def, &catalog.goods, &roofing),
+        None
+    );
+}

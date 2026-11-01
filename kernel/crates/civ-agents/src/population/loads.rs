@@ -329,6 +329,7 @@ impl Population {
             .and_then(|q| structure::wind_drift(&e, q, |g| timber(g).map(|t| t.stiffness_pa)))
             .filter(|&(drift, _)| drift > structure::DRIFT_SHOWS)
             .map(|(_, t)| t);
+        let now = ctx.now;
         let b = &mut ctx.land.buildings[i];
         let mut fell: Vec<Fell> = Vec::new();
         let mut torn = false;
@@ -351,6 +352,7 @@ impl Population {
                     sustained: 1.0,
                     density_kg_m3: density,
                     burnt_keeps: None,
+                    cast: None,
                 };
                 structure::margin(g, c, &e, &loads, &masonry).state()
             } else if g.kind == GroupKind::Covering {
@@ -394,6 +396,8 @@ impl Population {
                 }
             } else {
                 timber(g).map_or(GroupState::Sound, |t| {
+                    // A cast member carries as its age lets it (frame version 5).
+                    let t = t.at_age(c.installed, now);
                     let state = structure::margin(g, c, &e, &loads, &t).state();
                     match wind {
                         Some(q) if g.kind == GroupKind::Posts => {

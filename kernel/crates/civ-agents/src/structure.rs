@@ -63,6 +63,53 @@ pub struct Timber {
     /// The share of its strength a bare member keeps once its building has burnt out (ADR-0037
     /// §5): steel softened by the fire. `None` for a material that chars instead (ADR-0022 §5).
     pub burnt_keeps: Option<f64>,
+    /// How a cast member gains its strength with age (frame version 5); `None` for a material
+    /// as strong the day it is put in place as ever after.
+    pub cast: Option<Cast>,
+}
+
+/// How a cast member gains its strength (frame version 5): its forms carry it for `strip_days`
+/// after it is cast; from then it carries by itself at `days / (a_days + b × days)` of its full
+/// strength, at most all of it (the form of ACI 209's curve for moist-cured concrete; research
+/// 11-14 §2.1 gives 0.74 of the 28-day strength at 7 days).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Cast {
+    /// Days its forms carry it before they are stripped.
+    pub strip_days: f64,
+    /// The curve's days.
+    pub a_days: f64,
+    /// The curve's share per day of age.
+    pub b: f64,
+}
+
+impl Cast {
+    /// The share of its full strength a member cast `days` ago carries by itself: all of it while
+    /// its forms hold it.
+    pub fn share(&self, days: f64) -> f64 {
+        if days < self.strip_days {
+            1.0
+        } else {
+            (days / (self.a_days + self.b * days).max(1e-9)).clamp(0.0, 1.0)
+        }
+    }
+}
+
+impl Timber {
+    /// What a member of this material put in place at `installed` carries at `now`: a cast one
+    /// weaker in bending and crushing while it is young ([`Cast::share`]), any other as ever.
+    pub fn at_age(self, installed: civ_core::SimTime, now: civ_core::SimTime) -> Timber {
+        let Some(cast) = self.cast else {
+            return self;
+        };
+        let days = (now.minutes() - installed.minutes()).max(0) as f64
+            / civ_core::time::MINUTES_PER_DAY as f64;
+        let share = cast.share(days);
+        Timber {
+            bending_pa: self.bending_pa * share,
+            compression_pa: self.compression_pa * share,
+            ..self
+        }
+    }
 }
 
 /// What presses on a building now, pascals on the area each acts on.
@@ -778,6 +825,47 @@ mod tests {
     use civ_core::SimTime;
     use civ_grammar::{Stage, group_id};
 
+    #[test]
+    fn a_cast_member_carries_as_its_age_lets_it() {
+        let cast = Cast {
+            strip_days: 7.0,
+            a_days: 4.0,
+            b: 0.85,
+        };
+        // Its forms carry it until they are stripped; then it gains along the curve, to all.
+        assert_eq!(cast.share(0.0), 1.0);
+        assert_eq!(cast.share(6.9), 1.0);
+        assert!((cast.share(7.0) - 7.0 / (4.0 + 0.85 * 7.0)).abs() < 1e-12);
+        assert!(
+            (0.69..0.71).contains(&cast.share(7.0)),
+            "{}",
+            cast.share(7.0)
+        );
+        assert!(cast.share(14.0) > cast.share(7.0));
+        assert_eq!(cast.share(28.0), 1.0);
+        assert_eq!(cast.share(1000.0), 1.0);
+        let t = Timber {
+            bending_pa: 82e6,
+            compression_pa: 51e6,
+            stiffness_pa: 98e9,
+            creep: 2.0,
+            sustained: 0.85,
+            density_kg_m3: 2400.0,
+            burnt_keeps: Some(0.75),
+            cast: Some(cast),
+        };
+        let day = |d: i64| civ_core::SimTime::from_minutes(d * civ_core::time::MINUTES_PER_DAY);
+        let young = t.at_age(day(10), day(17));
+        assert!((young.bending_pa - 82e6 * cast.share(7.0)).abs() < 1e-3);
+        assert!((young.compression_pa - 51e6 * cast.share(7.0)).abs() < 1e-3);
+        assert_eq!(young.stiffness_pa, t.stiffness_pa);
+        assert_eq!(t.at_age(day(10), day(12)), t, "in its forms");
+        assert_eq!(t.at_age(day(10), day(100)), t, "fully cured");
+        // A timber, as ever.
+        let oak = Timber { cast: None, ..t };
+        assert_eq!(oak.at_age(day(10), day(17)), oak);
+    }
+
     /// Green oak (11-05 §2.3), with creep of 1 (11-05 §2.4) and 0.6 of its strength kept under
     /// years of load.
     fn oak() -> Timber {
@@ -789,6 +877,7 @@ mod tests {
             sustained: 0.6,
             density_kg_m3: 760.0,
             burnt_keeps: None,
+            cast: None,
         }
     }
 
@@ -1022,6 +1111,7 @@ mod tests {
             sustained: 1.0,
             density_kg_m3: 1900.0,
             burnt_keeps: None,
+            cast: None,
         }
     }
 

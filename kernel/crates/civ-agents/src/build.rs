@@ -795,6 +795,32 @@ pub fn design_cautious(
     }
 }
 
+/// Until when building `b` of program `def` waits for its cast frame to cure (frame version 5): a
+/// concrete frame's walls are begun only once its forms may be stripped, the concrete's
+/// `strip_days` after its frame was finished. `None` for any other building or stage.
+pub fn curing_until(
+    def: &BuildingDef,
+    goods: &[GoodDef],
+    b: &Building,
+) -> Option<civ_core::SimTime> {
+    use civ_grammar::frame::{frame_materials, frame_params as fp};
+    if b.spec.params.get(fp::POST_SYSTEM) != Some(&3)
+        || usize::from(b.stage) != civ_grammar::Stage::Walls.index()
+    {
+        return None;
+    }
+    let cast = def
+        .materials
+        .get(usize::from(frame_materials::CONCRETE))
+        .and_then(|&g| goods.get(g))
+        .and_then(|g| g.timber)
+        .and_then(|t| t.cast)?;
+    let minutes = (cast.strip_days * civ_core::time::MINUTES_PER_DAY as f64).ceil() as i64;
+    Some(civ_core::SimTime::from_minutes(
+        b.stage_since.minutes() + minutes,
+    ))
+}
+
 /// The frame version a steel skeleton is designed under (ADR-0037 §3).
 pub const SKELETON_VERSION: u16 = 4;
 /// The frame version a concrete frame is designed under (ADR-0037, amendment of 2026-11-01).

@@ -147,6 +147,7 @@ mod tests {
             sustained: 0.6,
             density_kg_m3: 760.0,
             burnt_keeps: None,
+            cast: None,
         }
     }
 

@@ -2022,3 +2022,12 @@ in the hall and the workshop at 5,760 kg of concrete, 307 of bar and 64 hours a 
 envelope (2,250, 120 and 25 a cubic metre cast). The
 figures are design priors (research 11-14 §2.3: 80-220 kg of bar a cubic metre; formwork 35-60 % of
 a concrete structure's cost).
+
+Content API 217 (ADR-0037, amendment of 2026-11-01) lets a good's `[timber]` say how a cast member
+gains its strength: `strip_days` (0–90; days its forms carry it), `age_a_days` (0–100) and `age_b`
+(above 0, at most 2), all three or none. From `strip_days` after a group is put in place it
+carries `days / (age_a_days + age_b × days)` of its full strength in bending and crushing, at most
+all of it, in the daily check; before, its forms carry it. A concrete frame's walls are begun only
+once its frame's forms may be stripped: `strip_days` after its frame stage was finished. The core's
+concrete is stripped at 7 days on the curve 4 and 0.85 (0.70 of its full strength at 7 days, all
+of it by about 27; the form of ACI 209's curve, research 11-14 §2.1 giving 0.74 at 7 days).

@@ -4807,6 +4807,16 @@ impl Population {
         };
         let build = plan.as_ref().map_err(|why| *why).and_then(|p| {
             let def = &catalog.buildings[p.def];
+            // A concrete frame's walls wait until its forms may be stripped (frame version 5).
+            let cast = p.spec.params.get(civ_grammar::frame_params::POST_SYSTEM) == Some(&3);
+            let curing = p
+                .building
+                .filter(|_| cast)
+                .and_then(|id| ctx.land.buildings.iter().find(|b| b.id == id))
+                .and_then(|b| build::curing_until(def, &catalog.goods, b));
+            if curing.is_some_and(|until| ctx.now < until) {
+                return Err(Reason::NoWork);
+            }
             let held = p.work.held_by_slot(def, &stores);
             let at = build::centre_m(&p.spec);
             let at_home = (at.0 - hh.home.0).abs() < 1.0 && (at.1 - hh.home.1).abs() < 1.0;

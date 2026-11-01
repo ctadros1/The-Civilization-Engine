@@ -174,6 +174,14 @@ pub(crate) struct TimberFile {
     /// its building has burnt out (ADR-0037 §5); absent, it chars as timber (ADR-0022 §5).
     #[serde(default)]
     pub burnt_keeps: Option<f64>,
+    /// Content API 217 (frame version 5): a cast member's days in its forms, and its strength
+    /// curve's days and share a day (`civ_agents::structure::Cast`); all three or none.
+    #[serde(default)]
+    pub strip_days: Option<f64>,
+    #[serde(default)]
+    pub age_a_days: Option<f64>,
+    #[serde(default)]
+    pub age_b: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -254,6 +262,16 @@ impl GoodFile {
                 // Timber's weight is the frame's (research 11-08 §2.1); only masonry reads it.
                 density_kg_m3: 760.0,
                 burnt_keeps: t.burnt_keeps,
+                cast: match (t.strip_days, t.age_a_days, t.age_b) {
+                    (Some(strip_days), Some(a_days), Some(b)) => {
+                        Some(civ_agents::structure::Cast {
+                            strip_days,
+                            a_days,
+                            b,
+                        })
+                    }
+                    _ => None,
+                },
             }),
             store: self.store.as_ref().map(|t| StoreDef {
                 keeps_kg: t.keeps_kg,
@@ -576,6 +594,30 @@ impl GoodFile {
                 p.push(format!(
                     "`timber.burnt_keeps` must be between 0 and 1 (got {k})"
                 ));
+            }
+            match (t.strip_days, t.age_a_days, t.age_b) {
+                (None, None, None) => {}
+                (Some(s), Some(a), Some(b)) => {
+                    if !(s.is_finite() && (0.0..=90.0).contains(&s)) {
+                        p.push(format!(
+                            "`timber.strip_days` must be between 0 and 90 (got {s})"
+                        ));
+                    }
+                    if !(a.is_finite() && (0.0..=100.0).contains(&a)) {
+                        p.push(format!(
+                            "`timber.age_a_days` must be between 0 and 100 (got {a})"
+                        ));
+                    }
+                    if !(b.is_finite() && b > 0.0 && b <= 2.0) {
+                        p.push(format!(
+                            "`timber.age_b` must be above 0 and at most 2 (got {b})"
+                        ));
+                    }
+                }
+                _ => p.push(
+                    "`timber.strip_days`, `timber.age_a_days` and `timber.age_b` come together"
+                        .to_owned(),
+                ),
             }
         }
         match purpose {

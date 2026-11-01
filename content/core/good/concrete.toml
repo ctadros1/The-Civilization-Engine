@@ -33,3 +33,11 @@ sustained = 0.85
 # about three quarters of its strength (a design prior; research 11-14 §1.6 makes cover concrete's
 # protection, and bar near 500 C keeps about 0.75 of its yield).
 burnt_keeps = 0.75
+# Cast in forms, it gains its strength as it cures: the forms carry it for a week (research 11-14
+# §2.5: loadable at 0.6-0.75 of its 28-day strength, a recipe's choice), and from then it carries
+# days / (4 + 0.85 x days) of its full strength, all of it by about 27 days (the form of ACI 209's
+# curve for moist-cured concrete; 0.70 at 7 days against 11-14 §2.1's 0.74 under ideal laboratory
+# curing). A building's walls are begun only once its frame's forms may be stripped.
+strip_days = 7.0
+age_a_days = 4.0
+age_b = 0.85

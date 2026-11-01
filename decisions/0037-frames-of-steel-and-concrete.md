@@ -157,9 +157,16 @@ Decided by Claude under the owner's standing authority (plan §9):
 - **The designer** takes a concrete frame on the skeleton's terms: known, offered, and cheaper or
   the only design so tall. With the core content it is dearer than timber in kilograms, so it is
   taken only above four storeys, where its designed six-storey hall stands its checks.
-- **Not yet (the time box):** concrete's strength by its age, curing as elapsed time between a
-  storey cast and the next stage (it needs the day a stage ended in the save), and mass infill in a
-  frame. A cast member's strength is its 28-day strength from the day it is cast.
+- **§4's concrete by its age, as built (its second part):** a cast group carries, in the daily
+  check, `days / (4 + 0.85 days)` of its full strength in bending and crushing from the day its
+  forms are stripped (7 days; 0.70 then, all of it by about 27), counted from the day it was put in
+  place (each group's `installed`, already saved); before, its forms carry it. Curing is elapsed
+  time in the build: a concrete frame's walls are begun only once its forms may be stripped, 7
+  days after its frame stage ended (the building's `stage_since`, already saved). The curve and
+  the stripping age are the concrete good's (content API 217). Its stiffness is held at full, and
+  the shaking and wind checks read the cured strength (simplifications: both matter for a frame's
+  first weeks only). No save or wire change.
+- **Not yet (the time box):** mass infill in a frame, fire protection and `ProtectedFrame`.
 
 ## Revisit when
 

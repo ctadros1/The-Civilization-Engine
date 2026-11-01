@@ -847,7 +847,10 @@ fn rafters_show_their_rot_while_they_still_carry_a_storm() {
             > before
     };
     let shows = u.under_leak.shows_at;
-    assert!(!failed_at(shows), "rafters gave way before their rot showed at {shows}");
+    assert!(
+        !failed_at(shows),
+        "rafters gave way before their rot showed at {shows}"
+    );
     // Left to rot well past it, they do give way.
     assert!(failed_at(0.5), "rafters half rotted carried a storm");
 }

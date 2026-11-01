@@ -1,0 +1,15 @@
+# Welding scrap iron into bar: heating worn pieces to a welding heat and hammering them together,
+# a tenth lost to scale. Two hours and 4 kg of charcoal a kilogram of bar (ADR-0044 §1; a design
+# prior inside forging's 2-10 hours and 1-5 kg of charcoal a kilogram, research 07-05 §2.3).
+kind = "recipe"
+id = "core:recipe/forge_scrap"
+name = "Weld scrap into bar"
+skill = "core:skill/smithing"
+technique = "core:technique/forging"
+unit_h = 2.0
+session_h = 0.0
+max_units = 2.0
+tools = []
+inputs = [{ good = "core:good/scrap_iron", amount = 1.1 }, { good = "core:good/charcoal", amount = 4.0 }]
+outputs = [{ good = "core:good/iron", amount = 1.0 }]
+session_inputs = []

@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 219;
+pub const KERNEL_CONTENT_API: u32 = 220;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1538,6 +1538,35 @@ fn resolve(
             holders.push((g, held));
         }
     }
+    // What a tool leaves as it wears away (ADR-0044 §1): a good that is not a tool.
+    let mut scraps: Vec<(usize, usize, f64)> = Vec::new();
+    for d in &parsed.goods {
+        let Some(x) = d.file.scrap.as_ref() else {
+            continue;
+        };
+        match good_index(&x.good) {
+            None => missing(c, parsed, &d.rel, "scrap.good", &x.good),
+            Some(left) if goods[left].tool.is_some() => c.push(
+                "E3001",
+                &d.rel,
+                None,
+                format!(
+                    "`scrap.good` must name a good that is not a tool; `{}` is one",
+                    x.good
+                ),
+            ),
+            Some(left) => {
+                if let Some(g) = good_index(&d.file.id) {
+                    scraps.push((g, left, x.kg));
+                }
+            }
+        }
+    }
+    for (g, left, kg) in scraps {
+        if let Some(t) = goods[g].tool.as_mut() {
+            t.scrap = Some((left, kg));
+        }
+    }
     for (g, metal, assay) in resolved {
         if let Some(m) = goods[g].money.as_mut() {
             m.metal = metal;
@@ -1782,6 +1811,16 @@ fn knowledge_problems(
                         changed = true;
                     }
                 }
+            }
+        }
+        // What a tool the world provides leaves as it wears away (ADR-0044 §1).
+        for (g, def) in catalog.goods.iter().enumerate() {
+            if let Some((left, _)) = def.tool.as_ref().and_then(|t| t.scrap)
+                && renewed.get(g).copied().unwrap_or(false)
+                && !renewed.get(left).copied().unwrap_or(true)
+            {
+                mark(left, &mut renewed);
+                changed = true;
             }
         }
         if !changed {

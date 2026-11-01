@@ -234,6 +234,7 @@ mod tests {
                 fixed: false,
                 serves: None,
                 crew: 1,
+                scrap: None,
             }),
             timber: None,
             store: None,

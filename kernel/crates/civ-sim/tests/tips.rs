@@ -315,7 +315,7 @@ fn under_the_law_households_carry_their_heaps_to_a_tip_clear_of_the_water_and_th
     let other = households[1];
     let (before, member) = {
         let x = sim.people().household(other).expect("there");
-        (x.midden, x.members[0])
+        (x.midden.clone(), x.members[0])
     };
     sim.with_ctx_for_tests(|pop, ctx| {
         pop.carry_midden_for_tests(ctx, member, (tip.place.0 + 500.0, tip.place.1))
@@ -548,6 +548,7 @@ fn a_tip_at(sim: &mut Sim, place: (f32, f32), disease: u16, doses: f64) -> Perma
         kg: 100.0,
         ash_kg: 10.0,
         households: Vec::new(),
+        discards: Vec::new(),
     });
     pop.contagion.add(Node::Tip(id), disease, doses);
     id

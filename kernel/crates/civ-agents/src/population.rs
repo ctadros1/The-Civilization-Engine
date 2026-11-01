@@ -6733,7 +6733,20 @@ impl Population {
         }
     }
 
-    /// Wears `tools` of `household` by `hours` of use.
+    /// [`Population::wear_tools`]: for tests.
+    #[doc(hidden)]
+    pub fn wear_tools_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        household: PermanentId,
+        tools: &[usize],
+        hours: f64,
+    ) {
+        self.wear_tools(ctx, household, tools, hours);
+    }
+
+    /// Wears `tools` of `household` by `hours` of use; what the share worn leaves goes on its
+    /// heap (ADR-0044 §1).
     fn wear_tools(&mut self, ctx: &Ctx, household: PermanentId, tools: &[usize], hours: f64) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let Some(x) = self
@@ -6747,7 +6760,9 @@ impl Population {
         x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
         x.stores.resize(goods.len(), 0.0);
         let before = x.stores.clone();
-        make::wear(&mut x.stores, goods, tools, hours);
+        for (g, kg) in make::wear(&mut x.stores, goods, tools, hours) {
+            x.midden.discard(g, kg);
+        }
         x.flows
             .add_changes(&before, &x.stores, Flow::Made, Flow::Worn);
     }
@@ -6879,7 +6894,9 @@ impl Population {
                 x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
                 x.stores.resize(goods.len(), 0.0);
                 let before = x.stores.clone();
-                make::wear(&mut x.stores, goods, &recipe.tools, hours);
+                for (g, kg) in make::wear(&mut x.stores, goods, &recipe.tools, hours) {
+                    x.midden.discard(g, kg);
+                }
                 x.flows
                     .add_changes(&before, &x.stores, Flow::Made, Flow::Worn);
             }
@@ -6948,7 +6965,9 @@ impl Population {
             x.flows
                 .add_changes(&before, &x.stores, Flow::Made, Flow::Used);
             let before = x.stores.clone();
-            make::wear(&mut x.stores, goods, &recipe.tools, hours);
+            for (g, kg) in make::wear(&mut x.stores, goods, &recipe.tools, hours) {
+                x.midden.discard(g, kg);
+            }
             x.flows
                 .add_changes(&before, &x.stores, Flow::Made, Flow::Worn);
             // Gas made beyond its holders' room goes to the air (M10b slice DY, ADR-0034 §8).
@@ -6976,7 +6995,9 @@ impl Population {
                     x.flows
                         .add_changes(&before, &x.stores, Flow::Made, Flow::Used);
                     let before = x.stores.clone();
-                    make::wear(&mut x.stores, goods, &[lamp], dark_h);
+                    for (g, kg) in make::wear(&mut x.stores, goods, &[lamp], dark_h) {
+                        x.midden.discard(g, kg);
+                    }
                     x.flows
                         .add_changes(&before, &x.stores, Flow::Made, Flow::Worn);
                 }

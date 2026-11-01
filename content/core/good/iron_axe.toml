@@ -18,3 +18,8 @@ life_h = 1200.0
 per_worker = 0.5
 fixed = false
 serves = "core:good/axe"
+
+# What a worn one leaves (ADR-0044 §1): half the bar it took, a design prior.
+[scrap]
+good = "core:good/scrap_iron"
+kg = 0.6

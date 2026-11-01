@@ -1,0 +1,13 @@
+# Scrap iron: what is left of a worn iron tool, a blade ground thin or a head cracked, thrown on the
+# heap whole (ADR-0044 §1; research 12-10 §1.6, §5.6: worn metal kept its worth to a smith). A
+# smith welds it back into bar. Weighed by the kilogram. It keeps.
+kind = "good"
+id = "core:good/scrap_iron"
+name = "Scrap iron"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

@@ -399,6 +399,10 @@ pub struct ToolDef {
     /// The fewest hands that must be at it together for it to run (M10a slice DT; ADR-0033 §8):
     /// 1 for a tool one person works; more for a machine, which a missing hand idles.
     pub crew: u8,
+    /// What a whole one leaves as it wears away (ADR-0044 §1): a good by index and kilograms a
+    /// whole tool, its share of them left with each share worn; `None` for a tool that leaves
+    /// nothing worth naming.
+    pub scrap: Option<(usize, f64)>,
 }
 
 /// What a good paid by weight as money adds to being a good (M7d slice CD, ADR-0027 §5).

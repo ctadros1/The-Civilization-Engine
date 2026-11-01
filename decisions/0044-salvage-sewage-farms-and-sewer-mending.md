@@ -1,6 +1,6 @@
 # ADR-0044: Salvage, sewage farms and mending sewers
 
-Status: proposed (draft)
+Status: Accepted (2026-11-01, by Claude under the owner's standing authority)
 Date: 2026-11-01
 Milestone: M11 (its deferrals; ADR-0038 §6, ADR-0041 §4)
 Amends: ADR-0038 §2–§4 (heaps and tips hold discards; a round may sort and its fee may fall below
@@ -28,8 +28,9 @@ stay on the `Refuse` channel.
 ### 1. What is thrown away: discards
 
 - A tool good may name `[scrap]` (content): a good and kilograms a whole tool. As it wears, its
-  holder gains that share of the scrap: a household on its heap, a works in its store (as
-  residues, ADR-0038 §2).
+  holder gains that share of the scrap on its heap. *As built (2026-11-01):* every tool the
+  kernel wears is held in a household's stores, a mill's or an engine's included, so all scrap
+  goes on the holding household's heap; a works' own store waits for works that hold tools apart.
 - A heap and a tip hold **discards**: a short saved list of (good, kilograms) beside the decaying
   share and ash. One list, not one field for each good, so that rags, bones or glass are later
   content only. Carrying, tipping and a round's load move discards whole and record them; a sewer,

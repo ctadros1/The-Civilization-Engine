@@ -2212,6 +2212,14 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 .map(|t| {
                     let households: Vec<u64> = t.households.iter().map(|h| h.get()).collect();
                     let households = fbb.create_vector(&households);
+                    // What was tipped whole (ADR-0044 §1), absent while nothing was.
+                    let (discard_goods, discard_kg) = if t.discards.is_empty() {
+                        (None, None)
+                    } else {
+                        let g: Vec<u32> = t.discards.iter().map(|&(g, _)| u32::from(g)).collect();
+                        let kg: Vec<f64> = t.discards.iter().map(|&(_, kg)| kg).collect();
+                        (Some(fbb.create_vector(&g)), Some(fbb.create_vector(&kg)))
+                    };
                     save::TipSave::create(
                         &mut fbb,
                         &save::TipSaveArgs {
@@ -2223,6 +2231,8 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             kg: t.kg,
                             ash_kg: t.ash_kg,
                             households: Some(households),
+                            discard_goods,
+                            discard_kg,
                         },
                     )
                 })
@@ -2243,9 +2253,12 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                                 x.calls.iter().map(|c| c.household.get()).collect();
                             let kg: Vec<f64> = x.calls.iter().map(|c| c.kg).collect();
                             let ash_kg: Vec<f64> = x.calls.iter().map(|c| c.ash_kg).collect();
+                            let discard_kg: Vec<f64> =
+                                x.calls.iter().map(|c| c.discard_kg).collect();
                             let households = fbb.create_vector(&households);
                             let kg = fbb.create_vector(&kg);
                             let ash_kg = fbb.create_vector(&ash_kg);
+                            let discard_kg = fbb.create_vector(&discard_kg);
                             save::RoundRunSave::create(
                                 &mut fbb,
                                 &save::RoundRunSaveArgs {
@@ -2254,6 +2267,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                                     households: Some(households),
                                     kg: Some(kg),
                                     ash_kg: Some(ash_kg),
+                                    discard_kg: Some(discard_kg),
                                 },
                             )
                         })
@@ -3498,6 +3512,21 @@ fn decode_polities(
                     "polity {id}'s tip {tip} lists households out of order"
                 )));
             }
+            // What was tipped whole (ADR-0044 §1, appended within saves 220): nothing, in older
+            // saves; goods the content no longer has are dropped.
+            let gs: Vec<u32> = t.discard_goods().iter().flatten().collect();
+            let kgs: Vec<f64> = t.discard_kg().iter().flatten().collect();
+            if gs.len() != kgs.len() || !kgs.iter().all(|v| v.is_finite() && *v > 0.0) {
+                return Err(bad(format!(
+                    "polity {id}'s tip {tip} has malformed discards"
+                )));
+            }
+            let mut discards = Vec::with_capacity(gs.len());
+            for (g, kg) in gs.into_iter().zip(kgs) {
+                if let Some(g) = saved_good(&goods, g, || format!("polity {id}'s tip {tip}"))? {
+                    civ_agents::person::add_discard(&mut discards, usize::from(g), kg);
+                }
+            }
             tips.push(civ_agents::polity::Tip {
                 id: tip,
                 law: required(t.law(), "a tip's law")?,
@@ -3506,6 +3535,7 @@ fn decode_polities(
                 kg,
                 ash_kg,
                 households,
+                discards,
             });
         }
         // Its refuse rounds (ADR-0038 §4, appended within saves 220): none, in older saves.
@@ -3529,20 +3559,34 @@ fn decode_polities(
                 let households: Vec<u64> = x.households().iter().flatten().collect();
                 let kg: Vec<f64> = x.kg().iter().flatten().collect();
                 let ash_kg: Vec<f64> = x.ash_kg().iter().flatten().collect();
+                // Each call's discards (ADR-0044 §1, appended within saves 220): none, in older
+                // saves.
+                let mut discard_kg: Vec<f64> = x.discard_kg().iter().flatten().collect();
+                if discard_kg.is_empty() {
+                    discard_kg = vec![0.0; households.len()];
+                }
                 if kg.len() != households.len()
                     || ash_kg.len() != households.len()
-                    || !kg.iter().chain(&ash_kg).all(|v| v.is_finite() && *v >= 0.0)
+                    || discard_kg.len() != households.len()
+                    || !kg
+                        .iter()
+                        .chain(&ash_kg)
+                        .chain(&discard_kg)
+                        .all(|v| v.is_finite() && *v >= 0.0)
                 {
                     return Err(bad(format!(
                         "polity {id}'s refuse round {round} has a malformed run"
                     )));
                 }
                 let mut calls = Vec::with_capacity(households.len());
-                for ((raw, kg), ash_kg) in households.into_iter().zip(kg).zip(ash_kg) {
+                for (((raw, kg), ash_kg), discard_kg) in
+                    households.into_iter().zip(kg).zip(ash_kg).zip(discard_kg)
+                {
                     calls.push(civ_agents::polity::RoundCall {
                         household: required(raw, "a home called at")?,
                         kg,
                         ash_kg,
+                        discard_kg,
                     });
                 }
                 runs.push(civ_agents::polity::RoundRun {
@@ -5968,6 +6012,19 @@ fn encode_households(
                     },
                 )
             });
+            // What was thrown on its midden whole (ADR-0044 §1), absent while nothing was.
+            let (discard_goods, discard_kg) = if h.midden.discards.is_empty() {
+                (None, None)
+            } else {
+                let g: Vec<u32> = h
+                    .midden
+                    .discards
+                    .iter()
+                    .map(|&(g, _)| u32::from(g))
+                    .collect();
+                let kg: Vec<f64> = h.midden.discards.iter().map(|&(_, kg)| kg).collect();
+                (Some(fbb.create_vector(&g)), Some(fbb.create_vector(&kg)))
+            };
             save::Household::create(
                 &mut fbb,
                 &save::HouseholdArgs {
@@ -5992,6 +6049,8 @@ fn encode_households(
                     midden_y: h.midden.site.1,
                     midden_ash_kg: h.midden.ash_kg,
                     midden_tipped: h.midden.tipped,
+                    midden_discard_goods: discard_goods,
+                    midden_discard_kg: discard_kg,
                     water_use_l: h.water_use_l,
                     water_walk_min: h.water_walk_min,
                     flood_home_cm: h.flood_memory.home_depth_cm,
@@ -6364,6 +6423,26 @@ fn decode_households(
                     // Carried to a tip (ADR-0038 §3, appended within saves 220): never, in older
                     // saves.
                     tipped: h.midden_tipped(),
+                    // Its discards (ADR-0044 §1, appended within saves 220): none, in older
+                    // saves; goods the content no longer has are dropped.
+                    discards: {
+                        let gs: Vec<u32> = h.midden_discard_goods().iter().flatten().collect();
+                        let kgs: Vec<f64> = h.midden_discard_kg().iter().flatten().collect();
+                        if gs.len() != kgs.len() || !kgs.iter().all(|v| v.is_finite() && *v > 0.0) {
+                            return Err(LoadError::Malformed(format!(
+                                "household {hh_id} has malformed discards on its midden"
+                            )));
+                        }
+                        let mut out = Vec::with_capacity(gs.len());
+                        for (g, kg) in gs.into_iter().zip(kgs) {
+                            if let Some(g) =
+                                saved_good(&goods, g, || format!("household {hh_id}'s midden"))?
+                            {
+                                civ_agents::person::add_discard(&mut out, usize::from(g), kg);
+                            }
+                        }
+                        out
+                    },
                 }
             },
             flood_memory: if schema >= Schema::V93 {

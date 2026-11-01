@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 219
+kernel_content_api = 220
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -3924,4 +3924,76 @@ fn the_core_lets_a_polity_ask_new_steel_frames_be_cased_against_fire() {
     );
     // Its id sorts after every older template's.
     assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
+}
+
+#[test]
+fn a_worn_tool_names_the_scrap_it_leaves() {
+    // ADR-0044 §1 (content API 220): a tool may carry a `[scrap]` table naming a good that is not
+    // a tool and the kilograms a whole one leaves; the core's iron tools leave half the bar they
+    // took as scrap iron, which a smith welds back into bar.
+    let axe = real("good/iron_axe.toml");
+    let fine = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        ("good/iron_axe.toml", &axe),
+    ]);
+    assert!(fine.diagnostics.is_empty(), "{:?}", fine.diagnostics);
+    let catalog = &fine.registry.as_ref().expect("content").catalog;
+    let index = |id: &str| catalog.goods.iter().position(|g| g.id == id);
+    let scrap = index("core:good/scrap_iron").expect("scrap iron");
+    for (tool, kg) in [
+        ("core:good/iron_axe", 0.6),
+        ("core:good/iron_hoe", 0.4),
+        ("core:good/iron_sickle", 0.2),
+    ] {
+        let left = catalog.goods[index(tool).expect("the tool")]
+            .tool
+            .as_ref()
+            .and_then(|t| t.scrap)
+            .expect("it leaves scrap");
+        assert_eq!(left.0, scrap, "{tool}");
+        assert!((left.1 - kg).abs() < 1e-12, "{tool}");
+    }
+    let weld = catalog
+        .recipes
+        .iter()
+        .find(|r| r.id == "core:recipe/forge_scrap")
+        .expect("welding scrap");
+    assert_eq!(weld.inputs[0].0, scrap);
+    assert_eq!(
+        weld.outputs,
+        vec![(index("core:good/iron").expect("bar"), 1.0)]
+    );
+    for (body, needle) in [
+        (axe.replace("kg = 0.6", "kg = 0.0"), "scrap.kg"),
+        (axe.replace("kg = 0.6", "kg = 2000.0"), "scrap.kg"),
+        (
+            axe.replace(
+                "good = \"core:good/scrap_iron\"",
+                "good = \"core:good/iron_hoe\"",
+            ),
+            "not a tool",
+        ),
+    ] {
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &real_preset()),
+            ("good/iron_axe.toml", &body),
+        ]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(report.diagnostics[0].message.contains(needle), "{needle}");
+    }
+    // Scrap from a good that is not a tool.
+    let bar = format!(
+        "{}\n[scrap]\ngood = \"core:good/scrap_iron\"\nkg = 0.5\n",
+        real("good/iron.toml")
+    );
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        ("good/iron.toml", &bar),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("only a tool wears away")
+    );
 }

@@ -188,6 +188,7 @@ impl Population {
             kg: 0.0,
             ash_kg: 0.0,
             households: Vec::new(),
+            discards: Vec::new(),
         });
     }
 
@@ -233,7 +234,7 @@ impl Population {
         let kg = hh
             .midden
             .at_time(ctx.now, hh.members.len(), &ctx.params.midden)
-            + hh.midden.ash_kg;
+            + hh.midden.inert_kg();
         let law = &self.polities[pi].laws[li];
         if dark || kg <= 0.0 || Self::tipped_lately(hh, &def, day) || !law.knows(person) {
             return Some(None);
@@ -284,10 +285,11 @@ impl Population {
         self.tip_share(ctx, household, pi, ti, 1.0);
     }
 
-    /// Moves share `share` (0-1) of household `household`'s heap, its decaying share and its ash,
-    /// into tip `ti` of polity `pi` now, with that share of what it holds of each disease,
-    /// recorded as carried (ADR-0038 §3, and a refuse round's call, §4); the heap counts as
-    /// tipped today. Returns the kilograms moved of its decaying share and of its ash.
+    /// Moves share `share` (0-1) of household `household`'s heap, its decaying share, its ash and
+    /// its discards (ADR-0044 §1), into tip `ti` of polity `pi` now, with that share of what it
+    /// holds of each disease, recorded as carried (ADR-0038 §3, and a refuse round's call, §4);
+    /// the heap counts as tipped today. Returns the kilograms moved of its decaying share, of its
+    /// ash and of its discards.
     pub(super) fn tip_share(
         &mut self,
         ctx: &Ctx,
@@ -295,11 +297,11 @@ impl Population {
         pi: usize,
         ti: usize,
         share: f64,
-    ) -> (f64, f64) {
+    ) -> (f64, f64, f64) {
         let day = ctx.now.day_index();
         let share = share.clamp(0.0, 1.0);
         let Some(x) = self.household_mut(household) else {
-            return (0.0, 0.0);
+            return (0.0, 0.0, 0.0);
         };
         let members = x.members.len();
         x.midden.settle(ctx.now, members, &ctx.params.midden);
@@ -315,10 +317,15 @@ impl Population {
             x.midden.kg -= kg;
             x.midden.ash_kg -= ash_kg;
         }
+        let discards = crate::person::take_discards(&mut x.midden.discards, share);
+        let discard_kg = crate::person::discards_kg(&discards);
         x.midden.tipped = day;
         let tip = &mut self.polities[pi].tips[ti];
         tip.kg += kg;
         tip.ash_kg += ash_kg;
+        for (g, kg) in discards {
+            crate::person::add_discard(&mut tip.discards, usize::from(g), kg);
+        }
         if let Err(i) = tip.households.binary_search(&household) {
             tip.households.insert(i, household);
         }
@@ -344,7 +351,7 @@ impl Population {
             });
         }
         self.changed(household);
-        (kg, ash_kg)
+        (kg, ash_kg, discard_kg)
     }
 
     /// The day's breaches of each law carrying refuse to a tip (ADR-0038 §3): a household of its
@@ -385,7 +392,7 @@ impl Population {
                 .filter(|x| {
                     x.midden
                         .at_time(ctx.now, x.members.len(), &ctx.params.midden)
-                        + x.midden.ash_kg
+                        + x.midden.inert_kg()
                         > 0.0
                 })
                 .count() as u32;
@@ -414,7 +421,7 @@ impl Population {
                 let kg = x
                     .midden
                     .at_time(ctx.now, x.members.len(), &ctx.params.midden)
-                    + x.midden.ash_kg;
+                    + x.midden.inert_kg();
                 if kg <= f64::from(def.heap_kg) {
                     return false;
                 }

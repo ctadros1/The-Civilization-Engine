@@ -988,12 +988,14 @@ impl Sewer {
 }
 
 /// One home's heap loaded on a refuse round's run (ADR-0038 §4): the household, and the kilograms
-/// of its decaying share and of its ash that went into the cart and on to the tip.
+/// of its decaying share, of its ash and of its discards (ADR-0044 §1) that went into the cart and
+/// on to the tip.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RoundCall {
     pub household: PermanentId,
     pub kg: f64,
     pub ash_kg: f64,
+    pub discard_kg: f64,
 }
 
 /// A refuse round's run (ADR-0038 §4): the day, its keeper's hours on it, and the homes called at
@@ -1037,13 +1039,13 @@ pub struct RefuseRound {
 }
 
 impl RefuseRound {
-    /// Kilograms it carried, decaying share and ash, on runs since day `since`.
+    /// Kilograms it carried, decaying share, ash and discards, on runs since day `since`.
     pub fn carried_since(&self, since: i64) -> f64 {
         self.runs
             .iter()
             .filter(|r| r.day >= since)
             .flat_map(|r| &r.calls)
-            .map(|c| c.kg + c.ash_kg)
+            .map(|c| c.kg + c.ash_kg + c.discard_kg)
             .sum()
     }
 }
@@ -1069,6 +1071,9 @@ pub struct Tip {
     pub ash_kg: f64,
     /// The households that tipped here, by id, sorted.
     pub households: Vec<PermanentId>,
+    /// What was tipped here whole (ADR-0044 §1): kilograms by good index, sorted by good, none at
+    /// zero.
+    pub discards: Vec<(u16, f64)>,
 }
 
 /// What a household believes a register of the sick spares it (M10c slice EE, second part): the

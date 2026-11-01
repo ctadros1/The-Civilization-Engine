@@ -528,7 +528,7 @@ impl Population {
             let heap = x
                 .midden
                 .at_time(ctx.now, x.members.len(), &ctx.params.midden)
-                + x.midden.ash_kg;
+                + x.midden.inert_kg();
             if heap <= 0.0 {
                 continue;
             }
@@ -577,11 +577,12 @@ impl Population {
             if r.law.is_none() && fee > 0.0 {
                 self.pay_food_by(ctx, h, r.operator, fee, Channel::Refuse);
             }
-            let (kg, ash_kg) = self.tip_share(ctx, h, pi, ti, share);
+            let (kg, ash_kg, discard_kg) = self.tip_share(ctx, h, pi, ti, share);
             called.push(RoundCall {
                 household: h,
                 kg,
                 ash_kg,
+                discard_kg,
             });
         }
         if let Some((fuel, kg)) = burn {

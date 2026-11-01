@@ -60,6 +60,19 @@ pub(crate) struct GoodFile {
     /// Content API 215 (ADR-0042 §2): what it does as a passenger lift; only a fixed tool.
     #[serde(default)]
     pub lift: Option<LiftFile>,
+    /// Content API 220 (ADR-0044 §1): what a whole one leaves as it wears away; only a tool.
+    #[serde(default)]
+    pub scrap: Option<ScrapFile>,
+}
+
+/// What a tool leaves as it wears away (ADR-0044 §1): its holder throws it on its heap.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ScrapFile {
+    /// The good it leaves, by content id: one that is not a tool.
+    pub good: String,
+    /// Kilograms a whole tool leaves, above 0 and at most 1,000.
+    pub kg: f64,
 }
 
 /// What a passenger lift does (ADR-0042 §2). See [`civ_agents::params::GoodLift`].
@@ -256,6 +269,7 @@ impl GoodFile {
                 fixed: t.fixed,
                 serves: None,
                 crew: t.crew.clamp(1, 20) as u8,
+                scrap: None,
             }),
             timber: self.timber.as_ref().map(|t| Timber {
                 bending_pa: t.bending_mpa * 1e6,
@@ -419,6 +433,17 @@ impl GoodFile {
             }
             if self.tool.is_none() {
                 p.push("only a tool gives light: `[light]` needs a `[tool]` table".to_owned());
+            }
+        }
+        if let Some(x) = &self.scrap {
+            if !(x.kg.is_finite() && x.kg > 0.0 && x.kg <= 1_000.0) {
+                p.push(format!(
+                    "`scrap.kg` must be above 0 and at most 1000 (got {})",
+                    x.kg
+                ));
+            }
+            if self.tool.is_none() {
+                p.push("only a tool wears away: `[scrap]` needs a `[tool]` table".to_owned());
             }
         }
         if let Some(h) = &self.holder {

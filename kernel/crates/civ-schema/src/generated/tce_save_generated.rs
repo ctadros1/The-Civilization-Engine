@@ -32796,6 +32796,8 @@ impl<'a> Household<'a> {
   pub const VT_MIDDEN_Y: ::flatbuffers::VOffsetT = 62;
   pub const VT_MIDDEN_ASH_KG: ::flatbuffers::VOffsetT = 64;
   pub const VT_MIDDEN_TIPPED: ::flatbuffers::VOffsetT = 66;
+  pub const VT_MIDDEN_DISCARD_GOODS: ::flatbuffers::VOffsetT = 68;
+  pub const VT_MIDDEN_DISCARD_KG: ::flatbuffers::VOffsetT = 70;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -32821,6 +32823,8 @@ impl<'a> Household<'a> {
     builder.add_food_kcal(args.food_kcal);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.midden_discard_kg { builder.add_midden_discard_kg(x); }
+    if let Some(x) = args.midden_discard_goods { builder.add_midden_discard_goods(x); }
     builder.add_midden_y(args.midden_y);
     builder.add_midden_x(args.midden_x);
     if let Some(x) = args.mill_seen { builder.add_mill_seen(x); }
@@ -33067,6 +33071,20 @@ impl<'a> Household<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(Household::VT_MIDDEN_TIPPED, Some(-1)).unwrap()}
   }
+  #[inline]
+  pub fn midden_discard_goods(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(Household::VT_MIDDEN_DISCARD_GOODS, None)}
+  }
+  #[inline]
+  pub fn midden_discard_kg(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(Household::VT_MIDDEN_DISCARD_KG, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Household<'_> {
@@ -33107,6 +33125,8 @@ impl ::flatbuffers::Verifiable for Household<'_> {
      .visit_field::<f32>("midden_y", Self::VT_MIDDEN_Y, false)?
      .visit_field::<f64>("midden_ash_kg", Self::VT_MIDDEN_ASH_KG, false)?
      .visit_field::<i64>("midden_tipped", Self::VT_MIDDEN_TIPPED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("midden_discard_goods", Self::VT_MIDDEN_DISCARD_GOODS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("midden_discard_kg", Self::VT_MIDDEN_DISCARD_KG, false)?
      .finish();
     Ok(())
   }
@@ -33144,6 +33164,8 @@ pub struct HouseholdArgs<'a> {
     pub midden_y: f32,
     pub midden_ash_kg: f64,
     pub midden_tipped: i64,
+    pub midden_discard_goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub midden_discard_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
 }
 impl<'a> Default for HouseholdArgs<'a> {
   #[inline]
@@ -33181,6 +33203,8 @@ impl<'a> Default for HouseholdArgs<'a> {
       midden_y: 0.0,
       midden_ash_kg: 0.0,
       midden_tipped: -1,
+      midden_discard_goods: None,
+      midden_discard_kg: None,
     }
   }
 }
@@ -33319,6 +33343,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HouseholdBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<i64>(Household::VT_MIDDEN_TIPPED, midden_tipped, -1);
   }
   #[inline]
+  pub fn add_midden_discard_goods(&mut self, midden_discard_goods: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_MIDDEN_DISCARD_GOODS, midden_discard_goods);
+  }
+  #[inline]
+  pub fn add_midden_discard_kg(&mut self, midden_discard_kg: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_MIDDEN_DISCARD_KG, midden_discard_kg);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HouseholdBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HouseholdBuilder {
@@ -33368,6 +33400,8 @@ impl ::core::fmt::Debug for Household<'_> {
       ds.field("midden_y", &self.midden_y());
       ds.field("midden_ash_kg", &self.midden_ash_kg());
       ds.field("midden_tipped", &self.midden_tipped());
+      ds.field("midden_discard_goods", &self.midden_discard_goods());
+      ds.field("midden_discard_kg", &self.midden_discard_kg());
       ds.finish()
   }
 }
@@ -45309,6 +45343,7 @@ impl<'a> RoundRunSave<'a> {
   pub const VT_HOUSEHOLDS: ::flatbuffers::VOffsetT = 8;
   pub const VT_KG: ::flatbuffers::VOffsetT = 10;
   pub const VT_ASH_KG: ::flatbuffers::VOffsetT = 12;
+  pub const VT_DISCARD_KG: ::flatbuffers::VOffsetT = 14;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -45321,6 +45356,7 @@ impl<'a> RoundRunSave<'a> {
   ) -> ::flatbuffers::WIPOffset<RoundRunSave<'bldr>> {
     let mut builder = RoundRunSaveBuilder::new(_fbb);
     builder.add_day(args.day);
+    if let Some(x) = args.discard_kg { builder.add_discard_kg(x); }
     if let Some(x) = args.ash_kg { builder.add_ash_kg(x); }
     if let Some(x) = args.kg { builder.add_kg(x); }
     if let Some(x) = args.households { builder.add_households(x); }
@@ -45364,6 +45400,13 @@ impl<'a> RoundRunSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(RoundRunSave::VT_ASH_KG, None)}
   }
+  #[inline]
+  pub fn discard_kg(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(RoundRunSave::VT_DISCARD_KG, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for RoundRunSave<'_> {
@@ -45377,6 +45420,7 @@ impl ::flatbuffers::Verifiable for RoundRunSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("households", Self::VT_HOUSEHOLDS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("kg", Self::VT_KG, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("ash_kg", Self::VT_ASH_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("discard_kg", Self::VT_DISCARD_KG, false)?
      .finish();
     Ok(())
   }
@@ -45387,6 +45431,7 @@ pub struct RoundRunSaveArgs<'a> {
     pub households: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
     pub kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
     pub ash_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+    pub discard_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
 }
 impl<'a> Default for RoundRunSaveArgs<'a> {
   #[inline]
@@ -45397,6 +45442,7 @@ impl<'a> Default for RoundRunSaveArgs<'a> {
       households: None,
       kg: None,
       ash_kg: None,
+      discard_kg: None,
     }
   }
 }
@@ -45427,6 +45473,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RoundRunSaveBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoundRunSave::VT_ASH_KG, ash_kg);
   }
   #[inline]
+  pub fn add_discard_kg(&mut self, discard_kg: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoundRunSave::VT_DISCARD_KG, discard_kg);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RoundRunSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RoundRunSaveBuilder {
@@ -45449,6 +45499,7 @@ impl ::core::fmt::Debug for RoundRunSave<'_> {
       ds.field("households", &self.households());
       ds.field("kg", &self.kg());
       ds.field("ash_kg", &self.ash_kg());
+      ds.field("discard_kg", &self.discard_kg());
       ds.finish()
   }
 }
@@ -45476,6 +45527,8 @@ impl<'a> TipSave<'a> {
   pub const VT_KG: ::flatbuffers::VOffsetT = 14;
   pub const VT_ASH_KG: ::flatbuffers::VOffsetT = 16;
   pub const VT_HOUSEHOLDS: ::flatbuffers::VOffsetT = 18;
+  pub const VT_DISCARD_GOODS: ::flatbuffers::VOffsetT = 20;
+  pub const VT_DISCARD_KG: ::flatbuffers::VOffsetT = 22;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -45492,6 +45545,8 @@ impl<'a> TipSave<'a> {
     builder.add_opened(args.opened);
     builder.add_law(args.law);
     builder.add_id(args.id);
+    if let Some(x) = args.discard_kg { builder.add_discard_kg(x); }
+    if let Some(x) = args.discard_goods { builder.add_discard_goods(x); }
     if let Some(x) = args.households { builder.add_households(x); }
     builder.add_y(args.y);
     builder.add_x(args.x);
@@ -45555,6 +45610,20 @@ impl<'a> TipSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(TipSave::VT_HOUSEHOLDS, None)}
   }
+  #[inline]
+  pub fn discard_goods(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(TipSave::VT_DISCARD_GOODS, None)}
+  }
+  #[inline]
+  pub fn discard_kg(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(TipSave::VT_DISCARD_KG, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for TipSave<'_> {
@@ -45571,6 +45640,8 @@ impl ::flatbuffers::Verifiable for TipSave<'_> {
      .visit_field::<f64>("kg", Self::VT_KG, false)?
      .visit_field::<f64>("ash_kg", Self::VT_ASH_KG, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("households", Self::VT_HOUSEHOLDS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("discard_goods", Self::VT_DISCARD_GOODS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("discard_kg", Self::VT_DISCARD_KG, false)?
      .finish();
     Ok(())
   }
@@ -45584,6 +45655,8 @@ pub struct TipSaveArgs<'a> {
     pub kg: f64,
     pub ash_kg: f64,
     pub households: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub discard_goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub discard_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
 }
 impl<'a> Default for TipSaveArgs<'a> {
   #[inline]
@@ -45597,6 +45670,8 @@ impl<'a> Default for TipSaveArgs<'a> {
       kg: 0.0,
       ash_kg: 0.0,
       households: None,
+      discard_goods: None,
+      discard_kg: None,
     }
   }
 }
@@ -45639,6 +45714,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TipSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TipSave::VT_HOUSEHOLDS, households);
   }
   #[inline]
+  pub fn add_discard_goods(&mut self, discard_goods: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TipSave::VT_DISCARD_GOODS, discard_goods);
+  }
+  #[inline]
+  pub fn add_discard_kg(&mut self, discard_kg: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TipSave::VT_DISCARD_KG, discard_kg);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TipSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TipSaveBuilder {
@@ -45664,6 +45747,8 @@ impl ::core::fmt::Debug for TipSave<'_> {
       ds.field("kg", &self.kg());
       ds.field("ash_kg", &self.ash_kg());
       ds.field("households", &self.households());
+      ds.field("discard_goods", &self.discard_goods());
+      ds.field("discard_kg", &self.discard_kg());
       ds.finish()
   }
 }

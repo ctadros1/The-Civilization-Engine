@@ -554,7 +554,16 @@ pub fn keep_to_holders(goods: &[GoodDef], stores: &mut [f64]) -> Vec<(usize, f64
     lost
 }
 
-pub fn wear(stores: &mut [f64], goods: &[GoodDef], tools: &[usize], hours: f64) {
+/// Wears `tools` by `hours` of work in `stores`: each by the longest-lived of the tools at hand
+/// that do its work, `hours / life_h` of a unit, and a tool worn out is gone. Returns what the
+/// share worn leaves, by good and kilograms (ADR-0044 §1): its holder throws it on the heap.
+pub fn wear(
+    stores: &mut [f64],
+    goods: &[GoodDef],
+    tools: &[usize],
+    hours: f64,
+) -> Vec<(usize, f64)> {
+    let mut scrap: Vec<(usize, f64)> = Vec::new();
     for &t in tools {
         // The work is done with the longest-lived of the tools at hand that do it (M7d slice CE).
         let t = serving(goods, t)
@@ -570,9 +579,18 @@ pub fn wear(stores: &mut [f64], goods: &[GoodDef], tools: &[usize], hours: f64) 
             stores.get_mut(t),
         ) && def.life_h > 0.0
         {
+            let before = *s;
             *s = (*s - hours.max(0.0) / def.life_h).max(0.0);
+            // What a worn share leaves (ADR-0044 §1).
+            if let Some((g, kg)) = def.scrap {
+                let left = (before - *s) * kg;
+                if left > 0.0 {
+                    scrap.push((g, left));
+                }
+            }
         }
     }
+    scrap
 }
 
 #[cfg(test)]
@@ -653,6 +671,7 @@ mod tests {
             fixed: false,
             serves: None,
             crew: 1,
+            scrap: None,
         });
         let mut oven = good("oven", GoodUse::Tool, 0.0, Eaten::Never);
         oven.tool = Some(ToolDef {
@@ -661,6 +680,7 @@ mod tests {
             fixed: true,
             serves: None,
             crew: 1,
+            scrap: None,
         });
         vec![
             good("grain", GoodUse::Food, 3340.0, Eaten::Never),
@@ -682,6 +702,7 @@ mod tests {
             fixed: true,
             serves: None,
             crew: 1,
+            scrap: None,
         });
         holder.holder = Some(crate::params::GoodHolder {
             good: Some(0),
@@ -928,6 +949,7 @@ mod tests {
             fixed: false,
             serves: None,
             crew: 1,
+            scrap: None,
         });
         let mut copper = good("copper_axe", GoodUse::Tool, 0.0, Eaten::Never);
         copper.tool = Some(ToolDef {
@@ -936,6 +958,7 @@ mod tests {
             fixed: false,
             serves: Some(1),
             crew: 1,
+            scrap: None,
         });
         crate::params::Catalog {
             goods: vec![stone, axe, copper],

@@ -473,7 +473,9 @@ impl Population {
             o.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
             o.stores.resize(goods.len(), 0.0);
             let before = o.stores.clone();
-            make::wear(&mut o.stores, goods, &r.tools, turned.min(hours));
+            for (g, kg) in make::wear(&mut o.stores, goods, &r.tools, turned.min(hours)) {
+                o.midden.discard(g, kg);
+            }
             o.flows
                 .add_changes(&before, &o.stores, Flow::Made, Flow::Worn);
         }

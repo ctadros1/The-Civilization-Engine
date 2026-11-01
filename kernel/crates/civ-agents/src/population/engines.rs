@@ -358,7 +358,9 @@ impl Population {
             return;
         }
         let hours = done / e.rated_kw.max(1e-9);
-        make::wear(&mut o.stores, goods, &[engine], hours);
+        for (g, kg) in make::wear(&mut o.stores, goods, &[engine], hours) {
+            o.midden.discard(g, kg);
+        }
         o.flows
             .add_changes(&before, &o.stores, Flow::Made, Flow::Used);
         let left = state.water_m3 * (1.0 - (done / need_kwh.max(1e-12)).min(1.0));

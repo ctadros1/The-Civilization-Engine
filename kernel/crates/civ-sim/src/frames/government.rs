@@ -1753,10 +1753,28 @@ pub fn services_words(sim: &Sim, polity: &civ_agents::polity::Polity) -> Vec<Str
                 format!("{:.1} t", kg / 1000.0)
             }
         };
+        // What was thrown away whole, by good (ADR-0044 §1): "and 3 kg of scrap iron".
+        let goods = &sim.rules().catalog.goods;
+        let whole: Vec<String> = t
+            .discards
+            .iter()
+            .map(|&(g, kg)| {
+                let name = goods
+                    .get(usize::from(g))
+                    .map_or_else(|| "something".to_owned(), |d| d.name.to_lowercase());
+                format!("{} of {name}", tonnes(kg))
+            })
+            .collect();
+        let whole = if whole.is_empty() {
+            String::new()
+        } else {
+            format!(" and {}", whole.join(", "))
+        };
+        let discarded: f64 = t.discards.iter().map(|&(_, kg)| kg).sum();
         out.push(format!(
-            "{} holds {}, {} of it ash, from {} household{}",
+            "{} holds {}, {} of it ash{whole}, from {} household{}",
             super::markets::capitalized(&tip_words(sim, polity, t)),
-            tonnes(t.kg + t.ash_kg),
+            tonnes(t.kg + t.ash_kg + discarded),
             tonnes(t.ash_kg),
             n,
             if n == 1 { "" } else { "s" }

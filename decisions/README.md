@@ -50,6 +50,7 @@ the milestone is too big and gets split.
 | [0041](0041-sewers-and-treatment.md) | Sewers and treatment | Accepted | M11 (deferrals) |
 | [0042](0042-climbing-lifts-taller-frames-and-wind.md) | Climbing, lifts, taller frames and wind | Accepted | M11 (deferrals) |
 | [0043](0043-what-is-left-and-where-people-have-looked.md) | What is left of a source, and where people have looked | Accepted | M11 (M11d's demo) |
+| [0044](0044-salvage-sewage-farms-and-sewer-mending.md) | Salvage, sewage farms and mending sewers | Accepted | M11 (deferrals) |
 
 ## Template
 

@@ -2054,3 +2054,12 @@ skeleton where their program cases one so long (it is written as frame version 5
 weighs it by the bare skeletons it heard gave way or saw burn against the hours casing its own
 next home would take. The core adds `policy/zealously_zone_cased_steel`, answering `burned` and
 needing the steel skeleton to propose: 60 minutes (research 11-14 §2.5's 30–120).
+
+Content API 220 (ADR-0044 §1) adds a good's optional `[scrap]` table, allowed only on a tool:
+`good`, a good that is not a tool, and `kg` (above 0, at most 1,000), what a whole one leaves as
+it wears away. Each share of the tool worn leaves that share of the scrap on its holder's heap,
+kept whole beside the heap's decaying share and ash (it never decays, is not dung and carries
+nothing to the water), moved whole to a tip when the heap is carried there. A workable tool's scrap
+counts as provided for the bootstrap check (E3007). The core's iron axe, hoe and sickle leave
+`good/scrap_iron` (0.6, 0.4 and 0.2 kg: half the bar each took, a design prior), and
+`recipe/forge_scrap` welds 1.1 kg of it with 4 kg of charcoal into a kilogram of bar in 2 hours.

@@ -1010,8 +1010,9 @@ impl FloodMemory {
 /// A household's midden beside its home: the heap of ash, food waste, sweepings and dung (research
 /// 12-02 §3: early farming middens mixed domestic waste, ash and fecal material), kilograms as it
 /// stood at `at` ([`crate::params::MiddenParams::after`] brings it up to date), and the ash of what
-/// its hearth burned (ADR-0038 §2).
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+/// its hearth burned (ADR-0038 §2), and what was thrown on it whole: the discards, by good
+/// (ADR-0044 §1).
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Midden {
     /// Kilograms in the heap's decaying share: what dungs a field and what wastes at its
     /// half-life.
@@ -1029,6 +1030,10 @@ pub struct Midden {
     /// The day it was last carried to a tip under a law carrying refuse to one, -1 never (M11f,
     /// second part; ADR-0038 §3): what was in it then went to the tip.
     pub tipped: i64,
+    /// What was thrown on it whole (ADR-0044 §1): kilograms by good index, sorted by good, none
+    /// at zero. Inert like the ash: it never decays, is not dung and carries nothing to the water,
+    /// and it lies wherever the heap lies.
+    pub discards: Vec<(u16, f64)>,
 }
 
 impl Midden {
@@ -1041,7 +1046,18 @@ impl Midden {
             carried: -1,
             site: (0.0, 0.0),
             tipped: -1,
+            discards: Vec::new(),
         }
+    }
+
+    /// Throws `kg` of good `good` on the heap whole (ADR-0044 §1).
+    pub fn discard(&mut self, good: usize, kg: f64) {
+        add_discard(&mut self.discards, good, kg);
+    }
+
+    /// Kilograms of the heap that never decay: its ash and its discards.
+    pub fn inert_kg(&self) -> f64 {
+        self.ash_kg + discards_kg(&self.discards)
     }
 
     /// The heap at `t` for `members` people.
@@ -1057,6 +1073,44 @@ impl Midden {
             self.at = t;
         }
     }
+}
+
+/// Adds `kg` of good `good` to a list of discards kept by good, sorted, none at zero (ADR-0044
+/// §1): a heap's or a tip's.
+pub fn add_discard(list: &mut Vec<(u16, f64)>, good: usize, kg: f64) {
+    let Ok(g) = u16::try_from(good) else {
+        return;
+    };
+    if !(kg.is_finite() && kg > 0.0) {
+        return;
+    }
+    match list.binary_search_by_key(&g, |&(x, _)| x) {
+        Ok(i) => list[i].1 += kg,
+        Err(i) => list.insert(i, (g, kg)),
+    }
+}
+
+/// Kilograms of a list of discards, all goods together.
+pub fn discards_kg(list: &[(u16, f64)]) -> f64 {
+    list.iter().map(|&(_, kg)| kg).sum()
+}
+
+/// Takes share `share` (0-1) of a list of discards out of it, good by good, and returns what was
+/// taken: all of each at a share of 1 (ADR-0044 §1).
+pub fn take_discards(list: &mut Vec<(u16, f64)>, share: f64) -> Vec<(u16, f64)> {
+    let share = share.clamp(0.0, 1.0);
+    if share >= 1.0 {
+        return std::mem::take(list);
+    }
+    let mut taken: Vec<(u16, f64)> = Vec::with_capacity(list.len());
+    for x in list.iter_mut() {
+        let t = x.1 * share;
+        x.1 -= t;
+        taken.push((x.0, t));
+    }
+    list.retain(|&(_, kg)| kg > 0.0);
+    taken.retain(|&(_, kg)| kg > 0.0);
+    taken
 }
 
 /// Room for a household's goods under its roofs (ADR-0009 §5), from its roofed buildings: on

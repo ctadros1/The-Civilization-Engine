@@ -513,6 +513,10 @@ table Household {
   // Schema 220 (M11f, second part; ADR-0038 §3; appended within the unreleased saves 220): the day
   // its midden was last carried to a tip (-1 never); absent, never.
   midden_tipped: long = -1 (id: 31);
+  // Schema 220 (ADR-0044 §1; appended within the unreleased saves 220): what was thrown on its
+  // midden whole, kilograms by good, the goods indexing Households.goods; absent, nothing.
+  midden_discard_goods: [uint] (id: 32);
+  midden_discard_kg: [double] (id: 33);
 }
 
 // A household's count at a mill review (schema 174): the day and the kilograms it had made in
@@ -1770,6 +1774,9 @@ table RoundRunSave {
   households: [ulong] (id: 2);
   kg: [double] (id: 3);
   ash_kg: [double] (id: 4);
+  // ADR-0044 §1 (appended within the unreleased saves 220): each call's kilograms of discards;
+  // absent, none.
+  discard_kg: [double] (id: 5);
 }
 
 // A tip a polity's law opened (schema 220, M11f, second part; ADR-0038 §3): its id (its contagion
@@ -1784,6 +1791,10 @@ table TipSave {
   kg: double (id: 5);
   ash_kg: double (id: 6);
   households: [ulong] (id: 7);
+  // ADR-0044 §1 (appended within the unreleased saves 220): what was tipped whole, kilograms by
+  // good, the goods indexing Polities.goods; absent, nothing.
+  discard_goods: [uint] (id: 8);
+  discard_kg: [double] (id: 9);
 }
 
 // A year's measured losses beside `MeasuredSave` (schema 166, M8d slice DC): the year, and the

@@ -2031,3 +2031,17 @@ all of it, in the daily check; before, its forms carry it. A concrete frame's wa
 once its frame's forms may be stripped: `strip_days` after its frame stage was finished. The core's
 concrete is stripped at 7 days on the curve 4 and 0.85 (0.70 of its full strength at 7 days, all
 of it by about 27; the form of ACI 209's curve, research 11-14 §2.1 giving 0.74 at 7 days).
+
+Content API 218 (ADR-0037 §5, as built 2026-11-01) brings protection against fire. A good's
+`[timber]` may give `protection_min` (0–600): minutes of a fully involved fire a member of it keeps
+its strength through, by its own cover. A frame program's `[frame]` may give `encasement_kg_per_m3`,
+`encasement_h_per_m3` and `encasement_min`, all 0 by default: what casing a steel skeleton's posts,
+beams and joists in the program's concrete takes a cubic metre of their envelope, its hours, and the
+minutes it holds. Frame version 5's parameter 28 (`ENCASEMENT`, 0 or 1) cases a skeleton, its frame
+stage taking the casing's concrete and hours; it is refused on any other frame or without the
+program's figures. Through a burn whose full involvement is no longer than a member's protection
+(its own cover, with its skeleton's casing), the member keeps all its strength; otherwise its
+material's `burnt_keeps`. The core's concrete has 60 minutes of cover, and the hall and workshop
+case at 2,250 kg and 15 hours a cubic metre for 90 minutes (design priors; research 11-14 §2.5:
+30–120 minutes by thickness). A fire's full involvement is the people profile's 30 minutes, so
+cover and casing both outlast it.

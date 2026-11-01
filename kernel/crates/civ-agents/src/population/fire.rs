@@ -137,6 +137,41 @@ pub fn plot_boxes(land: &Land) -> FastMap<PermanentId, civ_land::RectCm> {
     land.plots.iter().map(|p| (p.id, p.rect)).collect()
 }
 
+/// The members of building `spec` (program `def`, expanded as `e`) of a material that softens
+/// rather than chars, with the share of their strength each keeps through a burn fully involved
+/// for `involved_minutes` (ADR-0037 §5): all of it where its own cover, or its skeleton's casing,
+/// outlasts that; else its material's share.
+pub fn softening(
+    goods: &[crate::params::GoodDef],
+    def: &crate::params::BuildingDef,
+    spec: &civ_grammar::BuildingSpec,
+    e: &civ_grammar::Expansion,
+    involved_minutes: f64,
+) -> Vec<(u32, f64)> {
+    let encased = spec.params.get(civ_grammar::frame_params::ENCASEMENT) == Some(&1);
+    let casing = match &def.rules {
+        civ_grammar::ProgramRules::Frame(r) if encased => r.encasement_min,
+        _ => 0.0,
+    };
+    e.groups
+        .iter()
+        .filter_map(|g| {
+            let t = crate::structure::group_timber(goods, def, g)?;
+            let keeps = t.burnt_keeps?;
+            let cased = g.material == Some(civ_grammar::frame_materials::FRAME);
+            let protected = t.protection_min + if cased { casing } else { 0.0 };
+            Some((
+                g.id,
+                if protected >= involved_minutes {
+                    1.0
+                } else {
+                    keeps
+                },
+            ))
+        })
+        .collect()
+}
+
 /// The group kinds of timber members that char while a building is fully involved (members of a
 /// material that softens instead do not: ADR-0037 §5).
 fn chars(kind: GroupKind) -> bool {
@@ -1723,14 +1758,13 @@ impl Population {
         // Members of a material that softens rather than chars, with the share of their strength
         // they keep once the building has burnt out (ADR-0037 §5).
         let softens: Vec<(u32, f64)> = match (def, e.as_ref()) {
-            (Some(d), Some(e)) => e
-                .groups
-                .iter()
-                .filter_map(|g| {
-                    let t = crate::structure::group_timber(&ctx.catalog.goods, d, g)?;
-                    Some((g.id, t.burnt_keeps?))
-                })
-                .collect(),
+            (Some(d), Some(e)) => softening(
+                &ctx.catalog.goods,
+                d,
+                &ctx.land.buildings[bi].spec,
+                e,
+                p.involved_minutes,
+            ),
             _ => Vec::new(),
         };
         {
@@ -2178,15 +2212,16 @@ impl Population {
         let Some(e) = self.expansion_of(b, def) else {
             return;
         };
-        let softens: Vec<(u32, f64)> = e
-            .groups
-            .iter()
-            .filter_map(|g| {
-                let t = crate::structure::group_timber(&ctx.catalog.goods, def, g)?;
-                Some((g.id, t.burnt_keeps?))
-            })
-            .filter(|&(_, keeps)| keeps > 0.0)
-            .collect();
+        let softens: Vec<(u32, f64)> = softening(
+            &ctx.catalog.goods,
+            def,
+            &ctx.land.buildings[bi].spec,
+            &e,
+            ctx.params.fire.involved_minutes,
+        )
+        .into_iter()
+        .filter(|&(_, keeps)| keeps > 0.0)
+        .collect();
         for c in &mut ctx.land.buildings[bi].condition {
             if c.state == civ_land::GroupState::Failed {
                 continue;

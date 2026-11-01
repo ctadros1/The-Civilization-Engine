@@ -8713,9 +8713,18 @@ and M6a gives rivers a daily flow.
       version 4 refusing it, ties refused), steel (a concrete workshop's rubble infill bearing
       itself at a margin above ten, its posts' margin falling with the infill's weight and still
       above one), civ-agents (300), civ-grammar (42), tall, hazard_tools, roundtrip, fire, rules,
-      homes, public_buildings; clippy. No content, save or wire change. **Not yet:** fire
-      protection and `ProtectedFrame`, the young concrete and the infill in the shaking and wind
-      checks, and a lived world that casts one.
+      homes, public_buildings; clippy. No content, save or wire change. **Its fourth part,
+      protection against fire:** a member keeps all its strength through a burn its protection
+      outlasts: concrete's own cover (60 minutes) and a version 5 skeleton's casing in concrete
+      (parameter 28, 90 minutes, its frame stage's concrete and hours); otherwise its material's
+      share (steel 0.4, concrete 0.75). A fire's full involvement is 30 minutes, so both outlast
+      it. Content API 218. Tested: a bare skeleton keeping 0.4, a cased one all of it to 90
+      minutes and 0.4 beyond, a concrete frame all of it to its hour and 0.75 beyond; casing
+      refused on a concrete frame and on version 4; civ-agents (300), civ-grammar (42),
+      civ-content (14 + 70), steel, fire, hazard_tools, roundtrip, tall; clippy. **Not yet:** the
+      `ProtectedFrame` rule (a saved rule template: a save and wire change of its own), a
+      designer that cases a skeleton, the casing's weight in the checks, the young concrete and
+      the infill in the shaking and wind checks, and a lived world that casts one.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

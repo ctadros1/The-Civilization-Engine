@@ -201,8 +201,11 @@ pub mod frame_params {
     pub const OPENINGS: usize = 23;
     /// A stair: 0, none; 1, a stair from each storey to the next.
     pub const STAIR: usize = 27;
+    /// A steel skeleton's posts, beams and joists cased in the program's concrete against fire:
+    /// 0, bare; 1, cased (version 5; ADR-0037 §5).
+    pub const ENCASEMENT: usize = 28;
     /// The first parameter no version has yet; it and those after it are 0.
-    pub const SPARE: usize = 28;
+    pub const SPARE: usize = 29;
 
     /// The long wall to the right of the length's direction (`+v`).
     pub const SIDE_RIGHT: i32 = 0;
@@ -335,6 +338,13 @@ pub struct FrameRules {
     /// Person-hours to form, fix the bar of, cast and strip a cubic metre of a concrete frame's
     /// members (version 5).
     pub concrete_h_per_m3: f64,
+    /// What casing a cubic metre of a steel skeleton's members takes of the program's concrete,
+    /// kilograms (version 5; ADR-0037 §5); 0 where the program cases none.
+    pub encasement_kg_per_m3: f64,
+    /// Person-hours to case a cubic metre of a skeleton's members.
+    pub encasement_h_per_m3: f64,
+    /// Minutes a cased member keeps its strength in a fully involved fire.
+    pub encasement_min: f64,
     /// Person-hours to clear and level the ground and mark out the building, per square metre.
     pub groundwork_h_per_m2: f64,
     /// Person-hours to dig a posthole.
@@ -474,6 +484,8 @@ struct Layout<'r> {
     /// Whether its walls are mass infill between a steel or concrete frame's posts, each
     /// storey's carried by the frame (version 5).
     infill: bool,
+    /// Whether a steel skeleton's members are cased against fire (version 5).
+    encased: bool,
     /// Whether a timber tie binds the mass walls at each storey's head (version 3).
     ties: bool,
     wall_kind: i32,
@@ -656,7 +668,8 @@ impl<'r> Layout<'r> {
                     || i == fp::STAIR
                     || i == fp::ROOF_SYSTEM
                     || i == fp::POST_SYSTEM
-                    || i == fp::TIES)
+                    || i == fp::TIES
+                    || (i == fp::ENCASEMENT && spec.version >= 5))
         };
         if let Some(i) = (fp::ROOF_SYSTEM..crate::PARAMS).find(|&i| p[i] != 0 && !laid_out(i)) {
             return refuse(if spec.version < 3 {
@@ -770,6 +783,31 @@ impl<'r> Layout<'r> {
                 rules.concrete_kg_per_m3,
                 rules.bar_kg_per_m3,
                 rules.concrete_h_per_m3
+            ));
+        }
+        let encasement = p[fp::ENCASEMENT];
+        if !(0..=1).contains(&encasement) {
+            return refuse(format!(
+                "encasement {encasement} (parameter {}) is unknown to frame version {}",
+                fp::ENCASEMENT,
+                spec.version
+            ));
+        }
+        if encasement == 1 && post_system != 2 {
+            return refuse(format!(
+                "encasement (parameter {}) cases a steel skeleton's members; a timber or concrete \
+                 frame has none to case",
+                fp::ENCASEMENT
+            ));
+        }
+        if encasement == 1
+            && (rules.encasement_kg_per_m3 <= 0.0
+                || rules.encasement_h_per_m3 <= 0.0
+                || rules.encasement_min <= 0.0)
+        {
+            return refuse(format!(
+                "encasement (parameter {}) needs the program's casing figures",
+                fp::ENCASEMENT
             ));
         }
         if post_system == 1 && wall_kind != 0 {
@@ -952,6 +990,7 @@ impl<'r> Layout<'r> {
             skeleton: post_system == 2,
             concrete: post_system == 3,
             infill: post_system >= 2 && wall_kind > 0,
+            encased: p[fp::ENCASEMENT] == 1,
             ties: ties == 1,
             wall_kind,
             footing,
@@ -2019,6 +2058,15 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> 
         frame_stage_kg[usize::from(CONCRETE)] = carried_m3 * rules.concrete_kg_per_m3;
         frame_stage_kg[usize::from(BAR)] = carried_m3 * rules.bar_kg_per_m3;
     }
+    // A cased skeleton's casing, of the program's concrete (ADR-0037 §5).
+    if l.encased {
+        frame_stage_kg[usize::from(CONCRETE)] = carried_m3 * rules.encasement_kg_per_m3;
+    }
+    let casing_h = if l.encased {
+        carried_m3 * rules.encasement_h_per_m3
+    } else {
+        0.0
+    };
 
     let foundation_labour = if l.footing == 1 {
         let perimeter_m = 2.0 * (l.l + l.w) * 0.01;
@@ -2083,7 +2131,7 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> 
                     + rules.beam_h_per_m * (beams_m + ridge_m + truss_m)
                     + rules.rafter_h * rafters as f64
                     + rules.joist_h_per_m * joists as f64 * l.w * 0.01
-            },
+            } + casing_h,
             materials_kg: frame_stage_kg,
         },
         StageNeeds {
@@ -2596,6 +2644,9 @@ mod tests {
             concrete_kg_per_m3: 0.0,
             bar_kg_per_m3: 0.0,
             concrete_h_per_m3: 0.0,
+            encasement_kg_per_m3: 0.0,
+            encasement_h_per_m3: 0.0,
+            encasement_min: 0.0,
             groundwork_h_per_m2: 3.0,
             posthole_h: 0.8,
             post_h: 12.0,

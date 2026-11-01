@@ -230,6 +230,15 @@ pub(crate) struct Frame {
     /// Person-hours to form, bar, cast and strip a cubic metre of a concrete frame's members.
     #[serde(default)]
     pub concrete_h_per_m3: f64,
+    /// Casing a steel skeleton against fire, by the cubic metre of its members: the program's
+    /// concrete it takes, kilograms, its hours, and the minutes it holds (content API 218); 0,
+    /// the default, where the program cases none.
+    #[serde(default)]
+    pub encasement_kg_per_m3: f64,
+    #[serde(default)]
+    pub encasement_h_per_m3: f64,
+    #[serde(default)]
+    pub encasement_min: f64,
     pub groundwork_h_per_m2: f64,
     pub posthole_h: f64,
     pub post_h: f64,
@@ -374,6 +383,9 @@ impl BuildingFile {
                     concrete_kg_per_m3: f.concrete_kg_per_m3,
                     bar_kg_per_m3: f.bar_kg_per_m3,
                     concrete_h_per_m3: f.concrete_h_per_m3,
+                    encasement_kg_per_m3: f.encasement_kg_per_m3,
+                    encasement_h_per_m3: f.encasement_h_per_m3,
+                    encasement_min: f.encasement_min,
                     groundwork_h_per_m2: f.groundwork_h_per_m2,
                     posthole_h: f.posthole_h,
                     post_h: f.post_h,
@@ -694,6 +706,9 @@ impl BuildingFile {
             ("concrete_kg_per_m3", f.concrete_kg_per_m3),
             ("bar_kg_per_m3", f.bar_kg_per_m3),
             ("concrete_h_per_m3", f.concrete_h_per_m3),
+            ("encasement_kg_per_m3", f.encasement_kg_per_m3),
+            ("encasement_h_per_m3", f.encasement_h_per_m3),
+            ("encasement_min", f.encasement_min),
         ] {
             not_negative(p, t, name, v);
         }

@@ -182,6 +182,10 @@ pub(crate) struct TimberFile {
     pub age_a_days: Option<f64>,
     #[serde(default)]
     pub age_b: Option<f64>,
+    /// Content API 218: minutes of a fully involved fire a member keeps its strength through,
+    /// protected by its own cover (ADR-0037 §5); absent, none.
+    #[serde(default)]
+    pub protection_min: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -272,6 +276,7 @@ impl GoodFile {
                     }
                     _ => None,
                 },
+                protection_min: t.protection_min.unwrap_or(0.0),
             }),
             store: self.store.as_ref().map(|t| StoreDef {
                 keeps_kg: t.keeps_kg,
@@ -593,6 +598,13 @@ impl GoodFile {
             {
                 p.push(format!(
                     "`timber.burnt_keeps` must be between 0 and 1 (got {k})"
+                ));
+            }
+            if let Some(m) = t.protection_min
+                && !(m.is_finite() && (0.0..=600.0).contains(&m))
+            {
+                p.push(format!(
+                    "`timber.protection_min` must be between 0 and 600 (got {m})"
                 ));
             }
             match (t.strip_days, t.age_a_days, t.age_b) {

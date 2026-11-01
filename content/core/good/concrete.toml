@@ -39,5 +39,9 @@ burnt_keeps = 0.75
 # curve for moist-cured concrete; 0.70 at 7 days against 11-14 §2.1's 0.74 under ideal laboratory
 # curing). A building's walls are begun only once its frame's forms may be stripped.
 strip_days = 7.0
+# Its cover keeps its bar cool through a fire for about an hour (research 11-14 §2.5: 30-120
+# minutes for a cased or covered member, by its thickness; a design prior): through a burn fully
+# involved for no longer, it keeps all its strength (ADR-0037 §5).
+protection_min = 60.0
 age_a_days = 4.0
 age_b = 0.85

@@ -148,6 +148,7 @@ mod tests {
             density_kg_m3: 760.0,
             burnt_keeps: None,
             cast: None,
+            protection_min: 0.0,
         }
     }
 

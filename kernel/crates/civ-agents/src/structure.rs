@@ -66,6 +66,9 @@ pub struct Timber {
     /// How a cast member gains its strength with age (frame version 5); `None` for a material
     /// as strong the day it is put in place as ever after.
     pub cast: Option<Cast>,
+    /// Minutes of a fully involved fire it keeps its strength through, protected by its own
+    /// cover (concrete's; ADR-0037 §5); 0 for a material bare to it.
+    pub protection_min: f64,
 }
 
 /// How a cast member gains its strength (frame version 5): its forms carry it for `strip_days`
@@ -864,6 +867,7 @@ mod tests {
             density_kg_m3: 2400.0,
             burnt_keeps: Some(0.75),
             cast: Some(cast),
+            protection_min: 0.0,
         };
         let day = |d: i64| civ_core::SimTime::from_minutes(d * civ_core::time::MINUTES_PER_DAY);
         let young = t.at_age(day(10), day(17));
@@ -889,6 +893,7 @@ mod tests {
             density_kg_m3: 760.0,
             burnt_keeps: None,
             cast: None,
+            protection_min: 0.0,
         }
     }
 
@@ -1123,6 +1128,7 @@ mod tests {
             density_kg_m3: 1900.0,
             burnt_keeps: None,
             cast: None,
+            protection_min: 0.0,
         }
     }
 

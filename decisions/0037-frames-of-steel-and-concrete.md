@@ -174,8 +174,17 @@ Decided by Claude under the owner's standing authority (plan §9):
   shared in proportion to what each storey's posts carry, not storey by storey). Wall ties are
   refused in a frame; version 4's skeleton still refuses mass walls. The designer offers the
   concrete frame to builders who would lay mass walls too. No content, save or wire change.
-- **Not yet (the time box):** fire protection and `ProtectedFrame`; infill in the shaking check
-  as a frame's (it is checked there as the walls that carry are).
+- **§5's protection, as built (its fourth part):** a member keeps all its strength through a burn
+  whose full involvement is no longer than its protection: its own cover (concrete's 60 minutes,
+  a `[timber] protection_min`) and, for a version 5 skeleton cased in the program's concrete
+  (parameter 28, `ENCASEMENT`), the program's `encasement_min` (90 minutes, design priors within
+  research 11-14 §2.5's 30-120); otherwise its material's `burnt_keeps`. The casing is its frame
+  stage's concrete and hours. A fire's full involvement is 30 minutes, so cover and casing both
+  outlast it. The casing's own weight is not added in the checks (a simplification), and the
+  designer cases nothing yet: a skeleton is cased only where a design is given one.
+- **Not yet (the time box):** the `ProtectedFrame` rule (its template is saved in polities, so
+  it waits for a save and wire change of its own) and a designer that cases a skeleton for its
+  builders' caution; infill in the shaking check as a frame's.
 
 ## Revisit when
 

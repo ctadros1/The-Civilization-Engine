@@ -187,6 +187,7 @@ impl Population {
                         density_kg_m3: density,
                         burnt_keeps: None,
                         cast: None,
+                        protection_min: 0.0,
                     }
                 }
                 GroupKind::Posts => match timber(g) {

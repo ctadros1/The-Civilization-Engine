@@ -958,6 +958,7 @@ fn a_concrete_workshops_rubble_infill_bears_itself_and_weighs_on_its_posts() {
         density_kg_m3: density,
         burnt_keeps: None,
         cast: None,
+        protection_min: 0.0,
     };
     let walls: Vec<_> = e
         .groups
@@ -1001,4 +1002,58 @@ fn a_concrete_workshops_rubble_infill_bears_itself_and_weighs_on_its_posts() {
     assert!(loaded < bare, "{loaded} against {bare}");
     assert!(loaded > 1.0, "the posts still stand: {loaded}");
     assert_eq!(bare, posts(&framed, working_loads()));
+}
+
+#[test]
+fn a_cased_skeleton_and_cast_concrete_keep_their_strength_through_a_burn_their_cover_outlasts() {
+    use civ_grammar::frame_params as fp;
+    let sim = world(2);
+    let (_, home) = first_household(&sim);
+    let catalog = &sim.rules().catalog;
+    let def = workshop(&sim);
+    let involved = sim.rules().people.fire.involved_minutes;
+    assert_eq!(involved, 30.0, "a fully involved fire of the core's people");
+    // A bare skeleton of version 5, and the same cased in concrete.
+    let (_, steel) = workshops(&sim, (home.0 + 40.0, home.1));
+    let mut bare = steel.clone();
+    bare.version = 5;
+    bare.materials.extend([
+        "core:good/concrete".into(),
+        "core:good/reinforcing_bar".into(),
+    ]);
+    let mut cased = bare.clone();
+    cased.params[fp::ENCASEMENT] = 1;
+    let soft = |spec: &civ_grammar::BuildingSpec, minutes: f64| {
+        let e = civ_grammar::expand(spec, &def.rules).expect("expands");
+        civ_agents::population::softening(&catalog.goods, def, spec, &e, minutes)
+    };
+    // Bare, its steel keeps 0.4 through any burn; cased, all of it through a burn up to its
+    // casing's 90 minutes, and 0.4 through a longer one.
+    let bare_soft = soft(&bare, involved);
+    assert!(!bare_soft.is_empty());
+    assert!(bare_soft.iter().all(|&(_, k)| k == 0.4));
+    assert!(soft(&cased, involved).iter().all(|&(_, k)| k == 1.0));
+    assert!(soft(&cased, 90.0).iter().all(|&(_, k)| k == 1.0));
+    assert!(soft(&cased, 91.0).iter().all(|&(_, k)| k == 0.4));
+    // The casing is the frame stage's concrete and hours.
+    let (eb, ec) = (
+        civ_grammar::expand(&bare, &def.rules).expect("bare"),
+        civ_grammar::expand(&cased, &def.rules).expect("cased"),
+    );
+    let frame = |e: &civ_grammar::Expansion| e.stages[civ_grammar::Stage::Frame.index()].clone();
+    let concrete = usize::from(civ_grammar::frame_materials::CONCRETE);
+    assert_eq!(frame(&eb).materials_kg[concrete], 0.0);
+    assert!(frame(&ec).materials_kg[concrete] > 0.0);
+    assert!(frame(&ec).labour_h > frame(&eb).labour_h);
+    // A concrete frame's cover holds an hour: through a 30-minute burn it keeps all its strength.
+    let cast = cast_workshop(&sim, (home.0 + 20.0, home.1));
+    assert!(soft(&cast, involved).iter().all(|&(_, k)| k == 1.0));
+    assert!(soft(&cast, 61.0).iter().all(|&(_, k)| k == 0.75));
+    // Casing is refused on a concrete frame or a skeleton of version 4.
+    let mut cast_cased = cast.clone();
+    cast_cased.params[fp::ENCASEMENT] = 1;
+    assert!(civ_grammar::expand(&cast_cased, &def.rules).is_err());
+    let mut old = steel;
+    old.params[fp::ENCASEMENT] = 1;
+    assert!(civ_grammar::expand(&old, &def.rules).is_err());
 }

@@ -373,6 +373,7 @@ impl Population {
                     density_kg_m3: density,
                     burnt_keeps: None,
                     cast: None,
+                    protection_min: 0.0,
                 };
                 structure::margin(g, c, &e, &loads, &masonry).state()
             } else if g.kind == GroupKind::Covering {

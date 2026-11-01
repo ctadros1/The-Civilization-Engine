@@ -95,6 +95,7 @@ mod way_works;
 mod wires;
 pub use crime::TakeProbe;
 pub use destructor::{REFUSE, engine_evening_kg};
+pub use fire::softening;
 pub use payments::Burden;
 pub use resolution::{DayBlock, NOT_TAKEN, SwitchInvariants};
 pub use rounds::{MAX_ROUND_HOMES, ROUND_EVERY_DAYS};

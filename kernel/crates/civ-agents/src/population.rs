@@ -567,6 +567,11 @@ pub struct Population {
     route_tiles: Vec<u64>,
     /// Per activity, what a trip is expected to bring from each patch today.
     priors: Vec<Prior>,
+    /// How far the ground drops across each plot a site search has weighed, metres, by its
+    /// rectangle: the bed's height is the map's, which never changes while a world lives, so this
+    /// is that drop again, not worked out afresh. Derived, never saved; emptied when it grows
+    /// large.
+    drops: std::cell::RefCell<FastMap<(i32, i32, i32, i32), f64>>,
     /// Per household, the new ground it would mark out for a field, as found on a day against the
     /// land as it then stood ([`site_inputs`]), with what that was read against ([`SiteStamp`]).
     sites: FastMap<PermanentId, (i64, u64, Option<Site>, SiteStamp)>,
@@ -2727,6 +2732,26 @@ impl Population {
     /// it has a home of `home` square metres, a storehouse beside it if one is worth it, a
     /// workshop for a busy firm, or a new home if its means pay for one markedly larger
     /// ([`Population::home_plan`]): the first of these that it can pay for and find ground for.
+    /// How far the ground drops across `rect` on `map`, metres ([`civ_land::earth::drop_across`]
+    /// over the bed), kept for the next search that weighs the same plot.
+    fn drop_across(&self, map: &civ_world::WorldMap, rect: &civ_land::RectCm) -> f64 {
+        /// Plots kept at most before the store is emptied (a bound on memory, not on what is
+        /// found: a drop not kept is worked out again).
+        const MOST_KEPT: usize = 1 << 20;
+        let key = (rect.x, rect.y, rect.w, rect.h);
+        if let Some(&drop) = self.drops.borrow().get(&key) {
+            return drop;
+        }
+        let bed = |x: f64, y: f64| civ_land::earth::bed_height(map, (x, y));
+        let drop = civ_land::earth::drop_across(rect, &bed);
+        let mut drops = self.drops.borrow_mut();
+        if drops.len() >= MOST_KEPT {
+            drops.clear();
+        }
+        drops.insert(key, drop);
+        drop
+    }
+
     fn new_building(
         &self,
         ctx: &Ctx,
@@ -2982,9 +3007,8 @@ impl Population {
             // by hand, or that would be levelled beside water, is not built on; level ground is
             // sought first (ADR-0010 §2-3).
             let lev = &ctx.params.build.levelling;
-            let bed = |x: f64, y: f64| civ_land::earth::bed_height(ctx.map, (x, y));
             let levelling = |rect: &civ_land::RectCm| {
-                let drop = civ_land::earth::drop_across(rect, &bed);
+                let drop = self.drop_across(ctx.map, rect);
                 if drop <= lev.from_m {
                     Some(0.0)
                 } else {

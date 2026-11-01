@@ -128,6 +128,9 @@ pub struct Loads {
     pub upper_pa: f64,
     /// People and what they carry on a floor off the ground, per square metre (passing).
     pub live_pa: f64,
+    /// The whole weight of a frame's mass infill, newtons (frame version 5; carried for years):
+    /// the frame's posts carry it, as each storey's beams take its storey's.
+    pub infill_n: f64,
 }
 
 /// How near a group is to giving way under its loads.
@@ -340,7 +343,8 @@ fn weight_on_posts(e: &Expansion, loads: &Loads) -> (f64, f64) {
             + loads.loft_pa * area(Level::Loft)
             + loads.raised_pa * raised
             + loads.upper_pa * upper
-            + own,
+            + own
+            + loads.infill_n,
         loads.peak_pa * roof_plan_m2(e) + loads.live_pa * (raised + upper),
     )
 }
@@ -498,12 +502,19 @@ fn mass_wall_by_storey(
             * G
     };
     let on_line = |p: &&&Group| p.id & 0xff == line;
-    let above: f64 = walls
-        .iter()
-        .filter(on_line)
-        .filter(|p| storey(level_of(p)).is_some_and(|s| s > here))
-        .map(|p| weight(p))
-        .sum();
+    // In a frame (version 5's mass infill) each storey's wall is carried by the frame, so it
+    // bears only itself and is held at each floor.
+    let framed = e.groups.iter().any(|p| p.kind == GroupKind::Posts);
+    let above: f64 = if framed {
+        0.0
+    } else {
+        walls
+            .iter()
+            .filter(on_line)
+            .filter(|p| storey(level_of(p)).is_some_and(|s| s > here))
+            .map(|p| weight(p))
+            .sum()
+    };
     let share = g.area_m2.max(0.0) / first;
     let (held, passing) = weight_on_posts(e, loads);
     let demand = (held * share + above + weight(g)) / keep + passing * share;
@@ -512,7 +523,7 @@ fn mass_wall_by_storey(
     }
     // Tied, a wall is held at each floor; untied, nothing holds it between the ground and the
     // roof, so it stands the whole height of its line.
-    let tied = e.groups.iter().any(|p| p.kind == GroupKind::Ties);
+    let tied = framed || e.groups.iter().any(|p| p.kind == GroupKind::Ties);
     let restrained = if tied {
         h
     } else {

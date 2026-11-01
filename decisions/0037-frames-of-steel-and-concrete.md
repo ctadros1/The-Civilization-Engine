@@ -166,7 +166,16 @@ Decided by Claude under the owner's standing authority (plan §9):
   the stripping age are the concrete good's (content API 217). Its stiffness is held at full, and
   the shaking and wind checks read the cured strength (simplifications: both matter for a frame's
   first weeks only). No save or wire change.
-- **Not yet (the time box):** mass infill in a frame, fire protection and `ProtectedFrame`.
+- **Mass infill, as built (its third part):** in version 5 a steel skeleton or a concrete frame
+  may have mass walls (rubble, mud brick or fired brick, on their stone footing) as infill between
+  its posts: its posts and frame stand as with wattle, and each storey's wall is a group of its
+  own that bears only itself, held at each floor (as tied walls are); its storey's beams carry
+  it and the frame's posts take its whole weight with what else they carry (a simplification:
+  shared in proportion to what each storey's posts carry, not storey by storey). Wall ties are
+  refused in a frame; version 4's skeleton still refuses mass walls. The designer offers the
+  concrete frame to builders who would lay mass walls too. No content, save or wire change.
+- **Not yet (the time box):** fire protection and `ProtectedFrame`; infill in the shaking check
+  as a frame's (it is checked there as the walls that carry are).
 
 ## Revisit when
 

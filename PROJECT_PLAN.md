@@ -8703,8 +8703,18 @@ and M6a gives rivers a daily flow.
       217: `[timber] strip_days`, `age_a_days`, `age_b`). Tested: the curve (in its forms, at 7, 14
       and 28 days; a timber unchanged), the concrete workshop's walls waiting a week while a
       timber one's and a concrete one's roof wait for nothing; civ-agents (300), civ-content
-      (14 + 70), steel, tall, roundtrip, hazard_tools, fire; clippy. **Not yet:** mass infill in a
-      frame, fire protection and `ProtectedFrame`, the young concrete in the shaking and wind
+      (14 + 70), steel, tall, roundtrip, hazard_tools, fire; clippy. **Its third part, mass
+      infill:** in version 5 a skeleton or a concrete frame may have rubble, mud brick or fired
+      brick between its posts on a stone footing; its frame stands as with wattle, each storey's
+      wall is a group bearing only itself, held at each floor, and the frame's posts take its
+      weight (the daily check's new `infill_n`); ties are refused in a frame; the designer offers
+      the concrete frame to builders who would lay mass walls. Tested: grammar (the frame as with
+      wattle, the walls the bearing walls' masonry carrying nothing, a footing with postholes,
+      version 4 refusing it, ties refused), steel (a concrete workshop's rubble infill bearing
+      itself at a margin above ten, its posts' margin falling with the infill's weight and still
+      above one), civ-agents (300), civ-grammar (42), tall, hazard_tools, roundtrip, fire, rules,
+      homes, public_buildings; clippy. No content, save or wire change. **Not yet:** fire
+      protection and `ProtectedFrame`, the young concrete and the infill in the shaking and wind
       checks, and a lived world that casts one.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).

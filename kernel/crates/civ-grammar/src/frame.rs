@@ -471,6 +471,9 @@ struct Layout<'r> {
     skeleton: bool,
     /// Whether its posts, plates, beams and joists are cast in concrete (version 5).
     concrete: bool,
+    /// Whether its walls are mass infill between a steel or concrete frame's posts, each
+    /// storey's carried by the frame (version 5).
+    infill: bool,
     /// Whether a timber tie binds the mass walls at each storey's head (version 3).
     ties: bool,
     wall_kind: i32,
@@ -739,7 +742,9 @@ impl<'r> Layout<'r> {
                 spec.version
             ));
         }
-        if post_system == 2 && wall_kind != 0 {
+        // A steel skeleton's mass infill is laid from version 5 (ADR-0037's amendment of
+        // 2026-11-01), each storey's carried by the frame.
+        if post_system == 2 && wall_kind != 0 && spec.version < 5 {
             return refuse(format!(
                 "a steel skeleton (parameter {}) has infill between its posts; mass walls are not \
                  laid in it",
@@ -751,13 +756,6 @@ impl<'r> Layout<'r> {
                 "a steel skeleton (parameter {}) needs the program's frame density, not {}",
                 fp::POST_SYSTEM,
                 rules.frame_kg_per_m3
-            ));
-        }
-        if post_system == 3 && wall_kind != 0 {
-            return refuse(format!(
-                "a concrete frame (parameter {}) has infill between its posts; mass walls are not \
-                 laid in it",
-                fp::POST_SYSTEM
             ));
         }
         if post_system == 3
@@ -792,6 +790,12 @@ impl<'r> Layout<'r> {
                 "wall ties {ties} (parameter {}) are unknown to frame version {}",
                 fp::TIES,
                 spec.version
+            ));
+        }
+        if ties == 1 && post_system >= 2 {
+            return refuse(format!(
+                "wall ties (parameter {}) bind mass walls that carry; a frame holds its infill",
+                fp::TIES
             ));
         }
         if ties == 1 && wall_kind == 0 {
@@ -947,6 +951,7 @@ impl<'r> Layout<'r> {
             storeyed: post_system >= 1,
             skeleton: post_system == 2,
             concrete: post_system == 3,
+            infill: post_system >= 2 && wall_kind > 0,
             ties: ties == 1,
             wall_kind,
             footing,
@@ -1300,7 +1305,7 @@ fn foundation(p: &mut Parts) {
 fn frame(p: &mut Parts) {
     let l = p.layout;
     for k in 0..=l.n {
-        if l.wall_kind == 0 && l.storeyed {
+        if (l.wall_kind == 0 || l.infill) && l.storeyed {
             // Each storey's posts stand on the frame below: the first's in the ground to the head
             // of the first storey, each above it a storey high.
             for t in 0..l.storeys {
@@ -1906,7 +1911,11 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> 
     let n = l.n;
     let storey_m2 = l.l * l.w * M2;
     let bay_m2 = l.b * l.w * M2;
-    let wall_posts = if l.wall_kind == 0 { 2 * (n + 1) } else { 0 };
+    let wall_posts = if l.wall_kind == 0 || l.infill {
+        2 * (n + 1)
+    } else {
+        0
+    };
     // Storeyed posts: the first storey's set in the ground, and a post a storey above it.
     let posts_above = if l.storeyed {
         wall_posts * (l.storeys as usize - 1)
@@ -2018,6 +2027,8 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> 
             + trench_vol_m3 * (rules.daub_h_per_m3 + 12.0)
             + rules.posthole_h * floor_posts as f64
             + rules.post_h * floor_posts as f64
+            // A frame's posts among its infill's footing (none where the walls carry).
+            + rules.posthole_h * if l.infill { wall_posts as f64 } else { 0.0 }
     } else {
         rules.groundwork_h_per_m2 * storey_m2
             + rules.posthole_h * (wall_posts + floor_posts) as f64
@@ -2144,7 +2155,7 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
     let carrier = Some(l.carrier());
     let storeys_h = l.h * f64::from(l.storeys);
     let mut out = Vec::new();
-    if l.wall_kind == 0 && l.storeyed {
+    if (l.wall_kind == 0 || l.infill) && l.storeyed {
         // Each storey's posts carry the roof's slope, half of every floor above their storey and
         // the lofts, and the first storey's a raised floor's share too.
         let lofts_m2 = l.lofts.len() as f64 * bay_m2;
@@ -2226,6 +2237,27 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
                 spacing: l.wall_kind as f64,
                 area_m2: roof_plan_side_m2 + (suspended_m2 - raised_m2) / 2.0 + raised_m2 / 4.0,
             });
+        }
+    }
+    if l.infill {
+        // Version 5's mass infill: one group per long wall per storey, at its storey's thickness,
+        // carrying nothing but itself; the frame carries it and everything above.
+        for t in 0..l.storeys {
+            for (side, _) in l.long_walls() {
+                out.push(GroupOf {
+                    level: storey_level(t),
+                    bay: None,
+                    kind: GroupKind::MassWall,
+                    index: side as u8,
+                    stage: Stage::Walls,
+                    material: Some(WATTLE),
+                    count: 1,
+                    section: [l.l - l.windows_along(t, side, l.b), l.storey_wt[t as usize]],
+                    length: l.h,
+                    spacing: l.wall_kind as f64,
+                    area_m2: 0.0,
+                });
+            }
         }
     }
     if l.ties {
@@ -4136,6 +4168,79 @@ mod tests {
     }
 
     #[test]
+    fn mass_infill_is_carried_by_the_frame_storey_by_storey() {
+        // A concrete frame of three storeys with rubble infill (version 5), against the same with
+        // wattle infill and against rubble walls that carry (version 3).
+        let r = FrameRules {
+            mass_wall_cm: (30, 90),
+            ..concrete_rules(tall_house())
+        };
+        let mut wattle = as_v5(&tall(3));
+        wattle.params[fp::POST_SYSTEM] = 3;
+        let mut infill = wattle.clone();
+        infill.params[fp::WALL_KIND] = 1;
+        infill.params[fp::FOOTING] = 1;
+        infill.params[fp::WALL_CM] = 40;
+        let mut bearing = tall(3);
+        bearing.params[fp::WALL_KIND] = 1;
+        bearing.params[fp::FOOTING] = 1;
+        bearing.params[fp::WALL_CM] = 40;
+        let framed = expand_frame(&wattle, &r).expect("wattle infill");
+        let e = expand_frame(&infill, &r).expect("rubble infill");
+        let walls = expand_frame(&bearing, &r).expect("bearing rubble");
+        // Its frame stands as with wattle: the same posts, beams and joists, cast.
+        let carried = |e: &Expansion| -> Vec<Part> {
+            e.parts
+                .iter()
+                .filter(|p| p.material == Some(CONCRETE))
+                .copied()
+                .collect()
+        };
+        assert_eq!(carried(&e), carried(&framed));
+        assert_eq!(
+            e.stages[Stage::Frame.index()],
+            framed.stages[Stage::Frame.index()]
+        );
+        // Its walls are the bearing walls' masonry, a group a long wall a storey, carrying nothing
+        // but themselves; no wattle.
+        let mass = |e: &Expansion| -> Vec<Group> {
+            e.groups
+                .iter()
+                .filter(|g| g.kind == GroupKind::MassWall)
+                .copied()
+                .collect()
+        };
+        assert_eq!(mass(&e).len(), 3 * 2);
+        assert!(mass(&e).iter().all(|g| g.area_m2 == 0.0));
+        assert!(mass(&walls).iter().any(|g| g.area_m2 > 0.0));
+        for (a, b) in mass(&e).iter().zip(mass(&walls)) {
+            assert_eq!(Group { area_m2: 0.0, ..b }, *a);
+        }
+        assert!(!e.groups.iter().any(|g| g.kind == GroupKind::Infill));
+        assert_eq!(
+            e.stages[Stage::Walls.index()].materials_kg[usize::from(WATTLE)],
+            walls.stages[Stage::Walls.index()].materials_kg[usize::from(WATTLE)]
+        );
+        // On a stone footing, with a posthole for each of its frame's posts.
+        let ground = |e: &Expansion| e.stages[Stage::Foundation.index()].labour_h;
+        assert!(ground(&e) > ground(&walls));
+        assert!(e.parts.iter().any(|p| p.kind == PartKind::StoneFooting));
+        // A skeleton of version 4 still refuses it.
+        let mut old = as_v4(&tall(3));
+        old.params[fp::POST_SYSTEM] = 2;
+        old.params[fp::WALL_KIND] = 1;
+        old.params[fp::FOOTING] = 1;
+        old.params[fp::WALL_CM] = 40;
+        assert!(expand_frame(&old, &skeleton_rules(r.clone())).is_err());
+        let mut steel = infill.clone();
+        steel.params[fp::POST_SYSTEM] = 2;
+        assert!(
+            expand_frame(&steel, &r).is_ok(),
+            "a skeleton of version 5 lays it"
+        );
+    }
+
+    #[test]
     fn a_concrete_frame_is_refused_by_name_where_it_cannot_be() {
         let r = concrete_rules(tall_house());
         let concrete = || {
@@ -4153,20 +4258,22 @@ mod tests {
                 fp::POST_SYSTEM
             )))
         );
-        let mut rubble = concrete();
-        rubble.params[fp::WALL_KIND] = 1;
-        rubble.params[fp::FOOTING] = 1;
-        rubble.params[fp::WALL_CM] = 50;
+        // Mass walls in it are infill, laid (`mass_infill_is_carried_by_the_frame_storey_by_storey`);
+        // ties are not.
+        let mut tied = concrete();
+        tied.params[fp::WALL_KIND] = 1;
+        tied.params[fp::FOOTING] = 1;
+        tied.params[fp::WALL_CM] = 50;
+        tied.params[fp::TIES] = 1;
         let wide = FrameRules {
             mass_wall_cm: (30, 90),
             ..r.clone()
         };
         assert_eq!(
-            expand_frame(&rubble, &wide),
+            expand_frame(&tied, &wide),
             Err(GrammarError::OutOfRange(format!(
-                "a concrete frame (parameter {}) has infill between its posts; mass walls are \
-                 not laid in it",
-                fp::POST_SYSTEM
+                "wall ties (parameter {}) bind mass walls that carry; a frame holds its infill",
+                fp::TIES
             )))
         );
         assert_eq!(

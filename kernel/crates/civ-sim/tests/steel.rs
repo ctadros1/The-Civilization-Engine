@@ -744,6 +744,7 @@ fn working_loads() -> civ_agents::structure::Loads {
         raised_pa: 1000.0,
         upper_pa: 1000.0,
         live_pa: 2000.0,
+        infill_n: 0.0,
     }
 }
 
@@ -924,4 +925,80 @@ fn a_concrete_frames_walls_wait_a_week_for_its_forms_to_be_stripped() {
         civ_agents::build::curing_until(def, &catalog.goods, &roofing),
         None
     );
+}
+
+#[test]
+fn a_concrete_workshops_rubble_infill_bears_itself_and_weighs_on_its_posts() {
+    use civ_agents::structure::{Loads, group_timber, margin};
+    use civ_grammar::{GroupKind, frame_params as fp};
+    let sim = world(2);
+    let (_, home) = first_household(&sim);
+    let catalog = &sim.rules().catalog;
+    let def = workshop(&sim);
+    let civ_grammar::ProgramRules::Frame(r) = &def.rules else {
+        panic!("a frame program")
+    };
+    let wattle = cast_workshop(&sim, (home.0 + 20.0, home.1));
+    let mut rubble = wattle.clone();
+    rubble.params[fp::WALL_KIND] = 1;
+    rubble.params[fp::FOOTING] = 1;
+    rubble.params[fp::WALL_CM] = r.mass_wall_cm.0;
+    let framed = civ_grammar::expand(&wattle, &def.rules).expect("wattle infill");
+    let e = civ_grammar::expand(&rubble, &def.rules).expect("rubble infill");
+    let now = sim.now();
+    // Each storey's infill bears only itself: its margin is its masonry's strength over its own
+    // weight, far above one.
+    let (strength, density) = civ_agents::rules::masonry(&def.rules, 1);
+    let masonry = civ_agents::structure::Timber {
+        bending_pa: 0.0,
+        compression_pa: strength,
+        stiffness_pa: 0.0,
+        creep: 0.0,
+        sustained: 1.0,
+        density_kg_m3: density,
+        burnt_keeps: None,
+        cast: None,
+    };
+    let walls: Vec<_> = e
+        .groups
+        .iter()
+        .filter(|g| g.kind == GroupKind::MassWall)
+        .collect();
+    assert!(!walls.is_empty());
+    for g in &walls {
+        let m = margin(g, &sound(g.id, now), &e, &working_loads(), &masonry).strength;
+        assert!(m > 10.0, "infill bears itself: {m}");
+    }
+    // Its posts carry the infill's weight: weighed with it, their margin falls.
+    let infill_n: f64 = walls
+        .iter()
+        .map(|g| {
+            f64::from(g.section_cm[0])
+                * f64::from(g.section_cm[1])
+                * f64::from(g.length_cm)
+                * 1e-6
+                * density
+                * civ_agents::structure::G
+        })
+        .sum();
+    let posts = |e: &civ_grammar::Expansion, loads: Loads| {
+        let g = e
+            .groups
+            .iter()
+            .find(|g| g.kind == GroupKind::Posts)
+            .expect("posts");
+        let t = group_timber(&catalog.goods, def, g).expect("concrete");
+        margin(g, &sound(g.id, now), e, &loads, &t).strength
+    };
+    let bare = posts(&e, working_loads());
+    let loaded = posts(
+        &e,
+        Loads {
+            infill_n,
+            ..working_loads()
+        },
+    );
+    assert!(loaded < bare, "{loaded} against {bare}");
+    assert!(loaded > 1.0, "the posts still stand: {loaded}");
+    assert_eq!(bare, posts(&framed, working_loads()));
 }

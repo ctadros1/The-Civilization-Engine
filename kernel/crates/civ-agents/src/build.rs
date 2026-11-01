@@ -773,13 +773,14 @@ pub fn design_cautious(
                 goods_of(frame_materials::FRAME),
                 goods_of(frame_materials::CONCRETE),
                 goods_of(frame_materials::BAR),
-            ) && wall_kind == 0
-                && rules.concrete_kg_per_m3 > 0.0
+            ) && rules.concrete_kg_per_m3 > 0.0
                 && fire.is_some_and(|f| f.knows_systems[4])
             {
+                // Mass walls in it are infill the frame holds: no ties (frame version 5).
                 let mut cast = spec.clone();
                 cast.version = CONCRETE_VERSION;
                 cast.params[fp::POST_SYSTEM] = 3;
+                cast.params[fp::TIES] = 0;
                 cast.materials
                     .extend([frame.id.clone(), concrete.id.clone(), bar.id.clone()]);
                 let beyond_timber = storeys > civ_grammar::frame_limits(spec.version).1;

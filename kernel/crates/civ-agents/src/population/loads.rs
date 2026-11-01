@@ -312,12 +312,32 @@ impl Population {
         let z = civ_land::height_at(ctx.map, x, y);
         let snow = snow_on_roof_pa(&ctx.land.weather, &ctx.land_params.weather, z, &e);
         let loads = loads_on(b, &e, kept);
+        // A frame's mass infill weighs on its posts (frame version 5), at its masonry's density.
+        let framed = e.groups.iter().any(|g| g.kind == GroupKind::Posts);
+        let infill_n = if framed {
+            e.groups
+                .iter()
+                .filter(|g| g.kind == GroupKind::MassWall)
+                .map(|g| {
+                    let (_, density) = crate::rules::masonry(&def.rules, g.spacing_cm);
+                    f64::from(g.section_cm[0].max(0))
+                        * f64::from(g.section_cm[1].max(0))
+                        * f64::from(g.length_cm.max(0))
+                        * 1e-6
+                        * density
+                        * structure::G
+                })
+                .sum()
+        } else {
+            0.0
+        };
         let loads = Loads {
             peak_pa: if loads.covering_pa > 0.0 {
                 storm + snow
             } else {
                 0.0
             },
+            infill_n,
             ..loads
         };
         let timber = |g: &Group| structure::group_timber(&catalog.goods, def, g);
@@ -787,5 +807,6 @@ pub(super) fn loads_on(b: &Building, e: &Expansion, kept: &[Vec<f64>; 3]) -> Loa
         },
         upper_pa: per(upper_kg, upper),
         live_pa: LIVE_PA,
+        infill_n: 0.0,
     }
 }

@@ -4634,7 +4634,7 @@ impl Population {
                     .map_or(0.0, |&y| f64::from(y) / hours.max(1e-6));
                 // What they have seen there, weighed against what they would expect.
                 let rate = match memory.get(&(r as u16, patch)) {
-                    Some(k) => k.belief(prior, today, res.renewal_days()),
+                    Some(k) => k.belief(prior, today, res.memory_days()),
                     None => prior,
                 };
                 if rate <= 0.0 {
@@ -6218,7 +6218,14 @@ impl Population {
                         p.carrying.kg = (kept * res.unit_kg) as f32;
                         let (hh_id, kcal) = (p.household, kept * res.unit_kg);
                         let seen = (r as u16, patch, got, hours, now.day_index());
-                        self.remember_patch(hh_id, seen, res.renewal_days());
+                        // A stock that only falls is judged by what is left of it as they leave:
+                        // what as many hours more there would give them, as every return
+                        // remembered is theirs (ADR-0043 §1).
+                        let left = (!res.renews()).then(|| {
+                            ctx.land
+                                .yield_around(ctx.land_params, r, patch as usize, hours, eff)
+                        });
+                        self.remember_patch(hh_id, seen, left, res.memory_days());
                         // Who worked this place today (M5c slice AT): food got, kcal.
                         let kcal = ctx
                             .catalog
@@ -7051,13 +7058,16 @@ impl Population {
         });
     }
 
-    /// Records what a trip found at a place: `(resource, place, units, hours, day)`. Households of a
-    /// settlement share what they learn (they talk at the hearth), so every one of them remembers
-    /// it; what has faded to almost nothing is dropped.
+    /// Records what a trip found at a place: `(resource, place, units, hours, day)`, and for a
+    /// stock that only falls, `left`, what as many hours more there would have given as they left
+    /// it, which replaces what was seen before (ADR-0043 §1). Households of a settlement share
+    /// what they learn (they talk at the hearth), so every one of them remembers it; what has
+    /// faded to almost nothing is dropped.
     fn remember_patch(
         &mut self,
         household: PermanentId,
         (resource, patch, units, hours, day): (u16, u32, f64, f64, i64),
+        left: Option<f64>,
         renewal_days: f64,
     ) {
         let settlement = self.household(household).and_then(|h| h.settlement);
@@ -7078,7 +7088,10 @@ impl Population {
                 .iter_mut()
                 .find(|k| k.resource == resource && k.patch == patch)
             {
-                Some(k) => k.observe(units, hours, day, renewal_days),
+                Some(k) => match left {
+                    Some(l) => k.saw_left(units, l, hours, day),
+                    None => k.observe(units, hours, day, renewal_days),
+                },
                 None => {
                     let mut k = KnownPatch {
                         resource,
@@ -7087,7 +7100,10 @@ impl Population {
                         hours: 0.0,
                         seen_day: day,
                     };
-                    k.observe(units, hours, day, renewal_days);
+                    match left {
+                        Some(l) => k.saw_left(units, l, hours, day),
+                        None => k.observe(units, hours, day, renewal_days),
+                    }
                     hh.known.push(k);
                 }
             }

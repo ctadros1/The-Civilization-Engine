@@ -219,6 +219,23 @@ impl ResourceParams {
             10.0 * DAYS_PER_YEAR as f64
         }
     }
+
+    /// Whether what is taken of the resource grows back: not for a stock laid down once (stone,
+    /// ore), which only falls.
+    pub fn renews(&self) -> bool {
+        !matches!(self.growth, Growth::Deposit { .. })
+    }
+
+    /// Days over which what gatherers saw of a place fades back to what they would expect of
+    /// land of its kind: the renewal time for a stock that renews, and never for one that only
+    /// falls, whose last sight stands until it is seen again (ADR-0043 §1).
+    pub fn memory_days(&self) -> f64 {
+        if self.renews() {
+            self.renewal_days()
+        } else {
+            f64::INFINITY
+        }
+    }
 }
 
 impl LandParams {
@@ -1916,6 +1933,45 @@ impl Land {
         total
     }
 
+    /// What `hours` more of one person's gathering of resource `r` around patch `p` at
+    /// `efficiency` would take now, as [`Land::gather_around`] would take it, without taking
+    /// anything: what a gatherer sees is left of a place as they leave it (ADR-0043 §1).
+    pub fn yield_around(
+        &self,
+        params: &LandParams,
+        r: usize,
+        p: usize,
+        hours: f64,
+        efficiency: f64,
+    ) -> f64 {
+        const STEPS: u32 = 12;
+        let res = &params.resources[r];
+        let dt = hours.max(0.0) / f64::from(STEPS);
+        let mut block: Vec<(f64, f64)> = self
+            .block(p, res.range_patches)
+            .map(|q| {
+                (
+                    f64::from(self.stocks[r][q]).max(0.0),
+                    res.half_rate_stock_per_ha * self.patches.resource_ha(res, q),
+                )
+            })
+            .collect();
+        let mut total = 0.0;
+        for _ in 0..STEPS {
+            let Some(best) = block.iter_mut().max_by(|a, b| a.0.total_cmp(&b.0)) else {
+                break;
+            };
+            let (s, half) = *best;
+            if s <= 0.0 || half <= 0.0 {
+                break;
+            }
+            let take = (res.max_rate_per_hour * s / (s + half) * efficiency * dt).min(s);
+            best.0 -= take;
+            total += take;
+        }
+        total
+    }
+
     /// Takes `hours` of one person's gathering of resource `r` from patch `p`, scaled by
     /// `efficiency` (skill and capacity, 1 = a capable adult). Returns what was gathered. The
     /// rate falls as the stock falls, integrated in small steps.
@@ -2254,6 +2310,48 @@ mod tests {
         let rate = p.resources[2].max_rate_per_hour * stock / (stock + half);
         let short = land.typical_yields(&p, 2, 0.01, 400);
         assert!((f64::from(short[0]) - rate * 0.01).abs() < 1e-3 * rate * 0.01);
+    }
+
+    /// ADR-0043 §1: what is left of a place is seen without taking it, as the harvest would then
+    /// take it, and a stock laid down once never renews, so what was seen of it never fades.
+    #[test]
+    fn what_is_left_is_seen_without_taking_it() {
+        let mut p = params();
+        p.resources.push(ResourceParams {
+            id: "ore".into(),
+            name: "Ore".into(),
+            good: 3,
+            unit_kg: 1.0,
+            discrete: false,
+            in_water: false,
+            range_patches: 1,
+            // Only on the flat north-east patch.
+            growth: Growth::Deposit {
+                stock_per_ha: vec![0.0, 3000.0, 0.0],
+            },
+            max_rate_per_hour: 6.0,
+            half_rate_stock_per_ha: 3000.0,
+        });
+        let r = p.resources.len() - 1;
+        let mut land = create(&p, 1, 400);
+        for q in 0..4 {
+            land.stocks[r][q] = land.equilibrium(&p, r, q, 400) as f32;
+        }
+        let hours = 3.0;
+        let taken = land.gather_around(&p, r, 0, hours, 1.0);
+        assert!(taken > 0.0);
+        let stocks = land.stocks[r].clone();
+        let left = land.yield_around(&p, r, 0, hours, 0.5);
+        assert_eq!(land.stocks[r], stocks, "nothing taken");
+        let again = land.gather_around(&p, r, 0, hours, 0.5);
+        assert!(left > 0.0 && left < taken, "{left} left after {taken}");
+        assert!(
+            (left - again).abs() < 1e-3 * again,
+            "{left} against {again}"
+        );
+        assert!(!p.resources[r].renews() && p.resources[0].renews());
+        assert_eq!(p.resources[r].memory_days(), f64::INFINITY);
+        assert_eq!(p.resources[0].memory_days(), p.resources[0].renewal_days());
     }
 
     #[test]

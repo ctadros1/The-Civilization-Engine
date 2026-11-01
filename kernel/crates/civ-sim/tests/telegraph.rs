@@ -1007,3 +1007,253 @@ fn a_household_short_of_copper_digs_ore_showing_near_home_where_a_field_would_ha
     assert!(dug > 0.0, "its ore was dug: {dug:.1} kg");
     assert!(made >= 1.0, "copper was smelted from it: {made:.2} kg");
 }
+
+/// The bog-ore scene (M11d, tenth part): a household of the first settlement that wants an
+/// instrument, holds its copper, timber and charcoal and knows the whole way from ore to bar, its
+/// bog ore only in one patch of `near_units` about half an hour from the hearth, and a block of
+/// bog ground holding none `far_walk` minutes out. The world, the household and its settlement,
+/// the resource, the near patch and the far block's patches.
+struct BogOre {
+    sim: Sim,
+    a: PermanentId,
+    settlement: PermanentId,
+    r: usize,
+    rich: usize,
+    far: Vec<usize>,
+}
+
+fn bog_ore_scene(near_units: f64, far_walk: std::ops::Range<f64>) -> BogOre {
+    let mut sim = world();
+    let [(a, sa, _), (b, _, _)] = pair(&sim);
+    let [copper, timber, iron, ore, charcoal] = [
+        "core:good/copper",
+        "core:good/timber",
+        "core:good/iron",
+        "core:good/iron_ore",
+        "core:good/charcoal",
+    ]
+    .map(|id| good(&sim, id));
+    for t in [
+        "core:technique/telegraphy",
+        "core:technique/writing",
+        "core:technique/charcoal_burning",
+        "core:technique/bloomery",
+        "core:technique/forging",
+    ] {
+        teach(&mut sim, a, t);
+    }
+    teach(&mut sim, b, "core:technique/telegraphy");
+    for (g, kg) in [
+        (copper, 10.0),
+        (timber, 4.0),
+        (iron, 0.0),
+        (ore, 0.0),
+        (charcoal, 200.0),
+    ] {
+        set(&mut sim, a, g, kg);
+    }
+    // The ground: blocks of three patches a side, as trips work them, by the walk from the hearth
+    // to their middle on the ground as it is worn.
+    let hearth = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|s| s.id == sa)
+        .expect("settlement")
+        .hearth_m;
+    let map = sim.map().clone();
+    let (cols, rows, pc) = {
+        let p = &sim.land().patches;
+        (p.cols, p.rows, p.patch_cells)
+    };
+    let r = sim
+        .rules()
+        .land
+        .resources
+        .iter()
+        .position(|x| x.id == "iron_ore")
+        .expect("bog ore");
+    let walks: Vec<(f64, Vec<usize>)> = sim.with_ctx_for_tests(|_, ctx| {
+        let wear = &ctx.land.wear;
+        let field = ctx.nav.travel_field(
+            &ctx.map.elevation,
+            civ_agents::population::cell_of(&map, hearth),
+            90.0 * 60.0,
+            &|c| wear.factor(c),
+        );
+        let mut out = Vec::new();
+        for by in 0..rows / 3 {
+            for bx in 0..cols / 3 {
+                let patches: Vec<usize> = (0..9)
+                    .map(|k| ((by * 3 + k / 3) * cols + bx * 3 + k % 3) as usize)
+                    .collect();
+                // Dry ground throughout, so the whole block is land.
+                if patches.iter().any(|&p| ctx.land.patches.water[p] > 0.0) {
+                    continue;
+                }
+                let (cx, cy) = ((bx * 3 + 1) * pc + pc / 2, (by * 3 + 1) * pc + pc / 2);
+                let cell = (cy * map.width + cx) as usize;
+                if let Some(s) = field.seconds_to(cell) {
+                    out.push((f64::from(s) / 60.0, patches));
+                }
+            }
+        }
+        out
+    });
+    let near = walks
+        .iter()
+        .find(|w| (25.0..35.0).contains(&w.0))
+        .expect("a block about half an hour out")
+        .clone();
+    let far = walks
+        .iter()
+        .find(|w| far_walk.contains(&w.0))
+        .expect("a block further out")
+        .clone();
+    // Bog ore only there: `near_units` in the near block's middle patch, alone, and the far block
+    // bog ground holding none, on ground of a class of its own that grows nothing else.
+    let class = {
+        let rules = sim.rules_mut_for_tests().expect("rules of its own");
+        let mut bog = rules.land.habitats[1].clone();
+        bog.id = "bog".to_owned();
+        rules.land.habitats.push(bog);
+        let class = rules.land.habitats.len() - 1;
+        let civ_land::Growth::Deposit { stock_per_ha } = &mut rules.land.resources[r].growth else {
+            panic!("bog ore is a deposit");
+        };
+        *stock_per_ha = vec![0.0; class];
+        stock_per_ha.push(10.0);
+        u8::try_from(class).expect("a class")
+    };
+    let rich = near.1[4];
+    let ha = sim.land().patches.area_ha();
+    let land = sim.land_mut_for_tests();
+    for s in land.stocks[r].iter_mut() {
+        *s = 0.0;
+    }
+    for (p, units) in std::iter::once((rich, near_units)).chain(far.1.iter().map(|&p| (p, 0.0))) {
+        land.patches.class[p] = class;
+        land.patches.richness[p] = (units / (10.0 * ha)) as f32;
+        land.stocks[r][p] = units as f32;
+    }
+    sim.people_mut_for_tests().rebuild_indexes();
+    BogOre {
+        sim,
+        a,
+        settlement: sa,
+        r,
+        rich,
+        far: far.1,
+    }
+}
+
+/// A stock that only falls is judged by what is left of it (ADR-0043 §1): in the bog-ore scene
+/// with no other ore, a household cutting the near patch for its instrument's iron goes back to it
+/// only while what is left repays the walk, never for a trip that brings almost nothing, and in the
+/// end expects of it about what it now gives; once ore lies elsewhere, it goes there. Its
+/// settlement begins knowing the near patch from three hours' work there (land of its kind alone,
+/// pooled over the bare ground round it, is not expected to repay the walk). Before, a place was
+/// remembered by the mean of every hour worked there: the household scraped the patch empty and
+/// walked back to it for almost nothing, still believing it rich.
+#[test]
+fn a_household_that_cuts_a_patch_of_bog_ore_down_judges_it_by_what_is_left() {
+    let BogOre {
+        mut sim,
+        a,
+        settlement,
+        r,
+        rich,
+        far,
+        ..
+    } = bog_ore_scene(45.0, 45.0..55.0);
+    let res = sim.rules().land.resources[r].clone();
+    let hours = sim
+        .rules()
+        .catalog
+        .activities
+        .iter()
+        .find(|x| x.id == "core:activity/gather_bog_ore")
+        .map(|x| f64::from(x.max_minutes) / 60.0)
+        .expect("cutting bog ore");
+    // What three hours there gave, as the settlement heard it at the hearth.
+    let rate = sim
+        .land()
+        .yield_around(&sim.rules().land, r, rich, 3.0, 1.0)
+        / 3.0;
+    let today = sim.now().day_index();
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.settlement == Some(settlement) {
+            x.known.push(civ_agents::person::KnownPatch {
+                resource: r as u16,
+                patch: rich as u32,
+                rate: rate as f32,
+                hours: 3.0,
+                seen_day: today,
+            });
+        }
+    }
+    let stock = |sim: &Sim, p: usize| f64::from(sim.land().stocks[r][p]);
+    let seen = |sim: &Sim| {
+        sim.people()
+            .household(a)
+            .expect("household")
+            .known
+            .iter()
+            .find(|k| usize::from(k.resource) == r && k.patch as usize == rich)
+            .copied()
+    };
+    let (mut before, mut last_seen) = (stock(&sim, rich), seen(&sim).map(|k| k.seen_day));
+    let (mut trips, mut idle_trips) = (0, Vec::new());
+    for day in 0..150 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        let now = stock(&sim, rich);
+        let k = seen(&sim).map(|k| k.seen_day);
+        // A day the patch was worked: what was cut from it.
+        if k != last_seen {
+            trips += 1;
+            if before - now < 0.5 {
+                idle_trips.push((day, before - now));
+            }
+        }
+        (before, last_seen) = (now, k);
+    }
+    assert!(
+        stock(&sim, rich) < 30.0,
+        "the near patch was cut: {:.1} units of 45 left after {trips} days' work",
+        stock(&sim, rich)
+    );
+    assert!(
+        idle_trips.is_empty(),
+        "trips to the near patch that brought almost nothing (day, units): {idle_trips:?}"
+    );
+    // What it expects of the patch, as its decisions weigh it, against what a session there gives.
+    let day = sim.now().day_index();
+    let fresh = rate;
+    let land_expects =
+        f64::from(sim.land().typical_yields(&sim.rules().land, r, hours, day)[rich]) / hours;
+    let gives = sim
+        .land()
+        .yield_around(&sim.rules().land, r, rich, hours, 1.0)
+        / hours;
+    let k = seen(&sim).expect("the near patch is known");
+    let expects = k.belief(land_expects, day, res.memory_days());
+    assert!(
+        expects <= gives + 0.1 * fresh,
+        "it expects {expects:.2} units an hour of the near patch, which gives {gives:.2} ({:.1} \
+         units left; {fresh:.2} when first worked)",
+        stock(&sim, rich)
+    );
+    // Ore over the whole of a block three quarters of an hour out: it goes there.
+    let ha = sim.land().patches.area_ha();
+    let land = sim.land_mut_for_tests();
+    for &p in &far {
+        land.patches.richness[p] = (30.0 / (10.0 * ha)) as f32;
+        land.stocks[r][p] = 30.0;
+    }
+    sim.people_mut_for_tests().rebuild_indexes();
+    for _ in 0..30 {
+        sim.advance_minutes(24 * 60).expect("advances");
+    }
+    let cut: f64 = far.iter().map(|&p| 30.0 - stock(&sim, p)).sum();
+    assert!(cut >= 5.0, "it cut {cut:.1} units of the ore further out");
+}

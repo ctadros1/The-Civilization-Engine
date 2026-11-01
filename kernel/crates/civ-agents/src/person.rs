@@ -566,14 +566,17 @@ impl Person {
 }
 
 /// What a household has seen of a place where a resource is gathered: the return of the hours
-/// worked there, weighted by how recent they were (see [`KnownPatch::belief`]).
+/// worked there, weighted by how recent they were (see [`KnownPatch::belief`]); for a stock that
+/// only falls, scaled to what the place gave as it was last left ([`KnownPatch::saw_left`];
+/// ADR-0043 §1).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct KnownPatch {
     /// The land resource, by index in the land parameters.
     pub resource: u16,
     /// The place: the centre patch of the block a trip works.
     pub patch: u32,
-    /// Mean return of the remembered hours, units of the resource per person-hour.
+    /// Mean return of the remembered hours, units of the resource per person-hour; for a stock
+    /// that only falls, scaled to what the place would give as it was last left.
     pub rate: f32,
     /// Hours of work behind `rate`, as of `seen_day`.
     pub hours: f32,
@@ -598,6 +601,22 @@ impl KnownPatch {
         let w = self.weight(day, renewal_days);
         let prior_hours = 1.0 / prior.max(1e-6);
         (1.0 + f64::from(self.rate) * w) / (prior_hours + w)
+    }
+
+    /// For a stock that only falls (ADR-0043 §1): `units` were gathered in `hours` on `day`, and as
+    /// many hours more there would have given `left_units`. The visit is added to what was seen,
+    /// and the whole is then scaled down by how much less the place now gives than it gave this
+    /// visit, since every earlier sight was of a place since emptied by as much as was taken; a
+    /// place worked out is believed worked out, while one barely touched is believed as before
+    /// (research 03-08 §1.2: a patch is judged by what it gives as it is left, not by its mean).
+    pub fn saw_left(&mut self, units: f64, left_units: f64, hours: f64, day: i64) {
+        self.observe(units, hours, day, f64::INFINITY);
+        let left = if units > 0.0 {
+            (left_units.max(0.0) / units).min(1.0)
+        } else {
+            0.0
+        };
+        self.rate = (f64::from(self.rate) * left) as f32;
     }
 
     /// Adds `units` gathered in `hours` on `day` to what was seen.
@@ -1563,6 +1582,34 @@ mod tests {
         let mut twice = hunt;
         twice.observe(0.0, 4.0, 101, 365.0);
         assert!(twice.belief(0.02, 101, 365.0) < belief);
+    }
+
+    #[test]
+    fn a_stock_that_only_falls_is_judged_by_what_was_left_as_it_was_last_left() {
+        // Ore expected at 4 units an hour, worked for 27 hours at 3.9 on average.
+        let mut k = KnownPatch {
+            resource: 0,
+            patch: 0,
+            rate: 0.0,
+            hours: 0.0,
+            seen_day: 100,
+        };
+        k.observe(105.0, 27.0, 100, f64::INFINITY);
+        assert!(k.belief(4.0, 100, f64::INFINITY) > 3.8);
+        // The last visit took 3 units in three hours, and three hours more would give 0.3.
+        k.saw_left(3.0, 0.3, 3.0, 140);
+        assert_eq!((k.hours, k.seen_day), (30.0, 140));
+        assert!(
+            (f64::from(k.rate) - 108.0 / 30.0 * 0.1).abs() < 1e-6,
+            "{}",
+            k.rate
+        );
+        // Believed worked out, and still so a generation on: a stock laid down once never
+        // renews, so the sight never fades back to what land of its kind would give.
+        let now = k.belief(4.0, 140, f64::INFINITY);
+        assert!(now < 0.5, "{now}");
+        assert_eq!(k.belief(4.0, 140 + 30 * 365, f64::INFINITY), now);
+        assert!(k.weight(140 + 30 * 365, f64::INFINITY) >= 0.05 * f64::from(k.hours));
     }
 
     #[test]

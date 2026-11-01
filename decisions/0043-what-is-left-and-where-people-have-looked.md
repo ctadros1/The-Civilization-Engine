@@ -15,7 +15,7 @@ Two faults of memory showed in the M11 demo world (plan §7, M11d's ninth and te
    resource's renewal time, ten years at most. Bog ore is a kilogram a unit and never regrows;
    Thorndale's wanter emptied its rich patch (0.6 units left) and still believed it gave 1.28
    units an hour, its value (1.06) second among its options. In a scene, a household scraped a
-   patch empty and walked back to it for almost nothing on three days.
+   patch empty and walked back to it for almost nothing on six days in 150.
 2. **Prospecting remembers nothing of where people have looked.** A household short of a dug
    material walks a loop over ground of the right slope, worth a flat one load (`PROSPECT_HOPE`),
    drawn afresh daily. Over the year after teaching, Thorndale's wanter walked 4,030 person-hours
@@ -25,8 +25,8 @@ Two faults of memory showed in the M11 demo world (plan §7, M11d's ninth and te
 Research 03-08 (written for this): a forager leaves a patch when its marginal return falls to
 what elsewhere gives (Charnov's marginal value theorem), so what counts is the patch's return now;
 how much old experience counts depends on how fast the world changes (McNamara and Houston 1987),
-and for a stock that only falls, every earlier sight is of a richer place, so the last sight of
-what was left is all worth keeping. A search finds a showing body with a probability that rises
+and for a stock that only falls, every earlier sight is of a richer place, so what was seen is
+worth keeping only as far as what was left bears it out. A search finds a showing body with a probability that rises
 with the ground swept (Koopman); for rare bodies, a walk's hope is about proportional to the fresh
 ground it covers, the share not yet looked over when walks are drawn over the whole, and nil when
 all is covered. Prospectors looked over ground, tried it, and moved on. Research 03-05 §1.3, 03-06
@@ -37,14 +37,17 @@ all is covered. Prospectors looked over ground, tried it, and moved on. Research
 ### 1. A stock that does not renew is judged by what was left
 
 For a land resource that does not renew (`Growth::Deposit`: stone, flint, copper ore and bog ore
-in the core content), each visit to a place replaces what was remembered of it with the return
-that as many hours more there would give a capable adult as the place was left (computed on the
-land without taking anything, `Land::yield_around`), over the hours of that visit
-(`KnownPatch::saw_left`). The memory never fades back to what land of its kind is expected to
-give: a worked-out place stays worked out, until someone works it again. The belief that weighs
-it against the walk is unchanged: what was seen against the expectation of land of its kind, the
-expectation counting as one unit's worth of evidence. Settlements share it as before. Resources
-that renew keep the mean of hours fading over their renewal time.
+in the core content), each visit to a place is added to what was seen there as before (the mean
+return of the hours worked there, at the pace of those who worked), and the whole is then scaled
+by how much less as many hours more there would give, as the place was left, than this visit
+gave (computed on the land without taking anything, `Land::yield_around`;
+`KnownPatch::saw_left`). Every earlier sight was of a place since emptied by as much as was
+taken: a place worked out is believed worked out, while one barely touched (stone, thousands of
+units a patch) is believed as before. The memory never fades back to what land of its kind is
+expected to give: a worked-out place stays worked out, until someone works it again. The belief
+that weighs it against the walk is unchanged: what was seen against the expectation of land of
+its kind, the expectation counting as one unit's worth of evidence. Settlements share it as
+before. Resources that renew keep the mean of hours fading over their renewal time.
 
 ### 2. A settlement remembers the ground it has looked over
 
@@ -85,8 +88,13 @@ keeps its meaning until the place is next worked. Nothing new rides the wire; no
 ## Alternatives considered
 
 - **An exponentially weighted mean with a short memory.** With a stock that falls monotonically,
-  any weight on older sights biases the belief upward; the last sight of what was left is the
-  limit of such means and needs no learning rate.
+  any weight on older sights biases the belief upward; scaling by what is left removes the bias
+  without a learning rate.
+- **The last sight of what was left in place of the mean** (tried as built, 2026-10-31). It
+  follows whoever worked the place last, a child's pace or an adult's: flint was believed a
+  quarter richer or poorer by who went last, and a village's first laws, a faction's keeper, an
+  instrument begun and a sickhouse's care moved in scenes that gather no ore. Scaling the mean
+  keeps the household's own mix of workers and changes only what depletion changes.
 - **The visit's own return.** A visit that empties a patch can have the highest return of all; it
   is what is left that the next visit meets.
 - **Counting resources that renew slowly** (deadwood, about 14 years). Its stock is hundreds of

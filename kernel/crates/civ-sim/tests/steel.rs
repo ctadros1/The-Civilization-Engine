@@ -1057,3 +1057,63 @@ fn a_cased_skeleton_and_cast_concrete_keep_their_strength_through_a_burn_their_c
     old.params[fp::ENCASEMENT] = 1;
     assert!(civ_grammar::expand(&old, &def.rules).is_err());
 }
+
+#[test]
+fn a_protection_rule_binds_a_bare_skeleton_and_its_keepers_case_theirs() {
+    use civ_agents::polity::RuleTemplate;
+    use civ_grammar::frame_params as fp;
+    let sim = world(2);
+    let (_, home) = first_household(&sim);
+    let catalog = &sim.rules().catalog;
+    let def = workshop(&sim);
+    let (timber, steel) = workshops(&sim, (home.0 + 40.0, home.1));
+    // A bare skeleton is bound and breaks it; a timber frame is not bound.
+    assert_eq!(
+        civ_agents::rules::cased_for(&steel, &def.rules, 60.0),
+        (true, false)
+    );
+    assert_eq!(
+        civ_agents::rules::cased_for(&timber, &def.rules, 60.0),
+        (false, false)
+    );
+    // Its keepers case it: written as version 5 with the program's concrete and bar, cased; it
+    // keeps a rule of an hour, not one of longer than the program's 90 minutes of casing.
+    let mut cased = steel.clone();
+    assert!(civ_agents::build::case_skeleton(
+        &mut cased,
+        def,
+        &catalog.goods,
+        60.0
+    ));
+    assert_eq!(cased.version, civ_agents::build::CONCRETE_VERSION);
+    assert_eq!(cased.params[fp::ENCASEMENT], 1);
+    assert!(civ_grammar::expand(&cased, &def.rules).is_ok());
+    assert_eq!(
+        civ_agents::rules::cased_for(&cased, &def.rules, 60.0),
+        (true, true)
+    );
+    assert_eq!(
+        civ_agents::rules::cased_for(&cased, &def.rules, 120.0),
+        (true, false)
+    );
+    let mut too_long = steel.clone();
+    assert!(!civ_agents::build::case_skeleton(
+        &mut too_long,
+        def,
+        &catalog.goods,
+        120.0
+    ));
+    assert_eq!(too_long, steel, "left as it was");
+    let mut wood = timber.clone();
+    assert!(!civ_agents::build::case_skeleton(
+        &mut wood,
+        def,
+        &catalog.goods,
+        60.0
+    ));
+    // Its words.
+    assert_eq!(
+        RuleTemplate::ProtectedFrame { minutes: 60 }.words(),
+        "a new steel frame must be cased against fire for at least 60 minutes"
+    );
+}

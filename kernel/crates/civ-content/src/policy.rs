@@ -562,6 +562,10 @@ pub(crate) struct RuleFile {
     /// one of `walls` may rise.
     #[serde(default)]
     pub storeys: u8,
+    /// For `protected_frame` (content API 219; ADR-0037 §5): the minutes of a fully involved
+    /// fire a new steel skeleton must be cased against.
+    #[serde(default)]
+    pub minutes: u16,
     /// The technique a sponsor must know to put it forward (research 11-09 §1.4).
     #[serde(default)]
     pub needs: Option<String>,
@@ -592,6 +596,9 @@ impl RuleFile {
                 kinds: self.wall_kinds(),
             }),
             "tied_walls" => Some(RuleTemplate::TiedWalls),
+            "protected_frame" => Some(RuleTemplate::ProtectedFrame {
+                minutes: self.minutes,
+            }),
             "least_gap" => Some(RuleTemplate::LeastGap {
                 gap_m: self.gap_m as f32,
             }),
@@ -2030,8 +2037,8 @@ impl PolicyFile {
             (Some(PolicyKind::BuildingRule), Some(r)) => match r.template() {
                 None => p.push(format!(
                     "`rule.template` is `{}`; templates are `roofs_unburnt`, `walls_of_kinds`, \
-                     `least_gap`, `fire_from_homes`, `midden_from_wells`, `most_storeys` and \
-                     `tied_walls`",
+                     `least_gap`, `fire_from_homes`, `midden_from_wells`, `most_storeys`, \
+                     `tied_walls` and `protected_frame`",
                     r.template
                 )),
                 // Research 12-03 §2.2: radiation from a burning dwelling falls from about 36
@@ -2052,6 +2059,13 @@ impl PolicyFile {
                     p.extend(walls_named(&r.walls));
                 }
                 Some(RuleTemplate::TiedWalls) => {}
+                // Research 11-14 §2.5: 30-120 minutes by a casing's thickness; a rule asks within
+                // a long fire's span.
+                Some(RuleTemplate::ProtectedFrame { minutes }) => {
+                    if !(1..=600).contains(&minutes) {
+                        p.push(format!("`rule.minutes` must be 1 to 600 (got {minutes})"));
+                    }
+                }
                 Some(RuleTemplate::WallsOfKinds { .. }) => {
                     p.extend(walls_named(&r.walls));
                 }
@@ -2403,6 +2417,7 @@ mod tests {
             gap_m: 0.0,
             from_m: 0.0,
             storeys: 0,
+            minutes: 0,
             needs: Some("core:technique/firing".to_owned()),
         };
         let roofs_with = |r: Option<RuleFile>| PolicyFile {
@@ -2479,6 +2494,7 @@ mod tests {
                 gap_m,
                 from_m: gap_m,
                 storeys: 0,
+                minutes: 0,
                 needs: None,
             }))
         };
@@ -2525,6 +2541,7 @@ mod tests {
                 gap_m: 0.0,
                 from_m: 0.0,
                 storeys,
+                minutes: 0,
                 needs: None,
             }))
         };

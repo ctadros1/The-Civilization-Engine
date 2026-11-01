@@ -2045,3 +2045,12 @@ material's `burnt_keeps`. The core's concrete has 60 minutes of cover, and the h
 case at 2,250 kg and 15 hours a cubic metre for 90 minutes (design priors; research 11-14 §2.5:
 30–120 minutes by thickness). A fire's full involvement is the people profile's 30 minutes, so
 cover and casing both outlast it.
+
+Content API 219 (ADR-0037 §5) adds the building rule template `protected_frame` with `minutes` (1–600):
+a new steel skeleton must be cased against fire for at least that long. It binds a skeleton (post
+system 2) begun once the law is in force, and a skeleton keeps it when it is cased (parameter 28)
+in a program whose `encasement_min` is at least `minutes`. Builders who keep it case their next
+skeleton where their program cases one so long (it is written as frame version 5). A household
+weighs it by the bare skeletons it heard gave way or saw burn against the hours casing its own
+next home would take. The core adds `policy/zealously_zone_cased_steel`, answering `burned` and
+needing the steel skeleton to propose: 60 minutes (research 11-14 §2.5's 30–120).

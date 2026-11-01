@@ -1328,6 +1328,9 @@ pub enum RuleTemplate {
     /// Mass walls of more than a storey must be tied at each floor (M8d slice DB, ADR-0031 §5: a
     /// technique rule).
     TiedWalls,
+    /// A steel skeleton must be cased against fire for at least `minutes` minutes (ADR-0037 §5:
+    /// a technique rule).
+    ProtectedFrame { minutes: u16 },
 }
 
 /// The names of the wall kinds, by kind code (ADR-0022 §10).
@@ -1344,6 +1347,7 @@ impl RuleTemplate {
             RuleTemplate::MiddenFromWells { .. } => "midden_from_wells",
             RuleTemplate::MostStoreys { .. } => "most_storeys",
             RuleTemplate::TiedWalls => "tied_walls",
+            RuleTemplate::ProtectedFrame { .. } => "protected_frame",
         }
     }
 
@@ -1373,6 +1377,9 @@ impl RuleTemplate {
             RuleTemplate::TiedWalls => {
                 "new walls of stone or brick above a storey must be tied at each floor".to_owned()
             }
+            RuleTemplate::ProtectedFrame { minutes } => format!(
+                "a new steel frame must be cased against fire for at least {minutes} minutes"
+            ),
         }
     }
 }

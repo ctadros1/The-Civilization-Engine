@@ -268,6 +268,12 @@ fn rules_kept_by(sim: &Sim, b: &Building, def: &BuildingDef) -> Vec<String> {
                         && b.spec.storeys > 1
                         && civ_agents::rules::tied(&b.spec),
                 ),
+                // A steel skeleton cased against fire (ADR-0037 §5).
+                RuleTemplate::ProtectedFrame { minutes } => (
+                    "its steel is cased against fire, keeping",
+                    civ_agents::rules::cased_for(&b.spec, &def.rules, f64::from(minutes))
+                        == (true, true),
+                ),
             };
             kept.then(|| {
                 format!(

@@ -822,6 +822,49 @@ pub fn curing_until(
     ))
 }
 
+/// Steel skeleton `spec` of program `def`, cased in the program's concrete for at least
+/// `minutes` (ADR-0037 §5): written as frame version 5, the program's concrete and bar named, its
+/// members cased. False, and `spec` as it was, where it is no skeleton or the program cases none
+/// or for fewer minutes.
+pub fn case_skeleton(
+    spec: &mut BuildingSpec,
+    def: &BuildingDef,
+    goods: &[GoodDef],
+    minutes: f64,
+) -> bool {
+    use civ_grammar::frame::{frame_materials, frame_params as fp};
+    let ProgramRules::Frame(r) = &def.rules else {
+        return false;
+    };
+    if spec.params[fp::POST_SYSTEM] != 2 || r.encasement_min < minutes {
+        return false;
+    }
+    let mut cased = spec.clone();
+    if cased.version < CONCRETE_VERSION {
+        let named = |slot: u8| {
+            def.materials
+                .get(usize::from(slot))
+                .and_then(|&g| goods.get(g))
+                .map(|g| g.id.clone())
+        };
+        let (Some(concrete), Some(bar)) = (
+            named(frame_materials::CONCRETE),
+            named(frame_materials::BAR),
+        ) else {
+            return false;
+        };
+        cased.version = CONCRETE_VERSION;
+        cased.materials.truncate(frame_materials::COUNT_V4);
+        cased.materials.extend([concrete, bar]);
+    }
+    cased.params[fp::ENCASEMENT] = 1;
+    if expand(&cased, &def.rules).is_err() {
+        return false;
+    }
+    *spec = cased;
+    true
+}
+
 /// The frame version a steel skeleton is designed under (ADR-0037 §3).
 pub const SKELETON_VERSION: u16 = 4;
 /// The frame version a concrete frame is designed under (ADR-0037, amendment of 2026-11-01).

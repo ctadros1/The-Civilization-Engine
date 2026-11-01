@@ -8721,10 +8721,19 @@ and M6a gives rivers a daily flow.
       it. Content API 218. Tested: a bare skeleton keeping 0.4, a cased one all of it to 90
       minutes and 0.4 beyond, a concrete frame all of it to its hour and 0.75 beyond; casing
       refused on a concrete frame and on version 4; civ-agents (300), civ-grammar (42),
-      civ-content (14 + 70), steel, fire, hazard_tools, roundtrip, tall; clippy. **Not yet:** the
-      `ProtectedFrame` rule (a saved rule template: a save and wire change of its own), a
-      designer that cases a skeleton, the casing's weight in the checks, the young concrete and
-      the infill in the shaking and wind checks, and a lived world that casts one.
+      civ-content (14 + 70), steel, fire, hazard_tools, roundtrip, tall; clippy. **Its fifth
+      part, the `ProtectedFrame` rule:** the building rule template `protected_frame { minutes }`
+      (content API 219; rule templates are content, so no save or wire change): a new steel
+      skeleton must be cased for at least `minutes`; it binds a skeleton begun once in force and
+      is kept by one cased in a program that cases that long; its keepers case their next
+      skeleton; a household weighs it by the bare skeletons it heard gave way or saw burn against
+      the hours casing its own would take. The core's `zealously_zone_cased_steel` answers
+      `burned`, asks an hour and needs the steel skeleton. Tested: binding and keeping, casing a
+      skeleton (and refusing a timber frame or a rule longer than the program's casing), its
+      words, its content (answers, minutes, technique, id order); civ-agents (300), civ-content
+      (14 + 71), steel, rules, hazard_tools, fire, roundtrip, public_buildings; clippy. **Backlog
+      B is done.** **Not yet:** the casing's weight in the checks, the young concrete and the
+      infill in the shaking and wind checks, and a lived world that casts or cases one.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

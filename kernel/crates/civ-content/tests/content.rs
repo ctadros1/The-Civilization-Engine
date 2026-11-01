@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 218
+kernel_content_api = 219
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2867,6 +2867,7 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         "core:policy/zealously_zone_a_refuse_tip",
         "core:policy/zealously_zone_a_round_for_refuse",
         "core:policy/zealously_zone_a_sewer_to_the_river",
+        "core:policy/zealously_zone_cased_steel",
     ];
     assert!(
         reg.catalog
@@ -2909,6 +2910,7 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
         "core:policy/zealously_zone_a_refuse_tip",
         "core:policy/zealously_zone_a_round_for_refuse",
         "core:policy/zealously_zone_a_sewer_to_the_river",
+        "core:policy/zealously_zone_cased_steel",
     ];
     assert!(
         reg.catalog
@@ -2992,6 +2994,7 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
         "core:policy/zealously_zone_a_refuse_tip",
         "core:policy/zealously_zone_a_round_for_refuse",
         "core:policy/zealously_zone_a_sewer_to_the_river",
+        "core:policy/zealously_zone_cased_steel",
     ];
     assert!(
         reg.catalog
@@ -3033,6 +3036,7 @@ fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
         "core:policy/zealously_zone_a_refuse_tip",
         "core:policy/zealously_zone_a_round_for_refuse",
         "core:policy/zealously_zone_a_sewer_to_the_river",
+        "core:policy/zealously_zone_cased_steel",
     ];
     assert!(
         reg.catalog
@@ -3085,6 +3089,7 @@ fn the_core_lets_a_polity_name_a_health_officer_who_can_write() {
         "core:policy/zealously_zone_a_refuse_tip",
         "core:policy/zealously_zone_a_round_for_refuse",
         "core:policy/zealously_zone_a_sewer_to_the_river",
+        "core:policy/zealously_zone_cased_steel",
     ];
     assert!(
         reg.catalog
@@ -3131,6 +3136,7 @@ fn the_core_lets_a_polity_clear_middens_from_the_water() {
         "core:policy/zealously_zone_a_refuse_tip",
         "core:policy/zealously_zone_a_round_for_refuse",
         "core:policy/zealously_zone_a_sewer_to_the_river",
+        "core:policy/zealously_zone_cased_steel",
     ];
     assert!(
         reg.catalog
@@ -3171,6 +3177,7 @@ fn the_core_lets_a_polity_raise_a_sickhouse_where_the_sick_lay_untended() {
         "core:policy/zealously_zone_a_refuse_tip",
         "core:policy/zealously_zone_a_round_for_refuse",
         "core:policy/zealously_zone_a_sewer_to_the_river",
+        "core:policy/zealously_zone_cased_steel",
     ];
     assert!(
         reg.catalog
@@ -3387,6 +3394,7 @@ fn the_core_lets_a_polity_carry_refuse_to_a_tip() {
     let newer = [
         "core:policy/zealously_zone_a_round_for_refuse",
         "core:policy/zealously_zone_a_sewer_to_the_river",
+        "core:policy/zealously_zone_cased_steel",
     ];
     assert!(
         reg.catalog
@@ -3459,7 +3467,10 @@ fn the_core_lets_a_polity_run_a_refuse_round_by_law() {
     assert_eq!(r.every_days, 7);
     assert!(r.round_h > 0.0);
     // Its id sorts after every older template's (the sewer's, ADR-0041, is newer).
-    let newer = ["core:policy/zealously_zone_a_sewer_to_the_river"];
+    let newer = [
+        "core:policy/zealously_zone_a_sewer_to_the_river",
+        "core:policy/zealously_zone_cased_steel",
+    ];
     assert!(
         reg.catalog
             .policies
@@ -3709,8 +3720,14 @@ fn the_core_lets_a_polity_lay_a_sewer_to_the_river() {
     assert_eq!((s.fall, s.settle_share, s.connect_h), (0.002, 0.5, 0.0));
     assert_eq!(s.tank, good("core:good/settling_tank"));
     assert_eq!(s.sludge, good("core:good/sludge"));
-    // Its id sorts after every older template's.
-    assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
+    // Its id sorts after every older template's (the protection rule's, ADR-0037 §5, is newer).
+    let newer = ["core:policy/zealously_zone_cased_steel"];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
 }
 
 #[test]
@@ -3880,4 +3897,31 @@ fn a_passenger_lift_is_a_fixed_tool_of_a_far_technique_on_the_skeleton_and_an_en
             report.diagnostics
         );
     }
+}
+
+/// The core's protection rule (ADR-0037 §5): a new steel frame cased against fire for an hour,
+/// answering fires remembered, put forward by one who knows the steel skeleton.
+#[test]
+fn the_core_lets_a_polity_ask_new_steel_frames_be_cased_against_fire() {
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/zealously_zone_cased_steel")
+        .expect("the protection template");
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    assert_eq!(def.kind, PolicyKind::BuildingRule);
+    assert_eq!(def.answers, vec![IssueKind::Burned]);
+    let rule = def.rule.as_ref().expect("its rule");
+    assert_eq!(
+        rule.template,
+        civ_agents::polity::RuleTemplate::ProtectedFrame { minutes: 60 }
+    );
+    assert_eq!(
+        rule.needs.map(|t| reg.catalog.techniques[t].id.as_str()),
+        Some("core:technique/skeleton_frame")
+    );
+    // Its id sorts after every older template's.
+    assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
 }

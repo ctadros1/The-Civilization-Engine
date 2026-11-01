@@ -92,6 +92,21 @@ pub fn techniques_used(
     out
 }
 
+/// Whether a protection rule of `minutes` binds a building of `spec` under `rules`, and whether
+/// it keeps it (ADR-0037 §5): it binds a steel skeleton, kept when its members are cased for at
+/// least that long.
+pub fn cased_for(
+    spec: &civ_grammar::BuildingSpec,
+    rules: &civ_grammar::ProgramRules,
+    minutes: f64,
+) -> (bool, bool) {
+    use civ_grammar::frame::frame_params as fp;
+    let skeleton = spec.params.get(fp::POST_SYSTEM) == Some(&2);
+    let cased = spec.params.get(fp::ENCASEMENT) == Some(&1)
+        && matches!(rules, civ_grammar::ProgramRules::Frame(r) if r.encasement_min >= minutes);
+    (skeleton, cased)
+}
+
 /// Whether a building's mass walls are tied at each floor (ADR-0031 §1: version 3's wall ties).
 pub fn tied(spec: &civ_grammar::BuildingSpec) -> bool {
     spec.params

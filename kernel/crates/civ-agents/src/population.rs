@@ -2957,6 +2957,14 @@ impl Population {
                         }
                     })
                     .flatten()
+                    // A skeleton is cased where a protection rule its builders keep asks it
+                    // (ADR-0037 §5), if its program cases one so long.
+                    .map(|mut spec| {
+                        if let Some(minutes) = rules.cased_min {
+                            build::case_skeleton(&mut spec, program, goods, minutes);
+                        }
+                        spec
+                    })
                     .filter(|spec| {
                         !rules.too_tall(spec, crate::rules::wall_kind(spec, &program.rules))
                     })

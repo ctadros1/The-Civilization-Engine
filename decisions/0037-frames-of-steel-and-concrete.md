@@ -182,9 +182,16 @@ Decided by Claude under the owner's standing authority (plan §9):
   stage's concrete and hours. A fire's full involvement is 30 minutes, so cover and casing both
   outlast it. The casing's own weight is not added in the checks (a simplification), and the
   designer cases nothing yet: a skeleton is cased only where a design is given one.
-- **Not yet (the time box):** the `ProtectedFrame` rule (its template is saved in polities, so
-  it waits for a save and wire change of its own) and a designer that cases a skeleton for its
-  builders' caution; infill in the shaking check as a frame's.
+- **§5's `ProtectedFrame` rule, as built (its fifth part):** a building rule template
+  `protected_frame { minutes }` (content API 219; templates are content, so no save or wire
+  change was needed after all): a new steel skeleton must be cased for at least `minutes`. It
+  binds a skeleton begun once in force and is kept by one cased in a program that cases that
+  long; its keepers case their next skeleton (written as version 5). A household weighs it by the
+  bare skeletons it heard gave way or saw burn against the hours casing its own next home would
+  take. The core's `zealously_zone_cased_steel` answers `burned`, asks an hour, and needs the
+  steel skeleton to propose. **ADR-0037's deferrals are done**, but for those kept by the time
+  box: glass, curtain walls, welding, prestressing, piles and settlement (§7), the casing's
+  weight in the checks, the young concrete and infill in the shaking and wind checks.
 
 ## Revisit when
 

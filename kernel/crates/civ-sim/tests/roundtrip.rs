@@ -806,7 +806,7 @@ fn a_steel_skeleton_survives_a_save_and_load_exactly() {
     };
     let mut spec =
         civ_agents::build::design_shape(def, &catalog.goods, shape, at, None).expect("designed");
-    spec.version = civ_grammar::FRAME_VERSION;
+    spec.version = civ_agents::build::SKELETON_VERSION;
     spec.params[civ_grammar::frame_params::POST_SYSTEM] = 2;
     spec.materials.push("core:good/steel_section".into());
     civ_grammar::expand(&spec, &def.rules).expect("a steel skeleton");

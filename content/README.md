@@ -1996,3 +1996,29 @@ hours to half), `recipe/build_lift` (1,500 kg of steel sections, 400 of iron, 60
 of timber, 1,200 hours) and its activity. The figures are design priors (research 11-14 §2.4,
 §2.5: a car calling at every one of ten storeys of 3.5 m runs its round in about 130 s, inside
 90–180 s).
+
+Content API 216 (ADR-0037, amendment of 2026-11-01) brings frame version 5's reinforced-concrete
+frame. A frame program's `[systems]` gains `concrete` (the technique that opens post system 3), its
+`[materials]` `concrete` and `bar` (named only beside `frame`, whose place they follow), and its
+`[frame]` `concrete_kg_per_m3` (the concrete a cubic metre of its members takes), `bar_kg_per_m3`
+(the bar it takes) and `concrete_h_per_m3` (hours to form, bar, cast and strip it), all 0 by
+default; a program offering the concrete frame needs all of them positive. A concrete frame is laid
+out as a steel skeleton (storeyed posts, one storey too, up to twelve), its posts, plates, beams
+and joists cast in their envelopes; its frame stage takes their volume in concrete and bar at the
+program's figures and labour at its hours a cubic metre, with its ridge, trusses and rafters of
+timber as before; its walls are infill. A cast member is drawn as the envelope of the timber member
+it replaces, as a steel one is, with a member 1.6 times its diameter spread over it: the checks
+read it by the concrete good's `[timber]` table and weigh it at 6,150 kg a cubic metre of envelope
+(2,400 over 2.56 of its area). The designer takes it as it takes the
+skeleton: where its builders know the technique and its program offers it, only when it is the
+cheaper design or the only one that stands so tall. The core adds `good/concrete` (a dry mix of
+cement and stone that keeps as cement does; read over the envelope as 82 MPa in bending, 51 in
+compression, 98 GPa, creep 2, keeping 0.85 under load carried for years and 0.75 after a full
+burn),
+`recipe/batch_concrete` (0.155 kg of cement and 0.845 of stone a kilogram, 0.002 hours; by those
+who know portland cement) and `technique/reinforced_concrete` (portland cement, rolling and the
+jointed frame; tried in building, holding concrete and bar; 400,000 hours to half), and offers it
+in the hall and the workshop at 5,760 kg of concrete, 307 of bar and 64 hours a cubic metre of
+envelope (2,250, 120 and 25 a cubic metre cast). The
+figures are design priors (research 11-14 §2.3: 80-220 kg of bar a cubic metre; formwork 35-60 % of
+a concrete structure's cost).

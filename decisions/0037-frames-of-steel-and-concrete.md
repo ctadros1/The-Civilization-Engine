@@ -131,6 +131,36 @@ Decided by Claude under the owner's standing authority, by the time box (plan §
   sizes for spans timber cannot carry). Recorded, not nudged.
 - **§5, fire on bare steel,** is the next part.
 
+## Amendment (2026-11-01): the reinforced-concrete frame, as built
+
+Decided by Claude under the owner's standing authority (plan §9):
+
+- **§3, frame version 5.** Version 5 is version 4 with post system 3, a reinforced-concrete frame,
+  and two more material slots, `concrete` (5) and `bar` (6); versions 1 to 3 stay frozen and
+  version 4 expands within it as before, its two new slots needing nothing. A concrete frame is
+  laid out as a skeleton is (storeyed posts, one storey too, up to twelve) and its posts, plates,
+  tie and cross beams and joists are cast in their envelopes: its frame stage takes their volume
+  at the program's `concrete_kg_per_m3` and `bar_kg_per_m3`, and labour at `concrete_h_per_m3`
+  in place of the posts', beams' and joists' (its ridge, trusses and rafters stay timber). Walls
+  are infill. The program's `[systems] concrete` names the technique, `reinforced_concrete`
+  (portland cement, rolling and the jointed frame).
+- **Concrete as a good:** a dry mix of portland cement and broken stone (about 1 to 5.5 by weight,
+  a design prior), batched by those who know portland cement and kept dry as cement keeps; it is
+  cast with water on site, which is not weighed.
+- **§4, concrete smeared over its member's envelope,** as steel is: a cast member 1.6 times the
+  envelope's diameter (a design prior; a concrete column is thicker than the oak it stands for)
+  spread over it, read by the concrete good's `[timber]` (20 MPa concrete, about 1.5 % bar of 250
+  MPa, cracked stiffness half of 30 GPa, creep φ 2, 0.85 under sustained load) and weighed at
+  6,150 kg a cubic metre of envelope (2,400 over 2.56 of its area) in the own-weight check, where
+  a skeleton's stays timber's. The program's figures follow the same scale (5,760 kg of mix, 307
+  of bar and 64 hours a cubic metre of envelope: 2,250, 120 and 25 a cubic metre cast).
+- **The designer** takes a concrete frame on the skeleton's terms: known, offered, and cheaper or
+  the only design so tall. With the core content it is dearer than timber in kilograms, so it is
+  taken only above four storeys, where its designed six-storey hall stands its checks.
+- **Not yet (the time box):** concrete's strength by its age, curing as elapsed time between a
+  storey cast and the next stage (it needs the day a stage ended in the save), and mass infill in a
+  frame. A cast member's strength is its 28-day strength from the day it is cast.
+
 ## Revisit when
 
 - Letting storeys is designed: lifts and wind follow.

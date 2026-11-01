@@ -371,7 +371,7 @@ fn tall_design(storeys: u8, at: (f32, f32)) -> civ_grammar::BuildingSpec {
         1.0,
         None,
         Some(build::FireDesign {
-            knows_systems: [false, false, false, true],
+            knows_systems: [false, false, false, true, false],
             ..Default::default()
         }),
     )
@@ -732,7 +732,7 @@ fn tall_home(sim: &mut Sim, h: PermanentId, storeys: u8, at: (f32, f32)) -> Perm
         1.0,
         None,
         Some(build::FireDesign {
-            knows_systems: [false, false, false, true],
+            knows_systems: [false, false, false, true, false],
             ..Default::default()
         }),
     )

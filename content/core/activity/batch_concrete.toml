@@ -1,0 +1,17 @@
+# Batching concrete dry for a frame's members, in daylight (ADR-0037's amendment of 2026-11-01).
+kind = "activity"
+id = "core:activity/batch_concrete"
+name = "Batch concrete"
+doing = "batching concrete"
+behavior = "make"
+recipe = "core:recipe/batch_concrete"
+par = 4.0
+min_age_years = 14.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 480
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

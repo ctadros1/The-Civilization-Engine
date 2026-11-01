@@ -181,10 +181,21 @@ pub fn group_timber(
         .and_then(|good| good.timber)
 }
 
-/// A member's own weight, newtons.
+/// A concrete frame's members' own weight over their envelope (frame version 5): reinforced
+/// concrete at about 2,400 kg/m³ in a member 1.6 times the envelope's diameter, so 2.56 times its
+/// area (the design prior the core's concrete `[timber]` and its programs' figures follow).
+const CONCRETE_KG_M3: f64 = 6150.0;
+
+/// A member's own weight, newtons: a cast member's at concrete's density, any other's at
+/// timber's (a steel skeleton's too: ADR-0037's amendment of 2026-10-30).
 fn own_weight(g: &Group) -> f64 {
     let (area, _, _) = section(g);
-    area * f64::from(g.length_cm.max(0)) / 100.0 * TIMBER_KG_M3 * G
+    let density = if g.material == Some(civ_grammar::frame::frame_materials::CONCRETE) {
+        CONCRETE_KG_M3
+    } else {
+        TIMBER_KG_M3
+    };
+    area * f64::from(g.length_cm.max(0)) / 100.0 * density * G
 }
 
 /// The storey a level is, 0 the first; `None` for a loft, the roof or no level.

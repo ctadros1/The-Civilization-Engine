@@ -1,0 +1,35 @@
+# Concrete, batched dry: portland cement and broken stone, about one to five and a half by weight,
+# shovelled together and kept dry until it is cast with water in a frame's forms (research 11-14
+# §1.2, §2.3; ADR-0037's amendment of 2026-11-01; the proportion is a design prior near 350 kg of
+# cement in a cubic metre). Weighed by the kilogram. It keeps as cement does: dry under a roof; left
+# out it takes up the damp and sets in the heap (a tuning value).
+kind = "good"
+id = "core:good/concrete"
+name = "Concrete"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 90.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[timber]
+# How a cast member carries as the structure check reads it: drawn as the envelope of the round
+# timber member it replaces, as a steel one is, with a cast member 1.6 times its diameter spread
+# over it (a design prior: a concrete column or beam is thicker than the oak it stands for; no
+# report gives TCE a section rule). Concrete of 20 MPa crushes at 20 over its whole section; bar of
+# 250 MPa at about 1.5 % of it (120 kg a cubic metre), working at 0.9 of the depth, bends at about
+# 0.015 x 250 x 0.9 x 6 = 20 MPa over its section modulus; cracked in tension it is about half as
+# stiff as its 30 GPa uncracked. Over the envelope that is 20 x 2.56 in compression, 20 x 4.1 in
+# bending and 15 x 6.55 in stiffness. Under load carried for years it creeps about twice as far
+# again as at first (creep φ ≈ 2) and keeps about 0.85 of its strength (both design priors).
+bending_mpa = 82.0
+compression_mpa = 51.0
+stiffness_gpa = 98.0
+creep = 2.0
+sustained = 0.85
+# Its cover keeps the bar cool through much of a burn: a member left through a full burn keeps
+# about three quarters of its strength (a design prior; research 11-14 §1.6 makes cover concrete's
+# protection, and bar near 500 C keeps about 0.75 of its yield).
+burnt_keeps = 0.75

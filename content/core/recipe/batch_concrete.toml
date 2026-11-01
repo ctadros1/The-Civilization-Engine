@@ -1,0 +1,16 @@
+# Batching concrete dry: cement and broken stone shovelled together on a board, about 0.155 kg of
+# cement and 0.845 kg of stone a kilogram (the good's design prior), at 0.002 hours a kilogram:
+# turning a cubic metre's 2.25 tonnes by hand takes four or five person-hours (a design prior; the
+# research gives formwork's share of the cost, not the mixing).
+kind = "recipe"
+id = "core:recipe/batch_concrete"
+name = "Batch concrete"
+skill = "core:skill/building"
+technique = "core:technique/portland_cement"
+unit_h = 0.002
+session_h = 0.0
+max_units = 0.0
+tools = []
+inputs = [{ good = "core:good/portland_cement", amount = 0.155 }, { good = "core:good/stone", amount = 0.845 }]
+outputs = [{ good = "core:good/concrete", amount = 1.0 }]
+session_inputs = []

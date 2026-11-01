@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 215
+kernel_content_api = 216
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -1015,9 +1015,10 @@ fn buildings_check_their_numbers_and_materials() {
         let b = &c.buildings[c.building_index(id).expect(id)];
         assert_eq!(b.grammar(), civ_grammar::Grammar::Frame, "{id}");
         assert_eq!(b.use_, use_, "{id}");
-        // A workshop names a fifth material, its steel skeleton's (ADR-0037 §3).
+        // A workshop names a fifth material, its steel skeleton's (ADR-0037 §3), and a sixth and
+        // seventh, its concrete frame's concrete and bar (frame version 5).
         let slots = if skeleton {
-            civ_grammar::frame_materials::COUNT_V4
+            civ_grammar::frame_materials::COUNT_V5
         } else {
             civ_grammar::frame_materials::COUNT
         };
@@ -1026,6 +1027,14 @@ fn buildings_check_their_numbers_and_materials() {
             assert_eq!(
                 c.goods[b.materials[usize::from(civ_grammar::frame_materials::FRAME)]].id,
                 "core:good/steel_section"
+            );
+            let good = |slot: u8| c.goods[b.materials[usize::from(slot)]].id.as_str();
+            assert_eq!(
+                [
+                    good(civ_grammar::frame_materials::CONCRETE),
+                    good(civ_grammar::frame_materials::BAR)
+                ],
+                ["core:good/concrete", "core:good/reinforcing_bar"]
             );
         }
         assert_eq!(
@@ -1045,6 +1054,7 @@ fn buildings_check_their_numbers_and_materials() {
                 Some("core:technique/storeyed_frame"),
                 Some("core:technique/tied_masonry"),
                 skeleton.then_some("core:technique/skeleton_frame"),
+                skeleton.then_some("core:technique/reinforced_concrete"),
             ],
             "{id}"
         );

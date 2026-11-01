@@ -578,9 +578,9 @@ pub struct FireDesign {
     /// Whether someone in the household knows lime burning.
     pub knows_lime: bool,
     /// Whether someone in the household knows the technique that opens each of the program's
-    /// version 3 systems: a trussed roof, storeyed posts and wall ties (ADR-0031 §2), and version
-    /// 4's steel skeleton (ADR-0037 §3).
-    pub knows_systems: [bool; 4],
+    /// version 3 systems: a trussed roof, storeyed posts and wall ties (ADR-0031 §2), version 4's
+    /// steel skeleton (ADR-0037 §3) and version 5's concrete frame.
+    pub knows_systems: [bool; 5],
 }
 
 /// [`design_shape`], by builders who make the members that carry a frame building's load
@@ -762,6 +762,33 @@ pub fn design_cautious(
                     return Some(skeleton);
                 }
             }
+            // A concrete frame (frame version 5), on the same terms: its builders know it, its
+            // program offers it, and it is the cheaper design, or the only one that rises so high.
+            let goods_of = |slot: u8| {
+                def.materials
+                    .get(usize::from(slot))
+                    .and_then(|&g| goods.get(g))
+            };
+            if let (Some(frame), Some(concrete), Some(bar)) = (
+                goods_of(frame_materials::FRAME),
+                goods_of(frame_materials::CONCRETE),
+                goods_of(frame_materials::BAR),
+            ) && wall_kind == 0
+                && rules.concrete_kg_per_m3 > 0.0
+                && fire.is_some_and(|f| f.knows_systems[4])
+            {
+                let mut cast = spec.clone();
+                cast.version = CONCRETE_VERSION;
+                cast.params[fp::POST_SYSTEM] = 3;
+                cast.materials
+                    .extend([frame.id.clone(), concrete.id.clone(), bar.id.clone()]);
+                let beyond_timber = storeys > civ_grammar::frame_limits(spec.version).1;
+                if cheaper(&cast, &spec, &def.rules)
+                    || (beyond_timber && expand(&cast, &def.rules).is_ok())
+                {
+                    return Some(cast);
+                }
+            }
             Some(spec)
         }
         _ => None,
@@ -770,6 +797,8 @@ pub fn design_cautious(
 
 /// The frame version a steel skeleton is designed under (ADR-0037 §3).
 pub const SKELETON_VERSION: u16 = 4;
+/// The frame version a concrete frame is designed under (ADR-0037, amendment of 2026-11-01).
+pub const CONCRETE_VERSION: u16 = 5;
 
 /// Whether design `a` is cheaper than `b` under `rules`: it expands, and takes fewer hours of
 /// work or kilograms of material than `b` and more of neither (whatever load is carried, it then
@@ -1463,7 +1492,7 @@ pub(crate) mod tests {
             shapes: Vec::new(),
             skill: None,
             upkeep: crate::params::Upkeep::default(),
-            systems: [None; 4],
+            systems: [None; 5],
         }
     }
 
@@ -1859,6 +1888,9 @@ pub(crate) mod tests {
             living_kg_per_m2: 50.0,
             timber_kg_per_m3: 700.0,
             frame_kg_per_m3: 0.0,
+            concrete_kg_per_m3: 0.0,
+            bar_kg_per_m3: 0.0,
+            concrete_h_per_m3: 0.0,
             groundwork_h_per_m2: 0.5,
             posthole_h: 2.0,
             post_h: 4.0,
@@ -1903,7 +1935,7 @@ pub(crate) mod tests {
             shapes: Vec::new(),
             skill: None,
             upkeep: crate::params::Upkeep::default(),
-            systems: [None; 4],
+            systems: [None; 5],
         };
         let good = |id: &str| GoodDef {
             fuel: None,
@@ -2058,7 +2090,7 @@ pub(crate) mod tests {
                 1.0,
                 None,
                 Some(FireDesign {
-                    knows_systems: [false, false, knows_ties, false],
+                    knows_systems: [false, false, knows_ties, false, false],
                     ..fire_rubble
                 }),
             )
@@ -2138,7 +2170,7 @@ pub(crate) mod tests {
         let mut goods = goods;
         goods.push(good("core:good/steel_section"));
         let knows = |skeleton: bool| FireDesign {
-            knows_systems: [false, false, false, skeleton],
+            knows_systems: [false, false, false, skeleton, false],
             ..Default::default()
         };
         let designed = |d: &BuildingDef, fire: Option<FireDesign>| {
@@ -2161,7 +2193,7 @@ pub(crate) mod tests {
         let light = skeleton_def(300.0);
         let steel = designed(&light, Some(knows(true)));
         assert_eq!(steel.version, SKELETON_VERSION);
-        assert_eq!(SKELETON_VERSION, civ_grammar::FRAME_VERSION);
+        assert_eq!(CONCRETE_VERSION, civ_grammar::FRAME_VERSION);
         assert_eq!(steel.params[frame_params::POST_SYSTEM], 2);
         assert_eq!(steel.materials.len(), frame_materials::COUNT_V4);
         assert_eq!(
@@ -2212,5 +2244,72 @@ pub(crate) mod tests {
         let timber = six(Some(knows(false)));
         assert_eq!(timber.version, civ_grammar::FRAME_DESIGN_VERSION);
         assert!(expand(&timber, &tall.rules).is_err());
+
+        // A concrete frame (frame version 5), on the skeleton's terms: offered where the program
+        // names concrete and bar beside the skeleton's slot, gives its figures and its builders
+        // know it; taken only when it is the cheaper design or the only one so tall.
+        goods.push(good("core:good/concrete"));
+        goods.push(good("core:good/reinforcing_bar"));
+        let concrete_def = |kg: f64, h: f64| {
+            let mut d = skeleton_def(1119.0);
+            d.materials.extend([4, 5]);
+            if let ProgramRules::Frame(r) = &mut d.rules {
+                r.concrete_kg_per_m3 = kg;
+                r.bar_kg_per_m3 = kg / 20.0;
+                r.concrete_h_per_m3 = h;
+            }
+            d
+        };
+        let cast_knows = |known: bool| FireDesign {
+            knows_systems: [false, false, false, false, known],
+            ..Default::default()
+        };
+        let designed = |d: &BuildingDef, fire: Option<FireDesign>| {
+            design_cautious(d, &goods, shape, (0.0, 0.0), None, 1.0, None, fire).expect("a design")
+        };
+        let timber = designed(&def, None);
+        // Not known, no figures, or dearer (concrete far heavier than timber): the timber design.
+        for (d, fire) in [
+            (concrete_def(2250.0, 25.0), None),
+            (concrete_def(2250.0, 25.0), Some(cast_knows(false))),
+            (concrete_def(0.0, 25.0), Some(cast_knows(true))),
+            (concrete_def(2250.0, 25.0), Some(cast_knows(true))),
+        ] {
+            assert_eq!(designed(&d, fire), timber);
+        }
+        // Known and cheaper (a frame lighter and quicker than timber's, as no real one is): taken,
+        // as version 5, naming the skeleton's, the concrete's and the bar's goods.
+        let light = concrete_def(100.0, 0.1);
+        let cast = designed(&light, Some(cast_knows(true)));
+        assert_eq!(cast.version, CONCRETE_VERSION);
+        assert_eq!(cast.params[frame_params::POST_SYSTEM], 3);
+        assert_eq!(cast.materials.len(), frame_materials::COUNT_V5);
+        assert_eq!(
+            cast.materials[usize::from(frame_materials::CONCRETE)..],
+            ["core:good/concrete", "core:good/reinforcing_bar"]
+        );
+        assert!(cheaper(&cast, &timber, &light.rules));
+        // Above four storeys, where only a frame of steel or concrete stands: taken however dear.
+        let mut tall = concrete_def(2250.0, 25.0);
+        if let ProgramRules::Frame(r) = &mut tall.rules {
+            r.storeys = (1, civ_grammar::MAX_STOREYS_V4);
+        }
+        let six = design_cautious(
+            &tall,
+            &goods,
+            Shape::Bays {
+                bays: 2,
+                storeys: 6,
+                lofts: 0,
+            },
+            (0.0, 0.0),
+            None,
+            1.0,
+            None,
+            Some(cast_knows(true)),
+        )
+        .expect("a design");
+        assert_eq!(six.version, CONCRETE_VERSION);
+        assert!(expand(&six, &tall.rules).is_ok());
     }
 }

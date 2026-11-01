@@ -517,7 +517,7 @@ fn builders_who_do_not_know_a_skeleton_design_as_before() {
             // timber (steel heavier at the same work), design the same.
             for knows in [false, true] {
                 let fire = FireDesign {
-                    knows_systems: [false, false, false, knows],
+                    knows_systems: [false, false, false, knows, false],
                     ..Default::default()
                 };
                 let designed = design_cautious(
@@ -716,5 +716,164 @@ fn a_burnt_out_timber_workshop_chars_as_before() {
             GroupKind::of_group(now.group),
             now.loss
         );
+    }
+}
+
+/// The workshop of two bays with a loft its builders design, as a concrete frame (frame version
+/// 5: post system 3, concrete and bar in the sixth and seventh slots).
+fn cast_workshop(sim: &Sim, at: (f32, f32)) -> civ_grammar::BuildingSpec {
+    let (timber, _) = workshops(sim, at);
+    let mut cast = timber;
+    cast.version = civ_agents::build::CONCRETE_VERSION;
+    cast.params[civ_grammar::frame_params::POST_SYSTEM] = 3;
+    cast.materials.extend([
+        "core:good/steel_section".into(),
+        "core:good/concrete".into(),
+        "core:good/reinforcing_bar".into(),
+    ]);
+    cast
+}
+
+/// Loads a working building carries: thatch, a storm, goods in its lofts and on its floors, and
+/// people on them (round figures within the core's).
+fn working_loads() -> civ_agents::structure::Loads {
+    civ_agents::structure::Loads {
+        covering_pa: 400.0,
+        peak_pa: 600.0,
+        loft_pa: 1500.0,
+        raised_pa: 1000.0,
+        upper_pa: 1000.0,
+        live_pa: 2000.0,
+    }
+}
+
+#[test]
+fn a_concrete_workshop_is_cast_of_concrete_and_bar_and_its_members_are_checked_as_concrete() {
+    use civ_agents::structure::{group_timber, margin};
+    use civ_grammar::{GroupKind, Stage, frame_materials};
+    let sim = world(2);
+    let (_, home) = first_household(&sim);
+    let catalog = &sim.rules().catalog;
+    let def = workshop(&sim);
+    let (timber, _) = workshops(&sim, (home.0 + 20.0, home.1));
+    let cast = cast_workshop(&sim, (home.0 + 20.0, home.1));
+    let wood = civ_grammar::expand(&timber, &def.rules).expect("timber expands");
+    let e = civ_grammar::expand(&cast, &def.rules).expect("the concrete frame expands");
+    // Its frame takes concrete and bar at the program's figures, no sections.
+    let frame = &e.stages[Stage::Frame.index()].materials_kg;
+    let (concrete, bar) = (
+        frame[usize::from(frame_materials::CONCRETE)],
+        frame[usize::from(frame_materials::BAR)],
+    );
+    assert!(concrete > 0.0 && bar > 0.0);
+    assert!((concrete / bar - 5760.0 / 307.0).abs() < 1e-9);
+    assert_eq!(frame[usize::from(frame_materials::FRAME)], 0.0);
+    // It used the concrete frame's technique, not the skeleton's.
+    let used = civ_agents::rules::techniques_used(catalog, &cast, def);
+    assert!(used.contains(&technique(&sim, "reinforced_concrete")));
+    assert!(!used.contains(&technique(&sim, "skeleton_frame")));
+    // Its posts, beams and joists are read as concrete, its rafters as timber.
+    let concrete_t = catalog.goods[good(&sim, "concrete")]
+        .timber
+        .expect("concrete's");
+    let oak = catalog.goods[good(&sim, "timber")]
+        .timber
+        .expect("timber's");
+    let group = |e: &civ_grammar::Expansion, kind: GroupKind| {
+        *e.groups.iter().find(|g| g.kind == kind).expect("a group")
+    };
+    for kind in [GroupKind::Posts, GroupKind::LoftJoists, GroupKind::TieBeams] {
+        assert_eq!(
+            group_timber(&catalog.goods, def, &group(&e, kind)),
+            Some(concrete_t)
+        );
+    }
+    assert_eq!(
+        group_timber(&catalog.goods, def, &group(&e, GroupKind::RoofFrame)),
+        Some(oak)
+    );
+    // Under a working building's loads every member stands, and its own weight tells: with nothing
+    // in its loft, a cast loft joist carries more of itself than a timber one.
+    let now = sim.now();
+    let check = |e: &civ_grammar::Expansion, g: &civ_grammar::Group, loads| {
+        let t = group_timber(&catalog.goods, def, g).expect("a material");
+        margin(g, &sound(g.id, now), e, &loads, &t).strength
+    };
+    // Groups of a good the checks read: not thatch or wattle.
+    let checked = |e: &civ_grammar::Expansion| -> Vec<civ_grammar::Group> {
+        e.groups
+            .iter()
+            .filter(|g| group_timber(&catalog.goods, def, g).is_some())
+            .copied()
+            .collect()
+    };
+    for g in &checked(&e) {
+        let m = check(&e, g, working_loads());
+        assert!(m > 1.0, "{:?}: {m}", g.kind);
+    }
+    let bare = civ_agents::structure::Loads::default();
+    let (cast_joist, wood_joist) = (
+        group(&e, GroupKind::LoftJoists),
+        group(&wood, GroupKind::LoftJoists),
+    );
+    let own = |e, g: &civ_grammar::Group, t: &civ_agents::structure::Timber| {
+        // Strength over demand, read back to the demand under no load at a material's strength.
+        t.bending_pa / check(e, g, bare)
+    };
+    assert!(
+        own(&e, &cast_joist, &concrete_t) > 3.0 * own(&wood, &wood_joist, &oak),
+        "a cast joist weighs 6,150 kg a cubic metre of its envelope against oak's 760"
+    );
+}
+
+#[test]
+fn a_six_storey_concrete_hall_its_builders_design_stands_its_own_checks() {
+    use civ_agents::build::{FireDesign, Shape, design_cautious};
+    use civ_agents::structure::{group_timber, margin};
+    let sim = world(2);
+    let (_, home) = first_household(&sim);
+    let catalog = &sim.rules().catalog;
+    // The hall as a program allowed to rise to twelve storeys, as the tall scene's longhouse is.
+    let mut hall = catalog.buildings[catalog
+        .building_index("core:building/hall")
+        .expect("a hall")]
+    .clone();
+    if let civ_grammar::ProgramRules::Frame(r) = &mut hall.rules {
+        r.storeys = (1, civ_grammar::MAX_STOREYS_V4);
+    }
+    let def = &hall;
+    let civ_grammar::ProgramRules::Frame(r) = &def.rules else {
+        panic!("a frame program")
+    };
+    let storeys = 6;
+    let knows = FireDesign {
+        knows_systems: [false, false, false, false, true],
+        ..Default::default()
+    };
+    let spec = design_cautious(
+        def,
+        &catalog.goods,
+        Shape::Bays {
+            bays: r.bays.0.max(2),
+            storeys,
+            lofts: 0,
+        },
+        (home.0 + 30.0, home.1),
+        None,
+        1.0,
+        None,
+        Some(knows),
+    )
+    .expect("a design");
+    assert_eq!(spec.version, civ_agents::build::CONCRETE_VERSION);
+    assert_eq!(spec.params[civ_grammar::frame_params::POST_SYSTEM], 3);
+    let e = civ_grammar::expand(&spec, &def.rules).expect("it expands");
+    let now = sim.now();
+    for g in e.groups.iter() {
+        let Some(t) = group_timber(&catalog.goods, def, g) else {
+            continue;
+        };
+        let m = margin(g, &sound(g.id, now), &e, &working_loads(), &t).strength;
+        assert!(m > 1.0, "{:?} at {:#x}: {m}", g.kind, g.id);
     }
 }

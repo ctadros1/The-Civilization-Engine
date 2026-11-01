@@ -8533,6 +8533,17 @@ and M6a gives rivers a daily flow.
       **Not yet:** the demo world lived again (Thorndale's wanter and the near bog ore); scenes
       that take "the first household to begin a well" or "the first home" stay hostage to a
       world's first weeks.
+    - *M11d, fourteenth part (2026-11-01): the sixth eight-year run, and copper dug.* Homelab run
+      41277719464 on 9b7f3a8 ([record](demos/m11/m11-demo-8y-9b7f3a8.txt)): 920 people, saved and
+      loaded whole; nothing of M11 built or proposed, the controls as before. **Copper is dug for
+      the first time:** Sedgehollow, whose nearest showing body lies 56 minutes' walk out, held
+      11 kg of copper by year 2, 31 kg by year 4 and 121-130 kg from year 5, and came to want a
+      dynamo in year 4. **The next gap is iron:** that dynamo's household keeps 2,080 kg of iron
+      ore for 208 kg of iron and held at most 12 kg of ore and no iron in the four years after;
+      Thorndale's wanter held 8 of its 8 kg of iron and 8 kg of ore, as in the fifth run.
+      **Not yet:** why Sedgehollow's iron stays near nothing (the ore it can reach, the hours its
+      household gives to digging against its fields, and whether trade could bring it) is the
+      next question for the demo world.
     - *Sewers and settling (2026-10-31, backlog D; [ADR-0041](decisions/0041-sewers-and-treatment.md)).*
       A polity lays a sewer by a `lay_sewer` law (`PolicyKind` appended; it answers
       `source_suspected` and `heaps_near` on `lay_current`'s machinery: forecast, way site, common

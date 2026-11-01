@@ -8548,10 +8548,17 @@ and M6a gives rivers a daily flow.
       gathering wood, field work and smelting the ore it held, its pull the deadline (about +2.5)
       and the tools it makes (about +1.8) against the walk and the effort (−0.4 to −2.2 each): a
       weighing, not a fault. Sedgehollow's households live household-resolved in the demo, which
-      keeps no person's receipts, so the probe saw none of their choices. **Not yet:** why
-      Sedgehollow's keep of ore goes unmet, read from its household-resolved days (the ore it can
-      reach, the hours it gives to digging against its fields, and whether trade could bring
-      it).
+      keeps no person's receipts, so the probe saw none of their choices. **A second probe**
+      (homelab run 41328050053, five years; each month the hours its household-resolved day put
+      each member in, by activity) read them: Sedgehollow's wanter, keeping 80 kg of ore, spent
+      0-13.5 member-hours a month cutting bog ore against 400-1,900 socialising and 400-1,200 at
+      play, the rest in fields, building, wood, meals and bread. Its want of iron toward a dynamo
+      never pressed against an easy year's leisure: a weighing, as Thorndale's, not a path that
+      breaks. **The demo's iron question is answered; nothing is nudged** (M11d's demo stays
+      time-boxed, §9): a world that builds a dynamo needs a household that wants its iron more
+      than its leisure, by the M8-M10 weighing as it is. **Not yet:** whether trade could bring
+      the iron (no settlement sells any), and a wanter weighing what it is short of over years
+      rather than days.
     - *Sewers and settling (2026-10-31, backlog D; [ADR-0041](decisions/0041-sewers-and-treatment.md)).*
       A polity lays a sewer by a `lay_sewer` law (`PolicyKind` appended; it answers
       `source_suspected` and `heaps_near` on `lay_current`'s machinery: forecast, way site, common

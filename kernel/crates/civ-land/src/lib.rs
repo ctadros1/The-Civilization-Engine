@@ -1552,6 +1552,23 @@ impl Land {
     /// all its ground, bare patches too, promised a third of that for bog ore in a single wet
     /// patch).
     pub fn typical_yields(&self, params: &LandParams, r: usize, hours: f64, day: i64) -> Vec<f32> {
+        let mut kept = KeptYields::default();
+        self.typical_yields_kept(params, r, hours, day, &mut kept);
+        kept.yields
+    }
+
+    /// [`Land::typical_yields`], kept in `kept`: where the stocks and densities every patch is
+    /// expected at are, bit for bit, those it was last worked out from for the same resource and
+    /// hours, what it gave then (the harvest is a function of them alone). A stock that does not
+    /// grow with the seasons (game, fish, stone, ore) is expected at the same level every day.
+    pub fn typical_yields_kept<'a>(
+        &self,
+        params: &LandParams,
+        r: usize,
+        hours: f64,
+        day: i64,
+        kept: &'a mut KeptYields,
+    ) -> &'a [f32] {
         let res = &params.resources[r];
         let n = self.patches.len();
         let standing = self.standing(params, r, day);
@@ -1561,8 +1578,21 @@ impl Land {
         let half: Vec<f64> = (0..n)
             .map(|p| res.half_rate_stock_per_ha * self.patches.resource_ha(res, p))
             .collect();
+        let key = (
+            r,
+            hours.to_bits(),
+            res.max_rate_per_hour.to_bits(),
+            res.range_patches,
+            (self.patches.cols, self.patches.rows),
+        );
+        let same = |a: &[f64], b: &[f64]| {
+            a.len() == b.len() && a.iter().zip(b).all(|(x, y)| x.to_bits() == y.to_bits())
+        };
+        if kept.key == Some(key) && same(&kept.stock, &stock) && same(&kept.half, &half) {
+            return &kept.yields;
+        }
         let mut block: Vec<(f64, f64)> = Vec::new();
-        (0..n)
+        let yields = (0..n)
             .map(|p| {
                 block.clear();
                 block.extend(
@@ -1572,7 +1602,14 @@ impl Land {
                 );
                 harvest_steps(&mut block, res.max_rate_per_hour, 1.0, hours) as f32
             })
-            .collect()
+            .collect();
+        *kept = KeptYields {
+            key: Some(key),
+            stock,
+            half,
+            yields,
+        };
+        &kept.yields
     }
 
     /// Lives every day up to and including `day`: each day's weather (snow, the soil under the
@@ -2000,6 +2037,21 @@ fn harvest_steps(block: &mut [(f64, f64)], max_rate: f64, efficiency: f64, hours
     total
 }
 
+/// What kept expected yields are keyed on: the resource, the hours' bits, its rate's bits, its
+/// range and the patch grid.
+type YieldKey = (usize, u64, u64, u32, (u32, u32));
+
+/// What [`Land::typical_yields_kept`] last worked out for one resource and length of work, with
+/// the stocks and densities by patch it was worked out from. Derived, never saved.
+#[derive(Clone, Debug, Default)]
+pub struct KeptYields {
+    /// The resource, the hours' bits, its rate's bits, its range and the patch grid.
+    key: Option<YieldKey>,
+    stock: Vec<f64>,
+    half: Vec<f64>,
+    yields: Vec<f32>,
+}
+
 /// A physical storm evaluation, kept apart from historical damage records.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StormCheck {
@@ -2390,6 +2442,38 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// Kept expected yields are those worked out afresh, bit for bit, day after day and resource
+    /// after resource: kept where nothing they are worked out from has changed, worked out again
+    /// where it has (poorer patches).
+    #[test]
+    fn kept_expected_yields_are_those_worked_out_afresh() {
+        let p = params();
+        let mut land = create(&p, 1, 400);
+        let mut kept = KeptYields::default();
+        for day in [400, 400, 401, 450, 600] {
+            for r in 0..p.resources.len() {
+                for hours in [0.5, 3.0] {
+                    let afresh = land.typical_yields(&p, r, hours, day);
+                    let again = land.typical_yields_kept(&p, r, hours, day, &mut kept);
+                    assert_eq!(again, &afresh[..], "resource {r}, day {day}, {hours} h");
+                }
+            }
+        }
+        let r = 0;
+        let before = land
+            .typical_yields_kept(&p, r, 3.0, 600, &mut kept)
+            .to_vec();
+        for rich in &mut land.patches.richness {
+            *rich *= 0.001;
+        }
+        let afresh = land.typical_yields(&p, r, 3.0, 600);
+        assert_ne!(afresh, before);
+        assert_eq!(
+            land.typical_yields_kept(&p, r, 3.0, 600, &mut kept),
+            &afresh[..]
+        );
     }
 
     /// ADR-0043 §1: what is left of a place is seen without taking it, as the harvest would then

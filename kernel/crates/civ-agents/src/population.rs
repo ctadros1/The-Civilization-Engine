@@ -508,6 +508,8 @@ struct Prior {
     per_patch: Vec<f32>,
     /// The most of `per_patch`: no patch is expected to bring more.
     most: f32,
+    /// What `per_patch` was worked out from, to give it again while that is as it was.
+    kept: civ_land::KeptYields,
 }
 
 /// Every person and household of a world.
@@ -545,6 +547,9 @@ pub struct Population {
     /// The paths survey and crossings the routes were planned on
     /// ([`civ_land::Land::route_revision`]).
     routes_rev: u64,
+    /// The seconds of each step route searches have taken on the paths and
+    /// crossings of `routes_rev`, let go with the routes. Derived.
+    steps: civ_world::nav::StepSeconds,
     /// Times the route cache was cleared for a new revision of the paths, and times it was full
     /// and began a new generation (M8a slice CJ's measurement). Not saved.
     pub route_counts: (u64, u64),
@@ -1456,6 +1461,7 @@ impl Population {
         self.places.clear();
         self.routes.clear();
         self.routes_old.clear();
+        self.steps.forget();
         self.priors.clear();
         self.sites.clear();
         self.home_sites.clear();
@@ -2203,7 +2209,10 @@ impl Population {
                 continue;
             }
             let hours = f64::from(a.max_minutes) / 60.0;
-            prior.per_patch = ctx.land.typical_yields(ctx.land_params, r, hours, day);
+            prior.per_patch = ctx
+                .land
+                .typical_yields_kept(ctx.land_params, r, hours, day, &mut prior.kept)
+                .to_vec();
             prior.most = prior.per_patch.iter().copied().fold(0.0, f32::max);
             prior.day = day;
         }
@@ -2236,6 +2245,7 @@ impl Population {
         }
         self.routes.clear();
         self.routes_old.clear();
+        self.steps.forget();
         self.routes_rev = revision;
         let wear = &ctx.land.wear;
         let tile = civ_land::paths::TILE as usize;
@@ -5912,13 +5922,14 @@ impl Population {
                             })
                             .0
                     });
-                    let routed = ctx.nav.route_with(
+                    let routed = ctx.nav.route_kept(
                         &ctx.map.elevation,
                         (from_cell, to_cell),
                         &|c| wear.factor(c),
                         wear.max_factor(),
                         ROUTE_BUDGET,
                         landmarks,
+                        &mut self.steps,
                     );
                     let found = match routed {
                         RouteResult::Found(route) => Some(std::sync::Arc::new(ctx.nav.straighten(

@@ -3029,14 +3029,18 @@ impl Population {
         let speed = ctx.nav.params().top_speed_ms().max(0.1);
         let years = ctx.params.build.site_years;
         let offer = self.parcel_offer(ctx, hh);
-        let choose_home = |choice: (usize, build::Shape), first: bool| {
+        // Keeping the rules and plans its builders keep (`obey`) or, when no plot anywhere it
+        // seeks one keeps them, as it would without them.
+        let choose_home = |choice: (usize, build::Shape), first: bool, obey: bool| {
             let anchors = siting::site_anchors(hh.home, &places);
             let mut found: Vec<(f64, NewHome)> = Vec::new();
             for (i, &from) in anchors.iter().enumerate() {
-                let Some((home, level_h)) = site_levelled(choice, hearth, None, from, HOME_SHIFT_M)
-                    .or_else(|| {
+                let Some((home, level_h)) =
+                    site_kept(choice, hearth, None, from, HOME_SHIFT_M, obey).or_else(|| {
                         (first && i == 0)
-                            .then(|| site_levelled(choice, hearth, None, from, FIRST_HOME_SHIFT_M))
+                            .then(|| {
+                                site_kept(choice, hearth, None, from, FIRST_HOME_SHIFT_M, obey)
+                            })
                             .flatten()
                     })
                 else {
@@ -3104,7 +3108,8 @@ impl Population {
                 let along_x = ground.w >= ground.h;
                 let laid = [0.0f32, 2.0, -2.0, 4.0, -4.0].into_iter().find_map(|d| {
                     let from = if along_x { (cx + d, cy) } else { (cx, cy + d) };
-                    site_levelled(choice, hearth, None, from, 0.0).filter(|(h, _)| within(&h.spec))
+                    site_kept(choice, hearth, None, from, 0.0, obey)
+                        .filter(|(h, _)| within(&h.spec))
                 });
                 if let Some((mut home, level_h)) = laid {
                     let at = build::centre_m(&home.spec);
@@ -3179,15 +3184,23 @@ impl Population {
             let climb_h = |shape: build::Shape| {
                 years * Self::design_climb_h_year(ctx, hh, program, shape, trips_year)
             };
+            // A plot keeping the rules and plans its builders keep, if any it seeks keeps them,
+            // whatever its shape; only if none does, one as it would lay it without them (a plot
+            // breaking them is never weighed against one keeping them).
             let mut best: Option<(f64, NewHome)> = None;
-            for shape in std::iter::once(chosen).chain(compact) {
-                let Some(home) = choose_home((p, shape), first) else {
-                    continue;
-                };
-                let ground_h = home.receipt.map_or(0.0, |r| f64::from(r.hours));
-                let total = shape_h(shape) + ground_h - rent_h(shape) + climb_h(shape);
-                if best.as_ref().is_none_or(|(b, _)| total < *b) {
-                    best = Some((total, home));
+            for obey in [true, false] {
+                if !obey && (best.is_some() || !(kept_rules.any() || !kept_plans.is_empty())) {
+                    break;
+                }
+                for &shape in std::iter::once(&chosen).chain(&compact) {
+                    let Some(home) = choose_home((p, shape), first, obey) else {
+                        continue;
+                    };
+                    let ground_h = home.receipt.map_or(0.0, |r| f64::from(r.hours));
+                    let total = shape_h(shape) + ground_h - rent_h(shape) + climb_h(shape);
+                    if best.as_ref().is_none_or(|(b, _)| total < *b) {
+                        best = Some((total, home));
+                    }
                 }
             }
             best.map(|(_, home)| home).ok_or(Unbuilt::NoGround)

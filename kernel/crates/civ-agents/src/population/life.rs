@@ -695,6 +695,8 @@ impl Population {
         // Per settlement, what its households could spare and how many are out of food, worked
         // out when first needed today.
         let mut villages: Vec<(PermanentId, f64, usize)> = Vec::new();
+        // Households giving up today that no settlement they know draws, as yet.
+        let mut stranded: Vec<PermanentId> = Vec::new();
         for household in ids {
             let Some(x) = self.household(household) else {
                 continue;
@@ -772,13 +774,35 @@ impl Population {
             if life_rng(ctx.seed, household, day, Draw::Leave).next_f64() >= chance {
                 continue;
             }
-            // They go to a settlement they know that draws them, if one does (M5a slice AN),
-            // and else beyond the map.
+            // They go to a settlement they know that draws them, if one does (M5a slice AN).
             self.refresh_kin();
             match self.refuge(ctx, household) {
                 Some(to) => self.relocate(ctx, household, to),
-                None => self.leave(ctx, household),
+                None => stranded.push(household),
             }
+        }
+        // Those drawn nowhere yet wait on the others giving up the same night: a household goes
+        // where those it knows have just gone (research 05-06 §1.2: chain migration), whichever
+        // of them happened to make up its mind first; only those drawn nowhere once all have
+        // chosen go beyond the map.
+        loop {
+            let before = stranded.len();
+            stranded.retain(|&household| {
+                self.refresh_kin();
+                match self.refuge(ctx, household) {
+                    Some(to) => {
+                        self.relocate(ctx, household, to);
+                        false
+                    }
+                    None => true,
+                }
+            });
+            if stranded.len() == before {
+                break;
+            }
+        }
+        for household in stranded {
+            self.leave(ctx, household);
         }
     }
 

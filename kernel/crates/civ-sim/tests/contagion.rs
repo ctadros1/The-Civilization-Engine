@@ -977,6 +977,70 @@ fn the_water_lens_reads_each_home_s_nearest_water_and_the_days_its_people_drew_w
     assert!(coverage::coverage_response(&sim, None, 9).is_none());
 }
 
+/// The well's household, under a rule keeping new homes thirty metres from open wells (M8c slice
+/// CW, ADR-0030 §6), its people going nowhere from home, so it seeks a plot about its home alone,
+/// beside its own well: it lays its home on clear ground farther afield that keeps the rule, as a
+/// first home is laid when nothing is clear near, rather than on ground near that breaks it. A plot
+/// breaking a rule its builders keep is laid only where none it seeks keeps it. Before, ground near
+/// its old point breaking the rule was taken before ground farther afield keeping it was sought,
+/// and a plot breaking it about one point was weighed against plots keeping it about others.
+#[test]
+fn a_home_breaks_a_siting_rule_only_where_no_ground_it_seeks_keeps_it() {
+    let (mut sim, owner, well) = an_open_well();
+    let k = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.id == "core:policy/works_wrought_wells")
+        .expect("the rule") as u16;
+    let settlement = sim
+        .people()
+        .household(owner)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    let (_, members) = household(&sim, owner);
+    sim.with_ctx_for_tests(|pop, ctx| pop.enact_rule_for_tests(ctx, pi, k, members[0]));
+    let kept = sim.with_ctx_for_tests(|pop, ctx| pop.rules_kept_for_tests(ctx, owner));
+    assert_eq!(kept.midden_from, Some(30.0), "{kept:?}");
+    let rect = sim.land().wells.get(well).expect("the well").rect;
+    // Its old point at its well's mouth, so no plot within the thirty metres a home is moved to
+    // find clear ground keeps the rule.
+    let home = rect.centre_m();
+    let pop = sim.people_mut_for_tests();
+    for (_, x) in pop.households.iter_mut() {
+        if x.id == owner {
+            x.home = home;
+        }
+    }
+    for m in &members {
+        pop.travel.goings.remove(m);
+    }
+    let spec = sim
+        .with_ctx_for_tests(|pop, ctx| pop.first_home_for_tests(ctx, owner))
+        .expect("ground for a home");
+    let rules = sim.rules().clone();
+    let def = rules
+        .catalog
+        .building_index(&spec.program)
+        .map(|i| &rules.catalog.buildings[i])
+        .expect("its program");
+    let plot = civ_agents::build::plot_rect(&spec, def);
+    let gap = civ_agents::rules::gap_m(&plot, &rect);
+    let (x, y) = civ_agents::build::centre_m(&spec);
+    assert!(
+        gap >= 30.0,
+        "it laid its home {gap:.1} m from the well, {:.0} m from its old point",
+        (x - home.0).hypot(y - home.1)
+    );
+}
+
 #[test]
 fn a_rule_keeps_new_homes_and_their_middens_from_the_wells() {
     // M8c slice CW (ADR-0030 §6): a rule for building over a heap's seepage to a well. In force,

@@ -485,6 +485,30 @@ fn a_well_serves_its_household_its_kin_and_anyone_short_of_water() {
         .centre_m();
     let others: Vec<PermanentId> = households(&sim).into_iter().filter(|&o| o != h).collect();
     assert!(others.len() >= 2, "{others:?}");
+    // A neighbour lives beside the well: the household nearest it, its home put halfway between
+    // the well and the well's household's home. (Which household digs the first well, and where it
+    // lives, move with the village's first weeks; in M11d's thirteenth part the well's household
+    // had built its home 170 m from all the others.)
+    {
+        let own = home_of(&sim, h);
+        let beside = ((at.0 + own.0) / 2.0, (at.1 + own.1) / 2.0);
+        let nearest = others
+            .iter()
+            .copied()
+            .min_by(|&a, &b| {
+                let d = |o: PermanentId| {
+                    let p = home_of(&sim, o);
+                    (p.0 - at.0).hypot(p.1 - at.1)
+                };
+                d(a).total_cmp(&d(b))
+            })
+            .expect("a neighbour");
+        for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+            if x.id == nearest {
+                x.home = beside;
+            }
+        }
+    }
     // Nobody else's people draw there unless short of water; short, they draw at the nearer of
     // it and their own water.
     for &o in &others {

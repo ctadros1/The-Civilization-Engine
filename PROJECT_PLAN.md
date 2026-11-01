@@ -8471,6 +8471,68 @@ and M6a gives rivers a daily flow.
       (Thorndale's and Stonefield's person-hours of looking, and whether Thorndale's wanter goes on
       from its emptied patch); ground looked over on errands, word of barren ground between
       settlements, and deadwood (about 14 years to renew) under the new memory.
+    - *M11d, thirteenth part (2026-11-01): what land not yet worked is expected to give, landed,
+      and every scene it moved understood* (backlog A). The tenth part's reverted fix, again, in
+      its principled form: **what is expected of a block not yet worked is what the harvest would
+      take there** (`Land::typical_yields` works the block as `Land::gather_around` does, the
+      richest patch at each of its dozen steps at that patch's own density, sharing its steps with
+      `Land::yield_around`), for every resource. Pooling over the patches that hold the resource
+      (the tenth part) equals the harvest only where those patches are equally rich, and pooling
+      only stocks that do not renew moved scenes too (bottlenecks' yearly ground payment, among
+      the first 26 targets); nothing in the harvest's form is unsound, so it is kept. Under it a
+      rich patch of bog ore among bare ones is expected at what cutting it gives (8.94 units for
+      three hours in the civ-land target, 4.48 before). **Two faults it exposed, fixed at their
+      source.** (1) *Off the map:* households giving up the same night were taken one by one in id
+      order, each going beyond the map if no settlement drew it at that moment; under the pooled
+      measure a household of three in the settlements scene, kin of nobody, knew eleven people of
+      the band, nine of whom went to the second settlement moments later (the twelfth died that
+      night), and none of the two households gone by its turn, so it left the map. Now a household
+      drawn nowhere waits on the others giving up that night, and goes where those it knows have
+      gone; only those drawn nowhere once all have chosen leave (`departures`; research 05-06
+      §1.2). (2) *A siting rule broken where ground keeping it lay:* a home's plot fell back to
+      ground breaking the rules its builders keep about each point it is sought about, so a plot
+      breaking a rule beside its old point was weighed against plots keeping it about the others
+      and taken as cheapest, and a first home's search 120 m out for ground keeping it was never
+      made; under a rule keeping homes 30 m from open wells, the well's own household laid its
+      home 22.9 m from its well under the pooled measure, another 1.1 m from it under the
+      harvest's. Now a plot breaking the rules
+      is laid only where no point and no shape finds one keeping them. **The scenes that moved,
+      each a setup living a world's first weeks as the old measure lived them** (trips go where
+      the harvest is richest, so the first days' walks, finds and ids move): in world 3 a
+      household walks past a body of clay on the first day and digs it, so the first household's
+      adults make pots for about 560 hours in twenty days instead of beginning its firm's workshop
+      on the first (the two workshop scenes), the pit takes 1.7 m³ of earth off the map (the
+      levelling scene, whose
+      ground is to balance the platform's cut), and the ids it takes move the draws of the tall
+      frame's post quality (one post at 0.43, 2.85 standard deviations down); world 6's first well
+      is dug by a household that built its home 170-200 m from all the others (no neighbour nearer
+      it than its own water; and that household's home cell, which the incidents scene took for
+      the river, is its well's); the wires scene's first home stands a cell from another, which
+      hooks up
+      beside the station's line of no length and pays a third evening; and the charcoal scene's
+      household, holding the ore for its iron, also cut 46 kg of bog ore in 18 days (32 before;
+      sampled each half hour), its charcoal ran out on day 34 rather than 24, when its fields'
+      sowing outweighed another
+      mound for a week (the mound 1.9 points, preparing a field 5.4), and it held 3.4 kg of iron
+      at most. Each setup now says what the scene meant: no clay body in the homes scenes; the
+      swaying frame's posts at a middling builder's mean quality; the nearest household's home
+      beside the well; the river nearest home; a station with no home beside it; no bog ore on the
+      charcoal scene's land. No assertion was changed. The tenth part's other moved scenes under
+      the pooled measure (three contagion scenes and tips wanting a heap above the well, the well
+      dug within 60 days; word's no longer moved on this head) do not move under this one.
+      **Tested:** the bog-ore scene again (a household knowing neither place, its ore in one patch
+      of 45 units 34 minutes out and 12 in each patch of a block 75 minutes out, cuts the near patch
+      to 25 units or fewer in 30 days; before, it touched neither), a departures scene (a household
+      knowing only a later household's people, which goes to its kin, follows them; before, six
+      people left the map), a siting scene (the well's household, its old point at the well's
+      mouth, lays its home beyond the rule's reach; before, 1.4 m from the well), each failing
+      without its fix; civ-land targets (one rich patch among bare ones, and every patch of every
+      resource, uneven or not, expected at what the harvest takes); all 84 civ-sim targets with the
+      crate's own (758 tests, 3 ignored), civ-agents' and civ-land's own; the smoke. Nothing
+      nudged.
+      **Not yet:** the demo world lived again (Thorndale's wanter and the near bog ore); scenes
+      that take "the first household to begin a well" or "the first home" stay hostage to a
+      world's first weeks.
     - *Sewers and settling (2026-10-31, backlog D; [ADR-0041](decisions/0041-sewers-and-treatment.md)).*
       A polity lays a sewer by a `lay_sewer` law (`PolicyKind` appended; it answers
       `source_suspected` and `heaps_near` on `lay_current`'s machinery: forecast, way site, common

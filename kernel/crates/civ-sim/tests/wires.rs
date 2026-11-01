@@ -135,7 +135,20 @@ fn a_line_is_begun_along_ways_with_leave_and_strung_by_work_and_copper() {
         .iter()
         .map(|(_, h)| (h.id, cell(h.home)))
         .collect();
-    let (station, from) = homes[0];
+    // A station with no other home on or beside its home's cell: the homes that pay by the meter
+    // are those along the line it strings, not a neighbour beside its own line of no length.
+    // (Which home was begun first moves with the world's first days; in M11d's thirteenth part
+    // the first stood a cell from another.)
+    let w = i64::from(map.width);
+    let beside = |c: u32, d: u32| {
+        (i64::from(c) % w - i64::from(d) % w).abs() <= 1
+            && (i64::from(c) / w - i64::from(d) / w).abs() <= 1
+    };
+    let (station, from) = homes
+        .iter()
+        .copied()
+        .find(|&(h, c)| homes.iter().all(|&(o, d)| o == h || !beside(c, d)))
+        .expect("a home with none beside it");
     let (far, to) = homes
         .iter()
         .copied()
@@ -434,8 +447,20 @@ fn a_station_that_knows_the_dynamo_strings_a_line_to_homes_that_pay_by_the_meter
             Some((h.id, cell(h.home)))
         })
         .collect();
-    let (station, from) = homes[0];
+    // A station with no other home on or beside its home's cell: the homes that pay by the meter
+    // are those along the line it strings, not a neighbour beside its own line of no length.
+    // (Which home was begun first moves with the world's first days; in M11d's thirteenth part
+    // the first stood a cell from another.)
     let w = i64::from(map.width);
+    let beside = |c: u32, d: u32| {
+        (i64::from(c) % w - i64::from(d) % w).abs() <= 1
+            && (i64::from(c) / w - i64::from(d) / w).abs() <= 1
+    };
+    let (station, from) = homes
+        .iter()
+        .copied()
+        .find(|&(h, c)| homes.iter().all(|&(o, d)| o == h || !beside(c, d)))
+        .expect("a home with none beside it");
     let (far, to) = homes
         .iter()
         .copied()
@@ -683,7 +708,20 @@ fn a_polity_strings_a_line_of_current_together_to_homes_beyond_a_stations_lines(
             Some((h.id, cell(h.home)))
         })
         .collect();
-    let (station, from) = homes[0];
+    // A station with no other home on or beside its home's cell: the homes that pay by the meter
+    // are those along the line it strings, not a neighbour beside its own line of no length.
+    // (Which home was begun first moves with the world's first days; in M11d's thirteenth part
+    // the first stood a cell from another.)
+    let w = i64::from(map.width);
+    let beside = |c: u32, d: u32| {
+        (i64::from(c) % w - i64::from(d) % w).abs() <= 1
+            && (i64::from(c) / w - i64::from(d) / w).abs() <= 1
+    };
+    let (station, from) = homes
+        .iter()
+        .copied()
+        .find(|&(h, c)| homes.iter().all(|&(o, d)| o == h || !beside(c, d)))
+        .expect("a home with none beside it");
     let settlement = sim
         .people()
         .household(station)

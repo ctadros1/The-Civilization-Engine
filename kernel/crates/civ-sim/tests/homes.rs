@@ -401,6 +401,7 @@ fn a_granary_must_save_more_than_it_costs_and_be_paid_for() {
 /// good `id`, and an eldest adult who knows jointed framing: its id and its home.
 fn housed_framers(seed: u64, id: &str, extra: f64) -> (Sim, PermanentId, (f32, f32)) {
     let mut sim = world(seed);
+    without_clay(&mut sim);
     let (household, who, home) = {
         let pop = sim.people();
         let now = sim.now();
@@ -439,6 +440,18 @@ fn housed_framers(seed: u64, id: &str, extra: f64) -> (Sim, PermanentId, (f32, f
     sim.introduce_technique(who, "core:technique/jointed_frame", false)
         .expect("introduced");
     (sim, household, home)
+}
+
+/// No body of clay to be found and dug: what a household builds, and the earth its building
+/// moves, are not drawn by a find of clay on its first days. In world 3 a household of the first
+/// settlement walks past a body of clay on the first day once trips go where the harvest is
+/// richest (M11d, thirteenth part), and then digs it and makes pots for weeks.
+fn without_clay(sim: &mut Sim) {
+    let clay = good("core:good/clay");
+    sim.land_mut_for_tests()
+        .deposits
+        .retain(|d| usize::from(d.body.good) != clay);
+    sim.people_mut_for_tests().rebuild_indexes();
 }
 
 /// The first building other than its hut that `household` begins within `days` days.
@@ -823,6 +836,8 @@ fn a_household_seeks_level_ground_before_it_levels_and_never_builds_on_ground_to
 fn a_hut_on_sloping_ground_has_its_plot_levelled_first_and_the_ground_keeps_it() {
     use civ_land::earth;
     let mut sim = world(3);
+    // The platform is the only earth moved: no clay pit is dug meanwhile.
+    without_clay(&mut sim);
     let catalog = &content().catalog;
     let hut = &catalog.buildings[program("core:building/hut")];
     let (household, home) = {

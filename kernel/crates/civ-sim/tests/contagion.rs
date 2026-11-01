@@ -805,8 +805,27 @@ fn the_incidents_list_every_case_and_an_outbreak_s_page_traces_the_well_its_wate
     // what the polity did, whether or not anyone still suspects it.
     {
         use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome as Decided, PolicyKind};
+        // The river nearest the household's home, where no well is dug and no spring rises.
         let (home, _) = household(&sim, h);
-        let elsewhere = cell_of(sim.map(), home) as u32;
+        let (w, cs) = (sim.map().width, sim.map().cell_size_m);
+        let elsewhere = (0..sim.map().water.len())
+            .filter(|&c| sim.map().water[c] == civ_world::WATER_RIVER)
+            .filter(|&c| sim.land().wells.list.iter().all(|x| x.cell as usize != c))
+            .filter(|&c| {
+                let p = sim.land().patches.of_cell(c, w);
+                sim.land().water.aquifer.seep[p].is_none_or(|(s, _)| s as usize != c)
+            })
+            .min_by(|&a, &b| {
+                let d = |c: usize| {
+                    let (x, y) = (
+                        ((c as u32 % w) as f32 + 0.5) * cs,
+                        ((c as u32 / w) as f32 + 0.5) * cs,
+                    );
+                    (x - home.0).hypot(y - home.1)
+                };
+                d(a).total_cmp(&d(b))
+            })
+            .expect("a river") as u32;
         let policy = sim
             .rules()
             .catalog

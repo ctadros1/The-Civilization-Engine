@@ -913,6 +913,22 @@ fn a_household_short_of_charcoal_for_its_instruments_iron_gathers_wood_and_burns
     ] {
         set(&mut sim, a, g, kg);
     }
+    // The ore it holds is the ore for its iron: none lies on the land to cut. (With bog ore near
+    // home expected, since M11d's thirteenth part, at what cutting it gives, the household cut 46
+    // kg of it in its first 18 days, 32 before, and burned more charcoal later; its charcoal ran
+    // out on day 34, not 24, when its fields' sowing outweighed another mound for a week, and 45
+    // kg of charcoal and 76 of ore lay unused through the sowing.)
+    let r = sim
+        .rules()
+        .land
+        .resources
+        .iter()
+        .position(|x| x.id == "iron_ore")
+        .expect("bog ore");
+    sim.land_mut_for_tests().stocks[r]
+        .iter_mut()
+        .for_each(|s| *s = 0.0);
+    sim.people_mut_for_tests().rebuild_indexes();
     let (mut most_charcoal, mut most_iron) = (0.0f64, 0.0f64);
     for _ in 0..60 {
         sim.advance_minutes(24 * 60).expect("advances");
@@ -1011,8 +1027,9 @@ fn a_household_short_of_copper_digs_ore_showing_near_home_where_a_field_would_ha
 /// The bog-ore scene (M11d, tenth part): a household of the first settlement that wants an
 /// instrument, holds its copper, timber and charcoal and knows the whole way from ore to bar, its
 /// bog ore only in one patch of `near_units` about half an hour from the hearth, and a block of
-/// bog ground holding none `far_walk` minutes out. The world, the household and its settlement,
-/// the resource, the near patch and the far block's patches.
+/// bog ground holding `far_units` in each of its patches `far_walk` minutes out. The world, the
+/// household and its settlement, the resource, the near patch and the far block's patches, and
+/// the walks to the near block and the far one, minutes.
 struct BogOre {
     sim: Sim,
     a: PermanentId,
@@ -1020,9 +1037,10 @@ struct BogOre {
     r: usize,
     rich: usize,
     far: Vec<usize>,
+    walks: (f64, f64),
 }
 
-fn bog_ore_scene(near_units: f64, far_walk: std::ops::Range<f64>) -> BogOre {
+fn bog_ore_scene(near_units: f64, far_units: f64, far_walk: std::ops::Range<f64>) -> BogOre {
     let mut sim = world();
     let [(a, sa, _), (b, _, _)] = pair(&sim);
     let [copper, timber, iron, ore, charcoal] = [
@@ -1110,8 +1128,8 @@ fn bog_ore_scene(near_units: f64, far_walk: std::ops::Range<f64>) -> BogOre {
         .find(|w| far_walk.contains(&w.0))
         .expect("a block further out")
         .clone();
-    // Bog ore only there: `near_units` in the near block's middle patch, alone, and the far block
-    // bog ground holding none, on ground of a class of its own that grows nothing else.
+    // Bog ore only there: `near_units` in the near block's middle patch, alone, and `far_units` in
+    // each of the far block's, on ground of a class of its own that grows nothing else.
     let class = {
         let rules = sim.rules_mut_for_tests().expect("rules of its own");
         let mut bog = rules.land.habitats[1].clone();
@@ -1131,7 +1149,9 @@ fn bog_ore_scene(near_units: f64, far_walk: std::ops::Range<f64>) -> BogOre {
     for s in land.stocks[r].iter_mut() {
         *s = 0.0;
     }
-    for (p, units) in std::iter::once((rich, near_units)).chain(far.1.iter().map(|&p| (p, 0.0))) {
+    for (p, units) in
+        std::iter::once((rich, near_units)).chain(far.1.iter().map(|&p| (p, far_units)))
+    {
         land.patches.class[p] = class;
         land.patches.richness[p] = (units / (10.0 * ha)) as f32;
         land.stocks[r][p] = units as f32;
@@ -1144,15 +1164,60 @@ fn bog_ore_scene(near_units: f64, far_walk: std::ops::Range<f64>) -> BogOre {
         r,
         rich,
         far: far.1,
+        walks: (near.0, far.0),
     }
+}
+
+/// Where bog ore is expected (M11d, thirteenth part): in the bog-ore scene, knowing neither place,
+/// a household short of bog ore for its instrument's iron, whose ore lies in one patch of 45 units
+/// half an hour from the hearth and, over an hour out, 12 in each patch of a whole block, cuts it
+/// from the near patch. A trip works the richest patch of its block at that patch's density
+/// (`Land::gather_around`), and what is expected of a block not yet worked is now what that
+/// harvest would take there; before, the block's ore was pooled over all its ground, bare patches
+/// too, so the near patch was expected to give a third of what it gives and the far block, holding
+/// more, looked better: in the M11 demo Thorndale's wanter never went to such a patch.
+#[test]
+fn a_household_short_of_bog_ore_cuts_it_from_one_rich_patch_half_an_hour_out() {
+    let BogOre {
+        mut sim,
+        r,
+        rich,
+        far,
+        walks,
+        settlement,
+        ..
+    } = bog_ore_scene(45.0, 12.0, 65.0..80.0);
+    assert!(
+        sim.people()
+            .households
+            .iter()
+            .filter(|(_, x)| x.settlement == Some(settlement))
+            .all(|(_, x)| x.known.iter().all(|k| usize::from(k.resource) != r)),
+        "nobody knows where bog ore lies"
+    );
+    let left = |sim: &Sim, p: &[usize]| -> f64 {
+        p.iter().map(|&q| f64::from(sim.land().stocks[r][q])).sum()
+    };
+    for _ in 0..30 {
+        sim.advance_minutes(24 * 60).expect("advances");
+    }
+    let (near_left, far_left) = (left(&sim, &[rich]), left(&sim, &far));
+    assert!(
+        near_left <= 25.0,
+        "the near patch, {:.0} minutes out, was cut: {near_left:.1} of 45 units left ({far_left:.1} \
+         of 108 in the far block, {:.0} minutes out)",
+        walks.0,
+        walks.1
+    );
 }
 
 /// A stock that only falls is judged by what is left of it (ADR-0043 §1): in the bog-ore scene
 /// with no other ore, a household cutting the near patch for its instrument's iron goes back to it
 /// only while what is left repays the walk, never for a trip that brings almost nothing, and in the
 /// end expects of it about what it now gives; once ore lies elsewhere, it goes there. Its
-/// settlement begins knowing the near patch from three hours' work there (land of its kind alone,
-/// pooled over the bare ground round it, is not expected to repay the walk). Before, a place was
+/// settlement begins knowing the near patch from three hours' work there (written when land of its
+/// kind, pooled over the bare ground round it, was not expected to repay the walk; the scene above
+/// has it go there unknowing). Before, a place was
 /// remembered by the mean of every hour worked there: the household scraped the patch empty and
 /// walked back to it for almost nothing, still believing it rich.
 #[test]
@@ -1165,7 +1230,7 @@ fn a_household_that_cuts_a_patch_of_bog_ore_down_judges_it_by_what_is_left() {
         rich,
         far,
         ..
-    } = bog_ore_scene(45.0, 45.0..55.0);
+    } = bog_ore_scene(45.0, 0.0, 45.0..55.0);
     let res = sim.rules().land.resources[r].clone();
     let hours = sim
         .rules()

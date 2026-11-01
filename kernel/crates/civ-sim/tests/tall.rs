@@ -570,6 +570,31 @@ fn a_storm_fails_a_weak_tall_frame_sways_a_flexible_one_and_leaves_lower_frames_
             finished,
         )
         .expect("placed");
+    // The six storeys' posts as a builder of middling skill makes them on the mean, rather than by
+    // a draw keyed by the building's id, which moves with every id the world gave out before it
+    // (in M11d's thirteenth part a pit dug on the first day moved it, and one post drew 0.43): the
+    // sway and the strain it is weighed for here are its design's.
+    {
+        let spread = sim.rules().people.build.quality_spread;
+        let sigma = spread[0] + (spread[1] - spread[0]) * civ_agents::condition::MIDDLING_SKILL;
+        let mean = (1.0 - sigma * (2.0 / std::f64::consts::PI).sqrt()) as f32;
+        let b = sim
+            .land_mut_for_tests()
+            .buildings
+            .iter_mut()
+            .find(|x| x.id == swaying)
+            .expect("it");
+        let e = civ_grammar::expand(&b.spec, &workshop_def().rules).expect("expands");
+        for g in e
+            .groups
+            .iter()
+            .filter(|g| g.kind == civ_grammar::GroupKind::Posts)
+        {
+            if let Some(c) = b.condition.iter_mut().find(|c| c.group == g.id) {
+                c.quality = mean;
+            }
+        }
+    }
     // A calm day: each stands under its own weight.
     for h in [h1, h2] {
         storm(&mut sim, h, 0.0);

@@ -8541,9 +8541,17 @@ and M6a gives rivers a daily flow.
       dynamo in year 4. **The next gap is iron:** that dynamo's household keeps 2,080 kg of iron
       ore for 208 kg of iron and held at most 12 kg of ore and no iron in the four years after;
       Thorndale's wanter held 8 of its 8 kg of iron and 8 kg of ore, as in the fifth run.
-      **Not yet:** why Sedgehollow's iron stays near nothing (the ore it can reach, the hours its
-      household gives to digging against its fields, and whether trade could bring it) is the
-      next question for the demo world.
+      **Probed (homelab run 41312592566, scratch branch `codex/iron-diag`, six years; each month
+      what the people of households keeping iron ore chose instead of cutting bog ore):**
+      Thorndale's wanter (keeping 20-80 kg of ore) cut bog ore on a few days in each 3,000-odd
+      decisions; where it ranked near the top it lost by about 2.8 points, to fetching water,
+      gathering wood, field work and smelting the ore it held, its pull the deadline (about +2.5)
+      and the tools it makes (about +1.8) against the walk and the effort (−0.4 to −2.2 each): a
+      weighing, not a fault. Sedgehollow's households live household-resolved in the demo, which
+      keeps no person's receipts, so the probe saw none of their choices. **Not yet:** why
+      Sedgehollow's keep of ore goes unmet, read from its household-resolved days (the ore it can
+      reach, the hours it gives to digging against its fields, and whether trade could bring
+      it).
     - *Sewers and settling (2026-10-31, backlog D; [ADR-0041](decisions/0041-sewers-and-treatment.md)).*
       A polity lays a sewer by a `lay_sewer` law (`PolicyKind` appended; it answers
       `source_suspected` and `heaps_near` on `lay_current`'s machinery: forecast, way site, common

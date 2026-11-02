@@ -1102,6 +1102,34 @@ impl Population {
     /// Who may not be named or drawn for office template `policy` of polity `pi` on `day` (M7a
     /// slice BN, ADR-0024 §2): the holder of its last term, once that term has ended, where the
     /// template does not let them serve again.
+    /// The law in force that a new law of template `policy` (of kind `kind`) takes the place of
+    /// when passed: for a mint, the mint in force of other terms (M7d slice CE4b: pieces already
+    /// struck keep their weight); for every other kind, none. The same template is never proposed
+    /// while it is in force.
+    fn replaced_by(&self, pi: usize, kind: PolicyKind, policy: u16) -> Option<PermanentId> {
+        if kind != PolicyKind::Mint {
+            return None;
+        }
+        self.polities[pi]
+            .laws
+            .iter()
+            .find(|l| {
+                l.kind == PolicyKind::Mint && l.status == LawStatus::InForce && l.policy != policy
+            })
+            .map(|l| l.id)
+    }
+
+    /// [`Population::replaced_by`]: for tests.
+    #[doc(hidden)]
+    pub fn replaced_by_for_tests(
+        &self,
+        pi: usize,
+        kind: PolicyKind,
+        policy: u16,
+    ) -> Option<PermanentId> {
+        self.replaced_by(pi, kind, policy)
+    }
+
     fn term_barred(
         &self,
         pi: usize,
@@ -3894,7 +3922,10 @@ impl Population {
                     | PolicyKind::KeepRegister
                         if def.tenure.is_some_and(|t| t.by_lot) =>
                     {
-                        moves.push(blank);
+                        moves.push(MoveOption {
+                            ends: self.replaced_by(pi, def.kind, k),
+                            ..blank
+                        });
                     }
                     // A mint, its keeper whoever of the settlement who can work its recipe they
                     // regard most, themselves first (M7d slice CE2b).
@@ -3924,6 +3955,7 @@ impl Population {
                         if let Some((_, c)) = pick {
                             moves.push(MoveOption {
                                 nominee: Some(c),
+                                ends: self.replaced_by(pi, def.kind, k),
                                 ..blank
                             });
                         }
@@ -3942,16 +3974,9 @@ impl Population {
                                 (r, c)
                             })
                             .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)));
-                        // Another mint's terms replace the one in force (M7d slice CE4b).
-                        let ends = self.polities[pi]
-                            .laws
-                            .iter()
-                            .find(|l| l.kind == PolicyKind::Mint && l.status == LawStatus::InForce)
-                            .map(|l| l.id);
                         if let Some((_, c)) = pick {
                             moves.push(MoveOption {
                                 nominee: Some(c),
-                                ends,
                                 ..blank
                             });
                         }

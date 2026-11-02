@@ -3671,7 +3671,12 @@ and M6a gives rivers a daily flow.
         world:** no world mints yet; tests show a household that cannot assay paying with the
         older issue and, taught to smelt, with the lighter, valuing a piece at the copper in its
         lightest, and a lighter mint striking 333 pieces from two kilograms. The mint's place
-        taken by another is not tested apart from the gathering that would pass it.
+        taken by another is not tested apart from the gathering that would pass it. *Mended
+        (2026-11-02):* the rule had come to sit on the wrong branch of the review's moves: a
+        proposal to keep the store named the mint in force as the law it ends, so passing it
+        would have ended the mint, and a mint of other terms (named or by lot) named none, so two
+        mints could stand. A mint's moves now name the mint in force of other terms and no other
+        kind names one (`replaced_by`); a metal test checks it.
     - **CE4c**: foreign coin by weight.
       - *As built (2026-10-17):* content API 131 (saves and wire unchanged). A household that
         cannot assay pays with pieces of another polity's issue first (then its own, oldest

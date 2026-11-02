@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 223
+kernel_content_api = 224
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -4111,4 +4111,27 @@ fn a_pick_activity_names_what_a_heap_or_a_tip_holds_whole() {
             report.diagnostics
         );
     }
+}
+
+#[test]
+fn the_core_lets_a_polity_end_a_closing_nobody_suspects_any_longer() {
+    // Backlog D (content API 224; ADR-0021 §7): the repeal answers founding, as before, and a
+    // closing of a source in force that nobody of the polity suspects any longer.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/repeal")
+        .expect("the repeal");
+    assert_eq!(def.kind, PolicyKind::Repeal);
+    assert_eq!(
+        def.answers,
+        vec![IssueKind::Founding, IssueKind::ClosingUnsuspected]
+    );
+    assert_eq!(
+        IssueKind::from_name("closing_unsuspected"),
+        Some(IssueKind::ClosingUnsuspected)
+    );
 }

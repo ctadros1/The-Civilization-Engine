@@ -9,7 +9,8 @@
 //! its household and its kin's households, and by any household short of water; what is drawn is
 //! taken from the water table at the day's end. Its lining rots by the wetness of its ground and
 //! the month, and its household weighs relining it once rot has taken half of what its quality
-//! left; when rot has taken it all, the shaft falls in.
+//! left (a polity's, its review, while the law that dug it is in force); when rot has taken it
+//! all, the shaft falls in.
 
 use super::*;
 use crate::decide::WellFacts;
@@ -538,6 +539,161 @@ impl Population {
         for h in due {
             self.review_well(ctx, h);
         }
+    }
+
+    /// Whether the law that dug polity well `w` is in force: a `dig_well` law of its polity,
+    /// in force, whose site is the well's cell (backlog D).
+    fn dug_under_law_in_force(&self, w: &Well) -> bool {
+        let Some(polity) = w
+            .polity
+            .and_then(|p| self.polities.iter().find(|q| q.id == p))
+        else {
+            return false;
+        };
+        polity.laws.iter().any(|l| {
+            l.status == crate::polity::LawStatus::InForce
+                && l.kind == crate::polity::PolicyKind::DigWell
+                && polity.well_site_of(l.id).is_some_and(|s| s.cell == w.cell)
+        })
+    }
+
+    /// Polity `pi` weighs keeping each of its open wells owed no work, while the law that dug
+    /// it is in force (backlog D; ADR-0021 §7), as a household weighs its own. Relining,
+    /// once rot has taken half of what its lining had: the walking a year it would save each of
+    /// the polity's households (the trip to the water each would draw at without it, less the
+    /// trip to it), over the years a new lining would last at the quality the settlement's people
+    /// would lay it on average, against the lining's hours. A household that knows no other water
+    /// counts nothing. Covering, once someone of its households holds that its water sickens: the
+    /// hours of a lid and curb, as a household covers a well it suspects. The work is asked as
+    /// digging was: each household's equal share of all the work the well has asked (see
+    /// [`Population::well_facts`]), nothing following a share not given, paid where a law pays
+    /// for common work. With the law ended, nothing is asked. What relining each well came to.
+    pub(super) fn public_well_reviews(
+        &mut self,
+        ctx: &mut Ctx,
+        pi: usize,
+    ) -> Vec<(PermanentId, WellWeighed)> {
+        let mut out = Vec::new();
+        let polity = &self.polities[pi];
+        if polity.wells.is_empty() || Self::well_kit(ctx).is_none() {
+            return out;
+        }
+        let ours: Vec<Well> = ctx
+            .land
+            .wells
+            .list
+            .iter()
+            .filter(|w| w.polity == Some(polity.id) && w.is_open() && !w.is_worked())
+            .filter(|w| self.dug_under_law_in_force(w))
+            .copied()
+            .collect();
+        if ours.is_empty() {
+            return out;
+        }
+        let mut homes: Vec<&Household> = self
+            .households
+            .iter()
+            .map(|(_, x)| x)
+            .filter(|x| polity.holds(x.settlement) && !x.members.is_empty())
+            .collect();
+        homes.sort_unstable_by_key(|x| x.id);
+        if homes.is_empty() {
+            return out;
+        }
+        let params = ctx.params;
+        let carry = params.household.carry_water_l.max(1e-6);
+        let spread = params.build.quality_spread;
+        // (well, relining hours, hours of walking a year saved, cover hours)
+        let mut asks: Vec<(PermanentId, f64, f64, f64)> = Vec::new();
+        for w in &ours {
+            let Some(def) = ctx.catalog.wells.get(w.system) else {
+                continue;
+            };
+            let mut ask = (w.id, 0.0, 0.0, 0.0);
+            if w.loss < RELINE_AT * w.quality {
+                out.push((w.id, WellWeighed::Sound));
+            } else {
+                let (head, rate) = ground_water(ctx, def, w.cell);
+                let lift = lift_min(
+                    def,
+                    f64::from(w.ground_m) - w.level_now(ctx.now, head, rate),
+                );
+                let year_h: f64 = homes
+                    .iter()
+                    .filter_map(|x| {
+                        let source = self.other_source(ctx, x, Some(w.id))?;
+                        let walk_s = Self::well_walk_s(ctx, x.home, w.rect.centre_m())?;
+                        let trip = 2.0 * walk_s / 60.0 + lift;
+                        let loads = x.members.len() as f64 * x.water_use(&params.household) / carry
+                            * DAYS_PER_YEAR as f64;
+                        Some(loads * (source.trip_min() - trip).max(0.0) / 60.0)
+                    })
+                    .sum();
+                let skill = homes
+                    .iter()
+                    .map(|x| self.well_skill(ctx, x, def))
+                    .sum::<f64>()
+                    / homes.len() as f64;
+                let quality = condition::expected_quality(skill, spread);
+                let rot = def.loss_per_year * wetness_at(ctx, w.cell);
+                let life = if rot > 0.0 {
+                    (quality / rot).min(LONGEST_LIFE_YEARS)
+                } else {
+                    LONGEST_LIFE_YEARS
+                };
+                let saved_h = year_h * life;
+                let labour_h = f64::from(w.depth_m) * def.lining_h_per_m;
+                if labour_h <= 0.0 || saved_h <= labour_h {
+                    out.push((w.id, WellWeighed::NotWorth { saved_h, labour_h }));
+                } else {
+                    out.push((w.id, WellWeighed::Reline { saved_h, labour_h }));
+                    ask.1 = labour_h;
+                    ask.2 = year_h;
+                }
+            }
+            let suspected = !w.covered
+                && def.cover_h > 0.0
+                && homes.iter().any(|x| {
+                    x.members.iter().any(|&m| {
+                        self.word
+                            .suspicions_of(m)
+                            .iter()
+                            .any(|s| s.source == crate::uses::Place::Source(w.cell))
+                    })
+                });
+            if suspected {
+                ask.3 = def.cover_h;
+            }
+            if ask.1 > 0.0 || ask.3 > 0.0 {
+                asks.push(ask);
+            }
+        }
+        let households = homes.len() as f64;
+        for (id, mend_h, year_h, cover_h) in asks {
+            let Some(w) = ctx.land.wells.get_mut(id) else {
+                continue;
+            };
+            if mend_h > 0.0 {
+                w.mend_h = mend_h as f32;
+                w.skill_h = 0.0;
+                // Each hour of it is worth the walking a year it saves the average household.
+                w.worth = (year_h / households / mend_h) as f32;
+            }
+            if cover_h > 0.0 {
+                w.cover_h = cover_h as f32;
+            }
+        }
+        out
+    }
+
+    /// Polity `pi` weighs keeping its wells now, as at its review: for tests.
+    #[doc(hidden)]
+    pub fn public_well_reviews_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        pi: usize,
+    ) -> Vec<(PermanentId, WellWeighed)> {
+        self.public_well_reviews(ctx, pi)
     }
 
     /// Household `household` weighs a well now, whatever its day of the year: for tests.
@@ -1124,7 +1280,8 @@ impl Population {
     }
 
     /// The well household `x`'s people may work on, if any: their household's own, else one
-    /// their polity is digging under a law in force they know of (M6a slice BA, step four);
+    /// their polity is digging, relining or covering under a law in force they know of (M6a slice
+    /// BA, step four; backlog D);
     /// where its work is done, the walk there, the work left, what each hour of it is worth,
     /// and, while the household has not given the share of a polity's well asked of it, what
     /// keeping to the gathering's word is worth to `person`, as for a crossing built together (M6a
@@ -1157,7 +1314,7 @@ impl Population {
                     .wells
                     .list
                     .iter()
-                    .filter(|w| w.polity == Some(polity.id) && w.state == WellState::Digging)
+                    .filter(|w| w.polity == Some(polity.id) && w.is_worked())
                     .find_map(|w| {
                         let law = polity.laws.iter().find(|l| {
                             l.status == crate::polity::LawStatus::InForce
@@ -1176,7 +1333,15 @@ impl Population {
                 let labour_h = polity
                     .well_site_of(law.id)
                     .map_or(1.0, |s| f64::from(s.labour_h).max(1.0));
-                let share = labour_h / households as f64;
+                // Being dug, an equal share of the digging; once open, of all the work it has
+                // asked, dug and kept: what was given and what is owed (backlog D).
+                let digging = w.state == WellState::Digging;
+                let asked_h = if digging {
+                    labour_h
+                } else {
+                    f64::from(w.work_h + w.mend_h + w.cover_h)
+                };
+                let share = asked_h / households as f64;
                 if f64::from(ctx.land.wells.given(w.id, x.id)) + 1e-6 < share {
                     let stance = law
                         .stances
@@ -1194,16 +1359,20 @@ impl Population {
                         crate::polity::comply_points(norm, stance, regard, 0.0, &ctx.params.polity)
                             .max(0.0);
                 }
-                // Each hour of it is worth the walking a year it would save this household.
-                let def = ctx.catalog.wells.get(w.system)?;
-                let lift = lift_min(def, f64::from(w.target_m) - def.water_m);
-                let trip = Self::well_walk_s(ctx, x.home, w.rect.centre_m())
-                    .map_or(f64::INFINITY, |s| 2.0 * s / 60.0 + lift);
-                let carry = ctx.params.household.carry_water_l.max(1e-6);
-                let loads = x.members.len() as f64 * x.water_use(&ctx.params.household) / carry
-                    * DAYS_PER_YEAR as f64;
-                let year_h = loads * (2.0 * f64::from(x.water_walk_min) - trip).max(0.0) / 60.0;
-                worth = Some(year_h / labour_h);
+                // Each hour of its digging is worth the walking a year it would save this
+                // household; of keeping it, what the polity's review reckoned it would save the
+                // average household (`Well::worth`).
+                if digging {
+                    let def = ctx.catalog.wells.get(w.system)?;
+                    let lift = lift_min(def, f64::from(w.target_m) - def.water_m);
+                    let trip = Self::well_walk_s(ctx, x.home, w.rect.centre_m())
+                        .map_or(f64::INFINITY, |s| 2.0 * s / 60.0 + lift);
+                    let carry = ctx.params.household.carry_water_l.max(1e-6);
+                    let loads = x.members.len() as f64 * x.water_use(&ctx.params.household) / carry
+                        * DAYS_PER_YEAR as f64;
+                    let year_h = loads * (2.0 * f64::from(x.water_walk_min) - trip).max(0.0) / 60.0;
+                    worth = Some(year_h / labour_h);
+                }
                 w
             }
         };
@@ -1320,7 +1489,8 @@ impl Population {
     /// diggers meant, it meets water if the water table stands above its floor and opens, its
     /// lining's quality drawn from how skilled its diggers were on average (ADR-0009 §6); else it
     /// is dug a metre deeper, or, at the deepest its system goes, given up. Being relined, the
-    /// hours go to the relining, and once it is done the lining is new.
+    /// hours go to the relining, and once it is done the lining is new. A polity's well is
+    /// relined or covered only while the law that dug it is in force (backlog D).
     pub(super) fn well_work(
         &mut self,
         ctx: &mut Ctx,
@@ -1338,7 +1508,12 @@ impl Population {
         }) else {
             return;
         };
-        let Some(def) = ctx.catalog.wells.get(ctx.land.wells.list[i].system) else {
+        // A polity's well is kept only while the law that dug it is in force (backlog D).
+        let w = ctx.land.wells.list[i];
+        if w.polity.is_some() && w.state != WellState::Digging && !self.dug_under_law_in_force(&w) {
+            return;
+        }
+        let Some(def) = ctx.catalog.wells.get(w.system) else {
             return;
         };
         let skill = def
@@ -1381,12 +1556,22 @@ impl Population {
             w.cover_h = 0.0;
             w.covered = true;
             let place = Some(w.rect.centre_m());
-            let sentence = format!(
-                "{}'s household made their {} a lid and curb.",
-                self.name_of(who),
-                def.name.to_lowercase()
-            );
+            let of_polity = w.polity.is_some();
             let settlement = self.household(household).and_then(|x| x.settlement);
+            let sentence = if of_polity {
+                format!(
+                    "{}'s people made the {} beside the hearth a lid and curb, {} finishing it.",
+                    self.village_name(ctx, settlement),
+                    def.name.to_lowercase(),
+                    self.name_of(who)
+                )
+            } else {
+                format!(
+                    "{}'s household made their {} a lid and curb.",
+                    self.name_of(who),
+                    def.name.to_lowercase()
+                )
+            };
             self.chronicle_push(
                 now,
                 ChronicleKind::Well,

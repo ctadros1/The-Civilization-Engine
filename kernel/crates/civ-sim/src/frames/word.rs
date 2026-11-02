@@ -70,7 +70,7 @@ pub fn blamed_words(sim: &Sim, blamed: Blamed) -> String {
 
 /// Law `law` of polity `polity` in words, as [`civ_agents::polity::Polity::words_of`] says it,
 /// but a closing naming its source as its people know it (M6a slice BA, step four): "the closing
-/// of Wren's household's well: nobody may draw there".
+/// of Wren's household's well: nobody may draw there", and an end to one likewise (backlog D).
 pub fn law_text(
     sim: &Sim,
     polity: &civ_agents::polity::Polity,
@@ -81,6 +81,17 @@ pub fn law_text(
     {
         return format!(
             "the closing of {}: nobody may draw there",
+            super::sickness::place_words(sim, source)
+        );
+    }
+    // An end to a closing names its source too (backlog D).
+    if law.kind == civ_agents::polity::PolicyKind::Repeal
+        && let Some(ended) = polity.laws.iter().find(|l| Some(l.id) == law.ends)
+        && ended.kind == civ_agents::polity::PolicyKind::CloseSource
+        && let Some(source) = polity.closure_of(ended.id)
+    {
+        return format!(
+            "an end to the closing of {}: people may draw there again",
             super::sickness::place_words(sim, source)
         );
     }

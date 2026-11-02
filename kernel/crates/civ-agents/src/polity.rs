@@ -497,11 +497,15 @@ pub enum IssueKind {
     /// content's size within the content's distance of another household's home (M11f, second
     /// part; ADR-0038 §3): what `refuse_to_tip` answers.
     HeapsNear,
+    /// A closing of a source of water is in force and nobody of the polity's households holds any
+    /// longer, from their own tally, that the water there sickens (backlog D; ADR-0021 §7): what
+    /// a `repeal` naming it answers.
+    ClosingUnsuspected,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 43] = [
+    pub const ALL: [IssueKind; 44] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -545,6 +549,7 @@ impl IssueKind {
         IssueKind::FalseNotesFound,
         IssueKind::HomesUnlit,
         IssueKind::HeapsNear,
+        IssueKind::ClosingUnsuspected,
     ];
 
     /// The authored name.
@@ -593,6 +598,7 @@ impl IssueKind {
             IssueKind::FalseNotesFound => "false_notes_found",
             IssueKind::HomesUnlit => "homes_unlit",
             IssueKind::HeapsNear => "heaps_near",
+            IssueKind::ClosingUnsuspected => "closing_unsuspected",
         }
     }
 
@@ -678,6 +684,7 @@ impl IssueKind {
                 "their homes lay dark beyond the wire of a station with current to spare"
             }
             IssueKind::HeapsNear => "households' heaps grew large beside others' homes",
+            IssueKind::ClosingUnsuspected => "nobody holds any longer that the water there sickens",
         }
     }
 }

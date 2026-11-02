@@ -2607,6 +2607,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::FalseNotesFound => 40,
         IssueKind::HomesUnlit => 41,
         IssueKind::HeapsNear => 42,
+        IssueKind::ClosingUnsuspected => 43,
     }
 }
 
@@ -2808,6 +2809,7 @@ fn decode_polities(
                 40 => IssueKind::FalseNotesFound,
                 41 => IssueKind::HomesUnlit,
                 42 => IssueKind::HeapsNear,
+                43 => IssueKind::ClosingUnsuspected,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {

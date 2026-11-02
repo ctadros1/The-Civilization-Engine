@@ -1073,6 +1073,9 @@ impl Population {
                 // Whether a fault of its sewers it has learned of is worth mending under the law
                 // that laid it (ADR-0044 §5).
                 self.sewer_reviews(ctx, pi);
+                // And whether its wells want relining or a lid and curb, under the law that dug
+                // them (backlog D; ADR-0021 §7).
+                self.public_well_reviews(ctx, pi);
                 // Whether anyone bound by a law a limit forbids challenges it (M7b slice BT).
                 self.weigh_challenges(ctx, pi);
                 // Whether a member of an organization brings a breach of its privilege (M7c
@@ -1662,6 +1665,44 @@ impl Population {
         (who, cells)
     }
 
+    /// The closings of sources of water polity `pi` has in force whose source nobody of its
+    /// households holds sickens any longer, from their own tally (backlog D; ADR-0021 §7): each
+    /// closing law with its source's cell, in cell order.
+    fn unsuspected_closings(&self, pi: usize) -> Vec<(PermanentId, u32)> {
+        let polity = &self.polities[pi];
+        if polity.closed.is_empty() {
+            return Vec::new();
+        }
+        let suspected: Vec<crate::uses::Place> = self
+            .word
+            .suspicions
+            .iter()
+            .filter(|s| {
+                self.person(s.holder)
+                    .and_then(|p| self.household(p.household))
+                    .is_some_and(|x| polity.holds(x.settlement))
+            })
+            .map(|s| s.source)
+            .collect();
+        polity
+            .closed_now()
+            .into_iter()
+            .filter_map(|(place, law)| match place {
+                crate::uses::Place::Source(cell) if !suspected.contains(&place) => {
+                    Some((law, cell))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The closings polity `pi` has in force whose source nobody of it suspects any longer, each
+    /// law with its source's cell: for tests.
+    #[doc(hidden)]
+    pub fn unsuspected_closings_for_tests(&self, pi: usize) -> Vec<(PermanentId, u32)> {
+        self.unsuspected_closings(pi)
+    }
+
     /// When polity `pi`'s custom was taken from the gathering, while its new body is founding
     /// (M4c slice AI, step two): within `founding_days` of a version seized rather than amended.
     pub(super) fn founding_since(&self, ctx: &Ctx, pi: usize) -> Option<SimTime> {
@@ -2109,7 +2150,12 @@ impl Population {
         households: &[PermanentId],
         adults: &[(PermanentId, PermanentId)],
     ) -> Vec<(u32, Vec<ClosureForecast>)> {
-        let (_, cells) = self.suspecting(pi, adults);
+        // And the sources of closings nobody suspects any longer, whose end is weighed as their
+        // closing was, turned about (backlog D).
+        let (_, mut cells) = self.suspecting(pi, adults);
+        cells.extend(self.unsuspected_closings(pi).into_iter().map(|c| c.1));
+        cells.sort_unstable();
+        cells.dedup();
         if cells.is_empty() {
             return Vec::new();
         }
@@ -2169,9 +2215,26 @@ impl Population {
     }
 
     /// A closing of a source of water (M6a slice BA, step four), in words that name the source
-    /// as its people know it: "the closing of Wren's household's well: nobody may draw there".
-    /// None for any other law, or one whose source is not recorded.
+    /// as its people know it: "the closing of Wren's household's well: nobody may draw there",
+    /// and an end to one likewise (backlog D). None for any other law, or one whose source is
+    /// not recorded.
     pub(super) fn closing_words(&self, ctx: &Ctx, pi: usize, law: &Law) -> Option<String> {
+        // An end to a closing names its source too (backlog D): "an end to the closing of Wren's
+        // household's well: people may draw there again".
+        if law.kind == PolicyKind::Repeal {
+            let ended = self.polities[pi]
+                .laws
+                .iter()
+                .find(|l| Some(l.id) == law.ends)?;
+            if ended.kind != PolicyKind::CloseSource {
+                return None;
+            }
+            let source = self.polities[pi].closure_of(ended.id)?;
+            return Some(format!(
+                "an end to the closing of {}: people may draw there again",
+                self.source_words(ctx, source)
+            ));
+        }
         if law.kind != PolicyKind::CloseSource {
             return None;
         }
@@ -2850,6 +2913,8 @@ impl Population {
             .filter(|&h| self.sick_at_home(h))
             .collect();
         let (suspecting, _) = self.suspecting(pi, &adults);
+        // Closings in force whose source nobody of it suspects any longer (backlog D).
+        let unsuspected = self.unsuspected_closings(pi);
         // Where its people could dig a well together.
         let well = self.public_well(ctx, settlement, &households);
         // Where they could build a flood bank together, and the households a flood cost within
@@ -2907,6 +2972,9 @@ impl Population {
         // A band its law sent holds another settlement (M6c slice BM).
         if self.held_by(pi).is_some() {
             issues.push(IssueKind::Holding);
+        }
+        if !unsuspected.is_empty() {
+            issues.push(IssueKind::ClosingUnsuspected);
         }
         // Its carts wait where a passing place cleared together would repay its work (M8b slice
         // CQ, third part).
@@ -3206,6 +3274,13 @@ impl Population {
             .collect();
         self.with_plans(ctx, &mut fc, plans, &households);
         let outlooks = &fc.outlooks;
+        // Households that walk further for a closing nobody suspects any longer (backlog D).
+        let walk_for_closings: Vec<PermanentId> = fc
+            .closures
+            .iter()
+            .filter(|c| unsuspected.iter().any(|u| u.1 == c.0))
+            .flat_map(|c| c.1.iter().filter(|f| f.2 > 0.0).map(|f| f.0))
+            .collect();
         // Who could keep the store: adults whose household is under a roof.
         let roofed: Vec<PermanentId> = adults
             .iter()
@@ -3259,6 +3334,9 @@ impl Population {
                             // And those whose heap grew large beside another's home (M11f,
                             // second part).
                             .chain(&heaps_near)
+                            // And those who walk further for a closing nobody suspects any
+                            // longer (backlog D).
+                            .chain(&walk_for_closings)
                             .filter_map(|&h| self.elder_of(h, now, params)),
                     )
                     // And whoever holds that a source sickens (M6a slice BA).
@@ -3425,6 +3503,35 @@ impl Population {
                 })
                 .collect()
         });
+        // And each closing nobody of it suspects any longer, as the move it was (backlog D):
+        // ending it brings a household what keeping it would, lost.
+        let mut kept = kept;
+        for &(law, cell) in &unsuspected {
+            if kept.iter().any(|k| k.0 == law) {
+                continue;
+            }
+            let Some(l) = self.polities[pi].laws.iter().find(|l| l.id == law) else {
+                continue;
+            };
+            kept.push((
+                law,
+                MoveOption {
+                    policy: l.policy,
+                    levy_share: 0.0,
+                    issue: l.issue,
+                    nominee: None,
+                    sanction: l.sanction,
+                    hours: l.hours,
+                    body: None,
+                    ends: None,
+                    target: None,
+                    site: Some(cell),
+                    own_gain: 0.0,
+                    followers_gain: 0.0,
+                    support: 0.5,
+                },
+            ));
+        }
         let ended = |m: &MoveOption| m.ends.and_then(|e| kept.iter().find(|k| k.0 == e));
         // Those who keep the watch now (M4c slice AI).
         let watching: Vec<PermanentId> = self.polities[pi].watchers().map(|w| w.0).collect();
@@ -4008,21 +4115,33 @@ impl Population {
                     }
                     // While founding, an end to each law the old custom made (M4c slice AI): a
                     // store's levy ends as a petition would end it, the store giving what it
-                    // holds; any other law is repealed.
+                    // holds; any other law is repealed. And an end to each closing whose source
+                    // nobody suspects any longer, for that (backlog D).
                     PolicyKind::Repeal => {
                         for (e, k) in &kept {
                             let store = policies
                                 .get(usize::from(k.policy))
                                 .is_some_and(|d| d.kind == PolicyKind::CommonStore);
+                            let issue = if unsuspected.iter().any(|u| u.0 == *e)
+                                && issues.contains(&IssueKind::ClosingUnsuspected)
+                            {
+                                IssueKind::ClosingUnsuspected
+                            } else if founding.is_some() {
+                                blank.issue
+                            } else {
+                                continue;
+                            };
                             moves.push(if store {
                                 MoveOption {
                                     policy: k.policy,
                                     ends: Some(*e),
+                                    issue,
                                     ..blank
                                 }
                             } else {
                                 MoveOption {
                                     ends: Some(*e),
+                                    issue,
                                     ..blank
                                 }
                             });

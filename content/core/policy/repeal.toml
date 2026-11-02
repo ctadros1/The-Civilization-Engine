@@ -6,10 +6,14 @@
 # about, and what the law does to what its people hold dear, turned about too. The new body
 # decides it as any law; what it leaves stands (research 09-11 §1.6: provisional authority over
 # what survives, unless actors dismantle it). Whether anyone proposes one, and whether it passes,
-# is people's choice.
+# is people's choice. A closing of a source of water in force whose source nobody of the polity
+# holds sickens any longer (the issue `closing_unsuspected`, backlog D) may be proposed for an end
+# too, by anyone of the body: each household weighs it as it weighed the closing, turned about,
+# the walking it would save drawing there again against what its people's tally of the source
+# believes a case there costs.
 kind = "policy"
 id = "core:policy/repeal"
 name = "Repeal"
-description = "Ends a law the custom that was taken had made."
+description = "Ends a law the custom that was taken had made, or a closing of a source nobody suspects any longer."
 does = "repeal"
-answers = ["founding"]
+answers = ["founding", "closing_unsuspected"]

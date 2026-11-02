@@ -436,12 +436,7 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
                 let who = c.subject.map_or_else(|| "someone".to_owned(), name_of);
                 return format!("{who}'s household failed a loan on {on}");
             };
-            let good = sim
-                .rules
-                .catalog
-                .goods
-                .get(usize::from(loan.good))
-                .map_or("goods".to_owned(), |g| g.name.to_lowercase());
+            let good = good_name(sim, loan.good);
             let creditor = super::people::household_name(sim, loan.creditor);
             let owed = loan.owed;
             if pop.firm(loan.debtor).is_some() {
@@ -461,6 +456,63 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
                      {on}"
                 )
             }
+        }
+        // A debt repaid (backlog D): who paid whom, and what.
+        ClaimKind::Repaid => {
+            let on = day_words(SimTime::from_minutes(c.day * DAY));
+            let loan = c
+                .event
+                .and_then(|id| pop.order.credit.claims.iter().find(|x| x.id == id));
+            let Some(loan) = loan else {
+                let who = c.subject.map_or_else(|| "someone".to_owned(), name_of);
+                return format!("{who}'s household repaid a loan on {on}");
+            };
+            let good = good_name(sim, loan.good);
+            let creditor = super::people::household_name(sim, loan.creditor);
+            let owed = loan.owed;
+            if pop.firm(loan.debtor).is_some() {
+                format!(
+                    "{} paid {creditor} the wages it owed ({owed:.0} kg of {good}), on {on}",
+                    super::people::firm_name(sim, loan.debtor)
+                )
+            } else {
+                let debtor = super::people::household_name(sim, loan.debtor);
+                if loan.recourse.is_some() {
+                    format!(
+                        "{debtor} repaid {creditor} what it had paid for it as guarantor ({owed:.0} \
+                         kg of {good}), on {on}"
+                    )
+                } else {
+                    format!(
+                        "{debtor} repaid what {creditor} lent it ({owed:.0} kg of {good}), on {on}"
+                    )
+                }
+            }
+        }
+        // A guarantor called on paid (backlog D): who, for whom, and how much.
+        ClaimKind::GuarantorPaid => {
+            let on = day_words(SimTime::from_minutes(c.day * DAY));
+            let loan = c
+                .event
+                .and_then(|id| pop.order.credit.claims.iter().find(|x| x.id == id));
+            let who = c.subject.map_or_else(|| "someone".to_owned(), name_of);
+            let Some(loan) = loan else {
+                return format!("{who}'s household paid what it stood guarantor for, on {on}");
+            };
+            let good = good_name(sim, loan.good);
+            let creditor = super::people::household_name(sim, loan.creditor);
+            let debtor = super::people::household_name(sim, loan.debtor);
+            let guarantor = match loan.pledge {
+                Some(civ_agents::credit::Pledge::Guarantor(g)) => {
+                    super::people::household_name(sim, g)
+                }
+                _ => format!("{who}'s household"),
+            };
+            format!(
+                "{guarantor}, called on as guarantor, paid {creditor} {:.0} kg of {good} of what \
+                 {debtor} owed it, on {on}",
+                loan.by_guarantor
+            )
         }
         ClaimKind::Sickness => {
             let from = day_words(SimTime::from_minutes(c.day * DAY));
@@ -921,8 +973,8 @@ pub fn news_lines<'a>(
             ClaimKind::Sickness => c.subject != Some(p.household),
             ClaimKind::Suspicion => c.subject != Some(p.id),
             ClaimKind::Fire | ClaimKind::Raid | ClaimKind::BandSeen => true,
-            // Another household's default (backlog D).
-            ClaimKind::Defaulted => c
+            // Another household's debt kept or failed (backlog D).
+            ClaimKind::Defaulted | ClaimKind::Repaid | ClaimKind::GuarantorPaid => c
                 .subject
                 .and_then(|e| pop.person(e))
                 .is_none_or(|e| e.household != p.household),
@@ -1067,7 +1119,9 @@ fn whisper_words(sim: &Sim, i: &Influence, p: PermanentId) -> String {
         | ClaimKind::Fire
         | ClaimKind::Raid
         | ClaimKind::BandSeen
-        | ClaimKind::Defaulted => None,
+        | ClaimKind::Defaulted
+        | ClaimKind::Repaid
+        | ClaimKind::GuarantorPaid => None,
         ClaimKind::Grievance => {
             let against = c.grievance.map(|g| g.0);
             let m = pop.factions.membership(p).copied();
@@ -1398,4 +1452,13 @@ pub fn influence_lines<'a>(
         })
         .collect();
     fbb.create_vector(&lines)
+}
+
+/// Good `good`'s name in lower case, as a claim of the credit book is told.
+fn good_name(sim: &Sim, good: u16) -> String {
+    sim.rules
+        .catalog
+        .goods
+        .get(usize::from(good))
+        .map_or("goods".to_owned(), |g| g.name.to_lowercase())
 }

@@ -1381,3 +1381,405 @@ fn word_of_wages_a_workshop_left_unpaid_goes_about_too() {
         "{words}"
     );
 }
+
+/// Household `h`'s members, in order.
+fn members_of(sim: &Sim, h: PermanentId) -> Vec<PermanentId> {
+    let mut m = sim
+        .people()
+        .household(h)
+        .expect("household")
+        .members
+        .clone();
+    m.sort_unstable();
+    m
+}
+
+/// The members of every household but those of `not`, household by household.
+fn people_but(sim: &Sim, not: &[PermanentId]) -> Vec<PermanentId> {
+    sim.people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .filter(|h| !not.contains(&h.id) && !h.members.is_empty())
+        .flat_map(|h| h.members.iter().copied())
+        .collect()
+}
+
+/// The claims of kind `kind` the word book holds.
+fn claims_of(sim: &Sim, kind: civ_agents::word::ClaimKind) -> Vec<civ_agents::word::Claim> {
+    sim.people()
+        .word
+        .claims
+        .iter()
+        .filter(|c| c.kind == kind)
+        .copied()
+        .collect()
+}
+
+/// `teller` and `listener` keep company at the hearth, where every routine word is told.
+fn hearth(sim: &mut Sim, teller: PermanentId, listener: PermanentId) {
+    sim.rules_mut_for_tests()
+        .expect("rules of its own")
+        .people
+        .word
+        .share_routine = 1.0;
+    sim.with_ctx_for_tests(|pop, ctx| pop.share_word_for_tests(ctx, teller, listener));
+}
+
+/// Every save section of `sim` is the same after a save and a load.
+fn saves_exactly(sim: &mut Sim) {
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(sim, &saves, commons_persist::SaveKind::Manual, "debt word").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    let (a, b) = (
+        persist::encode_sections(sim),
+        persist::encode_sections(&loaded),
+    );
+    assert_eq!(a.len(), b.len());
+    for (s, t) in a.iter().zip(&b) {
+        assert!(s.bytes == t.bytes, "section `{}` differs", s.tag);
+    }
+}
+
+#[test]
+fn word_of_a_loan_repaid_goes_about_and_those_who_hear_it_think_the_better_of_the_debtor() {
+    // Backlog D (research 08-07 §5.3): a loan repaid is word told by contact, as a default is.
+    // The creditor's people hold it at first hand; others hear it at the hearth and think the
+    // better of the debtor's elder in their word; the debtor's own household neither learns from
+    // it nor tells it.
+    use civ_agents::ties::{Act, Domain};
+    use civ_agents::word::ClaimKind;
+    let mut sc = village();
+    credit(&mut sc.sim).pay_base = 50.0;
+    weigh(&mut sc.sim);
+    let (i, c) = loan_of(&sc.sim, sc.borrower);
+    feed(&mut sc.sim, sc.borrower, f64::from(c.owed) + 200.0);
+    repay(&mut sc.sim, c.due - 1);
+    assert!(
+        claims_of(&sc.sim, ClaimKind::Repaid).is_empty(),
+        "nothing to tell before it is repaid"
+    );
+    repay(&mut sc.sim, c.due);
+    assert_eq!(loans(&sc.sim)[i].standing, Standing::Repaid);
+    assert!(claims_of(&sc.sim, ClaimKind::Defaulted).is_empty());
+    let said = claims_of(&sc.sim, ClaimKind::Repaid);
+    assert_eq!(said.len(), 1, "{said:?}");
+    let claim = said[0];
+    assert_eq!((claim.event, claim.day), (Some(c.id), c.due));
+    let elder = claim.subject.expect("names the debtor's elder");
+    assert!(members_of(&sc.sim, sc.borrower).contains(&elder));
+    assert_eq!(
+        Some(claim.settlement),
+        sc.sim
+            .people()
+            .household(sc.borrower)
+            .and_then(|x| x.settlement)
+    );
+    // The creditor's people hold it at first hand; nobody else has heard it.
+    let lenders = members_of(&sc.sim, sc.lender);
+    let word = &sc.sim.people().word;
+    for &m in &lenders {
+        assert!(word.has_heard(m, claim.id));
+    }
+    let others = people_but(&sc.sim, &[sc.borrower, sc.lender]);
+    assert!(others.len() >= 2, "two people of other households");
+    let (x, y) = (others[0], others[1]);
+    for &p in others.iter().chain(&members_of(&sc.sim, sc.borrower)) {
+        assert!(!word.has_heard(p, claim.id));
+    }
+    let words = civ_sim::frames::word::claim_words(&sc.sim, &claim);
+    assert!(
+        words.contains("repaid what") && words.contains(" lent it (") && words.contains("kg of"),
+        "{words}"
+    );
+    // Told at the hearth by one of the creditor's people, one of a third household thinks the
+    // better of the elder, by exactly the act's good evidence in `word`.
+    let day = sc.sim.now().day_index();
+    let tp = sc.sim.rules().people.ties.clone();
+    let regard = |sim: &Sim, p: PermanentId| sim.people().ties.regard(p, elder, day, &tp);
+    let good_word = |sim: &Sim, p: PermanentId| {
+        sim.people()
+            .ties
+            .tie(p, elder, day, &tp)
+            .map_or(tp.prior as f32, |t| t.good[Domain::Word.index()])
+    };
+    let (regard_before, good_before) = (regard(&sc.sim, x), good_word(&sc.sim, x));
+    hearth(&mut sc.sim, lenders[0], x);
+    assert!(sc.sim.people().word.has_heard(x, claim.id));
+    let tie = sc
+        .sim
+        .people()
+        .ties
+        .tie(x, elder, day, &tp)
+        .expect("a tie now");
+    assert_eq!(tie.reason.map(|r| r.act), Some(Act::RepaidOthers));
+    let heard_good = f64::from(tie.good[Domain::Word.index()] - good_before);
+    assert!(
+        (heard_good - tp.acts[Act::RepaidOthers as usize].good).abs() < 1e-4,
+        "{heard_good}"
+    );
+    assert!(regard(&sc.sim, x) > regard_before, "{regard_before}");
+    assert_eq!(
+        civ_agents::ties::Reason {
+            times: 1,
+            ..tie.reason.expect("a reason")
+        }
+        .words()
+        .split(", last in")
+        .next(),
+        Some("paid another household what they owed it, as they heard")
+    );
+    // Heard again, it teaches nothing more.
+    hearth(&mut sc.sim, lenders[lenders.len() - 1], x);
+    let again = sc.sim.people().ties.tie(x, elder, day, &tp).expect("tie");
+    assert_eq!(again.good, tie.good);
+    // The debtor's own people, told it, learn nothing of their elder from it and do not tell it.
+    let kin: Vec<PermanentId> = members_of(&sc.sim, sc.borrower)
+        .into_iter()
+        .filter(|&m| m != elder)
+        .collect();
+    let k = *kin
+        .first()
+        .expect("the debtor's household has another member");
+    let kin_before = sc.sim.people().ties.tie(k, elder, day, &tp);
+    hearth(&mut sc.sim, x, k);
+    assert!(sc.sim.people().word.has_heard(k, claim.id));
+    assert_eq!(sc.sim.people().ties.tie(k, elder, day, &tp), kin_before);
+    hearth(&mut sc.sim, k, y);
+    assert!(!sc.sim.people().word.has_heard(y, claim.id));
+    // One of another household, told it, tells it on.
+    hearth(&mut sc.sim, x, y);
+    assert!(sc.sim.people().word.has_heard(y, claim.id));
+    assert_eq!(
+        sc.sim
+            .people()
+            .ties
+            .tie(y, elder, day, &tp)
+            .and_then(|t| t.reason)
+            .map(|r| r.act),
+        Some(Act::RepaidOthers)
+    );
+    saves_exactly(&mut sc.sim);
+    // It is news for `news_days` from the day it was repaid, then let go.
+    let wp = sc.sim.rules().people.word.clone();
+    let news = i64::from(wp.news_days);
+    let gone_on = |today: i64| {
+        let mut w = sc.sim.people().word.clone();
+        w.prune(today, news, i64::from(wp.sickness_days), 10_000);
+        !w.claims
+            .iter()
+            .any(|x| x.kind == ClaimKind::Repaid && x.event == Some(c.id))
+    };
+    assert!(!gone_on(claim.day + news));
+    assert!(gone_on(claim.day + news + 1));
+}
+
+#[test]
+fn word_of_wages_a_workshop_paid_when_due_goes_about_too() {
+    // Backlog D: wages a workshop owed and paid when they fell due are word as a loan repaid is,
+    // naming its owners' elder; the worker's household holds it at first hand.
+    use civ_agents::word::ClaimKind;
+    let mut sc = village();
+    let sickle = sc
+        .sim
+        .rules()
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/sickle")
+        .expect("sickle");
+    let founder = sc.sim.people().household(sc.lender).expect("owner").members[0];
+    let (owner, worker, grain) = (sc.lender, sc.borrower, sc.grain);
+    let firm = sc
+        .sim
+        .with_ctx_for_tests(|pop, ctx| pop.found_firm_for_tests(ctx, owner, founder, sickle))
+        .expect("a workshop");
+    sc.sim
+        .with_ctx_for_tests(|pop, ctx| pop.owe_wages_for_tests(ctx, firm, worker, grain, 6.0));
+    let due = sc.sim.now().day_index() + i64::from(sc.sim.rules().people.credit.wage_days);
+    repay(&mut sc.sim, due - 1);
+    assert!(claims_of(&sc.sim, ClaimKind::Repaid).is_empty());
+    repay(&mut sc.sim, due);
+    let wages = loans(&sc.sim)
+        .into_iter()
+        .find(|c| c.debtor == firm)
+        .expect("the wages");
+    assert_eq!(wages.standing, Standing::Repaid);
+    let said = claims_of(&sc.sim, ClaimKind::Repaid);
+    assert_eq!(said.len(), 1, "{said:?}");
+    assert_eq!(said[0].event, Some(wages.id));
+    let elder = said[0].subject.expect("names the owners' elder");
+    assert!(members_of(&sc.sim, owner).contains(&elder));
+    for &m in &members_of(&sc.sim, worker) {
+        assert!(sc.sim.people().word.has_heard(m, said[0].id));
+    }
+    for &m in &members_of(&sc.sim, owner) {
+        assert!(!sc.sim.people().word.has_heard(m, said[0].id));
+    }
+    let words = civ_sim::frames::word::claim_words(&sc.sim, &said[0]);
+    assert!(
+        words.contains(" paid ") && words.contains("the wages it owed (6 kg of"),
+        "{words}"
+    );
+}
+
+#[test]
+fn word_of_a_guarantor_called_on_goes_about_and_so_does_the_debtor_repaying_it() {
+    // Backlog D: a guarantor called on that pays is word as a loan repaid is, naming its elder,
+    // held first by the lender's people; one who hears it thinks the better of that elder. What
+    // the debtor then repays the guarantor is told as a loan repaid, held first by the
+    // guarantor's people.
+    use civ_agents::ties::Act;
+    use civ_agents::word::ClaimKind;
+    let mut sc = village();
+    let cp = credit(&mut sc.sim);
+    cp.p_max = 0.05;
+    cp.field_recovery = 0.0;
+    cp.guarantor_regard = -1.0;
+    cp.pay_base = 50.0;
+    cp.max_extensions = 0;
+    let guarantor = sc
+        .sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .filter(|h| !h.members.is_empty() && h.id != sc.borrower && h.id != sc.lender)
+        .map(|h| h.id)
+        .min()
+        .expect("a third household");
+    feed(&mut sc.sim, guarantor, 3000.0);
+    let (tp, today) = (sc.sim.rules().people.ties.clone(), sc.sim.now().day_index());
+    let (from, to) = (
+        members_of(&sc.sim, sc.lender),
+        members_of(&sc.sim, guarantor),
+    );
+    let pop = sc.sim.people_mut_for_tests();
+    for &x in &from {
+        for &y in &to {
+            pop.ties.record(x, y, Act::Hearth, 400.0, 0.0, today, &tp);
+        }
+    }
+    weigh(&mut sc.sim);
+    let (i, c) = loan_of(&sc.sim, sc.borrower);
+    let Some(Pledge::Guarantor(g)) = c.pledge else {
+        panic!("lent with a guarantor: {c:?}");
+    };
+    feed(&mut sc.sim, sc.borrower, 0.0);
+    let grace = i64::from(sc.sim.rules().people.credit.grace_days);
+    let failed_on = c.due + grace + 1;
+    repay(&mut sc.sim, failed_on);
+    assert!(loans(&sc.sim)[i].by_guarantor > 0.0);
+    // The default is told, and so is the guarantor's paying.
+    assert_eq!(claims_of(&sc.sim, ClaimKind::Defaulted).len(), 1);
+    let said = claims_of(&sc.sim, ClaimKind::GuarantorPaid);
+    assert_eq!(said.len(), 1, "{said:?}");
+    let claim = said[0];
+    assert_eq!((claim.event, claim.day), (Some(c.id), failed_on));
+    let elder = claim.subject.expect("names the guarantor's elder");
+    assert!(members_of(&sc.sim, g).contains(&elder));
+    assert_eq!(
+        Some(claim.settlement),
+        sc.sim.people().household(g).and_then(|x| x.settlement)
+    );
+    // (Whichever household lent: the guarantor's elder vouched to it.)
+    let lenders = members_of(&sc.sim, c.creditor);
+    for &m in &lenders {
+        assert!(sc.sim.people().word.has_heard(m, claim.id));
+    }
+    for &m in &members_of(&sc.sim, g) {
+        assert!(!sc.sim.people().word.has_heard(m, claim.id));
+    }
+    let words = civ_sim::frames::word::claim_words(&sc.sim, &claim);
+    assert!(
+        words.contains(", called on as guarantor, paid ") && words.contains(" owed it, on "),
+        "{words}"
+    );
+    // One of a fourth household, told it, thinks the better of the guarantor's elder.
+    let others = people_but(&sc.sim, &[sc.borrower, sc.lender, c.creditor, g]);
+    let x = *others.first().expect("one of a fourth household");
+    let day = sc.sim.now().day_index();
+    hearth(&mut sc.sim, lenders[0], x);
+    assert!(sc.sim.people().word.has_heard(x, claim.id));
+    assert_eq!(
+        sc.sim
+            .people()
+            .ties
+            .tie(x, elder, day, &tp)
+            .and_then(|t| t.reason)
+            .map(|r| r.act),
+        Some(Act::RepaidOthers)
+    );
+    // The guarantor's own people do not tell it.
+    let y = others.get(1).copied().expect("another of other households");
+    let own = members_of(&sc.sim, g)[0];
+    sc.sim.with_ctx_for_tests(|pop, ctx| {
+        pop.share_word_for_tests(ctx, lenders[0], own);
+        pop.share_word_for_tests(ctx, own, y)
+    });
+    assert!(sc.sim.people().word.has_heard(own, claim.id));
+    assert!(!sc.sim.people().word.has_heard(y, claim.id));
+    saves_exactly(&mut sc.sim);
+    // The debtor repays the guarantor: told as a loan repaid, held first by the guarantor's people.
+    let recourse = loans(&sc.sim)
+        .into_iter()
+        .find(|r| r.recourse == Some(c.id))
+        .expect("the guarantor's claim");
+    feed(&mut sc.sim, sc.borrower, f64::from(recourse.owed) + 200.0);
+    repay(&mut sc.sim, recourse.due);
+    let back = loans(&sc.sim)
+        .into_iter()
+        .find(|r| r.id == recourse.id)
+        .expect("the guarantor's claim");
+    assert_eq!(back.standing, Standing::Repaid, "{back:?}");
+    let said = claims_of(&sc.sim, ClaimKind::Repaid);
+    assert_eq!(said.len(), 1, "{said:?}");
+    assert_eq!(said[0].event, Some(recourse.id));
+    assert!(members_of(&sc.sim, sc.borrower).contains(&said[0].subject.expect("an elder")));
+    for &m in &members_of(&sc.sim, g) {
+        assert!(sc.sim.people().word.has_heard(m, said[0].id));
+    }
+    let words = civ_sim::frames::word::claim_words(&sc.sim, &said[0]);
+    assert!(
+        words.contains(" what it had paid for it as guarantor ("),
+        "{words}"
+    );
+}
+
+#[test]
+fn a_default_given_time_by_a_finding_and_then_repaid_is_told_as_repaid() {
+    // Backlog D: a loan a finding under debts heard gives time is open again; repaid in full by
+    // its new due day, it is told as any loan repaid, beside the word of its default.
+    use civ_agents::polity::{DebtRemedy, DebtsDef};
+    use civ_agents::word::ClaimKind;
+    let (mut sc, loan) = defaulted();
+    let time = DebtsDef {
+        remedy: DebtRemedy::Time,
+        share: 0.5,
+        extend_days: 180,
+    };
+    sc.sim
+        .with_ctx_for_tests(|pop, ctx| pop.debt_found_for_tests(ctx, loan, 1, time));
+    let c = loans(&sc.sim)
+        .into_iter()
+        .find(|c| c.id == loan)
+        .expect("kept");
+    feed(&mut sc.sim, sc.borrower, c.left() + 200.0);
+    repay(&mut sc.sim, c.due);
+    let c = loans(&sc.sim)
+        .into_iter()
+        .find(|c| c.id == loan)
+        .expect("kept");
+    assert_eq!(c.standing, Standing::Repaid, "{c:?}");
+    let failed = claims_of(&sc.sim, ClaimKind::Defaulted);
+    let repaid = claims_of(&sc.sim, ClaimKind::Repaid);
+    assert_eq!((failed.len(), repaid.len()), (1, 1), "{repaid:?}");
+    assert_eq!((failed[0].event, repaid[0].event), (Some(loan), Some(loan)));
+    assert_eq!(failed[0].subject, repaid[0].subject);
+    for &m in &members_of(&sc.sim, sc.lender) {
+        assert!(sc.sim.people().word.has_heard(m, repaid[0].id));
+    }
+}

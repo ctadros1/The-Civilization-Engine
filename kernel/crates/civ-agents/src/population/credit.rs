@@ -11,15 +11,17 @@
 //! that means to pay gives what it can spare of the good each day; short at the due day it asks
 //! for time, which the creditor grants by its regard. Paid in full, the lender's elder notes that
 //! its word was kept; refused, or unpaid when the days of grace run out, the creditor's household
-//! notes that it was not, and the creditor takes the pledge: the guarantor pays what it can spare
-//! of the good and the debtor owes it that in turn; a field pledged is worked by the creditor on
-//! the regime's lease, from the day it lies between crops, until the crop the creditor keeps of it
-//! has paid what is left, and then goes back.
+//! notes that it was not; either way word of it goes about from the creditor's people (backlog
+//! D). Failed, the creditor takes the pledge: the guarantor pays what it can spare of the good,
+//! and the debtor owes it that in turn; a field pledged is worked by the creditor on the regime's
+//! lease, from the day it lies between crops, until the crop the creditor keeps of it has paid
+//! what is left, and then goes back.
 
 use super::*;
 use crate::credit::{Claim, Pledge, Standing, default_chance, pay_points, terms};
 use crate::crime::logistic;
 use crate::ties::Act;
+use crate::word::ClaimKind;
 
 /// Purpose tag for a debtor's answer at a loan's due day.
 pub const PURPOSE_LOAN_ANSWER: u64 = 0x6c6f_616e_616e_7377; // "loanansw"
@@ -489,6 +491,10 @@ impl Population {
                 if let (Some(a), Some(b)) = elders {
                     self.note_tie(ctx, a, b, Act::Repaid, 1.0, 0.0);
                 }
+                // And word of it goes about, as of a default (backlog D).
+                if let Some(b) = elders.1 {
+                    self.debt_word(ClaimKind::Repaid, c.id, b, day);
+                }
                 continue;
             }
             // Short: it asks for time once for each due day, granted by the creditor's regard.
@@ -611,6 +617,9 @@ impl Population {
             self.order.credit.claims[i].standing = Standing::Repaid;
             if let (Some(a), Some(b)) = elders {
                 self.note_tie(ctx, a, b, Act::Repaid, 1.0, 0.0);
+            }
+            if let Some(b) = elders.1 {
+                self.debt_word(ClaimKind::Repaid, c.id, b, now.day_index());
             }
             return;
         }
@@ -892,8 +901,8 @@ impl Population {
 
     /// Loan `i` failed today (refused, or unpaid when grace ran out): the creditor's household
     /// notes it of the debtor's elder, and word of it goes about ([`Self::default_word`]); and the
-    /// creditor takes the pledge: the guarantor is called on now; a field is taken when it lies
-    /// between crops ([`Self::pledged_fields`]).
+    /// creditor takes the pledge: the guarantor is called on now, and word of what it pays goes
+    /// about too; a field is taken when it lies between crops ([`Self::pledged_fields`]).
     fn loan_failed(&mut self, ctx: &Ctx, i: usize, day: i64) {
         let (now, params) = (ctx.now, ctx.params);
         let c = self.order.credit.claims[i].clone();
@@ -957,12 +966,13 @@ impl Population {
             by_guarantor: 0.0,
             recourse: Some(c.id),
         });
-        // The creditor saw the guarantor keep its word.
-        if let (Some(a), Some(b)) = (
-            self.elder_of(c.creditor, now, params),
-            self.elder_of(g, now, params),
-        ) {
+        // The creditor saw the guarantor keep its word, and word of it goes about (backlog D).
+        let guarantor = self.elder_of(g, now, params);
+        if let (Some(a), Some(b)) = (self.elder_of(c.creditor, now, params), guarantor) {
             self.note_tie(ctx, a, b, Act::Repaid, 1.0, 0.0);
+        }
+        if let Some(b) = guarantor {
+            self.debt_word(ClaimKind::GuarantorPaid, c.id, b, day);
         }
     }
 

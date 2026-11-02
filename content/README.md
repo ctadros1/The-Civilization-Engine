@@ -2155,3 +2155,12 @@ afresh. A panel (drawn for each case) and the elders take no tenure. The core ad
 `policy/zestfully_draw_a_hearer_by_lot` (a year, drawn by lot, not renewable) and
 `policy/zestfully_name_a_hearer_for_a_year` (a year, named, renewable), both answering
 `cases_waiting`; whether anyone proposes either, and whether it passes, is people's choice.
+
+Content API 227 (backlog D) adds the `[ties]` act `repaid_others`: what hearing that another's
+household repaid in full what a third household lent it (or that their workshop paid the wages it
+owed when they fell due, or that their household, called on as guarantor, paid the lender what it
+could) writes into the hearer's tie to that household's elder. A debt kept is now word told as a
+loan failed is (the creditor's people hold it at first hand; told at home and at the hearth for
+`word.news_days`, by `word.share_home` and `word.share_routine`, and never by the household whose
+word it was), and each who hears it for the first time notes the act; nobody notes it of their own
+household's elder. The core writes it as good evidence of 0.5 in `word`, half of `repaid`.

@@ -619,6 +619,11 @@ acts = [
   # word half as heavily as failing one's own household does (08-07 §5.3: repayment observed
   # spreads by meeting; as `took_from_others` weighs a third of `took_from_us`; a design prior).
   { act = "defaulted_others", familiarity = 0.0, warmth = 0.0, domain = "word", good = 0.0, bad = 1.0 },
+  # Backlog D (content API 227): hearing that another's household repaid in full what a third
+  # household lent it (or that their workshop paid the wages it owed, or that they paid what they
+  # had promised as guarantor) keeps their word half as well as repaying one's own household does,
+  # as hearing of a default weighs half of suffering one (08-07 §5.3; a design prior).
+  { act = "repaid_others", familiarity = 0.0, warmth = 0.0, domain = "word", good = 0.5, bad = 0.0 },
 ]
 
 [standing]                       # standing and notables (ADR-0014 §3-4); tuning values

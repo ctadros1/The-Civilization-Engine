@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 226
+kernel_content_api = 227
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -4278,4 +4278,23 @@ fn a_hearer_may_hold_for_a_term_or_be_drawn_by_lot() {
             bad.diagnostics
         );
     }
+}
+
+#[test]
+fn the_core_weighs_a_debt_kept_heard_of_at_half_one_repaid() {
+    // Backlog D (content API 227): word of a debt kept keeps the debtor's word with those who
+    // hear it, half as well as with the household it repaid.
+    use civ_agents::ties::{Act, Domain};
+    let reg = registry(load(&repo_content()));
+    let acts = &reg.people.params.ties.acts;
+    let heard = acts[Act::RepaidOthers as usize];
+    let repaid = acts[Act::Repaid as usize];
+    assert_eq!(heard.domain, Some(Domain::Word));
+    assert_eq!((heard.good, heard.bad), (0.5, 0.0));
+    assert_eq!((heard.familiarity, heard.warmth), (0.0, 0.0));
+    assert_eq!(heard.good * 2.0, repaid.good);
+    assert_eq!(
+        heard,
+        civ_agents::ties::TieParams::core().acts[Act::RepaidOthers as usize]
+    );
 }

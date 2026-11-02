@@ -119,6 +119,11 @@ pub enum Act {
     /// another household lent it, or that the other's workshop did not pay the wages it owed
     /// (backlog D: word of a default travels by contact; research 08-07 §5.3).
     DefaultedOthers,
+    /// The holder heard that the other's household repaid in full what another household lent
+    /// it, that the other's workshop paid the wages it owed, or that the other's household paid
+    /// what it had promised as guarantor (backlog D: word of a debt kept travels as word of one
+    /// failed does; research 08-07 §5.3).
+    RepaidOthers,
 }
 
 impl Act {
@@ -149,6 +154,7 @@ impl Act {
         Act::TendedLived,
         Act::TendedDied,
         Act::DefaultedOthers,
+        Act::RepaidOthers,
     ];
 
     /// Its number in saves.
@@ -189,6 +195,7 @@ impl Act {
             Act::TendedLived => "tended_lived",
             Act::TendedDied => "tended_died",
             Act::DefaultedOthers => "defaulted_others",
+            Act::RepaidOthers => "repaid_others",
         }
     }
 
@@ -199,7 +206,7 @@ impl Act {
 }
 
 /// Number of acts.
-pub const ACTS: usize = 25;
+pub const ACTS: usize = 26;
 
 /// What one act writes into its holder's tie, for each unit of it (an act, or an hour for
 /// [`Act::LearnedFrom`] and [`Act::Hearth`]). Authored in content as tuning values.
@@ -315,6 +322,7 @@ impl TieParams {
             w(0.05, 0.05, Some(Domain::Craft), 1.0),
             bad(Domain::Craft, 1.0),
             bad(Domain::Word, 1.0),
+            w(0.0, 0.0, Some(Domain::Word), 0.5),
         ];
         p
     }
@@ -361,6 +369,7 @@ impl Reason {
             Act::TendedLived => "tended one of their household, who lived",
             Act::TendedDied => "tended one of their household, who died",
             Act::DefaultedOthers => "did not repay what another household lent, as they heard",
+            Act::RepaidOthers => "paid another household what they owed it, as they heard",
         };
         let date = civ_core::time::SimTime::from_minutes(self.day * 1440).date();
         let month = civ_land::weather::MONTH_NAMES[usize::from(date.month.clamp(1, 12)) - 1];

@@ -27,7 +27,9 @@ fn claim_key(c: &Claim) -> u64 {
         | ClaimKind::Raid
         | ClaimKind::BandSeen
         | ClaimKind::Candidacy
-        | ClaimKind::Defaulted => c.subject.map_or(0, PermanentId::get),
+        | ClaimKind::Defaulted
+        | ClaimKind::Repaid
+        | ClaimKind::GuarantorPaid => c.subject.map_or(0, PermanentId::get),
         _ => c.settlement.get(),
     };
     let event = c.event.map_or(0, |e| u64::from(e).rotate_left(8));
@@ -46,8 +48,9 @@ pub(super) fn hearth_chance(c: &Claim, day: i64, wp: &crate::word::WordParams) -
         Some(wp.share_urgent)
     } else if matches!(
         c.kind,
-        ClaimKind::Fire | ClaimKind::Raid | ClaimKind::BandSeen | ClaimKind::Defaulted
-    ) || fresh_finding(c, day, wp)
+        ClaimKind::Fire | ClaimKind::Raid | ClaimKind::BandSeen
+    ) || c.kind.of_a_debt()
+        || fresh_finding(c, day, wp)
     {
         Some(wp.share_routine)
     } else if c.kind.held_news() {
@@ -95,6 +98,15 @@ impl Population {
     /// the worse of. The creditor's people hold it at first hand, as they noted it; it concerns
     /// the debtor's settlement (or, for a workshop, the creditor's), where it is told as news.
     pub(super) fn default_word(&mut self, loan: u32, elder: PermanentId, day: i64) {
+        self.debt_word(ClaimKind::Defaulted, loan, elder, day);
+    }
+
+    /// Word of claim `loan` in the credit book on `day`, of kind `kind` (a default, a repayment
+    /// or a guarantor's payment; backlog D): `elder` is the elder of the household whose word it
+    /// was. The creditor's people hold it at first hand, as they saw it; it concerns `elder`'s
+    /// settlement (else the creditor's), where it is told as news. A claim of the common store
+    /// names no household to hold it first and is not told.
+    pub(super) fn debt_word(&mut self, kind: ClaimKind, loan: u32, elder: PermanentId, day: i64) {
         let Some(c) = self.order.credit.claims.iter().find(|c| c.id == loan) else {
             return;
         };
@@ -118,7 +130,7 @@ impl Population {
             fire: None,
             event: Some(loan),
             id: 0,
-            kind: ClaimKind::Defaulted,
+            kind,
             settlement,
             day,
             subject: Some(elder),
@@ -131,22 +143,25 @@ impl Population {
     }
 
     /// What hearing claim `claim` for the first time teaches `listener`: of a default, they think
-    /// the worse of the elder of the household that owed, unless that is their own household
-    /// (nobody thinks the worse of their own for it, as of a taking).
+    /// the worse of the elder of the household that owed; of a debt repaid, or a guarantor's
+    /// promise kept, the better of the elder whose word was kept; unless that is their own
+    /// household (nobody learns of their own household's word from hearsay, as of a taking).
     pub(super) fn learn_of_claim(&mut self, ctx: &Ctx, listener: PermanentId, claim: u32) {
-        let Some(elder) = self
-            .word
-            .claim(claim)
-            .filter(|c| c.kind == ClaimKind::Defaulted)
-            .and_then(|c| c.subject)
-        else {
+        let Some((act, elder)) = self.word.claim(claim).and_then(|c| {
+            let act = match c.kind {
+                ClaimKind::Defaulted => Act::DefaultedOthers,
+                ClaimKind::Repaid | ClaimKind::GuarantorPaid => Act::RepaidOthers,
+                _ => return None,
+            };
+            Some((act, c.subject?))
+        }) else {
             return;
         };
         let own = |q: PermanentId| self.person(q).map(|p| p.household);
         if elder == listener || own(elder).is_some_and(|h| own(listener) == Some(h)) {
             return;
         }
-        self.note_tie(ctx, listener, elder, Act::DefaultedOthers, 1.0, 0.0);
+        self.note_tie(ctx, listener, elder, act, 1.0, 0.0);
     }
 
     /// Word that a gathering meets at `settlement` on `meets` (about law `law`, if called on one):
@@ -377,7 +392,7 @@ impl Population {
 
     /// `listener` hears claim `claim` from `teller` on `day`; word of a raid on their own
     /// settlement sets their household weighing where to live at once (ADR-0023 §10), and word of
-    /// a default is learnt from ([`Self::learn_of_claim`]).
+    /// a debt kept or failed is learnt from ([`Self::learn_of_claim`]).
     pub(super) fn hear_told(
         &mut self,
         ctx: &Ctx,
@@ -407,7 +422,8 @@ impl Population {
     /// `a` and `b` keep company at the hearth: each tells the other of a gathering ahead, and of a
     /// household's sickness still news, that they heard of and the other has not, and of the
     /// grievances they hold keenly, each by the content's chance (ADR-0016 §3; ADR-0021 §6).
-    /// Nobody tells of their own household's default (kin shield their own, as of a taking).
+    /// Nobody tells of their own household's debt kept or failed: kin shield their own default,
+    /// as a taking, and word of a debt kept is the creditor's to tell, not the debtor's own.
     pub(crate) fn share_word(&mut self, ctx: &Ctx, a: PermanentId, b: PermanentId) {
         let wp = &ctx.params.word;
         let day = ctx.now.day_index();
@@ -419,7 +435,7 @@ impl Population {
                     .word
                     .claim(h.claim)
                     .filter(|c| {
-                        c.kind != ClaimKind::Defaulted
+                        !c.kind.of_a_debt()
                             || c.subject
                                 .and_then(own)
                                 .is_none_or(|x| own(teller) != Some(x))

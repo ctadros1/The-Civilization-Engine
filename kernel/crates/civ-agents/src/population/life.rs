@@ -1056,8 +1056,9 @@ impl Population {
     /// Household `from` joins household `to`: its members, stores, water, what it knows of the
     /// land, and its plots and buildings, and with `fields` its fields too (when its people move
     /// with them; the fields of a household that is no more go by the regime's succession rule
-    /// instead), what it has in transit, and its boats and carts where its people can reach them
-    /// ([`Population::vehicles_pass`]). `from` is no more.
+    /// instead), what it has in transit, and its boats and carts and the works it keeps where its
+    /// people can reach them ([`Population::vehicles_pass`], [`Population::works_pass`]). `from`
+    /// is no more.
     fn merge_household(
         &mut self,
         ctx: &mut Ctx,
@@ -1147,6 +1148,9 @@ impl Population {
         self.sort_members(to);
         self.hand_over_land(ctx, from, Some(to), fields);
         self.vehicles_pass(ctx, (from, to), near, door);
+        if near {
+            self.works_pass(ctx, (from, to));
+        }
     }
 
     /// The land of household `from` passes to `to`, or, with no one to take it, stays as it is
@@ -1185,6 +1189,15 @@ impl Population {
         for p in ctx.land.plots.iter_mut().filter(|p| p.household == from) {
             p.household = to;
         }
+        // The platforms levelling them go with them (backlog D, fourth item).
+        for e in ctx
+            .land
+            .earthworks
+            .iter_mut()
+            .filter(|e| e.household == from && e.kind == civ_land::earth::EarthKind::Platform)
+        {
+            e.household = to;
+        }
         // And its wells (M6a slice AY, step three).
         for w in ctx
             .land
@@ -1209,6 +1222,67 @@ impl Population {
             super::shelter_with(&self.letting.lets, ctx.land, ctx.catalog, ctx.params, to);
         if let Some(x) = self.household_mut(to) {
             (x.sheltered, x.keeping) = shelter;
+        }
+    }
+
+    /// Household `from` is no more and its people joined household `to` of the settlement `from`
+    /// lived in (backlog D, fourth item): what `from` made and keeps on the land there passes to
+    /// `to`, as its boats and carts do, where its people can still reach it. Its footbridges that
+    /// stand or have fallen; the stretches of way it keeps, built as wide as they are to be; its
+    /// pits and their heaps, and its ditches and banks once dug; the engines it set at pits; and
+    /// its water wheels whose headraces are dug. What is still being made stays as it is: a
+    /// footbridge being built is taken over by a household whose wades repay it, the heir among
+    /// them, and a way, ditch, bank or headrace not yet finished stays its own, as it did, since
+    /// the work left was weighed by `from`'s own reckoning (what its trips lost, what its fields
+    /// lacked). A line of track stays with its wagons, which do not pass. Nothing passes to a
+    /// household of another settlement.
+    fn works_pass(&mut self, ctx: &mut Ctx, (from, to): (PermanentId, PermanentId)) {
+        use civ_land::crossings::{CrossingOwner, CrossingState};
+        use civ_land::earth::EarthKind;
+        use civ_land::ways::{Keeper, RAIL};
+        let land = &mut *ctx.land;
+        for c in land.crossings.list.iter_mut().filter(|c| {
+            c.owner == CrossingOwner::Household(from)
+                && !matches!(c.state, CrossingState::Building { .. })
+        }) {
+            // Who owns a crossing does not change any route, so the revision routes follow
+            // stays as it is; the observer's panel reads the owner itself.
+            c.owner = CrossingOwner::Household(to);
+        }
+        let mut ways = false;
+        for w in land.ways.list.iter_mut().filter(|w| w.modes & RAIL == 0) {
+            for s in w
+                .segments
+                .iter_mut()
+                .filter(|s| s.keeper == Keeper::Household(from) && s.built_m + 1e-3 >= s.corridor_m)
+            {
+                s.keeper = Keeper::Household(to);
+                ways = true;
+            }
+        }
+        if ways {
+            land.ways.changed();
+        }
+        // A wheel's headrace is an earthwork of the wheel's own id: once dug, it passes with it.
+        let ready: Vec<PermanentId> = (0..land.installations.len())
+            .filter(|&i| land.installations[i].owner == from && land.installation_ready(i))
+            .map(|i| land.installations[i].id)
+            .collect();
+        for x in land
+            .installations
+            .iter_mut()
+            .filter(|x| ready.contains(&x.id))
+        {
+            x.owner = to;
+        }
+        for e in land.earthworks.iter_mut().filter(|e| {
+            e.household == from
+                && (matches!(e.kind, EarthKind::Pit | EarthKind::Spoil) || e.done >= 1.0)
+        }) {
+            e.household = to;
+        }
+        for e in land.engines.iter_mut().filter(|e| e.owner == from) {
+            e.owner = to;
         }
     }
 

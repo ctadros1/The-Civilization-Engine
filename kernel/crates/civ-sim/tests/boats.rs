@@ -3,7 +3,8 @@
 //! above its draft, by the quickest way the oracle also finds; a boat is a record that belongs to
 //! a household, stands at a bank, ages by the day, is gone once its life is spent, and saves and
 //! goes on alike. A household that is no more passes its boats and carts to the household its
-//! people join in the same settlement, and its loads in transit wherever that is (backlog D).
+//! people join in the same settlement, and its loads in transit wherever that is (backlog D); and
+//! there, too, the works it keeps on the land, finished, and its platforms wherever it goes.
 
 use std::path::Path;
 use std::sync::OnceLock;
@@ -428,4 +429,265 @@ fn a_household_no_more_passes_its_boats_carts_and_loads_to_the_household_its_peo
         "the load is `c`'s now"
     );
     saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+/// An earthwork of `household` of kind `kind`, `done` of the way, its id `id`.
+fn earthwork(
+    id: civ_core::PermanentId,
+    kind: civ_land::earth::EarthKind,
+    household: civ_core::PermanentId,
+    done: f32,
+) -> civ_land::earth::Earthwork {
+    civ_land::earth::Earthwork {
+        id,
+        kind,
+        rect: civ_land::RectCm {
+            x: 1_000,
+            y: 1_000,
+            w: 400,
+            h: 400,
+        },
+        level_cm: 0,
+        side_run_cm: 150,
+        plot: None,
+        deposit: None,
+        heap: None,
+        household,
+        cut_m3: 1.0,
+        done,
+        version: 0,
+        begun: civ_core::SimTime::from_minutes(0),
+    }
+}
+
+/// A one-segment way along `cells` serving `modes`, kept by `keeper`, built `built_m` of a
+/// 2 m corridor.
+fn kept_way(
+    id: civ_core::PermanentId,
+    cells: Vec<u32>,
+    modes: u8,
+    keeper: civ_land::ways::Keeper,
+    built_m: f32,
+) -> civ_land::ways::Way {
+    use civ_land::ways::{Rank, Segment, Surface, Way};
+    Way {
+        id,
+        begun: 0,
+        segments: vec![Segment {
+            cells,
+            corridor_m: 2.0,
+            built_m,
+            usable_m: built_m,
+            surface: Surface::Cleared,
+            keeper,
+            kept: 0,
+        }],
+        modes,
+        trips: 0.0,
+        trips_day: 0,
+        rank: Rank::Lane,
+        track: None,
+    }
+}
+
+#[test]
+fn a_household_no_more_passes_the_works_it_keeps_to_the_household_its_people_join_nearby() {
+    use civ_land::crossings::{Crossing, CrossingOwner, CrossingState};
+    use civ_land::earth::EarthKind;
+    use civ_land::ways::{CART, Keeper, RAIL, WALK};
+    let mut sim = Sim::create_for_tests(
+        &NewWorld {
+            name: "Heirs".to_owned(),
+            seed: 1,
+            preset_id: PRESET.to_owned(),
+            size_cells: 768,
+            band_size: 30,
+            neighbours: vec![0],
+            neighbours_known: true,
+            regime_id: String::new(),
+        },
+        content(),
+        [11; 16],
+    )
+    .expect("generates");
+    assert_eq!(sim.land().settlements.len(), 2);
+    let households: Vec<(civ_core::PermanentId, Option<civ_core::PermanentId>)> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| (x.id, x.settlement))
+        .collect();
+    let (a, settlement) = households[0];
+    let (b, _) = *households
+        .iter()
+        .find(|h| h.0 != a && h.1 == settlement)
+        .expect("a second household of the settlement");
+    let (c, _) = *households
+        .iter()
+        .find(|h| h.1.is_some() && h.1 != settlement)
+        .expect("a household of the other settlement");
+    let system = sim
+        .rules()
+        .catalog
+        .bridge_index("core:bridge/log_beam")
+        .expect("a log footbridge") as u16;
+    let ids: Vec<civ_core::PermanentId> = (0..16).map(|_| sim.allocate_id_for_tests()).collect();
+    let now = sim.now();
+    let crossing = |id, state| Crossing {
+        id,
+        system,
+        banks: [10, 12],
+        cells: vec![11],
+        span_m: 4.0,
+        members: 2,
+        diameter_cm: 30.0,
+        quality: 1.0,
+        loss: 0.0,
+        owner: CrossingOwner::Household(a),
+        labour_h: 80.0,
+        skill_h: 0.0,
+        begun: now,
+        state,
+        shares: Vec::new(),
+        crew: (0, 0),
+    };
+    let wheel = |id| civ_land::power::Installation {
+        id,
+        reach: 0,
+        at: [10.0, 10.0],
+        head_m: 2.0,
+        race_m3s: 0.5,
+        efficiency: 0.3,
+        rated_kw: 3.0,
+        owner: a,
+        building: None,
+    };
+    let land = sim.land_mut_for_tests();
+    // `a` keeps a footbridge that stands, one fallen and one being built (20 of 80 hours).
+    land.crossings
+        .list
+        .push(crossing(ids[0], CrossingState::Open { since: 0 }));
+    land.crossings.list.push(crossing(
+        ids[1],
+        CrossingState::Failed {
+            day: 0,
+            why: civ_land::crossings::Collapse::OwnWeight,
+        },
+    ));
+    land.crossings
+        .list
+        .push(crossing(ids[2], CrossingState::Building { work_h: 20.0 }));
+    // A way it laid as wide as it is to be, a passing place it is still widening, its line of
+    // track, and a way `b` keeps.
+    land.ways.add(kept_way(
+        ids[3],
+        vec![100, 101, 102],
+        WALK | CART,
+        Keeper::Household(a),
+        2.0,
+    ));
+    land.ways.add(kept_way(
+        ids[4],
+        vec![200],
+        WALK | CART,
+        Keeper::Household(a),
+        1.0,
+    ));
+    land.ways.add(kept_way(
+        ids[5],
+        vec![300, 301],
+        RAIL,
+        Keeper::Household(a),
+        2.0,
+    ));
+    land.ways.add(kept_way(
+        ids[6],
+        vec![400],
+        WALK | CART,
+        Keeper::Household(b),
+        2.0,
+    ));
+    // Its earthworks: a platform being levelled, a pit and its heap, a bank dug and one half
+    // dug; an engine at the pit; a wheel without a headrace and one whose race is half dug.
+    land.earthworks
+        .push(earthwork(ids[7], EarthKind::Platform, a, 0.5));
+    land.earthworks
+        .push(earthwork(ids[8], EarthKind::Pit, a, 0.2));
+    land.earthworks
+        .push(earthwork(ids[9], EarthKind::Spoil, a, 0.2));
+    land.earthworks
+        .push(earthwork(ids[10], EarthKind::Bank, a, 1.0));
+    land.earthworks
+        .push(earthwork(ids[11], EarthKind::Bank, a, 0.4));
+    land.engines.push(civ_land::power::Engine {
+        id: ids[12],
+        pit: ids[8],
+        owner: a,
+        rated_kw: 5.0,
+        efficiency: 0.01,
+    });
+    land.installations.push(wheel(ids[13]));
+    land.installations.push(wheel(ids[14]));
+    land.earthworks
+        .push(earthwork(ids[14], EarthKind::Ditch, a, 0.5));
+    let ways_rev = sim.land().ways.revision();
+    let crossings_rev = sim.land().crossings.revision();
+    // `a`'s people join `b`, of the same settlement: what `a` finished passes to `b`.
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, a, b));
+    assert!(sim.people().household(a).is_none(), "`a` is no more");
+    let land = sim.land();
+    let owners: Vec<CrossingOwner> = land.crossings.list.iter().map(|x| x.owner).collect();
+    assert_eq!(
+        owners,
+        vec![
+            CrossingOwner::Household(b),
+            CrossingOwner::Household(b),
+            CrossingOwner::Household(a),
+        ],
+        "the footbridge being built is left for whoever takes it over"
+    );
+    assert_eq!(
+        land.crossings.revision(),
+        crossings_rev,
+        "routes are not changed by whose a footbridge is"
+    );
+    let keepers: Vec<Keeper> = land
+        .ways
+        .list
+        .iter()
+        .map(|w| w.segments[0].keeper)
+        .collect();
+    assert_eq!(
+        keepers,
+        vec![
+            Keeper::Household(b),
+            Keeper::Household(a),
+            Keeper::Household(a),
+            Keeper::Household(b),
+        ],
+        "the way laid passes; the passing place being widened and the line do not"
+    );
+    assert_ne!(land.ways.revision(), ways_rev);
+    let held: Vec<civ_core::PermanentId> = land.earthworks.iter().map(|e| e.household).collect();
+    assert_eq!(
+        held,
+        vec![b, b, b, b, a, a],
+        "all but what is still being dug"
+    );
+    assert_eq!(land.engines[0].owner, b);
+    let wheels: Vec<civ_core::PermanentId> = land.installations.iter().map(|x| x.owner).collect();
+    assert_eq!(wheels, vec![b, a], "the wheel whose race is half dug stays");
+    // `b`'s people join `c`, of the other settlement: only the platform passes, with the plots
+    // it levels; the rest stands as it was, `b`'s still, which nobody now reaches.
+    let ways_rev = sim.land().ways.revision();
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, b, c));
+    let land = sim.land();
+    assert_eq!(land.crossings.list[0].owner, CrossingOwner::Household(b));
+    assert_eq!(land.ways.list[0].segments[0].keeper, Keeper::Household(b));
+    assert_eq!(land.ways.list[3].segments[0].keeper, Keeper::Household(b));
+    assert_eq!(land.ways.revision(), ways_rev);
+    let held: Vec<civ_core::PermanentId> = land.earthworks.iter().map(|e| e.household).collect();
+    assert_eq!(held, vec![c, b, b, b, a, a]);
+    assert_eq!(land.engines[0].owner, b);
+    assert_eq!(land.installations[0].owner, b);
 }

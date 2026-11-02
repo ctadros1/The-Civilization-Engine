@@ -2326,6 +2326,20 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                         })
                         .collect();
                     let connections = fbb.create_vector(&connections);
+                    // Its wear and mending (ADR-0044 §5).
+                    let unserved: Vec<save::SewerUnservedSave> = w
+                        .connections
+                        .iter()
+                        .map(|c| {
+                            save::SewerUnservedSave::new(
+                                c.unserved[0],
+                                c.unserved[1],
+                                c.unserved[2],
+                            )
+                        })
+                        .collect();
+                    let unserved = (!unserved.is_empty()).then(|| fbb.create_vector(&unserved));
+                    let loss = (!w.loss.is_empty()).then(|| fbb.create_vector(&w.loss));
                     save::SewerSave::create(
                         &mut fbb,
                         &save::SewerSaveArgs {
@@ -2337,7 +2351,6 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             length_m: w.length_m,
                             laid_m: w.laid_m,
                             capacity_kg_day: w.capacity_kg_day,
-                            broken: w.broken,
                             keeper: w.keeper.map_or(0, PermanentId::get),
                             connections: Some(connections),
                             day: w.day,
@@ -2345,6 +2358,14 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             settled_kg: w.settled_kg,
                             farm: w.farm.map_or(0, PermanentId::get),
                             farm_kg: w.farm_kg,
+                            deposited_kg: w.deposited_kg,
+                            deposit_kg: w.deposit_kg,
+                            loss,
+                            broken_cell: w.broken.map_or(0, |b| b + 1),
+                            clear_kg: w.clear_kg,
+                            reline: w.reline,
+                            relined_m: w.relined_m,
+                            unserved,
                         },
                     )
                 })
@@ -3648,20 +3669,59 @@ fn decode_polities(
         for w in p.sewers().iter().flatten() {
             let sewer = required(w.id(), "a sewer")?;
             let (entered_kg, settled_kg, farm_kg) = (w.entered_kg(), w.settled_kg(), w.farm_kg());
-            if !(entered_kg.is_finite()
-                && settled_kg.is_finite()
-                && farm_kg.is_finite()
-                && entered_kg >= 0.0
-                && settled_kg >= 0.0
-                && farm_kg >= 0.0
+            let (deposited_kg, deposit_kg, clear_kg) =
+                (w.deposited_kg(), w.deposit_kg(), w.clear_kg());
+            if !([
+                entered_kg,
+                settled_kg,
+                farm_kg,
+                deposited_kg,
+                deposit_kg,
+                clear_kg,
+            ]
+            .iter()
+            .all(|v| v.is_finite() && *v >= 0.0)
+                && w.relined_m().is_finite()
+                && w.relined_m() >= 0.0
                 && w.length_m().is_finite()
                 && w.laid_m().is_finite()
                 && w.capacity_kg_day().is_finite())
             {
                 return Err(bad(format!("polity {id}'s sewer {sewer} is malformed")));
             }
+            // Its wear (ADR-0044 §5, appended within saves 220): all new, in older saves; where it
+            // is broken must be a collapsed cell.
+            let cells: Vec<u32> = w.cells().map(|v| v.iter().collect()).unwrap_or_default();
+            let loss: Vec<f32> = match w.loss() {
+                Some(v) => v.iter().collect(),
+                None => vec![0.0; cells.len()],
+            };
+            let broken = w.broken_cell().checked_sub(1);
+            if loss.len() != cells.len()
+                || !loss
+                    .iter()
+                    .all(|l| l.is_finite() && (0.0..=1.0).contains(l))
+                || broken.is_some_and(|b| loss.get(b as usize).is_none_or(|&l| l < 1.0))
+            {
+                return Err(bad(format!(
+                    "polity {id}'s sewer {sewer} has a malformed wear"
+                )));
+            }
+            let unserved: Vec<[u16; 3]> = w
+                .unserved()
+                .map(|v| {
+                    v.iter()
+                        .map(|u| [u.overloaded(), u.broken(), u.blocked()])
+                        .collect()
+                })
+                .unwrap_or_default();
+            if !unserved.is_empty() && unserved.len() != w.connections().map_or(0, |v| v.len()) {
+                return Err(bad(format!(
+                    "polity {id}'s sewer {sewer} has a malformed outage count"
+                )));
+            }
             let mut connections = Vec::new();
-            for c in w.connections().iter().flatten() {
+            for (ci, c) in w.connections().iter().flatten().enumerate() {
                 if !(c.kg().is_finite() && c.kg() >= 0.0) {
                     return Err(bad(format!(
                         "polity {id}'s sewer {sewer} has a malformed connection"
@@ -3674,18 +3734,19 @@ fn decode_polities(
                     day: c.day(),
                     kg: c.kg(),
                     cause: civ_agents::polity::SewerCause::from_code(c.cause()),
+                    unserved: unserved.get(ci).copied().unwrap_or([0; 3]),
                 });
             }
             sewers.push(civ_agents::polity::Sewer {
                 id: sewer,
                 law: required(w.law(), "a sewer's law")?,
                 begun: w.begun(),
-                cells: w.cells().map(|v| v.iter().collect()).unwrap_or_default(),
+                cells,
                 reach: w.reach(),
                 length_m: w.length_m(),
                 laid_m: w.laid_m(),
                 capacity_kg_day: w.capacity_kg_day(),
-                broken: w.broken(),
+                broken,
                 keeper: PermanentId::from_raw(w.keeper()),
                 connections,
                 day: w.day(),
@@ -3694,6 +3755,12 @@ fn decode_polities(
                 // Its farm (ADR-0044 §4, appended within saves 220): none, in older saves.
                 farm: PermanentId::from_raw(w.farm()),
                 farm_kg,
+                deposited_kg,
+                deposit_kg,
+                loss,
+                clear_kg,
+                reline: w.reline(),
+                relined_m: w.relined_m(),
             });
         }
         // Patron gifts (schema 131, M7c slice BY).

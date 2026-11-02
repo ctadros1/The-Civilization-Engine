@@ -9885,6 +9885,165 @@ impl<'a> CustomVersionSave {
 
 }
 
+// struct SewerUnservedSave, aligned to 2
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct SewerUnservedSave(pub [u8; 6]);
+impl Default for SewerUnservedSave { 
+  fn default() -> Self { 
+    Self([0; 6])
+  }
+}
+impl ::core::fmt::Debug for SewerUnservedSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("SewerUnservedSave")
+      .field("overloaded", &self.overloaded())
+      .field("broken", &self.broken())
+      .field("blocked", &self.blocked())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for SewerUnservedSave {}
+impl<'a> ::flatbuffers::Follow<'a> for SewerUnservedSave {
+  type Inner = &'a SewerUnservedSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a SewerUnservedSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a SewerUnservedSave {
+  type Inner = &'a SewerUnservedSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<SewerUnservedSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for SewerUnservedSave {
+    type Output = SewerUnservedSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const SewerUnservedSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(2)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for SewerUnservedSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> SewerUnservedSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    overloaded: u16,
+    broken: u16,
+    blocked: u16,
+  ) -> Self {
+    let mut s = Self([0; 6]);
+    s.set_overloaded(overloaded);
+    s.set_broken(broken);
+    s.set_blocked(blocked);
+    s
+  }
+
+  pub fn overloaded(&self) -> u16 {
+    let mut mem = ::core::mem::MaybeUninit::<<u16 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_overloaded(&mut self, x: u16) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn broken(&self) -> u16 {
+    let mut mem = ::core::mem::MaybeUninit::<<u16 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[2..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_broken(&mut self, x: u16) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[2..].as_mut_ptr(),
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn blocked(&self) -> u16 {
+    let mut mem = ::core::mem::MaybeUninit::<<u16 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[4..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_blocked(&mut self, x: u16) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[4..].as_mut_ptr(),
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct SewerConnectionSave, aligned to 8
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -44746,7 +44905,6 @@ impl<'a> SewerSave<'a> {
   pub const VT_LENGTH_M: ::flatbuffers::VOffsetT = 14;
   pub const VT_LAID_M: ::flatbuffers::VOffsetT = 16;
   pub const VT_CAPACITY_KG_DAY: ::flatbuffers::VOffsetT = 18;
-  pub const VT_BROKEN: ::flatbuffers::VOffsetT = 20;
   pub const VT_KEEPER: ::flatbuffers::VOffsetT = 22;
   pub const VT_CONNECTIONS: ::flatbuffers::VOffsetT = 24;
   pub const VT_DAY: ::flatbuffers::VOffsetT = 26;
@@ -44754,6 +44912,14 @@ impl<'a> SewerSave<'a> {
   pub const VT_SETTLED_KG: ::flatbuffers::VOffsetT = 30;
   pub const VT_FARM: ::flatbuffers::VOffsetT = 32;
   pub const VT_FARM_KG: ::flatbuffers::VOffsetT = 34;
+  pub const VT_DEPOSITED_KG: ::flatbuffers::VOffsetT = 36;
+  pub const VT_DEPOSIT_KG: ::flatbuffers::VOffsetT = 38;
+  pub const VT_LOSS: ::flatbuffers::VOffsetT = 40;
+  pub const VT_BROKEN_CELL: ::flatbuffers::VOffsetT = 42;
+  pub const VT_CLEAR_KG: ::flatbuffers::VOffsetT = 44;
+  pub const VT_RELINE: ::flatbuffers::VOffsetT = 46;
+  pub const VT_RELINED_M: ::flatbuffers::VOffsetT = 48;
+  pub const VT_UNSERVED: ::flatbuffers::VOffsetT = 50;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -44765,6 +44931,9 @@ impl<'a> SewerSave<'a> {
     args: &'args SewerSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<SewerSave<'bldr>> {
     let mut builder = SewerSaveBuilder::new(_fbb);
+    builder.add_clear_kg(args.clear_kg);
+    builder.add_deposit_kg(args.deposit_kg);
+    builder.add_deposited_kg(args.deposited_kg);
     builder.add_farm_kg(args.farm_kg);
     builder.add_farm(args.farm);
     builder.add_settled_kg(args.settled_kg);
@@ -44774,13 +44943,17 @@ impl<'a> SewerSave<'a> {
     builder.add_begun(args.begun);
     builder.add_law(args.law);
     builder.add_id(args.id);
+    if let Some(x) = args.unserved { builder.add_unserved(x); }
+    builder.add_relined_m(args.relined_m);
+    builder.add_broken_cell(args.broken_cell);
+    if let Some(x) = args.loss { builder.add_loss(x); }
     if let Some(x) = args.connections { builder.add_connections(x); }
     builder.add_capacity_kg_day(args.capacity_kg_day);
     builder.add_laid_m(args.laid_m);
     builder.add_length_m(args.length_m);
     builder.add_reach(args.reach);
     if let Some(x) = args.cells { builder.add_cells(x); }
-    builder.add_broken(args.broken);
+    builder.add_reline(args.reline);
     builder.finish()
   }
 
@@ -44842,13 +45015,6 @@ impl<'a> SewerSave<'a> {
     unsafe { self._tab.get::<f32>(SewerSave::VT_CAPACITY_KG_DAY, Some(0.0)).unwrap()}
   }
   #[inline]
-  pub fn broken(&self) -> bool {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<bool>(SewerSave::VT_BROKEN, Some(false)).unwrap()}
-  }
-  #[inline]
   pub fn keeper(&self) -> u64 {
     // Safety:
     // Created from valid Table for this object
@@ -44897,6 +45063,62 @@ impl<'a> SewerSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f64>(SewerSave::VT_FARM_KG, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn deposited_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(SewerSave::VT_DEPOSITED_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn deposit_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(SewerSave::VT_DEPOSIT_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn loss(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(SewerSave::VT_LOSS, None)}
+  }
+  #[inline]
+  pub fn broken_cell(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SewerSave::VT_BROKEN_CELL, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn clear_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(SewerSave::VT_CLEAR_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn reline(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(SewerSave::VT_RELINE, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn relined_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(SewerSave::VT_RELINED_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn unserved(&self) -> Option<::flatbuffers::Vector<'a, SewerUnservedSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, SewerUnservedSave>>>(SewerSave::VT_UNSERVED, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for SewerSave<'_> {
@@ -44913,7 +45135,6 @@ impl ::flatbuffers::Verifiable for SewerSave<'_> {
      .visit_field::<f32>("length_m", Self::VT_LENGTH_M, false)?
      .visit_field::<f32>("laid_m", Self::VT_LAID_M, false)?
      .visit_field::<f32>("capacity_kg_day", Self::VT_CAPACITY_KG_DAY, false)?
-     .visit_field::<bool>("broken", Self::VT_BROKEN, false)?
      .visit_field::<u64>("keeper", Self::VT_KEEPER, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, SewerConnectionSave>>>("connections", Self::VT_CONNECTIONS, false)?
      .visit_field::<i64>("day", Self::VT_DAY, false)?
@@ -44921,6 +45142,14 @@ impl ::flatbuffers::Verifiable for SewerSave<'_> {
      .visit_field::<f64>("settled_kg", Self::VT_SETTLED_KG, false)?
      .visit_field::<u64>("farm", Self::VT_FARM, false)?
      .visit_field::<f64>("farm_kg", Self::VT_FARM_KG, false)?
+     .visit_field::<f64>("deposited_kg", Self::VT_DEPOSITED_KG, false)?
+     .visit_field::<f64>("deposit_kg", Self::VT_DEPOSIT_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("loss", Self::VT_LOSS, false)?
+     .visit_field::<u32>("broken_cell", Self::VT_BROKEN_CELL, false)?
+     .visit_field::<f64>("clear_kg", Self::VT_CLEAR_KG, false)?
+     .visit_field::<bool>("reline", Self::VT_RELINE, false)?
+     .visit_field::<f32>("relined_m", Self::VT_RELINED_M, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, SewerUnservedSave>>>("unserved", Self::VT_UNSERVED, false)?
      .finish();
     Ok(())
   }
@@ -44934,7 +45163,6 @@ pub struct SewerSaveArgs<'a> {
     pub length_m: f32,
     pub laid_m: f32,
     pub capacity_kg_day: f32,
-    pub broken: bool,
     pub keeper: u64,
     pub connections: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, SewerConnectionSave>>>,
     pub day: i64,
@@ -44942,6 +45170,14 @@ pub struct SewerSaveArgs<'a> {
     pub settled_kg: f64,
     pub farm: u64,
     pub farm_kg: f64,
+    pub deposited_kg: f64,
+    pub deposit_kg: f64,
+    pub loss: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub broken_cell: u32,
+    pub clear_kg: f64,
+    pub reline: bool,
+    pub relined_m: f32,
+    pub unserved: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, SewerUnservedSave>>>,
 }
 impl<'a> Default for SewerSaveArgs<'a> {
   #[inline]
@@ -44955,7 +45191,6 @@ impl<'a> Default for SewerSaveArgs<'a> {
       length_m: 0.0,
       laid_m: 0.0,
       capacity_kg_day: 0.0,
-      broken: false,
       keeper: 0,
       connections: None,
       day: -1,
@@ -44963,6 +45198,14 @@ impl<'a> Default for SewerSaveArgs<'a> {
       settled_kg: 0.0,
       farm: 0,
       farm_kg: 0.0,
+      deposited_kg: 0.0,
+      deposit_kg: 0.0,
+      loss: None,
+      broken_cell: 0,
+      clear_kg: 0.0,
+      reline: false,
+      relined_m: 0.0,
+      unserved: None,
     }
   }
 }
@@ -45005,10 +45248,6 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SewerSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(SewerSave::VT_CAPACITY_KG_DAY, capacity_kg_day, 0.0);
   }
   #[inline]
-  pub fn add_broken(&mut self, broken: bool) {
-    self.fbb_.push_slot::<bool>(SewerSave::VT_BROKEN, broken, false);
-  }
-  #[inline]
   pub fn add_keeper(&mut self, keeper: u64) {
     self.fbb_.push_slot::<u64>(SewerSave::VT_KEEPER, keeper, 0);
   }
@@ -45037,6 +45276,38 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SewerSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f64>(SewerSave::VT_FARM_KG, farm_kg, 0.0);
   }
   #[inline]
+  pub fn add_deposited_kg(&mut self, deposited_kg: f64) {
+    self.fbb_.push_slot::<f64>(SewerSave::VT_DEPOSITED_KG, deposited_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_deposit_kg(&mut self, deposit_kg: f64) {
+    self.fbb_.push_slot::<f64>(SewerSave::VT_DEPOSIT_KG, deposit_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_loss(&mut self, loss: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SewerSave::VT_LOSS, loss);
+  }
+  #[inline]
+  pub fn add_broken_cell(&mut self, broken_cell: u32) {
+    self.fbb_.push_slot::<u32>(SewerSave::VT_BROKEN_CELL, broken_cell, 0);
+  }
+  #[inline]
+  pub fn add_clear_kg(&mut self, clear_kg: f64) {
+    self.fbb_.push_slot::<f64>(SewerSave::VT_CLEAR_KG, clear_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_reline(&mut self, reline: bool) {
+    self.fbb_.push_slot::<bool>(SewerSave::VT_RELINE, reline, false);
+  }
+  #[inline]
+  pub fn add_relined_m(&mut self, relined_m: f32) {
+    self.fbb_.push_slot::<f32>(SewerSave::VT_RELINED_M, relined_m, 0.0);
+  }
+  #[inline]
+  pub fn add_unserved(&mut self, unserved: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , SewerUnservedSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SewerSave::VT_UNSERVED, unserved);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SewerSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SewerSaveBuilder {
@@ -45062,7 +45333,6 @@ impl ::core::fmt::Debug for SewerSave<'_> {
       ds.field("length_m", &self.length_m());
       ds.field("laid_m", &self.laid_m());
       ds.field("capacity_kg_day", &self.capacity_kg_day());
-      ds.field("broken", &self.broken());
       ds.field("keeper", &self.keeper());
       ds.field("connections", &self.connections());
       ds.field("day", &self.day());
@@ -45070,6 +45340,14 @@ impl ::core::fmt::Debug for SewerSave<'_> {
       ds.field("settled_kg", &self.settled_kg());
       ds.field("farm", &self.farm());
       ds.field("farm_kg", &self.farm_kg());
+      ds.field("deposited_kg", &self.deposited_kg());
+      ds.field("deposit_kg", &self.deposit_kg());
+      ds.field("loss", &self.loss());
+      ds.field("broken_cell", &self.broken_cell());
+      ds.field("clear_kg", &self.clear_kg());
+      ds.field("reline", &self.reline());
+      ds.field("relined_m", &self.relined_m());
+      ds.field("unserved", &self.unserved());
       ds.finish()
   }
 }

@@ -140,14 +140,24 @@ fn water_beside(map: &WorldMap, cell: u32) -> f64 {
     z
 }
 
-/// The habitat wetness of the ground at `cell`.
-fn wetness_at(ctx: &Ctx, cell: u32) -> f64 {
+/// The habitat wetness of the ground at `cell` (a well's lining and a sewer's walls wear by it).
+pub(super) fn wetness_at(ctx: &Ctx, cell: u32) -> f64 {
     let patches = &ctx.land.patches;
     patches
         .class
         .get(patches.of_cell(cell as usize, ctx.map.width))
         .and_then(|&c| ctx.land_params.habitats.get(usize::from(c)))
         .map_or(1.0, |h| h.wetness)
+}
+
+/// The rain and snow of the month just lived against its usual, as wear in the weather takes it
+/// ([`condition::WET_WEAR`]).
+pub(super) fn month_rain(ctx: &Ctx) -> f64 {
+    ctx.land
+        .weather
+        .last_month_wetness(&ctx.land.climatology)
+        .unwrap_or(1.0)
+        .clamp(condition::WET_WEAR.0, condition::WET_WEAR.1)
 }
 
 /// The water table's head under `cell`, and the rate a column of well system `def` there refills
@@ -456,12 +466,7 @@ impl Population {
     /// were (as for posts' feet, ADR-0012 §5): one whose lining rot has taken all its quality
     /// left falls in.
     pub(super) fn wells_month(&mut self, ctx: &mut Ctx) {
-        let rain = ctx
-            .land
-            .weather
-            .last_month_wetness(&ctx.land.climatology)
-            .unwrap_or(1.0)
-            .clamp(condition::WET_WEAR.0, condition::WET_WEAR.1);
+        let rain = month_rain(ctx);
         for i in 0..ctx.land.wells.list.len() {
             let w = ctx.land.wells.list[i];
             if !w.is_open() {

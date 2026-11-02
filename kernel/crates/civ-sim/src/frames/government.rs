@@ -1797,6 +1797,9 @@ pub fn services_words(sim: &Sim, polity: &civ_agents::polity::Polity) -> Vec<Str
 /// 300 m south of the hearth; 18 homes joined; 140 kg a day to the river", with what its tank
 /// settles, what its farm takes onto whose field (ADR-0044 §4: "25 kg spread on a field of Bo's
 /// household as a farm"), how many it could not take, and while it is laid, how much of it is.
+/// Its wear and mending (ADR-0044 §5): where it is broken and how many homes back up above the
+/// break, how many back up for its silt, the silt it holds, its most worn stretch, the days this
+/// year its homes went unserved by cause, and the mending its polity asked.
 pub fn sewer_words(
     sim: &Sim,
     polity: &civ_agents::polity::Polity,
@@ -1835,8 +1838,25 @@ pub fn sewer_words(
         words.push_str(&format!("; {:.0} m of it laid", sewer.laid_m));
         return words;
     }
-    if sewer.broken {
-        words.push_str("; broken");
+    let today_backed = |cause: SewerCause| {
+        sewer
+            .connections
+            .iter()
+            .filter(|c| c.day == sewer.day && c.cause == cause)
+            .count()
+    };
+    if let Some(b) = sewer.broken {
+        words.push_str(&format!(
+            "; broken {}",
+            place(sewer.cells.get(b as usize)).replace("by the hearth", "at the hearth")
+        ));
+        let above = today_backed(SewerCause::Broken);
+        if above > 0 {
+            words.push_str(&format!(
+                ", {above} home{} above it backing up",
+                if above == 1 { "" } else { "s" }
+            ));
+        }
     }
     let n = sewer.connections.len();
     words.push_str(&format!(
@@ -1853,10 +1873,67 @@ pub fn sewer_words(
     if full > 0 {
         words.push_str(&format!(", {full} it could not take"));
     }
+    let silted = today_backed(SewerCause::Blocked);
+    if silted > 0 {
+        words.push_str(&format!(", {silted} backing up for its silt"));
+    }
+    if sewer.deposit_kg >= 0.5 {
+        words.push_str(&format!("; {} of silt in it", tonnes(sewer.deposit_kg)));
+    }
+    if let Some((i, loss)) = sewer.worst().filter(|w| w.1 > 0.0) {
+        let pct = f64::from(loss) * 100.0;
+        words.push_str(&format!(
+            "; its most worn stretch, {}, {} worn through",
+            place(sewer.cells.get(i)),
+            if pct < 1.0 {
+                "less than 1 %".to_owned()
+            } else {
+                format!("{pct:.0} %")
+            }
+        ));
+    }
+    // Days unserved this year, home by home, by cause.
+    let year = sewer.day.div_euclid(civ_core::time::DAYS_PER_YEAR);
+    let mut days = [0u32; 3];
+    for c in sewer
+        .connections
+        .iter()
+        .filter(|c| c.day >= 0 && c.day.div_euclid(civ_core::time::DAYS_PER_YEAR) == year)
+    {
+        for (d, &u) in days.iter_mut().zip(&c.unserved) {
+            *d += u32::from(u);
+        }
+    }
+    let unserved: Vec<String> = [
+        (days[0], "for want of room"),
+        (days[1], "for its break"),
+        (days[2], "for its silt"),
+    ]
+    .iter()
+    .filter(|(d, _)| *d > 0)
+    .map(|(d, why)| format!("{d} day{} {why}", if *d == 1 { "" } else { "s" }))
+    .collect();
+    if !unserved.is_empty() {
+        words.push_str(&format!(
+            "; this year its homes went unserved {}",
+            unserved.join(", ")
+        ));
+    }
+    if sewer.reline {
+        words.push_str("; the polity asks its break relined");
+    }
+    if sewer.clear_kg > 0.0 {
+        words.push_str(&format!(
+            "; the polity asks {} of its silt cleared",
+            tonnes(sewer.clear_kg)
+        ));
+    }
     if sewer.day >= 0 {
         words.push_str(&format!(
             "; {} a day to the river",
-            tonnes((sewer.entered_kg - sewer.settled_kg - sewer.farm_kg).max(0.0))
+            tonnes(
+                (sewer.entered_kg - sewer.deposited_kg - sewer.settled_kg - sewer.farm_kg).max(0.0)
+            )
         ));
         if sewer.settled_kg > 0.0 {
             words.push_str(&format!(", {} settled as sludge", tonnes(sewer.settled_kg)));

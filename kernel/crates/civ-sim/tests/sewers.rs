@@ -8,6 +8,11 @@
 //! whose last harvest its soil held back, takes what leaves the tank up to its area's limit, into
 //! its soil as dung and its loads to its own node, washing to a well beside it; mass and loads are
 //! conserved through tank, farm and reach; its crop rises only where the soil held it back.
+//! Wear, silt and mending (ADR-0044 §5): a deposit takes the sewer's room and the last connected
+//! back up first; a cell worn through breaks it there and only the homes above it heap; clearing
+//! turns the deposit into sludge, all of it, and mends no collapse, and relining rebuilds a cell
+//! and clears nothing; the polity asks mending under the law that laid the sewer and not after it
+//! ended; outage days are kept by cause; and all of it saves and loads exactly.
 
 use std::path::Path;
 use std::sync::OnceLock;
@@ -581,8 +586,14 @@ fn a_sewer_serves_its_connections_in_order_while_its_capacity_lasts() {
         sim.people().contagion.load(Node::Midden(order[1]), d),
         500.0
     );
-    // Broken, it serves nobody.
-    sim.people_mut_for_tests().polities[0].sewers[0].broken = true;
+    // Broken at its outfall (ADR-0044 §5: where its collapse nearest the outfall is), it serves
+    // nobody.
+    {
+        let s = &mut sim.people_mut_for_tests().polities[0].sewers[0];
+        let last = s.cells.len() - 1;
+        s.loss[last] = 1.0;
+        s.broken = Some(last as u32);
+    }
     sim.with_ctx_for_tests(|pop, ctx| pop.sewer_day_for_tests(ctx, &[]));
     let s = &sim.people().polities[0].sewers[0];
     assert!(s.connections.iter().all(|c| c.cause == SewerCause::Broken));
@@ -610,7 +621,8 @@ fn a_settling_tank_keeps_its_share_as_sludge_with_that_share_of_each_disease() {
     let share = f64::from(def.settle_share);
     assert!((share - 0.5).abs() < 1e-9, "the prior");
     assert!(s.entered_kg > 0.0);
-    assert!((s.settled_kg - share * s.entered_kg).abs() < 1e-9);
+    // It settles its share of what is left once the deposit stays (ADR-0044 §5).
+    assert!((s.settled_kg - share * (s.entered_kg - s.deposited_kg)).abs() < 1e-9);
     let held = sim.people().polities[0].stores[sludge];
     assert!(
         (held - s.settled_kg).abs() < 1e-9,
@@ -871,7 +883,7 @@ fn a_sewage_farm_takes_what_leaves_the_tank_up_to_its_area_and_mass_and_loads_ar
     sim.with_ctx_for_tests(|pop, ctx| pop.sewer_day_for_tests(ctx, &[(homes[1], d, 900.0)]));
     let s = sim.people().polities[0].sewers[0].clone();
     assert_eq!(s.farm, Some(f), "the field's household takes the flow");
-    let rest = s.entered_kg - s.settled_kg;
+    let rest = s.entered_kg - s.deposited_kg - s.settled_kg;
     let limit = f64::from(def.farm_people_ha) * ha * midden.kg_per_person_day;
     eprintln!(
         "{:.2} kg in, {:.2} settled, {:.2} to the farm (its limit {limit:.2}), {:.2} to the river",
@@ -881,7 +893,7 @@ fn a_sewage_farm_takes_what_leaves_the_tank_up_to_its_area_and_mass_and_loads_ar
         rest - s.farm_kg
     );
     assert!(
-        (s.settled_kg - 0.5 * s.entered_kg).abs() < 1e-9,
+        (s.settled_kg - 0.5 * (s.entered_kg - s.deposited_kg)).abs() < 1e-9,
         "settling first"
     );
     assert!(
@@ -948,10 +960,10 @@ fn a_sewage_farm_takes_what_leaves_the_tank_up_to_its_area_and_mass_and_loads_ar
     assert_eq!(s.farm, Some(f));
     assert!(s.entered_kg > 0.0 && s.entered_kg - s.settled_kg < 50.0);
     assert!(
-        (s.farm_kg - (s.entered_kg - s.settled_kg)).abs() < 1e-9,
+        (s.farm_kg - (s.entered_kg - s.deposited_kg - s.settled_kg)).abs() < 1e-9,
         "{} of {}",
         s.farm_kg,
-        s.entered_kg - s.settled_kg
+        s.entered_kg - s.deposited_kg - s.settled_kg
     );
     let words = civ_sim::frames::government::services_words(&sim, &sim.people().polities[0]);
     assert!(
@@ -1149,4 +1161,449 @@ fn with_no_field_below_the_last_connection_there_is_no_farm() {
         (reach - 500.0).abs() < 1e-9,
         "all of it to the river: {reach}"
     );
+}
+
+/// The index of the route cell nearest the outfall that household `h`'s home lies beside: where
+/// its drain enters the first polity's first sewer (ADR-0044 §5).
+fn entry(sim: &Sim, h: PermanentId) -> Option<usize> {
+    let s = &sim.people().polities[0].sewers[0];
+    let w = i64::from(sim.map().width);
+    let xy = |c: u32| (i64::from(c) % w, i64::from(c) / w);
+    let home = civ_agents::population::cell_of(sim.map(), sim.people().household(h)?.home) as u32;
+    let (hx, hy) = xy(home);
+    s.cells.iter().rposition(|&r| {
+        let (rx, ry) = xy(r);
+        (rx - hx).abs() <= 1 && (ry - hy).abs() <= 1
+    })
+}
+
+/// The metres of route cell `i` of the first polity's first sewer: half the run to it and half
+/// the run from it.
+fn cell_metres(sim: &Sim, i: usize) -> f64 {
+    let s = &sim.people().polities[0].sewers[0];
+    let map = sim.map();
+    let runs = civ_land::rail::runs(&s.cells, map.width, f64::from(map.cell_size_m));
+    (runs[i] + runs.get(i + 1).copied().unwrap_or(0.0)) / 2.0
+}
+
+/// The decaying share on household `h`'s heap now.
+fn heap_of(sim: &Sim, h: PermanentId) -> f64 {
+    let x = sim.people().household(h).expect("home");
+    x.midden
+        .at_time(sim.now(), x.members.len(), &sim.rules().people.midden)
+}
+
+/// The deposit that leaves the first polity's first sewer `room` kilograms a day of room.
+fn deposit_for_room(sim: &Sim, room: f64) -> f64 {
+    let s = &sim.people().polities[0].sewers[0];
+    let holds = f64::from(sewer_def(sim).block_kg_m) * f64::from(s.length_m);
+    holds * (1.0 - room / f64::from(s.capacity_kg_day))
+}
+
+/// A sewer laid whole beside three homes at its head, its homes connected, and the law that laid
+/// it: the sim, the homes in the order connected, the sewer and its law.
+fn three_homes_sewered() -> (Sim, Vec<PermanentId>, PermanentId, PermanentId) {
+    let (mut sim, _, homes, sewer) = a_sewer_marked_out(3);
+    lay_whole(&mut sim, homes[0], sewer);
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_day_for_tests(ctx, &[]));
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert_eq!(s.connections.len(), 3);
+    let order = s.connections.iter().map(|c| c.household).collect();
+    (sim, order, sewer, s.law)
+}
+
+#[test]
+fn a_deposit_takes_the_sewers_room_and_the_last_connected_back_up_first() {
+    let (mut sim, order, _, _) = three_homes_sewered();
+    let def = sewer_def(&sim);
+    assert_eq!(
+        (def.deposit_share, def.block_kg_m, def.clear_h_t),
+        (0.02, 20.0, 10.0),
+        "the priors"
+    );
+    // A fiftieth of what entered stays as deposit, mass only; the rest goes on (no tank here).
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert!(s.entered_kg > 0.0 && s.settled_kg == 0.0 && s.farm_kg == 0.0);
+    let share = f64::from(def.deposit_share);
+    assert!((s.deposited_kg - share * s.entered_kg).abs() < 1e-12);
+    assert!((s.deposit_kg - s.deposited_kg).abs() < 1e-12);
+    assert!(s.connections.iter().all(|c| c.cause == SewerCause::Served));
+    // The next day, a deposit leaving room for the first two and half the third's share: the
+    // third backs up for want of room it once had, though its capacity takes all three.
+    sim.advance_minutes(DAY).expect("lives");
+    let g: Vec<f64> = sim.people().polities[0].sewers[0]
+        .connections
+        .iter()
+        .map(|c| c.kg)
+        .collect();
+    assert!(g.iter().all(|&k| k > 0.0), "{g:?}");
+    let capacity = f64::from(sim.people().polities[0].sewers[0].capacity_kg_day);
+    assert!(
+        g.iter().sum::<f64>() < capacity,
+        "the capacity takes them all"
+    );
+    let room = g[0] + g[1] + 0.5 * g[2];
+    let deposit = deposit_for_room(&sim, room);
+    sim.people_mut_for_tests().polities[0].sewers[0].deposit_kg = deposit;
+    let before: Vec<f64> = order.iter().map(|&h| heap_of(&sim, h)).collect();
+    let d = cholera(&sim);
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_day_for_tests(ctx, &[(order[2], d, 300.0)]));
+    let s = sim.people().polities[0].sewers[0].clone();
+    let causes: Vec<SewerCause> = s.connections.iter().map(|c| c.cause).collect();
+    eprintln!(
+        "{:.2} kg of room of {capacity:.0} at {deposit:.0} kg of deposit: {causes:?}",
+        room
+    );
+    assert_eq!(
+        causes,
+        [SewerCause::Served, SewerCause::Served, SewerCause::Blocked]
+    );
+    assert!((s.entered_kg - s.connections[0].kg - s.connections[1].kg).abs() < 1e-9);
+    assert!((s.deposit_kg - deposit - share * s.entered_kg).abs() < 1e-9);
+    // Backing up is the heap regrowing: the third keeps its share and its shedding.
+    assert!((heap_of(&sim, order[2]) - before[2]).abs() < 1e-9);
+    assert_eq!(
+        sim.people().contagion.load(Node::Midden(order[2]), d),
+        300.0
+    );
+    assert_eq!(s.connections[2].days_unserved(SewerCause::Blocked), 1);
+    assert_eq!(s.connections[2].days_unserved(SewerCause::Overloaded), 0);
+    assert_eq!(s.connections[0].unserved, [0, 0, 0]);
+    // At the full deposit it is blocked: nobody is served, and nothing more deposits.
+    let holds = f64::from(def.block_kg_m) * f64::from(s.length_m);
+    sim.people_mut_for_tests().polities[0].sewers[0].deposit_kg = holds;
+    sim.advance_minutes(DAY).expect("lives");
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert!(s.connections.iter().all(|c| c.cause == SewerCause::Blocked));
+    assert_eq!((s.entered_kg, s.deposit_kg), (0.0, holds));
+    assert_eq!(
+        s.connections
+            .iter()
+            .map(|c| c.days_unserved(SewerCause::Blocked))
+            .collect::<Vec<_>>(),
+        [1, 1, 2],
+        "outage days, home by home"
+    );
+    let words = civ_sim::frames::government::services_words(&sim, &sim.people().polities[0]);
+    assert!(
+        words.iter().any(|w| w.contains("3 backing up for its silt")
+            && w.contains("of silt in it")
+            && w.contains("this year its homes went unserved 4 days for its silt")),
+        "{words:?}"
+    );
+    // Its capacity short of the first's share, the first backs up for want of room it never had,
+    // and those after it with it: outage counted by cause.
+    {
+        let s = &mut sim.people_mut_for_tests().polities[0].sewers[0];
+        s.deposit_kg = 0.0;
+        s.capacity_kg_day = (g[0] * 0.5) as f32;
+    }
+    sim.advance_minutes(DAY).expect("lives");
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert!(
+        s.connections
+            .iter()
+            .all(|c| c.cause == SewerCause::Overloaded)
+    );
+    assert_eq!(s.connections[2].unserved, [1, 0, 2]);
+    saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+#[test]
+fn a_cell_worn_through_breaks_the_sewer_there_and_only_the_homes_above_it_heap() {
+    let (mut sim, order, _, _) = three_homes_sewered();
+    // A month's wear: every cell loses a little, as wet as its ground and the month were.
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewers_month_for_tests(ctx));
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert_eq!(s.loss.len(), s.cells.len());
+    eprintln!("a month's loss by cell: {:?}", s.loss);
+    assert!(
+        s.loss
+            .iter()
+            .all(|&l| l > 0.0 && l < 3.0 / 50.0 / 12.0 * 4.0),
+        "{:?}",
+        s.loss
+    );
+    assert_eq!(s.broken, None);
+    // Where the second home's drain enters, a cell nearly worn through: the next month's wear
+    // takes it through, and the sewer is broken there.
+    let entries: Vec<usize> = order
+        .iter()
+        .map(|&h| entry(&sim, h).expect("beside it"))
+        .collect();
+    let b = entries[1];
+    assert!(
+        entries.iter().any(|&e| e > b),
+        "a home below the break, or this test shows nothing: {entries:?}"
+    );
+    let month = s.loss[b];
+    sim.people_mut_for_tests().polities[0].sewers[0].loss[b] = 1.0 - month * 0.5;
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewers_month_for_tests(ctx));
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert!(s.collapsed(b));
+    assert_eq!(s.broken, Some(b as u32));
+    assert_eq!(
+        (0..s.cells.len()).filter(|&i| s.collapsed(i)).count(),
+        1,
+        "only that cell"
+    );
+    // The homes whose drains enter at or above it heap again; those below still flow.
+    sim.advance_minutes(DAY).expect("lives");
+    let before: Vec<f64> = order.iter().map(|&h| heap_of(&sim, h)).collect();
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_day_for_tests(ctx, &[]));
+    let s = sim.people().polities[0].sewers[0].clone();
+    for (i, c) in s.connections.iter().enumerate() {
+        if entries[i] <= b {
+            assert_eq!(c.cause, SewerCause::Broken, "{i} above the break");
+            assert_eq!(c.kg, 0.0);
+            assert!((heap_of(&sim, order[i]) - before[i]).abs() < 1e-9);
+            assert_eq!(c.days_unserved(SewerCause::Broken), 1);
+        } else {
+            assert_eq!(c.cause, SewerCause::Served, "{i} below the break");
+            assert!(c.kg > 0.0);
+            assert!(heap_of(&sim, order[i]) < before[i]);
+            assert_eq!(c.unserved, [0, 0, 0]);
+        }
+    }
+    assert!(s.entered_kg > 0.0, "below the break it still flows");
+    let words = civ_sim::frames::government::services_words(&sim, &sim.people().polities[0]);
+    assert!(
+        words.iter().any(|w| w.contains("; broken ")
+            && w.contains("above it backing up")
+            && w.contains("for its break")
+            && w.contains("its most worn stretch")),
+        "{words:?}"
+    );
+    // Broken at the outfall's cell instead, it cuts every home.
+    {
+        let s = &mut sim.people_mut_for_tests().polities[0].sewers[0];
+        let last = s.cells.len() - 1;
+        s.loss[last] = 1.0;
+        s.broken = s.lowest_collapse();
+        assert_eq!(s.broken, Some(last as u32));
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_day_for_tests(ctx, &[]));
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert!(s.connections.iter().all(|c| c.cause == SewerCause::Broken));
+    saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+#[test]
+fn clearing_does_not_mend_a_collapse_and_relining_does_not_clear() {
+    let (mut sim, order, sewer, _) = three_homes_sewered();
+    let def = sewer_def(&sim);
+    let (brick, lime, sludge) = (
+        index(&sim, "core:good/brick"),
+        index(&sim, "core:good/quicklime"),
+        index(&sim, "core:good/sludge"),
+    );
+    let b = entry(&sim, order[1]).expect("beside it");
+    let goods = sim.rules().catalog.goods.len();
+    {
+        let p = &mut sim.people_mut_for_tests().polities[0];
+        p.stores.resize(goods, 0.0);
+        let s = &mut p.sewers[0];
+        s.loss[b] = 1.0;
+        s.broken = Some(b as u32);
+        s.deposit_kg = 500.0;
+        s.clear_kg = 500.0;
+    }
+    let h = order[2];
+    let law = sim.people().polities[0].sewers[0].law;
+    let given = |sim: &Sim| f64::from(sim.people().polities[0].way_given_by(law, h));
+    let (given0, sludge0) = (given(&sim), sim.people().polities[0].stores[sludge]);
+    // Clearing, asked: the deposit becomes sludge in the keeper's store (the polity's here), a
+    // tonne each 10 hours; the collapse stays.
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_work_for_tests(ctx, h, sewer, 1.0e9));
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert_eq!((s.deposit_kg, s.clear_kg), (0.0, 0.0));
+    let got = sim.people().polities[0].stores[sludge] - sludge0;
+    assert!((got - 500.0).abs() < 1e-9, "sludge conserved: {got}");
+    assert!(
+        (given(&sim) - given0 - 5.0).abs() < 1e-4,
+        "half a tonne, 5 hours"
+    );
+    assert!(
+        s.collapsed(b) && s.broken == Some(b as u32),
+        "the collapse stays"
+    );
+    // Relining, asked: the broken cell is rebuilt at laying's hours and materials a metre, and
+    // the deposit stays.
+    let metres = cell_metres(&sim, b);
+    assert!(metres > 0.0);
+    set(
+        &mut sim,
+        h,
+        brick,
+        metres * f64::from(def.walls_kg_m) + 10.0,
+    );
+    set(&mut sim, h, lime, metres * f64::from(def.binder_kg_m) + 1.0);
+    {
+        let s = &mut sim.people_mut_for_tests().polities[0].sewers[0];
+        s.deposit_kg = 300.0;
+        s.reline = true;
+    }
+    let given1 = given(&sim);
+    let left = sim.with_ctx_for_tests(|pop, ctx| {
+        let x = pop.household(h).expect("home").clone();
+        pop.sewer_left_for_tests(ctx, &x, sewer)
+    });
+    assert!(
+        left.is_some_and(|l| (l - metres * f64::from(def.lay_h_m)).abs() < 1e-3),
+        "{left:?}"
+    );
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_work_for_tests(ctx, h, sewer, 1.0e9));
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert_eq!(s.loss[b], 0.0, "as new");
+    assert_eq!((s.broken, s.reline, s.relined_m), (None, false, 0.0));
+    assert_eq!(s.deposit_kg, 300.0, "the deposit stays");
+    let x = sim.people().household(h).expect("home");
+    assert!((x.stores[brick] - 10.0).abs() < 1e-6, "{}", x.stores[brick]);
+    assert!((x.stores[lime] - 1.0).abs() < 1e-6, "{}", x.stores[lime]);
+    assert!(
+        (given(&sim) - given1 - metres * f64::from(def.lay_h_m)).abs() < 1e-2,
+        "laying's hours a metre"
+    );
+    // Its loads were never the deposit's: the sludge holds no disease.
+    assert_eq!(
+        sim.people()
+            .contagion
+            .load(Node::Sewer(sewer), cholera(&sim)),
+        0.0
+    );
+    // With the law ended, nobody mends: work asked of it does nothing.
+    {
+        let p = &mut sim.people_mut_for_tests().polities[0];
+        p.sewers[0].clear_kg = 300.0;
+        for l in p.laws.iter_mut().filter(|l| l.id == law) {
+            l.status = LawStatus::Superseded;
+        }
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_work_for_tests(ctx, h, sewer, 1.0e9));
+    assert_eq!(sim.people().polities[0].sewers[0].deposit_kg, 300.0);
+    saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+#[test]
+fn mending_is_asked_under_the_law_that_laid_the_sewer_and_not_after_it_ended() {
+    let (mut sim, order, _, law) = three_homes_sewered();
+    let def = sewer_def(&sim);
+    let (brick, lime) = (
+        index(&sim, "core:good/brick"),
+        index(&sim, "core:good/quicklime"),
+    );
+    // A collapse where the second home's drain enters: the homes above it back up.
+    let b = entry(&sim, order[1]).expect("beside it");
+    {
+        let s = &mut sim.people_mut_for_tests().polities[0].sewers[0];
+        s.loss[b] = 1.0;
+        s.broken = Some(b as u32);
+    }
+    sim.advance_minutes(DAY).expect("lives");
+    assert!(
+        sim.people().polities[0].sewers[0]
+            .connections
+            .iter()
+            .any(|c| c.cause == SewerCause::Broken)
+    );
+    for &h in &order {
+        set(&mut sim, h, brick, 1.0e6);
+        set(&mut sim, h, lime, 1.0e5);
+    }
+    let site = |sim: &Sim| sim.people().polities[0].way_site_of(law).expect("its site");
+    let review =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.sewer_reviews_for_tests(ctx, 0));
+    // Nothing asks its homes to carry their heaps and nobody died: mending is not worth it.
+    let labour0 = site(&sim).labour_h;
+    review(&mut sim);
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert!(!s.reline && s.clear_kg == 0.0, "not worth it");
+    assert_eq!(site(&sim).labour_h, labour0);
+    // A round's fee for calls at its homes, as carrying would cost them: the polity weighs the
+    // collapse as it weighed laying, and asks relining as common work.
+    let fee_round = |sim: &mut Sim| {
+        let (id, tip, cart) = (
+            sim.allocate_id_for_tests(),
+            sim.allocate_id_for_tests(),
+            sim.allocate_id_for_tests(),
+        );
+        let today = sim.now().day_index();
+        sim.people_mut_for_tests().polities[0]
+            .rounds
+            .push(civ_agents::polity::RefuseRound {
+                id,
+                operator: order[0],
+                cart,
+                tip,
+                law: None,
+                homes: order.clone(),
+                every_days: 1,
+                fee_kcal: 1.0e5,
+                since: today,
+                last_run: -1,
+                next: 0,
+                runs: Vec::new(),
+            });
+    };
+    fee_round(&mut sim);
+    review(&mut sim);
+    sim.people_mut_for_tests().polities[0].rounds.clear();
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert!(s.reline, "relining asked");
+    assert_eq!(s.clear_kg, 0.0, "nothing blocked: no clearing");
+    let metres = cell_metres(&sim, b);
+    assert!(
+        (site(&sim).labour_h - labour0 - metres * f64::from(def.lay_h_m)).abs() < 1e-3,
+        "laying's hours a metre of the collapse, an equal share of each household"
+    );
+    // Asked once: weighed again, nothing more is asked.
+    let labour1 = site(&sim).labour_h;
+    fee_round(&mut sim);
+    review(&mut sim);
+    sim.people_mut_for_tests().polities[0].rounds.clear();
+    assert_eq!(site(&sim).labour_h, labour1);
+    // Relined, and blocked by its deposit: clearing is asked, at 10 hours a tonne.
+    {
+        let s = &mut sim.people_mut_for_tests().polities[0].sewers[0];
+        s.loss[b] = 0.0;
+        (s.broken, s.reline) = (None, false);
+    }
+    let full = deposit_for_room(&sim, 0.0);
+    sim.people_mut_for_tests().polities[0].sewers[0].deposit_kg = full;
+    sim.advance_minutes(DAY).expect("lives");
+    assert!(
+        sim.people().polities[0].sewers[0]
+            .connections
+            .iter()
+            .all(|c| c.cause == SewerCause::Blocked)
+    );
+    fee_round(&mut sim);
+    review(&mut sim);
+    sim.people_mut_for_tests().polities[0].rounds.clear();
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert!((s.clear_kg - full).abs() < 1e-9, "{} of {full}", s.clear_kg);
+    assert!(!s.reline);
+    assert!(
+        (site(&sim).labour_h - labour1 - full / 1000.0 * f64::from(def.clear_h_t)).abs() < 1e-6
+    );
+    let words = civ_sim::frames::government::services_words(&sim, &sim.people().polities[0]);
+    assert!(
+        words.iter().any(|w| w.contains("of its silt cleared")),
+        "{words:?}"
+    );
+    // The law ended, nobody weighs mending it.
+    {
+        let p = &mut sim.people_mut_for_tests().polities[0];
+        p.sewers[0].clear_kg = 0.0;
+        for l in p.laws.iter_mut().filter(|l| l.id == law) {
+            l.status = LawStatus::Superseded;
+        }
+    }
+    let labour2 = site(&sim).labour_h;
+    fee_round(&mut sim);
+    review(&mut sim);
+    sim.people_mut_for_tests().polities[0].rounds.clear();
+    assert_eq!(sim.people().polities[0].sewers[0].clear_kg, 0.0);
+    assert_eq!(site(&sim).labour_h, labour2);
+    saves_and_goes_on_alike(&mut sim, DAY);
 }

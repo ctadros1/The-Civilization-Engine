@@ -8315,6 +8315,11 @@ impl Population {
             }
         }
         self.well_reviews(ctx, day);
+        // A month's wear on the sewers' walls, as wet as their ground and the month just lived
+        // were (ADR-0044 §5).
+        if now.date().day == 1 {
+            self.sewers_month(ctx);
+        }
         // And the ditches (M6b slice BG): the households whose day it is weigh one, and every
         // ditch's intake is opened or shut for the day.
         self.ditches_day(ctx, day);

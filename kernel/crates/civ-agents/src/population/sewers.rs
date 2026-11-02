@@ -22,7 +22,22 @@
 //! held it back; its share of each disease lies at the field's node and washes and soaks in from
 //! there as a tip's does. The field's household takes the flow, for nothing, after a harvest its
 //! soil held back, and stops once a harvest is not. Nobody ties sickness to a field.
+//!
+//! Wear, silt and mending (ADR-0044 §5; research 12-02 §1.5, 12-08 §2.1, §4.3, §5.1-§5.4): a share
+//! of what enters a day stays as deposit (mass only; its loads pass with the flow), and the room
+//! the sewer has falls in proportion to what its length holds before it is blocked; the homes it
+//! has no room for heap again, the last connected first. Each month every cell of its route wears
+//! `1 / life_years` of its soundness times its ground's wetness and the month's rain, as a well's
+//! lining does; a cell worn through collapses, and the homes whose drains enter at or above the
+//! collapse nearest the outfall heap again while those below still flow. Each connection keeps the
+//! days of the year it went unserved, by cause. The polity learns of a fault only as it shows: a
+//! home backing up for want of room it once had, or a collapse. While the law that laid the sewer
+//! is in force, its review weighs the fault as laying was weighed and, if worth it, asks the work
+//! as laying's was asked, an equal share of each household: clearing, whose deposit becomes sludge
+//! in the keeper's store, or relining, which rebuilds a collapsed cell at laying's hours and
+//! materials a metre. Neither mends the other's fault; with the law ended, nobody mends.
 
+use super::wells::{month_rain, wetness_at};
 use super::*;
 use crate::contagion::{How, Move, NEGLIGIBLE, Node};
 use crate::polity::{LawStatus, PolicyKind, Sewer, SewerCause, SewerConnection, SewerDef, WaySite};
@@ -110,6 +125,27 @@ impl Population {
             .any(|&c| (i64::from(c) % w - x).abs() <= 1 && (i64::from(c) / w - y).abs() <= 1)
     }
 
+    /// The index of the route cell nearest the outfall among `cells` that cell `home` lies beside:
+    /// where a home's drain enters (ADR-0044 §5).
+    fn entry(map: &WorldMap, cells: &[u32], home: u32) -> Option<usize> {
+        cells.iter().rposition(|&r| Self::beside(map, &[r], home))
+    }
+
+    /// The metres of route cell `i` of `cells`: half the run to it and half the run from it, so
+    /// that the cells' metres sum to the route's length.
+    fn cell_metres(map: &WorldMap, cells: &[u32], i: usize) -> f64 {
+        let runs = civ_land::rail::runs(cells, map.width, f64::from(map.cell_size_m));
+        (runs.get(i).copied().unwrap_or(0.0) + runs.get(i + 1).copied().unwrap_or(0.0)) / 2.0
+    }
+
+    /// The metres of sewer `s`'s collapsed cells (ADR-0044 §5).
+    fn collapsed_metres(map: &WorldMap, s: &Sewer) -> f64 {
+        (0..s.cells.len())
+            .filter(|&i| s.collapsed(i))
+            .map(|i| Self::cell_metres(map, &s.cells, i))
+            .sum()
+    }
+
     /// Whether household `h` is connected to any sewer.
     fn sewered(&self, h: PermanentId) -> bool {
         self.polities
@@ -189,6 +225,58 @@ impl Population {
         deaths
     }
 
+    /// The hours a year a sewer is reckoned to spare household `x` (ADR-0041 §3): those laws ask
+    /// of it to carry its heap, and the template's share of its deaths of disease within the year
+    /// (`deaths`, by household) at what a death weighs.
+    fn sewer_spared_h(
+        &self,
+        ctx: &Ctx,
+        def: &SewerDef,
+        x: &Household,
+        deaths: &[(PermanentId, usize)],
+    ) -> f64 {
+        let died = deaths.iter().find(|d| d.0 == x.id).map_or(0, |d| d.1);
+        self.carry_h_year(ctx, x)
+            + died as f64
+                * f64::from(def.avoided_share)
+                * ctx.params.suspicion.w_death
+                * ctx.params.farm.work_hours_per_day
+    }
+
+    /// What `kg` of the first of `goods` costs at the cheapest any of `ours` can have it, hours
+    /// (`costs`, each household's own costs by good), or, where none can put a figure on it,
+    /// nothing if they hold `kg` of them between them; `None` otherwise.
+    fn material_h(
+        ours: &[&Household],
+        costs: &[Vec<Option<f64>>],
+        goods: &[usize],
+        kg: f64,
+    ) -> Option<f64> {
+        let cheapest = goods
+            .iter()
+            .flat_map(|&g| {
+                costs
+                    .iter()
+                    .filter_map(move |c| c.get(g).copied().flatten())
+            })
+            .reduce(f64::min);
+        match cheapest {
+            Some(h) => Some(kg * h),
+            None => {
+                let held: f64 = ours
+                    .iter()
+                    .flat_map(|x| {
+                        goods
+                            .iter()
+                            .map(|&g| x.stores.get(g).copied().unwrap_or(0.0))
+                    })
+                    .map(|v| v.max(0.0))
+                    .sum();
+                (held + 1e-9 >= kg).then_some(0.0)
+            }
+        }
+    }
+
     /// Where the settlement's people could lay a sewer together (ADR-0041 §3), if anywhere: from
     /// the home of one of its households to a river, falling all the way along ways with leave,
     /// where two or more homes beside it with a building, not yet connected to a sewer, and none of
@@ -218,46 +306,16 @@ impl Population {
         // What a kilogram of each material costs at the cheapest any of them can have it, hours,
         // or, where none can put a figure on it, whether they hold `kg` of it between them.
         let costs: Vec<Vec<Option<f64>>> = ours.iter().map(|x| self.own_costs_of(ctx, x)).collect();
-        let material = |goods: &[usize], kg: f64| -> Option<f64> {
-            let cheapest = goods
-                .iter()
-                .flat_map(|&g| {
-                    costs
-                        .iter()
-                        .filter_map(move |c| c.get(g).copied().flatten())
-                })
-                .reduce(f64::min);
-            match cheapest {
-                Some(h) => Some(kg * h),
-                None => {
-                    let held: f64 = ours
-                        .iter()
-                        .flat_map(|x| {
-                            goods
-                                .iter()
-                                .map(|&g| x.stores.get(g).copied().unwrap_or(0.0))
-                        })
-                        .map(|v| v.max(0.0))
-                        .sum();
-                    (held + 1e-9 >= kg).then_some(0.0)
-                }
-            }
-        };
+        let material = |goods: &[usize], kg: f64| Self::material_h(&ours, &costs, goods, kg);
         let ids: Vec<PermanentId> = ours.iter().map(|x| x.id).collect();
         let deaths = self.deaths_of_disease(ctx, &ids);
-        let day_h = ctx.params.farm.work_hours_per_day;
         let homes: Vec<(PermanentId, u32, f64)> = ours
             .iter()
             .filter(|x| {
                 !self.sewered(x.id) && ctx.land.buildings.iter().any(|b| b.household == x.id)
             })
             .map(|x| {
-                let died = deaths.iter().find(|d| d.0 == x.id).map_or(0, |d| d.1);
-                let spared = self.carry_h_year(ctx, x)
-                    + died as f64
-                        * f64::from(def.avoided_share)
-                        * ctx.params.suspicion.w_death
-                        * day_h;
+                let spared = self.sewer_spared_h(ctx, def, x, &deaths);
                 (x.id, cell_of(ctx.map, x.home) as u32, spared)
             })
             .collect();
@@ -331,6 +389,7 @@ impl Population {
             (f64::from(def.fall), def.capacity_kg_day)
         };
         let (cells, length_m, reach) = self.sewer_route(ctx, pi, from, fall)?;
+        let loss = vec![0.0; cells.len()];
         let id = ctx.ids.allocate();
         self.polities[pi].sewers.push(Sewer {
             id,
@@ -341,14 +400,20 @@ impl Population {
             length_m: length_m as f32,
             laid_m: 0.0,
             capacity_kg_day: capacity,
-            broken: false,
+            broken: None,
             keeper: None,
             connections: Vec::new(),
             day: -1,
             entered_kg: 0.0,
+            deposited_kg: 0.0,
             settled_kg: 0.0,
             farm: None,
             farm_kg: 0.0,
+            deposit_kg: 0.0,
+            loss,
+            clear_kg: 0.0,
+            reline: false,
+            relined_m: 0.0,
         });
         Some(id)
     }
@@ -388,13 +453,14 @@ impl Population {
     }
 
     /// The hours left on sewer `sewer` household `x` could work now (ADR-0041 §1): it is being
-    /// laid and the household holds a metre's walls and binder. `None` otherwise.
+    /// laid and the household holds a metre's walls and binder; or, whole, the mending its polity
+    /// asked ([`Population::sewer_mend_left_h`]). `None` otherwise.
     pub(super) fn sewer_left_h(&self, ctx: &Ctx, x: &Household, sewer: PermanentId) -> Option<f64> {
         let def = Self::sewer_def(ctx)?;
         let (pi, si) = self.sewer_at(sewer)?;
         let s = &self.polities[pi].sewers[si];
-        if s.whole() || s.broken {
-            return None;
+        if s.whole() {
+            return Self::sewer_mend_left_h(ctx.map, def, x, s);
         }
         let walls = Self::first_held(x, &def.walls)?.1;
         let binder = Self::first_held(x, &def.binders)?.1;
@@ -404,11 +470,42 @@ impl Population {
         Some(f64::from((s.length_m - s.laid_m).max(0.0)) * f64::from(def.lay_h_m))
     }
 
+    /// The hours left on sewer `sewer` household `x` could work now: for tests.
+    #[doc(hidden)]
+    pub fn sewer_left_for_tests(
+        &self,
+        ctx: &Ctx,
+        x: &Household,
+        sewer: PermanentId,
+    ) -> Option<f64> {
+        self.sewer_left_h(ctx, x, sewer)
+    }
+
+    /// The hours of mending left on whole sewer `s` household `x` could work now (ADR-0044 §5):
+    /// relining its collapsed cells, where asked and the household holds a metre's walls and
+    /// binder, and clearing the deposit asked cleared. `None` where nothing it could do is left.
+    fn sewer_mend_left_h(map: &WorldMap, def: &SewerDef, x: &Household, s: &Sewer) -> Option<f64> {
+        let mut left = 0.0;
+        if s.reline && s.broken.is_some() {
+            let walls = Self::first_held(x, &def.walls).map_or(0.0, |w| w.1);
+            let binder = Self::first_held(x, &def.binders).map_or(0.0, |b| b.1);
+            if walls >= f64::from(def.walls_kg_m) && binder >= f64::from(def.binder_kg_m) {
+                let metres = Self::collapsed_metres(map, s) - f64::from(s.relined_m);
+                left += metres.max(0.0) * f64::from(def.lay_h_m);
+            }
+        }
+        if s.clear_kg > 0.0 && def.clear_h_t > 0.0 {
+            left += s.clear_kg.min(s.deposit_kg).max(0.0) / 1000.0 * f64::from(def.clear_h_t);
+        }
+        (left > 1e-9).then_some(left)
+    }
+
     /// `hours` of work by someone of `household` on sewer `sewer` its polity lays (ADR-0041 §1): a
     /// metre dug, walled and filled in each `lay_h_m` hours, each taking its walls and binder from
     /// the household's store (the first of each kind it holds), no more than they allow or the
     /// sewer has left. The hours it took are the household's given to the law, and to the polity's
-    /// works, paid where a law of pay for common work is in force.
+    /// works, paid where a law of pay for common work is in force. On a whole sewer the hours go to
+    /// the mending its polity asked ([`Population::sewer_mend`]).
     pub(super) fn sewer_work(
         &mut self,
         ctx: &mut Ctx,
@@ -429,13 +526,13 @@ impl Population {
             return;
         }
         let (law, polity) = (self.polities[pi].sewers[si].law, self.polities[pi].id);
-        let left = {
-            let s = &self.polities[pi].sewers[si];
-            if s.whole() || s.broken {
-                return;
-            }
-            f64::from((s.length_m - s.laid_m).max(0.0))
-        };
+        if self.polities[pi].sewers[si].whole() {
+            self.sewer_mend(ctx, &def, household, (pi, si), hours);
+            return;
+        }
+        let left = f64::from(
+            (self.polities[pi].sewers[si].length_m - self.polities[pi].sewers[si].laid_m).max(0.0),
+        );
         let Some(x) = self.household_mut(household) else {
             return;
         };
@@ -470,6 +567,131 @@ impl Population {
         self.work_given.push((polity, household, took));
     }
 
+    /// `hours` of work by someone of `household` mending whole sewer `si` of polity `pi`
+    /// (ADR-0044 §5), while the law that laid it is in force: first relining, where asked, the
+    /// broken cell (the collapsed cell nearest the outfall) a metre each `lay_h_m` hours from the
+    /// household's walls and binder, as laying takes them, until its metres are rebuilt and its
+    /// loss is 0, then the next collapsed cell up; then clearing the deposit asked cleared, a
+    /// tonne each `clear_h_t` hours, into sludge in the keeper's store. Relining clears nothing
+    /// and clearing mends no cell. The hours it took are given to the law, as laying's are.
+    fn sewer_mend(
+        &mut self,
+        ctx: &mut Ctx,
+        def: &SewerDef,
+        household: PermanentId,
+        (pi, si): (usize, usize),
+        hours: f64,
+    ) {
+        let (law, polity) = (self.polities[pi].sewers[si].law, self.polities[pi].id);
+        if !self.polities[pi]
+            .laws
+            .iter()
+            .any(|l| l.id == law && l.status == LawStatus::InForce)
+        {
+            return;
+        }
+        let map = ctx.map;
+        let lay_h = f64::from(def.lay_h_m).max(1e-9);
+        let mut left = hours.max(0.0);
+        let mut took = 0.0;
+        // Relining, the collapse nearest the outfall first.
+        while left > 1e-9 && self.polities[pi].sewers[si].reline {
+            let s = &self.polities[pi].sewers[si];
+            let Some(b) = s.broken.map(|b| b as usize) else {
+                let s = &mut self.polities[pi].sewers[si];
+                (s.reline, s.relined_m) = (false, 0.0);
+                break;
+            };
+            let need = (Self::cell_metres(map, &s.cells, b) - f64::from(s.relined_m)).max(0.0);
+            let mut metres = need;
+            if need > 1e-6 {
+                let Some(x) = self.household_mut(household) else {
+                    break;
+                };
+                let (Some((wall, walls)), Some((bind, binder))) = (
+                    Self::first_held(x, &def.walls),
+                    Self::first_held(x, &def.binders),
+                ) else {
+                    break;
+                };
+                metres = (left / lay_h)
+                    .min(walls / f64::from(def.walls_kg_m).max(1e-9))
+                    .min(binder / f64::from(def.binder_kg_m).max(1e-9))
+                    .min(need);
+                if metres <= 1e-9 {
+                    break;
+                }
+                for (g, held, kg_m) in [
+                    (wall, walls, def.walls_kg_m),
+                    (bind, binder, def.binder_kg_m),
+                ] {
+                    let used = (metres * f64::from(kg_m)).min(held);
+                    x.stores[g] = held - used;
+                    x.flows.add(Flow::Used, g, used);
+                }
+                left -= metres * lay_h;
+                took += metres * lay_h;
+            }
+            let s = &mut self.polities[pi].sewers[si];
+            s.relined_m += metres as f32;
+            if need - metres > 1e-3 {
+                continue;
+            }
+            // Rebuilt: as new, and the break moves to the next collapse up, if any.
+            s.loss[b] = 0.0;
+            s.relined_m = 0.0;
+            s.broken = s.lowest_collapse();
+            if s.broken.is_none() {
+                s.reline = false;
+            }
+        }
+        // Clearing.
+        let s = &self.polities[pi].sewers[si];
+        if left > 1e-9 && s.clear_kg > 0.0 && def.clear_h_t > 0.0 {
+            let per_t = f64::from(def.clear_h_t);
+            let kg = (left / per_t * 1000.0)
+                .min(s.clear_kg)
+                .min(s.deposit_kg)
+                .max(0.0);
+            let s = &mut self.polities[pi].sewers[si];
+            s.deposit_kg -= kg;
+            s.clear_kg -= kg;
+            if s.clear_kg < 1e-6 || s.deposit_kg < 1e-6 {
+                s.clear_kg = 0.0;
+            }
+            if s.deposit_kg < 1e-9 {
+                s.deposit_kg = 0.0;
+            }
+            took += kg / 1000.0 * per_t;
+            if let Some(sludge) = def.sludge {
+                self.give_keeper(ctx, (pi, si), sludge, kg);
+            }
+        }
+        if took > 0.0 {
+            self.polities[pi].give_to_way(law, household, took as f32);
+            self.work_given.push((polity, household, took));
+        }
+    }
+
+    /// `kg` of good `good` into the store of sewer `si` of polity `pi`'s keeper (a household, or
+    /// the polity's store).
+    fn give_keeper(&mut self, ctx: &Ctx, (pi, si): (usize, usize), good: usize, kg: f64) {
+        if kg <= 0.0 {
+            return;
+        }
+        let keeper = self.polities[pi].sewers[si].keeper;
+        let store = match keeper {
+            Some(h) => self.household_mut(h).map(|x| &mut x.stores),
+            None => Some(&mut self.polities[pi].stores),
+        };
+        if let Some(store) = store {
+            if store.len() <= good {
+                store.resize(ctx.catalog.goods.len().max(good + 1), 0.0);
+            }
+            store[good] += kg;
+        }
+    }
+
     /// `hours` of work by someone of `household` on sewer `sewer`: for tests.
     #[doc(hidden)]
     pub fn sewer_work_for_tests(
@@ -501,7 +723,7 @@ impl Population {
     /// connection's work. Connections are made in the order of their households' ids.
     fn sewer_connect(&mut self, ctx: &Ctx, def: &SewerDef, pi: usize, si: usize, day: i64) {
         let s = &self.polities[pi].sewers[si];
-        if !s.whole() || s.broken {
+        if !s.whole() || s.broken.is_some() {
             return;
         }
         let mut along: Vec<(PermanentId, PermanentId)> = self
@@ -535,6 +757,7 @@ impl Population {
                     day: -1,
                     kg: 0.0,
                     cause: SewerCause::Served,
+                    unserved: [0; 3],
                 });
         }
     }
@@ -614,12 +837,17 @@ impl Population {
         best.map(|b| b.2)
     }
 
-    /// The day's sewers (ADR-0041 §2, §4; ADR-0044 §4): homes beside each connect, then each
+    /// The day's sewers (ADR-0041 §2, §4; ADR-0044 §4, §5): homes beside each connect, then each
     /// connection in the order made gives what its heap would have gained of its decaying share
-    /// today, while the sewer's capacity lasts; a broken sewer and those beyond its capacity give
-    /// nothing and keep their cause. Of what goes in, a settling tank's share becomes sludge in its
-    /// keeper's store; of the rest, its farm field takes up to its area's limit into its soil as
-    /// dung; the rest goes to the river. Nothing happens where no polity lays a sewer.
+    /// today, while the sewer's room lasts: its capacity less the share of it its deposit takes
+    /// (the deposit over what its length holds before it is blocked). Once one is turned away,
+    /// every one connected after it is too, so the last connected back up first: for want of the
+    /// capacity (`Overloaded`), or of room the deposit took (`Blocked`). A home whose drain enters
+    /// at or above the break gives nothing either (`Broken`); those below it still flow. Each
+    /// unserved connection counts the day, by cause. Of what goes in, the content's share stays as
+    /// deposit (mass only); of the rest, a settling tank's share becomes sludge in its keeper's
+    /// store; of what leaves the tank, its farm field takes up to its area's limit into its soil
+    /// as dung; the rest goes to the river. Nothing happens where no polity lays a sewer.
     pub(super) fn sewers_day(&mut self, ctx: &mut Ctx, day: i64) {
         if self.polities.iter().all(|p| p.sewers.is_empty()) {
             return;
@@ -637,11 +865,29 @@ impl Population {
                 if !s.whole() {
                     continue;
                 }
-                let (broken, capacity) = (s.broken, f64::from(s.capacity_kg_day));
-                let connections: Vec<PermanentId> =
-                    s.connections.iter().map(|c| c.household).collect();
+                let capacity = f64::from(s.capacity_kg_day);
+                let holds = f64::from(def.block_kg_m) * f64::from(s.length_m);
+                let room = if holds > 0.0 {
+                    capacity * (1.0 - s.deposit_kg / holds).clamp(0.0, 1.0)
+                } else {
+                    capacity
+                };
+                let broken = s.broken.map(|b| b as usize);
+                let map = ctx.map;
+                let connections: Vec<(PermanentId, Option<usize>)> = s
+                    .connections
+                    .iter()
+                    .map(|c| {
+                        let at = self
+                            .household(c.household)
+                            .and_then(|x| Self::entry(map, &s.cells, cell_of(map, x.home) as u32));
+                        (c.household, at)
+                    })
+                    .collect();
+                let year = day.div_euclid(DAYS_PER_YEAR);
                 let mut entered = 0.0f64;
-                for (ci, h) in connections.into_iter().enumerate() {
+                let mut turned: Option<SewerCause> = None;
+                for (ci, (h, at)) in connections.into_iter().enumerate() {
                     let gained = match self.household_mut(h) {
                         Some(x) if !x.members.is_empty() => {
                             let members = x.members.len();
@@ -650,10 +896,14 @@ impl Population {
                         }
                         _ => 0.0,
                     };
-                    let cause = if broken {
+                    let cause = if broken.is_some_and(|b| at.is_none_or(|a| a <= b)) {
                         SewerCause::Broken
+                    } else if let Some(cause) = turned {
+                        cause
                     } else if entered + gained > capacity + 1e-9 {
-                        SewerCause::Overloaded
+                        *turned.insert(SewerCause::Overloaded)
+                    } else if entered + gained > room + 1e-9 {
+                        *turned.insert(SewerCause::Blocked)
                     } else {
                         SewerCause::Served
                     };
@@ -670,23 +920,25 @@ impl Population {
                         self.changed(h);
                     }
                     let c = &mut self.polities[pi].sewers[si].connections[ci];
+                    // A new year counts afresh; a day counts once for each cause it ends in.
+                    if c.day >= 0 && c.day.div_euclid(DAYS_PER_YEAR) != year {
+                        c.unserved = [0; 3];
+                    }
+                    if cause != SewerCause::Served && (c.day != day || c.cause != cause) {
+                        let k = usize::from(cause.code() - 1);
+                        c.unserved[k] = c.unserved[k].saturating_add(1);
+                    }
                     (c.day, c.kg, c.cause) = (day, kg, cause);
                 }
-                let settled = entered * self.settles(&def, pi, si).unwrap_or(0.0);
+                // A share stays as deposit, mass only (ADR-0044 §5).
+                let deposited = entered * f64::from(def.deposit_share).clamp(0.0, 1.0);
+                self.polities[pi].sewers[si].deposit_kg += deposited;
+                let flow = entered - deposited;
+                let settled = flow * self.settles(&def, pi, si).unwrap_or(0.0);
                 if settled > 0.0
                     && let Some(sludge) = def.sludge
                 {
-                    let keeper = self.polities[pi].sewers[si].keeper;
-                    let store = match keeper {
-                        Some(h) => self.household_mut(h).map(|x| &mut x.stores),
-                        None => Some(&mut self.polities[pi].stores),
-                    };
-                    if let Some(store) = store {
-                        if store.len() <= sludge {
-                            store.resize(ctx.catalog.goods.len().max(sludge + 1), 0.0);
-                        }
-                        store[sludge] += settled;
-                    }
+                    self.give_keeper(ctx, (pi, si), sludge, settled);
                 }
                 // The farm takes what is left up to its area's limit, into its soil as dung.
                 let farm = self.sewer_farm(ctx, &def, pi, si);
@@ -696,7 +948,7 @@ impl Population {
                     let ha = f.area_ha();
                     let limit =
                         f64::from(def.farm_people_ha).max(0.0) * ha * params.kg_per_person_day;
-                    farm_kg = (entered - settled).min(limit).max(0.0);
+                    farm_kg = (flow - settled).min(limit).max(0.0);
                     if farm_kg > 0.0 && ha > 0.0 {
                         f.soil.manured(soil, farm_kg * params.n_per_kg() / ha);
                     }
@@ -704,6 +956,7 @@ impl Population {
                 let farm = farm.map(|fi| ctx.land.fields[fi].id);
                 let s = &mut self.polities[pi].sewers[si];
                 (s.day, s.entered_kg, s.settled_kg) = (day, entered, settled);
+                s.deposited_kg = deposited;
                 (s.farm, s.farm_kg) = (farm, farm_kg);
             }
         }
@@ -711,8 +964,9 @@ impl Population {
 
     /// What the people of homes served by a sewer today shed into their heaps today goes with
     /// their share to the outfall (ADR-0041 §2, §4), recorded as carried: a settling tank's share
-    /// of each disease to the tank's node; of the rest, its farm's share of the day's kilograms to
-    /// the farm field's node (ADR-0044 §4); the rest to the outfall's reach and on down the river.
+    /// of each disease to the tank's node; of the rest, its farm's share of the day's kilograms
+    /// leaving the tank to the farm field's node (ADR-0044 §4); the rest to the outfall's reach and
+    /// on down the river. A deposit holds mass only: the loads pass with the flow (ADR-0044 §5).
     /// `shed` are today's moves from those shedding into heaps.
     pub(super) fn sewer_loads(&mut self, ctx: &Ctx, day: i64, shed: &[Move]) {
         if shed.is_empty() || self.polities.iter().all(|p| p.sewers.is_empty()) {
@@ -739,7 +993,7 @@ impl Population {
             };
             let (id, reach, farm, farm_share) = {
                 let s = &self.polities[pi].sewers[si];
-                let rest = s.entered_kg - s.settled_kg;
+                let rest = s.entered_kg - s.deposited_kg - s.settled_kg;
                 let share = if rest > 0.0 {
                     (s.farm_kg / rest).clamp(0.0, 1.0)
                 } else {
@@ -795,6 +1049,181 @@ impl Population {
                 },
             );
         }
+    }
+
+    /// A month of wear on every whole sewer (ADR-0044 §5): each cell of its route loses a twelfth
+    /// of `1 / life_years` times its ground's wetness and the month's rain against its usual, as a
+    /// well's lining does (ADR-0012 §5's factors); a cell whose loss reaches 1 collapses, and the
+    /// sewer is broken at the collapse nearest its outfall.
+    pub(super) fn sewers_month(&mut self, ctx: &Ctx) {
+        if self.polities.iter().all(|p| p.sewers.is_empty()) {
+            return;
+        }
+        let Some(life) = Self::sewer_def(ctx)
+            .map(|d| f64::from(d.life_years))
+            .filter(|&l| l > 0.0)
+        else {
+            return;
+        };
+        let rain = month_rain(ctx);
+        for p in &mut self.polities {
+            for s in p.sewers.iter_mut().filter(|s| s.whole()) {
+                s.loss.resize(s.cells.len(), 0.0);
+                for (l, &c) in s.loss.iter_mut().zip(&s.cells) {
+                    let lost = rain * wetness_at(ctx, c) / life / 12.0;
+                    *l = (*l + lost as f32).min(1.0);
+                }
+                let broken = s.lowest_collapse();
+                // A collapse nearer the outfall is now the break; relining starts on it afresh.
+                if broken != s.broken {
+                    s.relined_m = 0.0;
+                }
+                s.broken = broken;
+            }
+        }
+    }
+
+    /// A month of wear on every whole sewer now: for tests.
+    #[doc(hidden)]
+    pub fn sewers_month_for_tests(&mut self, ctx: &mut Ctx) {
+        self.sewers_month(ctx);
+    }
+
+    /// Polity `pi`'s review weighs the faults of its sewers it has learned of (ADR-0044 §5), each
+    /// only while the law that laid it is in force: a collapse, or a home backing up for want of
+    /// room the sewer once had (its last day's cause `Blocked`); nothing else is seen. It weighs a
+    /// fault as laying was weighed: the hours a year the homes it backs up would be spared
+    /// ([`Population::sewer_spared_h`]) over the sewer's life left (its life less its most worn
+    /// sound cell's loss), against the work and materials. Relining takes laying's hours and
+    /// walls and binder a metre of the collapsed cells, the materials at the cheapest any of its
+    /// households can have them; clearing takes `clear_h_t` hours a tonne of the deposit. Where
+    /// worth it, the polity asks the work as laying's was asked: the hours join the law's work,
+    /// an equal share of each household, given as they choose and paid where a law pays for
+    /// common work.
+    pub(super) fn sewer_reviews(&mut self, ctx: &Ctx, pi: usize) {
+        if self.polities[pi].sewers.is_empty() {
+            return;
+        }
+        let Some(def) = Self::sewer_def(ctx) else {
+            return;
+        };
+        let polity = &self.polities[pi];
+        let in_force = |law: PermanentId| {
+            polity
+                .laws
+                .iter()
+                .any(|l| l.id == law && l.status == LawStatus::InForce)
+        };
+        let faulted: Vec<usize> = polity
+            .sewers
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| s.whole() && in_force(s.law))
+            .filter(|(_, s)| {
+                (s.broken.is_some() && !s.reline)
+                    || (s.clear_kg <= 0.0
+                        && s.deposit_kg > 0.0
+                        && s.connections
+                            .iter()
+                            .any(|c| c.day >= 0 && c.cause == SewerCause::Blocked))
+            })
+            .map(|(si, _)| si)
+            .collect();
+        if faulted.is_empty() {
+            return;
+        }
+        let mut ours: Vec<&Household> = self
+            .households
+            .iter()
+            .map(|(_, x)| x)
+            .filter(|x| polity.holds(x.settlement) && !x.members.is_empty())
+            .collect();
+        ours.sort_unstable_by_key(|x| x.id);
+        let ids: Vec<PermanentId> = ours.iter().map(|x| x.id).collect();
+        let deaths = self.deaths_of_disease(ctx, &ids);
+        let costs: Vec<Vec<Option<f64>>> = ours.iter().map(|x| self.own_costs_of(ctx, x)).collect();
+        // (sewer, reline, clear kg, hours asked)
+        let mut asks: Vec<(usize, bool, f64, f64)> = Vec::new();
+        for si in faulted {
+            let s = &polity.sewers[si];
+            let spared = |cause: SewerCause| -> f64 {
+                s.connections
+                    .iter()
+                    .filter(|c| c.day >= 0 && c.cause == cause)
+                    .filter_map(|c| self.household(c.household))
+                    .filter(|x| !x.members.is_empty())
+                    .map(|x| self.sewer_spared_h(ctx, def, x, &deaths))
+                    .sum()
+            };
+            let life_left = f64::from(def.life_years)
+                * (1.0 - s.worst().map_or(0.0, |w| f64::from(w.1))).max(0.0);
+            let (mut reline, mut clear, mut hours) = (false, 0.0, 0.0);
+            if s.broken.is_some() && !s.reline {
+                let metres = Self::collapsed_metres(ctx.map, s) - f64::from(s.relined_m);
+                let labour = metres.max(0.0) * f64::from(def.lay_h_m);
+                let walls = Self::material_h(
+                    &ours,
+                    &costs,
+                    &def.walls,
+                    metres * f64::from(def.walls_kg_m),
+                );
+                let binder = Self::material_h(
+                    &ours,
+                    &costs,
+                    &def.binders,
+                    metres * f64::from(def.binder_kg_m),
+                );
+                if let (Some(walls), Some(binder)) = (walls, binder)
+                    && spared(SewerCause::Broken) * life_left - labour - walls - binder > 0.0
+                {
+                    (reline, hours) = (true, labour);
+                }
+            }
+            if s.clear_kg <= 0.0
+                && s.deposit_kg > 0.0
+                && def.clear_h_t > 0.0
+                && s.connections
+                    .iter()
+                    .any(|c| c.day >= 0 && c.cause == SewerCause::Blocked)
+            {
+                let labour = s.deposit_kg / 1000.0 * f64::from(def.clear_h_t);
+                if spared(SewerCause::Blocked) * life_left - labour > 0.0 {
+                    clear = s.deposit_kg;
+                    hours += labour;
+                }
+            }
+            if reline || clear > 0.0 {
+                asks.push((si, reline, clear, hours));
+            }
+        }
+        for (si, reline, clear, hours) in asks {
+            let p = &mut self.polities[pi];
+            let s = &mut p.sewers[si];
+            if reline {
+                s.reline = true;
+            }
+            if clear > 0.0 {
+                s.clear_kg = clear;
+            }
+            let (law, id, head) = (s.law, s.id, s.cells.first().copied().unwrap_or(0));
+            match p.ways.iter_mut().find(|w| w.0 == law) {
+                Some(w) => w.1.labour_h += hours,
+                None => p.ways.push((
+                    law,
+                    WaySite {
+                        cell: head,
+                        labour_h: hours,
+                        work: Some(id),
+                    },
+                )),
+            }
+        }
+    }
+
+    /// Polity `pi`'s review of its sewers' faults now: for tests.
+    #[doc(hidden)]
+    pub fn sewer_reviews_for_tests(&mut self, ctx: &mut Ctx, pi: usize) {
+        self.sewer_reviews(ctx, pi);
     }
 
     /// The day's sewers now, with `shed` (household, disease, doses) shed into heaps today as

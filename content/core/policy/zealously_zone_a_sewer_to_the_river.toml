@@ -44,6 +44,17 @@ sludge = "core:good/sludge"
 # year), a design prior from ADR-0041 §4, checked against research 12-10 §2.2's 0.5-1 ha for a
 # hundred people (Berlin, Freiburg) and 12-02 §2.3's 50-100 kg of nitrogen a hectare.
 farm_people_ha = 100.0
+# Wear, silt and mending (ADR-0044 §5; content API 223): a fiftieth of what enters a day stays in the
+# sewer as deposit, and a metre is blocked at 20 kg of it, so a sewer of 500 m at its 1,000 kg a day
+# gathers 20 kg a day and blocks in about 500 days unless cleared; clearing takes 10 hours a tonne
+# (near ADR-0010 §2's 8 hours a cubic metre of digging). Design priors all: research 12-02, 12-10 and
+# 12-08 found no deposition or clearing rate (12-08 §2.2). Each month a cell of its route loses a
+# twelfth of 1 / `life_years` (a fiftieth a year) times its ground's wetness and the month's rain, as
+# a well's lining does; at a loss of 1 it collapses, and relining it takes laying's hours and
+# materials a metre.
+deposit_share = 0.02
+block_kg_m = 20.0
+clear_h_t = 10.0
 
 # An authoring judgement, not a measurement, as for a line laid together: a share of every
 # household's hours is asked, for cleaner homes.

@@ -2097,3 +2097,28 @@ a tip does. Once a harvest is not held back by the soil the household stops. Nob
 to a field. The core's sewer takes 100 people a hectare (50 kg a day of heaps' decaying share at
 half a kilogram a person, about 100 kg of nitrogen a hectare a year: ADR-0041 §4's prior, checked
 against research 12-10 §2.2's 0.5–1 ha for a hundred people and 12-02 §2.3's 50–100 kg N/ha).
+
+Content API 223 (ADR-0044 §5) adds three terms to a `lay_sewer` template's `[sewer]` table, each
+optional: `deposit_share` (0–1; absent or 0, nothing deposits), the share of what enters a sewer a
+day that stays in it as deposit, mass only (its disease loads pass with the flow); `block_kg_m`
+(0–100,000), the deposit a metre holds before the sewer is blocked; and `clear_h_t` (0–1,000), the
+hours of a capable adult's work clearing a tonne of it takes. A `deposit_share` above 0 needs both
+others above 0. A sewer's room a day is its `capacity_kg_day` × (1 − deposit ÷ (`block_kg_m` ×
+its length)); connections are served in the order made while the room lasts, and once one is
+turned away so is every one after it, so the last connected back up first, for want of capacity
+(`Overloaded`) or of room the deposit took (`Blocked`, a cause appended as code 3). Each month
+every cell of its route loses a twelfth of 1 ÷ `life_years` times its ground's wetness and the
+month's rain against its usual, the factors a well's lining wears by; a cell whose loss reaches 1
+collapses, and the homes whose drains enter at or above the collapse nearest the outfall back up
+(`Broken`) while those below still flow. Each connection counts the days of the year it went
+unserved, by cause. A polity learns of a fault only as it shows (a home backing up for want of
+room the sewer once had, or a collapse), and while the law that laid the sewer is in force its
+review weighs the fault as laying was weighed: the hours a year the homes it backs up would be
+spared, over the sewer's life left, against the work and materials. Relining a collapsed cell
+takes laying's `lay_h_m` and its walls and binder a metre and makes it new; clearing takes
+`clear_h_t` hours a tonne and turns the deposit into `sludge` in the keeper's store. Neither mends
+the other's fault, the work is asked as an equal share of each household (paid where a law pays
+for common work), and with the law ended nobody mends. The core's sewer silts 0.02 of what enters,
+blocks at 20 kg a metre and clears at 10 hours a tonne: design priors (research 12-02, 12-10 and
+12-08 found no deposition or clearing rate; ADR-0010 §2's 8 hours a cubic metre of digging is
+near), so a sewer of 500 m at its 1,000 kg a day blocks in about 500 days unless cleared.

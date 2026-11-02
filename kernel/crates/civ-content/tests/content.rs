@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 222
+kernel_content_api = 223
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -3720,6 +3720,12 @@ fn the_core_lets_a_polity_lay_a_sewer_to_the_river() {
     assert_eq!((s.fall, s.settle_share, s.connect_h), (0.002, 0.5, 0.0));
     // Its farm takes 100 people's discharge a hectare (ADR-0044 §4; content API 222).
     assert_eq!(s.farm_people_ha, 100.0);
+    // It silts a fiftieth of what enters, a metre blocks at 20 kg, and clearing a tonne takes 10
+    // hours (ADR-0044 §5; content API 223), design priors.
+    assert_eq!(
+        (s.deposit_share, s.block_kg_m, s.clear_h_t),
+        (0.02, 20.0, 10.0)
+    );
     assert_eq!(s.tank, good("core:good/settling_tank"));
     assert_eq!(s.sludge, good("core:good/sludge"));
     // Its id sorts after every older template's (the protection rule's, ADR-0037 §5, is newer).
@@ -3763,6 +3769,21 @@ fn a_sewer_template_needs_its_terms_and_only_it_has_them() {
             "lay_sewer",
             format!("{terms}farm_people_ha = -1.0\n"),
             "`sewer.farm_people_ha` must be between",
+        ),
+        (
+            "lay_sewer",
+            format!("{terms}deposit_share = 1.5\nblock_kg_m = 20.0\nclear_h_t = 10.0\n"),
+            "`sewer.deposit_share` must be between",
+        ),
+        (
+            "lay_sewer",
+            format!("{terms}deposit_share = 0.02\nclear_h_t = 10.0\n"),
+            "needs `block_kg_m` and `clear_h_t` above 0",
+        ),
+        (
+            "lay_sewer",
+            format!("{terms}deposit_share = 0.02\nblock_kg_m = 20.0\nclear_h_t = 5000.0\n"),
+            "`sewer.clear_h_t` must be between",
         ),
     ] {
         let bad = load_fixture(&[

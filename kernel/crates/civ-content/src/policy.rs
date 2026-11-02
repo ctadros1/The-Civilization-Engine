@@ -354,6 +354,16 @@ pub struct SewerFile {
     /// ADR-0044 §4); absent or 0, no farm.
     #[serde(default)]
     pub farm_people_ha: f32,
+    /// The share of what enters a day that stays in it as deposit, mass only (content API 223;
+    /// ADR-0044 §5); absent or 0, nothing deposits.
+    #[serde(default)]
+    pub deposit_share: f32,
+    /// The deposit a metre of it holds before it is blocked, kilograms (content API 223).
+    #[serde(default)]
+    pub block_kg_m: f32,
+    /// The hours of a capable adult's work clearing a tonne of its deposit takes (content API 223).
+    #[serde(default)]
+    pub clear_h_t: f32,
 }
 
 /// The terms of a polity's notes in a policy file (content API 196, M10d slice EJ).
@@ -726,6 +736,9 @@ impl PolicyFile {
             tank: s.tank.as_deref().and_then(good_index),
             sludge: s.sludge.as_deref().and_then(good_index),
             farm_people_ha: s.farm_people_ha,
+            deposit_share: s.deposit_share,
+            block_kg_m: s.block_kg_m,
+            clear_h_t: s.clear_h_t,
         })
     }
 
@@ -1447,12 +1460,22 @@ impl PolicyFile {
                     ("avoided_share", s.avoided_share, 0.0, 1.0),
                     ("settle_share", s.settle_share, 0.0, 1.0),
                     ("farm_people_ha", s.farm_people_ha, 0.0, 10_000.0),
+                    ("deposit_share", s.deposit_share, 0.0, 1.0),
+                    ("block_kg_m", s.block_kg_m, 0.0, 100_000.0),
+                    ("clear_h_t", s.clear_h_t, 0.0, 1000.0),
                 ] {
                     if !(v.is_finite() && (lo..=hi).contains(&v)) {
                         p.push(format!(
                             "`sewer.{name}` must be between {lo} and {hi} (got {v})"
                         ));
                     }
+                }
+                // A sewer that silts can block and be cleared (ADR-0044 §5).
+                if s.deposit_share > 0.0 && !(s.block_kg_m > 0.0 && s.clear_h_t > 0.0) {
+                    p.push(
+                        "`sewer.deposit_share` above 0 needs `block_kg_m` and `clear_h_t` above 0"
+                            .to_owned(),
+                    );
                 }
                 if s.walls.is_empty() || s.binders.is_empty() {
                     p.push("`sewer.walls` and `sewer.binders` each name a good".to_owned());

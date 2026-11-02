@@ -1070,6 +1070,9 @@ impl Population {
             {
                 self.polities[pi].reviewed = day;
                 self.review(ctx, pi);
+                // Whether a fault of its sewers it has learned of is worth mending under the law
+                // that laid it (ADR-0044 §5).
+                self.sewer_reviews(ctx, pi);
                 // Whether anyone bound by a law a limit forbids challenges it (M7b slice BT).
                 self.weigh_challenges(ctx, pi);
                 // Whether a member of an organization brings a breach of its privilege (M7c

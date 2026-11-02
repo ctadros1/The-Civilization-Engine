@@ -1714,7 +1714,7 @@ table PolitySave {
 
 // A sewer a polity's law lays (schema 220, ADR-0041 §1-§4): its id (its settling tank's contagion
 // node's), the law, the day begun, its cells from head to outfall, the outfall's reach, its length
-// and how much is laid, metres, what it carries a day, kg, whether it is broken, the household
+// and how much is laid, metres, what it carries a day, kg, a deprecated flag, the household
 // keeping its tank (0: the polity's store), its connections in the order made, and its last day:
 // the day (-1 never), the kilograms that went in and that settled as sludge.
 table SewerSave {
@@ -1726,7 +1726,8 @@ table SewerSave {
   length_m: float (id: 5);
   laid_m: float (id: 6);
   capacity_kg_day: float (id: 7);
-  broken: bool (id: 8);
+  // Deprecated (ADR-0044 §5): nothing set it; where it is broken is `broken_cell`.
+  broken: bool (id: 8, deprecated);
   keeper: ulong (id: 9);
   connections: [SewerConnectionSave] (id: 10);
   day: long = -1 (id: 11);
@@ -1737,11 +1738,34 @@ table SewerSave {
   // that farm took; absent, none.
   farm: ulong (id: 14);
   farm_kg: double (id: 15);
+  // ADR-0044 §5 (appended within the unreleased saves 220): the kilograms of its last day that
+  // stayed as deposit; the deposit it holds, kg (mass only); each route cell's loss, 0 new to 1
+  // collapsed, in `cells`' order (absent: all new); where it is broken, the index in `cells` of
+  // the collapsed cell nearest the outfall plus one (0 whole); the mending its polity asked: the
+  // deposit still to clear, kg, whether its collapsed cells are to be relined, and the metres of
+  // the broken cell relined so far; and each connection's days unserved, by cause, in the
+  // calendar year of its last day, in `connections`' order (absent: none).
+  deposited_kg: double (id: 16);
+  deposit_kg: double (id: 17);
+  loss: [float] (id: 18);
+  broken_cell: uint (id: 19);
+  clear_kg: double (id: 20);
+  reline: bool (id: 21);
+  relined_m: float (id: 22);
+  unserved: [SewerUnservedSave] (id: 23);
+}
+
+// The days of a calendar year a sewer's connection went unserved, by cause (schema 220, appended:
+// ADR-0044 §5): the sewer full, broken at or below where it enters, blocked by its deposit.
+struct SewerUnservedSave {
+  overloaded: ushort;
+  broken: ushort;
+  blocked: ushort;
 }
 
 // A home's privy connected to a sewer (schema 220, ADR-0041 §2): its household and building, the
 // day it connected, and its last day: the day (-1 never), the kilograms that went in, and why (0
-// served, 1 the sewer full, 2 broken).
+// served, 1 the sewer full, 2 broken; 3 blocked by its deposit, ADR-0044 §5).
 struct SewerConnectionSave {
   household: ulong;
   building: ulong;

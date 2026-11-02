@@ -892,8 +892,10 @@ pub struct RoundDef {
 /// serves; the hours a home's connection takes once (0: free); the share of its deaths of disease
 /// within the year a household believes a sewer would have spared; at a settling tank (the good
 /// `tank`, held whole by its keeper), the share of the day's load, mass and each disease, that
-/// settles as the good `sludge`; and the people whose discharge a hectare of a sewage farm takes
-/// (ADR-0044 §4; 0: no farm).
+/// settles as the good `sludge`; the people whose discharge a hectare of a sewage farm takes
+/// (ADR-0044 §4; 0: no farm); and its wear and silt (ADR-0044 §5): the share of what enters a day
+/// that stays in it as deposit (0: none), the deposit a metre holds before it is blocked,
+/// kilograms, and the hours clearing a tonne of it takes.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SewerDef {
     pub walls: Vec<usize>,
@@ -910,6 +912,9 @@ pub struct SewerDef {
     pub tank: Option<usize>,
     pub sludge: Option<usize>,
     pub farm_people_ha: f32,
+    pub deposit_share: f32,
+    pub block_kg_m: f32,
+    pub clear_h_t: f32,
 }
 
 /// Why a connection's share did or did not go into its sewer on a day (ADR-0041 §2).
@@ -920,8 +925,10 @@ pub enum SewerCause {
     Served,
     /// The sewer carried as much as it could for those connected before it.
     Overloaded,
-    /// The sewer is broken.
+    /// The sewer is broken at or below where it enters (ADR-0044 §5).
     Broken,
+    /// The sewer's deposit took the room it once had for it (ADR-0044 §5).
+    Blocked,
 }
 
 impl SewerCause {
@@ -931,6 +938,7 @@ impl SewerCause {
             SewerCause::Served => 0,
             SewerCause::Overloaded => 1,
             SewerCause::Broken => 2,
+            SewerCause::Blocked => 3,
         }
     }
 
@@ -939,6 +947,7 @@ impl SewerCause {
         match code {
             1 => SewerCause::Overloaded,
             2 => SewerCause::Broken,
+            3 => SewerCause::Blocked,
             _ => SewerCause::Served,
         }
     }
@@ -946,7 +955,8 @@ impl SewerCause {
 
 /// A home's privy connected to a sewer (ADR-0041 §2): its household and building, the day it
 /// connected, and its last day: the day (-1 never), the kilograms of its heap's decaying share
-/// that went in, and why it did or did not.
+/// that went in, and why it did or did not; and the days of the calendar year of its last day it
+/// went unserved, by cause (ADR-0044 §5): the sewer full, broken, blocked.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SewerConnection {
     pub household: PermanentId,
@@ -955,18 +965,35 @@ pub struct SewerConnection {
     pub day: i64,
     pub kg: f64,
     pub cause: SewerCause,
+    pub unserved: [u16; 3],
+}
+
+impl SewerConnection {
+    /// The days of the calendar year of its last day it went unserved for `cause` (0 for
+    /// `Served`).
+    pub fn days_unserved(&self, cause: SewerCause) -> u16 {
+        match cause {
+            SewerCause::Served => 0,
+            c => self.unserved[usize::from(c.code() - 1)],
+        }
+    }
 }
 
 /// A sewer a polity lays by law (ADR-0041 §1-§4): the cells it runs along from its head to its
 /// outfall (the last, a river cell, on reach `reach`), its length and how much of it is laid,
-/// metres, what it carries a day, kilograms, whether it is broken (nothing breaks one yet, and
-/// mending is deferred), the household that keeps its settling tank (`None`: the polity's store),
-/// its connections in the order made, and its last day: the day (-1 never), the kilograms that
-/// went in and the kilograms of them that settled as sludge; the field its flow is led onto as a
-/// sewage farm (ADR-0044 §4; `None`: none) and the kilograms of the day's that farm took; the
-/// rest went to the river. What settled holds its share of each disease at
+/// metres, what it carries a day, kilograms, where it is broken (ADR-0044 §5: the index in
+/// `cells` of the collapsed cell nearest the outfall; `None`: whole), the household that keeps
+/// its settling tank (`None`: the polity's store), its connections in the order made, and its last
+/// day: the day (-1 never), the kilograms that went in, the kilograms of them that stayed as
+/// deposit (ADR-0044 §5) and that settled as sludge; the field its flow is led onto as a sewage
+/// farm (ADR-0044 §4; `None`: none) and the kilograms of the day's that farm took; the rest went
+/// to the river. What settled holds its share of each disease at
 /// [`crate::contagion::Node::Sewer`], and what the farm took at [`crate::contagion::Node::Field`].
-/// Saved.
+///
+/// Its wear and mending (ADR-0044 §5): the deposit it holds, kilograms (mass only); each route
+/// cell's loss, 0 new to 1 collapsed; and the mending its polity asked: the deposit still to clear,
+/// kilograms, whether its collapsed cells are to be relined, and the metres of the broken cell
+/// relined so far. Saved.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Sewer {
     pub id: PermanentId,
@@ -977,20 +1004,49 @@ pub struct Sewer {
     pub length_m: f32,
     pub laid_m: f32,
     pub capacity_kg_day: f32,
-    pub broken: bool,
+    pub broken: Option<u32>,
     pub keeper: Option<PermanentId>,
     pub connections: Vec<SewerConnection>,
     pub day: i64,
     pub entered_kg: f64,
+    pub deposited_kg: f64,
     pub settled_kg: f64,
     pub farm: Option<PermanentId>,
     pub farm_kg: f64,
+    pub deposit_kg: f64,
+    pub loss: Vec<f32>,
+    pub clear_kg: f64,
+    pub reline: bool,
+    pub relined_m: f32,
 }
 
 impl Sewer {
     /// Whether its whole length is laid, so that it carries.
     pub fn whole(&self) -> bool {
         self.laid_m + 1e-3 >= self.length_m
+    }
+
+    /// Whether route cell `i` has collapsed (ADR-0044 §5).
+    pub fn collapsed(&self, i: usize) -> bool {
+        self.loss.get(i).is_some_and(|&l| l >= 1.0)
+    }
+
+    /// The collapsed cell nearest the outfall, by index in `cells`: where it is broken.
+    pub fn lowest_collapse(&self) -> Option<u32> {
+        (0..self.loss.len())
+            .rev()
+            .find(|&i| self.collapsed(i))
+            .and_then(|i| u32::try_from(i).ok())
+    }
+
+    /// Its most worn cell that has not collapsed, by index in `cells`, and its loss.
+    pub fn worst(&self) -> Option<(usize, f32)> {
+        self.loss
+            .iter()
+            .enumerate()
+            .filter(|&(_, &l)| l < 1.0)
+            .max_by(|a, b| a.1.total_cmp(b.1).then(b.0.cmp(&a.0)))
+            .map(|(i, &l)| (i, l))
     }
 }
 

@@ -350,6 +350,10 @@ pub struct SewerFile {
     /// The good what settles becomes (an id), if any.
     #[serde(default)]
     pub sludge: Option<String>,
+    /// The people whose discharge a hectare of a sewage farm takes a day (content API 222;
+    /// ADR-0044 §4); absent or 0, no farm.
+    #[serde(default)]
+    pub farm_people_ha: f32,
 }
 
 /// The terms of a polity's notes in a policy file (content API 196, M10d slice EJ).
@@ -721,6 +725,7 @@ impl PolicyFile {
             settle_share: s.settle_share,
             tank: s.tank.as_deref().and_then(good_index),
             sludge: s.sludge.as_deref().and_then(good_index),
+            farm_people_ha: s.farm_people_ha,
         })
     }
 
@@ -1441,6 +1446,7 @@ impl PolicyFile {
                     ("connect_h", s.connect_h, 0.0, 1000.0),
                     ("avoided_share", s.avoided_share, 0.0, 1.0),
                     ("settle_share", s.settle_share, 0.0, 1.0),
+                    ("farm_people_ha", s.farm_people_ha, 0.0, 10_000.0),
                 ] {
                     if !(v.is_finite() && (lo..=hi).contains(&v)) {
                         p.push(format!(

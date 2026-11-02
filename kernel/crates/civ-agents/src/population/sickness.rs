@@ -306,8 +306,8 @@ impl Population {
     }
 
     /// What is left of `disease` with settlement `settlement`'s households (anyone's for `None`),
-    /// doses: in their heaps and stored water, in their wells and their polity's and its tips, and on its way
-    /// through the ground to any of those. What reaches a river is carried off by the next day.
+    /// doses: in their heaps and stored water, in their wells and their polity's and its tips, on
+    /// their sewage farms, and on its way through the ground to any of those. What reaches a river is carried off by the next day.
     fn disease_left(&self, ctx: &Ctx, disease: u16, settlement: Option<PermanentId>) -> f64 {
         let ours = |h: PermanentId| {
             settlement.is_none_or(|s| self.household(h).is_some_and(|x| x.settlement == Some(s)))
@@ -322,6 +322,13 @@ impl Population {
             Node::Sewer(t) => self
                 .sewer_settlement(t)
                 .is_some_and(|s| settlement.is_none_or(|x| x == s)),
+            // A sewage farm, by the household working its field (ADR-0044 §4).
+            Node::Field(f) => ctx
+                .land
+                .fields
+                .iter()
+                .find(|x| x.id == f)
+                .is_some_and(|x| ours(x.household)),
             Node::Well(w) => ctx.land.wells.get(w).is_some_and(|w| {
                 ours(w.household)
                     || w.polity.is_some_and(|p| {

@@ -2080,3 +2080,20 @@ fuel the world provides leaves ash. The core sorts 100 kg an hour (a design prio
 §6 found no sorting rate), adds `activity/pick_scrap_iron` and `activity/pick_ash`, and
 `recipe/fire_bricks_with_ash` with its activity: `fire_bricks` with a quarter of the clay replaced
 by ash, kilogram for kilogram (3 kg of clay and 1 of ash a unit; a design prior).
+
+Content API 222 (ADR-0044 §4) adds `farm_people_ha` to a `lay_sewer` template's `[sewer]` table
+(0–10,000; absent or 0, no farm): the people whose discharge a hectare of a sewage farm takes a day.
+A field with a cell beside a sewer's route below the lowest route cell any connected home lies
+beside (so the whole flow passes it), whose household has people and whose last harvest, of this
+calendar year or the last, its soil held back (`Limit::Soil`), takes the flow, for nothing: the
+one already taking it while it still qualifies, or else the first the flow passes, the lowest id
+first. At the outfall a settling tank's share settles first; the farm then takes what is left up to
+`farm_people_ha` × its hectares × the people profile's `[midden]` `kg_per_person_day`, and the rest
+goes to the river. What the farm takes enters the field's soil as manure at the heap's nitrogen a
+kilogram (`n_kg_per_person_year` over a person's year of heap), so its crop rises only where its
+soil held it back; its share of each disease shed that day lies at the field's own contagion node
+(code 8), which washes and soaks from the field's centre to the wells and reaches within reach, as
+a tip does. Once a harvest is not held back by the soil the household stops. Nobody ties sickness
+to a field. The core's sewer takes 100 people a hectare (50 kg a day of heaps' decaying share at
+half a kilogram a person, about 100 kg of nitrogen a hectare a year: ADR-0041 §4's prior, checked
+against research 12-10 §2.2's 0.5–1 ha for a hundred people and 12-02 §2.3's 50–100 kg N/ha).

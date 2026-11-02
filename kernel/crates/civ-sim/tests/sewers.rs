@@ -4,7 +4,10 @@
 //! people shed go whole to the outfall's reach, recorded as carried, in the order connected while
 //! its capacity lasts; a settling tank its keeper holds keeps the content's share as sludge, with
 //! that share of each disease; without the law nothing changes; and a world with a sewer saves and
-//! loads exactly.
+//! loads exactly. A sewage farm (ADR-0044 §4): a field beside the route below the lowest connection,
+//! whose last harvest its soil held back, takes what leaves the tank up to its area's limit, into
+//! its soil as dung and its loads to its own node, washing to a well beside it; mass and loads are
+//! conserved through tank, farm and reach; its crop rises only where the soil held it back.
 
 use std::path::Path;
 use std::sync::OnceLock;
@@ -14,8 +17,10 @@ use civ_agents::polity::{
     IssueKind, Law, LawStatus, Outcome as Decided, PolicyKind, SewerCause, SewerDef, WaySite,
 };
 use civ_content::ContentRegistry;
-use civ_core::PermanentId;
+use civ_core::{PermanentId, SimTime};
 use civ_land::ways::{Keeper, Rank, Segment, Surface, WALK, Way};
+use civ_land::wells::{Well, WellState};
+use civ_land::{Allowance, Field, FieldSoil, FieldStage, HarvestRecord, Limit, Party, RectCm};
 use civ_sim::{NewWorld, Sim, persist};
 use civ_world::{WATER_LAND, WATER_RIVER};
 
@@ -692,4 +697,456 @@ fn where_laws_ask_homes_to_carry_their_heaps_a_sewer_beside_them_is_reckoned_to_
             "{h:?} would be spared its carrying: {saves:?}"
         );
     }
+}
+
+/// The index of the last route cell any home connected to the first polity's first sewer lies
+/// beside.
+fn lowest_connection(sim: &Sim) -> usize {
+    let s = &sim.people().polities[0].sewers[0];
+    let w = i64::from(sim.map().width);
+    let xy = |c: u32| (i64::from(c) % w, i64::from(c) / w);
+    s.connections
+        .iter()
+        .filter_map(|c| {
+            let home = civ_agents::population::cell_of(
+                sim.map(),
+                sim.people().household(c.household)?.home,
+            ) as u32;
+            let (hx, hy) = xy(home);
+            s.cells.iter().rposition(|&r| {
+                let (rx, ry) = xy(r);
+                (rx - hx).abs() <= 1 && (ry - hy).abs() <= 1
+            })
+        })
+        .max()
+        .expect("a connection")
+}
+
+/// A land cell beside route cell `line[k]`, off the route.
+fn beside_cell(sim: &Sim, line: &[u32], k: usize) -> Option<u32> {
+    let map = sim.map();
+    let (w, h) = (i64::from(map.width), i64::from(map.height));
+    let (x, y) = (i64::from(line[k]) % w, i64::from(line[k]) / w);
+    STEPS.iter().find_map(|&(dx, dy)| {
+        let (nx, ny) = (x + dx, y + dy);
+        let c = (nx >= 0 && ny >= 0 && nx < w && ny < h).then(|| (ny * w + nx) as u32)?;
+        (map.water[c as usize] == WATER_LAND && !line.contains(&c)).then_some(c)
+    })
+}
+
+/// The north-west corner of cell `c`, centimetres.
+fn corner_cm(sim: &Sim, c: u32) -> (i32, i32) {
+    let map = sim.map();
+    let size = (map.cell_size_m * 100.0) as i32;
+    ((c % map.width) as i32 * size, (c / map.width) as i32 * size)
+}
+
+/// This calendar year.
+fn this_year(sim: &Sim) -> i32 {
+    i32::try_from(sim.now().date().year).expect("a year")
+}
+
+/// A field of household `h`, `side_m` square at the north-west corner of cell `c`, sown in time
+/// and fully tended, its soil thin (10 kg of nitrogen a hectare to give this year), and its last
+/// harvest, of `year`, held back by `limit`: its id.
+fn a_field(
+    sim: &mut Sim,
+    h: PermanentId,
+    c: u32,
+    side_m: f32,
+    limit: Limit,
+    year: i32,
+) -> PermanentId {
+    let id = sim.allocate_id_for_tests();
+    let (x, y) = corner_cm(sim, c);
+    let crop = &sim.rules().catalog.crops[0];
+    let sown_day = i64::from(crop.sow_from_day);
+    let side = (side_m * 100.0) as i32;
+    sim.land_mut_for_tests().fields.push(Field {
+        id,
+        household: h,
+        holder: Party::Household(h),
+        lease: None,
+        rect: RectCm {
+            x,
+            y,
+            w: side,
+            h: side,
+        },
+        crop: 0,
+        stage: FieldStage::Reaped,
+        stage_since: SimTime::ZERO,
+        work_h: 0.0,
+        tended_h: 1.0e6,
+        ground: 1.0,
+        clear_h_per_ha: 0.0,
+        broken: true,
+        sown_day,
+        sheaves_kg: 0.0,
+        harvests: 1,
+        water_mm: 0.0,
+        need_mm: 0.0,
+        got_mm: 0.0,
+        soil: FieldSoil {
+            fast_n: 50.0,
+            slow_n: 1000.0,
+            supply_n: 10.0,
+            record: vec![HarvestRecord {
+                year,
+                kg_per_ha: 300.0,
+                limit,
+            }],
+        },
+        last_flood_depth_cm: 0,
+        submerged_days: 0,
+        reserved: None,
+    });
+    id
+}
+
+fn field(sim: &Sim, id: PermanentId) -> Field {
+    sim.land()
+        .fields
+        .iter()
+        .find(|f| f.id == id)
+        .expect("the field")
+        .clone()
+}
+
+/// A sewer laid whole beside two homes at its head, its homes connected, a settling tank at its
+/// outfall if `tank`, and a field of the first home's household `side_m` square on a land cell
+/// beside its route below its lowest connection, its last harvest this year's held back by
+/// `limit`: the sim, the route, the homes, the sewer, the field and its cell.
+fn a_sewer_with_a_field(
+    tank: bool,
+    side_m: f32,
+    limit: Limit,
+) -> (
+    Sim,
+    Vec<u32>,
+    Vec<PermanentId>,
+    PermanentId,
+    PermanentId,
+    u32,
+) {
+    let (mut sim, line, homes, sewer) = a_sewer_marked_out(2);
+    lay_whole(&mut sim, homes[0], sewer);
+    if tank {
+        let tank = index(&sim, "core:good/settling_tank");
+        let goods = sim.rules().catalog.goods.len();
+        let p = &mut sim.people_mut_for_tests().polities[0];
+        p.stores.resize(goods, 0.0);
+        p.stores[tank] = 1.0;
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_day_for_tests(ctx, &[]));
+    assert!(
+        sim.people().polities[0].sewers[0].farm.is_none(),
+        "no field yet"
+    );
+    let lowest = lowest_connection(&sim);
+    let (k, cell) = (lowest + 1..line.len())
+        .find_map(|k| Some((k, beside_cell(&sim, &line, k)?)))
+        .expect("land beside the route below its lowest connection, or this test shows nothing");
+    eprintln!(
+        "lowest connection at {lowest} of {}; the field beside {k}",
+        line.len()
+    );
+    let year = this_year(&sim);
+    let f = a_field(&mut sim, homes[0], cell, side_m, limit, year);
+    sim.advance_minutes(DAY).expect("lives");
+    (sim, line, homes, sewer, f, cell)
+}
+
+#[test]
+fn a_sewage_farm_takes_what_leaves_the_tank_up_to_its_area_and_mass_and_loads_are_conserved() {
+    // A field of 10 m by 10 m, a hundredth of a hectare: one person's discharge a day.
+    let (mut sim, _, homes, sewer, f, _) = a_sewer_with_a_field(true, 10.0, Limit::Soil);
+    let def = sewer_def(&sim);
+    assert_eq!(def.farm_people_ha, 100.0, "the prior");
+    let d = cholera(&sim);
+    let midden = sim.rules().people.midden.clone();
+    let soil_params = sim.rules().land.soil.clone();
+    let before = field(&sim, f);
+    let ha = before.area_ha();
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_day_for_tests(ctx, &[(homes[1], d, 900.0)]));
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert_eq!(s.farm, Some(f), "the field's household takes the flow");
+    let rest = s.entered_kg - s.settled_kg;
+    let limit = f64::from(def.farm_people_ha) * ha * midden.kg_per_person_day;
+    eprintln!(
+        "{:.2} kg in, {:.2} settled, {:.2} to the farm (its limit {limit:.2}), {:.2} to the river",
+        s.entered_kg,
+        s.settled_kg,
+        s.farm_kg,
+        rest - s.farm_kg
+    );
+    assert!(
+        (s.settled_kg - 0.5 * s.entered_kg).abs() < 1e-9,
+        "settling first"
+    );
+    assert!(
+        rest > limit,
+        "more than the farm takes, or this test shows nothing"
+    );
+    assert!(
+        (s.farm_kg - limit).abs() < 1e-9,
+        "the farm takes its area's limit"
+    );
+    assert!(
+        (limit - 0.5).abs() < 1e-9,
+        "100 people a hectare at 0.5 kg each: {limit}"
+    );
+    // Its nitrogen entered the soil's pools as dung at the heap's nitrogen a kilogram.
+    let mut expected = before.soil.clone();
+    expected.manured(&soil_params, s.farm_kg * midden.n_per_kg() / ha);
+    let after = field(&sim, f).soil;
+    assert_eq!(after, expected);
+    assert!(after.fast_n > before.soil.fast_n && after.slow_n > before.soil.slow_n);
+    assert!(after.supply_n > before.soil.supply_n);
+    // Every dose is conserved: half at the tank, the farm's share of the rest at the field, the
+    // rest to the river, each recorded as carried.
+    let c = &sim.people().contagion;
+    let (tank, farm, reach) = (
+        c.load(Node::Sewer(sewer), d),
+        c.load(Node::Field(f), d),
+        c.load(Node::Reach(s.reach), d),
+    );
+    eprintln!("{tank:.1} doses settled, {farm:.1} on the farm, {reach:.1} to the river");
+    assert!((tank - 450.0).abs() < 1e-9);
+    assert!((farm - 450.0 * s.farm_kg / rest).abs() < 1e-9);
+    assert!((tank + farm + reach - 900.0).abs() < 1e-9, "conserved");
+    assert!(reach < 450.0, "the reach below takes less");
+    let day = sim.now().day_index();
+    let carried: f64 = c
+        .moves
+        .iter()
+        .filter(|m| {
+            m.how == How::Carried
+                && m.from == Node::Midden(homes[1])
+                && m.to == Node::Field(f)
+                && m.day == day
+        })
+        .map(|m| m.amount)
+        .sum();
+    assert!((carried - farm).abs() < 1e-9, "{carried} {farm}");
+    // The observer names the farm and what it took.
+    let words = civ_sim::frames::government::services_words(&sim, &sim.people().polities[0]);
+    assert!(
+        words.iter().any(|w| w.contains("settled as sludge")
+            && w.contains("as a farm")
+            && w.contains("spread on a field of")),
+        "{words:?}"
+    );
+    // A hectare takes all that leaves the tank, and the river nothing of it.
+    for x in sim.land_mut_for_tests().fields.iter_mut() {
+        if x.id == f {
+            (x.rect.w, x.rect.h) = (10_000, 10_000);
+        }
+    }
+    sim.advance_minutes(DAY).expect("lives");
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert_eq!(s.farm, Some(f));
+    assert!(s.entered_kg > 0.0 && s.entered_kg - s.settled_kg < 50.0);
+    assert!(
+        (s.farm_kg - (s.entered_kg - s.settled_kg)).abs() < 1e-9,
+        "{} of {}",
+        s.farm_kg,
+        s.entered_kg - s.settled_kg
+    );
+    let words = civ_sim::frames::government::services_words(&sim, &sim.people().polities[0]);
+    assert!(
+        words.iter().any(|w| w.contains("0 kg a day to the river")),
+        "{words:?}"
+    );
+    saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+#[test]
+fn a_farm_raises_a_soil_limited_crop_and_not_a_season_limited_one() {
+    let (mut sim, _, _, _, f, _) = a_sewer_with_a_field(false, 20.0, Limit::Soil);
+    let crop = sim.rules().catalog.crops[0].clone();
+    let soil_params = sim.rules().land.soil.clone();
+    // What the field would give at its ripe day in a season whose water allows `water`.
+    let grain = |sim: &Sim, water: f64| {
+        let x = field(sim, f);
+        let allow = Allowance {
+            water,
+            soil_kg_per_ha: x.soil.allows_kg_ha(&soil_params, &crop),
+        };
+        x.harvest_kg(&crop, x.ripe_day(&crop), allow)
+    };
+    let (wet, dry) = (grain(&sim, 1.0), grain(&sim, 0.05));
+    assert_eq!(
+        wet.2,
+        Limit::Soil,
+        "an average season: the soil holds it back"
+    );
+    assert_eq!(
+        dry.2,
+        Limit::Season,
+        "a dry season: the season holds it back"
+    );
+    let farmed: f64 = (0..5)
+        .map(|_| {
+            sim.advance_minutes(DAY).expect("lives");
+            sim.people().polities[0].sewers[0].farm_kg
+        })
+        .sum();
+    assert!(farmed > 0.0, "the farm took the flow");
+    let (wet2, dry2) = (grain(&sim, 1.0), grain(&sim, 0.05));
+    eprintln!(
+        "{farmed:.1} kg farmed: {:.2} kg of grain in an average season, then {:.2}; {:.2} in a \
+         dry one, then {:.2}",
+        wet.1, wet2.1, dry.1, dry2.1
+    );
+    assert!(wet2.1 > wet.1, "the soil-limited crop rises");
+    assert_eq!(dry2, dry, "the season-limited crop does not");
+}
+
+#[test]
+fn the_fields_household_takes_the_flow_only_after_its_soil_held_a_harvest_back() {
+    let (mut sim, _, _, _, f, _) = a_sewer_with_a_field(false, 20.0, Limit::Season);
+    let soil = field(&sim, f).soil;
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert!(s.entered_kg > 0.0);
+    assert_eq!(
+        (s.farm, s.farm_kg),
+        (None, 0.0),
+        "the season held it back: no farm"
+    );
+    assert_eq!(field(&sim, f).soil, soil, "its soil untouched");
+    let set_record = |sim: &mut Sim, record: Vec<HarvestRecord>| {
+        for x in sim.land_mut_for_tests().fields.iter_mut() {
+            if x.id == f {
+                x.soil.record = record.clone();
+            }
+        }
+    };
+    let year = this_year(&sim);
+    let soil_held = |year: i32| HarvestRecord {
+        year,
+        kg_per_ha: 300.0,
+        limit: Limit::Soil,
+    };
+    // Held back by the soil, but three years since: the field is not farmed now.
+    set_record(&mut sim, vec![soil_held(year - 3)]);
+    sim.advance_minutes(DAY).expect("lives");
+    assert_eq!(
+        sim.people().polities[0].sewers[0].farm,
+        None,
+        "an old harvest"
+    );
+    // This year's: the flow is led onto it.
+    set_record(&mut sim, vec![soil_held(year)]);
+    sim.advance_minutes(DAY).expect("lives");
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert_eq!(s.farm, Some(f));
+    assert!(s.farm_kg > 0.0);
+    // A harvest after it the season held back, and the household stops.
+    set_record(
+        &mut sim,
+        vec![
+            soil_held(year),
+            HarvestRecord {
+                year,
+                kg_per_ha: 900.0,
+                limit: Limit::Season,
+            },
+        ],
+    );
+    sim.advance_minutes(DAY).expect("lives");
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert_eq!(
+        (s.farm, s.farm_kg),
+        (None, 0.0),
+        "the soil no longer holds it back"
+    );
+}
+
+#[test]
+fn a_well_beside_a_farm_takes_its_load() {
+    let (mut sim, _, homes, _, f, cell) = a_sewer_with_a_field(false, 10.0, Limit::Soil);
+    let d = cholera(&sim);
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_day_for_tests(ctx, &[(homes[1], d, 10_000.0)]));
+    let on_farm = sim.people().contagion.load(Node::Field(f), d);
+    assert!(on_farm > 0.0, "the farm holds its share");
+    // An open well a few metres from the field, its mouth no higher than the field's ground.
+    let id = sim.allocate_id_for_tests();
+    let (x, y) = corner_cm(&sim, cell);
+    let ground = sim.map().elevation[cell as usize];
+    let now = sim.now();
+    sim.land_mut_for_tests().wells.list.push(Well {
+        id,
+        system: 0,
+        cell,
+        rect: RectCm {
+            x: x + 1200,
+            y,
+            w: 200,
+            h: 200,
+        },
+        household: homes[0],
+        polity: None,
+        ground_m: ground,
+        depth_m: 6.0,
+        target_m: 6.0,
+        work_h: 100.0,
+        skill_h: 0.0,
+        quality: 0.8,
+        loss: 0.0,
+        mend_h: 0.0,
+        cover_h: 0.0,
+        covered: false,
+        worth: 0.0,
+        level_m: f64::from(ground) - 3.0,
+        level_at: now,
+        drawn_l: 0.0,
+        begun: now,
+        state: WellState::Open { since: now },
+        crew: (0, 0),
+    });
+    // A wet day: the farm washes into the well beside it, as a tip there would.
+    sim.land_mut_for_tests().water.last_surplus_mm = 20.0;
+    let day = sim.now().day_index();
+    sim.with_ctx_for_tests(|pop, ctx| pop.contagion_day_for_tests(ctx));
+    let c = &sim.people().contagion;
+    let washed: f64 = c
+        .moves
+        .iter()
+        .filter(|m| {
+            m.day == day
+                && m.how == How::Runoff
+                && m.from == Node::Field(f)
+                && m.to == Node::Well(id)
+        })
+        .map(|m| m.amount)
+        .sum();
+    eprintln!("{on_farm:.0} doses on the farm; {washed:.1} washed into the well beside it");
+    assert!(washed > 0.0, "the well beside the farm takes load");
+    assert!(c.load(Node::Well(id), d) > 0.0);
+}
+
+#[test]
+fn with_no_field_below_the_last_connection_there_is_no_farm() {
+    let (mut sim, line, homes, _, _, _) = a_sewer_with_a_field(false, 20.0, Limit::Soil);
+    assert!(
+        sim.people().polities[0].sewers[0].farm.is_some(),
+        "below the lowest connection, a farm"
+    );
+    // A connected home moves beside the outfall: no field lies below it.
+    let last = centre(&sim, line[line.len() - 2]);
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == homes[1] {
+            x.home = last;
+        }
+    }
+    let d = cholera(&sim);
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_day_for_tests(ctx, &[(homes[1], d, 500.0)]));
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert_eq!((s.farm, s.farm_kg), (None, 0.0));
+    let reach = sim.people().contagion.load(Node::Reach(s.reach), d);
+    assert!(
+        (reach - 500.0).abs() < 1e-9,
+        "all of it to the river: {reach}"
+    );
 }

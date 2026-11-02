@@ -1499,6 +1499,16 @@ fn node_words(sim: &Sim, node: Node) -> String {
         ),
         // A sewer's settling tank (ADR-0041 §4).
         Node::Sewer(_) => "a sewer's settling tank".to_owned(),
+        // A sewage farm (ADR-0044 §4), by whose field it is.
+        Node::Field(f) => sim.land.fields.iter().find(|x| x.id == f).map_or_else(
+            || "a field a sewer was led onto".to_owned(),
+            |x| {
+                format!(
+                    "the field of {} a sewer is led onto",
+                    super::people::household_name(sim, x.household)
+                )
+            },
+        ),
         other => source_words(sim, other),
     }
 }

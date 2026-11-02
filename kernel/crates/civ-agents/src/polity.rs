@@ -890,9 +890,10 @@ pub struct RoundDef {
 /// takes; the hours a metre's digging, building and filling in takes; the least fall it keeps, a
 /// share of its length; what it carries a day, kilograms of heaps' decaying share; the years it
 /// serves; the hours a home's connection takes once (0: free); the share of its deaths of disease
-/// within the year a household believes a sewer would have spared; and at a settling tank (the
-/// good `tank`, held whole by its keeper), the share of the day's load, mass and each disease,
-/// that settles as the good `sludge`.
+/// within the year a household believes a sewer would have spared; at a settling tank (the good
+/// `tank`, held whole by its keeper), the share of the day's load, mass and each disease, that
+/// settles as the good `sludge`; and the people whose discharge a hectare of a sewage farm takes
+/// (ADR-0044 §4; 0: no farm).
 #[derive(Clone, Debug, PartialEq)]
 pub struct SewerDef {
     pub walls: Vec<usize>,
@@ -908,6 +909,7 @@ pub struct SewerDef {
     pub settle_share: f32,
     pub tank: Option<usize>,
     pub sludge: Option<usize>,
+    pub farm_people_ha: f32,
 }
 
 /// Why a connection's share did or did not go into its sewer on a day (ADR-0041 §2).
@@ -960,8 +962,11 @@ pub struct SewerConnection {
 /// metres, what it carries a day, kilograms, whether it is broken (nothing breaks one yet, and
 /// mending is deferred), the household that keeps its settling tank (`None`: the polity's store),
 /// its connections in the order made, and its last day: the day (-1 never), the kilograms that
-/// went in and the kilograms of them that settled as sludge; the rest went to the river. What
-/// settled holds its share of each disease at [`crate::contagion::Node::Sewer`]. Saved.
+/// went in and the kilograms of them that settled as sludge; the field its flow is led onto as a
+/// sewage farm (ADR-0044 §4; `None`: none) and the kilograms of the day's that farm took; the
+/// rest went to the river. What settled holds its share of each disease at
+/// [`crate::contagion::Node::Sewer`], and what the farm took at [`crate::contagion::Node::Field`].
+/// Saved.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Sewer {
     pub id: PermanentId,
@@ -978,6 +983,8 @@ pub struct Sewer {
     pub day: i64,
     pub entered_kg: f64,
     pub settled_kg: f64,
+    pub farm: Option<PermanentId>,
+    pub farm_kg: f64,
 }
 
 impl Sewer {

@@ -2343,6 +2343,8 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             day: w.day,
                             entered_kg: w.entered_kg,
                             settled_kg: w.settled_kg,
+                            farm: w.farm.map_or(0, PermanentId::get),
+                            farm_kg: w.farm_kg,
                         },
                     )
                 })
@@ -3645,11 +3647,13 @@ fn decode_polities(
         let mut sewers = Vec::new();
         for w in p.sewers().iter().flatten() {
             let sewer = required(w.id(), "a sewer")?;
-            let (entered_kg, settled_kg) = (w.entered_kg(), w.settled_kg());
+            let (entered_kg, settled_kg, farm_kg) = (w.entered_kg(), w.settled_kg(), w.farm_kg());
             if !(entered_kg.is_finite()
                 && settled_kg.is_finite()
+                && farm_kg.is_finite()
                 && entered_kg >= 0.0
                 && settled_kg >= 0.0
+                && farm_kg >= 0.0
                 && w.length_m().is_finite()
                 && w.laid_m().is_finite()
                 && w.capacity_kg_day().is_finite())
@@ -3687,6 +3691,9 @@ fn decode_polities(
                 day: w.day(),
                 entered_kg,
                 settled_kg,
+                // Its farm (ADR-0044 §4, appended within saves 220): none, in older saves.
+                farm: PermanentId::from_raw(w.farm()),
+                farm_kg,
             });
         }
         // Patron gifts (schema 131, M7c slice BY).

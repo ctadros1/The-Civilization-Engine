@@ -13,11 +13,22 @@
 //! connection does not destroy load). A settling tank its keeper holds at the outfall splits the
 //! day's load: the content's share of its mass becomes the good sludge in the keeper's store, with
 //! the same share of each disease held at the tank's node; the rest goes on to the river.
+//!
+//! A sewage farm (ADR-0044 §4; research 12-10 §1.7, §2.2, 12-02 §1.6, §2.3): what leaves the tank,
+//! or the whole flow without one, is led onto a field beside the route below its lowest
+//! connection, so that the whole flow passes it, up to what its area takes (`farm_people_ha`
+//! people's discharge a hectare); the rest goes on to the river. What the farm takes enters the
+//! field's soil as dung at the heap's nitrogen a kilogram, so its crop answers only where its soil
+//! held it back; its share of each disease lies at the field's node and washes and soaks in from
+//! there as a tip's does. The field's household takes the flow, for nothing, after a harvest its
+//! soil held back, and stops once a harvest is not. Nobody ties sickness to a field.
 
 use super::*;
 use crate::contagion::{How, Move, NEGLIGIBLE, Node};
 use crate::polity::{LawStatus, PolicyKind, Sewer, SewerCause, SewerConnection, SewerDef, WaySite};
 use crate::sickness::Outcome;
+use civ_land::Limit;
+use civ_land::fields::{Field, RectCm};
 use civ_land::ways::Keeper;
 
 impl Population {
@@ -336,6 +347,8 @@ impl Population {
             day: -1,
             entered_kg: 0.0,
             settled_kg: 0.0,
+            farm: None,
+            farm_kg: 0.0,
         });
         Some(id)
     }
@@ -526,19 +539,97 @@ impl Population {
         }
     }
 
-    /// The day's sewers (ADR-0041 §2, §4): homes beside each connect, then each connection in the
-    /// order made gives what its heap would have gained of its decaying share today, while the
-    /// sewer's capacity lasts; a broken sewer and those beyond its capacity give nothing and keep
-    /// their cause. Of what goes in, a settling tank's share becomes sludge in its keeper's store;
-    /// the rest goes to the river. Nothing happens where no polity lays a sewer.
-    pub(super) fn sewers_day(&mut self, ctx: &Ctx, day: i64) {
+    /// The cells field rectangle `rect` covers, as a range of columns and of rows.
+    fn rect_cells(map: &WorldMap, rect: &RectCm) -> ((i64, i64), (i64, i64)) {
+        let size = f64::from(map.cell_size_m) * 100.0;
+        let span = |from: i32, len: i32, n: u32| {
+            let n = i64::from(n.max(1)) - 1;
+            let a = (f64::from(from) / size).floor() as i64;
+            let b = ((f64::from(from) + f64::from(len.max(1)) - 1.0) / size).floor() as i64;
+            (a.clamp(0, n), b.clamp(0, n))
+        };
+        (
+            span(rect.x, rect.w, map.width),
+            span(rect.y, rect.h, map.height),
+        )
+    }
+
+    /// Whether the household working field `f` takes a sewer's flow onto it in calendar year
+    /// `year`, for nothing (ADR-0044 §4): it has people, and the field's last harvest, of this
+    /// year or the last, was held back by its soil. Once a harvest is not, it stops.
+    fn would_farm(&self, f: &Field, year: i32) -> bool {
+        self.household(f.household)
+            .is_some_and(|x| !x.members.is_empty())
+            && f.soil
+                .record
+                .last()
+                .is_some_and(|r| r.limit == Limit::Soil && r.year >= year - 1)
+    }
+
+    /// The field sewer `si` of polity `pi` is led onto as a farm today (ADR-0044 §4), by its index
+    /// among the land's fields: one with a cell beside the route below the lowest cell any
+    /// connected home lies beside, so that the whole flow passes it, whose household would take
+    /// the flow ([`Population::would_farm`]). The field it is led onto already while it still
+    /// qualifies; or else the first the flow passes, the lowest id first. `None` where the content
+    /// makes no farm, nobody is connected, or no field qualifies.
+    fn sewer_farm(&self, ctx: &Ctx, def: &SewerDef, pi: usize, si: usize) -> Option<usize> {
+        if def.farm_people_ha <= 0.0 {
+            return None;
+        }
+        let s = &self.polities[pi].sewers[si];
+        let map = ctx.map;
+        let lowest = s
+            .connections
+            .iter()
+            .filter_map(|c| {
+                let home = cell_of(map, self.household(c.household)?.home) as u32;
+                s.cells.iter().rposition(|&r| Self::beside(map, &[r], home))
+            })
+            .max()?;
+        let below = s.cells.get(lowest + 1..).filter(|b| !b.is_empty())?;
+        let w = i64::from(map.width.max(1));
+        let below: Vec<(i64, i64)> = below
+            .iter()
+            .map(|&c| (i64::from(c) % w, i64::from(c) / w))
+            .collect();
+        let year = i32::try_from(ctx.now.date().year).unwrap_or(i32::MAX);
+        let mut best: Option<(usize, PermanentId, usize)> = None;
+        for (fi, f) in ctx.land.fields.iter().enumerate() {
+            if !self.would_farm(f, year) {
+                continue;
+            }
+            let ((x0, x1), (y0, y1)) = Self::rect_cells(map, &f.rect);
+            let Some(at) = below.iter().position(|&(x, y)| {
+                (x0 - 1..=x1 + 1).contains(&x) && (y0 - 1..=y1 + 1).contains(&y)
+            }) else {
+                continue;
+            };
+            if s.farm == Some(f.id) {
+                return Some(fi);
+            }
+            if best.is_none_or(|b| (at, f.id) < (b.0, b.1)) {
+                best = Some((at, f.id, fi));
+            }
+        }
+        best.map(|b| b.2)
+    }
+
+    /// The day's sewers (ADR-0041 §2, §4; ADR-0044 §4): homes beside each connect, then each
+    /// connection in the order made gives what its heap would have gained of its decaying share
+    /// today, while the sewer's capacity lasts; a broken sewer and those beyond its capacity give
+    /// nothing and keep their cause. Of what goes in, a settling tank's share becomes sludge in its
+    /// keeper's store; of the rest, its farm field takes up to its area's limit into its soil as
+    /// dung; the rest goes to the river. Nothing happens where no polity lays a sewer.
+    pub(super) fn sewers_day(&mut self, ctx: &mut Ctx, day: i64) {
         if self.polities.iter().all(|p| p.sewers.is_empty()) {
             return;
         }
         let Some(def) = Self::sewer_def(ctx).cloned() else {
             return;
         };
-        let params = &ctx.params.midden;
+        let (people, soil): (&PeopleParams, &civ_land::SoilParams) =
+            (ctx.params, &ctx.land_params.soil);
+        let params = &people.midden;
         for pi in 0..self.polities.len() {
             for si in 0..self.polities[pi].sewers.len() {
                 self.sewer_connect(ctx, &def, pi, si, day);
@@ -597,15 +688,31 @@ impl Population {
                         store[sludge] += settled;
                     }
                 }
+                // The farm takes what is left up to its area's limit, into its soil as dung.
+                let farm = self.sewer_farm(ctx, &def, pi, si);
+                let mut farm_kg = 0.0;
+                if let Some(fi) = farm {
+                    let f = &mut ctx.land.fields[fi];
+                    let ha = f.area_ha();
+                    let limit =
+                        f64::from(def.farm_people_ha).max(0.0) * ha * params.kg_per_person_day;
+                    farm_kg = (entered - settled).min(limit).max(0.0);
+                    if farm_kg > 0.0 && ha > 0.0 {
+                        f.soil.manured(soil, farm_kg * params.n_per_kg() / ha);
+                    }
+                }
+                let farm = farm.map(|fi| ctx.land.fields[fi].id);
                 let s = &mut self.polities[pi].sewers[si];
                 (s.day, s.entered_kg, s.settled_kg) = (day, entered, settled);
+                (s.farm, s.farm_kg) = (farm, farm_kg);
             }
         }
     }
 
     /// What the people of homes served by a sewer today shed into their heaps today goes with
     /// their share to the outfall (ADR-0041 §2, §4), recorded as carried: a settling tank's share
-    /// of each disease to the tank's node, the rest to the outfall's reach and on down the river.
+    /// of each disease to the tank's node; of the rest, its farm's share of the day's kilograms to
+    /// the farm field's node (ADR-0044 §4); the rest to the outfall's reach and on down the river.
     /// `shed` are today's moves from those shedding into heaps.
     pub(super) fn sewer_loads(&mut self, ctx: &Ctx, day: i64, shed: &[Move]) {
         if shed.is_empty() || self.polities.iter().all(|p| p.sewers.is_empty()) {
@@ -630,9 +737,15 @@ impl Population {
             }) else {
                 continue;
             };
-            let (id, reach) = {
+            let (id, reach, farm, farm_share) = {
                 let s = &self.polities[pi].sewers[si];
-                (s.id, s.reach)
+                let rest = s.entered_kg - s.settled_kg;
+                let share = if rest > 0.0 {
+                    (s.farm_kg / rest).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
+                (s.id, s.reach, s.farm, share)
             };
             let from = Node::Midden(h);
             let amount = self.contagion.take_amount(from, m.disease, m.amount);
@@ -654,6 +767,22 @@ impl Population {
                     });
                 }
             }
+            let mut farmed = 0.0;
+            if let Some(field) = farm.filter(|_| farm_share > 0.0) {
+                farmed = (amount - settled) * farm_share;
+                let to = Node::Field(field);
+                self.contagion.add(to, m.disease, farmed);
+                if farmed > NEGLIGIBLE {
+                    self.contagion.record(Move {
+                        day,
+                        disease: m.disease,
+                        how: How::Carried,
+                        from,
+                        to,
+                        amount: farmed,
+                    });
+                }
+            }
             self.deliver(
                 ctx,
                 Move {
@@ -662,7 +791,7 @@ impl Population {
                     how: How::Carried,
                     from,
                     to: Node::Reach(reach),
-                    amount: amount - settled,
+                    amount: amount - settled - farmed,
                 },
             );
         }
@@ -671,7 +800,7 @@ impl Population {
     /// The day's sewers now, with `shed` (household, disease, doses) shed into heaps today as
     /// shedding adds it, and carried as the day's turn carries it: for tests.
     #[doc(hidden)]
-    pub fn sewer_day_for_tests(&mut self, ctx: &Ctx, shed: &[(PermanentId, u16, f64)]) {
+    pub fn sewer_day_for_tests(&mut self, ctx: &mut Ctx, shed: &[(PermanentId, u16, f64)]) {
         let day = ctx.now.day_index();
         self.sewers_day(ctx, day);
         let moves: Vec<Move> = shed

@@ -44752,6 +44752,8 @@ impl<'a> SewerSave<'a> {
   pub const VT_DAY: ::flatbuffers::VOffsetT = 26;
   pub const VT_ENTERED_KG: ::flatbuffers::VOffsetT = 28;
   pub const VT_SETTLED_KG: ::flatbuffers::VOffsetT = 30;
+  pub const VT_FARM: ::flatbuffers::VOffsetT = 32;
+  pub const VT_FARM_KG: ::flatbuffers::VOffsetT = 34;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -44763,6 +44765,8 @@ impl<'a> SewerSave<'a> {
     args: &'args SewerSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<SewerSave<'bldr>> {
     let mut builder = SewerSaveBuilder::new(_fbb);
+    builder.add_farm_kg(args.farm_kg);
+    builder.add_farm(args.farm);
     builder.add_settled_kg(args.settled_kg);
     builder.add_entered_kg(args.entered_kg);
     builder.add_day(args.day);
@@ -44879,6 +44883,20 @@ impl<'a> SewerSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f64>(SewerSave::VT_SETTLED_KG, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn farm(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SewerSave::VT_FARM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn farm_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(SewerSave::VT_FARM_KG, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for SewerSave<'_> {
@@ -44901,6 +44919,8 @@ impl ::flatbuffers::Verifiable for SewerSave<'_> {
      .visit_field::<i64>("day", Self::VT_DAY, false)?
      .visit_field::<f64>("entered_kg", Self::VT_ENTERED_KG, false)?
      .visit_field::<f64>("settled_kg", Self::VT_SETTLED_KG, false)?
+     .visit_field::<u64>("farm", Self::VT_FARM, false)?
+     .visit_field::<f64>("farm_kg", Self::VT_FARM_KG, false)?
      .finish();
     Ok(())
   }
@@ -44920,6 +44940,8 @@ pub struct SewerSaveArgs<'a> {
     pub day: i64,
     pub entered_kg: f64,
     pub settled_kg: f64,
+    pub farm: u64,
+    pub farm_kg: f64,
 }
 impl<'a> Default for SewerSaveArgs<'a> {
   #[inline]
@@ -44939,6 +44961,8 @@ impl<'a> Default for SewerSaveArgs<'a> {
       day: -1,
       entered_kg: 0.0,
       settled_kg: 0.0,
+      farm: 0,
+      farm_kg: 0.0,
     }
   }
 }
@@ -45005,6 +45029,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SewerSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f64>(SewerSave::VT_SETTLED_KG, settled_kg, 0.0);
   }
   #[inline]
+  pub fn add_farm(&mut self, farm: u64) {
+    self.fbb_.push_slot::<u64>(SewerSave::VT_FARM, farm, 0);
+  }
+  #[inline]
+  pub fn add_farm_kg(&mut self, farm_kg: f64) {
+    self.fbb_.push_slot::<f64>(SewerSave::VT_FARM_KG, farm_kg, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SewerSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SewerSaveBuilder {
@@ -45036,6 +45068,8 @@ impl ::core::fmt::Debug for SewerSave<'_> {
       ds.field("day", &self.day());
       ds.field("entered_kg", &self.entered_kg());
       ds.field("settled_kg", &self.settled_kg());
+      ds.field("farm", &self.farm());
+      ds.field("farm_kg", &self.farm_kg());
       ds.finish()
   }
 }

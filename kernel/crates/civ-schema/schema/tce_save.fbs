@@ -1732,6 +1732,11 @@ table SewerSave {
   day: long = -1 (id: 11);
   entered_kg: double (id: 12);
   settled_kg: double (id: 13);
+  // ADR-0044 §4 (appended within the unreleased saves 220): the field its flow is led onto as a
+  // sewage farm (0 none; its id is the farm's contagion node's) and the kilograms of its last day
+  // that farm took; absent, none.
+  farm: ulong (id: 14);
+  farm_kg: double (id: 15);
 }
 
 // A home's privy connected to a sewer (schema 220, ADR-0041 §2): its household and building, the
@@ -3526,7 +3531,8 @@ table ThrownSave {
 // person shedding it (`id` theirs), 1 a household's heap (`id` the household), 2 a well (`id`
 // its), 3 a river reach (`id` its index), 4 a household's stored water (`id` the household); from
 // schema 220, 5 a tip (`id` its: M11f, second part; ADR-0038 §3), 6 refuse a household holds
-// (`id` the household: ADR-0038 §5) and 7 a sewer's settling tank (`id` the sewer's: ADR-0041 §4).
+// (`id` the household: ADR-0038 §5), 7 a sewer's settling tank (`id` the sewer's: ADR-0041 §4)
+// and 8 a sewage farm (`id` its field's: ADR-0044 §4).
 struct NodeSave {
   code: ubyte;
   id: ulong;

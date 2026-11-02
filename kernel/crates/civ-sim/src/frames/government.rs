@@ -1795,7 +1795,8 @@ pub fn services_words(sim: &Sim, polity: &civ_agents::polity::Polity) -> Vec<Str
 
 /// A sewer in words (ADR-0041 §5): "A sewer of 420 m from 60 m north of the hearth to the river
 /// 300 m south of the hearth; 18 homes joined; 140 kg a day to the river", with what its tank
-/// settles, how many it could not take, and while it is laid, how much of it is.
+/// settles, what its farm takes onto whose field (ADR-0044 §4: "25 kg spread on a field of Bo's
+/// household as a farm"), how many it could not take, and while it is laid, how much of it is.
 pub fn sewer_words(
     sim: &Sim,
     polity: &civ_agents::polity::Polity,
@@ -1855,10 +1856,26 @@ pub fn sewer_words(
     if sewer.day >= 0 {
         words.push_str(&format!(
             "; {} a day to the river",
-            tonnes(sewer.entered_kg - sewer.settled_kg)
+            tonnes((sewer.entered_kg - sewer.settled_kg - sewer.farm_kg).max(0.0))
         ));
         if sewer.settled_kg > 0.0 {
             words.push_str(&format!(", {} settled as sludge", tonnes(sewer.settled_kg)));
+        }
+        // Its farm (ADR-0044 §4), by whose field it is.
+        if let Some(field) = sewer.farm {
+            let whose = sim.land.fields.iter().find(|f| f.id == field).map_or_else(
+                || "a field".to_owned(),
+                |f| {
+                    format!(
+                        "a field of {}",
+                        super::people::household_name(sim, f.household)
+                    )
+                },
+            );
+            words.push_str(&format!(
+                ", {} spread on {whose} as a farm",
+                tonnes(sewer.farm_kg)
+            ));
         }
     }
     words

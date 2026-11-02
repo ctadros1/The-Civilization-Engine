@@ -38,6 +38,12 @@ avoided_share = 0.2
 settle_share = 0.5
 tank = "core:good/settling_tank"
 sludge = "core:good/sludge"
+# A sewage farm (ADR-0044 §4; content API 222): a field beside the sewer below its lowest connection,
+# whose last harvest its soil held back, takes up to 100 people's discharge a hectare (50 kg a day of
+# heaps' decaying share at the core's half a kilogram a person, about 100 kg of nitrogen a hectare a
+# year), a design prior from ADR-0041 §4, checked against research 12-10 §2.2's 0.5-1 ha for a
+# hundred people (Berlin, Freiburg) and 12-02 §2.3's 50-100 kg of nitrogen a hectare.
+farm_people_ha = 100.0
 
 # An authoring judgement, not a measurement, as for a line laid together: a share of every
 # household's hours is asked, for cleaner homes.

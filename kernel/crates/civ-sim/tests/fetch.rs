@@ -2612,6 +2612,8 @@ fn a_household_makes_a_passing_place_where_its_carts_wait_and_two_carts_then_pas
         .cart_going(sim.map(), middle, &wheels)
         .expect("wheels go there");
     assert!(!wheels.single_file(room), "{room}");
+    // A household's own passing place is not the chronicle's: only one a gathering asked for.
+    assert!(way_entries(&sim).is_empty());
     assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
 }
 
@@ -2789,5 +2791,148 @@ fn a_passing_place_the_gathering_asks_for_is_cleared_by_the_households_shares_of
         .cart_going(sim.map(), middle, &wheels)
         .expect("wheels go there");
     assert!(!wheels.single_file(room), "{room}");
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+}
+
+/// The chronicle's entries about ways, oldest first.
+fn way_entries(sim: &Sim) -> Vec<civ_agents::ChronicleEvent> {
+    sim.people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == civ_agents::ChronicleKind::Way)
+        .cloned()
+        .collect()
+}
+
+#[test]
+fn a_passing_place_the_gathering_asked_for_is_told_in_the_chronicle_once_it_is_cleared() {
+    use civ_agents::polity::{LawStatus, Outcome, PolicyKind};
+    let (mut sim, buyer, _seller, _handcart, middle) = carts_wait_scene(20);
+    let settlement = sim
+        .people()
+        .household(buyer)
+        .and_then(|x| x.settlement)
+        .expect("the buyer's settlement");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    let (_, labour_h, _) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.public_way_for_tests(ctx, settlement))
+        .expect("a passing place to clear together");
+    // Its people propose the passing place, as the gathering's test above has it, and it passes.
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    let mut proposed = None;
+    for _ in 0..12 {
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[pi].gathering = None;
+            for l in &mut pop.polities[pi].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        match sim.people().polities[pi].agenda().cloned() {
+            Some(l) if l.kind == PolicyKind::BuildWay => {
+                proposed = Some(l.id);
+                break;
+            }
+            Some(_) => continue,
+            None => break,
+        }
+    }
+    let id = proposed.expect("a passing place proposed");
+    {
+        let pop = sim.people_mut_for_tests();
+        pop.every_adult_deliberates = false;
+        let p = &mut pop.polities[pi];
+        p.gathering = None;
+        let l = p.laws.iter_mut().find(|l| l.id == id).expect("the law");
+        l.status = LawStatus::InForce;
+        l.outcome = Some(Outcome::Passed);
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_public_way_for_tests(ctx, pi, id));
+    let way = sim.people().polities[pi]
+        .way_site_of(id)
+        .and_then(|s| s.work)
+        .expect("the polity's passing place laid out");
+    // Laid out, and a share of it cleared by the buyer's household: nothing is told yet.
+    assert!(way_entries(&sim).is_empty());
+    sim.with_ctx_for_tests(|pop, ctx| pop.way_work_for_tests(ctx, buyer, way, 0.4 * labour_h));
+    let width = |sim: &Sim| {
+        let w = sim
+            .land()
+            .ways
+            .list
+            .iter()
+            .find(|w| w.id == way)
+            .expect("the passing place")
+            .segments[0]
+            .clone();
+        (w.built_m, w.corridor_m)
+    };
+    let (built, corridor) = width(&sim);
+    assert!(built + 1e-3 < corridor, "{built} of {corridor}");
+    assert!(way_entries(&sim).is_empty());
+    // Another household of the settlement gives the rest: cleared to two carts' width, it is
+    // told once, naming the elder of the household that finished it, at the place and the
+    // polity's seat, with how far it lies from the hearth.
+    let other = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .find(|x| x.id != buyer && x.settlement == Some(settlement) && !x.members.is_empty())
+        .map(|x| x.id)
+        .expect("another household there");
+    sim.with_ctx_for_tests(|pop, ctx| pop.way_work_for_tests(ctx, other, way, labour_h));
+    let (built, corridor) = width(&sim);
+    assert!(built + 1e-3 >= corridor, "{built} of {corridor}");
+    let told = way_entries(&sim);
+    assert_eq!(told.len(), 1, "{told:?}");
+    let e = &told[0];
+    let seat = sim.people().polities[pi].settlement;
+    assert_eq!(e.settlement, Some(seat));
+    assert_eq!(
+        e.number,
+        f64::from(civ_agents::WayStep::PassingPlaceCleared as u8)
+    );
+    let at = civ_agents::population::cell_centre(sim.map(), middle as usize);
+    assert_eq!(e.place, Some(at));
+    assert_eq!(e.people.len(), 1, "{e:?}");
+    let elder = e.people[0];
+    assert!(
+        sim.people()
+            .household(other)
+            .is_some_and(|x| x.members.contains(&elder)),
+        "{e:?}"
+    );
+    let hearth = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|s| s.id == seat)
+        .expect("the seat");
+    let from = f64::from(at.0 - hearth.hearth_m.0).hypot(f64::from(at.1 - hearth.hearth_m.1));
+    assert_eq!(
+        e.name,
+        format!(
+            "{}'s people cleared the passing place their gathering agreed to, {from:.0} m from \
+             the hearth, {}'s household finishing it: it is {corridor:.1} m wide, and two carts \
+             can pass there.",
+            hearth.name,
+            sim.people().name_of(elder)
+        )
+    );
+    // Work offered on it now clears nothing and tells nothing more.
+    sim.with_ctx_for_tests(|pop, ctx| pop.way_work_for_tests(ctx, buyer, way, labour_h));
+    assert_eq!(way_entries(&sim).len(), 1);
+    // It saves and loads exactly, the entry with it.
+    saves_and_goes_on_alike(&mut sim, 60);
+    assert_eq!(way_entries(&sim).len(), 1);
     assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
 }

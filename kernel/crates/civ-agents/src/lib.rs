@@ -99,7 +99,7 @@ pub use found::{
 pub use history::{
     AgreementStep, Cause, ChronicleEvent, ChronicleKind, CoalitionStep, CrossingStep, FloodStep,
     Moved, Origin, OutbreakStep, PersonRecord, Reason, Receipt, ResidenceWhy, Scored, SewerStep,
-    Span, Stay, StormStep, Term, Union, WellStep,
+    Span, Stay, StormStep, Term, Union, WayStep, WellStep,
 };
 pub use ledger::Channel;
 pub use needs::Sex;

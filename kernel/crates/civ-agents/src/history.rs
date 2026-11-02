@@ -946,6 +946,11 @@ pub enum ChronicleKind {
     /// the stretch that fell in or was rebuilt last, `number` the step ([`SewerStep`]), and `name`
     /// the sentence.
     Sewer,
+    /// A way a polity's gathering asked for was finished (M8b slice CQ, third part's "Not yet";
+    /// backlog D, sixth item): `people` is the elder of the household whose work finished it,
+    /// `settlement` the polity's seat, `place` the way's first cell, `number` the step
+    /// ([`WayStep`]), and `name` the sentence.
+    Way,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1016,6 +1021,14 @@ pub enum SewerStep {
     Collapsed = 0,
     /// The last of its stretches that had fallen in was relined: nothing of it is broken now.
     Mended = 1,
+}
+
+/// What happened to a way, in a [`ChronicleKind::Way`] entry. Numeric in saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WayStep {
+    /// A passing place a polity's gathering asked for was cleared to its full width: two carts
+    /// pass there.
+    PassingPlaceCleared = 0,
 }
 
 /// What happened to a crossing, in a [`ChronicleKind::Crossing`] entry. Numeric in saves:
@@ -1635,7 +1648,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::StationsOpened
         | ChronicleKind::RecordWritten
         | ChronicleKind::RecordLost
-        | ChronicleKind::Sewer => {
+        | ChronicleKind::Sewer
+        | ChronicleKind::Way => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

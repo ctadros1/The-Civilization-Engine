@@ -12,10 +12,11 @@
 //! may build (`build_way`, shaped as `build_bank`): the issue `carts_wait`, each household's
 //! forecast its own waits spared less its equal share of the work over the place's life, and,
 //! once passed, a way of one cell kept by the polity whose clearing each household is asked an
-//! equal share of.
+//! equal share of. Cleared to its full width, it is told in the chronicle (backlog D, sixth item).
 
 use super::*;
 use crate::decide::WayFacts;
+use crate::history::WayStep;
 use crate::polity::{LawStatus, PolicyKind};
 use crate::traffic;
 use civ_land::ways::{CART, Keeper, RAIL, Rank, Segment, Surface, WALK, Way};
@@ -662,7 +663,8 @@ impl Population {
     /// `hours` of a capable adult's work by someone of `household` on the way `way`: each clears
     /// and levels its share of a square metre a `clear_h_m2`, widening the stretch along its
     /// length, until it is as wide as its corridor. It is kept that day. On a polity's, the hours
-    /// it took are the household's given to the law that laid it, and to the polity's works.
+    /// it took are the household's given to the law that laid it, and to the polity's works; the
+    /// hour that clears a polity's passing place to its full width is told in the chronicle.
     ///
     /// On track (M10b slice DV, second part) the hours are its grading and laying, its share of
     /// the line's whole as its bed is widened to the corridor, and each takes its share of the
@@ -724,6 +726,9 @@ impl Population {
         let mut used = None;
         // A line of track made whole by this work: its first cell and its length, metres.
         let mut finished = None;
+        // A polity's passing place cleared to its full width by this work: its first cell and
+        // that width, metres.
+        let mut cleared = None;
         for s in &mut w.segments {
             let ours = match s.keeper {
                 Keeper::Household(h) => h == household,
@@ -747,6 +752,13 @@ impl Population {
             if timber.is_some() && before + 1e-3 < s.corridor_m && s.built_m + 1e-3 >= s.corridor_m
             {
                 finished = s.cells.first().map(|&c| (c, area));
+            }
+            if timber.is_none()
+                && matches!(s.keeper, Keeper::Polity(_))
+                && before + 1e-3 < s.corridor_m
+                && s.built_m + 1e-3 >= s.corridor_m
+            {
+                cleared = s.cells.first().map(|&c| (c, s.corridor_m));
             }
             let took = f64::from(s.built_m - before) * area * rate_h_m2;
             used = Some((s.keeper, took.min(hours)));
@@ -807,7 +819,52 @@ impl Population {
         {
             self.polities[pi].give_to_way(law, household, took as f32);
             self.work_given.push((p, household, took));
+            if let Some((cell, width_m)) = cleared {
+                self.tell_passing_place_cleared(ctx, pi, household, cell, width_m);
+            }
         }
+    }
+
+    /// The chronicle's word that polity `pi`'s people cleared the passing place their gathering
+    /// asked for at `cell` to its full width, `width_m`, with work of `household`'s finishing it
+    /// (backlog D, sixth item): how far it is from the hearth, and that two carts pass there.
+    fn tell_passing_place_cleared(
+        &mut self,
+        ctx: &Ctx,
+        pi: usize,
+        household: PermanentId,
+        cell: u32,
+        width_m: f32,
+    ) {
+        let settlement = self.polities[pi].settlement;
+        let village = self.village_name(ctx, Some(settlement));
+        let at = cell_centre(ctx.map, cell as usize);
+        let from_hearth = ctx
+            .land
+            .settlements
+            .iter()
+            .find(|t| t.id == settlement)
+            .map(|t| {
+                let m = f64::from(at.0 - t.hearth_m.0).hypot(f64::from(at.1 - t.hearth_m.1));
+                format!(", {m:.0} m from the hearth")
+            })
+            .unwrap_or_default();
+        let elder = self.elder_of(household, ctx.now, ctx.params);
+        let by = elder.map_or_else(String::new, |e| {
+            format!(", {}'s household finishing it", self.name_of(e))
+        });
+        self.chronicle_push(
+            ctx.now,
+            ChronicleKind::Way,
+            elder.into_iter().collect(),
+            Some(settlement),
+            Some(at),
+            f64::from(WayStep::PassingPlaceCleared as u8),
+            format!(
+                "{village}'s people cleared the passing place their gathering agreed to{from_hearth}\
+                 {by}: it is {width_m:.1} m wide, and two carts can pass there."
+            ),
+        );
     }
 
     /// `hours` of work by someone of `household` on way `way`: for tests.

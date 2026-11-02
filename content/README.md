@@ -2145,3 +2145,13 @@ told at home and at the hearth, as news is, for `word.news_days`, by `word.share
 `word.share_routine`, and never by the debtor's own household), and each who hears it for the
 first time notes the act; nobody notes it of their own household's elder. The core writes it as
 bad evidence of 1 in `word`, half of `defaulted`.
+
+Content API 226 (backlog D) lets a `hear_cases` template whose `forum.seat` is `holder` carry a
+`[tenure]` table, as `keep_store` and `keep_watch` templates may: its `term_days`, whether the one
+who held it may be named or drawn for the next term (`renewable`), and whether the body names the
+hearer or a lot draws one from those who stood for the law at the gathering (`fill = "lot"`). The
+office lapses at its term's end and cases go to the gathering again until a forum is passed
+afresh. A panel (drawn for each case) and the elders take no tenure. The core adds
+`policy/zestfully_draw_a_hearer_by_lot` (a year, drawn by lot, not renewable) and
+`policy/zestfully_name_a_hearer_for_a_year` (a year, named, renewable), both answering
+`cases_waiting`; whether anyone proposes either, and whether it passes, is people's choice.

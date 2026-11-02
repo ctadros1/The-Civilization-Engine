@@ -573,3 +573,257 @@ fn a_finding_grieved_blames_the_forum_and_findings_are_a_norm_of_their_own() {
         assert!(pop.norms.state(p, k).is_some(), "{p} holds it");
     }
 }
+
+fn reloaded(sim: &mut Sim) -> Sim {
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(sim, &saves, commons_persist::SaveKind::Manual, "forum").expect("saves");
+    let mut loaded = persist::load(&saved.path, content()).expect("loads");
+    loaded
+        .rules_mut_for_tests()
+        .expect("rules not yet shared")
+        .people
+        .crime
+        .comply_base = -100.0;
+    let (a, b) = (
+        persist::encode_sections(sim),
+        persist::encode_sections(&loaded),
+    );
+    assert_eq!(a.len(), b.len());
+    for (x, y) in a.iter().zip(&b) {
+        assert!(x.bytes == y.bytes, "section `{}` differs", x.tag);
+    }
+    loaded
+}
+
+fn offices(sim: &Sim) -> Vec<String> {
+    let payload = civ_sim::frames::government::government_response(sim);
+    let info = civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&payload)
+        .expect("a response")
+        .body_as_government()
+        .expect("the government");
+    info.polities()
+        .expect("polities")
+        .get(0)
+        .offices()
+        .expect("offices")
+        .iter()
+        .map(str::to_owned)
+        .collect()
+}
+
+/// A hearer held for a term (backlog D, content API 226; research 09-07 §1.3: rotation and
+/// lottery are selection primitives of their own): proposed, a hearer by lot names nobody; passed
+/// by the gathering, a lot draws the hearer from those who stood for it, who hears the cases
+/// brought alone until the term's end; then the office lapses, cases go to the gathering again,
+/// and the one who heard them is not drawn, nor named under a template that does not renew, for
+/// the next term. All of it saves and loads exactly.
+#[test]
+fn a_hearer_drawn_by_lot_hears_for_a_term_and_is_not_drawn_again_at_once() {
+    use civ_agents::ChronicleKind;
+    use civ_agents::polity::Term;
+    let mut sim = world(3);
+    let hh = households(&sim);
+    assert!(hh.len() >= 4, "four households: {hh:?}");
+    let policies = sim.rules().catalog.policies.clone();
+    let at = |id: &str| policies.iter().position(|d| d.id == id).expect("in core") as u16;
+    let lot = at("core:policy/zestfully_draw_a_hearer_by_lot");
+    let named = at("core:policy/zestfully_name_a_hearer_for_a_year");
+    let tenure = policies[usize::from(lot)].tenure.expect("held for a term");
+    assert!(tenure.by_lot && !tenure.renewable);
+    let (pi, settlement) = (0, sim.people().polities[0].settlement);
+    let nominee = |sim: &mut Sim, policy: u16, d: PermanentId| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.hearer_nominee_for_tests(ctx, settlement, policy, d))
+    };
+    // Proposed, a hearer by lot names nobody; one named names whom the proposer regards most.
+    let sponsor = hh[0].1[0];
+    assert_eq!(nominee(&mut sim, lot, sponsor), Some(None));
+    assert_eq!(
+        nominee(&mut sim, named, sponsor),
+        nominee(&mut sim, at("core:policy/name_a_hearer"), sponsor)
+    );
+    let id = sim
+        .with_ctx_for_tests(|pop, ctx| {
+            pop.propose_for_tests(ctx, settlement, sponsor, lot, IssueKind::CasesWaiting)
+        })
+        .expect("proposed");
+    let everyone: Vec<PermanentId> = hh.iter().flat_map(|h| h.1.clone()).collect();
+    let today = sim.now().day_index();
+    let sit = |sim: &mut Sim, present: Vec<PermanentId>| {
+        let g = sim.people_mut_for_tests().polities[pi]
+            .gathering
+            .as_mut()
+            .expect("called");
+        g.day = today;
+        g.present = present;
+        sim.with_ctx_for_tests(|pop, ctx| pop.decide_gathering_for_tests(ctx, pi));
+        sim.people().polities[pi]
+            .laws
+            .iter()
+            .find(|l| l.id == id)
+            .expect("the law")
+            .clone()
+    };
+    let mut again = reloaded(&mut sim);
+    let mut decided = sit(&mut sim, everyone.clone());
+    if decided.outcome != Some(Decided::Passed) {
+        // The same gathering, in the world as it was before it sat, with only those who stood
+        // for it there and any number enough.
+        let present: Vec<PermanentId> = decided
+            .stances
+            .iter()
+            .filter(|r| r.stance == Stance::Support)
+            .map(|r| r.person)
+            .collect();
+        again.people_mut_for_tests().polities[pi].body.quorum_share = 0.0;
+        decided = sit(&mut again, present);
+        sim = again;
+    }
+    assert_eq!(decided.outcome, Some(Decided::Passed), "{decided:?}");
+    assert_eq!(decided.status, LawStatus::InForce);
+    // The lot drew one of those who stood for it, and holds them for its term.
+    let stood: Vec<PermanentId> = decided
+        .stances
+        .iter()
+        .filter(|r| r.stance == Stance::Support)
+        .map(|r| r.person)
+        .collect();
+    let hearer = decided.holder.expect("the lot drew a hearer");
+    assert!(stood.contains(&hearer), "{hearer:?} of {stood:?}");
+    let term = sim.people().polities[pi].term_of(id).expect("a term");
+    assert_eq!(term.until, today + i64::from(tenure.term_days));
+    assert_eq!(term.pool as usize, stood.len());
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|e| e.kind == ChronicleKind::LotDrawn
+                && e.people == vec![hearer]
+                && e.name.contains("for the office of hearer by lot")),
+        "the chronicle tells the lot"
+    );
+    let line = |sim: &Sim| {
+        offices(sim)
+            .into_iter()
+            .find(|o| o.starts_with("Hearer by lot: "))
+            .expect("the office listed")
+    };
+    let held = line(&sim);
+    assert!(
+        held.contains(", until ") && held.contains("drawn by lot"),
+        "{held}"
+    );
+    // They hear a case between two other households alone.
+    let theirs = sim.people().person(hearer).expect("alive").household;
+    let others: Vec<Household> = hh.iter().filter(|h| h.0 != theirs).cloned().collect();
+    let case_id = case(&mut sim, &others[0], &others[1]);
+    sim.advance_minutes(DAY).expect("advances");
+    assert_eq!(find(&sim, case_id).forum, Some(id));
+    sim.advance_minutes(DAY).expect("advances");
+    let c = find(&sim, case_id);
+    assert_ne!(c.stage, CaseStage::Open, "{c:?}");
+    assert_eq!(
+        c.stances.iter().map(|r| r.person).collect::<Vec<_>>(),
+        vec![hearer]
+    );
+    let mut sim = reloaded(&mut sim);
+    // The term ends: the office lapses, and says so.
+    {
+        let p = &mut sim.people_mut_for_tests().polities[pi];
+        let t = p.terms.iter_mut().find(|t| t.0 == id).expect("its term");
+        t.1.until = today + 3;
+    }
+    sim.advance_minutes(2 * DAY).expect("advances");
+    let lapsed = |sim: &Sim| {
+        sim.people().polities[pi]
+            .laws
+            .iter()
+            .find(|l| l.id == id)
+            .expect("kept")
+            .status
+    };
+    assert_eq!(lapsed(&sim), LawStatus::Lapsed);
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|e| e.kind == ChronicleKind::LawLapsed
+                && e.people == vec![hearer]
+                && e.name.contains("no longer hears cases")
+                && e.name.ends_with("their term ended.")),
+        "the chronicle tells the term's end"
+    );
+    assert!(line(&sim).contains("vacant, since "), "{}", line(&sim));
+    // A case brought now waits for the gathering.
+    let case_id = case(&mut sim, &others[0], &others[1]);
+    sim.advance_minutes(DAY).expect("advances");
+    assert_eq!(find(&sim, case_id).forum, None);
+    assert!(before_the_gathering(&sim, case_id));
+    // The next lot cannot fall to the last hearer: with them and one other in, it draws the
+    // other, whatever the key.
+    let other = others[0].1[0];
+    for k in 0..4 {
+        let next = law(&mut sim, "core:policy/zestfully_draw_a_hearer_by_lot", None);
+        let stances = [hearer, other]
+            .iter()
+            .map(|&person| civ_agents::polity::StanceRecord {
+                person,
+                household: sim.people().person(person).expect("alive").household,
+                stance: Stance::Support,
+                gain: 0.0,
+                regard: 0.0,
+                opinion: 0.0,
+                values: 0.0,
+                view: 0.0,
+                owed: 0.0,
+            })
+            .collect();
+        sim.people_mut_for_tests().polities[pi]
+            .law_mut(next)
+            .expect("the law")
+            .stances = stances;
+        sim.with_ctx_for_tests(|pop, ctx| pop.fill_term_for_tests(ctx, pi, next));
+        let p = &mut sim.people_mut_for_tests().polities[pi];
+        assert_eq!(
+            p.law_mut(next).expect("the law").holder,
+            Some(other),
+            "draw {k}"
+        );
+        p.laws.retain(|l| l.id != next);
+        p.terms.retain(|t| t.0 != next);
+    }
+    // Named for a year, one whose term has ended may be named again; under a template that
+    // does not renew, not at once.
+    let first = law(
+        &mut sim,
+        "core:policy/zestfully_name_a_hearer_for_a_year",
+        Some(hearer),
+    );
+    {
+        let p = &mut sim.people_mut_for_tests().polities[pi];
+        p.law_mut(first).expect("the law").status = LawStatus::Lapsed;
+        p.terms.push((
+            first,
+            Term {
+                until: today,
+                pool: 0,
+            },
+        ));
+    }
+    assert_eq!(nominee(&mut sim, named, hearer), Some(Some(hearer)));
+    sim.rules_mut_for_tests()
+        .expect("rules not yet shared")
+        .catalog
+        .policies[usize::from(named)]
+    .tenure = Some(civ_agents::polity::Tenure {
+        term_days: 360,
+        renewable: false,
+        by_lot: false,
+    });
+    let next = nominee(&mut sim, named, hearer)
+        .expect("someone")
+        .expect("named");
+    assert_ne!(next, hearer);
+}

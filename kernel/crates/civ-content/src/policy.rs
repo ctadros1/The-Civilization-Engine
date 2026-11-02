@@ -1686,12 +1686,21 @@ impl PolicyFile {
             (None, _) => {}
         }
         if let Some(t) = &self.tenure {
-            if !matches!(
-                PolicyKind::from_name(&self.does),
-                Some(PolicyKind::KeepStore | PolicyKind::KeepWatch)
-            ) {
+            // A forum's one holder is an office too (content API 226, backlog D; research 09-07
+            // §1.3: rotation and lottery are selection primitives of their own). A panel is
+            // drawn afresh for each case and the elders are nobody's to name, so neither holds a
+            // term.
+            let hearer = PolicyKind::from_name(&self.does) == Some(PolicyKind::HearCases)
+                && self.forum.as_ref().is_some_and(|f| f.seat == "holder");
+            if !hearer
+                && !matches!(
+                    PolicyKind::from_name(&self.does),
+                    Some(PolicyKind::KeepStore | PolicyKind::KeepWatch)
+                )
+            {
                 p.push(
-                    "`tenure` is for an office: `does` must be `keep_store` or `keep_watch`"
+                    "`tenure` is for an office: `does` must be `keep_store` or `keep_watch`, or \
+                     `hear_cases` with `forum.seat = \"holder\"`"
                         .to_owned(),
                 );
             }

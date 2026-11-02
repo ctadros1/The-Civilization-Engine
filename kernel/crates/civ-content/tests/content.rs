@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 225
+kernel_content_api = 226
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2868,6 +2868,8 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         "core:policy/zealously_zone_a_round_for_refuse",
         "core:policy/zealously_zone_a_sewer_to_the_river",
         "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
     ];
     assert!(
         reg.catalog
@@ -2911,6 +2913,8 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
         "core:policy/zealously_zone_a_round_for_refuse",
         "core:policy/zealously_zone_a_sewer_to_the_river",
         "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
     ];
     assert!(
         reg.catalog
@@ -2995,6 +2999,8 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
         "core:policy/zealously_zone_a_round_for_refuse",
         "core:policy/zealously_zone_a_sewer_to_the_river",
         "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
     ];
     assert!(
         reg.catalog
@@ -3037,6 +3043,8 @@ fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
         "core:policy/zealously_zone_a_round_for_refuse",
         "core:policy/zealously_zone_a_sewer_to_the_river",
         "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
     ];
     assert!(
         reg.catalog
@@ -3090,6 +3098,8 @@ fn the_core_lets_a_polity_name_a_health_officer_who_can_write() {
         "core:policy/zealously_zone_a_round_for_refuse",
         "core:policy/zealously_zone_a_sewer_to_the_river",
         "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
     ];
     assert!(
         reg.catalog
@@ -3137,6 +3147,8 @@ fn the_core_lets_a_polity_clear_middens_from_the_water() {
         "core:policy/zealously_zone_a_round_for_refuse",
         "core:policy/zealously_zone_a_sewer_to_the_river",
         "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
     ];
     assert!(
         reg.catalog
@@ -3178,6 +3190,8 @@ fn the_core_lets_a_polity_raise_a_sickhouse_where_the_sick_lay_untended() {
         "core:policy/zealously_zone_a_round_for_refuse",
         "core:policy/zealously_zone_a_sewer_to_the_river",
         "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
     ];
     assert!(
         reg.catalog
@@ -3395,6 +3409,8 @@ fn the_core_lets_a_polity_carry_refuse_to_a_tip() {
         "core:policy/zealously_zone_a_round_for_refuse",
         "core:policy/zealously_zone_a_sewer_to_the_river",
         "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
     ];
     assert!(
         reg.catalog
@@ -3470,6 +3486,8 @@ fn the_core_lets_a_polity_run_a_refuse_round_by_law() {
     let newer = [
         "core:policy/zealously_zone_a_sewer_to_the_river",
         "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
     ];
     assert!(
         reg.catalog
@@ -3729,7 +3747,11 @@ fn the_core_lets_a_polity_lay_a_sewer_to_the_river() {
     assert_eq!(s.tank, good("core:good/settling_tank"));
     assert_eq!(s.sludge, good("core:good/sludge"));
     // Its id sorts after every older template's (the protection rule's, ADR-0037 §5, is newer).
-    let newer = ["core:policy/zealously_zone_cased_steel"];
+    let newer = [
+        "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
+    ];
     assert!(
         reg.catalog
             .policies
@@ -3950,8 +3972,17 @@ fn the_core_lets_a_polity_ask_new_steel_frames_be_cased_against_fire() {
         rule.needs.map(|t| reg.catalog.techniques[t].id.as_str()),
         Some("core:technique/skeleton_frame")
     );
-    // Its id sorts after every older template's.
-    assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
+    // Its id sorts after every older template's (the hearers' for a term, backlog D, are newer).
+    let newer = [
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
+    ];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
 }
 
 #[test]
@@ -4152,4 +4183,99 @@ fn the_core_weighs_a_default_heard_of_at_half_one_suffered() {
         heard,
         civ_agents::ties::TieParams::core().acts[Act::DefaultedOthers as usize]
     );
+}
+
+#[test]
+fn a_hearer_may_hold_for_a_term_or_be_drawn_by_lot() {
+    // Backlog D (content API 226): a forum of one holder may carry a tenure, as an office keeping
+    // the store or the watch does; a panel or the elders may not. The core offers a hearer drawn by
+    // lot for a year, not renewable, and one named for a year, who may be named again.
+    use civ_agents::forum::ForumSeat;
+    use civ_agents::polity::{IssueKind, PolicyKind, Tenure};
+    let reg = registry(load(&repo_content()));
+    let find = |id: &str| {
+        reg.catalog
+            .policies
+            .iter()
+            .find(|p| p.id == id)
+            .unwrap_or_else(|| panic!("{id} in core"))
+    };
+    for (id, tenure) in [
+        (
+            "core:policy/zestfully_draw_a_hearer_by_lot",
+            Tenure {
+                term_days: 360,
+                renewable: false,
+                by_lot: true,
+            },
+        ),
+        (
+            "core:policy/zestfully_name_a_hearer_for_a_year",
+            Tenure {
+                term_days: 360,
+                renewable: true,
+                by_lot: false,
+            },
+        ),
+    ] {
+        let def = find(id);
+        assert_eq!(def.kind, PolicyKind::HearCases, "{id}");
+        assert_eq!(def.answers, vec![IssueKind::CasesWaiting], "{id}");
+        assert_eq!(def.tenure, Some(tenure), "{id}");
+        let forum = def.forum.as_ref().expect("its forum");
+        assert_eq!(forum.seat, ForumSeat::Holder, "{id}");
+        assert_eq!(
+            forum.hears,
+            find("core:policy/name_a_hearer")
+                .forum
+                .as_ref()
+                .expect("a forum")
+                .hears
+        );
+    }
+    // The older forums hold for no term.
+    for id in [
+        "core:policy/name_a_hearer",
+        "core:policy/hearer_by_precedent",
+        "core:policy/hear_by_panel",
+        "core:policy/hear_by_elders",
+    ] {
+        assert_eq!(find(id).tenure, None, "{id}");
+    }
+    let base = |seat: &str, tenure: &str| {
+        let panel = if seat == "panel" { "panel = 5\n" } else { "" };
+        format!(
+            "kind = \"policy\"\nid = \"core:policy/t\"\nname = \"T\"\ndescription = \"T.\"\n\
+             does = \"hear_cases\"\nanswers = [\"cases_waiting\"]\n\
+             [forum]\nseat = \"{seat}\"\n{panel}hears = [\"against_taking\"]\n{tenure}"
+        )
+    };
+    let lot = "[tenure]\nterm_days = 90\nrenewable = false\nfill = \"lot\"\n";
+    let preset = real_preset();
+    for (seat, tenure) in [("holder", lot), ("holder", "[tenure]\nterm_days = 360\n")] {
+        let ok = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("policy/t.toml", &base(seat, tenure)),
+        ]);
+        assert!(ok.diagnostics.is_empty(), "{seat}: {:?}", ok.diagnostics);
+    }
+    // Without a tenure each loads.
+    for seat in ["panel", "elders"] {
+        let ok = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("policy/t.toml", &base(seat, "")),
+        ]);
+        assert!(ok.diagnostics.is_empty(), "{seat}: {:?}", ok.diagnostics);
+    }
+    for seat in ["panel", "elders"] {
+        let bad = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("policy/t.toml", &base(seat, lot)),
+        ]);
+        assert!(
+            bad.diagnostics.iter().any(|d| d.message.contains("tenure")),
+            "{seat}: {:?}",
+            bad.diagnostics
+        );
+    }
 }

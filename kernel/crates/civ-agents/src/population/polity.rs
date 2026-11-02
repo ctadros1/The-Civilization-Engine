@@ -751,7 +751,8 @@ impl Forecasts {
             }
             // A forum (M7b slice BR): the household's own cases the gathering heard within
             // memory, heard again as the forum would hear them (a holder as they stood there, or
-            // at even odds if they did not come; a panel or the elders as those who came stood),
+            // at even odds if they did not come or a lot is yet to draw them, backlog D; a panel
+            // or the elders as those who came stood),
             // the difference in what it got back or paid, a year; and the evenings its people
             // spent hearing cases, which they would keep.
             Some(PolicyKind::HearCases) => {
@@ -1214,6 +1215,61 @@ impl Population {
     /// For tests: office law `law_id` of polity `pi`, passed, has its term filled.
     pub fn fill_term_for_tests(&mut self, ctx: &mut Ctx, pi: usize, law_id: PermanentId) {
         self.fill_term(ctx, pi, law_id);
+    }
+
+    /// Whom `deliberator` would name to hear the cases under forum template `policy` of polity
+    /// `pi` (M7b slice BR), its adults `adults`: `Some(Some(holder))` for a forum of one holder,
+    /// the adult they regard most, themselves at full regard; `Some(None)` where nobody is named
+    /// (a panel, the elders, or a holder a lot draws once the law passes, backlog D); `None` where
+    /// nobody may be. A holder held for a term the template does not renew is not named again
+    /// at once (backlog D, as a keeper of the store, M7a slice BN).
+    fn hearer_nominee(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        policy: u16,
+        deliberator: PermanentId,
+        adults: &[(PermanentId, PermanentId)],
+    ) -> Option<Option<PermanentId>> {
+        let def = ctx.catalog.policies.get(usize::from(policy))?;
+        let holder = def
+            .forum
+            .as_ref()
+            .is_some_and(|f| f.seat == crate::forum::ForumSeat::Holder);
+        if !holder || def.tenure.is_some_and(|t| t.by_lot) {
+            return Some(None);
+        }
+        let (day, tp) = (ctx.now.day_index(), &ctx.params.ties);
+        let barred = self.term_barred(pi, policy, day, def);
+        adults
+            .iter()
+            .map(|&(c, _)| c)
+            .filter(|&c| Some(c) != barred)
+            .map(|c| {
+                let r = if c == deliberator {
+                    1.0
+                } else {
+                    self.ties.regard(deliberator, c, day, tp).clamp(0.0, 1.0)
+                };
+                (r, c)
+            })
+            .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)))
+            .map(|(_, c)| Some(c))
+    }
+
+    /// For tests: whom `deliberator` of settlement `settlement` would name to hear cases under
+    /// forum template `policy`, as [`Population::hearer_nominee`] says.
+    #[doc(hidden)]
+    pub fn hearer_nominee_for_tests(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+        policy: u16,
+        deliberator: PermanentId,
+    ) -> Option<Option<PermanentId>> {
+        let pi = self.polity_of(settlement)?;
+        let adults = self.members_of(settlement, ctx.now, ctx.params);
+        self.hearer_nominee(ctx, pi, policy, deliberator, &adults)
     }
 
     /// A law that names someone lapses when they die or leave the settlement: the store they
@@ -4073,7 +4129,8 @@ impl Population {
                     // A limit is weighed only as an amendment is (M7b slice BT).
                     PolicyKind::Limit => {}
                     // A forum (M7b slice BR): one holder the sponsor regards most, themselves at
-                    // full regard; a panel or the elders name nobody.
+                    // full regard, or nobody where a lot draws them; a panel or the elders name
+                    // nobody.
                     PolicyKind::HearCases => {
                         // In place of the forum in force, if one is (M7b slice BS).
                         let blank = MoveOption {
@@ -4087,30 +4144,8 @@ impl Population {
                                 .map(|l| l.id),
                             ..blank
                         };
-                        let holder = def
-                            .forum
-                            .as_ref()
-                            .is_some_and(|f| f.seat == crate::forum::ForumSeat::Holder);
-                        if holder {
-                            let pick = adults
-                                .iter()
-                                .map(|&(c, _)| {
-                                    let r = if c == d {
-                                        1.0
-                                    } else {
-                                        self.ties.regard(d, c, day, tp).clamp(0.0, 1.0)
-                                    };
-                                    (r, c)
-                                })
-                                .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)));
-                            if let Some((_, c)) = pick {
-                                moves.push(MoveOption {
-                                    nominee: Some(c),
-                                    ..blank
-                                });
-                            }
-                        } else {
-                            moves.push(blank);
+                        if let Some(nominee) = self.hearer_nominee(ctx, pi, k, d, &adults) {
+                            moves.push(MoveOption { nominee, ..blank });
                         }
                     }
                     // While founding, an end to each law the old custom made (M4c slice AI): a
@@ -5136,6 +5171,7 @@ impl Population {
                     | PolicyKind::LightStreets
                     | PolicyKind::KeepSchool
                     | PolicyKind::KeepRegister
+                    | PolicyKind::HearCases
             )
         {
             self.fill_term(ctx, pi, law_id);

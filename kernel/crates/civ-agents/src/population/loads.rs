@@ -311,33 +311,15 @@ impl Population {
         let (x, y) = build::centre_m(&b.spec);
         let z = civ_land::height_at(ctx.map, x, y);
         let snow = snow_on_roof_pa(&ctx.land.weather, &ctx.land_params.weather, z, &e);
-        let loads = loads_on(b, &e, kept);
-        // A frame's mass infill weighs on its posts (frame version 5), at its masonry's density.
-        let framed = e.groups.iter().any(|g| g.kind == GroupKind::Posts);
-        let infill_n = if framed {
-            e.groups
-                .iter()
-                .filter(|g| g.kind == GroupKind::MassWall)
-                .map(|g| {
-                    let (_, density) = crate::rules::masonry(&def.rules, g.spacing_cm);
-                    f64::from(g.section_cm[0].max(0))
-                        * f64::from(g.section_cm[1].max(0))
-                        * f64::from(g.length_cm.max(0))
-                        * 1e-6
-                        * density
-                        * structure::G
-                })
-                .sum()
-        } else {
-            0.0
-        };
+        // A frame's mass infill weighs on its posts, and a cased skeleton's casing on its members
+        // (frame version 5): both in `loads_on`.
+        let loads = loads_on(b, &e, def, kept);
         let loads = Loads {
             peak_pa: if loads.covering_pa > 0.0 {
                 storm + snow
             } else {
                 0.0
             },
-            infill_n,
             ..loads
         };
         let timber = |g: &Group| structure::group_timber(&catalog.goods, def, g);
@@ -753,10 +735,17 @@ pub(super) fn gravity(kind: GroupKind) -> u8 {
     }
 }
 
-/// What presses on building `b` (of expansion `e`) holding `kept` of its household's goods, the
-/// month's peak aside: its covering's weight once it is on, the goods on its lofts and floors,
-/// and people on floors off the ground.
-pub(super) fn loads_on(b: &Building, e: &Expansion, kept: &[Vec<f64>; 3]) -> Loads {
+/// What presses on building `b` (of expansion `e`, program `def`) holding `kept` of its
+/// household's goods, the month's peak aside: its covering's weight once it is on, the goods on
+/// its lofts and floors, people on floors off the ground, a frame's mass infill at its masonry's
+/// density, and a cased skeleton's casing at its program's figure (frame version 5). The daily
+/// check and a shaking read the same.
+pub(super) fn loads_on(
+    b: &Building,
+    e: &Expansion,
+    def: &crate::params::BuildingDef,
+    kept: &[Vec<f64>; 3],
+) -> Loads {
     let area = |level: Level| -> f64 {
         e.spaces
             .iter()
@@ -808,6 +797,7 @@ pub(super) fn loads_on(b: &Building, e: &Expansion, kept: &[Vec<f64>; 3]) -> Loa
         },
         upper_pa: per(upper_kg, upper),
         live_pa: LIVE_PA,
-        infill_n: 0.0,
+        infill_n: structure::infill_weight_n(e, &def.rules),
+        casing_kg_m3: structure::casing_kg_m3(&b.spec, &def.rules),
     }
 }

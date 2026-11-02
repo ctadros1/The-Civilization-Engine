@@ -162,8 +162,10 @@ impl Population {
         let Some(e) = self.expansion_of(b, def) else {
             return (Vec::new(), Vec::new());
         };
-        let loads = loads_on(b, &e, kept);
+        // The infill and casing weigh as in the daily check, so they shake with the rest.
+        let loads = loads_on(b, &e, def, kept);
         let timber = |g: &Group| crate::structure::group_timber(&catalog.goods, def, g);
+        let now = ctx.now;
         let shows = def.upkeep.infill.shows_at as f32;
         let quakes = &self.quakes;
         let b = &mut ctx.land.buildings[i];
@@ -190,8 +192,9 @@ impl Population {
                         protection_min: 0.0,
                     }
                 }
+                // A cast member carries as its age lets it, as in the daily check (frame version 5).
                 GroupKind::Posts => match timber(g) {
-                    Some(t) => t,
+                    Some(t) => t.at_age(c.installed, now),
                     None => continue,
                 },
                 _ => continue,

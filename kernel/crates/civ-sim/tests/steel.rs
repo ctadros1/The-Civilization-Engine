@@ -745,6 +745,7 @@ fn working_loads() -> civ_agents::structure::Loads {
         upper_pa: 1000.0,
         live_pa: 2000.0,
         infill_n: 0.0,
+        casing_kg_m3: 0.0,
     }
 }
 
@@ -1115,5 +1116,321 @@ fn a_protection_rule_binds_a_bare_skeleton_and_its_keepers_case_theirs() {
     assert_eq!(
         RuleTemplate::ProtectedFrame { minutes: 60 }.words(),
         "a new steel frame must be cased against fire for at least 60 minutes"
+    );
+}
+
+/// A member's envelope, cubic metres: its section's area (round for equal sides) times its
+/// length, times its count.
+fn envelope_m3(g: &civ_grammar::Group) -> f64 {
+    let [w, d] = g.section_cm.map(|v| f64::from(v) / 100.0);
+    let area = if w == d {
+        std::f64::consts::PI * d * d / 4.0
+    } else {
+        w * d
+    };
+    area * f64::from(g.length_cm) / 100.0 * f64::from(g.count)
+}
+
+#[test]
+fn a_cased_skeletons_posts_carry_its_casing_at_the_programs_figure() {
+    use civ_agents::structure::{Loads, casing_kg_m3, group_timber, margin};
+    use civ_grammar::{GroupKind, frame_materials, frame_params as fp};
+    let sim = world(2);
+    let (_, home) = first_household(&sim);
+    let catalog = &sim.rules().catalog;
+    let def = workshop(&sim);
+    let civ_grammar::ProgramRules::Frame(r) = &def.rules else {
+        panic!("a frame program")
+    };
+    // A bare skeleton of version 5, and the same cased in concrete.
+    let (_, steel) = workshops(&sim, (home.0 + 40.0, home.1));
+    let mut bare = steel;
+    bare.version = 5;
+    bare.materials.extend([
+        "core:good/concrete".into(),
+        "core:good/reinforcing_bar".into(),
+    ]);
+    let mut cased = bare.clone();
+    cased.params[fp::ENCASEMENT] = 1;
+    // The checks weigh its casing at the program's figure, the one its frame stage is reckoned
+    // at; a bare skeleton and a timber frame have none.
+    assert_eq!(casing_kg_m3(&cased, &def.rules), r.encasement_kg_per_m3);
+    assert_eq!(r.encasement_kg_per_m3, 2250.0);
+    assert_eq!(casing_kg_m3(&bare, &def.rules), 0.0);
+    let (timber, _) = workshops(&sim, (home.0 + 40.0, home.1));
+    assert_eq!(casing_kg_m3(&timber, &def.rules), 0.0);
+    let e = civ_grammar::expand(&cased, &def.rules).expect("cased");
+    let frame = |g: &&civ_grammar::Group| g.material == Some(frame_materials::FRAME);
+    let stage_kg = e.stages[civ_grammar::Stage::Frame.index()].materials_kg
+        [usize::from(frame_materials::CONCRETE)];
+    let checked_kg: f64 =
+        e.groups.iter().filter(frame).map(envelope_m3).sum::<f64>() * r.encasement_kg_per_m3;
+    // The checks weigh it over the members as their groups draw them, as they weigh concrete;
+    // the frame stage reckons more (the posts' feet in the ground among it).
+    assert!(
+        checked_kg > 0.5 * stage_kg && checked_kg <= stage_kg,
+        "{checked_kg} against {stage_kg}"
+    );
+    // Its posts carry the casing of what stands on them (beams, plates and joists; a post's own
+    // weight is never on it): exactly as the bare skeleton's would carry that weight laid on.
+    let on_posts_n: f64 = e
+        .groups
+        .iter()
+        .filter(frame)
+        .filter(|g| g.kind != GroupKind::Posts)
+        .map(envelope_m3)
+        .sum::<f64>()
+        * r.encasement_kg_per_m3
+        * civ_agents::structure::G;
+    assert!(on_posts_n > 0.0);
+    let now = sim.now();
+    let roof = Loads {
+        covering_pa: 400.0,
+        ..Loads::default()
+    };
+    let posts = |loads: Loads| {
+        e.groups
+            .iter()
+            .filter(|g| g.kind == GroupKind::Posts)
+            .map(|g| {
+                let t = group_timber(&catalog.goods, def, g).expect("steel");
+                margin(g, &sound(g.id, now), &e, &loads, &t).strength
+            })
+            .collect::<Vec<_>>()
+    };
+    let bare_m = posts(roof);
+    let cased_m = posts(Loads {
+        casing_kg_m3: casing_kg_m3(&cased, &def.rules),
+        ..roof
+    });
+    let laid_on = posts(Loads {
+        infill_n: on_posts_n,
+        ..roof
+    });
+    for ((b, c), l) in bare_m.iter().zip(&cased_m).zip(&laid_on) {
+        assert!(c < b, "{c} against {b}");
+        assert!((c - l).abs() < 1e-9 * l, "{c} against {l}");
+        assert!(*c > 1.0, "a cased skeleton still stands: {c}");
+    }
+}
+
+/// The six-storey concrete hall its builders design (the hall as a program allowed to rise to
+/// twelve storeys, as the tall scene's longhouse is), and its program.
+fn six_storey_hall(sim: &Sim) -> (civ_agents::params::BuildingDef, civ_grammar::BuildingSpec) {
+    use civ_agents::build::{FireDesign, Shape, design_cautious};
+    let (_, home) = first_household(sim);
+    let catalog = &sim.rules().catalog;
+    let mut hall = catalog.buildings[catalog
+        .building_index("core:building/hall")
+        .expect("a hall")]
+    .clone();
+    if let civ_grammar::ProgramRules::Frame(r) = &mut hall.rules {
+        r.storeys = (1, civ_grammar::MAX_STOREYS_V4);
+    }
+    let civ_grammar::ProgramRules::Frame(r) = &hall.rules else {
+        panic!("a frame program")
+    };
+    let knows = FireDesign {
+        knows_systems: [false, false, false, false, true],
+        ..Default::default()
+    };
+    let spec = design_cautious(
+        &hall,
+        &catalog.goods,
+        Shape::Bays {
+            bays: r.bays.0.max(2),
+            storeys: 6,
+            lofts: 0,
+        },
+        (home.0 + 30.0, home.1),
+        None,
+        1.0,
+        None,
+        Some(knows),
+    )
+    .expect("a design");
+    assert_eq!(spec.params[civ_grammar::frame_params::POST_SYSTEM], 3);
+    (hall, spec)
+}
+
+#[test]
+fn a_concrete_frame_shaken_or_in_a_gale_at_a_week_old_is_weaker_than_at_a_year() {
+    use civ_agents::structure::{group_timber, lateral_margin, wind_margin};
+    use civ_grammar::GroupKind;
+    let sim = world(2);
+    let (_, home) = first_household(&sim);
+    let catalog = &sim.rules().catalog;
+    let def = workshop(&sim);
+    let curve = catalog.goods[good(&sim, "concrete")]
+        .timber
+        .and_then(|t| t.cast)
+        .expect("concrete cures");
+    let day = |d: i64| civ_core::SimTime::from_minutes(d * civ_core::time::MINUTES_PER_DAY);
+    // Each post group shaken with 0.3 of the building's weight, its members put in place on day
+    // 0 and shaken on day `age`, as the shaking reads them: a cast member at its age.
+    let shaken = |spec: &civ_grammar::BuildingSpec, age: i64| -> Vec<f64> {
+        let e = civ_grammar::expand(spec, &def.rules).expect("expands");
+        e.groups
+            .iter()
+            .filter(|g| g.kind == GroupKind::Posts)
+            .map(|g| {
+                let t = group_timber(&catalog.goods, def, g)
+                    .expect("a material")
+                    .at_age(day(0), day(age));
+                let c = sound(g.id, day(0));
+                lateral_margin(g, &c, &e, &working_loads(), &t, 0.3, false).strength
+            })
+            .collect()
+    };
+    let cast = cast_workshop(&sim, (home.0 + 20.0, home.1));
+    let (week, year) = (shaken(&cast, 7), shaken(&cast, 365));
+    assert!(!week.is_empty());
+    for (w, y) in week.iter().zip(&year) {
+        assert!(w < y, "{w} against {y}");
+        assert!((w / y - curve.share(7.0)).abs() < 1e-9, "{w} against {y}");
+    }
+    // A timber frame is as strong shaken at a week as at a year.
+    let (timber, _) = workshops(&sim, (home.0 + 20.0, home.1));
+    assert_eq!(shaken(&timber, 7), shaken(&timber, 365));
+    // The storm's gust on the six-storey concrete hall's face, as the daily check reads its
+    // posts: at a week, each storey's posts have less to spare than at a year.
+    let (hall, spec) = six_storey_hall(&sim);
+    let e = civ_grammar::expand(&spec, &hall.rules).expect("it expands");
+    let q_pa = 600.0;
+    let wind = |age: i64| -> Vec<f64> {
+        e.groups
+            .iter()
+            .filter(|g| g.kind == GroupKind::Posts)
+            .map(|g| {
+                let t = group_timber(&catalog.goods, &hall, g)
+                    .expect("concrete")
+                    .at_age(day(0), day(age));
+                wind_margin(g, &sound(g.id, day(0)), &e, &t, q_pa).strength
+            })
+            .collect()
+    };
+    let (week, year) = (wind(7), wind(365));
+    assert!(
+        week.iter().any(|m| m.is_finite()),
+        "the gust bends its posts"
+    );
+    for (w, y) in week.iter().zip(&year) {
+        if y.is_finite() {
+            assert!(w < y, "{w} against {y}");
+            assert!((w / y - curve.share(7.0)).abs() < 1e-9);
+        }
+    }
+}
+
+#[test]
+fn a_concrete_workshops_rubble_infill_shakes_with_its_posts() {
+    use civ_agents::structure::{Loads, group_timber, infill_weight_n, lateral_margin};
+    use civ_grammar::{GroupKind, frame_params as fp};
+    let sim = world(2);
+    let (_, home) = first_household(&sim);
+    let catalog = &sim.rules().catalog;
+    let def = workshop(&sim);
+    let civ_grammar::ProgramRules::Frame(r) = &def.rules else {
+        panic!("a frame program")
+    };
+    let wattle = cast_workshop(&sim, (home.0 + 20.0, home.1));
+    let mut rubble = wattle.clone();
+    rubble.params[fp::WALL_KIND] = 1;
+    rubble.params[fp::FOOTING] = 1;
+    rubble.params[fp::WALL_CM] = r.mass_wall_cm.0;
+    let framed = civ_grammar::expand(&wattle, &def.rules).expect("wattle infill");
+    let e = civ_grammar::expand(&rubble, &def.rules).expect("rubble infill");
+    // The daily check and the shaking weigh the same infill: none with wattle.
+    let infill_n = infill_weight_n(&e, &def.rules);
+    assert!(infill_n > 0.0);
+    assert_eq!(infill_weight_n(&framed, &def.rules), 0.0);
+    let now = sim.now();
+    let posts = |e: &civ_grammar::Expansion, loads: Loads| -> Vec<f64> {
+        e.groups
+            .iter()
+            .filter(|g| g.kind == GroupKind::Posts)
+            .map(|g| {
+                let t = group_timber(&catalog.goods, def, g).expect("concrete");
+                lateral_margin(g, &sound(g.id, now), e, &loads, &t, 0.3, false).strength
+            })
+            .collect()
+    };
+    // Shaken with its infill's mass, its posts meet more shear and have less to spare than the
+    // same frame shaken as if it had none, which stands as the wattle-filled one does.
+    let without = posts(&e, working_loads());
+    let with = posts(
+        &e,
+        Loads {
+            infill_n,
+            ..working_loads()
+        },
+    );
+    assert_eq!(without, posts(&framed, working_loads()));
+    for (w, o) in with.iter().zip(&without) {
+        assert!(w < o, "{w} against {o}");
+    }
+}
+
+/// A copy of `sim` through a save and a load.
+fn copied(sim: &mut Sim) -> Sim {
+    let d = tempfile::tempdir().expect("tempdir");
+    let saves =
+        commons_persist::SaveDir::create(d.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = civ_sim::persist::save(sim, &saves, commons_persist::SaveKind::Manual, "steel")
+        .expect("save");
+    civ_sim::persist::load(&saved.path, content()).expect("load")
+}
+
+#[test]
+fn a_shaking_brings_down_a_concrete_workshop_a_week_old_that_it_would_not_at_a_year() {
+    use civ_agents::quake::Outcome;
+    let mut sim = world(2);
+    let (household, home) = first_household(&sim);
+    let cast = cast_workshop(&sim, (home.0 + 20.0, home.1));
+    let id = sim
+        .place_building_for_tests(household, cast, civ_grammar::Stage::ALL.len() as u8)
+        .expect("the concrete workshop placed");
+    let mut base = copied(&mut sim);
+    // Each copy is shaken as its first event, so the workshop's draw is the same in every one;
+    // its members were put in place `age` days before.
+    let shaken = |base: &mut Sim, age: i64, strength: f64| {
+        let mut copy = copied(base);
+        let now = copy.now().minutes();
+        let b = copy
+            .land_mut_for_tests()
+            .buildings
+            .iter_mut()
+            .find(|b| b.id == id)
+            .expect("the workshop");
+        for c in &mut b.condition {
+            c.installed =
+                civ_core::SimTime::from_minutes(now - age * civ_core::time::MINUTES_PER_DAY);
+        }
+        copy.shake(strength, None).expect("shake");
+        copy.people()
+            .quakes
+            .list
+            .last()
+            .expect("a record")
+            .shaken
+            .iter()
+            .find(|s| s.building == id)
+            .expect("the workshop is reached")
+            .outcome
+    };
+    // The least strength, in steps of a twentieth, that brings it down a week old; a year old,
+    // its posts carry the 0.70 of their strength's shortfall and it stands.
+    let mut strength = 0.1_f64;
+    loop {
+        assert!(strength <= 0.6, "no shaking brings the young workshop down");
+        match shaken(&mut base, 7, strength) {
+            Outcome::Fell => break,
+            _ => strength *= 1.05,
+        }
+    }
+    assert_eq!(
+        shaken(&mut base, 365, strength),
+        Outcome::Stood,
+        "at {strength}"
     );
 }

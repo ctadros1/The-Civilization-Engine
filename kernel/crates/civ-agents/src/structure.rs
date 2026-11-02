@@ -132,8 +132,15 @@ pub struct Loads {
     /// People and what they carry on a floor off the ground, per square metre (passing).
     pub live_pa: f64,
     /// The whole weight of a frame's mass infill, newtons (frame version 5; carried for years):
-    /// the frame's posts carry it, as each storey's beams take its storey's.
+    /// the frame's posts carry it, as each storey's beams take its storey's ([`infill_weight_n`]).
     pub infill_n: f64,
+    /// What a cased steel skeleton's casing weighs, kilograms a cubic metre of its members'
+    /// envelope (frame version 5's encasement, ADR-0037 §5; [`casing_kg_m3`]): its program's
+    /// `encasement_kg_per_m3`, the figure its frame stage's concrete is reckoned at, so the
+    /// members weigh what was cast round them. 0 for a bare skeleton or any other building. It
+    /// is the members' own weight, not a load, but rides here as the infill's does: the checks
+    /// see only the expansion, which does not say whether its skeleton is cased.
+    pub casing_kg_m3: f64,
 }
 
 /// How near a group is to giving way under its loads.
@@ -240,15 +247,52 @@ pub fn group_timber(
 const CONCRETE_KG_M3: f64 = 6150.0;
 
 /// A member's own weight, newtons: a cast member's at concrete's density, any other's at
-/// timber's (a steel skeleton's too: ADR-0037's amendment of 2026-10-30).
-fn own_weight(g: &Group) -> f64 {
+/// timber's (a steel skeleton's too: ADR-0037's amendment of 2026-10-30), and a cased skeleton's
+/// member its casing besides, at `loads.casing_kg_m3` over the same envelope (ADR-0037 §5).
+fn own_weight(g: &Group, loads: &Loads) -> f64 {
+    use civ_grammar::frame::frame_materials::{CONCRETE, FRAME};
     let (area, _, _) = section(g);
-    let density = if g.material == Some(civ_grammar::frame::frame_materials::CONCRETE) {
-        CONCRETE_KG_M3
-    } else {
-        TIMBER_KG_M3
+    let density = match g.material {
+        Some(CONCRETE) => CONCRETE_KG_M3,
+        Some(FRAME) => TIMBER_KG_M3 + loads.casing_kg_m3.max(0.0),
+        _ => TIMBER_KG_M3,
     };
     area * f64::from(g.length_cm.max(0)) / 100.0 * density * G
+}
+
+/// What casing a cubic metre of the members' envelope of building `spec` weighs, kilograms
+/// ([`Loads::casing_kg_m3`]): its program's `encasement_kg_per_m3` where it is a skeleton cased
+/// in concrete (frame version 5's parameter 28, `ENCASEMENT`), else 0. The grammar refuses a
+/// casing anywhere but on a version 5 skeleton, and the casing is only ever on its skeleton's
+/// members (the `FRAME` slot's), so [`own_weight`] adds it to those alone.
+pub fn casing_kg_m3(spec: &civ_grammar::BuildingSpec, rules: &civ_grammar::ProgramRules) -> f64 {
+    let cased = spec.params.get(civ_grammar::frame_params::ENCASEMENT) == Some(&1);
+    match rules {
+        civ_grammar::ProgramRules::Frame(r) if cased => r.encasement_kg_per_m3.max(0.0),
+        _ => 0.0,
+    }
+}
+
+/// The whole weight of building `e`'s mass infill, newtons ([`Loads::infill_n`]): each mass wall
+/// of a frame (frame version 5; a building with posts) at its masonry's density in its program
+/// `rules`; 0 for a building without posts, whose mass walls bear the building themselves.
+pub fn infill_weight_n(e: &Expansion, rules: &civ_grammar::ProgramRules) -> f64 {
+    if !e.groups.iter().any(|g| g.kind == GroupKind::Posts) {
+        return 0.0;
+    }
+    e.groups
+        .iter()
+        .filter(|g| g.kind == GroupKind::MassWall)
+        .map(|g| {
+            let (_, density) = crate::rules::masonry(rules, g.spacing_cm);
+            f64::from(g.section_cm[0].max(0))
+                * f64::from(g.section_cm[1].max(0))
+                * f64::from(g.length_cm.max(0))
+                * 1e-6
+                * density
+                * G
+        })
+        .sum()
 }
 
 /// The storey a level is, 0 the first; `None` for a loft, the roof or no level.
@@ -265,7 +309,7 @@ fn level_of(g: &Group) -> Option<Level> {
 /// load carried for years and load in passing. `None` for a group that does not bend.
 fn bending_load(g: &Group, e: &Expansion, loads: &Loads) -> Option<(f64, f64)> {
     let per = g.area_m2.max(0.0) / f64::from(g.count.max(1));
-    let own = own_weight(g);
+    let own = own_weight(g, loads);
     Some(match (g.kind, level_of(g)) {
         (GroupKind::RoofFrame, _) => {
             // Normal to the slope: the covering's weight, and the peak on the plan it covers.
@@ -304,7 +348,8 @@ fn bending_load(g: &Group, e: &Expansion, loads: &Loads) -> Option<(f64, f64)> {
 
 /// The whole weight on building `e`'s posts, newtons, as load carried for years and load in
 /// passing: its roof's covering and the month's peak, what its lofts and floors off the ground
-/// hold, and its own timber above the ground.
+/// hold, its own timber above the ground (with a cased skeleton's casing), and a frame's mass
+/// infill.
 fn weight_on_posts(e: &Expansion, loads: &Loads) -> (f64, f64) {
     let area = |level: Level| -> f64 {
         e.spaces
@@ -339,7 +384,7 @@ fn weight_on_posts(e: &Expansion, loads: &Loads) -> (f64, f64) {
                         | GroupKind::MassWall
                 )
         })
-        .map(|g| own_weight(g) * f64::from(g.count))
+        .map(|g| own_weight(g, loads) * f64::from(g.count))
         .sum();
     (
         loads.covering_pa * roof_slope_m2(e)
@@ -568,6 +613,14 @@ pub const MASONRY_COHESION_SHARE: f64 = 0.054;
 /// bond adds while sound (`c·t²·L / 3Nh`), and slides in its plane once its shear passes
 /// `μN + cA` (11-05 §2.5); `c` is its masonry's cohesion, none once `cracked`. A post bends as a
 /// cantilever against its share of the shear. Other groups carry nothing this way.
+///
+/// The weight shaken is all [`weight_on_posts`] reckons, so a frame's mass infill
+/// (`loads.infill_n`) and a cased skeleton's casing (`loads.casing_kg_m3`) shake with it: more
+/// mass, more shear on its posts (ADR-0037's amendment of 2026-11-02). In a frame (a building
+/// with posts) each storey's infill is held at each floor and bears only itself, as the daily
+/// check has it ([`margin`]): it stands its storey's height and no wall above weighs on it.
+/// `t` is the member's material as it is now: a caller passes a cast member's at its age
+/// ([`Timber::at_age`]), as the daily check does, so a frame shaken while it cures is weaker.
 pub fn lateral_margin(
     g: &Group,
     c: &GroupCondition,
@@ -604,8 +657,10 @@ pub fn lateral_margin(
                     * t.density_kg_m3
                     * G
             };
-            // Unrestrained: its storey where its walls are tied, else its line's whole height.
-            let tied = e.groups.iter().any(|p| p.kind == GroupKind::Ties);
+            // Unrestrained: its storey where its walls are tied or framed, else its line's whole
+            // height.
+            let framed = e.groups.iter().any(|p| p.kind == GroupKind::Posts);
+            let tied = framed || e.groups.iter().any(|p| p.kind == GroupKind::Ties);
             let h = if tied || e.version < 3 {
                 f64::from(g.length_cm.max(0)) / 100.0
             } else {
@@ -622,7 +677,7 @@ pub fn lateral_margin(
                 };
             }
             // What bears on it: its share of the building's weight by the area it carries, and
-            // the walls above it on its line and itself.
+            // the walls above it on its line (none in a frame, which carries them) and itself.
             let first: f64 = walls
                 .iter()
                 .filter(|p| storey(level_of(p)) == Some(0))
@@ -633,12 +688,16 @@ pub fn lateral_margin(
             } else {
                 0.0
             };
-            let above: f64 = walls
-                .iter()
-                .filter(on_line)
-                .filter(|p| storey(level_of(p)).is_some_and(|s| s > here))
-                .map(|p| wall_n(p))
-                .sum();
+            let above: f64 = if framed {
+                0.0
+            } else {
+                walls
+                    .iter()
+                    .filter(on_line)
+                    .filter(|p| storey(level_of(p)).is_some_and(|s| s > here))
+                    .map(|p| wall_n(p))
+                    .sum()
+            };
             let n = weight * share + above + wall_n(g);
             let cohesion = if cracked {
                 0.0
@@ -766,6 +825,13 @@ pub fn wind_shears(e: &Expansion, q_pa: f64) -> Vec<f64> {
 /// ADR-0031 §3's lateral mode): its storey's wind shear shared among its posts, each bent as a
 /// member fixed at both ends by the skeleton's rigid joints (`M = V·h/2`). Other groups, lower
 /// frames and calm days carry nothing this way.
+///
+/// `t` is the member's material as it is now: the daily check passes a cast member's at its age
+/// ([`Timber::at_age`]), so a frame the storm meets while it cures is weaker. A frame's mass
+/// infill and a cased skeleton's casing change nothing here (ADR-0037's amendment of
+/// 2026-11-02): the wind's load is the gust on the building's face, and that face is already its
+/// outline's broadest side ([`face_m`]), the outer face of its walls, infill or not; weight is
+/// no part of this check (sway's second-order effect of weight is not reckoned).
 pub fn wind_margin(g: &Group, c: &GroupCondition, e: &Expansion, t: &Timber, q_pa: f64) -> Margin {
     if g.kind != GroupKind::Posts || g.material.is_none() {
         return Margin::NONE;
@@ -1023,7 +1089,7 @@ mod tests {
         // Over the years they would bend past L/180 under the thatch alone...
         let span = f64::from(r.length_cm) / 100.0;
         let (_, _, i) = section(r);
-        let w = (calm.covering_pa * slope / 20.0 + own_weight(r)) * roof_cos(&e);
+        let w = (calm.covering_pa * slope / 20.0 + own_weight(r, &calm)) * roof_cos(&e);
         let bow = 5.0 * w * span.powi(3) / (384.0 * 8.6e9 * i) * 2.0 / span;
         assert!(bow > SAG_SHOWS, "{bow}");
         // ...which shows nothing: the roof is sound on a calm day.
@@ -1505,5 +1571,202 @@ mod tests {
         }
         // A light frame meets far less of its weight sideways than heavy masonry does.
         assert!(frame.is_finite() && frame > walls(true, &brick), "{frame}");
+    }
+
+    /// A frame of two storeys of twelve 20 cm posts each, of material slot `slot`, with ten 20 cm
+    /// joists 5 m long under its upper floor of the same slot, under a light roof; with
+    /// `infill`, a storey's wall of rubble 10 m long, 30 cm thick and 2.5 m high on each of its
+    /// two long sides on each storey, carrying nothing (frame version 5's mass infill).
+    fn framed(slot: u8, infill: bool) -> Expansion {
+        let posts = |level: Level, area_m2: f64| Group {
+            id: group_id(level, None, GroupKind::Posts, 0),
+            kind: GroupKind::Posts,
+            stage: Stage::Frame,
+            material: Some(slot),
+            count: 12,
+            section_cm: [20, 20],
+            length_cm: 250,
+            spacing_cm: 250,
+            area_m2,
+        };
+        let floor = Group {
+            id: group_id(Level::Upper, Some(0), GroupKind::FloorJoists, 0),
+            kind: GroupKind::FloorJoists,
+            stage: Stage::Frame,
+            material: Some(slot),
+            count: 10,
+            section_cm: [20, 20],
+            length_cm: 500,
+            spacing_cm: 60,
+            area_m2: 25.0,
+        };
+        let mut groups = vec![
+            posts(Level::Ground, 55.0),
+            posts(Level::Upper, 30.0),
+            floor,
+            thatch(),
+        ];
+        if infill {
+            for level in [Level::Ground, Level::Upper] {
+                for side in 0..2 {
+                    groups.push(Group {
+                        id: group_id(level, None, GroupKind::MassWall, side),
+                        kind: GroupKind::MassWall,
+                        stage: Stage::Walls,
+                        material: Some(1),
+                        count: 1,
+                        section_cm: [1000, 30],
+                        length_cm: 250,
+                        spacing_cm: 1,
+                        area_m2: 0.0,
+                    });
+                }
+            }
+        }
+        let mut e = expansion_with(groups);
+        e.version = 5;
+        e
+    }
+
+    /// A steel section smeared over its envelope (ADR-0037 §4's design prior).
+    fn steel() -> Timber {
+        Timber {
+            bending_pa: 68e6,
+            compression_pa: 33.5e6,
+            stiffness_pa: 61e9,
+            creep: 0.0,
+            sustained: 1.0,
+            density_kg_m3: 7850.0,
+            burnt_keeps: Some(0.4),
+            cast: None,
+            protection_min: 0.0,
+        }
+    }
+
+    #[test]
+    fn a_cased_skeletons_members_weigh_their_casing_and_its_posts_carry_it() {
+        use civ_grammar::frame_materials::FRAME;
+        let e = framed(FRAME, false);
+        let bare = Loads {
+            covering_pa: 30.0 * G,
+            ..Loads::default()
+        };
+        let cased = Loads {
+            casing_kg_m3: 2250.0,
+            ..bare
+        };
+        // What stands on the posts gains its casing: the floor's ten joists, over their envelope.
+        let floor = *e
+            .groups
+            .iter()
+            .find(|g| g.kind == GroupKind::FloorJoists)
+            .expect("a floor");
+        let (area, _, _) = section(&floor);
+        let casing_n = area * 5.0 * 2250.0 * G * 10.0;
+        let (held, passing) = weight_on_posts(&e, &bare);
+        let (held_cased, passing_cased) = weight_on_posts(&e, &cased);
+        assert!(
+            (held_cased - held - casing_n).abs() < 1e-9 * casing_n,
+            "{held_cased} against {held} and {casing_n}"
+        );
+        assert_eq!(passing, passing_cased);
+        // Its posts' margin falls by as much, and its joists bend under their own casing.
+        let check = |g: &Group, loads: &Loads| margin(g, &sound(1.0), &e, loads, &steel()).strength;
+        let posts = e.groups[0];
+        assert!(
+            (check(&posts, &bare) / check(&posts, &cased) - held_cased / held).abs() < 1e-9,
+            "{} against {}",
+            check(&posts, &bare),
+            check(&posts, &cased)
+        );
+        assert!(check(&floor, &cased) < check(&floor, &bare));
+        // A timber or concrete frame's members carry no casing, whatever the figure.
+        for slot in [0, civ_grammar::frame_materials::CONCRETE] {
+            let other = framed(slot, false);
+            assert_eq!(
+                weight_on_posts(&other, &cased),
+                weight_on_posts(&other, &bare)
+            );
+        }
+    }
+
+    #[test]
+    fn a_frame_shaken_while_its_concrete_cures_is_weaker_and_a_timber_one_is_not() {
+        let cast = Cast {
+            strip_days: 7.0,
+            a_days: 4.0,
+            b: 0.85,
+        };
+        let concrete = Timber {
+            bending_pa: 82e6,
+            compression_pa: 51e6,
+            stiffness_pa: 98e9,
+            creep: 2.0,
+            sustained: 0.85,
+            density_kg_m3: 2400.0,
+            burnt_keeps: Some(0.75),
+            cast: Some(cast),
+            protection_min: 60.0,
+        };
+        let loads = Loads {
+            covering_pa: 30.0 * G,
+            ..Loads::default()
+        };
+        let day = |d: i64| SimTime::from_minutes(d * civ_core::time::MINUTES_PER_DAY);
+        let shaken = |slot: u8, t: &Timber, age: i64| {
+            let e = framed(slot, false);
+            let t = t.at_age(day(0), day(age));
+            lateral_margin(&e.groups[0], &sound(1.0), &e, &loads, &t, 0.3, false).strength
+        };
+        let slot = civ_grammar::frame_materials::CONCRETE;
+        let (week, year) = (shaken(slot, &concrete, 7), shaken(slot, &concrete, 365));
+        assert!(week < year, "{week} against {year}");
+        assert!((week / year - cast.share(7.0)).abs() < 1e-9);
+        // In its forms it is carried; a timber frame is as strong at a week as at a year.
+        assert_eq!(shaken(slot, &concrete, 3), year);
+        assert_eq!(shaken(0, &oak(), 7), shaken(0, &oak(), 365));
+    }
+
+    #[test]
+    fn a_frames_infill_shakes_with_it_and_is_held_at_each_floor() {
+        let e = framed(0, true);
+        let loads = Loads {
+            covering_pa: 30.0 * G,
+            ..Loads::default()
+        };
+        // Four storey walls of rubble at its 1,900 kg a cubic metre.
+        let rules = civ_grammar::ProgramRules::Hut(crate::build::tests::hut_rules());
+        let infill_n = infill_weight_n(&e, &rules);
+        assert!((infill_n - 4.0 * 10.0 * 0.3 * 2.5 * 1900.0 * G).abs() < 1e-6);
+        assert_eq!(infill_weight_n(&four_storeys_of_rubble(true), &rules), 0.0);
+        let with = Loads { infill_n, ..loads };
+        // Its posts meet the infill's mass sideways with the rest: their margin falls as the
+        // weight shaken rises.
+        let posts = e.groups[0];
+        let m = |loads: &Loads| {
+            lateral_margin(&posts, &sound(1.0), &e, loads, &oak(), 0.3, false).strength
+        };
+        let (held, _) = weight_on_posts(&e, &loads);
+        let (held_with, _) = weight_on_posts(&e, &with);
+        assert!(m(&with) < m(&loads));
+        assert!((m(&loads) / m(&with) - held_with / held).abs() < 1e-9);
+        // Each storey's infill is held at each floor and bears only itself, so the ground's
+        // stands as the upper's does, and cracked it rocks over its storey's height alone.
+        let wall = |level: Level| {
+            *e.groups
+                .iter()
+                .find(|g| g.id == group_id(level, None, GroupKind::MassWall, 0))
+                .expect("a wall")
+        };
+        let lm = |g: &Group, cracked: bool| {
+            lateral_margin(g, &sound(1.0), &e, &with, &rubble(), 0.1, cracked).strength
+        };
+        let (ground, upper) = (wall(Level::Ground), wall(Level::Upper));
+        assert_eq!(lm(&ground, false), lm(&upper, false));
+        assert!(
+            (lm(&ground, true) - 0.3 / 2.5 / 0.1).abs() < 1e-9,
+            "{}",
+            lm(&ground, true)
+        );
     }
 }

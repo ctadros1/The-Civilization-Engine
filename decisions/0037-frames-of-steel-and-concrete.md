@@ -192,6 +192,20 @@ Decided by Claude under the owner's standing authority (plan §9):
   steel skeleton to propose. **ADR-0037's deferrals are done**, but for those kept by the time
   box: glass, curtain walls, welding, prestressing, piles and settlement (§7), the casing's
   weight in the checks, the young concrete and infill in the shaking and wind checks.
+- **Amended (2026-11-02): the checks completed.** Decided by Claude under the owner's standing
+  authority (plan §9), with no content, save or wire change. *The casing's weight:* a cased
+  skeleton's members (the `FRAME` slot's) weigh their casing besides their own, at the program's
+  `encasement_kg_per_m3` (the figure its frame stage's concrete is reckoned at) over the same
+  envelope the checks weigh concrete over, so its beams and joists bend under it and its posts
+  carry it (`Loads::casing_kg_m3`, set from the spec's `ENCASEMENT` and the program). *Young
+  concrete:* a shaking reads a cast post at its age (`Timber::at_age`), as the daily check does;
+  the daily wind check already passed its posts at their age (the text above, that the shaking
+  and wind checks read the cured strength, held for the shaking alone), and now says so; stiffness
+  stays at full in both. *Infill:* a frame's mass infill shakes with it, its weight in the weight
+  shaken as the daily check puts it on the posts, and each storey's infill is shaken as it is
+  weighed, held at each floor and bearing only itself (before, it was shaken as an untied wall
+  bearing those above); in the wind it changes nothing, as the gust's face is the outline's
+  broadest side whether the walls are wattle or masonry, and weight is no part of that check.
 
 ## Revisit when
 

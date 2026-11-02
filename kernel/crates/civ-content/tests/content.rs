@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 220
+kernel_content_api = 221
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -3996,4 +3996,91 @@ fn a_worn_tool_names_the_scrap_it_leaves() {
             .message
             .contains("only a tool wears away")
     );
+}
+
+#[test]
+fn a_pick_activity_names_what_a_heap_or_a_tip_holds_whole() {
+    // ADR-0044 §2 (content API 221): a `pick` activity names the good it `picks`, the ash good or
+    // a tool's scrap; the people profile sorts `sort_kg_h` of a heap or a tip an hour; and the
+    // core fires bricks with a quarter of their clay replaced by ash.
+    let pick = real("activity/pick_scrap_iron.toml");
+    let fine = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        ("activity/pick_scrap_iron.toml", &pick),
+    ]);
+    assert!(fine.diagnostics.is_empty(), "{:?}", fine.diagnostics);
+    let reg = fine.registry.as_ref().expect("content");
+    let catalog = &reg.catalog;
+    let index = |id: &str| catalog.goods.iter().position(|g| g.id == id);
+    assert!((reg.people.params.midden.sort_kg_h - 100.0).abs() < 1e-12);
+    for (activity, good) in [
+        ("core:activity/pick_scrap_iron", "core:good/scrap_iron"),
+        ("core:activity/pick_ash", "core:good/ash"),
+    ] {
+        let a = catalog
+            .activities
+            .iter()
+            .find(|a| a.id == activity)
+            .expect("the activity");
+        assert_eq!(a.behavior, civ_agents::params::Behavior::Pick);
+        assert_eq!(a.picks, index(good), "{activity}");
+    }
+    let bricks = catalog
+        .recipes
+        .iter()
+        .find(|r| r.id == "core:recipe/fire_bricks_with_ash")
+        .expect("ash bricks");
+    let plain = catalog
+        .recipes
+        .iter()
+        .find(|r| r.id == "core:recipe/fire_bricks")
+        .expect("bricks");
+    let (clay, ash) = (
+        index("core:good/clay").expect("clay"),
+        index("core:good/ash").expect("ash"),
+    );
+    assert_eq!(bricks.inputs, vec![(clay, 3.0), (ash, 1.0)]);
+    assert_eq!(plain.inputs, vec![(clay, 4.0)]);
+    assert_eq!(
+        (bricks.outputs.clone(), bricks.tools.clone(), bricks.unit_h),
+        (plain.outputs.clone(), plain.tools.clone(), plain.unit_h)
+    );
+    // A pick activity that names nothing a heap or a tip holds, or names nothing at all, and
+    // `picks` on another behaviour.
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        (
+            "activity/pick_scrap_iron.toml",
+            &pick.replace("core:good/scrap_iron", "core:good/clay"),
+        ),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("no heap or tip holds")
+    );
+    for (body, needle) in [
+        (
+            pick.replace("picks = \"core:good/scrap_iron\"\n", ""),
+            "names the good it `picks`",
+        ),
+        (
+            pick.replace("behavior = \"pick\"", "behavior = \"rest\""),
+            "only `pick` activities take `picks`",
+        ),
+    ] {
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &real_preset()),
+            ("activity/pick_scrap_iron.toml", &body),
+        ]);
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|d| d.message.contains(needle)),
+            "{needle}: {:?}",
+            report.diagnostics
+        );
+    }
 }

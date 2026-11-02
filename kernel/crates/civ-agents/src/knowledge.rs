@@ -287,6 +287,7 @@ mod tests {
             task: Some(civ_land::FieldTask::Sow),
             recipe: None,
             digs: None,
+            picks: None,
             tools: Vec::new(),
             rate: 1.0,
             par: 3.0,

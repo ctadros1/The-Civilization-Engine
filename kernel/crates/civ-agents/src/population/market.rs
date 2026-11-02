@@ -198,7 +198,8 @@ impl Population {
     /// slice CE): someone in it knows its technique, and each input it is short of comes from a
     /// place it knows (a patch it has worked, a deposit its settlement knows) or one it could
     /// search out (a gathering it can do, as for bog ore or reeds), or is made, by a
-    /// recipe it knows, of inputs it holds or knows where to find, or makes so in turn, as many
+    /// recipe it knows, of inputs it holds, knows where to find or may pick out of a heap or a tip
+    /// (ADR-0044 §2), or makes so in turn, as many
     /// steps back as it keeps materials ([`MATERIAL_DEPTH`]: bar from bloom, bloom from ore and
     /// charcoal, charcoal from wood). A way it believes cheap but cannot get the makings of is no
     /// way.
@@ -236,7 +237,13 @@ impl Population {
                         .is_some_and(|res| res.good == g)
             })
         };
-        let gets = |g: usize, amount: f64| held(g) >= amount - 1e-9 || found(g) || gathered(g);
+        // Or that lies to be picked out of its heap or its polity's open tip (ADR-0044 §2).
+        let gets = |g: usize, amount: f64| {
+            held(g) >= amount - 1e-9
+                || found(g)
+                || gathered(g)
+                || self.lies_to_pick(ctx, hh, g, amount)
+        };
         r.technique.is_none_or(&knows)
             && r.inputs.iter().all(|&(g, amount)| {
                 gets(g, amount) || makes(catalog, &knows, &gets, g, MATERIAL_DEPTH - 1)
@@ -542,7 +549,17 @@ impl Population {
             }
         };
         let n = catalog.goods.len();
-        let gathered = value::gathered_costs(&land_params.resources, &hh.known, n);
+        let mut gathered = value::gathered_costs(&land_params.resources, &hh.known, n);
+        // Picking it out of its heap or its polity's open tip is another way to a good (ADR-0044
+        // §2), weighed as gathering is.
+        for (slot, p) in gathered
+            .iter_mut()
+            .zip(self.picked_costs_of(catalog, params, hh, now))
+        {
+            if let Some(p) = p {
+                *slot = Some(slot.map_or(p, |x| x.min(p)));
+            }
+        }
         // What it grows is carried in its store from the harvest, under its roof if it has one.
         let half_life = |g: usize| {
             catalog.goods.get(g).map_or(0.0, |d| {
@@ -651,6 +668,7 @@ impl Population {
             }
         };
         let can_work = |r: &crate::params::RecipeDef| self.can_work_way(ctx, hh, stores, r);
+        let dug = |g: usize| self.dug_h(ctx, hh, g);
         let costs_here = std::cell::OnceCell::new();
         let costs_once = known.map_or(&costs_here, |k| k.costs);
         let costs = || {
@@ -677,6 +695,7 @@ impl Population {
                         catalog,
                         &held,
                         &can_work,
+                        (&costs, &dug),
                         &mut keep,
                         (g, amount),
                         MATERIAL_DEPTH,
@@ -1187,6 +1206,17 @@ impl Population {
                     let own = costs()[g].unwrap_or(f64::INFINITY) * (1.0 + lean) * units;
                     let kcal = units * d.kcal_per_kg;
                     (units, TradeWorth::Food { kcal }, own)
+                } else if make::is_salvage(goods, g) {
+                    // What a heap or a tip holds, that it is short of toward the tools it lacks
+                    // (ADR-0044 §2): as much as it keeps beyond what it holds, and one person
+                    // carries, worth the hours of its own it saves.
+                    let short = (holding.keep.get(g).copied().unwrap_or(0.0) - held(g)).max(0.0);
+                    let units = short.min(params.household.carry_kg).min(f64::from(o.units));
+                    if units <= 1e-6 {
+                        continue;
+                    }
+                    let own = costs()[g].unwrap_or(f64::INFINITY) * units;
+                    (units, TradeWorth::Goods { hours: 0.0 }, own)
                 } else {
                     continue;
                 };
@@ -1220,6 +1250,13 @@ impl Population {
                 if saving.is_nan() || saving <= 0.0 {
                     continue;
                 }
+                let worth = match worth {
+                    // What it cannot get itself counts as a long day's work saved, no more.
+                    TradeWorth::Goods { .. } => TradeWorth::Goods {
+                        hours: saving.min(24.0),
+                    },
+                    w => w,
+                };
                 // What it cannot get itself saves all a buyer would give: rank those by price.
                 let rank = if saving.is_finite() {
                     saving
@@ -2708,12 +2745,16 @@ pub(super) struct MaterialWants<'a> {
     pub fuel: &'a mut Vec<f64>,
     /// What it holds of a good beyond its hearth's keep.
     pub beyond_hearth: &'a dyn Fn(usize) -> f64,
+    /// Its own costs of each good, and its hours a kilogram of digging one, asked only where a
+    /// way that takes salvage competes ([`way_to_material`]).
+    pub costs: &'a dyn Fn() -> Vec<Option<f64>>,
+    pub dug: &'a dyn Fn(usize) -> Option<f64>,
 }
 
 impl MaterialWants<'_> {
     /// `amount` of good `g` toward tool `t`, needed `need` (its work waiting on it if `blocked`):
     /// what it is short of beyond what it holds (`held`), and, where it makes that itself by the
-    /// first recipe it can work (`can_work`), what that is made of in turn, `depth` steps on.
+    /// way it would ([`way_to_material`]), what that is made of in turn, `depth` steps on.
     pub(super) fn toward(
         &mut self,
         catalog: &crate::params::Catalog,
@@ -2734,13 +2775,10 @@ impl MaterialWants<'_> {
             return;
         }
         // A material it makes itself, and what that is made of.
-        let Some((made, per_unit)) = catalog.recipes.iter().find_map(|m| {
-            m.outputs
-                .iter()
-                .find(|&&(o, _)| o == g)
-                .filter(|_| short > 0.0 && can_work(m))
-                .map(|&(_, a)| (m, a))
-        }) else {
+        let Some((made, per_unit)) = (short > 0.0)
+            .then(|| way_to_material(catalog, g, can_work, self.costs, self.dug))
+            .flatten()
+        else {
             return;
         };
         if per_unit <= 0.0 {
@@ -2772,6 +2810,62 @@ impl MaterialWants<'_> {
             );
         }
     }
+}
+
+/// The recipe a household makes good `g` by toward a tool, and what a unit of it gives: the first
+/// it can work (`can_work`), as ever; or, where another it can work takes something picked out of
+/// a heap or a tip (ADR-0044 §2: ash for clay, scrap for bloom), that one where a unit of `g` by
+/// it costs fewer of the household's hours (`costs`, asked only then): its work and inputs at
+/// their own costs, a dug good, which own costs leave out, at its digging hours (`dug`). Salvage
+/// competes with the first way by cost; the order of the other ways is unchanged.
+pub(super) fn way_to_material<'r>(
+    catalog: &'r crate::params::Catalog,
+    g: usize,
+    can_work: &dyn Fn(&crate::params::RecipeDef) -> bool,
+    costs: &dyn Fn() -> Vec<Option<f64>>,
+    dug: &dyn Fn(usize) -> Option<f64>,
+) -> Option<(&'r RecipeDef, f64)> {
+    let mut ways = catalog.recipes.iter().filter_map(|m| {
+        m.outputs
+            .iter()
+            .find(|&&(o, a)| o == g && a > 0.0)
+            .map(|&(_, a)| (m, a))
+    });
+    let first = ways.by_ref().find(|(m, _)| can_work(m))?;
+    let salvage = |m: &RecipeDef| {
+        m.inputs
+            .iter()
+            .any(|&(i, _)| make::is_salvage(&catalog.goods, i))
+    };
+    let others: Vec<(&RecipeDef, f64)> = ways
+        .filter(|(m, _)| salvage(m) != salvage(first.0) && can_work(m))
+        .collect();
+    if others.is_empty() {
+        return Some(first);
+    }
+    let costs = costs();
+    let unit = |(m, per): (&RecipeDef, f64)| -> f64 {
+        m.inputs
+            .iter()
+            .map(|&(i, a)| {
+                costs
+                    .get(i)
+                    .copied()
+                    .flatten()
+                    .or_else(|| dug(i))
+                    .map(|c| a * c)
+            })
+            .sum::<Option<f64>>()
+            .map_or(f64::INFINITY, |inputs| (m.unit_h + inputs) / per)
+    };
+    let mut best = (first, unit(first));
+    for w in others {
+        let h = unit(w);
+        if h < best.1 {
+            best = (w, h);
+        }
+    }
+    Some(best.0)
 }
 
 /// What `units` of recipe `r` are made of, by good: its inputs for each unit, and its session
@@ -2815,12 +2909,22 @@ pub(super) fn hearth_keep(
 /// charcoal from wood), as far as it is short at each step and knows a way to make it.
 pub(super) const MATERIAL_DEPTH: u32 = 3;
 
+/// A household's own costs of each good, and its hours a kilogram of digging one: what
+/// [`way_to_material`] weighs a way that takes salvage by.
+type Pricing<'a> = (
+    &'a dyn Fn() -> Vec<Option<f64>>,
+    &'a dyn Fn(usize) -> Option<f64>,
+);
+
 /// Keeps `amount` of good `g` toward a tool household lacks, and, `depth` steps on, what it makes
-/// that of as far as it is short of it (`held`), by the first recipe it can work (`can_work`).
+/// that of as far as it is short of it (`held`), by the way it would ([`way_to_material`]: the
+/// first recipe it can work, `can_work`, unless one taking salvage is cheaper by `costs` and
+/// `dug`).
 fn keep_made_of(
     catalog: &crate::params::Catalog,
     held: &dyn Fn(usize) -> f64,
     can_work: &dyn Fn(&crate::params::RecipeDef) -> bool,
+    (costs, dug): Pricing<'_>,
     keep: &mut [f64],
     (g, amount): (usize, f64),
     depth: u32,
@@ -2832,16 +2936,20 @@ fn keep_made_of(
         return;
     }
     let short = (amount - held(g)).max(0.0);
-    let made = catalog.recipes.iter().find_map(|m| {
-        m.outputs
-            .iter()
-            .find(|&&(o, a)| o == g && a > 0.0)
-            .filter(|_| short > 0.0 && can_work(m))
-            .map(|&(_, a)| (m, a))
-    });
+    let made = (short > 0.0)
+        .then(|| way_to_material(catalog, g, can_work, costs, dug))
+        .flatten();
     if let Some((m, per_unit)) = made {
         for (i, a) in made_of(m, short / per_unit) {
-            keep_made_of(catalog, held, can_work, keep, (i, a), depth - 1);
+            keep_made_of(
+                catalog,
+                held,
+                can_work,
+                (costs, dug),
+                keep,
+                (i, a),
+                depth - 1,
+            );
         }
     }
 }

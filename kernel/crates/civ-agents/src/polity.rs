@@ -998,13 +998,15 @@ pub struct RoundCall {
     pub discard_kg: f64,
 }
 
-/// A refuse round's run (ADR-0038 §4): the day, its keeper's hours on it, and the homes called at
-/// in order with what each gave.
+/// A refuse round's run (ADR-0038 §4): the day, its keeper's hours on it (sorting included), and
+/// the homes called at in order with what each gave; and what its keeper sorted out of the load
+/// and kept before tipping it (ADR-0044 §3), kilograms by good index, sorted by good, none at zero.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RoundRun {
     pub day: i64,
     pub hours: f32,
     pub calls: Vec<RoundCall>,
+    pub kept: Vec<(u16, f64)>,
 }
 
 /// A refuse round (M11f, third part; ADR-0038 §4): a household keeping a cart calls at the homes on
@@ -1027,7 +1029,8 @@ pub struct RefuseRound {
     pub homes: Vec<PermanentId>,
     /// Days between runs.
     pub every_days: u16,
-    /// A call's fee, kcal of food (0 under a law).
+    /// A call's fee, kcal of food (0 under a law). Below zero, the keeper pays each home called
+    /// at the difference (ADR-0044 §3): what it keeps of the load is worth more than its hours.
     pub fee_kcal: f32,
     /// The day it was posted, and the day of its last run (-1 never).
     pub since: i64,

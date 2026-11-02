@@ -15,6 +15,16 @@
 //! in a day's work. A polity may instead run one by law (`collect_refuse`): worked by a household
 //! of its settlement that keeps a cart, calling at every home for nothing, its hours paid from the
 //! store as common work; with nothing in the store to pay them it does not go.
+//!
+//! A posted round's keeper may sort its load before tipping it (ADR-0044 §3; brief §1, S5): of
+//! the ash and the discards in the cart it keeps as much as households of its settlement (its own
+//! among them) are short of toward the tools they lack, the most worth first, each kilogram worth
+//! a household's own cost of it at what an hour of that household's work brings in food; it sorts
+//! as much of the load, at the people profile's `sort_kg_h`, as finding them takes, and only where
+//! what it keeps repays those hours. Its fee a call is then its run and sorting hours at what an
+//! hour of its work brings in food, with fuel, less the worth of what it keeps, over the homes. It
+//! may fall below zero: the keeper then pays each home called at the difference on the same
+//! `Refuse` channel, and a home joins with no law asking. The law's round does not sort.
 
 use civ_core::time::DAYS_PER_YEAR;
 use civ_core::{PermanentId, Rng64};
@@ -132,7 +142,8 @@ impl Population {
     /// Whether household `hh` would join a round calling every `every_days` for a fee of
     /// `fee_kcal` a call (ADR-0038 §4): where the fees a year cost it less, at what an hour of its
     /// work brings in food, than the hours a law asks it to carry its heap a year. Under no law it
-    /// gains nothing and does not.
+    /// gains nothing and does not, unless the fee is below zero: then the keeper pays it, and it
+    /// joins (ADR-0044 §3).
     pub(super) fn would_join_round(
         &self,
         ctx: &Ctx,
@@ -140,6 +151,10 @@ impl Population {
         fee_kcal: f64,
         every_days: u16,
     ) -> bool {
+        // Paid to have its heap taken, it joins with no law asking (ADR-0044 §3).
+        if fee_kcal < 0.0 {
+            return true;
+        }
         let asked_h = self.carrying_asked_h_year(ctx, hh);
         if asked_h <= 0.0 {
             return false;
@@ -169,17 +184,135 @@ impl Population {
         out
     }
 
+    /// Who of settlement `settlement` is short of each of salvage goods `goods` toward the tools
+    /// it lacks, and what a kilogram is worth to it in food (ADR-0044 §3): for each of its
+    /// households, each of those goods it keeps more of than it holds, the kilograms short and its
+    /// own cost of a kilogram at what an hour of its work brings in food. As (good, kilograms,
+    /// kcal a kilogram), the most worth first.
+    fn salvage_wants(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+        goods: &[usize],
+    ) -> Vec<(usize, f64, f64)> {
+        let mut out = Vec::new();
+        if goods.is_empty() {
+            return out;
+        }
+        let catalog = ctx.catalog;
+        for x in self
+            .households
+            .iter()
+            .map(|(_, x)| x)
+            .filter(|x| x.settlement == Some(settlement) && !x.members.is_empty())
+        {
+            let stores = stores_now(x, ctx.now, ctx.params, &catalog.goods);
+            let holding = self.holding_of(ctx, x, &stores);
+            let short: Vec<(usize, f64)> = goods
+                .iter()
+                .filter_map(|&g| {
+                    let held = stores.get(g).copied().unwrap_or(0.0).max(0.0);
+                    let short = holding.keep.get(g).copied().unwrap_or(0.0) - held;
+                    (short > 1e-9).then_some((g, short))
+                })
+                .collect();
+            if short.is_empty() {
+                continue;
+            }
+            let costs = self.own_costs_of(ctx, x);
+            // What an hour of its work brings in food, as `hour_kcal` reckons it.
+            let hour_kcal = costs
+                .iter()
+                .zip(&catalog.goods)
+                .filter_map(|(c, d)| {
+                    let hours = (*c)?;
+                    (d.kcal_per_kg > 0.0 && hours > 0.0).then(|| d.kcal_per_kg / hours)
+                })
+                .fold(0.0, f64::max);
+            for (g, kg) in short {
+                if let Some(c) = costs.get(g).copied().flatten() {
+                    out.push((g, kg, c * hour_kcal));
+                }
+            }
+        }
+        out.sort_by(|a, b| b.2.total_cmp(&a.2).then(a.0.cmp(&b.0)));
+        out
+    }
+
+    /// What a keeper sorting a load keeps (ADR-0044 §3): of `load`, the kilograms by good of the
+    /// salvage in it, out of `total` kilograms in all, as much of each good as households want
+    /// (`wants`, from [`Population::salvage_wants`]), the most worth first; the hours sorting
+    /// takes at `sort_kg_h`, as much of the load as finding the most sought of them calls for;
+    /// and the worth in food of what it keeps. Nothing where that worth does not repay the
+    /// sorting at the keeper's `hour_kcal`.
+    fn sorted_keep(
+        load: &[(usize, f64)],
+        total: f64,
+        wants: &[(usize, f64, f64)],
+        sort_kg_h: f64,
+        hour_kcal: f64,
+    ) -> (Vec<(usize, f64)>, f64, f64) {
+        let nothing = (Vec::new(), 0.0, 0.0);
+        if total <= 0.0 || sort_kg_h <= 0.0 {
+            return nothing;
+        }
+        let mut kept: Vec<(usize, f64)> = Vec::new();
+        let (mut worth, mut sorted_share) = (0.0_f64, 0.0_f64);
+        for &(g, in_load) in load.iter().filter(|x| x.1 > 0.0) {
+            let mut k = 0.0;
+            for &(_, kg, kcal) in wants.iter().filter(|w| w.0 == g) {
+                let take = kg.min(in_load - k);
+                if take <= 0.0 {
+                    break;
+                }
+                k += take;
+                worth += take * kcal;
+            }
+            if k > 0.0 {
+                kept.push((g, k));
+                sorted_share = sorted_share.max(k / in_load);
+            }
+        }
+        let hours = sorted_share * total / sort_kg_h;
+        if kept.is_empty() || worth <= hours * hour_kcal {
+            return nothing;
+        }
+        (kept, hours, worth)
+    }
+
+    /// The salvage household `x`'s heap holds now, by good: its discards and its ash (as the ash
+    /// good `ash`); and all it holds, kilograms.
+    fn heap_salvage(ctx: &Ctx, x: &Household, ash: Option<usize>) -> (Vec<(usize, f64)>, f64) {
+        let mut out: Vec<(usize, f64)> = x
+            .midden
+            .discards
+            .iter()
+            .map(|&(g, kg)| (usize::from(g), kg))
+            .collect();
+        if let Some(a) = ash
+            && x.midden.ash_kg > 0.0
+        {
+            out.push((a, x.midden.ash_kg));
+        }
+        let total = x
+            .midden
+            .at_time(ctx.now, x.members.len(), &ctx.params.midden)
+            + x.midden.inert_kg();
+        (out, total)
+    }
+
     /// What household `operator` would post with its cart's vehicle `vehicle` to the tip at `tip`
     /// (ADR-0038 §4): the homes of its settlement, the nearest [`MAX_ROUND_HOMES`] in calling
     /// order, that would join at the fee, and the fee, kcal a call. A run calls at as many as the
     /// heaps of [`ROUND_EVERY_DAYS`] fill its cart with, each its people's share of a heap a day;
     /// its hours are the way door to homes to tip and back, at the seconds a metre of its cart's
     /// way from the door to the tip, and loading and tipping what it carries by hand; the fee is
-    /// those hours at what an hour of the keeper's work brings in food, and a motor cart's fuel
-    /// for the way at its own cost, over the homes a run calls at. The homes that would not join
-    /// at that fee are let go and the fee weighed again until all that are left would. None where
-    /// the cart has no way to the tip, the keeper puts no figure on its hours, a run does not fit
-    /// in a day's work, or no home would join.
+    /// those hours and its sorting's at what an hour of the keeper's work brings in food, and a
+    /// motor cart's fuel for the way at its own cost, less the worth of what it would keep of the
+    /// load as the homes' heaps stand (ADR-0044 §3), over the homes a run calls at; it may be
+    /// below zero. The homes that would not join at that fee are let go and the fee weighed again
+    /// until all that are left would. None where the cart has no way to the tip, the keeper puts
+    /// no figure on its hours, a run does not fit in a day's work, or no home would join.
     fn plan_round(
         &self,
         ctx: &Ctx,
@@ -204,6 +337,13 @@ impl Population {
             return None;
         }
         let day_h = ctx.params.farm.work_hours_per_day;
+        // Who of its settlement would take what it sorts out of a load (ADR-0044 §3).
+        let ash = ctx.catalog.goods.iter().position(|d| d.id == make::ASH);
+        let salvage: Vec<usize> = (0..ctx.catalog.goods.len())
+            .filter(|&g| make::is_salvage(&ctx.catalog.goods, g))
+            .collect();
+        let wants = self.salvage_wants(ctx, settlement, &salvage);
+        let sort_kg_h = ctx.params.midden.sort_kg_h;
         let mut near: Vec<(PermanentId, f64)> = self
             .households
             .iter()
@@ -262,7 +402,35 @@ impl Population {
             } else {
                 0.0
             };
-            let fee = (hours * hour_kcal + fuel_kcal) / m as f64;
+            // What it would keep of a run's load, sorting it (ADR-0044 §3): what the homes' heaps
+            // hold now, at the share of them a run carries.
+            let (mut load, mut total) = (Vec::<(usize, f64)>::new(), 0.0_f64);
+            for x in homes[..m].iter().filter_map(|&h| self.household(h)) {
+                let (salvage, kg) = Self::heap_salvage(ctx, x, ash);
+                total += kg;
+                for (g, kg) in salvage {
+                    match load.iter_mut().find(|l| l.0 == g) {
+                        Some(l) => l.1 += kg,
+                        None => load.push((g, kg)),
+                    }
+                }
+            }
+            let carried = if total > 0.0 {
+                (v.payload_kg / total).min(1.0)
+            } else {
+                0.0
+            };
+            for l in &mut load {
+                l.1 *= carried;
+            }
+            let (_, sort_h, kept_kcal) =
+                Self::sorted_keep(&load, total * carried, &wants, sort_kg_h, hour_kcal);
+            let (sort_h, kept_kcal) = if hours + sort_h > day_h {
+                (0.0, 0.0)
+            } else {
+                (sort_h, kept_kcal)
+            };
+            let fee = ((hours + sort_h) * hour_kcal + fuel_kcal - kept_kcal) / m as f64;
             let joining: Vec<PermanentId> = homes
                 .iter()
                 .copied()
@@ -571,11 +739,19 @@ impl Population {
         {
             return false;
         }
-        let hours = secs / 3600.0 + 2.0 * load / v.handling_kg_min.max(1e-6) / 60.0;
+        let mut hours = secs / 3600.0 + 2.0 * load / v.handling_kg_min.max(1e-6) / 60.0;
         let mut called = Vec::with_capacity(calls.len());
+        // What the tip held whole before the load, to tell what the load brought.
+        let before = {
+            let t = &self.polities[pi].tips[ti];
+            (t.ash_kg, t.discards.clone())
+        };
         for (h, share) in calls {
             if r.law.is_none() && fee > 0.0 {
                 self.pay_food_by(ctx, h, r.operator, fee, Channel::Refuse);
+            } else if r.law.is_none() && fee < 0.0 {
+                // Below zero, the keeper pays the home (ADR-0044 §3).
+                self.pay_food_by(ctx, r.operator, h, -fee, Channel::Refuse);
             }
             let (kg, ash_kg, discard_kg) = self.tip_share(ctx, h, pi, ti, share);
             called.push(RoundCall {
@@ -589,6 +765,14 @@ impl Population {
             // Its ash stays with the operator (ADR-0038 §5).
             self.burn_engine_fuel(&ctx.catalog.goods, r.operator, fuel, kg);
         }
+        // A posted round's keeper sorts the load before tipping it (ADR-0044 §3).
+        let kept = if r.law.is_none() {
+            let sorted = self.sort_load(ctx, pi, ti, r.operator, settlement, &before, &called);
+            hours += sorted.1;
+            sorted.0
+        } else {
+            Vec::new()
+        };
         if r.law.is_some() {
             let polity = self.polities[pi].id;
             self.pay_for_work(ctx, polity, r.operator, hours);
@@ -602,8 +786,79 @@ impl Population {
             day,
             hours: hours as f32,
             calls: called,
+            kept,
         });
         true
+    }
+
+    /// Keeper `operator` of a posted round sorts the load just tipped at tip `ti` of polity `pi`
+    /// (ADR-0044 §3): of the ash and discards it brought (the tip's now, less `before`), it keeps
+    /// what [`Population::sorted_keep`] finds worth it for the households of `settlement`, moved
+    /// out of the tip into its stores. Returns what it kept, by good, and the hours sorting took.
+    #[allow(clippy::too_many_arguments)]
+    fn sort_load(
+        &mut self,
+        ctx: &Ctx,
+        pi: usize,
+        ti: usize,
+        operator: PermanentId,
+        settlement: PermanentId,
+        before: &(f64, Vec<(u16, f64)>),
+        calls: &[RoundCall],
+    ) -> (Vec<(u16, f64)>, f64) {
+        let goods = &ctx.catalog.goods;
+        let ash = goods.iter().position(|d| d.id == make::ASH);
+        let mut load: Vec<(usize, f64)> = Vec::new();
+        {
+            let t = &self.polities[pi].tips[ti];
+            if let Some(a) = ash {
+                load.push((a, t.ash_kg - before.0));
+            }
+            for &(g, kg) in &t.discards {
+                let was = crate::person::discard_of(&before.1, usize::from(g));
+                load.push((usize::from(g), kg - was));
+            }
+        }
+        load.retain(|l| l.1 > 1e-9);
+        if load.is_empty() {
+            return (Vec::new(), 0.0);
+        }
+        let total: f64 = calls.iter().map(|c| c.kg + c.ash_kg + c.discard_kg).sum();
+        let goods_in: Vec<usize> = load.iter().map(|l| l.0).collect();
+        let wants = self.salvage_wants(ctx, settlement, &goods_in);
+        let hour_kcal = self
+            .household(operator)
+            .map_or(0.0, |x| self.hour_kcal(ctx, x));
+        let (kept, hours, _) =
+            Self::sorted_keep(&load, total, &wants, ctx.params.midden.sort_kg_h, hour_kcal);
+        if kept.is_empty() {
+            return (Vec::new(), 0.0);
+        }
+        let mut out: Vec<(u16, f64)> = Vec::new();
+        for &(g, kg) in &kept {
+            let t = &mut self.polities[pi].tips[ti];
+            let taken = if Some(g) == ash {
+                let k = kg.min(t.ash_kg);
+                t.ash_kg -= k;
+                k
+            } else {
+                crate::person::take_discard(&mut t.discards, g, kg)
+            };
+            crate::person::add_discard(&mut out, g, taken);
+        }
+        let params = ctx.params;
+        if let Some(x) = self.household_mut(operator) {
+            let members = x.members.len().max(1);
+            x.settle_stores(ctx.now, goods, &|d| fuel_per_day(params, members, d));
+            x.stores.resize(goods.len(), 0.0);
+            for &(g, kg) in &out {
+                let g = usize::from(g);
+                x.stores[g] += kg;
+                x.flows.add(Flow::Got, g, kg);
+            }
+        }
+        self.changed(operator);
+        (out, hours)
     }
 
     /// Each midnight (ADR-0038 §4): the laws collecting refuse keep their rounds; the households

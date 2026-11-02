@@ -2259,6 +2259,16 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             let kg = fbb.create_vector(&kg);
                             let ash_kg = fbb.create_vector(&ash_kg);
                             let discard_kg = fbb.create_vector(&discard_kg);
+                            // What its keeper kept of the load (ADR-0044 §3), absent while
+                            // nothing.
+                            let (kept_goods, kept_kg) = if x.kept.is_empty() {
+                                (None, None)
+                            } else {
+                                let g: Vec<u32> =
+                                    x.kept.iter().map(|&(g, _)| u32::from(g)).collect();
+                                let kg: Vec<f64> = x.kept.iter().map(|&(_, kg)| kg).collect();
+                                (Some(fbb.create_vector(&g)), Some(fbb.create_vector(&kg)))
+                            };
                             save::RoundRunSave::create(
                                 &mut fbb,
                                 &save::RoundRunSaveArgs {
@@ -2268,6 +2278,8 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                                     kg: Some(kg),
                                     ash_kg: Some(ash_kg),
                                     discard_kg: Some(discard_kg),
+                                    kept_goods,
+                                    kept_kg,
                                 },
                             )
                         })
@@ -3542,8 +3554,9 @@ fn decode_polities(
         let mut rounds = Vec::new();
         for r in p.rounds().iter().flatten() {
             let round = required(r.id(), "a refuse round")?;
+            // A fee may be below zero (ADR-0044 §3): the keeper pays the homes.
             let fee_kcal = r.fee_kcal();
-            if !(fee_kcal.is_finite() && fee_kcal >= 0.0) || r.every_days() == 0 {
+            if !fee_kcal.is_finite() || r.every_days() == 0 {
                 return Err(bad(format!(
                     "polity {id}'s refuse round {round} is malformed"
                 )));
@@ -3589,10 +3602,28 @@ fn decode_polities(
                         discard_kg,
                     });
                 }
+                // What its keeper kept of the load (ADR-0044 §3, appended within saves 220):
+                // nothing, in older saves; goods the content no longer has are dropped.
+                let gs: Vec<u32> = x.kept_goods().iter().flatten().collect();
+                let kgs: Vec<f64> = x.kept_kg().iter().flatten().collect();
+                if gs.len() != kgs.len() || !kgs.iter().all(|v| v.is_finite() && *v > 0.0) {
+                    return Err(bad(format!(
+                        "polity {id}'s refuse round {round} kept a load malformed"
+                    )));
+                }
+                let mut kept = Vec::with_capacity(gs.len());
+                for (g, kg) in gs.into_iter().zip(kgs) {
+                    if let Some(g) =
+                        saved_good(&goods, g, || format!("polity {id}'s refuse round {round}"))?
+                    {
+                        civ_agents::person::add_discard(&mut kept, usize::from(g), kg);
+                    }
+                }
                 runs.push(civ_agents::polity::RoundRun {
                     day: x.day(),
                     hours: x.hours(),
                     calls,
+                    kept,
                 });
             }
             rounds.push(civ_agents::polity::RefuseRound {

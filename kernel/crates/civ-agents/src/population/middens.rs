@@ -16,7 +16,7 @@ use crate::sickness::Outcome;
 
 impl Population {
     /// The terms of the first template that clears middens, if the content has one.
-    fn middens_def(ctx: &Ctx) -> Option<MiddensDef> {
+    pub(super) fn middens_def(ctx: &Ctx) -> Option<MiddensDef> {
         ctx.catalog.policies.iter().find_map(|d| d.middens)
     }
 
@@ -109,7 +109,7 @@ impl Population {
 
     /// Whether household `x`'s heap was carried away within the days of terms `def` as of
     /// `day`.
-    fn midden_carried(x: &Household, def: &MiddensDef, day: i64) -> bool {
+    pub(super) fn midden_carried(x: &Household, def: &MiddensDef, day: i64) -> bool {
         x.midden.carried >= 0 && day - x.midden.carried <= i64::from(def.keep_days)
     }
 

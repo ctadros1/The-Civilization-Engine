@@ -476,6 +476,9 @@ pub struct PatchOption {
     /// for one over the kind of ground it lies in, out to `at` and on ([`ProspectWalk`]; M11d;
     /// ADR-0010 §1: a body is found when a route passes near it). Nothing is dug.
     pub prospect: Option<ProspectWalk>,
+    /// For picking: `at` is a heap or a tip sorted over, not a patch (ADR-0044 §2); a session
+    /// sorts only as long as what the household wants of the good calls for.
+    pub picks: bool,
 }
 
 /// A walk to look for a body (M11d): from `at` across to `across` and home, `loop_min` the
@@ -1321,10 +1324,15 @@ pub fn candidates(
                 let target = water.well.map_or(Target::Water(water.cell), Target::Well);
                 out.push(finish(id, target, terms, steps));
             }
-            // Digging is gathering at a deposit (M3b slice Q).
-            Behavior::Gather | Behavior::Dig => {
+            // Digging is gathering at a deposit (M3b slice Q), and picking gathering at a heap or a
+            // tip (ADR-0044 §2).
+            Behavior::Gather | Behavior::Dig | Behavior::Pick => {
                 let Some(patch) = best_patch(i) else {
-                    excluded.push((id, Reason::NoPlace));
+                    // Picking is weighed only where something wanted lies to be picked: no part of
+                    // anyone else's choice, not even a reason it was left out.
+                    if def.behavior != Behavior::Pick {
+                        excluded.push((id, Reason::NoPlace));
+                    }
                     continue;
                 };
                 let walk = patch.walk_min;
@@ -1380,15 +1388,21 @@ pub fn candidates(
                     excluded.push((id, Reason::NotInDark));
                     continue;
                 }
-                // Work until a load is full, or as long as daylight and the authored range allow.
+                // Work until a load is full, or as long as daylight and the authored range allow;
+                // picking, until what is wanted of the good is (ADR-0044 §2).
                 let pace = f.capacity * def.rate;
-                let fill = limits.carry_kg / (patch.kg_per_hour * pace).max(1e-9) * 60.0;
+                let load = if patch.picks {
+                    (patch.need_kg + patch.tool_need_kg).clamp(1e-3, limits.carry_kg)
+                } else {
+                    limits.carry_kg
+                };
+                let fill = load / (patch.kg_per_hour * pace).max(1e-9) * 60.0;
                 let minutes = room
                     .min(f64::from(def.max_minutes))
                     .min(fill.max(f64::from(def.min_minutes)))
                     .max(1.0);
                 let hours = minutes / 60.0;
-                let kg = (patch.kg_per_hour * hours * pace).min(limits.carry_kg);
+                let kg = (patch.kg_per_hour * hours * pace).min(load);
                 // A load is worth what it brings toward what is still needed: two thirds for a
                 // full one, or for one that brings all that is still missing.
                 let toward = |need: f64| {
@@ -1505,9 +1519,13 @@ pub fn candidates(
                         Step::Deposit,
                     ],
                 };
-                let target = patch
-                    .deposit
-                    .map_or(Target::Patch(patch.patch), Target::Deposit);
+                let target = if patch.picks {
+                    Target::None
+                } else {
+                    patch
+                        .deposit
+                        .map_or(Target::Patch(patch.patch), Target::Deposit)
+                };
                 out.push(finish(id, target, terms, steps));
             }
             Behavior::Farm => {
@@ -3037,6 +3055,7 @@ mod tests {
             task: (behavior == Behavior::Farm).then_some(civ_land::FieldTask::Reap),
             recipe: (behavior == Behavior::Make).then_some(0),
             digs: None,
+            picks: None,
             tools,
             rate,
             par: 3.0,
@@ -3308,6 +3327,7 @@ mod tests {
                 deposit: None,
                 by_ride: None,
                 prospect: None,
+                picks: false,
             })
         };
         let shop = Workshop {
@@ -3386,6 +3406,7 @@ mod tests {
                 deposit: None,
                 by_ride: None,
                 prospect: None,
+                picks: false,
             })
         };
         let none = |_: usize| false;

@@ -2037,6 +2037,8 @@ pub(crate) struct MiddenFile {
     pub half_life_days: f64,
     pub load_kg: f64,
     pub spread_h_per_t: f64,
+    /// Kilograms of a heap or a tip sorted by hand in an hour (ADR-0044 §2; content API 221).
+    pub sort_kg_h: f64,
 }
 
 /// Taste in building, as authored: roof pitch in degrees, eaves and overhang in metres; and the
@@ -2805,6 +2807,7 @@ impl PeopleFile {
                 half_life_days: self.midden.half_life_days,
                 load_kg: self.midden.load_kg,
                 spread_h_per_t: self.midden.spread_h_per_t,
+                sort_kg_h: self.midden.sort_kg_h,
             },
             ties: self.ties.params(),
             standing: civ_agents::standing::StandingParams {
@@ -3143,6 +3146,7 @@ impl PeopleFile {
             ("midden.half_life_days", m.half_life_days, 0.0, 36_500.0),
             ("midden.load_kg", m.load_kg, 1.0, 200.0),
             ("midden.spread_h_per_t", m.spread_h_per_t, 0.0, 100.0),
+            ("midden.sort_kg_h", m.sort_kg_h, 1.0, 10_000.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

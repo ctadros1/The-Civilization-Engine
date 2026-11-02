@@ -436,6 +436,18 @@ pub fn start(
 /// without it keeps no ash from making.
 pub const ASH: &str = "core:good/ash";
 
+/// Whether good `g` is what a heap or a tip holds whole and a member may pick out of it (ADR-0044
+/// §2): the ash good, or the scrap a tool names.
+pub fn is_salvage(goods: &[GoodDef], g: usize) -> bool {
+    goods.get(g).is_some_and(|d| d.id == ASH)
+        || goods.iter().any(|d| {
+            d.tool
+                .as_ref()
+                .and_then(|t| t.scrap)
+                .is_some_and(|(s, _)| s == g)
+        })
+}
+
 /// Kilograms of ash a session making `units` of `recipe` leaves (ADR-0038 §2): each fuel it takes,
 /// by unit and by session, times its `ash_share`, less the ash the fuels it gives keep (coke keeps
 /// its coal's ash, charcoal its wood's), never below none.

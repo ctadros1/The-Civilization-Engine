@@ -479,6 +479,10 @@ n_kg_per_person_year = 1.0
 half_life_days = 365.0
 load_kg = 25.0
 spread_h_per_t = 2.0             # digging a tonne out of the heap and spreading it (tuning)
+# Sorting a heap or a tip by hand, taking out what is wanted (ADR-0044 §2): 100 kg of what lies there
+# an hour, a design prior (research 12-10 §6 found no collection or sorting productivity). Picking a
+# good yields this times its share of the heap or the tip.
+sort_kg_h = 100.0
 
 [knowledge]                      # what founders know and how people learn (ADR-0008); tuning values
 # The share of founders old enough for each technique's work who know it. Founders arrive with

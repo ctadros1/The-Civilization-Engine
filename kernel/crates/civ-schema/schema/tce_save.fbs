@@ -1748,9 +1748,10 @@ struct SewerConnectionSave {
 
 // A refuse round (schema 220, M11f, third part; ADR-0038 §4): its id, the household that works it
 // and its cart, the tip it carries to, the law collecting refuse it runs under (0 none: then its
-// homes pay `fee_kcal` a call), the homes it calls at in calling order, the days between runs, the
-// day posted and the day of its last run (-1 never), the index of the home its next run calls at
-// first, and its runs within the last year, oldest first.
+// homes pay `fee_kcal` a call; below zero, ADR-0044 §3, the keeper pays each home the difference),
+// the homes it calls at in calling order, the days between runs, the day posted and the day of its
+// last run (-1 never), the index of the home its next run calls at first, and its runs within the
+// last year, oldest first.
 table RefuseRoundSave {
   id: ulong (id: 0);
   operator: ulong (id: 1);
@@ -1777,6 +1778,10 @@ table RoundRunSave {
   // ADR-0044 §1 (appended within the unreleased saves 220): each call's kilograms of discards;
   // absent, none.
   discard_kg: [double] (id: 5);
+  // ADR-0044 §3 (appended within the unreleased saves 220): what the keeper sorted out of the load
+  // and kept, kilograms by good, the goods indexing Polities.goods; absent, nothing.
+  kept_goods: [uint] (id: 6);
+  kept_kg: [double] (id: 7);
 }
 
 // A tip a polity's law opened (schema 220, M11f, second part; ADR-0038 §3): its id (its contagion

@@ -1859,6 +1859,7 @@ pub(crate) mod tests {
                 half_life_days: 365.0,
                 load_kg: 25.0,
                 spread_h_per_t: 2.0,
+                sort_kg_h: 100.0,
             },
             ties: crate::ties::TieParams::core(),
             standing: crate::standing::StandingParams::default(),

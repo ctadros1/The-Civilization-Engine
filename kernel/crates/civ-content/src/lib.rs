@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 220;
+pub const KERNEL_CONTENT_API: u32 = 221;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1008,6 +1008,40 @@ fn resolve(
                 }
             },
         };
+        // What a `pick` activity sorts out of a heap or a tip (ADR-0044 §2): only what lies there
+        // whole, the ash of what burned or the scrap a tool names.
+        let picks = match &d.file.picks {
+            None => None,
+            Some(g) => match good_index(g) {
+                // A tool's scrap is resolved with the tools below, so it is read as authored here.
+                Some(i)
+                    if goods[i].id == civ_agents::make::ASH
+                        || parsed
+                            .goods
+                            .iter()
+                            .any(|d| d.file.scrap.as_ref().is_some_and(|x| x.good == *g)) =>
+                {
+                    Some(i)
+                }
+                Some(_) => {
+                    c.push(
+                        "E3001",
+                        &d.rel,
+                        None,
+                        format!(
+                            "`picks` names `{g}`, which no heap or tip holds: it is neither `{}` \
+                             nor a tool's `[scrap]`",
+                            civ_agents::make::ASH
+                        ),
+                    );
+                    continue;
+                }
+                None => {
+                    missing(c, parsed, &d.rel, "picks", g);
+                    continue;
+                }
+            },
+        };
         let mut tools = Vec::new();
         let mut ok = true;
         for t in &d.file.tools {
@@ -1030,7 +1064,7 @@ fn resolve(
         }
         let technique = gate(c, parsed, &technique_index, &d.rel, &d.file.technique);
         if let (true, Ok(technique)) = (ok, technique) {
-            activities.extend(d.file.def(resource, recipe, digs, tools, technique));
+            activities.extend(d.file.def(resource, recipe, digs, picks, tools, technique));
         }
     }
     activities.sort_by(|a, b| a.id.cmp(&b.id));
@@ -1812,6 +1846,21 @@ fn knowledge_problems(
                     }
                 }
             }
+        }
+        // The ash of a fuel the world provides, left on a heap or in a works' store as it burns
+        // (ADR-0038 §2), which a heap or a tip gives up to picking (ADR-0044 §2).
+        if let Some(a) = catalog
+            .goods
+            .iter()
+            .position(|d| d.id == civ_agents::make::ASH)
+            && !renewed.get(a).copied().unwrap_or(true)
+            && catalog.goods.iter().enumerate().any(|(g, d)| {
+                d.fuel.is_some_and(|f| f.ash_share > 0.0)
+                    && renewed.get(g).copied().unwrap_or(false)
+            })
+        {
+            mark(a, &mut renewed);
+            changed = true;
         }
         // What a tool the world provides leaves as it wears away (ADR-0044 §1).
         for (g, def) in catalog.goods.iter().enumerate() {

@@ -83,6 +83,7 @@ mod norm;
 mod notes;
 mod opinion;
 mod payments;
+mod picking;
 mod rounds;
 mod sewers;
 mod telegraph;
@@ -97,6 +98,7 @@ pub use crime::TakeProbe;
 pub use destructor::{REFUSE, engine_evening_kg};
 pub use fire::softening;
 pub use payments::Burden;
+pub use picking::PickPlace;
 pub use resolution::{DayBlock, NOT_TAKEN, SwitchInvariants};
 pub use rounds::{MAX_ROUND_HOMES, ROUND_EVERY_DAYS};
 pub use sickhouse::sickhouse_bed_m2;
@@ -4305,6 +4307,7 @@ impl Population {
                 }
             })
             .collect();
+        let dug = |g: usize| self.dug_h(ctx, &hh, g);
         let mut made_for: Vec<Option<(usize, f64)>> = vec![None; goods.len()];
         // A fuel goes toward what a tool's materials are made of beyond what its hearth keeps
         // (M11d, sixth part); the tool's own fuel and a pot's firing wood are weighed as before.
@@ -4329,6 +4332,8 @@ impl Population {
                 raw: &mut tool_material_raw,
                 fuel: &mut tool_fuel,
                 beyond_hearth: &beyond_hearth,
+                costs: &costs,
+                dug: &dug,
             };
             for &(g, amount) in &r.inputs {
                 wanting.toward(
@@ -4551,6 +4556,7 @@ impl Population {
                                 deposit: Some(d.id),
                                 by_ride: None,
                                 prospect: None,
+                                picks: false,
                             },
                         ));
                     }
@@ -4605,6 +4611,7 @@ impl Population {
                             loop_min,
                             fresh,
                         }),
+                        picks: false,
                     });
                 };
                 // Out to the pit on a line's train (M10b slice DX, fourth part), where the ride's
@@ -4635,10 +4642,50 @@ impl Population {
                 Some(o)
             }
         };
+        // Where each pick activity would pick its good (ADR-0044 §2): only while the household
+        // wants it, toward what it builds or the tools it lacks, at the place it may pick over
+        // that brings most for the walk, and not where a neighbour sells it for fewer of its
+        // hours.
+        let pick = |def: usize| -> Option<PatchOption> {
+            let a = catalog.activities.get(def)?;
+            let g = a.picks?;
+            let good = catalog.goods.get(g)?;
+            let need_kg = build_need.get(g).copied().unwrap_or(0.0);
+            let tool_need_kg = tool_material.get(g).copied().unwrap_or(0.0);
+            if need_kg <= 0.0 && tool_need_kg <= 0.0 {
+                return None;
+            }
+            let reach = &home?.reach;
+            let hours = f64::from(a.max_minutes) / 60.0;
+            let (place, walk_min, kg_per_hour) =
+                self.pick_place(ctx, &hh, g, reach, f64::from(a.max_walk_minutes), hours)?;
+            Some(PatchOption {
+                patch: 0,
+                walk_min,
+                kg_per_hour,
+                purpose: good.purpose,
+                kcal_per_kg: good.kcal_per_kg,
+                fuel_ratio: heat_of(g),
+                stored_days: 0.0,
+                need_kg,
+                urgency: build_urgency,
+                tool_need_kg,
+                fuel_tool_kg: 0.0,
+                tool_blocked: tool_material_blocked.get(g).copied().unwrap_or(false),
+                at: place.at,
+                deposit: None,
+                by_ride: None,
+                prospect: None,
+                picks: true,
+            })
+        };
         let find_patch = |def: usize| -> Option<PatchOption> {
             let a = &catalog.activities[def];
             if a.digs.is_some() {
                 return dig(def);
+            }
+            if a.picks.is_some() {
+                return pick(def);
             }
             let r = a.resource?;
             let res = land_params.resources.get(r)?;
@@ -4732,6 +4779,7 @@ impl Population {
                             deposit: None,
                             by_ride: None,
                             prospect: None,
+                            picks: false,
                         },
                     ));
                 }
@@ -6171,6 +6219,7 @@ impl Population {
             Some(
                 Behavior::Gather
                 | Behavior::Dig
+                | Behavior::Pick
                 | Behavior::FetchWater
                 | Behavior::Farm
                 | Behavior::Ask
@@ -6361,6 +6410,12 @@ impl Population {
                         }
                         let place = crate::uses::Place::Deposit(deposit);
                         self.log_work(place, household, who, now, 0.0);
+                    }
+                }
+                // Picking over a heap or a tip (ADR-0044 §2).
+                Some(Behavior::Pick) => {
+                    if let Some(d) = def.as_ref() {
+                        self.pick_work(ctx, h, d, minutes);
                     }
                 }
                 Some(Behavior::FetchWater) => {

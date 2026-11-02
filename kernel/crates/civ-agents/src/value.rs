@@ -100,6 +100,59 @@ pub fn gathered_costs(
     out
 }
 
+/// A place a household may pick over (ADR-0044 §2): its own heap or its polity's open tip. What
+/// lies there in all, kilograms; the goods it holds whole, by catalog index and kilograms; and the
+/// hours of the walk there, one way (none for a heap at home).
+#[derive(Clone, Debug, PartialEq)]
+pub struct PickSite {
+    pub walk_h: f64,
+    pub kg: f64,
+    pub goods: Vec<(usize, f64)>,
+}
+
+impl PickSite {
+    /// Hours per kilogram of picking good `g` here (ADR-0044 §2): sorting `sort_kg_h` of what lies
+    /// here an hour, `1 / (sort_kg_h × share)` with `share` the good's share of it, and the walk
+    /// there and back over a load (`carry_kg`, or what lies here of the good if less). `None`
+    /// where none of it lies here.
+    pub fn hours_per_kg(&self, g: usize, sort_kg_h: f64, carry_kg: f64) -> Option<f64> {
+        let kg: f64 = self
+            .goods
+            .iter()
+            .filter(|&&(x, _)| x == g)
+            .map(|&(_, kg)| kg)
+            .sum();
+        if kg <= 0.0 || self.kg <= 0.0 || sort_kg_h <= 0.0 {
+            return None;
+        }
+        let share = (kg / self.kg).min(1.0);
+        let load = carry_kg.min(kg).max(1e-9);
+        Some(1.0 / (sort_kg_h * share) + 2.0 * self.walk_h.max(0.0) / load)
+    }
+}
+
+/// Hours per kilogram of picking each good (ADR-0044 §2), at whichever of `sites` gives it
+/// cheapest ([`PickSite::hours_per_kg`]); `None` for a good no site holds. No price, recovery rate
+/// or share of salvage is authored: what lies where, and the sorting rate, decide.
+pub fn picked_costs(
+    sites: &[PickSite],
+    goods: usize,
+    sort_kg_h: f64,
+    carry_kg: f64,
+) -> Vec<Option<f64>> {
+    let mut out = vec![None; goods];
+    for s in sites {
+        for &(g, _) in &s.goods {
+            let (Some(h), Some(slot)) = (s.hours_per_kg(g, sort_kg_h, carry_kg), out.get_mut(g))
+            else {
+                continue;
+            };
+            *slot = Some(slot.map_or(h, |x: f64| x.min(h)));
+        }
+    }
+    out
+}
+
 /// Food a household cannot get itself (provisions carried in) is worth what the same energy
 /// costs it in its cheapest food: fills in those costs, by energy.
 pub fn food_by_energy(goods: &[crate::params::GoodDef], costs: &mut [Option<f64>]) {

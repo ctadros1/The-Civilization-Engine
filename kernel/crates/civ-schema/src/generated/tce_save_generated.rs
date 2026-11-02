@@ -45344,6 +45344,8 @@ impl<'a> RoundRunSave<'a> {
   pub const VT_KG: ::flatbuffers::VOffsetT = 10;
   pub const VT_ASH_KG: ::flatbuffers::VOffsetT = 12;
   pub const VT_DISCARD_KG: ::flatbuffers::VOffsetT = 14;
+  pub const VT_KEPT_GOODS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_KEPT_KG: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -45356,6 +45358,8 @@ impl<'a> RoundRunSave<'a> {
   ) -> ::flatbuffers::WIPOffset<RoundRunSave<'bldr>> {
     let mut builder = RoundRunSaveBuilder::new(_fbb);
     builder.add_day(args.day);
+    if let Some(x) = args.kept_kg { builder.add_kept_kg(x); }
+    if let Some(x) = args.kept_goods { builder.add_kept_goods(x); }
     if let Some(x) = args.discard_kg { builder.add_discard_kg(x); }
     if let Some(x) = args.ash_kg { builder.add_ash_kg(x); }
     if let Some(x) = args.kg { builder.add_kg(x); }
@@ -45407,6 +45411,20 @@ impl<'a> RoundRunSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(RoundRunSave::VT_DISCARD_KG, None)}
   }
+  #[inline]
+  pub fn kept_goods(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(RoundRunSave::VT_KEPT_GOODS, None)}
+  }
+  #[inline]
+  pub fn kept_kg(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(RoundRunSave::VT_KEPT_KG, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for RoundRunSave<'_> {
@@ -45421,6 +45439,8 @@ impl ::flatbuffers::Verifiable for RoundRunSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("kg", Self::VT_KG, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("ash_kg", Self::VT_ASH_KG, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("discard_kg", Self::VT_DISCARD_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("kept_goods", Self::VT_KEPT_GOODS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("kept_kg", Self::VT_KEPT_KG, false)?
      .finish();
     Ok(())
   }
@@ -45432,6 +45452,8 @@ pub struct RoundRunSaveArgs<'a> {
     pub kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
     pub ash_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
     pub discard_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+    pub kept_goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub kept_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
 }
 impl<'a> Default for RoundRunSaveArgs<'a> {
   #[inline]
@@ -45443,6 +45465,8 @@ impl<'a> Default for RoundRunSaveArgs<'a> {
       kg: None,
       ash_kg: None,
       discard_kg: None,
+      kept_goods: None,
+      kept_kg: None,
     }
   }
 }
@@ -45477,6 +45501,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RoundRunSaveBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoundRunSave::VT_DISCARD_KG, discard_kg);
   }
   #[inline]
+  pub fn add_kept_goods(&mut self, kept_goods: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoundRunSave::VT_KEPT_GOODS, kept_goods);
+  }
+  #[inline]
+  pub fn add_kept_kg(&mut self, kept_kg: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoundRunSave::VT_KEPT_KG, kept_kg);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RoundRunSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RoundRunSaveBuilder {
@@ -45500,6 +45532,8 @@ impl ::core::fmt::Debug for RoundRunSave<'_> {
       ds.field("kg", &self.kg());
       ds.field("ash_kg", &self.ash_kg());
       ds.field("discard_kg", &self.discard_kg());
+      ds.field("kept_goods", &self.kept_goods());
+      ds.field("kept_kg", &self.kept_kg());
       ds.finish()
   }
 }

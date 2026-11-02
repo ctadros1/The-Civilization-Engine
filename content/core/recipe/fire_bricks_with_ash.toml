@@ -1,0 +1,16 @@
+# Firing bricks of a body with ash in it: a quarter of the clay replaced by ash, kilogram for
+# kilogram (ADR-0044 §2; a design prior: research 12-10 §1.6 names the trade, London's brickmakers
+# buying the dust heaps' fine ash, not the share), otherwise as `fire_bricks`: stacked dried bricks
+# fired in a wood-fired kiln, 100 kg of firewood a firing, about 10 % breaking.
+kind = "recipe"
+id = "core:recipe/fire_bricks_with_ash"
+name = "Fire bricks with ash"
+skill = "core:skill/pottery"
+technique = "core:technique/firing"
+unit_h = 0.03
+session_h = 8.0
+max_units = 300.0
+tools = ["core:good/kiln"]
+inputs = [{ good = "core:good/clay", amount = 3.0 }, { good = "core:good/ash", amount = 1.0 }]
+outputs = [{ good = "core:good/brick", amount = 0.9 }]
+session_inputs = [{ good = "core:good/firewood", amount = 100.0 }]

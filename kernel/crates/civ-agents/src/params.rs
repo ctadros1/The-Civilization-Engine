@@ -143,11 +143,15 @@ pub enum Behavior {
     /// Carry the household's midden from near the water to a place as far from every source, as
     /// a law clearing middens asks (M10c slice EE, third part).
     Midden,
+    /// Walk to the household's own heap or its polity's open tip, sort what lies there and carry
+    /// home the good the activity names, as much as the household wants (ADR-0044 §2): the
+    /// activity names the good it `picks`.
+    Pick,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 47] = [
+    pub const ALL: [Behavior; 48] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -195,6 +199,7 @@ impl Behavior {
         Behavior::Read,
         Behavior::Rounds,
         Behavior::Midden,
+        Behavior::Pick,
     ];
 
     /// The authored name of a behavior.
@@ -247,6 +252,7 @@ impl Behavior {
             Behavior::Read => "read",
             Behavior::Rounds => "rounds",
             Behavior::Midden => "midden",
+            Behavior::Pick => "pick",
         }
     }
 
@@ -275,6 +281,9 @@ pub struct ActivityDef {
     pub recipe: Option<usize>,
     /// For digging: the good dug, by index in the catalog's goods (M3b slice Q).
     pub digs: Option<usize>,
+    /// For picking: the good sorted out of a heap or a tip, by index in the catalog's goods
+    /// (ADR-0044 §2).
+    pub picks: Option<usize>,
     /// Tools the work needs and wears, by index in the catalog's goods (a recipe's own tools are
     /// on the recipe).
     pub tools: Vec<usize>,
@@ -2444,6 +2453,10 @@ pub struct MiddenParams {
     /// Hours a capable adult takes to dig a tonne out of the heap and spread it, besides carrying
     /// it.
     pub spread_h_per_t: f64,
+    /// Kilograms of a heap or a tip a capable adult sorts through in an hour by hand, taking out
+    /// what it wants (ADR-0044 §2): picking a good yields this times the good's share of what
+    /// lies there.
+    pub sort_kg_h: f64,
 }
 
 impl MiddenParams {

@@ -1090,6 +1090,31 @@ pub fn add_discard(list: &mut Vec<(u16, f64)>, good: usize, kg: f64) {
     }
 }
 
+/// Takes up to `kg` of good `good` out of a list of discards (ADR-0044 §2: what is picked out of a
+/// heap or a tip), none left at zero: the kilograms taken.
+pub fn take_discard(list: &mut Vec<(u16, f64)>, good: usize, kg: f64) -> f64 {
+    let Ok(g) = u16::try_from(good) else {
+        return 0.0;
+    };
+    let Ok(i) = list.binary_search_by_key(&g, |&(x, _)| x) else {
+        return 0.0;
+    };
+    let taken = kg.max(0.0).min(list[i].1);
+    list[i].1 -= taken;
+    if list[i].1 <= 0.0 {
+        list.remove(i);
+    }
+    taken
+}
+
+/// Kilograms of good `good` in a list of discards.
+pub fn discard_of(list: &[(u16, f64)], good: usize) -> f64 {
+    u16::try_from(good).map_or(0.0, |g| {
+        list.binary_search_by_key(&g, |&(x, _)| x)
+            .map_or(0.0, |i| list[i].1)
+    })
+}
+
 /// Kilograms of a list of discards, all goods together.
 pub fn discards_kg(list: &[(u16, f64)]) -> f64 {
     list.iter().map(|&(_, kg)| kg).sum()

@@ -802,7 +802,7 @@ impl Population {
     }
 
     /// Settlement `settlement`'s name, or "the village".
-    fn village_name(&self, ctx: &Ctx, settlement: Option<PermanentId>) -> String {
+    pub(super) fn village_name(&self, ctx: &Ctx, settlement: Option<PermanentId>) -> String {
         settlement
             .and_then(|s| ctx.land.settlements.iter().find(|t| t.id == s))
             .map_or_else(|| "the village".to_owned(), |t| t.name.clone())

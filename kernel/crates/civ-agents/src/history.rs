@@ -940,6 +940,12 @@ pub enum ChronicleKind {
     /// A record of a technique was lost (M10c slice EC, second part): burned with the building
     /// that kept it; `people` is its writer, `settlement` the holder's, and `name` the sentence.
     RecordLost,
+    /// A polity's sewer fell in where its walls wore through, or its people relined it so that it
+    /// carries again (ADR-0044 §5; backlog D, fifth item): `people` is the elder of the household
+    /// that finished the relining (none for a collapse), `settlement` the polity's seat, `place`
+    /// the stretch that fell in or was rebuilt last, `number` the step ([`SewerStep`]), and `name`
+    /// the sentence.
+    Sewer,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1001,6 +1007,15 @@ pub enum WellStep {
     FellIn = 2,
     /// Its household made it a lid and curb (M6a slice BA).
     Covered = 3,
+}
+
+/// What happened to a sewer, in a [`ChronicleKind::Sewer`] entry. Numeric in saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SewerStep {
+    /// A stretch of it wore through and fell in.
+    Collapsed = 0,
+    /// The last of its stretches that had fallen in was relined: nothing of it is broken now.
+    Mended = 1,
 }
 
 /// What happened to a crossing, in a [`ChronicleKind::Crossing`] entry. Numeric in saves:
@@ -1619,7 +1634,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::LineLaid
         | ChronicleKind::StationsOpened
         | ChronicleKind::RecordWritten
-        | ChronicleKind::RecordLost => {
+        | ChronicleKind::RecordLost
+        | ChronicleKind::Sewer => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

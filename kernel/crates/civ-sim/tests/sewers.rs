@@ -12,12 +12,15 @@
 //! back up first; a cell worn through breaks it there and only the homes above it heap; clearing
 //! turns the deposit into sludge, all of it, and mends no collapse, and relining rebuilds a cell
 //! and clears nothing; the polity asks mending under the law that laid the sewer and not after it
-//! ended; outage days are kept by cause; and all of it saves and loads exactly.
+//! ended; outage days are kept by cause; and all of it saves and loads exactly. The chronicle tells
+//! a stretch falling in, once, with how far above the outfall and how many homes back up, and the
+//! relining that leaves nothing of it broken, naming who finished it.
 
 use std::path::Path;
 use std::sync::OnceLock;
 
 use civ_agents::contagion::{How, Node};
+use civ_agents::history::{ChronicleEvent, ChronicleKind, SewerStep};
 use civ_agents::polity::{
     IssueKind, Law, LawStatus, Outcome as Decided, PolicyKind, SewerCause, SewerDef, WaySite,
 };
@@ -1482,6 +1485,138 @@ fn clearing_does_not_mend_a_collapse_and_relining_does_not_clear() {
     sim.with_ctx_for_tests(|pop, ctx| pop.sewer_work_for_tests(ctx, h, sewer, 1.0e9));
     assert_eq!(sim.people().polities[0].sewers[0].deposit_kg, 300.0);
     saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+/// The chronicle's entries about sewers, oldest first.
+fn sewer_entries(sim: &Sim) -> Vec<ChronicleEvent> {
+    sim.people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == ChronicleKind::Sewer)
+        .cloned()
+        .collect()
+}
+
+#[test]
+fn a_collapse_and_the_relining_that_mends_it_are_told_in_the_chronicle() {
+    let (mut sim, order, sewer, _) = three_homes_sewered();
+    let def = sewer_def(&sim);
+    let (brick, lime) = (
+        index(&sim, "core:good/brick"),
+        index(&sim, "core:good/quicklime"),
+    );
+    let seat = sim.people().polities[0].settlement;
+    let village = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|s| s.id == seat)
+        .expect("the seat")
+        .name
+        .clone();
+    // A month's wear that takes no cell through tells nothing.
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewers_month_for_tests(ctx));
+    assert!(sewer_entries(&sim).is_empty());
+    let month = sim.people().polities[0].sewers[0].loss.clone();
+    // Where the second home's drain enters, a cell worn nearly through: the next month's wear
+    // takes it through, and the chronicle tells it once, where it fell in, how far above the
+    // outfall and how many homes back up above it.
+    let entries: Vec<usize> = order
+        .iter()
+        .map(|&h| entry(&sim, h).expect("beside it"))
+        .collect();
+    let b = entries[1];
+    assert!(
+        b > 0,
+        "a cell above the break, or this test shows less: {entries:?}"
+    );
+    let above = entries.iter().filter(|&&e| e <= b).count();
+    assert!((1..3).contains(&above), "{entries:?}");
+    sim.people_mut_for_tests().polities[0].sewers[0].loss[b] = 1.0 - month[b] * 0.5;
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewers_month_for_tests(ctx));
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert_eq!(s.broken, Some(b as u32));
+    let told = sewer_entries(&sim);
+    assert_eq!(told.len(), 1, "{told:?}");
+    let runs = civ_land::rail::runs(&s.cells, sim.map().width, f64::from(sim.map().cell_size_m));
+    let up: f64 = runs[b + 1..].iter().sum();
+    assert!(up > 0.0);
+    let e = &told[0];
+    assert_eq!(e.number, f64::from(SewerStep::Collapsed as u8));
+    assert_eq!(e.settlement, Some(seat));
+    assert_eq!(e.place, Some(centre(&sim, s.cells[b])));
+    assert!(e.people.is_empty());
+    let words = sim.chronicle_words(e);
+    eprintln!("{words}");
+    assert_eq!(
+        words,
+        format!(
+            "{village}'s sewer fell in {up:.0} m above its outfall, its walls worn through: \
+             {above} home{} whose drains enter above it back up.",
+            if above == 1 { "" } else { "s" }
+        )
+    );
+    // The next month it is still fallen in, and nothing more is told.
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewers_month_for_tests(ctx));
+    assert_eq!(sewer_entries(&sim).len(), 1);
+    // A cell above the break worn through is told too, as above where it had fallen in already;
+    // the break stays where it was.
+    let a = b - 1;
+    sim.people_mut_for_tests().polities[0].sewers[0].loss[a] = 1.0 - month[a] * 0.5;
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewers_month_for_tests(ctx));
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert!(s.collapsed(a) && s.broken == Some(b as u32));
+    let told = sewer_entries(&sim);
+    assert_eq!(told.len(), 2, "{told:?}");
+    let up_a: f64 = runs[a + 1..].iter().sum();
+    assert_eq!(told[1].place, Some(centre(&sim, s.cells[a])));
+    assert_eq!(
+        sim.chronicle_words(&told[1]),
+        format!(
+            "{village}'s sewer fell in {up_a:.0} m above its outfall, its walls worn through, \
+             above where it had already fallen in."
+        )
+    );
+    // Relining asked, the household holding walls and binder for the lower cell only: it is
+    // rebuilt and the break moves up to the other; nothing is told, as it is broken still.
+    let h = order[2];
+    let (mb, ma) = (cell_metres(&sim, b), cell_metres(&sim, a));
+    set(&mut sim, h, brick, mb * f64::from(def.walls_kg_m));
+    set(&mut sim, h, lime, mb * f64::from(def.binder_kg_m));
+    sim.people_mut_for_tests().polities[0].sewers[0].reline = true;
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_work_for_tests(ctx, h, sewer, 1.0e9));
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert_eq!((s.loss[b], s.broken, s.reline), (0.0, Some(a as u32), true));
+    assert_eq!(sewer_entries(&sim).len(), 2);
+    // With enough for the other, the last collapse is rebuilt and the sewer whole again: told
+    // once, naming the household's elder who stands for the work.
+    set(&mut sim, h, brick, ma * f64::from(def.walls_kg_m) + 1.0);
+    set(&mut sim, h, lime, ma * f64::from(def.binder_kg_m) + 1.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_work_for_tests(ctx, h, sewer, 1.0e9));
+    let s = sim.people().polities[0].sewers[0].clone();
+    assert_eq!((s.broken, s.reline), (None, false));
+    let told = sewer_entries(&sim);
+    assert_eq!(told.len(), 3, "{told:?}");
+    let e = &told[2];
+    assert_eq!(e.number, f64::from(SewerStep::Mended as u8));
+    assert_eq!(e.settlement, Some(seat));
+    assert_eq!(e.place, Some(centre(&sim, s.cells[a])));
+    assert_eq!(e.people.len(), 1);
+    let x = sim.people().household(h).expect("home");
+    assert!(x.members.contains(&e.people[0]));
+    let elder = sim.people().name_of(e.people[0]);
+    assert_eq!(
+        sim.chronicle_words(e),
+        format!(
+            "{village}'s people relined their sewer where it had fallen in, {elder}'s household \
+             finishing it: it carries to the river again."
+        )
+    );
+    // Work on it once whole tells nothing more.
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_work_for_tests(ctx, h, sewer, 1.0e9));
+    assert_eq!(sewer_entries(&sim).len(), 3);
+    saves_and_goes_on_alike(&mut sim, DAY);
+    assert_eq!(sewer_entries(&sim).len(), 3);
 }
 
 #[test]

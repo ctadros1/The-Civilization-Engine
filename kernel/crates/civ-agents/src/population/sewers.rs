@@ -40,6 +40,7 @@
 use super::wells::{month_rain, wetness_at};
 use super::*;
 use crate::contagion::{How, Move, NEGLIGIBLE, Node};
+use crate::history::SewerStep;
 use crate::polity::{LawStatus, PolicyKind, Sewer, SewerCause, SewerConnection, SewerDef, WaySite};
 use crate::sickness::Outcome;
 use civ_land::Limit;
@@ -643,6 +644,7 @@ impl Population {
             s.broken = s.lowest_collapse();
             if s.broken.is_none() {
                 s.reline = false;
+                self.tell_sewer_mended(ctx, household, (pi, si), b);
             }
         }
         // Clearing.
@@ -671,6 +673,40 @@ impl Population {
             self.polities[pi].give_to_way(law, household, took as f32);
             self.work_given.push((polity, household, took));
         }
+    }
+
+    /// The chronicle's word that the people of polity `pi` relined the last stretch of its sewer
+    /// `si` that had fallen in, its route cell `at`, with work of `household`'s finishing it: it
+    /// carries to the river again (backlog D, fifth item).
+    fn tell_sewer_mended(
+        &mut self,
+        ctx: &Ctx,
+        household: PermanentId,
+        (pi, si): (usize, usize),
+        at: usize,
+    ) {
+        let settlement = self.polities[pi].settlement;
+        let village = self.village_name(ctx, Some(settlement));
+        let elder = self.elder_of(household, ctx.now, ctx.params);
+        let by = elder.map_or_else(String::new, |e| {
+            format!(", {}'s household finishing it", self.name_of(e))
+        });
+        let place = self.polities[pi].sewers[si]
+            .cells
+            .get(at)
+            .map(|&c| crate::population::cell_centre(ctx.map, c as usize));
+        self.chronicle_push(
+            ctx.now,
+            ChronicleKind::Sewer,
+            elder.into_iter().collect(),
+            Some(settlement),
+            place,
+            f64::from(SewerStep::Mended as u8),
+            format!(
+                "{village}'s people relined their sewer where it had fallen in{by}: it carries to \
+                 the river again."
+            ),
+        );
     }
 
     /// `kg` of good `good` into the store of sewer `si` of polity `pi`'s keeper (a household, or
@@ -1051,10 +1087,67 @@ impl Population {
         }
     }
 
+    /// The metres along sewer `s`'s route from its cell `i` down to its outfall.
+    fn above_outfall_m(map: &WorldMap, s: &Sewer, i: usize) -> f64 {
+        let runs = civ_land::rail::runs(&s.cells, map.width, f64::from(map.cell_size_m));
+        runs.iter().skip(i + 1).sum()
+    }
+
+    /// How many of sewer `s`'s connected homes have their drains enter at or above its route
+    /// cell `b`, so that a break there backs them up (as [`Population::sewers_day`] reckons it).
+    fn homes_above(&self, map: &WorldMap, s: &Sewer, b: usize) -> usize {
+        s.connections
+            .iter()
+            .filter_map(|c| self.household(c.household))
+            .filter(|x| {
+                Self::entry(map, &s.cells, cell_of(map, x.home) as u32).is_none_or(|a| a <= b)
+            })
+            .count()
+    }
+
+    /// The chronicle's word that sewer `si` of polity `pi` fell in at its route cell `at`
+    /// (ADR-0044 §5), worn through this month: how far above its outfall, and either how many
+    /// homes whose drains enter above it now back up or that it was already broken below.
+    fn tell_sewer_collapse(&mut self, ctx: &Ctx, (pi, si): (usize, usize), at: usize, broke: bool) {
+        let map = ctx.map;
+        let settlement = self.polities[pi].settlement;
+        let s = &self.polities[pi].sewers[si];
+        let up = Self::above_outfall_m(map, s, at);
+        let homes = self.homes_above(map, s, at);
+        let village = self.village_name(ctx, Some(settlement));
+        let mut sentence = format!(
+            "{village}'s sewer fell in {up:.0} m above its outfall, its walls worn through"
+        );
+        if !broke {
+            sentence.push_str(", above where it had already fallen in.");
+        } else if homes > 0 {
+            sentence.push_str(&format!(
+                ": {homes} home{} whose drains enter above it back up.",
+                if homes == 1 { "" } else { "s" }
+            ));
+        } else {
+            sentence.push('.');
+        }
+        let place = s
+            .cells
+            .get(at)
+            .map(|&c| crate::population::cell_centre(map, c as usize));
+        self.chronicle_push(
+            ctx.now,
+            ChronicleKind::Sewer,
+            Vec::new(),
+            Some(settlement),
+            place,
+            f64::from(SewerStep::Collapsed as u8),
+            sentence,
+        );
+    }
+
     /// A month of wear on every whole sewer (ADR-0044 §5): each cell of its route loses a twelfth
     /// of `1 / life_years` times its ground's wetness and the month's rain against its usual, as a
     /// well's lining does (ADR-0012 §5's factors); a cell whose loss reaches 1 collapses, and the
-    /// sewer is broken at the collapse nearest its outfall.
+    /// sewer is broken at the collapse nearest its outfall. A sewer with a cell that collapsed this
+    /// month is told in the chronicle once, at the lowest of them (backlog D, fifth item).
     pub(super) fn sewers_month(&mut self, ctx: &Ctx) {
         if self.polities.iter().all(|p| p.sewers.is_empty()) {
             return;
@@ -1066,20 +1159,33 @@ impl Population {
             return;
         };
         let rain = month_rain(ctx);
-        for p in &mut self.polities {
-            for s in p.sewers.iter_mut().filter(|s| s.whole()) {
+        let mut fell: Vec<(usize, usize, usize, bool)> = Vec::new();
+        for (pi, p) in self.polities.iter_mut().enumerate() {
+            for (si, s) in p.sewers.iter_mut().enumerate().filter(|(_, s)| s.whole()) {
                 s.loss.resize(s.cells.len(), 0.0);
-                for (l, &c) in s.loss.iter_mut().zip(&s.cells) {
+                let mut lowest = None;
+                for (i, (l, &c)) in s.loss.iter_mut().zip(&s.cells).enumerate() {
+                    let was = *l;
                     let lost = rain * wetness_at(ctx, c) / life / 12.0;
                     *l = (*l + lost as f32).min(1.0);
+                    if was < 1.0 && *l >= 1.0 {
+                        lowest = Some(i);
+                    }
                 }
                 let broken = s.lowest_collapse();
                 // A collapse nearer the outfall is now the break; relining starts on it afresh.
                 if broken != s.broken {
                     s.relined_m = 0.0;
                 }
+                let broke = broken != s.broken;
                 s.broken = broken;
+                if let Some(at) = lowest {
+                    fell.push((pi, si, at, broke));
+                }
             }
+        }
+        for (pi, si, at, broke) in fell {
+            self.tell_sewer_collapse(ctx, (pi, si), at, broke);
         }
     }
 

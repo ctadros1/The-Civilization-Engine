@@ -7706,6 +7706,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::StationsOpened => 66,
         ChronicleKind::RecordWritten => 67,
         ChronicleKind::RecordLost => 68,
+        ChronicleKind::Sewer => 69,
     }
 }
 
@@ -7779,6 +7780,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         66 => Some(ChronicleKind::StationsOpened),
         67 => Some(ChronicleKind::RecordWritten),
         68 => Some(ChronicleKind::RecordLost),
+        69 => Some(ChronicleKind::Sewer),
         _ => None,
     }
 }

@@ -9177,6 +9177,55 @@ and M6a gives rivers a daily flow.
       removed before their term, a hearer's term ending while a case waits before them (it goes
       to the gathering, as when a forum's law ends), and a lived world where a gathering draws
       one.
+    - *Backlog E (2026-11-02): an exact route cache for walks, measured; walk traces kept, an
+      exact cut* (§9, "The bench after M11 and M12": route searches 19–22 % of a village's days;
+      homelab bench run 58 on 5aaf2e7: the 100k gate at 1.096× against its 1.10, the village of
+      500 at 1.150×, three of 400 at 1.178×). **Measured first** (an instrumented build of
+      d79b1d0, the bench's own workloads, release): the village of 500 over 90 days walks 405,326
+      times and searches 10,912 routes (122 a day); 97 % of walks find their route kept, the cache
+      is never full, and it is let go only when the paths are surveyed (twice in the 90 days).
+      Every search is for a pair of cells not searched on the paths in force: 4,589 were pairs
+      searched before the last survey, and 4,368 of those (95 %) came out different, the wear on
+      their way having changed (three of 400 over 40 days: 2,726 of 2,726 different). The rest are
+      walks not taken before, a little under half of them the way back of a kept route, which an
+      exact cache cannot give (Tobler's speeds differ up and down a slope, and so may the tie
+      between two equally fast ways). Landmarks are built afresh at each survey too. **So no cache of routes can cut the searches exactly:** what the
+      searches find is what changed, or new. On days 32-35 lived on from a save of day 30
+      (callgrind, 19.4 G instructions), searches were 24 % of the work, pulling routes straight
+      3.6 %, and tracing the cells a walk passes over 3.4 %, twice for each walk: at its start
+      (what it steps onto and wades) and at its end (what it wears). In the 100k gate's world the
+      instrumented run searched about 16,000 routes a measured day at about 0.3 ms each, roughly
+      5 s of a 166 s day: a route cache could not move the gate much either. **Cut, exactly:**
+      96 % of walks along a kept route go from and to the very same points as the last walk
+      between those cells (a home's door to a field's corner), so the population keeps, with each
+      (from cell, to cell), the last walk's vertices and the cells it was traced over
+      (`WalkTrace`: as `cells_along` lists them, and with the corner cells `crossings::better_corner`
+      picks on the grid it set off on). A walk whose vertices are equal to them bit for bit, on a
+      map of the same measures and (for the corners) a grid of the same walking costs
+      (`NavGrid::travel_revision`), reads them; its end reads the plain list again if its vertices
+      are still those (a bottleneck's wait splices two in, and it is traced afresh). The cells are
+      a function of exactly those inputs, so they are the same cells in the same order. Derived,
+      never saved; let go with the routes, on load, and whenever as many are kept as the route
+      cache's generation holds (50,000, or eight a person living). `civ_land::paths::with_corners`
+      is `cells_along_by`'s second half, split out. **Checked in every test:** with debug checks
+      on, each trace read is compared with one traced afresh. **Exact:** every save section's
+      digest (`--digest`; `meta` aside, which holds the wall-clock time a world was made) and every other line the bench
+      prints are equal between d79b1d0 and this revision on the bench's three workloads as the
+      homelab runs them: the village of 500 over 90 days, three of 400 (two household-resolved, at
+      Max) over 60, and ten of 60 (all household-resolved, seed 1) over 40.
+      **Measured** (this container, 4 vCPU, release, base and cut interleaved, three rounds,
+      medians, ms a simulated day over 40 days): the village of 500 532.3 → 513.3 (−3.6 %),
+      three of 400 598.0 → 562.5 (−5.9 %); the profiled days 19.41 → 18.66 G instructions
+      (−3.9 %); the 100k gate, two days each, the two run side by side once, 153.6 → 150.2 s a
+      day (−2.2 %), every line it prints equal. Peak memory: within 2 % on the three workloads,
+      2.49 → 2.55 GB in the gate. The run-to-run spread here is a few per cent, so a homelab bench
+      is to confirm.
+      **Tested:** a unit test (a kept trace is the walk traced afresh; read back for the very same
+      vertices, traced again when a deck changes the corner a walk goes by, when a start moves
+      within its cell and when a wait is spliced in; all let go when full) and the whole suite
+      target by target (94 targets, 1,567 tests, none failing; unit tests 711); the ten smoke
+      worlds pass; fmt and clippy clean. **Not done, and why:** a cache of routes across a survey
+      or of a way back, neither exact (above).
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads
@@ -9367,6 +9416,20 @@ and M6a gives rivers a daily flow.
   figure reached; the village of 500 is 0.1 % past 20 %, inside the spread of a three-round
   median, and what remains costly (route searches, 19-22 % of a village's days) can still be cut
   exactly by a route cache, so the next speed pass (backlog E) is that, not a wider clause.
+- **Backlog E: what a walk passes over kept with the route, not routes across a survey
+  (2026-11-02, plan §7 "Backlog E"): Decided by Claude under standing owner authority
+  (2026-11-02).** The route cache stays as it is, keyed by (from cell, to cell) and let go at each
+  new route revision; beside it each pair keeps the last walk's vertices and the cells it was
+  traced over, read only by a walk whose vertices are equal bit for bit, on a map of the same
+  measures and, for the corner cells, a grid of the same `travel_revision`; kept no longer than
+  the routes, on no save, and let go whole once it holds as many as a generation of the route
+  cache (50,000, or eight a person living). *Reason:* measured, 95-100 % of routes searched again
+  after a survey differ from those before it, and the other searches are pairs never walked on
+  those paths, so no exact cache of routes cuts the searches; the trace is a function of exactly
+  the inputs it is keyed on, 96 % of walks repeat their pair's last vertices, and the bound is the
+  route cache's own, so its memory grows with what the routes already hold. *What it gives up:*
+  the route searches themselves (a quarter of the profiled days) are not cut; a bound tighter than
+  the landmarks', or a way back reused, would change which of two equal routes is walked.
 - **Design priors for prospecting (2026-10-29, M11d's third part, ADR-0010 §1):** NUDGE: a
   household short of a dug material that a tool's material is made of (ore for its metal, never the
   tool's own stone or wood), whose settlement knows no body of it within reach

@@ -12,7 +12,7 @@ use std::sync::Arc;
 use civ_core::time::{DAYS_PER_YEAR, MINUTES_PER_DAY};
 use civ_core::{FastMap, GenTable, Handle, IdAllocator, PermanentId, Rng64, SimTime};
 use civ_grammar::{BuildingSpec, Expansion, Stage, StageNeeds};
-use civ_land::paths::{CellBox, cells_along};
+use civ_land::paths::{CellBox, cells_along, with_corners};
 use civ_land::{
     Building, CropParams, Field, FieldSoil, FieldStage, FieldTask, Land, LandParams, Party, Plot,
 };
@@ -234,6 +234,115 @@ type AtHearth = Vec<(PermanentId, Handle<Person>)>;
 /// A route at standard walking speed, pulled straight across open ground: vertices (cell centres)
 /// and seconds to each.
 type CachedRoute = std::sync::Arc<(Vec<(f32, f32)>, Vec<f32>)>;
+
+/// The cells a walk along `points` passes over, worked out when it set off: as
+/// [`civ_land::paths::cells_along`] lists them (`plain`, what its end wears) and with the cell it
+/// goes by at each corner on the walking grid it set off on (`along`, what its start steps onto
+/// and wades). Both follow from the vertices, the map and that grid's ground alone, so a walk
+/// whose vertices are the very same, bit for bit, on a map of the same size (and, for `along`, a
+/// grid of the same walking costs) reads them here rather than tracing them again: the same
+/// cells in the same order. Derived, never saved.
+#[derive(Debug)]
+struct WalkTrace {
+    points: Vec<(f32, f32)>,
+    /// The map's width, height and cell size (its bits).
+    map: (u32, u32, u32),
+    /// The walking grid's [`NavGrid::travel_revision`], which `along`'s corners were picked on.
+    travel: u64,
+    plain: Arc<[u32]>,
+    along: Arc<[u32]>,
+}
+
+impl WalkTrace {
+    /// The map's measures as a trace keeps them.
+    fn map_of(map: &WorldMap) -> (u32, u32, u32) {
+        (map.width, map.height, map.cell_size_m.to_bits())
+    }
+
+    /// Whether this trace was worked out for a walk along `points` on `map`: every vertex equal
+    /// bit for bit.
+    fn is_for(&self, map: &WorldMap, points: &[(f32, f32)]) -> bool {
+        self.map == Self::map_of(map)
+            && self.points.len() == points.len()
+            && self
+                .points
+                .iter()
+                .zip(points)
+                .all(|(a, b)| a.0.to_bits() == b.0.to_bits() && a.1.to_bits() == b.1.to_bits())
+    }
+
+    /// The cells a walk along `points` on `map` passes over, with the cell it goes by at each
+    /// corner on `nav` ([`civ_land::paths::cells_along_by`] with
+    /// [`crossings::better_corner`]): `traces`' under `key` if worked out for these very
+    /// vertices on a grid of these walking costs, else traced and kept there (all of them let go
+    /// first once `most` are kept).
+    fn along(
+        traces: &mut FastMap<(u32, u32), WalkTrace>,
+        key: (u32, u32),
+        points: &[(f32, f32)],
+        (map, nav): (&WorldMap, &NavGrid),
+        most: usize,
+    ) -> Arc<[u32]> {
+        let travel = nav.travel_revision();
+        let corner = |a, b| crossings::better_corner(nav, a, b);
+        if let Some(t) = traces.get(&key)
+            && t.travel == travel
+            && t.is_for(map, points)
+        {
+            debug_assert_eq!(
+                *t.along,
+                civ_land::paths::cells_along_by(
+                    points,
+                    map.cell_size_m,
+                    map.width,
+                    map.height,
+                    corner
+                )[..],
+                "a kept walk's cells differ from those traced afresh"
+            );
+            return t.along.clone();
+        }
+        let plain = cells_along(points, map.cell_size_m, map.width, map.height);
+        let along: Arc<[u32]> = with_corners(&plain, map.width, corner).into();
+        if traces.len() >= most {
+            traces.clear();
+        }
+        let trace = WalkTrace {
+            points: points.to_vec(),
+            map: Self::map_of(map),
+            travel,
+            plain: plain.into(),
+            along: along.clone(),
+        };
+        traces.insert(key, trace);
+        along
+    }
+
+    /// The cells a walk along `points` on `map` passed over, as
+    /// [`civ_land::paths::cells_along`] lists them: what [`WalkTrace::along`] kept when it set
+    /// off, if its vertices are as they were then, else traced now.
+    fn plain(
+        traces: &FastMap<(u32, u32), WalkTrace>,
+        map: &WorldMap,
+        points: &[(f32, f32)],
+    ) -> Vec<u32> {
+        let kept = points.first().zip(points.last()).and_then(|(&a, &b)| {
+            let t = traces.get(&(cell_of(map, a) as u32, cell_of(map, b) as u32))?;
+            t.is_for(map, points).then(|| t.plain.to_vec())
+        });
+        match kept {
+            Some(cells) => {
+                debug_assert_eq!(
+                    cells,
+                    cells_along(points, map.cell_size_m, map.width, map.height),
+                    "a kept walk's cells differ from those traced afresh"
+                );
+                cells
+            }
+            None => cells_along(points, map.cell_size_m, map.width, map.height),
+        }
+    }
+}
 
 /// Something a person scheduled.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -547,6 +656,10 @@ pub struct Population {
     routes: FastMap<(u32, u32), Option<CachedRoute>>,
     /// The generation of routes before `routes`; one walked again moves back into `routes`.
     routes_old: FastMap<(u32, u32), Option<CachedRoute>>,
+    /// The last walk's trace for each (from cell, to cell) walked between, for the next walk
+    /// along the very same vertices and for its own end ([`WalkTrace`]). Derived: let go with
+    /// the routes, and whenever it holds as many as a generation of them.
+    traces: FastMap<(u32, u32), WalkTrace>,
     /// The paths survey and crossings the routes were planned on
     /// ([`civ_land::Land::route_revision`]).
     routes_rev: u64,
@@ -1469,6 +1582,7 @@ impl Population {
         self.places.clear();
         self.routes.clear();
         self.routes_old.clear();
+        self.traces.clear();
         self.steps.forget();
         self.priors.clear();
         self.sites.clear();
@@ -2253,6 +2367,7 @@ impl Population {
         }
         self.routes.clear();
         self.routes_old.clear();
+        self.traces.clear();
         self.steps.forget();
         self.routes_rev = revision;
         let wear = &ctx.land.wear;
@@ -6066,14 +6181,22 @@ impl Population {
         // A crossing on the way is stepped onto, and one that gives way under them stops the
         // walk; the streams it wades are their household's to remember (M5c slice AW).
         let (who, household) = (p.id, p.household);
-        let nav = ctx.nav;
-        let along = civ_land::paths::cells_along_by(
-            &points,
-            ctx.map.cell_size_m,
-            ctx.map.width,
-            ctx.map.height,
-            |a, b| crossings::better_corner(nav, a, b),
-        );
+        let (nav, map) = (ctx.nav, ctx.map);
+        // Kept for a walk along a route (most are walked again from and to the very same
+        // points); one within a cell is traced afresh each time.
+        let along: Arc<[u32]> = if from_cell == to_cell {
+            civ_land::paths::cells_along_by(
+                &points,
+                map.cell_size_m,
+                map.width,
+                map.height,
+                |a, b| crossings::better_corner(nav, a, b),
+            )
+            .into()
+        } else {
+            let key = (from_cell as u32, to_cell as u32);
+            WalkTrace::along(&mut self.traces, key, &points, (map, nav), cache_max)
+        };
         if !ctx.land.crossings.list.is_empty() && !self.step_on(ctx, who, &along) {
             return false;
         }
@@ -6307,8 +6430,8 @@ impl Population {
                 p.pos = to;
                 if let Some(trip) = p.trip.take() {
                     let map = ctx.map;
-                    let mut cells =
-                        cells_along(&trip.points, map.cell_size_m, map.width, map.height);
+                    // As traced when it set off, unless its vertices have changed since.
+                    let mut cells = WalkTrace::plain(&self.traces, map, &trip.points);
                     cells.retain(|&c| map.water[c as usize] == WATER_LAND);
                     ctx.land
                         .wear
@@ -8871,6 +8994,104 @@ mod tests {
         );
     }
     use crate::params::{Eaten, GoodUse};
+
+    /// A walk's cells kept with its route ([`WalkTrace`]) are those traced afresh, and are traced
+    /// again, never read, once a vertex, the map or the walking grid's costs differ: here a
+    /// footbridge's deck over one of two ponds at a corner a diagonal walk turns by changes which
+    /// cell it goes by there.
+    #[test]
+    fn a_kept_walk_trace_is_the_walk_traced_afresh() {
+        let (w, h) = (32u32, 32u32);
+        let n = (w * h) as usize;
+        let mut water = vec![WATER_LAND; n];
+        // The corner a walk from cell (2, 2) to (3, 3) turns by: cells (3, 2) and (2, 3).
+        let (east, south) = (2 * w + 3, 3 * w + 2);
+        water[east as usize] = WATER_LAKE;
+        water[south as usize] = WATER_LAKE;
+        let map = WorldMap {
+            width: w,
+            height: h,
+            cell_size_m: 8.0,
+            sea_level_m: 0.0,
+            elevation: vec![100.0; n],
+            receivers: vec![8; n],
+            water,
+            lake_id: vec![0; n],
+            lakes: Vec::new(),
+            reaches: Vec::new(),
+            inflows: Vec::new(),
+            climate: civ_world::Climate {
+                precipitation_mm_per_yr: 800.0,
+                evapotranspiration_mm_per_yr: 500.0,
+                lake_evaporation_mm_per_yr: 900.0,
+            },
+            drainage_area_m2: vec![64.0; n],
+        };
+        let params = civ_world::nav::NavParams {
+            top_speed_kmh: 6.0,
+            slope_sensitivity: 3.5,
+            best_slope_offset: 0.05,
+            offtrail_factor: 0.6,
+            wading_factor: 0.25,
+            ford_max_discharge_m3s: 2.0,
+            max_slope: 1.0,
+            climb_factor: 0.05,
+        };
+        let ponds = NavGrid::new(&map, params);
+        let decked = NavGrid::with_decks(&map, params, &[(south, 0.5)], 1);
+        assert_ne!(ponds.travel_revision(), decked.travel_revision());
+        let fresh = |points: &[(f32, f32)], nav: &NavGrid| {
+            civ_land::paths::cells_along_by(points, 8.0, w, h, |a, b| {
+                crossings::better_corner(nav, a, b)
+            })
+        };
+        let walk = vec![(20.0, 20.0), (84.0, 84.0), (84.0, 180.0)];
+        let key = (cell_of(&map, walk[0]) as u32, cell_of(&map, walk[2]) as u32);
+        let mut traces = FastMap::default();
+        // Traced, kept, and read back for the very same vertices on the same grid.
+        let first = WalkTrace::along(&mut traces, key, &walk, (&map, &ponds), 10);
+        assert_eq!(*first, fresh(&walk, &ponds)[..]);
+        assert!(first.contains(&east), "both ponds: the first of the two");
+        let kept = WalkTrace::along(&mut traces, key, &walk, (&map, &ponds), 10);
+        assert!(Arc::ptr_eq(&first, &kept), "read back, not traced again");
+        let plain = cells_along(&walk, 8.0, w, h);
+        assert_eq!(WalkTrace::plain(&traces, &map, &walk), plain);
+        // A deck over one pond: the walking costs differ, so it is traced again and goes by
+        // the deck.
+        let over = WalkTrace::along(&mut traces, key, &walk, (&map, &decked), 10);
+        assert!(!Arc::ptr_eq(&first, &over));
+        assert_eq!(*over, fresh(&walk, &decked)[..]);
+        assert!(over.contains(&south) && !over.contains(&east));
+        // Another start in the same cell, or a vertex spliced in on the way: traced afresh.
+        let nudged = vec![(21.0, 20.0), (84.0, 84.0), (84.0, 180.0)];
+        let again = WalkTrace::along(&mut traces, key, &nudged, (&map, &decked), 10);
+        assert!(!Arc::ptr_eq(&over, &again));
+        assert_eq!(*again, fresh(&nudged, &decked)[..]);
+        let spliced = vec![
+            (21.0, 20.0),
+            (60.0, 60.0),
+            (60.0, 60.0),
+            (84.0, 84.0),
+            (84.0, 180.0),
+        ];
+        assert_eq!(
+            WalkTrace::plain(&traces, &map, &spliced),
+            cells_along(&spliced, 8.0, w, h)
+        );
+        assert_eq!(
+            WalkTrace::plain(&traces, &map, &nudged),
+            cells_along(&nudged, 8.0, w, h)
+        );
+        // Full: all let go before the next is kept.
+        let other = vec![(100.0, 20.0), (180.0, 20.0)];
+        let other_key = (
+            cell_of(&map, other[0]) as u32,
+            cell_of(&map, other[1]) as u32,
+        );
+        WalkTrace::along(&mut traces, other_key, &other, (&map, &decked), 1);
+        assert_eq!(traces.len(), 1);
+        assert!(traces.contains_key(&other_key));
+    }
 
     #[test]
     fn water_use_follows_the_walk_within_the_curve_and_holds_beyond_it() {

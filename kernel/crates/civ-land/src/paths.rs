@@ -593,10 +593,16 @@ pub fn cells_along_by(
     height: u32,
     corner: impl Fn(u32, u32) -> u32,
 ) -> Vec<u32> {
-    let plain = cells_along(points, cell_m, width, height);
+    with_corners(&cells_along(points, cell_m, width, height), width, corner)
+}
+
+/// [`cells_along_by`] from the cells [`cells_along`] gave for the same walk on a map `width`
+/// cells wide: each cell, with the corner cell `corner` picks between two that touch only at a
+/// corner.
+pub fn with_corners(plain: &[u32], width: u32, corner: impl Fn(u32, u32) -> u32) -> Vec<u32> {
     let mut out = Vec::with_capacity(plain.len());
     let mut last: Option<u32> = None;
-    for c in plain {
+    for &c in plain {
         if let Some(l) = last {
             let (lx, ly, cx, cy) = (l % width, l / width, c % width, c / width);
             if lx.abs_diff(cx) == 1 && ly.abs_diff(cy) == 1 {

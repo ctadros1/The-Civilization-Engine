@@ -761,6 +761,47 @@ impl Population {
         self.chronicle_push(now, kind, vec![who], settlement, Some(at), 0.0, sentence);
     }
 
+    /// Household `from` is no more and its people joined household `to` (backlog D, third item):
+    /// what it had in transit passes to `to`, as its store does, and, where `to` lives in the
+    /// settlement `from` lived in (`near`), so do its boats and carts, made or being made. A boat
+    /// stays drawn up where it is; a cart standing at `from`'s door (`door`) is wheeled to `to`'s,
+    /// where a household's cart is used and made, as its store is carried there. Its people can
+    /// reach neither from another settlement, so there they stay where they stand, as they did
+    /// before. A wagon stays with the line it runs on, which does not pass.
+    pub(super) fn vehicles_pass(
+        &mut self,
+        ctx: &mut Ctx,
+        (from, to): (PermanentId, PermanentId),
+        near: bool,
+        door: u32,
+    ) {
+        for c in self.consignments.iter_mut().filter(|c| c.owner == from) {
+            c.owner = to;
+        }
+        if !near {
+            return;
+        }
+        let Some(new_door) = self.household(to).map(|x| cell_of(ctx.map, x.home) as u32) else {
+            return;
+        };
+        let land = &mut *ctx.land;
+        if land.boats.list.iter().any(|b| b.owner == from) {
+            for b in land.boats.list.iter_mut().filter(|b| b.owner == from) {
+                b.owner = to;
+            }
+            land.boats.changed();
+        }
+        if land.carts.list.iter().any(|c| c.owner == from) {
+            for c in land.carts.list.iter_mut().filter(|c| c.owner == from) {
+                c.owner = to;
+                if c.at == door {
+                    c.at = new_door;
+                }
+            }
+            land.carts.changed();
+        }
+    }
+
     /// `hours` of work by the first of household `household` on the boat, cart, wagon or engine
     /// `boat` it is making: for tests.
     #[doc(hidden)]

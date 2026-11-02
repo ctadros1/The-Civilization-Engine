@@ -1056,7 +1056,8 @@ impl Population {
     /// Household `from` joins household `to`: its members, stores, water, what it knows of the
     /// land, and its plots and buildings, and with `fields` its fields too (when its people move
     /// with them; the fields of a household that is no more go by the regime's succession rule
-    /// instead). `from` is no more.
+    /// instead), what it has in transit, and its boats and carts where its people can reach them
+    /// ([`Population::vehicles_pass`]). `from` is no more.
     fn merge_household(
         &mut self,
         ctx: &mut Ctx,
@@ -1108,6 +1109,9 @@ impl Population {
         self.homes_moved += 1;
         self.flows_gone.absorb(&gone.flows);
         let settlement = self.household(to).and_then(|x| x.settlement);
+        // Its boats and carts pass where its people can reach them (backlog D, third item).
+        let near = settlement.is_some() && gone.settlement == settlement;
+        let door = cell_of(ctx.map, gone.home) as u32;
         for m in &gone.members {
             if let Some(p) = self.person_mut(*m) {
                 p.household = to;
@@ -1142,6 +1146,7 @@ impl Population {
         }
         self.sort_members(to);
         self.hand_over_land(ctx, from, Some(to), fields);
+        self.vehicles_pass(ctx, (from, to), near, door);
     }
 
     /// The land of household `from` passes to `to`, or, with no one to take it, stays as it is

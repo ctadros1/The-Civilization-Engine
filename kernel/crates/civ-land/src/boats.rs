@@ -1,8 +1,9 @@
 //! Boats (M8b slice CO; ADR-0029 §2, §5): a boat is a record of its own, not a good in a store.
 //! It is of a vehicle the content authors (the dugout first), belongs to a household, and stands
 //! drawn up at the bank cell where it was last left. One being made is worked on there until its
-//! labour is done; once made it ages by the day and is past use when its life is spent. Every
-//! boat begun, made, moved or gone bumps [`Boats::revision`].
+//! labour is done; once made it ages by the day and is past use when its life is spent. When its
+//! household is no more and its people join another of the same settlement, it passes to that
+//! household. Every boat begun, made, moved, passed on or gone bumps [`Boats::revision`].
 
 use civ_core::PermanentId;
 
@@ -50,12 +51,12 @@ impl Boats {
         Boats { list, revision }
     }
 
-    /// Changes whenever a boat is made, moved or gone; 0 while there has never been one.
+    /// Changes whenever a boat is made, moved, passed on or gone; 0 while there has never been one.
     pub fn revision(&self) -> u32 {
         self.revision
     }
 
-    /// Notes that a boat was made, moved or gone.
+    /// Notes that a boat was made, moved, passed on or gone.
     pub fn changed(&mut self) {
         self.revision = self.revision.wrapping_add(1).max(1);
     }

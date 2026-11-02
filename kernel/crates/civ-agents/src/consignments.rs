@@ -3,6 +3,7 @@
 //! way it is a consignment, a ledger holder of its own: owned by the household throughout,
 //! carried by one person in one boat from one settlement to another, spoiling in the open by its
 //! goods' own clocks. If the boat cannot bring it home it stays, still owned, where it was left.
+//! A household that is no more passes it, as its store, to the household its people join.
 
 use civ_core::{PermanentId, SimTime};
 

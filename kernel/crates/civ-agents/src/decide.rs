@@ -108,6 +108,9 @@ pub struct Facts {
     /// The cart their household is making at its door, if any (M8b slice CP, third part): as a
     /// boat's, its place the door.
     pub cart: Option<BoatFacts>,
+    /// A boat or cart of their household standing away from home that they could fetch home
+    /// today, if any (backlog D, ninth item).
+    pub fetch_vehicle: Option<VehicleFetch>,
     /// The passing place their household is making on its carts' way, if any (M8b slice CQ,
     /// second part): as a boat's, its place the stretch it widens.
     pub way: Option<WayFacts>,
@@ -278,6 +281,21 @@ pub struct BoatFacts {
     pub left_h: f64,
     pub saves_per_hour: f64,
     pub full: bool,
+}
+
+/// A made boat or cart of someone's household that stands away from home (backlog D, ninth
+/// item): one an heir in another settlement took from a household that is no more, or one left
+/// where a trip could not bring it back. Where it stands; the bank near home it would be paddled
+/// to, or none for a cart, pulled to the door (`door`, the household's home); the minutes its trip
+/// takes, on foot there and with it back; and what it is worth to the household in hours.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct VehicleFetch {
+    pub vehicle: PermanentId,
+    pub at: (f32, f32),
+    pub bank: Option<u32>,
+    pub door: (f32, f32),
+    pub trip_min: f64,
+    pub worth_h: f64,
 }
 
 /// A passing place someone's household is making, or one their polity is clearing under a law
@@ -1761,6 +1779,38 @@ pub fn candidates(
                 // by a report, from a seller in another settlement (M5b slice AP, ADR-0019 §2):
                 // reached in daylight, home within the day.
                 let fetching = def.behavior == Behavior::Fetch;
+                // Or their own boat or cart, standing away from home (backlog D, ninth item):
+                // walked to and paddled or pulled home within the day's light, worth what it is
+                // to the household against the trip, an option beside any purchase.
+                let mut fetches = false;
+                if fetching
+                    && let Some(v) = f.fetch_vehicle
+                    && v.trip_min / 2.0 <= f64::from(def.max_walk_minutes)
+                    && f.daylight_left_min >= v.trip_min
+                {
+                    fetches = true;
+                    let mut terms = Vec::new();
+                    let reason = if v.bank.is_some() {
+                        Reason::Boat
+                    } else {
+                        Reason::Cart
+                    };
+                    term(&mut terms, reason, w.w_walk_hour * v.worth_h);
+                    term(
+                        &mut terms,
+                        Reason::Walking,
+                        -w.w_walk_hour * v.trip_min / 60.0,
+                    );
+                    let steps = match v.bank {
+                        Some(bank) => vec![
+                            Step::Walk { to: v.at },
+                            Step::Paddle { to: bank },
+                            Step::Walk { to: f.home },
+                        ],
+                        None => vec![Step::Walk { to: v.at }, Step::Haul { to: v.door }],
+                    };
+                    out.push(finish(id, Target::Boat(v.vehicle), terms, steps));
+                }
                 let found = if fetching {
                     fetch()
                 } else {
@@ -1769,16 +1819,22 @@ pub fn candidates(
                 let t = match found {
                     Ok(t) => t,
                     Err(why) => {
-                        excluded.push((id, why));
+                        if !fetches {
+                            excluded.push((id, why));
+                        }
                         continue;
                     }
                 };
                 if t.walk_min > f64::from(def.max_walk_minutes) {
-                    excluded.push((id, Reason::Unreachable));
+                    if !fetches {
+                        excluded.push((id, Reason::Unreachable));
+                    }
                     continue;
                 }
                 if fetching && f.daylight_left_min < t.walk_min {
-                    excluded.push((id, Reason::NotInDark));
+                    if !fetches {
+                        excluded.push((id, Reason::NotInDark));
+                    }
                     continue;
                 }
                 match t.worth {
@@ -3024,6 +3080,7 @@ mod tests {
             levee: None,
             boat: None,
             cart: None,
+            fetch_vehicle: None,
             way: None,
             raise: None,
             enclosure: None,

@@ -284,11 +284,11 @@ fn saves_and_goes_on_alike(sim: &mut Sim, minutes: i64) {
         persist::save(sim, &saves, commons_persist::SaveKind::Manual, "fetch").expect("saves");
     let mut loaded = persist::load(&saved.path, content()).expect("loads");
     // Rules are never saved: a loaded world goes by the content's. What a scene set for its own
-    // ends (the walk weighed lightly, say) is set again on the world loaded.
-    loaded
-        .rules_mut_for_tests()
-        .expect("rules of its own")
-        .people = sim.rules().people.clone();
+    // ends (the walk weighed lightly, say, or a cart's puller weakened) is set again on the world
+    // loaded.
+    let rules = loaded.rules_mut_for_tests().expect("rules of its own");
+    rules.people = sim.rules().people.clone();
+    rules.catalog = sim.rules().catalog.clone();
     let same = |a: &Sim, b: &Sim| {
         let (a, b) = (persist::encode_sections(a), persist::encode_sections(b));
         assert_eq!(a.len(), b.len());

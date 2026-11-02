@@ -4155,6 +4155,7 @@ impl Population {
             levee: self.levee_facts(ctx, &hh, p.id, field_key, dark),
             boat: self.boat_facts(ctx, &hh, field_key, dark),
             cart: self.cart_facts(ctx, &hh, dark),
+            fetch_vehicle: self.vehicle_fetch_facts(ctx, &hh, p.id, field_key, dark),
             way: self.way_facts(ctx, &hh, p.id, dark),
             raise: self.raise_facts(ctx, &hh, p.id, dark),
             enclosure: self.enclosure_facts(ctx, &hh, p.id, field_key, dark),

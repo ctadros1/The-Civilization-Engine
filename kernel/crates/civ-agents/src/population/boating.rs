@@ -4,9 +4,11 @@
 //! and its people work on it there by choice until its labour is done; paddling the household's
 //! boat from the bank where it is drawn up to another by the quickest way by water today, the
 //! boat drawn up where it lands; pulling the household's cart from its door to another and back
-//! by the quickest way for its wheels with what it carries (M8b slice CP); and unloading a load in
-//! transit into the household's store once the boat or cart is home. A trip afloat wears no
-//! ground and passes no crossing or gate; a cart's wears the ground as a walk does.
+//! by the quickest way for its wheels with what it carries (M8b slice CP); unloading a load in
+//! transit into the household's store once the boat or cart is home; and fetching home a boat or
+//! cart of the household's that stands away, one an heir took where it stood in another
+//! settlement among them (backlog D, ninth item). A trip afloat wears no ground and passes no
+//! crossing or gate; a cart's wears the ground as a walk does.
 
 use super::*;
 use crate::decide::BoatFacts;
@@ -488,15 +490,166 @@ impl Population {
                     stores.get(t).copied().unwrap_or(0.0) >= crate::decide::MIN_TOOL
                 })
         })?;
-        let params = ctx.params;
-        let pace = params.nav.tobler_ms(0.0) * params.nav.offtrail_factor;
-        let within = (f64::from(work.max_walk_minutes) * 60.0 * pace)
-            .min(f64::from(super::market::LANDING_WALK_M)) as f32;
+        let within = Self::bank_reach_m(ctx, work);
         let (rivers, hull) = (&ctx.land.rivers, def.hull());
         let (hyd, q) = (&ctx.land.floodplain.reaches, &ctx.land.reach_discharges);
         let bank =
             rivers.nearest_bank(hh.home, within, |c| rivers.floats(ctx.map, c, hyd, q, hull))?;
         Some(BoatItCouldMake { vehicle, bank })
+    }
+
+    /// How far from home a household draws its boat up, metres: the walk the work on one
+    /// (`work`) allows, off the trail, and never beyond a landing's walk.
+    fn bank_reach_m(ctx: &Ctx, work: &ActivityDef) -> f32 {
+        let params = ctx.params;
+        let pace = params.nav.tobler_ms(0.0) * params.nav.offtrail_factor;
+        (f64::from(work.max_walk_minutes) * 60.0 * pace)
+            .min(f64::from(super::market::LANDING_WALK_M)) as f32
+    }
+
+    /// The way boat or cart `v` could be brought today to a home at `home` (backlog D, ninth item):
+    /// a boat paddled by the quickest way by water to the bank nearest home where the water
+    /// carries it, within where a household draws one up, and walked up from there; a cart, not a
+    /// motor cart, pulled empty to the door by the quickest way for its wheels. The bank it would
+    /// be drawn up at (none for a cart) and the seconds; none where no way is open today.
+    pub(super) fn way_home(ctx: &Ctx, home: (f32, f32), v: &Boat) -> Option<(Option<u32>, f64)> {
+        let (map, land) = (ctx.map, &*ctx.land);
+        let def = ctx.catalog.vehicles.get(usize::from(v.vehicle))?;
+        let walk = ctx.params.nav.tobler_ms(0.0).max(1e-6);
+        match def.mode {
+            crate::params::VehicleMode::Boat => {
+                let within = ctx
+                    .catalog
+                    .activities
+                    .iter()
+                    .find(|a| a.behavior == Behavior::Boat)
+                    .map_or(super::market::LANDING_WALK_M, |w| {
+                        Self::bank_reach_m(ctx, w)
+                    });
+                let (rivers, hull) = (&land.rivers, def.hull());
+                let (hyd, q) = (&land.floodplain.reaches, &land.reach_discharges);
+                let bank = rivers.nearest_bank(home, within, |c| {
+                    c != v.at && rivers.floats(map, c, hyd, q, hull)
+                })?;
+                let route = rivers.route(
+                    hyd,
+                    q,
+                    hull,
+                    &rivers.boarding(map, v.at),
+                    &rivers.boarding(map, bank),
+                )?;
+                let at = rivers.centre(bank);
+                let up_s = f64::from((at.0 - home.0).hypot(at.1 - home.1)) / walk;
+                Some((Some(bank), route.seconds + up_s))
+            }
+            crate::params::VehicleMode::Cart if def.engine.is_none() => {
+                let at = cell_centre(map, v.at as usize);
+                let (route, legs_s) = land.cart_way(map, &def.wheels(0.0, walk), at, home)?;
+                Some((None, route.seconds + legs_s))
+            }
+            _ => None,
+        }
+    }
+
+    /// The made boat or cart of household `hh` that `me` could fetch home today, if any (backlog
+    /// D, ninth item): a boat drawn up beyond where the household draws one up, paddled to the
+    /// bank nearest home where the water carries it, by today's quickest way by water; or a cart
+    /// standing away from the door, pulled home empty by today's quickest way for its wheels. A
+    /// motor cart burns its fuel and is not pulled. Either is walked to from home (`field_key`'s
+    /// walk). None after dark, while another of the household is fetching or the vehicle is in
+    /// use on a trip, or where no way is open; of two, the one worth more beyond its trip. Its
+    /// worth is the walking it saves over the life it has left, at its household's reckoning,
+    /// and never less than the making of another for that life (one given whole was reckoned to
+    /// save nothing).
+    pub(super) fn vehicle_fetch_facts(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        me: PermanentId,
+        field_key: PermanentId,
+        dark: bool,
+    ) -> Option<crate::decide::VehicleFetch> {
+        if dark {
+            return None;
+        }
+        let catalog = ctx.catalog;
+        catalog
+            .activities
+            .iter()
+            .find(|a| a.behavior == Behavior::Fetch)?;
+        let (map, land) = (ctx.map, &*ctx.land);
+        let rivers = &land.rivers;
+        let door = cell_of(map, hh.home) as u32;
+        let within = catalog
+            .activities
+            .iter()
+            .find(|a| a.behavior == Behavior::Boat)
+            .map_or(super::market::LANDING_WALK_M, |w| {
+                Self::bank_reach_m(ctx, w)
+            });
+        let apart = |a: (f32, f32), b: (f32, f32)| (a.0 - b.0).hypot(a.1 - b.1);
+        let vehicle = |v: &Boat| catalog.vehicles.get(usize::from(v.vehicle));
+        let boat = land
+            .boats
+            .made_of(hh.id)
+            .find(|b| apart(hh.home, rivers.centre(b.at)) > within);
+        let cart = land.carts.made_of(hh.id).find(|c| {
+            c.at != door
+                && vehicle(c).is_some_and(|v| {
+                    v.mode == crate::params::VehicleMode::Cart && v.engine.is_none()
+                })
+        });
+        if boat.is_none() && cart.is_none() {
+            return None;
+        }
+        // One of a household fetches at a time, and not a boat or cart someone has out.
+        let (mut paddling, mut hauling) = (false, false);
+        for q in hh
+            .members
+            .iter()
+            .filter(|&&m| m != me)
+            .filter_map(|&m| self.person(m))
+        {
+            if catalog
+                .activities
+                .get(q.act.def as usize)
+                .is_some_and(|a| a.behavior == Behavior::Fetch)
+            {
+                return None;
+            }
+            for s in q.act.steps.iter().skip(usize::from(q.act.step)) {
+                paddling |= matches!(s, Step::Paddle { .. });
+                hauling |= matches!(s, Step::Haul { .. });
+            }
+        }
+        let reach = &self.homes.get(&field_key)?.reach;
+        let worth = |v: &Boat, def: &crate::params::VehicleDef| {
+            (f64::from(v.saves_h_year) * def.life_years).max(def.labour_h)
+                * (1.0 - f64::from(v.wear)).max(0.0)
+        };
+        let fetch = |v: &Boat, at: (f32, f32)| {
+            let (bank, back_s) = Self::way_home(ctx, hh.home, v)?;
+            let there_s = f64::from(reach.seconds_to(v.at as usize)?);
+            Some(crate::decide::VehicleFetch {
+                vehicle: v.id,
+                at,
+                bank,
+                door: hh.home,
+                trip_min: (there_s + back_s) / 60.0,
+                worth_h: worth(v, vehicle(v)?),
+            })
+        };
+        let by_water = boat
+            .filter(|_| !paddling)
+            .and_then(|b| fetch(b, rivers.centre(b.at)));
+        let by_wheels = cart
+            .filter(|_| !hauling)
+            .and_then(|c| fetch(c, cell_centre(map, c.at as usize)));
+        let net = |v: &crate::decide::VehicleFetch| v.worth_h - v.trip_min / 60.0;
+        match (by_water, by_wheels) {
+            (Some(a), Some(b)) => Some(if net(&b) > net(&a) { b } else { a }),
+            (a, b) => a.or(b),
+        }
     }
 
     /// The cart household `hh`, holding `stores`, could make, if any (M8b slice CP, third part):
@@ -765,9 +918,13 @@ impl Population {
     /// what it had in transit passes to `to`, as its store does, and, where `to` lives in the
     /// settlement `from` lived in (`near`), so do its boats and carts, made or being made. A boat
     /// stays drawn up where it is; a cart standing at `from`'s door (`door`) is wheeled to `to`'s,
-    /// where a household's cart is used and made, as its store is carried there. Its people can
-    /// reach neither from another settlement, so there they stay where they stand, as they did
-    /// before. A wagon stays with the line it runs on, which does not pass.
+    /// where a household's cart is used and made, as its store is carried there. Where `to` lives
+    /// in another settlement (the ninth item), its made boats and carts pass too, standing where
+    /// they are until someone of `to` fetches them ([`Population::vehicle_fetch_facts`]), so long
+    /// as they stand within the walk a fetch allows of `to`'s home and a way would bring them
+    /// there today ([`Population::way_home`]): an heir does not make its own while it holds one,
+    /// so one it could not bring, one being made and a motor cart stay where they stand,
+    /// `from`'s, as before. A wagon stays with the line it runs on, which does not pass.
     pub(super) fn vehicles_pass(
         &mut self,
         ctx: &mut Ctx,
@@ -778,23 +935,54 @@ impl Population {
         for c in self.consignments.iter_mut().filter(|c| c.owner == from) {
             c.owner = to;
         }
-        if !near {
-            return;
-        }
-        let Some(new_door) = self.household(to).map(|x| cell_of(ctx.map, x.home) as u32) else {
+        let Some(home) = self.household(to).map(|x| x.home) else {
             return;
         };
+        let new_door = cell_of(ctx.map, home) as u32;
+        // How far off a fetch may find it: the walk a fetch allows, at an off-trail pace.
+        let params = ctx.params;
+        let range_m = ctx
+            .catalog
+            .activities
+            .iter()
+            .find(|a| a.behavior == Behavior::Fetch)
+            .map_or(0.0, |a| {
+                f64::from(a.max_walk_minutes)
+                    * 60.0
+                    * params.nav.tobler_ms(0.0)
+                    * params.nav.offtrail_factor
+            });
+        let within = |at: (f32, f32)| f64::from((at.0 - home.0).hypot(at.1 - home.1)) <= range_m;
+        // A made one of another settlement passes where it stands within that walk and a way
+        // brings it home today.
+        let fetchable = |v: &Boat, at: (f32, f32)| {
+            v.made() && within(at) && Self::way_home(&*ctx, home, v).is_some()
+        };
+        let boats: Vec<bool> = ctx
+            .land
+            .boats
+            .list
+            .iter()
+            .map(|b| b.owner == from && (near || fetchable(b, ctx.land.rivers.centre(b.at))))
+            .collect();
+        let carts: Vec<bool> = ctx
+            .land
+            .carts
+            .list
+            .iter()
+            .map(|c| c.owner == from && (near || fetchable(c, cell_centre(ctx.map, c.at as usize))))
+            .collect();
         let land = &mut *ctx.land;
-        if land.boats.list.iter().any(|b| b.owner == from) {
-            for b in land.boats.list.iter_mut().filter(|b| b.owner == from) {
+        if boats.contains(&true) {
+            for (b, _) in land.boats.list.iter_mut().zip(&boats).filter(|x| *x.1) {
                 b.owner = to;
             }
             land.boats.changed();
         }
-        if land.carts.list.iter().any(|c| c.owner == from) {
-            for c in land.carts.list.iter_mut().filter(|c| c.owner == from) {
+        if carts.contains(&true) {
+            for (c, _) in land.carts.list.iter_mut().zip(&carts).filter(|x| *x.1) {
                 c.owner = to;
-                if c.at == door {
+                if near && c.at == door {
                     c.at = new_door;
                 }
             }

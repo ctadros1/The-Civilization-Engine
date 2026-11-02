@@ -3,7 +3,9 @@
 //! drawn up at the bank cell where it was last left. One being made is worked on there until its
 //! labour is done; once made it ages by the day and is past use when its life is spent. When its
 //! household is no more and its people join another of the same settlement, it passes to that
-//! household. Every boat begun, made, moved, passed on or gone bumps [`Boats::revision`].
+//! household; made, it passes to one of another settlement too, standing where it is until
+//! someone of that household fetches it home. Every boat begun, made, moved, passed on or gone
+//! bumps [`Boats::revision`].
 
 use civ_core::PermanentId;
 

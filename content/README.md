@@ -2136,3 +2136,12 @@ proposes it, and whether it passes, is people's choice. The core's `policy/repea
 `founding` and `closing_unsuspected`. No new keys: a polity's well dug by `dig_well` is relined and
 given a lid and curb at its review, while that law is in force, by the well system's own
 `lining_h_per_m`, `loss_per_year` and `cover_h`, as a household's own well is.
+
+Content API 225 (backlog D) adds the `[ties]` act `defaulted_others`: what hearing that another's
+household did not repay, or refused to repay, what a third household lent it (or that their
+workshop did not pay the wages it owed) writes into the hearer's tie to that household's elder. A
+loan failed is now word told by contact (the claim's creditor's people hold it at first hand; it is
+told at home and at the hearth, as news is, for `word.news_days`, by `word.share_home` and
+`word.share_routine`, and never by the debtor's own household), and each who hears it for the
+first time notes the act; nobody notes it of their own household's elder. The core writes it as
+bad evidence of 1 in `word`, half of `defaulted`.

@@ -1377,7 +1377,7 @@ pub(super) fn decode<R: Read + Seek>(
             ));
         }
         // A raid names a recorded encounter, a band seen a recorded band (schema 111), a finding
-        // a recorded case (schema 126, M7b slice BS).
+        // a recorded case (schema 126, M7b slice BS), a default a loan or wages owed.
         let named = match c.kind {
             civ_agents::word::ClaimKind::Raid => Some((
                 c.event
@@ -1394,6 +1394,12 @@ pub(super) fn decode<R: Read + Seek>(
                     .is_some_and(|id| people.order.cases.iter().any(|x| x.id == id)),
                 Schema::V126,
             )),
+            // A default names a claim in the credit book (schema 220, backlog D).
+            civ_agents::word::ClaimKind::Defaulted => Some((
+                c.event
+                    .is_some_and(|id| people.order.credit.claims.iter().any(|x| x.id == id)),
+                Schema::V220,
+            )),
             _ => None,
         };
         match named {
@@ -1401,7 +1407,7 @@ pub(super) fn decode<R: Read + Seek>(
             None if c.event.is_none() => {}
             _ => {
                 return Err(LoadError::Malformed(format!(
-                    "claim {} names no recorded encounter, band or case",
+                    "claim {} names no recorded encounter, band, case or loan",
                     c.id
                 )));
             }

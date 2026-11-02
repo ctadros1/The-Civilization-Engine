@@ -573,7 +573,7 @@ impl Population {
 
     /// Wages workshop claim `i` owes, due: the workshop pays what it holds of the good, its owners
     /// what they can spare besides, for they answer for what it owes; unpaid then, it fails, and
-    /// the worker's household notes it of the owners' elder.
+    /// the worker's household notes it of the owners' elder, and word of it goes about.
     fn repay_wages(&mut self, ctx: &Ctx, i: usize) {
         let (now, params) = (ctx.now, ctx.params);
         let c = self.order.credit.claims[i].clone();
@@ -623,6 +623,8 @@ impl Population {
             for m in members {
                 self.note_tie(ctx, m, b, Act::Defaulted, 1.0, 0.0);
             }
+            // And word of it goes about (backlog D).
+            self.default_word(c.id, b, now.day_index());
         }
         if open {
             self.close_firm(ctx, c.debtor, crate::firm::Exit::Failure);
@@ -889,8 +891,9 @@ impl Population {
     }
 
     /// Loan `i` failed today (refused, or unpaid when grace ran out): the creditor's household
-    /// notes it of the debtor's elder, and the creditor takes the pledge: the guarantor is called
-    /// on now; a field is taken when it lies between crops ([`Self::pledged_fields`]).
+    /// notes it of the debtor's elder, and word of it goes about ([`Self::default_word`]); and the
+    /// creditor takes the pledge: the guarantor is called on now; a field is taken when it lies
+    /// between crops ([`Self::pledged_fields`]).
     fn loan_failed(&mut self, ctx: &Ctx, i: usize, day: i64) {
         let (now, params) = (ctx.now, ctx.params);
         let c = self.order.credit.claims[i].clone();
@@ -902,6 +905,7 @@ impl Population {
             for m in members {
                 self.note_tie(ctx, m, b, Act::Defaulted, 1.0, 0.0);
             }
+            self.default_word(c.id, b, day);
         }
         // A keeper's debtor of a loan in its notes defaulted: its settlement hears of it (M10d
         // slice EI, second part).

@@ -1136,3 +1136,248 @@ fn under_bearer_heard_notes_refused_become_a_debt_the_gathering_hears() {
     let loaded = persist::load(&saved.path, content()).expect("loads");
     assert_eq!(loaded.people().notes, sc.sim.people().notes);
 }
+
+#[test]
+fn word_of_a_default_goes_about_and_those_who_hear_it_think_the_worse_of_the_debtor() {
+    // Backlog D (research 08-07 §5.3): a loan failed is word told by contact, not known
+    // everywhere at once. The creditor's people hold it at first hand; others hear it at the
+    // hearth and think the worse of the debtor's elder in their word; the debtor's own household
+    // neither thinks the worse of its elder nor tells it.
+    use civ_agents::ties::{Act, Domain};
+    use civ_agents::word::ClaimKind;
+    let (mut sc, loan) = defaulted();
+    let day = sc.sim.now().day_index();
+    let members = |sim: &Sim, h: PermanentId| -> Vec<PermanentId> {
+        let mut m = sim
+            .people()
+            .household(h)
+            .expect("household")
+            .members
+            .clone();
+        m.sort_unstable();
+        m
+    };
+    let word = &sc.sim.people().word;
+    let said: Vec<_> = word
+        .claims
+        .iter()
+        .filter(|c| c.kind == ClaimKind::Defaulted)
+        .copied()
+        .collect();
+    assert_eq!(said.len(), 1, "{said:?}");
+    let claim = said[0];
+    assert_eq!(claim.event, Some(loan));
+    let elder = claim.subject.expect("names the debtor's elder");
+    assert!(members(&sc.sim, sc.borrower).contains(&elder));
+    assert_eq!(
+        Some(claim.settlement),
+        sc.sim
+            .people()
+            .household(sc.borrower)
+            .and_then(|x| x.settlement)
+    );
+    // The creditor's people hold it at first hand; nobody else has heard it.
+    let lenders = members(&sc.sim, sc.lender);
+    for &m in &lenders {
+        assert!(word.has_heard(m, claim.id));
+    }
+    let teller = lenders[0];
+    let others: Vec<PermanentId> = sc
+        .sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .filter(|h| h.id != sc.borrower && h.id != sc.lender && !h.members.is_empty())
+        .flat_map(|h| h.members.iter().copied())
+        .collect();
+    assert!(others.len() >= 2, "two people of other households");
+    let (x, y) = (others[0], others[1]);
+    for &p in others.iter().chain(&members(&sc.sim, sc.borrower)) {
+        assert!(!word.has_heard(p, claim.id));
+    }
+    let words = civ_sim::frames::word::claim_words(&sc.sim, &claim);
+    assert!(
+        words.contains("did not repay what")
+            && words.contains("kg of")
+            && words.contains(" lent it"),
+        "{words}"
+    );
+    let tp = sc.sim.rules().people.ties.clone();
+    let regard = |sim: &Sim, p: PermanentId| sim.people().ties.regard(p, elder, day, &tp);
+    let bad_word = |sim: &Sim, p: PermanentId| {
+        sim.people()
+            .ties
+            .tie(p, elder, day, &tp)
+            .map_or(tp.prior as f32, |t| t.bad[Domain::Word.index()])
+    };
+    let (regard_before, bad_before) = (regard(&sc.sim, x), bad_word(&sc.sim, x));
+    // At the hearth, where every routine word is told, the creditor's people tell it.
+    sc.sim
+        .rules_mut_for_tests()
+        .expect("rules of its own")
+        .people
+        .word
+        .share_routine = 1.0;
+    sc.sim
+        .with_ctx_for_tests(|pop, ctx| pop.share_word_for_tests(ctx, teller, x));
+    let word = &sc.sim.people().word;
+    assert!(word.has_heard(x, claim.id));
+    let tie = sc
+        .sim
+        .people()
+        .ties
+        .tie(x, elder, day, &tp)
+        .expect("a tie now");
+    assert_eq!(tie.reason.map(|r| r.act), Some(Act::DefaultedOthers));
+    let heard_bad = f64::from(tie.bad[Domain::Word.index()] - bad_before);
+    assert!(
+        (heard_bad - tp.acts[Act::DefaultedOthers as usize].bad).abs() < 1e-4,
+        "{heard_bad}"
+    );
+    assert!(regard(&sc.sim, x) < regard_before, "{regard_before}");
+    // Heard again, it teaches nothing more.
+    sc.sim.with_ctx_for_tests(|pop, ctx| {
+        pop.share_word_for_tests(ctx, lenders[lenders.len() - 1], x)
+    });
+    let again = sc.sim.people().ties.tie(x, elder, day, &tp).expect("tie");
+    assert_eq!(again.bad, tie.bad);
+    // The debtor's own people, told it, think no worse of their elder and do not tell it on.
+    let kin: Vec<PermanentId> = members(&sc.sim, sc.borrower)
+        .into_iter()
+        .filter(|&m| m != elder)
+        .collect();
+    {
+        let k = *kin
+            .first()
+            .expect("the debtor's household has another member");
+        let kin_before = sc.sim.people().ties.tie(k, elder, day, &tp);
+        sc.sim
+            .with_ctx_for_tests(|pop, ctx| pop.share_word_for_tests(ctx, x, k));
+        assert!(sc.sim.people().word.has_heard(k, claim.id));
+        assert_eq!(sc.sim.people().ties.tie(k, elder, day, &tp), kin_before);
+        sc.sim
+            .with_ctx_for_tests(|pop, ctx| pop.share_word_for_tests(ctx, k, y));
+        assert!(!sc.sim.people().word.has_heard(y, claim.id));
+    }
+    // Nor does the elder think the worse of themselves.
+    sc.sim
+        .with_ctx_for_tests(|pop, ctx| pop.share_word_for_tests(ctx, x, elder));
+    assert!(sc.sim.people().word.has_heard(elder, claim.id));
+    assert!(sc.sim.people().ties.tie(elder, elder, day, &tp).is_none());
+    // One of another household, told it, tells it on.
+    sc.sim
+        .with_ctx_for_tests(|pop, ctx| pop.share_word_for_tests(ctx, x, y));
+    assert!(sc.sim.people().word.has_heard(y, claim.id));
+    assert_eq!(
+        sc.sim
+            .people()
+            .ties
+            .tie(y, elder, day, &tp)
+            .and_then(|t| t.reason)
+            .map(|r| r.act),
+        Some(Act::DefaultedOthers)
+    );
+    // It saves and loads exactly.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(
+        &mut sc.sim,
+        &saves,
+        commons_persist::SaveKind::Manual,
+        "default word",
+    )
+    .expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    let (a, b) = (
+        persist::encode_sections(&sc.sim),
+        persist::encode_sections(&loaded),
+    );
+    assert_eq!(a.len(), b.len());
+    for (s, t) in a.iter().zip(&b) {
+        assert!(s.bytes == t.bytes, "section `{}` differs", s.tag);
+    }
+    // It is news for `news_days` from the day it failed, then let go and told no more.
+    let wp = sc.sim.rules().people.word.clone();
+    let news = i64::from(wp.news_days);
+    let gone_on = |today: i64| {
+        let mut w = sc.sim.people().word.clone();
+        w.prune(today, news, i64::from(wp.sickness_days), 10_000);
+        !w.claims
+            .iter()
+            .any(|c| c.kind == ClaimKind::Defaulted && c.event == Some(loan))
+    };
+    assert!(!gone_on(claim.day + news));
+    assert!(gone_on(claim.day + news + 1));
+}
+
+#[test]
+fn word_of_wages_a_workshop_left_unpaid_goes_about_too() {
+    // Backlog D: a workshop unpaid when its wages fall due is word as a loan failed is, naming
+    // its owners' elder; the worker's household holds it at first hand.
+    use civ_agents::word::ClaimKind;
+    let mut sc = village();
+    let sickle = sc
+        .sim
+        .rules()
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/sickle")
+        .expect("sickle");
+    feed(&mut sc.sim, sc.lender, 0.0);
+    let founder = sc.sim.people().household(sc.lender).expect("owner").members[0];
+    let (owner, worker, grain) = (sc.lender, sc.borrower, sc.grain);
+    let firm = sc
+        .sim
+        .with_ctx_for_tests(|pop, ctx| pop.found_firm_for_tests(ctx, owner, founder, sickle))
+        .expect("a workshop");
+    sc.sim
+        .with_ctx_for_tests(|pop, ctx| pop.owe_wages_for_tests(ctx, firm, worker, grain, 6.0));
+    let due = sc.sim.now().day_index() + i64::from(sc.sim.rules().people.credit.wage_days);
+    repay(&mut sc.sim, due - 1);
+    assert!(
+        !sc.sim
+            .people()
+            .word
+            .claims
+            .iter()
+            .any(|c| c.kind == ClaimKind::Defaulted),
+        "nothing to tell before it falls due"
+    );
+    repay(&mut sc.sim, due);
+    let wages = loans(&sc.sim)
+        .into_iter()
+        .find(|c| c.debtor == firm)
+        .expect("the wages");
+    assert_eq!(wages.standing, Standing::Defaulted);
+    let said: Vec<_> = sc
+        .sim
+        .people()
+        .word
+        .claims
+        .iter()
+        .filter(|c| c.kind == ClaimKind::Defaulted)
+        .copied()
+        .collect();
+    assert_eq!(said.len(), 1, "{said:?}");
+    assert_eq!(said[0].event, Some(wages.id));
+    let elder = said[0].subject.expect("names the owners' elder");
+    let owners = sc
+        .sim
+        .people()
+        .household(owner)
+        .expect("owners")
+        .members
+        .clone();
+    assert!(owners.contains(&elder));
+    for &m in &sc.sim.people().household(worker).expect("worker").members {
+        assert!(sc.sim.people().word.has_heard(m, said[0].id));
+    }
+    let words = civ_sim::frames::word::claim_words(&sc.sim, &said[0]);
+    assert!(
+        words.contains("did not pay") && words.contains("the wages it owed (6 kg of"),
+        "{words}"
+    );
+}

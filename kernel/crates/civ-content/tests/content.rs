@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 224
+kernel_content_api = 225
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -4133,5 +4133,23 @@ fn the_core_lets_a_polity_end_a_closing_nobody_suspects_any_longer() {
     assert_eq!(
         IssueKind::from_name("closing_unsuspected"),
         Some(IssueKind::ClosingUnsuspected)
+    );
+}
+
+#[test]
+fn the_core_weighs_a_default_heard_of_at_half_one_suffered() {
+    // Backlog D (content API 225): word of a default breaks the debtor's word with those who hear
+    // it, half as heavily as with the household it failed.
+    use civ_agents::ties::{Act, Domain};
+    let reg = registry(load(&repo_content()));
+    let acts = &reg.people.params.ties.acts;
+    let heard = acts[Act::DefaultedOthers as usize];
+    let suffered = acts[Act::Defaulted as usize];
+    assert_eq!(heard.domain, Some(Domain::Word));
+    assert_eq!((heard.good, heard.bad), (0.0, 1.0));
+    assert_eq!(heard.bad * 2.0, suffered.bad);
+    assert_eq!(
+        heard,
+        civ_agents::ties::TieParams::core().acts[Act::DefaultedOthers as usize]
     );
 }

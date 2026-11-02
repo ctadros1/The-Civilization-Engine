@@ -48,8 +48,8 @@ impl Population {
 
     /// The observer whispers claim `claim` to `person` (ADR-0016 §5): a true claim their
     /// settlement's word holds, which they have not heard, placed in their hearing as if heard,
-    /// from no one. `words` is the claim in words, for the chronicle. A repeat refreshes the
-    /// hearing and the record, and adds nothing.
+    /// from no one, and learnt from as word told is (a default). `words` is the claim in words,
+    /// for the chronicle. A repeat refreshes the hearing and the record, and adds nothing.
     pub fn whisper(
         &mut self,
         ctx: &mut Ctx,
@@ -86,6 +86,7 @@ impl Population {
             return Err(format!("{given} has heard that already"));
         }
         self.word.hear(person, claim, day, None, None);
+        self.learn_of_claim(ctx, person, claim);
         let id = self
             .influences
             .add(now, InfluenceKind::Whisper, person, claim);

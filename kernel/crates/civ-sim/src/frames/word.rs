@@ -426,6 +426,42 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
                 None => format!("a band was seen walking on {on}"),
             }
         }
+        // A default (backlog D): who failed whom, and in what.
+        ClaimKind::Defaulted => {
+            let on = day_words(SimTime::from_minutes(c.day * DAY));
+            let loan = c
+                .event
+                .and_then(|id| pop.order.credit.claims.iter().find(|x| x.id == id));
+            let Some(loan) = loan else {
+                let who = c.subject.map_or_else(|| "someone".to_owned(), name_of);
+                return format!("{who}'s household failed a loan on {on}");
+            };
+            let good = sim
+                .rules
+                .catalog
+                .goods
+                .get(usize::from(loan.good))
+                .map_or("goods".to_owned(), |g| g.name.to_lowercase());
+            let creditor = super::people::household_name(sim, loan.creditor);
+            let owed = loan.owed;
+            if pop.firm(loan.debtor).is_some() {
+                format!(
+                    "{} did not pay {creditor} the wages it owed ({owed:.0} kg of {good}), on {on}",
+                    super::people::firm_name(sim, loan.debtor)
+                )
+            } else {
+                let debtor = super::people::household_name(sim, loan.debtor);
+                let failed = if loan.standing == civ_agents::credit::Standing::Refused {
+                    "refused to repay"
+                } else {
+                    "did not repay"
+                };
+                format!(
+                    "{debtor} {failed} what {creditor} lent it ({owed:.0} kg of {good} owed), on \
+                     {on}"
+                )
+            }
+        }
         ClaimKind::Sickness => {
             let from = day_words(SimTime::from_minutes(c.day * DAY));
             match c.subject {
@@ -885,6 +921,11 @@ pub fn news_lines<'a>(
             ClaimKind::Sickness => c.subject != Some(p.household),
             ClaimKind::Suspicion => c.subject != Some(p.id),
             ClaimKind::Fire | ClaimKind::Raid | ClaimKind::BandSeen => true,
+            // Another household's default (backlog D).
+            ClaimKind::Defaulted => c
+                .subject
+                .and_then(|e| pop.person(e))
+                .is_none_or(|e| e.household != p.household),
             _ => c.day >= today,
         })
         .take(MAX_NEWS_SHOWN)
@@ -1025,7 +1066,8 @@ fn whisper_words(sim: &Sim, i: &Influence, p: PermanentId) -> String {
         | ClaimKind::Suspicion
         | ClaimKind::Fire
         | ClaimKind::Raid
-        | ClaimKind::BandSeen => None,
+        | ClaimKind::BandSeen
+        | ClaimKind::Defaulted => None,
         ClaimKind::Grievance => {
             let against = c.grievance.map(|g| g.0);
             let m = pop.factions.membership(p).copied();

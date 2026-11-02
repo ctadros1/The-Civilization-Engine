@@ -115,6 +115,10 @@ pub enum Act {
     /// The other, of another household, was first to tend one of the holder's household through
     /// a sickness they died of (M10c slice DZ, third part).
     TendedDied,
+    /// The holder heard that the other's household did not repay, or refused to repay, what
+    /// another household lent it, or that the other's workshop did not pay the wages it owed
+    /// (backlog D: word of a default travels by contact; research 08-07 §5.3).
+    DefaultedOthers,
 }
 
 impl Act {
@@ -144,6 +148,7 @@ impl Act {
         Act::ProposalStalled,
         Act::TendedLived,
         Act::TendedDied,
+        Act::DefaultedOthers,
     ];
 
     /// Its number in saves.
@@ -183,6 +188,7 @@ impl Act {
             Act::ProposalStalled => "proposal_stalled",
             Act::TendedLived => "tended_lived",
             Act::TendedDied => "tended_died",
+            Act::DefaultedOthers => "defaulted_others",
         }
     }
 
@@ -193,7 +199,7 @@ impl Act {
 }
 
 /// Number of acts.
-pub const ACTS: usize = 24;
+pub const ACTS: usize = 25;
 
 /// What one act writes into its holder's tie, for each unit of it (an act, or an hour for
 /// [`Act::LearnedFrom`] and [`Act::Hearth`]). Authored in content as tuning values.
@@ -308,6 +314,7 @@ impl TieParams {
             bad(Domain::Counsel, 1.0),
             w(0.05, 0.05, Some(Domain::Craft), 1.0),
             bad(Domain::Craft, 1.0),
+            bad(Domain::Word, 1.0),
         ];
         p
     }
@@ -353,6 +360,7 @@ impl Reason {
             Act::ProposalStalled => "proposed a building that stalled",
             Act::TendedLived => "tended one of their household, who lived",
             Act::TendedDied => "tended one of their household, who died",
+            Act::DefaultedOthers => "did not repay what another household lent, as they heard",
         };
         let date = civ_core::time::SimTime::from_minutes(self.day * 1440).date();
         let month = civ_land::weather::MONTH_NAMES[usize::from(date.month.clamp(1, 12)) - 1];

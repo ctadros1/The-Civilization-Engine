@@ -1068,6 +1068,66 @@ fn a_household_giving_up_goes_where_those_it_knows_go_the_same_night_whoever_cho
 }
 
 #[test]
+fn households_fleeing_hunger_do_not_flee_back_to_the_hungry_place_they_left() {
+    // Both settlements are out of food and their people worn down, with no crop of theirs
+    // coming. Households that give up go where their kin and acquaintances are, but once there,
+    // as hungry, they do not go back to the place they left, whose hunger they saw as they went
+    // (research 05-06 §1.4: famine migration follows expected access to food). Before, a place
+    // left was remembered with no impression of its food, so kin and acquaintances there drew a
+    // household back whatever it had seen: in this scene 227 moves in 30 days among 91 people
+    // (373 in 60, one of them moving nine times), each leaving its fields and home behind, as
+    // the dashboard's worlds that died out moved 23-42 people per 100 a year. Now each moves at
+    // most once, and a household drawn nowhere goes beyond the map, as one always has.
+    let mut sim = world_knowing(10, 50, &[50], true).expect("generates");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let (_, parent) = household_of(&sim, a);
+    kin_in(&mut sim, parent, b, 5);
+    let to_midnight = 24 * 60 - sim.now().minutes().rem_euclid(24 * 60) - 10;
+    sim.advance_minutes(to_midnight).expect("lives");
+    let start = sim.now();
+    let params = sim.rules().people.clone();
+    {
+        let pop = sim.people_mut_for_tests();
+        for (_, x) in pop.households.iter_mut() {
+            x.stores.iter_mut().for_each(|kg| *kg = 0.0);
+            x.stores_at = start;
+        }
+        for (_, p) in pop.people.iter_mut() {
+            let reserve = civ_agents::population::reserve_kcal(p, start, &params);
+            p.energy_kcal = (-0.45 * reserve) as f32;
+            p.burn_kcal_min = 0.0;
+            p.needs_at = start;
+        }
+    }
+    sim.advance_minutes(30 * 24 * 60).expect("lives");
+
+    let pop = sim.people();
+    let mut moved = 0;
+    for r in pop.records.values() {
+        let stays: Vec<_> = r
+            .residence
+            .iter()
+            .filter(|s| s.since > start && s.why == ResidenceWhy::Moved)
+            .collect();
+        moved += stays.len();
+        let lived = r.residence_at(start);
+        assert!(
+            stays.iter().all(|s| s.settlement != lived),
+            "{} went back to the hungry place they left: {:?}",
+            r.given,
+            r.residence
+        );
+        assert!(stays.len() <= 1, "{} moved {} times", r.given, stays.len());
+    }
+    assert!(moved > 0, "households gave up and went to those they know");
+    assert!(
+        pop.residence_problems().is_empty(),
+        "{:?}",
+        pop.residence_problems()
+    );
+}
+
+#[test]
 fn an_exile_goes_where_kin_live_and_one_drawn_nowhere_leaves_the_map() {
     // Two settlements that know where each other camped. One adult of the first has kin in the
     // second; another has none there. Exiled, the first lives on near their kin; the second goes

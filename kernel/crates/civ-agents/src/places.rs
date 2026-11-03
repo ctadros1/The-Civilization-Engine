@@ -216,6 +216,17 @@ impl Places {
         }
     }
 
+    /// `household`'s members saw, as they left `settlement` where they lived, that a share `fed`
+    /// of its people were not going hungry: what they last saw of its food, as a visit would
+    /// leave it (it is not a visit).
+    pub fn saw_on_leaving(&mut self, household: PermanentId, settlement: PermanentId, fed: f32) {
+        if let Some(list) = self.known.get_mut(&household)
+            && let Ok(i) = list.binary_search_by_key(&settlement, |k| k.settlement)
+        {
+            list[i].food = Some(fed.clamp(0.0, 1.0));
+        }
+    }
+
     /// People of `from` came to live in `to`: `to` knows what they knew, but its own settlement
     /// `home`. A place both knew keeps `to`'s record, known as of the later day.
     pub fn bring(&mut self, from: PermanentId, to: PermanentId, home: Option<PermanentId>) {

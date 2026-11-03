@@ -212,7 +212,11 @@ impl Population {
 
     /// Where a household out of food that gives up goes (ADR-0018 §3, §5): the known settlement
     /// that draws it most, by kin and those known there and the food a member saw there against
-    /// home, if any draws it at all; else beyond the map, as before.
+    /// home, if any draws it at all; else beyond the map, as before. A place a member last saw no
+    /// better fed than home is now draws nobody leaving home for want of food (research 05-06
+    /// §1.4: famine migration follows expected access to food): kin and acquaintances as hungry
+    /// as they are cannot feed them, and a household that has just fled one hungry place does
+    /// not flee back to it from another as hungry.
     pub(super) fn refuge(&self, ctx: &Ctx, household: PermanentId) -> Option<PermanentId> {
         let home = self.household(household)?.settlement?;
         if self.known_places.of(household).is_empty() {
@@ -230,6 +234,7 @@ impl Population {
                     .settlements
                     .iter()
                     .any(|s| s.id == k.settlement && s.abandoned.is_none())
+                    && k.food.is_none_or(|f| f64::from(f) > fed_here)
             })
             .map(|k| {
                 let there = draws
@@ -415,6 +420,8 @@ impl Population {
         let Some(old) = self.household(from).cloned() else {
             return;
         };
+        // What they see of the place they leave, their own household among its people.
+        let fed_left = self.fed_share(ctx, left);
         let id = ctx.ids.allocate();
         let home = self.new_home_site(ctx, hearth, Some(hearth), id);
         self.insert_household(Household {
@@ -463,6 +470,9 @@ impl Population {
         let day = now.day_index();
         self.known_places
             .learn(id, left, day, PlaceHow::Lived, None);
+        // They lived there and saw how its people ate as they left: a place they know (ADR-0018
+        // §5), with what they last saw of its food, as one they visited is.
+        self.known_places.saw_on_leaving(id, left, fed_left as f32);
         self.leanings.remove(&from);
         // The household they leave: its workshops close and its ground and home stand empty.
         if let Some(gone) = self.take_household(from) {

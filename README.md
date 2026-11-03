@@ -24,14 +24,14 @@
 
 The Civilization Engine (TCE) is a long-running simulation of people, households and settlements. It provides resources, skills, institutions and physical systems; people make choices within them, so the engine does not prescribe a civilization's story or destination.
 
-The current observer presents an early farming world. M10 adds industrial systems and services; its money systems are underway. Modern civilization and the Unreal client remain future work.
+The current web observer presents an early farming world. M10 adds industrial systems and services; its money systems are underway. The [Windows Unreal observer](unreal/README.md) completes M2: runtime terrain, the first vernacular kit, visible construction, citizens, night lighting and embedded inspectors, in a standalone application. Modern civilization remains future work.
 
 ## Project status
 
 | Area | Status |
 | --- | --- |
 | M0–M1 · World and village life | Implemented |
-| M2 · Unreal client | The portable Rust kernel and C interface are available; Unreal integration remains future work. |
+| M2 · Unreal client | Complete: Shared DLL bridge, editable tiled terrain with collision and PCG, Nanite vernacular kit, construction stages/scaffolds, crowd v0, day/night, inspectors and packaged Win64 build. The 16.78 km² terrain and running night village pass the 1440p60 gate. |
 | M3a–M3c · Economy, knowledge, buildings, weather and soils | Implemented |
 | M4 · Councils, law, crime and political change | Implemented. The latest fifty-year dashboard still has a failed food-price row in one world; see the project plan for the result and limits. |
 | M5a · Neighboring settlements | Implemented: contact, visits, marriage, migration and coalition founding. The 3,000-person, three-settlement run takes about 19.6 minutes at Max; the ten-minute design budget is not met. |
@@ -54,13 +54,23 @@ observatory: sampled terrain/water, settlements, buildings and people, with sepa
 for parallel worlds. This read-only export is opt-in and leaves the engine's save and command
 protocols unchanged. See [live world observations](docs/operations/live-world-observations.md).
 
+The [M2 capture and acceptance record](demos/m2/README.md) distinguish the lived village,
+the diagnostic terrain-edit replay, and the earlier integration image.
+
 ## Latest live demo: M9, many settlements
 
-The newest committed observer video is M9. It shows one settlement in detail while households resolve daily work across other settlements, with a followed resident and a climate change. M10 now has a [runnable multi-settlement example](kernel/crates/civ-sim/examples/m10_world.rs) and a long-run report workflow, but no M10 observer video has been captured; the complete demo remains in progress. The gallery distinguishes recorded captures from run reports and planned demos.
+## Latest live demo: M2, first light in Unreal
 
-<p align="center"><a href="demos/m9/m9-overview.mp4"><img src="demos/m9/m9-overview-poster.png" alt="M9 live demo: many settlements at household resolution" width="900"></a></p>
+The newest capture returns to the Unreal track: 32 founders live for 90 days, build their
+homes from the kernel's grammar, and gather by fuel-lit hearths. The standalone client follows
+a resident and shows their existing inspector. This is the first kit and crowd v0; later city
+styles and close-up characters remain future rendering work. The earlier M9 video shows the
+more advanced many-settlement simulation. M10 has a runnable example and report workflow,
+while its complete observer demo remains in progress.
 
-[Watch the titled M9 demo](demos/m9/m9-overview.mp4) · [Ten-year M9 run report](demos/m9/m9-demo.txt) · [Video-capture run report](demos/m9/m9-capture-run.txt) · [All demo versions](demos/README.md)
+<p align="center"><a href="demos/m2/m2-first-light.mp4"><img src="demos/m2/first-light.png" alt="M2 live Unreal demo: the first village at night" width="900"></a></p>
+
+[Watch the M2 demo](demos/m2/m2-first-light.mp4) · [M2 measurements and reproduction](demos/m2/README.md) · [Earlier M9 demo](demos/m9/m9-overview.mp4) · [All demo versions](demos/README.md)
 
 These generated previews show the project's longer-term historical and modern scope. They are concept art, not screenshots of implemented features.
 
@@ -75,7 +85,7 @@ These generated previews show the project's longer-term historical and modern sc
 - **Emergent simulation:** event-scheduled people and household economies, authored building grammars, institutions, weather, water, disease, conflict and transport.
 - **Many-settlement scale:** each person remains individually represented; settlements away from the observer's focus can resolve household work once per day.
 - **Industrial systems:** river-powered installations drive recipes; households can build mills, mines and works, lay rail, operate trains, and produce and distribute gas light.
-- **Persistence:** checksummed versioned snapshots with explicit migrations. Current boundaries: wire 1.106, save schema 219 and content API 200.
+- **Persistence:** checksummed versioned snapshots with explicit migrations. Current boundaries: wire 1.107, save schema 219 and content API 200.
 
 ## Run it
 

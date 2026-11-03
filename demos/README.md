@@ -4,7 +4,19 @@ This is the guide to the project's demonstrations across milestones. The watchab
 opening titles and on-screen explanations; their source captures are kept for production history.
 A screenshot or demo run shows one build and one world, not an outcome every world will produce.
 
-## Newest available recorded observer demo: M9, many settlements
+## Newest capture: M2, first light in Unreal
+
+The [M2 night demo and acceptance record](m2/README.md) show the completed first Unreal
+milestone: a naturally lived village, the Nanite vernacular kit, fuel-lit hearths, crowd v0,
+following and embedded inspectors. The standalone 1440p night scene and 16.78 km² terrain-edit
+diagnostic pass their 60 fps gates. The recording uses a separate native capture path.
+
+<p align="center"><a href="m2/m2-first-light.mp4"><img src="m2/first-light.png" alt="M2 Unreal village at night" width="900"></a></p>
+
+[Titled video](m2/m2-first-light.mp4) · [Construction](m2/construction.png) ·
+[Measurements and reproduction](m2/README.md) · [Earlier integration](m2/integration-night.png)
+
+## Earlier observer demo: M9, many settlements
 
 M9 keeps each person as an individual record while settlements away from the observer's focus are
 lived by household. The full lived report is a ten-year run: ten founding groups became eleven
@@ -51,6 +63,8 @@ all 909 people. See the plan's M11d entries for what each run showed.
 - [Eight-year M11 run report, sixth run (copper dug at Sedgehollow)](m11/m11-demo-8y-9b7f3a8.txt)
 - [Eight-year M10 run report, saved and loaded](m10/m10-demo-8y.txt)
 - [Industry and water-power guide](../docs/development-journal/industry-and-power.md)
+
+M2, the Unreal client, is now the newest capture: see the [M2 capture and acceptance record](m2/README.md).
 
 ## Earlier titled observer video: M6a, water and sickness
 

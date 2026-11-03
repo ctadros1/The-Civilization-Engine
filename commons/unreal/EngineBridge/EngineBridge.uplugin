@@ -1,0 +1,10 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1",
+  "FriendlyName": "Engine Bridge",
+  "Description": "Explicit C ABI loading and caller-owned frame buffers. No simulation decisions.",
+  "Category": "Simulation",
+  "CanContainContent": false,
+  "Modules": [{"Name": "EngineBridge", "Type": "Runtime", "LoadingPhase": "Default"}]
+}

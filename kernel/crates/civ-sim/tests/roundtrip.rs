@@ -947,6 +947,21 @@ fn a_buildings_condition_and_its_upkeep_survive_a_save_exactly() {
         .find(|i| i.id() == hut.get())
         .expect("the hut");
     assert_eq!(info.state(), wire::BuildingState::Standing);
+    // M2's renderer receives exactly the grammar's geometry, without reconstructing dimensions.
+    let parts = info.parts().expect("grammar parts for the renderer");
+    assert_eq!(parts.len(), e.parts.len());
+    for (actual, expected) in parts.iter().zip(&e.parts) {
+        assert_eq!(actual.id(), expected.id);
+        assert_eq!(actual.kind(), expected.kind.code());
+        assert_eq!(actual.stage(), expected.stage as u8);
+        let at = actual.at().expect("a position");
+        let size = actual.size().expect("a size");
+        assert_eq!([at.x(), at.y(), at.z()], expected.at);
+        assert_eq!([size.x(), size.y(), size.z()], expected.size);
+        assert_eq!(actual.angle(), expected.angle);
+        assert_eq!(actual.tilt(), expected.tilt);
+        assert_eq!(actual.material(), expected.material.map_or(-1, i32::from));
+    }
     let symptoms = info.symptoms().unwrap_or_default();
     assert_eq!(symptoms, "the thatch leaks");
     let u = &sim.rules().catalog.buildings[sim

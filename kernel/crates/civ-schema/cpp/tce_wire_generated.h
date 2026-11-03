@@ -376,6 +376,11 @@ struct FieldsBuilder;
 struct GroupInfo;
 struct GroupInfoBuilder;
 
+struct Cm3;
+
+struct BuildingPart;
+struct BuildingPartBuilder;
+
 struct BuildingInfo;
 struct BuildingInfoBuilder;
 
@@ -2049,6 +2054,40 @@ FLATBUFFERS_STRUCT_END(StoreLine, 8);
 
 struct StoreLine::Traits {
   using type = StoreLine;
+};
+
+FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) Cm3 FLATBUFFERS_FINAL_CLASS {
+ private:
+  int32_t x_;
+  int32_t y_;
+  int32_t z_;
+
+ public:
+  struct Traits;
+  Cm3()
+      : x_(0),
+        y_(0),
+        z_(0) {
+  }
+  Cm3(int32_t _x, int32_t _y, int32_t _z)
+      : x_(::flatbuffers::EndianScalar(_x)),
+        y_(::flatbuffers::EndianScalar(_y)),
+        z_(::flatbuffers::EndianScalar(_z)) {
+  }
+  int32_t x() const {
+    return ::flatbuffers::EndianScalar(x_);
+  }
+  int32_t y() const {
+    return ::flatbuffers::EndianScalar(y_);
+  }
+  int32_t z() const {
+    return ::flatbuffers::EndianScalar(z_);
+  }
+};
+FLATBUFFERS_STRUCT_END(Cm3, 12);
+
+struct Cm3::Traits {
+  using type = Cm3;
 };
 
 FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) MonthOfTrade FLATBUFFERS_FINAL_CLASS {
@@ -14063,6 +14102,124 @@ inline ::flatbuffers::Offset<GroupInfo> CreateGroupInfoDirect(
       repaired_minute);
 }
 
+struct BuildingPart FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef BuildingPartBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_KIND = 6,
+    VT_STAGE = 8,
+    VT_AT = 10,
+    VT_SIZE = 12,
+    VT_ANGLE = 14,
+    VT_TILT = 16,
+    VT_MATERIAL = 18
+  };
+  uint32_t id() const {
+    return GetField<uint32_t>(VT_ID, 0);
+  }
+  uint8_t kind() const {
+    return GetField<uint8_t>(VT_KIND, 0);
+  }
+  uint8_t stage() const {
+    return GetField<uint8_t>(VT_STAGE, 0);
+  }
+  const tce::wire::Cm3 *at() const {
+    return GetStruct<const tce::wire::Cm3 *>(VT_AT);
+  }
+  const tce::wire::Cm3 *size() const {
+    return GetStruct<const tce::wire::Cm3 *>(VT_SIZE);
+  }
+  uint16_t angle() const {
+    return GetField<uint16_t>(VT_ANGLE, 0);
+  }
+  int32_t tilt() const {
+    return GetField<int32_t>(VT_TILT, 0);
+  }
+  int32_t material() const {
+    return GetField<int32_t>(VT_MATERIAL, -1);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ID, 4) &&
+           VerifyField<uint8_t>(verifier, VT_KIND, 1) &&
+           VerifyField<uint8_t>(verifier, VT_STAGE, 1) &&
+           VerifyField<tce::wire::Cm3>(verifier, VT_AT, 4) &&
+           VerifyField<tce::wire::Cm3>(verifier, VT_SIZE, 4) &&
+           VerifyField<uint16_t>(verifier, VT_ANGLE, 2) &&
+           VerifyField<int32_t>(verifier, VT_TILT, 4) &&
+           VerifyField<int32_t>(verifier, VT_MATERIAL, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct BuildingPartBuilder {
+  typedef BuildingPart Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint32_t id) {
+    fbb_.AddElement<uint32_t>(BuildingPart::VT_ID, id, 0);
+  }
+  void add_kind(uint8_t kind) {
+    fbb_.AddElement<uint8_t>(BuildingPart::VT_KIND, kind, 0);
+  }
+  void add_stage(uint8_t stage) {
+    fbb_.AddElement<uint8_t>(BuildingPart::VT_STAGE, stage, 0);
+  }
+  void add_at(const tce::wire::Cm3 *at) {
+    fbb_.AddStruct(BuildingPart::VT_AT, at);
+  }
+  void add_size(const tce::wire::Cm3 *size) {
+    fbb_.AddStruct(BuildingPart::VT_SIZE, size);
+  }
+  void add_angle(uint16_t angle) {
+    fbb_.AddElement<uint16_t>(BuildingPart::VT_ANGLE, angle, 0);
+  }
+  void add_tilt(int32_t tilt) {
+    fbb_.AddElement<int32_t>(BuildingPart::VT_TILT, tilt, 0);
+  }
+  void add_material(int32_t material) {
+    fbb_.AddElement<int32_t>(BuildingPart::VT_MATERIAL, material, -1);
+  }
+  explicit BuildingPartBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<BuildingPart> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<BuildingPart>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<BuildingPart> CreateBuildingPart(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0,
+    uint8_t kind = 0,
+    uint8_t stage = 0,
+    const tce::wire::Cm3 *at = nullptr,
+    const tce::wire::Cm3 *size = nullptr,
+    uint16_t angle = 0,
+    int32_t tilt = 0,
+    int32_t material = -1) {
+  BuildingPartBuilder builder_(_fbb);
+  builder_.add_material(material);
+  builder_.add_tilt(tilt);
+  builder_.add_size(size);
+  builder_.add_at(at);
+  builder_.add_id(id);
+  builder_.add_angle(angle);
+  builder_.add_stage(stage);
+  builder_.add_kind(kind);
+  return builder_.Finish();
+}
+
+struct BuildingPart::Traits {
+  using type = BuildingPart;
+  static auto constexpr Create = CreateBuildingPart;
+};
+
 struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef BuildingInfoBuilder Builder;
   struct Traits;
@@ -14119,7 +14276,8 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_GAS = 102,
     VT_RECORDS = 104,
     VT_WIRE = 106,
-    VT_ROAD = 108
+    VT_ROAD = 108,
+    VT_PARTS = 110
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -14280,6 +14438,9 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *road() const {
     return GetPointer<const ::flatbuffers::String *>(VT_ROAD);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::BuildingPart>> *parts() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::BuildingPart>> *>(VT_PARTS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -14361,6 +14522,9 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyString(wire()) &&
            VerifyOffset(verifier, VT_ROAD) &&
            verifier.VerifyString(road()) &&
+           VerifyOffset(verifier, VT_PARTS) &&
+           verifier.VerifyVector(parts()) &&
+           verifier.VerifyVectorOfTables(parts()) &&
            verifier.EndTable();
   }
 };
@@ -14528,6 +14692,9 @@ struct BuildingInfoBuilder {
   void add_road(::flatbuffers::Offset<::flatbuffers::String> road) {
     fbb_.AddOffset(BuildingInfo::VT_ROAD, road);
   }
+  void add_parts(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::BuildingPart>>> parts) {
+    fbb_.AddOffset(BuildingInfo::VT_PARTS, parts);
+  }
   explicit BuildingInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -14593,7 +14760,8 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
     ::flatbuffers::Offset<::flatbuffers::String> gas = 0,
     ::flatbuffers::Offset<::flatbuffers::String> records = 0,
     ::flatbuffers::Offset<::flatbuffers::String> wire = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> road = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> road = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::BuildingPart>>> parts = 0) {
   BuildingInfoBuilder builder_(_fbb);
   builder_.add_style_from(style_from);
   builder_.add_firm(firm);
@@ -14601,6 +14769,7 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
   builder_.add_settlement(settlement);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_parts(parts);
   builder_.add_road(road);
   builder_.add_wire(wire);
   builder_.add_records(records);
@@ -14710,7 +14879,8 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
     const char *gas = nullptr,
     const char *records = nullptr,
     const char *wire = nullptr,
-    const char *road = nullptr) {
+    const char *road = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::BuildingPart>> *parts = nullptr) {
   auto program__ = program ? _fbb.CreateString(program) : 0;
   auto stage_name__ = stage_name ? _fbb.CreateString(stage_name) : 0;
   auto outline__ = outline ? _fbb.CreateVectorOfStructs<tce::wire::Vec2>(*outline) : 0;
@@ -14735,6 +14905,7 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
   auto records__ = records ? _fbb.CreateString(records) : 0;
   auto wire__ = wire ? _fbb.CreateString(wire) : 0;
   auto road__ = road ? _fbb.CreateString(road) : 0;
+  auto parts__ = parts ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::BuildingPart>>(*parts) : 0;
   return tce::wire::CreateBuildingInfo(
       _fbb,
       id,
@@ -14789,7 +14960,8 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
       gas__,
       records__,
       wire__,
-      road__);
+      road__,
+      parts__);
 }
 
 struct Buildings FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

@@ -625,6 +625,34 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
             let records = fbb.create_string(&records_words(sim, b));
             let current = fbb.create_string(&wire_words(sim, b));
             let road = fbb.create_string(&road_words(sim, b));
+            let parts: Vec<_> = expansion
+                .as_ref()
+                .map(|e| {
+                    e.parts
+                        .iter()
+                        .map(|part| {
+                            wire::BuildingPart::create(
+                                &mut fbb,
+                                &wire::BuildingPartArgs {
+                                    id: part.id,
+                                    kind: part.kind.code(),
+                                    stage: part.stage as u8,
+                                    at: Some(&wire::Cm3::new(part.at[0], part.at[1], part.at[2])),
+                                    size: Some(&wire::Cm3::new(
+                                        part.size[0],
+                                        part.size[1],
+                                        part.size[2],
+                                    )),
+                                    angle: part.angle,
+                                    tilt: part.tilt,
+                                    material: part.material.map_or(-1, i32::from),
+                                },
+                            )
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            let parts = fbb.create_vector(&parts);
             wire::BuildingInfo::create(
                 &mut fbb,
                 &wire::BuildingInfoArgs {
@@ -682,6 +710,7 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                     records: Some(records),
                     wire: Some(current),
                     road: Some(road),
+                    parts: Some(parts),
                 },
             )
         })

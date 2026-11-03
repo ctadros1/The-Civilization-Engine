@@ -103,6 +103,28 @@ fn observation_does_not_change_future_events_or_advance_chunking() {
 }
 
 #[test]
+fn parallel_instances_of_the_same_saved_world_have_separate_streams() {
+    let sim = world();
+    let dir = tempfile::tempdir().expect("directory");
+    let mut a = Observation::in_directory(dir.path(), &sim);
+    let mut b = Observation::in_directory(dir.path(), &sim);
+    a.poll(&sim);
+    b.poll(&sim);
+    let frames: Vec<serde_json::Value> = std::fs::read_dir(dir.path())
+        .expect("frames")
+        .map(|p| {
+            serde_json::from_slice(&std::fs::read(p.expect("entry").path()).expect("bytes"))
+                .expect("JSON")
+        })
+        .collect();
+    assert_eq!(frames.len(), 2);
+    assert_eq!(frames[0]["world_id"], frames[1]["world_id"]);
+    assert_ne!(frames[0]["stream_id"], frames[1]["stream_id"]);
+    drop(a);
+    assert_eq!(std::fs::read_dir(dir.path()).expect("frames").count(), 1);
+}
+
+#[test]
 fn disabled_and_failed_publishers_do_not_stop_the_world() {
     let sim = world();
     let mut disabled = Observation::default();

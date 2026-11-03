@@ -19,7 +19,7 @@ LongRun retains its original month advance when disabled; observed runs expose d
 boundaries for sampling, while economy sampling remains at the existing monthly boundaries.
 
 The workflow YAML and the code under test must both include the exporter integration. For
-routine dispatch, use main's workflow with `ref=<branch-or-SHA>` containing it. A scratch
+routine dispatch, use main's workflow with `ref=<branch-or-full-SHA>` containing it. A scratch
 workflow may also opt in while preserving `tce-ci`, current routing and the six-hour node4 limit.
 Older running or queued processes keep their original code and are not retrofitted or cancelled.
 
@@ -74,3 +74,17 @@ positions/terrain, atomic files, rate limiting, cleanup, disabled operation and 
 The short Actions world verifies the real process → file → guest collector → management API →
 canvas path separately from simulation unit checks. Deployment evidence lives in the private
 homelab record; do not equate unit tests with live rendering.
+
+Validated on 2026-11-03: the production dashboard rendered the real Actions world in run
+[41679635673](https://github.com/ctadros1/The-Civilization-Engine/actions/runs/41679635673),
+with world time advancing and changing canvas pixels. Renderer checks reported no browser
+errors or write requests; node3's pre-existing worker PID remained unchanged. Node4 was already
+closed and offline; its protected collector update is deferred until reconnect without reopening it.
+Kernel regression: 1,390 tests passed plus the added same-world stream isolation test; 3 ignored.
+Commons: 31 tests; web: 213 unit tests and 30 browser tests (15 existing skips); all 10 standard smoke
+worlds passed. Observation regression checks 4 cases including unchanged future/save state.
+
+The repository's existing schema check exposed mixed trailing whitespace in committed generated
+files. The generator now canonicalizes trailing spaces, and its outputs were regenerated; the
+exact freshness check passes and `git diff -w` confirms no schema/generated meaning changed.
+Python 3 is needed for this formatting step as well as the existing operations tooling.

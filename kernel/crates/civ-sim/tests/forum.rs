@@ -1138,3 +1138,75 @@ fn a_faction_against_a_hearer_petitions_for_another_before_their_term_is_out() {
     );
     reloaded(&mut sim);
 }
+
+/// Homelab run 64 (the notables' gate, river_valley seed 1, every adult, stream 5): one case a
+/// thin gathering left unheard before the polity had a forum kept *cases waiting* before it for
+/// all of its two years' memory, and every other forum a template offers was put forward in place
+/// of the one in force week after week, 38 laws passed in two years. A case the gathering left
+/// before the forum in force is answered by it: only a case left unheard or not found since it
+/// came into force, or a grievance against it, keeps the issue open.
+#[test]
+fn a_case_left_before_the_forum_in_force_keeps_no_case_waiting() {
+    let mut sim = world(3);
+    sim.set_notable_tier(false);
+    let hh = households(&sim);
+    let settlement = sim.people().polities[0].settlement;
+    let waiting = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.cases_waiting_for_tests(ctx, settlement))
+    };
+    // Yesterday a thin gathering left a case unheard: cases wait, with no forum.
+    let id = case(&mut sim, &hh[0], &hh[1]);
+    let yesterday = civ_core::SimTime::from_minutes(sim.now().minutes() - DAY);
+    {
+        let pop = sim.people_mut_for_tests();
+        let c = pop
+            .order
+            .cases
+            .iter_mut()
+            .find(|c| c.id == id)
+            .expect("the case");
+        c.opened = yesterday.day_index();
+        c.stage = CaseStage::Unheard;
+        c.heard = Some(yesterday);
+    }
+    assert!(waiting(&mut sim), "a case unheard and no forum");
+    // Today a forum came into force: it answers that case.
+    let forum = law(&mut sim, "core:policy/hear_by_elders", None);
+    assert!(!waiting(&mut sim), "the forum in force answers it");
+    // Nobody puts another forum in place of it for that case, week after week.
+    let policies = sim.rules().catalog.policies.clone();
+    for _ in 0..8 {
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        let pop = sim.people_mut_for_tests();
+        let proposed: Vec<String> = pop.polities[0]
+            .laws
+            .iter()
+            .filter(|l| l.status == LawStatus::Proposed)
+            .map(|l| policies[usize::from(l.policy)].id.clone())
+            .collect();
+        assert!(!proposed.iter().any(|p| p.contains("hear")), "{proposed:?}");
+        for l in &mut pop.polities[0].laws {
+            if l.status == LawStatus::Proposed {
+                l.status = LawStatus::Rejected;
+            }
+        }
+        pop.polities[0].gathering = None;
+        sim.advance_minutes(DAY).expect("advances");
+    }
+    // A case the forum in force does not find keeps cases waiting again.
+    let id = case(&mut sim, &hh[0], &hh[1]);
+    {
+        let now = sim.now();
+        let pop = sim.people_mut_for_tests();
+        let c = pop
+            .order
+            .cases
+            .iter_mut()
+            .find(|c| c.id == id)
+            .expect("the case");
+        c.stage = CaseStage::NotFound;
+        c.heard = Some(now);
+        c.forum = Some(forum);
+    }
+    assert!(waiting(&mut sim), "a case the forum in force did not find");
+}

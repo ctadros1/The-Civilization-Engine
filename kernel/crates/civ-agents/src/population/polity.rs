@@ -2404,6 +2404,43 @@ impl Population {
         }
     }
 
+    /// Whether polity `pi` faces cases waiting (M7b slice BR, ADR-0025 §1): what a forum answers.
+    /// A case one of its households brought went unheard, or was not found, within memory; or a
+    /// grievance against the forum in force is unresolved. While a forum is in force, only a case
+    /// decided since it came into force counts: one the gathering left before it was answered by
+    /// enacting it, and no forum in its place would hear it again. Before, such a case kept the
+    /// issue open for all its memory, and every other forum a template offers was put forward in
+    /// place of the one in force week after week (homelab run 64, notables' gate: 38 laws passed in
+    /// two years, one case left unheard by a thin gathering).
+    fn cases_waiting(&self, ctx: &Ctx, pi: usize) -> bool {
+        let day = ctx.now.day_index();
+        let settlement = self.polities[pi].settlement;
+        let remember = day - i64::from(ctx.params.crime.remember_days);
+        let forum = self.polities[pi].forum(&ctx.catalog.policies).map(|f| f.0);
+        let since = forum.and_then(|f| f.decided).map(SimTime::day_index);
+        self.order.cases.iter().any(|c| {
+            c.settlement == settlement
+                && c.opened >= remember
+                && matches!(
+                    c.stage,
+                    crate::crime::CaseStage::Unheard | crate::crime::CaseStage::NotFound
+                )
+                && since.is_none_or(|s| c.heard.map_or(c.opened, SimTime::day_index) >= s)
+        }) || forum.is_some_and(|f| {
+            self.word
+                .grievances
+                .iter()
+                .any(|g| g.blamed == Blamed::Forum(f.id) && g.unresolved_days > 0.0)
+        })
+    }
+
+    /// [`Population::cases_waiting`] for the polity of settlement `settlement`: for tests.
+    #[doc(hidden)]
+    pub fn cases_waiting_for_tests(&self, ctx: &Ctx, settlement: PermanentId) -> bool {
+        self.polity_of(settlement)
+            .is_some_and(|pi| self.cases_waiting(ctx, pi))
+    }
+
     /// Settlement `settlement`'s polity reviews its issues now, as on its review day: for tests.
     #[doc(hidden)]
     pub fn review_for_tests(&mut self, ctx: &mut Ctx, settlement: PermanentId) {
@@ -3117,25 +3154,9 @@ impl Population {
         // found no ground for its home, a trail built over, a home beyond the built edge.
         let (ground, ground_homes) = self.ground_issues(ctx, pi, settlement);
         issues.extend(ground);
-        // A case one of its households brought went unheard, or was not found, within memory
-        // (M7b slice BR, ADR-0025 §1).
-        let remember = day - i64::from(params.crime.remember_days);
-        if self.order.cases.iter().any(|c| {
-            c.settlement == settlement
-                && c.opened >= remember
-                && matches!(
-                    c.stage,
-                    crate::crime::CaseStage::Unheard | crate::crime::CaseStage::NotFound
-                )
-        }) || self.polities[pi]
-            .forum(&ctx.catalog.policies)
-            .is_some_and(|(f, _)| {
-                self.word
-                    .grievances
-                    .iter()
-                    .any(|g| g.blamed == Blamed::Forum(f.id) && g.unresolved_days > 0.0)
-            })
-        {
+        // A case one of its households brought went unheard, or was not found, within memory,
+        // and since the forum in force, if one is (M7b slice BR, ADR-0025 §1).
+        if self.cases_waiting(ctx, pi) {
             issues.push(IssueKind::CasesWaiting);
         }
         // Its households offer at home what its people fetched elsewhere lately (M7c slice BV).

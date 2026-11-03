@@ -1458,7 +1458,44 @@ pub fn spare_food_kcal(
     (food - 2.0 * params.household.food_target_days * need).max(0.0)
 }
 
+/// Fuel a household can spare, in kilograms of the first fuel by heat: what it holds above twice
+/// the days of fuel it tries to keep, as food is spared above twice its days.
+pub fn spare_fuel_kg(h: &Household, now: SimTime, params: &PeopleParams, goods: &[GoodDef]) -> f64 {
+    let stores = stores_now(h, now, params, goods);
+    let keep =
+        params.household.fuel_target_days * fuel_per_day(params, h.members.len(), now.day_index());
+    (fuel_kg(&stores, goods) - 2.0 * keep).max(0.0)
+}
+
 impl Population {
+    /// The fuel household `hh`, holding `stores`, wants before it can eat, in kilograms of the
+    /// first fuel: its hearth's days of it when it holds no fuel and nothing it can eat as it is,
+    /// but food that a fire would make a meal of, by a way its members know with the tools it
+    /// holds (research 08-03 §2.1, 07-04 §4.5: grain is eaten ground and baked, or pounded and
+    /// boiled); none otherwise.
+    pub(crate) fn fire_wanted_kg(&self, ctx: &Ctx, hh: &Household, stores: &[f64]) -> f64 {
+        let (goods, params) = (&ctx.catalog.goods, ctx.params);
+        if fuel_kg(stores, goods) > 0.0 || food_kcal(stores, goods).1 > 1.0 {
+            return 0.0;
+        }
+        let knows = |t: usize| {
+            hh.members
+                .iter()
+                .any(|&m| self.person(m).is_some_and(|q| q.knows(t)))
+        };
+        let usable = |r: &crate::params::RecipeDef| {
+            r.technique.is_none_or(knows)
+                && r.tools
+                    .iter()
+                    .all(|&t| stores.get(t).copied().unwrap_or(0.0) >= decide::MIN_TOOL)
+        };
+        if make::fire_waiting_kcal(goods, &ctx.catalog.recipes, stores, &usable) <= 1.0 {
+            return 0.0;
+        }
+        params.household.fuel_target_days
+            * fuel_per_day(params, hh.members.len().max(1), ctx.now.day_index())
+    }
+
     /// An empty population.
     pub fn new() -> Population {
         Population::default()
@@ -3847,11 +3884,12 @@ impl Population {
         field_key: PermanentId,
         kcal_day: f64,
         held: f64,
+        fire_kg: f64,
     ) -> Option<GiverOption> {
         let settlement = hh.settlement?;
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let want = (params.household.food_target_days * kcal_day - held).max(0.0);
-        if want <= 0.0 {
+        if want <= 0.0 && fire_kg <= 0.0 {
             return None;
         }
         let reach = &self.homes.get(&field_key)?.reach;
@@ -3861,7 +3899,13 @@ impl Population {
                 continue;
             }
             let kcal = spare_food_kcal(x, now, params, goods).min(want);
-            if kcal <= 0.0 {
+            // Fuel, only to a household whose food waits on a fire.
+            let fuel_kg = if fire_kg > 0.0 {
+                spare_fuel_kg(x, now, params, goods).min(fire_kg)
+            } else {
+                0.0
+            };
+            if kcal <= 0.0 && fuel_kg <= 0.0 {
                 continue;
             }
             let Some(secs) = reach.seconds_to(cell_of(ctx.map, x.home)) else {
@@ -3872,6 +3916,7 @@ impl Population {
                 walk_min: f64::from(secs) / 60.0,
                 at: x.home,
                 kcal,
+                fuel_kg,
             });
         }
         // The common store, at its keeper's or the hearth, when a law its members know keeps one
@@ -3891,6 +3936,12 @@ impl Population {
         // they would walk `ask_known_min` further to ask someone they regard fully than a
         // stranger.
         let most = found.iter().map(|g| g.kcal).fold(0.0, f64::max);
+        // When none can spare food, those who could give the most fuel.
+        let most_fuel = found
+            .iter()
+            .filter(|_| most <= 0.0)
+            .map(|g| g.fuel_kg)
+            .fold(0.0, f64::max);
         let tp = &params.ties;
         let day = now.day_index();
         let cost = |g: &GiverOption| {
@@ -3910,7 +3961,7 @@ impl Population {
         };
         found
             .into_iter()
-            .filter(|g| g.kcal >= most - 1e-6)
+            .filter(|g| g.kcal >= most - 1e-6 && g.fuel_kg >= most_fuel - 1e-6)
             .map(|g| (cost(&g), g))
             .min_by(|a, b| a.0.total_cmp(&b.0))
             .map(|(_, g)| g)
@@ -4045,6 +4096,7 @@ impl Population {
         let stock = stock_kcal(&stores, goods) + seed_kcal;
         let fuel = fuel_kg(&stores, goods);
         let edible = if fuel > 0.0 { food_all } else { food_raw };
+        let fire_wanted_kg = self.fire_wanted_kg(ctx, &hh, &stores);
         let household_fuel_day = fuel_per_day(params, member_count, now.day_index());
         let water_day = members * hh.water_use(&params.household);
         let water_l = hh.water_at_time(now, water_day);
@@ -4154,7 +4206,9 @@ impl Population {
             water_target_days: params.household.water_target_days,
             household_kcal_day: kcal_day,
             has_food: edible > 1.0,
-            food_needs_fire: food_all > 1.0 && edible <= 1.0,
+            // Food eaten cooked, and food a fire would make a meal of (grain, flour), with
+            // nothing to burn and nothing to eat as it is.
+            food_needs_fire: fire_wanted_kg > 0.0,
             fuel_days: fuel / household_fuel_day.max(1e-6),
             fuel_target_days: params.household.fuel_target_days,
             household_fuel_day,
@@ -4961,9 +5015,9 @@ impl Population {
         // Whom to ask, what to buy and where to work are each worked out only if an option
         // needs them (they cost a search of the settlement), and then once.
         let giver = || {
-            *hh_view
-                .giver
-                .get_or_init(|| self.best_giver(ctx, &hh, field_key, kcal_day, stock))
+            *hh_view.giver.get_or_init(|| {
+                self.best_giver(ctx, &hh, field_key, kcal_day, stock, fire_wanted_kg)
+            })
         };
         // A purchase that costs the household fewer hours than getting the good itself.
         let trade = || {
@@ -7447,12 +7501,46 @@ impl Population {
         };
         let spare = spare_food_kcal(g, now, params, goods);
         let need = t.members.len() as f64 * params.household.daily_kcal_per_person;
-        let held = stock_kcal(&stores_now(t, now, params, goods), goods);
+        let theirs = stores_now(t, now, params, goods);
+        let held = stock_kcal(&theirs, goods);
         let mut want = spare.min((params.household.food_target_days * need - held).max(0.0));
-        if want <= 0.0 {
+        // A household whose food waits on a fire is given fuel it can spare, toward its hearth's
+        // days of it, before any food.
+        let mut fire = self
+            .fire_wanted_kg(ctx, t, &theirs)
+            .min(spare_fuel_kg(g, now, params, goods));
+        if want <= 0.0 && fire <= 0.0 {
             return;
         }
         let stores = stores_now(g, now, params, goods);
+        let mut carry = params.household.carry_kg;
+        let mut legs = Vec::new();
+        // Fuel its hearth burns as it is (firewood), by heat.
+        for i in (0..goods.len()).filter(|&i| {
+            goods[i].purpose == GoodUse::Fuel && goods[i].fuel.is_none_or(|f| f.technique.is_none())
+        }) {
+            if fire <= 0.0 || carry <= 0.0 {
+                break;
+            }
+            let ratio = crate::params::fuel_ratio(goods, i);
+            if ratio <= 0.0 {
+                continue;
+            }
+            let kg = (fire / ratio)
+                .min(stores.get(i).copied().unwrap_or(0.0).max(0.0))
+                .min(carry);
+            if kg <= 0.0 {
+                continue;
+            }
+            legs.push(Leg {
+                from: giver,
+                to,
+                good: i,
+                amount: kg,
+            });
+            carry -= kg;
+            fire -= kg * ratio;
+        }
         let mut order: Vec<usize> = (0..goods.len())
             .filter(|&i| {
                 goods[i].purpose == GoodUse::Food
@@ -7465,8 +7553,6 @@ impl Population {
             _ => f64::INFINITY,
         };
         order.sort_by(|&a, &b| keeps(a).total_cmp(&keeps(b)).then(a.cmp(&b)));
-        let mut carry = params.household.carry_kg;
-        let mut legs = Vec::new();
         for i in order {
             if want <= 0.0 || carry <= 0.0 {
                 break;

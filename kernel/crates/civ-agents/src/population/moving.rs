@@ -370,8 +370,11 @@ impl Population {
     /// Household `from` moves to settlement `to` (ADR-0018 §5): its people form a household there
     /// with what it holds, camped beside the hearth as a sent family, and the household they leave
     /// is no more: its ground, home and workshop stand as a household's that left.
+    /// A household that moves so gives up on its home for want of food (research 05-06 §1.4:
+    /// famine migration follows expected access to food): what it last saw of the food there is
+    /// that none of it was its to eat.
     pub(super) fn relocate(&mut self, ctx: &mut Ctx, from: PermanentId, to: PermanentId) {
-        self.relocate_as(ctx, from, to, ResidenceWhy::Moved);
+        self.relocate_seeing(ctx, from, to, ResidenceWhy::Moved, true);
     }
 
     /// What household `household` finds each settlement it knows worth over staying now: for
@@ -400,6 +403,19 @@ impl Population {
         to: PermanentId,
         why: ResidenceWhy,
     ) {
+        self.relocate_seeing(ctx, from, to, why, false);
+    }
+
+    /// [`Population::relocate_as`]; a household that gives up on its home (`gave_up`) keeps of
+    /// its food that there was none for it, until a member sees it again.
+    fn relocate_seeing(
+        &mut self,
+        ctx: &mut Ctx,
+        from: PermanentId,
+        to: PermanentId,
+        why: ResidenceWhy,
+        gave_up: bool,
+    ) {
         let now = ctx.now;
         let Some(left) = self.household(from).and_then(|x| x.settlement) else {
             return;
@@ -420,8 +436,14 @@ impl Population {
         let Some(old) = self.household(from).cloned() else {
             return;
         };
-        // What they see of the place they leave, their own household among its people.
-        let fed_left = self.fed_share(ctx, left);
+        // What they see of the place they leave, their own household among its people. Giving
+        // up on it, they judged that what they hold, what its households could spare and its
+        // common store would not see them to their harvest: none of its food is theirs to eat.
+        let fed_left = if gave_up {
+            0.0
+        } else {
+            self.fed_share(ctx, left)
+        };
         let id = ctx.ids.allocate();
         let home = self.new_home_site(ctx, hearth, Some(hearth), id);
         self.insert_household(Household {

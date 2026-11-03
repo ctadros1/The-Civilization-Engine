@@ -4,6 +4,67 @@
 
 use crate::params::{GoodDef, GoodUse, RecipeDef};
 
+/// Recipe steps looked through from a food to a meal (grain to flour to bread is two).
+const MEAL_STEPS: usize = 3;
+
+/// The ways from food good `g` to a meal by the recipes `usable`: whether one goes through a
+/// fire (a cooked food, or a recipe burning fuel) and whether one goes without.
+fn ways_to_a_meal(
+    goods: &[GoodDef],
+    recipes: &[RecipeDef],
+    usable: &dyn Fn(&RecipeDef) -> bool,
+    g: usize,
+    steps: usize,
+) -> (bool, bool) {
+    let Some(d) = goods.get(g) else {
+        return (false, false);
+    };
+    if d.edible() {
+        return (d.cooked(), !d.cooked());
+    }
+    if steps == 0 {
+        return (false, false);
+    }
+    let fuel = |&(i, _): &(usize, f64)| goods.get(i).is_some_and(|x| x.purpose == GoodUse::Fuel);
+    let (mut fire, mut cold) = (false, false);
+    for r in recipes
+        .iter()
+        .filter(|r| r.inputs.iter().any(|&(i, _)| i == g) && usable(r))
+    {
+        let burns = r.inputs.iter().chain(&r.session_inputs).any(fuel);
+        for &(o, _) in &r.outputs {
+            if goods.get(o).is_none_or(|x| x.purpose != GoodUse::Food) {
+                continue;
+            }
+            let (f, c) = ways_to_a_meal(goods, recipes, usable, o, steps - 1);
+            fire |= f || (burns && c);
+            cold |= c && !burns;
+        }
+    }
+    (fire, cold)
+}
+
+/// Food energy in `stores` that waits on a fire before it is eaten, kcal: food eaten cooked, and
+/// food the recipes `usable` make a meal of only by way of a fire (grain ground and baked, or
+/// pounded and boiled). Goods kept back (seed) are not counted.
+pub fn fire_waiting_kcal(
+    goods: &[GoodDef],
+    recipes: &[RecipeDef],
+    stores: &[f64],
+    usable: &dyn Fn(&RecipeDef) -> bool,
+) -> f64 {
+    stores
+        .iter()
+        .zip(goods)
+        .enumerate()
+        .filter(|&(_, (&kg, d))| {
+            kg > 0.0 && d.purpose == GoodUse::Food && d.kcal_per_kg > 0.0 && !d.kept_back()
+        })
+        .filter(|&(g, _)| ways_to_a_meal(goods, recipes, usable, g, MEAL_STEPS) == (true, false))
+        .map(|(_, (kg, d))| kg * d.kcal_per_kg)
+        .sum()
+}
+
 /// Spare tool a household keeps beyond the ones its members use, in standard tools: it makes the
 /// next one while the last is still worn down to this (a tuning value).
 pub const SPARE_TOOL: f64 = 0.25;
@@ -791,6 +852,32 @@ mod tests {
             skill: None,
             technique: None,
         }
+    }
+
+    #[test]
+    fn grain_ground_and_baked_waits_on_a_fire_as_cooked_food_does() {
+        let mut goods = goods();
+        let meat = goods.len();
+        goods.push(good("meat", GoodUse::Food, 1500.0, Eaten::Cooked));
+        let recipes = vec![grind(), oven_bake()];
+        let all = |_: &RecipeDef| true;
+        // Grain (0) and flour (2) become bread only in the oven's fire; seed (1) is kept back;
+        // bread (3) is eaten as it is; meat is eaten cooked.
+        let stores = [10.0, 5.0, 2.0, 1.0, 0.0, 1.0, 1.0, 0.5];
+        let kcal = fire_waiting_kcal(&goods, &recipes, &stores, &all);
+        assert!(
+            (kcal - (12.0 * 3340.0 + 0.5 * 1500.0)).abs() < 1e-6,
+            "{kcal}"
+        );
+        // With no way it can use to bake, grain and flour wait on no fire; cooked food still does.
+        let no_bake = |r: &RecipeDef| r.id != "bake";
+        let kcal = fire_waiting_kcal(&goods, &recipes, &stores, &no_bake);
+        assert!((kcal - 0.5 * 1500.0).abs() < 1e-6, "{kcal}");
+        // A way to a meal without a fire (flour eaten as it is) means the grain does not wait on
+        // one.
+        goods[2].eaten = Eaten::Raw;
+        let kcal = fire_waiting_kcal(&goods, &recipes, &stores[..meat], &all);
+        assert_eq!(kcal, 0.0);
     }
 
     #[test]

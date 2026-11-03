@@ -581,6 +581,9 @@ pub struct GiverOption {
     pub at: (f32, f32),
     /// Food energy it would give, kcal.
     pub kcal: f64,
+    /// Fuel it would give a household whose food waits on a fire, kilograms of the first fuel
+    /// by heat.
+    pub fuel_kg: f64,
 }
 
 /// Another settlement's hearth someone could visit (M5a slice AM): which, where, the walk one
@@ -1694,7 +1697,9 @@ pub fn candidates(
                 // need-based help between households, no debt kept).
                 let target = f.food_target_days.max(1e-6);
                 let short = (1.0 - f.food_days / target).clamp(0.0, 1.0);
-                if short <= 0.0 {
+                // A household whose food waits on a fire it has nothing to light is in need
+                // however much of that food it holds.
+                if short <= 0.0 && !f.food_needs_fire {
                     excluded.push((id, Reason::NotShort));
                     continue;
                 }
@@ -1711,6 +1716,19 @@ pub fn candidates(
                 term(&mut terms, Reason::FoodShortage, w.w_food * short * worth);
                 if !f.has_food {
                     term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger * worth);
+                }
+                // Fuel asked for as fuel fetched is weighed: toward the hearth's days of it, and
+                // toward a meal when the food at home waits on the fire.
+                if giver.fuel_kg > 0.0 {
+                    let half = w.trip_half_worth_days * f.household_fuel_day.max(0.1);
+                    let worth = giver.fuel_kg / (giver.fuel_kg + half);
+                    let target = f.fuel_target_days.max(1e-6);
+                    let short = (1.0 - f.fuel_days / target).clamp(0.0, 1.0)
+                        + (1.0 - f.fuel_days).clamp(0.0, 1.0);
+                    term(&mut terms, Reason::FuelShortage, w.w_fuel * short * worth);
+                    if f.food_needs_fire {
+                        term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger * worth);
+                    }
                 }
                 term(
                     &mut terms,

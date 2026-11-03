@@ -768,6 +768,7 @@ impl Population {
                     walk_min,
                     at,
                     kcal,
+                    fuel_kg: 0.0,
                 })
             })
             .max_by(|a, b| {

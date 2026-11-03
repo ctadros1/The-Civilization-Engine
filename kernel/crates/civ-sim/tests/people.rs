@@ -1122,3 +1122,139 @@ fn company_at_the_hearth_is_kept_only_with_those_of_ones_own_settlement() {
         camp[0].settlement
     );
 }
+
+/// The household of the founding band with the most members, its oldest grown member left alone
+/// in it (the others die), `age` years old now, holding `grain` kg of grain and a quern and
+/// nothing else, and knowing how to grind, pound and bake.
+fn lone_elder(sim: &mut Sim, age: f64, grain: f64) -> (PermanentId, PermanentId) {
+    let now = sim.now();
+    let (hh, members) = sim
+        .people()
+        .households
+        .iter()
+        .max_by_key(|(_, h)| (h.members.len(), std::cmp::Reverse(h.id)))
+        .map(|(_, h)| (h.id, h.members.clone()))
+        .expect("a household");
+    let elder = members
+        .iter()
+        .copied()
+        .max_by(|&a, &b| {
+            let age = |m| sim.people().person(m).map_or(0.0, |p| p.age_years(now));
+            age(a).total_cmp(&age(b)).then(b.cmp(&a))
+        })
+        .expect("a member");
+    for &m in members.iter().filter(|&&m| m != elder) {
+        sim.die_for_tests(m);
+    }
+    for t in [
+        "core:technique/quern_grinding",
+        "core:technique/pounding",
+        "core:technique/hearth_baking",
+    ] {
+        let i = sim.rules().catalog.technique_index(t).expect(t);
+        if !sim.people().person(elder).is_some_and(|p| p.knows(i)) {
+            sim.introduce_technique(elder, t, false)
+                .expect("introduced");
+        }
+    }
+    let goods = sim.rules().catalog.goods.clone();
+    let index = |id: &str| goods.iter().position(|g| g.id == id).expect(id);
+    let (g, q) = (index("core:good/grain"), index("core:good/quern"));
+    let pop = sim.people_mut_for_tests();
+    let p = pop
+        .people
+        .iter_mut()
+        .find(|(_, p)| p.id == elder)
+        .map(|(_, p)| p)
+        .expect("the elder");
+    p.born = civ_core::SimTime::from_minutes(now.minutes() - (age * 365.0 * 1440.0) as i64);
+    let x = pop
+        .households
+        .iter_mut()
+        .find(|(_, x)| x.id == hh)
+        .map(|(_, x)| x)
+        .expect("the household");
+    x.stores.iter_mut().for_each(|kg| *kg = 0.0);
+    x.stores[g] = grain;
+    x.stores[q] = 1.0;
+    x.stores_at = now;
+    (hh, elder)
+}
+
+#[test]
+fn a_lone_elder_with_grain_and_a_quern_but_no_firewood_asks_for_fuel_and_eats() {
+    // An elder of 72, alone, holds 198 kg of grain and a quern and knows how to grind, pound and
+    // bake, but has no firewood and nothing to eat as it is; the wild food around has been
+    // gathered bare, and they are 40 % into their body's reserve. Grain is eaten only ground and
+    // baked or pounded and boiled, both over a fire, and at 72 they are past gathering firewood
+    // (the content's 70). Their food waits on a fire, so they are in need however much grain
+    // they hold: they ask a neighbour who can spare fuel for some (research 08-11 §1.1:
+    // need-based help), grind, bake and eat. Before, the grain counted as food in hand: they were
+    // never short enough to ask, nothing fetched fuel for hunger, and in this scene they drew
+    // their whole reserve by day 26 and died of hunger on day 35 beside 193 kg of grain (the lone
+    // elders of the dying worlds, plan §9).
+    let mut sim = new_world(3, 0);
+    sim.advance_minutes(5 * 24 * 60).expect("advances");
+    let (hh, elder) = lone_elder(&mut sim, 72.3, 198.0);
+    let params = sim.rules().people.clone();
+    let goods = sim.rules().catalog.goods.clone();
+    let index = |id: &str| goods.iter().position(|g| g.id == id).expect(id);
+    let (grain, bread, wood) = (
+        index("core:good/grain"),
+        index("core:good/bread"),
+        index("core:good/firewood"),
+    );
+    let wild: Vec<usize> = sim
+        .rules()
+        .land
+        .resources
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| ["wild_plants", "game", "fish"].contains(&r.id.as_str()))
+        .map(|(i, _)| i)
+        .collect();
+    let start = sim.now();
+    let depleted_at = |sim: &Sim| {
+        let p = sim.people().person(elder)?;
+        let now = sim.now();
+        Some(-population::energy_now(p, now, &params) / population::reserve_kcal(p, now, &params))
+    };
+    {
+        let pop = sim.people_mut_for_tests();
+        for (_, p) in pop.people.iter_mut().filter(|(_, p)| p.id == elder) {
+            let reserve = population::reserve_kcal(p, start, &params);
+            p.energy_kcal = (-0.4 * reserve) as f32;
+            p.burn_kcal_min = 0.0;
+            p.needs_at = start;
+        }
+    }
+    let before = depleted_at(&sim).expect("alive");
+    for _ in 0..30 {
+        for &r in &wild {
+            sim.land_mut_for_tests().stocks[r]
+                .iter_mut()
+                .for_each(|s| *s = 0.0);
+        }
+        sim.advance_minutes(24 * 60).expect("lives");
+    }
+    let record = &sim.people().records[&elder];
+    assert_eq!(record.died, None, "they died beside their grain");
+    let x = sim.people().household(hh).expect("their household");
+    assert_eq!(x.members, vec![elder], "alone throughout");
+    assert!(
+        x.flows.get(Flow::Received, wood) > 0.0,
+        "no firewood came to them"
+    );
+    assert!(x.flows.get(Flow::Made, bread) > 0.0, "they baked no bread");
+    assert!(x.flows.get(Flow::Eaten, bread) > 0.0, "they ate no bread");
+    let held = population::stores_now(x, sim.now(), &params, &goods);
+    assert!(
+        held[grain] < 198.0,
+        "none of the grain was ground: {held:?}"
+    );
+    let after = depleted_at(&sim).expect("alive");
+    assert!(
+        after < before,
+        "they ate less than they burned: {before:.2} of her reserve drawn, then {after:.2}"
+    );
+}

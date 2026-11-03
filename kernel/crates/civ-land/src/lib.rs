@@ -1664,6 +1664,13 @@ impl Land {
                     f.soil.turn(&params.soil, f64::from(f.ground), year);
                     f.regrow(params.soil.regrown_years, year);
                 }
+                // A way's cleared margin left unkept grows over with the same wild cover (backlog
+                // D, fourteenth item).
+                self.ways.regrow(
+                    params.soil.regrown_years,
+                    year,
+                    carting::TRAIL_TREAD_M as f32,
+                );
             }
             let month_start = MONTH_STARTS[..12].contains(&day_of_year(d));
             for (r, res) in params.resources.iter().enumerate() {

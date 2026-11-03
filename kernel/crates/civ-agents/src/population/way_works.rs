@@ -13,6 +13,12 @@
 //! forecast its own waits spared less its equal share of the work over the place's life, and,
 //! once passed, a way of one cell kept by the polity whose clearing each household is asked an
 //! equal share of. Cleared to its full width, it is told in the chronicle (backlog D, sixth item).
+//!
+//! Kept (backlog D, fourteenth item): a passing place's cleared margin left unkept grows over
+//! ([`civ_land::ways::Ways::regrow`]). A household clears its own again as it works, by the waits
+//! it holds there; a polity looks over those its laws in force cleared, and asks clearing one
+//! again of its households in equal shares where what they reckoned it spares them repays it.
+//! A household's long way for its carts is told once it is cleared.
 
 use super::*;
 use crate::decide::WayFacts;
@@ -64,8 +70,21 @@ pub const LAID_FROM_M: f32 = 0.05;
 
 impl Population {
     /// The way household `household` is working on: one it keeps whose built width is short of
-    /// its corridor.
+    /// its corridor, or else one of its own whose cleared ground has grown over, to clear again
+    /// (backlog D, fourteenth item).
     fn way_in_work(ctx: &Ctx, household: PermanentId) -> Option<usize> {
+        Self::way_being_made(ctx, household).or_else(|| {
+            ctx.land.ways.list.iter().position(|w| {
+                w.segments
+                    .iter()
+                    .any(|s| s.keeper == Keeper::Household(household) && s.grown_over())
+            })
+        })
+    }
+
+    /// The way household `household` is making: one it keeps whose built width is short of its
+    /// corridor.
+    fn way_being_made(ctx: &Ctx, household: PermanentId) -> Option<usize> {
         ctx.land.ways.list.iter().position(|w| {
             w.segments.iter().any(|s| {
                 s.keeper == Keeper::Household(household) && s.built_m + 1e-3 < s.corridor_m
@@ -131,12 +150,13 @@ impl Population {
     /// Household `household` weighs a passing place at each single-cart stretch where it holds
     /// waits, and laying a way over the worn trail its loaded carts drag on near home, and begins
     /// the one whose saving most exceeds its work, if any does: one at a time, and none where a
-    /// way already runs.
+    /// way already runs. One of its own grown over does not hold a new one back: clearing it
+    /// again is weighed as the household works, by the waits it holds there.
     fn review_way_work(&mut self, ctx: &mut Ctx, household: PermanentId, day: i64) {
         let Some(x) = self.household(household) else {
             return;
         };
-        if x.members.is_empty() || Self::way_in_work(ctx, household).is_some() {
+        if x.members.is_empty() || Self::way_being_made(ctx, household).is_some() {
             return;
         }
         let Some(act) = ctx
@@ -470,9 +490,11 @@ impl Population {
         }
         let works = ctx.land_params.way_works;
         let pace = ctx.params.nav.tobler_ms(0.0).max(1e-6);
+        // Cleared ground is cleared from its usable width: what has grown over since it was built
+        // is cleared again (backlog D, fourteenth item).
         let left_of = |s: &Segment| {
             let metres = f64::from(ctx.map.cell_size_m) * s.cells.len() as f64;
-            f64::from(s.corridor_m - s.built_m).max(0.0) * metres * works.clear_h_m2
+            f64::from(s.corridor_m - s.usable_m.min(s.built_m)).max(0.0) * metres * works.clear_h_m2
         };
         let walk_of = |cell: u32| {
             let at = cell_centre(ctx.map, cell as usize);
@@ -598,8 +620,10 @@ impl Population {
                 .list
                 .iter()
                 .find(|w| Some(w.id) == site.work)?;
+            // Being cleared, or grown over and to be cleared again (backlog D, fourteenth item).
             let s = w.segments.iter().find(|s| {
-                s.keeper == Keeper::Polity(polity.id) && s.built_m + 1e-3 < s.corridor_m
+                s.keeper == Keeper::Polity(polity.id)
+                    && (s.built_m + 1e-3 < s.corridor_m || s.grown_over())
             })?;
             // A line's hours left are its track's share not yet laid (M10b slice DX, third part).
             let left = match &w.track {
@@ -729,6 +753,13 @@ impl Population {
         // A polity's passing place cleared to its full width by this work: its first cell and
         // that width, metres.
         let mut cleared = None;
+        // A polity's passing place cleared again after growing over (backlog D, fourteenth item):
+        // its first cell.
+        let mut cleared_again = None;
+        // A household's long way for its carts cleared to a trail's tread (backlog D, fourteenth
+        // item): its first cell and its length, metres.
+        let mut approach = None;
+        let tread = civ_land::carting::TRAIL_TREAD_M as f32;
         for s in &mut w.segments {
             let ours = match s.keeper {
                 Keeper::Household(h) => h == household,
@@ -738,14 +769,25 @@ impl Population {
                     .is_some_and(|pi| self.polities[pi].id == p),
                 Keeper::Nobody => false,
             };
-            if !ours || s.built_m + 1e-3 >= s.corridor_m {
+            // Track is laid by its built width; cleared ground is cleared from its usable width,
+            // so what has grown over since it was built is cleared again first (backlog D,
+            // fourteenth item).
+            let from = if timber.is_some() {
+                s.built_m
+            } else {
+                s.usable_m.min(s.built_m)
+            };
+            if !ours || from + 1e-3 >= s.corridor_m {
                 continue;
             }
             let area = cell_m * s.cells.len() as f64;
             let wider = (hours / rate_h_m2 / area.max(1e-6)) as f32;
             let before = s.built_m;
-            s.built_m = (s.built_m + wider).min(s.corridor_m);
-            if timber.is_none() || s.built_m + 1e-3 >= s.corridor_m {
+            let to = (from + wider).min(s.corridor_m);
+            s.built_m = s.built_m.max(to);
+            if timber.is_none() {
+                s.usable_m = to;
+            } else if s.built_m + 1e-3 >= s.corridor_m {
                 s.usable_m = s.built_m;
             }
             s.kept = day;
@@ -760,7 +802,26 @@ impl Population {
             {
                 cleared = s.cells.first().map(|&c| (c, s.corridor_m));
             }
-            let took = f64::from(s.built_m - before) * area * rate_h_m2;
+            if timber.is_none()
+                && matches!(s.keeper, Keeper::Polity(_))
+                && before + 1e-3 >= s.corridor_m
+                && to + 1e-3 >= s.corridor_m
+            {
+                cleared_again = s.cells.first().copied();
+            }
+            // Long: as far as a village's walk from its hearth to its edge, the reach by which a
+            // way's end lies by a settlement (`BY_SETTLEMENT_M`).
+            let metres = area as f32;
+            if timber.is_none()
+                && matches!(s.keeper, Keeper::Household(_))
+                && s.corridor_m <= tread + 1e-3
+                && before + 1e-3 < s.corridor_m
+                && s.built_m + 1e-3 >= s.corridor_m
+                && metres >= civ_land::ways::BY_SETTLEMENT_M
+            {
+                approach = s.cells.first().map(|&c| (c, metres));
+            }
+            let took = f64::from(to - from) * area * rate_h_m2;
             used = Some((s.keeper, took.min(hours)));
             break;
         }
@@ -778,6 +839,9 @@ impl Population {
             };
         }
         ctx.land.ways.changed();
+        if let Some((cell, length_m)) = approach {
+            self.tell_approach_cleared(ctx, household, cell, length_m);
+        }
         if let Some((cell, length_m)) = finished
             && let Some(who) = self.elder_of(household, ctx.now, ctx.params)
         {
@@ -822,6 +886,14 @@ impl Population {
             if let Some((cell, width_m)) = cleared {
                 self.tell_passing_place_cleared(ctx, pi, household, cell, width_m);
             }
+            if let Some(cell) = cleared_again
+                && self.polities[pi]
+                    .laws
+                    .iter()
+                    .any(|l| l.id == law && l.kind == PolicyKind::BuildWay)
+            {
+                self.tell_passing_place_cleared_again(ctx, pi, household, cell);
+            }
         }
     }
 
@@ -836,19 +908,7 @@ impl Population {
         cell: u32,
         width_m: f32,
     ) {
-        let settlement = self.polities[pi].settlement;
-        let village = self.village_name(ctx, Some(settlement));
-        let at = cell_centre(ctx.map, cell as usize);
-        let from_hearth = ctx
-            .land
-            .settlements
-            .iter()
-            .find(|t| t.id == settlement)
-            .map(|t| {
-                let m = f64::from(at.0 - t.hearth_m.0).hypot(f64::from(at.1 - t.hearth_m.1));
-                format!(", {m:.0} m from the hearth")
-            })
-            .unwrap_or_default();
+        let (settlement, village, at, from_hearth) = self.passing_place_where(ctx, pi, cell);
         let elder = self.elder_of(household, ctx.now, ctx.params);
         let by = elder.map_or_else(String::new, |e| {
             format!(", {}'s household finishing it", self.name_of(e))
@@ -865,6 +925,192 @@ impl Population {
                  {by}: it is {width_m:.1} m wide, and two carts can pass there."
             ),
         );
+    }
+
+    /// Where polity `pi`'s passing place at `cell` lies, for the chronicle: the polity's seat,
+    /// its village's name, the cell's centre, and its distance from the seat's hearth in words
+    /// (", 1635 m from the hearth"; nothing where the seat is not found).
+    fn passing_place_where(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        cell: u32,
+    ) -> (PermanentId, String, (f32, f32), String) {
+        let settlement = self.polities[pi].settlement;
+        let village = self.village_name(ctx, Some(settlement));
+        let at = cell_centre(ctx.map, cell as usize);
+        let from_hearth = ctx
+            .land
+            .settlements
+            .iter()
+            .find(|t| t.id == settlement)
+            .map(|t| {
+                let m = f64::from(at.0 - t.hearth_m.0).hypot(f64::from(at.1 - t.hearth_m.1));
+                format!(", {m:.0} m from the hearth")
+            })
+            .unwrap_or_default();
+        (settlement, village, at, from_hearth)
+    }
+
+    /// The chronicle's word that polity `pi`'s people found the passing place their gathering
+    /// asked for at `cell` grown over, and asked each household its share of the `hours` clearing
+    /// it again wants (backlog D, fourteenth item).
+    fn tell_passing_place_overgrown(&mut self, ctx: &Ctx, pi: usize, cell: u32, hours: f64) {
+        let (settlement, village, at, from_hearth) = self.passing_place_where(ctx, pi, cell);
+        self.chronicle_push(
+            ctx.now,
+            ChronicleKind::Way,
+            Vec::new(),
+            Some(settlement),
+            Some(at),
+            f64::from(WayStep::PassingPlaceOvergrown as u8),
+            format!(
+                "{village}'s people found the passing place their gathering agreed to grown \
+                 over{from_hearth}: clearing it again wants {hours:.0} hours of work, each \
+                 household asked its share."
+            ),
+        );
+    }
+
+    /// The chronicle's word that polity `pi`'s people cleared the passing place their gathering
+    /// asked for at `cell` again after it grew over, with work of `household`'s finishing it
+    /// (backlog D, fourteenth item).
+    fn tell_passing_place_cleared_again(
+        &mut self,
+        ctx: &Ctx,
+        pi: usize,
+        household: PermanentId,
+        cell: u32,
+    ) {
+        let (settlement, village, at, from_hearth) = self.passing_place_where(ctx, pi, cell);
+        let elder = self.elder_of(household, ctx.now, ctx.params);
+        let by = elder.map_or_else(String::new, |e| {
+            format!(", {}'s household finishing it", self.name_of(e))
+        });
+        self.chronicle_push(
+            ctx.now,
+            ChronicleKind::Way,
+            elder.into_iter().collect(),
+            Some(settlement),
+            Some(at),
+            f64::from(WayStep::PassingPlaceClearedAgain as u8),
+            format!(
+                "{village}'s people cleared the passing place their gathering agreed to again\
+                 {from_hearth}{by}: it had grown over, and two carts can pass there again."
+            ),
+        );
+    }
+
+    /// The chronicle's word that household `household` finished clearing the way it laid for its
+    /// carts, `length_m` metres of ground from `cell` on (backlog D, fourteenth item): told only
+    /// of a long one, as far as a village's walk from its hearth to its edge.
+    fn tell_approach_cleared(
+        &mut self,
+        ctx: &Ctx,
+        household: PermanentId,
+        cell: u32,
+        length_m: f32,
+    ) {
+        let elder = self.elder_of(household, ctx.now, ctx.params);
+        let who = elder.map_or_else(
+            || "A household".to_owned(),
+            |e| format!("{}'s household", self.name_of(e)),
+        );
+        let settlement = self.household(household).and_then(|x| x.settlement);
+        self.chronicle_push(
+            ctx.now,
+            ChronicleKind::Way,
+            elder.into_iter().collect(),
+            settlement,
+            Some(cell_centre(ctx.map, cell as usize)),
+            f64::from(WayStep::ApproachCleared as u8),
+            format!(
+                "{who} finished clearing the way it laid for its carts near home: {length_m:.0} m \
+                 of ground cleared to a trail's tread, where its loaded carts dragged before."
+            ),
+        );
+    }
+
+    /// Polity `pi` looks over the passing places laws of its in force cleared (backlog D,
+    /// fourteenth item; ADR-0029 §6: upkeep only by law; research 10-07 §1.8: routine work trims
+    /// vegetation, and a public way with no labour obligation accumulates its backlog), at its
+    /// review cadence as its sewers and wells: one whose cleared ground has grown over is worth
+    /// clearing again where what its households still here reckoned it would spare them a year,
+    /// when the law was proposed, over the years a passing place is reckoned to last, is more
+    /// than clearing it again takes, at clearing's own rate. Then the clearing is asked as the
+    /// first was: the law's work grows so that it is what all its households have given to it
+    /// and the clearing still wanted, each household its equal share, and it is told. Asked
+    /// once until done: as it is cleared again, what is given grows as what is wanted shrinks.
+    pub(super) fn way_keeping_reviews(&mut self, ctx: &Ctx, pi: usize) {
+        let polity = &self.polities[pi];
+        if polity.ways.is_empty() || ctx.land.ways.list.is_empty() {
+            return;
+        }
+        let works = ctx.land_params.way_works;
+        let cell_m = f64::from(ctx.map.cell_size_m);
+        // (law, the cell, the law's work asked, the hours clearing again wants)
+        let mut asks: Vec<(PermanentId, u32, f64, f64)> = Vec::new();
+        for (law, site) in &polity.ways {
+            if !polity.laws.iter().any(|l| {
+                l.id == *law && l.status == LawStatus::InForce && l.kind == PolicyKind::BuildWay
+            }) {
+                continue;
+            }
+            let Some(w) = ctx
+                .land
+                .ways
+                .list
+                .iter()
+                .find(|w| Some(w.id) == site.work && w.track.is_none())
+            else {
+                continue;
+            };
+            let grown: Vec<&Segment> = w
+                .segments
+                .iter()
+                .filter(|s| s.keeper == Keeper::Polity(polity.id) && s.grown_over())
+                .collect();
+            let wanted: f64 = grown
+                .iter()
+                .map(|s| {
+                    f64::from(s.built_m - s.usable_m)
+                        * cell_m
+                        * s.cells.len() as f64
+                        * works.clear_h_m2
+                })
+                .sum();
+            let given = polity.way_given_all(*law);
+            if wanted <= 0.0 || given + wanted <= site.labour_h + 1e-2 {
+                continue;
+            }
+            let spared: f64 = polity
+                .way_saves
+                .iter()
+                .filter(|s| s.0 == *law)
+                .filter(|s| self.household(s.1).is_some_and(|x| !x.members.is_empty()))
+                .map(|s| f64::from(s.2))
+                .sum();
+            if spared * works.passing_life_years <= wanted {
+                continue;
+            }
+            let cell = grown
+                .first()
+                .and_then(|s| s.cells.first().copied())
+                .unwrap_or(site.cell);
+            asks.push((*law, cell, given + wanted, wanted));
+        }
+        for (law, cell, labour_h, hours) in asks {
+            if let Some(s) = self.polities[pi].ways.iter_mut().find(|s| s.0 == law) {
+                s.1.labour_h = labour_h;
+            }
+            self.tell_passing_place_overgrown(ctx, pi, cell, hours);
+        }
+    }
+
+    /// Polity `pi` looks over the passing places its laws in force cleared now: for tests.
+    #[doc(hidden)]
+    pub fn way_keeping_reviews_for_tests(&mut self, ctx: &mut Ctx, pi: usize) {
+        self.way_keeping_reviews(ctx, pi);
     }
 
     /// The chronicle's word that conveyance `what`, along route `cells` of `length_m` metres, was

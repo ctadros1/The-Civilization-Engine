@@ -40,7 +40,8 @@ pub struct SoilParams {
     /// The share of a year's mineral nitrogen a crop can take up.
     pub uptake_share: f64,
     /// Whole years broken ground can lie unsown before its wild cover has grown over it and it
-    /// must be broken again (content API 28; 0 never).
+    /// must be broken again (content API 28; 0 never); and a way's cleared margin left unkept
+    /// before it grows over ([`crate::ways::Ways::regrow`]; backlog D, fourteenth item).
     pub regrown_years: u32,
     /// The share of the nitrogen in manure that enters the fast pool; the rest enters the slow
     /// one (content API 29).

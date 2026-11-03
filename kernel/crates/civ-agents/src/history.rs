@@ -947,9 +947,11 @@ pub enum ChronicleKind {
     /// the sentence.
     Sewer,
     /// A way a polity's gathering asked for was finished (M8b slice CQ, third part's "Not yet";
-    /// backlog D, sixth item): `people` is the elder of the household whose work finished it,
-    /// `settlement` the polity's seat, `place` the way's first cell, `number` the step
-    /// ([`WayStep`]), and `name` the sentence.
+    /// backlog D, sixth item), found grown over or cleared again (fourteenth item), or a
+    /// household's long way for its carts was cleared (fourteenth item): `people` is the elder of
+    /// the household whose work finished it (nobody for one found grown over), `settlement` the
+    /// polity's seat or the household's settlement, `place` the way's first cell, `number` the
+    /// step ([`WayStep`]), and `name` the sentence.
     Way,
     /// A conveyance was laid whole, so that it carries (backlog D, twelfth item; the fifth item's
     /// "Not yet"): a polity's sewer laid by law, a gasworks' main, or a line of current, a
@@ -1036,6 +1038,15 @@ pub enum WayStep {
     /// A passing place a polity's gathering asked for was cleared to its full width: two carts
     /// pass there.
     PassingPlaceCleared = 0,
+    /// A passing place a polity keeps under the law that cleared it was found grown over, and
+    /// clearing it again was asked of its households (backlog D, fourteenth item).
+    PassingPlaceOvergrown = 1,
+    /// A passing place a polity keeps was cleared again to its full width after growing over:
+    /// two carts pass there again (backlog D, fourteenth item).
+    PassingPlaceClearedAgain = 2,
+    /// A household finished clearing a long way it laid for its carts near its home (backlog D,
+    /// fourteenth item).
+    ApproachCleared = 3,
 }
 
 /// Which conveyance was laid whole, in a [`ChronicleKind::ConveyanceLaid`] entry. Numeric in saves:

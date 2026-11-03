@@ -1077,6 +1077,9 @@ impl Population {
                 // And whether its wells want relining or a lid and curb, under the law that dug
                 // them (backlog D; ADR-0021 §7).
                 self.public_well_reviews(ctx, pi);
+                // And whether a passing place has grown over, under the law that cleared it
+                // (backlog D, fourteenth item; ADR-0029 §6).
+                self.way_keeping_reviews(ctx, pi);
                 // Whether anyone bound by a law a limit forbids challenges it (M7b slice BT).
                 self.weigh_challenges(ctx, pi);
                 // Whether a member of an organization brings a breach of its privilege (M7c

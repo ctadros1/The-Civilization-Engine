@@ -3516,6 +3516,16 @@ impl Polity {
             .map_or(0.0, |i| self.way_saves[i].2)
     }
 
+    /// The hours all households have given to law `law`'s passing place (backlog D, fourteenth
+    /// item).
+    pub fn way_given_all(&self, law: PermanentId) -> f64 {
+        self.way_given
+            .iter()
+            .filter(|g| g.0 == law)
+            .map(|g| f64::from(g.2))
+            .sum()
+    }
+
     /// The hours household `household` has given to law `law`'s passing place.
     pub fn way_given_by(&self, law: PermanentId, household: PermanentId) -> f32 {
         self.way_given

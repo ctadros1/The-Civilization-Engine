@@ -157,3 +157,63 @@ fn a_kept_way_holds_its_ground_counts_its_walkers_and_is_ranked_at_the_survey() 
     assert!(b.segments[0].condition(sim.now().day_index(), &sim.rules().land.paths) < 0.25);
     saves_and_goes_on_alike(&mut sim, 2 * DAY);
 }
+
+#[test]
+fn a_passing_place_left_unkept_grows_over_at_the_turn_of_the_year_and_a_kept_one_does_not() {
+    // Backlog D, fourteenth item: a cleared margin left unkept the soil's `regrown_years` whole
+    // years has grown over at the turn of the year, its usable width back to a trail's tread.
+    let mut sim = village(1);
+    let years = sim.rules().land.soil.regrown_years;
+    assert!(years > 0, "the core's wild cover grows back");
+    let cells = line_from_hearth(&sim, 3);
+    assert!(cells.len() >= 3, "a run of dry land from the hearth");
+    let today = sim.now().day_index();
+    let year = civ_land::calendar_year(today);
+    // One last kept in the year `years` before this one, so that its `years` whole years unkept
+    // end as this year does; another this year.
+    let unkept = (i64::from(year) - i64::from(years) - 1) * 365 + 100;
+    let place = |sim: &mut Sim, cell: u32, kept: i64| {
+        let id = sim.allocate_id_for_tests();
+        sim.land_mut_for_tests().ways.add(Way {
+            id,
+            begun: kept,
+            segments: vec![Segment {
+                cells: vec![cell],
+                corridor_m: 2.0,
+                built_m: 2.0,
+                usable_m: 2.0,
+                surface: Surface::Cleared,
+                keeper: Keeper::Nobody,
+                kept,
+            }],
+            modes: WALK | civ_land::ways::CART,
+            trips: 0.0,
+            trips_day: today,
+            rank: Rank::Lane,
+            track: None,
+        });
+        id
+    };
+    let old = place(&mut sim, cells[1], unkept);
+    let kept = place(&mut sim, cells[2], today);
+    let usable = |sim: &Sim, id| {
+        let w = sim
+            .land()
+            .ways
+            .list
+            .iter()
+            .find(|w| w.id == id)
+            .expect("the passing place");
+        (w.segments[0].usable_m, w.segments[0].built_m)
+    };
+    // Until the year turns, both stand cleared.
+    let to_turn = 365 - today.rem_euclid(365);
+    sim.advance_minutes((to_turn - 1) * DAY).expect("advances");
+    assert_eq!(usable(&sim, old), (2.0, 2.0));
+    // Past the turn, the one left unkept has grown over to the tread; its built width stands.
+    sim.advance_minutes(2 * DAY).expect("advances");
+    assert_eq!(civ_land::calendar_year(sim.now().day_index()), year + 1);
+    assert_eq!(usable(&sim, old), (1.2, 2.0));
+    assert_eq!(usable(&sim, kept), (2.0, 2.0));
+    saves_and_goes_on_alike(&mut sim, 60);
+}

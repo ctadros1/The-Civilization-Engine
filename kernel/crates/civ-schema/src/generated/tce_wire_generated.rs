@@ -1664,8 +1664,8 @@ pub struct ResponseBodyUnionTableOffset {}
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct Vec2(pub [u8; 8]);
-impl Default for Vec2 { 
-  fn default() -> Self { 
+impl Default for Vec2 {
+  fn default() -> Self {
     Self([0; 8])
   }
 }
@@ -1791,8 +1791,8 @@ impl<'a> Vec2 {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct SkillLine(pub [u8; 8]);
-impl Default for SkillLine { 
-  fn default() -> Self { 
+impl Default for SkillLine {
+  fn default() -> Self {
     Self([0; 8])
   }
 }
@@ -1918,8 +1918,8 @@ impl<'a> SkillLine {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct IncidentKey(pub [u8; 16]);
-impl Default for IncidentKey { 
-  fn default() -> Self { 
+impl Default for IncidentKey {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -2077,8 +2077,8 @@ impl<'a> IncidentKey {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct Term(pub [u8; 8]);
-impl Default for Term { 
-  fn default() -> Self { 
+impl Default for Term {
+  fn default() -> Self {
     Self([0; 8])
   }
 }
@@ -2204,8 +2204,8 @@ impl<'a> Term {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct Exclusion(pub [u8; 4]);
-impl Default for Exclusion { 
-  fn default() -> Self { 
+impl Default for Exclusion {
+  fn default() -> Self {
     Self([0; 4])
   }
 }
@@ -2331,8 +2331,8 @@ impl<'a> Exclusion {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct StoreLine(pub [u8; 8]);
-impl Default for StoreLine { 
-  fn default() -> Self { 
+impl Default for StoreLine {
+  fn default() -> Self {
     Self([0; 8])
   }
 }
@@ -2458,8 +2458,8 @@ impl<'a> StoreLine {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct MonthOfTrade(pub [u8; 20]);
-impl Default for MonthOfTrade { 
-  fn default() -> Self { 
+impl Default for MonthOfTrade {
+  fn default() -> Self {
     Self([0; 20])
   }
 }
@@ -2681,8 +2681,8 @@ impl<'a> MonthOfTrade {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct MachineLine(pub [u8; 8]);
-impl Default for MachineLine { 
-  fn default() -> Self { 
+impl Default for MachineLine {
+  fn default() -> Self {
     Self([0; 8])
   }
 }
@@ -2840,8 +2840,8 @@ impl<'a> MachineLine {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct BookLine(pub [u8; 8]);
-impl Default for BookLine { 
-  fn default() -> Self { 
+impl Default for BookLine {
+  fn default() -> Self {
     Self([0; 8])
   }
 }
@@ -2999,8 +2999,8 @@ impl<'a> BookLine {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct SpringInfo(pub [u8; 16]);
-impl Default for SpringInfo { 
-  fn default() -> Self { 
+impl Default for SpringInfo {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -3190,8 +3190,8 @@ impl<'a> SpringInfo {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct BankDraw(pub [u8; 12]);
-impl Default for BankDraw { 
-  fn default() -> Self { 
+impl Default for BankDraw {
+  fn default() -> Self {
     Self([0; 12])
   }
 }
@@ -3349,8 +3349,8 @@ impl<'a> BankDraw {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct FloodCell(pub [u8; 8]);
-impl Default for FloodCell { 
-  fn default() -> Self { 
+impl Default for FloodCell {
+  fn default() -> Self {
     Self([0; 8])
   }
 }
@@ -3476,8 +3476,8 @@ impl<'a> FloodCell {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct GroundTileRev(pub [u8; 8]);
-impl Default for GroundTileRev { 
-  fn default() -> Self { 
+impl Default for GroundTileRev {
+  fn default() -> Self {
     Self([0; 8])
   }
 }
@@ -3603,8 +3603,8 @@ impl<'a> GroundTileRev {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct PlanRect(pub [u8; 16]);
-impl Default for PlanRect { 
-  fn default() -> Self { 
+impl Default for PlanRect {
+  fn default() -> Self {
     Self([0; 16])
   }
 }

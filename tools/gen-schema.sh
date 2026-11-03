@@ -4,7 +4,7 @@
 #   tools/gen-schema.sh            regenerate
 #   tools/gen-schema.sh --check    regenerate into a temp dir and fail if the committed code differs
 #
-# Needs flatc 25.12.19 (the version must match the Rust `flatbuffers` runtime). Set FLATC to its
+# Needs Python 3 and flatc 25.12.19 (matching the Rust `flatbuffers` runtime). Set FLATC to its
 # path if it is not on PATH. Generated files are committed so ordinary builds never need flatc.
 set -euo pipefail
 
@@ -31,6 +31,17 @@ generate() {
   # C++ readers and builders of the boundary schema, for C++ hosts such as the Unreal plugin
   # (ADR-0005). They need the FlatBuffers runtime in commons/cpp/third_party/flatbuffers.
   "$flatc" --cpp --cpp-std c++17 --scoped-enums -o "$cpp_dir" "$schema_dir/tce_wire.fbs"
+  # Committed generated code has no trailing whitespace. Apply that convention when generating,
+  # too, so flatc's whitespace does not make otherwise identical output fail the exact check.
+  python3 - "$rust_dir" "$ts_dir" "$cpp_dir" <<'PY'
+from pathlib import Path
+import sys
+for root in sys.argv[1:]:
+    for path in Path(root).rglob('*'):
+        if path.is_file():
+            raw = path.read_bytes()
+            path.write_bytes(b'\n'.join(line.rstrip(b' \t') for line in raw.split(b'\n')))
+PY
 }
 
 if [[ "${1:-}" == "--check" ]]; then

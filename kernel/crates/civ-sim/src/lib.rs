@@ -15,6 +15,7 @@
 mod focus;
 pub mod frames;
 pub mod labels;
+pub mod observation;
 pub mod persist;
 pub mod relations;
 pub mod skip;

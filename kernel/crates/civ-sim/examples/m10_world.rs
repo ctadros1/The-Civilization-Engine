@@ -308,9 +308,12 @@ fn make(saves: &Path, groups: u32, people: u32, years: i64, size: u32) -> Result
     let dir = SaveDir::create(world_dir, civ_schema::SAVE_EXTENSION).map_err(|e| e.to_string())?;
     let days = years * DAYS_PER_YEAR;
     let mut walls: Vec<f64> = Vec::with_capacity(days as usize);
+    let mut observation = civ_sim::observation::Observation::from_env(&sim);
+    observation.poll(&sim);
     for day in 1..=days {
         let t = Instant::now();
         sim.advance_minutes(DAY).map_err(|e| e.to_string())?;
+        observation.poll(&sim);
         walls.push(t.elapsed().as_secs_f64());
         if sim.people().living() == 0 {
             say(format!("day {}: the land is empty", sim.now().day_index()));

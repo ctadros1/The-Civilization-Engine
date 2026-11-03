@@ -9,7 +9,7 @@ on:
       suite:
         description: Checks to run
         type: choice
-        options: [full, health, long, demo, bench, routing-check]
+        options: [full, health, long, demo, bench, routing-check, world-view]
         default: full
       years:
         description: The demo suite's years lived (the first full run reached eleven in its six hours)
@@ -122,6 +122,8 @@ jobs:
         if: runner.environment == 'self-hosted'
         run: tools/ci/prepare-workspace.sh
       - name: Build and run the long gates
+        env:
+          TCE_OBSERVATION_DIR: ${{ runner.temp }}/tce-observations
         shell: bash
         working-directory: kernel
         run: |
@@ -162,6 +164,7 @@ jobs:
         shell: bash
         working-directory: kernel
         env:
+          TCE_OBSERVATION_DIR: ${{ runner.temp }}/tce-observations
           YEARS: ${{ inputs.years }}
           DEMO: ${{ inputs.demo }}
         run: |
@@ -226,3 +229,23 @@ jobs:
           fi
           printf 'Runner: %s\nHost: %s\nDeclared budget: %s minutes\n' "$RUNNER_NAME" "$(hostname)" "$DECLARED_BUDGET" | tee -a "$GITHUB_STEP_SUMMARY"
           sleep "$HOLD_SECONDS"
+
+  world-view:
+    if: github.actor == 'ctadros1' && inputs.suite == 'world-view'
+    runs-on: [self-hosted, Linux, X64, tce-ci, '${{ inputs.runner != ''tce-ci'' && inputs.runner || ''tce-auto'' }}']
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.sha }}
+      - name: Attach local Rust build directories
+        run: tools/ci/prepare-workspace.sh
+      - name: Build a live observation world
+        working-directory: kernel
+        run: cargo build --release --locked -p civ-sim --example observe_world
+      - name: Watch a real world for three minutes
+        working-directory: kernel
+        env:
+          TCE_OBSERVATION_DIR: ${{ runner.temp }}/tce-observations
+        run: target/release/examples/observe_world 180

@@ -59,7 +59,7 @@ export function unionToCommandBody(
   accessor: (obj:Bless|CancelTask|Drought|ForceClimate|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SetResolution|Shake|SpawnFamily|TellOfIdeology|Whisper) => Bless|CancelTask|Drought|ForceClimate|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SetResolution|Shake|SpawnFamily|TellOfIdeology|Whisper|null
 ): Bless|CancelTask|Drought|ForceClimate|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SetResolution|Shake|SpawnFamily|TellOfIdeology|Whisper|null {
   switch(CommandBody[type]) {
-    case 'NONE': return null; 
+    case 'NONE': return null;
     case 'NewWorld': return accessor(new NewWorld())! as NewWorld;
     case 'SaveWorld': return accessor(new SaveWorld())! as SaveWorld;
     case 'LoadWorld': return accessor(new LoadWorld())! as LoadWorld;
@@ -88,12 +88,12 @@ export function unionToCommandBody(
 }
 
 export function unionListToCommandBody(
-  type: CommandBody, 
-  accessor: (index: number, obj:Bless|CancelTask|Drought|ForceClimate|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SetResolution|Shake|SpawnFamily|TellOfIdeology|Whisper) => Bless|CancelTask|Drought|ForceClimate|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SetResolution|Shake|SpawnFamily|TellOfIdeology|Whisper|null, 
+  type: CommandBody,
+  accessor: (index: number, obj:Bless|CancelTask|Drought|ForceClimate|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SetResolution|Shake|SpawnFamily|TellOfIdeology|Whisper) => Bless|CancelTask|Drought|ForceClimate|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SetResolution|Shake|SpawnFamily|TellOfIdeology|Whisper|null,
   index: number
 ): Bless|CancelTask|Drought|ForceClimate|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RaiseRiver|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendStorm|SendWave|SetClock|SetFire|SetResolution|Shake|SpawnFamily|TellOfIdeology|Whisper|null {
   switch(CommandBody[type]) {
-    case 'NONE': return null; 
+    case 'NONE': return null;
     case 'NewWorld': return accessor(index, new NewWorld())! as NewWorld;
     case 'SaveWorld': return accessor(index, new SaveWorld())! as SaveWorld;
     case 'LoadWorld': return accessor(index, new LoadWorld())! as LoadWorld;

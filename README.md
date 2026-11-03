@@ -33,6 +33,11 @@ The current observer presents an early farming world. M10 adds industrial system
 | <img src="assets/icons/status-in-progress.svg" width="18" alt=""> **In progress** | M10d | Money and counterfeiting are implemented; the M10 observer demo remains in progress. |
 | <img src="assets/icons/status-planned.svg" width="18" alt=""> **Planned** | Future scope | Modern-era systems and the Unreal client. |
 
+Non-benchmark homelab simulations can now publish their actual world to the private runner
+observatory: sampled terrain/water, settlements, buildings and people, with separate streams
+for parallel worlds. This read-only export is opt-in and leaves the engine's save and command
+protocols unchanged. See [live world observations](docs/operations/live-world-observations.md).
+
 See the [project plan](PROJECT_PLAN.md) and [development journal](docs/development-journal/README.md) for milestone details and implementation evidence.
 
 ## Latest live demo: M9, many settlements

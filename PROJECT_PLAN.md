@@ -7770,6 +7770,8 @@ and M6a gives rivers a daily flow.
 
 ## 9. Decisions log
 
+- **2026-11-03 — Generated-code formatting:** the existing exact freshness check found mixed trailing spaces in committed FlatBuffers output. Normalize them in the generator and regenerate with flatc 25.12.19. The exact check passes; ignoring whitespace yields no generated-code differences. No schema, version, field id or runtime meaning changed.
+
 - **2026-11-03 — Read-only homelab world observations (owner request):** opt-in five-second JSON snapshots from actual kernel state, atomically published per world instance, with bounded terrain/entity samples and explicit totals. Only non-benchmark host/demo steps opt in; benchmarks retain their existing advance path and no export. Parallel smoke/dashboard/gate worlds have separate streams. Existing processes are not modified or restarted. No save or boundary-schema change; the observation is neither a save nor a command API. See `docs/operations/live-world-observations.md` for operation and validation.
 
 

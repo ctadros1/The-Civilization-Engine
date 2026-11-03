@@ -4180,8 +4180,8 @@ impl<'a> FireTrustEntry {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct EnrolmentSave(pub [u8; 48]);
-impl Default for EnrolmentSave { 
-  fn default() -> Self { 
+impl Default for EnrolmentSave {
+  fn default() -> Self {
     Self([0; 48])
   }
 }
@@ -4467,8 +4467,8 @@ impl<'a> EnrolmentSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct UntaughtSave(pub [u8; 24]);
-impl Default for UntaughtSave { 
-  fn default() -> Self { 
+impl Default for UntaughtSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -4626,8 +4626,8 @@ impl<'a> UntaughtSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct RecordSave(pub [u8; 40]);
-impl Default for RecordSave { 
-  fn default() -> Self { 
+impl Default for RecordSave {
+  fn default() -> Self {
     Self([0; 40])
   }
 }
@@ -4849,8 +4849,8 @@ impl<'a> RecordSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct SessionSave(pub [u8; 16]);
-impl Default for SessionSave { 
-  fn default() -> Self { 
+impl Default for SessionSave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -22470,8 +22470,8 @@ impl<'a> AttendedSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct CompanySave(pub [u8; 24]);
-impl Default for CompanySave { 
-  fn default() -> Self { 
+impl Default for CompanySave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -22629,8 +22629,8 @@ impl<'a> CompanySave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct RegisterSave(pub [u8; 32]);
-impl Default for RegisterSave { 
-  fn default() -> Self { 
+impl Default for RegisterSave {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -22820,8 +22820,8 @@ impl<'a> RegisterSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct AdmittedSave(pub [u8; 24]);
-impl Default for AdmittedSave { 
-  fn default() -> Self { 
+impl Default for AdmittedSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -22979,8 +22979,8 @@ impl<'a> AdmittedSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct StaffedSave(pub [u8; 16]);
-impl Default for StaffedSave { 
-  fn default() -> Self { 
+impl Default for StaffedSave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }

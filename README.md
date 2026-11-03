@@ -65,7 +65,7 @@ These generated previews show the project's longer-term historical and modern sc
 - **Emergent simulation:** event-scheduled people and household economies, authored building grammars, institutions, weather, water, disease, conflict and transport.
 - **Many-settlement scale:** each person remains individually represented; settlements away from the observer's focus can resolve household work once per day.
 - **Industrial systems:** river-powered installations drive recipes; households can build mills, mines and works, lay rail, operate trains, and produce and distribute gas light.
-- **Persistence:** checksummed versioned snapshots with explicit migrations. Current boundaries: wire 1.106, save schema 219 and content API 200.
+- **Persistence:** checksummed versioned snapshots with explicit migrations. Current boundaries: wire 1.107, save schema 219 and content API 200.
 
 ## Run it
 

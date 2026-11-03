@@ -39,7 +39,7 @@ import sys
 for root in sys.argv[1:]:
     for path in Path(root).rglob('*'):
         if path.is_file():
-            raw = path.read_bytes()
+            raw = path.read_bytes().replace(b'\r\n', b'\n')
             path.write_bytes(b'\n'.join(line.rstrip(b' \t') for line in raw.split(b'\n')))
 PY
 }

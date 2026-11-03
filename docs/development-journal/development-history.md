@@ -3287,3 +3287,51 @@ idles on a dry reach and produces less when river flow falls. A selected seed-3 
 technique known and 600 kg annual grinding saw all six households build mills, with 0.5–1.0 m falls
 and 8–24 m headraces. Shared grinding, fuel and iron remain ahead. See [Industry and Water Power](industry-and-power.md)
 and the M10a slice records in [the project plan](../../PROJECT_PLAN.md#7-milestones).
+
+
+## 2026-10-22 to 2026-10-24 — M10a closed; M10b closed; M10c underway
+
+**M10a, power and the works:** after the first water-mill slice, the merged implementation added fuel by heat, unattended batches, bog-iron bloomery and forging, workshops with their own stations and multiple production lines, coal seams and flooded pits, bailing and atmospheric engines, crews and shifts, powered machines, coke and blast-furnace work. Slice DT closed the milestone. The detailed vocabulary, save versions and evidence remain in the [M10a plan entry](../../PROJECT_PLAN.md#7-milestones) and [industry guide](industry-and-power.md).
+
+**M10b, rail and gas light:** lamps and after-dark visibility were followed by timber wagonways, staged track, wagons, coal locomotives, block-based train runs, stations, timetables, freight, passenger fares and polity-built lines. Gasworks, holders and mains supply connected buildings; a polity can also arrange street lighting. Slice DY closed M10b. Some choices carry explicit design nudges recorded in the plan; those are authored priors, not evidence of unaided emergence. See [mobility and light](mobility-and-light.md).
+
+**M10c, services and letters:** slice DZ added care by close kin or known people outside the household, food fees, care reputation and observer records. The first EA part now separates maternal deaths into bleeding, fever and obstructed labor and introduces birth-attending and clean-hands techniques, including increased fever risk for an attendant coming from care of the ill without clean hands. A second EA step added calls for an attendant before a due birth, fee settlement at the birth, saved attendance outcomes and observer wording for births attended. EA is now complete. Teaching, literacy, inoculation and the health office remain ahead. See [services and care](services-and-care.md).
+
+The M10 work advances boundary versions to wire 1.104, save schema 192 and content API 179. M9 remains the latest committed observer video. No M10 milestone video was added in this merge; the plan places the complete demonstration in M10d. These status descriptions are based on merged source and plan, not a claim that a newly captured live demo exists.
+
+## 2026-10-27 — M10c closed; M10d money through slice EI
+
+**Built:** slices EB–EE completed M10c with teaching, literacy and household records, inoculation,
+disease reporting, sickhouse and related public-health duties. M10d then added a household-specific
+money valuation table and acceptance belief (EF); safekeeping of goods with ownership retained and
+receipts from literate keepers (EG); notes redeemable for deposited goods, with refusal and
+acceptance affecting local value (EH); and bounded note lending, presentation runs, temporary
+suspension and debt hearings under *bearer heard* (EI). The [money and notes guide](money-and-notes.md)
+explains the data and decision flow. Exact implementation details, saved fields and slice evidence
+are in [the M10 entries in the plan](../../PROJECT_PLAN.md#7-milestones).
+
+**Current state:** M10c is implemented and M10d is underway. Wire is 1.106, save schema 214 and
+content API 195. Polity-issued notes, counterfeiting and the complete M10 demonstration remain
+planned. M9 is still the newest committed observer video; this merge added no M10 recording. This
+journal summarizes the merged implementation; no new test run is claimed here.
+
+## 2026-11-03 — M10d through counterfeiting; finalized development merged
+
+**Built:** slice EJ adds common-store notes issued under a polity's law, dues paid in those notes,
+legal tender for loans, suspended redemption and the derived fiat label. Slice EK adds false notes,
+their recognition at payment and redemption, recorded finds, and a law that can bring a passer
+before the gathering. The complete observer demo remains unfinished; the M9 video is still the
+newest committed observer recording. See the [plan's M10d record](../../PROJECT_PLAN.md#7-milestones)
+and [money and notes guide](money-and-notes.md).
+
+**Merge evidence:** the finalized `claude/claude-development` head had successful GitHub checks for
+the Windows kernel, kernel library, generated schema, web observer and full homelab chain before it
+was merged. The experimental `claude/claude-verification` branch remains separate from `main`.
+Boundary versions are wire 1.106, save schema 219 and content API 200.
+
+**M10 example (slice EL):** the merged `m10_world` example creates multiple settlements and uses a
+logged observer intervention to introduce the M10 vocabulary to one resident in alternating
+settlements. The others receive no direct introduction. It records what people adopt during the
+lived run. The homelab workflow can run the example and retain its text record as an artifact. This
+is simulation evidence, not a new observer recording; M9 remains the newest committed video. See the
+[M10 guide](money-and-notes.md#multi-settlement-m10-example) and [demo gallery](../../demos/README.md).

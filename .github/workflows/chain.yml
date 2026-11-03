@@ -22,9 +22,9 @@ on:
         required: true
         default: claude/claude-verification
       runner:
-        description: JSON list of runner labels
+        description: JSON labels; shared pool uses automatic preference, node pins are explicit
         required: true
-        default: '["self-hosted", "linux"]'
+        default: '["self-hosted", "Linux", "X64", "tce-ci", "tce-auto"]'
       browser_deps:
         description: Install Chromium's system libraries too (needs passwordless sudo)
         type: boolean
@@ -45,7 +45,8 @@ env:
 jobs:
   chain:
     name: Chain (${{ inputs.ref }})
-    runs-on: ${{ fromJSON(inputs.runner) }}
+    if: github.actor == 'ctadros1'
+    runs-on: ${{ (contains(inputs.runner, 'node1') || contains(inputs.runner, 'node3') || contains(inputs.runner, 'node4')) && fromJSON(inputs.runner) || fromJSON('["self-hosted","Linux","X64","tce-ci","tce-auto"]') }}
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

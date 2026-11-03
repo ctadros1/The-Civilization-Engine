@@ -1,75 +1,25 @@
-# Industry and Water Power
+# Industry and Power
 
-This guide describes the implemented part of M10a in the 2026-10-22 `main` tree. M10a is still in
-progress. Fuel by heat, ironmaking, shared milling and later industrial works are not complete.
-The [project plan](../../PROJECT_PLAN.md#7-milestones) and [ADR-0033](../../decisions/0033-power-fuel-and-the-works.md)
-define the broader design; this page describes what is present in code.
+This guide describes implemented M10a systems in the integrated `main` tree as of 2026-10-24. M10a, power and the works, is closed. M10b adds rail and gas light; M10c services and letters is underway. The [project plan](../../PROJECT_PLAN.md#7-milestones) and [ADR-0033](../../decisions/0033-power-fuel-and-the-works.md) govern scope and evidence. The design follows the research distinction between fuel heat, mechanical power and energy services ([research 07-06](../../research/07-technology/06-energy-power.md)); code parameters remain authored model choices, not historical measurements.
 
-## Where power lives
+## Water power and powered work
 
-`civ-land::power::Installation` is the saved physical installation. It records a permanent ID,
-river reach, wheel position, usable fall, headrace capacity, efficiency, rated output, owner and
-optional driven building. The record belongs to land because it describes fixed infrastructure.
-The current schema stores it in the earth section (save schema 173 introduced the section; schema
-174 adds the household's mill-observation record).
+`civ-land::power::Installation` stores fixed river infrastructure: reach, wheel position, usable fall, headrace capacity, efficiency, rated output, owner and optional driven building. Daily output is derived from river discharge, the available share of flow, fall and efficiency, capped by race and wheel ratings. It is not separately stored as daily state. Water returns to the river below the wheel.
 
-The installation does not store a daily output. `Land::installation_kw` derives it from the
-current day's river discharge. If `Q` is the lesser of headrace capacity and the intake's allowed
-share of river flow, `H` the usable fall, and `η` the wheel efficiency, output is:
+Recipes can require energy. Production is bounded by labor, materials and energy available to the worker's holder. The authored wheel and recipe parameters determine potential output; the kernel applies them to current flow and ownership. This is the physical and economic path from a river to powered production.
 
-```text
-power (kW) = min(9.81 × Q (m³/s) × H (m) × η, rated kW)
-```
+Households that know the water-wheel technique can weigh a site and investment against expected future work savings. A viable choice requires a headrace and useful fall without conflicting with nearby land uses. Once it chooses, the household digs the race, builds the wheel and can use it when construction completes. A household may also carry grain to a neighboring working mill and pay a toll; its choice compares this service with the cost of its own installation.
 
-The share follows the same conservative limit used for water diversions. Water returns to the
-river at the wheel's tail, so an installation does not subtract its flow from downstream reaches.
-A dry reach produces no power; a low river reduces it; high flow cannot exceed the race or wheel
-rating. Invalid records (non-finite values, no fall, no race capacity, or invalid efficiency) are
-rejected.
+## Fuel, iron and works
 
-## How making uses power
+Fuel is accounted for by heat delivered, so different fuels can serve a recipe according to their authored properties. Some recipes run in batches without a person continuously attending them. Iron production begins with bog ore, a bloomery and forging under the relevant skills and techniques; people do not start with those capabilities.
 
-Recipes can set `kwh_per_unit`. During a making session, the amount produced is bounded by labor,
-available materials and the energy delivered by installations owned by the worker's holder. The
-kernel uses the same limit for household making and workshops. Powered recipes cannot be priced as
-though the power were free: a household without an installation does not count powered output as
-one of its available ways of producing that good.
+Workshops can have multiple production lines and stations that belong to the works, with goods in progress. A machine can require a crew to be present together. A works with a machine can call its crew at sunrise and hire for a shared shift; household-resolved work handles the crew in aggregate. Coal seams, pits, flooding and bailing provide a route into coal extraction. An atmospheric engine can pump a pit using coal heat, and water wheels can power machinery. Coke and a wheel-driven blast furnace extend the chain to pig iron and bar.
 
-The water-wheel content defines a fixed tool rated at 3 kW and 30% efficiency. The powered grain
-recipe uses 0.06 kWh per kilogram and 0.02 labor hours per kilogram, so a fully supplied wheel can
-grind up to 50 kg per hour before other constraints. The recipe and tool are authored content;
-the kernel applies their energy requirements and the installation's current output.
-
-## How a household chooses a mill
-
-Each year, a household that knows the water-wheel technique compares its recent output with the
-other ways it can make the same goods. It estimates the value of powered output after the wheel's
-labor and material costs. It looks for a viable site downstream from an intake: a ditch carries
-water to a wheel beside a lower river cell, leaves at least 0.5 m of useful fall, avoids fields,
-plots and wells, and remains separated from another wheel. Its estimate uses the reach's mean
-flow and eight grinding hours per day.
-
-The household chooses a site only when its expected gain over twenty years exceeds digging the
-headrace and making the wheel. It then digs the headrace as a ditch whose destination is the wheel,
-not an irrigated field. The installation is recorded with that work and does not turn until the
-headrace is complete. The household builds one wheel for each installation and does not build a
-second mill while the first is underway. The current design has no shared mill service: households
-that know the technique can each choose their own mill, and the next planned M10a part adds a toll
-for grinding at another household's mill.
+These features make industrial production possible through resources, techniques, recipes and household decisions. They do not cause every world to industrialize, and the project does not claim calibrated industrial history.
 
 ## Evidence and limits
 
-- Unit checks cover the research example of 0.5 m³/s through 2 m at 50% efficiency (4.905 kW),
-  low and dry rivers, race and rating caps, and invalid records.
-- Powered-recipe checks compare full, reduced and absent water power and track wear on the wheel.
-- Save/load checks preserve installations and mill-observation state. Power is recomputed from
-  the loaded world and current river state.
-- A measured seed-3 village in which every household knew the technique and ground 600 kg per
-  year had all six households choose mills, with 0.5–1.0 m falls and 8–24 m headraces. This is a
-  selected lived run, not a claim that six mills are typical.
-- Three benchmark worlds retained the previous run's section digests except for metadata and the
-  intended content change. This shows that worlds without the new technique retain their former
-  behavior in those fixtures; it does not establish universal equivalence.
+The project plan records each slice's save version, content API, observer boundary and selected evidence. Unit and integration checks establish local rules and persistence behavior; selected lived worlds show that particular pathways can occur. They do not establish typical outcomes across seeds or historical validity. The M9 observer video remains the newest committed milestone video; M10's full demo is planned for M10d.
 
-The observer does not set a household's site or output. It displays the kernel's saved installation
-and derived power. The feature remains a first water-power step, not a complete industrial economy.
+The observer displays kernel-authored installations, output and workshop state. It forwards commands and does not choose a site, fuel, machine or production outcome. See [persistence and interfaces](persistence-and-interfaces.md), [development and evidence practice](development-and-evidence.md), and the [M10 milestone entry](../../PROJECT_PLAN.md#7-milestones).

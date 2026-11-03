@@ -4,7 +4,7 @@ This is the guide to the project's demonstrations across milestones. The watchab
 opening titles and on-screen explanations; their source captures are kept for production history.
 A screenshot or demo run shows one build and one world, not an outcome every world will produce.
 
-## Newest completed milestone: M9, many settlements
+## Newest available recorded observer demo: M9, many settlements
 
 M9 keeps each person as an individual record while settlements away from the observer's focus are
 lived by household. The full lived report is a ten-year run: ten founding groups became eleven
@@ -91,7 +91,10 @@ and run log together.
 | M7d · Credit before coin | Four-year run, three villages; loans emerge, no copper or coin in the featured seed | [Run report](m7d/m7d-demo.txt) · [demo runner](../web/e2e/m7d-demo.spec.ts); observer recording not captured yet |
 | M8 · Growing city and structural response | Completed: transport, planning, structural behavior and public buildings; engineering/run evidence, no standalone observer video | [Current status and evidence](../PROJECT_PLAN.md#7-milestones) |
 | M9 · Aggregate LOD and scale | Ten-settlement lived run and titled observer video; the 100,000-person speed target was missed and amended | [M9 video, report and runner](m9/) · [run details](../PROJECT_PLAN.md#9-decisions-log) |
-| M10a · Power and the works | In progress: water-power installations, powered recipes and household-built mills; no milestone video | [Technical guide](../docs/development-journal/industry-and-power.md) · [current plan](../PROJECT_PLAN.md#7-milestones) |
+| M10a · Power and the works | Implemented: powered recipes, mills, fuel, iron, coal extraction, engines and works; no standalone milestone video | [Technical guide](../docs/development-journal/industry-and-power.md) · [current plan](../PROJECT_PLAN.md#7-milestones) |
+| M10b · Rail and gas light | Implemented: lamps, wagonways, trains, stations, freight, gas mains and street lighting; no standalone milestone video | [Technical guide](../docs/development-journal/mobility-and-light.md) · [current plan](../PROJECT_PLAN.md#7-milestones) |
+| M10c · Services and letters | Implemented: care, birth care, teaching, literacy and records, inoculation, public health reporting and a shared sickhouse; no milestone video | [Technical guide](../docs/development-journal/services-and-care.md) · [current plan](../PROJECT_PLAN.md#7-milestones) |
+| M10d · Money and full M10 demo | In progress: money systems implemented; a multi-settlement example and run-record workflow exist, but no observer video is captured | [M10 example](../kernel/crates/civ-sim/examples/m10_world.rs) · [technical guide](../docs/development-journal/money-and-notes.md) · [current plan](../PROJECT_PLAN.md#7-milestones) |
 | M12 · Model deliberator and viewers | Partly implemented: a stand-in policy (not a model) chooses at the polity review and a recorded replay relives its choices; a driver and a spectator page on one host. Close-up fidelity awaits the Unreal client | [Run report and screenshots](#m12-2026-10-30) · [runner](../kernel/crates/civ-sim/examples/m12_world.rs) · [capture spec](../web/e2e/m12-demo.spec.ts) |
 
 Some milestone demo scripts intentionally explore emergent outcomes and can take a long time. They
@@ -103,7 +106,7 @@ happened instead of forcing a scripted result. For milestone scope and known lim
 ## Refreshing the latest demo
 
 When the current README status or feature showcase is updated, update this gallery and the README's
-featured images together. Use the newest completed demo that has a real observer run. Save fresh
+featured images together. Use the newest available demo that has a real observer run, even if later milestones are implemented without a capture. A simulation example's text report does not count as an observer video. Save fresh
 captures under `demos/<milestone>/`, keep prior milestone media and links in this gallery, and label
 concept art separately from screenshots. Do not describe an unfinished milestone's design as a
 demo.

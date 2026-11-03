@@ -83,7 +83,7 @@ export function unionToResponseBody(
   accessor: (obj:Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Land|Markets|Order|OutbreakInfo|Paths|PersonInfo|Plans|QuakeInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Vehicles|Water|Ways|Wealth|WeatherReport) => Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Land|Markets|Order|OutbreakInfo|Paths|PersonInfo|Plans|QuakeInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Vehicles|Water|Ways|Wealth|WeatherReport|null
 ): Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Land|Markets|Order|OutbreakInfo|Paths|PersonInfo|Plans|QuakeInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Vehicles|Water|Ways|Wealth|WeatherReport|null {
   switch(ResponseBody[type]) {
-    case 'NONE': return null; 
+    case 'NONE': return null;
     case 'Ack': return accessor(new Ack())! as Ack;
     case 'RasterTile': return accessor(new RasterTile())! as RasterTile;
     case 'Hydrography': return accessor(new Hydrography())! as Hydrography;
@@ -124,12 +124,12 @@ export function unionToResponseBody(
 }
 
 export function unionListToResponseBody(
-  type: ResponseBody, 
-  accessor: (index: number, obj:Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Land|Markets|Order|OutbreakInfo|Paths|PersonInfo|Plans|QuakeInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Vehicles|Water|Ways|Wealth|WeatherReport) => Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Land|Markets|Order|OutbreakInfo|Paths|PersonInfo|Plans|QuakeInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Vehicles|Water|Ways|Wealth|WeatherReport|null, 
+  type: ResponseBody,
+  accessor: (index: number, obj:Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Land|Markets|Order|OutbreakInfo|Paths|PersonInfo|Plans|QuakeInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Vehicles|Water|Ways|Wealth|WeatherReport) => Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Land|Markets|Order|OutbreakInfo|Paths|PersonInfo|Plans|QuakeInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Vehicles|Water|Ways|Wealth|WeatherReport|null,
   index: number
 ): Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Land|Markets|Order|OutbreakInfo|Paths|PersonInfo|Plans|QuakeInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Vehicles|Water|Ways|Wealth|WeatherReport|null {
   switch(ResponseBody[type]) {
-    case 'NONE': return null; 
+    case 'NONE': return null;
     case 'Ack': return accessor(index, new Ack())! as Ack;
     case 'RasterTile': return accessor(index, new RasterTile())! as RasterTile;
     case 'Hydrography': return accessor(index, new Hydrography())! as Hydrography;

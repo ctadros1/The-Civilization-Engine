@@ -9,7 +9,7 @@ on:
       suite:
         description: Checks to run
         type: choice
-        options: [full, health, long, demo, bench]
+        options: [full, health, long, demo, bench, routing-check, world-view]
         default: full
       years:
         description: The demo suite's years lived (the first full run reached eleven in its six hours)
@@ -24,15 +24,29 @@ on:
         description: The bench suite's base revision, timed against this one (default M9's close)
         type: string
         default: 31439f4e
+      ref:
+        description: Commit or branch to check out (empty uses this workflow revision)
+        type: string
+        default: ''
+      max_minutes:
+        description: Long/demo budget; over six hours excludes node4
+        type: choice
+        options: ['240', '360', '720', '1440']
+        default: '360'
+      hold_seconds:
+        description: Routing-check occupancy probe only
+        type: choice
+        options: ['0', '30']
+        default: '0'
       runner:
-        description: Pool or a specific machine (an offline specific machine queues)
+        description: Auto preference node4 → node3 → node1; explicit pins bypass fallback
         type: choice
         options: [tce-ci, node1, node3, node4]
         default: tce-ci
 permissions:
   contents: read
 concurrency:
-  group: homelab-${{ github.ref }}-${{ github.event_name }}-${{ inputs.suite || 'full' }}-${{ inputs.runner || 'tce-ci' }}
+  group: homelab-${{ inputs.suite == 'routing-check' && github.run_id || github.ref }}-${{ github.event_name }}-${{ inputs.suite || 'full' }}-${{ inputs.runner || 'tce-ci' }}
   cancel-in-progress: true
 env:
   CARGO_TERM_COLOR: always
@@ -50,6 +64,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Attach local Rust build directories
         if: runner.environment == 'self-hosted'
@@ -71,12 +86,13 @@ jobs:
           printf '### %s\n\nHost: %s\nCommit: %s\n' "$RUNNER_NAME" "$(hostname)" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
   full:
     if: github.actor == 'ctadros1' && (github.event_name == 'push' || inputs.suite == 'full')
-    runs-on: [self-hosted, Linux, X64, tce-ci, '${{ inputs.runner || ''tce-ci'' }}']
+    runs-on: [self-hosted, Linux, X64, tce-ci, '${{ inputs.runner != ''tce-ci'' && inputs.runner || ''tce-auto'' }}']
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Attach local Rust build directories
         if: runner.environment == 'self-hosted'
@@ -93,18 +109,21 @@ jobs:
           retention-days: 7
   long:
     if: github.actor == 'ctadros1' && inputs.suite == 'long'
-    # tce-long (node3) unless a runner is chosen: node4 runs long jobs too when pinned.
-    runs-on: [self-hosted, Linux, X64, tce-ci, '${{ inputs.runner != ''tce-ci'' && inputs.runner || ''tce-long'' }}']
-    timeout-minutes: 240
+    # The shared policy label moves to idle capacity; node4 is excluded above six hours.
+    runs-on: [self-hosted, Linux, X64, tce-ci, '${{ fromJSON(inputs.max_minutes || ''360'') > 360 && (inputs.runner == ''node3'' || inputs.runner == ''node1'') && inputs.runner || fromJSON(inputs.max_minutes || ''360'') > 360 && ''tce-auto-long'' || inputs.runner != ''tce-ci'' && inputs.runner || ''tce-auto'' }}']
+    timeout-minutes: ${{ fromJSON(inputs.max_minutes || '360') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Attach local Rust build directories
         if: runner.environment == 'self-hosted'
         run: tools/ci/prepare-workspace.sh
       - name: Build and run the long gates
+        env:
+          TCE_OBSERVATION_DIR: ${{ runner.temp }}/tce-observations
         shell: bash
         working-directory: kernel
         run: |
@@ -129,13 +148,14 @@ jobs:
   # kept as an artifact even when the run is cut short.
   demo:
     if: github.actor == 'ctadros1' && inputs.suite == 'demo'
-    # tce-long (node3) unless a runner is chosen: node4 runs long jobs too when pinned.
-    runs-on: [self-hosted, Linux, X64, tce-ci, '${{ inputs.runner != ''tce-ci'' && inputs.runner || ''tce-long'' }}']
-    timeout-minutes: 360
+    # The shared policy label moves to idle capacity; node4 is excluded above six hours.
+    runs-on: [self-hosted, Linux, X64, tce-ci, '${{ fromJSON(inputs.max_minutes || ''360'') > 360 && (inputs.runner == ''node3'' || inputs.runner == ''node1'') && inputs.runner || fromJSON(inputs.max_minutes || ''360'') > 360 && ''tce-auto-long'' || inputs.runner != ''tce-ci'' && inputs.runner || ''tce-auto'' }}']
+    timeout-minutes: ${{ fromJSON(inputs.max_minutes || '360') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Attach local Rust build directories
         if: runner.environment == 'self-hosted'
@@ -144,6 +164,7 @@ jobs:
         shell: bash
         working-directory: kernel
         env:
+          TCE_OBSERVATION_DIR: ${{ runner.temp }}/tce-observations
           YEARS: ${{ inputs.years }}
           DEMO: ${{ inputs.demo }}
         run: |
@@ -164,12 +185,13 @@ jobs:
   # workload; the summary and every run's log are kept as an artifact.
   bench:
     if: github.actor == 'ctadros1' && inputs.suite == 'bench'
-    runs-on: [self-hosted, Linux, X64, tce-ci, tce-long]
+    runs-on: [self-hosted, Linux, X64, tce-ci, node3]
     timeout-minutes: 360
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ inputs.ref || github.sha }}
           fetch-depth: 0
       - name: Time this revision against the base
         shell: bash
@@ -188,3 +210,42 @@ jobs:
             ${{ runner.temp }}/bench/logs/
           if-no-files-found: ignore
           retention-days: 30
+
+  routing:
+    if: github.actor == 'ctadros1' && inputs.suite == 'routing-check'
+    runs-on: [self-hosted, Linux, X64, tce-ci, '${{ fromJSON(inputs.max_minutes || ''360'') > 360 && (inputs.runner == ''node3'' || inputs.runner == ''node1'') && inputs.runner || fromJSON(inputs.max_minutes || ''360'') > 360 && ''tce-auto-long'' || inputs.runner != ''tce-ci'' && inputs.runner || ''tce-auto'' }}']
+    timeout-minutes: 5
+    steps:
+      - name: Verify assigned capacity
+        env:
+          DECLARED_BUDGET: ${{ inputs.max_minutes }}
+          HOLD_SECONDS: ${{ inputs.hold_seconds }}
+        run: |
+          set -euo pipefail
+          case "$HOLD_SECONDS" in 0|30) ;; *) exit 2;; esac
+          if (( DECLARED_BUDGET > 360 )) && [[ "$RUNNER_NAME" == tce-ci-node4 ]]; then
+            echo 'Long-duration work must never route to node4.' >&2
+            exit 1
+          fi
+          printf 'Runner: %s\nHost: %s\nDeclared budget: %s minutes\n' "$RUNNER_NAME" "$(hostname)" "$DECLARED_BUDGET" | tee -a "$GITHUB_STEP_SUMMARY"
+          sleep "$HOLD_SECONDS"
+
+  world-view:
+    if: github.actor == 'ctadros1' && inputs.suite == 'world-view'
+    runs-on: [self-hosted, Linux, X64, tce-ci, '${{ inputs.runner != ''tce-ci'' && inputs.runner || ''tce-auto'' }}']
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.sha }}
+      - name: Attach local Rust build directories
+        run: tools/ci/prepare-workspace.sh
+      - name: Build a live observation world
+        working-directory: kernel
+        run: cargo build --release --locked -p civ-sim --example observe_world
+      - name: Watch a real world for three minutes
+        working-directory: kernel
+        env:
+          TCE_OBSERVATION_DIR: ${{ runner.temp }}/tce-observations
+        run: target/release/examples/observe_world 180

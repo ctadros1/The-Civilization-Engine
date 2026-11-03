@@ -355,6 +355,7 @@ dependencies = [
  "civ-schema",
  "civ-world",
  "commons-persist",
+ "serde_json",
  "tempfile",
 ]
 

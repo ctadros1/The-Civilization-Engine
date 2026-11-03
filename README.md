@@ -20,9 +20,11 @@
   <a href="#technical-highlights"><img src="https://img.shields.io/badge/observer-TypeScript%20%2B%20PixiJS-526c83?style=flat-square" alt="Observer: TypeScript and PixiJS"></a>
 </p>
 
-The Civilization Engine (TCE) is a long-running simulation project. It models people, households and settlements from the ground up: how they find food, learn skills, build, trade, make rules and respond to events. The engine supplies the materials and social mechanisms; it does not script a civilization's story or destination.
+## The project
 
-The current playable world is an early farming society. The project roadmap reaches industrial and modern civilization, but those systems are still being built. The Unreal client is also future work.
+The Civilization Engine (TCE) is a long-running simulation of people, households and settlements. It provides resources, skills, institutions and physical systems; people make choices within them, so the engine does not prescribe a civilization's story or destination.
+
+The current observer presents an early farming world. M10 adds industrial systems and services; its money systems are underway. Modern civilization and the Unreal client remain future work.
 
 ## Project status
 
@@ -47,9 +49,14 @@ The current playable world is an early farming society. The project roadmap reac
 
 The web observer currently presents an early farming world. The project's longer vision reaches modern civilization; modern vocabulary (electricity, engines, the telegraph, steel frames) now exists for people to take up, but no lived demo has built it, and modern cities and the Unreal client are not implemented. Smoke runs and dashboards check selected behaviors and engineering invariants; they do not prove historical realism.
 
+Non-benchmark homelab simulations can now publish their actual world to the private runner
+observatory: sampled terrain/water, settlements, buildings and people, with separate streams
+for parallel worlds. This read-only export is opt-in and leaves the engine's save and command
+protocols unchanged. See [live world observations](docs/operations/live-world-observations.md).
+
 ## Latest live demo: M9, many settlements
 
-The current M9 capture shows the observer following a person in one detailed settlement while the other settlements are lived by household. It also shows the world map, settlement-resolution labels and the recorded climate change. The [demo gallery](demos/README.md) separates the short video capture from the full ten-year M9 run report.
+The newest committed observer video is M9. It shows one settlement in detail while households resolve daily work across other settlements, with a followed resident and a climate change. M10 now has a [runnable multi-settlement example](kernel/crates/civ-sim/examples/m10_world.rs) and a long-run report workflow, but no M10 observer video has been captured; the complete demo remains in progress. The gallery distinguishes recorded captures from run reports and planned demos.
 
 <p align="center"><a href="demos/m9/m9-overview.mp4"><img src="demos/m9/m9-overview-poster.png" alt="M9 live demo: many settlements at household resolution" width="900"></a></p>
 
@@ -64,11 +71,11 @@ These generated previews show the project's longer-term historical and modern sc
 
 ## Technical highlights
 
-- **Simulation kernel:** Rust workspace with separate crates for world generation, land, people, content, simulation, hosting and a versioned C interface.
-- **Emergent systems:** event-scheduled lives and household economies; authored building grammars; institutions formed through proposals and collective decisions; weather, water, illness, fire, conflict and transport.
-- **Many-settlement scale:** each person remains individually represented. Settlements away from the observer's focus can resolve household work once per day, while the selected settlement continues in detail. Time skips use the same household machinery.
-- **Industrial transition underway:** water-powered work is represented by saved installations whose daily output follows river discharge; powered recipes and water mills can be built when households expect them to repay their cost.
-- **Persistence and interfaces:** checksummed, versioned snapshots; generated FlatBuffers messages; a localhost WebSocket observer that displays kernel state and forwards commands. Current boundary versions: wire 1.96, save schema 174 and content API 160.
+- **Kernel and observer:** Rust simulation workspace; TypeScript and PixiJS web observer; versioned FlatBuffers boundary and portable C interface.
+- **Emergent simulation:** event-scheduled people and household economies, authored building grammars, institutions, weather, water, disease, conflict and transport.
+- **Many-settlement scale:** each person remains individually represented; settlements away from the observer's focus can resolve household work once per day.
+- **Industrial systems:** river-powered installations drive recipes; households can build mills, mines and works, lay rail, operate trains, and produce and distribute gas light.
+- **Persistence:** checksummed versioned snapshots with explicit migrations. Current boundaries: wire 1.106, save schema 219 and content API 200.
 
 ## Run it
 
@@ -96,4 +103,4 @@ No license has been added. Until one is chosen, the repository does not grant re
 
 ## CI runner pool
 
-Dedicated Linux VMs on servernode1 and servernode3, with optional capacity on servernode4, provide the [GitHub Actions runner pool](docs/operations/github-runners.md). Trusted push checks and scheduled long runs can use these machines; Windows and pull-request checks retain GitHub-hosted runners. The runner guide covers candidate branches, routing, isolation, and safely stopping the optional runner before switching servernode4 to Windows.
+Dedicated Linux VMs on servernode1 and servernode3, with optional capacity on servernode4, provide the [GitHub Actions runner pool](docs/operations/github-runners.md). Automatic routing prefers idle node4, then node3 and node1; jobs budgeted above six hours exclude node4, and timing benchmarks stay on node3. Windows and pull-request checks retain GitHub-hosted runners. The runner guide covers candidate branches, routing, isolation, and safely stopping the optional runner before switching servernode4 to Windows.

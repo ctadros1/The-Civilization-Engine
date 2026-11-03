@@ -1574,8 +1574,8 @@ impl ::flatbuffers::SimpleToVerifyInSlice for EventKind {}
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct Point(pub [u8; 8]);
-impl Default for Point { 
-  fn default() -> Self { 
+impl Default for Point {
+  fn default() -> Self {
     Self([0; 8])
   }
 }
@@ -1701,8 +1701,8 @@ impl<'a> Point {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct Knowing(pub [u8; 32]);
-impl Default for Knowing { 
-  fn default() -> Self { 
+impl Default for Knowing {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -1988,8 +1988,8 @@ impl<'a> Knowing {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct SkillLevel(pub [u8; 8]);
-impl Default for SkillLevel { 
-  fn default() -> Self { 
+impl Default for SkillLevel {
+  fn default() -> Self {
     Self([0; 8])
   }
 }
@@ -2115,8 +2115,8 @@ impl<'a> SkillLevel {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct KnownPatch(pub [u8; 16]);
-impl Default for KnownPatch { 
-  fn default() -> Self { 
+impl Default for KnownPatch {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -2274,8 +2274,8 @@ impl<'a> KnownPatch {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct KnownResource(pub [u8; 24]);
-impl Default for KnownResource { 
-  fn default() -> Self { 
+impl Default for KnownResource {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -2497,8 +2497,8 @@ impl<'a> KnownResource {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct Term(pub [u8; 8]);
-impl Default for Term { 
-  fn default() -> Self { 
+impl Default for Term {
+  fn default() -> Self {
     Self([0; 8])
   }
 }
@@ -2624,8 +2624,8 @@ impl<'a> Term {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct OtherOption(pub [u8; 8]);
-impl Default for OtherOption { 
-  fn default() -> Self { 
+impl Default for OtherOption {
+  fn default() -> Self {
     Self([0; 8])
   }
 }
@@ -2751,8 +2751,8 @@ impl<'a> OtherOption {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct Exclusion(pub [u8; 8]);
-impl Default for Exclusion { 
-  fn default() -> Self { 
+impl Default for Exclusion {
+  fn default() -> Self {
     Self([0; 8])
   }
 }
@@ -2878,8 +2878,8 @@ impl<'a> Exclusion {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct HarvestRecord(pub [u8; 12]);
-impl Default for HarvestRecord { 
-  fn default() -> Self { 
+impl Default for HarvestRecord {
+  fn default() -> Self {
     Self([0; 12])
   }
 }
@@ -3037,8 +3037,8 @@ impl<'a> HarvestRecord {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct MonthOfTrade(pub [u8; 20]);
-impl Default for MonthOfTrade { 
-  fn default() -> Self { 
+impl Default for MonthOfTrade {
+  fn default() -> Self {
     Self([0; 20])
   }
 }
@@ -3260,8 +3260,8 @@ impl<'a> MonthOfTrade {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct BookLine(pub [u8; 12]);
-impl Default for BookLine { 
-  fn default() -> Self { 
+impl Default for BookLine {
+  fn default() -> Self {
     Self([0; 12])
   }
 }
@@ -3419,8 +3419,8 @@ impl<'a> BookLine {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct KnowledgeEntry(pub [u8; 40]);
-impl Default for KnowledgeEntry { 
-  fn default() -> Self { 
+impl Default for KnowledgeEntry {
+  fn default() -> Self {
     Self([0; 40])
   }
 }
@@ -3706,8 +3706,8 @@ impl<'a> KnowledgeEntry {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct TrustEntry(pub [u8; 40]);
-impl Default for TrustEntry { 
-  fn default() -> Self { 
+impl Default for TrustEntry {
+  fn default() -> Self {
     Self([0; 40])
   }
 }
@@ -3929,8 +3929,8 @@ impl<'a> TrustEntry {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct FireTrustEntry(pub [u8; 40]);
-impl Default for FireTrustEntry { 
-  fn default() -> Self { 
+impl Default for FireTrustEntry {
+  fn default() -> Self {
     Self([0; 40])
   }
 }
@@ -4184,8 +4184,8 @@ impl<'a> FireTrustEntry {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct EnrolmentSave(pub [u8; 48]);
-impl Default for EnrolmentSave { 
-  fn default() -> Self { 
+impl Default for EnrolmentSave {
+  fn default() -> Self {
     Self([0; 48])
   }
 }
@@ -4471,8 +4471,8 @@ impl<'a> EnrolmentSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct UntaughtSave(pub [u8; 24]);
-impl Default for UntaughtSave { 
-  fn default() -> Self { 
+impl Default for UntaughtSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -4630,8 +4630,8 @@ impl<'a> UntaughtSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct RecordSave(pub [u8; 40]);
-impl Default for RecordSave { 
-  fn default() -> Self { 
+impl Default for RecordSave {
+  fn default() -> Self {
     Self([0; 40])
   }
 }
@@ -4853,8 +4853,8 @@ impl<'a> RecordSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct SessionSave(pub [u8; 16]);
-impl Default for SessionSave { 
-  fn default() -> Self { 
+impl Default for SessionSave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -5012,8 +5012,8 @@ impl<'a> SessionSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct DepositBody(pub [u8; 64]);
-impl Default for DepositBody { 
-  fn default() -> Self { 
+impl Default for DepositBody {
+  fn default() -> Self {
     Self([0; 64])
   }
 }
@@ -5427,8 +5427,8 @@ impl<'a> DepositBody {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct DepositKnownEntry(pub [u8; 32]);
-impl Default for DepositKnownEntry { 
-  fn default() -> Self { 
+impl Default for DepositKnownEntry {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -5618,8 +5618,8 @@ impl<'a> DepositKnownEntry {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct GroundLookedEntry(pub [u8; 16]);
-impl Default for GroundLookedEntry { 
-  fn default() -> Self { 
+impl Default for GroundLookedEntry {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -5777,8 +5777,8 @@ impl<'a> GroundLookedEntry {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct EarthworkRecord(pub [u8; 72]);
-impl Default for EarthworkRecord { 
-  fn default() -> Self { 
+impl Default for EarthworkRecord {
+  fn default() -> Self {
     Self([0; 72])
   }
 }
@@ -6288,8 +6288,8 @@ impl<'a> EarthworkRecord {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct EarthLink(pub [u8; 24]);
-impl Default for EarthLink { 
-  fn default() -> Self { 
+impl Default for EarthLink {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -6447,8 +6447,8 @@ impl<'a> EarthLink {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct BankSegmentRecord(pub [u8; 104]);
-impl Default for BankSegmentRecord { 
-  fn default() -> Self { 
+impl Default for BankSegmentRecord {
+  fn default() -> Self {
     Self([0; 104])
   }
 }
@@ -6926,8 +6926,8 @@ impl<'a> BankSegmentRecord {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct BankSedimentRecord(pub [u8; 16]);
-impl Default for BankSedimentRecord { 
-  fn default() -> Self { 
+impl Default for BankSedimentRecord {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -7053,8 +7053,8 @@ impl<'a> BankSedimentRecord {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct BankPipingRecord(pub [u8; 16]);
-impl Default for BankPipingRecord { 
-  fn default() -> Self { 
+impl Default for BankPipingRecord {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -7180,8 +7180,8 @@ impl<'a> BankPipingRecord {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct BankRefillRecord(pub [u8; 16]);
-impl Default for BankRefillRecord { 
-  fn default() -> Self { 
+impl Default for BankRefillRecord {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -7307,8 +7307,8 @@ impl<'a> BankRefillRecord {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct PitBailingRecord(pub [u8; 24]);
-impl Default for PitBailingRecord { 
-  fn default() -> Self { 
+impl Default for PitBailingRecord {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -7466,8 +7466,8 @@ impl<'a> PitBailingRecord {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct EngineRecord(pub [u8; 40]);
-impl Default for EngineRecord { 
-  fn default() -> Self { 
+impl Default for EngineRecord {
+  fn default() -> Self {
     Self([0; 40])
   }
 }
@@ -7689,8 +7689,8 @@ impl<'a> EngineRecord {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct PitWaterRecord(pub [u8; 24]);
-impl Default for PitWaterRecord { 
-  fn default() -> Self { 
+impl Default for PitWaterRecord {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -7848,8 +7848,8 @@ impl<'a> PitWaterRecord {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct InstallationRecord(pub [u8; 80]);
-impl Default for InstallationRecord { 
-  fn default() -> Self { 
+impl Default for InstallationRecord {
+  fn default() -> Self {
     Self([0; 80])
   }
 }
@@ -8231,8 +8231,8 @@ impl<'a> InstallationRecord {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct TieRecord(pub [u8; 88]);
-impl Default for TieRecord { 
-  fn default() -> Self { 
+impl Default for TieRecord {
+  fn default() -> Self {
     Self([0; 88])
   }
 }
@@ -8870,8 +8870,8 @@ impl<'a> TieRecord {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct StandingRecord(pub [u8; 40]);
-impl Default for StandingRecord { 
-  fn default() -> Self { 
+impl Default for StandingRecord {
+  fn default() -> Self {
     Self([0; 40])
   }
 }
@@ -9189,8 +9189,8 @@ impl<'a> StandingRecord {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct StanceSave(pub [u8; 32]);
-impl Default for StanceSave { 
-  fn default() -> Self { 
+impl Default for StanceSave {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -9412,8 +9412,8 @@ impl<'a> StanceSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct KnownSave(pub [u8; 16]);
-impl Default for KnownSave { 
-  fn default() -> Self { 
+impl Default for KnownSave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -9539,8 +9539,8 @@ impl<'a> KnownSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct StakeSave(pub [u8; 16]);
-impl Default for StakeSave { 
-  fn default() -> Self { 
+impl Default for StakeSave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -9666,8 +9666,8 @@ impl<'a> StakeSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct CustomVersionSave(pub [u8; 24]);
-impl Default for CustomVersionSave { 
-  fn default() -> Self { 
+impl Default for CustomVersionSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -9889,8 +9889,8 @@ impl<'a> CustomVersionSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct SewerUnservedSave(pub [u8; 6]);
-impl Default for SewerUnservedSave { 
-  fn default() -> Self { 
+impl Default for SewerUnservedSave {
+  fn default() -> Self {
     Self([0; 6])
   }
 }
@@ -10048,8 +10048,8 @@ impl<'a> SewerUnservedSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct SewerConnectionSave(pub [u8; 48]);
-impl Default for SewerConnectionSave { 
-  fn default() -> Self { 
+impl Default for SewerConnectionSave {
+  fn default() -> Self {
     Self([0; 48])
   }
 }
@@ -10303,8 +10303,8 @@ impl<'a> SewerConnectionSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct MeasuredSave(pub [u8; 32]);
-impl Default for MeasuredSave { 
-  fn default() -> Self { 
+impl Default for MeasuredSave {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -10526,8 +10526,8 @@ impl<'a> MeasuredSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct PlanRectSave(pub [u8; 16]);
-impl Default for PlanRectSave { 
-  fn default() -> Self { 
+impl Default for PlanRectSave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -10717,8 +10717,8 @@ impl<'a> PlanRectSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct PlanSiteSave(pub [u8; 20]);
-impl Default for PlanSiteSave { 
-  fn default() -> Self { 
+impl Default for PlanSiteSave {
+  fn default() -> Self {
     Self([0; 20])
   }
 }
@@ -10940,8 +10940,8 @@ impl<'a> PlanSiteSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct PlanParcelSave(pub [u8; 20]);
-impl Default for PlanParcelSave { 
-  fn default() -> Self { 
+impl Default for PlanParcelSave {
+  fn default() -> Self {
     Self([0; 20])
   }
 }
@@ -11163,8 +11163,8 @@ impl<'a> PlanParcelSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct GroundSeenSave(pub [u8; 32]);
-impl Default for GroundSeenSave { 
-  fn default() -> Self { 
+impl Default for GroundSeenSave {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -11354,8 +11354,8 @@ impl<'a> GroundSeenSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct EncroachmentSave(pub [u8; 32]);
-impl Default for EncroachmentSave { 
-  fn default() -> Self { 
+impl Default for EncroachmentSave {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -11545,8 +11545,8 @@ impl<'a> EncroachmentSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct EncroachmentOrderSave(pub [u8; 24]);
-impl Default for EncroachmentOrderSave { 
-  fn default() -> Self { 
+impl Default for EncroachmentOrderSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -11736,8 +11736,8 @@ impl<'a> EncroachmentOrderSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct EncroachmentSeenSave(pub [u8; 16]);
-impl Default for EncroachmentSeenSave { 
-  fn default() -> Self { 
+impl Default for EncroachmentSeenSave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -11863,8 +11863,8 @@ impl<'a> EncroachmentSeenSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct PatronGiftSave(pub [u8; 48]);
-impl Default for PatronGiftSave { 
-  fn default() -> Self { 
+impl Default for PatronGiftSave {
+  fn default() -> Self {
     Self([0; 48])
   }
 }
@@ -12150,8 +12150,8 @@ impl<'a> PatronGiftSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct SeatSave(pub [u8; 40]);
-impl Default for SeatSave { 
-  fn default() -> Self { 
+impl Default for SeatSave {
+  fn default() -> Self {
     Self([0; 40])
   }
 }
@@ -12373,8 +12373,8 @@ impl<'a> SeatSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct CandidateSave(pub [u8; 16]);
-impl Default for CandidateSave { 
-  fn default() -> Self { 
+impl Default for CandidateSave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -12500,8 +12500,8 @@ impl<'a> CandidateSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct StoodSave(pub [u8; 16]);
-impl Default for StoodSave { 
-  fn default() -> Self { 
+impl Default for StoodSave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -12659,8 +12659,8 @@ impl<'a> StoodSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct DistrictSave(pub [u8; 16]);
-impl Default for DistrictSave { 
-  fn default() -> Self { 
+impl Default for DistrictSave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -12786,8 +12786,8 @@ impl<'a> DistrictSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct AllianceSave(pub [u8; 24]);
-impl Default for AllianceSave { 
-  fn default() -> Self { 
+impl Default for AllianceSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -12945,8 +12945,8 @@ impl<'a> AllianceSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct VoteSave(pub [u8; 16]);
-impl Default for VoteSave { 
-  fn default() -> Self { 
+impl Default for VoteSave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -13072,8 +13072,8 @@ impl<'a> VoteSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct TermSave(pub [u8; 24]);
-impl Default for TermSave { 
-  fn default() -> Self { 
+impl Default for TermSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -13231,8 +13231,8 @@ impl<'a> TermSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct DitchRecord(pub [u8; 144]);
-impl Default for DitchRecord { 
-  fn default() -> Self { 
+impl Default for DitchRecord {
+  fn default() -> Self {
     Self([0; 144])
   }
 }
@@ -13870,8 +13870,8 @@ impl<'a> DitchRecord {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct DitchFlowRecord(pub [u8; 8]);
-impl Default for DitchFlowRecord { 
-  fn default() -> Self { 
+impl Default for DitchFlowRecord {
+  fn default() -> Self {
     Self([0; 8])
   }
 }
@@ -13997,8 +13997,8 @@ impl<'a> DitchFlowRecord {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct BankKeepRecord(pub [u8; 16]);
-impl Default for BankKeepRecord { 
-  fn default() -> Self { 
+impl Default for BankKeepRecord {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -14124,8 +14124,8 @@ impl<'a> BankKeepRecord {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct PlaceClaimSave(pub [u8; 24]);
-impl Default for PlaceClaimSave { 
-  fn default() -> Self { 
+impl Default for PlaceClaimSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -14283,8 +14283,8 @@ impl<'a> PlaceClaimSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct AnswerSave(pub [u8; 32]);
-impl Default for AnswerSave { 
-  fn default() -> Self { 
+impl Default for AnswerSave {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -14538,8 +14538,8 @@ impl<'a> AnswerSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct TakenGood(pub [u8; 8]);
-impl Default for TakenGood { 
-  fn default() -> Self { 
+impl Default for TakenGood {
+  fn default() -> Self {
     Self([0; 8])
   }
 }
@@ -14665,8 +14665,8 @@ impl<'a> TakenGood {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct BeliefSave(pub [u8; 48]);
-impl Default for BeliefSave { 
-  fn default() -> Self { 
+impl Default for BeliefSave {
+  fn default() -> Self {
     Self([0; 48])
   }
 }
@@ -14952,8 +14952,8 @@ impl<'a> BeliefSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct ResponseSave(pub [u8; 40]);
-impl Default for ResponseSave { 
-  fn default() -> Self { 
+impl Default for ResponseSave {
+  fn default() -> Self {
     Self([0; 40])
   }
 }
@@ -15207,8 +15207,8 @@ impl<'a> ResponseSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct ObligationSave(pub [u8; 56]);
-impl Default for ObligationSave { 
-  fn default() -> Self { 
+impl Default for ObligationSave {
+  fn default() -> Self {
     Self([0; 56])
   }
 }
@@ -15622,8 +15622,8 @@ impl<'a> ObligationSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct AmountSave(pub [u8; 32]);
-impl Default for AmountSave { 
-  fn default() -> Self { 
+impl Default for AmountSave {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -15845,8 +15845,8 @@ impl<'a> AmountSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct ResponseSave2(pub [u8; 40]);
-impl Default for ResponseSave2 { 
-  fn default() -> Self { 
+impl Default for ResponseSave2 {
+  fn default() -> Self {
     Self([0; 40])
   }
 }
@@ -16164,8 +16164,8 @@ impl<'a> ResponseSave2 {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct ObligationSave2(pub [u8; 64]);
-impl Default for ObligationSave2 { 
-  fn default() -> Self { 
+impl Default for ObligationSave2 {
+  fn default() -> Self {
     Self([0; 64])
   }
 }
@@ -16643,8 +16643,8 @@ impl<'a> ObligationSave2 {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct CaseStanceSave(pub [u8; 32]);
-impl Default for CaseStanceSave { 
-  fn default() -> Self { 
+impl Default for CaseStanceSave {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -16898,8 +16898,8 @@ impl<'a> CaseStanceSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct SightingSave(pub [u8; 40]);
-impl Default for SightingSave { 
-  fn default() -> Self { 
+impl Default for SightingSave {
+  fn default() -> Self {
     Self([0; 40])
   }
 }
@@ -17217,8 +17217,8 @@ impl<'a> SightingSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct MetSave(pub [u8; 16]);
-impl Default for MetSave { 
-  fn default() -> Self { 
+impl Default for MetSave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -17344,8 +17344,8 @@ impl<'a> MetSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct HarmSave(pub [u8; 24]);
-impl Default for HarmSave { 
-  fn default() -> Self { 
+impl Default for HarmSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -17535,8 +17535,8 @@ impl<'a> HarmSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct FighterSave(pub [u8; 32]);
-impl Default for FighterSave { 
-  fn default() -> Self { 
+impl Default for FighterSave {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -17854,8 +17854,8 @@ impl<'a> FighterSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct StruckSave(pub [u8; 32]);
-impl Default for StruckSave { 
-  fn default() -> Self { 
+impl Default for StruckSave {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -18077,8 +18077,8 @@ impl<'a> StruckSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct CoinIssueSave(pub [u8; 40]);
-impl Default for CoinIssueSave { 
-  fn default() -> Self { 
+impl Default for CoinIssueSave {
+  fn default() -> Self {
     Self([0; 40])
   }
 }
@@ -18332,8 +18332,8 @@ impl<'a> CoinIssueSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct BroughtSave(pub [u8; 24]);
-impl Default for BroughtSave { 
-  fn default() -> Self { 
+impl Default for BroughtSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -18491,8 +18491,8 @@ impl<'a> BroughtSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct PurseSave(pub [u8; 24]);
-impl Default for PurseSave { 
-  fn default() -> Self { 
+impl Default for PurseSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -18650,8 +18650,8 @@ impl<'a> PurseSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct LoanSave(pub [u8; 72]);
-impl Default for LoanSave { 
-  fn default() -> Self { 
+impl Default for LoanSave {
+  fn default() -> Self {
     Self([0; 72])
   }
 }
@@ -19097,8 +19097,8 @@ impl<'a> LoanSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct LoanTermsSave(pub [u8; 32]);
-impl Default for LoanTermsSave { 
-  fn default() -> Self { 
+impl Default for LoanTermsSave {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -19448,8 +19448,8 @@ impl<'a> LoanTermsSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct SuspicionSave(pub [u8; 40]);
-impl Default for SuspicionSave { 
-  fn default() -> Self { 
+impl Default for SuspicionSave {
+  fn default() -> Self {
     Self([0; 40])
   }
 }
@@ -19767,8 +19767,8 @@ impl<'a> SuspicionSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct HeardSave(pub [u8; 48]);
-impl Default for HeardSave { 
-  fn default() -> Self { 
+impl Default for HeardSave {
+  fn default() -> Self {
     Self([0; 48])
   }
 }
@@ -20022,8 +20022,8 @@ impl<'a> HeardSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct GrievanceSave(pub [u8; 56]);
-impl Default for GrievanceSave { 
-  fn default() -> Self { 
+impl Default for GrievanceSave {
+  fn default() -> Self {
     Self([0; 56])
   }
 }
@@ -20437,8 +20437,8 @@ impl<'a> GrievanceSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct PositionSave(pub [u8; 40]);
-impl Default for PositionSave { 
-  fn default() -> Self { 
+impl Default for PositionSave {
+  fn default() -> Self {
     Self([0; 40])
   }
 }
@@ -20724,8 +20724,8 @@ impl<'a> PositionSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct NormStateSave(pub [u8; 32]);
-impl Default for NormStateSave { 
-  fn default() -> Self { 
+impl Default for NormStateSave {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -20979,8 +20979,8 @@ impl<'a> NormStateSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct LevyActSave(pub [u8; 24]);
-impl Default for LevyActSave { 
-  fn default() -> Self { 
+impl Default for LevyActSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -21170,8 +21170,8 @@ impl<'a> LevyActSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct HeldValueSave(pub [u8; 16]);
-impl Default for HeldValueSave { 
-  fn default() -> Self { 
+impl Default for HeldValueSave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -21329,8 +21329,8 @@ impl<'a> HeldValueSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct HoldingSave(pub [u8; 32]);
-impl Default for HoldingSave { 
-  fn default() -> Self { 
+impl Default for HoldingSave {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -21520,8 +21520,8 @@ impl<'a> HoldingSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct CreedSave(pub [u8; 16]);
-impl Default for CreedSave { 
-  fn default() -> Self { 
+impl Default for CreedSave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -21647,8 +21647,8 @@ impl<'a> CreedSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct FactionEventSave(pub [u8; 24]);
-impl Default for FactionEventSave { 
-  fn default() -> Self { 
+impl Default for FactionEventSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -21806,8 +21806,8 @@ impl<'a> FactionEventSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct MemberSave(pub [u8; 48]);
-impl Default for MemberSave { 
-  fn default() -> Self { 
+impl Default for MemberSave {
+  fn default() -> Self {
     Self([0; 48])
   }
 }
@@ -22157,8 +22157,8 @@ impl<'a> MemberSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct SideSave(pub [u8; 16]);
-impl Default for SideSave { 
-  fn default() -> Self { 
+impl Default for SideSave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -22284,8 +22284,8 @@ impl<'a> SideSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct CrossingShareSave(pub [u8; 16]);
-impl Default for CrossingShareSave { 
-  fn default() -> Self { 
+impl Default for CrossingShareSave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -22411,8 +22411,8 @@ impl<'a> CrossingShareSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct WadeSave(pub [u8; 24]);
-impl Default for WadeSave { 
-  fn default() -> Self { 
+impl Default for WadeSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -22602,8 +22602,8 @@ impl<'a> WadeSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct WellShareSave(pub [u8; 24]);
-impl Default for WellShareSave { 
-  fn default() -> Self { 
+impl Default for WellShareSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -22761,8 +22761,8 @@ impl<'a> WellShareSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct CareCallSave(pub [u8; 40]);
-impl Default for CareCallSave { 
-  fn default() -> Self { 
+impl Default for CareCallSave {
+  fn default() -> Self {
     Self([0; 40])
   }
 }
@@ -22984,8 +22984,8 @@ impl<'a> CareCallSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct TendedSave(pub [u8; 16]);
-impl Default for TendedSave { 
-  fn default() -> Self { 
+impl Default for TendedSave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -23111,8 +23111,8 @@ impl<'a> TendedSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct AttendedSave(pub [u8; 32]);
-impl Default for AttendedSave { 
-  fn default() -> Self { 
+impl Default for AttendedSave {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -23302,8 +23302,8 @@ impl<'a> AttendedSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct CompanySave(pub [u8; 24]);
-impl Default for CompanySave { 
-  fn default() -> Self { 
+impl Default for CompanySave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -23461,8 +23461,8 @@ impl<'a> CompanySave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct RegisterSave(pub [u8; 32]);
-impl Default for RegisterSave { 
-  fn default() -> Self { 
+impl Default for RegisterSave {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -23652,8 +23652,8 @@ impl<'a> RegisterSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct AdmittedSave(pub [u8; 24]);
-impl Default for AdmittedSave { 
-  fn default() -> Self { 
+impl Default for AdmittedSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -23811,8 +23811,8 @@ impl<'a> AdmittedSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct StaffedSave(pub [u8; 16]);
-impl Default for StaffedSave { 
-  fn default() -> Self { 
+impl Default for StaffedSave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -23938,8 +23938,8 @@ impl<'a> StaffedSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct NodeSave(pub [u8; 16]);
-impl Default for NodeSave { 
-  fn default() -> Self { 
+impl Default for NodeSave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -24065,8 +24065,8 @@ impl<'a> NodeSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct LoadSave(pub [u8; 32]);
-impl Default for LoadSave { 
-  fn default() -> Self { 
+impl Default for LoadSave {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -24207,8 +24207,8 @@ impl<'a> LoadSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct StoredSave(pub [u8; 40]);
-impl Default for StoredSave { 
-  fn default() -> Self { 
+impl Default for StoredSave {
+  fn default() -> Self {
     Self([0; 40])
   }
 }
@@ -24381,8 +24381,8 @@ impl<'a> StoredSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct TransitSave(pub [u8; 56]);
-impl Default for TransitSave { 
-  fn default() -> Self { 
+impl Default for TransitSave {
+  fn default() -> Self {
     Self([0; 56])
   }
 }
@@ -24570,8 +24570,8 @@ impl<'a> TransitSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct MoveSave(pub [u8; 56]);
-impl Default for MoveSave { 
-  fn default() -> Self { 
+impl Default for MoveSave {
+  fn default() -> Self {
     Self([0; 56])
   }
 }
@@ -24791,8 +24791,8 @@ impl<'a> MoveSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct OutsidersSave(pub [u8; 24]);
-impl Default for OutsidersSave { 
-  fn default() -> Self { 
+impl Default for OutsidersSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -24950,8 +24950,8 @@ impl<'a> OutsidersSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct SeenAtSave(pub [u8; 24]);
-impl Default for SeenAtSave { 
-  fn default() -> Self { 
+impl Default for SeenAtSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -25109,8 +25109,8 @@ impl<'a> SeenAtSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct WorkedSave(pub [u8; 48]);
-impl Default for WorkedSave { 
-  fn default() -> Self { 
+impl Default for WorkedSave {
+  fn default() -> Self {
     Self([0; 48])
   }
 }
@@ -25364,8 +25364,8 @@ impl<'a> WorkedSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct RiverForcingSave(pub [u8; 24]);
-impl Default for RiverForcingSave { 
-  fn default() -> Self { 
+impl Default for RiverForcingSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -25555,8 +25555,8 @@ impl<'a> RiverForcingSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct StormCheckSave(pub [u8; 32]);
-impl Default for StormCheckSave { 
-  fn default() -> Self { 
+impl Default for StormCheckSave {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -25746,8 +25746,8 @@ impl<'a> StormCheckSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct TrafficWaitSave(pub [u8; 40]);
-impl Default for TrafficWaitSave { 
-  fn default() -> Self { 
+impl Default for TrafficWaitSave {
+  fn default() -> Self {
     Self([0; 40])
   }
 }
@@ -26033,8 +26033,8 @@ impl<'a> TrafficWaitSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct TrafficLongWaitSave(pub [u8; 64]);
-impl Default for TrafficLongWaitSave { 
-  fn default() -> Self { 
+impl Default for TrafficLongWaitSave {
+  fn default() -> Self {
     Self([0; 64])
   }
 }
@@ -26480,8 +26480,8 @@ impl<'a> TrafficLongWaitSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct TrafficLossSave(pub [u8; 32]);
-impl Default for TrafficLossSave { 
-  fn default() -> Self { 
+impl Default for TrafficLossSave {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -26735,8 +26735,8 @@ impl<'a> TrafficLossSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct TravelTallySave(pub [u8; 16]);
-impl Default for TravelTallySave { 
-  fn default() -> Self { 
+impl Default for TravelTallySave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -26894,8 +26894,8 @@ impl<'a> TravelTallySave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct TravelTodaySave(pub [u8; 16]);
-impl Default for TravelTodaySave { 
-  fn default() -> Self { 
+impl Default for TravelTodaySave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }
@@ -27021,8 +27021,8 @@ impl<'a> TravelTodaySave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct TravelHouseholdSave(pub [u8; 32]);
-impl Default for TravelHouseholdSave { 
-  fn default() -> Self { 
+impl Default for TravelHouseholdSave {
+  fn default() -> Self {
     Self([0; 32])
   }
 }
@@ -27212,8 +27212,8 @@ impl<'a> TravelHouseholdSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct TravelGoingSave(pub [u8; 24]);
-impl Default for TravelGoingSave { 
-  fn default() -> Self { 
+impl Default for TravelGoingSave {
+  fn default() -> Self {
     Self([0; 24])
   }
 }
@@ -27403,8 +27403,8 @@ impl<'a> TravelGoingSave {
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
 pub struct TravelGoingTodaySave(pub [u8; 16]);
-impl Default for TravelGoingTodaySave { 
-  fn default() -> Self { 
+impl Default for TravelGoingTodaySave {
+  fn default() -> Self {
     Self([0; 16])
   }
 }

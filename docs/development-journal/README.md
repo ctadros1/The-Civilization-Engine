@@ -1,18 +1,18 @@
 # Development Journal and Technical Guide
 
-This folder records how TCE was built and explains the systems in the integrated `main` tree as of 2026-10-22. The source and project plan remain authoritative when later commits change implementation or status.
+This folder records how TCE was built and explains the systems in the integrated `main` tree as of 2026-11-03. The source and [project plan](../../PROJECT_PLAN.md) remain authoritative when commits change implementation or status.
 
 ## Current baseline
 
-M0–M9 are implemented. M8 adds city-scale transport, land planning and structural behavior; M9 adds household resolution for settlements away from the observer's focus, time skips, climate changes and a ten-settlement lived run. The current milestone is M10a: river-powered installations, powered recipes and household-built water mills are implemented; fuel and iron works continue. The Unreal client and modern civilization remain future work.
+M0–M9 are implemented. M10a (power and the works), M10b (rail and gas light) and M10c (services and letters) are implemented. M10d is underway: household and polity-issued money, custody, redeemable notes, lending, legal tender, suspension and counterfeiting are implemented through slice EK. Slice EL adds a runnable multi-settlement example and a homelab workflow that records its simulation output; the complete observer demo remains in progress. The Unreal client and modern civilization remain future work.
 
-Current boundary versions are TCE wire 1.96, save schema 174 and content API 160. The newest committed observer video is M9; M9's ten-year run report remains the full simulation record, while the gallery video is a shorter presentation capture. M10a is underway and has no milestone video yet. Recorded outcomes are seed-specific. See [the plan's decision log](../../PROJECT_PLAN.md#9-decisions-log) for run conditions, failures and interpretation.
+Current boundary versions are TCE wire 1.106, save schema 219 and content API 200. The newest committed observer video is M9. No M10 observer video is committed; its simulation run record is not a video capture. Run reports are seed-specific evidence, not proof of typical outcomes or historical realism.
 
 ## Read by question
 
 | Document | Read this for |
 | --- | --- |
-| [Development history](development-history.md) | Milestones, implementation decisions, checks and observed outcomes through current M10a work |
+| [Development history](development-history.md) | Milestones, implementation decisions, checks and observed outcomes through the M10 example |
 | [Architecture and data flow](architecture-and-data-flow.md) | Kernel crates, ownership boundaries, content loading, observer and host communication |
 | [Simulation model](simulation-model.md) | Time, landscape, households, economy, buildings and the high-level model for institutions and multiple settlements |
 | [Institutions, law and social change](institutions-and-order.md) | Polities, deliberation, law, crime, grievances, factions, revolts and observer interventions |
@@ -20,7 +20,10 @@ Current boundary versions are TCE wire 1.96, save schema 174 and content API 160
 | [Relations and public works](relations-and-public-works.md) | Claims, agreements, inter-polity payments, log crossings, war and conquest |
 | [Water, sickness and fire](hazards-and-health.md) | Water sources and contamination, disease, incidents, fire spread and early response choices |
 | [Persistence and interfaces](persistence-and-interfaces.md) | Content fingerprints, snapshots, wire frames, generated schemas and the C ABI |
-| [Industry and water power](industry-and-power.md) | M10a's saved power installations, river-derived output, powered recipes and household mill choice |
+| [Industry and power](industry-and-power.md) | M10a's power, fuel, iron and works systems |
+| [Mobility and light](mobility-and-light.md) | M10b lamps, wagonways, trains, freight, gas mains and street lighting |
+| [Services and care](services-and-care.md) | M10c care beyond the household and birth-care systems |
+| [Money, custody and notes](money-and-notes.md) | M10d household valuation, safekeeping, redeemable notes, lending, runs and claims |
 | [Development and evidence practice](development-and-evidence.md) | CI, smoke worlds, dashboard and consistency gates, observed limits and reporting discipline |
 
 ## Keeping it current

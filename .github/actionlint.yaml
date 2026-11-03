@@ -1,2 +1,2 @@
 self-hosted-runner:
-  labels: [tce-ci, tce-build, tce-fast, tce-long, node1, node3, node4]
+  labels: [tce-ci, tce-build, tce-fast, tce-long, tce-auto, tce-auto-long, node1, node3, node4]

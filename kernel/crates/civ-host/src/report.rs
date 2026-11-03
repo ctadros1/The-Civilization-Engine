@@ -86,6 +86,8 @@ pub fn run(
         sim.people().living(),
         sim.date()
     )?;
+    let mut observation = civ_sim::observation::Observation::from_env(&sim);
+    observation.poll(&sim);
     let start = sim.now().minutes();
     let mut flows_before = sim.people().flows();
     let mut moved_before = sim.people().transfers.clone();
@@ -98,6 +100,7 @@ pub fn run(
             let step = (end - sim.now().minutes()).min(60);
             sim.advance_minutes(step)
                 .map_err(|e| anyhow::anyhow!("the world stopped: {e}"))?;
+            observation.poll(&sim);
             let now = sim.now();
             for (_, p) in sim.people().people.iter() {
                 if p.age_years(now) < 15.0 {

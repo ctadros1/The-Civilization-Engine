@@ -1,13 +1,15 @@
 # The Civilization Engine: Project Plan
 
 Status: plan of record, written 2026-09-27 from the planning interview.
-Implementation status (2026-10-25): **M0–M9 are implemented**, from early settlements and their
+Implementation status (2026-11-03): **M0–M9 are implemented**, from early settlements and their
 institutions through large cities, transport, planning, land and household resolution across many
 settlements. M9's 100,000-person performance target was not met; see §7 and §9 for the measured
 result and amended gate. **M10a, power and the works, M10b, rail and gas light, and M10c,
 services and letters, are implemented** (slices DO–EE: care beyond the household, birth care,
-teaching, letters and records, inoculation, and the health office and sickhouse); M10d, money and
-the demo, remains. M2's portable kernel library and C interface are
+teaching, letters and records, inoculation, and the health office and sickhouse). **M10d, money,
+is underway:** slices EF–EK implement household valuation, custody, redeemable and polity-issued
+notes, lending, redemption runs, suspension, the *bearer heard* rule and counterfeiting. The full
+M10 demo remains. M2's portable kernel library and C interface are
 implemented; the Unreal client remains future work. Modern civilization remains future scope. See
 §7 for milestone scope and §9 for implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
@@ -7721,6 +7723,13 @@ and M6a gives rivers a daily flow.
       M9's 100k workload within 10 %; accepted under the owner's standing authority (§9,
       2026-10-30). M9's own gate workload (ten of 10,000, household-resolved, five days)
       is within the clause: 176.2 → 189.7 s a day (1.08×).
+      *Built (2026-11-03):* `civ-sim --example m10_world` lives a configurable set of settlements;
+      a logged observer intervention introduces the M10 vocabulary to one resident in alternating
+      settlements, while the others receive no direct introduction. The example records yearly use
+      and chronicle entries, then saves and reloads the world. The owner-dispatched homelab workflow
+      can keep the simulation log as an artifact.
+      This run record is not an observer video; M9 remains the newest committed capture and the
+      complete M10 observer demo remains in progress.
 
 **Post-v1 (ordered, not sized):**
 - **M9, Aggregate LOD & scale:** planned above (ADR-0032).
@@ -9855,6 +9864,16 @@ and M6a gives rivers a daily flow.
 - **M11's modern architecture and waste designed (2026-10-30, plan §7; research 11-14 and 12-10, written for it; brief `docs/briefs/m11-building-waste.md`; [ADR-0037](decisions/0037-frames-of-steel-and-concrete.md), [ADR-0038](decisions/0038-refuse-tips-and-residues.md)):** Decided by Claude under standing owner authority (2026-10-30). The owner asked for the research, ADRs and build to be done without asking. **Construction:** cement, steel and rolling as recipes on M10's chain; frame version 4 beside frozen 1–3 (12 storeys at most) with a steel skeleton and a reinforced-concrete frame, each storey's enclosure carried by the frame; steel's and concrete's own checks, concrete's strength by its age; bare steel weakening in a full burn. *Reason:* a frozen new version reuses v3's assembly and checks, as v3 was added beside v1 and v2; the report's separate `tower` grammar would duplicate them. **Deferred:** lifts, wind and letting storeys (the reason anyone builds tall; a residence change needing its own design), glass. Most lived worlds will build no frame; that is a correct outcome, not a reason to nudge. **Waste:** the heap gains an inert ash share fed by fuel's `ash_share`; recipes keep their residues (tar, liquor, slag) as goods so mass closes; tips as site records on the contamination links; `refuse_to_tip`; a firm's refuse round paid per call on a `Refuse` channel; a destructor as an engine burning refuse. *Reason:* mass conservation (12-02 §5.2) and refuse following fuel (12-10 §1.1) are the reports' central findings; sewers wait for a sewer design. The research reports were written from web sources, several read only as search summaries; each marks those figures, and none is load-bearing here without a design prior's label.
 - **M11 design (2026-10-28, plan §7, proposed):** from two briefs (`docs/briefs/m11-power.md`, `m11-movement.md`), which read 07-13 and 12-09 against the code, [ADR-0036](decisions/0036-electricity-and-the-telegraph.md), Proposed. Electricity stands on M10's machinery (power at a site, engines, mains with connections, the meter, light): radial, direct current at one voltage, dispatched by the served hour, service records and no bonus for a connection; far techniques (AC, turbines, nuclear, photovoltaics) left to the observer. Engines are components, motor vehicles are timed by power over pull, transit reuses runs, and a telegraph's messages enter the existing hearing paths. Modern architecture and waste wait for research. Accepted only when the owner merges it.
 - **2026-10-28 — Autonomous development on a VM (owner request):** an agent on a dedicated servernode3 VM (official Agent SDK, API credits, a fixed total budget; two Rust workers) continues the plan in order without a prompt per slice. It has repository-scoped GitHub access (2026-10-28: "continue autonomously ... until the $100 budget is spent", a lifetime ceiling); it pushes only `codex/*` branches and opens pull requests on this repository; main is merged by the owner alone. It never force-pushes, deletes branches, releases, or changes access, secrets, billing or runners. Benchmarks compare revisions on one machine and allocation (`tools/ci/bench-compare.sh`).
+- **2026-11-03 — Generated-code formatting:** the existing exact freshness check found mixed trailing spaces in committed FlatBuffers output. Normalize them in the generator and regenerate with flatc 25.12.19. The exact check passes; ignoring whitespace yields no generated-code differences. No schema, version, field id or runtime meaning changed.
+
+- **2026-11-03 — Read-only homelab world observations (owner request):** opt-in five-second JSON snapshots from actual kernel state, atomically published per world instance, with bounded terrain/entity samples and explicit totals. Only non-benchmark host/demo steps opt in; benchmarks retain their existing advance path and no export. Parallel smoke/dashboard/gate worlds have separate streams. Existing processes are not modified or restarted. No save or boundary-schema change; the observation is neither a save nor a command API. See `docs/operations/live-world-observations.md` for operation and validation.
+
+
+- **2026-11-03 — M10d money status:** the finalized Claude development branch completes slices EJ–EK: polity-issued notes, legal tender, suspension and counterfeiting. The code has successful Windows kernel, kernel-library, schema, web and full-chain checks on its branch head. The M10 demo runner exists, but the complete observer demo is not captured. Current boundaries: wire 1.106, save schema 219, content API 200.
+- **2026-11-03 — M10 lived example:** slice EL adds a multi-settlement `m10_world` example and an owner-dispatched homelab run that retains its text record. A logged observer intervention introduces the M10 vocabulary to one resident in alternating settlements; others receive no direct introduction. The example does not script industrial adoption. This is not an observer recording. M9 remains the newest committed video; see the [demo gallery](demos/README.md) and [M10 guide](docs/development-journal/money-and-notes.md#multi-settlement-m10-example).
+- **2026-10-31 — Capacity-aware Actions routing (owner request):** prefer idle node4, then node3 and node1 via management-owned moving policy labels; use permanent machines for jobs that may exceed six hours, enforce a separate six-hour node4 admission/runtime ceiling, and retain node3 timing baselines. Dispatch the main workflow with a target `ref` so older development branches do not retain obsolete routing.
+
+- **2026-10-27 — M10 implementation status:** merged M10c slices EB–EE and M10d slices EF–EI. M10c is complete; M10d money includes household valuation, custody, redeemable notes, bounded lending, runs, suspension and the *bearer heard* rule. Wire 1.106, save schema 214, content API 195. M9 remains the latest committed observer video; no M10 capture was available. The remaining M10d scope is recorded in §7.
 - **2026-10-22 — Optional Actions capacity (owner request):** add an isolated Ubuntu runner VM on servernode4 with shared `tce-ci`, automatic guest/service startup, and explicit `node4` dispatch. Keep it outside the default permanent health matrix and scheduled `tce-long` work; GitHub routes pooled jobs to available runners. Drain before shutdown or switching to Windows.
 
 One line each. Don't re-litigate without a reason written next to the entry.

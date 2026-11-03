@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 195
+kernel_content_api = 200
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2668,6 +2668,12 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         "core:policy/yourselves_write_down_the_sick",
         "core:policy/yourselves_yonder_with_middens",
         "core:policy/yourselves_zone_a_sickhouse",
+        "core:policy/zealously_hear_the_bearer",
+        "core:policy/zealously_issue_notes",
+        "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_tender_notes",
+        "core:policy/zealously_withhold_redemption",
+        "core:policy/zealously_write_against_forgery",
     ];
     assert!(
         reg.catalog
@@ -2700,6 +2706,12 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
         "core:policy/yourselves_write_down_the_sick",
         "core:policy/yourselves_yonder_with_middens",
         "core:policy/yourselves_zone_a_sickhouse",
+        "core:policy/zealously_hear_the_bearer",
+        "core:policy/zealously_issue_notes",
+        "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_tender_notes",
+        "core:policy/zealously_withhold_redemption",
+        "core:policy/zealously_write_against_forgery",
     ];
     assert!(
         reg.catalog
@@ -2773,6 +2785,12 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
         "core:policy/yourselves_write_down_the_sick",
         "core:policy/yourselves_yonder_with_middens",
         "core:policy/yourselves_zone_a_sickhouse",
+        "core:policy/zealously_hear_the_bearer",
+        "core:policy/zealously_issue_notes",
+        "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_tender_notes",
+        "core:policy/zealously_withhold_redemption",
+        "core:policy/zealously_write_against_forgery",
     ];
     assert!(
         reg.catalog
@@ -2804,6 +2822,12 @@ fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
         "core:policy/yourselves_write_down_the_sick",
         "core:policy/yourselves_yonder_with_middens",
         "core:policy/yourselves_zone_a_sickhouse",
+        "core:policy/zealously_hear_the_bearer",
+        "core:policy/zealously_issue_notes",
+        "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_tender_notes",
+        "core:policy/zealously_withhold_redemption",
+        "core:policy/zealously_write_against_forgery",
     ];
     assert!(
         reg.catalog
@@ -2846,6 +2870,12 @@ fn the_core_lets_a_polity_name_a_health_officer_who_can_write() {
     let newer = [
         "core:policy/yourselves_yonder_with_middens",
         "core:policy/yourselves_zone_a_sickhouse",
+        "core:policy/zealously_hear_the_bearer",
+        "core:policy/zealously_issue_notes",
+        "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_tender_notes",
+        "core:policy/zealously_withhold_redemption",
+        "core:policy/zealously_write_against_forgery",
     ];
     assert!(
         reg.catalog
@@ -2880,7 +2910,15 @@ fn the_core_lets_a_polity_clear_middens_from_the_water() {
             .any(|a| a.behavior == Behavior::Midden && a.daylight_only)
     );
     // Its id sorts after every older template's (the sickhouse's, M10c slice EE, is newer).
-    let newer = ["core:policy/yourselves_zone_a_sickhouse"];
+    let newer = [
+        "core:policy/yourselves_zone_a_sickhouse",
+        "core:policy/zealously_hear_the_bearer",
+        "core:policy/zealously_issue_notes",
+        "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_tender_notes",
+        "core:policy/zealously_withhold_redemption",
+        "core:policy/zealously_write_against_forgery",
+    ];
     assert!(
         reg.catalog
             .policies
@@ -2909,7 +2947,20 @@ fn the_core_lets_a_polity_raise_a_sickhouse_where_the_sick_lay_untended() {
         reg.catalog.buildings[program].use_,
         civ_land::PlotUse::Sickhouse
     );
-    assert!(reg.catalog.policies.iter().all(|p| p.id <= def.id));
+    let newer = [
+        "core:policy/zealously_hear_the_bearer",
+        "core:policy/zealously_issue_notes",
+        "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_tender_notes",
+        "core:policy/zealously_withhold_redemption",
+        "core:policy/zealously_write_against_forgery",
+    ];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
 }
 
 #[test]
@@ -3008,6 +3059,87 @@ fn smallpox_may_be_vaccinated_against_with_matter_only_its_knowers_make() {
 }
 
 #[test]
+fn policy_templates_keep_their_places() {
+    // A saved law and hearth talk about a question name a template by its place in id order, so
+    // a new template's id must sort after every older one's: this list is only ever appended to.
+    let reg = registry(load(&repo_content()));
+    let ids: Vec<&str> = reg.catalog.policies.iter().map(|p| p.id.as_str()).collect();
+    let kept = [
+        "core:policy/against_raiding",
+        "core:policy/against_taking",
+        "core:policy/amend_custom",
+        "core:policy/close_the_custom",
+        "core:policy/common_store",
+        "core:policy/curfew",
+        "core:policy/debts_heard",
+        "core:policy/debts_heard_time",
+        "core:policy/duty_on_tools",
+        "core:policy/duty_on_tools_collected",
+        "core:policy/embargo",
+        "core:policy/enclose",
+        "core:policy/hear_by_elders",
+        "core:policy/hear_by_panel",
+        "core:policy/hearer_by_precedent",
+        "core:policy/keep_store",
+        "core:policy/keep_watch",
+        "core:policy/lend_from_store",
+        "core:policy/licence_tools",
+        "core:policy/limit_daylight_work",
+        "core:policy/limit_levy",
+        "core:policy/mint",
+        "core:policy/mint_light",
+        "core:policy/name_a_hearer",
+        "core:policy/pay_work",
+        "core:policy/recognize_organization",
+        "core:policy/repeal",
+        "core:policy/seat_a_council",
+        "core:policy/send_band",
+        "core:policy/staple_tools",
+        "core:policy/wild_ground",
+        "core:policy/word_given",
+        "core:policy/works_crossing",
+        "core:policy/works_source_closed",
+        "core:policy/works_well",
+        "core:policy/works_wet_bank",
+        "core:policy/works_wet_bank_kept",
+        "core:policy/works_wrought_roofs",
+        "core:policy/works_wrought_spacing",
+        "core:policy/works_wrought_walls",
+        "core:policy/works_wrought_wells",
+        "core:policy/works_wrought_worked_fires",
+        "core:policy/year_of_peace",
+        "core:policy/yoke_of_a_held_village",
+        "core:policy/your_turn_keeping_the_store",
+        "core:policy/your_year_keeping_the_store",
+        "core:policy/yours_to_clear_a_passing_place",
+        "core:policy/yours_to_plan_the_ground",
+        "core:policy/yours_to_stay_low",
+        "core:policy/yours_to_tie_the_walls",
+        "core:policy/yourselves_raise_a_storehouse",
+        "core:policy/yourselves_roof_a_hall",
+        "core:policy/yourselves_watch_from_a_tower",
+        "core:policy/yourselves_work_a_line_to_the_pit",
+        "core:policy/yourselves_work_the_street_lamps",
+        "core:policy/yourselves_work_with_a_teacher",
+        "core:policy/yourselves_work_with_carers_who_know",
+        "core:policy/yourselves_work_without_meeting_the_sick",
+        "core:policy/yourselves_write_down_the_sick",
+        "core:policy/yourselves_yonder_with_middens",
+        "core:policy/yourselves_zone_a_sickhouse",
+        "core:policy/zealously_hear_the_bearer",
+        "core:policy/zealously_issue_notes",
+        "core:policy/zealously_pay_work_in_notes",
+        "core:policy/zealously_tender_notes",
+        "core:policy/zealously_withhold_redemption",
+        "core:policy/zealously_write_against_forgery",
+    ];
+    assert!(
+        ids.starts_with(&kept),
+        "a template's id sorts before an older one's: {ids:?}"
+    );
+}
+
+#[test]
 fn bearer_heard_hears_notes_refused_and_imposes_what_is_owed() {
     // M10d slice EI, third part (content API 195): the template answers notes refused at their
     // keeper's door, and a finding imposes what is still owed, as debts heard does for loans.
@@ -3017,11 +3149,83 @@ fn bearer_heard_hears_notes_refused_and_imposes_what_is_owed() {
         .catalog
         .policies
         .iter()
-        .find(|p| p.id == "core:policy/bearer_heard")
+        .find(|p| p.id == "core:policy/zealously_hear_the_bearer")
         .expect("the bearer heard template");
     assert_eq!(def.kind, PolicyKind::BearerHeard);
     assert_eq!(def.answers, vec![IssueKind::NotesRefused]);
     let d = def.debts.expect("its remedy");
     assert_eq!(d.remedy, DebtRemedy::Imposed);
     assert_eq!(d.share, 1.0);
+}
+
+#[test]
+fn a_store_issues_notes_redeemable_for_grain_and_pays_work_in_them() {
+    // M10d slice EJ (content API 196): notes issued answer work unpaid, up to a ceiling of pieces
+    // out, each redeemed for a kilogram of grain less Sichuan's 3 % fee; a law of pay for common
+    // work pays in notes.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let c = &reg.catalog;
+    let find = |id: &str| c.policies.iter().find(|p| p.id == id).expect(id);
+    let issue = find("core:policy/zealously_issue_notes");
+    assert_eq!(issue.kind, PolicyKind::IssueNotes);
+    assert_eq!(issue.answers, vec![IssueKind::WorkUnpaid]);
+    let n = issue.notes.expect("its terms");
+    assert!(n.ceiling > 0.0);
+    let (good, kg) = n.redeem.expect("redeemable");
+    assert_eq!(c.goods[good].id, "core:good/grain");
+    assert_eq!(kg, 1.0);
+    assert!((n.fee - 0.03).abs() < 1e-6);
+    assert_eq!(n.dues_per_kg, 1.0, "its store takes its own notes for dues");
+    let pay = find("core:policy/zealously_pay_work_in_notes");
+    assert_eq!(pay.kind, PolicyKind::PayWork);
+    assert_eq!(pay.answers, vec![IssueKind::WorkUnpaid]);
+    // Third part: legal tender answers loans unpaid; redemption suspended answers the store's
+    // refusals.
+    let tender = find("core:policy/zealously_tender_notes");
+    assert_eq!(tender.kind, PolicyKind::LegalTender);
+    assert_eq!(tender.answers, vec![IssueKind::DebtsUnpaid]);
+    let suspend = find("core:policy/zealously_withhold_redemption");
+    assert_eq!(suspend.kind, PolicyKind::SuspendRedemption);
+    assert_eq!(suspend.answers, vec![IssueKind::StoreNotesRefused]);
+    assert_eq!(
+        c.goods[pay.pay.expect("its rate").good].id,
+        "core:good/note"
+    );
+}
+
+#[test]
+fn a_note_is_made_by_writing_and_a_false_one_takes_a_quarter_hour() {
+    // M10d slice EK (content API 199): writing makes a note and tells a false one; a false piece
+    // takes a quarter of an hour (a design prior).
+    let reg = registry(load(&repo_content()));
+    let c = &reg.catalog;
+    let note = c
+        .goods
+        .iter()
+        .find(|g| g.id == "core:good/note")
+        .and_then(|g| g.money.as_ref())
+        .expect("the note is money");
+    let writing = note.assay.expect("its making technique");
+    assert_eq!(c.techniques[writing].id, "core:technique/writing");
+    assert!((note.forge_h - 0.25).abs() < 1e-9);
+}
+
+#[test]
+fn a_law_against_counterfeiting_answers_false_notes_found_and_always_owes_something() {
+    // M10d slice EK, third part (content API 200): its bundles are a law against taking's without
+    // restitution alone, as nothing was taken from the household that found the false pieces.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let law = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/zealously_write_against_forgery")
+        .expect("the template");
+    assert_eq!(law.kind, PolicyKind::AgainstCounterfeiting);
+    assert_eq!(law.answers, vec![IssueKind::FalseNotesFound]);
+    assert_eq!(law.bundles.len(), 3);
+    assert!(law.bundles.iter().all(|b| b.compensation_days > 0.0));
+    assert!(law.bundles.iter().any(|b| b.exile));
 }

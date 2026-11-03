@@ -73,6 +73,11 @@ impl Population {
 
     /// The midnight's custody (see the module documentation).
     pub(super) fn custody_day(&mut self, ctx: &mut Ctx, day: i64) {
+        // Households whose review it is weigh making false notes first (M10d slice EK); those
+        // whose false pieces were told apart count it a refusal of notes, and old finds are
+        // forgotten (second part).
+        self.forge_notes(ctx, day);
+        self.hear_false_found(ctx, day);
         let (now, params) = (ctx.now, ctx.params);
         let goods = &ctx.catalog.goods;
         let mp = &params.market;
@@ -203,6 +208,11 @@ impl Population {
                 self.kept_flows.absorb(&k.flows);
             }
             self.kept = full;
+        } else if !self.notes.issues.is_empty() {
+            // Notes with no goods kept behind any (a polity's store's, M10d slice EJ) are presented
+            // and paid all the same.
+            let presented = self.notes_review(ctx, day);
+            self.redeem(ctx, day, presented);
         }
         // Households with no roof of their own whose day it is weigh leaving goods with another.
         let review_days = i64::from(mp.review_days.max(1));
@@ -379,17 +389,53 @@ impl Population {
             order.extend(chunk);
         }
         for (issue, holder, pieces) in order {
+            // False pieces presented their issuer always tells and keeps, paying nothing (M10d
+            // slice EK, second part).
+            if self.notes.forgery(issue).is_some() {
+                let pieces = pieces.min(self.notes.held(holder, issue));
+                if pieces > 1e-9
+                    && self.retire_written((now, params, goods), holder, (note, issue), pieces)
+                {
+                    if let Some(f) = self.notes.forgeries.iter_mut().find(|f| f.id == issue) {
+                        f.count = (f.count - pieces).max(0.0);
+                    }
+                    let finder = self
+                        .notes
+                        .forgery(issue)
+                        .and_then(|f| self.notes.issue(f.of))
+                        .map(|c| c.issuer);
+                    self.notes.found.push(crate::notes::FalseFound {
+                        day,
+                        forgery: issue,
+                        passer: holder,
+                        pieces,
+                        kept: true,
+                        heard: false,
+                        finder,
+                        brought: false,
+                    });
+                }
+                continue;
+            }
             let Some(c) = self.notes.issue(issue) else {
                 continue;
             };
             let (issuer, good, kg) = (c.issuer, usize::from(c.good), f64::from(c.kg));
             let pieces = pieces.min(self.notes.held(holder, issue));
-            if pieces <= 1e-9 {
+            if pieces <= 1e-9 || kg <= 0.0 {
                 continue;
             }
-            let alive = self
-                .household(issuer)
-                .is_some_and(|x| !x.members.is_empty());
+            // A polity's store pays its own notes from its stores (M10d slice EJ).
+            let store = self.polities.iter().position(|p| p.id == issuer);
+            let alive = store.is_some()
+                || self
+                    .household(issuer)
+                    .is_some_and(|x| !x.members.is_empty());
+            // A store under a law of redemption suspended pays none (M10d slice EJ, third part).
+            if store.is_some() && self.store_suspends(issuer) {
+                self.notes.note_presented(issue, pieces, pieces, day);
+                continue;
+            }
             // Suspended, it pays none, unless what is behind them covers every piece out.
             if alive && c.suspended_until > day {
                 let covered = self.note_behind(ctx, c) + 1e-6 >= c.count * kg;
@@ -421,9 +467,18 @@ impl Population {
                     want -= take;
                 }
             }
-            // Then from the keeper's own beyond what it keeps (M10d slice EI).
+            // Then from the keeper's own beyond what it keeps (M10d slice EI), or from the store.
             if want > 1e-9 {
-                let own = self.keeper_spare(ctx, issuer, good).min(want);
+                let own = match store {
+                    Some(pi) => self.polities[pi]
+                        .stores
+                        .get(good)
+                        .copied()
+                        .unwrap_or(0.0)
+                        .max(0.0),
+                    None => self.keeper_spare(ctx, issuer, good),
+                }
+                .min(want);
                 if own > 1e-9 {
                     legs.push(Leg {
                         from: issuer,
@@ -461,8 +516,9 @@ impl Population {
             if alive && refused > 1e-9 {
                 self.refused_to_debt(ctx, day, (issue, holder), refused);
             }
-            // Having refused, a keeper living suspends.
+            // Having refused, a keeper living suspends; a store does not of its own accord.
             if alive
+                && store.is_none()
                 && refused > 1e-9
                 && let Some(c) = self.notes.issue_mut(issue)
             {
@@ -585,7 +641,7 @@ impl Population {
     }
 
     /// The first person by id of household `keeper` who can write, if any.
-    fn receipt_writer(&self, ctx: &Ctx, keeper: PermanentId) -> Option<PermanentId> {
+    pub(super) fn receipt_writer(&self, ctx: &Ctx, keeper: PermanentId) -> Option<PermanentId> {
         let writing = Self::letter_technique(ctx.catalog, Behavior::Write)?;
         self.household(keeper)?
             .members

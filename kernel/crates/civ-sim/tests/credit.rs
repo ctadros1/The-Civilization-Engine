@@ -1014,7 +1014,7 @@ fn under_bearer_heard_notes_refused_become_a_debt_the_gathering_hears() {
     let law = law_in_force(
         &mut sc.sim,
         sc.lender,
-        "core:policy/bearer_heard",
+        "core:policy/zealously_hear_the_bearer",
         civ_agents::polity::IssueKind::NotesRefused,
     );
     let (refused, holder) = refuse_notes(&mut sc, issue);
@@ -1080,7 +1080,7 @@ fn under_bearer_heard_notes_refused_become_a_debt_the_gathering_hears() {
         .catalog
         .policies
         .iter()
-        .find(|d| d.id == "core:policy/bearer_heard")
+        .find(|d| d.id == "core:policy/zealously_hear_the_bearer")
         .and_then(|d| d.debts)
         .expect("its remedy");
     let words = sc

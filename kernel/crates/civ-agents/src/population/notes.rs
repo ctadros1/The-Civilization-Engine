@@ -24,6 +24,14 @@ const NOTE_CARRY: f64 = 50.0;
 /// The share of a keeper's pieces out that, seen presented at its door within a week, makes those
 /// who hold its notes present theirs too (a design prior: "seeing others withdraw", ADR-0027 §4).
 const RUN_SHARE: f64 = 0.1;
+/// Hours a week one who forges notes gives to it at most (M10d slice EK; a design prior: no
+/// report covers counterfeiting).
+const FORGE_HOURS: f64 = 8.0;
+/// Points toward forging for a household as short as it can be of the food it keeps, as a
+/// taking's gain is weighed in points (M10d slice EK; a design prior).
+const FORGE_NEED_POINTS: f64 = 4.0;
+/// Purpose tag for a household's choice to make false notes.
+pub const PURPOSE_FORGE: u64 = 0x666f_7267_6530_3031; // "forge001"
 
 impl Population {
     /// The share of issue `c`'s pieces presented that were paid: what a household of its keeper's
@@ -59,41 +67,68 @@ impl Population {
         ((lots + own) / out).min(1.0)
     }
 
+    /// Where pieces of issuer `issuer`'s notes are presented, for a household of settlement
+    /// `settlement`: a keeper's home, when it lives in that settlement, or the hearth of a
+    /// polity whose settlement it is (M10d slice EJ: its store's notes are redeemed at the store).
+    pub(crate) fn issuer_door(
+        &self,
+        ctx: &Ctx,
+        issuer: PermanentId,
+        settlement: Option<PermanentId>,
+    ) -> Option<(f32, f32)> {
+        let s = settlement?;
+        if let Some(x) = self.household(issuer) {
+            return (!x.members.is_empty() && x.settlement == Some(s)).then_some(x.home);
+        }
+        self.polities
+            .iter()
+            .find(|p| p.id == issuer && p.settlement == s)?;
+        ctx.land
+            .settlements
+            .iter()
+            .find(|y| y.id == s)
+            .map(|y| y.hearth_m)
+    }
+
     /// What a piece of issue `c` is worth to household `hh` at its own costs `costs`, in hours,
-    /// if it knows the keeper's door (the keeper lives, in its settlement): the good it pays, at
-    /// its cost, times its belief that the keeper pays, less its share of a walk to the door and
-    /// back. Its keeper values its own pieces at what they would pay.
+    /// if it knows the issuer's door (a keeper living in its settlement, or its settlement's
+    /// store): the good it pays, at its cost, times its belief that the issuer pays, less its
+    /// share of a walk to the door and back. Its keeper values its own pieces at what they would
+    /// pay.
     pub(crate) fn piece_worth(
         &self,
+        ctx: &Ctx,
         hh: &Household,
         c: &Issue,
         costs: &[Option<f64>],
     ) -> Option<f64> {
-        let issuer = self.household(c.issuer).filter(|x| !x.members.is_empty())?;
         let cost = costs.get(usize::from(c.good)).copied().flatten()?;
         let kg = f64::from(c.kg);
-        if issuer.id == hh.id {
-            return (cost > 0.0).then_some(kg * cost);
+        if c.issuer == hh.id {
+            return (cost > 0.0 && !hh.members.is_empty()).then_some(kg * cost);
         }
-        if issuer.settlement.is_none() || issuer.settlement != hh.settlement {
+        // Notes nobody may redeem pay nothing at the door (M10d slice EJ, third part).
+        if self.store_suspends(c.issuer) {
             return None;
         }
-        let metres =
-            f64::from(issuer.home.0 - hh.home.0).hypot(f64::from(issuer.home.1 - hh.home.1));
+        let door = self.issuer_door(ctx, c.issuer, hh.settlement)?;
+        let metres = f64::from(door.0 - hh.home.0).hypot(f64::from(door.1 - hh.home.1));
         let walk_h = 2.0 * metres / WALK_M_S / 3600.0 / NOTE_CARRY;
         let w = kg * cost * Self::note_belief(c) * self.note_cover_seen(c) - walk_h;
         (w > 0.0).then_some(w)
     }
 
     /// The issues of notes household `hh` knows the doors of: those it holds and those of keepers
-    /// of its settlement.
-    fn known_issues<'a>(&'a self, hh: &'a Household) -> impl Iterator<Item = &'a Issue> + 'a {
+    /// of its settlement and of its settlement's store.
+    fn known_issues<'a>(
+        &'a self,
+        ctx: &'a Ctx,
+        hh: &'a Household,
+    ) -> impl Iterator<Item = &'a Issue> + 'a {
         self.notes.issues.iter().filter(move |c| {
             c.count > 1e-9
-                && (self.notes.held(hh.id, c.id) > 1e-9
-                    || self
-                        .household(c.issuer)
-                        .is_some_and(|x| x.settlement.is_some() && x.settlement == hh.settlement))
+                && (self.notes.held_seen(hh.id, c.id) > 1e-9
+                    || self.issuer_door(ctx, c.issuer, hh.settlement).is_some())
         })
     }
 
@@ -101,14 +136,19 @@ impl Population {
     /// issues it holds, the one worth least to it (as it pays with those first); holding none, of
     /// those of its settlement's keepers, the one worth least (as it cannot choose which it is
     /// paid in). None where it knows none worth anything.
-    pub(crate) fn note_worth(&self, hh: &Household, costs: &[Option<f64>]) -> Option<f64> {
+    pub(crate) fn note_worth(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        costs: &[Option<f64>],
+    ) -> Option<f64> {
         let held = self
             .notes
             .purse(hh.id)
             .is_some_and(|p| !p.counts.is_empty());
-        self.known_issues(hh)
-            .filter(|c| !held || self.notes.held(hh.id, c.id) > 1e-9)
-            .map(|c| self.piece_worth(hh, c, costs).unwrap_or(0.0))
+        self.known_issues(ctx, hh)
+            .filter(|c| !held || self.notes.held_seen(hh.id, c.id) > 1e-9)
+            .map(|c| self.piece_worth(ctx, hh, c, costs).unwrap_or(0.0))
             .reduce(f64::min)
             .filter(|&w| w > 0.0)
     }
@@ -116,8 +156,8 @@ impl Population {
     /// How much household `hh` wants notes, from how much it wants the goods those it knows are
     /// redeemed in (`want`, by good): as much as the least wanted, as it cannot choose which it is
     /// paid in.
-    pub(super) fn note_want(&self, hh: &Household, want: &[f64]) -> f64 {
-        self.known_issues(hh)
+    pub(super) fn note_want(&self, ctx: &Ctx, hh: &Household, want: &[f64]) -> f64 {
+        self.known_issues(ctx, hh)
             .filter(|c| c.issuer != hh.id)
             .map(|c| want.get(usize::from(c.good)).copied().unwrap_or(0.0))
             .reduce(f64::min)
@@ -141,13 +181,17 @@ impl Population {
         };
         let mut out = Vec::new();
         for &(i, n) in &purse.counts {
-            let Some(c) = self.notes.issue(i) else {
+            // False pieces are presented as the real ones they pass for, but not by their maker,
+            // who knows them (M10d slice EK).
+            if self.notes.forgery(i).is_some_and(|f| f.maker == hh.id) {
+                continue;
+            }
+            let Some(c) = self.notes.seen(i) else {
                 continue;
             };
-            let at_door = self
-                .household(c.issuer)
-                .is_some_and(|x| !x.members.is_empty() && x.settlement == hh.settlement);
-            if !at_door || c.issuer == hh.id {
+            // Notes nobody redeems are not presented (M10d slice EJ).
+            let at_door = self.issuer_door(ctx, c.issuer, hh.settlement).is_some();
+            if !at_door || c.issuer == hh.id || c.kg <= 0.0 || self.store_suspends(c.issuer) {
                 continue;
             }
             // Its settlement heard the keeper refuse lately, or a debtor of its loans in them
@@ -295,6 +339,577 @@ impl Population {
         true
     }
 
+    /// What household `hh` weighs when it would make false notes (M10d slice EK; ADR-0035 §11;
+    /// brief m10-money §7), as a taking is weighed (ADR-0015 §2; research 04-09 §5.3): only if
+    /// someone of it can write and their objection is below the moral filter, and it is short of
+    /// the food it keeps to its harvest. It would imitate, of the issues it knows, the one worth
+    /// most to it, making the pieces whose good covers its shortfall, within the hours a week it
+    /// would give to it; toward it, its shortfall; against it, its maker's objection and the
+    /// chance they believe of being found (the larger of what they believe of being seen and the
+    /// share of the other households of its settlement with someone who can tell a false piece),
+    /// shrunk or swollen by their daring. Returns the issue, the pieces and the points toward.
+    pub(super) fn forge_choice(&self, ctx: &Ctx, hh: &Household) -> Option<(u32, f64, f64)> {
+        let goods = &ctx.catalog.goods;
+        let cp = &ctx.params.crime;
+        let note = goods
+            .iter()
+            .position(|g| g.money.as_ref().is_some_and(|m| m.note))?;
+        let money = goods[note].money.as_ref()?;
+        let writing = money.assay?;
+        if money.forge_h <= 0.0 || hh.members.is_empty() {
+            return None;
+        }
+        let maker = hh
+            .members
+            .iter()
+            .filter_map(|&m| self.person(m))
+            .filter(|p| p.knows(writing))
+            .min_by(|a, b| a.objection.total_cmp(&b.objection).then(a.id.cmp(&b.id)))?;
+        let objection = f64::from(maker.objection);
+        if objection >= cp.objection_filter {
+            return None;
+        }
+        let stores = stores_now(hh, ctx.now, ctx.params, goods);
+        let food = stock_kcal(&stores, goods);
+        let target = self.holding_of(ctx, hh, &stores).food_keep;
+        if target <= 1e-9 || food >= target {
+            return None;
+        }
+        let short = (1.0 - food / target).clamp(0.0, 1.0);
+        let costs = self.own_costs_of(ctx, hh);
+        let (of, kcal) = self
+            .known_issues(ctx, hh)
+            .filter(|c| c.issuer != hh.id && c.kg > 0.0)
+            .filter_map(|c| {
+                let w = self.piece_worth(ctx, hh, c, &costs)?;
+                let kcal = f64::from(c.kg) * goods.get(usize::from(c.good))?.kcal_per_kg;
+                (kcal > 0.0).then_some((c.id, kcal, w))
+            })
+            .max_by(|a, b| a.2.total_cmp(&b.2).then(b.0.cmp(&a.0)))
+            .map(|(id, kcal, _)| (id, kcal))?;
+        let pieces = ((target - food) / kcal)
+            .min(FORGE_HOURS / money.forge_h)
+            .floor();
+        if pieces < 1.0 {
+            return None;
+        }
+        // Who would tell a false piece: the other households of its settlement with a writer.
+        let (mut tellers, mut others) = (0usize, 0usize);
+        for (_, x) in self.households.iter() {
+            if x.id == hh.id || x.members.is_empty() || x.settlement != hh.settlement {
+                continue;
+            }
+            others += 1;
+            if x.members
+                .iter()
+                .any(|&m| self.person(m).is_some_and(|p| p.knows(writing)))
+            {
+                tellers += 1;
+            }
+        }
+        let share = if others > 0 {
+            tellers as f64 / others as f64
+        } else {
+            0.0
+        };
+        let found = share.max(f64::from(maker.risk_seen)).clamp(0.0, 1.0);
+        let daring = (-cp.w_risk_trait * f64::from(maker.traits.risk)).exp();
+        // A law against counterfeiting in force where it lives, as the maker knows it (M10d
+        // slice EK, third part): its bundle, in days of its own food at the points a day is worth
+        // in a dispute, if found.
+        let bundle = hh
+            .settlement
+            .and_then(|s| self.polity_of(s))
+            .and_then(|pi| {
+                self.polities[pi]
+                    .in_force(
+                        &ctx.catalog.policies,
+                        crate::polity::PolicyKind::AgainstCounterfeiting,
+                    )
+                    .find(|l| l.knows(maker.id))
+                    .map(|l| l.sanction)
+            })
+            .map_or(0.0, |s| {
+                let exile = if s.exile { cp.exile_days } else { 0.0 };
+                cp.w_demand_loss * (f64::from(s.compensation_days) + f64::from(s.fine_days) + exile)
+            });
+        let points = FORGE_NEED_POINTS * short
+            - cp.w_objection * objection
+            - (cp.w_seen + bundle) * found * daring;
+        Some((of, pieces, points))
+    }
+
+    /// Household `maker` makes `pieces` false notes passing for issue `of` into its stores and
+    /// purse (M10d slice EK): a recorded act, as writing true ones is, that no issuer owes.
+    pub(super) fn make_false_notes(&mut self, ctx: &Ctx, maker: PermanentId, of: u32, pieces: f64) {
+        let goods = &ctx.catalog.goods;
+        let Some(note) = goods
+            .iter()
+            .position(|g| g.money.as_ref().is_some_and(|m| m.note))
+        else {
+            return;
+        };
+        self.put_forged(note, maker, of, pieces);
+    }
+
+    /// False pieces told apart within the memory of takings that a household of polity `pi`
+    /// passed or found, or its store kept (M10d slice EK, third part).
+    pub(super) fn false_found_in<'a>(
+        &'a self,
+        ctx: &Ctx,
+        pi: usize,
+    ) -> impl Iterator<Item = &'a crate::notes::FalseFound> + 'a {
+        let since = ctx.now.day_index() - i64::from(ctx.params.crime.remember_days);
+        let polity = &self.polities[pi];
+        let of = move |id: PermanentId| {
+            id == polity.id
+                || self
+                    .household(id)
+                    .is_some_and(|x| polity.holds(x.settlement))
+        };
+        self.notes
+            .found
+            .iter()
+            .filter(move |f| f.day >= since && (of(f.passer) || f.finder.is_some_and(of)))
+    }
+
+    /// Whether a household that found false notes brings a case against their passer under a
+    /// law against counterfeiting in force in polity `pi` (M10d slice EK, third part; brief §7:
+    /// "A refused or kept piece is an incident, its passer known"), as a member of an
+    /// organization brings a breach of its privilege (M7c slice BX): each find is weighed once,
+    /// by its finder's grown members who know the law, V the bundle's compensation in days of
+    /// their household's food at the points a day is worth in a dispute, C the cost of bringing a
+    /// case and their regard for the passer's elder. The one with the most to gain, if anyone,
+    /// brings it. A store that kept false pieces has no household to bring them.
+    pub(super) fn weigh_counterfeits(&mut self, ctx: &mut Ctx, pi: usize) {
+        let (now, params) = (ctx.now, ctx.params);
+        let (pp, cp, day) = (&params.polity, &params.crime, now.day_index());
+        let Some((law_id, sanction)) = self.polities[pi]
+            .in_force(
+                &ctx.catalog.policies,
+                crate::polity::PolicyKind::AgainstCounterfeiting,
+            )
+            .next()
+            .map(|l| (l.id, l.sanction))
+        else {
+            return;
+        };
+        let due: Vec<usize> = {
+            let since = day - i64::from(cp.remember_days);
+            let polity = &self.polities[pi];
+            self.notes
+                .found
+                .iter()
+                .enumerate()
+                .filter(|(_, f)| !f.brought && f.day >= since)
+                .filter(|(_, f)| {
+                    f.finder
+                        .and_then(|h| self.household(h))
+                        .is_some_and(|x| polity.holds(x.settlement))
+                })
+                .map(|(i, _)| i)
+                .collect()
+        };
+        for i in due {
+            self.notes.found[i].brought = true;
+            let (finder, passer) = {
+                let f = &self.notes.found[i];
+                (f.finder.unwrap_or(f.passer), f.passer)
+            };
+            let open = self.order.cases.iter().any(|c| {
+                c.law == law_id
+                    && c.accused_household == passer
+                    && c.stage == crate::crime::CaseStage::Open
+            });
+            let Some(accused) = self
+                .elder_of(passer, now, params)
+                .filter(|_| !open && passer != finder)
+            else {
+                continue;
+            };
+            let compensation =
+                f64::from(sanction.compensation_days) * self.day_need(passer, params);
+            let v = cp.w_demand_loss * compensation / self.day_need(finder, params);
+            let law = self.polities[pi].laws.iter().find(|l| l.id == law_id);
+            let members: Vec<PermanentId> = self
+                .household(finder)
+                .map(|x| x.members.clone())
+                .unwrap_or_default();
+            let mut best: Option<(f64, PermanentId)> = None;
+            for m in members {
+                let grown = self
+                    .person(m)
+                    .is_some_and(|p| p.age_years(now) >= params.family.independent_age);
+                if !grown || !law.is_some_and(|l| l.knows(m)) {
+                    continue;
+                }
+                let regard = self
+                    .ties
+                    .regard(m, accused, day, &params.ties)
+                    .clamp(0.0, 1.0);
+                let u = v - cp.report_cost - pp.w_regard * regard;
+                if u > 0.0 && best.is_none_or(|b| u > b.0) {
+                    best = Some((u, m));
+                }
+            }
+            let Some((_, by)) = best else {
+                continue;
+            };
+            let settlement = self.polities[pi].settlement;
+            let id = self.order.cases.last().map_or(1, |c| c.id + 1);
+            self.order.cases.push(crate::crime::Case {
+                id,
+                incident: 0,
+                settlement,
+                law: law_id,
+                accuser: finder,
+                by,
+                accused,
+                accused_household: passer,
+                kcal: 0.0,
+                leads: vec![by],
+                opened: day,
+                stage: crate::crime::CaseStage::Open,
+                heard: None,
+                eligible: 0,
+                stances: Vec::new(),
+                exiled: false,
+                forum: None,
+                challenge: None,
+                tags: 0,
+                departed: None,
+                loan: None,
+                building: None,
+            });
+            let (place, name) = ctx
+                .land
+                .settlements
+                .iter()
+                .find(|s| s.id == settlement)
+                .map_or((None, String::new()), |s| {
+                    (Some(s.hearth_m), s.name.clone())
+                });
+            let words = format!(
+                "brought a case at {name} against {}'s household for passing false notes.",
+                self.name_of(accused),
+            );
+            self.chronicle_push(
+                now,
+                ChronicleKind::CaseBrought,
+                vec![by, accused],
+                Some(settlement),
+                place,
+                0.0,
+                words,
+            );
+        }
+    }
+
+    /// Whether polity `pi` faces false notes found ([`Self::false_found_in`]), the issue a law
+    /// against counterfeiting answers: for tests.
+    #[doc(hidden)]
+    pub fn false_notes_found_for_tests(&self, ctx: &Ctx, pi: usize) -> bool {
+        self.false_found_in(ctx, pi).next().is_some()
+    }
+
+    /// Whether a household that found false notes brings a case for them
+    /// ([`Self::weigh_counterfeits`]), whatever day it is: for tests.
+    #[doc(hidden)]
+    pub fn weigh_counterfeits_for_tests(&mut self, ctx: &mut Ctx, pi: usize) {
+        self.weigh_counterfeits(ctx, pi);
+    }
+
+    /// How many finds of false notes within the memory of takings each of `households` made and
+    /// passed, in household order (M10d slice EK, third part): what a law against counterfeiting
+    /// would bring and cost it.
+    pub(super) fn counterfeit_stakes(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        households: &[PermanentId],
+    ) -> Vec<(PermanentId, u32, u32)> {
+        let mut out: Vec<(PermanentId, u32, u32)> = households.iter().map(|&h| (h, 0, 0)).collect();
+        out.sort_by_key(|x| x.0);
+        for f in self.false_found_in(ctx, pi) {
+            if let Some(i) = f
+                .finder
+                .and_then(|h| out.binary_search_by_key(&h, |x| x.0).ok())
+            {
+                out[i].1 += 1;
+            }
+            if let Ok(i) = out.binary_search_by_key(&f.passer, |x| x.0) {
+                out[i].2 += 1;
+            }
+        }
+        out
+    }
+
+    /// Each passer of false pieces told apart not yet heard of counts it as a payment in notes
+    /// refused, so it believes notes less taken (M10d slice EK, second part; brief §7:
+    /// "Refusals lower holders' acceptance beliefs"); finds older than the memory of takings
+    /// are forgotten.
+    pub(super) fn hear_false_found(&mut self, ctx: &Ctx, day: i64) {
+        if self.notes.found.is_empty() {
+            return;
+        }
+        let Some(note) = ctx
+            .catalog
+            .goods
+            .iter()
+            .position(|g| g.money.as_ref().is_some_and(|m| m.note))
+        else {
+            return;
+        };
+        let unheard: Vec<PermanentId> = self
+            .notes
+            .found
+            .iter()
+            .filter(|f| !f.heard)
+            .map(|f| f.passer)
+            .collect();
+        for passer in unheard {
+            if self.household(passer).is_some() {
+                self.note_money(ctx, passer, note, 0.0, 1.0);
+            }
+        }
+        for f in &mut self.notes.found {
+            f.heard = true;
+        }
+        let since = day - i64::from(ctx.params.crime.remember_days);
+        self.notes.found.retain(|f| f.day >= since);
+    }
+
+    /// Households whose weekly review it is weigh making false notes and, by a draw on what they
+    /// weigh, make them (M10d slice EK).
+    pub(super) fn forge_notes(&mut self, ctx: &Ctx, day: i64) {
+        if self.notes.issues.is_empty() {
+            return;
+        }
+        let review_days = i64::from(ctx.params.market.review_days.max(1));
+        let mut made: Vec<(PermanentId, u32, f64)> = Vec::new();
+        for (_, hh) in self.households.iter() {
+            if (hh.id.get() as i64 + day).rem_euclid(review_days) != 0 {
+                continue;
+            }
+            let Some((of, pieces, points)) = self.forge_choice(ctx, hh) else {
+                continue;
+            };
+            let key = [ctx.seed, PURPOSE_FORGE, hh.id.get(), day as u64];
+            if Rng64::from_key(&key).next_f64() < crate::crime::logistic(points) {
+                made.push((hh.id, of, pieces));
+            }
+        }
+        for (maker, of, pieces) in made {
+            self.make_false_notes(ctx, maker, of, pieces);
+        }
+    }
+
+    /// What household `household` weighs when it would make false notes ([`Self::forge_choice`]):
+    /// for tests.
+    #[doc(hidden)]
+    pub fn forge_choice_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+    ) -> Option<(u32, f64, f64)> {
+        self.forge_choice(ctx, self.household(household)?)
+    }
+
+    /// Household `maker` makes `pieces` false notes passing for issue `of`
+    /// ([`Self::make_false_notes`]): for tests.
+    #[doc(hidden)]
+    pub fn make_false_notes_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        maker: PermanentId,
+        of: u32,
+        pieces: f64,
+    ) {
+        self.make_false_notes(ctx, maker, of, pieces);
+    }
+
+    /// What suspending the redemption of polity `pi`'s store's notes would bring each of
+    /// `households` and cost it, kcal, in household order (M10d slice EJ, third part): its share
+    /// of the good the store would no longer pay out for the pieces out of it, and the good its
+    /// own pieces would no longer fetch.
+    pub(super) fn suspend_stakes(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        households: &[PermanentId],
+    ) -> Vec<(PermanentId, f64, f64)> {
+        let goods = &ctx.catalog.goods;
+        let polity = self.polities[pi].id;
+        let mut out: Vec<(PermanentId, f64, f64)> =
+            households.iter().map(|&h| (h, 0.0, 0.0)).collect();
+        out.sort_by_key(|x| x.0);
+        let n = out.len().max(1) as f64;
+        for c in self.notes.issues.iter().filter(|c| c.issuer == polity) {
+            let kcal = f64::from(c.kg)
+                * goods
+                    .get(usize::from(c.good))
+                    .map_or(0.0, |g| g.kcal_per_kg);
+            let out_of_store = (c.count - self.notes.held(polity, c.id)).max(0.0);
+            for x in &mut out {
+                x.1 += out_of_store * kcal / n;
+                x.2 += self.notes.held(x.0, c.id) * kcal;
+            }
+        }
+        out
+    }
+
+    /// What legal tender in polity `pi` would bring each of `households` as a debtor and cost it
+    /// as a creditor, kcal, in household order (M10d slice EJ, third part): for each loan open
+    /// between them, the good the debtor could pay in the store's notes it holds, at the rate its
+    /// store takes them, times how much less the notes are worth to it than the good.
+    pub(super) fn tender_stakes(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        households: &[PermanentId],
+    ) -> Vec<(PermanentId, f64, f64)> {
+        let goods = &ctx.catalog.goods;
+        let mut out: Vec<(PermanentId, f64, f64)> =
+            households.iter().map(|&h| (h, 0.0, 0.0)).collect();
+        out.sort_by_key(|x| x.0);
+        let Some(m) = self.notes_dues_medium(ctx, pi) else {
+            return out;
+        };
+        let polity = self.polities[pi].id;
+        let per_kg = f64::from(m.per_kg);
+        for c in self
+            .order
+            .credit
+            .claims
+            .iter()
+            .filter(|c| c.standing == crate::credit::Standing::Open)
+        {
+            let Some(hh) = self.household(c.debtor) else {
+                continue;
+            };
+            let good = usize::from(c.good);
+            let held = self.dues_held(ctx, hh, m.good, polity);
+            let kg = c.left().min(held / per_kg);
+            if kg <= 1e-9 || per_kg <= 0.0 {
+                continue;
+            }
+            let costs = self.own_costs_of(ctx, hh);
+            let good_h = costs.get(good).copied().flatten().unwrap_or(0.0);
+            let unit_h = self
+                .pay_worth_raw(ctx, hh, m.good, costs.get(m.good).copied().flatten(), held)
+                .unwrap_or(0.0);
+            if good_h <= 0.0 {
+                continue;
+            }
+            let discount = (1.0 - unit_h * per_kg / good_h).clamp(0.0, 1.0);
+            let kcal = kg * goods.get(good).map_or(0.0, |g| g.kcal_per_kg) * discount;
+            if let Ok(i) = out.binary_search_by_key(&c.debtor, |x| x.0) {
+                out[i].1 += kcal;
+            }
+            if let Ok(i) = out.binary_search_by_key(&c.creditor, |x| x.0) {
+                out[i].2 += kcal;
+            }
+        }
+        out
+    }
+
+    /// Under legal tender in the creditor's polity (M10d slice EJ, third part), the debtor of
+    /// loan `i` pays what it can of it in the store's own notes first, when they are worth less
+    /// to it than the good, at the rate its store takes them; the creditor must take them.
+    /// Returns the kilograms of the good paid so.
+    pub(super) fn tender_on_loan(&mut self, ctx: &Ctx, i: usize) -> f64 {
+        let c = self.order.credit.claims[i].clone();
+        let Some(pi) = self
+            .household(c.creditor)
+            .and_then(|x| x.settlement)
+            .and_then(|s| self.polity_of(s))
+        else {
+            return 0.0;
+        };
+        if !self.tender_in_force(pi) {
+            return 0.0;
+        }
+        let Some(m) = self.notes_dues_medium(ctx, pi) else {
+            return 0.0;
+        };
+        let polity = self.polities[pi].id;
+        let Some(hh) = self.household(c.debtor) else {
+            return 0.0;
+        };
+        let per_kg = f64::from(m.per_kg);
+        let held = self.dues_held(ctx, hh, m.good, polity);
+        let left = c.left();
+        if held <= 1e-9 || per_kg <= 0.0 || left <= 1e-9 {
+            return 0.0;
+        }
+        let good = usize::from(c.good);
+        let costs = self.own_costs_of(ctx, hh);
+        let good_h = costs.get(good).copied().flatten().unwrap_or(0.0);
+        let unit_h = self
+            .pay_worth_raw(ctx, hh, m.good, costs.get(m.good).copied().flatten(), held)
+            .unwrap_or(0.0);
+        if unit_h * per_kg >= good_h {
+            return 0.0;
+        }
+        let units = (left * per_kg).min(held);
+        let before: Vec<(u32, f64)> = self
+            .notes
+            .purse(c.debtor)
+            .map(|p| p.counts.clone())
+            .unwrap_or_default();
+        let leg = Leg {
+            from: c.debtor,
+            to: c.creditor,
+            good: m.good,
+            amount: units,
+        };
+        if !self.transfer(
+            ctx.now,
+            ctx.params,
+            &ctx.catalog.goods,
+            &[leg],
+            Channel::Repaid,
+        ) {
+            return 0.0;
+        }
+        // Only the store's own pieces are tender: any other issue's that moved go back, and as
+        // many of the store's go instead.
+        let mut wrong = 0.0;
+        for (id, b) in before {
+            let moved = b - self.notes.held(c.debtor, id);
+            let own = self.notes.issue(id).is_some_and(|x| x.issuer == polity);
+            if moved > 1e-9 && !own {
+                self.notes.give_issue(c.creditor, c.debtor, id, moved);
+                wrong += moved;
+            }
+        }
+        let own: Vec<u32> = self
+            .notes
+            .issues
+            .iter()
+            .filter(|x| x.issuer == polity)
+            .map(|x| x.id)
+            .collect();
+        for id in own {
+            if wrong <= 1e-9 {
+                break;
+            }
+            let n = wrong.min(self.notes.held(c.debtor, id));
+            self.notes.give_issue(c.debtor, c.creditor, id, n);
+            wrong -= n;
+        }
+        let kg = units / per_kg;
+        self.order.credit.claims[i].paid += kg as f32;
+        kg
+    }
+
+    /// The debtor of loan `i` pays what it would of it in notes under legal tender
+    /// ([`Self::tender_on_loan`]): for tests. Returns the kilograms paid so.
+    #[doc(hidden)]
+    pub fn tender_on_loan_for_tests(&mut self, ctx: &Ctx, i: usize) -> f64 {
+        self.tender_on_loan(ctx, i)
+    }
+
     /// What keeper household `household` may lend in its notes ([`Self::note_lending`]): for
     /// tests.
     #[doc(hidden)]
@@ -313,6 +928,28 @@ impl Population {
         kg: f64,
     ) -> bool {
         self.lend_notes(ctx, lender, borrower, issue, kg)
+    }
+
+    /// Household `holder` presents `pieces` of issue (or false issue) `issue` at its issuer's
+    /// door, paid or kept as at midnight: for tests.
+    #[doc(hidden)]
+    pub fn present_notes_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        holder: PermanentId,
+        issue: u32,
+        pieces: f64,
+    ) {
+        let day = ctx.now.day_index();
+        self.redeem(ctx, day, vec![(issue, holder, pieces)]);
+    }
+
+    /// Passers of false pieces told apart count them as notes refused ([`Self::hear_false_found`]):
+    /// for tests.
+    #[doc(hidden)]
+    pub fn hear_false_found_for_tests(&mut self, ctx: &Ctx) {
+        let day = ctx.now.day_index();
+        self.hear_false_found(ctx, day);
     }
 
     /// Household `household` presents the pieces it would at its review, and they are paid as at

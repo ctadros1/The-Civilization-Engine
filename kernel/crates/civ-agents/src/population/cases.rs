@@ -1028,6 +1028,19 @@ impl Population {
         out
     }
 
+    /// Case `id` heard now by `heard_by` before polity `pi`'s gathering ([`Self::hear_case`]):
+    /// for tests.
+    #[doc(hidden)]
+    pub fn hear_case_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        pi: usize,
+        heard_by: &[PermanentId],
+        id: u32,
+    ) {
+        self.hear_case(ctx, pi, heard_by, None, id);
+    }
+
     /// Case `id` is heard at polity `pi` by those `heard_by` (ADR-0015 §4): at a gathering, who
     /// came of its body's members; before a forum (M7b slice BR), those who sit in it. Each
     /// stands for a finding or against it, by what they believe (or make of the accounts told
@@ -1105,8 +1118,16 @@ impl Population {
             .map(|l| l.sanction)
             .unwrap_or_default();
         // A breach of a privilege (M7c slice BX): an offer at a door, which everyone saw; or a
-        // building on ground a plan reserves (M8c slice CV), which stands there to be seen.
+        // building on ground a plan reserves (M8c slice CV), which stands there to be seen; or
+        // false notes passed under a law against counterfeiting (M10d slice EK, third part),
+        // which their finder holds. Nothing was taken to give back.
+        let counterfeit = self.polities[pi]
+            .laws
+            .iter()
+            .find(|l| l.id == c.law)
+            .is_some_and(|l| l.kind == PolicyKind::AgainstCounterfeiting);
         let breach = c.building.is_some()
+            || counterfeit
             || self.polities[pi]
                 .laws
                 .iter()
@@ -1114,6 +1135,8 @@ impl Population {
                 .is_some_and(|l| l.kind == PolicyKind::Privilege);
         let breach_words = if c.building.is_some() {
             "the plan by building on ground it reserves".to_owned()
+        } else if counterfeit {
+            "the law against counterfeiting by passing false notes".to_owned()
         } else if breach {
             self.law_words_of(ctx, pi, c.law)
         } else {

@@ -112,6 +112,19 @@ pub(super) struct Forecasts {
     /// template index and then household id (M7d slice CE3a): its share of the money the store
     /// holds, at what a unit is worth to it in hours, at what its hours bring in food.
     pay: Vec<(u16, Vec<(PermanentId, f64)>)>,
+    /// What each household would be paid in the store's notes under a law of notes issued, kcal,
+    /// by template index and then household id (M10d slice EJ): its share of the template's
+    /// ceiling, at what a piece would pay it, at what its hours bring in food.
+    store_notes: Vec<(u16, Vec<(PermanentId, f64)>)>,
+    /// What suspending its store's redemption would bring each household and cost it, kcal, by
+    /// household id (M10d slice EJ, third part).
+    suspend: Vec<(PermanentId, f64, f64)>,
+    /// What legal tender would bring each household as a debtor and cost it as a creditor,
+    /// kcal, by household id (M10d slice EJ, third part).
+    tender: Vec<(PermanentId, f64, f64)>,
+    /// The false notes each household found and passed within the memory of takings, by
+    /// household id (M10d slice EK, third part).
+    counterfeits: Vec<(PermanentId, u32, u32)>,
     /// What a school would spare each household that could not send a child to learn within the
     /// year, kcal, by household id (M10c slice EB, third part).
     schooling: Vec<(PermanentId, f64)>,
@@ -379,6 +392,30 @@ impl Forecasts {
                 let (recover, owe) =
                     known().under(&m.sanction, o.year_need / 365.0, params.crime.exile_days);
                 crate::polity::against_gain(o, recover, owe, pp)
+            }
+            // Against counterfeiting (M10d slice EK, third part): the bundle's compensation for
+            // each find of its own, against the whole bundle for each it passed, in days of its
+            // own food, as a law against taking's.
+            Some(PolicyKind::AgainstCounterfeiting) => {
+                let (found, passed) = self
+                    .counterfeits
+                    .binary_search_by_key(&h, |c| c.0)
+                    .map_or((0, 0), |i| (self.counterfeits[i].1, self.counterfeits[i].2));
+                let need_day = o.year_need / 365.0;
+                let s = &m.sanction;
+                let comp = f64::from(s.compensation_days) * need_day;
+                let exile = if s.exile {
+                    params.crime.exile_days * need_day
+                } else {
+                    0.0
+                };
+                let fine = f64::from(s.fine_days) * need_day + exile;
+                crate::polity::against_gain(
+                    o,
+                    f64::from(found) * comp,
+                    f64::from(passed) * (comp + fine),
+                    pp,
+                )
             }
             // A watcher guards what the others leave unguarded (M4c slice AI): one more beside
             // `n` others adds `g(1 - g)^n` of the guard `g` one alone gives. The others are those
@@ -801,6 +838,30 @@ impl Forecasts {
                 crate::polity::kept_gain(o, (kg * saved_h + counted) * kcal, pp)
                     - crate::polity::levy_cost(o, work, pp)
             }
+            // Redemption suspended and legal tender (M10d slice EJ, third part): what it keeps
+            // or saves against what it loses.
+            Some(k @ (PolicyKind::SuspendRedemption | PolicyKind::LegalTender)) => {
+                let stakes = if k == PolicyKind::SuspendRedemption {
+                    &self.suspend
+                } else {
+                    &self.tender
+                };
+                let (to, from) = stakes
+                    .binary_search_by_key(&h, |d| d.0)
+                    .map_or((0.0, 0.0), |i| (stakes[i].1, stakes[i].2));
+                crate::polity::against_gain(o, to, from, pp)
+            }
+            // Notes issued (M10d slice EJ): the household's share of the pieces the store may
+            // write, as it would value them.
+            Some(PolicyKind::IssueNotes) => {
+                let kcal = self
+                    .store_notes
+                    .iter()
+                    .find(|p| p.0 == m.policy)
+                    .and_then(|p| p.1.iter().find(|x| x.0 == h))
+                    .map_or(0.0, |x| x.1);
+                crate::polity::kept_gain(o, kcal, pp)
+            }
             // Pay for common work (M7d slice CE3a): the household's share of the money the store
             // holds, as it values it.
             Some(PolicyKind::PayWork) => {
@@ -976,6 +1037,9 @@ impl Population {
                 self.weigh_plan_cases(ctx, pi);
                 // Whether a creditor brings a loan refused or left unpaid (M7d slice CB).
                 self.weigh_debts(ctx, pi);
+                // Whether a household that found false notes brings their passer (M10d slice
+                // EK, third part).
+                self.weigh_counterfeits(ctx, pi);
                 // Whether the store's keeper draws from it for their own household (M7c slice
                 // BY).
                 self.keeper_weighs_drawing(ctx, pi);
@@ -1350,7 +1414,7 @@ impl Population {
                 p.counts
                     .iter()
                     .filter_map(|&(i, n)| {
-                        let c = self.notes.issue(i)?;
+                        let c = self.notes.seen(i)?;
                         let g = goods.get(usize::from(c.good))?;
                         Some(n * f64::from(c.kg) * g.kcal_per_kg)
                     })
@@ -1879,6 +1943,10 @@ impl Population {
             mints,
             count_piece_h,
             pay: self.pay_forecasts(ctx, pi, households),
+            store_notes: self.store_notes_forecasts(ctx, pi, households),
+            suspend: self.suspend_stakes(ctx, pi, households),
+            tender: self.tender_stakes(ctx, pi, households),
+            counterfeits: self.counterfeit_stakes(ctx, pi, households),
             schooling: self.schooling(ctx, households, adults),
             licences: self.licence_forecasts(ctx, households),
             keep_apart: self.keep_apart_forecasts(ctx, households, adults),
@@ -2835,6 +2903,11 @@ impl Population {
         if money_held && common_work {
             issues.push(IssueKind::CoinIdle);
         }
+        // Its store could not pay an hour of that work under any law of pay for common work in
+        // force, for want of what it pays in (M10d slice EJ).
+        if common_work && self.work_unpaid(ctx, pi) {
+            issues.push(IssueKind::WorkUnpaid);
+        }
         // Its common store spoiled, measured, and no storehouse of its stands or is being
         // raised (M8d slice DC).
         if self.store_spoils(ctx, pi) {
@@ -2874,6 +2947,19 @@ impl Population {
             .any(|&h| !self.unheard_debts(h, true).is_empty())
         {
             issues.push(IssueKind::NotesRefused);
+        }
+        // Its store refused its own notes within the month (M10d slice EJ, third part).
+        let id = self.polities[pi].id;
+        let day = ctx.now.day_index();
+        if self.notes.issues.iter().any(|c| {
+            c.issuer == id && c.refused_day >= 0 && day - c.refused_day <= super::custody::FEE_DAYS
+        }) {
+            issues.push(IssueKind::StoreNotesRefused);
+        }
+        // False notes its households passed or found, or its store kept, within the memory of
+        // takings (M10d slice EK, third part).
+        if self.false_found_in(ctx, pi).next().is_some() {
+            issues.push(IssueKind::FalseNotesFound);
         }
         let polity = &self.polities[pi];
         // A watch may have one more while takings continue (M4c slice AI: a watch of several):
@@ -3342,6 +3428,15 @@ impl Population {
                             moves.push(MoveOption { sanction, ..blank });
                         }
                     }
+                    // Against counterfeiting (M10d slice EK, third part): its bundles, only where
+                    // false notes were found.
+                    PolicyKind::AgainstCounterfeiting => {
+                        if self.false_found_in(ctx, pi).next().is_some() {
+                            for &sanction in &def.bundles {
+                                moves.push(MoveOption { sanction, ..blank });
+                            }
+                        }
+                    }
                     // A band against the settlement whose people raided their household lately,
                     // as its members know it, led by the one who proposes it (M6c slice BJ).
                     // Not while their polity's word against raiding that settlement is in force,
@@ -3388,10 +3483,21 @@ impl Population {
                     PolicyKind::LendFromStore => moves.push(blank),
                     // Pay for common work (M7d slice CE3a): one law, its rate the template's.
                     PolicyKind::PayWork => moves.push(blank),
+                    // Legal tender and redemption suspended (M10d slice EJ, third part): one law;
+                    // legal tender only where the store takes its own notes for dues.
+                    PolicyKind::LegalTender => {
+                        if self.notes_dues_medium(ctx, pi).is_some() {
+                            moves.push(blank);
+                        }
+                    }
+                    PolicyKind::SuspendRedemption => moves.push(blank),
                     // Debts heard (M7d slice CB): one law, its remedy the template's; it
                     // replaces a law of debts heard of another template in force.
-                    // Bearer heard likewise (M10d slice EI, third part).
-                    k @ (PolicyKind::DebtsHeard | PolicyKind::BearerHeard) => {
+                    // Bearer heard likewise (M10d slice EI, third part), and notes issued (slice
+                    // EJ).
+                    k @ (PolicyKind::DebtsHeard
+                    | PolicyKind::BearerHeard
+                    | PolicyKind::IssueNotes) => {
                         let ends = self.polities[pi]
                             .laws
                             .iter()
@@ -5267,6 +5373,8 @@ impl Population {
     /// it holds some and what a unit would otherwise bring it ([`Population::pay_worth_raw`]) is
     /// worth less than the grain it pays for: the payer gives what is worth least to it. Returns
     /// the kilograms of grain paid for so.
+    /// Under a law of notes issued that has its store take them, it pays in the store's own notes
+    /// first (M10d slice EJ, second part).
     fn levy_in_money(
         &mut self,
         ctx: &Ctx,
@@ -5276,19 +5384,34 @@ impl Population {
         grain: usize,
         owed: f64,
     ) -> f64 {
-        let Some(m) = ctx
-            .catalog
-            .policies
-            .get(usize::from(self.polities[pi].laws[li].policy))
-            .and_then(|d| d.medium)
-        else {
-            return 0.0;
-        };
+        let media = [
+            self.notes_dues_medium(ctx, pi),
+            ctx.catalog
+                .policies
+                .get(usize::from(self.polities[pi].laws[li].policy))
+                .and_then(|d| d.medium),
+        ];
+        let mut paid = 0.0;
+        for m in media.into_iter().flatten() {
+            paid += self.levy_in_medium(ctx, (pi, li), household, (grain, owed - paid), m);
+        }
+        paid
+    }
+
+    /// [`Self::levy_in_money`] in one medium `m`, `owed` kilograms of grain left to pay.
+    fn levy_in_medium(
+        &mut self,
+        ctx: &Ctx,
+        (pi, li): (usize, usize),
+        household: PermanentId,
+        (grain, owed): (usize, f64),
+        m: crate::polity::MediumDef,
+    ) -> f64 {
         let per_kg = f64::from(m.per_kg);
         let Some(hh) = self.household(household) else {
             return 0.0;
         };
-        let held = hh.stores.get(m.good).copied().unwrap_or(0.0).max(0.0);
+        let held = self.dues_held(ctx, hh, m.good, self.polities[pi].id);
         if held <= 1e-9 || per_kg <= 0.0 || owed <= 1e-9 {
             return 0.0;
         }

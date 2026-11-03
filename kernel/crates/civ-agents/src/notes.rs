@@ -43,6 +43,49 @@ pub struct Issue {
 /// Days over which pieces presented at an issuer's door are seen together (M10d slice EI).
 pub const SEEN_DAYS: i64 = 7;
 
+/// False issues are numbered from here, apart from real ones (M10d slice EK).
+pub const FORGED_BASE: u32 = 1 << 31;
+
+/// False pieces of one real issue that one household made (M10d slice EK; brief m10-money §7):
+/// held in purses under their own number, counted by holders as the real issue's, owed by
+/// nobody.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Forgery {
+    /// Its number, from [`FORGED_BASE`] in the order first made.
+    pub id: u32,
+    /// The real issue it passes for.
+    pub of: u32,
+    /// The household that made them.
+    pub maker: PermanentId,
+    /// Pieces made and not yet taken out of being.
+    pub count: f64,
+}
+
+/// False pieces told apart (M10d slice EK, second part; brief m10-money §7): refused by a payee
+/// who can tell them, or kept by their issuer when presented. Its passer, the household that paid
+/// or presented them, is known; their maker need not be.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FalseFound {
+    /// The day they were told apart.
+    pub day: i64,
+    /// The false issue they were pieces of.
+    pub forgery: u32,
+    /// The household that paid or presented them.
+    pub passer: PermanentId,
+    /// Pieces told apart.
+    pub pieces: f64,
+    /// Kept by their issuer at redemption, else refused at payment.
+    pub kept: bool,
+    /// Whether the passer has counted it as a refusal of notes yet.
+    pub heard: bool,
+    /// The one that told them apart: the payee that refused them or their issuer that kept them
+    /// (M10d slice EK, third part); none for those found before it was kept.
+    pub finder: Option<PermanentId>,
+    /// Whether the finder has weighed bringing a case for them under a law against
+    /// counterfeiting yet (third part).
+    pub brought: bool,
+}
+
 /// Every issue of notes and every purse holding any (saved).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Notes {
@@ -53,6 +96,10 @@ pub struct Notes {
     /// Loans in the credit book that are notes refused under a law of bearer heard and booked as
     /// what their keeper owes their holder (M10d slice EI, third part), by claim number.
     pub dishonoured: Vec<u32>,
+    /// False pieces made, in the order first made (M10d slice EK).
+    pub forgeries: Vec<Forgery>,
+    /// False pieces told apart, oldest first, within a memory (M10d slice EK, second part).
+    pub found: Vec<FalseFound>,
 }
 
 impl Notes {
@@ -70,6 +117,65 @@ impl Notes {
             .binary_search_by_key(&id, |c| c.id)
             .ok()
             .map(|i| &mut self.issues[i])
+    }
+
+    /// The false issue numbered `id` (M10d slice EK).
+    pub fn forgery(&self, id: u32) -> Option<&Forgery> {
+        self.forgeries
+            .binary_search_by_key(&id, |f| f.id)
+            .ok()
+            .map(|i| &self.forgeries[i])
+    }
+
+    /// The issue a holder takes pieces numbered `id` for: the issue itself, or the real one a
+    /// false issue passes for (M10d slice EK).
+    pub fn seen(&self, id: u32) -> Option<&Issue> {
+        self.issue(id).or_else(|| self.issue(self.forgery(id)?.of))
+    }
+
+    /// Pieces `holder` holds that it takes for issue `issue`'s: the real ones and any false ones
+    /// passing for them (M10d slice EK).
+    pub fn held_seen(&self, holder: PermanentId, issue: u32) -> f64 {
+        self.held(holder, issue)
+            + self
+                .forgeries
+                .iter()
+                .filter(|f| f.of == issue)
+                .map(|f| self.held(holder, f.id))
+                .sum::<f64>()
+    }
+
+    /// False pieces `holder` holds, of every false issue.
+    pub fn false_held(&self, holder: PermanentId) -> f64 {
+        self.forgeries.iter().map(|f| self.held(holder, f.id)).sum()
+    }
+
+    /// Household `maker` makes `count` false pieces passing for issue `of` into its own purse:
+    /// its false issue of it, or a new one (M10d slice EK). The pieces are the caller's to add to
+    /// its stores. Returns the false issue's number.
+    pub fn forge(&mut self, maker: PermanentId, of: u32, count: f64) -> u32 {
+        let id = match self
+            .forgeries
+            .iter_mut()
+            .find(|f| f.maker == maker && f.of == of)
+        {
+            Some(f) => {
+                f.count += count;
+                f.id
+            }
+            None => {
+                let id = self.forgeries.last().map_or(FORGED_BASE, |f| f.id + 1);
+                self.forgeries.push(Forgery {
+                    id,
+                    of,
+                    maker,
+                    count,
+                });
+                id
+            }
+        };
+        purse_mut_in(&mut self.purses, maker).add(id, count);
+        id
     }
 
     /// `issuer`'s issue in good `good`, if it has written one.
@@ -200,7 +306,13 @@ impl Notes {
     /// Puts every purse right by what its holder holds of notes (`held`), each issue's count
     /// conserved, as coin's are ([`crate::coin::Coinage::reconcile`]).
     pub fn reconcile(&mut self, holders: &[PermanentId], held: &dyn Fn(PermanentId) -> f64) {
-        let issues: Vec<(u32, f64)> = self.issues.iter().map(|c| (c.id, c.count)).collect();
+        // False pieces are found again as real ones are (M10d slice EK).
+        let issues: Vec<(u32, f64)> = self
+            .issues
+            .iter()
+            .map(|c| (c.id, c.count))
+            .chain(self.forgeries.iter().map(|f| (f.id, f.count)))
+            .collect();
         reconcile_in(&mut self.purses, &issues, holders, held);
     }
 }

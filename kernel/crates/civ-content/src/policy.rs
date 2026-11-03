@@ -137,6 +137,9 @@ pub(crate) struct PolicyFile {
     /// its terms.
     #[serde(default)]
     pub middens: Option<MiddensFile>,
+    /// For notes issued (`issue_notes`, content API 196, M10d slice EJ): their terms.
+    #[serde(default)]
+    pub notes: Option<NotesFile>,
     /// For a common store (`common_store`, content API 129, M7d slice CE3b): a money its levy
     /// may be paid in.
     #[serde(default)]
@@ -269,6 +272,28 @@ pub struct MiddensFile {
     /// The share of a household's deaths of disease within the year it believes cleaner water
     /// would have spared, 0-1.
     pub avoided_share: f32,
+}
+
+/// The terms of a polity's notes in a policy file (content API 196, M10d slice EJ).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct NotesFile {
+    /// The most pieces the store may have out at once.
+    pub ceiling: f64,
+    /// The good a piece is redeemed for at the store, by content id; none for notes nobody may
+    /// redeem.
+    #[serde(default)]
+    pub redeem: Option<String>,
+    /// Kilograms of it a piece is redeemed for.
+    #[serde(default)]
+    pub kg: Option<f64>,
+    /// The share of what a piece is redeemed for the store keeps, 0-1.
+    #[serde(default)]
+    pub fee: f64,
+    /// Pieces the store takes for each kilogram of grain owed it, levy, fine or ground rent
+    /// (content API 197); 0, or left out, for none.
+    #[serde(default)]
+    pub dues_per_kg: f64,
 }
 
 /// What a household believes a register of the sick spares it, in a policy file (content API
@@ -571,6 +596,25 @@ impl PolicyFile {
         })
     }
 
+    /// The terms of a polity's notes, the good they are redeemed in found by `good_index` (M10d
+    /// slice EJ).
+    pub fn notes_def(
+        &self,
+        good_index: &dyn Fn(&str) -> Option<usize>,
+    ) -> Option<civ_agents::polity::NotesDef> {
+        let n = self.notes.as_ref()?;
+        let redeem = match &n.redeem {
+            Some(g) => Some((good_index(g)?, n.kg.unwrap_or(0.0) as f32)),
+            None => None,
+        };
+        Some(civ_agents::polity::NotesDef {
+            ceiling: n.ceiling as f32,
+            redeem,
+            fee: n.fee as f32,
+            dues_per_kg: n.dues_per_kg as f32,
+        })
+    }
+
     /// The fee a plan's parcel is given for, its good found by `good_index` (M8c slice CU).
     pub fn plan_fee(&self, good_index: &dyn Fn(&str) -> Option<usize>) -> Option<(usize, f32)> {
         let f = self.plan.as_ref()?.fee.as_ref()?;
@@ -708,6 +752,8 @@ impl PolicyFile {
                     carry_h: m.carry_h,
                     avoided_share: m.avoided_share,
                 }),
+            // Resolved apart, with the good ([`PolicyFile::notes_def`]).
+            notes: None,
             plan: self.plan.as_ref().map(|g| civ_agents::polity::PlanDef {
                 grid: civ_land::plans::Grid {
                     block_m: (g.block_m[0] as f32, g.block_m[1] as f32),
@@ -905,10 +951,11 @@ impl PolicyFile {
                                 | PolicyKind::AgainstRaiding
                                 | PolicyKind::Privilege
                                 | PolicyKind::Plan
+                                | PolicyKind::AgainstCounterfeiting
                         )
                     ) {
                         p.push(format!(
-                            "`forum.hears` names `{h}`; cases are brought under `against_taking`, `against_raiding`, `privilege` and `plan`"
+                            "`forum.hears` names `{h}`; cases are brought under `against_taking`, `against_raiding`, `privilege`, `plan` and `against_counterfeiting`"
                         ));
                     }
                 }
@@ -1202,6 +1249,48 @@ impl PolicyFile {
                 p.push("`middens` is for `does = \"clear_middens\"`".to_owned());
             }
         }
+        // A polity's notes' terms (M10d slice EJ): only for `issue_notes`, which must have them.
+        match (&self.notes, PolicyKind::from_name(&self.does)) {
+            (None, Some(PolicyKind::IssueNotes)) => {
+                p.push("an `issue_notes` template needs a `notes` table".to_owned());
+            }
+            (Some(n), Some(PolicyKind::IssueNotes)) => {
+                if !(n.ceiling.is_finite() && n.ceiling > 0.0 && n.ceiling <= 1e9) {
+                    p.push(format!(
+                        "`notes.ceiling` must be above 0 and at most 1e9 (got {})",
+                        n.ceiling
+                    ));
+                }
+                if !(n.dues_per_kg.is_finite() && (0.0..=1000.0).contains(&n.dues_per_kg)) {
+                    p.push(format!(
+                        "`notes.dues_per_kg` must be between 0 and 1000 (got {})",
+                        n.dues_per_kg
+                    ));
+                }
+                if !(n.fee.is_finite() && (0.0..1.0).contains(&n.fee)) {
+                    p.push(format!(
+                        "`notes.fee` must be at least 0 and below 1 (got {})",
+                        n.fee
+                    ));
+                }
+                match (&n.redeem, n.kg) {
+                    (Some(_), Some(kg)) if !(kg.is_finite() && kg > 0.0 && kg <= 1000.0) => {
+                        p.push(format!(
+                            "`notes.kg` must be above 0 and at most 1000 (got {kg})"
+                        ));
+                    }
+                    (Some(_), None) => {
+                        p.push("`notes.redeem` needs `notes.kg`".to_owned());
+                    }
+                    (None, Some(_)) => p.push("`notes.kg` is for `notes.redeem`".to_owned()),
+                    _ => {}
+                }
+            }
+            (None, _) => {}
+            (Some(_), _) => {
+                p.push("`notes` is for `does = \"issue_notes\"`".to_owned());
+            }
+        }
         // A register's share (M10c slice EE, second part): only for `keep_register`, which must
         // have it; and a technique an office's holder must know only for an office.
         match (&self.register, PolicyKind::from_name(&self.does)) {
@@ -1462,6 +1551,9 @@ impl PolicyFile {
                 | PolicyKind::KeepRegister
                 | PolicyKind::ClearMiddens
                 | PolicyKind::BearerHeard
+                | PolicyKind::IssueNotes
+                | PolicyKind::LegalTender
+                | PolicyKind::SuspendRedemption
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
@@ -1471,8 +1563,10 @@ impl PolicyFile {
                 ));
             }
             Some(
-                k
-                @ (PolicyKind::AgainstTaking | PolicyKind::AgainstRaiding | PolicyKind::Privilege),
+                k @ (PolicyKind::AgainstTaking
+                | PolicyKind::AgainstRaiding
+                | PolicyKind::Privilege
+                | PolicyKind::AgainstCounterfeiting),
             ) => {
                 if !self.levy_shares.is_empty() || self.relief_days != 0.0 {
                     p.push(format!(
@@ -1535,6 +1629,9 @@ impl PolicyFile {
                 | PolicyKind::KeepRegister
                 | PolicyKind::ClearMiddens
                 | PolicyKind::BearerHeard
+                | PolicyKind::IssueNotes
+                | PolicyKind::LegalTender
+                | PolicyKind::SuspendRedemption
                 | PolicyKind::Plan
                 | PolicyKind::RaiseBuilding,
             )
@@ -1669,11 +1766,13 @@ impl PolicyFile {
                     | PolicyKind::AgainstRaiding
                     | PolicyKind::Privilege
                     | PolicyKind::Plan
+                    | PolicyKind::AgainstCounterfeiting
             )
         ) && !self.bundles.is_empty()
         {
             p.push(
-                "only an `against_taking`, `against_raiding`, `privilege` or `plan` policy has \
+                "only an `against_taking`, `against_raiding`, `privilege`, `plan` or \
+                 `against_counterfeiting` policy has \
                  `bundles`"
                     .to_owned(),
             );
@@ -1838,6 +1937,7 @@ mod tests {
             holder_needs: None,
             register: None,
             middens: None,
+            notes: None,
         }
     }
 

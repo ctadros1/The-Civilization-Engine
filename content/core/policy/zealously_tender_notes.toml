@@ -1,0 +1,22 @@
+# Legal tender (M10d slice EJ, third part; ADR-0035 §10; brief m10-money §5: "a creditor of a
+# claim in another good must take the polity's notes at the law's rate"; research 08-06 §1.4).
+# Where a loan their household made went unpaid (the issue `debts_unpaid`), anyone may propose
+# that a creditor of the polity's households take the store's own notes for a loan in a good, at
+# the rate the store takes them for dues; a debtor then pays in them what they are worth less to
+# it than the good, and the creditor bears the difference. Without a law of notes issued that has
+# the store take its notes for dues, it does nothing. Whether anyone proposes it, and whether a
+# gathering passes it, is people's. Its id sorts after every older template's: hearth talk about
+# a question and a saved law are keyed by a template's place in id order, so an id sorting
+# earlier would shift theirs.
+kind = "policy"
+id = "core:policy/zealously_tender_notes"
+name = "Legal tender"
+description = "A creditor must take the store's notes for a loan in grain, at the rate the store takes them."
+does = "legal_tender"
+answers = ["debts_unpaid"]
+question = "whether a creditor must take the store's notes for what is owed"
+
+# An authoring judgement, not a measurement: a debtor's relief at a creditor's cost.
+[bears]
+"core:value/reciprocity" = -0.5
+"core:value/security" = 0.25

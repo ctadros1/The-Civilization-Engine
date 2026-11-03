@@ -162,6 +162,10 @@ pub(crate) struct Money {
     /// Content API 131 (M7d slice CE4c): hours to weigh and test a foreign piece.
     #[serde(default)]
     pub foreign_assay_h: f64,
+    /// Content API 199 (M10d slice EK): for notes, hours a false piece takes one who knows the
+    /// technique of `assay`.
+    #[serde(default)]
+    pub forge_h: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -225,6 +229,7 @@ impl GoodFile {
                 assay: None,
                 foreign_discount: m.foreign_discount,
                 foreign_assay_h: m.foreign_assay_h,
+                forge_h: m.forge_h,
             }),
             fire: self.fire.as_ref().map(|f| GoodFire {
                 catch_kw_m2: f.catch_kw_m2,
@@ -266,6 +271,7 @@ impl GoodFile {
             for (name, v) in [
                 ("money.verify_h", m.verify_h),
                 ("money.foreign_assay_h", m.foreign_assay_h),
+                ("money.forge_h", m.forge_h),
             ] {
                 if !(v.is_finite() && (0.0..=100.0).contains(&v)) {
                     p.push(format!("`{name}` must be between 0 and 100 (got {v})"));

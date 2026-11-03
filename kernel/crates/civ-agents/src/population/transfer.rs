@@ -254,6 +254,43 @@ impl Population {
         Some(self.notes.write(issuer, terms, count, holder))
     }
 
+    /// Whether holder `id` tells false notes from true (M10d slice EK, second part): a household
+    /// with someone who knows the note's making technique `assay`, or a polity's store, which
+    /// knows its own and its writers'.
+    pub(super) fn tells_false(&self, id: PermanentId, assay: Option<usize>) -> bool {
+        if self.polities.iter().any(|p| p.id == id) {
+            return true;
+        }
+        let Some(t) = assay else {
+            return false;
+        };
+        self.household(id).is_some_and(|x| {
+            x.members
+                .iter()
+                .any(|&m| self.person(m).is_some_and(|p| p.knows(t)))
+        })
+    }
+
+    /// Makes `count` false pieces of note good `note` passing for issue `of` into `maker`'s
+    /// stores and purse (M10d slice EK). Returns the false issue's number, making nothing when
+    /// `maker` holds nothing.
+    pub(super) fn put_forged(
+        &mut self,
+        note: usize,
+        maker: PermanentId,
+        of: u32,
+        count: f64,
+    ) -> Option<u32> {
+        let h = self.holder(maker)?;
+        let (stores, flows) = self.holder_goods(h)?;
+        if stores.len() <= note {
+            stores.resize(note + 1, 0.0);
+        }
+        stores[note] += count;
+        flows.add(Flow::Made, note, count);
+        Some(self.notes.forge(maker, of, count))
+    }
+
     /// Takes `count` pieces of note good `note` of issue `issue` out of `holder`'s stores and
     /// purse and out of being, brought up to `now` first (M10d slice EH): notes redeemed, retired
     /// by their issuer. Returns `false`, retiring nothing, when it does not hold them.
@@ -421,6 +458,50 @@ impl Population {
                 return false;
             }
         }
+        // A payee who can tell false notes refuses a payment the payer cannot make in true ones,
+        // and the false pieces it was offered are found (M10d slice EK, second part).
+        for l in legs {
+            let Some(m) = goods[l.good].money.as_ref().filter(|m| m.note) else {
+                continue;
+            };
+            let false_held = self.notes.false_held(l.from);
+            if false_held <= 1e-9 || !self.tells_false(l.to, m.assay) {
+                continue;
+            }
+            let held = holder_of(l.from)
+                .and_then(|h| match h {
+                    Holder::Household(hd) => self.households.get(hd).map(|x| &x.stores),
+                    Holder::Firm(i) => self.firms.get(i).map(|f| &f.stores),
+                    Holder::Polity(i) => self.polities.get(i).map(|p| &p.stores),
+                    _ => None,
+                })
+                .and_then(|s| s.get(l.good))
+                .copied()
+                .unwrap_or(0.0);
+            let true_held = (held - false_held).max(0.0);
+            if true_held + COVER_SLACK < l.amount {
+                let offered = (l.amount - true_held).min(false_held);
+                if let Some(f) = self
+                    .notes
+                    .forgeries
+                    .iter()
+                    .find(|f| self.notes.held(l.from, f.id) > 1e-9)
+                {
+                    let forgery = f.id;
+                    self.notes.found.push(crate::notes::FalseFound {
+                        day: now.day_index(),
+                        forgery,
+                        passer: l.from,
+                        pieces: offered,
+                        kept: false,
+                        heard: false,
+                        finder: Some(l.to),
+                        brought: false,
+                    });
+                }
+                return false;
+            }
+        }
         for l in legs {
             let mut moved = 0.0;
             if let Some((stores, flows)) = holder_of(l.from).and_then(|h| self.holder_goods(h)) {
@@ -467,13 +548,44 @@ impl Population {
             // issuer's door a holder presents those of the issue it redeems, moved by the caller.
             if channel != Channel::Redeemed && goods[l.good].money.as_ref().is_some_and(|m| m.note)
             {
-                // Those it believes least that their keepers pay, of least worth, first.
+                // Those it believes least that their keepers pay, of least worth, first; to their
+                // issuer, its own first, which it surely takes (M10d slice EJ, second part).
                 let worth: Vec<(u32, f64)> = self
                     .notes
                     .issues
                     .iter()
-                    .map(|c| (c.id, Self::note_belief(c) * f64::from(c.kg)))
+                    .map(|c| {
+                        let w = if c.issuer == l.to {
+                            -1.0
+                        } else {
+                            Self::note_belief(c) * f64::from(c.kg)
+                        };
+                        (c.id, w)
+                    })
                     .collect();
+                // False pieces go as the real ones they pass for; their maker gives them first
+                // (M10d slice EK); to a payee who tells them, none goes (second part).
+                let tells =
+                    self.tells_false(l.to, goods[l.good].money.as_ref().and_then(|m| m.assay));
+                let mut worth = worth;
+                let forged: Vec<(u32, f64)> = self
+                    .notes
+                    .forgeries
+                    .iter()
+                    .map(|f| {
+                        let w = if tells {
+                            f64::MAX
+                        } else if f.maker == l.from {
+                            -2.0
+                        } else {
+                            worth
+                                .binary_search_by_key(&f.of, |x| x.0)
+                                .map_or(0.0, |i| worth[i].1)
+                        };
+                        (f.id, w)
+                    })
+                    .collect();
+                worth.extend(forged);
                 let worth = |issue: u32| {
                     worth
                         .binary_search_by_key(&issue, |x| x.0)

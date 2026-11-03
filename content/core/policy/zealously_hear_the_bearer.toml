@@ -5,9 +5,11 @@
 # the keeper before the gathering, or a forum that hears such cases; a finding imposes what is
 # still owed, met as any finding is. Without it, refused notes stay with their holder, owed and
 # unheard. Whether anyone proposes it and whether a gathering passes it is people's; the share is
-# what households expect a finding to move, a tuning value.
+# what households expect a finding to move, a tuning value. Its id sorts after every older
+# template's: hearth talk about a question and a saved law are keyed by a template's place in id
+# order, so an id sorting earlier would shift theirs.
 kind = "policy"
-id = "core:policy/bearer_heard"
+id = "core:policy/zealously_hear_the_bearer"
 name = "Bearer heard"
 description = "Notes refused at their keeper's door may be brought; a finding imposes what is owed."
 does = "bearer_heard"

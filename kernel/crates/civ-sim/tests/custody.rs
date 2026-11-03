@@ -784,3 +784,329 @@ fn once_its_keeper_lends_in_them_a_note_is_worth_what_is_seen_behind_it() {
         "{words}"
     );
 }
+
+#[test]
+fn a_writer_short_of_food_weighs_false_notes_makes_them_and_pays_with_them_first() {
+    // M10d slice EK: a keeper's notes are about, held by its depositor; a neighbour short of food
+    // whose member can write, and objects to nothing, weighs imitating them.
+    let (mut sim, d, k) = scene();
+    let note = good(&sim, "core:good/note");
+    let writer = sim.people().household(k).expect("keeper").members[0];
+    writers(&mut sim, k, Some(writer));
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    let issue = sim.people().notes.issues[0].id;
+    let s = hungry_neighbour(&mut sim, d, k);
+    writers(&mut sim, s, None);
+    let none = sim.with_ctx_for_tests(|pop, ctx| pop.forge_choice_for_tests(ctx, s));
+    assert_eq!(none, None, "nobody of it can write");
+    let forger = sim.people().household(s).expect("neighbour").members[0];
+    writers(&mut sim, s, Some(forger));
+    let filter = sim.rules().people.crime.objection_filter;
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.id == forger {
+            p.objection = (filter - 10.0) as f32;
+        }
+    }
+    let (of, pieces, points) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.forge_choice_for_tests(ctx, s))
+        .expect("it weighs imitating the keeper's notes");
+    assert_eq!(of, issue);
+    assert!((1.0..=8.0 / 0.25).contains(&pieces), "{pieces}");
+    assert!(points.is_finite());
+    // It makes five, which it holds as the keeper's pieces nobody owes, and pays with them first.
+    sim.with_ctx_for_tests(|pop, ctx| pop.make_false_notes_for_tests(ctx, s, issue, 5.0));
+    let notes = &sim.people().notes;
+    let f = notes.forgeries[0].clone();
+    assert_eq!((f.of, f.maker, f.count), (issue, s, 5.0));
+    assert!((notes.held_seen(s, issue) - 5.0).abs() < 1e-9);
+    assert!(notes.held(s, issue).abs() < 1e-9, "none of them real");
+    assert!((sim.people().household(s).expect("neighbour").stores[note] - 5.0).abs() < 1e-9);
+    let real = notes.issue(issue).expect("issue").count;
+    let before = notes.held_seen(d, issue);
+    // Paid to the depositor, who cannot tell them (second part: one who can write would refuse).
+    writers(&mut sim, d, None);
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, s, d, note, 3.0)));
+    let notes = &sim.people().notes;
+    assert!(
+        (notes.held(d, f.id) - 3.0).abs() < 1e-9,
+        "the false ones went"
+    );
+    assert!((notes.held_seen(d, issue) - before - 3.0).abs() < 1e-9);
+    assert_eq!(
+        notes.issue(issue).expect("issue").count,
+        real,
+        "the keeper owes no more"
+    );
+    // They save and load as made.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "false").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.people().notes, sim.people().notes);
+}
+
+#[test]
+fn a_payee_who_can_write_refuses_false_notes_and_their_keeper_keeps_those_presented() {
+    // M10d slice EK, second part: a neighbour holds five false pieces of a keeper's notes.
+    let (mut sim, d, k) = scene();
+    let provisions = good(&sim, "core:good/provisions");
+    let note = good(&sim, "core:good/note");
+    let writer = sim.people().household(k).expect("keeper").members[0];
+    writers(&mut sim, k, Some(writer));
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    let issue = sim.people().notes.issues[0].id;
+    let s = hungry_neighbour(&mut sim, d, k);
+    writers(&mut sim, s, None);
+    writers(&mut sim, d, None);
+    sim.with_ctx_for_tests(|pop, ctx| pop.make_false_notes_for_tests(ctx, s, issue, 5.0));
+    let f = sim.people().notes.forgeries[0].id;
+    // The keeper, who can write, refuses three of them in payment: nothing moves, and they are
+    // found, their passer known.
+    assert!(!sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, s, k, note, 3.0)));
+    let notes = &sim.people().notes;
+    assert!((notes.held(s, f) - 5.0).abs() < 1e-9);
+    let found = notes.found[0].clone();
+    assert_eq!((found.passer, found.forgery, found.kept), (s, f, false));
+    assert!((found.pieces - 3.0).abs() < 1e-9);
+    // The depositor, who cannot write, takes them for the keeper's.
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, s, d, note, 3.0)));
+    assert!((sim.people().notes.held(d, f) - 3.0).abs() < 1e-9);
+    // Presented at the keeper's door they are kept: no provisions for them, the pieces out of
+    // being, and found again, its presenter the passer.
+    let held = |sim: &Sim| {
+        let x = sim.people().household(d).expect("depositor");
+        (x.stores[provisions], x.stores[note])
+    };
+    let (food, notes_before) = held(&sim);
+    sim.with_ctx_for_tests(|pop, ctx| pop.present_notes_for_tests(ctx, d, f, 3.0));
+    let (food_after, notes_after) = held(&sim);
+    assert!((food_after - food).abs() < 1e-9, "nothing paid for them");
+    assert!((notes_before - notes_after - 3.0).abs() < 1e-9);
+    let notes = &sim.people().notes;
+    assert!(notes.held(d, f) < 1e-9);
+    assert!((notes.forgeries[0].count - 2.0).abs() < 1e-9);
+    let kept = notes.found[1].clone();
+    assert_eq!((kept.passer, kept.kept), (d, true));
+    // Each passer then counts a payment in notes refused, and believes notes taken less.
+    sim.with_ctx_for_tests(|pop, ctx| pop.hear_false_found_for_tests(ctx));
+    for passer in [s, d] {
+        let b = sim
+            .people()
+            .money_belief_for_tests(passer, note)
+            .expect("a belief of notes");
+        assert!(b.refused > 0.0 && b.acceptance() < 1.0, "{b:?}");
+    }
+    assert!(sim.people().notes.found.iter().all(|x| x.heard));
+}
+
+/// A law against counterfeiting of the core template in force where household `h` lives, with the
+/// template's `bundle`th bundle, known to every grown member there (M10d slice EK, third part).
+/// Returns the polity's index and the law's id.
+fn against_counterfeiting(sim: &mut Sim, h: PermanentId, bundle: usize) -> (usize, PermanentId) {
+    use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome};
+    let policy = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.id == "core:policy/zealously_write_against_forgery")
+        .expect("the core content has the template");
+    let def = &sim.rules().catalog.policies[policy];
+    let (kind, sanction) = (def.kind, def.bundles[bundle]);
+    let id = sim.allocate_id_for_tests();
+    let (now, grown) = (sim.now(), sim.rules().people.family.independent_age);
+    let pop = sim.people_mut_for_tests();
+    let at = pop
+        .household(h)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = pop
+        .polities
+        .iter()
+        .position(|p| p.settlement == at)
+        .expect("a polity");
+    let mut adults: Vec<PermanentId> = pop
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(at))
+        .flat_map(|(_, x)| x.members.clone())
+        .filter(|&m| pop.person(m).is_some_and(|p| p.age_years(now) >= grown))
+        .collect();
+    adults.sort_unstable();
+    let mut law = Law {
+        id,
+        policy: policy as u16,
+        kind,
+        levy_share: 0.0,
+        holder: None,
+        relief_days: 0.0,
+        sanction,
+        hours: (0, 0),
+        status: LawStatus::InForce,
+        sponsor: adults[0],
+        proposed: now,
+        issue: IssueKind::FalseNotesFound,
+        meets_day: now.day_index(),
+        decided: Some(now),
+        outcome: Some(Outcome::Passed),
+        eligible: adults.len() as u32,
+        stances: Vec::new(),
+        known: Vec::new(),
+        compliance: Default::default(),
+        watch: Default::default(),
+        body: None,
+        ends: None,
+        agreement: None,
+        target: None,
+    };
+    for &a in &adults {
+        law.learn(a, now.day_index());
+    }
+    pop.polities[pi].laws.push(law);
+    (pi, id)
+}
+
+#[test]
+fn under_a_law_against_counterfeiting_the_finder_brings_the_passer_and_a_finding_owes_the_bundle() {
+    // M10d slice EK, third part: a neighbour holds five false pieces of a keeper's notes.
+    use civ_agents::crime::{CaseStage, Owed};
+    let (mut sim, d, k) = scene();
+    let note = good(&sim, "core:good/note");
+    let writer = sim.people().household(k).expect("keeper").members[0];
+    writers(&mut sim, k, Some(writer));
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    let issue = sim.people().notes.issues[0].id;
+    let s = hungry_neighbour(&mut sim, d, k);
+    writers(&mut sim, s, None);
+    writers(&mut sim, d, None);
+    sim.with_ctx_for_tests(|pop, ctx| pop.make_false_notes_for_tests(ctx, s, issue, 5.0));
+    let at = sim
+        .people()
+        .household(k)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.settlement == at)
+        .expect("a polity");
+    // Until false notes are found, the issue a law against counterfeiting answers is not there.
+    let issue_now =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.false_notes_found_for_tests(ctx, pi));
+    assert!(!issue_now(&mut sim));
+    assert!(!sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, s, k, note, 3.0)));
+    assert!(issue_now(&mut sim));
+    let found = sim.people().notes.found[0].clone();
+    assert_eq!(
+        (found.finder, found.passer, found.brought),
+        (Some(k), s, false)
+    );
+    // Without a law, nobody brings it.
+    sim.with_ctx_for_tests(|pop, ctx| pop.weigh_counterfeits_for_tests(ctx, pi));
+    assert!(
+        sim.people()
+            .order
+            .cases
+            .iter()
+            .all(|c| c.accused_household != s)
+    );
+    // Under one, the keeper's household brings its passer, once.
+    let (_, law) = against_counterfeiting(&mut sim, k, 1);
+    for _ in 0..2 {
+        sim.with_ctx_for_tests(|pop, ctx| pop.weigh_counterfeits_for_tests(ctx, pi));
+    }
+    let cases: Vec<_> = sim
+        .people()
+        .order
+        .cases
+        .iter()
+        .filter(|c| c.law == law)
+        .cloned()
+        .collect();
+    assert_eq!(cases.len(), 1, "{cases:?}");
+    let case = &cases[0];
+    assert_eq!((case.accuser, case.accused_household), (k, s));
+    assert_eq!((case.incident, case.kcal), (0, 0.0));
+    assert!(sim.people().notes.found[0].brought);
+    // Found, the passer owes the household that found them three days' food and the common
+    // store three more; nothing was taken to give back.
+    let (now, grown) = (sim.now(), sim.rules().people.family.independent_age);
+    let mut adults: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(at))
+        .flat_map(|(_, x)| x.members.clone())
+        .filter(|&m| {
+            sim.people()
+                .person(m)
+                .is_some_and(|p| p.age_years(now) >= grown)
+        })
+        .collect();
+    adults.sort_unstable();
+    sim.with_ctx_for_tests(|pop, ctx| pop.hear_case_for_tests(ctx, pi, &adults, case.id));
+    let heard = sim.people().order.case(case.id).expect("the case").clone();
+    assert_eq!(heard.stage, CaseStage::Found, "{heard:?}");
+    let polity = sim.people().polities[pi].id;
+    let owed: Vec<_> = sim
+        .people()
+        .order
+        .obligations
+        .iter()
+        .filter(|o| o.case == Some(case.id))
+        .map(|o| (o.kind, o.debtor, o.beneficiary))
+        .collect();
+    assert!(owed.contains(&(Owed::Compensation, s, k)), "{owed:?}");
+    assert!(owed.contains(&(Owed::Fine, s, polity)), "{owed:?}");
+    assert!(owed.iter().all(|o| o.0 != Owed::Restitution), "{owed:?}");
+    // The observer counts the false pieces found here.
+    let words = civ_sim::frames::markets::notes_words(&sim, at);
+    assert!(
+        words.contains("False notes found: 3 refused at payment, 0 kept"),
+        "{words}"
+    );
+    // The finder and whether it was brought save and load.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(
+        &mut sim,
+        &saves,
+        commons_persist::SaveKind::Manual,
+        "forged",
+    )
+    .expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.people().notes, sim.people().notes);
+}
+
+#[test]
+fn a_forger_who_knows_a_law_against_counterfeiting_weighs_its_bundle() {
+    // M10d slice EK, third part: the writer short of food of the first part's scene.
+    let (mut sim, d, k) = scene();
+    let writer = sim.people().household(k).expect("keeper").members[0];
+    writers(&mut sim, k, Some(writer));
+    sim.with_ctx_for_tests(|pop, ctx| pop.custody_day_for_tests(ctx));
+    let s = hungry_neighbour(&mut sim, d, k);
+    let forger = sim.people().household(s).expect("neighbour").members[0];
+    writers(&mut sim, s, Some(forger));
+    let filter = sim.rules().people.crime.objection_filter;
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        if p.id == forger {
+            p.objection = (filter - 10.0) as f32;
+        }
+    }
+    let points = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.forge_choice_for_tests(ctx, s))
+            .expect("it weighs imitating the keeper's notes")
+            .2
+    };
+    let without = points(&mut sim);
+    // Exile weighs on it the most.
+    against_counterfeiting(&mut sim, s, 2);
+    let under = points(&mut sim);
+    assert!(under < without - 1.0, "{under} against {without}");
+}

@@ -597,12 +597,40 @@ pub fn custody_words(sim: &Sim, s: PermanentId) -> String {
 /// Settlement `s`'s notes in words (M10d slice EH, third part): for each keeper of it whose notes
 /// are out or were presented, whose they are and in what, the pieces out against the kilograms
 /// kept behind them, and the pieces presented and refused; what it wrote of them as loans, and
-/// until when it pays none (slice EI). Empty where no keeper here wrote any.
+/// until when it pays none (slice EI); and the false pieces told apart here (slice EK). Empty where
+/// no keeper here wrote any and no false piece was found.
 pub fn notes_words(sim: &Sim, s: PermanentId) -> String {
     let goods = &sim.rules.catalog.goods;
     let people = &sim.people;
     let mut out: Vec<String> = Vec::new();
     for c in &people.notes.issues {
+        // A polity's store's notes (M10d slice EJ): out of the store, what a piece pays, and,
+        // while it pays none, fiat: a label derived from the law, not a state of its own.
+        if let Some(p) = people.polities.iter().find(|p| p.id == c.issuer) {
+            if p.settlement != s || (c.count <= 1e-6 && c.presented <= 1e-6) {
+                continue;
+            }
+            let out_of_store = (c.count - people.notes.held(p.id, c.id)).max(0.0);
+            let what = goods
+                .get(usize::from(c.good))
+                .map_or_else(|| "a good".to_owned(), |d| d.name.to_lowercase());
+            out.push(format!(
+                "The store's notes: {out_of_store:.0} out, a piece paying {:.2} kg of {what}; \
+                 {:.0} presented, {:.0} refused.",
+                c.kg, c.presented, c.refused
+            ));
+            if people.store_suspends(p.id) {
+                out.push(
+                    "It pays none of them: they are fiat, paying only dues and what they buy."
+                        .to_owned(),
+                );
+            }
+            let pi = people.polities.iter().position(|q| q.id == p.id);
+            if pi.is_some_and(|pi| people.tender_in_force(pi)) {
+                out.push("Creditors must take them for loans.".to_owned());
+            }
+            continue;
+        }
         let Some(x) = people.household(c.issuer) else {
             continue;
         };
@@ -642,6 +670,35 @@ pub fn notes_words(sim: &Sim, s: PermanentId) -> String {
                 ))
             ));
         }
+    }
+    // False notes told apart where their passer or their finder lives, within the memory of
+    // takings (M10d slice EK, third part): refused at payment, and kept at their issuer's door.
+    let here = |id: PermanentId| {
+        people.household(id).map_or_else(
+            || {
+                people
+                    .polities
+                    .iter()
+                    .any(|p| p.id == id && p.settlement == s)
+            },
+            |x| x.settlement == Some(s),
+        )
+    };
+    let (mut refused, mut kept) = (0.0, 0.0);
+    for f in &people.notes.found {
+        if here(f.passer) || f.finder.is_some_and(here) {
+            if f.kept {
+                kept += f.pieces;
+            } else {
+                refused += f.pieces;
+            }
+        }
+    }
+    if refused + kept > 1e-6 {
+        out.push(format!(
+            "False notes found: {refused:.0} refused at payment, {kept:.0} kept at their \
+             issuer's door."
+        ));
     }
     out.join(" ")
 }

@@ -132,8 +132,8 @@ use super::{
     SCHEMA_V188, SCHEMA_V189, SCHEMA_V190, SCHEMA_V191, SCHEMA_V192, SCHEMA_V193, SCHEMA_V194,
     SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, SCHEMA_V199, SCHEMA_V200, SCHEMA_V201,
     SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, SCHEMA_V205, SCHEMA_V206, SCHEMA_V207, SCHEMA_V208,
-    SCHEMA_V209, SCHEMA_V210, SCHEMA_V211, SCHEMA_V212, SCHEMA_V213, finish, section, section_root,
-    single_chunk, unreadable,
+    SCHEMA_V209, SCHEMA_V210, SCHEMA_V211, SCHEMA_V212, SCHEMA_V213, SCHEMA_V214, SCHEMA_V215,
+    SCHEMA_V216, SCHEMA_V217, SCHEMA_V218, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -917,9 +917,8 @@ pub(super) fn decode<R: Read + Seek>(
         | SCHEMA_V192 | SCHEMA_V193 | SCHEMA_V194 | SCHEMA_V195 | SCHEMA_V196 | SCHEMA_V197
         | SCHEMA_V198 | SCHEMA_V199 | SCHEMA_V200 | SCHEMA_V201 | SCHEMA_V202 | SCHEMA_V203
         | SCHEMA_V204 | SCHEMA_V205 | SCHEMA_V206 | SCHEMA_V207 | SCHEMA_V208 | SCHEMA_V209
-        | SCHEMA_V210 | SCHEMA_V211 | SCHEMA_V212 | SCHEMA_V213 | SAVE_SCHEMA_VERSION => {
-            Schema::V186
-        }
+        | SCHEMA_V210 | SCHEMA_V211 | SCHEMA_V212 | SCHEMA_V213 | SCHEMA_V214 | SCHEMA_V215
+        | SCHEMA_V216 | SCHEMA_V217 | SCHEMA_V218 | SAVE_SCHEMA_VERSION => Schema::V186,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2379,6 +2378,9 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::Contagion => 35,
         IssueKind::Untended => 36,
         IssueKind::NotesRefused => 37,
+        IssueKind::WorkUnpaid => 38,
+        IssueKind::StoreNotesRefused => 39,
+        IssueKind::FalseNotesFound => 40,
     }
 }
 
@@ -2523,6 +2525,9 @@ fn decode_polities(
                 35 => IssueKind::Contagion,
                 36 => IssueKind::Untended,
                 37 => IssueKind::NotesRefused,
+                38 => IssueKind::WorkUnpaid,
+                39 => IssueKind::StoreNotesRefused,
+                40 => IssueKind::FalseNotesFound,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -12539,6 +12544,44 @@ fn encode_consignments(people: &Population, rules: &Rules) -> Vec<u8> {
         .collect();
     let note_purses = fbb.create_vector(&purses);
     let note_dishonoured = fbb.create_vector(&notes.dishonoured);
+    // False pieces (schema 217, M10d slice EK).
+    let forgeries: Vec<_> = notes
+        .forgeries
+        .iter()
+        .map(|f| {
+            save::ForgerySave::create(
+                &mut fbb,
+                &save::ForgerySaveArgs {
+                    id: f.id,
+                    of: f.of,
+                    maker: f.maker.get(),
+                    count: f.count,
+                },
+            )
+        })
+        .collect();
+    let note_forgeries = fbb.create_vector(&forgeries);
+    // False pieces told apart (schema 218).
+    let found: Vec<_> = notes
+        .found
+        .iter()
+        .map(|f| {
+            save::FalseFoundSave::create(
+                &mut fbb,
+                &save::FalseFoundSaveArgs {
+                    day: f.day,
+                    forgery: f.forgery,
+                    passer: f.passer.get(),
+                    pieces: f.pieces,
+                    kept: f.kept,
+                    heard: f.heard,
+                    finder: f.finder.map_or(0, PermanentId::get),
+                    brought: f.brought,
+                },
+            )
+        })
+        .collect();
+    let note_found = fbb.create_vector(&found);
     let root = save::ConsignmentsSave::create(
         &mut fbb,
         &save::ConsignmentsSaveArgs {
@@ -12547,6 +12590,8 @@ fn encode_consignments(people: &Population, rules: &Rules) -> Vec<u8> {
             note_issues: Some(note_issues),
             note_purses: Some(note_purses),
             note_dishonoured: Some(note_dishonoured),
+            note_forgeries: Some(note_forgeries),
+            note_found: Some(note_found),
         },
     );
     finish(fbb, root)
@@ -12616,8 +12661,38 @@ fn decode_notes(bytes: &[u8], rules: &Rules) -> Result<civ_agents::notes::Notes,
             suspended_until: c.suspended_until(),
         });
     }
+    // False pieces (schema 217, M10d slice EK); none before. One passing for an issue let go goes
+    // with it.
+    for f in root.note_forgeries().iter().flatten() {
+        if notes.issue(f.of()).is_none() {
+            continue;
+        }
+        notes.forgeries.push(civ_agents::notes::Forgery {
+            id: f.id(),
+            of: f.of(),
+            maker: required(f.maker(), "a false note's maker")?,
+            count: f.count(),
+        });
+    }
+    // False pieces told apart (schema 218); none before. One of a false issue let go goes with it.
+    for f in root.note_found().iter().flatten() {
+        if notes.forgery(f.forgery()).is_none() {
+            continue;
+        }
+        notes.found.push(civ_agents::notes::FalseFound {
+            day: f.day(),
+            forgery: f.forgery(),
+            passer: required(f.passer(), "a false note's passer")?,
+            pieces: f.pieces(),
+            kept: f.kept(),
+            heard: f.heard(),
+            // Who told them apart (schema 219); none before, and then nobody brings them.
+            finder: PermanentId::from_raw(f.finder()),
+            brought: f.brought() || f.finder() == 0,
+        });
+    }
     for p in root.note_purses().iter().flatten() {
-        if notes.issue(p.issue()).is_none() {
+        if notes.issue(p.issue()).is_none() && notes.forgery(p.issue()).is_none() {
             continue;
         }
         let holder = required(p.holder(), "a note purse's holder")?;

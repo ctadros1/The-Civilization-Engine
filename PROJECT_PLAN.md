@@ -7520,7 +7520,137 @@ and M6a gives rivers a daily flow.
       valued at all (EJ's question of a polity's notes passing between polities).
     - **EJ**: a polity's notes: issue within a ceiling, dues in notes, legal tender, suspended
       redemption and the derived fiat label.
+      *As built, first part (2026-10-27): notes issued to pay for common work.* First, a fix:
+      a saved law and hearth talk name a template by its place in id order, so a new template's
+      id sorts after every older one's; EI's bearer heard sorted fourth and shifted the rest. Its
+      id now sorts last (`zealously_hear_the_bearer`), and a content test holds the templates'
+      order as an append-only list. Then an appended policy kind, *notes issued* (`issue_notes`,
+      content API 196; brief §5), answering an appended issue, *work unpaid*: a law of pay for
+      common work is in force and the store cannot pay an hour of the work a law asks under any
+      of them. Its template's terms (`[notes]`): a ceiling of pieces out (1000), the good a
+      piece is redeemed for and how much (a kilogram of grain), and the store's fee (3 %,
+      Sichuan's; research 08-06 §2.1). The fee is folded into the issue's terms: a piece of the
+      store's issue pays 0.97 kg, so a new fee is a new issue and no saved field is added. The
+      store issues only to spend: under a law of pay for common work paying in notes (a second
+      template, `zealously_pay_work_in_notes`, a piece an hour) it writes what the hours ask
+      beyond the pieces it holds, into its own purse, within the ceiling less the pieces out of
+      the store, and pays them on wages; it writes only when someone of its keeper's household
+      can write. Laws of pay now pay in turn, oldest first, the hours one cannot pay going to the
+      next. A household of the settlement presents the store's notes at the hearth as it presents
+      a keeper's, worth what they pay at its cost of the good, by belief, less the walk, and the
+      store pays them from its own stores, refusing beyond them; it does not suspend of its own
+      accord. A household weighs the law by its share of the ceiling at what a piece would pay
+      it, where some template pays work in notes, and pay in notes by what the store may write.
+      Saves 215 (the issue's code). **Tested:** the store pays nothing in notes it may not write
+      and work goes unpaid; under notes issued it writes two pieces for two hours, held by the
+      worker, an issue in grain at 0.97 kg, worth to it at least nine tenths of that in grain;
+      it writes no more than 1000 out and the work is unpaid again; with nobody to write it writes
+      none; with 100 kg of grain the store pays 103 pieces, refuses the rest, retires what it
+      paid and does not suspend; the templates load with their terms. **Not built yet:** dues in
+      notes (part 2); legal tender, suspended redemption and the fiat label, and the observer of a
+      store's notes (part 3).
+      *As built, second part (2026-10-27): dues in notes.* The law of notes issued gains a
+      term, `dues_per_kg` (content API 197; brief §5, research 08-06 §1.4): its store takes its
+      own notes for what is owed it, the levy and a fine or ground rent, so many pieces a
+      kilogram of grain (the core template: one). Only pieces of the polity's own issue pay it;
+      another keeper's notes pay none. A household pays in them first, then in the levy's coin,
+      each when it is worth less to it than the grain, and keeps notes and values them under the
+      levy's floor as it does coin. Any payment of notes to their issuer now gives it its own
+      pieces first. Pieces back in the store are no longer out, so the store pays them for work
+      again before it writes more. A first try added a second common-store template taking notes;
+      the chain caught that a gathering could then pass two common stores at once, levying every
+      household twice (two world tests ran differently), so the medium went on the notes law
+      instead and only one store ever stands. **Tested:** a household holding ten of its store's
+      pieces and ten of a keeper's owes fifteen kilograms under the common store: it pays ten in
+      the store's and none in the keeper's; the store holds its ten, may write its whole ceiling
+      again, and pays them first for work; the template's term loads. **Not built:** the levy
+      floor counts all notes a household holds, not only its store's issue.
+      *As built, third part (2026-10-27): legal tender, redemption suspended, fiat; EJ done.*
+      Two appended policy kinds and templates (content API 198; ADR-0035 §10; brief §5) and an
+      appended issue (saves 216). *Redemption suspended* answers *the store's notes refused*
+      (it refused pieces of its own notes for want of their good within the month): while in
+      force the store pays none, holders present none, and a piece is worth only what it buys
+      and the dues floor, its redemption term gone; repeal restores it. Nothing forces or rescues
+      (brief §11). *Legal tender* answers *debts unpaid*, offered only where the store takes its
+      own notes for dues: a creditor of the polity's households must take the store's notes for
+      a loan in a good, at that rate, so a debtor pays in them first what they are worth less to
+      it than the good; only the store's own pieces are tender. Households weigh suspension by
+      their share of the grain the store keeps against what their pieces would fetch, and legal
+      tender by what a debtor saves and a creditor loses. Fiat is a label, not a state: a
+      market's summary tells the store's notes out, what a piece pays and what was presented
+      and refused, and while redemption is suspended says they are fiat, paying only dues and
+      what they buy; under legal tender, that creditors must take them. **Tested:** suspended,
+      the store keeps its grain, nothing is presented, a piece is worth less than when it paid
+      grain, and the summary says fiat; under legal tender a debtor pays a 15 kg loan in fifteen
+      of the store's pieces and keeps a keeper's notes, and without it pays none; the templates
+      answer their issues. **Slice EJ is done.** **Not built:** a creditor refusing tender and
+      being heard as the debtor's case (creditors here always take it, as the law compels);
+      another polity's notes valued at all; legal tender for wages or prices.
     - **EK**: counterfeiting.
+      *As built, first part (2026-10-27): false notes made and passed.* First, a fix to EJ: the
+      midnight's review and redemption of notes ran only where some goods were kept for another,
+      so a store's notes were never presented where nobody kept goods; they now run all the same
+      (a test holds it). Then (ADR-0035 §11; brief §7; no report covers counterfeiting, so every
+      number is a design prior): a note is made by writing, now its `assay` technique, and a
+      false piece takes one who can write a quarter of an hour (`forge_h`, content API 199).
+      False pieces are their own saved list (saves 217), each passing for a real issue and made
+      by one household, held in purses under their own number, counted by every other holder as
+      the real issue's and owed by nobody; their maker pays with them first and never presents
+      them. A household whose weekly review it is weighs making them as a taking is weighed: only
+      if someone of it can write and objects to it less than the moral filter, and it is short
+      of the food it keeps to its harvest; it would imitate the issue it knows that is worth most
+      to it, as many pieces as cover its shortfall within eight hours a week; toward it, its
+      shortfall (four points at the most, a prior); against it, its maker's objection and the
+      chance they believe of being found (the larger of what they believe of being seen and the
+      share of its settlement's other households with someone who can write), by their daring;
+      it makes them on a draw. **Tested:** a neighbour short of food with nobody who can write
+      weighs nothing; with a writer it weighs imitating the keeper's notes; five it makes are the
+      keeper's pieces to it and nobody's debt, it pays with them first, and they save and load
+      exactly; the note's making technique and forging time load. **Not built yet:** telling them
+      apart at payment and redemption (part 2); a law against counterfeiting and the observer
+      (part 3).
+      *As built, second part (2026-10-27): telling them apart.* A payee who can tell false notes
+      (a household with someone who can write, or a polity's store) refuses a payment in notes
+      its payer cannot make in true ones: nothing moves, and the false pieces it was offered are
+      found, their passer known; paid to one who can tell, true pieces go and false ones stay.
+      Presented at their issuer's door, false pieces are always told and kept: nothing is paid,
+      they go out of being, and they are found, their presenter the passer. Finds are saved
+      (saves 218); each passer counts its find as a payment in notes refused, so it believes notes
+      less taken (EF's acceptance belief; brief §7), and finds are forgotten after the memory of
+      takings. **Tested:** a keeper who can write refuses three false pieces in payment and they
+      are found; the depositor, who cannot write, takes them; presented at the keeper's door
+      they are kept, nothing paid, the false issue three fewer; each passer then believes notes
+      less taken. **Not built yet:** a law against counterfeiting, which hears finds as takings,
+      and the observer of false notes (part 3).
+      *As built, third part (2026-10-27): a law against counterfeiting; EK done.* False notes
+      found within the memory of takings, passed or found by a polity's households or kept by its
+      store, are an issue of the polity (`false_notes_found`, appended), and only then may anyone
+      propose a law against counterfeiting (`against_counterfeiting`, appended; template
+      `zealously_write_against_forgery`, content API 200): a law against taking's bundles without
+      restitution alone, as nothing was taken from the finder. A find now keeps its finder (the
+      payee that refused it, or the issuer that kept it) and whether it was brought (saves 219).
+      Under the law a finding household weighs each find once, as a breach of a privilege is
+      weighed: its grown members who know the law weigh the bundle's compensation, in days of
+      their food, against the cost of bringing a case and their regard for the passer's elder;
+      the one with most to gain brings the passer before the gathering, which hears it as a
+      breach (nothing to give back) and a finding owes the bundle. Households weigh the law by
+      the compensation for finds of their own against the whole bundle for finds they passed.
+      One who would make false notes and knows the law weighs its bundle, as days of food, beside
+      the chance they believe of being found. A market's summary counts the false pieces found
+      where their passer or finder lives, refused at payment and kept at their issuer's door.
+      **Tested:** the issue is there only once false notes are found; without the law nobody
+      brings the passer; under it the keeper's household brings it once, and the gathering's
+      finding owes three days' food to the finder and three to the store, nothing as
+      restitution; the summary counts the three refused; finds save and load with their finder;
+      a forger who knows a law with exile weighs making them well below one who does not; the
+      template loads with its bundles. **Not built:** a store that kept false pieces brings
+      nobody (no household was owed); a finding does not raise the cost of the issue's mark (a
+      costlier mark on a new issue, brief §7, deferred). **Found on the way (not EK's):** in the
+      sowing window a household's fuel shortage loses to field work, so households can sit
+      without firewood for days, and smoke's firewood check fails on a rare world (ria_coast
+      seed 1, identity `2a8290890b6c9197770f94fd618adee3`); counting fuel that will not last the
+      day twice over fixes it but moves fifteen scenario tests that choose their actors from the
+      unfolding world, which are to be reworked first.
     - **EL**: the M10 demo, time-boxed, nudges logged.
 
 **Post-v1 (ordered, not sized):**

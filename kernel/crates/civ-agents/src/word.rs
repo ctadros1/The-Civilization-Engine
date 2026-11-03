@@ -55,13 +55,15 @@ pub enum ClaimKind {
     /// workshop did not pay the wages it owed, on a day (backlog D; research 08-07 §5.3: word of
     /// repayment spreads by meeting, never everywhere at once): `subject` is the elder of the
     /// household that owed, `event` the claim in the credit book. Its creditor's people hold it at
-    /// first hand, and it is told as news for `news_days`, never by the debtor's own household.
+    /// first hand, and it is told as news for `news_days`, never by the debtor's own household. A
+    /// loan the common store made is held at first hand by the store's keeper (backlog D).
     Defaulted = 13,
     /// A household repaid in full a loan another household made it, or a workshop paid the wages
     /// it owed when they fell due, on a day (backlog D; research 08-07 §5.3): `subject` is the
     /// elder of the household that owed, `event` the claim in the credit book. Told as a default
     /// is: its creditor's people hold it at first hand, and it is news for `news_days`, never told
-    /// by the debtor's own household.
+    /// by the debtor's own household. A loan the common store made is told so too, held at first
+    /// hand by the store's keeper (backlog D).
     Repaid = 14,
     /// A household that stood guarantor for a loan another household failed paid the lender what
     /// it could when called on, on a day (backlog D): `subject` is the elder of the guarantor's

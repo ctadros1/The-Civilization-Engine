@@ -97,35 +97,55 @@ impl Population {
     /// research 08-07 §5.3): `elder` is the elder of the household that owed, the one others think
     /// the worse of. The creditor's people hold it at first hand, as they noted it; it concerns
     /// the debtor's settlement (or, for a workshop, the creditor's), where it is told as news.
-    pub(super) fn default_word(&mut self, loan: u32, elder: PermanentId, day: i64) {
-        self.debt_word(ClaimKind::Defaulted, loan, elder, day);
+    pub(super) fn default_word(&mut self, ctx: &Ctx, loan: u32, elder: PermanentId, day: i64) {
+        self.debt_word(ctx, ClaimKind::Defaulted, loan, elder, day);
     }
 
     /// Word of claim `loan` in the credit book on `day`, of kind `kind` (a default, a repayment
     /// or a guarantor's payment; backlog D): `elder` is the elder of the household whose word it
     /// was. The creditor's people hold it at first hand, as they saw it; it concerns `elder`'s
-    /// settlement (else the creditor's), where it is told as news. A claim of the common store
-    /// names no household to hold it first and is not told.
-    pub(super) fn debt_word(&mut self, kind: ClaimKind, loan: u32, elder: PermanentId, day: i64) {
+    /// settlement (else the creditor's), where it is told as news. A claim of the common store is
+    /// held at first hand by the store's keeper of the day, who carries its loans (ADR-0027 §4)
+    /// and sees what comes into it and what does not, and who learns of it as one who heard it
+    /// would; a store with no keeper has nobody to see it, and it is not told.
+    pub(super) fn debt_word(
+        &mut self,
+        ctx: &Ctx,
+        kind: ClaimKind,
+        loan: u32,
+        elder: PermanentId,
+        day: i64,
+    ) {
         let Some(c) = self.order.credit.claims.iter().find(|c| c.id == loan) else {
             return;
         };
         let creditor = c.creditor;
+        let store = self.polities.iter().find(|p| p.id == creditor);
         let Some(settlement) = self
             .person(elder)
             .and_then(|p| self.household(p.household))
             .and_then(|x| x.settlement)
             .or_else(|| self.household(creditor).and_then(|x| x.settlement))
+            .or_else(|| store.map(|p| p.settlement))
         else {
             return;
         };
-        let first = self
-            .household(creditor)
-            .map(|x| x.members.clone())
-            .unwrap_or_default();
+        let first: Vec<PermanentId> = match store {
+            Some(p) => p
+                .keeper()
+                .map(|(k, _)| k)
+                .filter(|&k| self.person(k).is_some())
+                .into_iter()
+                .collect(),
+            None => self
+                .household(creditor)
+                .map(|x| x.members.clone())
+                .unwrap_or_default(),
+        };
         if first.is_empty() {
             return;
         }
+        let of_store = store.is_some();
         let claim = self.word.make(Claim {
             fire: None,
             event: Some(loan),
@@ -138,17 +158,31 @@ impl Population {
             suspected: None,
         });
         for p in first {
-            self.word.hear(p, claim, day, None, Some(p));
+            if self.word.hear(p, claim, day, None, Some(p)) && of_store {
+                self.learn_of_claim(ctx, p, claim);
+            }
         }
+    }
+
+    /// Whether word claim `claim` names a claim of a polity's common store in the credit book.
+    fn of_the_store(&self, claim: &Claim) -> bool {
+        claim
+            .event
+            .and_then(|id| self.order.credit.claims.iter().find(|c| c.id == id))
+            .is_some_and(|c| self.polities.iter().any(|p| p.id == c.creditor))
     }
 
     /// What hearing claim `claim` for the first time teaches `listener`: of a default, they think
     /// the worse of the elder of the household that owed; of a debt repaid, or a guarantor's
     /// promise kept, the better of the elder whose word was kept; unless that is their own
-    /// household (nobody learns of their own household's word from hearsay, as of a taking).
+    /// household (nobody learns of their own household's word from hearsay, as of a taking). A
+    /// debt to the common store teaches by acts of its own (backlog D).
     pub(super) fn learn_of_claim(&mut self, ctx: &Ctx, listener: PermanentId, claim: u32) {
         let Some((act, elder)) = self.word.claim(claim).and_then(|c| {
+            let store = self.of_the_store(c);
             let act = match c.kind {
+                ClaimKind::Defaulted if store => Act::DefaultedStore,
+                ClaimKind::Repaid if store => Act::RepaidStore,
                 ClaimKind::Defaulted => Act::DefaultedOthers,
                 ClaimKind::Repaid | ClaimKind::GuarantorPaid => Act::RepaidOthers,
                 _ => return None,

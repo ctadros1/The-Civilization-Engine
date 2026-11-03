@@ -124,6 +124,13 @@ pub enum Act {
     /// what it had promised as guarantor (backlog D: word of a debt kept travels as word of one
     /// failed does; research 08-07 §5.3).
     RepaidOthers,
+    /// The holder saw, as the keeper of the common store, or heard that the other's household did
+    /// not repay, or refused to repay, what the common store lent it (backlog D: word of a default
+    /// to the store travels as word of one to a household does; research 08-07 §5.3).
+    DefaultedStore,
+    /// The holder saw, as the keeper of the common store, or heard that the other's household
+    /// repaid in full what the common store lent it (backlog D).
+    RepaidStore,
 }
 
 impl Act {
@@ -155,6 +162,8 @@ impl Act {
         Act::TendedDied,
         Act::DefaultedOthers,
         Act::RepaidOthers,
+        Act::DefaultedStore,
+        Act::RepaidStore,
     ];
 
     /// Its number in saves.
@@ -196,6 +205,8 @@ impl Act {
             Act::TendedDied => "tended_died",
             Act::DefaultedOthers => "defaulted_others",
             Act::RepaidOthers => "repaid_others",
+            Act::DefaultedStore => "defaulted_store",
+            Act::RepaidStore => "repaid_store",
         }
     }
 
@@ -206,7 +217,7 @@ impl Act {
 }
 
 /// Number of acts.
-pub const ACTS: usize = 26;
+pub const ACTS: usize = 28;
 
 /// What one act writes into its holder's tie, for each unit of it (an act, or an hour for
 /// [`Act::LearnedFrom`] and [`Act::Hearth`]). Authored in content as tuning values.
@@ -323,6 +334,8 @@ impl TieParams {
             bad(Domain::Craft, 1.0),
             bad(Domain::Word, 1.0),
             w(0.0, 0.0, Some(Domain::Word), 0.5),
+            bad(Domain::Word, 1.0),
+            w(0.0, 0.0, Some(Domain::Word), 0.5),
         ];
         p
     }
@@ -370,6 +383,8 @@ impl Reason {
             Act::TendedDied => "tended one of their household, who died",
             Act::DefaultedOthers => "did not repay what another household lent, as they heard",
             Act::RepaidOthers => "paid another household what they owed it, as they heard",
+            Act::DefaultedStore => "did not repay what the common store lent",
+            Act::RepaidStore => "repaid what the common store lent",
         };
         let date = civ_core::time::SimTime::from_minutes(self.day * 1440).date();
         let month = civ_land::weather::MONTH_NAMES[usize::from(date.month.clamp(1, 12)) - 1];

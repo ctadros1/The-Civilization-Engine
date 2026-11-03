@@ -493,7 +493,7 @@ impl Population {
                 }
                 // And word of it goes about, as of a default (backlog D).
                 if let Some(b) = elders.1 {
-                    self.debt_word(ClaimKind::Repaid, c.id, b, day);
+                    self.debt_word(ctx, ClaimKind::Repaid, c.id, b, day);
                 }
                 continue;
             }
@@ -619,7 +619,7 @@ impl Population {
                 self.note_tie(ctx, a, b, Act::Repaid, 1.0, 0.0);
             }
             if let Some(b) = elders.1 {
-                self.debt_word(ClaimKind::Repaid, c.id, b, now.day_index());
+                self.debt_word(ctx, ClaimKind::Repaid, c.id, b, now.day_index());
             }
             return;
         }
@@ -633,7 +633,7 @@ impl Population {
                 self.note_tie(ctx, m, b, Act::Defaulted, 1.0, 0.0);
             }
             // And word of it goes about (backlog D).
-            self.default_word(c.id, b, now.day_index());
+            self.default_word(ctx, c.id, b, now.day_index());
         }
         if open {
             self.close_firm(ctx, c.debtor, crate::firm::Exit::Failure);
@@ -914,7 +914,7 @@ impl Population {
             for m in members {
                 self.note_tie(ctx, m, b, Act::Defaulted, 1.0, 0.0);
             }
-            self.default_word(c.id, b, day);
+            self.default_word(ctx, c.id, b, day);
         }
         // A keeper's debtor of a loan in its notes defaulted: its settlement hears of it (M10d
         // slice EI, second part).
@@ -972,7 +972,7 @@ impl Population {
             self.note_tie(ctx, a, b, Act::Repaid, 1.0, 0.0);
         }
         if let Some(b) = guarantor {
-            self.debt_word(ClaimKind::GuarantorPaid, c.id, b, day);
+            self.debt_word(ctx, ClaimKind::GuarantorPaid, c.id, b, day);
         }
     }
 

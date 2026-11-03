@@ -437,7 +437,7 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
                 return format!("{who}'s household failed a loan on {on}");
             };
             let good = good_name(sim, loan.good);
-            let creditor = super::people::household_name(sim, loan.creditor);
+            let creditor = creditor_name(sim, loan.creditor);
             let owed = loan.owed;
             if pop.firm(loan.debtor).is_some() {
                 format!(
@@ -468,7 +468,7 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
                 return format!("{who}'s household repaid a loan on {on}");
             };
             let good = good_name(sim, loan.good);
-            let creditor = super::people::household_name(sim, loan.creditor);
+            let creditor = creditor_name(sim, loan.creditor);
             let owed = loan.owed;
             if pop.firm(loan.debtor).is_some() {
                 format!(
@@ -1465,4 +1465,13 @@ fn good_name(sim: &Sim, good: u16) -> String {
         .goods
         .get(usize::from(good))
         .map_or("goods".to_owned(), |g| g.name.to_lowercase())
+}
+
+/// The creditor `id` of a claim in the credit book, in words: a household, or a polity's common
+/// store and where it is kept (backlog D): "the common store of Hazelstead".
+fn creditor_name(sim: &Sim, id: PermanentId) -> String {
+    match sim.people.polities.iter().find(|p| p.id == id) {
+        Some(p) => format!("the common store of {}", place_name(sim, p.settlement)),
+        None => super::people::household_name(sim, id),
+    }
 }

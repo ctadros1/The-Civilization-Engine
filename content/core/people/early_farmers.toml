@@ -624,6 +624,12 @@ acts = [
   # had promised as guarantor) keeps their word half as well as repaying one's own household does,
   # as hearing of a default weighs half of suffering one (08-07 §5.3; a design prior).
   { act = "repaid_others", familiarity = 0.0, warmth = 0.0, domain = "word", good = 0.5, bad = 0.0 },
+  # Backlog D (content API 228): the keeper of the common store seeing, or another hearing, that a
+  # household did not repay what the store lent it, or repaid it in full, weighs as word of a debt
+  # to another household does: the debtor failed or kept its word to the polity's store, not to
+  # the hearer's household (08-07 §5.3; a design prior, kept apart so content can weigh it apart).
+  { act = "defaulted_store", familiarity = 0.0, warmth = 0.0, domain = "word", good = 0.0, bad = 1.0 },
+  { act = "repaid_store", familiarity = 0.0, warmth = 0.0, domain = "word", good = 0.5, bad = 0.0 },
 ]
 
 [standing]                       # standing and notables (ADR-0014 §3-4); tuning values

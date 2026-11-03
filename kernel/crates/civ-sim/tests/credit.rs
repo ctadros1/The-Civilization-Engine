@@ -1783,3 +1783,277 @@ fn a_default_given_time_by_a_finding_and_then_repaid_is_told_as_repaid() {
         assert!(sc.sim.people().word.has_heard(m, repaid[0].id));
     }
 }
+
+/// A village whose borrower took a loan from its polity's common store, under a law of lending
+/// from the store, with one of a third household keeping the store when `kept`: the scene, the
+/// loan, and the keeper.
+fn lent_by_the_store(kept: bool) -> (Scene, Claim, Option<PermanentId>) {
+    let mut sc = village();
+    let cp = credit(&mut sc.sim);
+    cp.pay_base = 50.0;
+    cp.max_extensions = 0;
+    let at = sc
+        .sim
+        .people()
+        .household(sc.borrower)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = sc
+        .sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.settlement == at)
+        .expect("a polity");
+    let goods = sc.sim.rules().catalog.goods.len();
+    {
+        let store = &mut sc.sim.people_mut_for_tests().polities[pi].stores;
+        store.resize(goods, 0.0);
+        store[sc.grain] = 2000.0;
+    }
+    law_in_force(
+        &mut sc.sim,
+        sc.borrower,
+        "core:policy/lend_from_store",
+        civ_agents::polity::IssueKind::FoodShort,
+    );
+    let keeper = kept.then(|| {
+        let keeper = people_but(&sc.sim, &[sc.borrower, sc.lender])[0];
+        let law = law_in_force(
+            &mut sc.sim,
+            sc.borrower,
+            "core:policy/keep_store",
+            civ_agents::polity::IssueKind::StoreUnkept,
+        );
+        let p = &mut sc.sim.people_mut_for_tests().polities[pi];
+        p.laws
+            .iter_mut()
+            .find(|l| l.id == law)
+            .expect("the law")
+            .holder = Some(keeper);
+        assert_eq!(p.keeper().map(|k| k.0), Some(keeper));
+        keeper
+    });
+    weigh(&mut sc.sim);
+    let (_, c) = loan_of(&sc.sim, sc.borrower);
+    assert_eq!(
+        c.creditor,
+        sc.sim.people().polities[pi].id,
+        "the store lent: {c:?}"
+    );
+    (sc, c, keeper)
+}
+
+#[test]
+fn word_of_a_default_to_the_common_store_is_the_keepers_and_goes_about() {
+    // Backlog D (research 08-07 §5.3; ADR-0027 §4: the keeper carries the store's loans): a loan
+    // from the common store left unpaid is word told as one between households is. Its keeper
+    // holds it at first hand, nobody else; those told it think the worse of the debtor's elder by
+    // an act of the store's own; the debtor's household neither learns from it nor tells it.
+    use civ_agents::ties::{Act, Domain, Reason};
+    use civ_agents::word::ClaimKind;
+    let (mut sc, c, keeper) = lent_by_the_store(true);
+    let keeper = keeper.expect("kept");
+    let day = sc.sim.now().day_index();
+    let tp = sc.sim.rules().people.ties.clone();
+    let bad_of = |sim: &Sim, p: PermanentId, q: PermanentId| {
+        sim.people()
+            .ties
+            .tie(p, q, day, &tp)
+            .map_or(tp.prior as f32, |t| t.bad[Domain::Word.index()])
+    };
+    let keeper_before: Vec<(PermanentId, f32)> = members_of(&sc.sim, sc.borrower)
+        .into_iter()
+        .map(|m| (m, bad_of(&sc.sim, keeper, m)))
+        .collect();
+    feed(&mut sc.sim, sc.borrower, 0.0);
+    let grace = i64::from(sc.sim.rules().people.credit.grace_days);
+    repay(&mut sc.sim, c.due + grace + 1);
+    let (_, failed) = loan_of(&sc.sim, sc.borrower);
+    assert_eq!(failed.standing, Standing::Defaulted);
+    let said = claims_of(&sc.sim, ClaimKind::Defaulted);
+    assert_eq!(said.len(), 1, "{said:?}");
+    let claim = said[0];
+    assert_eq!(claim.event, Some(c.id));
+    let elder = claim.subject.expect("names the debtor's elder");
+    let keeper_before = keeper_before
+        .iter()
+        .find(|m| m.0 == elder)
+        .expect("the elder is of the debtor's household")
+        .1;
+    let bad_word = |sim: &Sim, p: PermanentId| bad_of(sim, p, elder);
+    assert_eq!(
+        Some(claim.settlement),
+        sc.sim
+            .people()
+            .household(sc.borrower)
+            .and_then(|x| x.settlement)
+    );
+    // The keeper holds it at first hand, and thinks the worse of the elder for it; nobody else
+    // has heard it, not even the keeper's household or the store's other lenders.
+    let word = &sc.sim.people().word;
+    assert!(word.has_heard(keeper, claim.id));
+    for p in people_but(&sc.sim, &[]) {
+        assert_eq!(word.has_heard(p, claim.id), p == keeper, "{p:?}");
+    }
+    let tie = sc
+        .sim
+        .people()
+        .ties
+        .tie(keeper, elder, day, &tp)
+        .expect("the keeper's tie");
+    assert_eq!(tie.reason.map(|r| r.act), Some(Act::DefaultedStore));
+    assert!(
+        (f64::from(tie.bad[Domain::Word.index()] - keeper_before)
+            - tp.acts[Act::DefaultedStore as usize].bad)
+            .abs()
+            < 1e-4
+    );
+    let words = civ_sim::frames::word::claim_words(&sc.sim, &claim);
+    assert!(
+        words.contains("did not repay what the common store of ")
+            && words.contains(" lent it (")
+            && words.contains("kg of"),
+        "{words}"
+    );
+    // Told at the hearth by the keeper, one of the lender's household thinks the worse of the
+    // elder, by exactly the act's bad evidence in `word`, and the reason says so.
+    let x = members_of(&sc.sim, sc.lender)[0];
+    let before = bad_word(&sc.sim, x);
+    hearth(&mut sc.sim, keeper, x);
+    assert!(sc.sim.people().word.has_heard(x, claim.id));
+    let tie = sc
+        .sim
+        .people()
+        .ties
+        .tie(x, elder, day, &tp)
+        .expect("a tie now");
+    assert_eq!(tie.reason.map(|r| r.act), Some(Act::DefaultedStore));
+    assert!(
+        (f64::from(tie.bad[Domain::Word.index()] - before)
+            - tp.acts[Act::DefaultedStore as usize].bad)
+            .abs()
+            < 1e-4
+    );
+    assert_eq!(
+        Reason {
+            times: 1,
+            ..tie.reason.expect("a reason")
+        }
+        .words()
+        .split(", last in")
+        .next(),
+        Some("did not repay what the common store lent")
+    );
+    // Heard again, nothing more.
+    hearth(&mut sc.sim, keeper, x);
+    let again = sc.sim.people().ties.tie(x, elder, day, &tp).expect("tie");
+    assert_eq!(again.bad, tie.bad);
+    // The debtor's own people, told it, think no worse of their elder and do not tell it on.
+    let k = members_of(&sc.sim, sc.borrower)
+        .into_iter()
+        .find(|&m| m != elder)
+        .expect("the debtor's household has another member");
+    let y = members_of(&sc.sim, sc.lender)
+        .into_iter()
+        .find(|&m| m != x)
+        .expect("the lender's household has another member");
+    let kin_before = sc.sim.people().ties.tie(k, elder, day, &tp);
+    hearth(&mut sc.sim, x, k);
+    assert!(sc.sim.people().word.has_heard(k, claim.id));
+    assert_eq!(sc.sim.people().ties.tie(k, elder, day, &tp), kin_before);
+    hearth(&mut sc.sim, k, y);
+    assert!(!sc.sim.people().word.has_heard(y, claim.id));
+    saves_exactly(&mut sc.sim);
+}
+
+#[test]
+fn word_of_a_loan_repaid_into_the_common_store_goes_about_too() {
+    // Backlog D: a loan from the store repaid in full is told as one between households is, held
+    // at first hand by the store's keeper; those told think the better of the debtor's elder.
+    use civ_agents::ties::{Act, Domain};
+    use civ_agents::word::ClaimKind;
+    let (mut sc, c, keeper) = lent_by_the_store(true);
+    let keeper = keeper.expect("kept");
+    feed(&mut sc.sim, sc.borrower, f64::from(c.owed) + 200.0);
+    repay(&mut sc.sim, c.due - 1);
+    assert!(claims_of(&sc.sim, ClaimKind::Repaid).is_empty());
+    repay(&mut sc.sim, c.due);
+    let (_, paid) = loan_of(&sc.sim, sc.borrower);
+    assert_eq!(paid.standing, Standing::Repaid);
+    assert!(claims_of(&sc.sim, ClaimKind::Defaulted).is_empty());
+    let said = claims_of(&sc.sim, ClaimKind::Repaid);
+    assert_eq!(said.len(), 1, "{said:?}");
+    let claim = said[0];
+    assert_eq!((claim.event, claim.day), (Some(c.id), c.due));
+    let elder = claim.subject.expect("names the debtor's elder");
+    assert!(members_of(&sc.sim, sc.borrower).contains(&elder));
+    for p in people_but(&sc.sim, &[]) {
+        assert_eq!(
+            sc.sim.people().word.has_heard(p, claim.id),
+            p == keeper,
+            "{p:?}"
+        );
+    }
+    let day = sc.sim.now().day_index();
+    let tp = sc.sim.rules().people.ties.clone();
+    assert_eq!(
+        sc.sim
+            .people()
+            .ties
+            .tie(keeper, elder, day, &tp)
+            .and_then(|t| t.reason)
+            .map(|r| r.act),
+        Some(Act::RepaidStore)
+    );
+    let words = civ_sim::frames::word::claim_words(&sc.sim, &claim);
+    assert!(
+        words.contains("repaid what the common store of ")
+            && words.contains(" lent it (")
+            && words.contains("kg of"),
+        "{words}"
+    );
+    let x = members_of(&sc.sim, sc.lender)[0];
+    let good_word = |sim: &Sim| {
+        sim.people()
+            .ties
+            .tie(x, elder, day, &tp)
+            .map_or(tp.prior as f32, |t| t.good[Domain::Word.index()])
+    };
+    let before = good_word(&sc.sim);
+    hearth(&mut sc.sim, keeper, x);
+    let tie = sc
+        .sim
+        .people()
+        .ties
+        .tie(x, elder, day, &tp)
+        .expect("a tie now");
+    assert_eq!(tie.reason.map(|r| r.act), Some(Act::RepaidStore));
+    assert!(
+        (f64::from(good_word(&sc.sim) - before) - tp.acts[Act::RepaidStore as usize].good).abs()
+            < 1e-4
+    );
+    saves_exactly(&mut sc.sim);
+}
+
+#[test]
+fn a_loan_of_a_store_nobody_keeps_has_nobody_to_tell_it() {
+    // Backlog D: with no keeper, nobody saw what came into the store and what did not; a loan
+    // from it, failed or repaid, is not told.
+    use civ_agents::word::ClaimKind;
+    let (mut sc, c, keeper) = lent_by_the_store(false);
+    assert!(keeper.is_none());
+    feed(&mut sc.sim, sc.borrower, 0.0);
+    let grace = i64::from(sc.sim.rules().people.credit.grace_days);
+    repay(&mut sc.sim, c.due + grace + 1);
+    assert_eq!(
+        loan_of(&sc.sim, sc.borrower).1.standing,
+        Standing::Defaulted
+    );
+    assert!(claims_of(&sc.sim, ClaimKind::Defaulted).is_empty());
+    let (mut sc, c, _) = lent_by_the_store(false);
+    feed(&mut sc.sim, sc.borrower, f64::from(c.owed) + 200.0);
+    repay(&mut sc.sim, c.due);
+    assert_eq!(loan_of(&sc.sim, sc.borrower).1.standing, Standing::Repaid);
+    assert!(claims_of(&sc.sim, ClaimKind::Repaid).is_empty());
+}

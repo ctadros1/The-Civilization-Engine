@@ -2170,3 +2170,12 @@ API 105), the core adds `policy/zestfully_take_the_watch_by_turns` (backlog D): 
 turns, drawn by lot from those who stood for it at the gathering, less anyone keeping a watch
 already, for a season of 90 days, not renewable, answering `takings` and `raided` as the plain
 watch does; whether anyone proposes it, and whether it passes, is people's choice.
+
+Content API 228 (backlog D) adds the `[ties]` acts `defaulted_store` and `repaid_store`: what
+seeing, as the keeper of the common store, or hearing that another's household did not repay what
+the common store lent it, or repaid it in full, writes into the tie to that household's elder. A
+loan from the store, failed or kept, is now word told as one between households is, except that
+the store's keeper of the day holds it at first hand (a store nobody keeps has nobody to see it,
+and it is not told); each who comes to know it for the first time, the keeper among them, notes
+the act, and nobody notes it of their own household's elder. The core writes them as
+`defaulted_others` and `repaid_others` are: bad evidence of 1 and good evidence of 0.5 in `word`.

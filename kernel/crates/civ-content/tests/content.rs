@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 227
+kernel_content_api = 228
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -4344,5 +4344,31 @@ fn the_core_weighs_a_debt_kept_heard_of_at_half_one_repaid() {
     assert_eq!(
         heard,
         civ_agents::ties::TieParams::core().acts[Act::RepaidOthers as usize]
+    );
+}
+
+#[test]
+fn the_core_weighs_a_debt_to_the_common_store_as_one_to_another_household() {
+    // Backlog D (content API 228): word of a loan from the common store, failed or kept, weighs
+    // as word of one between households does, by acts of its own.
+    use civ_agents::ties::{Act, Domain};
+    let reg = registry(load(&repo_content()));
+    let acts = &reg.people.params.ties.acts;
+    let core = civ_agents::ties::TieParams::core().acts;
+    for (store, others) in [
+        (Act::DefaultedStore, Act::DefaultedOthers),
+        (Act::RepaidStore, Act::RepaidOthers),
+    ] {
+        let a = acts[store as usize];
+        assert_eq!(a.domain, Some(Domain::Word));
+        assert_eq!(a, acts[others as usize], "{}", store.name());
+        assert_eq!(a, core[store as usize], "{}", store.name());
+    }
+    assert_eq!(
+        (
+            acts[Act::DefaultedStore as usize].bad,
+            acts[Act::RepaidStore as usize].good
+        ),
+        (1.0, 0.5)
     );
 }

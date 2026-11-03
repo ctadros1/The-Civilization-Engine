@@ -30,14 +30,14 @@ The current observer presents an early farming world. M10 adds industrial system
 | --- | --- | --- |
 | <img src="assets/icons/status-complete.svg" width="18" alt=""> **Complete** | M0–M9 | Settlement life, institutions, cities and many-settlement simulation. |
 | <img src="assets/icons/status-complete.svg" width="18" alt=""> **Complete** | M10a–M10c | Industry, transport, services and public health. |
-| <img src="assets/icons/status-in-progress.svg" width="18" alt=""> **In progress** | M10d | Household and polity-issued money, redeemable notes and counterfeiting are implemented; the complete M10 demo remains. |
+| <img src="assets/icons/status-in-progress.svg" width="18" alt=""> **In progress** | M10d | Money and counterfeiting are implemented; the M10 observer demo remains in progress. |
 | <img src="assets/icons/status-planned.svg" width="18" alt=""> **Planned** | Future scope | Modern-era systems and the Unreal client. |
 
 See the [project plan](PROJECT_PLAN.md) and [development journal](docs/development-journal/README.md) for milestone details and implementation evidence.
 
 ## Latest live demo: M9, many settlements
 
-The newest committed observer video is M9. It shows one settlement in detail while households resolve daily work across other settlements, with a followed resident and a climate change. M10d now includes polity-issued notes and counterfeiting, but no M10 observer video has been captured; the complete demo remains in progress. The gallery distinguishes recorded captures from run reports and planned demos.
+The newest committed observer video is M9. It shows one settlement in detail while households resolve daily work across other settlements, with a followed resident and a climate change. M10 now has a [runnable multi-settlement example](kernel/crates/civ-sim/examples/m10_world.rs) and a long-run report workflow, but no M10 observer video has been captured; the complete demo remains in progress. The gallery distinguishes recorded captures from run reports and planned demos.
 
 <p align="center"><a href="demos/m9/m9-overview.mp4"><img src="demos/m9/m9-overview-poster.png" alt="M9 live demo: many settlements at household resolution" width="900"></a></p>
 

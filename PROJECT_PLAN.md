@@ -7652,6 +7652,13 @@ and M6a gives rivers a daily flow.
       day twice over fixes it but moves fifteen scenario tests that choose their actors from the
       unfolding world, which are to be reworked first.
     - **EL**: the M10 demo, time-boxed, nudges logged.
+      *Built (2026-11-03):* `civ-sim --example m10_world` lives a configurable set of settlements;
+      a logged observer intervention introduces the M10 vocabulary to one resident in alternating
+      settlements, while the others receive no direct introduction. The example records yearly use
+      and chronicle entries, then saves and reloads the world. The owner-dispatched homelab workflow
+      can keep the simulation log as an artifact.
+      This run record is not an observer video; M9 remains the newest committed capture and the
+      complete M10 observer demo remains in progress.
 
 **Post-v1 (ordered, not sized):**
 - **M9, Aggregate LOD & scale:** planned above (ADR-0032).
@@ -7764,6 +7771,7 @@ and M6a gives rivers a daily flow.
 ## 9. Decisions log
 
 - **2026-11-03 — M10d money status:** the finalized Claude development branch completes slices EJ–EK: polity-issued notes, legal tender, suspension and counterfeiting. The code has successful Windows kernel, kernel-library, schema, web and full-chain checks on its branch head. The M10 demo runner exists, but the complete observer demo is not captured. Current boundaries: wire 1.106, save schema 219, content API 200.
+- **2026-11-03 — M10 lived example:** slice EL adds a multi-settlement `m10_world` example and an owner-dispatched homelab run that retains its text record. A logged observer intervention introduces the M10 vocabulary to one resident in alternating settlements; others receive no direct introduction. The example does not script industrial adoption. This is not an observer recording. M9 remains the newest committed video; see the [demo gallery](demos/README.md) and [M10 guide](docs/development-journal/money-and-notes.md#multi-settlement-m10-example).
 - **2026-10-31 — Capacity-aware Actions routing (owner request):** prefer idle node4, then node3 and node1 via management-owned moving policy labels; use permanent machines for jobs that may exceed six hours, enforce a separate six-hour node4 admission/runtime ceiling, and retain node3 timing baselines. Dispatch the main workflow with a target `ref` so older development branches do not retain obsolete routing.
 
 - **2026-10-27 — M10 implementation status:** merged M10c slices EB–EE and M10d slices EF–EI. M10c is complete; M10d money includes household valuation, custody, redeemable notes, bounded lending, runs, suspension and the *bearer heard* rule. Wire 1.106, save schema 214, content API 195. M9 remains the latest committed observer video; no M10 capture was available. The remaining M10d scope is recorded in §7.

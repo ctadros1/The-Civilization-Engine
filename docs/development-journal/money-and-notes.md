@@ -89,3 +89,20 @@ bounded lending, redemption runs, suspension, *bearer heard*, polity-issued note
 and counterfeiting. The project plan lists the remaining questions and planned work, including
 cross-polity acceptance and the complete M10 demonstration. These mechanisms demonstrate modeled
 behavior and engineering invariants; they do not establish historical realism.
+
+## Multi-settlement M10 example
+
+Slice EL adds [`m10_world`](../../kernel/crates/civ-sim/examples/m10_world.rs), a lived example for
+the complete industrial milestone. It creates several settlements, introduces the M10 vocabulary
+to one resident in alternating settlements through a logged observer intervention; the others
+receive no direct introduction. The world then lives at maximum speed while the example reports
+each settlement's adoption and chronicle entries, and saves and reloads the result. The example
+does not force settlements to industrialize. Run it from `kernel/` with:
+
+```sh
+cargo run --release -p civ-sim --example m10_world -- <saves-folder> [groups] [people] [years] [size]
+```
+
+The owner-dispatched [homelab demo workflow](../../.github/workflows/homelab.yml) can run it and
+preserve the text record as an artifact. That record is not an observer capture; M9 remains the
+newest committed video while the complete M10 observer demo is still in progress.

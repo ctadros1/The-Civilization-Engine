@@ -3328,3 +3328,10 @@ and [money and notes guide](money-and-notes.md).
 the Windows kernel, kernel library, generated schema, web observer and full homelab chain before it
 was merged. The experimental `claude/claude-verification` branch remains separate from `main`.
 Boundary versions are wire 1.106, save schema 219 and content API 200.
+
+**M10 example (slice EL):** the merged `m10_world` example creates multiple settlements and uses a
+logged observer intervention to introduce the M10 vocabulary to one resident in alternating
+settlements. The others receive no direct introduction. It records what people adopt during the
+lived run. The homelab workflow can run the example and retain its text record as an artifact. This
+is simulation evidence, not a new observer recording; M9 remains the newest committed video. See the
+[M10 guide](money-and-notes.md#multi-settlement-m10-example) and [demo gallery](../../demos/README.md).

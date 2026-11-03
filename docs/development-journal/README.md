@@ -4,15 +4,15 @@ This folder records how TCE was built and explains the systems in the integrated
 
 ## Current baseline
 
-M0–M9 are implemented. M10a (power and the works), M10b (rail and gas light) and M10c (services and letters) are implemented. M10d is underway: household and polity-issued money, custody, redeemable notes, lending, legal tender, suspension and counterfeiting are implemented through slice EK. The complete M10 demo remains in progress. The Unreal client and modern civilization remain future work.
+M0–M9 are implemented. M10a (power and the works), M10b (rail and gas light) and M10c (services and letters) are implemented. M10d is underway: household and polity-issued money, custody, redeemable notes, lending, legal tender, suspension and counterfeiting are implemented through slice EK. Slice EL adds a runnable multi-settlement example and a homelab workflow that records its simulation output; the complete observer demo remains in progress. The Unreal client and modern civilization remain future work.
 
-Current boundary versions are TCE wire 1.106, save schema 219 and content API 200. The newest committed observer video is M9. No M10 milestone video is committed; the complete M10 demo is still in progress. Run reports are seed-specific evidence, not proof of typical outcomes or historical realism.
+Current boundary versions are TCE wire 1.106, save schema 219 and content API 200. The newest committed observer video is M9. No M10 observer video is committed; its simulation run record is not a video capture. Run reports are seed-specific evidence, not proof of typical outcomes or historical realism.
 
 ## Read by question
 
 | Document | Read this for |
 | --- | --- |
-| [Development history](development-history.md) | Milestones, implementation decisions, checks and observed outcomes through current M10d work |
+| [Development history](development-history.md) | Milestones, implementation decisions, checks and observed outcomes through the M10 example |
 | [Architecture and data flow](architecture-and-data-flow.md) | Kernel crates, ownership boundaries, content loading, observer and host communication |
 | [Simulation model](simulation-model.md) | Time, landscape, households, economy, buildings and the high-level model for institutions and multiple settlements |
 | [Institutions, law and social change](institutions-and-order.md) | Polities, deliberation, law, crime, grievances, factions, revolts and observer interventions |

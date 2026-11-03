@@ -34,9 +34,11 @@ it does not present those screens as simulation behavior.
 
 M10a (power and the works), M10b (rail and gas light) and M10c (services and letters) are
 implemented. M10d now includes household valuation, custody, redeemable notes, lending, runs,
-suspension, polity-issued notes, legal tender and counterfeiting (slices EF–EK). The complete M10
-demo remains in progress. No M10 milestone video is committed; M9 remains the newest available live
-observer video, not the newest implemented milestone. See the [industry and power guide](../docs/development-journal/industry-and-power.md),
+suspension, polity-issued notes, legal tender and counterfeiting (slices EF–EK). Slice EL adds a
+runnable multi-settlement M10 example and an owner-dispatched homelab workflow that keeps its run
+record as an artifact. These are simulation records, not an observer video: M9 remains the newest
+committed live observer capture, and the complete M10 demo remains in progress. See the [M10 example](../kernel/crates/civ-sim/examples/m10_world.rs),
+[homelab workflow](../.github/workflows/homelab.yml), [industry and power guide](../docs/development-journal/industry-and-power.md),
 [mobility and light](../docs/development-journal/mobility-and-light.md), [services and care](../docs/development-journal/services-and-care.md),
 [money and notes](../docs/development-journal/money-and-notes.md), and [current plan](../PROJECT_PLAN.md#7-milestones).
 
@@ -83,7 +85,7 @@ and run log together.
 | M10a · Power and the works | Implemented: powered recipes, mills, fuel, iron, coal extraction, engines and works; no standalone milestone video | [Technical guide](../docs/development-journal/industry-and-power.md) · [current plan](../PROJECT_PLAN.md#7-milestones) |
 | M10b · Rail and gas light | Implemented: lamps, wagonways, trains, stations, freight, gas mains and street lighting; no standalone milestone video | [Technical guide](../docs/development-journal/mobility-and-light.md) · [current plan](../PROJECT_PLAN.md#7-milestones) |
 | M10c · Services and letters | Implemented: care, birth care, teaching, literacy and records, inoculation, public health reporting and a shared sickhouse; no milestone video | [Technical guide](../docs/development-journal/services-and-care.md) · [current plan](../PROJECT_PLAN.md#7-milestones) |
-| M10d · Money and full M10 demo | In progress: household and polity-issued notes, lending, legal tender, suspension and counterfeiting implemented; complete demo remains in progress | [Technical guide](../docs/development-journal/money-and-notes.md) · [current plan](../PROJECT_PLAN.md#7-milestones) |
+| M10d · Money and full M10 demo | In progress: money systems implemented; a multi-settlement example and run-record workflow exist, but no observer video is captured | [M10 example](../kernel/crates/civ-sim/examples/m10_world.rs) · [technical guide](../docs/development-journal/money-and-notes.md) · [current plan](../PROJECT_PLAN.md#7-milestones) |
 
 Some milestone demo scripts intentionally explore emergent outcomes and can take a long time. They
 run only when requested with `TCE_DEMO=1`; they may try more than one world and report what
@@ -94,7 +96,7 @@ happened instead of forcing a scripted result. For milestone scope and known lim
 ## Refreshing the latest demo
 
 When the current README status or feature showcase is updated, update this gallery and the README's
-featured images together. Use the newest available demo that has a real observer run, even if later milestones are implemented without a capture. Save fresh
+featured images together. Use the newest available demo that has a real observer run, even if later milestones are implemented without a capture. A simulation example's text report does not count as an observer video. Save fresh
 captures under `demos/<milestone>/`, keep prior milestone media and links in this gallery, and label
 concept art separately from screenshots. Do not describe an unfinished milestone's design as a
 demo.

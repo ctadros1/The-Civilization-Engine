@@ -2413,6 +2413,44 @@ impl Population {
         self.route_tiles = digests;
     }
 
+    /// Brings up to date the walking field the household `id` of `settlement`, living at `home`,
+    /// plans from, as its decisions do, and gives its key and the settlement's hearth. The fields
+    /// are derived, never saved: what reads one outside a decision brings it up to date first, so
+    /// that a world loaded before the household's next decision reads what the world it was
+    /// saved from would.
+    fn walking_field_of(
+        &mut self,
+        ctx: &Ctx,
+        (id, settlement, home): (PermanentId, Option<PermanentId>, (f32, f32)),
+    ) -> (PermanentId, Option<(f32, f32)>) {
+        let hearth = settlement.and_then(|s| {
+            ctx.land
+                .settlements
+                .iter()
+                .find(|x| x.id == s)
+                .map(|x| x.hearth_m)
+        });
+        // One travel field per settlement, from its hearth.
+        let mut field_key = match (settlement, hearth) {
+            (Some(s), Some(_)) => s,
+            _ => id,
+        };
+        self.home_field(ctx, field_key, hearth.unwrap_or(home));
+        // Sharing a hearth's travel field assumes homes remain in its walking catchment.
+        // A closed ford can separate a nearby home: plan from that home's own bank instead.
+        let supply_at = Self::supply_point(ctx, home, settlement);
+        if field_key != id
+            && self
+                .homes
+                .get(&field_key)
+                .is_some_and(|f| f.reach.seconds_to(cell_of(ctx.map, supply_at)).is_none())
+        {
+            field_key = id;
+            self.home_field(ctx, field_key, supply_at);
+        }
+        (field_key, hearth)
+    }
+
     fn home_field(&mut self, ctx: &Ctx, key: PermanentId, origin: (f32, f32)) {
         self.sync_routes(ctx);
         let cell = cell_of(ctx.map, origin);
@@ -3880,19 +3918,24 @@ impl Population {
 
     /// Where this household receives supplies while sheltering from its wet home.
     fn supply_at(ctx: &Ctx, hh: &Household) -> (f32, f32) {
+        Self::supply_point(ctx, hh.home, hh.settlement)
+    }
+
+    /// [`Self::supply_at`] of a household at `home` of `settlement`.
+    fn supply_point(ctx: &Ctx, home: (f32, f32), settlement: Option<PermanentId>) -> (f32, f32) {
         let wet = ctx
             .land
             .flood_depths
-            .get(cell_of(ctx.map, hh.home))
+            .get(cell_of(ctx.map, home))
             .copied()
             .unwrap_or(0.0)
             > 0.0;
         if wet {
-            hh.settlement
+            settlement
                 .and_then(|id| ctx.land.settlements.iter().find(|s| s.id == id))
-                .map_or(hh.home, |s| s.hearth_m)
+                .map_or(home, |s| s.hearth_m)
         } else {
-            hh.home
+            home
         }
     }
 
@@ -3970,30 +4013,7 @@ impl Population {
             HouseholdView::default()
         }
         .cells(ctx.catalog.activities.len());
-        let hearth = hh.settlement.and_then(|s| {
-            ctx.land
-                .settlements
-                .iter()
-                .find(|x| x.id == s)
-                .map(|x| x.hearth_m)
-        });
-        // One travel field per settlement, from its hearth.
-        let mut field_key = match (hh.settlement, hearth) {
-            (Some(s), Some(_)) => s,
-            _ => hh_id,
-        };
-        self.home_field(ctx, field_key, hearth.unwrap_or(hh.home));
-        // Sharing a hearth's travel field assumes homes remain in its walking catchment.
-        // A closed ford can separate a nearby home: plan from that home's own bank instead.
-        if field_key != hh_id
-            && self
-                .homes
-                .get(&field_key)
-                .is_some_and(|f| f.reach.seconds_to(cell_of(ctx.map, supply_at)).is_none())
-        {
-            field_key = hh_id;
-            self.home_field(ctx, field_key, supply_at);
-        }
+        let (field_key, hearth) = self.walking_field_of(ctx, (hh.id, hh.settlement, hh.home));
         self.refresh_kin();
         let goods = &ctx.catalog.goods;
         let member_count = hh.members.len().max(1);
@@ -6230,7 +6250,6 @@ impl Population {
         self.count_going(ctx, h);
         // Its first bottleneck, if it passes one (M8b slice CN).
         if !ctx.land.crossings.list.is_empty() || !ctx.land.enclosures.list.is_empty() {
-            self.facilities_now(ctx);
             self.schedule_pass(ctx, h, 0.0, None);
         }
         if let Some((household, points)) = seen {
@@ -8093,8 +8112,15 @@ impl Population {
             x.water_l += f64::from(load.water_l);
         }
         // What its people use from now follows the walk to the water just fetched (ADR-0021 §1):
-        // to a well, from home (M6a slice AY, step three).
+        // to a well, from home (M6a slice AY, step three). The walk to the water is read from the
+        // walking field brought up to date, not from whatever field a decision last left.
         if load.water_l > 0.0 {
+            if matches!(target, Target::Water(_))
+                && let Some(x) = self.households.get(own)
+            {
+                let of = (x.id, x.settlement, x.home);
+                self.walking_field_of(ctx, of);
+            }
             let walk = match target {
                 Target::Water(cell) => settlement
                     .and_then(|s| self.homes.get(&s))

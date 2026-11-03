@@ -1415,3 +1415,91 @@ fn a_closing_nobody_suspects_any_longer_is_put_to_an_end_and_one_still_suspected
     assert_eq!(source.well, Some(well));
     reloaded(&mut sim);
 }
+
+/// Lives `sim` on minute by minute to the end of `minutes` and `after` minutes more, saving it at
+/// each minute of `minutes`, and checks that each world loaded from those saves is, `after`
+/// minutes on, the same in every section as the world it was saved from.
+fn saved_each_minute_goes_on_alike(
+    sim: &mut Sim,
+    minutes: std::ops::RangeInclusive<i64>,
+    after: i64,
+) {
+    use std::hash::{Hash, Hasher};
+    let digest = |sim: &Sim| -> Vec<(String, u64)> {
+        persist::encode_sections(sim)
+            .iter()
+            .map(|x| {
+                let mut h = std::collections::hash_map::DefaultHasher::new();
+                x.bytes.hash(&mut h);
+                (format!("{}#{}", x.tag, x.index), h.finish())
+            })
+            .collect()
+    };
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let (first, last) = (*minutes.start(), *minutes.end());
+    assert!(
+        sim.now().minutes() <= first,
+        "{} {first}",
+        sim.now().minutes()
+    );
+    sim.advance_minutes(first - sim.now().minutes())
+        .expect("advances");
+    let mut saved = Vec::new();
+    let mut lived = std::collections::BTreeMap::new();
+    while sim.now().minutes() <= last + after {
+        let m = sim.now().minutes();
+        if minutes.contains(&m) {
+            let save = persist::save(sim, &saves, commons_persist::SaveKind::Manual, "well")
+                .expect("saves");
+            saved.push((m, save.path));
+        }
+        if minutes.contains(&(m - after)) {
+            lived.insert(m, digest(sim));
+        }
+        sim.advance_minutes(1).expect("advances");
+    }
+    for (m, path) in saved {
+        let mut loaded = persist::load(&path, content()).expect("loads");
+        for _ in 0..after {
+            loaded.advance_minutes(1).expect("advances");
+        }
+        let differ: Vec<String> = digest(&loaded)
+            .into_iter()
+            .zip(&lived[&(m + after)])
+            .filter(|(a, b)| a.1 != b.1)
+            .map(|(a, _)| a.0)
+            .collect();
+        assert!(
+            differ.is_empty(),
+            "saved at minute {m}, {after} minutes on: {differ:?} differ"
+        );
+    }
+}
+
+/// A village of world 6 whose household's well, its water table two metres above its floor, is
+/// dug and lined to within two hours of its target: the household and its well.
+fn a_well_nearly_dug() -> (Sim, PermanentId, PermanentId) {
+    let mut sim = village(6);
+    let (h, well) = a_well_begun(&mut sim);
+    set_water(&mut sim, well, 2.0);
+    let hours = hours_left(&sim, well) - 2.0;
+    sim.with_ctx_for_tests(|pop, ctx| pop.well_work_for_tests(ctx, well, hours));
+    assert!(!sim.land().wells.get(well).expect("the well").is_open());
+    (sim, h, well)
+}
+
+/// A world saved in any minute as a household's people finish digging its well goes on alike
+/// (backlog D's fourteenth item found one saved as a passing place was finished that did not).
+#[test]
+fn a_world_saved_in_any_minute_as_a_households_people_finish_its_well_goes_on_alike() {
+    let (mut sim, _h, well) = a_well_nearly_dug();
+    // Its people finish it a little over five hours on: the minutes saved are those about it.
+    let start = sim.now().minutes();
+    let opened = |sim: &Sim| sim.land().wells.get(well).expect("the well").is_open();
+    sim.advance_minutes(296).expect("lives");
+    assert!(!opened(&sim));
+    saved_each_minute_goes_on_alike(&mut sim, start + 296..=start + 312, 30);
+    assert!(opened(&sim));
+}

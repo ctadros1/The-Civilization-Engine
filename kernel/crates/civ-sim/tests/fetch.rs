@@ -3257,6 +3257,110 @@ fn a_households_own_passing_place_grown_over_is_cleared_again_by_its_people_wher
     // A household's own passing place is still not the chronicle's.
     assert!(way_entries(&sim).is_empty());
     assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+    // Saved and loaded in the very minute it is seen cleared, the world goes on alike.
+    saves_and_goes_on_alike(&mut sim, 60);
+}
+
+/// Lives `sim` on minute by minute to the end of `minutes` and `after` minutes more, saving it at
+/// each minute of `minutes`, and checks that each world loaded from those saves is, `after`
+/// minutes on, the same in every section as the world it was saved from.
+fn saved_each_minute_goes_on_alike(
+    sim: &mut Sim,
+    minutes: std::ops::RangeInclusive<i64>,
+    after: i64,
+) {
+    use std::hash::{Hash, Hasher};
+    let digest = |sim: &Sim| -> Vec<(String, u64)> {
+        persist::encode_sections(sim)
+            .iter()
+            .map(|x| {
+                let mut h = std::collections::hash_map::DefaultHasher::new();
+                x.bytes.hash(&mut h);
+                (format!("{}#{}", x.tag, x.index), h.finish())
+            })
+            .collect()
+    };
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let (first, last) = (*minutes.start(), *minutes.end());
+    assert!(
+        sim.now().minutes() <= first,
+        "{} {first}",
+        sim.now().minutes()
+    );
+    sim.advance_minutes(first - sim.now().minutes())
+        .expect("advances");
+    let mut saved = Vec::new();
+    let mut lived = std::collections::BTreeMap::new();
+    while sim.now().minutes() <= last + after {
+        let m = sim.now().minutes();
+        if minutes.contains(&m) {
+            let save = persist::save(sim, &saves, commons_persist::SaveKind::Manual, "fetch")
+                .expect("saves");
+            saved.push((m, save.path));
+        }
+        if minutes.contains(&(m - after)) {
+            lived.insert(m, digest(sim));
+        }
+        sim.advance_minutes(1).expect("advances");
+    }
+    for (m, path) in saved {
+        let mut loaded = persist::load(&path, content()).expect("loads");
+        let rules = loaded.rules_mut_for_tests().expect("rules of its own");
+        rules.people = sim.rules().people.clone();
+        rules.catalog = sim.rules().catalog.clone();
+        for _ in 0..after {
+            loaded.advance_minutes(1).expect("advances");
+        }
+        let differ: Vec<String> = digest(&loaded)
+            .into_iter()
+            .zip(&lived[&(m + after)])
+            .filter(|(a, b)| a.1 != b.1)
+            .map(|(a, _)| a.0)
+            .collect();
+        assert!(
+            differ.is_empty(),
+            "saved at minute {m}, {after} minutes on: {differ:?} differ"
+        );
+    }
+}
+
+/// Backlog D's fourteenth item found a world saved in the minute a household's people finish
+/// clearing its passing place loading with the scheduler three events behind. The cause was a
+/// walker between two bottlenecks when it was saved: a world loaded knew no bottleneck until
+/// someone set off on a new walk, so the next one the walker would reach was never scheduled.
+/// And a household's walk to the water, read as its water was brought home, was read from a
+/// walking field a world loaded had not yet laid out. Saved in any minute as its people finish,
+/// the world goes on alike.
+#[test]
+fn a_world_saved_in_any_minute_as_a_households_people_finish_their_passing_place_goes_on_alike() {
+    let (mut sim, buyer, _seller, _handcart, _middle) = carts_wait_scene(20);
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_way_work_for_tests(ctx, buyer));
+    let way = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|w| {
+            w.segments
+                .iter()
+                .any(|s| s.keeper == civ_land::ways::Keeper::Household(buyer))
+        })
+        .map(|w| w.id)
+        .expect("a passing place begun");
+    // Its people finish it a little over three hours on: the minutes saved are those about it.
+    let start = sim.now().minutes();
+    let (first, last) = (start + 188, start + 202);
+    let cleared = |sim: &Sim| {
+        let s = first_segment(sim, way);
+        s.built_m + 1e-3 >= s.corridor_m
+    };
+    sim.advance_minutes(first - start).expect("advances");
+    assert!(!cleared(&sim), "{:?}", first_segment(&sim, way));
+    saved_each_minute_goes_on_alike(&mut sim, first..=last, 30);
+    assert!(cleared(&sim), "{:?}", first_segment(&sim, way));
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
 }
 
 #[test]

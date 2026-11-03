@@ -97,7 +97,9 @@ impl Population {
     }
 
     /// Sets the walk's next bottleneck from `from_min` on, past `skip`, and schedules its arrival
-    /// there.
+    /// there. The facilities are brought up to date first: they are derived, so a world loaded
+    /// mid-walk, whose first walker has not yet set off, finds the same next bottleneck as the
+    /// world it was saved from.
     pub(super) fn schedule_pass(
         &mut self,
         ctx: &mut Ctx,
@@ -105,6 +107,7 @@ impl Population {
         from_min: f32,
         skip: Option<Facility>,
     ) {
+        self.facilities_now(ctx);
         let Some(pending) = self
             .people
             .get(h)

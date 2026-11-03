@@ -2870,6 +2870,7 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         "core:policy/zealously_zone_cased_steel",
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
     ];
     assert!(
         reg.catalog
@@ -2915,6 +2916,7 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
         "core:policy/zealously_zone_cased_steel",
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
     ];
     assert!(
         reg.catalog
@@ -3001,6 +3003,7 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
         "core:policy/zealously_zone_cased_steel",
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
     ];
     assert!(
         reg.catalog
@@ -3045,6 +3048,7 @@ fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
         "core:policy/zealously_zone_cased_steel",
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
     ];
     assert!(
         reg.catalog
@@ -3100,6 +3104,7 @@ fn the_core_lets_a_polity_name_a_health_officer_who_can_write() {
         "core:policy/zealously_zone_cased_steel",
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
     ];
     assert!(
         reg.catalog
@@ -3149,6 +3154,7 @@ fn the_core_lets_a_polity_clear_middens_from_the_water() {
         "core:policy/zealously_zone_cased_steel",
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
     ];
     assert!(
         reg.catalog
@@ -3192,6 +3198,7 @@ fn the_core_lets_a_polity_raise_a_sickhouse_where_the_sick_lay_untended() {
         "core:policy/zealously_zone_cased_steel",
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
     ];
     assert!(
         reg.catalog
@@ -3411,6 +3418,7 @@ fn the_core_lets_a_polity_carry_refuse_to_a_tip() {
         "core:policy/zealously_zone_cased_steel",
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
     ];
     assert!(
         reg.catalog
@@ -3488,6 +3496,7 @@ fn the_core_lets_a_polity_run_a_refuse_round_by_law() {
         "core:policy/zealously_zone_cased_steel",
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
     ];
     assert!(
         reg.catalog
@@ -3751,6 +3760,7 @@ fn the_core_lets_a_polity_lay_a_sewer_to_the_river() {
         "core:policy/zealously_zone_cased_steel",
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
     ];
     assert!(
         reg.catalog
@@ -3976,6 +3986,7 @@ fn the_core_lets_a_polity_ask_new_steel_frames_be_cased_against_fire() {
     let newer = [
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
     ];
     assert!(
         reg.catalog
@@ -4278,6 +4289,43 @@ fn a_hearer_may_hold_for_a_term_or_be_drawn_by_lot() {
             bad.diagnostics
         );
     }
+}
+
+#[test]
+fn the_core_offers_a_watch_kept_by_turns_drawn_by_lot() {
+    // Backlog D: a watch template may carry a tenure (content API 105); the core now offers one,
+    // a season's watch drawn by lot, not renewable, answering what the plain watch answers.
+    use civ_agents::polity::{PolicyKind, Tenure};
+    let reg = registry(load(&repo_content()));
+    let find = |id: &str| {
+        reg.catalog
+            .policies
+            .iter()
+            .find(|p| p.id == id)
+            .unwrap_or_else(|| panic!("{id} in core"))
+    };
+    let turns = find("core:policy/zestfully_take_the_watch_by_turns");
+    let plain = find("core:policy/keep_watch");
+    assert_eq!(turns.kind, PolicyKind::KeepWatch);
+    assert_eq!(turns.answers, plain.answers);
+    assert_eq!(
+        turns.tenure,
+        Some(Tenure {
+            term_days: 90,
+            renewable: false,
+            by_lot: true,
+        })
+    );
+    assert_eq!(plain.tenure, None, "the plain watch holds for no term");
+    // Its id sorts after every other template's.
+    let last = reg
+        .catalog
+        .policies
+        .iter()
+        .map(|p| p.id.as_str())
+        .max()
+        .expect("templates");
+    assert_eq!(last, turns.id);
 }
 
 #[test]

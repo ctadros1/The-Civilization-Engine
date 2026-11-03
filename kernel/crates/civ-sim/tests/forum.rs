@@ -827,3 +827,314 @@ fn a_hearer_drawn_by_lot_hears_for_a_term_and_is_not_drawn_again_at_once() {
         .expect("named");
     assert_ne!(next, hearer);
 }
+
+/// A hearer's term ends while a case waits before them (backlog D; research 02 §3.6: a term's
+/// expiry is a procedure of its own; 09-14 §2.2: a vacancy calls for the decisions it needs at
+/// once; 09-07 §4.2: a case waits until it is closed, never dropped): the hearer, out of office,
+/// does not hear it; it goes to the gathering, called for it, which hears it; or, where a
+/// successor holds the forum by that day, before the successor, who hears it the evening after.
+#[test]
+fn a_case_waiting_before_a_hearer_whose_term_ends_goes_to_the_gathering_or_their_successor() {
+    use civ_agents::ChronicleKind;
+    use civ_agents::polity::Term;
+    for successor in [false, true] {
+        let mut sim = world(3);
+        let hh = households(&sim);
+        assert!(hh.len() >= 4, "four households: {hh:?}");
+        let (pi, today) = (0, sim.now().day_index());
+        let hearer = hh[2].1[0];
+        let forum = law(
+            &mut sim,
+            "core:policy/zestfully_name_a_hearer_for_a_year",
+            Some(hearer),
+        );
+        // Its term ends the midnight the case would be heard.
+        sim.people_mut_for_tests().polities[pi].set_term(
+            forum,
+            Term {
+                until: today + 2,
+                pool: 0,
+            },
+        );
+        let id = case(&mut sim, &hh[0], &hh[1]);
+        sim.advance_minutes(DAY).expect("advances");
+        assert_eq!(
+            find(&sim, id).forum,
+            Some(forum),
+            "it waits before the hearer"
+        );
+        let next = successor.then(|| {
+            let next = law(
+                &mut sim,
+                "core:policy/zestfully_name_a_hearer_for_a_year",
+                Some(hh[3].1[0]),
+            );
+            sim.people_mut_for_tests().polities[pi].set_term(
+                next,
+                Term {
+                    until: today + 362,
+                    pool: 0,
+                },
+            );
+            next
+        });
+        sim.advance_minutes(DAY).expect("advances");
+        let pop = sim.people();
+        let status = pop.polities[pi]
+            .laws
+            .iter()
+            .find(|l| l.id == forum)
+            .expect("kept")
+            .status;
+        assert_eq!(status, LawStatus::Lapsed);
+        assert!(
+            pop.chronicle
+                .iter()
+                .any(|e| e.kind == ChronicleKind::LawLapsed
+                    && e.people == vec![hearer]
+                    && e.name.ends_with("their term ended.")),
+            "the chronicle tells the term's end"
+        );
+        // The hearer whose term ended did not hear it.
+        let c = find(&sim, id);
+        assert_eq!(c.stage, CaseStage::Open, "{c:?}");
+        assert!(c.stances.is_empty(), "{c:?}");
+        let mut sim = reloaded(&mut sim);
+        match next {
+            None => {
+                assert_eq!(c.forum, None, "{c:?}");
+                assert!(
+                    before_the_gathering(&sim, id),
+                    "the gathering is called for it"
+                );
+                // The gathering hears it when it sits, its members coming as to any.
+                let meets = sim.people().polities[pi]
+                    .gathering
+                    .as_ref()
+                    .expect("called")
+                    .day;
+                sim.advance_minutes((meets + 1 - sim.now().day_index()) * DAY)
+                    .expect("advances");
+                let c = find(&sim, id);
+                assert_ne!(c.stage, CaseStage::Open, "{c:?}");
+                assert_eq!(c.forum, None, "{c:?}");
+                assert!(c.eligible > 1, "the gathering's members: {c:?}");
+            }
+            Some(next) => {
+                assert_eq!(c.forum, Some(next), "{c:?}");
+                assert!(!before_the_gathering(&sim, id));
+                sim.advance_minutes(DAY).expect("advances");
+                let c = find(&sim, id);
+                assert_ne!(c.stage, CaseStage::Open, "{c:?}");
+                assert_eq!(
+                    c.stances.iter().map(|r| r.person).collect::<Vec<_>>(),
+                    vec![hh[3].1[0]],
+                    "the successor alone"
+                );
+            }
+        }
+    }
+}
+
+/// A hearer removed before their term (backlog D; research 09-02 §8.6: tenure ends by removal as
+/// well as by its term; 09-14 §1.2, §1.5: who may dismiss an officeholder is a body and a
+/// procedure; 09-07 §4.3: what follows a finding against those who can act is part of a court's
+/// independence): those who hold the hearer's findings against their forum found a faction, which
+/// petitions the gathering for another hearer in place of the one hearing cases, a year's term
+/// not half run. Each who blames the forum weighs it against their regard for the hearer, as
+/// against a keeper; passed, the old forum gives way, the new hearer holds a term of their own,
+/// and a case waiting before the old hearer goes before the new one. All of it saves and loads
+/// exactly.
+#[test]
+fn a_faction_against_a_hearer_petitions_for_another_before_their_term_is_out() {
+    use civ_agents::polity::{Outcome as Decided, Term};
+    use civ_agents::ties::Tie;
+    use civ_agents::word::{Blamed, Claim, ClaimKind, Grievance, Grieved, Wrong};
+    let mut sim = world(3);
+    sim.advance_minutes(20 * DAY).expect("advances");
+    let hh = households(&sim);
+    assert!(hh.len() >= 4, "four households: {hh:?}");
+    let (pi, today) = (0, sim.now().day_index());
+    let hearer = hh[2].1[0];
+    let forum = law(
+        &mut sim,
+        "core:policy/zestfully_name_a_hearer_for_a_year",
+        Some(hearer),
+    );
+    sim.people_mut_for_tests().polities[pi].set_term(
+        forum,
+        Term {
+            until: today + 360,
+            pool: 0,
+        },
+    );
+    // Every adult but the hearer holds a keen grievance against the forum over a finding, has
+    // heard that every other does, and regards the others well.
+    let params = sim.rules().people.clone();
+    let adults: Vec<PermanentId> = hh.iter().flat_map(|h| h.1.clone()).collect();
+    let aggrieved: Vec<PermanentId> = adults.iter().copied().filter(|&a| a != hearer).collect();
+    let pop = sim.people_mut_for_tests();
+    let settlement = pop.polities[pi].settlement;
+    for &a in &aggrieved {
+        pop.word.grievances.push(Grievance {
+            holder: a,
+            issue: Grieved::Collective,
+            blamed: Blamed::Forum(forum),
+            law: forum,
+            harm_days: 10.0,
+            unresolved_days: 10.0,
+            activation: 1.0,
+            raised: today,
+            made: today,
+            wrong: Wrong::NotFound,
+        });
+        let claim = pop.word.make(Claim {
+            fire: None,
+            event: None,
+            id: 0,
+            kind: ClaimKind::Grievance,
+            settlement,
+            day: today,
+            subject: Some(a),
+            grievance: Some((Blamed::Forum(forum), Grieved::Collective)),
+            suspected: None,
+        });
+        for &b in &aggrieved {
+            pop.word
+                .hear(b, claim, today, (a != b).then_some(a), Some(a));
+        }
+        let ties: Vec<Tie> = adults
+            .iter()
+            .filter(|&&b| b != a)
+            .map(|&b| Tie {
+                familiarity: 1.0,
+                warmth: 1.0,
+                ..Tie::new(b, today, &params.ties)
+            })
+            .collect();
+        pop.ties.restore(a, ties);
+    }
+    // The petition under test, not when people review where they belong: each does so daily.
+    sim.rules_mut_for_tests()
+        .expect("rules not yet shared")
+        .people
+        .faction
+        .review_days = 1;
+    // A faction is founded against the forum, and its organizer petitions for another hearer.
+    let mut called = None;
+    for _ in 0..80 {
+        sim.advance_minutes(DAY).expect("advances");
+        if let Some(p) = sim.people().factions.petitions.first() {
+            called = Some(p.clone());
+            break;
+        }
+    }
+    let called = called.expect("a petition was called");
+    let pop = sim.people();
+    let f = pop.factions.get(called.faction).expect("its faction");
+    assert_eq!(f.against, Blamed::Forum(forum));
+    assert_eq!(called.ends, forum, "{called:?}");
+    let nominee = called.nominee.expect("someone named");
+    assert_ne!(nominee, hearer);
+    assert_eq!(
+        sim.rules().catalog.policies[usize::from(called.policy)].id,
+        "core:policy/zestfully_name_a_hearer_for_a_year"
+    );
+    let words = civ_sim::frames::word::petition_demand_words(&sim, &called);
+    assert_eq!(
+        words,
+        format!(
+            "{} to hear cases in place of {}",
+            pop.name_of(nominee),
+            pop.name_of(hearer)
+        )
+    );
+    // It sits, and goes before the gathering.
+    let mut proposed = None;
+    for _ in 0..12 {
+        sim.advance_minutes(DAY).expect("advances");
+        if let Some(l) = sim.people().factions.petitions[0].law {
+            proposed = Some(l);
+            break;
+        }
+    }
+    let proposed = proposed.expect("it went before the gathering");
+    let meets = sim.people().polities[pi]
+        .laws
+        .iter()
+        .find(|l| l.id == proposed)
+        .expect("kept")
+        .meets_day;
+    // A case between two households neither hearer is of, brought the day before the gathering
+    // sits on it, waits before the hearer in office when the gathering decides.
+    let theirs = |sim: &Sim, p: PermanentId| sim.people().person(p).expect("alive").household;
+    let (h1, h2) = (theirs(&sim, hearer), theirs(&sim, nominee));
+    let parties: Vec<Household> = hh
+        .iter()
+        .filter(|h| h.0 != h1 && h.0 != h2)
+        .cloned()
+        .collect();
+    assert!(parties.len() >= 2, "{parties:?}");
+    assert!(sim.now().day_index() < meets, "it has not sat yet");
+    while sim.now().day_index() < meets - 1 {
+        sim.advance_minutes(DAY).expect("advances");
+    }
+    let id = case(&mut sim, &parties[0], &parties[1]);
+    sim.advance_minutes(DAY).expect("advances");
+    assert_eq!(
+        find(&sim, id).forum,
+        Some(forum),
+        "before the hearer in office"
+    );
+    let mut sim = reloaded(&mut sim);
+    sim.advance_minutes(DAY).expect("advances");
+    let pop = sim.people();
+    let l = pop.polities[pi]
+        .laws
+        .iter()
+        .find(|l| l.id == proposed)
+        .expect("kept")
+        .clone();
+    assert_eq!(l.ends, Some(forum));
+    assert_eq!(l.holder, Some(nominee));
+    assert_eq!(l.outcome, Some(Decided::Passed), "{l:?}");
+    // Those who blame the forum weighed it against their regard for the hearer: the hearer, who
+    // came, did not back being replaced.
+    for r in &l.stances {
+        if r.person == hearer {
+            assert!(r.regard <= 0.0, "{r:?}");
+            assert_ne!(r.stance, Stance::Support, "{r:?}");
+        } else if r.person != l.sponsor {
+            assert!(r.regard > 0.0, "{r:?}");
+        }
+    }
+    let old = pop.polities[pi]
+        .laws
+        .iter()
+        .find(|l| l.id == forum)
+        .expect("kept");
+    assert_eq!(old.status, LawStatus::Superseded);
+    let term = pop.polities[pi]
+        .term_of(proposed)
+        .expect("a term of its own");
+    assert_eq!(term.until, l.decided.expect("decided").day_index() + 360);
+    // The case waiting before the hearer removed goes before the new one, who hears it.
+    let c = find(&sim, id);
+    assert_eq!(c.forum, Some(proposed), "{c:?}");
+    assert_eq!(c.stage, CaseStage::Open, "{c:?}");
+    sim.advance_minutes(DAY).expect("advances");
+    let c = find(&sim, id);
+    assert_ne!(c.stage, CaseStage::Open, "{c:?}");
+    assert_eq!(
+        c.stances.iter().map(|r| r.person).collect::<Vec<_>>(),
+        vec![nominee]
+    );
+    let lines = civ_sim::frames::government::petition_words(&sim, settlement);
+    assert!(
+        lines
+            .iter()
+            .any(|w| w.contains("to hear cases in place of") && w.contains("granted it")),
+        "{lines:?}"
+    );
+    reloaded(&mut sim);
+}

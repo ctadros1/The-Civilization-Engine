@@ -5069,11 +5069,20 @@ impl Population {
         // for one named in place of an office's holder, less their regard for that holder, which
         // a grievance against the office lowers (M4c slice AH; research 04-10 §1.1: blame).
         let face = law.holder.unwrap_or(sponsor);
+        // A grievance against a forum of one holder blames the forum (M7b slice BU), and weighs
+        // against its hearer as one against an office does against its holder (backlog D).
         let replaced = law
             .ends
             .and_then(|e| self.polities[pi].laws.iter().find(|l| l.id == e))
             .filter(|l| l.status == LawStatus::InForce)
-            .and_then(|l| Some((l.holder?, l.id)));
+            .and_then(|l| {
+                let blamed = if l.kind == PolicyKind::HearCases {
+                    Blamed::Forum(l.id)
+                } else {
+                    Blamed::Office(l.id)
+                };
+                Some((l.holder?, blamed))
+            });
         let day = now.day_index();
         // An agreement is weighed with what each believes of the other polity, as regard for its
         // sponsor is (M5c slice AU, ADR-0020 §3).
@@ -5109,12 +5118,12 @@ impl Population {
                         .map_or(0.0, |v| v.warmth());
                     pp.w_regard * warmth
                 });
-                let held = replaced.map_or(0.0, |(o, office)| {
+                let held = replaced.map_or(0.0, |(o, blamed)| {
                     if p == o {
                         1.0
                     } else {
                         self.ties.regard(p, o, day, &params.ties).clamp(0.0, 1.0)
-                            - self.keenness(ctx, p, Blamed::Office(office))
+                            - self.keenness(ctx, p, blamed)
                     }
                 });
                 // And what their household owes the sponsor for gifts (M7c slice BY).

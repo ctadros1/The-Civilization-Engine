@@ -803,14 +803,16 @@ pub fn refusal_law_words(sim: &Sim, r: &civ_agents::faction::Refusal) -> String 
 
 /// What petition `p` asks for, in words (M4c slice AH): "an end to the common store's levy (the
 /// store gives what it holds)"; "Ada as keeper of the common store in place of Bo"; "another drawn
-/// by lot as keeper of the common store in place of Bo".
+/// by lot as keeper of the common store in place of Bo"; "Ada to hear cases in place of Bo".
 pub fn petition_demand_words(sim: &Sim, p: &civ_agents::faction::Petition) -> String {
     let pop = &sim.people;
     let def = sim.rules.catalog.policies.get(usize::from(p.policy));
     let office_kind = def.is_some_and(|d| {
         matches!(
             d.kind,
-            civ_agents::polity::PolicyKind::KeepStore | civ_agents::polity::PolicyKind::KeepWatch
+            civ_agents::polity::PolicyKind::KeepStore
+                | civ_agents::polity::PolicyKind::KeepWatch
+                | civ_agents::polity::PolicyKind::HearCases
         )
     });
     if p.nominee.is_none() && !office_kind {
@@ -825,6 +827,8 @@ pub fn petition_demand_words(sim: &Sim, p: &civ_agents::faction::Petition) -> St
         .map_or_else(|| "the one holding it".to_owned(), |h| pop.name_of(h));
     let office = match def.map(|d| d.kind) {
         Some(civ_agents::polity::PolicyKind::KeepWatch) => "to keep watch over the stores at night",
+        // A hearer (backlog D).
+        Some(civ_agents::polity::PolicyKind::HearCases) => "to hear cases",
         _ => "as keeper of the common store",
     };
     // An office filled by lot names nobody: the lot draws another once it passes.

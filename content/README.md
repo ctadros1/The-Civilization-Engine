@@ -2164,3 +2164,9 @@ loan failed is (the creditor's people hold it at first hand; told at home and at
 `word.news_days`, by `word.share_home` and `word.share_routine`, and never by the household whose
 word it was), and each who hears it for the first time notes the act; nobody notes it of their own
 household's elder. The core writes it as good evidence of 0.5 in `word`, half of `repaid`.
+
+With no new key (the API stays 227; a `keep_watch` template has taken a `[tenure]` since content
+API 105), the core adds `policy/zestfully_take_the_watch_by_turns` (backlog D): the watch kept by
+turns, drawn by lot from those who stood for it at the gathering, less anyone keeping a watch
+already, for a season of 90 days, not renewable, answering `takings` and `raided` as the plain
+watch does; whether anyone proposes it, and whether it passes, is people's choice.

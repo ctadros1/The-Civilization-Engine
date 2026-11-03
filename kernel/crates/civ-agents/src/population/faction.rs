@@ -849,7 +849,11 @@ impl Population {
     /// households forecast most for, if they forecast it to bring them anything. Against an
     /// office, another holder in place of the one in it: whom its organizer would name, as anyone
     /// proposing a keeper does (themselves if their roof would do, or whoever under one they
-    /// regard most; for the watch, any adult), never the holder blamed. With it, what each
+    /// regard most; for the watch, any adult), never the holder blamed. Against a forum of one
+    /// holder, likewise another hearer in place of the one hearing cases, before their term is
+    /// out if they hold one (backlog D; research 09-02 §8.6: tenure ends by removal as well as by
+    /// its term; 09-14 §1.2: London's citizens could remove their sheriffs, and §1.5: who may
+    /// dismiss an officeholder is a body and a procedure); any adult may hear. With it, what each
     /// household of the settlement forecasts it would bring them, gain units. With `asked`, the
     /// demand as that petition called it, whatever it is forecast to bring.
     fn petition_demand(
@@ -873,6 +877,18 @@ impl Population {
                     && l.status == LawStatus::InForce
                     && matches!(l.kind, PolicyKind::KeepStore | PolicyKind::KeepWatch)
                     && l.holder.is_some()
+            })?,
+            // A forum of one holder (backlog D): the hearer is an office named by a law, as a
+            // keeper is; a panel or the elders have nobody to replace.
+            Blamed::Forum(forum) => polity.laws.iter().find(|l| {
+                l.id == forum
+                    && l.status == LawStatus::InForce
+                    && l.kind == PolicyKind::HearCases
+                    && l.holder.is_some()
+                    && policies
+                        .get(usize::from(l.policy))
+                        .and_then(|d| d.forum.as_ref())
+                        .is_some_and(|d| d.seat == crate::forum::ForumSeat::Holder)
             })?,
             _ => return None,
         };
@@ -929,8 +945,10 @@ impl Population {
                         .iter()
                         .filter(|&&(c, h)| {
                             c != incumbent
-                                && (law.kind == PolicyKind::KeepWatch
-                                    || self.household(h).is_some_and(|x| x.sheltered))
+                                && (matches!(
+                                    law.kind,
+                                    PolicyKind::KeepWatch | PolicyKind::HearCases
+                                ) || self.household(h).is_some_and(|x| x.sheltered))
                         })
                         .map(|&(c, _)| {
                             let r = if c == organizer {

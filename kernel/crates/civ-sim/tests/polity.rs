@@ -818,3 +818,123 @@ fn a_model_chooses_among_the_moves_and_a_recorded_world_relives_its_choices() {
     );
     assert!(proposals(&none).is_empty(), "nobody proposes");
 }
+
+/// A watch kept by turns, drawn by lot (backlog D; research 12-04 §1.3: a rotating household
+/// watch; 09-14 §2.2: a rotating office's term is three to twelve months): passed, a lot draws the
+/// watcher from those who stood for it, less anyone keeping a watch already, for a season; it
+/// lapses at the season's end, told as their term ending. All of it saves and loads.
+#[test]
+fn a_watch_kept_by_turns_is_drawn_by_lot_for_a_season() {
+    use civ_agents::polity::{IssueKind, StanceRecord};
+    let mut sim = world_with(content(), 3);
+    sim.advance_minutes(DAY).expect("advances");
+    let now = sim.now();
+    let policies = sim.rules().catalog.policies.clone();
+    let at = |id: &str| policies.iter().position(|p| p.id == id).expect("in core") as u16;
+    let (turns, plain) = (
+        at("core:policy/zestfully_take_the_watch_by_turns"),
+        at("core:policy/keep_watch"),
+    );
+    let tenure = policies[usize::from(turns)].tenure.expect("held by turns");
+    let adult = sim.rules().people.family.independent_age;
+    let pop = sim.people();
+    let mut adults: Vec<(civ_core::PermanentId, civ_core::PermanentId)> = pop
+        .people
+        .iter()
+        .map(|(_, p)| p)
+        .filter(|p| p.age_years(now) >= adult)
+        .map(|p| (p.id, p.household))
+        .collect();
+    adults.sort_unstable();
+    assert!(adults.len() >= 4);
+    let next = sim.ids().peek_next();
+    let law = |id: u64, policy: u16, holder, stances: Vec<StanceRecord>| Law {
+        id: civ_core::PermanentId::from_raw(next + 1_000_000 + id).expect("non-zero"),
+        policy,
+        kind: PolicyKind::KeepWatch,
+        levy_share: 0.0,
+        holder,
+        relief_days: 0.0,
+        sanction: Default::default(),
+        hours: (0, 0),
+        status: LawStatus::InForce,
+        sponsor: adults[0].0,
+        proposed: now,
+        issue: IssueKind::Takings,
+        meets_day: now.day_index(),
+        decided: Some(now),
+        outcome: Some(Outcome::Passed),
+        eligible: adults.len() as u32,
+        stances,
+        known: Vec::new(),
+        compliance: Default::default(),
+        watch: Default::default(),
+        body: None,
+        ends: None,
+        agreement: None,
+        target: None,
+    };
+    // The first adult keeps the plain watch already; three stood for the watch by turns, they
+    // among them: whatever the key, the lot draws one of the other two.
+    let stances: Vec<StanceRecord> = adults[..3]
+        .iter()
+        .map(|&(person, household)| StanceRecord {
+            person,
+            household,
+            stance: Stance::Support,
+            gain: 0.0,
+            regard: 0.0,
+            opinion: 0.0,
+            values: 0.0,
+            view: 0.0,
+            owed: 0.0,
+        })
+        .collect();
+    let first = law(0, turns, None, stances);
+    let first_id = first.id;
+    {
+        let p = &mut sim.people_mut_for_tests().polities[0];
+        p.laws.push(law(1, plain, Some(adults[0].0), Vec::new()));
+        p.laws.push(first);
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.fill_term_for_tests(ctx, 0, first_id));
+    let p = &sim.people().polities[0];
+    let watcher = p
+        .laws
+        .iter()
+        .find(|l| l.id == first_id)
+        .and_then(|l| l.holder)
+        .expect("the lot drew a watcher");
+    assert!(
+        adults[1..3].iter().any(|a| a.0 == watcher),
+        "drawn from those who stood for it, not one keeping a watch already"
+    );
+    let term = p.term_of(first_id).expect("held for a term");
+    assert_eq!((term.pool, tenure.term_days), (2, 90));
+    assert_eq!(term.until, now.day_index() + 90);
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|e| e.kind == ChronicleKind::LotDrawn
+                && e.people == vec![watcher]
+                && e.name.contains("for the office of watch by turns")),
+        "the chronicle tells the lot"
+    );
+    saves_and_goes_on_alike(&mut sim, content(), DAY);
+    // Past its season, the office lapses: their term ended.
+    sim.advance_minutes(91 * DAY).expect("advances");
+    let p = &sim.people().polities[0];
+    let ended = p.laws.iter().find(|l| l.id == first_id).expect("kept");
+    assert_eq!(ended.status, LawStatus::Lapsed);
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|e| e.kind == ChronicleKind::LawLapsed
+                && e.people == vec![watcher]
+                && e.name.contains("no longer keeps watch")
+                && e.name.ends_with("their term ended.")),
+        "the chronicle tells the term's end"
+    );
+}

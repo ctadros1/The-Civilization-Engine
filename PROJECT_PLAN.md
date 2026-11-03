@@ -9221,7 +9221,11 @@ and M6a gives rivers a daily flow.
       (−3.9 %); the 100k gate, two days each, the two run side by side once, 153.6 → 150.2 s a
       day (−2.2 %), every line it prints equal. Peak memory: within 2 % on the three workloads,
       2.49 → 2.55 GB in the gate. The run-to-run spread here is a few per cent, so a homelab bench
-      is to confirm.
+      is to confirm. **The homelab bench (run 59, 41507539928, node3, on 2ac1dba, against the
+      bench's base):** the 100k gate 1.085× (171.5 → 186.1 s a day) against its 1.10, down from
+      run 58's 1.096× on 5aaf2e7; three of 400 1.132× (1.178×), ten of 60 0.935×, the village
+      of 500 1.174× (1.150×); people equal on every workload. Several revisions lie between the
+      two runs, so the cut is only part of the difference.
       **Tested:** a unit test (a kept trace is the walk traced afresh; read back for the very same
       vertices, traced again when a deck changes the corner a walk goes by, when a start moves
       within its cell and when a wait is spliced in; all let go when full) and the whole suite

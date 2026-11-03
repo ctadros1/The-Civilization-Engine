@@ -138,6 +138,16 @@ first load and every other section empty.
 - **An ID-stable road graph now.** Needed once roads are built and maintained (M3 onwards); in M1
   trails are only worn, so derived polylines suffice.
 
+## M2 renderer geometry (2026-11-03)
+
+Wire 1.107 appends `BuildingInfo.parts`: the existing grammar expansion's stable part id,
+kind code, stage, integer-centimetre position and size, turn-unit angle, centidegree tilt,
+and material slot. This is a derived presentation query, not a second saved design. Unreal
+maps kind codes to cooked kit meshes and reveals them from the kernel's stage and progress.
+It does not parse dimensions from descriptive prose or infer a new building specification.
+No save format, grammar version, or generator version changes. Existing readers may ignore
+the appended vector. Tests compare every emitted part with the kernel expansion exactly.
+
 ## Revisit when
 
 - A second building program arrives (grammar v2), or Unreal needs part data the expansion lacks.

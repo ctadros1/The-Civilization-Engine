@@ -4,6 +4,7 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { BuildingPart } from '../../tce/wire/building-part.js';
 import { BuildingState } from '../../tce/wire/building-state.js';
 import { GroupInfo } from '../../tce/wire/group-info.js';
 import { Vec2 } from '../../tce/wire/vec2.js';
@@ -365,8 +366,18 @@ records(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+parts(index: number, obj?:BuildingPart):BuildingPart|null {
+  const offset = this.bb!.__offset(this.bb_pos, 106);
+  return offset ? (obj || new BuildingPart()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+partsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 106);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startBuildingInfo(builder:flatbuffers.Builder) {
-  builder.startObject(51);
+  builder.startObject(52);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -650,6 +661,22 @@ static addGas(builder:flatbuffers.Builder, gasOffset:flatbuffers.Offset) {
 
 static addRecords(builder:flatbuffers.Builder, recordsOffset:flatbuffers.Offset) {
   builder.addFieldOffset(50, recordsOffset, 0);
+}
+
+static addParts(builder:flatbuffers.Builder, partsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(51, partsOffset, 0);
+}
+
+static createPartsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startPartsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
 }
 
 static endBuildingInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

@@ -4,7 +4,19 @@ This is the guide to the project's demonstrations across milestones. The watchab
 opening titles and on-screen explanations; their source captures are kept for production history.
 A screenshot or demo run shows one build and one world, not an outcome every world will produce.
 
-## Newest available recorded observer demo: M9, many settlements
+## Newest capture: M2, first light in Unreal
+
+The [M2 night demo and acceptance record](m2/README.md) show the completed first Unreal
+milestone: a naturally lived village, the Nanite vernacular kit, fuel-lit hearths, crowd v0,
+following and embedded inspectors. The standalone 1440p night scene and 16.78 km² terrain-edit
+diagnostic pass their 60 fps gates. The recording uses a separate native capture path.
+
+<p align="center"><a href="m2/m2-first-light.mp4"><img src="m2/first-light.png" alt="M2 Unreal village at night" width="900"></a></p>
+
+[Titled video](m2/m2-first-light.mp4) · [Construction](m2/construction.png) ·
+[Measurements and reproduction](m2/README.md) · [Earlier integration](m2/integration-night.png)
+
+## Earlier observer demo: M9, many settlements
 
 M9 keeps each person as an individual record while settlements away from the observer's focus are
 lived by household. The full lived report is a ten-year run: ten founding groups became eleven
@@ -36,8 +48,8 @@ M10a (power and the works), M10b (rail and gas light) and M10c (services and let
 implemented. M10d now includes household valuation, custody, redeemable notes, lending, runs,
 suspension, polity-issued notes, legal tender and counterfeiting (slices EF–EK). Slice EL adds a
 runnable multi-settlement M10 example and an owner-dispatched homelab workflow that keeps its run
-record as an artifact. These are simulation records, not an observer video: M9 remains the newest
-committed live observer capture, and the complete M10 demo remains in progress. See the [M10 example](../kernel/crates/civ-sim/examples/m10_world.rs),
+record as an artifact. These are simulation records, not an observer video. M2 is the newest
+capture, M9 demonstrates the later settlement systems, and the complete M10 demo remains in progress. See the [M10 example](../kernel/crates/civ-sim/examples/m10_world.rs),
 [homelab workflow](../.github/workflows/homelab.yml), [industry and power guide](../docs/development-journal/industry-and-power.md),
 [mobility and light](../docs/development-journal/mobility-and-light.md), [services and care](../docs/development-journal/services-and-care.md),
 [money and notes](../docs/development-journal/money-and-notes.md), and [current plan](../PROJECT_PLAN.md#7-milestones).

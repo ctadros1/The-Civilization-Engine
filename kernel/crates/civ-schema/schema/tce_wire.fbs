@@ -1377,6 +1377,27 @@ table GroupInfo {
 
 // A building and the ground it stands on (M1 slice D). Geometry is expanded by the kernel from the
 // building's saved design (civ-grammar); the observer only draws it.
+// The grammar's presentation geometry, in integer centimetres. Kind codes are PartKind::code
+// (append only). Z is above the building's ground; x/y are absolute map coordinates.
+struct Cm3 {
+  x: int;
+  y: int;
+  z: int;
+}
+
+table BuildingPart {
+  id: uint (id: 0);
+  kind: ubyte (id: 1);
+  stage: ubyte (id: 2);
+  at: Cm3 (id: 3);
+  size: Cm3 (id: 4);
+  // Rotation about vertical, 1/65536 turn east toward south.
+  angle: ushort (id: 5);
+  // Rise along local x, hundredths of a degree; for conical thatch this describes its pitch.
+  tilt: int (id: 6);
+  material: int = -1 (id: 7);
+}
+
 table BuildingInfo {
   id: ulong (id: 0);
   household: ulong (id: 1);
@@ -1478,6 +1499,8 @@ table BuildingInfo {
   // Wire 1.106 (M10c slice EC): the records kept in it, each with its writer ("Records: laying
   // out by cord and stake, by Nell"); empty for none.
   records: string (id: 50);
+  // Wire 1.107 (M2): derived from the saved design, never saved again by a renderer.
+  parts: [BuildingPart] (id: 51);
 }
 
 table Buildings {

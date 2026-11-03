@@ -2454,6 +2454,165 @@ impl<'a> StoreLine {
 
 }
 
+// struct Cm3, aligned to 4
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct Cm3(pub [u8; 12]);
+impl Default for Cm3 {
+  fn default() -> Self {
+    Self([0; 12])
+  }
+}
+impl ::core::fmt::Debug for Cm3 {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("Cm3")
+      .field("x", &self.x())
+      .field("y", &self.y())
+      .field("z", &self.z())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for Cm3 {}
+impl<'a> ::flatbuffers::Follow<'a> for Cm3 {
+  type Inner = &'a Cm3;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a Cm3>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a Cm3 {
+  type Inner = &'a Cm3;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<Cm3>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for Cm3 {
+    type Output = Cm3;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const Cm3 as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(4)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for Cm3 {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> Cm3 {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    x: i32,
+    y: i32,
+    z: i32,
+  ) -> Self {
+    let mut s = Self([0; 12]);
+    s.set_x(x);
+    s.set_y(y);
+    s.set_z(z);
+    s
+  }
+
+  pub fn x(&self) -> i32 {
+    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_x(&mut self, x: i32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn y(&self) -> i32 {
+    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[4..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_y(&mut self, x: i32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[4..].as_mut_ptr(),
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn z(&self) -> i32 {
+    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_z(&mut self, x: i32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct MonthOfTrade, aligned to 4
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -22846,6 +23005,221 @@ impl ::core::fmt::Debug for GroupInfo<'_> {
       ds.finish()
   }
 }
+pub enum BuildingPartOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct BuildingPart<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for BuildingPart<'a> {
+  type Inner = BuildingPart<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> BuildingPart<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_KIND: ::flatbuffers::VOffsetT = 6;
+  pub const VT_STAGE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_AT: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SIZE: ::flatbuffers::VOffsetT = 12;
+  pub const VT_ANGLE: ::flatbuffers::VOffsetT = 14;
+  pub const VT_TILT: ::flatbuffers::VOffsetT = 16;
+  pub const VT_MATERIAL: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    BuildingPart { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args BuildingPartArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<BuildingPart<'bldr>> {
+    let mut builder = BuildingPartBuilder::new(_fbb);
+    builder.add_material(args.material);
+    builder.add_tilt(args.tilt);
+    if let Some(x) = args.size { builder.add_size(x); }
+    if let Some(x) = args.at { builder.add_at(x); }
+    builder.add_id(args.id);
+    builder.add_angle(args.angle);
+    builder.add_stage(args.stage);
+    builder.add_kind(args.kind);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(BuildingPart::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn kind(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(BuildingPart::VT_KIND, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn stage(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(BuildingPart::VT_STAGE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn at(&self) -> Option<&'a Cm3> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Cm3>(BuildingPart::VT_AT, None)}
+  }
+  #[inline]
+  pub fn size(&self) -> Option<&'a Cm3> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Cm3>(BuildingPart::VT_SIZE, None)}
+  }
+  #[inline]
+  pub fn angle(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(BuildingPart::VT_ANGLE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn tilt(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(BuildingPart::VT_TILT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn material(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(BuildingPart::VT_MATERIAL, Some(-1)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for BuildingPart<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .visit_field::<u8>("kind", Self::VT_KIND, false)?
+     .visit_field::<u8>("stage", Self::VT_STAGE, false)?
+     .visit_field::<Cm3>("at", Self::VT_AT, false)?
+     .visit_field::<Cm3>("size", Self::VT_SIZE, false)?
+     .visit_field::<u16>("angle", Self::VT_ANGLE, false)?
+     .visit_field::<i32>("tilt", Self::VT_TILT, false)?
+     .visit_field::<i32>("material", Self::VT_MATERIAL, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct BuildingPartArgs<'a> {
+    pub id: u32,
+    pub kind: u8,
+    pub stage: u8,
+    pub at: Option<&'a Cm3>,
+    pub size: Option<&'a Cm3>,
+    pub angle: u16,
+    pub tilt: i32,
+    pub material: i32,
+}
+impl<'a> Default for BuildingPartArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    BuildingPartArgs {
+      id: 0,
+      kind: 0,
+      stage: 0,
+      at: None,
+      size: None,
+      angle: 0,
+      tilt: 0,
+      material: -1,
+    }
+  }
+}
+
+pub struct BuildingPartBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingPartBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(BuildingPart::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_kind(&mut self, kind: u8) {
+    self.fbb_.push_slot::<u8>(BuildingPart::VT_KIND, kind, 0);
+  }
+  #[inline]
+  pub fn add_stage(&mut self, stage: u8) {
+    self.fbb_.push_slot::<u8>(BuildingPart::VT_STAGE, stage, 0);
+  }
+  #[inline]
+  pub fn add_at(&mut self, at: &Cm3) {
+    self.fbb_.push_slot_always::<&Cm3>(BuildingPart::VT_AT, at);
+  }
+  #[inline]
+  pub fn add_size(&mut self, size: &Cm3) {
+    self.fbb_.push_slot_always::<&Cm3>(BuildingPart::VT_SIZE, size);
+  }
+  #[inline]
+  pub fn add_angle(&mut self, angle: u16) {
+    self.fbb_.push_slot::<u16>(BuildingPart::VT_ANGLE, angle, 0);
+  }
+  #[inline]
+  pub fn add_tilt(&mut self, tilt: i32) {
+    self.fbb_.push_slot::<i32>(BuildingPart::VT_TILT, tilt, 0);
+  }
+  #[inline]
+  pub fn add_material(&mut self, material: i32) {
+    self.fbb_.push_slot::<i32>(BuildingPart::VT_MATERIAL, material, -1);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingPartBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    BuildingPartBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<BuildingPart<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for BuildingPart<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("BuildingPart");
+      ds.field("id", &self.id());
+      ds.field("kind", &self.kind());
+      ds.field("stage", &self.stage());
+      ds.field("at", &self.at());
+      ds.field("size", &self.size());
+      ds.field("angle", &self.angle());
+      ds.field("tilt", &self.tilt());
+      ds.field("material", &self.material());
+      ds.finish()
+  }
+}
 pub enum BuildingInfoOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -22913,6 +23287,7 @@ impl<'a> BuildingInfo<'a> {
   pub const VT_SITE: ::flatbuffers::VOffsetT = 100;
   pub const VT_GAS: ::flatbuffers::VOffsetT = 102;
   pub const VT_RECORDS: ::flatbuffers::VOffsetT = 104;
+  pub const VT_PARTS: ::flatbuffers::VOffsetT = 106;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -22930,6 +23305,7 @@ impl<'a> BuildingInfo<'a> {
     builder.add_settlement(args.settlement);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    if let Some(x) = args.parts { builder.add_parts(x); }
     if let Some(x) = args.records { builder.add_records(x); }
     if let Some(x) = args.gas { builder.add_gas(x); }
     if let Some(x) = args.site { builder.add_site(x); }
@@ -23336,6 +23712,13 @@ impl<'a> BuildingInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_RECORDS, None)}
   }
+  #[inline]
+  pub fn parts(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BuildingPart<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BuildingPart>>>>(BuildingInfo::VT_PARTS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
@@ -23395,6 +23778,7 @@ impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("site", Self::VT_SITE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("gas", Self::VT_GAS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("records", Self::VT_RECORDS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BuildingPart>>>>("parts", Self::VT_PARTS, false)?
      .finish();
     Ok(())
   }
@@ -23451,6 +23835,7 @@ pub struct BuildingInfoArgs<'a> {
     pub site: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub gas: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub records: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub parts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BuildingPart<'a>>>>>,
 }
 impl<'a> Default for BuildingInfoArgs<'a> {
   #[inline]
@@ -23507,6 +23892,7 @@ impl<'a> Default for BuildingInfoArgs<'a> {
       site: None,
       gas: None,
       records: None,
+      parts: None,
     }
   }
 }
@@ -23721,6 +24107,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingInfoBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_RECORDS, records);
   }
   #[inline]
+  pub fn add_parts(&mut self, parts: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<BuildingPart<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_PARTS, parts);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BuildingInfoBuilder {
@@ -23789,6 +24179,7 @@ impl ::core::fmt::Debug for BuildingInfo<'_> {
       ds.field("site", &self.site());
       ds.field("gas", &self.gas());
       ds.field("records", &self.records());
+      ds.field("parts", &self.parts());
       ds.finish()
   }
 }

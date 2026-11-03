@@ -1045,6 +1045,23 @@ ul.rules li {
 
 .panels-only .side {
   border-left: none;
+  min-width: 0;
+}
+
+/* These are keys to the 2D map's colors; the native renderer supplies its own appearance. */
+.panels-only .legend,
+.panels-only .legend-title {
+  display: none;
+}
+
+.panels-only .time-controls,
+.panels-only .speeds {
+  flex-wrap: wrap;
+}
+
+.panels-only .workspace {
+  min-width: 0;
+  min-height: 0;
 }
 
 @media (max-width: 900px) {

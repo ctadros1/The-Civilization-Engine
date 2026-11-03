@@ -652,6 +652,99 @@ impl Population {
         }
     }
 
+    /// The walk a fetch allows from home, metres, at an off-trail pace (backlog D, ninth item):
+    /// how far off a boat or cart may stand for someone to fetch it home; 0 without fetching in
+    /// the content.
+    fn fetch_range_m(ctx: &Ctx) -> f64 {
+        let params = ctx.params;
+        ctx.catalog
+            .activities
+            .iter()
+            .find(|a| a.behavior == Behavior::Fetch)
+            .map_or(0.0, |a| {
+                f64::from(a.max_walk_minutes)
+                    * 60.0
+                    * params.nav.tobler_ms(0.0)
+                    * params.nav.offtrail_factor
+            })
+    }
+
+    /// The boat or cart of vehicle `vehicle` that nobody is left to take which household
+    /// `household`, finding one would save it `saves_h_year` hours of walking a year, would take
+    /// up rather than make its own, if any (backlog D, eleventh item; research 08-09 §1.2: what
+    /// nobody holds any more is taken up, as ground is at a regime's review). Nobody is left to
+    /// take it when the household it belongs to is no more: none was left to inherit it, or its
+    /// heir lives elsewhere and could not bring it, or it was still being made. It must stand
+    /// where the household could use it as its own: a boat within where it draws one up, a cart
+    /// at its door or, being made, within the walk its work allows; or, made, where a fetch would
+    /// bring it home today ([`Population::way_home`]) within a fetch's walk. Its worth is the
+    /// walking it saves over the life it has left less the work left on it, at the household's
+    /// reckoning, and it is taken where that is no less than making a new one would keep (whose
+    /// material it also spares); of several, the one worth most.
+    pub(super) fn nobodys_vehicle(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        vehicle: usize,
+        saves_h_year: f32,
+    ) -> Option<PermanentId> {
+        let def = ctx.catalog.vehicles.get(vehicle)?;
+        let home = self.household(household)?.home;
+        let (map, land) = (ctx.map, &*ctx.land);
+        let cart = def.mode == crate::params::VehicleMode::Cart;
+        let list = if cart { &land.carts } else { &land.boats };
+        let pace = ctx.params.nav.tobler_ms(0.0).max(1e-6);
+        let cart_walk_m = ctx
+            .catalog
+            .activities
+            .iter()
+            .find(|a| a.behavior == Behavior::Cart)
+            .map_or(0.0, |a| f64::from(a.max_walk_minutes) * 60.0 * pace);
+        let boat_reach_m = ctx
+            .catalog
+            .activities
+            .iter()
+            .find(|a| a.behavior == Behavior::Boat)
+            .map_or(0.0, |w| f64::from(Self::bank_reach_m(ctx, w)));
+        let range_m = Self::fetch_range_m(ctx);
+        let door = cell_of(map, home) as u32;
+        let life_h = f64::from(saves_h_year) * def.life_years;
+        let new_net = life_h - def.labour_h;
+        let mut best: Option<(f64, PermanentId)> = None;
+        for v in list
+            .list
+            .iter()
+            .filter(|v| usize::from(v.vehicle) == vehicle && self.household(v.owner).is_none())
+        {
+            let at = if cart {
+                cell_centre(map, v.at as usize)
+            } else {
+                land.rivers.centre(v.at)
+            };
+            let off_m = f64::from((at.0 - home.0).hypot(at.1 - home.1));
+            // Brought home today, within a fetch's walk.
+            let brought = || off_m <= range_m && Self::way_home(ctx, home, v).is_some();
+            let usable = if cart {
+                // At its door, or brought there: made, or once made where it is worked on.
+                v.at == door || ((v.made() || off_m <= cart_walk_m) && brought())
+            } else {
+                // Where it draws one up, or, made, brought there.
+                off_m <= boat_reach_m || (v.made() && brought())
+            };
+            if !usable {
+                continue;
+            }
+            let net = life_h * (1.0 - f64::from(v.wear)).max(0.0)
+                - f64::from(v.labour_h - v.work_h).max(0.0);
+            if net + 1e-9 >= new_net
+                && best.is_none_or(|(b, id)| net > b || (net == b && v.id < id))
+            {
+                best = Some((net, v.id));
+            }
+        }
+        best.map(|(_, id)| id)
+    }
+
     /// The cart household `hh`, holding `stores`, could make, if any (M8b slice CP, third part):
     /// while it has none, made or being made, the first cart vehicle a member knows the technique
     /// of, whose tool it holds and whose material it has in store, made at its door. None without
@@ -683,7 +776,8 @@ impl Population {
 
     /// The households that found, planning an errand, that a boat would save them more walking
     /// over its life than making it takes begin one where they meant to (M8b slice CO, third
-    /// part), unless they have one by now.
+    /// part), unless they have one by now, or take up one of that vehicle nobody is left to take
+    /// ([`Population::nobodys_vehicle`], backlog D, eleventh item), with what work was done on it.
     pub(super) fn begin_boats(&mut self, ctx: &mut Ctx) {
         let day = ctx.now.day_index();
         for (household, vehicle, bank, saves_h_year) in std::mem::take(&mut self.boat_wishes) {
@@ -699,6 +793,21 @@ impl Population {
             if list.of(household).next().is_some()
                 || f64::from(saves_h_year) * def.life_years <= def.labour_h
             {
+                continue;
+            }
+            // One nobody is left to take, standing where it could use it, is taken up instead
+            // where that keeps it as much (backlog D, eleventh item).
+            if let Some(v) = self.nobodys_vehicle(ctx, household, vehicle, saves_h_year) {
+                let list = if cart {
+                    &mut ctx.land.carts
+                } else {
+                    &mut ctx.land.boats
+                };
+                if let Some(b) = list.list.iter_mut().find(|b| b.id == v) {
+                    b.owner = household;
+                    b.saves_h_year = saves_h_year;
+                }
+                list.changed();
                 continue;
             }
             // A cart's timber comes out of the household's store as it is begun (M8b slice CP,
@@ -940,18 +1049,7 @@ impl Population {
         };
         let new_door = cell_of(ctx.map, home) as u32;
         // How far off a fetch may find it: the walk a fetch allows, at an off-trail pace.
-        let params = ctx.params;
-        let range_m = ctx
-            .catalog
-            .activities
-            .iter()
-            .find(|a| a.behavior == Behavior::Fetch)
-            .map_or(0.0, |a| {
-                f64::from(a.max_walk_minutes)
-                    * 60.0
-                    * params.nav.tobler_ms(0.0)
-                    * params.nav.offtrail_factor
-            });
+        let range_m = Self::fetch_range_m(ctx);
         let within = |at: (f32, f32)| f64::from((at.0 - home.0).hypot(at.1 - home.1)) <= range_m;
         // A made one of another settlement passes where it stands within that walk and a way
         // brings it home today.
@@ -988,6 +1086,23 @@ impl Population {
             }
             land.carts.changed();
         }
+    }
+
+    /// Household `household` finds a boat or cart of vehicle `vehicle` would save it
+    /// `saves_h_year` hours of walking a year, to be made at cell `at`, and begins it or takes one
+    /// up (backlog D, eleventh item): for tests.
+    #[doc(hidden)]
+    pub fn begin_vehicle_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        household: PermanentId,
+        vehicle: usize,
+        at: u32,
+        saves_h_year: f32,
+    ) {
+        self.boat_wishes
+            .push((household, vehicle, at, saves_h_year));
+        self.begin_boats(ctx);
     }
 
     /// `hours` of work by the first of household `household` on the boat, cart, wagon or engine

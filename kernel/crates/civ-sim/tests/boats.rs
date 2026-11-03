@@ -6,7 +6,8 @@
 //! people join in the same settlement, and its loads in transit wherever that is (backlog D); and
 //! there, too, the works it keeps on the land, finished, and its platforms wherever it goes. An
 //! heir in another settlement takes its made boats and carts where they stand, and fetches them
-//! home.
+//! home. One nobody is left to take, being made, weathers as a made one does, and a household that
+//! would make one of its own takes it up instead, where it stands within its use and is worth it.
 
 use std::path::Path;
 use std::sync::OnceLock;
@@ -910,6 +911,187 @@ fn an_heir_in_another_settlement_fetches_the_boat_and_cart_it_took_by_paddling_a
     let u = find(&sim.land().boats.list, unmade);
     assert_eq!((u.owner, u.at), (a, bank));
     saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+#[test]
+fn a_boat_or_cart_nobody_is_left_to_take_weathers_and_is_taken_up_by_a_household_that_would_make_one()
+ {
+    let mut sim = village(1);
+    let (boat_v, hull) = dugout(&sim);
+    let cart_v = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart");
+    let timber = sim.rules().catalog.vehicles[cart_v].good;
+    let map = sim.map().clone();
+    let door = |home: (f32, f32)| civ_agents::population::cell_of(&map, home) as u32;
+    let apart = |x: (f32, f32), y: (f32, f32)| (x.0 - y.0).hypot(x.1 - y.1);
+    let households: Vec<(civ_core::PermanentId, (f32, f32))> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| (x.id, x.home))
+        .collect();
+    assert!(households.len() >= 4, "four households");
+    // `a`, the household nearest water that carries a dugout today, and the bank nearest its home
+    // where it does; and the bank farthest from it.
+    let land = sim.land();
+    let (rivers, hyd, q) = (
+        &land.rivers,
+        &land.floodplain.reaches,
+        &land.reach_discharges,
+    );
+    let floats = |c: u32| rivers.floats(&map, c, hyd, q, hull);
+    let (a, a_home, bank) = households
+        .iter()
+        .filter_map(|&(id, home)| {
+            let bank = rivers.nearest_bank(home, 1_500.0, floats)?;
+            Some((id, home, bank, apart(home, rivers.centre(bank))))
+        })
+        .min_by(|x, y| x.3.total_cmp(&y.3))
+        .map(|(id, home, bank, _)| (id, home, bank))
+        .expect("a household near the water");
+    assert!(apart(a_home, rivers.centre(bank)) < 1_000.0);
+    let far = (0..map.width * map.height)
+        .filter(|&c| !rivers.boarding(&map, c).is_empty() && floats(c))
+        .max_by(|&x, &y| {
+            apart(a_home, rivers.centre(x)).total_cmp(&apart(a_home, rivers.centre(y)))
+        })
+        .expect("another bank");
+    assert!(
+        apart(a_home, rivers.centre(far)) > 3_000.0,
+        "a bank beyond where `a` would draw a boat up"
+    );
+    let others: Vec<(civ_core::PermanentId, (f32, f32))> =
+        households.iter().copied().filter(|h| h.0 != a).collect();
+    let (b, (d, d_home), (e, e_home)) = (others[0].0, others[1], others[2]);
+    // A household that is no more, nobody left to take what it had: its dugout being made at the
+    // bank near `a`'s home (40 of 100 hours) and another far off (90 of 100); a handcart worn
+    // nearly through standing at `d`'s door, and a sound one at `e`'s. `b` is making a dugout of
+    // its own at the same bank.
+    let gone = sim.allocate_id_for_tests();
+    let ids: Vec<civ_core::PermanentId> = (0..5).map(|_| sim.allocate_id_for_tests()).collect();
+    let (near, distant, worn, sound, b_own) = (ids[0], ids[1], ids[2], ids[3], ids[4]);
+    let land = sim.land_mut_for_tests();
+    let unmade = |id, owner, at, work_h| Boat {
+        labour_h: 100.0,
+        work_h,
+        ..vehicle(id, boat_v, owner, at)
+    };
+    land.boats.list.push(unmade(near, gone, bank, 40.0));
+    land.boats.list.push(unmade(distant, gone, far, 90.0));
+    land.boats.list.push(unmade(b_own, b, bank, 40.0));
+    land.boats.changed();
+    land.carts.list.push(Boat {
+        wear: 0.9,
+        ..vehicle(worn, cart_v, gone, door(d_home))
+    });
+    land.carts
+        .list
+        .push(vehicle(sound, cart_v, gone, door(e_home)));
+    land.carts.changed();
+    let find = |sim: &Sim, id| {
+        sim.land()
+            .boats
+            .list
+            .iter()
+            .chain(&sim.land().carts.list)
+            .find(|x| x.id == id)
+            .cloned()
+            .expect("there")
+    };
+    // A day on, the hulls nobody is left to finish have weathered a day of a dugout's twelve
+    // years, as a made one does; `b`'s, still being made, has not.
+    sim.advance_minutes(DAY).expect("lives");
+    let day = 1.0 / (12.0 * 365.25);
+    for id in [near, distant] {
+        let x = find(&sim, id);
+        assert_eq!(x.owner, gone, "nobody took it in a day");
+        assert!(
+            (f64::from(x.wear) - day).abs() < 1e-6,
+            "worn {} a day",
+            x.wear
+        );
+    }
+    assert_eq!(
+        find(&sim, b_own).wear,
+        0.0,
+        "a hull being made by its own people keeps"
+    );
+    assert!(sim.land().boats.problems().is_empty());
+    // `a` finds a dugout would save it 30 hours of walking a year, more than one takes to make
+    // over its life: it takes up the hull near home with the work done on it, not the one far
+    // off, and begins none of its own.
+    let (boats_rev, carts_rev) = (sim.land().boats.revision(), sim.land().carts.revision());
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_vehicle_for_tests(ctx, a, boat_v, bank, 30.0));
+    let taken = find(&sim, near);
+    assert_eq!(
+        (taken.owner, taken.at, taken.work_h, taken.saves_h_year),
+        (a, bank, 40.0, 30.0),
+        "`a` took up the hull near home, its work kept"
+    );
+    assert_eq!(find(&sim, distant).owner, gone, "the one far off stays");
+    assert_eq!(
+        sim.land().boats.of(a).count(),
+        1,
+        "and began none of its own"
+    );
+    assert_ne!(sim.land().boats.revision(), boats_rev);
+    // Its people finish it: 60 hours more make it.
+    sim.with_ctx_for_tests(|pop, ctx| pop.vehicle_work_for_tests(ctx, a, near, 60.0));
+    assert!(find(&sim, near).made(), "finished by `a`");
+    // `d` and `e`, each with timber enough for a handcart, find one would save them 30 hours a
+    // year: `e` takes up the sound one at its door, and keeps its timber; then `d` begins its
+    // own, the cart at its door nearly worn through being worth less than a new one.
+    let enough = sim.rules().catalog.vehicles[cart_v].material_kg * 2.0;
+    for x in [d, e] {
+        sim.people_mut_for_tests()
+            .households
+            .iter_mut()
+            .map(|(_, h)| h)
+            .find(|h| h.id == x)
+            .expect("household")
+            .stores[timber] = enough;
+    }
+    let held = |sim: &Sim, x| sim.people().household(x).expect("household").stores[timber];
+    sim.with_ctx_for_tests(|pop, ctx| {
+        pop.begin_vehicle_for_tests(ctx, e, cart_v, door(e_home), 30.0);
+        pop.begin_vehicle_for_tests(ctx, d, cart_v, door(d_home), 30.0);
+    });
+    assert_eq!(find(&sim, worn).owner, gone, "the worn cart stays");
+    let own: Vec<Boat> = sim.land().carts.of(d).cloned().collect();
+    assert_eq!(own.len(), 1);
+    assert!(!own[0].made() && own[0].id != worn, "`d` began its own");
+    assert!(
+        (held(&sim, d) - enough / 2.0).abs() < 1e-6,
+        "with its timber"
+    );
+    let taken = find(&sim, sound);
+    assert_eq!(
+        (taken.owner, taken.at),
+        (e, door(e_home)),
+        "`e` took up the sound one"
+    );
+    assert_eq!(sim.land().carts.of(e).count(), 1);
+    assert!((held(&sim, e) - enough).abs() < 1e-6, "and kept its timber");
+    assert_ne!(sim.land().carts.revision(), carts_rev);
+    assert!(sim.land().boats.problems().is_empty() && sim.land().carts.problems().is_empty());
+    // The far hull nobody takes is gone once a dugout's life is spent.
+    let i = sim
+        .land()
+        .boats
+        .list
+        .iter()
+        .position(|x| x.id == distant)
+        .expect("there");
+    sim.land_mut_for_tests().boats.list[i].wear = 1.0 - day as f32;
+    saves_and_goes_on_alike(&mut sim, 2 * DAY);
+    assert!(
+        sim.land().boats.list.iter().all(|x| x.id != distant),
+        "past use, it is gone"
+    );
+    assert!(sim.land().boats.problems().is_empty() && sim.land().carts.problems().is_empty());
 }
 
 fn rivers_centre(sim: &Sim, c: u32) -> (f32, f32) {

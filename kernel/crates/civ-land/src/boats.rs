@@ -1,11 +1,13 @@
 //! Boats (M8b slice CO; ADR-0029 §2, §5): a boat is a record of its own, not a good in a store.
 //! It is of a vehicle the content authors (the dugout first), belongs to a household, and stands
 //! drawn up at the bank cell where it was last left. One being made is worked on there until its
-//! labour is done; once made it ages by the day and is past use when its life is spent. When its
-//! household is no more and its people join another of the same settlement, it passes to that
-//! household; made, it passes to one of another settlement too, standing where it is until
-//! someone of that household fetches it home. Every boat begun, made, moved, passed on or gone
-//! bumps [`Boats::revision`].
+//! labour is done; once made it ages by the day and is past use when its life is spent, and so
+//! does one being made that nobody is left to finish. When its household is no more and its
+//! people join another of the same settlement, it passes to that household; made, it passes to
+//! one of another settlement too, standing where it is until someone of that household fetches it
+//! home. One nobody is left to take is taken up by a household that would otherwise make one of
+//! its own. Every boat begun, made, moved, passed on, taken up or gone bumps
+//! [`Boats::revision`].
 
 use civ_core::PermanentId;
 
@@ -74,9 +76,19 @@ impl Boats {
     }
 
     /// A day's ageing: each boat spends a day of its vehicle's life (`life_days(vehicle)`), and
-    /// those past use are taken from the list and returned.
-    pub fn age(&mut self, life_days: impl Fn(u16) -> f64) -> Vec<Boat> {
-        for b in self.list.iter_mut().filter(|b| b.made()) {
+    /// those past use are taken from the list and returned. One being made ages too once its
+    /// household is no more (`nobodys(owner)`, backlog D, eleventh item): a hull or a cart left
+    /// half made in the open weathers as a made one does, and is gone when that life is spent.
+    pub fn age(
+        &mut self,
+        life_days: impl Fn(u16) -> f64,
+        nobodys: impl Fn(PermanentId) -> bool,
+    ) -> Vec<Boat> {
+        for b in self
+            .list
+            .iter_mut()
+            .filter(|b| b.made() || nobodys(b.owner))
+        {
             let life = life_days(b.vehicle).max(1.0);
             b.wear = (f64::from(b.wear) + 1.0 / life).min(1.0) as f32;
         }

@@ -1764,16 +1764,19 @@ impl Sim {
                         // The day that just ended is complete.
                         land.advance_to_day(&rules.land, map, at.day_index() - 1);
                         // Boats, carts and wagons age a day; those past use are gone (M8b slices
-                        // CO and CP, M10b slice DV).
+                        // CO and CP, M10b slice DV). A boat or cart being made ages too once its
+                        // household is no more (backlog D, eleventh item); a wagon stays with
+                        // its line.
                         let vehicles = &rules.catalog.vehicles;
                         let life = |v: u16| {
                             vehicles
                                 .get(usize::from(v))
                                 .map_or(1.0, civ_agents::params::VehicleDef::life_days)
                         };
-                        land.boats.age(life);
-                        land.carts.age(life);
-                        land.wagons.age(life);
+                        let nobodys = |owner| people.household(owner).is_none();
+                        land.boats.age(life, nobodys);
+                        land.carts.age(life, nobodys);
+                        land.wagons.age(life, |_| false);
                         refresh_nav(nav, map, rules, land);
                         let mut ctx = Ctx {
                             now: at,

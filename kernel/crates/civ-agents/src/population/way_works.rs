@@ -16,7 +16,7 @@
 
 use super::*;
 use crate::decide::WayFacts;
-use crate::history::WayStep;
+use crate::history::{Conveyance, WayStep};
 use crate::polity::{LawStatus, PolicyKind};
 use crate::traffic;
 use civ_land::ways::{CART, Keeper, RAIL, Rank, Segment, Surface, WALK, Way};
@@ -864,6 +864,81 @@ impl Population {
                 "{village}'s people cleared the passing place their gathering agreed to{from_hearth}\
                  {by}: it is {width_m:.1} m wide, and two carts can pass there."
             ),
+        );
+    }
+
+    /// The chronicle's word that conveyance `what`, along route `cells` of `length_m` metres, was
+    /// laid whole with work of `household`'s laying its last length (backlog D, twelfth item):
+    /// where `law` is `Some(pi)`, the people of polity `pi` laid it under its law, from the works
+    /// or station of household `source` where it runs from one; otherwise `household` laid it as
+    /// its own, from its own. The entry names the elder of `household`, carries the polity's seat
+    /// or the household's settlement, and is placed at the route's far end.
+    pub(super) fn tell_conveyance_laid(
+        &mut self,
+        ctx: &Ctx,
+        what: Conveyance,
+        household: PermanentId,
+        (law, source): (Option<usize>, Option<PermanentId>),
+        cells: &[u32],
+        length_m: f64,
+    ) {
+        let (laying, thing, along, carries, from) = match what {
+            Conveyance::Sewer => ("laying", "sewer", "beside", "drain to it", None),
+            Conveyance::GasMain => ("laying", "gas main", "along", "take gas", Some("works")),
+            Conveyance::LineOfCurrent => (
+                "stringing",
+                "line of current",
+                "along",
+                "be lit by wire",
+                Some("station"),
+            ),
+        };
+        let route = match from {
+            None => "from among the homes to its outfall on the river".to_owned(),
+            Some(from) => law
+                .and(source)
+                .and_then(|h| self.elder_of(h, ctx.now, ctx.params))
+                .map_or_else(
+                    || format!("from its {from}"),
+                    |e| format!("from the {from} of {}'s household", self.name_of(e)),
+                ),
+        };
+        let elder = self.elder_of(household, ctx.now, ctx.params);
+        let (settlement, who) = match law {
+            Some(pi) => {
+                let settlement = self.polities[pi].settlement;
+                let village = self.village_name(ctx, Some(settlement));
+                let by = elder.map_or_else(String::new, |e| {
+                    format!(", {}'s household {laying} its last length", self.name_of(e))
+                });
+                (
+                    Some(settlement),
+                    format!(
+                        "{village}'s people finished {laying} the {thing} their gathering agreed \
+                         to{by}"
+                    ),
+                )
+            }
+            None => (
+                self.household(household).and_then(|x| x.settlement),
+                format!(
+                    "{} finished {laying} its {thing}",
+                    elder.map_or_else(
+                        || "A household".to_owned(),
+                        |e| format!("{}'s household", self.name_of(e))
+                    )
+                ),
+            ),
+        };
+        let place = cells.last().map(|&c| cell_centre(ctx.map, c as usize));
+        self.chronicle_push(
+            ctx.now,
+            ChronicleKind::ConveyanceLaid,
+            elder.into_iter().collect(),
+            settlement,
+            place,
+            f64::from(what as u8),
+            format!("{who}: it runs {length_m:.0} m {route}, and homes {along} it can {carries}."),
         );
     }
 

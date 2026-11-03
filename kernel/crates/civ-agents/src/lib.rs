@@ -97,9 +97,9 @@ pub use found::{
     found_bands, send_agitator, send_wave, spawn_families, spawn_family,
 };
 pub use history::{
-    AgreementStep, Cause, ChronicleEvent, ChronicleKind, CoalitionStep, CrossingStep, FloodStep,
-    Moved, Origin, OutbreakStep, PersonRecord, Reason, Receipt, ResidenceWhy, Scored, SewerStep,
-    Span, Stay, StormStep, Term, Union, WayStep, WellStep,
+    AgreementStep, Cause, ChronicleEvent, ChronicleKind, CoalitionStep, Conveyance, CrossingStep,
+    FloodStep, Moved, Origin, OutbreakStep, PersonRecord, Reason, Receipt, ResidenceWhy, Scored,
+    SewerStep, Span, Stay, StormStep, Term, Union, WayStep, WellStep,
 };
 pub use ledger::Channel;
 pub use needs::Sex;

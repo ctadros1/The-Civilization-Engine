@@ -40,7 +40,7 @@
 use super::wells::{month_rain, wetness_at};
 use super::*;
 use crate::contagion::{How, Move, NEGLIGIBLE, Node};
-use crate::history::SewerStep;
+use crate::history::{Conveyance, SewerStep};
 use crate::polity::{LawStatus, PolicyKind, Sewer, SewerCause, SewerConnection, SewerDef, WaySite};
 use crate::sickness::Outcome;
 use civ_land::Limit;
@@ -563,9 +563,21 @@ impl Population {
         if s.length_m - s.laid_m < 1e-3 {
             s.laid_m = s.length_m;
         }
+        // Laid whole by this work (backlog D, twelfth item): its route and length, to tell.
+        let laid = s.whole().then(|| (s.cells.clone(), f64::from(s.length_m)));
         let took = metres * f64::from(def.lay_h_m);
         self.polities[pi].give_to_way(law, household, took as f32);
         self.work_given.push((polity, household, took));
+        if let Some((cells, length_m)) = laid {
+            self.tell_conveyance_laid(
+                ctx,
+                Conveyance::Sewer,
+                household,
+                (Some(pi), None),
+                &cells,
+                length_m,
+            );
+        }
     }
 
     /// `hours` of work by someone of `household` mending whole sewer `si` of polity `pi`

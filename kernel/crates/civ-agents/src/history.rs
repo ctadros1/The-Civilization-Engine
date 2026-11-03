@@ -951,6 +951,13 @@ pub enum ChronicleKind {
     /// `settlement` the polity's seat, `place` the way's first cell, `number` the step
     /// ([`WayStep`]), and `name` the sentence.
     Way,
+    /// A conveyance was laid whole, so that it carries (backlog D, twelfth item; the fifth item's
+    /// "Not yet"): a polity's sewer laid by law, a gasworks' main, or a line of current, a
+    /// station's own or one strung by law. `people` is the elder of the household whose work laid
+    /// its last length, `settlement` the polity's seat or that household's settlement, `place`
+    /// the far end of its route, `number` which conveyance ([`Conveyance`]), and `name` the
+    /// sentence.
+    ConveyanceLaid,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1029,6 +1036,19 @@ pub enum WayStep {
     /// A passing place a polity's gathering asked for was cleared to its full width: two carts
     /// pass there.
     PassingPlaceCleared = 0,
+}
+
+/// Which conveyance was laid whole, in a [`ChronicleKind::ConveyanceLaid`] entry. Numeric in saves:
+/// append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Conveyance {
+    /// A polity's sewer, laid by its households under its law: homes beside it can drain to it.
+    Sewer = 0,
+    /// A gasworks' main, laid by its own household: homes along it can take gas.
+    GasMain = 1,
+    /// A line of current, strung by its station's household or by a polity's households under its
+    /// law: homes along it can be lit by wire.
+    LineOfCurrent = 2,
 }
 
 /// What happened to a crossing, in a [`ChronicleKind::Crossing`] entry. Numeric in saves:
@@ -1649,7 +1669,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::RecordWritten
         | ChronicleKind::RecordLost
         | ChronicleKind::Sewer
-        | ChronicleKind::Way => {
+        | ChronicleKind::Way
+        | ChronicleKind::ConveyanceLaid => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

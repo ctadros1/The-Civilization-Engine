@@ -463,6 +463,110 @@ fn a_main_is_laid_along_ways_with_leave_by_its_works_pipe_and_carries_gas_once_w
     saves_alike(&mut sim);
 }
 
+/// The chronicle's entries telling a conveyance laid whole, oldest first.
+fn laid_entries(sim: &Sim) -> Vec<civ_agents::ChronicleEvent> {
+    sim.people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == civ_agents::ChronicleKind::ConveyanceLaid)
+        .cloned()
+        .collect()
+}
+
+#[test]
+fn a_main_laid_whole_by_its_works_is_told_once_in_the_chronicle() {
+    use civ_agents::Conveyance;
+    use civ_land::ways::{Keeper, Rank, Segment, Surface, WALK, Way};
+    let mut sim = world();
+    let iron = index(&sim, "core:good/iron");
+    let map = sim.map().clone();
+    let cell = |at: (f32, f32)| civ_agents::population::cell_of(&map, at) as u32;
+    let homes: Vec<(PermanentId, u32)> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| (h.id, cell(h.home)))
+        .collect();
+    let (works, from) = homes[0];
+    let to = homes
+        .iter()
+        .find_map(|&(h, c)| {
+            let w = i64::from(map.width);
+            let d = (i64::from(c) % w - i64::from(from) % w)
+                .abs()
+                .max((i64::from(c) / w - i64::from(from) / w).abs());
+            (h != works && d >= 3).then_some(c)
+        })
+        .expect("a home some cells off");
+    let cells = line(map.width, from, to);
+    let way = sim.allocate_id_for_tests();
+    let today = sim.now().day_index();
+    sim.land_mut_for_tests().ways.add(Way {
+        id: way,
+        begun: today,
+        segments: vec![Segment {
+            cells: cells[1..cells.len() - 1].to_vec(),
+            corridor_m: 4.0,
+            built_m: 4.0,
+            usable_m: 4.0,
+            surface: Surface::Cleared,
+            keeper: Keeper::Nobody,
+            kept: today,
+        }],
+        modes: WALK,
+        trips: 0.0,
+        trips_day: today,
+        rank: Rank::Lane,
+        track: None,
+    });
+    let main = sim
+        .with_ctx_for_tests(|pop, ctx| pop.begin_main_for_tests(ctx, works, to))
+        .expect("a main");
+    let m = sim.land().gas.mains[0].clone();
+    let need = f64::from(m.length_m) * 25.0;
+    let work = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.main_work_for_tests(ctx, works, main, 10_000.0));
+    };
+    // Marked out, and half laid, it is told nowhere.
+    assert!(laid_entries(&sim).is_empty());
+    set(&mut sim, works, iron, need / 2.0);
+    work(&mut sim);
+    assert!(!sim.land().gas.mains[0].whole());
+    assert!(laid_entries(&sim).is_empty());
+    // The rest laid, it is told once: the works' elder, its length from the works, and that
+    // homes along it can take gas, at its far end.
+    set(&mut sim, works, iron, need);
+    work(&mut sim);
+    assert!(sim.land().gas.mains[0].whole());
+    let told = laid_entries(&sim);
+    assert_eq!(told.len(), 1, "{told:?}");
+    let e = &told[0];
+    assert_eq!(e.number, f64::from(Conveyance::GasMain as u8));
+    let x = sim.people().household(works).expect("the works");
+    assert_eq!(e.settlement, x.settlement);
+    assert_eq!(e.people.len(), 1);
+    assert!(x.members.contains(&e.people[0]));
+    assert_eq!(
+        e.place,
+        Some(civ_agents::population::cell_centre(&map, to as usize))
+    );
+    let elder = sim.people().name_of(e.people[0]);
+    let words = sim.chronicle_words(e);
+    eprintln!("{words}");
+    assert_eq!(
+        words,
+        format!(
+            "{elder}'s household finished laying its gas main: it runs {:.0} m from its works, \
+             and homes along it can take gas.",
+            f64::from(m.length_m)
+        )
+    );
+    // More work on it, whole, tells nothing more; it saves and loads exactly, the entry with it.
+    work(&mut sim);
+    assert_eq!(laid_entries(&sim).len(), 1);
+    saves_alike(&mut sim);
+}
+
 #[test]
 fn a_home_along_a_main_connects_where_gas_light_costs_it_less_and_pays_by_the_meter() {
     use civ_agents::ledger::Channel;

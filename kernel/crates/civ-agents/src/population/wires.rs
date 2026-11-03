@@ -16,6 +16,7 @@ use civ_land::wire::{Cause, Hookup, Line};
 
 use super::*;
 use crate::decide::WayFacts;
+use crate::history::Conveyance;
 use crate::ledger::Channel;
 
 /// The kilowatts a home hooked up to the wire asks of an evening (a design prior: a few
@@ -726,6 +727,9 @@ impl Population {
         if l.length_m - l.laid_m < 1e-3 {
             l.laid_m = l.length_m;
         }
+        // Strung whole by this work (backlog D, twelfth item): its station, route and length, to
+        // tell.
+        let laid = l.whole().then(|| (l.station, l.cells.clone(), l.length_m));
         let used = (metres * params.good_kg_m).min(held);
         if used > 0.0 {
             x.stores[params.good] = held - used;
@@ -735,6 +739,16 @@ impl Population {
             && metres > 0.0
         {
             self.polities[pi].give_to_way(law, household, (metres * params.lay_h_m) as f32);
+        }
+        if let Some((station, cells, length_m)) = laid {
+            self.tell_conveyance_laid(
+                ctx,
+                Conveyance::LineOfCurrent,
+                household,
+                (public.map(|(pi, _)| pi), Some(station)),
+                &cells,
+                length_m,
+            );
         }
     }
 

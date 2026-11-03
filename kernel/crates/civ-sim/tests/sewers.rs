@@ -14,13 +14,14 @@
 //! and clears nothing; the polity asks mending under the law that laid the sewer and not after it
 //! ended; outage days are kept by cause; and all of it saves and loads exactly. The chronicle tells
 //! a stretch falling in, once, with how far above the outfall and how many homes back up, and the
-//! relining that leaves nothing of it broken, naming who finished it.
+//! relining that leaves nothing of it broken, naming who finished it; and a sewer laid whole, once,
+//! naming who laid its last length.
 
 use std::path::Path;
 use std::sync::OnceLock;
 
 use civ_agents::contagion::{How, Node};
-use civ_agents::history::{ChronicleEvent, ChronicleKind, SewerStep};
+use civ_agents::history::{ChronicleEvent, ChronicleKind, Conveyance, SewerStep};
 use civ_agents::polity::{
     IssueKind, Law, LawStatus, Outcome as Decided, PolicyKind, SewerCause, SewerDef, WaySite,
 };
@@ -543,6 +544,77 @@ fn a_sewer_laid_by_law_carries_its_homes_share_and_loads_to_the_river_exactly() 
         "all of it went to the river"
     );
     saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+#[test]
+fn a_sewer_laid_whole_is_told_once_in_the_chronicle_naming_who_laid_its_last_length() {
+    let (mut sim, line, homes, sewer) = a_sewer_marked_out(2);
+    let def = sewer_def(&sim);
+    let (brick, lime) = (
+        index(&sim, "core:good/brick"),
+        index(&sim, "core:good/quicklime"),
+    );
+    let laid = |sim: &Sim| -> Vec<ChronicleEvent> {
+        sim.people()
+            .chronicle
+            .iter()
+            .filter(|e| e.kind == ChronicleKind::ConveyanceLaid)
+            .cloned()
+            .collect()
+    };
+    let seat = sim.people().polities[0].settlement;
+    let village = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|s| s.id == seat)
+        .expect("the seat")
+        .name
+        .clone();
+    // Marked out, and half of it laid by one household, it is told nowhere.
+    assert!(laid(&sim).is_empty());
+    let length = f64::from(sim.people().polities[0].sewers[0].length_m);
+    set(
+        &mut sim,
+        homes[0],
+        brick,
+        length / 2.0 * f64::from(def.walls_kg_m),
+    );
+    set(&mut sim, homes[0], lime, 1.0e6);
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_work_for_tests(ctx, homes[0], sewer, 1.0e9));
+    assert!(!sim.people().polities[0].sewers[0].whole());
+    assert!(laid(&sim).is_empty());
+    // Another household lays the rest: it is told once, naming that household's elder, the
+    // sewer's length from among the homes to the river, at its outfall.
+    lay_whole(&mut sim, homes[1], sewer);
+    let told = laid(&sim);
+    assert_eq!(told.len(), 1, "{told:?}");
+    let e = &told[0];
+    assert_eq!(e.number, f64::from(Conveyance::Sewer as u8));
+    assert_eq!(e.settlement, Some(seat));
+    assert_eq!(
+        e.place,
+        Some(centre(&sim, *line.last().expect("an outfall")))
+    );
+    assert_eq!(e.people.len(), 1);
+    let x = sim.people().household(homes[1]).expect("home");
+    assert!(x.members.contains(&e.people[0]));
+    let elder = sim.people().name_of(e.people[0]);
+    let words = sim.chronicle_words(e);
+    eprintln!("{words}");
+    assert_eq!(
+        words,
+        format!(
+            "{village}'s people finished laying the sewer their gathering agreed to, {elder}'s \
+             household laying its last length: it runs {length:.0} m from among the homes to its \
+             outfall on the river, and homes beside it can drain to it."
+        )
+    );
+    // Work on it once whole tells nothing more; it saves and loads exactly, and goes on alike.
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_work_for_tests(ctx, homes[0], sewer, 1.0e9));
+    assert_eq!(laid(&sim).len(), 1);
+    saves_and_goes_on_alike(&mut sim, DAY);
+    assert_eq!(laid(&sim), told);
 }
 
 #[test]

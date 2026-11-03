@@ -22,6 +22,7 @@ use civ_land::wire::Telegraph;
 
 use super::*;
 use crate::decide::WayFacts;
+use crate::history::Conveyance;
 use crate::ledger::Channel;
 use crate::reports::{Errand, PriceReport, ReportHow, Telegram, TelegramStage};
 
@@ -321,7 +322,8 @@ impl Population {
 
     /// `hours` of work by someone of `household` on its telegraph wire `wire`: a metre strung each
     /// `lay_h_m` hours, each taking its conductor from the household's store, no more than the
-    /// conductor held allows or the wire has left.
+    /// conductor held allows or the wire has left. The work that strings its last length tells
+    /// it in the chronicle.
     pub(super) fn telegraph_work(
         &mut self,
         ctx: &mut Ctx,
@@ -352,10 +354,23 @@ impl Population {
         if t.length_m - t.laid_m < 1e-3 {
             t.laid_m = t.length_m;
         }
+        // Strung whole by this work (backlog D, fifteenth item): the far office, its route and
+        // length, to tell.
+        let laid = t.whole().then(|| (t.b, t.cells.clone(), t.length_m));
         let used = (metres * params.good_kg_m).min(held);
         if used > 0.0 {
             x.stores[params.good] = held - used;
             x.flows.add(Flow::Used, params.good, used);
+        }
+        if let Some((far, cells, length_m)) = laid {
+            self.tell_conveyance_laid(
+                ctx,
+                Conveyance::Telegraph,
+                household,
+                (None, Some(far)),
+                &cells,
+                length_m,
+            );
         }
     }
 

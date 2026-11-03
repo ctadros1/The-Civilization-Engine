@@ -955,10 +955,10 @@ pub enum ChronicleKind {
     Way,
     /// A conveyance was laid whole, so that it carries (backlog D, twelfth item; the fifth item's
     /// "Not yet"): a polity's sewer laid by law, a gasworks' main, or a line of current, a
-    /// station's own or one strung by law. `people` is the elder of the household whose work laid
-    /// its last length, `settlement` the polity's seat or that household's settlement, `place`
-    /// the far end of its route, `number` which conveyance ([`Conveyance`]), and `name` the
-    /// sentence.
+    /// station's own or one strung by law, or a telegraph wire an office strung (fifteenth item).
+    /// `people` is the elder of the household whose work laid its last length, `settlement` the
+    /// polity's seat or that household's settlement, `place` the far end of its route, `number`
+    /// which conveyance ([`Conveyance`]), and `name` the sentence.
     ConveyanceLaid,
 }
 
@@ -1060,6 +1060,9 @@ pub enum Conveyance {
     /// A line of current, strung by its station's household or by a polity's households under its
     /// law: homes along it can be lit by wire.
     LineOfCurrent = 2,
+    /// A telegraph wire, strung by an office's household to another office (backlog D, fifteenth
+    /// item): the two offices can send messages along it.
+    Telegraph = 3,
 }
 
 /// What happened to a crossing, in a [`ChronicleKind::Crossing`] entry. Numeric in saves:

@@ -1117,8 +1117,9 @@ impl Population {
     /// laid whole with work of `household`'s laying its last length (backlog D, twelfth item):
     /// where `law` is `Some(pi)`, the people of polity `pi` laid it under its law, from the works
     /// or station of household `source` where it runs from one; otherwise `household` laid it as
-    /// its own, from its own. The entry names the elder of `household`, carries the polity's seat
-    /// or the household's settlement, and is placed at the route's far end.
+    /// its own, from its own (a telegraph wire to the office of household `source`, fifteenth
+    /// item). The entry names the elder of `household`, carries the polity's seat or the
+    /// household's settlement, and is placed at the route's far end.
     pub(super) fn tell_conveyance_laid(
         &mut self,
         ctx: &Ctx,
@@ -1128,19 +1129,44 @@ impl Population {
         cells: &[u32],
         length_m: f64,
     ) {
-        let (laying, thing, along, carries, from) = match what {
-            Conveyance::Sewer => ("laying", "sewer", "beside", "drain to it", None),
-            Conveyance::GasMain => ("laying", "gas main", "along", "take gas", Some("works")),
+        let (laying, thing, carries, from) = match what {
+            Conveyance::Sewer => ("laying", "sewer", "homes beside it can drain to it", None),
+            Conveyance::GasMain => (
+                "laying",
+                "gas main",
+                "homes along it can take gas",
+                Some("works"),
+            ),
             Conveyance::LineOfCurrent => (
                 "stringing",
                 "line of current",
-                "along",
-                "be lit by wire",
+                "homes along it can be lit by wire",
                 Some("station"),
+            ),
+            Conveyance::Telegraph => (
+                "stringing",
+                "telegraph wire",
+                "the two offices can send messages along it",
+                Some("office"),
             ),
         };
         let route = match from {
             None => "from among the homes to its outfall on the river".to_owned(),
+            // A telegraph wire runs from its own office to another's, of another settlement.
+            Some(from) if what == Conveyance::Telegraph => {
+                let far = source.and_then(|h| self.household(h));
+                let village = self.village_name(ctx, far.and_then(|x| x.settlement));
+                far.and_then(|x| self.elder_of(x.id, ctx.now, ctx.params))
+                    .map_or_else(
+                        || format!("from its {from} to another {from} in {village}"),
+                        |e| {
+                            format!(
+                                "from its {from} to the {from} of {}'s household in {village}",
+                                self.name_of(e)
+                            )
+                        },
+                    )
+            }
             Some(from) => law
                 .and(source)
                 .and_then(|h| self.elder_of(h, ctx.now, ctx.params))
@@ -1184,7 +1210,7 @@ impl Population {
             settlement,
             place,
             f64::from(what as u8),
-            format!("{who}: it runs {length_m:.0} m {route}, and homes {along} it can {carries}."),
+            format!("{who}: it runs {length_m:.0} m {route}, and {carries}."),
         );
     }
 

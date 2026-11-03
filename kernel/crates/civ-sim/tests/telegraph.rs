@@ -248,6 +248,131 @@ fn an_office_strings_a_wire_to_another_where_its_errands_there_would_repay_it() 
     }
 }
 
+/// The chronicle's entries telling a conveyance laid whole, oldest first.
+fn laid_entries(sim: &Sim) -> Vec<civ_agents::ChronicleEvent> {
+    sim.people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == civ_agents::ChronicleKind::ConveyanceLaid)
+        .cloned()
+        .collect()
+}
+
+/// Saves `sim` and loads it: every section of the loaded world is the same.
+fn saves_alike(sim: &mut Sim) -> Sim {
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(sim, &saves, commons_persist::SaveKind::Manual, "telegraph").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    let (a, b) = (
+        persist::encode_sections(sim),
+        persist::encode_sections(&loaded),
+    );
+    assert_eq!(a.len(), b.len());
+    for (x, y) in a.iter().zip(&b) {
+        assert!(x.bytes == y.bytes, "section `{}` differs", x.tag);
+    }
+    loaded
+}
+
+#[test]
+fn a_wire_an_office_strings_whole_is_told_once_in_the_chronicle() {
+    use civ_agents::Conveyance;
+    use civ_land::ways::{Keeper, Rank, Segment, Surface, WALK, Way};
+    let mut sim = world();
+    let map = sim.map().clone();
+    let [(a, sa, from), (b, sb, to)] = pair(&sim);
+    office(&mut sim, a);
+    office(&mut sim, b);
+    let cells = straight(map.width, from, to);
+    let way = sim.allocate_id_for_tests();
+    let today = sim.now().day_index();
+    sim.land_mut_for_tests().ways.add(Way {
+        id: way,
+        begun: today,
+        segments: vec![Segment {
+            cells: cells[1..cells.len() - 1].to_vec(),
+            corridor_m: 4.0,
+            built_m: 4.0,
+            usable_m: 4.0,
+            surface: Surface::Cleared,
+            keeper: Keeper::Nobody,
+            kept: today,
+        }],
+        modes: WALK,
+        trips: 0.0,
+        trips_day: today,
+        rank: Rank::Lane,
+        track: None,
+    });
+    let params = sim.rules().land.wire.expect("the core lays wire");
+    let wire = sim
+        .with_ctx_for_tests(|pop, ctx| pop.begin_telegraph(ctx, a, b))
+        .expect("a route along the way");
+    let t = sim.land().wires.telegraphs[0].clone();
+    assert_eq!((t.id, t.laid_m), (wire, 0.0));
+    let work = |sim: &mut Sim, h: PermanentId, hours: f64| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.telegraph_work_for_tests(ctx, h, wire, hours));
+    };
+    // Marked out, and ten hours of it strung, it is told nowhere.
+    assert!(laid_entries(&sim).is_empty());
+    set(&mut sim, a, params.good, 1e6);
+    work(&mut sim, a, 10.0);
+    assert!(sim.land().wires.telegraphs[0].laid_m > 0.0);
+    assert!(!sim.land().wires.telegraphs[0].whole());
+    assert!(laid_entries(&sim).is_empty());
+    // The rest strung, it is told once: the office's elder, its length from its office to the
+    // far office's household and settlement, and that the two can send messages along it, at its
+    // far end.
+    work(&mut sim, a, 1e9);
+    assert!(sim.land().wires.telegraphs[0].whole());
+    let told = laid_entries(&sim);
+    assert_eq!(told.len(), 1, "{told:?}");
+    let e = &told[0];
+    assert_eq!(e.number, f64::from(Conveyance::Telegraph as u8));
+    assert_eq!(e.settlement, Some(sa));
+    let x = sim.people().household(a).expect("the office");
+    assert_eq!(e.people.len(), 1);
+    assert!(x.members.contains(&e.people[0]));
+    assert_eq!(
+        e.place,
+        Some(civ_agents::population::cell_centre(&map, to as usize))
+    );
+    let elder = sim.people().name_of(e.people[0]);
+    let village = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|s| s.id == sb)
+        .expect("the far settlement")
+        .name
+        .clone();
+    let words = sim.chronicle_words(e);
+    eprintln!("{words}");
+    // The far office's household is named by its elder, one of its members.
+    let keepers = &sim.people().household(b).expect("the far office").members;
+    assert!(
+        keepers.iter().any(|&k| words
+            == format!(
+                "{elder}'s household finished stringing its telegraph wire: it runs {:.0} m from \
+                 its office to the office of {}'s household in {village}, and the two offices can \
+                 send messages along it.",
+                t.length_m,
+                sim.people().name_of(k)
+            )),
+        "{words}"
+    );
+    // More work on it, whole, by either office tells nothing more; it saves and loads exactly,
+    // the entry with it.
+    work(&mut sim, a, 1e9);
+    work(&mut sim, b, 1e9);
+    assert_eq!(laid_entries(&sim).len(), 1);
+    let loaded = saves_alike(&mut sim);
+    assert_eq!(laid_entries(&loaded), told);
+}
+
 /// The second household of settlement `s` (with people), other than `not`.
 fn another(sim: &Sim, s: PermanentId, not: PermanentId) -> PermanentId {
     sim.people()

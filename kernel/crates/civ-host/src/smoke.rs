@@ -206,11 +206,25 @@ pub(crate) fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<Stri
             sim.people().living()
         ));
     }
-    match sim.advance_minutes(DAYS * MINUTES_PER_DAY) {
-        Ok(advance) if i64::from(advance.days) == DAYS => {}
-        Ok(advance) => failures.push(format!(
-            "the clock crossed {} day boundaries in {DAYS} days",
-            advance.days
+    let mut observation = civ_sim::observation::Observation::from_env(sim);
+    observation.poll(sim);
+    let advanced = if observation.enabled() {
+        (|| {
+            let mut days = 0i64;
+            for _ in 0..DAYS {
+                days += i64::from(sim.advance_minutes(MINUTES_PER_DAY)?.days);
+                observation.poll(sim);
+            }
+            Ok::<_, civ_sim::SimError>(days)
+        })()
+    } else {
+        sim.advance_minutes(DAYS * MINUTES_PER_DAY)
+            .map(|a| i64::from(a.days))
+    };
+    match advanced {
+        Ok(days) if days == DAYS => {}
+        Ok(days) => failures.push(format!(
+            "the clock crossed {days} day boundaries in {DAYS} days"
         )),
         Err(e) => failures.push(format!("the clock stopped: {e}")),
     }
@@ -345,6 +359,8 @@ pub(crate) fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<Stri
 pub struct LongRun {
     /// The people when the run began.
     pub founders: usize,
+    /// Optional private observation publisher; never part of simulation state.
+    observation: civ_sim::observation::Observation,
     /// The books when the run began: every good held is accounted for from here on (ADR-0006 §3).
     books: (Vec<f64>, civ_agents::person::Flows),
     /// What the run has seen of the economy, sampled as each month begins.
@@ -389,7 +405,10 @@ pub struct Moves {
 impl LongRun {
     /// Begins a long run of `sim` as it stands.
     pub fn begin(sim: &Sim) -> LongRun {
+        let mut observation = civ_sim::observation::Observation::from_env(sim);
+        observation.poll(sim);
         LongRun {
+            observation,
             founders: sim.people().living().max(1),
             books: (sim.people().goods_held(), sim.people().flows()),
             economy: Economy::default(),
@@ -449,8 +468,16 @@ impl LongRun {
             };
             let next = SimTime::from_date(ny, nm, 1, 0, 0).map_or(end, |t| t.minutes());
             let to = next.min(end);
-            sim.advance_minutes(to - sim.now().minutes())
-                .map_err(|e| e.to_string())?;
+            if self.observation.enabled() {
+                while sim.now().minutes() < to {
+                    sim.advance_minutes((to - sim.now().minutes()).min(MINUTES_PER_DAY))
+                        .map_err(|e| e.to_string())?;
+                    self.observation.poll(sim);
+                }
+            } else {
+                sim.advance_minutes(to - sim.now().minutes())
+                    .map_err(|e| e.to_string())?;
+            }
             if to == end {
                 return Ok(());
             }

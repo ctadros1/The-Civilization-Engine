@@ -33,6 +33,19 @@
 //! on the frame below rather than running through every storey; its mass walls may be tied, a
 //! timber bond along every wall at each storey's head. With its own parameters all 0, a frame of
 //! wattle walls builds what version 2 builds.
+//!
+//! Version 4 (ADR-0037 §3) is version 3 with one more post system, a steel skeleton: its posts are
+//! laid out as storeyed posts, on one storey as well, and its posts, plates, tie and cross beams
+//! and joists are of a fifth material, the frame's, weighed by the program's frame density. Its
+//! walls are infill between the posts. A version 4 spec names five materials. A skeleton of
+//! version 4 may rise to twelve storeys (ADR-0042 §3), each above the fourth laid out as the
+//! fourth is: its openings, its infill, and a flight of the stair to the next.
+//!
+//! Version 5 (ADR-0037, amendment of 2026-11-01) is version 4 with one more post system, a
+//! reinforced-concrete frame: laid out as a skeleton is, its posts, plates, tie and cross beams
+//! and joists cast in their envelopes of the program's concrete, weighed by its concrete density,
+//! with bar weighed by its bar density, two more material slots. A version 5 spec names seven
+//! materials.
 
 use std::f64::consts::TAU;
 
@@ -41,21 +54,26 @@ use crate::{
     PartKind, RECT_QUANTUM_CM, Space, SpaceUse, Stage, StageNeeds, TURN, cm, group_id, within,
 };
 
-/// The newest version of the frame grammar (ADR-0031 §1). Versions 1 and 2 are frozen: what they
-/// expand to is pinned by their goldens.
-pub const FRAME_VERSION: u16 = 3;
+/// The newest version of the frame grammar (ADR-0037, amendment of 2026-11-01). Versions 1 to 3
+/// are frozen: what they expand to is pinned by their goldens; version 4 expands within version 5
+/// as it did, with two slots more that need nothing.
+pub const FRAME_VERSION: u16 = 5;
 /// Most bays a frame may have (version 3; versions 1 and 2 have at most eight).
 pub const MAX_BAYS: i32 = 12;
-/// Most storeys a frame may have (version 3, ADR-0031 §1; versions 1 and 2 have at most two:
-/// research 11-05 §2.2, one to three in timber).
+/// Most storeys a frame may have (versions 3 and 4, ADR-0031 §1; versions 1 and 2 have at most
+/// two: research 11-05 §2.2, one to three in timber).
 pub const MAX_STOREYS: u8 = 4;
+/// Most storeys a steel skeleton of version 4 may have (ADR-0042 §3): each above the fourth is
+/// laid out as the fourth is.
+pub const MAX_STOREYS_V4: u8 = 12;
 
 /// The frame version builders design under: version 3 since M8d slice CZ (ADR-0031 §2), whose
 /// specs with nothing of their own build what version 2 builds. Content's programs are held to
-/// what it allows.
+/// what it allows. A design that takes a steel skeleton is written as version 4 (ADR-0037 §3).
 pub const FRAME_DESIGN_VERSION: u16 = 3;
 
-/// The most bays and storeys a frame of `version` may have.
+/// The most bays and storeys a frame of `version` may have, other than a steel skeleton
+/// ([`skeleton_limits`]).
 pub fn frame_limits(version: u16) -> (i32, u8) {
     if version >= 3 {
         (MAX_BAYS, MAX_STOREYS)
@@ -64,15 +82,30 @@ pub fn frame_limits(version: u16) -> (i32, u8) {
     }
 }
 
+/// The most bays and storeys a frame of `version` may have when its posts are a steel skeleton
+/// (ADR-0042 §3): twelve storeys from version 4, and a concrete frame's from version 5.
+pub fn skeleton_limits(version: u16) -> (i32, u8) {
+    if version >= 4 {
+        (MAX_BAYS, MAX_STOREYS_V4)
+    } else {
+        frame_limits(version)
+    }
+}
+
 /// Most component groups an expansion may have (research 11-06 §5.1: 8 to 32).
 pub const MAX_GROUPS: usize = 32;
 /// Most component groups a version 3 expansion may have: a hall of twelve bays and four storeys
 /// keeps a group for each floor's joists in each bay.
 pub const MAX_GROUPS_V3: usize = 96;
+/// Most component groups a version 4 expansion may have: a skeleton of twelve bays and twelve
+/// storeys keeps a group for each floor's joists in each bay (ADR-0042 §3).
+pub const MAX_GROUPS_V4: usize = 256;
 
 /// The most component groups an expansion of frame `version` may have.
 pub fn max_groups(version: u16) -> usize {
-    if version >= 3 {
+    if version >= 4 {
+        MAX_GROUPS_V4
+    } else if version >= 3 {
         MAX_GROUPS_V3
     } else {
         MAX_GROUPS
@@ -156,7 +189,8 @@ pub mod frame_params {
     /// carrying purlins.
     pub const ROOF_SYSTEM: usize = 16;
     /// The post system: 0, posts through every storey to the plates; 1, each storey's posts
-    /// standing on the frame below.
+    /// standing on the frame below; 2 (version 4, ADR-0037 §3), a steel skeleton: posts laid as
+    /// 1's, on one storey as well, its posts, plates, beams and joists of the frame's material.
     pub const POST_SYSTEM: usize = 17;
     /// Wall ties: 0, none; 1, floors and roof framed into the walls at each storey.
     pub const TIES: usize = 18;
@@ -167,8 +201,11 @@ pub mod frame_params {
     pub const OPENINGS: usize = 23;
     /// A stair: 0, none; 1, a stair from each storey to the next.
     pub const STAIR: usize = 27;
+    /// A steel skeleton's posts, beams and joists cased in the program's concrete against fire:
+    /// 0, bare; 1, cased (version 5; ADR-0037 §5).
+    pub const ENCASEMENT: usize = 28;
     /// The first parameter no version has yet; it and those after it are 0.
-    pub const SPARE: usize = 28;
+    pub const SPARE: usize = 29;
 
     /// The long wall to the right of the length's direction (`+v`).
     pub const SIDE_RIGHT: i32 = 0;
@@ -195,11 +232,30 @@ pub mod frame_materials {
     pub const COVERING: u8 = 2;
     /// Boards for floors and ladders.
     pub const BOARDS: u8 = 3;
-    /// Number of slots.
+    /// A steel skeleton's posts, plates, beams and joists (version 4, ADR-0037 §3).
+    pub const FRAME: u8 = 4;
+    /// Number of slots before version 4.
     pub const COUNT: usize = 4;
+    /// Number of slots from version 4.
+    pub const COUNT_V4: usize = 5;
+    /// A concrete frame's concrete, cast in its posts, plates, beams and joists (version 5).
+    pub const CONCRETE: u8 = 5;
+    /// The bar cast in a concrete frame's members where they are in tension (version 5).
+    pub const BAR: u8 = 6;
+    /// Number of slots from version 5.
+    pub const COUNT_V5: usize = 7;
+
+    /// Number of slots a spec of frame `version` names.
+    pub fn count(version: u16) -> usize {
+        match version {
+            5.. => COUNT_V5,
+            4 => COUNT_V4,
+            _ => COUNT,
+        }
+    }
 }
 
-use frame_materials::{BOARDS, COVERING, TIMBER, WATTLE};
+use frame_materials::{BAR, BOARDS, CONCRETE, COVERING, FRAME, TIMBER, WATTLE};
 use frame_params::{SIDE_BACK, SIDE_FRONT, SIDE_LEFT, SIDE_RIGHT};
 
 /// A frame program's rules: what a spec may choose, and every dimension, labour and material
@@ -271,6 +327,24 @@ pub struct FrameRules {
     pub living_kg_per_m2: f64,
     /// Density of the timber, kilograms a cubic metre.
     pub timber_kg_per_m3: f64,
+    /// What a cubic metre of a steel skeleton's members weighs, kilograms: its section's metal
+    /// spread over the member's envelope (ADR-0037 §3); 0 where the program has no skeleton.
+    pub frame_kg_per_m3: f64,
+    /// What a cubic metre of a concrete frame's members takes of its concrete, kilograms
+    /// (version 5); 0 where the program has no concrete frame.
+    pub concrete_kg_per_m3: f64,
+    /// What a cubic metre of a concrete frame's members takes of bar, kilograms (version 5).
+    pub bar_kg_per_m3: f64,
+    /// Person-hours to form, fix the bar of, cast and strip a cubic metre of a concrete frame's
+    /// members (version 5).
+    pub concrete_h_per_m3: f64,
+    /// What casing a cubic metre of a steel skeleton's members takes of the program's concrete,
+    /// kilograms (version 5; ADR-0037 §5); 0 where the program cases none.
+    pub encasement_kg_per_m3: f64,
+    /// Person-hours to case a cubic metre of a skeleton's members.
+    pub encasement_h_per_m3: f64,
+    /// Minutes a cased member keeps its strength in a fully involved fire.
+    pub encasement_min: f64,
     /// Person-hours to clear and level the ground and mark out the building, per square metre.
     pub groundwork_h_per_m2: f64,
     /// Person-hours to dig a posthole.
@@ -401,8 +475,17 @@ struct Layout<'r> {
     /// Whether a truss stands at each frame line carrying purlins (version 3).
     truss: bool,
     /// Whether each storey's posts stand on the frame below, not through every storey
-    /// (version 3).
+    /// (version 3; a skeleton's do too).
     storeyed: bool,
+    /// Whether its posts, plates, beams and joists are a steel skeleton's (version 4).
+    skeleton: bool,
+    /// Whether its posts, plates, beams and joists are cast in concrete (version 5).
+    concrete: bool,
+    /// Whether its walls are mass infill between a steel or concrete frame's posts, each
+    /// storey's carried by the frame (version 5).
+    infill: bool,
+    /// Whether a steel skeleton's members are cased against fire (version 5).
+    encased: bool,
     /// Whether a timber tie binds the mass walls at each storey's head (version 3).
     ties: bool,
     wall_kind: i32,
@@ -428,7 +511,13 @@ impl<'r> Layout<'r> {
         if !(1..=FRAME_VERSION).contains(&spec.version) {
             return Err(GrammarError::UnknownVersion(spec.version));
         }
-        let (most_bays, most_storeys) = frame_limits(spec.version);
+        // A steel skeleton rises to twelve storeys in version 4 (ADR-0042 §3); its post system is
+        // checked below.
+        let (most_bays, most_storeys) = if spec.params[fp::POST_SYSTEM] >= 2 {
+            skeleton_limits(spec.version)
+        } else {
+            frame_limits(spec.version)
+        };
         let Footprint::Rect {
             x: cx,
             y: cy,
@@ -440,10 +529,11 @@ impl<'r> Layout<'r> {
             return refuse("a frame building stands on a rectangular footprint");
         };
         let p = &spec.params;
-        if spec.materials.len() != frame_materials::COUNT {
+        let slots = frame_materials::count(spec.version);
+        if spec.materials.len() != slots {
             return refuse(format!(
-                "a frame names {} materials, not {}",
-                frame_materials::COUNT,
+                "a frame of version {} names {slots} materials, not {}",
+                spec.version,
                 spec.materials.len()
             ));
         }
@@ -578,7 +668,8 @@ impl<'r> Layout<'r> {
                     || i == fp::STAIR
                     || i == fp::ROOF_SYSTEM
                     || i == fp::POST_SYSTEM
-                    || i == fp::TIES)
+                    || i == fp::TIES
+                    || (i == fp::ENCASEMENT && spec.version >= 5))
         };
         if let Some(i) = (fp::ROOF_SYSTEM..crate::PARAMS).find(|&i| p[i] != 0 && !laid_out(i)) {
             return refuse(if spec.version < 3 {
@@ -628,6 +719,12 @@ impl<'r> Layout<'r> {
             within("openings", v, (0, MAX_OPENING_PERMILLE))?;
             openings[t] = f64::from(v) / 1000.0;
         }
+        // Each storey above the fourth is laid out as the fourth is (ADR-0042 §3).
+        if openings.len() > 4 {
+            let (fourth, wall_t) = (openings[3], storey_wt[3]);
+            openings[4..].fill(fourth);
+            storey_wt[4..].fill(wall_t);
+        }
         let roof_system = p[fp::ROOF_SYSTEM];
         if !(0..=1).contains(&roof_system) {
             return refuse(format!(
@@ -637,11 +734,80 @@ impl<'r> Layout<'r> {
             ));
         }
         let post_system = p[fp::POST_SYSTEM];
-        if !(0..=1).contains(&post_system) {
+        if post_system == 2 && spec.version < 4 {
+            return refuse(format!(
+                "a steel skeleton (post system 2, parameter {}) is unknown to frame version {}",
+                fp::POST_SYSTEM,
+                spec.version
+            ));
+        }
+        if post_system == 3 && spec.version < 5 {
+            return refuse(format!(
+                "a concrete frame (post system 3, parameter {}) is unknown to frame version {}",
+                fp::POST_SYSTEM,
+                spec.version
+            ));
+        }
+        if !(0..=3).contains(&post_system) {
             return refuse(format!(
                 "post system {post_system} (parameter {}) is unknown to frame version {}",
                 fp::POST_SYSTEM,
                 spec.version
+            ));
+        }
+        // A steel skeleton's mass infill is laid from version 5 (ADR-0037's amendment of
+        // 2026-11-01), each storey's carried by the frame.
+        if post_system == 2 && wall_kind != 0 && spec.version < 5 {
+            return refuse(format!(
+                "a steel skeleton (parameter {}) has infill between its posts; mass walls are not \
+                 laid in it",
+                fp::POST_SYSTEM
+            ));
+        }
+        if post_system == 2 && rules.frame_kg_per_m3 <= 0.0 {
+            return refuse(format!(
+                "a steel skeleton (parameter {}) needs the program's frame density, not {}",
+                fp::POST_SYSTEM,
+                rules.frame_kg_per_m3
+            ));
+        }
+        if post_system == 3
+            && (rules.concrete_kg_per_m3 <= 0.0
+                || rules.bar_kg_per_m3 <= 0.0
+                || rules.concrete_h_per_m3 <= 0.0)
+        {
+            return refuse(format!(
+                "a concrete frame (parameter {}) needs the program's concrete and bar densities and \
+                 hours, not {}, {} and {}",
+                fp::POST_SYSTEM,
+                rules.concrete_kg_per_m3,
+                rules.bar_kg_per_m3,
+                rules.concrete_h_per_m3
+            ));
+        }
+        let encasement = p[fp::ENCASEMENT];
+        if !(0..=1).contains(&encasement) {
+            return refuse(format!(
+                "encasement {encasement} (parameter {}) is unknown to frame version {}",
+                fp::ENCASEMENT,
+                spec.version
+            ));
+        }
+        if encasement == 1 && post_system != 2 {
+            return refuse(format!(
+                "encasement (parameter {}) cases a steel skeleton's members; a timber or concrete \
+                 frame has none to case",
+                fp::ENCASEMENT
+            ));
+        }
+        if encasement == 1
+            && (rules.encasement_kg_per_m3 <= 0.0
+                || rules.encasement_h_per_m3 <= 0.0
+                || rules.encasement_min <= 0.0)
+        {
+            return refuse(format!(
+                "encasement (parameter {}) needs the program's casing figures",
+                fp::ENCASEMENT
             ));
         }
         if post_system == 1 && wall_kind != 0 {
@@ -662,6 +828,12 @@ impl<'r> Layout<'r> {
                 "wall ties {ties} (parameter {}) are unknown to frame version {}",
                 fp::TIES,
                 spec.version
+            ));
+        }
+        if ties == 1 && post_system >= 2 {
+            return refuse(format!(
+                "wall ties (parameter {}) bind mass walls that carry; a frame holds its infill",
+                fp::TIES
             ));
         }
         if ties == 1 && wall_kind == 0 {
@@ -814,7 +986,11 @@ impl<'r> Layout<'r> {
             stair: stair != 0,
             openings,
             truss: roof_system == 1,
-            storeyed: post_system == 1,
+            storeyed: post_system >= 1,
+            skeleton: post_system == 2,
+            concrete: post_system == 3,
+            infill: post_system >= 2 && wall_kind > 0,
+            encased: p[fp::ENCASEMENT] == 1,
             ties: ties == 1,
             wall_kind,
             footing,
@@ -881,6 +1057,18 @@ impl<'r> Layout<'r> {
 
     fn end_walls(&self) -> [(i32, f64); 2] {
         [(SIDE_BACK, -self.l / 2.0), (SIDE_FRONT, self.l / 2.0)]
+    }
+
+    /// The material slot of its posts, plates, beams and joists: the frame's in a steel skeleton
+    /// (ADR-0037 §3), the concrete in a concrete frame (version 5), else timber.
+    fn carrier(&self) -> u8 {
+        if self.skeleton {
+            FRAME
+        } else if self.concrete {
+            CONCRETE
+        } else {
+            TIMBER
+        }
     }
 
     /// How far a ladder reaches out to rise `rise`, and its length.
@@ -1064,6 +1252,20 @@ impl Parts<'_, '_> {
     ) {
         self.push(slot, stage, at, size, (angle, 0), Some(TIMBER));
     }
+
+    /// A member of the frame that carries the building lying flat: a post, plate, beam or joist,
+    /// of timber, or of the frame's material in a steel skeleton (ADR-0037 §3).
+    fn carrier(
+        &mut self,
+        slot: Slot,
+        stage: Stage,
+        at: (f64, f64, f64),
+        size: [f64; 3],
+        angle: u16,
+    ) {
+        let material = self.layout.carrier();
+        self.push(slot, stage, at, size, (angle, 0), Some(material));
+    }
 }
 
 /// Foundation: postholes or stone footings, and a raised floor's posts down the middle.
@@ -1142,7 +1344,7 @@ fn foundation(p: &mut Parts) {
 fn frame(p: &mut Parts) {
     let l = p.layout;
     for k in 0..=l.n {
-        if l.wall_kind == 0 && l.storeyed {
+        if (l.wall_kind == 0 || l.infill) && l.storeyed {
             // Each storey's posts stand on the frame below: the first's in the ground to the head
             // of the first storey, each above it a storey high.
             for t in 0..l.storeys {
@@ -1153,7 +1355,7 @@ fn frame(p: &mut Parts) {
                 };
                 let top = l.z_g + l.h * f64::from(t + 1);
                 for (side, v) in l.long_walls() {
-                    p.member(
+                    p.carrier(
                         (storey_level(t), Some(k), PartKind::Post, side as usize),
                         Stage::Frame,
                         (l.u_line(k), v, (bottom + top) / 2.0),
@@ -1164,7 +1366,7 @@ fn frame(p: &mut Parts) {
             }
         } else if l.wall_kind == 0 {
             for (side, v) in l.long_walls() {
-                p.member(
+                p.carrier(
                     (Level::Ground, Some(k), PartKind::Post, side as usize),
                     Stage::Frame,
                     (l.u_line(k), v, (l.z_p - l.depth) / 2.0),
@@ -1173,7 +1375,7 @@ fn frame(p: &mut Parts) {
                 );
             }
         }
-        p.member(
+        p.carrier(
             (Level::Roof, Some(k), PartKind::TieBeam, 0),
             Stage::Frame,
             (l.u_line(k), 0.0, l.z_p + l.beam / 2.0),
@@ -1183,7 +1385,7 @@ fn frame(p: &mut Parts) {
     }
     for j in 0..l.n {
         for (side, v) in l.long_walls() {
-            p.member(
+            p.carrier(
                 (Level::Roof, Some(j), PartKind::WallPlate, side as usize),
                 Stage::Frame,
                 (l.u_line(j) + l.b / 2.0, v, l.z_p - l.beam / 2.0),
@@ -1204,7 +1406,7 @@ fn frame(p: &mut Parts) {
             .collect();
         for j in 0..l.n {
             for &(index, v) in &rails {
-                p.member(
+                p.carrier(
                     (level, Some(j), PartKind::WallPlate, index),
                     Stage::Frame,
                     (l.u_line(j) + l.b / 2.0, v, z_rail),
@@ -1213,7 +1415,7 @@ fn frame(p: &mut Parts) {
                 );
             }
             for i in 0..l.joists_per_bay {
-                p.member(
+                p.carrier(
                     (level, Some(j), PartKind::Joist, i),
                     Stage::Frame,
                     (l.u_line(j) + l.joist_spacing * (i + 1) as f64, 0.0, z_joist),
@@ -1223,7 +1425,7 @@ fn frame(p: &mut Parts) {
             }
         }
         for k in 0..=l.n {
-            p.member(
+            p.carrier(
                 (level, Some(k), PartKind::TieBeam, 0),
                 Stage::Frame,
                 (l.u_line(k), 0.0, z_floor - l.dk - l.beam / 2.0),
@@ -1235,7 +1437,7 @@ fn frame(p: &mut Parts) {
     // Lofts: joists across the plates over the bays the spec names.
     for &j in &l.lofts {
         for i in 0..l.joists_per_bay {
-            p.member(
+            p.carrier(
                 (Level::Loft, Some(j), PartKind::Joist, i),
                 Stage::Frame,
                 (
@@ -1748,7 +1950,11 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> 
     let n = l.n;
     let storey_m2 = l.l * l.w * M2;
     let bay_m2 = l.b * l.w * M2;
-    let wall_posts = if l.wall_kind == 0 { 2 * (n + 1) } else { 0 };
+    let wall_posts = if l.wall_kind == 0 || l.infill {
+        2 * (n + 1)
+    } else {
+        0
+    };
     // Storeyed posts: the first storey's set in the ground, and a post a storey above it.
     let posts_above = if l.storeyed {
         wall_posts * (l.storeys as usize - 1)
@@ -1804,24 +2010,62 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> 
         round_section_m2(d) * count as f64 * len_cm * 0.01 * rules.timber_kg_per_m3
     };
     let floor_posts_kg = timber(l.pd, floor_posts, l.floor_post_h + l.depth);
-    let frame_kg = if l.storeyed {
-        timber(l.pd, wall_posts, l.z_g + l.h + l.depth) + timber(l.pd, posts_above, l.h)
+    // A steel skeleton's posts, plates, beams and joists weigh the frame's density over their
+    // envelope (ADR-0037 §3); its ridge, trusses and rafters stay timber.
+    // A concrete frame's are cast in their envelopes, of its concrete and bar (version 5).
+    let m3 = |d: f64, count: usize, len_cm: f64| round_section_m2(d) * count as f64 * len_cm * 0.01;
+    let carried_m3 = m3(l.pd, wall_posts, l.z_g + l.h + l.depth)
+        + m3(l.pd, posts_above, l.h)
+        + m3(l.beam, 1, beams_m * 100.0)
+        + m3(l.jst, joists, l.w);
+    let (frame_kg, skeleton_kg) = if l.skeleton || l.concrete {
+        (
+            timber(l.beam, 1, ridge_m * 100.0 + truss_m * 100.0) + timber(l.raf, rafters, l.slope),
+            if l.skeleton {
+                carried_m3 * rules.frame_kg_per_m3
+            } else {
+                0.0
+            },
+        )
     } else {
-        timber(l.pd, wall_posts, l.z_p + l.depth)
-    } + timber(
-        l.beam,
-        1,
-        beams_m * 100.0 + ridge_m * 100.0 + truss_m * 100.0,
-    ) + timber(l.raf, rafters, l.slope)
-        + timber(l.jst, joists, l.w);
+        let frame_kg = if l.storeyed {
+            timber(l.pd, wall_posts, l.z_g + l.h + l.depth) + timber(l.pd, posts_above, l.h)
+        } else {
+            timber(l.pd, wall_posts, l.z_p + l.depth)
+        } + timber(
+            l.beam,
+            1,
+            beams_m * 100.0 + ridge_m * 100.0 + truss_m * 100.0,
+        ) + timber(l.raf, rafters, l.slope)
+            + timber(l.jst, joists, l.w);
+        (frame_kg, 0.0)
+    };
     let boards_kg = deck_m2 * l.dk * 0.01 * rules.timber_kg_per_m3 + rules.ladder_kg * ladders;
+    let count = frame_materials::count(l.version);
     let slots = |timber: f64, wattle: f64, covering: f64, boards: f64| {
-        let mut kg = vec![0.0; frame_materials::COUNT];
+        let mut kg = vec![0.0; count];
         kg[usize::from(TIMBER)] = timber;
         kg[usize::from(WATTLE)] = wattle;
         kg[usize::from(COVERING)] = covering;
         kg[usize::from(BOARDS)] = boards;
         kg
+    };
+    let mut frame_stage_kg = slots(frame_kg, 0.0, 0.0, 0.0);
+    if let Some(kg) = frame_stage_kg.get_mut(usize::from(FRAME)) {
+        *kg = skeleton_kg;
+    }
+    if l.concrete {
+        frame_stage_kg[usize::from(CONCRETE)] = carried_m3 * rules.concrete_kg_per_m3;
+        frame_stage_kg[usize::from(BAR)] = carried_m3 * rules.bar_kg_per_m3;
+    }
+    // A cased skeleton's casing, of the program's concrete (ADR-0037 §5).
+    if l.encased {
+        frame_stage_kg[usize::from(CONCRETE)] = carried_m3 * rules.encasement_kg_per_m3;
+    }
+    let casing_h = if l.encased {
+        carried_m3 * rules.encasement_h_per_m3
+    } else {
+        0.0
     };
 
     let foundation_labour = if l.footing == 1 {
@@ -1831,6 +2075,8 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> 
             + trench_vol_m3 * (rules.daub_h_per_m3 + 12.0)
             + rules.posthole_h * floor_posts as f64
             + rules.post_h * floor_posts as f64
+            // A frame's posts among its infill's footing (none where the walls carry).
+            + rules.posthole_h * if l.infill { wall_posts as f64 } else { 0.0 }
     } else {
         rules.groundwork_h_per_m2 * storey_m2
             + rules.posthole_h * (wall_posts + floor_posts) as f64
@@ -1875,11 +2121,18 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> 
         },
         StageNeeds {
             stage: Stage::Frame,
-            labour_h: rules.post_h * (wall_posts + posts_above) as f64
-                + rules.beam_h_per_m * (beams_m + ridge_m + truss_m)
-                + rules.rafter_h * rafters as f64
-                + rules.joist_h_per_m * joists as f64 * l.w * 0.01,
-            materials_kg: slots(frame_kg, 0.0, 0.0, 0.0),
+            // A concrete frame's members are formed, barred, cast and stripped by the cubic metre.
+            labour_h: if l.concrete {
+                rules.concrete_h_per_m3 * carried_m3
+                    + rules.beam_h_per_m * (ridge_m + truss_m)
+                    + rules.rafter_h * rafters as f64
+            } else {
+                rules.post_h * (wall_posts + posts_above) as f64
+                    + rules.beam_h_per_m * (beams_m + ridge_m + truss_m)
+                    + rules.rafter_h * rafters as f64
+                    + rules.joist_h_per_m * joists as f64 * l.w * 0.01
+            } + casing_h,
+            materials_kg: frame_stage_kg,
         },
         StageNeeds {
             stage: Stage::Walls,
@@ -1946,9 +2199,11 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
     let raised_m2 = if l.raised { storey_m2 } else { 0.0 };
     let joist_share = l.joists_per_bay as f64 / (l.joists_per_bay + 1) as f64;
     let timber = Some(TIMBER);
+    // Posts, beams and joists: a steel skeleton's of the frame's material (ADR-0037 §3).
+    let carrier = Some(l.carrier());
     let storeys_h = l.h * f64::from(l.storeys);
     let mut out = Vec::new();
-    if l.wall_kind == 0 && l.storeyed {
+    if (l.wall_kind == 0 || l.infill) && l.storeyed {
         // Each storey's posts carry the roof's slope, half of every floor above their storey and
         // the lofts, and the first storey's a raised floor's share too.
         let lofts_m2 = l.lofts.len() as f64 * bay_m2;
@@ -1961,7 +2216,7 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
                     kind: GroupKind::Posts,
                     index: side as u8,
                     stage: Stage::Frame,
-                    material: timber,
+                    material: carrier,
                     count: n + 1,
                     section: [l.pd, l.pd],
                     length: if t == 0 { l.z_g + l.h } else { l.h },
@@ -1982,7 +2237,7 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
                 kind: GroupKind::Posts,
                 index: side as u8,
                 stage: Stage::Frame,
-                material: timber,
+                material: carrier,
                 count: n + 1,
                 section: [l.pd, l.pd],
                 length: l.z_p,
@@ -2032,6 +2287,27 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
             });
         }
     }
+    if l.infill {
+        // Version 5's mass infill: one group per long wall per storey, at its storey's thickness,
+        // carrying nothing but itself; the frame carries it and everything above.
+        for t in 0..l.storeys {
+            for (side, _) in l.long_walls() {
+                out.push(GroupOf {
+                    level: storey_level(t),
+                    bay: None,
+                    kind: GroupKind::MassWall,
+                    index: side as u8,
+                    stage: Stage::Walls,
+                    material: Some(WATTLE),
+                    count: 1,
+                    section: [l.l - l.windows_along(t, side, l.b), l.storey_wt[t as usize]],
+                    length: l.h,
+                    spacing: l.wall_kind as f64,
+                    area_m2: 0.0,
+                });
+            }
+        }
+    }
     if l.ties {
         // Each storey's ties restrain its walls; by gravity they carry nothing.
         for t in 0..l.storeys {
@@ -2073,7 +2349,7 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
         kind: GroupKind::TieBeams,
         index: 0,
         stage: Stage::Frame,
-        material: timber,
+        material: carrier,
         count: n + 1,
         section: [l.beam, l.beam],
         length: l.w,
@@ -2087,7 +2363,7 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
             kind: GroupKind::TieBeams,
             index: 0,
             stage: Stage::Frame,
-            material: timber,
+            material: carrier,
             count: n + 1,
             section: [l.beam, l.beam],
             length: if middle { l.w / 2.0 } else { l.w },
@@ -2098,9 +2374,10 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
     for &(level, j, _) in &decks {
         let (kind, span) = match level {
             Level::Loft => (GroupKind::LoftJoists, l.w),
-            Level::Upper | Level::Third | Level::Fourth => (GroupKind::FloorJoists, l.w),
             // A raised floor, with its middle rail.
             Level::Ground | Level::Roof => (GroupKind::RaisedFloor, l.w / 2.0),
+            // The floor of a storey above the first.
+            _ => (GroupKind::FloorJoists, l.w),
         };
         out.push(GroupOf {
             level,
@@ -2108,7 +2385,7 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
             kind,
             index: 0,
             stage: Stage::Frame,
-            material: timber,
+            material: carrier,
             count: l.joists_per_bay,
             section: [l.jst, l.jst],
             length: span,
@@ -2363,6 +2640,13 @@ mod tests {
             loft_kg_per_m2: 150.0,
             living_kg_per_m2: 60.0,
             timber_kg_per_m3: 760.0,
+            frame_kg_per_m3: 0.0,
+            concrete_kg_per_m3: 0.0,
+            bar_kg_per_m3: 0.0,
+            concrete_h_per_m3: 0.0,
+            encasement_kg_per_m3: 0.0,
+            encasement_h_per_m3: 0.0,
+            encasement_min: 0.0,
             groundwork_h_per_m2: 3.0,
             posthole_h: 0.8,
             post_h: 12.0,
@@ -3437,6 +3721,632 @@ mod tests {
         old.version = 2;
         old.params[fp::POST_SYSTEM] = 1;
         assert!(expand_frame(&old, &house()).is_err());
+    }
+
+    /// `spec` as version 4, naming steel sections for the frame's slot.
+    fn as_v4(spec: &BuildingSpec) -> BuildingSpec {
+        let mut s = spec.clone();
+        s.version = 4;
+        s.materials.push("core:good/steel_section".into());
+        s
+    }
+
+    /// Rules with a steel skeleton's density (ADR-0037 §3: 7850 kg/m³ over 0.1425 of the
+    /// envelope, a design prior).
+    fn skeleton_rules(rules: FrameRules) -> FrameRules {
+        FrameRules {
+            frame_kg_per_m3: 1119.0,
+            ..rules
+        }
+    }
+
+    #[test]
+    fn version_four_with_nothing_of_its_own_expands_as_version_three() {
+        // ADR-0037 §3: version 4 is version 3 with a skeleton; without it, it builds what version
+        // 3 builds, its fifth slot needing nothing.
+        let mut storeyed = tall(3);
+        storeyed.params[fp::POST_SYSTEM] = 1;
+        let cases = goldens()
+            .into_iter()
+            .map(|(s, r, _)| (BuildingSpec { version: 3, ..s }, r))
+            .chain([(storeyed, tall_house()), (trussed(), tall_house())]);
+        for (spec, rules) in cases {
+            let v3 = expand_frame(&spec, &rules).expect("version 3 expands");
+            let mut v4 = expand_frame(&as_v4(&spec), &skeleton_rules(rules)).expect("version 4");
+            assert_eq!(v4.version, 4);
+            v4.version = 3;
+            for stage in &mut v4.stages {
+                assert_eq!(stage.materials_kg.len(), frame_materials::COUNT_V4);
+                assert_eq!(stage.materials_kg.pop(), Some(0.0));
+            }
+            assert_eq!(v4, v3);
+        }
+    }
+
+    #[test]
+    fn a_steel_skeleton_carries_its_storeys_on_the_frames_material() {
+        let r = skeleton_rules(tall_house());
+        let mut storeyed = tall(3);
+        storeyed.params[fp::POST_SYSTEM] = 1;
+        let timber = expand_frame(&storeyed, &r).expect("storeyed posts");
+        let mut s = as_v4(&storeyed);
+        s.params[fp::POST_SYSTEM] = 2;
+        let e = expand_frame(&s, &r).expect("a steel skeleton");
+        // Laid out as storeyed posts: the same parts where they were, its posts, plates, beams
+        // and joists of the frame's material, everything else as it was.
+        assert_eq!(e.parts.len(), timber.parts.len());
+        let carried = [
+            PartKind::Post,
+            PartKind::WallPlate,
+            PartKind::TieBeam,
+            PartKind::Joist,
+        ];
+        let mut on_frame = 0;
+        for (a, b) in e.parts.iter().zip(&timber.parts) {
+            assert_eq!((a.id, a.kind, a.at, a.size), (b.id, b.kind, b.at, b.size));
+            if a.stage == Stage::Frame && carried.contains(&a.kind) {
+                assert_eq!(a.material, Some(FRAME), "{:?}", a.kind);
+                on_frame += 1;
+            } else {
+                assert_eq!(a.material, b.material, "{:?}", a.kind);
+            }
+        }
+        // Five frame lines of two posts on three storeys, eight plates at the head and on each
+        // floor, five tie beams at the head and five cross beams a floor, three joists a bay on
+        // two floors of four bays.
+        assert_eq!(on_frame, 30 + 8 * 3 + 5 * 3 + 3 * 4 * 2);
+        assert!(
+            e.parts
+                .iter()
+                .any(|p| p.kind == PartKind::Rafter && p.material == Some(TIMBER))
+        );
+        // Its posts, beams and joists groups on the frame's slot; rafters still timber.
+        for (a, b) in e.groups.iter().zip(&timber.groups) {
+            let frame = matches!(
+                a.kind,
+                GroupKind::Posts
+                    | GroupKind::TieBeams
+                    | GroupKind::FloorJoists
+                    | GroupKind::LoftJoists
+            );
+            let expect = if frame { Some(FRAME) } else { b.material };
+            assert_eq!(a.material, expect, "{:?}", a.kind);
+            assert_eq!(
+                Group {
+                    material: b.material,
+                    ..*a
+                },
+                *b
+            );
+        }
+        // The frame's kilograms are its members' volume at the frame's density; what they took of
+        // timber moves to it, at the ratio of the densities. Labour is as storeyed posts'.
+        let m3: f64 = e
+            .parts
+            .iter()
+            .filter(|p| p.material == Some(FRAME))
+            .map(|p| {
+                let [x, y, z] = p.size.map(f64::from);
+                let (d, len) = if p.kind == PartKind::Post {
+                    (x, z)
+                } else {
+                    (y, x)
+                };
+                std::f64::consts::PI / 4.0 * d * d * len * 1e-6
+            })
+            .sum();
+        let frame = |e: &Expansion| e.stages[Stage::Frame.index()].clone();
+        let steel = frame(&e).materials_kg[usize::from(FRAME)];
+        assert!((steel - m3 * 1119.0).abs() < 1e-6, "{steel} kg");
+        let wood = frame(&timber).materials_kg[usize::from(TIMBER)];
+        assert!(
+            (frame(&e).materials_kg[usize::from(TIMBER)] + steel * 760.0 / 1119.0 - wood).abs()
+                < 1e-6
+        );
+        assert!(
+            frame(&e).materials_kg[usize::from(TIMBER)] > 0.0,
+            "rafters and ridge"
+        );
+        assert_eq!(frame(&e).labour_h, frame(&timber).labour_h);
+        // Every other stage as it was, its frame slot empty.
+        for stage in [Stage::Foundation, Stage::Walls, Stage::Roof, Stage::Finish] {
+            let mut a = e.stages[stage.index()].clone();
+            assert_eq!(a.materials_kg.pop(), Some(0.0));
+            assert_eq!(a, timber.stages[stage.index()]);
+        }
+    }
+
+    #[test]
+    fn a_steel_skeleton_may_stand_one_storey() {
+        let r = skeleton_rules(workshop());
+        let through = expand_frame(
+            &BuildingSpec {
+                version: 3,
+                ..workshop_spec()
+            },
+            &r,
+        )
+        .expect("a timber workshop");
+        let mut s = as_v4(&workshop_spec());
+        s.params[fp::POST_SYSTEM] = 2;
+        let e = expand_frame(&s, &r).expect("a one-storey skeleton");
+        // One storey's posts in the ground to the plates, where through posts stand.
+        assert_eq!(e.parts.len(), through.parts.len());
+        for (a, b) in e.parts.iter().zip(&through.parts) {
+            assert_eq!((a.id, a.at, a.size), (b.id, b.at, b.size));
+        }
+        let posts: Vec<&Part> = e
+            .parts
+            .iter()
+            .filter(|p| p.kind == PartKind::Post)
+            .collect();
+        assert_eq!(posts.len(), 6);
+        assert!(posts.iter().all(|p| p.material == Some(FRAME)));
+        // Its loft's joists are the skeleton's too.
+        let loft = e
+            .groups
+            .iter()
+            .find(|g| g.kind == GroupKind::LoftJoists)
+            .expect("a loft");
+        assert_eq!(loft.material, Some(FRAME));
+        assert!(e.stages[Stage::Frame.index()].materials_kg[usize::from(FRAME)] > 0.0);
+    }
+
+    #[test]
+    fn a_steel_skeleton_of_version_four_rises_to_twelve_storeys_laid_out_as_the_fourth() {
+        // ADR-0042 §3: storeys five to twelve, each laid out as the fourth, a stair required.
+        let r = skeleton_rules(FrameRules {
+            storeys: (1, MAX_STOREYS_V4),
+            ..tall_house()
+        });
+        let skeleton = |storeys: u8| {
+            let mut s = as_v4(&tall(storeys));
+            s.params[fp::POST_SYSTEM] = 2;
+            s.params[fp::OPENINGS + 3] = 300;
+            s
+        };
+        let four = expand_frame(&skeleton(4), &r).expect("four storeys");
+        for storeys in 5..=MAX_STOREYS_V4 {
+            let e = expand_frame(&skeleton(storeys), &r).expect("a tall skeleton expands");
+            let n = usize::from(storeys);
+            let levels: Vec<Level> = e
+                .spaces
+                .iter()
+                .map(|s| s.level)
+                .filter(|l| l.storey_index().is_some())
+                .collect();
+            assert_eq!(levels, (0..n).filter_map(Level::storey).collect::<Vec<_>>());
+            // Every storey above the fourth has the fourth's floor, walls and openings: those
+            // between give up two flights' floor, as the fourth does, and the top one, as a
+            // building of four's top does.
+            let floor = |e: &Expansion, t: usize| -> f64 {
+                e.spaces
+                    .iter()
+                    .filter(|s| s.level == Level::storey(t).expect("a storey"))
+                    .map(|s| s.area_m2)
+                    .sum()
+            };
+            for t in 4..n - 1 {
+                assert!((floor(&e, t) - floor(&e, 3)).abs() < 1e-9, "storey {t}");
+            }
+            assert!((floor(&e, n - 1) - floor(&four, 3)).abs() < 1e-9);
+            assert!(floor(&e, 3) < floor(&four, 3));
+            let windows = |level: Level| {
+                e.parts
+                    .iter()
+                    .filter(|p| p.kind == PartKind::Window && p.id >> 24 == u32::from(level.code()))
+                    .count()
+            };
+            let top = Level::storey(n - 1).expect("a storey");
+            assert!(windows(top) > 0 && windows(top) == windows(Level::Fourth));
+            // Its posts and floors are the skeleton's, on every storey; its groups stay within
+            // version 4's.
+            assert!(
+                e.parts
+                    .iter()
+                    .filter(|p| p.kind == PartKind::Post)
+                    .all(|p| p.material == Some(FRAME))
+            );
+            assert!(e.groups.len() <= max_groups(4));
+            // Taller costs more of everything.
+            assert!(e.total_labour_h() > four.total_labour_h());
+        }
+        // Twelve bays of twelve storeys, lofted throughout, stay within version 4's groups.
+        let mut hall = skeleton(MAX_STOREYS_V4);
+        hall.params[fp::BAYS] = 12;
+        hall.params[fp::LOFT_BAYS] = (1 << 12) - 1;
+        if let Footprint::Rect { length, .. } = &mut hall.footprint {
+            *length = 12 * 250;
+        }
+        let e = expand_frame(&hall, &r).expect("a hall of twelve bays and twelve storeys");
+        assert!(e.groups.len() > MAX_GROUPS_V3 && e.groups.len() <= max_groups(4));
+        // Past twelve, refused by name.
+        let mut thirteen = skeleton(MAX_STOREYS_V4);
+        thirteen.storeys = MAX_STOREYS_V4 + 1;
+        let r13 = FrameRules {
+            storeys: (1, 13),
+            ..r.clone()
+        };
+        assert!(expand_frame(&thirteen, &r13).is_err());
+        // A skeleton of three storeys or more needs its stair; a lift is never required.
+        let mut no_stair = skeleton(6);
+        no_stair.params[fp::STAIR] = 0;
+        assert_eq!(
+            expand_frame(&no_stair, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "6 storeys need a stair (parameter {})",
+                fp::STAIR
+            )))
+        );
+        // Timber frames, and every version before 4, keep four at most.
+        let mut timber = as_v4(&tall(4));
+        timber.storeys = 5;
+        timber.params[fp::POST_SYSTEM] = 1;
+        assert_eq!(
+            expand_frame(&timber, &r),
+            Err(GrammarError::OutOfRange(
+                "storeys 5 is outside 1..=4".into()
+            ))
+        );
+        let mut v3 = tall(4);
+        v3.storeys = 5;
+        assert!(expand_frame(&v3, &r).is_err());
+        assert_eq!(frame_limits(4), (MAX_BAYS, MAX_STOREYS));
+        assert_eq!(skeleton_limits(3), (MAX_BAYS, MAX_STOREYS));
+        assert_eq!(skeleton_limits(4), (MAX_BAYS, MAX_STOREYS_V4));
+    }
+
+    #[test]
+    fn a_steel_skeleton_is_refused_by_name_where_it_cannot_be() {
+        let r = skeleton_rules(tall_house());
+        let skeleton = || {
+            let mut s = as_v4(&tall(3));
+            s.params[fp::POST_SYSTEM] = 2;
+            s
+        };
+        assert!(expand_frame(&skeleton(), &r).is_ok());
+        // Before version 4.
+        for version in [2, 3] {
+            let mut old = tall(3);
+            old.version = version;
+            old.params[fp::POST_SYSTEM] = 2;
+            if version == 3 {
+                assert_eq!(
+                    expand_frame(&old, &r),
+                    Err(GrammarError::OutOfRange(format!(
+                        "a steel skeleton (post system 2, parameter {}) is unknown to frame \
+                         version 3",
+                        fp::POST_SYSTEM
+                    )))
+                );
+            } else {
+                assert!(expand_frame(&old, &r).is_err());
+            }
+        }
+        // With mass walls.
+        let mut rubble = skeleton();
+        rubble.params[fp::WALL_KIND] = 1;
+        rubble.params[fp::FOOTING] = 1;
+        rubble.params[fp::WALL_CM] = 50;
+        let wide = FrameRules {
+            mass_wall_cm: (30, 90),
+            ..r.clone()
+        };
+        assert_eq!(
+            expand_frame(&rubble, &wide),
+            Err(GrammarError::OutOfRange(format!(
+                "a steel skeleton (parameter {}) has infill between its posts; mass walls are \
+                 not laid in it",
+                fp::POST_SYSTEM
+            )))
+        );
+        // Where the program gives no frame density.
+        assert_eq!(
+            expand_frame(&skeleton(), &tall_house()),
+            Err(GrammarError::OutOfRange(format!(
+                "a steel skeleton (parameter {}) needs the program's frame density, not 0",
+                fp::POST_SYSTEM
+            )))
+        );
+        // A post system beyond it.
+        let mut odd = skeleton();
+        odd.params[fp::POST_SYSTEM] = 3;
+        assert!(expand_frame(&odd, &r).is_err());
+        // Version 4 names five materials, versions 1 to 3 four.
+        let mut four = skeleton();
+        four.materials.pop();
+        assert_eq!(
+            expand_frame(&four, &r),
+            Err(GrammarError::OutOfRange(
+                "a frame of version 4 names 5 materials, not 4".into()
+            ))
+        );
+        let mut five = tall(3);
+        five.materials.push("core:good/steel_section".into());
+        assert_eq!(
+            expand_frame(&five, &r),
+            Err(GrammarError::OutOfRange(
+                "a frame of version 3 names 4 materials, not 5".into()
+            ))
+        );
+        assert_eq!(frame_materials::count(3), frame_materials::COUNT);
+        assert_eq!(frame_materials::count(4), frame_materials::COUNT_V4);
+    }
+
+    /// `spec` as version 5, naming steel sections, concrete and bar for its last three slots.
+    fn as_v5(spec: &BuildingSpec) -> BuildingSpec {
+        let mut s = as_v4(spec);
+        s.version = 5;
+        s.materials.push("core:good/concrete".into());
+        s.materials.push("core:good/reinforcing_bar".into());
+        s
+    }
+
+    /// Rules with a concrete frame's figures (design priors: 2,250 kg of dry mix and 120 kg of
+    /// bar a cubic metre cast, 25 hours a cubic metre to form, bar, cast and strip).
+    fn concrete_rules(rules: FrameRules) -> FrameRules {
+        FrameRules {
+            concrete_kg_per_m3: 2250.0,
+            bar_kg_per_m3: 120.0,
+            concrete_h_per_m3: 25.0,
+            ..skeleton_rules(rules)
+        }
+    }
+
+    #[test]
+    fn version_five_with_nothing_of_its_own_expands_as_version_four() {
+        let mut storeyed = tall(3);
+        storeyed.params[fp::POST_SYSTEM] = 1;
+        let mut skeleton = as_v4(&tall(3));
+        skeleton.params[fp::POST_SYSTEM] = 2;
+        let cases = goldens()
+            .into_iter()
+            .map(|(s, r, _)| (as_v4(&BuildingSpec { version: 3, ..s }), r))
+            .chain([
+                (as_v4(&storeyed), tall_house()),
+                (as_v4(&trussed()), tall_house()),
+                (skeleton, tall_house()),
+            ]);
+        for (spec, rules) in cases {
+            let rules = skeleton_rules(rules);
+            let v4 = expand_frame(&spec, &rules).expect("version 4 expands");
+            let mut five = spec.clone();
+            five.version = 5;
+            five.materials.push("core:good/concrete".into());
+            five.materials.push("core:good/reinforcing_bar".into());
+            let mut v5 = expand_frame(&five, &concrete_rules(rules)).expect("version 5");
+            assert_eq!(v5.version, 5);
+            v5.version = 4;
+            for stage in &mut v5.stages {
+                assert_eq!(stage.materials_kg.len(), frame_materials::COUNT_V5);
+                assert_eq!(stage.materials_kg.pop(), Some(0.0));
+                assert_eq!(stage.materials_kg.pop(), Some(0.0));
+            }
+            assert_eq!(v5, v4);
+        }
+    }
+
+    #[test]
+    fn a_concrete_frame_casts_its_carrying_members_of_concrete_and_bar() {
+        let r = concrete_rules(tall_house());
+        let mut storeyed = tall(3);
+        storeyed.params[fp::POST_SYSTEM] = 1;
+        let timber = expand_frame(&storeyed, &r).expect("storeyed posts");
+        let mut s = as_v5(&storeyed);
+        s.params[fp::POST_SYSTEM] = 3;
+        let e = expand_frame(&s, &r).expect("a concrete frame");
+        // Laid out as storeyed posts, its posts, plates, beams and joists of concrete.
+        assert_eq!(e.parts.len(), timber.parts.len());
+        let carried = [
+            PartKind::Post,
+            PartKind::WallPlate,
+            PartKind::TieBeam,
+            PartKind::Joist,
+        ];
+        let mut cast = 0;
+        for (a, b) in e.parts.iter().zip(&timber.parts) {
+            assert_eq!((a.id, a.kind, a.at, a.size), (b.id, b.kind, b.at, b.size));
+            if a.stage == Stage::Frame && carried.contains(&a.kind) {
+                assert_eq!(a.material, Some(CONCRETE), "{:?}", a.kind);
+                cast += 1;
+            } else {
+                assert_eq!(a.material, b.material, "{:?}", a.kind);
+            }
+        }
+        assert_eq!(cast, 30 + 8 * 3 + 5 * 3 + 3 * 4 * 2);
+        for (a, b) in e.groups.iter().zip(&timber.groups) {
+            let frame = matches!(
+                a.kind,
+                GroupKind::Posts
+                    | GroupKind::TieBeams
+                    | GroupKind::FloorJoists
+                    | GroupKind::LoftJoists
+            );
+            let expect = if frame { Some(CONCRETE) } else { b.material };
+            assert_eq!(a.material, expect, "{:?}", a.kind);
+        }
+        // Concrete and bar by the members' volume; no steel sections; the timber left is the
+        // ridge, trusses and rafters'.
+        let m3: f64 = e
+            .parts
+            .iter()
+            .filter(|p| p.material == Some(CONCRETE))
+            .map(|p| {
+                let [x, y, z] = p.size.map(f64::from);
+                let (d, len) = if p.kind == PartKind::Post {
+                    (x, z)
+                } else {
+                    (y, x)
+                };
+                std::f64::consts::PI / 4.0 * d * d * len * 1e-6
+            })
+            .sum();
+        let frame = |e: &Expansion| e.stages[Stage::Frame.index()].clone();
+        let kg = frame(&e).materials_kg;
+        assert!(
+            (kg[usize::from(CONCRETE)] - m3 * 2250.0).abs() < 1e-6,
+            "{kg:?}"
+        );
+        assert!((kg[usize::from(BAR)] - m3 * 120.0).abs() < 1e-6, "{kg:?}");
+        assert_eq!(kg[usize::from(FRAME)], 0.0);
+        let wood = frame(&timber).materials_kg[usize::from(TIMBER)];
+        assert!(
+            (kg[usize::from(TIMBER)] + m3 * 760.0 - wood).abs() < 1e-6,
+            "the members' timber, gone to concrete"
+        );
+        assert!(kg[usize::from(TIMBER)] > 0.0, "rafters and ridge");
+        // Its labour: the cast members' by the cubic metre, the timber roof's as before.
+        let posts_and_beams = frame(&timber).labour_h;
+        assert!(frame(&e).labour_h > m3 * 25.0);
+        assert_ne!(frame(&e).labour_h, posts_and_beams);
+        // Every other stage as it was, its last three slots empty.
+        for stage in [Stage::Foundation, Stage::Walls, Stage::Roof, Stage::Finish] {
+            let mut a = e.stages[stage.index()].clone();
+            for _ in 0..3 {
+                assert_eq!(a.materials_kg.pop(), Some(0.0));
+            }
+            assert_eq!(a, timber.stages[stage.index()]);
+        }
+        // It rises as a skeleton does, to twelve storeys.
+        let mut tall_one = as_v5(&tall(3));
+        tall_one.params[fp::POST_SYSTEM] = 3;
+        tall_one.storeys = 8;
+        let tall_rules = FrameRules {
+            storeys: (1, MAX_STOREYS_V4),
+            ..r.clone()
+        };
+        assert!(expand_frame(&tall_one, &tall_rules).is_ok());
+    }
+
+    #[test]
+    fn mass_infill_is_carried_by_the_frame_storey_by_storey() {
+        // A concrete frame of three storeys with rubble infill (version 5), against the same with
+        // wattle infill and against rubble walls that carry (version 3).
+        let r = FrameRules {
+            mass_wall_cm: (30, 90),
+            ..concrete_rules(tall_house())
+        };
+        let mut wattle = as_v5(&tall(3));
+        wattle.params[fp::POST_SYSTEM] = 3;
+        let mut infill = wattle.clone();
+        infill.params[fp::WALL_KIND] = 1;
+        infill.params[fp::FOOTING] = 1;
+        infill.params[fp::WALL_CM] = 40;
+        let mut bearing = tall(3);
+        bearing.params[fp::WALL_KIND] = 1;
+        bearing.params[fp::FOOTING] = 1;
+        bearing.params[fp::WALL_CM] = 40;
+        let framed = expand_frame(&wattle, &r).expect("wattle infill");
+        let e = expand_frame(&infill, &r).expect("rubble infill");
+        let walls = expand_frame(&bearing, &r).expect("bearing rubble");
+        // Its frame stands as with wattle: the same posts, beams and joists, cast.
+        let carried = |e: &Expansion| -> Vec<Part> {
+            e.parts
+                .iter()
+                .filter(|p| p.material == Some(CONCRETE))
+                .copied()
+                .collect()
+        };
+        assert_eq!(carried(&e), carried(&framed));
+        assert_eq!(
+            e.stages[Stage::Frame.index()],
+            framed.stages[Stage::Frame.index()]
+        );
+        // Its walls are the bearing walls' masonry, a group a long wall a storey, carrying nothing
+        // but themselves; no wattle.
+        let mass = |e: &Expansion| -> Vec<Group> {
+            e.groups
+                .iter()
+                .filter(|g| g.kind == GroupKind::MassWall)
+                .copied()
+                .collect()
+        };
+        assert_eq!(mass(&e).len(), 3 * 2);
+        assert!(mass(&e).iter().all(|g| g.area_m2 == 0.0));
+        assert!(mass(&walls).iter().any(|g| g.area_m2 > 0.0));
+        for (a, b) in mass(&e).iter().zip(mass(&walls)) {
+            assert_eq!(Group { area_m2: 0.0, ..b }, *a);
+        }
+        assert!(!e.groups.iter().any(|g| g.kind == GroupKind::Infill));
+        assert_eq!(
+            e.stages[Stage::Walls.index()].materials_kg[usize::from(WATTLE)],
+            walls.stages[Stage::Walls.index()].materials_kg[usize::from(WATTLE)]
+        );
+        // On a stone footing, with a posthole for each of its frame's posts.
+        let ground = |e: &Expansion| e.stages[Stage::Foundation.index()].labour_h;
+        assert!(ground(&e) > ground(&walls));
+        assert!(e.parts.iter().any(|p| p.kind == PartKind::StoneFooting));
+        // A skeleton of version 4 still refuses it.
+        let mut old = as_v4(&tall(3));
+        old.params[fp::POST_SYSTEM] = 2;
+        old.params[fp::WALL_KIND] = 1;
+        old.params[fp::FOOTING] = 1;
+        old.params[fp::WALL_CM] = 40;
+        assert!(expand_frame(&old, &skeleton_rules(r.clone())).is_err());
+        let mut steel = infill.clone();
+        steel.params[fp::POST_SYSTEM] = 2;
+        assert!(
+            expand_frame(&steel, &r).is_ok(),
+            "a skeleton of version 5 lays it"
+        );
+    }
+
+    #[test]
+    fn a_concrete_frame_is_refused_by_name_where_it_cannot_be() {
+        let r = concrete_rules(tall_house());
+        let concrete = || {
+            let mut s = as_v5(&tall(3));
+            s.params[fp::POST_SYSTEM] = 3;
+            s
+        };
+        assert!(expand_frame(&concrete(), &r).is_ok());
+        let mut old = as_v4(&tall(3));
+        old.params[fp::POST_SYSTEM] = 3;
+        assert_eq!(
+            expand_frame(&old, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "a concrete frame (post system 3, parameter {}) is unknown to frame version 4",
+                fp::POST_SYSTEM
+            )))
+        );
+        // Mass walls in it are infill, laid (`mass_infill_is_carried_by_the_frame_storey_by_storey`);
+        // ties are not.
+        let mut tied = concrete();
+        tied.params[fp::WALL_KIND] = 1;
+        tied.params[fp::FOOTING] = 1;
+        tied.params[fp::WALL_CM] = 50;
+        tied.params[fp::TIES] = 1;
+        let wide = FrameRules {
+            mass_wall_cm: (30, 90),
+            ..r.clone()
+        };
+        assert_eq!(
+            expand_frame(&tied, &wide),
+            Err(GrammarError::OutOfRange(format!(
+                "wall ties (parameter {}) bind mass walls that carry; a frame holds its infill",
+                fp::TIES
+            )))
+        );
+        assert_eq!(
+            expand_frame(&concrete(), &skeleton_rules(tall_house())),
+            Err(GrammarError::OutOfRange(format!(
+                "a concrete frame (parameter {}) needs the program's concrete and bar densities \
+                 and hours, not 0, 0 and 0",
+                fp::POST_SYSTEM
+            )))
+        );
+        let mut odd = concrete();
+        odd.params[fp::POST_SYSTEM] = 4;
+        assert!(expand_frame(&odd, &r).is_err());
+        let mut six = concrete();
+        six.materials.pop();
+        assert_eq!(
+            expand_frame(&six, &r),
+            Err(GrammarError::OutOfRange(
+                "a frame of version 5 names 7 materials, not 6".into()
+            ))
+        );
+        assert_eq!(frame_materials::count(5), frame_materials::COUNT_V5);
     }
 
     #[test]

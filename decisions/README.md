@@ -45,6 +45,12 @@ the milestone is too big and gets split.
 | [0036](0036-electricity-and-the-telegraph.md) | Electricity and the telegraph | Accepted | M11 |
 | [0037](0037-frames-of-steel-and-concrete.md) | Frames of steel and concrete | Accepted | M11 |
 | [0038](0038-refuse-tips-and-residues.md) | Refuse, tips and residues | Accepted | M11 |
+| [0039](0039-a-model-deliberator-and-viewers.md) | A model deliberator, and more than one viewer | Accepted | M12 |
+| [0040](0040-letting-rooms.md) | Letting rooms | Accepted | M11 (deferrals) |
+| [0041](0041-sewers-and-treatment.md) | Sewers and treatment | Accepted | M11 (deferrals) |
+| [0042](0042-climbing-lifts-taller-frames-and-wind.md) | Climbing, lifts, taller frames and wind | Accepted | M11 (deferrals) |
+| [0043](0043-what-is-left-and-where-people-have-looked.md) | What is left of a source, and where people have looked | Accepted | M11 (M11d's demo) |
+| [0044](0044-salvage-sewage-farms-and-sewer-mending.md) | Salvage, sewage farms and mending sewers | Accepted | M11 (deferrals) |
 
 ## Template
 

@@ -161,7 +161,7 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | | `[build.caution]` | How builders answer what their settlement has seen of a technique's buildings (ADR-0009 §6; content API 17): `half_life_years` (0.5 to 100), over which failures and the building-years they stood fade by half; `most` (1 to 10), the most times its usual strength a frame building's joists and posts are made; `half_rate` (above 0), the failures a building-year at which caution is half way to its most; `death_weight` (0 to 100), how many failures more each death in one counts as. |
 | | `[build.levelling]` | How a household levels the plot of a building on sloping ground (ADR-0010 §2; content API 19): `from_m` and `most_m` (0 < from_m ≤ most_m ≤ 20), metres the ground may drop across a plot before it is cut and filled to one level, and beyond which it is not built on; `h_per_m3` (above 0), hours to dig a cubic metre of earth as it lay in the ground, carry it across the plot and spread and tamp it as fill; `side_run` (0.5 to 10), metres across a platform's sides run for each metre up or down. |
 | `digging` | `h_per_m3`, `pit_side_m` | How people dig at a deposit (ADR-0010 §2; content API 20): hours a capable adult takes to dig a cubic metre of earth as it lay in the ground and lift it out (above 0), and the side of the square pit, metres (1 to 20), whose spoil is heaped on a square of the same side beside it. |
-| `midden` | `kg_per_person_day`, `n_kg_per_person_year`, `half_life_days`, `load_kg`, `spread_h_per_t` | Each household's midden beside its home and carrying it to the fields (M3c slice V; content API 29): kilograms a member adds to the heap a day (0 to 10) and the nitrogen a member's share holds a year (0 to 20; the core pack's must stay below the nitrogen in the grain a person eats in a year, which a test checks: a midden returns part of what harvests took, never more); days the heap takes to lose half of itself and its nitrogen to the air and the rain (0 to 36,500; 0 keeps it all); kilograms carried in one load (1 to 200); and hours a capable adult takes to dig a tonne out of the heap and spread it (0 to 100), besides carrying it a load at a time there and back. |
+| `midden` | `kg_per_person_day`, `n_kg_per_person_year`, `half_life_days`, `load_kg`, `spread_h_per_t`, `sort_kg_h` | Each household's midden beside its home and carrying it to the fields (M3c slice V; content API 29): kilograms a member adds to the heap a day (0 to 10) and the nitrogen a member's share holds a year (0 to 20; the core pack's must stay below the nitrogen in the grain a person eats in a year, which a test checks: a midden returns part of what harvests took, never more); days the heap takes to lose half of itself and its nitrogen to the air and the rain (0 to 36,500; 0 keeps it all); kilograms carried in one load (1 to 200); and hours a capable adult takes to dig a tonne out of the heap and spread it (0 to 100), besides carrying it a load at a time there and back; and kilograms of a heap or a tip a capable adult sorts by hand in an hour, taking out what it wants (1 to 10,000; content API 221). |
 | `ties` | `room`, `companions`, `prior`, `evidence_half_life_days`, `familiarity_half_life_days`, `warmth_half_life_days`, `fear_half_life_days`, `help_half_life_days`, `hold_help_h`, `salience_per_evidence`, `new_share`, `ask_known_min`, `acts` | What people remember of one another (M4a slice Y, ADR-0014; content API 30): the most ties a person keeps (1 to 1,000); how many of those at the hearth a session's company touches (0 to 100); the good and bad evidence a stranger starts from in each domain (0.01 to 100); the half-lives, in days, at which evidence fades back to that prior and familiarity, warmth, fear and the balance of help fade toward nothing (1 to 36,500); the hours of help owed or owing above which a tie is let go only when no other can be (0 to 10,000); the salience a unit of evidence adds beside familiarity and warmth (0 to 10); the share of a session's company drawn from those not yet known (0 to 1); and the minutes further a household short of food walks to ask someone its members regard fully than a stranger, among those who could give it as much (0 to 1,440). `acts` says, for every act the engine records (`gift_received`, `gift_given`, `wages_paid`, `work_seen`, `rent_paid`, `land_lent`, `traded`, `learned_from`, `hearth`; from content API 35 also `took_from_us`, `took_from_others`, `restored` and `refused_restitution`: coming to believe the other took food from one's own household or another's, and the other's household giving back, or refusing to give back, what was taken from one's own), the share of the gap to 1 that each act, or each hour for `learned_from` and `hearth`, closes in familiarity and warmth (0 to 1), and the good and bad evidence it adds (0 to 100) in its `domain` (`provision`, `craft`, `word`, `counsel`, or `none`). Every act must be listed once; an act the engine does not record is an error. |
 | `standing` | `candidates`, `notable_share`, `notable_floor`, `notable_keep` | Standing and notables (M4a slice Y, ADR-0014 §3-4; content API 30), worked out on the first of each month: how many people each adult counts among those they regard most (1 to 100); the share of a settlement's adults who are notables (0 to 1), at least `notable_floor` of them (0 to 1,000); and how far down the ranking a notable may fall and stay one, in multiples of their number (1 to 10). Being a notable grants nothing: it only decides who considers the settlement's affairs weekly, from slice Z. |
 | `polity` | `review_days`, `notice_days`, `gathering_minutes`, `quorum_share` | The polity and its founding custom (M4a slice Z, ADR-0013; content API 31): days between a polity's routine reviews, when its notables, the elders of households whose food will not last, and whoever came to a gathering or learnt a law since the last review weigh proposing (1 to 365); days from a proposal to the gathering that decides it (1 to 30); minutes a gathering sits from the start of the evening (15 to 600); and the share of the settlement's adults who must come for it to decide (0 to 1). Every world starts from this one custom: the adults at the hearth decide by acclamation, more for than against, a tie failing. |
@@ -212,7 +212,7 @@ How land is classified and what grows wild. Exactly one profile.
 | `channel_area_km2` | Drainage area that counts as a stream when measuring height above the nearest stream. |
 | `richness_min`, `richness_max`, `richness_feature_m` | Patch-to-patch variation of productivity and its spatial scale. |
 | `[weather]` | How the weather is drawn (ADR-0012 §1; content API 23): one daily series for the whole map, from the world's seed and its landscape, the same at every speed. Monthly values are twelve figures, January first. Rain: `wet_days` (0 to 0.95), the share of days with at least `wet_day_mm` (0.1 to 10) of rain or snow water; `rain_share` (summing to 1), each month's share of the preset's `precipitation_mm_per_yr`; `persistence` (0 to 0.95), how much likelier rain is after a wet day than after a dry one; `gamma_shape` (0.2 to 5), the shape of a wet day's amount above the threshold. Temperature: `mean_c`, each month's mean at `normals_at_m` metres (interpolated between mid-months); `day_sd_c` and `day_persistence` (0 to 0.99), the day's anomaly about it and its lag-one correlation; `day_range_c`, the day's range from lowest to highest; `wet_day_range` (0.1 to 1), a wet day's range against the month's; `wet_day_cooling_c`, how much cooler a wet day is than a dry one, each month's mean kept; `lapse_c_per_km` (0 to 12), the fall with height. The slow anomaly, a monthly AR(1) that carries wet and dry spells across seasons: `slow_months` (1 to 600), its persistence; `slow_amount` (0 to 1) and `slow_wet_days` (0 to 0.5), how it scales wet days' amounts (mean kept) and their share; `slow_warmth_c`, its effect on each month's temperature. Snow: falls below `snow_below_c`, melts `melt_mm_per_c` mm of water a degree-day, and lies in bands of 100 m. Soil water (FAO-56): `soil_water_mm` (10 to 500) held between field capacity and wilting, `easy_water_share` (0.1 to 0.9) drawn unstressed, and `cover_kc` (0.1 to 2), the wild cover's use against the reference evapotranspiration (Hargreaves, from temperature and the people profile's latitude). Workable days (ADR-0012 §5; content API 24): `wet_ground_mm` (0.5 to 100), a day's rain or snow, mm of water, that makes the ground too wet to work that day, and `frozen_below_c` (−10 to 5), the day's mean below which it is frozen; snow lying keeps people off it too. Breaking, preparing and sowing ground wait for a day it can be worked (weeding, reaping and threshing go on), and households plan their spring work on the share of the sowing window's days the landscape usually allows, worked at the people profile's `peak_work_hours_per_day`. Roof loads (ADR-0012 §5; content API 25): `storm_median_kpa` (0 to 50) and `storm_spread` (0 to 3), the month's storm, one draw a month for every roof under the world's weather on one day of the month, log-normal in kilopascals on a roof's plan (its median and the spread of its logarithm); `roof_snow_share` (0 to 2), the share of the snow lying on the ground at a building's height that a roof keeps when pitched at `roof_snow_full_deg` or less, falling in proportion to none at `roof_snow_shed_deg` (0 to 90, above `roof_snow_full_deg`). Snow on a roof presses its water's weight. |
-| `[soil]` | How the soils hold nitrogen (ADR-0012 §3; content API 27), kilograms a hectare of native ground of average richness (a field's ground scales them): `slow_n_kg_ha` (0 to 50,000), organic nitrogen in humus, and `fast_n_kg_ha` (0 to 5,000), in roots, stubble and fresh organic matter; `slow_turnover` (0 to 0.5) and `fast_turnover` (0 to 1, at least `slow_turnover`), the share of each pool that turns to mineral nitrogen in a year; `free_n_kg_ha` (0 to 200), mineral nitrogen the air and free-living microbes add a year; and `uptake_share` (0 to 1), the share of a year's mineral nitrogen a crop can take up. Each field's pools turn once a year, on the first of January: what they release and what the air adds is the year's supply, the rest of last year's being lost, and a harvest is the least of what its season and that supply allow. A field that gave no harvest the year before grew its wild cover, which brings each pool back toward native ground's at the pool's own rate. `regrown_years` (content API 28; 0 to 100, 0 never): whole years broken ground can lie unsown before it has grown over and must be broken again (not cleared again). `manure_fast_share` (content API 29; 0 to 1): the share of dung's nitrogen that enters the fast pool, the rest the slow one, each pool's share of it turning at once so the year's crop draws on `manure_fast_share × fast_turnover + (1 − manure_fast_share) × slow_turnover` of it wherever in the year it is spread. |
+| `[soil]` | How the soils hold nitrogen (ADR-0012 §3; content API 27), kilograms a hectare of native ground of average richness (a field's ground scales them): `slow_n_kg_ha` (0 to 50,000), organic nitrogen in humus, and `fast_n_kg_ha` (0 to 5,000), in roots, stubble and fresh organic matter; `slow_turnover` (0 to 0.5) and `fast_turnover` (0 to 1, at least `slow_turnover`), the share of each pool that turns to mineral nitrogen in a year; `free_n_kg_ha` (0 to 200), mineral nitrogen the air and free-living microbes add a year; and `uptake_share` (0 to 1), the share of a year's mineral nitrogen a crop can take up. Each field's pools turn once a year, on the first of January: what they release and what the air adds is the year's supply, the rest of last year's being lost, and a harvest is the least of what its season and that supply allow. A field that gave no harvest the year before grew its wild cover, which brings each pool back toward native ground's at the pool's own rate. `regrown_years` (content API 28; 0 to 100, 0 never): whole years broken ground can lie unsown before it has grown over and must be broken again (not cleared again); the same whole years left unkept grow over the cleared margin of a way beside a trail's tread, its usable width falling back to the tread (backlog D, fourteenth item; read by the engine, no new key, so the content API stays 227). `manure_fast_share` (content API 29; 0 to 1): the share of dung's nitrogen that enters the fast pool, the rest the slow one, each pool's share of it turning at once so the year's crop draws on `manure_fast_share × fast_turnover + (1 − manure_fast_share) × slow_turnover` of it wherever in the year it is spread. |
 | `[banks]` | Conditional overtopping erosion (content API 87; optional). `erosion_per_head_day` (0 to 10, default 0.02) multiplies actual overflow head in metres to the power 1.5 to give metres of crest loss in a day. This is a design prior, not a historical breach frequency. Dry and sub-crest conditions do not erode a bank. Removed soil remains in an explicit compacted-equivalent washed-sediment stock; deposition and remobilization are not modelled yet. Piping, quality, settlement changes and repair work remain planned. |
 | `[groundwater]` | Water under the ground and the rivers by the day (ADR-0021 §1–§2; content API 69; optional). What the reference soil cannot hold on a day is its surplus: `recharge_share` (0 to 1) of it drains down to a shallow aquifer, the rest runs off at once. The aquifer keeps a head for each habitat patch and exchanges water with the four patches beside it and with the river, lake or sea in a patch; where a head reaches the lowest ground of its patch the water seeps out there. What reaches the water and what runs off pass through one runoff store for the world, which lets go `1 − e^(−1/recession_days)` of what it holds a day (`recession_days` 0.1 to 365); its outflow against the landscape's long-run mean surplus scales every reach's mean discharge. A patch off the water whose head stands at its lowest ground is a spring there once what flows to it from the patches round it reaches `spring_min_m3_day` (0 to 10,000). `[[groundwater.unit]]` (1 to 16, first match wins): a unit of ground under the habitats it names (`habitats`, habitat ids; the last unit names none and lies under the rest), with a `name`, `k_m_day` (`[least, most]` within 1e-9 to 10,000) and `specific_yield` (`[least, most]` within 0.0001 to 0.5), between which each world draws its conductivity (evenly in its logarithm) and specific yield once, and `thickness_m` (0.1 to 500), its saturated thickness. Left out, one unit of alluvial sand (1 to 10 m a day, 0.15 to 0.3, 10 m) lies under everything, half the surplus recharges and the store's recession is three days. |
 | `[contamination]` | How what people shed moves through the ground and water (ADR-0021 §4; content API 73; optional). Each day a heap beside a home loses `wash_per_mm` (0 to 1) of its load for each mm of the day's surplus, at most `wash_max` (0 to 1), to the open wellheads and river banks within `runoff_radius_m` (0 to 1,000) whose ground lies no higher, split by nearness (none there, it soaks away); `seep_per_day` (0 to 1) of it soaks in, and `capture_share` (0 to 1) of that reaches the wells and rivers within `link_radius_m` (0 to 1,000) and no higher, split by nearness, after the ground's travel time `d·n / (K·i)` (research 03-02 §1.6; `K` and `n` its unit's conductivity and specific yield, `i` the slope of the ground, at least `min_gradient`, 0 to 1), less what dies on the way. Each person drinks `drink_l_per_day` (0 to 30) of their household's water: what carries a dose. Left out, the core's values hold (0.01, 0.5, 30 m, 0.02, 30 m, 0.1, 0.005, 3 L); all are tuning values. |
@@ -242,7 +242,7 @@ Something people carry home and keep.
 | `shared` | When brought home it is shared among every household of the settlement, by members. |
 | `reserve_for` | The food it is kept back from, like seed from grain, or `""`: a recipe that needs that food takes this one only in real hunger, and never the seed to sow the ground already cropped. |
 | `[tool]` | For a tool only: `life_h`, the hours of use a standard tool lasts (stores count tools in standard tools, so 2.4 sickles are two and what is left of a third, ADR-0006); `per_adult`, how many a household wants for each member of working age (rounded up; 0 for none); `fixed`, it stays where it was made and is never carried off: founders and families the observer sends bring none of it (an oven). |
-| `[timber]` | For a material built with as timber only (content API 16, ADR-0009 §5): `bending_mpa`, `compression_mpa` and `stiffness_gpa`, its strength in bending and in compression along the grain and its stiffness; `creep`, how much further it bends under load carried for years than at first (φ); `sustained`, the share of its strength it keeps under such load (above 0, at most 1). Members of a material without it carry nothing in the checks. |
+| `[timber]` | For a material built with as timber only (content API 16, ADR-0009 §5): `bending_mpa`, `compression_mpa` and `stiffness_gpa`, its strength in bending and in compression along the grain and its stiffness; `creep`, how much further it bends under load carried for years than at first (φ); `sustained`, the share of its strength it keeps under such load (above 0, at most 1); optional `burnt_keeps` (0 to 1, content API 208, ADR-0037 §5), the share of its strength a bare member keeps once its building has burnt out, for a material that softens rather than chars (absent, its members char). Members of a material without it carry nothing in the checks. |
 | `[store]` | For a store only (content API 20, ADR-0010 §2): `keeps_kg` (above 0, at most 1000), the kilograms of food one keeps as a raised floor keeps them. A store stands under a roof in the room it keeps: a household counts each as turning that many kilograms of the room in its lofts and on its floors into raised room, and makes more while food lies in its lofts and on its floors that would keep better in one. Stores add no room, and food in the open gains nothing from them. |
 
 People eat the most perishable food that can be eaten first. A material or tool is never eaten,
@@ -299,7 +299,7 @@ building skill and `[upkeep]`.
 | | `technique` | The technique building it needs (ADR-0008). |
 | | `skill` | The skill building and mending it use and train (a skill id, or `""`): its builders' average level sets how evenly its parts are made (ADR-0009 §6). |
 | `upkeep` | `covering`, `posts`, `infill`, `under_leak` | How its parts wear (ADR-0009 §4), each `[share lost a year, share at which it shows]`: the roof's covering in the weather; posts at their foot, times the wetness of the habitat it stands in; walls' infill at their foot; and roofed timber (beams, joists, rafters, a raised floor) times the share of the roof over it that leaks. Shares lost a year are zero or more, thresholds above 0 and at most 1. A part is lost entirely at a loss of 1: a covering is gone, posts give way (a ruin). |
-| `materials` | a hut's `timber`, `wattle`, `thatch`; a frame's `timber`, `wattle`, `covering`, `boards` | The good each material slot is made of (good ids, each a `material`). |
+| `materials` | a hut's `timber`, `wattle`, `thatch`; a frame's `timber`, `wattle`, `covering`, `boards`, and optionally `frame` (content API 207) | The good each material slot is made of (good ids, each a `material`); `frame` is a steel skeleton's posts, beams and joists (ADR-0037 §3). |
 | `rules` (a hut's) | `radius_cm`, `eave_cm`, `pitch_deg` | Allowed ranges, `[least, most]`. |
 | | `floor_base_m2`, `floor_m2_per_sleeper` | The floor a household needs whatever its size and per resident; the hut's radius follows, rounded up to whole decimetres. |
 | | `store_kg_per_m2` | Goods its floor holds besides living on it, kilograms a square metre. |
@@ -318,6 +318,7 @@ A frame program's rules are a `[frame]` table instead:
 | `floor_base_m2`, `floor_m2_per_sleeper`, `work_m2_per_worker` | Living floor a household needs whatever its size and per resident; floor a place to work takes. |
 | `store_kg_per_m2`, `loft_kg_per_m2`, `living_kg_per_m2` | Goods a store's floor, a loft and living or working floor hold, kilograms a square metre. |
 | `timber_kg_per_m3` | The timber's density: posts, beams, rafters, joists and boards are costed from their sizes. |
+| `frame_kg_per_m3` | A steel skeleton's members' weight over their envelope (content API 207; 0, the default, for none): its posts, beams and joists are costed from their sizes at it. |
 | `groundwork_h_per_m2`, `posthole_h`, `post_h`, `beam_h_per_m`, `rafter_h`, `joist_h_per_m`, `wattle_h_per_m2`, `daub_h_per_m3`, `thatch_h_per_m2`, `finish_h_per_m2`, `decking_h_per_m2`, `ladder_h` | Person-hours of a capable adult for each part. All positive. |
 | `wattle_kg_per_m2`, `thatch_kg_per_m2`, `ladder_kg` | Material in each part besides the timber its sizes give. |
 | `mass_wall_cm` | A mass wall's allowed thickness from frame version 3, `[least, most]` (before it, mass walls are held to `wall_cm`). |
@@ -362,6 +363,7 @@ decided by people at run time.
 | `task` | For `farm` only: the field work, one of `prepare`, `sow`, `tend`, `reap`, `thresh`. |
 | `recipe` | For `make` only: the recipe worked, at home. |
 | `digs` | For `dig` only: the good dug (a good id; content API 20). People dig it at a pit on a deposit of it that their settlement knows, while their household needs it, and carry it home; the land profile must lay down deposits of it. |
+| `picks` | For `pick` only, and required there: the good sorted out of a heap or a tip, the ash good or a tool's `[scrap]` (content API 221; ADR-0044 §2). People pick it at their own heap or their polity's open tip while their household wants it, toward a tool it lacks or what it builds, and not where a neighbour sells it for fewer of their hours. |
 | `tools` | Tools the work needs and wears (good ids; `[]` for none). Without a free one in the household the work is left out, and the tool counts as one work waits on. A `make` activity's tools are its recipe's, so it lists none. |
 | `rate` | Work done in an hour against the task's authored rates: 1 with the tools they assume, less by hand (reaping without a sickle, cutting rods without an axe). Field work at a lower rate is left out while the same task can be done at a higher one, and gathering at a lower rate while the household holds the tool for a higher one. |
 | `name`, `doing` | "Gather plants"; "gathering wild plants" (what the inspector says). |
@@ -602,7 +604,7 @@ template the content no longer has is refused.
 | Field | Meaning |
 |---|---|
 | `does` | What the kernel does under it: `common_store`, a share of each household's threshed grain paid into a store the polity keeps at the hearth, and food from it for a household short of food that asks; `keep_store`, a named adult keeps the common store under their own roof and gives from it at their home (the office's first form, below); `against_taking` (content API 36), whoever the gathering finds took from another household's store gives back what was taken, with what the bundle adds (below); `keep_watch` (content API 37), a named adult keeps watch over the households' stores at night (below); `curfew` (content API 38), nobody may be away from home in the hours it sets, but the watch at its rounds and those at a gathering (below); or `amend_body` (content API 40), the custom itself changes: who belongs to the deciding body, how many must come and how it decides (below). Content API 49 adds `repeal`: a law that ends the one it names, with nothing in its place; passed, it is carried rather than in force, and the law it names is superseded. Content API 59 adds `claim_place`: the polity claims the places its people saw people of another settlement working within the year, unclaimed, each named in the law when it is proposed; its own people's use is unchanged (ADR-0020 §5). Content API 67 adds `build_crossing`: the polity builds a crossing at the site its sponsor names, each household asked an equal share of the work (below). Content API 78 adds `close_source`: nobody may draw at the source of water its sponsor holds sickens, kept by each person's choice (below). Content API 79 adds `dig_well`: the polity digs a well beside the hearth, each household asked an equal share of the work (below). |
-| `answers` | The issues whose presence makes proposing it a move: `food_short` (the settlement's food ran short within the year, or a household's food will not last until its next harvest); `store_unkept` (a common store is in force and holds food, and no one keeps it); `takings` (a household of the settlement found food taken from its store within the year). At least one. Content API 40 adds `overruled`: a gathering the person came to within memory decided against where they stood, or they hold a grievance against the gathering; it opens moves to them alone. Content API 49 adds `founding`: within `founding_days` of the custom being taken from the gathering, while laws the old custom made are unweighed; it opens to every member of the new body an end to each of them. Content API 59 adds `outsiders`: a household of the settlement saw people of another settlement working, within the year, a place its own people work and the polity does not claim. Content API 67 adds `fords`: a household of the settlement wades a stream where a crossing of a system its people know could stand, within the work's walk of the hearth, and none stands. Content API 78 adds `sickness` (someone of a household of the settlement lay sick at home lately, as its members saw) and `source_suspected` (someone holds, from their own tally, that a source of water the polity does not close sickens; it opens moves to them alone). Content API 79 adds `water_far` (a household of the settlement walks far for water, as it last walked it, so far that its people use less water for it, and a well dug together beside the hearth would save the settlement's households more walking over its lining's life than its work). |
+| `answers` | The issues whose presence makes proposing it a move: `food_short` (the settlement's food ran short within the year, or a household's food will not last until its next harvest); `store_unkept` (a common store is in force and holds food, and no one keeps it); `takings` (a household of the settlement found food taken from its store within the year). At least one. Content API 40 adds `overruled`: a gathering the person came to within memory decided against where they stood, or they hold a grievance against the gathering; it opens moves to them alone. Content API 49 adds `founding`: within `founding_days` of the custom being taken from the gathering, while laws the old custom made are unweighed; it opens to every member of the new body an end to each of them. Content API 59 adds `outsiders`: a household of the settlement saw people of another settlement working, within the year, a place its own people work and the polity does not claim. Content API 67 adds `fords`: a household of the settlement wades a stream where a crossing of a system its people know could stand, within the work's walk of the hearth, and none stands. Content API 78 adds `sickness` (someone of a household of the settlement lay sick at home lately, as its members saw) and `source_suspected` (someone holds, from their own tally, that a source of water the polity does not close sickens; it opens moves to them alone). Content API 79 adds `water_far` (a household of the settlement walks far for water, as it last walked it, so far that its people use less water for it, and a well dug together beside the hearth would save the settlement's households more walking over its lining's life than its work). Content API 224 adds `closing_unsuspected` (a closing of a source is in force and nobody of the polity's households holds any longer that the water there sickens; a `repeal` that answers it ends that closing). |
 | `levy_shares` | `common_store` only: the shares of threshed grain a sponsor may propose (1 to 8 of them, each above 0 and below 1). A `keep_store` or `keep_watch` template leaves it out. |
 | `relief_days` | `common_store` only: the most food one ask brings, in days of the asking household's need (above 0, at most 365). A `keep_store` template leaves it out. |
 | `hours` | `curfew` only (content API 38): the hours a sponsor may propose, 1 to 8 pairs `[from, to]` of hours of the day (0 to 23, different), the curfew running from the first to the second, past midnight when the second is the smaller. Any other template leaves it out. |
@@ -1842,3 +1844,329 @@ metre, `rating_kw` the most a line passes, `voltage_v` the world's one direct-cu
 `ohm_per_m` a metre's resistance out and back (losses are I²R at that voltage), and `life_years`
 how long a line serves; each above 0 and in range. The core's: copper, 0.62 kg and half an hour a
 metre, 6 kW, 110 V, 0.001 ohms, forty years (design priors). A profile without it lays no line.
+
+Content API 207 (M11e, second part; ADR-0037 §3) brings frame version 4's steel skeleton. A frame
+program's `[systems]` may name `skeleton`, the technique that opens it; its `[materials]` may name
+`frame`, a fifth slot holding the good a skeleton's posts, plates, tie and cross beams and joists
+are made of; and its `[frame]` may give `frame_kg_per_m3`, what a cubic metre of those members
+weighs over their envelope (zero or more, 0 by default). A program naming `skeleton` needs both. A
+skeleton member is checked by its good's `[timber]` strengths, spread over the envelope of the
+round member it replaces. The core adds `technique/skeleton_frame` (requiring `rolling` and
+`jointed_frame`, tried toward in building huts, a far technique nobody starts knowing), gives
+`good/steel_section` a `[timber]` table (an I-section of 235 MPa and 210 GPa smeared over its
+envelope: 68 MPa in bending, 33.5 in compression, 61 GPa, no creep), and offers the skeleton in the
+workshop and the hall at 1119 kg/m³ (design priors).
+
+Content API 208 (M11e, third part; ADR-0037 §5) adds `[timber]`'s optional `burnt_keeps`: the share
+of its strength a bare member of the good keeps once its building has burnt out. Such members do not
+char; when the fire burns out each keeps that share of what it carried, and the daily check decides
+whether it still stands. The core gives `good/steel_section` 0.4 (research 11-14 §1.6, §2.1: about
+0.6 of yield at 550 °C, 0.4 at 600 °C). Protection in minutes and the `ProtectedFrame` rule are
+deferred.
+
+Content API 209 (M11f, first part; ADR-0038 §2) adds `[fuel]`'s optional `ash_share` (0–0.5,
+default 0): kilograms of ash a kilogram of the good leaves burned. What a household's hearth burns
+puts its ash on the household's heap, an inert share that never decays, dungs no field and carries
+nothing to the water. What a recipe takes of a fuel, by unit or by session, leaves its ash in the
+maker's store as `good/ash`, less the ash the fuels it gives keep (coke keeps its coal's, charcoal
+its wood's). The core gives firewood 0.005 and coal 0.11 (research 12-10 §2.1), charcoal 0.03 and
+coke 0.10 (design priors), and adds the residues `good/ash`, `good/slag`, `good/coal_tar` and
+`good/ammoniacal_liquor`, all materials that keep. `recipe/make_gas` gives 0.05 kg of tar and
+0.13 kg of liquor a kilogram of coal besides its gas and coke (12-10 §5.7); the bloomery leaves
+6 kg of slag a kilogram of bloom, the blast furnace 0.6 a kilogram of pig on charcoal or coke, the
+finery 0.35 a kilogram of bar and the converter 0.15 a kilogram of steel (design priors; 12-10 §5.7
+for the furnace). Nobody wants a residue unless a recipe takes one.
+
+Content API 210 (M11f, second part; ADR-0038 §3) adds the policy kind `refuse_to_tip` and the issue
+`heaps_near`. A `refuse_to_tip` template needs a `[tip]` table, which no other kind may have:
+`from_m` (1–1000 m; the tip stands farther than this from every open well, spring and stream and
+from every home, and from every open well as far as a `midden_from_wells` rule in force asks),
+`every_days` (1–365; a household carries its heap there at most this often), `carry_h` (0–24, the
+hours a carrying takes as a household weighs it), `avoided_share` (0–1, the share of its deaths of
+disease within the year it believes a cleaner place would have spared), and `heap_kg` (1–100,000)
+and `heap_near_m` (1–1000): a household's heap, decaying share and ash, heavier than `heap_kg`
+within `heap_near_m` of another household's home raises `heaps_near`. Passing the law opens one
+tip, once, on the clear dry ground nearest the settlement's homes that qualifies; where none does,
+no tip opens and nobody carries. Under it a household's member carries the whole heap there, walked
+as carrying a midden from the water is (`behavior = "midden"`); its decaying share, its ash and its
+load of a disease move to the tip, whose load washes and seeps to the water from the tip's place as
+a heap's does. It is kept by choice and supersedes `clear_middens` for a household once its tip is
+open. The core's `policy/zealously_zone_a_refuse_tip` answers `source_suspected` and `heaps_near`
+with 30 m, 30 days, an hour, a fifth, 500 kg and 30 m (design priors).
+
+Content API 211 (M11f, third part; ADR-0038 §4) adds the policy kind `collect_refuse`. A
+`collect_refuse` template needs a `[round]` table, which no other kind may have: `every_days` (1–365;
+the days between the round's runs) and `round_h` (0–24, the hours a run takes as a household weighs
+the law against the carrying it would be spared). Passing the law, where the polity keeps a tip a
+law carrying refuse to one opened and is still in force, has a household of the settlement that
+keeps a cart (the greatest payload) work a refuse round to that tip: every `every_days` it calls at
+the settlement's other homes in turn, empties each heap, its decaying share and its ash, into the
+cart up to the vehicle's `payload_kg`, and tips the load there, its disease loads moving with it;
+homes beyond what a run carries wait for the next. The homes pay nothing; the keeper's hours are
+common work, paid from the store under a `pay_work` law, and with nothing to pay them the round does
+not go. Apart from any law, a household keeping a cart may post a round of its own (a run every 7
+days, design priors in the kernel), each home paying a fee in food a call on the `Refuse` ledger
+channel; a home joins only where the fees cost it less, by its hours, than the carrying a law asks
+of it. The core's `policy/zealously_zone_a_round_for_refuse` answers `source_suspected` and
+`heaps_near` with 7 days and 4 hours (design priors).
+
+M11f's fourth part (ADR-0038 §5) adds no field; content API stays 211. The kernel reads
+`core:good/refuse` by id: a household holding a whole engine whose `[power]` `fuel` is that good
+draws from its polity's open tip, each midnight, what its engines would burn at their rating over
+an evening, less what it holds, the tip's decaying kilograms and that share of each disease load
+moving into its store; burning refuse destroys the load it held. Every engine's fuel (a station's,
+a pit's, a locomotive's or a motor cart's) now leaves its `ash_share` as `good/ash` in its keeper's
+store. The core adds `good/refuse` (a material, 3.87 MJ a kilogram, 0.15 of coal's, research 12-10
+§2.2; `ash_share` 0.3, 12-10 §5.5's 25–35 %), `good/destructor` (a fixed tool, 6 kW at 5 %, burning
+refuse), `recipe/build_destructor` (8,000 kg of brick, 1,200 of iron, 200 of timber, 3,000 hours),
+its activity, and `technique/refuse_destructor` (forging with lime burning or firing; tried in
+burning lime and making gas, holding iron; 500,000 hours to half). The figures are design priors.
+
+Content API 212 (ADR-0040) adds the people profile's required `[letting]` table:
+`asking_rent_food_days_per_person_month` (0–365; the asking rent a household with spare sleeping
+floor starts from, in days of its lodgers' food a person a month), `step` (0–365; how far its
+asking rent moves up after an offer it turned away for want of room, and down after a review with
+spare floor and no lodger while households of its settlement are roofless, never below 0) and
+`candidates` (1–64; the most homes a household with no roof of its own weighs at a review). Spare
+floor is a roofed, finished dwelling's sleeping floor beyond `floor_base_m2` +
+`floor_m2_per_sleeper` × its members, less what it lets; a lodger takes `floor_m2_per_sleeper` × its
+members. The core's early farmers ask a day of food a person a month, a step of a tenth, and weigh
+8 homes (design priors).
+
+Content API 213 (ADR-0041 §1–§4) adds the policy kind `lay_sewer`. A `lay_sewer` template needs a
+`[sewer]` table, which no other kind may have: `walls` and `binders` (goods, any one of each: what a
+metre's walls are built of and bound with), `walls_kg_m` (0–100,000) and `binder_kg_m` (0–10,000;
+kilograms a metre takes), `lay_h_m` (0.01–1000; hours a metre's digging, walling and filling in
+takes), `fall` (0.0001–0.5; the least fall it keeps over each step, a share of its length: a route
+that would rise or fall less is refused), `capacity_kg_day` (1–10,000,000; kilograms of heaps'
+decaying share it carries a day), `life_years` (1–500), `connect_h` (0–1000; the hours a home's
+connection takes once, 0 free), `avoided_share` (0–1; the share of its deaths of disease within the
+year a household believes a sewer would have spared), `settle_share` (0–1; the share of a day's
+load, mass and each disease, a settling tank settles), and optionally `tank` (the fixed tool that
+settles, held whole by the sewer's keeper, the polity's store) and `sludge` (the good what settles
+becomes). Where someone suspects a source, or a heap grew large beside another's home, and a sewer
+from one of the settlement's homes to a river, falling all the way along ways kept by nobody, the
+polity or its households, would spare the homes beside it more over its life than its laying and
+materials, anyone may propose it; passed, the polity marks it out, and each household is asked an
+equal share of the laying, given from its own walls and binder (common work, paid under
+`pay_work`). Laid whole, homes beside it with a building connect: for nothing where the connection
+is free and no law asks them to carry their heap, or where what `refuse_to_tip`, `clear_middens` or
+a round's fees ask of them a year exceeds `connect_h`. Each day a connected home's heap gives what it
+would have gained of its decaying share (its ash still heaps), served in the order connected while
+the capacity lasts; what its people shed that day goes with it to the outfall's river reach,
+recorded as carried. A settling tank keeps `settle_share` of both as sludge in its keeper's store and
+at the tank. The core's `policy/zealously_zone_a_sewer_to_the_river` answers `source_suspected` and
+`heaps_near` with brick or stone at a tonne a metre, quicklime or cement at 50 kg, 10 hours a metre,
+1 in 500, 1,000 kg a day, 50 years, a free connection, a fifth and a half (design priors). The core
+adds `good/settling_tank` (a fixed tool), `good/sludge` (a material), `technique/settling` (burning
+lime or firing; tried in no work, so only the observer brings it) and `recipe/build_settling_tank`
+(6,000 kg of brick and 300 of quicklime, 1,500 hours) with its activity.
+
+Content API 214 (ADR-0042 §1) adds the people profile's required `[climbing]` table:
+`up_s_per_storey` and `down_s_per_storey` (0–600; seconds a person takes to climb a storey by a
+stair, and to come down one). A household's members sleep on a home's storeys filled from the
+ground up (its `floor_base_m2` first, then `floor_m2_per_sleeper` each); each member's share of
+the household's trips out and back costs its storeys' climb. A home's design counts it, over the
+years a site is weighed, beside the shape's building and ground hours; a household seeking a room
+counts it for the storey the room lies on, the highest storey of the home with floor to spare
+(lets are filled from the top down), beside the rent and the walks. The core's early farmers climb
+in 15 s a storey and come down in 8 (design priors; research 11-14 §2.5: 10–20 s).
+
+Within content API 214 (ADR-0042 §3), a frame program that offers a steel skeleton
+(`systems.skeleton`) may give `frame.storeys` up to 12: a skeleton of frame version 4 rises to
+twelve storeys, each above the fourth laid out as the fourth (its openings, its infill, a flight of
+the stair to the next); three storeys or more need the stair. Its builders design a shape above four
+storeys as a skeleton where they know it, however dear, since no timber frame stands so tall;
+other programs keep at most four. The core's workshop and hall keep one storey.
+
+Content API 215 (ADR-0042 §2) adds a good's optional `[lift]` table, allowed only on a fixed tool:
+`rated_kg` (1–100,000; the car's rated load), `speed_ms` (0.01–20; its speed), `drive_kw`
+(0.01–10,000; what its drive needs), `stop_s` (0–600; seconds at each landing) and `shaft_m2`
+(0–100; the floor its shaft and landing take on every storey). A household's whole lifts stand in
+its finished frame buildings of version 4 and more than one storey, one each, the tallest first.
+Each takes `shaft_m2` of sleeping floor from every storey of its building. While its keeper has
+power that day (its installations' and its fuel engines' shaft, for four hours on the fuel it
+holds, at least `drive_kw`, or a hookup of its on a wire that was served), a trip out and back
+from a storey above the ground takes twice a wait for the car to come half the building and a ride
+to the ground, each with a stop, where that is quicker than the stair; this is the climb a lodger
+counts for a room there. Nothing else reads a lift: nobody wants one yet, so only a household given
+one, or one that knows how and makes it, holds one. The core adds `good/lift` (630 kg, 1 m/s,
+7.5 kW, 10 s, 7 m²), `technique/passenger_lift` (the steel skeleton with an atmospheric or gas
+engine or the dynamo; tried in building dynamos and gas engines, holding steel sections; 500,000
+hours to half), `recipe/build_lift` (1,500 kg of steel sections, 400 of iron, 60 of copper and 150
+of timber, 1,200 hours) and its activity. The figures are design priors (research 11-14 §2.4,
+§2.5: a car calling at every one of ten storeys of 3.5 m runs its round in about 130 s, inside
+90–180 s).
+
+Content API 216 (ADR-0037, amendment of 2026-11-01) brings frame version 5's reinforced-concrete
+frame. A frame program's `[systems]` gains `concrete` (the technique that opens post system 3), its
+`[materials]` `concrete` and `bar` (named only beside `frame`, whose place they follow), and its
+`[frame]` `concrete_kg_per_m3` (the concrete a cubic metre of its members takes), `bar_kg_per_m3`
+(the bar it takes) and `concrete_h_per_m3` (hours to form, bar, cast and strip it), all 0 by
+default; a program offering the concrete frame needs all of them positive. A concrete frame is laid
+out as a steel skeleton (storeyed posts, one storey too, up to twelve), its posts, plates, beams
+and joists cast in their envelopes; its frame stage takes their volume in concrete and bar at the
+program's figures and labour at its hours a cubic metre, with its ridge, trusses and rafters of
+timber as before; its walls are infill. A cast member is drawn as the envelope of the timber member
+it replaces, as a steel one is, with a member 1.6 times its diameter spread over it: the checks
+read it by the concrete good's `[timber]` table and weigh it at 6,150 kg a cubic metre of envelope
+(2,400 over 2.56 of its area). The designer takes it as it takes the
+skeleton: where its builders know the technique and its program offers it, only when it is the
+cheaper design or the only one that stands so tall. The core adds `good/concrete` (a dry mix of
+cement and stone that keeps as cement does; read over the envelope as 82 MPa in bending, 51 in
+compression, 98 GPa, creep 2, keeping 0.85 under load carried for years and 0.75 after a full
+burn),
+`recipe/batch_concrete` (0.155 kg of cement and 0.845 of stone a kilogram, 0.002 hours; by those
+who know portland cement) and `technique/reinforced_concrete` (portland cement, rolling and the
+jointed frame; tried in building, holding concrete and bar; 400,000 hours to half), and offers it
+in the hall and the workshop at 5,760 kg of concrete, 307 of bar and 64 hours a cubic metre of
+envelope (2,250, 120 and 25 a cubic metre cast). The
+figures are design priors (research 11-14 §2.3: 80-220 kg of bar a cubic metre; formwork 35-60 % of
+a concrete structure's cost).
+
+Content API 217 (ADR-0037, amendment of 2026-11-01) lets a good's `[timber]` say how a cast member
+gains its strength: `strip_days` (0–90; days its forms carry it), `age_a_days` (0–100) and `age_b`
+(above 0, at most 2), all three or none. From `strip_days` after a group is put in place it
+carries `days / (age_a_days + age_b × days)` of its full strength in bending and crushing, at most
+all of it, in the daily check; before, its forms carry it. A concrete frame's walls are begun only
+once its frame's forms may be stripped: `strip_days` after its frame stage was finished. The core's
+concrete is stripped at 7 days on the curve 4 and 0.85 (0.70 of its full strength at 7 days, all
+of it by about 27; the form of ACI 209's curve, research 11-14 §2.1 giving 0.74 at 7 days).
+
+Content API 218 (ADR-0037 §5, as built 2026-11-01) brings protection against fire. A good's
+`[timber]` may give `protection_min` (0–600): minutes of a fully involved fire a member of it keeps
+its strength through, by its own cover. A frame program's `[frame]` may give `encasement_kg_per_m3`,
+`encasement_h_per_m3` and `encasement_min`, all 0 by default: what casing a steel skeleton's posts,
+beams and joists in the program's concrete takes a cubic metre of their envelope, its hours, and the
+minutes it holds. Frame version 5's parameter 28 (`ENCASEMENT`, 0 or 1) cases a skeleton, its frame
+stage taking the casing's concrete and hours; it is refused on any other frame or without the
+program's figures. Through a burn whose full involvement is no longer than a member's protection
+(its own cover, with its skeleton's casing), the member keeps all its strength; otherwise its
+material's `burnt_keeps`. The core's concrete has 60 minutes of cover, and the hall and workshop
+case at 2,250 kg and 15 hours a cubic metre for 90 minutes (design priors; research 11-14 §2.5:
+30–120 minutes by thickness). A fire's full involvement is the people profile's 30 minutes, so
+cover and casing both outlast it.
+
+Content API 219 (ADR-0037 §5) adds the building rule template `protected_frame` with `minutes` (1–600):
+a new steel skeleton must be cased against fire for at least that long. It binds a skeleton (post
+system 2) begun once the law is in force, and a skeleton keeps it when it is cased (parameter 28)
+in a program whose `encasement_min` is at least `minutes`. Builders who keep it case their next
+skeleton where their program cases one so long (it is written as frame version 5). A household
+weighs it by the bare skeletons it heard gave way or saw burn against the hours casing its own
+next home would take. The core adds `policy/zealously_zone_cased_steel`, answering `burned` and
+needing the steel skeleton to propose: 60 minutes (research 11-14 §2.5's 30–120).
+
+Content API 220 (ADR-0044 §1) adds a good's optional `[scrap]` table, allowed only on a tool:
+`good`, a good that is not a tool, and `kg` (above 0, at most 1,000), what a whole one leaves as
+it wears away. Each share of the tool worn leaves that share of the scrap on its holder's heap,
+kept whole beside the heap's decaying share and ash (it never decays, is not dung and carries
+nothing to the water), moved whole to a tip when the heap is carried there. A workable tool's scrap
+counts as provided for the bootstrap check (E3007). The core's iron axe, hoe and sickle leave
+`good/scrap_iron` (0.6, 0.4 and 0.2 kg: half the bar each took, a design prior), and
+`recipe/forge_scrap` welds 1.1 kg of it with 4 kg of charcoal into a kilogram of bar in 2 hours.
+
+Content API 221 (ADR-0044 §2–§3) adds the `pick` behaviour and an activity's `picks`, the good a
+`pick` activity sorts out of a heap or a tip: the ash good (`good/ash`) or a good some tool names
+as its `[scrap]` (E3001 otherwise; only `pick` activities take `picks`, and every `pick` activity
+names one). The people profile's `[midden]` gains `sort_kg_h` (1 to 10,000), the kilograms of a
+heap or a tip a capable adult sorts by hand in an hour. A member may sort its own household's heap
+or its polity's open tip; a session yields `sort_kg_h` times the good's share of what lies there,
+so picking's own cost of a kilogram is `1 / (sort_kg_h × share)` and the walk there and back over a
+load, beside gathering and growing: no price, recovery rate or salvage share is authored. A good
+that lies to be picked counts as obtainable for a way to a material, and a way that takes salvage
+is preferred to the first workable way only where it costs fewer of the household's hours (a dug
+good there priced at its digging hours). The bootstrap check (E3007) counts ash as provided where a
+fuel the world provides leaves ash. The core sorts 100 kg an hour (a design prior; research 12-10
+§6 found no sorting rate), adds `activity/pick_scrap_iron` and `activity/pick_ash`, and
+`recipe/fire_bricks_with_ash` with its activity: `fire_bricks` with a quarter of the clay replaced
+by ash, kilogram for kilogram (3 kg of clay and 1 of ash a unit; a design prior).
+
+Content API 222 (ADR-0044 §4) adds `farm_people_ha` to a `lay_sewer` template's `[sewer]` table
+(0–10,000; absent or 0, no farm): the people whose discharge a hectare of a sewage farm takes a day.
+A field with a cell beside a sewer's route below the lowest route cell any connected home lies
+beside (so the whole flow passes it), whose household has people and whose last harvest, of this
+calendar year or the last, its soil held back (`Limit::Soil`), takes the flow, for nothing: the
+one already taking it while it still qualifies, or else the first the flow passes, the lowest id
+first. At the outfall a settling tank's share settles first; the farm then takes what is left up to
+`farm_people_ha` × its hectares × the people profile's `[midden]` `kg_per_person_day`, and the rest
+goes to the river. What the farm takes enters the field's soil as manure at the heap's nitrogen a
+kilogram (`n_kg_per_person_year` over a person's year of heap), so its crop rises only where its
+soil held it back; its share of each disease shed that day lies at the field's own contagion node
+(code 8), which washes and soaks from the field's centre to the wells and reaches within reach, as
+a tip does. Once a harvest is not held back by the soil the household stops. Nobody ties sickness
+to a field. The core's sewer takes 100 people a hectare (50 kg a day of heaps' decaying share at
+half a kilogram a person, about 100 kg of nitrogen a hectare a year: ADR-0041 §4's prior, checked
+against research 12-10 §2.2's 0.5–1 ha for a hundred people and 12-02 §2.3's 50–100 kg N/ha).
+
+Content API 223 (ADR-0044 §5) adds three terms to a `lay_sewer` template's `[sewer]` table, each
+optional: `deposit_share` (0–1; absent or 0, nothing deposits), the share of what enters a sewer a
+day that stays in it as deposit, mass only (its disease loads pass with the flow); `block_kg_m`
+(0–100,000), the deposit a metre holds before the sewer is blocked; and `clear_h_t` (0–1,000), the
+hours of a capable adult's work clearing a tonne of it takes. A `deposit_share` above 0 needs both
+others above 0. A sewer's room a day is its `capacity_kg_day` × (1 − deposit ÷ (`block_kg_m` ×
+its length)); connections are served in the order made while the room lasts, and once one is
+turned away so is every one after it, so the last connected back up first, for want of capacity
+(`Overloaded`) or of room the deposit took (`Blocked`, a cause appended as code 3). Each month
+every cell of its route loses a twelfth of 1 ÷ `life_years` times its ground's wetness and the
+month's rain against its usual, the factors a well's lining wears by; a cell whose loss reaches 1
+collapses, and the homes whose drains enter at or above the collapse nearest the outfall back up
+(`Broken`) while those below still flow. Each connection counts the days of the year it went
+unserved, by cause. A polity learns of a fault only as it shows (a home backing up for want of
+room the sewer once had, or a collapse), and while the law that laid the sewer is in force its
+review weighs the fault as laying was weighed: the hours a year the homes it backs up would be
+spared, over the sewer's life left, against the work and materials. Relining a collapsed cell
+takes laying's `lay_h_m` and its walls and binder a metre and makes it new; clearing takes
+`clear_h_t` hours a tonne and turns the deposit into `sludge` in the keeper's store. Neither mends
+the other's fault, the work is asked as an equal share of each household (paid where a law pays
+for common work), and with the law ended nobody mends. The core's sewer silts 0.02 of what enters,
+blocks at 20 kg a metre and clears at 10 hours a tonne: design priors (research 12-02, 12-10 and
+12-08 found no deposition or clearing rate; ADR-0010 §2's 8 hours a cubic metre of digging is
+near), so a sewer of 500 m at its 1,000 kg a day blocks in about 500 days unless cleared.
+
+Content API 224 (backlog D; ADR-0021 §7) adds the issue `closing_unsuspected`: a closing of a
+source of water (`close_source`) is in force, and nobody of the polity's households holds any
+longer, from their own tally, that the water there sickens. A `repeal` template may answer it as
+well as `founding`: anyone of the body may then propose an end to that closing, and each household
+weighs the end as it weighed the closing, turned about, by its own forecast in today's units: the
+walking its people would save drawing there again (where they would draw but for the closing,
+over the days sickness stays news), against what its people's tally of the source believes a case
+there costs (nothing, once nobody suspects it); what the closing does to what its people hold dear
+weighs turned about too. Passed, the end is carried and the closing superseded; whether anyone
+proposes it, and whether it passes, is people's choice. The core's `policy/repeal` answers
+`founding` and `closing_unsuspected`. No new keys: a polity's well dug by `dig_well` is relined and
+given a lid and curb at its review, while that law is in force, by the well system's own
+`lining_h_per_m`, `loss_per_year` and `cover_h`, as a household's own well is.
+
+Content API 225 (backlog D) adds the `[ties]` act `defaulted_others`: what hearing that another's
+household did not repay, or refused to repay, what a third household lent it (or that their
+workshop did not pay the wages it owed) writes into the hearer's tie to that household's elder. A
+loan failed is now word told by contact (the claim's creditor's people hold it at first hand; it is
+told at home and at the hearth, as news is, for `word.news_days`, by `word.share_home` and
+`word.share_routine`, and never by the debtor's own household), and each who hears it for the
+first time notes the act; nobody notes it of their own household's elder. The core writes it as
+bad evidence of 1 in `word`, half of `defaulted`.
+
+Content API 226 (backlog D) lets a `hear_cases` template whose `forum.seat` is `holder` carry a
+`[tenure]` table, as `keep_store` and `keep_watch` templates may: its `term_days`, whether the one
+who held it may be named or drawn for the next term (`renewable`), and whether the body names the
+hearer or a lot draws one from those who stood for the law at the gathering (`fill = "lot"`). The
+office lapses at its term's end and cases go to the gathering again until a forum is passed
+afresh. A panel (drawn for each case) and the elders take no tenure. The core adds
+`policy/zestfully_draw_a_hearer_by_lot` (a year, drawn by lot, not renewable) and
+`policy/zestfully_name_a_hearer_for_a_year` (a year, named, renewable), both answering
+`cases_waiting`; whether anyone proposes either, and whether it passes, is people's choice.
+
+Content API 227 (backlog D) adds the `[ties]` act `repaid_others`: what hearing that another's
+household repaid in full what a third household lent it (or that their workshop paid the wages it
+owed when they fell due, or that their household, called on as guarantor, paid the lender what it
+could) writes into the hearer's tie to that household's elder. A debt kept is now word told as a
+loan failed is (the creditor's people hold it at first hand; told at home and at the hearth for
+`word.news_days`, by `word.share_home` and `word.share_routine`, and never by the household whose
+word it was), and each who hears it for the first time notes the act; nobody notes it of their own
+household's elder. The core writes it as good evidence of 0.5 in `word`, half of `repaid`.
+
+With no new key (the API stays 227; a `keep_watch` template has taken a `[tenure]` since content
+API 105), the core adds `policy/zestfully_take_the_watch_by_turns` (backlog D): the watch kept by
+turns, drawn by lot from those who stood for it at the gathering, less anyone keeping a watch
+already, for a season of 90 days, not renewable, answering `takings` and `raided` as the plain
+watch does; whether anyone proposes it, and whether it passes, is people's choice.

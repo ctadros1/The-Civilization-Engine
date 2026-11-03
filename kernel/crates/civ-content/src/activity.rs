@@ -27,6 +27,9 @@ pub(crate) struct ActivityFile {
     /// For digging: the good dug, from the deposits of it the land profile lays down (content API
     /// 20).
     pub digs: Option<String>,
+    /// For picking: the good sorted out of a heap or a tip, the ash good or a tool's scrap
+    /// (content API 221; ADR-0044 §2).
+    pub picks: Option<String>,
     /// Tools the work needs and wears: good ids (a recipe's own tools are on the recipe).
     pub tools: Vec<String>,
     /// Work done in an hour against the task's authored rates (1 with the tools they assume).
@@ -60,6 +63,7 @@ impl ActivityFile {
         resource: Option<usize>,
         recipe: Option<usize>,
         digs: Option<usize>,
+        picks: Option<usize>,
         tools: Vec<usize>,
         technique: Option<usize>,
     ) -> Option<ActivityDef> {
@@ -72,6 +76,7 @@ impl ActivityFile {
             task: self.task.as_deref().and_then(FieldTask::from_name),
             recipe,
             digs,
+            picks,
             tools,
             rate: self.rate,
             par: self.par,
@@ -125,6 +130,16 @@ impl ActivityFile {
             }
             (Some(b), Some(_)) if b != Behavior::Dig => p.push(format!(
                 "only `dig` activities take `digs` (this one is `{}`)",
+                b.name()
+            )),
+            _ => {}
+        }
+        match (Behavior::from_name(&self.behavior), &self.picks) {
+            (Some(Behavior::Pick), None) => {
+                p.push("a `pick` activity names the good it `picks`".to_owned());
+            }
+            (Some(b), Some(_)) if b != Behavior::Pick => p.push(format!(
+                "only `pick` activities take `picks` (this one is `{}`)",
                 b.name()
             )),
             _ => {}

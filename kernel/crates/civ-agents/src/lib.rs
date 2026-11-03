@@ -19,6 +19,7 @@
 //! - [`ties`]: what people remember of one another, written by the acts they see (ADR-0014).
 //! - [`standing`]: what a settlement's adults think of one another, summed monthly, and notables.
 //! - [`crime`]: takings as the kernel's truth, what people believe of them, and what is owed.
+//! - [`deliberation`]: a model choosing among a notable's moves, and its saved answers (ADR-0039).
 //!
 //! The engine authors the vocabulary, never the plot (plan §1): activities, needs and their
 //! weights are content; what people do, and where, follows from their circumstances.
@@ -29,6 +30,7 @@ pub mod agreements;
 pub mod bridge;
 pub mod build;
 pub mod caution;
+pub mod climb;
 pub mod coin;
 pub mod condition;
 pub mod consignments;
@@ -39,6 +41,7 @@ pub mod credit;
 pub mod crime;
 pub mod custody;
 pub mod decide;
+pub mod deliberation;
 pub mod demography;
 pub mod enclose;
 pub mod faction;
@@ -55,6 +58,7 @@ pub mod influence;
 pub mod irrigation;
 pub mod knowledge;
 pub mod ledger;
+pub mod letting;
 pub mod levees;
 pub mod make;
 pub mod market;
@@ -93,9 +97,9 @@ pub use found::{
     found_bands, send_agitator, send_wave, spawn_families, spawn_family,
 };
 pub use history::{
-    AgreementStep, Cause, ChronicleEvent, ChronicleKind, CoalitionStep, CrossingStep, FloodStep,
-    Moved, Origin, OutbreakStep, PersonRecord, Reason, Receipt, ResidenceWhy, Scored, Span, Stay,
-    StormStep, Term, Union, WellStep,
+    AgreementStep, Cause, ChronicleEvent, ChronicleKind, CoalitionStep, Conveyance, CrossingStep,
+    FloodStep, Moved, Origin, OutbreakStep, PersonRecord, Reason, Receipt, ResidenceWhy, Scored,
+    SewerStep, Span, Stay, StormStep, Term, Union, WayStep, WellStep,
 };
 pub use ledger::Channel;
 pub use needs::Sex;

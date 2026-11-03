@@ -2,7 +2,9 @@
 # and 0.65 kg of coke a kilogram of coal (some 280 cubic metres of gas a tonne, an early works'
 # yield, and the coke left over that "affected the economics", research 12-09 §1.4; tuning values,
 # the research gives no yield), at 0.015 hours a kilogram for the stoking (a tuning value). It runs
-# at the retort.
+# at the retort. The gas leaves 0.05 kg of tar and 0.13 kg of ammoniacal liquor as it is cooled and
+# washed (ADR-0038 §2; research 12-10 §5.7: about 0.04-0.05 and 0.11-0.15 kg a kilogram), so 0.97 kg
+# of the kilogram is accounted for; the coal's ash beyond what the coke keeps is left as `good/ash`.
 kind = "recipe"
 id = "core:recipe/make_gas"
 name = "Make gas"
@@ -13,5 +15,10 @@ session_h = 2.0
 max_units = 500.0
 tools = ["core:good/gas_retort"]
 inputs = [{ good = "core:good/coal", amount = 1.0 }]
-outputs = [{ good = "core:good/coal_gas", amount = 0.14 }, { good = "core:good/coke", amount = 0.65 }]
+outputs = [
+    { good = "core:good/coal_gas", amount = 0.14 },
+    { good = "core:good/coke", amount = 0.65 },
+    { good = "core:good/coal_tar", amount = 0.05 },
+    { good = "core:good/ammoniacal_liquor", amount = 0.13 },
+]
 session_inputs = []

@@ -1,0 +1,35 @@
+M11 demo: civ-sim example m11_world, eight years, homelab run 41277719464 (2026-11-01) on
+9b7f3a8 (M11d's thirteenth part: land not yet worked expected at what the harvest takes there,
+households giving up together follow those they know, siting rules held where ground keeps them).
+Excerpted from the run's demo artifact: the start, Sedgehollow's way there each year, year 8 and
+the end.
+
+world (seed 1, 2048 cells): 720 people in 6 settlements, founded in 11.9 s
+day 59: Ada of Thorndale comes to know the M11 vocabulary (17 techniques)
+  copper: the nearest body of its ore 3.5 km from the hearth, showing at the surface, beyond a walk of 60 minutes from it, as is every other; 28 on the map
+day 59: Ulric of Stonefield comes to know the M11 vocabulary (17 techniques)
+  copper: the nearest body of its ore 0.5 km from the hearth, showing at the surface, beyond a walk of 60 minutes from it, as is every other; 28 on the map
+day 59: Kael of Sedgehollow comes to know the M11 vocabulary (17 techniques)
+  copper: the nearest body of its ore 1.7 km from the hearth, buried, beyond a walk of 60 minutes from it; the nearest within one 2.2 km, 56 minutes' walk, showing at the surface; 28 on the map
+
+Sedgehollow's way there (households knowing any of it; wanting a dynamo / gas engine / telegraph
+instrument; copper ore, copper; iron ore and iron held of kept; water installations):
+year 1  1; 0/0/1; copper ore 0, copper 0; iron ore 6 of 0, iron 8 of 8; 0
+year 2  1; 0/0/1; copper ore 1, copper 11; iron ore 0 of 80, iron 0 of 8; 0
+year 3  2; 0/0/1; copper ore 10, copper 20; iron ore 0 of 92, iron 0 of 9; 0
+year 4  2; 1/0/1; copper ore 20, copper 31; iron ore 0 of 2080, iron 0 of 208; 1
+year 5  2; 1/0/1; copper ore 0, copper 129; iron ore 0 of 2080, iron 0 of 208; 1
+year 6  3; 1/0/1; copper ore 4, copper 130; iron ore 12 of 2080, iron 0 of 208; 1
+year 7  4; 1/0/1; copper ore 4, copper 121; iron ore 12 of 2108, iron 0 of 211; 1
+year 8  5; 1/0/1; copper ore 4, copper 121; iron ore 9 of 2080, iron 0 of 208; 1
+
+year 8: 920 people in 6 settlements; every settlement: 0 dynamos, 0 stations, 0 lines, 0 gas
+engines, 0 destructors, 0 telegraph offices or wires, 0 motor carts; laws: none of M11's
+  Thorndale   148 people, 7 knowing any of it; 0/0/1; copper ore 0, copper 0; iron ore 8 of 0, iron 8 of 8; 0
+  Stonefield  155 people, 2 knowing any of it; 0/0/0; copper ore 0, copper 0; iron ore 6 of 0, iron 8 of 0; 0
+  Sedgehollow 154 people, 8 knowing any of it; 1/0/1; copper ore 4, copper 121; iron ore 9 of 2080, iron 0 of 208; 1
+lived 2920 days, to day 2980; 920 people
+the M11 laws proposed: none
+controls Hazeldale, Elmbank, Sedgewick: as before (150, 161, 152 people; nothing of M11)
+speed: 1.03 s a day on average (p50 0.42 s, p95 4.09 s), 0.160 simulated years a real minute
+saved (20.8 MB) and loaded: 920 people against 920

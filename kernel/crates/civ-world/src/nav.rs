@@ -397,7 +397,48 @@ impl StepSpeeds {
     }
 }
 
-/// Each grid's id, for [`StepSpeeds`].
+/// Seconds of each step from a cell to its eight neighbours on one trail, worked out for every
+/// step out of a cell the first time a route search its holder runs expands the cell, and kept:
+/// the same arithmetic on the same ground, heights and trail, so routes come out bit for bit as
+/// without it, without the step's divisions and look-ups each time it is taken again.
+/// Valid for one grid over one elevation (it empties itself for another) and one trail: its
+/// holder [`StepSeconds::forget`]s it whenever the trail it passes may have changed. 0 marks a
+/// step not yet worked out (none takes no time) and a negative value one that cannot be walked.
+/// Its pages are only committed where searches go.
+#[derive(Default)]
+pub struct StepSeconds {
+    grid: u64,
+    elevation: usize,
+    cells: usize,
+    seconds: Vec<f32>,
+}
+
+impl std::fmt::Debug for StepSeconds {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let kept = self.seconds.iter().filter(|&&s| s != 0.0).count();
+        write!(f, "StepSeconds({kept} steps of grid {})", self.grid)
+    }
+}
+
+impl StepSeconds {
+    /// Lets every step go: for a new trail.
+    pub fn forget(&mut self) {
+        self.seconds = Vec::new();
+    }
+
+    /// The table for `grid` over `elevation`, emptied if it was another's.
+    fn ready(&mut self, grid: &NavGrid, elevation: &[f32]) -> &mut [f32] {
+        let cells = grid.width * grid.height;
+        let key = (grid.id, elevation.as_ptr() as usize, cells);
+        if (self.grid, self.elevation, self.cells) != key || self.seconds.len() != cells * 8 {
+            (self.grid, self.elevation, self.cells) = key;
+            self.seconds = vec![0.0; cells * 8];
+        }
+        &mut self.seconds
+    }
+}
+
+/// Each grid's id, for [`StepSpeeds`] and [`StepSeconds`].
 static NEXT_GRID_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Grids up to this many cells (a 2048² map) search with [`DenseScores`], about 12 bytes a cell;
@@ -719,6 +760,81 @@ impl NavGrid {
         }
     }
 
+    /// Seconds for the step from `from` in direction `k` of [`D8`] to `to` on `trail`, kept in
+    /// `steps` (a [`StepSeconds`] table for that trail, or empty to work it out each time from
+    /// [`NavGrid::kept_speed`]); `None` if the step cannot be walked.
+    #[inline(always)]
+    fn kept_seconds(
+        &self,
+        steps: &mut [f32],
+        speeds: &mut [f64],
+        elevation: &[f32],
+        (from, k, to): (usize, usize, usize),
+        dist_cells: f64,
+        trail: &(impl Fn(usize) -> f32 + ?Sized),
+    ) -> Option<f32> {
+        match steps.get(from * 8 + k) {
+            Some(&kept) if kept != 0.0 => (kept > 0.0 || kept.is_nan()).then_some(kept),
+            Some(_) => {
+                self.keep_seconds(steps, speeds, elevation, (from, k, to), dist_cells, trail)
+            }
+            None => self
+                .kept_speed(speeds, elevation, (from, k, to), dist_cells)
+                .map(|tobler| self.seconds_at(tobler, (from, to), dist_cells, trail(to))),
+        }
+    }
+
+    /// Works out and keeps in `steps` ([`StepSeconds`]) each step out of `cell` not yet there,
+    /// those off the grid as unwalkable.
+    #[inline(never)]
+    fn keep_steps_out(
+        &self,
+        steps: &mut [f32],
+        speeds: &mut [f64],
+        elevation: &[f32],
+        cell: usize,
+        trail: &(impl Fn(usize) -> f32 + ?Sized),
+    ) {
+        let (x, y) = ((cell % self.width) as i64, (cell / self.width) as i64);
+        let (w, h) = (self.width as i64, self.height as i64);
+        for (k, (&(dx, dy), dist)) in D8.iter().zip(D8_DIST).enumerate() {
+            if steps[cell * 8 + k] != 0.0 {
+                continue;
+            }
+            let (nx, ny) = (x + i64::from(dx), y + i64::from(dy));
+            if nx < 0 || ny < 0 || nx >= w || ny >= h {
+                steps[cell * 8 + k] = -1.0;
+                continue;
+            }
+            let step = (cell, k, (ny * w + nx) as usize);
+            let _ = self.keep_seconds(steps, speeds, elevation, step, dist, trail);
+        }
+    }
+
+    /// [`NavGrid::kept_seconds`] for a step not yet in `steps`: worked out and kept.
+    #[inline(never)]
+    fn keep_seconds(
+        &self,
+        steps: &mut [f32],
+        speeds: &mut [f64],
+        elevation: &[f32],
+        (from, k, to): (usize, usize, usize),
+        dist_cells: f64,
+        trail: &(impl Fn(usize) -> f32 + ?Sized),
+    ) -> Option<f32> {
+        let slot = from * 8 + k;
+        let seconds = self
+            .kept_speed(speeds, elevation, (from, k, to), dist_cells)
+            .map(|tobler| self.seconds_at(tobler, (from, to), dist_cells, trail(to)));
+        // Kept as it reads back: a time, or unwalkable (a time not above 0 is worked out again).
+        match (steps.get_mut(slot), seconds) {
+            (Some(kept), Some(s)) if s > 0.0 || s.is_nan() => *kept = s,
+            (Some(kept), None) => *kept = -1.0,
+            _ => {}
+        }
+        seconds
+    }
+
     /// [`NavGrid::kept_speed`] from a table another thread keeps: a step not yet in it is worked
     /// out (the same arithmetic) and not kept.
     #[inline]
@@ -818,6 +934,52 @@ impl NavGrid {
         budget: usize,
         landmarks: Option<&Landmarks>,
     ) -> RouteResult {
+        let search = (elevation, (from, to), trail_max, budget, landmarks);
+        self.route_steps(search, trail, &mut [])
+    }
+
+    /// [`NavGrid::route_with`], keeping the seconds of each step it takes in `kept`
+    /// ([`StepSeconds`], for this `trail`): the same route, found sooner where its steps were
+    /// taken before.
+    #[allow(clippy::too_many_arguments)]
+    pub fn route_kept(
+        &self,
+        elevation: &[f32],
+        (from, to): (usize, usize),
+        trail: &(impl Fn(usize) -> f32 + ?Sized),
+        trail_max: f32,
+        budget: usize,
+        landmarks: Option<&Landmarks>,
+        kept: &mut StepSeconds,
+    ) -> RouteResult {
+        let search = (elevation, (from, to), trail_max, budget, landmarks);
+        self.route_steps(search, trail, self.kept_steps(kept, elevation))
+    }
+
+    /// `kept`'s table for this grid over `elevation`, or none on a grid too large for one.
+    fn kept_steps<'a>(&self, kept: &'a mut StepSeconds, elevation: &[f32]) -> &'a mut [f32] {
+        let n = self.width * self.height;
+        if n <= DENSE_SCORES_MAX_CELLS && elevation.len() >= n {
+            kept.ready(self, elevation)
+        } else {
+            &mut []
+        }
+    }
+
+    /// [`NavGrid::route_with`], with a [`StepSeconds`] table or an empty one.
+    #[allow(clippy::type_complexity)]
+    fn route_steps(
+        &self,
+        (elevation, (from, to), trail_max, budget, landmarks): (
+            &[f32],
+            (usize, usize),
+            f32,
+            usize,
+            Option<&Landmarks>,
+        ),
+        trail: &(impl Fn(usize) -> f32 + ?Sized),
+        steps: &mut [f32],
+    ) -> RouteResult {
         let p = &self.params;
         let fastest = p.top_speed_ms()
             * (p.offtrail_factor
@@ -843,7 +1005,7 @@ impl NavGrid {
                 let shared = DENSE_SCORES.with(|d| {
                     d.try_borrow_mut().ok().map(|mut d| {
                         d.begin(n);
-                        self.search(search, trail, &mut *d, speeds)
+                        self.search(search, trail, &mut *d, speeds, steps)
                     })
                 });
                 if let Some(found) = shared {
@@ -851,9 +1013,9 @@ impl NavGrid {
                 }
                 let mut own = DenseScores::default();
                 own.begin(n);
-                return self.search(search, trail, &mut own, speeds);
+                return self.search(search, trail, &mut own, speeds, steps);
             }
-            self.search(search, trail, &mut FastMap::default(), speeds)
+            self.search(search, trail, &mut FastMap::default(), speeds, steps)
         })
     }
 
@@ -872,6 +1034,7 @@ impl NavGrid {
         trail: &(impl Fn(usize) -> f32 + ?Sized),
         best: &mut impl Scores,
         speeds: &mut [f64],
+        steps: &mut [f32],
     ) -> RouteResult {
         let (w, h) = (self.width as i64, self.height as i64);
         // The least time from a cell to `to`: the straight line at the top speed, or what the
@@ -909,16 +1072,38 @@ impl NavGrid {
                 return RouteResult::BudgetExhausted;
             }
             let (x, y) = ((i % self.width) as i64, (i / self.width) as i64);
+            // The steps out of the cell, all worked out and kept at its first expansion; off the
+            // grid, as unwalkable.
+            let row: Option<[f32; 8]> = if steps.is_empty() {
+                None
+            } else {
+                if steps[i * 8..i * 8 + 8].contains(&0.0) {
+                    self.keep_steps_out(steps, speeds, elevation, i, trail);
+                }
+                let mut out = [0.0; 8];
+                out.copy_from_slice(&steps[i * 8..i * 8 + 8]);
+                Some(out)
+            };
             for (k, (&(dx, dy), dist)) in D8.iter().zip(D8_DIST).enumerate() {
                 let (nx, ny) = (x + i64::from(dx), y + i64::from(dy));
-                if nx < 0 || ny < 0 || nx >= w || ny >= h {
-                    continue;
-                }
-                let j = (ny * w + nx) as usize;
-                let Some(tobler) = self.kept_speed(speeds, elevation, (i, k, j), dist) else {
-                    continue;
+                let seconds = match row {
+                    // A time (NaN reads as one, as worked out), or none.
+                    Some(row) if row[k] > 0.0 || row[k].is_nan() => row[k],
+                    Some(row) if row[k] < 0.0 => continue,
+                    _ => {
+                        if nx < 0 || ny < 0 || nx >= w || ny >= h {
+                            continue;
+                        }
+                        let step = (i, k, (ny * w + nx) as usize);
+                        let kept = self.kept_seconds(steps, speeds, elevation, step, dist, trail);
+                        let Some(seconds) = kept else {
+                            continue;
+                        };
+                        seconds
+                    }
                 };
-                let ng = g + self.seconds_at(tobler, (i, j), dist, trail(j));
+                let j = (ny * w + nx) as usize;
+                let ng = g + seconds;
                 let better = best.get(j as u32).is_none_or(|(bg, _)| ng < bg);
                 if better {
                     best.set(j as u32, ng, cell);
@@ -2168,5 +2353,65 @@ mod tests {
             NavGrid::with_decks_and_flood(&map, p, &[(21, 1.0)], 1, None, Some(&flood_depths), 2);
         assert!(nav_deck.walkable(21));
         assert_eq!(nav_deck.ground(21), 1.0);
+    }
+
+    #[test]
+    fn kept_steps_find_the_same_routes() {
+        // Hills, lakes and trails: every route worked out with a table of step times kept across
+        // many searches is the one worked out without it, bit for bit, with landmarks or without,
+        // and so after the trail changes and the table is let go.
+        let mut map = flat(64, 64);
+        let mut rng = Rng64::seed_from_u64(5);
+        for (c, z) in map.elevation.iter_mut().enumerate() {
+            let (x, y) = ((c % 64) as f32, (c / 64) as f32);
+            *z = 100.0 + 9.0 * (x / 8.0).sin() * (y / 6.0).cos() + (rng.next_f64() * 2.0) as f32;
+        }
+        for _ in 0..250 {
+            let c = (rng.next_u64() % 4096) as usize;
+            map.water[c] = WATER_LAKE;
+        }
+        let nav = NavGrid::new(&map, params());
+        let mut kept = StepSeconds::default();
+        for stripe in [3usize, 5] {
+            kept.forget();
+            let trail = move |c: usize| if (c / 64) % 9 == stripe { 1.0 } else { 0.2 };
+            let lm = nav.landmarks(&map.elevation, &trail, ((8, 8), (56, 56)));
+            for k in 0..300 {
+                let a = (rng.next_u64() % 4096) as usize;
+                let b = (rng.next_u64() % 4096) as usize;
+                let landmarks = (k % 2 == 0).then_some(&lm);
+                let plain =
+                    nav.route_with(&map.elevation, (a, b), &trail, 1.0, 1_000_000, landmarks);
+                let fast = nav.route_kept(
+                    &map.elevation,
+                    (a, b),
+                    &trail,
+                    1.0,
+                    1_000_000,
+                    landmarks,
+                    &mut kept,
+                );
+                assert_eq!(plain, fast, "{a} to {b}");
+            }
+            assert!(kept.seconds.iter().filter(|&&s| s != 0.0).count() > 1000);
+        }
+        // Another grid's steps are not this one's: the table empties itself.
+        let other = NavGrid::new(&map, params());
+        let trail = |_: usize| 0.0;
+        for _ in 0..20 {
+            let a = (rng.next_u64() % 4096) as usize;
+            let b = (rng.next_u64() % 4096) as usize;
+            let plain = other.route_with(&map.elevation, (a, b), &trail, 0.0, 1_000_000, None);
+            let fast = other.route_kept(
+                &map.elevation,
+                (a, b),
+                &trail,
+                0.0,
+                1_000_000,
+                None,
+                &mut kept,
+            );
+            assert_eq!(plain, fast, "{a} to {b}");
+        }
     }
 }

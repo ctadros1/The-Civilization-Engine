@@ -64,6 +64,8 @@ pub struct EngineConfig {
     pub keep_autosaves: usize,
     /// How often the clock is advanced.
     pub tick: Duration,
+    /// How notables choose their moves in every world this session installs (ADR-0039 §3).
+    pub deliberator: crate::deliberator::DeliberatorSetting,
 }
 
 impl EngineConfig {
@@ -75,6 +77,7 @@ impl EngineConfig {
             autosave_interval: Duration::from_secs(5 * 60),
             keep_autosaves: 5,
             tick: Duration::from_millis(50),
+            deliberator: crate::deliberator::DeliberatorSetting::Rule,
         }
     }
 }
@@ -474,6 +477,10 @@ impl Engine {
                 ramp_years,
             } => self.force_climate(offset_c, wet_factor, ramp_years),
             Request::SetFire { building } => self.set_fire(building),
+            Request::HandOver { .. } => Reply::Error(
+                wire::ErrorCode::BadRequest,
+                "only a connection to the observer socket can hand over the driving".to_owned(),
+            ),
             Request::RaiseRiver {
                 reach,
                 discharge_m3s,
@@ -1046,6 +1053,9 @@ impl Engine {
             // A loaded world waits for the player.
             sim.set_paused(true);
         }
+        // The session's deliberator, never saved (ADR-0039 §3).
+        let mode = self.config.deliberator.mode_for(&sim);
+        sim.set_deliberation(mode);
         let name = sim.meta().name.clone();
         let content_changed = sim.content_changed();
         let created_text = {
@@ -3413,7 +3423,7 @@ mod tests {
                     knows_mud_brick: false,
                     knows_firing: false,
                     knows_lime: false,
-                    knows_systems: [false; 3],
+                    knows_systems: [false; 5],
                 }),
             )
             .expect("design");

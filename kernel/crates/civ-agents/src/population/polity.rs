@@ -7,8 +7,8 @@
 use super::*;
 use crate::decide::GatheringFacts;
 use crate::polity::{
-    Belief, Body, CustomVersion, Deliberator, Gathering, IssueKind, Law, LawStatus, Membership,
-    MoveOption, Outcome, Outlook, PolicyKind, Polity, RuleDeliberator, Stance, StanceRecord,
+    Belief, Body, CustomVersion, Gathering, IssueKind, Law, LawStatus, Membership, MoveOption,
+    Outcome, Outlook, PolicyKind, Polity, RuleDeliberator, Stance, StanceRecord,
 };
 use crate::word::Blamed;
 
@@ -68,6 +68,9 @@ pub(super) struct Forecasts {
     /// anywhere (M11a, eighth part): the home cell it runs to, its stringing, a line's life and
     /// what light by wire would spare each household along it a year, with the station it leaves.
     pub(super) current: Option<(PermanentId, super::way_works::PublicWay)>,
+    /// Where the settlement's people could lay a sewer together, if anywhere (ADR-0041 §3): its
+    /// head cell, its laying, its life and what it would spare each household beside it a year.
+    pub(super) sewer: Option<super::way_works::PublicWay>,
     /// What raising each building its templates name would bring, where its loss is measured
     /// (M8d slice DC).
     pub(super) raises: Vec<super::raising::PublicRaise>,
@@ -146,6 +149,12 @@ pub(super) struct Forecasts {
     /// What clearing middens from the water would bring each household and cost it, kcal a
     /// year, by household id (M10c slice EE, third part).
     middens: Vec<(PermanentId, f64, f64)>,
+    /// What carrying refuse to a tip would bring each household and cost it, kcal a year, by
+    /// household id (M11f, second part; ADR-0038 §3).
+    tips: Vec<(PermanentId, f64, f64)>,
+    /// What a refuse round run by law would bring each household and cost it, kcal a year, by
+    /// household id (M11f, third part; ADR-0038 §4).
+    rounds: Vec<(PermanentId, f64, f64)>,
 }
 
 /// What a household weighs a trade law by (M7c slice BV, ADR-0026 §1): its settlement's
@@ -452,6 +461,27 @@ impl Forecasts {
                     .map_or((0.0, 0.0), |s| (s.1, s.2));
                 crate::polity::against_gain(o, gain, cost, pp)
             }
+            // Refuse carried to a tip (M11f, second part; ADR-0038 §3), as clearing middens: the
+            // share of its deaths of disease it believes a cleaner place would have spared, less
+            // its carrying.
+            // Refuse collected by law (M11f, third part; ADR-0038 §4): the carrying a law asks of it
+            // that the round spares, less its share of the round's hours paid from the store.
+            Some(PolicyKind::CollectRefuse) => {
+                let (gain, cost) = self
+                    .rounds
+                    .iter()
+                    .find(|s| s.0 == h)
+                    .map_or((0.0, 0.0), |s| (s.1, s.2));
+                crate::polity::against_gain(o, gain, cost, pp)
+            }
+            Some(PolicyKind::RefuseToTip) => {
+                let (gain, cost) = self
+                    .tips
+                    .iter()
+                    .find(|s| s.0 == h)
+                    .map_or((0.0, 0.0), |s| (s.1, s.2));
+                crate::polity::against_gain(o, gain, cost, pp)
+            }
             // A register of the sick (M10c slice EE, second part): the share of its deaths of
             // disease it believes the register would have avoided, as food kept for it.
             Some(PolicyKind::KeepRegister) => {
@@ -567,7 +597,10 @@ impl Forecasts {
             // year the waiting it would spare the household could bring, less what its share of
             // the work, spread over the place's life, could.
             Some(
-                kind @ (PolicyKind::BuildWay | PolicyKind::BuildLine | PolicyKind::LayCurrent),
+                kind @ (PolicyKind::BuildWay
+                | PolicyKind::BuildLine
+                | PolicyKind::LayCurrent
+                | PolicyKind::LaySewer),
             ) => {
                 // A line laid together (M10b slice DX, third part) as a passing place: what it
                 // would spare the household a year against its share of the work over a wagon's
@@ -575,6 +608,8 @@ impl Forecasts {
                 let p = match kind {
                     PolicyKind::BuildLine => self.line.as_ref(),
                     PolicyKind::LayCurrent => self.current.as_ref().map(|c| &c.1),
+                    // A sewer laid together (ADR-0041 §3), over a sewer's life.
+                    PolicyKind::LaySewer => self.sewer.as_ref(),
                     _ => self.way.as_ref(),
                 };
                 let Some(p) = p else {
@@ -716,7 +751,8 @@ impl Forecasts {
             }
             // A forum (M7b slice BR): the household's own cases the gathering heard within
             // memory, heard again as the forum would hear them (a holder as they stood there, or
-            // at even odds if they did not come; a panel or the elders as those who came stood),
+            // at even odds if they did not come or a lot is yet to draw them, backlog D; a panel
+            // or the elders as those who came stood),
             // the difference in what it got back or paid, a year; and the evenings its people
             // spent hearing cases, which they would keep.
             Some(PolicyKind::HearCases) => {
@@ -1035,6 +1071,15 @@ impl Population {
             {
                 self.polities[pi].reviewed = day;
                 self.review(ctx, pi);
+                // Whether a fault of its sewers it has learned of is worth mending under the law
+                // that laid it (ADR-0044 §5).
+                self.sewer_reviews(ctx, pi);
+                // And whether its wells want relining or a lid and curb, under the law that dug
+                // them (backlog D; ADR-0021 §7).
+                self.public_well_reviews(ctx, pi);
+                // And whether a passing place has grown over, under the law that cleared it
+                // (backlog D, fourteenth item; ADR-0029 §6).
+                self.way_keeping_reviews(ctx, pi);
                 // Whether anyone bound by a law a limit forbids challenges it (M7b slice BT).
                 self.weigh_challenges(ctx, pi);
                 // Whether a member of an organization brings a breach of its privilege (M7c
@@ -1060,6 +1105,34 @@ impl Population {
     /// Who may not be named or drawn for office template `policy` of polity `pi` on `day` (M7a
     /// slice BN, ADR-0024 §2): the holder of its last term, once that term has ended, where the
     /// template does not let them serve again.
+    /// The law in force that a new law of template `policy` (of kind `kind`) takes the place of
+    /// when passed: for a mint, the mint in force of other terms (M7d slice CE4b: pieces already
+    /// struck keep their weight); for every other kind, none. The same template is never proposed
+    /// while it is in force.
+    fn replaced_by(&self, pi: usize, kind: PolicyKind, policy: u16) -> Option<PermanentId> {
+        if kind != PolicyKind::Mint {
+            return None;
+        }
+        self.polities[pi]
+            .laws
+            .iter()
+            .find(|l| {
+                l.kind == PolicyKind::Mint && l.status == LawStatus::InForce && l.policy != policy
+            })
+            .map(|l| l.id)
+    }
+
+    /// [`Population::replaced_by`]: for tests.
+    #[doc(hidden)]
+    pub fn replaced_by_for_tests(
+        &self,
+        pi: usize,
+        kind: PolicyKind,
+        policy: u16,
+    ) -> Option<PermanentId> {
+        self.replaced_by(pi, kind, policy)
+    }
+
     fn term_barred(
         &self,
         pi: usize,
@@ -1173,6 +1246,61 @@ impl Population {
     /// For tests: office law `law_id` of polity `pi`, passed, has its term filled.
     pub fn fill_term_for_tests(&mut self, ctx: &mut Ctx, pi: usize, law_id: PermanentId) {
         self.fill_term(ctx, pi, law_id);
+    }
+
+    /// Whom `deliberator` would name to hear the cases under forum template `policy` of polity
+    /// `pi` (M7b slice BR), its adults `adults`: `Some(Some(holder))` for a forum of one holder,
+    /// the adult they regard most, themselves at full regard; `Some(None)` where nobody is named
+    /// (a panel, the elders, or a holder a lot draws once the law passes, backlog D); `None` where
+    /// nobody may be. A holder held for a term the template does not renew is not named again
+    /// at once (backlog D, as a keeper of the store, M7a slice BN).
+    fn hearer_nominee(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        policy: u16,
+        deliberator: PermanentId,
+        adults: &[(PermanentId, PermanentId)],
+    ) -> Option<Option<PermanentId>> {
+        let def = ctx.catalog.policies.get(usize::from(policy))?;
+        let holder = def
+            .forum
+            .as_ref()
+            .is_some_and(|f| f.seat == crate::forum::ForumSeat::Holder);
+        if !holder || def.tenure.is_some_and(|t| t.by_lot) {
+            return Some(None);
+        }
+        let (day, tp) = (ctx.now.day_index(), &ctx.params.ties);
+        let barred = self.term_barred(pi, policy, day, def);
+        adults
+            .iter()
+            .map(|&(c, _)| c)
+            .filter(|&c| Some(c) != barred)
+            .map(|c| {
+                let r = if c == deliberator {
+                    1.0
+                } else {
+                    self.ties.regard(deliberator, c, day, tp).clamp(0.0, 1.0)
+                };
+                (r, c)
+            })
+            .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)))
+            .map(|(_, c)| Some(c))
+    }
+
+    /// For tests: whom `deliberator` of settlement `settlement` would name to hear cases under
+    /// forum template `policy`, as [`Population::hearer_nominee`] says.
+    #[doc(hidden)]
+    pub fn hearer_nominee_for_tests(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+        policy: u16,
+        deliberator: PermanentId,
+    ) -> Option<Option<PermanentId>> {
+        let pi = self.polity_of(settlement)?;
+        let adults = self.members_of(settlement, ctx.now, ctx.params);
+        self.hearer_nominee(ctx, pi, policy, deliberator, &adults)
     }
 
     /// A law that names someone lapses when they die or leave the settlement: the store they
@@ -1624,6 +1752,44 @@ impl Population {
         (who, cells)
     }
 
+    /// The closings of sources of water polity `pi` has in force whose source nobody of its
+    /// households holds sickens any longer, from their own tally (backlog D; ADR-0021 §7): each
+    /// closing law with its source's cell, in cell order.
+    fn unsuspected_closings(&self, pi: usize) -> Vec<(PermanentId, u32)> {
+        let polity = &self.polities[pi];
+        if polity.closed.is_empty() {
+            return Vec::new();
+        }
+        let suspected: Vec<crate::uses::Place> = self
+            .word
+            .suspicions
+            .iter()
+            .filter(|s| {
+                self.person(s.holder)
+                    .and_then(|p| self.household(p.household))
+                    .is_some_and(|x| polity.holds(x.settlement))
+            })
+            .map(|s| s.source)
+            .collect();
+        polity
+            .closed_now()
+            .into_iter()
+            .filter_map(|(place, law)| match place {
+                crate::uses::Place::Source(cell) if !suspected.contains(&place) => {
+                    Some((law, cell))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The closings polity `pi` has in force whose source nobody of it suspects any longer, each
+    /// law with its source's cell: for tests.
+    #[doc(hidden)]
+    pub fn unsuspected_closings_for_tests(&self, pi: usize) -> Vec<(PermanentId, u32)> {
+        self.unsuspected_closings(pi)
+    }
+
     /// When polity `pi`'s custom was taken from the gathering, while its new body is founding
     /// (M4c slice AI, step two): within `founding_days` of a version seized rather than amended.
     pub(super) fn founding_since(&self, ctx: &Ctx, pi: usize) -> Option<SimTime> {
@@ -1710,6 +1876,8 @@ impl Population {
         self.with_line(ctx, &mut fc, line, households);
         let current = self.public_current(ctx, settlement, households);
         self.with_current(ctx, &mut fc, current, households);
+        let sewer = self.public_sewer(ctx, settlement, households);
+        self.with_sewer(ctx, &mut fc, sewer, households);
         let raises = self.public_raises(ctx, pi, households);
         self.with_raises(ctx, &mut fc, raises, households);
         fc
@@ -1751,6 +1919,25 @@ impl Population {
                 .collect();
         }
         fc.current = current;
+    }
+
+    /// Adds to forecasts `fc` the sewer `sewer` the settlement's people could lay together
+    /// (ADR-0041 §3), with what an hour of each household's work brings it if it was not reckoned
+    /// already.
+    fn with_sewer(
+        &self,
+        ctx: &Ctx,
+        fc: &mut Forecasts,
+        sewer: Option<super::way_works::PublicWay>,
+        households: &[PermanentId],
+    ) {
+        if sewer.is_some() && fc.hour_kcal.is_empty() {
+            fc.hour_kcal = households
+                .iter()
+                .filter_map(|&h| Some((h, self.hour_kcal(ctx, self.household(h)?))))
+                .collect();
+        }
+        fc.sewer = sewer;
     }
 
     /// Adds to forecasts `fc` the passing place `way` the settlement's people could clear
@@ -1931,6 +2118,7 @@ impl Population {
             way: None,
             line: None,
             current: None,
+            sewer: None,
             raises: Vec::new(),
             plans: Vec::new(),
             enclosure: None,
@@ -1980,6 +2168,8 @@ impl Population {
             keep_apart: self.keep_apart_forecasts(ctx, households, adults),
             registers: self.register_forecasts(ctx, households),
             middens: self.middens_forecasts(ctx, households),
+            tips: self.tips_forecasts(ctx, households),
+            rounds: self.rounds_forecasts(ctx, households),
             adults: {
                 let mut a = adults.to_vec();
                 a.sort_unstable();
@@ -2047,7 +2237,12 @@ impl Population {
         households: &[PermanentId],
         adults: &[(PermanentId, PermanentId)],
     ) -> Vec<(u32, Vec<ClosureForecast>)> {
-        let (_, cells) = self.suspecting(pi, adults);
+        // And the sources of closings nobody suspects any longer, whose end is weighed as their
+        // closing was, turned about (backlog D).
+        let (_, mut cells) = self.suspecting(pi, adults);
+        cells.extend(self.unsuspected_closings(pi).into_iter().map(|c| c.1));
+        cells.sort_unstable();
+        cells.dedup();
         if cells.is_empty() {
             return Vec::new();
         }
@@ -2107,9 +2302,26 @@ impl Population {
     }
 
     /// A closing of a source of water (M6a slice BA, step four), in words that name the source
-    /// as its people know it: "the closing of Wren's household's well: nobody may draw there".
-    /// None for any other law, or one whose source is not recorded.
+    /// as its people know it: "the closing of Wren's household's well: nobody may draw there",
+    /// and an end to one likewise (backlog D). None for any other law, or one whose source is
+    /// not recorded.
     pub(super) fn closing_words(&self, ctx: &Ctx, pi: usize, law: &Law) -> Option<String> {
+        // An end to a closing names its source too (backlog D): "an end to the closing of Wren's
+        // household's well: people may draw there again".
+        if law.kind == PolicyKind::Repeal {
+            let ended = self.polities[pi]
+                .laws
+                .iter()
+                .find(|l| Some(l.id) == law.ends)?;
+            if ended.kind != PolicyKind::CloseSource {
+                return None;
+            }
+            let source = self.polities[pi].closure_of(ended.id)?;
+            return Some(format!(
+                "an end to the closing of {}: people may draw there again",
+                self.source_words(ctx, source)
+            ));
+        }
         if law.kind != PolicyKind::CloseSource {
             return None;
         }
@@ -2788,6 +3000,8 @@ impl Population {
             .filter(|&h| self.sick_at_home(h))
             .collect();
         let (suspecting, _) = self.suspecting(pi, &adults);
+        // Closings in force whose source nobody of it suspects any longer (backlog D).
+        let unsuspected = self.unsuspected_closings(pi);
         // Where its people could dig a well together.
         let well = self.public_well(ctx, settlement, &households);
         // Where they could build a flood bank together, and the households a flood cost within
@@ -2846,6 +3060,9 @@ impl Population {
         if self.held_by(pi).is_some() {
             issues.push(IssueKind::Holding);
         }
+        if !unsuspected.is_empty() {
+            issues.push(IssueKind::ClosingUnsuspected);
+        }
         // Its carts wait where a passing place cleared together would repay its work (M8b slice
         // CQ, third part).
         if way.is_some() {
@@ -2870,6 +3087,11 @@ impl Population {
             .unwrap_or_default();
         if current.is_some() {
             issues.push(IssueKind::HomesUnlit);
+        }
+        // A household's heap grew large beside another's home (M11f, second part; ADR-0038 §3).
+        let heaps_near = self.heaps_near(ctx, &households);
+        if !heaps_near.is_empty() {
+            issues.push(IssueKind::HeapsNear);
         }
         // Something taken from its households after dark that nobody saw, where someone knows how
         // to make a light and lamps could stand on its ways (M10b slice DY, fourth part).
@@ -2936,6 +3158,7 @@ impl Population {
                         | PolicyKind::BuildWay
                         | PolicyKind::BuildLine
                         | PolicyKind::LayCurrent
+                        | PolicyKind::LaySewer
                         | PolicyKind::RaiseBuilding
                 )
         });
@@ -3051,6 +3274,7 @@ impl Population {
                 if d.kind == PolicyKind::BuildWay
                     || d.kind == PolicyKind::BuildLine
                     || d.kind == PolicyKind::LayCurrent
+                    || d.kind == PolicyKind::LaySewer
                 {
                     return true;
                 }
@@ -3137,6 +3361,13 @@ impl Population {
             .collect();
         self.with_plans(ctx, &mut fc, plans, &households);
         let outlooks = &fc.outlooks;
+        // Households that walk further for a closing nobody suspects any longer (backlog D).
+        let walk_for_closings: Vec<PermanentId> = fc
+            .closures
+            .iter()
+            .filter(|c| unsuspected.iter().any(|u| u.1 == c.0))
+            .flat_map(|c| c.1.iter().filter(|f| f.2 > 0.0).map(|f| f.0))
+            .collect();
         // Who could keep the store: adults whose household is under a roof.
         let roofed: Vec<PermanentId> = adults
             .iter()
@@ -3187,6 +3418,12 @@ impl Population {
                             // And those whose homes lie dark beyond a station's lines where a
                             // line strung together would repay its stringing (M11a, eighth part).
                             .chain(&current_homes)
+                            // And those whose heap grew large beside another's home (M11f,
+                            // second part).
+                            .chain(&heaps_near)
+                            // And those who walk further for a closing nobody suspects any
+                            // longer (backlog D).
+                            .chain(&walk_for_closings)
                             .filter_map(|&h| self.elder_of(h, now, params)),
                     )
                     // And whoever holds that a source sickens (M6a slice BA).
@@ -3353,6 +3590,35 @@ impl Population {
                 })
                 .collect()
         });
+        // And each closing nobody of it suspects any longer, as the move it was (backlog D):
+        // ending it brings a household what keeping it would, lost.
+        let mut kept = kept;
+        for &(law, cell) in &unsuspected {
+            if kept.iter().any(|k| k.0 == law) {
+                continue;
+            }
+            let Some(l) = self.polities[pi].laws.iter().find(|l| l.id == law) else {
+                continue;
+            };
+            kept.push((
+                law,
+                MoveOption {
+                    policy: l.policy,
+                    levy_share: 0.0,
+                    issue: l.issue,
+                    nominee: None,
+                    sanction: l.sanction,
+                    hours: l.hours,
+                    body: None,
+                    ends: None,
+                    target: None,
+                    site: Some(cell),
+                    own_gain: 0.0,
+                    followers_gain: 0.0,
+                    support: 0.5,
+                },
+            ));
+        }
         let ended = |m: &MoveOption| m.ends.and_then(|e| kept.iter().find(|k| k.0 == e));
         // Those who keep the watch now (M4c slice AI).
         let watching: Vec<PermanentId> = self.polities[pi].watchers().map(|w| w.0).collect();
@@ -3659,7 +3925,10 @@ impl Population {
                     | PolicyKind::KeepRegister
                         if def.tenure.is_some_and(|t| t.by_lot) =>
                     {
-                        moves.push(blank);
+                        moves.push(MoveOption {
+                            ends: self.replaced_by(pi, def.kind, k),
+                            ..blank
+                        });
                     }
                     // A mint, its keeper whoever of the settlement who can work its recipe they
                     // regard most, themselves first (M7d slice CE2b).
@@ -3689,6 +3958,7 @@ impl Population {
                         if let Some((_, c)) = pick {
                             moves.push(MoveOption {
                                 nominee: Some(c),
+                                ends: self.replaced_by(pi, def.kind, k),
                                 ..blank
                             });
                         }
@@ -3707,16 +3977,9 @@ impl Population {
                                 (r, c)
                             })
                             .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)));
-                        // Another mint's terms replace the one in force (M7d slice CE4b).
-                        let ends = self.polities[pi]
-                            .laws
-                            .iter()
-                            .find(|l| l.kind == PolicyKind::Mint && l.status == LawStatus::InForce)
-                            .map(|l| l.id);
                         if let Some((_, c)) = pick {
                             moves.push(MoveOption {
                                 nominee: Some(c),
-                                ends,
                                 ..blank
                             });
                         }
@@ -3894,7 +4157,8 @@ impl Population {
                     // A limit is weighed only as an amendment is (M7b slice BT).
                     PolicyKind::Limit => {}
                     // A forum (M7b slice BR): one holder the sponsor regards most, themselves at
-                    // full regard; a panel or the elders name nobody.
+                    // full regard, or nobody where a lot draws them; a panel or the elders name
+                    // nobody.
                     PolicyKind::HearCases => {
                         // In place of the forum in force, if one is (M7b slice BS).
                         let blank = MoveOption {
@@ -3908,49 +4172,39 @@ impl Population {
                                 .map(|l| l.id),
                             ..blank
                         };
-                        let holder = def
-                            .forum
-                            .as_ref()
-                            .is_some_and(|f| f.seat == crate::forum::ForumSeat::Holder);
-                        if holder {
-                            let pick = adults
-                                .iter()
-                                .map(|&(c, _)| {
-                                    let r = if c == d {
-                                        1.0
-                                    } else {
-                                        self.ties.regard(d, c, day, tp).clamp(0.0, 1.0)
-                                    };
-                                    (r, c)
-                                })
-                                .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)));
-                            if let Some((_, c)) = pick {
-                                moves.push(MoveOption {
-                                    nominee: Some(c),
-                                    ..blank
-                                });
-                            }
-                        } else {
-                            moves.push(blank);
+                        if let Some(nominee) = self.hearer_nominee(ctx, pi, k, d, &adults) {
+                            moves.push(MoveOption { nominee, ..blank });
                         }
                     }
                     // While founding, an end to each law the old custom made (M4c slice AI): a
                     // store's levy ends as a petition would end it, the store giving what it
-                    // holds; any other law is repealed.
+                    // holds; any other law is repealed. And an end to each closing whose source
+                    // nobody suspects any longer, for that (backlog D).
                     PolicyKind::Repeal => {
                         for (e, k) in &kept {
                             let store = policies
                                 .get(usize::from(k.policy))
                                 .is_some_and(|d| d.kind == PolicyKind::CommonStore);
+                            let issue = if unsuspected.iter().any(|u| u.0 == *e)
+                                && issues.contains(&IssueKind::ClosingUnsuspected)
+                            {
+                                IssueKind::ClosingUnsuspected
+                            } else if founding.is_some() {
+                                blank.issue
+                            } else {
+                                continue;
+                            };
                             moves.push(if store {
                                 MoveOption {
                                     policy: k.policy,
                                     ends: Some(*e),
+                                    issue,
                                     ..blank
                                 }
                             } else {
                                 MoveOption {
                                     ends: Some(*e),
+                                    issue,
                                     ..blank
                                 }
                             });
@@ -4009,6 +4263,59 @@ impl Population {
                     PolicyKind::ClearMiddens => {
                         if !self.word.suspicions_of(d).is_empty() {
                             moves.push(blank);
+                        }
+                    }
+                    // A sewer laid together (ADR-0041 §3), named by its head cell: where they
+                    // suspect a source of water, or a heap grew large beside another's home, and
+                    // a sewer falling to the river would spare those beside it more than its work.
+                    PolicyKind::LaySewer => {
+                        if let Some(p) = &fc.sewer {
+                            let issue = if !self.word.suspicions_of(d).is_empty() {
+                                Some(IssueKind::SourceSuspected)
+                            } else if issues.contains(&IssueKind::HeapsNear) {
+                                Some(IssueKind::HeapsNear)
+                            } else {
+                                None
+                            };
+                            if let Some(issue) = issue {
+                                moves.push(MoveOption {
+                                    issue,
+                                    site: Some(p.cell),
+                                    target: None,
+                                    ..blank
+                                });
+                            }
+                        }
+                    }
+                    // Refuse carried to a tip (M11f, second part; ADR-0038 §3): where they
+                    // suspect a source of water, or a heap grew large beside another's home.
+                    PolicyKind::RefuseToTip => {
+                        if !self.word.suspicions_of(d).is_empty() {
+                            moves.push(MoveOption {
+                                issue: IssueKind::SourceSuspected,
+                                ..blank
+                            });
+                        } else if issues.contains(&IssueKind::HeapsNear) {
+                            moves.push(MoveOption {
+                                issue: IssueKind::HeapsNear,
+                                ..blank
+                            });
+                        }
+                    }
+                    // Refuse collected by law (M11f, third part; ADR-0038 §4): as carrying refuse
+                    // to a tip, and only where the polity keeps an open tip.
+                    PolicyKind::CollectRefuse => {
+                        let open = self.round_tip(pi).is_some();
+                        if open && !self.word.suspicions_of(d).is_empty() {
+                            moves.push(MoveOption {
+                                issue: IssueKind::SourceSuspected,
+                                ..blank
+                            });
+                        } else if open && issues.contains(&IssueKind::HeapsNear) {
+                            moves.push(MoveOption {
+                                issue: IssueKind::HeapsNear,
+                                ..blank
+                            });
                         }
                     }
                     // Keeping the sick apart (M10c slice EE, first part): where one of theirs died
@@ -4313,7 +4620,16 @@ impl Population {
             }
             let u =
                 Rng64::from_key(&[ctx.seed, PURPOSE_DELIBERATE, d.get(), day as u64]).next_f64();
-            let choice = deliberator.choose(&moves, u);
+            // A model may choose in the rule's place (ADR-0039 §2); rules decide on the same
+            // draw whatever it does not answer.
+            let request = (self.deliberation.consults() && !moves.is_empty()).then(|| {
+                crate::deliberation::request(d, self.name_of(d), day, &moves, policies, &|p| {
+                    self.name_of(p)
+                })
+            });
+            let choice = self
+                .deliberation
+                .decide(&deliberator, &moves, u, request.as_ref());
             if let Some(m) = choice.chosen.map(|i| moves[i]) {
                 let stakes: Vec<(PermanentId, f32)> = outlooks
                     .iter()
@@ -4521,7 +4837,8 @@ impl Population {
         // keeps what each household reckoned it would spare it (M8b slice CQ, third part).
         if (def.kind == PolicyKind::BuildWay
             || def.kind == PolicyKind::BuildLine
-            || def.kind == PolicyKind::LayCurrent)
+            || def.kind == PolicyKind::LayCurrent
+            || def.kind == PolicyKind::LaySewer)
             && let Some(cell) = m.site
         {
             let settlement = self.polities[pi].settlement;
@@ -4542,6 +4859,8 @@ impl Population {
                     .public_current(ctx, settlement, &households)
                     .filter(|c| Some(c.0) == m.target)
                     .map(|c| c.1),
+                // A sewer names its head cell (ADR-0041 §3).
+                PolicyKind::LaySewer => self.public_sewer(ctx, settlement, &households),
                 _ => self.public_way(ctx, settlement, &households),
             };
             if let Some(p) = found.filter(|p| p.cell == cell) {
@@ -4753,11 +5072,20 @@ impl Population {
         // for one named in place of an office's holder, less their regard for that holder, which
         // a grievance against the office lowers (M4c slice AH; research 04-10 §1.1: blame).
         let face = law.holder.unwrap_or(sponsor);
+        // A grievance against a forum of one holder blames the forum (M7b slice BU), and weighs
+        // against its hearer as one against an office does against its holder (backlog D).
         let replaced = law
             .ends
             .and_then(|e| self.polities[pi].laws.iter().find(|l| l.id == e))
             .filter(|l| l.status == LawStatus::InForce)
-            .and_then(|l| Some((l.holder?, l.id)));
+            .and_then(|l| {
+                let blamed = if l.kind == PolicyKind::HearCases {
+                    Blamed::Forum(l.id)
+                } else {
+                    Blamed::Office(l.id)
+                };
+                Some((l.holder?, blamed))
+            });
         let day = now.day_index();
         // An agreement is weighed with what each believes of the other polity, as regard for its
         // sponsor is (M5c slice AU, ADR-0020 §3).
@@ -4793,12 +5121,12 @@ impl Population {
                         .map_or(0.0, |v| v.warmth());
                     pp.w_regard * warmth
                 });
-                let held = replaced.map_or(0.0, |(o, office)| {
+                let held = replaced.map_or(0.0, |(o, blamed)| {
                     if p == o {
                         1.0
                     } else {
                         self.ties.regard(p, o, day, &params.ties).clamp(0.0, 1.0)
-                            - self.keenness(ctx, p, Blamed::Office(office))
+                            - self.keenness(ctx, p, blamed)
                     }
                 });
                 // And what their household owes the sponsor for gifts (M7c slice BY).
@@ -4880,6 +5208,7 @@ impl Population {
                     | PolicyKind::LightStreets
                     | PolicyKind::KeepSchool
                     | PolicyKind::KeepRegister
+                    | PolicyKind::HearCases
             )
         {
             self.fill_term(ctx, pi, law_id);
@@ -4916,6 +5245,21 @@ impl Population {
         // A line of current passed is marked out at once from its station (M11a, eighth part).
         if outcome == Outcome::Passed && kind == PolicyKind::LayCurrent {
             self.begin_public_current(ctx, pi, law_id);
+        }
+        // A sewer passed is marked out at once from its head (ADR-0041 §3).
+        if outcome == Outcome::Passed && kind == PolicyKind::LaySewer {
+            self.begin_public_sewer(ctx, pi, law_id);
+        }
+        // A tip passed is opened at once where a place qualifies, the polity's (M11f, second part;
+        // ADR-0038 §3).
+        if outcome == Outcome::Passed && kind == PolicyKind::RefuseToTip {
+            self.open_tip(ctx, pi, law_id);
+        }
+        // A refuse round passed is posted at once where a tip is open and someone keeps a cart
+        // (M11f, third part; ADR-0038 §4).
+        if outcome == Outcome::Passed && kind == PolicyKind::CollectRefuse {
+            let day = ctx.now.day_index();
+            self.law_rounds(ctx, day);
         }
         // Streets lit by law have their lamps set at once, unlit until the lamplighter's round
         // (M10b slice DY, fourth part).
@@ -5018,6 +5362,7 @@ impl Population {
                 }
             }
             polity.body = new;
+            polity.lapse_seats_beyond_custom();
             polity.versions.push(CustomVersion {
                 body: new,
                 since: now,

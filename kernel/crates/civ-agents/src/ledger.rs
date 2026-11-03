@@ -95,11 +95,14 @@ pub enum Channel {
     Wire = 34,
     /// What a household pays an office for a telegram it hands in (M11c; ADR-0036 §8).
     Telegraph = 35,
+    /// What a household on a refuse round pays its keeper for a call, in food (M11f, third part;
+    /// ADR-0038 §4).
+    Refuse = 36,
 }
 
 impl Channel {
     /// Every channel, in code order.
-    pub const ALL: [Channel; 35] = [
+    pub const ALL: [Channel; 36] = [
         Channel::Gift,
         Channel::Share,
         Channel::Allocation,
@@ -135,6 +138,7 @@ impl Channel {
         Channel::Redeemed,
         Channel::Wire,
         Channel::Telegraph,
+        Channel::Refuse,
     ];
 
     /// The channel with this code.
@@ -180,6 +184,7 @@ impl Channel {
             Channel::Redeemed => "redeemed",
             Channel::Wire => "current by the meter",
             Channel::Telegraph => "telegram",
+            Channel::Refuse => "refuse round fee",
         }
     }
 }

@@ -305,10 +305,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for EventKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_ERROR_CODE: u16 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_ERROR_CODE: u16 = 6;
+pub const ENUM_MAX_ERROR_CODE: u16 = 7;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_ERROR_CODE: [ErrorCode; 7] = [
+pub const ENUM_VALUES_ERROR_CODE: [ErrorCode; 8] = [
   ErrorCode::Unknown,
   ErrorCode::BadRequest,
   ErrorCode::Busy,
@@ -316,6 +316,7 @@ pub const ENUM_VALUES_ERROR_CODE: [ErrorCode; 7] = [
   ErrorCode::NotFound,
   ErrorCode::Incompatible,
   ErrorCode::Internal,
+  ErrorCode::NotDriver,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -330,9 +331,10 @@ impl ErrorCode {
   pub const NotFound: Self = Self(4);
   pub const Incompatible: Self = Self(5);
   pub const Internal: Self = Self(6);
+  pub const NotDriver: Self = Self(7);
 
   pub const ENUM_MIN: u16 = 0;
-  pub const ENUM_MAX: u16 = 6;
+  pub const ENUM_MAX: u16 = 7;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Unknown,
     Self::BadRequest,
@@ -341,6 +343,7 @@ impl ErrorCode {
     Self::NotFound,
     Self::Incompatible,
     Self::Internal,
+    Self::NotDriver,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -352,6 +355,7 @@ impl ErrorCode {
       Self::NotFound => Some("NotFound"),
       Self::Incompatible => Some("Incompatible"),
       Self::Internal => Some("Internal"),
+      Self::NotDriver => Some("NotDriver"),
       _ => None,
     }
   }
@@ -406,6 +410,90 @@ impl<'a> ::flatbuffers::Verifiable for ErrorCode {
 }
 
 impl ::flatbuffers::SimpleToVerifyInSlice for ErrorCode {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_VIEWER_ROLE: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_VIEWER_ROLE: u8 = 1;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_VIEWER_ROLE: [ViewerRole; 2] = [
+  ViewerRole::Spectator,
+  ViewerRole::Driver,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct ViewerRole(pub u8);
+#[allow(non_upper_case_globals)]
+impl ViewerRole {
+  pub const Spectator: Self = Self(0);
+  pub const Driver: Self = Self(1);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 1;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Spectator,
+    Self::Driver,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Spectator => Some("Spectator"),
+      Self::Driver => Some("Driver"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for ViewerRole {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for ViewerRole {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for ViewerRole {
+    type Output = ViewerRole;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for ViewerRole {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for ViewerRole {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for ViewerRole {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_SEX: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
@@ -669,10 +757,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for FieldStage {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_COMMAND_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_COMMAND_BODY: u8 = 23;
+pub const ENUM_MAX_COMMAND_BODY: u8 = 24;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 24] = [
+pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 25] = [
   CommandBody::NONE,
   CommandBody::NewWorld,
   CommandBody::SaveWorld,
@@ -697,6 +785,7 @@ pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 24] = [
   CommandBody::Shake,
   CommandBody::SetResolution,
   CommandBody::ForceClimate,
+  CommandBody::HandOver,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -728,9 +817,10 @@ impl CommandBody {
   pub const Shake: Self = Self(21);
   pub const SetResolution: Self = Self(22);
   pub const ForceClimate: Self = Self(23);
+  pub const HandOver: Self = Self(24);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 23;
+  pub const ENUM_MAX: u8 = 24;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::NewWorld,
@@ -756,6 +846,7 @@ impl CommandBody {
     Self::Shake,
     Self::SetResolution,
     Self::ForceClimate,
+    Self::HandOver,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -784,6 +875,7 @@ impl CommandBody {
       Self::Shake => Some("Shake"),
       Self::SetResolution => Some("SetResolution"),
       Self::ForceClimate => Some("ForceClimate"),
+      Self::HandOver => Some("HandOver"),
       _ => None,
     }
   }
@@ -8673,6 +8765,300 @@ impl ::core::fmt::Debug for Event<'_> {
       ds.finish()
   }
 }
+pub enum ViewerInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ViewerInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for ViewerInfo<'a> {
+  type Inner = ViewerInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> ViewerInfo<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
+  pub const VT_LOCAL: ::flatbuffers::VOffsetT = 8;
+  pub const VT_ROLE: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    ViewerInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ViewerInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<ViewerInfo<'bldr>> {
+    let mut builder = ViewerInfoBuilder::new(_fbb);
+    builder.add_id(args.id);
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.add_role(args.role);
+    builder.add_local(args.local);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ViewerInfo::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(ViewerInfo::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn local(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(ViewerInfo::VT_LOCAL, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn role(&self) -> ViewerRole {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<ViewerRole>(ViewerInfo::VT_ROLE, Some(ViewerRole::Spectator)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for ViewerInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<bool>("local", Self::VT_LOCAL, false)?
+     .visit_field::<ViewerRole>("role", Self::VT_ROLE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ViewerInfoArgs<'a> {
+    pub id: u64,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub local: bool,
+    pub role: ViewerRole,
+}
+impl<'a> Default for ViewerInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    ViewerInfoArgs {
+      id: 0,
+      name: None,
+      local: false,
+      role: ViewerRole::Spectator,
+    }
+  }
+}
+
+pub struct ViewerInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ViewerInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(ViewerInfo::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ViewerInfo::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_local(&mut self, local: bool) {
+    self.fbb_.push_slot::<bool>(ViewerInfo::VT_LOCAL, local, false);
+  }
+  #[inline]
+  pub fn add_role(&mut self, role: ViewerRole) {
+    self.fbb_.push_slot::<ViewerRole>(ViewerInfo::VT_ROLE, role, ViewerRole::Spectator);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ViewerInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ViewerInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<ViewerInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for ViewerInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("ViewerInfo");
+      ds.field("id", &self.id());
+      ds.field("name", &self.name());
+      ds.field("local", &self.local());
+      ds.field("role", &self.role());
+      ds.finish()
+  }
+}
+pub enum ViewersOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Viewers<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Viewers<'a> {
+  type Inner = Viewers<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Viewers<'a> {
+  pub const VT_YOU: ::flatbuffers::VOffsetT = 4;
+  pub const VT_ROLE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_DRIVER: ::flatbuffers::VOffsetT = 8;
+  pub const VT_VIEWERS: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Viewers { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ViewersArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Viewers<'bldr>> {
+    let mut builder = ViewersBuilder::new(_fbb);
+    builder.add_driver(args.driver);
+    builder.add_you(args.you);
+    if let Some(x) = args.viewers { builder.add_viewers(x); }
+    builder.add_role(args.role);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn you(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Viewers::VT_YOU, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn role(&self) -> ViewerRole {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<ViewerRole>(Viewers::VT_ROLE, Some(ViewerRole::Spectator)).unwrap()}
+  }
+  #[inline]
+  pub fn driver(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Viewers::VT_DRIVER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn viewers(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ViewerInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ViewerInfo>>>>(Viewers::VT_VIEWERS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Viewers<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("you", Self::VT_YOU, false)?
+     .visit_field::<ViewerRole>("role", Self::VT_ROLE, false)?
+     .visit_field::<u64>("driver", Self::VT_DRIVER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ViewerInfo>>>>("viewers", Self::VT_VIEWERS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ViewersArgs<'a> {
+    pub you: u64,
+    pub role: ViewerRole,
+    pub driver: u64,
+    pub viewers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ViewerInfo<'a>>>>>,
+}
+impl<'a> Default for ViewersArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    ViewersArgs {
+      you: 0,
+      role: ViewerRole::Spectator,
+      driver: 0,
+      viewers: None,
+    }
+  }
+}
+
+pub struct ViewersBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ViewersBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_you(&mut self, you: u64) {
+    self.fbb_.push_slot::<u64>(Viewers::VT_YOU, you, 0);
+  }
+  #[inline]
+  pub fn add_role(&mut self, role: ViewerRole) {
+    self.fbb_.push_slot::<ViewerRole>(Viewers::VT_ROLE, role, ViewerRole::Spectator);
+  }
+  #[inline]
+  pub fn add_driver(&mut self, driver: u64) {
+    self.fbb_.push_slot::<u64>(Viewers::VT_DRIVER, driver, 0);
+  }
+  #[inline]
+  pub fn add_viewers(&mut self, viewers: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<ViewerInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Viewers::VT_VIEWERS, viewers);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ViewersBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ViewersBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Viewers<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Viewers<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Viewers");
+      ds.field("you", &self.you());
+      ds.field("role", &self.role());
+      ds.field("driver", &self.driver());
+      ds.field("viewers", &self.viewers());
+      ds.finish()
+  }
+}
 pub enum EventsOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -8690,6 +9076,7 @@ impl<'a> ::flatbuffers::Follow<'a> for Events<'a> {
 
 impl<'a> Events<'a> {
   pub const VT_EVENTS: ::flatbuffers::VOffsetT = 4;
+  pub const VT_VIEWERS: ::flatbuffers::VOffsetT = 6;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -8701,6 +9088,7 @@ impl<'a> Events<'a> {
     args: &'args EventsArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Events<'bldr>> {
     let mut builder = EventsBuilder::new(_fbb);
+    if let Some(x) = args.viewers { builder.add_viewers(x); }
     if let Some(x) = args.events { builder.add_events(x); }
     builder.finish()
   }
@@ -8713,6 +9101,13 @@ impl<'a> Events<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Event>>>>(Events::VT_EVENTS, None)}
   }
+  #[inline]
+  pub fn viewers(&self) -> Option<Viewers<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Viewers>>(Events::VT_VIEWERS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Events<'_> {
@@ -8722,18 +9117,21 @@ impl ::flatbuffers::Verifiable for Events<'_> {
   ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Event>>>>("events", Self::VT_EVENTS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<Viewers>>("viewers", Self::VT_VIEWERS, false)?
      .finish();
     Ok(())
   }
 }
 pub struct EventsArgs<'a> {
     pub events: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Event<'a>>>>>,
+    pub viewers: Option<::flatbuffers::WIPOffset<Viewers<'a>>>,
 }
 impl<'a> Default for EventsArgs<'a> {
   #[inline]
   fn default() -> Self {
     EventsArgs {
       events: None,
+      viewers: None,
     }
   }
 }
@@ -8746,6 +9144,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> EventsBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_events(&mut self, events: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Event<'b >>>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Events::VT_EVENTS, events);
+  }
+  #[inline]
+  pub fn add_viewers(&mut self, viewers: ::flatbuffers::WIPOffset<Viewers<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Viewers>>(Events::VT_VIEWERS, viewers);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> EventsBuilder<'a, 'b, A> {
@@ -8766,6 +9168,7 @@ impl ::core::fmt::Debug for Events<'_> {
   fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
     let mut ds = f.debug_struct("Events");
       ds.field("events", &self.events());
+      ds.field("viewers", &self.viewers());
       ds.finish()
   }
 }
@@ -10972,6 +11375,102 @@ impl ::core::fmt::Debug for ForceClimate<'_> {
       ds.finish()
   }
 }
+pub enum HandOverOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct HandOver<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for HandOver<'a> {
+  type Inner = HandOver<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> HandOver<'a> {
+  pub const VT_TO: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    HandOver { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args HandOverArgs
+  ) -> ::flatbuffers::WIPOffset<HandOver<'bldr>> {
+    let mut builder = HandOverBuilder::new(_fbb);
+    builder.add_to(args.to);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn to(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(HandOver::VT_TO, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for HandOver<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("to", Self::VT_TO, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct HandOverArgs {
+    pub to: u64,
+}
+impl<'a> Default for HandOverArgs {
+  #[inline]
+  fn default() -> Self {
+    HandOverArgs {
+      to: 0,
+    }
+  }
+}
+
+pub struct HandOverBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HandOverBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_to(&mut self, to: u64) {
+    self.fbb_.push_slot::<u64>(HandOver::VT_TO, to, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HandOverBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    HandOverBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<HandOver<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for HandOver<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("HandOver");
+      ds.field("to", &self.to());
+      ds.finish()
+  }
+}
 pub enum SetFireOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -11965,6 +12464,21 @@ impl<'a> Command<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_hand_over(&self) -> Option<HandOver<'a>> {
+    if self.body_type() == CommandBody::HandOver {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { HandOver::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Command<'_> {
@@ -11998,6 +12512,7 @@ impl ::flatbuffers::Verifiable for Command<'_> {
           CommandBody::Shake => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Shake>>("CommandBody::Shake", pos),
           CommandBody::SetResolution => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SetResolution>>("CommandBody::SetResolution", pos),
           CommandBody::ForceClimate => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ForceClimate>>("CommandBody::ForceClimate", pos),
+          CommandBody::HandOver => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<HandOver>>("CommandBody::HandOver", pos),
           _ => Ok(()),
         }
      })?
@@ -12208,6 +12723,13 @@ impl ::core::fmt::Debug for Command<'_> {
         },
         CommandBody::ForceClimate => {
           if let Some(x) = self.body_as_force_climate() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        CommandBody::HandOver => {
+          if let Some(x) = self.body_as_hand_over() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

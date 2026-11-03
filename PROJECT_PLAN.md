@@ -3120,7 +3120,7 @@ and M6a gives rivers a daily flow.
         came stood), a year of the difference, and the evenings its people spent hearing cases.
         A holder lapses as any office. Time to closure is each case's days from brought to
         closed (`Case::closure_days`), in the observer's case words. **Not yet built:** a
-        hearer's tenure or lot; the forum's own hearth and walk (sitters are called, not
+        hearer's tenure or lot (done 2026-11-02, see backlog D); the forum's own hearth and walk (sitters are called, not
         walking); grievances against a forum (BU); counts of settled and withdrawn cases on the
         wire (BU's justice counts).
     - **BS**: precedent: fact tags derived from saved cases (the gathering's since M4 count),
@@ -3414,7 +3414,8 @@ and M6a gives rivers a daily flow.
         years): 61 asks, 1 refused, 60 loans made, 24 repaid, 18 defaulted, 18 still open; the
         villages held their numbers (127 people at the end, 129 before credit). Interest is
         measured, never set. **Not yet built:** pledges, guarantors, answers at the due day and
-        *debts heard* (CB); what a default teaches beyond the lender's elder; loans between
+        *debts heard* (CB); what a default teaches beyond the lender's elder (done 2026-11-02, see
+        backlog D); loans between
         settlements or by workshops.
     - **CB1**: default and pledges: answers at the due day, time asked and granted, a field's use
       and a guarantor as pledges, taken when a loan fails.
@@ -3439,7 +3440,8 @@ and M6a gives rivers a daily flow.
         all were granted it; 137 people at the end. No pledge was ever given: at this regard and
         these harvests no lender refused a loan bare, so pledges wait for leaner years or warier
         priors. **Not yet built:** *debts heard* (CB2); wage arrears (CB3); labour-days owed to a
-        creditor; what a default teaches beyond the creditor's household.
+        creditor; what a default teaches beyond the creditor's household (done 2026-11-02, see
+        backlog D).
     - **CB3**: wage arrears: a workshop that cannot pay a wage owes it, and fails only when it is
       unpaid by the due day.
       - *As built (2026-10-16):* content API 121 (`wage_days`); saves and wire unchanged (a
@@ -3480,7 +3482,8 @@ and M6a gives rivers a daily flow.
         before one law replaced the other, had both remedies in force at once in two villages.
         **Not yet built:** labour-days owed to a creditor (ADR-0027 §3's harshest bundle: no
         behaviour yet sends one household's people to work another's fields); word of a default
-        beyond the creditor's household; loans between settlements.
+        beyond the creditor's household (done 2026-11-02, see backlog D); loans between
+        settlements.
     - **CC1**: lending from the store: a law under which the common store lends to households
       short before their harvest, at the law's terms, repaid into it.
       - *As built (2026-10-16):* content API 123 (saves and wire unchanged: a store's loan is a
@@ -3668,7 +3671,12 @@ and M6a gives rivers a daily flow.
         world:** no world mints yet; tests show a household that cannot assay paying with the
         older issue and, taught to smelt, with the lighter, valuing a piece at the copper in its
         lightest, and a lighter mint striking 333 pieces from two kilograms. The mint's place
-        taken by another is not tested apart from the gathering that would pass it.
+        taken by another is not tested apart from the gathering that would pass it. *Mended
+        (2026-11-02):* the rule had come to sit on the wrong branch of the review's moves: a
+        proposal to keep the store named the mint in force as the law it ends, so passing it
+        would have ended the mint, and a mint of other terms (named or by lot) named none, so two
+        mints could stand. A mint's moves now name the mint in force of other terms and no other
+        kind names one (`replaced_by`); a metal test checks it.
     - **CE4c**: foreign coin by weight.
       - *As built (2026-10-17):* content API 131 (saves and wire unchanged). A household that
         cannot assay pays with pieces of another polity's issue first (then its own, oldest
@@ -4103,7 +4111,8 @@ and M6a gives rivers a daily flow.
         content's own; nobody began a boat there. **Boundary:** saves schema 144 (a boat's labour, work, expected saving
         and crew, a boat as a target; boats in older saves were given whole and load made),
         content API 134, no wire change (the inspector says "the dugout on the bank north of
-        home"). **Not yet:** a boat of a household that is gone (it stays where it is),
+        home"). **Not yet:** a boat of a household that is gone (it stays where it is) (done
+        2026-11-02, see backlog D),
         repairing or replacing a boat, and the observer's view of boats.
     - **CP**: handcarts on ways: the wheel technique and handcart, passability by width, grade and
       deck, the way graph with door legs, mode choice by the complete chain, clearance and
@@ -4231,7 +4240,8 @@ and M6a gives rivers a daily flow.
         made dugout and a handcart 12 hours into its 40 with their words; the web's look,
         position and picking; the e2e finds none in a new world. **Boundary:** wire 1.86
         (`GetVehicles`, `Vehicles`, `VehicleInfo`, `vehicles_rev`); no saves or content
-        change. **Not yet:** a cart of a household that is gone, repair, unloading to porters,
+        change. **Not yet:** a cart of a household that is gone (done 2026-11-02, see backlog
+        D), repair, unloading to porters,
         walkers giving way to carts, and choices made by remembered waits.
     - **CQ**: works on ways: recorded losses, household works and `build_way`, laying, widening,
       passing places, cart crossings, landings, grading as an earthwork, upkeep by law, tolls.
@@ -4311,8 +4321,9 @@ and M6a gives rivers a daily flow.
         opinion, factions), the save header's aside. **Boundary:**
         saves schema 150 (the polity's passing places, reckonings and hours given), content API
         138 (`build_way`, `carts_wait`); no wire change: the law reads in the government panel
-        as any law does. **Not yet:** a chronicle entry when it is done, keeping one by law,
-        laying or widening a longer stretch, and the observer's view of losses.
+        as any law does. **Not yet:** a chronicle entry when it is done (done 2026-11-02, see
+        backlog D, sixth item), keeping one by law, laying or widening a longer stretch, and the
+        observer's view of losses.
       - *Fourth part, as built (2026-10-18): a household lays a way where its carts drag on
         worn trail* (ADR-0029 §6: "a household works on its own approach"; "a work may lay a
         segment"). **The loss:** a cart rolls far harder on worn trail than on a way laid for
@@ -8127,8 +8138,1500 @@ and M6a gives rivers a daily flow.
       knowing it and each technique stands on the works before it, and a works blows pig to steel
       only with three at the converter and rolls sections only with four at the mill, at the
       recipes' figures; the mills target passes again.
+    - *M11e, second part (2026-10-30): frame version 4, the steel skeleton* (ADR-0037 §3–§4 and its
+      amendment). `FRAME_VERSION` 4: version 3 plus post system 2, a steel skeleton laid as storeyed
+      posts (one storey allowed) whose posts, plates, tie and cross beams and joists take a fifth
+      material slot `frame` at the program's `frame_kg_per_m3`; refused by name in versions 1–3,
+      with mass walls, without a frame density, and with four materials. Versions 1–3 expand as
+      before (every golden passes). `steel_section` carries an I-section's properties smeared over
+      its member's envelope (68 / 33.5 MPa, 61 GPa, a design prior), so the margins need no change;
+      `structure::group_timber` resolves a group's material for the loads and quakes checks. The
+      workshop and hall offer the skeleton (`skeleton_frame`, a far technique requiring rolling and
+      jointed frames; 1,119 kg/m³). The designer takes it only when it costs fewer hours and kilograms
+      than the timber design and more of neither, and writes version 4 only then; with the core
+      content it never does (steel weighs more for the same labour), as it reaches for no version 3
+      system but ties. Content API 207; saves and wire unchanged (materials are a saved list).
+      **Tested:** grammar (version 4 without a skeleton is version 3; the skeleton's slot-4 parts,
+      groups and kilograms; one storey; each refusal); a skeleton workshop's posts, joists and tie
+      beams checked as steel and its rafters as timber, a steel member standing (margin above 1.2)
+      under the load a timber one of its size fails; a skeleton workshop raised by its household
+      from its sections; builders who do not know it, or find it dearer, design every frame shape
+      exactly as before and 30 lived days build no version 4 frame; a skeleton workshop saves and
+      loads exactly. **Not yet:** fire on bare steel (next), concrete frames, mass infill, more
+      than four storeys, lifts, wind, letting storeys.
+    - *M11e, third part (2026-10-30): fire on bare steel* (ADR-0037 §5). A good's `[timber]` table
+      takes `burnt_keeps`, the share of its strength a bare member keeps at a fire's heat
+      (steel sections 0.4: research 11-14 §1.6 and §2.1, about 40 % of yield at 600 °C). Steel does
+      not char. When a building burns out its steel members are weighed at that share by the
+      burn-out check, so whatever cannot carry its load then gives way; a member that stands cools
+      and regains its strength (11-14 §1.6: steel heated below about 600 °C recovers). Timber chars
+      exactly as before. The fire's page says "Its steel softened in the fire to about 40% of its
+      strength; what stood regained it as it cooled". Content API 208. **Tested:** a skeleton
+      workshop's steel does not char, stands unloaded and regains its strength, while its timber
+      rafters char; at the fire's heat each steel member's margin is 0.4 of its sound margin; a
+      timber workshop's burn leaves exactly the conditions it left before; the fire, hazard tools
+      and roundtrip targets pass. **Not yet:** protection by encasement in minutes and the
+      `ProtectedFrame` rule (ADR-0037 §5), which wait for a skeleton anyone builds. **M11e is done**
+      as narrowed: cement, steel and rolling; the steel skeleton; fire on bare steel.
+    - *M11f, first part (2026-10-30): the heap's ash, and residues as goods* (ADR-0038 §2). A fuel's
+      `[fuel]` table takes `ash_share` (firewood 0.005 and coal 0.11, research 12-10 §2.1; charcoal
+      0.03 and coke 0.10, design priors). What a household burns at its hearth adds its ash to its
+      heap's new `ash_kg`, which never decays, is not dung and carries nothing to water; carried from
+      the water, it goes with the heap. Making leaves in the maker's store, as `ash`, the ash of the
+      fuels it burns net of what its fuel outputs keep (coke keeps its coal's ash, charcoal its
+      wood's), once for household, firm and household-resolved making alike. Recipes keep their
+      residues: `make_gas` gives coal tar 0.05 and ammoniacal liquor 0.13 a kilogram of coal (12-10
+      §5.7), so with its ash a kilogram of coal goes 1.015 kg out; pig iron leaves 0.6 kg of slag
+      (12-10 §5.7's 0.5–1.0), fining 0.35, steel 0.15, the bloomery 6.0 a kilogram of bloom (design
+      priors from each recipe's own figures). Residues take no room under a roof (only goods that
+      spoil do), are offered by nobody (they have no cost) and read by no want. **Changed in lived
+      worlds:** heaps gain ash, and the stores of households and works that bake, burn lime, fire or
+      smelt pile ash and slag; held slag now counts as a remain of a lost smelting technique, as a
+      slag heap is on the ground. Saves 220 (unreleased) gains the heap's ash; content API 209.
+      **Tested:** a residues target (hearth ash at 0.005 that does not decay while the heap's
+      decaying share halves as before, manuring and contagion reading the decaying share alone; the
+      gas and iron recipes' mass; a works burning coke for pig keeping its ash; the heap's ash saved
+      and loaded); the contagion, crime, soil, iron, gas, firms, works, coal, metal, telegraph,
+      steel, roundtrip, batches, people, mills and lamps targets; the smoke's ten worlds. **Not
+      yet:** ash from engines and locomotives, and forging's slag.
+    - *M11f, second part (2026-10-30): tips, and a law that names one* (ADR-0038 §3). A tip is a
+      polity's saved record (place, the law that opened it, day, kilograms of decaying refuse and of
+      ash, the households that tipped); its pathogen load is a contagion node of its own
+      (`Node::Tip`), washing and seeping by the same links as a heap's from its place. The law
+      `refuse_to_tip` (`PolicyKind` appended; content terms `from_m` 30, `every_days` 30 and its
+      weighing as `clear_middens`', design priors) opens one tip at enactment on clear dry ground
+      more than `from_m` from every home, open well, spring and stream (and any `midden_from_wells`
+      rule's distance), nearest the settlement's homes; where none qualifies it opens none and
+      nobody carries. Under it a household that would comply carries its whole heap there by day
+      at most every `every_days`, by `clear_middens`' walk: its decaying share and ash arrive at the
+      tip exactly and its disease loads move whole to the tip as recorded carried moves; it
+      supersedes `clear_middens` for that household. It answers `source_suspected` and a new issue,
+      `heaps_near` (a heap over 500 kg within 30 m of another household's home), which opens the
+      move and weighs toward nothing. The polity page tells the law's breaches and each tip ("The
+      tip 50 m north of the hearth holds 3.2 t, 0.4 t of it ash, from 14 households"). Saves 220
+      (unreleased) gains tips and the heap's last tipping; content API 210; wire unchanged.
+      **Changed without the law:** only that `heaps_near` can now open the move in long-lived
+      clustered villages. **Tested:** a tips target (mass and load carried exactly, the tip clear of
+      every source and home, supersession, words, save and load; no place, no tip; the tip's load
+      reaching the well below it as a heap's at its place would and no other; no tip without the
+      law; `heaps_near` raised); crime, contagion, suspicion, sickness, residues, wells, water,
+      polity, rules and roundtrip; the ten smoke worlds. **Not yet:** carrying by loads, what
+      becomes of a tip over the years.
+    - *M11d, fourth part (2026-10-30): the third long run, and the time box.* The homelab's demo suite
+      (run 41027505162, node3, on 7bf48c1) lived `m11_world` eight years: 720 people to 909, saved
+      (21.3 MB) and loaded with all of them, 0.051 simulated years a real minute; the three controls
+      lived as before. **Prospecting found copper:** Sedgehollow's people held 3 kg of copper ore and
+      20 kg of copper by year 3 and 66 kg and 125 kg by year 7 (its nearest body lay 1.7 km off,
+      buried). By year 8 two taught settlements wanted a dynamo and two a telegraph instrument.
+      **Nothing of M11 was built:** no instrument, dynamo, station, line, engine or motor cart, and no
+      M11 law was proposed. The instrument waits on iron: its wanter held 5-8 kg of the 8 kg it keeps
+      for years, and once a dynamo was wanted the iron kept rose to 208-210 kg and its ore to
+      2,000 kg, against 0-18 kg held. Record: `demos/m11/m11-demo-8y.txt`. **Time box reached**
+      (plan §9): three eight-year runs and two fixes (the materials walk, prospecting); the iron
+      chain's last kilograms are left as the next run's question, not tuned here.
+    - *M11f, third part (2026-10-30): the refuse round* (ADR-0038 §4). Once a year a household with a
+      made cart (handcart or motor cart) weighs a round to its polity's open tip: the nearest 40
+      homes of its settlement in nearest-next order, a run's time from its cart's way and handling,
+      and a fee a call of its hours at its `hour_kcal` (and a motor cart's fuel) over the homes a
+      run serves, dropping homes that would not join until the fee is stable; it posts only if a
+      run fits a working day, and re-plans or withdraws at its next review. Every 7 days (a design
+      prior) a run calls from where the last left off, empties each heap's decaying share and ash
+      into the cart up to its payload (the last home part-emptied and called first next time), and
+      tips at the tip exactly as carrying does, disease loads moving by share; each home pays its
+      fee in food on a new `Refuse` channel. A home joins only if its fees a year cost less than the
+      carrying a law asks of it (`refuse_to_tip`, or `clear_middens` near water); under no law it
+      never joins. No tip, or its law ended, and nothing loads. **`collect_refuse`** (appended):
+      the settlement's best cart keeper works the round for every other home free, its hours paid by
+      `pay_work` from the store, dropped with the law. The polity page and the keeper's building tell
+      the round ("Wren's refuse round calls at 9 homes every 7 days and carries to the tip 50 m north
+      of the hearth; 150 kg carried this year; 154 kcal a call"). Saves 220 (unreleased) gains rounds;
+      content API 211; wire unchanged. **Simplified:** runs are settled at midnight as road lines are,
+      not walked by the operator's members. **Tested:** a rounds target (payload, part loads, every
+      kilogram and disease load traced, fees conserved on the ledger, words, a second run on its day,
+      save and load; no tip or an ended law, no load and the round withdrawn; the joining threshold;
+      the law's round paid from the store and dropped with it); tips, residues, transit, rail,
+      crime, contagion, polity, rules, roundtrip, money, wires, telegraph and sickness; the ten smoke
+      worlds.
+    - *M11f, fourth part (2026-10-30): the destructor* (ADR-0038 §5). Refuse is a good
+      (`core:good/refuse`, a fuel of 3.87 MJ a kilogram, 0.15 of coal's, leaving 0.3 as ash: 12-10
+      §2.2 and §5.5, design priors). A destructor is a fixed tool engine burning it (6 kW at 5 %,
+      about 54 kWh of shaft and 43 of current a tonne, inside 12-10's 15–80), opened by
+      `refuse_destructor` (forging with lime burning or firing; tried in burning lime and making gas,
+      a far technique) and built of brick, iron and timber. A household holding one draws, each
+      midnight, what it would burn in an evening from its polity's open tip: the tip's decaying
+      kilograms move into its store and that share of each disease load to a new contagion node,
+      ended in the burning. It drives a dynamo by the engines' existing path, and a destructor is
+      wanted only where its keeper knows it and the dynamo, owns no water installation and the tip
+      holds refuse. **Every engine now leaves its fuel's ash** (pit engines, stations, locomotives,
+      road engines), closing the first part's gap: coal-fired engines' keepers pile ash at 0.11 of
+      what they burn; transit and rounds now count the fuel actually burned. The station and the
+      polity page name a destructor ("a dynamo beside its refuse destructor, 6 kW, burning up to
+      447 kg of refuse an evening"). Content API and saves unchanged (contagion node code 6 within
+      saves 220). **Simplified:** the draw is settled at midnight; only households draw.
+      **Tested:** a destructor target (power at refuse's energy and its ash; the burned load ended;
+      a draw from the tip conserving mass and load; an atmospheric engine on coal leaving 0.11 ash
+      and a gas engine on coal gas none; nobody wanting one without both techniques and refuse at
+      the tip; save, load and go on alike); tips, rounds, residues, wires, gas, telegraph, rail,
+      transit, coal, works, roundtrip, contagion, carts, sickness, suspicion, mills, discovery,
+      knowledge, firms, iron and lamps; the ten smoke worlds. **M11f is done**, and with it M11's
+      modern architecture and waste as designed.
+    - *M11d, fifth part (2026-10-31): why nothing was built, found* (backlog A). **No activity made
+      the instrument:** `build_telegraph_instrument` and `build_gas_engine` were the only core recipes
+      no activity worked, so an instrument wanted with its materials held could never be built; both
+      now have plain make activities (as `build_dynamo`), and a content test holds that every core
+      recipe is worked by an activity. **Forging stalled once inputs were ample:** `best_make` sized a
+      material's session to the activity's longest (forge_bar 8 h, smelt_iron 10 h) while its worth
+      toward a tool is flat, so with bloom and charcoal enough for a long day forging was never worth
+      it (bloom 10 kg and iron 0 for 65 days in a probe); a material made toward a tool, with no
+      per-session setup, is now made in the activity's shortest session, as trying toward a
+      technique is sized. Tools themselves are unchanged. **Found, not fixed:** charcoal for a tool is
+      burned only from the hearth's wood, since gathering a fuel ignores a tool's need; valuing it so
+      piled wood but stalled the 8-hour burns (burning has a setup); left for a fix of session sizing
+      for recipes with a setup. The demo's "way there" line sums the knowing households, so
+      Sedgehollow's wanter held no iron itself. **Tested:** an office to be holding copper, iron and
+      timber builds its instrument within 10 days; a household with bloom and charcoal for a long day
+      forges within 20; both fail with the fixes reverted; telegraph, iron, metal, deposits, works,
+      coal, firms, market, people, homes, knowledge, steel, residues, wires, gas, destructor, mills,
+      lamps.
+    - *M11d, sixth part (2026-10-31): wood toward a tool's charcoal.* A household wanting an
+      instrument with ore and copper at hand held at most 15 kg of charcoal and 0.3 kg of iron in 120
+      days: charcoal was burned only from the hearth's spare wood, because gathering a fuel weighed
+      the hearth alone. The tool-materials walk now counts a fuel beyond what the hearth keeps (the
+      hearth's own keep, `hearth_keep`, unchanged), and gathering it gains the same Tools and
+      Deadline terms a material's gathering has; the walks also follow a recipe's session inputs
+      (the firing's wood). A material whose recipe has a setup (`session_h` or session inputs) keeps
+      the size the shortfall calls for, as before, and is worth the share of a full session it
+      achieves, since every split pays the setup again. Wood gathered toward a tool is not held back
+      from the market. **Tested:** the scene now burns mounds of 50-100 kg, holds 8 kg of iron by about
+      day 46 and has the instrument about 0.58 built by day 71, when its copper runs out (it held 15 kg
+      of charcoal before); telegraph, iron, metal, coal, works, firms, market, people, homes,
+      knowledge, steel, residues, gas, wires, destructor, mills, lamps, batches, soil and deposits.
+    - *Letting rooms (2026-10-31, backlog B; [ADR-0040](decisions/0040-letting-rooms.md)).* Each
+      midnight before custody, on its review day, a household with no roof (and no roof of its own
+      under way) weighs up to 8 homes of its settlement within its walking reach whose largest
+      roofed, finished dwelling has spare sleeping floor (its living floor less the landlord's own
+      need and what is let) enough for its members: the rent (the landlord's asking in food-days a
+      person a month, by its `hour_kcal`) and the change in its walks, against what its goods would
+      keep under that roof over a month and any custody fee it pays. It offers on the cheapest that
+      pays; a landlord whose floor has gone turns it away and asks a step more; one with spare floor
+      and no lodger asks a step less where someone in its settlement is roofless. The first month is
+      paid at once and each after on `Rent`; a second unpaid month ends the let, as do the lodger's
+      own roof, the landlord's need, or the building's loss. A lodger is sheltered, keeps its goods in
+      its floor's share of the room (the landlord's room less), sleeps at the landlord's building and
+      pays no custody fee. **A home's design** counts, for each shape weighed, the rent its spare floor
+      would bring at the settlement's recent rents (lets begun in the last year) times the share of
+      roofless households; none seen, nothing. Content `[letting]` (1 food-day a person a month, a
+      tenth's step, 8 candidates; design priors); content API 212; saves 220 (unreleased) gains lets,
+      asking rents and recent lets; words on the person and building pages. **Changed in lived
+      worlds:** none seen yet: in probes every household had a roof within about two months and early
+      homes had no spare floor while others were roofless, so lodging matters for households formed
+      or arriving later. **Tested:** a letting target (a let begun, paid and ended by a roof of the
+      lodger's own; arrears ending it; no let without floor or at too dear a rent, and asking rents
+      stepping; the design's rent credit only where lets were seen, by the formula; save and load;
+      a world without roofless households unchanged); custody, homes, people, rules, roundtrip, firms,
+      market, residues, tips, rounds and crime; the ten smoke worlds' first month. **Not yet:** a
+      scene where a larger home wins a real choice because of rent.
+    - *M11d, seventh part (2026-10-31): the sixth part narrowed.* Homelab chain 54 on the sixth part
+      failed four scenario targets (credit, levees, organization, sickness): its walk measured a
+      tool's own wood (the oven's 30 kg of firing wood) against what was held beyond the hearth's
+      keep, and the new gathering term sent early villages' households out for it. The walk again
+      measures shortfalls against all that is held, as before; `MaterialWants` records separately a
+      fuel's shortfall beyond the hearth's keep only while following what a made material is made of
+      (wood for charcoal for bloom), and only that (`PatchOption::fuel_tool_kg`) reaches the gathering
+      term. A tool's own firing wood and a pot's are weighed as before the sixth part. **Tested:** the
+      four targets pass; telegraph (with the charcoal scene), iron, metal, coal, works, firms, market,
+      people, homes, knowledge, steel, residues, letting, custody, lamps, mills, gas.
+    - *M11d, eighth part (2026-10-31): the fourth eight-year run, recorded.* Homelab run
+      41197794948 on 64203ec (node4, 50 minutes; [record](demos/m11/m11-demo-8y-64203ec.txt)): 933
+      people, saved and loaded whole; nothing of M11 built or proposed in any settlement, the
+      controls as before. Two things stand out. **Copper:** none was dug or found in any taught
+      settlement in eight years (the third run found it at Sedgehollow), though Stonefield's nearest
+      body lay 0.5 km from the hearth, showing at the surface, and its wanter held all the 8 kg of
+      iron it keeps from year 1 and wanted an instrument until year 6. **Iron:** Thorndale's wanter
+      kept 25 kg of iron ore and held none for eight years, at 5-6 of its 8 kg of iron. Within the
+      time box (plan section 9, "M11d's demo time-boxed"), these are the next questions, in order:
+      why a household wanting an instrument, short only of copper, never digs a showing body of
+      copper ore half a kilometre away; then why one keeping iron ore never digs any. Nothing nudged.
+    - *M11d, ninth part (2026-10-31): why Stonefield never dug its copper, found* (backlog A).
+      **Stonefield's body was near only on the map:** probed on the demo's world (seed 1, 2048
+      cells), the showing body 0.5 km from the hearth lies beyond a river nobody fords: no walk of
+      two hours from the hearth, even on worn trails, comes within 309 m of it, so no route passes
+      within the 50 m that finds it, and it could never be dug. Every other body of copper ore lies
+      beyond the digging walk (60 minutes off the trails; the nearest two, at 48 minutes on worn
+      trails, are buried). The wanter did prospect (in a household-resolved day the walk was
+      weighed at 4.5, Deadline 4 and Tools 2.7 less 2.1 of walking, and taken, three loops at a
+      time, in 75 of 174 weighings in its first month), over ground that held nothing to find.
+      Thorndale's nearest body, 3.5 km off, is likewise beyond the digging walk off the trails,
+      and its wanter prospected about 12-16 person-hours a day for most of a year without passing
+      near it. Neither is a fault: bodies are found by walking past them (ADR-0010 §1), and only
+      Sedgehollow has one showing within the walk (2.2 km, 56 minutes), where the third run found
+      copper. The demo's record now says how far each settlement's nearest body is on foot and,
+      where it lies beyond the walk, the nearest within it. **A fault found on the way:** in a
+      scene with copper ore showing on open ground 300 m from the wanter's home, a neighbour's
+      field was marked out over the outcrop on the fifth day (the body was found within the
+      hour); no pit goes on a field, so the body, known, could never be dug, and the household
+      walked out looking for another every day (60-70 person-hours a day) and held no ore in 120
+      days. A new field now keeps its gap from a body showing at the surface, known or not, as
+      outcrop rather than soil (ADR-0010 §3, as built); the day's site cache reads the bodies too.
+      **Tested:** the scene digs 633 kg of ore and smelts 14 kg of copper in 60 days, and none
+      with the fix reverted; the smallpox scene's look at who called a variolator, four times a
+      day, missed a household whose call was made and answered between two looks once fields
+      moved, and now looks every ten minutes (a closer look, not a looser test); telegraph, iron,
+      metal, deposits, coal, works, firms, market, people, homes, knowledge, steel, residues,
+      letting, custody, lamps, mills, gas, credit, levees, organization, sickness, roundtrip and
+      civ-agents' own; the ten smoke worlds' first month. **Thorndale's iron, narrowed, not
+      fixed:** its wanter gathered bog ore for a while in its first year, emptied the rich patch
+      16 minutes out (0.4 units left) and stopped at 5-5.5 of its 8 kg of iron; the bog ore trip
+      it then weighs is about 80 minutes out (Walking -5.3 against Tools 1.7 and Deadline 2.6),
+      never taken, while the patches nearer hold 4-5 units each. Why a patch still holding 43
+      units about half an hour out on worn trails is not the one weighed is the next question. The
+      copper prospecting that took its people's days meanwhile is the flat hope of the
+      prospecting prior (plan section 9, "Design priors for prospecting"), which remembers nothing
+      of where they looked; this run meets its revisit condition. Nothing nudged. **Not yet:** a
+      memory of the ground looked over; plots, and the founders' fields (laid before bodies are
+      placed), may still cover an outcrop.
+    - *M11d, tenth part (2026-10-31): why Thorndale's wanter never cut the bog ore half an hour
+      out, found and fixed* (backlog A). Probed on the demo's world (seed 1, 2048 cells, living
+      the record's life: Thorndale's wanter held 5.0 of its 8 kg of iron from day 150 to day 390
+      and 6.2 at day 490), with every place to cut bog ore its decision weighed, each day. **A
+      block not yet worked was expected to give its ore spread over bare ground too:** a trip
+      works the richest patch of the block of three patches a side it ranges over, at that
+      patch's density (`Land::gather_around`), while what people expect of a block they have not
+      worked (`Land::typical_yields`) pooled the block's ore over the whole block's ground. Bog
+      ore lies in single wet patches among bare ones, so the patch holding 43.3 units, 44 to 47
+      minutes out on the worn trails, was expected to give 1.35 units an hour where working it
+      gives about 4, and was worth 0.89-0.91 against 1.35-1.39 for a block 75-80 minutes out
+      holding 110 units in four patches (expected 2.56): that block was the trip weighed and
+      never taken. Nothing else stood in the way: the household knew neither place, neither walk
+      reached the activity's 90 minutes, and bog ore is a kilogram a unit and never renews. A
+      block's stock is now pooled over the ground that holds it, so one rich patch among bare ones
+      is expected to give what working it gives (4.27 an hour for the 43.3 units). Continued from
+      day 490, the wanter held 8.0 kg of iron by day 520. **Tried and not kept:** expecting
+      exactly what the harvest takes (its richest patch at each step) also raised blocks whose
+      ground all holds some, unevenly: on the first day's walks wood was found richer, a body of
+      clay passed and dug, and six scenes moved (a workshop begun a month late behind pots and an
+      oven, a proposal to keep the sick apart not made, the charcoal scene's iron 3.4 kg against
+      the 4 it asks);
+      left for a slice that can weigh those. **Found, not fixed:** a place is remembered by the
+      mean return of all the hours worked there, fading over the resource's renewal (ten years at
+      most, for bog ore that never renews), so the rich patch the wanter emptied in its first
+      year (0.6 units left) is still believed to give 1.28 an hour, worth 1.06, second only to the
+      far block; a stock that only falls would be judged by its latest returns, a change to how
+      `KnownPatch` weighs evidence (saved), left for a design. **Prospecting, measured for the
+      prior's revisit** (plan section 9, "Design priors for prospecting"): sampled every ten
+      minutes from the teaching to a year on (days 60 to 425; a household-resolved day by its
+      blocks), the wanters walked looking for copper 4,030 person-hours at Thorndale (11 a day)
+      and 13,320 at Stonefield (36 a day, about 60 in summer) and found none; nobody else there
+      looked. **Tested:** a civ-land target (a block whose ore lies in one patch is expected to
+      give what the harvest takes there: 8.94 units, where 4.48 were expected before) and a scene
+      (a household short of bog ore for its instrument, its ore in one patch of 45 units 34 minutes
+      from the hearth and 108 spread over a block 75 minutes out, cuts the near patch to 0.9 in
+      30 days and has forged 1.9 kg of iron; before, it touched neither), both failing with the
+      fix reverted. The organization scene's seller at home was taught knapping by copying the
+      first knapping record found, which in the moved world was someone who had only heard of
+      it; it now copies one who knows it, as its comment says. Telegraph, iron, metal, deposits,
+      coal, works, firms, market, people, homes, knowledge, steel, residues, letting, custody,
+      lamps, mills, gas, credit, levees, organization, sickness, roundtrip, civ-agents' and
+      civ-land's own; the smoke. Nothing nudged.
+      **Reverted (2026-10-31):** homelab chain 61 on 89ddaf0 failed eight scenes in five targets
+      the tenth part had not run (contagion's wells and heaps, settlements' "nobody went beyond the
+      map", tips, wells, word): pooling a block's stock over its holding patches raises every
+      patchy resource's expected yield, not only bog ore, and moves first days. The fix (2d0c29f)
+      is reverted (its regression scene with it) until those scenes are understood; Thorndale's
+      near bog ore is open again, its cause known.
+    - *M11d, eleventh part (2026-10-31): the fifth eight-year run, and the first trail out.*
+      Homelab run 41226389829 on e0ff592 (node3, 2 h 43 min): 918 people, saved and loaded whole;
+      nothing of M11 built or proposed, the controls as before. With fields kept off outcrops,
+      Thorndale's wanter held 8 of the 8 kg of iron it keeps and 17 kg of ore by year 8 (5-6 kg
+      for eight years before); copper was dug nowhere, every taught settlement's nearest body
+      lying beyond the digging walk or across water (ninth part). The tenth part's bog-ore fix
+      came after this run. **The first trail out.** Homelab run 41211124574's ten-year smoke
+      failed river valley 4 and ria coast 3 for want of a first trail in their first year; a
+      bisect (run 41215879902) showed it turning on small changes since before M11d's fifth part,
+      and the smoke's new margin (run 41220757680) showed why: river valley 4 had worn 101 trails,
+      the longest 1,062 m, but the survey cuts trails at every junction and the stretch passing the
+      hearth was 110 m, the nearest of 150 m passing 104 m from it. A trail out is now the stretch
+      passing the hearth carried on, from each end, along the longest stretch meeting it there (ends
+      within a cell and a half), as far as it goes; a single stretch long enough is taken as before
+      (`first_trail_out`, a unit test). The smoke's failure says how near a trail came.
+    - *M11d, twelfth part (2026-10-31): what is left of a source, and where people have looked*
+      (backlog A; research 03-08, written for it; [ADR-0043](decisions/0043-what-is-left-and-where-people-have-looked.md)).
+      The tenth part's two faults of memory, fixed. **A stock that only falls is judged by what is
+      left:** a place of a resource that does not renew (stone, flint, copper ore, bog ore) is
+      remembered, on each visit, by the mean of the hours worked there as before, scaled by how much
+      less as many hours more there would give as the place was left than the visit gave
+      (`Land::yield_around`, taking nothing; `KnownPatch::saw_left`), and never fades back to what
+      land of its kind would give (`ResourceParams::memory_days`); resources that renew are
+      remembered as before. **Prospecting remembers where people have looked:** a settlement keeps
+      the 100 m blocks its prospectors' walks crossed, with the day each was first looked over
+      (`GroundLooked`); the day's draws keep only ground not yet looked over, and a walk's hope is
+      `PROSPECT_HOPE` times the share of the reachable ground of the right kind not yet looked over
+      (`ProspectWalk::fresh`), none when all is covered. Saves 220 (unreleased) gains the ground
+      looked over in the deposits section; content and wire unchanged. **Rebased onto the revert of
+      the tenth part's expectation** (1c0d729): the bog-ore scene is re-added only as this slice's
+      helper, its settlement beginning with three hours' knowledge of the near patch, since land of
+      its kind pooled over the bare ground round it is not expected to repay the walk. **Tried and
+      not kept:** remembering a place by the last sight of what was left alone follows whoever went
+      last; at a capable adult's pace flint was believed a quarter richer than its workers found it
+      (an instrument not begun in ten days, a sickhouse's care not grown), at the worker's pace the
+      charcoal scene burned its first mound twenty days late or (on all the hours) word's village
+      had a law of its own before its scene began and faction's petition seated another keeper.
+      Scaling the mean changes only what depletion changes. **Tested:** the bog-ore scene with no
+      other ore (over 150 days no trip to the near patch brings almost nothing, the patch is cut to
+      under 30 of its 45 units, its expectation ends within a tenth of what was first known of it
+      above what it gives, and ore laid over a block 45-55 minutes out is then cut; with the old
+      memory the household walked back for almost nothing on six days); an office to be short of
+      copper where no copper ore lies anywhere (57 person-hours looking in six months over 182
+      blocks, where without the memory it walked 7,430, 627 in the first month and 1,907 in the
+      fourth), its ground looked over saved and loaded exactly; the outcrop scene still finds its
+      body; civ-land's and civ-agents' own; 47 civ-sim targets (the list the M11d parts run, with
+      contagion, settlements, tips, wells, word and every other that gathers, digs or draws
+      water); the smoke. Nothing nudged; the flat hope of one
+      load on fresh ground stays the logged NUDGE. **Not yet:** the demo world measured again
+      (Thorndale's and Stonefield's person-hours of looking, and whether Thorndale's wanter goes on
+      from its emptied patch); ground looked over on errands, word of barren ground between
+      settlements, and deadwood (about 14 years to renew) under the new memory.
+    - *M11d, thirteenth part (2026-11-01): what land not yet worked is expected to give, landed,
+      and every scene it moved understood* (backlog A). The tenth part's reverted fix, again, in
+      its principled form: **what is expected of a block not yet worked is what the harvest would
+      take there** (`Land::typical_yields` works the block as `Land::gather_around` does, the
+      richest patch at each of its dozen steps at that patch's own density, sharing its steps with
+      `Land::yield_around`), for every resource. Pooling over the patches that hold the resource
+      (the tenth part) equals the harvest only where those patches are equally rich, and pooling
+      only stocks that do not renew moved scenes too (bottlenecks' yearly ground payment, among
+      the first 26 targets); nothing in the harvest's form is unsound, so it is kept. Under it a
+      rich patch of bog ore among bare ones is expected at what cutting it gives (8.94 units for
+      three hours in the civ-land target, 4.48 before). **Two faults it exposed, fixed at their
+      source.** (1) *Off the map:* households giving up the same night were taken one by one in id
+      order, each going beyond the map if no settlement drew it at that moment; under the pooled
+      measure a household of three in the settlements scene, kin of nobody, knew eleven people of
+      the band, nine of whom went to the second settlement moments later (the twelfth died that
+      night), and none of the two households gone by its turn, so it left the map. Now a household
+      drawn nowhere waits on the others giving up that night, and goes where those it knows have
+      gone; only those drawn nowhere once all have chosen leave (`departures`; research 05-06
+      §1.2). (2) *A siting rule broken where ground keeping it lay:* a home's plot fell back to
+      ground breaking the rules its builders keep about each point it is sought about, so a plot
+      breaking a rule beside its old point was weighed against plots keeping it about the others
+      and taken as cheapest, and a first home's search 120 m out for ground keeping it was never
+      made; under a rule keeping homes 30 m from open wells, the well's own household laid its
+      home 22.9 m from its well under the pooled measure, another 1.1 m from it under the
+      harvest's. Now a plot breaking the rules
+      is laid only where no point and no shape finds one keeping them. **The scenes that moved,
+      each a setup living a world's first weeks as the old measure lived them** (trips go where
+      the harvest is richest, so the first days' walks, finds and ids move): in world 3 a
+      household walks past a body of clay on the first day and digs it, so the first household's
+      adults make pots for about 560 hours in twenty days instead of beginning its firm's workshop
+      on the first (the two workshop scenes), the pit takes 1.7 m³ of earth off the map (the
+      levelling scene, whose
+      ground is to balance the platform's cut), and the ids it takes move the draws of the tall
+      frame's post quality (one post at 0.43, 2.85 standard deviations down); world 6's first well
+      is dug by a household that built its home 170-200 m from all the others (no neighbour nearer
+      it than its own water; and that household's home cell, which the incidents scene took for
+      the river, is its well's); the wires scene's first home stands a cell from another, which
+      hooks up
+      beside the station's line of no length and pays a third evening; and the charcoal scene's
+      household, holding the ore for its iron, also cut 46 kg of bog ore in 18 days (32 before;
+      sampled each half hour), its charcoal ran out on day 34 rather than 24, when its fields'
+      sowing outweighed another
+      mound for a week (the mound 1.9 points, preparing a field 5.4), and it held 3.4 kg of iron
+      at most. Each setup now says what the scene meant: no clay body in the homes scenes; the
+      swaying frame's posts at a middling builder's mean quality; the nearest household's home
+      beside the well; the river nearest home; a station with no home beside it; no bog ore on the
+      charcoal scene's land. No assertion was changed. The tenth part's other moved scenes under
+      the pooled measure (three contagion scenes and tips wanting a heap above the well, the well
+      dug within 60 days; word's no longer moved on this head) do not move under this one.
+      **Tested:** the bog-ore scene again (a household knowing neither place, its ore in one patch
+      of 45 units 34 minutes out and 12 in each patch of a block 75 minutes out, cuts the near patch
+      to 25 units or fewer in 30 days; before, it touched neither), a departures scene (a household
+      knowing only a later household's people, which goes to its kin, follows them; before, six
+      people left the map), a siting scene (the well's household, its old point at the well's
+      mouth, lays its home beyond the rule's reach; before, 1.4 m from the well), each failing
+      without its fix; civ-land targets (one rich patch among bare ones, and every patch of every
+      resource, uneven or not, expected at what the harvest takes); all 84 civ-sim targets with the
+      crate's own (758 tests, 3 ignored), civ-agents' and civ-land's own; the smoke. Nothing
+      nudged.
+      **Not yet:** the demo world lived again (Thorndale's wanter and the near bog ore); scenes
+      that take "the first household to begin a well" or "the first home" stay hostage to a
+      world's first weeks.
+    - *M11d, fourteenth part (2026-11-01): the sixth eight-year run, and copper dug.* Homelab run
+      41277719464 on 9b7f3a8 ([record](demos/m11/m11-demo-8y-9b7f3a8.txt)): 920 people, saved and
+      loaded whole; nothing of M11 built or proposed, the controls as before. **Copper is dug for
+      the first time:** Sedgehollow, whose nearest showing body lies 56 minutes' walk out, held
+      11 kg of copper by year 2, 31 kg by year 4 and 121-130 kg from year 5, and came to want a
+      dynamo in year 4. **The next gap is iron:** that dynamo's household keeps 2,080 kg of iron
+      ore for 208 kg of iron and held at most 12 kg of ore and no iron in the four years after;
+      Thorndale's wanter held 8 of its 8 kg of iron and 8 kg of ore, as in the fifth run.
+      **Probed (homelab run 41312592566, scratch branch `codex/iron-diag`, six years; each month
+      what the people of households keeping iron ore chose instead of cutting bog ore):**
+      Thorndale's wanter (keeping 20-80 kg of ore) cut bog ore on a few days in each 3,000-odd
+      decisions; where it ranked near the top it lost by about 2.8 points, to fetching water,
+      gathering wood, field work and smelting the ore it held, its pull the deadline (about +2.5)
+      and the tools it makes (about +1.8) against the walk and the effort (−0.4 to −2.2 each): a
+      weighing, not a fault. Sedgehollow's households live household-resolved in the demo, which
+      keeps no person's receipts, so the probe saw none of their choices. **A second probe**
+      (homelab run 41328050053, five years; each month the hours its household-resolved day put
+      each member in, by activity) read them: Sedgehollow's wanter, keeping 80 kg of ore, spent
+      0-13.5 member-hours a month cutting bog ore against 400-1,900 socialising and 400-1,200 at
+      play, the rest in fields, building, wood, meals and bread. Its want of iron toward a dynamo
+      never pressed against an easy year's leisure: a weighing, as Thorndale's, not a path that
+      breaks. **The demo's iron question is answered; nothing is nudged** (M11d's demo stays
+      time-boxed, §9): a world that builds a dynamo needs a household that wants its iron more
+      than its leisure, by the M8-M10 weighing as it is. **Not yet:** whether trade could bring
+      the iron (no settlement sells any), and a wanter weighing what it is short of over years
+      rather than days.
+    - *Sewers and settling (2026-10-31, backlog D; [ADR-0041](decisions/0041-sewers-and-treatment.md)).*
+      A polity lays a sewer by a `lay_sewer` law (`PolicyKind` appended; it answers
+      `source_suspected` and `heaps_near` on `lay_current`'s machinery: forecast, way site, common
+      work, `pay_work`): a route along ways from a head among the settlement's homes to a river cell,
+      the outfall on that cell's reach, falling at least 1 in 500 every step by the land's heights
+      (a rise is refused); a metre laid each 10 hours with 1,000 kg of brick or stone and 50 kg of
+      lime or cement (design priors). The forecast weighs what each home beside it would be spared a
+      year (the carrying hours tip, middens or round-fee laws ask, and a fifth of its deaths from
+      disease) against labour and materials, with two homes at least. Once whole, homes on or beside
+      it connect (free while `connect_h` is 0; else when a year's carrying exceeds it), served in
+      order up to 1,000 kg a day: each day the heap's new decaying share (not its ash) and its loads
+      go to the outfall's reach as recorded carried moves, exactly conserved; connections past the
+      capacity keep their heaps. A settling tank (technique `settling`, brought only by the
+      observer; its recipe and activity) held by the keeper settles half the day's mass to `sludge`
+      and half of each load to a sewer node (contagion code 7). Content API 213; saves 220
+      (unreleased) gains sewers and their connections; the services and outbreak words name them.
+      **Without the law nothing changes** (a sewer day on a world without one leaves every section
+      byte-identical). **Tested:** a sewers target (a rising route refused; laying in part and whole;
+      mass and loads conserved, 460 of 460 doses carried; street heaps light while an unconnected
+      heap grows; capacity in order; a broken sewer serving nobody; settling by the prior; save and
+      load exact; the forecast choosing a sewer when a tip law asks homes to carry); tips, rounds,
+      residues, contagion, sickness, suspicion, wells, water, gas, wires, polity, rules, roundtrip,
+      letting and crime; the ten smoke worlds. **Not yet:** the sewage farm (§4), mending a broken
+      sewer (nothing breaks one yet), sludge carried to a tip, connection work as an activity, and a
+      lived world where a polity lays one.
+    - *The bench after M11 and M12: profiled and cut exactly (2026-10-31; ADR-0028 §1's rule).*
+      Homelab bench run 16 (M9's close against d3e155a) had the village of 500 at 1.33× M9
+      and three of 400 at 1.29×, against M10's close at about 1.15× and 1.17×. **Profiled**
+      (callgrind, the village of 500, days 31–35 through `profiled_day`; release build):
+      M10's close 25.5 G instructions, this branch 27.2 G (+6.5 %; the two villages live slightly
+      different months, 162 and 172 fields at the end). Nothing M11 or M12 named shows by itself:
+      the wire, gas, telegraph, transit, tips, rounds, destructor, letting and sewer days each
+      early-out in a world without them (about 0.1 % or less), prospecting is never reached
+      there, the tool-materials walk (`MaterialWants`) is 0.4 % and `cap_power_wants` (now asking
+      telegraph instruments, engines and refuse) 2.2 %. What grew is again the work per decision
+      that scales with the catalogue (goods 56 → 74, recipes 46 → 58): `way_to_tool` 4.9 →
+      7.1 %, `holding_of` 5.5 → 7.2 %, `tool_wants_for` 5.3 → 6.2 %, `own_costs`
+      8.3 → 8.1 % of a larger total. **Cut, each exactly:** (1) `own_costs` reckons each recipe's
+      level (which reads every member) and the work and quality it gives once, not in each of its
+      four rounds; (2) a decision asks `way_to_tool` only for a tool it needs or would make to sell,
+      the only ways it reads; (3) `cap_power_wants` skips goods not wanted (a cap only lowers);
+      (4) `tool_ages` skips untooled activities by their lists, not by building `tools_of`; (5)
+      the purchase a decision weighs takes the tools it already wanted and shares its own-cost
+      cell (`market::Known`) instead of working both out again in `holding_of` and `best_deal`;
+      (6) `best_deal` asks the walk to a seller only once one of its offers is worth it, and each
+      tool's need once a call, not once an offer; (7) `way_to_tool` walks the tools that serve for
+      one without gathering them first. **Exact:** every save section's digest (`--digest`) and
+      every other line the bench prints are equal before and after, in the village of 500 over 90
+      days and in three of 400 (household-resolved, Max) over 60, and over ten days lived on from
+      a save of the village at day 30. **Measured** (this container, 4 vCPU, the release build,
+      before and after interleaved, three rounds; medians, ms a simulated day): the village of
+      500 894 → 734 (−18 %), three of 400 812 → 750 (−8 %); the profiled days 27.2 →
+      22.2 G instructions. Applied to run 16's ratios, about 1.09× and 1.19× M9: a homelab
+      rerun is to confirm. **Left:** route searches (19–22 % of the village's days, behaviour,
+      not catalogue: walks the cache has not seen), the market's offer scan (`best_deal`, 11 %),
+      `keep_company` (0.4 → 0.9 G at the same calls; its body unchanged since M10, so what it is
+      handed grew), and in three of 400 the public plans' sites (`plans_weighed` → `home_site`,
+      17 % of days 31–34): profiled there, M10's close 24.0 G and this branch after the cuts
+      24.4 G, the difference those sites (977 households weighed against 1,238: more without a
+      home that month, behaviour, and each site costs the same). The clause is not amended here.
+      **Tested:** civ-agents' unit tests, roundtrip, market, firms, metal, iron, steel, lamps,
+      hazard_tools, wires, telegraph, money, credit; the ten smoke worlds' first month.
+    - *Climbing, lifts, taller frames and wind (2026-10-31, backlog; [ADR-0042](decisions/0042-climbing-lifts-taller-frames-and-wind.md)
+      and its as-built amendment).* Four parts. **Climbing is hours:** a household's members sleep
+      on a home's storeys filled from the ground up (`floor_base_m2`, then `floor_m2_per_sleeper`
+      each), and each member's share of the household's trips out and back (its goings, ADR-0030
+      §1) costs its storeys' climb at the people profile's new `[climbing]` priors (15 s a storey up,
+      8 down; 11-14 §2.5). A home's design adds it, over the years a site is weighed, to each shape's
+      building and ground hours; a household seeking a room adds a month of it for the storey the
+      room lies on, the highest of the home with floor to spare (lets filled from the top down).
+      **Frame version 4 to twelve storeys:** `Level` gains the fifth to twelfth storeys (codes 6 to
+      13, appended); a steel skeleton of version 4 may rise to twelve (`MAX_STOREYS_V4`), each storey
+      above the fourth laid out as the fourth (its openings, infill and a flight of the stair); the
+      stair is required from three, a lift never; versions 1 to 3 and timber frames keep four, their
+      goldens unchanged; a version 4 expansion may have 256 groups (twelve bays of twelve storeys,
+      lofted, take 199). A program offering a skeleton may allow twelve storeys, and a shape above four
+      is designed as a skeleton where its builders know it. **Wind:** a frame of more than four
+      storeys meets the month's storm on its day as `q·1.3` on its broadest face, storey by storey,
+      each storey's posts sharing its shear bent as members fixed at both ends; posts failing give way
+      as any group does, and a sway past H/500 (each storey's shear over its posts' `12EI/h³`) shows
+      on the posts of the storey swaying most that day ("the posts lean on the first storey").
+      **Lifts:** `core:good/lift` (a fixed tool: 630 kg, 1 m/s, 7.5 kW, 10 s a stop, 7 m² of shaft a
+      storey; design priors), technique `passenger_lift` (the skeleton with an atmospheric or gas
+      engine or the dynamo; tried in building dynamos and gas engines; 500,000 hours to half), its
+      recipe and activity. A household's whole lifts stand in its finished version 4 frames, the
+      tallest first; each takes its shaft from every storey's sleeping floor; while its keeper has
+      power that day (installations' and fuel engines' shaft for four hours on the fuel held, or a
+      served wire hookup), a trip from a storey above the ground takes twice a wait for the car to
+      come half the building and a ride, each with a stop, where quicker than the stair (ten storeys
+      of 3.5 m: a round of 153 s, inside 11-14 §2.5's 90–180). Nobody wants a lift (`per_worker` 0):
+      with 0.1, as first written, every grown household wanted one as a tool no work needs, and the
+      lift's iron, among what that tool asked for, kept a telegraph scene's household from burning
+      any charcoal in 60 days (with the iron taken out of the recipe it burned as before); the
+      settling tank's rule was taken. **Versions:** content API 214 (`[climbing]`)
+      and 215 (`[lift]` on a good, the lift's content); wire 1.111 (a group's id may carry the new
+      level codes; no field changed, generated code unchanged); saves unchanged (a fallen building
+      remembered may have up to twelve storeys). **Changed in lived worlds:** nothing seen: the ten
+      smoke worlds' first month pass, and no targeted scene moved; a home's shape choice can now
+      tilt from one putting members upstairs, but core longhouses rise two storeys at most and no
+      core program allows a skeleton home or more than four storeys, so no lived world builds tall
+      or holds a lift. **Tested:** a tall target (a design counting the climb of members sleeping
+      upstairs in proportion to trips; a lodger taking the first-storey room of two alike and the
+      upper one only when it asks enough less; skeletons of five, eight and twelve storeys
+      expanding, standing, saving and loading exactly and living a day on alike; at the least gust
+      that sways six storeys of 12 cm posts past H/500 their first storey leaning, none failing, eight
+      storeys of the same failing under the least gust that fails them and four standing as on a calm
+      day, the sway gone the next calm day; a powered lift's wait and ride in place of a tenth
+      storey's 207 s of stair, the stair kept from the second storey, without power, cut off from
+      the wire or with engines but no gas, the shaft's 7 m² off every storey); grammar (twelve
+      storeys laid out as the fourth, thirteen refused, timber held to four), the designer, content
+      (a skeleton program to twelve storeys, the lift's figures, technique, recipe and refusals),
+      civ-agents' unit tests (296), civ-content (14 + 70), civ-grammar (38), civ-schema; letting,
+      homes, roundtrip, custody, people, rules, steel, public_buildings, fire, hazard_tools, upkeep,
+      weather, style, wires, gas, telegraph, knowledge, discovery, firms, market, iron, metal, works,
+      coal, residues, destructor, mills, lamps, sewers, tips; web build and unit tests; schema check;
+      clippy; content validate; the ten smoke worlds. **Not yet:** a lived world that builds above
+      four storeys or a skeleton home (no core program offers one), anyone wanting a lift, a lift
+      burning fuel or drawing on the wire's dispatch and meter, its capacity and queues, a lift
+      that breaks, the observer's words for a lift, wind on beams and joints or from the storm's
+      own direction, the designer sizing posts for wind, a sway that lingers past the storm's day,
+      and people's days spending the climb they reckon.
+    - *The reinforced-concrete frame (2026-11-01, backlog B; ADR-0037's amendment of 2026-11-01).*
+      Frame version 5 adds post system 3, a concrete frame laid out as the steel skeleton is, its
+      carrying members cast of concrete and bar in two new material slots, their labour by the
+      cubic metre; versions 1 to 4 expand as before (version 4 inside version 5 with two empty
+      slots). Concrete is a dry mix of cement and stone (`recipe/batch_concrete`); a cast member is
+      read over its envelope as one 1.6 times its diameter (82 MPa bending, 51 compression, 98 GPa,
+      creep 2) and weighed at 6,150 kg a cubic metre of envelope. The hall and workshop offer it
+      through `technique/reinforced_concrete`; the designer takes it as it takes the skeleton, so
+      with the core content only above four storeys. Content API 216; saves and wire unchanged.
+      **Tested:** grammar (version 5 with nothing of its own is version 4; the cast members, their
+      kilograms and labour; refusals), content (both programs name seven materials and five
+      systems; every recipe worked), the designer (not known, no figures or dearer: timber; cheaper
+      or six storeys: concrete), steel (the workshop cast of concrete and bar, read as concrete,
+      standing a working building's loads, its own weight showing; a six-storey hall its builders
+      design standing every check), and civ-agents (299), civ-content (14 + 70), civ-grammar (41),
+      tall, roundtrip, rules, hazard_tools, style, fire, diffusion, knowledge, public_buildings,
+      homes; clippy. **Its second part, concrete by its age:** a cast group carries, in the daily
+      check, `days / (4 + 0.85 days)` of its strength once its forms are stripped at 7 days (0.70
+      then, all by about 27), from its `installed` day; a concrete frame's walls wait 7 days after
+      its frame stage ended (`stage_since`); both already saved, so no save change (content API
+      217: `[timber] strip_days`, `age_a_days`, `age_b`). Tested: the curve (in its forms, at 7, 14
+      and 28 days; a timber unchanged), the concrete workshop's walls waiting a week while a
+      timber one's and a concrete one's roof wait for nothing; civ-agents (300), civ-content
+      (14 + 70), steel, tall, roundtrip, hazard_tools, fire; clippy. **Its third part, mass
+      infill:** in version 5 a skeleton or a concrete frame may have rubble, mud brick or fired
+      brick between its posts on a stone footing; its frame stands as with wattle, each storey's
+      wall is a group bearing only itself, held at each floor, and the frame's posts take its
+      weight (the daily check's new `infill_n`); ties are refused in a frame; the designer offers
+      the concrete frame to builders who would lay mass walls. Tested: grammar (the frame as with
+      wattle, the walls the bearing walls' masonry carrying nothing, a footing with postholes,
+      version 4 refusing it, ties refused), steel (a concrete workshop's rubble infill bearing
+      itself at a margin above ten, its posts' margin falling with the infill's weight and still
+      above one), civ-agents (300), civ-grammar (42), tall, hazard_tools, roundtrip, fire, rules,
+      homes, public_buildings; clippy. No content, save or wire change. **Its fourth part,
+      protection against fire:** a member keeps all its strength through a burn its protection
+      outlasts: concrete's own cover (60 minutes) and a version 5 skeleton's casing in concrete
+      (parameter 28, 90 minutes, its frame stage's concrete and hours); otherwise its material's
+      share (steel 0.4, concrete 0.75). A fire's full involvement is 30 minutes, so both outlast
+      it. Content API 218. Tested: a bare skeleton keeping 0.4, a cased one all of it to 90
+      minutes and 0.4 beyond, a concrete frame all of it to its hour and 0.75 beyond; casing
+      refused on a concrete frame and on version 4; civ-agents (300), civ-grammar (42),
+      civ-content (14 + 70), steel, fire, hazard_tools, roundtrip, tall; clippy. **Its fifth
+      part, the `ProtectedFrame` rule:** the building rule template `protected_frame { minutes }`
+      (content API 219; rule templates are content, so no save or wire change): a new steel
+      skeleton must be cased for at least `minutes`; it binds a skeleton begun once in force and
+      is kept by one cased in a program that cases that long; its keepers case their next
+      skeleton; a household weighs it by the bare skeletons it heard gave way or saw burn against
+      the hours casing its own would take. The core's `zealously_zone_cased_steel` answers
+      `burned`, asks an hour and needs the steel skeleton. Tested: binding and keeping, casing a
+      skeleton (and refusing a timber frame or a rule longer than the program's casing), its
+      words, its content (answers, minutes, technique, id order); civ-agents (300), civ-content
+      (14 + 71), steel, rules, hazard_tools, fire, roundtrip, public_buildings; clippy. **Backlog
+      B is done.** **Not yet:** the casing's weight in the checks, the young concrete and the
+      infill in the shaking and wind checks (done 2026-11-02, see backlog D), and a lived world
+      that casts or cases one.
+    - *Backlog C (ADR-0038's and ADR-0041's deferrals; brief `docs/briefs/backlog-c-salvage-sewage.md`,
+      [ADR-0044](decisions/0044-salvage-sewage-farms-and-sewer-mending.md)), its first slice,
+      discards and scrap (2026-11-01):* a tool good may name `[scrap]`, a good that is not a tool
+      and kilograms a whole one leaves (content API 220); wearing it puts the worn share's scrap on
+      its holding household's heap as **discards**, kept by good beside the decaying share and the
+      ash: inert, never dung, never to the water. Carrying a heap to a tip, by hand or on a refuse
+      round, moves them whole and the tip keeps them by good; each round call records its
+      kilograms; the destructor draws only a tip's decaying share. The core's iron axe, hoe and
+      sickle leave half the bar they took as `scrap_iron` (0.6, 0.4, 0.2 kg; a design prior), and
+      `forge_scrap` welds 1.1 kg of it with 4 kg of charcoal into a kilogram of bar in 2 hours
+      (inside 07-05 §2.3's forging envelope). The bootstrap check counts a workable tool's scrap
+      as obtainable. Saves 220 (unreleased) gains the heap's and the tip's discards and each
+      call's kilograms; the government page names what a tip holds whole. Tested: a `salvage`
+      target (an axe half worn leaves 0.3 kg and worn through 0.6, a stone axe nothing, the heap's
+      discards inert; carried to a tip they arrive whole; saves and loads exactly), the content
+      test of `[scrap]`, tips, rounds, destructor, roundtrip. **Not yet:** picking and selling
+      salvage, the round's sorting and its fee's sign (slice 2), the sewage farm (3), sewer wear
+      and mending (4).
+      *Its second slice, picking salvage, ash in bricks and a round's fee of either sign
+      (2026-11-02, ADR-0044 §2–§3):* a member may sort its own household's heap or its polity's
+      open tip by hand at the people profile's `sort_kg_h` (100 kg of what lies there an hour, a
+      design prior: 12-10 §6 found none), carrying home the good a `pick` activity names
+      (`pick_scrap_iron`, `pick_ash`; content API 221): the good's share of what was sorted, at
+      most a load and what lies there, out of the place's discards or ash exactly, its disease
+      loads left where they lie. Picking's own cost of a kilogram, `1 / (sort_kg_h × share)` and
+      the walk there and back over a load, joins gathering's in `value.rs`, so salvage enters own
+      costs, wants and the market as any gathered good: **no price, recovery rate or salvage share
+      is authored.** A household weighs picking (as gathering, toward the materials of a tool it
+      lacks or what it builds) only while it wants the good, and not where a neighbour's posted
+      terms give a kilogram for fewer of its own hours, so the household whose hour brings less
+      food picks where one whose hour brings more buys; buyers buy salvage they are short of toward
+      a tool. A good that lies to be picked counts as obtainable for a way to a material, and a way
+      taking salvage replaces the first workable one only where it costs fewer hours (a dug good
+      there at its digging hours): `fire_bricks_with_ash`, a quarter of the clay replaced by ash
+      kilogram for kilogram (a design prior), is taken only where picking ash beats digging clay. A
+      posted round's keeper sorts its load before tipping and keeps the ash and discards households
+      of its settlement are short of, each kilogram worth that household's own cost of it at what
+      its hour brings in food, sorting only as much as finding them takes and only where that
+      repays the sorting; its fee a call is (run and sorting hours) × `hour_kcal` + fuel − the worth
+      kept, over the homes, and below zero the keeper pays each home on `Refuse` (no new channel)
+      and a home joins with no law asking. The law's round does not sort. Saves 220 (unreleased)
+      gains each run's kept goods; a negative fee now loads (the rounds section's check allowed
+      only fees of zero or more). Tested: `salvage` (7: picking draws exactly what it carries from
+      a tip and a heap and leaves the cholera; its cost falls as the tip's share rises, 1.00, 0.20
+      and 0.05 h a kg at 1, 5 and 20 %; a household whose hour brings 2,880 kcal picks where one
+      bringing 12,000 buys; ash bricks only where ash at 0.012 h a kg beats clay dug at 0.038; a
+      posted round's fee goes from +154 to −1,366 kcal a call when a household building a
+      destructor wants the ash, the keeper keeping 75 kg and paying the homes, goods conserved;
+      saves and loads exactly), the content test of `picks`, rounds, tips, market, firms, iron,
+      metal, roundtrip (110), the civ-agents unit tests (300) and the whole suite target by target (94
+      targets, none failing); fmt, clippy and gen-schema --check clean. **Not yet:** picking
+      another household's heap, picking only to sell where nobody of the household wants the good,
+      the law's round sorting, a tip's access as a law's term, buyers buying salvage toward what
+      they build rather than toward a tool, and dug goods in own costs generally (digging hours are
+      read only where a salvage way competes); the sewage farm (3) and sewer wear and mending (4).
+      *Its third slice, the sewage farm (2026-11-02, ADR-0044 §4):* a field with a cell beside a
+      sewer's route below the lowest route cell any connected home lies beside, so that the whole
+      flow passes it, takes the flow, for nothing, while its household has people and its last
+      harvest, of this calendar year or the last, was held back by its soil (`Limit::Soil`); a
+      harvest the soil did not hold back stops it. One field a sewer: the one taking it while it
+      still qualifies, or else the first the flow passes, the lowest id first. At the outfall the
+      settling tank's share settles first (ADR-0041 §4), then the farm takes what is left up to its
+      area's limit, `[sewer]` `farm_people_ha` (100 people's discharge a hectare, ADR-0041's prior,
+      checked against 12-10 §2.2's 0.5–1 ha a hundred; content API 222) × its hectares × the heap's
+      `kg_per_person_day` (50 kg a day a hectare in the core), and the rest goes to the river: mass
+      and every load conserved. What the farm takes enters the field's soil through
+      `FieldSoil::manured` at the heap's nitrogen a kilogram (about 100 kg N a hectare a year at
+      the limit, the top of 12-02 §2.3's 50–100), so its crop rises only where its soil held it
+      back: **no bonus**. Its share of each disease shed that day, the farm's share of the
+      kilograms leaving the tank, goes to a new contagion node, `Node::Field` (code 8, appended),
+      recorded as carried, which washes and soaks in from the field's centre by the links a tip
+      uses, so a well beside the field takes load while the reach below takes less; an outbreak's
+      end counts it with the field's household's settlement. Suspicion is unchanged: people tally
+      water sources, not fields. Saves 220 (unreleased) gains each sewer's farm field and the
+      kilograms of its last day that farm took; the services words name the farm, whose field it
+      is and what it took ("2 kg spread on a field of Bo's household as a farm"), and an outbreak's
+      fouling names "the field of Bo's household a sewer is led onto". Wire unchanged. Tested:
+      `sewers` (11, five new: a hundredth of a hectare takes its limit, 0.50 kg of the 1.99 kg
+      leaving the tank, and 113 of the 450 doses, the tank 450 and the river 337 of 900; its soil's
+      pools exactly as manuring that much; a hectare takes all that leaves the tank; a
+      soil-limited crop on the farm rises from 6.88 to 6.97 kg after five days' 10 kg, and the
+      same field in a dry season stays at 1.80; no farm after a harvest the season held back or
+      one three years old, a farm after this year's soil-held harvest, and none again after a
+      season-held one; a well beside the farm takes 163 of its 1,255 doses on a wet day; no farm
+      once a connected home lies beside the outfall; saves and loads exactly), the content test of
+      `farm_people_ha` (73), contagion (10), soil, wells (11), sickness (25), roundtrip (110), the
+      civ-agents unit tests (300) and the whole suite target by target (94 targets, none failing);
+      the ten smoke seeds pass; fmt, clippy and gen-schema --check clean.
+      **Not yet:** produce eaten raw and farm workers' exposure (no food or handling route),
+      helminths, metals left in farm soils (no harm model), selling sewage, sludge spread as dung,
+      more than one farm a sewer, and a polity choosing or paying for its farm; sewer wear and
+      mending (slice 4).
+      *Its fourth slice, wear, silt and mending (2026-11-02, ADR-0044 §5):* the `[sewer]` table
+      gains `deposit_share` (0.02), `block_kg_m` (20 kg a metre) and `clear_h_t` (10 hours a
+      tonne), design priors (content API 223). Of what enters a day that share stays as deposit,
+      mass only (its loads pass with the flow), before the tank settles its share of the rest; the
+      sewer's room is its capacity × (1 − deposit ÷ (`block_kg_m` × its length)). Connections are
+      served in the order made while the room lasts and, once one is turned away, so is every one
+      after it, so **the last connected back up first**: for want of capacity (`Overloaded`) or of
+      room the deposit took (`Blocked`, code 3, appended); backing up is the heap regrowing, its
+      loads reaching wells by the heap's links. Each month every route cell of a whole sewer loses
+      a twelfth of 1 / `life_years` × its ground's habitat wetness × the month's rain against its
+      usual (`wetness_at` and the `WET_WEAR` clamp, now shared with the wells), so **wear follows
+      place and wetness** and no condition or decay rate is authored; a cell at loss 1 collapses,
+      the sewer is broken at the collapse nearest its outfall, and the homes whose drains enter at
+      or above it (the route cell nearest the outfall a home lies beside) back up (`Broken`) while
+      those below still flow. Each connection counts its days unserved this calendar year by
+      cause. The polity learns of a fault only as it shows (a home's last day `Blocked`, or a
+      collapse); at each review, while the `lay_sewer` law is in force, it weighs relining (laying's
+      hours and walls and binder a metre of the collapsed cells, the materials at laying's cheapest
+      cost) or clearing (`clear_h_t` hours a tonne of the deposit) against the hours a year the
+      homes the fault backs up would be spared (laying's measure: carrying laws asked of them and
+      deaths believed avoided) over the sewer's life left, and where worth it asks the work as
+      laying's was asked: the hours join the law's site, an equal share of each household, paid
+      where `pay_work` is in force. Relining rebuilds the broken cell from the household's walls
+      and binder and makes it new, then the next collapse up; clearing turns the deposit into
+      `sludge` in the tank keeper's store. **Neither mends the other's fault, and with the law
+      ended nobody mends.** Saves 220 (unreleased) gains the deposit and the last day's deposited
+      kilograms, each cell's loss, the broken cell (`broken_cell`, replacing the `broken` flag,
+      deprecated: nothing set it), the mending asked (deposit to clear, relining, metres relined)
+      and each connection's days unserved by cause. The services words tell the silt, the most
+      worn stretch, the break and the homes above it backing up, the homes backing up for silt,
+      the days unserved this year by cause and the mending asked. Wire unchanged. Tested: `sewers`
+      (15, four new: on a 48 m sewer a deposit of 955 kg of the 960 it holds leaves 5.25 kg of
+      room of 1,000, so the third home backs up `Blocked` while the first two are served, and at
+      the full deposit all three, outage days 1, 1 and 2, then `Overloaded` counted apart; a
+      month's wear of 1/600 a cell at average wetness and rain, a cell worn through breaks the
+      sewer where the second home's drain enters, the two homes above it heap and the one below
+      flows, and a break at the outfall cuts all three; clearing 500 kg gives exactly 500 kg of
+      sludge in 5 hours and leaves the collapse, relining the cell takes laying's hours and
+      materials a metre exactly and leaves the 300 kg of deposit; nothing is asked where nothing
+      is spared, relining is asked at the cell's metres × 10 hours once a round's fees make
+      carrying dear, clearing at the deposit's tonnes × 10 hours, and nothing once the law ended,
+      nor does work then mend; every state saves and loads exactly), the content test of the new
+      terms (73), upkeep (11), wells (11), polity (7), roundtrip (110), the unit tests (707) and
+      the whole suite target by target (94 targets, 1,546 tests, none failing); the ten smoke seeds
+      pass; fmt, clippy and gen-schema --check clean. Three existing `sewers` assertions now subtract the day's deposit from what
+      reaches the tank and farm (settled = share × (entered − deposited); the farm's share of
+      what leaves the tank) and the capacity test breaks its sewer at the outfall's cell instead
+      of setting the old flag; no assertion was dropped.
+      **Backlog C is done.** **Not yet:** leakage through worn walls (a contagion node at the worn
+      cell and a rate the research lacks), inspection (12-08 §5.6: faults are seen only as they
+      show), a sewer rate paid by connected homes (it would need a channel), a polity choosing to
+      abandon a sewer rather than mend it while its law stands, a chronicle entry for a collapse
+      (done 2026-11-02, see backlog D, fifth item),
+      wear while a sewer is still being laid, new connections below a break while it is broken,
+      backlogs of mending a store cannot pay (12-08 §5.4), and the deferrals of the first three
+      slices (rags, paper, glass and bones; picking others' heaps; the law's round sorting; a tip's
+      access as a law's term; farm produce and workers' exposure; metals in farm soils; selling
+      sewage; sludge spread as dung).
+    - *Backlog D, first item (2026-11-02): ADR-0037's checks completed* (ADR-0037's amendment of
+      2026-11-02). **The casing's weight:** a cased skeleton's members (the `FRAME` slot's) weigh
+      their casing besides themselves, at the program's `encasement_kg_per_m3` (2,250 kg a cubic
+      metre of envelope in the core's hall and workshop, the figure its frame stage's concrete is
+      reckoned at) over the envelope their groups draw, as a concrete frame's are weighed at 6,150:
+      its beams and joists bend under it and its posts carry it. It rides in the loads
+      (`Loads::casing_kg_m3`, `structure::casing_kg_m3` from the spec and program), since the
+      expansion does not say whether a skeleton is cased. **Young concrete:** a shaking reads a cast
+      post at its age (`Timber::at_age`), as the daily check does, so a frame shaken while it cures
+      is weaker; the daily wind check already passed its posts at their age, and its doc now says
+      so. **Infill:** `loads_on`, now given the program, reckons a frame's infill weight
+      (`structure::infill_weight_n`, moved from the daily check) and the casing for the daily check
+      and a shaking alike, so the infill's mass shakes with the frame's posts; each storey's infill
+      is shaken as it is weighed, held at each floor and bearing only itself (before, as an untied
+      wall bearing those above); in the wind nothing changes (the gust's face is the outline's
+      broadest side, infill or not, and weight is no part of that check). No content, save or wire
+      change. **Tested:** civ-agents' structure (a cased skeleton's posts carry exactly its floor
+      joists' casing more and its joists bend more, a timber or concrete frame's none; a cast frame
+      shaken at a week has 0.70 of its margin at a year, in its forms all of it, a timber one the
+      same; a frame's posts shaken with its infill have less to spare in proportion to the weight,
+      and its infill walls stand their storey alone), steel (the core workshop cased: its posts'
+      margin with the casing equals the bare skeleton's with that weight laid on, still above one;
+      the cast workshop's posts shaken and the six-storey concrete hall's in a 600 Pa gust at a week
+      at 0.70 of their margin at a year, the timber workshop's the same at both; the rubble-filled
+      concrete workshop's posts shaken with less to spare than without its infill; and through
+      the observer's shaking, the least strength that brings the concrete workshop down a week old
+      leaves it standing at a year, which fails without the change); steel (18), the unit tests (710),
+      tall, hazard_tools, rules, fire, roundtrip, upkeep and the whole suite target by target (94
+      targets, 1,553 tests, none failing); the smoke seeds pass; fmt and clippy clean. No existing
+      assertion moved. **Not yet:** the casing's stiffness and strength (it is cover only), young
+      concrete's stiffness in the sway, a lived world that casts or cases one.
+    - *Backlog D, second item (2026-11-02): a polity's well kept, and a closing ended* (ADR-0021
+      §7; M6a slice BA's two "Not yet" lines). No new ADR. **A polity's well kept:** at each
+      review, after the review proper and whatever its agenda, a polity weighs each of its open
+      wells owed no work while the `dig_well` law whose site is the well's cell is in force, as a
+      household weighs its own: relining once rot has taken half of what its lining had, by the
+      walking a year it saves each of the polity's households (the trip to the water each would
+      draw at without it, `other_source`, less the walk to it and its lift; a household that
+      knows no other water counts nothing), over the years a new lining would last at the
+      settlement's average skill, against the lining's hours (`depth × lining_h_per_m`); a lid
+      and curb once someone of its households holds that its water sickens (`cover_h`), as a
+      household covers a well it suspects. The work is asked as digging was: offered to those
+      who know the law, each household's equal share being, once the well is open, its share of
+      all the work the well has asked (hours given, `work_h`, and owed), the gathering's word
+      weighing while its share is not given, nothing following a share not given, and the hours
+      paid through `work_given` where a law pays for common work; each hour of relining is worth
+      the walking a year it saves the average household (`Well::worth`). With the law ended the
+      review asks nothing and work on the well mends or covers nothing; what was asked lies, and
+      the well rots and falls in as before. Finished, a cover is told ("Hazelstead's people made
+      the timber-lined well beside the hearth a lid and curb, Ada finishing it."). **A closing
+      ended:** the issue `closing_unsuspected` (appended, code 43) stands while a closing is in
+      force whose source nobody of the polity's households holds sickens any longer, and the
+      core's `repeal` now answers it besides `founding`: anyone of the body may propose an end to
+      that closing (the existing repeal: carried when passed, the closing superseded), weighed by
+      each household as the closing was, turned about (the walking it would save drawing there
+      again, as `closure_forecasts` now also reckons for such a source, against a case cost its
+      people's tally no longer implies), and what the closing does to what they hold dear turned
+      about too. The elders of households that walk further for it are among those it reaches.
+      Its words name the source: "an end to the closing of Odessa's household's well: people may
+      draw there again, because nobody holds any longer that the water there sickens". Content
+      API 224 (`repeal` answers `closing_unsuspected`); saves stay 220 (unreleased: the issue
+      code is appended), no schema or wire change. **Tested:** wells (13, two new: the polity's
+      well sound below half its lining, past it the relining weighed worth its hours and asked at
+      exactly them, not asked twice, worked by a third household with its hours kept as given and
+      the lining made new, a lid and curb asked once someone suspects it and made, told in the
+      chronicle and not asked again, and once the law ended neither the asked relining done nor
+      another weighed, saving and loading exactly; a closing whose source someone of the polity
+      still suspects not proposed for an end, then with nobody suspecting it the household that
+      would draw there gaining by its end and nobody losing, an end proposed with the new issue
+      and its words, saving and loading exactly, every adult at its gathering failing it 4 for and
+      6 against (those holding security dear), the closing standing, and the same gathering
+      without those against passing it, the closing superseded and the well's household drawing
+      there again), the content test of the repeal's answers (74), polity (7), sickness
+      (25), contagion (10), roundtrip (110), faction (9), the unit tests (710) and the
+      whole suite target by target (94 targets, 1,556 tests, none failing); the smoke seeds pass; fmt and clippy clean. No
+      existing assertion moved. **Not yet:** a cover's worth in hours (its work is weighed by the
+      gathering's word alone, a household's by what its well was worth), a chronicle entry for a
+      relining finished, a polity choosing to fill a well in rather than keep it while its law
+      stands, ending a closing whose source is still suspected by a few, and a lived world where
+      a closing ends.
+    - *Backlog D, third item (2026-11-02): what a household that is no more had on the land and
+      in transit passes on* (M8b slices CO and CP's "Not yet" lines: a boat and a cart of a
+      household that is gone). No new ADR. When a household is no more and its people join
+      another (taken in by kin when its last member dies, a marriage, a household moving in
+      whole), the household they join now takes, besides its store, plots, buildings, wells and
+      workshops: **its loads in transit** (a consignment's owner, so the carrier unloads it into
+      the store it now belongs to; before, a load whose household was gone could never be
+      unloaded); and, **where the two lived in the same settlement, its boats and carts**, made
+      or being made (the work done on one kept). A boat stays drawn up where it is; a cart
+      standing at the old door is wheeled to the new one, where a household's cart is used and
+      made (as its store is carried there), and one out on the ways stays where it is. From
+      another settlement nobody reaches them, so they stand where they are, as before, under the
+      old household's name; a household that moves away leaves its own the same way. A wagon
+      stays with its line, which does not pass. Each passing bumps the boats' and carts'
+      revisions. No content, save or wire change. **Tested:** boats (4, one new: in a world of
+      two settlements, a household with a made boat at a bank, one being made (40 of 100 hours),
+      a cart at its door, another out on the ways and a load in transit joins another of its
+      settlement that has a cart of its own: both boats pass where they stand with their work,
+      the cart at the old door stands at the new one and the other where it was, the load is
+      the joining household's, both revisions change and the records stay sound; that household
+      then joins one of the other settlement: the load passes again, and every boat and cart
+      stands as it was, still the last household's, revisions unchanged; it saves and loads
+      exactly; the test fails without the change), carts (3), the unit tests (710) and the whole
+      suite target by target (94 targets, 1,557 tests, none failing); the ten smoke seeds pass;
+      fmt and clippy clean. No existing assertion
+      moved. **Not yet:** a boat or cart nobody is left to take (it stands until it wears out;
+      one being made stands for good), a household's line, wagons and trains passing on, and
+      the other things a household holds on the land that do not pass (its earthworks and
+      engines, its footbridges, the ways it keeps) (done 2026-11-02, see backlog D, fourth
+      item). (Vehicles reaching an heir in another settlement, a cart pulled or a boat paddled
+      there: done 2026-11-02, see backlog D, ninth item. A boat or cart nobody is left to take:
+      done 2026-11-03, see backlog D, eleventh item.)
+    - *Backlog D, fourth item (2026-11-02): the works a household that is no more kept on the
+      land pass on* (the third item's "Not yet": its earthworks and engines, its footbridges, the
+      ways it keeps). No new ADR. Where the household its people join lives in the same
+      settlement, it now takes, after the boats and carts (`Population::works_pass`), the
+      footbridges that stand or have fallen; the stretches of way it keeps that are built as
+      wide as they are to be; its pits and their heaps, and its ditches and banks once dug; the
+      engines it set at pits; and its water wheels whose headraces are dug. So the heir's
+      engine review weighs those pits, its wheels pump them, its engine burns the heir's fuel
+      (the engine itself already passed in the store), a sewer or main may be routed over the
+      ways (a gone keeper gave no leave), and the words name the heir. The platforms levelling
+      its plots go with the plots, wherever its people go, as the plots and buildings do. What
+      is still being made stays as it was: a footbridge being built is taken over, with its
+      work, by a household whose wades repay it, the heir among them (the existing rule); a
+      way being widened, a ditch, bank or headrace half dug stays the gone household's, since
+      the work left was weighed by its own reckoning (its trips, its fields) and a household works one at a time. A line
+      of track stays with its wagons. Nothing else passes to a household of another
+      settlement. The ways' revision is bumped; the crossings' is not, since routes follow it
+      and whose a footbridge is changes no route (the panel's revision hashes the owner). No
+      content, save or wire change. **Tested:** boats (5, one new: in a world of two
+      settlements, a household with a standing footbridge, a fallen one and one being built (20
+      of 80 hours), a way laid full width, a passing place still being widened, a line of track,
+      a platform half levelled, a pit and its heap, a bank dug and one half dug, an engine at
+      the pit, a wheel with no headrace and one whose race is half dug joins another of its
+      settlement: the standing and fallen footbridges, the way, the pit, heap, dug bank,
+      platform, engine and the first wheel pass; the footbridge being built, the passing
+      place, the line, the half-dug bank and race and the second wheel stay; the ways'
+      revision changes and the crossings' does not; that household then joins one of the
+      other settlement and only the platform passes; the test fails without the change), the
+      unit tests (710) and the whole suite target by target (94 targets, 1,558 tests, none
+      failing); the ten smoke seeds pass;
+      fmt and clippy clean. No existing assertion moved. **Not yet:** work begun and not
+      finished passing with what the household weighed it by (its held wades and the hours its
+      trips lost, which do not pass, as the places its people use do not), a household's line,
+      wagons and trains, its gas connection and current hookup (they stay in the gone
+      household's name, cut off once unpaid), and anything reaching an heir in another
+      settlement.
+    - *Backlog D, fifth item (2026-11-02): a sewer's collapse and its mending told in the
+      chronicle* (backlog C's "Not yet": a chronicle entry for a collapse; ADR-0044 §5). No new
+      ADR. **The kind:** `ChronicleKind::Sewer` (appended, saved as code 69) with a `SewerStep`
+      (`Collapsed` 0, `Mended` 1, append only), told in its own words as a well's entries are.
+      **A collapse:** when a month's wear takes a cell of a whole sewer's route through (its loss
+      reaching 1 from below), the chronicle tells it once for that sewer that month, at the
+      lowest cell that fell in: how far above the outfall along its route, and, where it is now
+      the break, how many connected homes have their drains enter at or above it and so back up
+      ("Stonehollow's sewer fell in 32 m above its outfall, its walls worn through: 2 homes whose
+      drains enter above it back up."); where it fell in above a break already standing, that
+      ("..., above where it had already fallen in."). It names nobody, as a well falling in does.
+      **Mended:** when relining rebuilds the last collapsed cell, so nothing of the sewer is broken,
+      the chronicle tells it, naming the elder of the household whose work finished it ("...'s
+      people relined their sewer where it had fallen in, Ada's household finishing it: it carries
+      to the river again."); a cell rebuilt while another stays fallen in tells nothing. The
+      entries carry the polity's seat and the cell's centre, so the chronicle panel places them.
+      No content, schema or wire change; saves stay 220 (unreleased: the kind's code is appended).
+      **Tested:** sewers (16, one new: a month's wear taking nothing through tells nothing; the
+      cell where the second home's drain enters worn through is told once, its words exactly
+      (32 m above the outfall, 2 homes), its step, seat and place, and not again the next month;
+      a cell above it worn through told as above where it had fallen in, the break unmoved; the
+      lower cell relined with materials for it alone tells nothing, the break moving up; the
+      other relined tells the mending once, its words naming the elder of the household that
+      worked it; work on the whole sewer tells nothing more; it saves and loads exactly; the
+      test fails without the change), the unit tests (710) and the whole suite target by target
+      (94 targets, 1,559 tests, none failing); the ten smoke seeds pass; fmt and clippy
+      clean. No existing assertion moved. **Not yet:** a chronicle entry for a sewer laid whole
+      (done 2026-11-03 with a gas main and a line of current, see backlog D, twelfth item), a
+      blockage told, mending a polity asks told when asked, a collapse as a stop for the skip or
+      an incident of its own, and a lived world where a sewer falls in.
+    - *Backlog D, sixth item (2026-11-02): a passing place a gathering asked for told in the
+      chronicle once it is cleared* (M8b slice CQ, third part's "Not yet": a chronicle entry when
+      it is done; ADR-0029 §6). No new ADR. **The kind:** `ChronicleKind::Way` (appended, saved
+      as code 70) with a `WayStep` (`PassingPlaceCleared` 0, append only), told in its own words
+      as a sewer's entries are. **When:** the hour of work that clears a polity's passing place,
+      laid under its `build_way` law, to its full width (two carts', `passing_width_m`) tells it
+      once: where it lies from the polity's hearth, and the elder of the household whose hours
+      finished it, since a way's work is reckoned by household ("Birchbank's people cleared the
+      passing place their gathering agreed to, 1635 m from the hearth, Ulla's household finishing
+      it: it is 2.0 m wide, and two carts can pass there."). The entry carries the polity's seat
+      and the place's centre, so the chronicle panel places it. A household's own passing place
+      or approach is not told (the slice's "Not yet" asked for the gathering's, and a household
+      may clear many small ones), nor a line of track, which `LineLaid` already tells. No content, schema or
+      wire change; saves stay 220 (unreleased: the kind's code is appended). **Tested:** fetch
+      (21, one new: a passing place proposed, passed and laid out tells nothing; 40 % of its work
+      by the buyer's household tells nothing; another household of the settlement giving the
+      rest clears it and it is told once, its words exactly (the village, the metres from the
+      hearth, the elder of the household that finished it, its width), its step, seat and place;
+      more work tells nothing more; it saves and loads exactly; the test fails without the
+      change; and the household's own passing place, cleared, tells nothing), the unit tests
+      (710) and the whole suite target by target (94 targets, 1,560 tests, none failing); the ten
+      smoke seeds pass; fmt and clippy clean.
+      No existing assertion moved. **Not yet:** a household's own way told when it is laid (a
+      long approach of many days' clearing may deserve it; one 400 m long or more is told, done
+      2026-11-03, see backlog D, fourteenth item), keeping a passing place by law (done
+      2026-11-03, see the fourteenth item: its margin now grows over unkept, and the law that
+      cleared it asks its clearing again), a polity laying or widening a longer stretch, and a
+      lived world where a gathering asks for one.
+    - *Backlog D, seventh item (2026-11-02): word of a default goes about* (M7d slices CA, CB1
+      and CB2's "Not yet": what a default teaches beyond the creditor's household; research 08-07
+      §5.3: repayment observed spreads by meeting, never as a score everyone sees). No new ADR.
+      **The word:** when a loan fails (refused at its due day, or unpaid when its grace runs out)
+      or a workshop leaves wages unpaid when they fall due, the creditor's people still note it of
+      the debtor's elder, and now a claim of an appended kind (`ClaimKind::Defaulted`, saved as
+      code 13) names that elder and the claim in the credit book; the creditor's members hold it
+      at first hand. It is news for `news_days` (60) from that day, told at home and at the hearth
+      as a raid is ("Ada's household did not repay what Bo's household lent it (132 kg of wheat
+      owed), on 3 May of year 2"; a workshop "did not pay Bo's household the wages it owed"), and
+      the observer may whisper it to one of another household. **Learning:** whoever hears it for
+      the first time, told, whispered or by telegraph, thinks the worse of that elder by a new tie
+      act, `defaulted_others` (appended, code 24): bad evidence in `word`, half of `defaulted`'s in
+      the core; so their regard for the elder falls, and with it the trust a lender of their
+      household would place in that household's asking (`default_chance`). **Kin shield their
+      own:** nobody thinks the worse of their own household's elder for it, and nobody tells it at
+      the hearth of their own household, as with takings. A loan from the common store names no
+      household to hold it first and is not told. Content API 225 (the act); saves stay 220
+      (unreleased: the claim kind and act codes are appended; a load checks that a default names a
+      claim in the credit book); no wire change (the claim is told in the kernel's words).
+      **Tested:** credit (16, two new: a loan defaulted makes one claim naming the
+      debtor's elder, the loan and the debtor's settlement, held by every member of the
+      creditor's household and nobody else; told at the hearth to one of a third household, who
+      now ties to that elder with `defaulted_others` as its reason, exactly the act's bad evidence
+      more in `word` and a lower regard; told again, nothing more; told to one of the debtor's
+      household, who thinks no worse of the elder and does not tell it on to another; the elder
+      told, no tie to themselves; the third household's member telling it on to a fourth, who
+      learns it too; its words; it saves and loads exactly; it is news through `news_days` and let
+      go the day after; and a workshop unpaid when due makes one, naming the owners' elder, held
+      by the worker's household, in its words; both fail without the change), the content test
+      of the act (75, one new), the unit tests (710) and the whole suite target by target
+      (94 targets, 1,563 tests, none failing); the ten smoke seeds pass; fmt and clippy
+      clean. No existing assertion moved. **Not yet:** a loan repaid told likewise (its good word
+      stays with the lender's elder) (done 2026-11-02, see backlog D's tenth item), a guarantor
+      called on (done 2026-11-02, see backlog D's tenth item) or a pledged field taken told, a
+      default a debts-heard finding later sets right told again (when it gives time and the loan
+      is then repaid, done 2026-11-02, see backlog D's tenth item), a default to the common store
+      told, and a lived world where a lender refuses for what it heard.
+    - *Backlog D, eighth item (2026-11-02): a hearer held for a term, or drawn by lot* (M7b
+      slice BR's "Not yet": a hearer's tenure or lot; ADR-0025 §1, research 09-07 §1.3: rotation
+      and lottery are selection primitives of their own, and Athens drew its courts by lot; 09-02
+      §4.1 and §5.1; 09-14 §2.2: a rotating office's term is three to twelve months). No new ADR.
+      **The rule:** a `hear_cases` template whose forum is one holder may now carry a `[tenure]`
+      table, as an office keeping the store does (content API 226): a term of days, whether its
+      holder may serve the next, and whether the gathering names them or a lot draws one. A
+      gathering passing such a forum fills its term as it fills a keeper's (`fill_term`, which
+      the decision now calls for a forum too): by lot, from those who stood for it there, less
+      the last holder of a template that does not renew and anyone keeping the watch, the lot
+      keyed by the law and told in the chronicle ("The lot fell to Ada, of 4 who put their names
+      in, for the office of hearer by lot at Hazelstead."); with nobody to draw, the law lapses.
+      Proposed, a forum by lot names nobody, and one named for a term names whom the proposer
+      regards most, never the last holder of a template that does not renew while its term is
+      past (`Population::hearer_nominee`, the old forum's pick otherwise unchanged). A household
+      weighs a forum by lot by its own cases heard again at even odds (who the lot will draw is
+      not known), as it weighs a named hearer who did not sit. The drawn hearer hears cases alone,
+      never one their household is party to, until the term's end, when the office lapses as a
+      keeper's does ("Ada no longer hears cases at Hazelstead: their term ended."), the
+      Government panel says it is vacant since then, and cases go to the gathering again until a
+      gathering passes a forum afresh (the *cases waiting* issue stands only as before). A panel,
+      drawn for each case, and the elders take no tenure (the content refuses one). The core adds
+      two templates, their ids sorting after every older one's: *Hearer by lot*
+      (`zestfully_draw_a_hearer_by_lot`, a year, not renewable) and *Hearer for a year*
+      (`zestfully_name_a_hearer_for_a_year`, a year, named, renewable); whether anyone proposes
+      either is people's. No save or wire change (a term is kept per law already). **Tested:**
+      forum (8, one new: proposed, a hearer by lot names nobody and one named for a year names
+      as the plain hearer does; passed by the gathering, the lot draws one of those who stood
+      for it, its term a year from that day and its pool all who stood, told in the chronicle
+      and on the Government panel; the hearer alone hears a case between two other households;
+      it saves and loads exactly; at the term's end the office lapses, told as their term
+      ending, the panel says vacant, and a case brought then waits for the gathering; the next
+      lot, with the last hearer and one other in, draws the other four times of four; and one
+      named for a year whose term has ended is named again, but not under a template that does
+      not renew; the test fails without the change), the content test of the two templates and
+      of a tenure refused on a panel and on the elders and taken by a holder (76, one new; nine
+      older tests that list the templates newer than theirs gain the two ids, an append, as each
+      new template has needed), the unit tests (710) and the whole suite target by target (94 targets, 1,565 tests, none failing);
+      the ten smoke seeds pass; fmt and clippy clean. No existing assertion moved. **Not yet:** a
+      watch template with a tenure (the kernel takes one; the core offers none; done 2026-11-03,
+      see backlog D, thirteenth item), a hearer paid or removed before their term (removed by a
+      petition, done 2026-11-03, see the thirteenth item), a hearer's term ending while a case
+      waits before them (it goes to the gathering, as when a forum's law ends; tested 2026-11-03,
+      see the thirteenth item), and a lived world where a gathering draws one.
+    - *Backlog E (2026-11-02): an exact route cache for walks, measured; walk traces kept, an
+      exact cut* (§9, "The bench after M11 and M12": route searches 19–22 % of a village's days;
+      homelab bench run 58 on 5aaf2e7: the 100k gate at 1.096× against its 1.10, the village of
+      500 at 1.150×, three of 400 at 1.178×). **Measured first** (an instrumented build of
+      d79b1d0, the bench's own workloads, release): the village of 500 over 90 days walks 405,326
+      times and searches 10,912 routes (122 a day); 97 % of walks find their route kept, the cache
+      is never full, and it is let go only when the paths are surveyed (twice in the 90 days).
+      Every search is for a pair of cells not searched on the paths in force: 4,589 were pairs
+      searched before the last survey, and 4,368 of those (95 %) came out different, the wear on
+      their way having changed (three of 400 over 40 days: 2,726 of 2,726 different). The rest are
+      walks not taken before, a little under half of them the way back of a kept route, which an
+      exact cache cannot give (Tobler's speeds differ up and down a slope, and so may the tie
+      between two equally fast ways). Landmarks are built afresh at each survey too. **So no cache of routes can cut the searches exactly:** what the
+      searches find is what changed, or new. On days 32-35 lived on from a save of day 30
+      (callgrind, 19.4 G instructions), searches were 24 % of the work, pulling routes straight
+      3.6 %, and tracing the cells a walk passes over 3.4 %, twice for each walk: at its start
+      (what it steps onto and wades) and at its end (what it wears). In the 100k gate's world the
+      instrumented run searched about 16,000 routes a measured day at about 0.3 ms each, roughly
+      5 s of a 166 s day: a route cache could not move the gate much either. **Cut, exactly:**
+      96 % of walks along a kept route go from and to the very same points as the last walk
+      between those cells (a home's door to a field's corner), so the population keeps, with each
+      (from cell, to cell), the last walk's vertices and the cells it was traced over
+      (`WalkTrace`: as `cells_along` lists them, and with the corner cells `crossings::better_corner`
+      picks on the grid it set off on). A walk whose vertices are equal to them bit for bit, on a
+      map of the same measures and (for the corners) a grid of the same walking costs
+      (`NavGrid::travel_revision`), reads them; its end reads the plain list again if its vertices
+      are still those (a bottleneck's wait splices two in, and it is traced afresh). The cells are
+      a function of exactly those inputs, so they are the same cells in the same order. Derived,
+      never saved; let go with the routes, on load, and whenever as many are kept as the route
+      cache's generation holds (50,000, or eight a person living). `civ_land::paths::with_corners`
+      is `cells_along_by`'s second half, split out. **Checked in every test:** with debug checks
+      on, each trace read is compared with one traced afresh. **Exact:** every save section's
+      digest (`--digest`; `meta` aside, which holds the wall-clock time a world was made) and every other line the bench
+      prints are equal between d79b1d0 and this revision on the bench's three workloads as the
+      homelab runs them: the village of 500 over 90 days, three of 400 (two household-resolved, at
+      Max) over 60, and ten of 60 (all household-resolved, seed 1) over 40.
+      **Measured** (this container, 4 vCPU, release, base and cut interleaved, three rounds,
+      medians, ms a simulated day over 40 days): the village of 500 532.3 → 513.3 (−3.6 %),
+      three of 400 598.0 → 562.5 (−5.9 %); the profiled days 19.41 → 18.66 G instructions
+      (−3.9 %); the 100k gate, two days each, the two run side by side once, 153.6 → 150.2 s a
+      day (−2.2 %), every line it prints equal. Peak memory: within 2 % on the three workloads,
+      2.49 → 2.55 GB in the gate. The run-to-run spread here is a few per cent, so a homelab bench
+      is to confirm. **The homelab bench (run 59, 41507539928, node3, on 2ac1dba, against the
+      bench's base):** the 100k gate 1.085× (171.5 → 186.1 s a day) against its 1.10, down from
+      run 58's 1.096× on 5aaf2e7; three of 400 1.132× (1.178×), ten of 60 0.935×, the village
+      of 500 1.174× (1.150×); people equal on every workload. Several revisions lie between the
+      two runs, so the cut is only part of the difference.
+      **Tested:** a unit test (a kept trace is the walk traced afresh; read back for the very same
+      vertices, traced again when a deck changes the corner a walk goes by, when a start moves
+      within its cell and when a wait is spliced in; all let go when full) and the whole suite
+      target by target (94 targets, 1,567 tests, none failing; unit tests 711); the ten smoke
+      worlds pass; fmt and clippy clean. **Not done, and why:** a cache of routes across a survey
+      or of a way back, neither exact (above).
+    - *Backlog D, ninth item (2026-11-02): a boat or cart reaches an heir in another
+      settlement by being fetched* (the third item's "Not yet": vehicles reaching an heir in
+      another settlement, a cart pulled or a boat paddled there). No new ADR. **Passing:** where
+      the household a gone household's people join lives in another settlement, its made boats
+      and carts now pass to it too (`Population::vehicles_pass`), standing where they are, so
+      long as they stand within the walk a fetch allows of the heir's home (the *Fetch*
+      activity's two hours, at an off-trail pace) and a way would bring them there today
+      (`Population::way_home`): for a boat, the quickest way by water to the bank nearest the
+      heir's home where the water carries it, within where a household draws one up; for a cart,
+      the quickest way for its wheels, empty, to the door. A household makes no boat or cart of
+      its own while it holds one, so one the heir could not bring, one being made and a motor
+      cart stay where they stand, the gone household's, as before. **Fetching:** a made boat of a
+      household drawn up farther from home than it draws one up, or a made cart, not a motor
+      cart, standing away from its door, is now an option of the *Fetch* activity for its people
+      (`Population::vehicle_fetch_facts`, `decide::VehicleFetch`), beside any purchase: walked to
+      from home, then paddled to that bank and walked up from it, or pulled home empty, as the
+      steps errands take (`Walk`, `Paddle`, `Haul`), so the trip takes its time, a cart's wears
+      the ground and waits at narrows as any haul does, and the vehicle stands where it was until
+      the paddle or haul ends. It is weighed as making a boat is: worth the walking the vehicle
+      saves over the life it has left at its household's reckoning (`saves_h_year`), and never
+      less than the making of another for that life (one given whole was reckoned to save
+      nothing), against the walking the trip takes, chosen only in daylight that lasts the trip
+      and within the activity's walk; one of a household fetches at a time, and none fetches a
+      boat or cart someone of it has out on a trip. The same option brings home any boat or cart
+      of a household that stands away (one a trip could not bring back, one a household that
+      moved away left). The inspector names it as a vehicle being made is named. No content,
+      save or wire change. **Tested:** boats (6, one new: in world 34, of two settlements, a
+      household near the water with a made boat at its bank, one being made (40 of 100 hours) and
+      a cart at its door joins a household of the other settlement, a lane for carts that nobody
+      keeps laid between their homes: the made boat and cart pass to it, standing where they
+      were, the one being made stays, both revisions change and the records stay sound; then
+      someone of the heir walks to the boat and paddles it home, afloat, and someone pulls the
+      cart home, a haul; the boat is drawn up within 1.5 km of the heir's home and the cart
+      stands at its door; it saves and loads exactly with a fetcher under way and after; the test
+      fails without the change; the third item's test, unchanged, still sees nothing pass to the
+      other settlement of its world, where no way would bring it), fetch (21; its save check now
+      sets the scene's catalog on the world loaded, as it already set its people's rules, since a
+      cart a test left at a seller's door is now fetched home and the scene's weakened puller
+      weighs in that), the unit tests (711) and the whole suite target by target (94
+      targets, 1,568 tests, none failing); the ten smoke seeds pass; fmt and clippy clean. No
+      existing assertion moved. **Not yet:** a boat carried overland where no water links it to
+      the heir (a dugout wants several hands), a boat or cart that a way would bring only later
+      passing then, one being made or a motor cart passing to an heir far off, a boat or cart
+      nobody is left to take (done 2026-11-03, see backlog D, eleventh item), and fetching in a
+      household-resolved settlement (a fetch is a journey, never taken there).
+    - *Backlog D, tenth item (2026-11-02): word of a debt kept goes about, and of a guarantor
+      who paid* (the seventh item's "Not yet": a loan repaid told likewise, and a guarantor called
+      on told; research 08-07 §5.3: repayment observed spreads through meetings and reputation,
+      with separate beliefs for each lender, never a score everyone sees). No new ADR. **The
+      word:** a loan repaid in full, wages a workshop paid when they fell due, and what a debtor
+      repays a guarantor who paid for it now make a claim of an appended kind
+      (`ClaimKind::Repaid`, saved as code 14) naming the elder of the household that owed and the
+      claim in the credit book; and a guarantor called on that pays makes one of another
+      (`ClaimKind::GuarantorPaid`, code 15) naming the guarantor's elder and the loan it stood
+      for. Each is made, held and told exactly as a default is (`Population::debt_word`, which
+      `default_word` now calls too): the creditor's members hold it at first hand (the lender's,
+      for a guarantor's payment); it concerns the settlement of the elder named; it is news for
+      `news_days` from that day, told at home and at the hearth by `share_routine`, by telegraph,
+      and whisperable by the observer to one of another household ("Ada's household repaid what
+      Bo's household lent it (132 kg of grain), on 3 May of year 2"; "Cy's household, called on as
+      guarantor, paid Bo's household 132 kg of grain of what Ada's household owed it"; a
+      workshop "paid Bo's household the wages it owed"; a debtor "repaid Cy's household what it
+      had paid for it as guarantor"). The lender's elder still notes `repaid` as before.
+      **Learning:** whoever hears either for the first time thinks the better of the elder named
+      by a new tie act, `repaid_others` (appended, code 25): good evidence in `word`, 0.5 in the
+      core, half of `repaid`'s, as `defaulted_others` is half of `defaulted`; so their regard
+      for that elder rises, and with it the trust a lender of their household would place in
+      that household's asking (`default_chance`). **Whose to tell:** nobody notes it of their own
+      household's elder, and nobody tells it at the hearth of their own household (the
+      seventh item's rule, now over every word of a debt kept or failed: kin shield their own
+      default, and word of a debt kept is the creditor's to tell, not the debtor's own boast). A
+      claim of the common store names no household to hold it first and is not told, as before.
+      A loan a finding under debts heard gives time is open again, so if it is then repaid it is
+      told as repaid, beside the word of its default. Content API 227 (the act); saves stay 220
+      (unreleased: the two claim kinds and the act are appended codes; a load checks that each
+      names a claim in the credit book); no wire change. **Tested:** credit (20, four
+      new: a loan repaid makes one claim, and none before its due day, naming the debtor's elder,
+      the loan and its day and the debtor's settlement, held by every member of the creditor's
+      household and nobody else; told at the hearth to one of a third household, who now ties to
+      that elder with `repaid_others` as its reason and its words, exactly the act's good
+      evidence more in `word` and a higher regard; told again, nothing more; told to one of the
+      debtor's household, who learns nothing of their elder and does not tell it on; told on by
+      one of another household; its words; it saves and loads exactly; news through `news_days`
+      and let go the day after. Wages a workshop paid when due make one naming the owners'
+      elder, held by the worker's household and not the owners'. A guarantor called on makes one
+      beside the default, naming the guarantor's elder, held by the lender's household and not
+      the guarantor's, in its words; one of a fourth household told it ties to the guarantor's
+      elder by `repaid_others`; the guarantor's own people do not tell it; it saves and loads
+      exactly; the debtor repaying the guarantor makes a repayment held by the guarantor's
+      household, in its words. A default given time by a finding and then repaid is told as
+      repaid, naming the same elder and loan. All four fail without the change), the
+      content test of the act (77, one new), the unit tests (711) and the whole
+      suite target by target (94 targets, 1,573 tests, none failing); the ten smoke
+      seeds pass; fmt and clippy clean. No existing assertion moved. **Not yet:** a pledged field
+      taken told, a default a finding imposes told as set right when its obligation is paid, a
+      default to or a repayment into the common store told, a guarantor who could pay nothing
+      told, and a lived world where a lender lends, or refuses, for what it heard.
+    - *Recurring red (2026-11-02): structural failures* (§9, "Structural failures, a recurring
+      red"). The 50-year dashboard's lived-in failures stayed red after the rot fix (run 57: 4.34
+      per 1,000). Scenes found no stalled upkeep; a diagnostic dashboard found half the failures
+      were huts whose rafters a fire had charred, broken under a thatch burnt away but still
+      weighed, or under new thatch laid before they were renewed. **Fixed:** a covering that is
+      gone weighs nothing and catches no storm (`loads_on`); while roof timber shows its wear or
+      char, a covering that is gone waits for it to be renewed (`condition::worst`), a repair
+      begun on such a covering yields, and one begun on a group that has since failed renews all
+      of it (`condition::repair_of`). No save, wire or content change. **Tested:** upkeep (12,
+      one new: a hut burnt open with its rafters charred to 0.42 stands through a median storm,
+      and with thatch and timber at hand its rafters are renewed before it is thatched again,
+      with no failure; it fails without the change), a condition unit test (the order, the
+      yield and the renewed share); the whole suite target by target (94 targets, 1,575 tests,
+      none failing); the ten smoke seeds pass; fmt and clippy clean. No existing assertion
+      moved. **Not yet:** charred timber told as charred rather than rotted; the dashboard
+      re-run.
+    - *Backlog D, eleventh item (2026-11-03): a boat or cart nobody is left to take weathers,
+      and is taken up by a household that would make one* (the third item's "Not yet": a boat or
+      cart nobody is left to take, which stood until it wore out, and one being made, which stood
+      for good; research 08-09 §1.2 and the succession row of its table: what nobody holds any
+      more is taken up, as the regimes' yearly review takes up ground nobody holds). No new ADR.
+      A boat or cart is nobody's to take once the household it belongs to is no more: none was
+      left to inherit it, or its heir lives in another settlement and could not bring it, or it
+      was still being made there. **Weathering:** one being made now ages a day of its vehicle's
+      life each day once its household is no more, as a made one does (the dugout's content:
+      "one left to dry cracks"), and is gone when that life is spent, so a hull nobody finishes no
+      longer stands for good (`Boats::age`, given whose are nobody's; a wagon stays with its line
+      and does not). **Taking up:** a household that found, planning an errand, that a boat or
+      cart would save it more walking over its life than making one takes, and would begin one,
+      first looks for one of that vehicle nobody is left to take (`Population::nobodys_vehicle`)
+      standing where it could use it as its own: a boat within where it draws one up, a cart at
+      its door or, being made, within the walk its work allows; or, made, where a fetch would
+      bring it home today within a fetch's walk (the ninth item's `way_home`). Its worth is the
+      walking it saves over the life it has left, less the work left on it, at the household's
+      own reckoning; it takes up the one worth most where that is no less than a new one would
+      keep (whose material it also spares), with the work done on it, and begins none of its own;
+      otherwise it begins its own as before. Taken up, it is the household's like one it made:
+      worked on where it stands, fetched home if it stands away, used and worn. Each taking up
+      bumps the boats' or carts' revision. A household that could not make one itself (no
+      technique, tool or timber) does not look. No content, save or wire change. **Tested:**
+      boats (7, one new: in world 1, a household that is no more left a dugout being made at the
+      bank near a household's home (40 of 100 hours) and another at the bank farthest off (90 of
+      100), a handcart nearly worn through at one door and a sound one at another; a day on, both
+      hulls have worn a day of a dugout's twelve years while another household's, still being
+      made, has not; the household near the water, finding a dugout would save it 30 hours a year,
+      takes up the near hull with its 40 hours, not the far one, begins none of its own, and
+      finishes it with 60 hours more; the household at the sound cart's door takes it up and keeps
+      its timber; the one at the worn cart's door begins its own, its timber taken; the far hull,
+      at the end of its life, is gone; it saves and loads exactly; it fails without either
+      change), the unit tests (712) and the whole suite target by target (94 targets, 1,576
+      tests, none failing); the ten smoke seeds pass; fmt and clippy clean. No existing assertion
+      moved. **Not yet:** a household that could not make a boat or cart itself taking up one
+      nobody is left to take, one taken up told in the chronicle, salvaging a worn-out one's
+      timber, wagons and lines nobody is left to take, and a custom or law that gives what
+      nobody holds to the settlement rather than to whoever takes it up.
+    - *Backlog D, twelfth item (2026-11-03): a conveyance laid whole told in the chronicle* (the
+      fifth item's "Not yet": a chronicle entry for a sewer laid whole, no conveyance laid, a gas
+      main or a line of current, being told yet). No new ADR. **The kind:**
+      `ChronicleKind::ConveyanceLaid` (appended, saved as code 71), whose number says which
+      conveyance (`Conveyance`: `Sewer` 0, `GasMain` 1, `LineOfCurrent` 2, append only), told in
+      its own words as a sewer's entries are; the sewer's own kind keeps telling what befalls it
+      once laid. **When:** the work that lays a conveyance's last length, so that its whole run
+      carries (its laid metres reaching its length from below), tells it once: a sewer in its
+      laying, a gas main in its works' work, a line of current in its stringing. No length laid
+      short of the whole is told, and more work on one already whole tells nothing; a line of no
+      length (a station's own home hooked up) is whole when begun and is not told. **Whose:** a
+      sewer is always its polity's, laid under its `lay_sewer` law, and a line strung under a
+      `lay_current` law is too: the entry names the elder of the household whose work laid its
+      last length, as a passing place's does, and carries the polity's seat
+      ("Stonehollow's people finished laying the sewer their gathering agreed to, Odessa's
+      household laying its last length: it runs 48 m from among the homes to its outfall on the
+      river, and homes beside it can drain to it."; "Stonewick's people finished stringing the
+      line of current their gathering agreed to, Ada's household stringing its last length: it
+      runs 31 m from the station of Ulla's household, and homes along it can be lit by wire.").
+      A gasworks' main and a station's own line are that household's, laid by its own people: the
+      entry names its elder and carries its settlement, as a household's line of track is told
+      ("Ulla's household finished laying its gas main: it runs 39 m from its works, and homes
+      along it can take gas."). Each entry is placed at its route's far end (a sewer's outfall),
+      so the chronicle panel places it. No content, schema, wire or web change (the observer
+      shows the rendered words); saves stay 220 (unreleased: the kind's code is appended).
+      **Tested:** sewers (17, one new: a sewer marked out and half laid by one household tells
+      nothing; another household laying the rest tells it once, its words exactly (the village,
+      the elder of the household that laid the last length, its metres to the outfall), its
+      subtype, seat and place; more work tells nothing more; it saves, loads and goes on alike),
+      gas (9, one new: a main half laid by its works tells nothing; the rest laid tells it once,
+      its words exactly, naming the works' elder, its subtype, settlement and place; more work
+      tells nothing more; it saves and loads exactly), wires (8, one new, the same for a line a
+      station strings for itself; and an added check that the line a polity strings by law, once
+      whole, is told once with its words naming the village, the household whose share finished
+      it and the station's household); the tests cannot pass without the change; the unit tests
+      (712) and the whole suite target by target (94 targets, 1,579 tests, none failing); the ten
+      smoke seeds pass; fmt and clippy clean. No existing assertion moved. **Not yet:** a
+      telegraph wire strung whole told, a conveyance given up unfinished or broken told, and a
+      lived world where each is laid.
+    - *Backlog D, thirteenth item (2026-11-03): a hearer's term ending while a case waits, a
+      hearer removed before their term, and a watch kept by turns* (the eighth item's "Not yet";
+      research 09-02 §3.6: death, removal and a term's expiry are procedures of their own; §8.6:
+      tenure ends by removal as well as by its term; 09-14 §1.2: London's citizens could remove
+      their sheriffs, §1.5: who may dismiss an officeholder is a body and a procedure, §1.7:
+      offices may be unpaid and rotating, §2.2: a vacancy calls for the decisions it needs at
+      once, and a rotating office's term is three to twelve months; 09-07 §4.2: a case waits until
+      it is closed; §4.3: removal is part of a court's independence; 12-04 §1.3: a rotating
+      household watch, §2.1: the Statute of Winchester's watch for the summer season). No new
+      ADR. **A term ending while a case waits:** checked, and already as the eighth item said: at
+      the midnight a hearer's term ends, the office lapses before forums sit, so a case put before
+      them and not yet heard (a hearing is the evening after it is brought) is not heard by one
+      out of office; it goes to the forum in force, if a successor holds one by that day, who
+      hears it the evening after, or else to the gathering, called for it `notice_days` on, which
+      hears it. No change: a test now holds it. **Removed before their term:** a faction whose
+      members blame a forum of one holder for its findings (M7b slice BU) may now petition, as
+      one against a keeper or the watch does (`Population::petition_demand`): another hearer in
+      place of the one hearing cases, under the same template, named by its organizer from any
+      adult but the hearer (or nobody, for a hearer by lot, the lot drawing another once it
+      passes); a panel or the elders have nobody to replace and are not petitioned against. At
+      the gathering, each who blames the forum weighs it against their regard for the hearer, as
+      a grievance against an office weighs against its holder (`decide_law`: the keenness of a
+      grievance against the forum, where before only one against an office was read, which a
+      forum never is); this weighs too in any proposal of a forum in place of one of a holder.
+      Passed, the old forum is superseded, the new hearer holds a term of their own from that day,
+      and a case waiting before the one removed goes before the new one. The Government panel
+      words it ("Ada to hear cases in place of Bo"). **A watch by turns:** the core adds *Watch by
+      turns* (`zestfully_take_the_watch_by_turns`, its id sorting after every older one's): drawn
+      by lot from those who stood for it, less anyone keeping a watch already, for a season of 90
+      days, not renewable, answering what the plain watch answers; whether anyone proposes it is
+      people's. No new content key (a watch has taken a tenure since content API 105), so the
+      content API stays 227; no save or wire change. **Tested:** forum (10, two new: a case put
+      before a hearer for a year whose term ends the midnight it would be heard is not heard by
+      them, the office lapsing and told as their term ending; it goes to the gathering, called for
+      it, which hears it, or, with a successor in force by that day, before the successor, who
+      alone hears it the evening after; it saves and loads exactly; and every adult but a hearer
+      for a year holding a keen grievance against the forum, a faction is founded against it whose
+      organizer petitions for another hearer, worded so; at the gathering every aggrieved member
+      who came weighs regard against the hearer and the hearer does not back it; it passes, the
+      old forum is superseded, the new hearer's term runs a year from that day, a case brought the
+      day before, waiting before the old hearer, goes before the new one, who alone hears it, and
+      the panel says the petition was granted; it saves and loads exactly; it fails without the
+      change, with no petition, and the weighing of regard fails without the stance change),
+      polity (8, one new: a watch by turns drawn by lot from those who stood for it but the one
+      keeping the plain watch, its pool and term of 90 days, told in the chronicle; it saves and
+      loads; past its season it lapses, told as their term ending), the content test of the
+      template (78, one new; eleven older tests that list the templates newer than theirs gain its
+      id, an append, as each new template has needed), the unit tests (712) and the whole suite
+      target by target (94 targets, 1,583 tests, none failing); the ten smoke seeds pass; fmt and
+      clippy clean. No existing assertion moved. **Not yet:** a hearer paid for hearing, a
+      recall that ends a forum without naming another (the gathering hearing cases again), the
+      one removed barred from the next lot, and a lived world where a gathering draws a hearer, or
+      removes one.
+    - *Backlog D, fourteenth item (2026-11-03): a passing place kept by law, its cleared margin
+      growing over when left unkept, and a household's long way for its carts told once cleared*
+      (the sixth item's "Not yet"; ADR-0029 §1, §6; research 10-07 §1.1: clearance and surface
+      are apart, and vegetation comes back where nothing clears it; §1.3: a street loses usable
+      width to vegetation; §1.8: routine work trims vegetation, and a public way with no labour
+      obligation accumulates a backlog). No new ADR. **What wears it:** nothing did. A cleared
+      passing place stayed two carts wide forever (its condition fades, but that only holds
+      walking ground), so there was nothing to keep. Now, at the turn of the year, the cleared
+      margin beside a worn trail's tread of a segment of cleared ground left unkept the soil's
+      `regrown_years` whole years (the core's 3: the years broken ground left unsown takes to grow
+      over with the same wild cover, reckoned the same way) has grown over
+      (`civ_land::ways::Ways::regrow`): its usable width falls back to the trail's tread (1.2 m),
+      which walking keeps open, and its built width stands (10-07 §1.3's three widths), so
+      handcarts meet single file there again. Any work on it keeps it (its `kept` day); use does
+      not, since a cart pulled aside there now and then stops no scrub. Track is not cleared
+      ground, and a way cleared only to the tread has no margin to lose. **Clearing it again:**
+      cleared ground is now cleared from its usable width, so what has grown over is cleared
+      first, at clearing's own rate (`clear_h_m2`; no lighter rate for trimming is authored). A
+      household's own passing place grown over is its way in work again, after any it is making,
+      and its people clear it as they made it, by the waits they hold there; it does not hold a
+      new work back at the household's review. **Kept by law:** a polity looks over the passing
+      places its `build_way` laws in force cleared, at its review cadence after its sewers and
+      wells. The law that cleared one keeps it, as a sewer's and a well's do, not a law of its
+      own as a bank's (ADR-0029 §6's "upkeep only by law"), so there is no new policy kind,
+      template or content key. One grown over is worth clearing again where what its households
+      still here reckoned it would spare them a year, when the law was proposed, over
+      `passing_life_years`, is more than clearing it again takes. Then it is asked as the first
+      clearing was: the law's work becomes what all its households have given to it plus the
+      clearing still wanted, each household's equal share grows with it (paid through
+      `work_given` as before), and it is told. It is asked once until done, with no new saved
+      state: as it is cleared, what is given grows as what is wanted shrinks. With its law no
+      longer in force, nothing is asked. **Told:** `WayStep` gains `PassingPlaceOvergrown` (1),
+      `PassingPlaceClearedAgain` (2) and `ApproachCleared` (3), append only ("Birchbank's people
+      found the passing place their gathering agreed to grown over, 1635 m from the hearth:
+      clearing it again wants 2 hours of work, each household asked its share."; "Birchbank's
+      people cleared the passing place their gathering agreed to again, 1635 m from the hearth,
+      Ulla's household finishing it: it had grown over, and two carts can pass there again.").
+      **A household's long way:** a way a household laid for its carts on the worn trail they
+      drag on (M8b slice CQ, fourth part) is told once all its ground is cleared to a trail's
+      tread, if it is at least `BY_SETTLEMENT_M` (400 m) long: the kernel's measure of a
+      village's walk from its hearth to its edge, and at the core's rates 163 hours of clearing,
+      some forty of the work's longest (four-hour) sessions, so many days' clearing. A shorter
+      one is not told ("Ulla's household finished clearing the way it laid for its carts near
+      home: 408 m of ground cleared to a trail's tread, where its loaded carts dragged
+      before."); it names the household's elder and carries its settlement and the way's first
+      cell. No content, schema, wire or web change; the content API stays 227 (the engine now
+      reads `[soil] regrown_years` for ways too, as content/README.md says); saves stay 220
+      (no new saved field; the steps' numbers are appended). **Found, not chased:** saving in
+      the very minute a household's people finish clearing its passing place loads with the
+      scheduler's sequence three events behind (the `clock` section differs). That happens on
+      the code before this item too, so these tests save before or after that minute.
+      **Tested:** the land's ways (one new unit test: a margin kept in a year
+      grows over at the turn of the year its whole years end, not before; 0 years never; an
+      approach at the tread and track keep theirs; nothing unchanged moves the revision), ways
+      (2, one new: in a lived village two passing places stand cleared until the year turns,
+      then the one left unkept has grown over to the tread, its built width standing, and the
+      one kept this year has not; it saves, loads and goes on alike), fetch (24, three new: a
+      gathering's passing place, cleared, is asked nothing while it stands; grown over, wheels
+      meet single file there; looked over, its clearing again is asked once, the law's work
+      becoming what was given and what is wanted, told in its exact words, naming nobody, at
+      the place and the seat; looked over again, nothing more; it saves and loads; half cleared
+      again by one household tells nothing and keeps it that day; the rest by another clears it,
+      two carts pass, all asked is given, and it is told once naming that household's elder;
+      more work and another look over do nothing; and with its law superseded, grown over again,
+      nothing is asked. A household's own passing place grown over holds no new work back and
+      none is begun where it runs, it saves and loads, and its people clear it again in the
+      lived world until two carts pass, telling nothing. A household's way 392 m long cleared
+      tells nothing; one 408 m long half cleared tells nothing, cleared is told once in its
+      exact words with its elder, settlement and first cell, more work tells nothing more, and
+      it saves and loads), the unit tests (713) and the whole suite target by target (94
+      targets, 1,588 tests, none failing); the ten smoke seeds pass; fmt and clippy clean. The
+      new tests cannot pass without the change. No existing assertion moved. **Not yet:** keeping in time (a
+      lighter trimming before it grows over), a passing place whose law has ended cleared again
+      under a new one (a new law's site skips cells where a way runs), use keeping a margin open,
+      a polity laying or widening a longer stretch, and a lived world where a gathering keeps
+      one.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
+  - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads
+    01-13) and [ADR-0039](decisions/0039-a-model-deliberator-and-viewers.md), accepted by Claude
+    under the owner's standing authority. **M12a** a `ModelDeliberator` beside the rule one at the
+    polity review: the model picks one of the kernel's listed moves or none, validated, with the
+    rule deliberator deciding whatever it does not answer; providers rule-only (default), HTTP (an
+    OpenAI-compatible endpoint, a local llama.cpp server by default) and recorded; answers saved
+    for replay; cost limits. **M12b** viewers: the socket opened to the local network only at the
+    owner's launch choice, with a token, and a driver and spectators. **M12c** their demo.
+    Close-up fidelity waits with M2's Unreal client for the owner's PC.
+  - *M12a (2026-10-30): the model deliberator* (ADR-0039 §2–§5). At the polity review the kernel
+    always runs the rule deliberator on its keyed draw; where the session's mode is not rule-only it
+    also builds a request (the notable, the day, each move as plain data with its forecasts, and a
+    digest) and asks the host's provider, whose listed index or "none" becomes the choice; an index
+    outside the moves, a refused reply or no reply leaves the rule's choice on the same draw. The
+    receipt says who chose (`by`: rule, model, or rule because the model did not answer), and a
+    law's words say "chose by the model" or "chose by rule (the model did not answer)". Accepted
+    answers, and rules' choices where the model did not answer, are saved with the notable, day,
+    digest and provider (kind and model name); a `recorded` session answers from them, so a replay
+    reproduces its save byte for byte. The mode is a session setting, never saved: a rule-only world
+    builds no request and saves nothing new. The host's provider (`serve --deliberator
+    rule|recorded|http`, `--llm-url`, default a llama.cpp server on 127.0.0.1:8080, `--llm-model`,
+    `--answers <save>`) speaks the OpenAI chat-completions API with no tools; the request is sent as
+    JSON so in-world text is quoted; the reply must be digits only. One request in flight, 10 s a
+    request, 60 requests a real hour; past any, rules decide. A key is read only from `TCE_LLM_KEY`,
+    sent only as a bearer header, never logged or saved, and `serve` refuses to send one over plain
+    http to another machine. New dependency: `ureq` 3.5.0 (rustls), in civ-host only. Saves 220
+    (unreleased) gains answers; wire and content unchanged. **Tested:** the rule's choice and
+    scores kept for no, refused or out-of-range answers; an accepted answer saved and read back; a
+    lean village end to end under rule-only, three failing models, a model that picks and one that
+    makes none, then save, load and a recorded replay with every section byte-equal; the HTTP
+    provider against a local stub (numbering, none, garbage, the deadline, the hourly budget,
+    nobody listening, the key only in its header); polity, council, review, roundtrip,
+    determinism, forum and faction; the ten smoke worlds. **Not tested:** a real llama.cpp server
+    (none here).
+  - *M12b (2026-10-30): more than one viewer* (ADR-0039 §6). By default the host binds 127.0.0.1
+    exactly as before. `serve --viewers lan` binds every interface and then requires a token
+    (`--token`, or a random 128-bit one printed once in the startup address); in that mode a page
+    served by the host itself is accepted as an origin, other sites still refused, and tokens are
+    compared in constant time. Each connection drives or watches: the first loopback connection
+    drives while nobody does; every other connection, and every LAN one, watches, receiving
+    snapshots, events and query replies; its commands are refused (`NotDriver`: "a spectator may
+    not command; ask the driver to hand over"). The driver hands over to a named viewer
+    (`HandOver`); when it leaves, the oldest remaining loopback connection drives, else nobody.
+    Every connection is told its role and who drives after Welcome and on each change. The web
+    observer shows "You drive" or "You are watching; Ada drives" (`?name=` names a page), disables
+    every command control for a spectator with the reason, and gives the driver a hand-over list.
+    The kernel's panel server shares the roles. Wire 1.110; saves and content unchanged.
+    **Tested:** the host's socket tests (drive and watch with the reason, queries answered,
+    hand-over told to all, the driver leaving, LAN without or with a wrong token refused and with
+    it a spectator, origins) and its unit tests; the web's unit tests (221) and a two-page
+    Playwright spec (driver and spectator, hand-over, the driver closing) among 30 browser specs.
+  - *M12c (2026-10-30): the demo.* civ-sim's `m12_world` founds two settlements of 100, saves the
+    founding day, and lives it three ways: rules alone; with a **stand-in** provider (a fixed policy,
+    not a model: it proposes the listed move with the most expected support where that is at least
+    0.5, and leaves the rest to rules); and loaded again in `recorded` mode from the stand-in run's
+    answers. Two years (`demos/m12/m12-deliberator.txt`): rules alone proposed 64 laws and passed 39;
+    the stand-in was asked at 64 reviews, chose at 61 and left 3 to rules, and 64 laws were proposed
+    and 50 passed, not all the same ones; the recorded run read the 63 saved answers, asked no
+    provider, and every one of its 65 save sections was byte-equal to the stand-in run's. No real
+    model was run. Two screenshots (`demos/m12/m12-driver.png`, `m12-spectator.png`, from the
+    `TCE_DEMO`-gated `web/e2e/m12-demo.spec.ts`) show a driver ("You drive", the hand-over list) and
+    a spectator ("You are watching; Ada drives", its controls greyed). The demos guide and README
+    status are updated. **M12 is done as far as cloud sessions can build it;** close-up fidelity
+    (MetaHuman-grade notables) waits with M2's Unreal client for the owner's PC.
 
 ---
 
@@ -8197,7 +9700,7 @@ and M6a gives rivers a daily flow.
 ### Open questions
 
 1. **Time skips:** kept, as fast runs of the household day (decided in M9, ADR-0032 §7).
-2. **LLM backend:** local vs API, which model, and cost limits. Deferred to M12.
+2. **LLM backend:** local vs API, which model, and cost limits. Decided for M12 (2026-10-30, ADR-0039 §3, §9 "M12 design"): local first, remote only by the owner's choice, with cost limits.
 3. **"Art style" beyond architecture:** flags, emblems, clothing, painted and
    sculpted art objects. These are probably generated from the culture palette
    and symbol primitives, but the scope and milestone are unset.
@@ -8244,6 +9747,29 @@ and M6a gives rivers a daily flow.
   reached) was followed, the three exact cuts left M10 at about 1.15× and 1.17× M9 where a
   settlement is Detailed and within 10 % elsewhere, and the ADR's revisit line (a fifth more a
   person-day) is not crossed.
+- **The bench after M11 and M12 (2026-10-31; ADR-0028 §1; homelab runs 41178074981 and
+  41239934460): Decided by Claude under standing owner authority (2026-10-31).** On d3e155a the
+  bench stood at 1.334× M9 (village of 500) and 1.285× (three of 400), past the clause; seven exact
+  cuts (4a80bde, every save section's digest unchanged; plan §7) bring the head (1d776c8, with
+  M11d's later fixes) to 1.201× and 1.185×, ten of 60 at 0.912× and the 100k gate at 0.967×. The
+  clause is not amended. Reason: ADR-0028 §1's rule is profile, cut exactly, then amend to the
+  figure reached; the village of 500 is 0.1 % past 20 %, inside the spread of a three-round
+  median, and what remains costly (route searches, 19-22 % of a village's days) can still be cut
+  exactly by a route cache, so the next speed pass (backlog E) is that, not a wider clause.
+- **Backlog E: what a walk passes over kept with the route, not routes across a survey
+  (2026-11-02, plan §7 "Backlog E"): Decided by Claude under standing owner authority
+  (2026-11-02).** The route cache stays as it is, keyed by (from cell, to cell) and let go at each
+  new route revision; beside it each pair keeps the last walk's vertices and the cells it was
+  traced over, read only by a walk whose vertices are equal bit for bit, on a map of the same
+  measures and, for the corner cells, a grid of the same `travel_revision`; kept no longer than
+  the routes, on no save, and let go whole once it holds as many as a generation of the route
+  cache (50,000, or eight a person living). *Reason:* measured, 95-100 % of routes searched again
+  after a survey differ from those before it, and the other searches are pairs never walked on
+  those paths, so no exact cache of routes cuts the searches; the trace is a function of exactly
+  the inputs it is keyed on, 96 % of walks repeat their pair's last vertices, and the bound is the
+  route cache's own, so its memory grows with what the routes already hold. *What it gives up:*
+  the route searches themselves (a quarter of the profiled days) are not cut; a bound tighter than
+  the landmarks', or a way back reused, would change which of two equal routes is walked.
 - **Design priors for prospecting (2026-10-29, M11d's third part, ADR-0010 §1):** NUDGE: a
   household short of a dug material that a tool's material is made of (ore for its metal, never the
   tool's own stone or wood), whose settlement knows no body of it within reach
@@ -8255,7 +9781,25 @@ and M6a gives rivers a daily flow.
   certainty), less its walking; nothing is dug, and a body is found as on any walk, when the route
   passes within 50 m of a showing one. None of it is measured; the research gives no figure for how
   often prospecting found an outcrop. Revisited when a demo shows a settlement that wants copper
-  and never finds any within a day's walk where bodies lie.
+  and never finds any within a day's walk where bodies lie. *Amended 2026-10-31 (ADR-0043):* the
+  revisit condition was met (M11d's tenth part: 4,030 and 13,320 person-hours a year looking for
+  copper beyond reach). "Nothing remembered of where they looked" is retired: a settlement
+  remembers the ground its prospectors have walked over, the day's draws keep only ground not yet
+  looked over, and the walk's hope is `PROSPECT_HOPE` times the share of reachable ground of the
+  right kind not yet looked over. The flat one load on fresh ground stays a NUDGE, unmeasured
+  (research 03-08 found no figure either).
+- **M11d's demo time-boxed (2026-10-30, M11d's fourth part):** Decided by Claude under standing owner authority (2026-10-30). M11's demo is closed on its third eight-year run: copper found by prospecting, a dynamo and an instrument wanted, nothing electrified or wired. *Reason:* the time box (plan §1: time-box emergence); three long runs found and fixed two faults, and what remains (a wanter holding 5-8 of the 8 kg of iron it keeps for years) is the next question, not a reason to tune. NUDGE: none taken; if a later run is wanted, look first at why a household short of a few kilograms of iron for an instrument does not smelt or buy them.
+- **What is left of a source, and where people have looked (2026-10-31, M11d's demo questions; research 03-08, written for it; [ADR-0043](decisions/0043-what-is-left-and-where-people-have-looked.md)):** Decided by Claude under standing owner authority (2026-10-31). A place of a stock that does not renew (stone, flint, copper ore, bog ore) is remembered by what was seen there scaled to what as many hours more would give as it was last left, never fading; a settlement remembers the 100 m blocks its prospectors have walked over, and a prospecting walk's hope is the flat prior times the share of reachable ground of the right kind not yet looked over, its places drawn from that ground, none when it is covered. *Reason:* the demo showed an emptied bog-ore patch believed to give 1.28 units an hour and 4,030 and 13,320 person-hours a year of looking for copper beyond reach; for a stock that only falls the last sight is all worth keeping (marginal value theorem; memory weighted by how fast the world changes), and for rare bodies a walk's hope is the fresh ground it covers (random search). Saves 220 (unreleased) gains the ground looked over; content and wire unchanged.
+- **The notables' gate recalibrated (2026-10-31, ADR-0014 §4; homelab runs 41181916197, 41193677992 and 41197786000):** Decided by Claude under standing owner authority (2026-10-31). The gate failed on three aggregates (river valley's moved −35.8 %, the coast's enacted +47.6 % and moved +30.6 %, against 25 %, 40 % and 25 %), identically on every revision since at least M11d's fifth part. A calibration showed each difference within three standard errors of the tier's own spread today: the fixtures' polities, which proposed nothing (valley) or about four laws (coast) when the tolerances were set on 2026-10-08, now propose 7–21 a run with standard deviations up to 11. The gate's runs are doubled (10 a side, 12 to calibrate) and its tolerances reset by the 2026-10-08 rule unchanged (three standard errors of a difference of two means, the larger fixture's, rounded up to the next 5 %): proposals 105 %, enacted 55 %, offices 85 %, moved 95 %. With ten runs a side, on the working head, every aggregate is within them (the coast's enacted +16 %, moved −8 %; the valley's proposals +82.5 %, from one every-adult run of about 60 proposals). *Reason:* the 2026-10-08 precedent fixed the tier, not the tolerances, because a cause was found (a trigger ADR-0014 §4 names was missing); here the runs show no such cause, only wider politics, and the rule that set the tolerances is the rule that resets them. *What it gives up:* at this spread the gate catches a tier that suppresses politics outright, not one that halves proposals; a gate on a test of both runs' spreads would hold its power as politics changes (backlog E).
+- **Climbing, lifts, taller frames and wind designed (2026-10-31, backlog B; ADR-0037 §7's remaining deferrals; research 11-14 §1.4–§1.5, §2.4–§2.5; [ADR-0042](decisions/0042-climbing-lifts-taller-frames-and-wind.md)):** Decided by Claude under standing owner authority (2026-10-31). Climbing above the ground is hours in a design's and a lodger's reckoning (15 s a storey up, 8 down, design priors); a lift is a powered fixed tool that replaces climbing with a wait and a ride while its building has power, its shaft taking floor; frame version 4 rises to twelve storeys (`Level` appended); frames above four storeys meet the month's storm as wind on their lateral mode, with drift past H/500 a symptom. *Reason:* letting now gives height a reason; the report's rule puts circulation in hours, not a bonus. Lift groups and braced frames wait.
+- **ADR-0042 narrowed as built (2026-10-31; [ADR-0042](decisions/0042-climbing-lifts-taller-frames-and-wind.md)'s amendment):** Decided by Claude under standing owner authority (2026-10-31). The climb is reckoned in designs and a lodger's weighing, not spent in people's days; a lift's trip is a light-traffic wait and ride taken only where quicker than the stair, its power the keeper's shaft for four hours or a served hookup, burning and drawing nothing, its load unread, and nobody wants one; a program offering a skeleton may allow twelve storeys, but the core's keep their storeys, so no lived world builds tall yet; wind checks posts only, square on the broad face, its sway shown for the storm's day. *Reason:* the time box: each is the smallest rule that gives the ADR's consequence (upper floors dearer, a powered lift cheapening them, tall frames failing or swaying in storms); the rest is on the backlog as the plan entry's "Not yet".
+- **The reinforced-concrete frame built narrowed (2026-11-01, backlog B; [ADR-0037](decisions/0037-frames-of-steel-and-concrete.md)'s amendment of 2026-11-01):** Decided by Claude under standing owner authority (2026-11-01). Frame version 5 (post system 3, slots `concrete` and `bar`) rather than widening version 4, whose saved specs name five materials; concrete as a dry mix good; a cast member smeared over its timber envelope at 1.6 times its diameter (a design prior, as steel's I-section is); its own weight at 6,150 kg a cubic metre of envelope. *Reason:* the frozen-version pattern keeps every saved spec valid; smearing keeps `structure.rs`'s checks unchanged, as the skeleton's did, and without the larger section a concrete member in oak's envelope is weaker than oak and a tall cast hall would not stand. Concrete's age and curing were built next from what saves already hold (each group's `installed`, a building's `stage_since`); mass infill waits.
+- **Sewers and treatment designed (2026-10-31, backlog C; ADR-0038 §6's deferral; research 12-02 §1.5, 12-10 §1.7 and §5.8; [ADR-0041](decisions/0041-sewers-and-treatment.md)):** Decided by Claude under standing owner authority (2026-10-31). A sewer is a carrier laid by gravity along ways to an outfall on a reach (refused where it would rise; capacity by section); connected homes send their heap's new decaying share and its disease loads to the outfall's reach, relocating, not destroying, them; a polity lays one by `lay_sewer`; settling at the outfall splits off sludge (a refuse good) and a sewage farm takes load as dung up to its area. *Reason:* the reports' central rule (a sewer relocates load; treatment transforms part of it) on the kernel's carrier and contagion patterns. Pumping, biological treatment, discharge standards and blockage are deferred.
+- **Letting rooms designed (2026-10-31, backlog B; ADR-0037 §7's first deferral; research 08-19 §1.3–§1.5, §5; [ADR-0040](decisions/0040-letting-rooms.md)):** Decided by Claude under standing owner authority (2026-10-31). A roofless household may lodge in a home with spare sleeping floor, paying a monthly rent in food on the `Rent` channel at the landlord's asking rent, which moves a tenth with turned-away offers and vacancy; lodgers count as sheltered; a home's design counts the rent its spare floor would bring where lets have been seen. *Reason:* ADR-0037 found that nobody builds tall while nobody lets floors, and the kernel already has roofless households, custody and field leases to stand on; 08-19's search-and-contract shape on review days keeps it cheap. Rooms as partitions, landlords who do not live there, and rent law are deferred.
+- **Autonomous mode made a rule (2026-10-31):** the owner's words: "keep developing the project until I manually stop it. Keep proceeding through milestones autonomously." Claude had stopped the hourly loop on 2026-10-30 under a stop condition it wrote itself ("when everything buildable here is done"), counting its own deferrals and the Unreal work it cannot build as done. `AGENTS.md` now has an "Autonomous mode" section: only the owner stops the loop; the backlog never runs dry (plan §7's "Not yet" lines, ADR deferrals, §8's open questions, demos' open questions, then improvement passes); blocked work is logged and skipped; "done" is a report; narrowing is not finishing. `CLAUDE.md` points to it.
+- **M12 design (2026-10-30, plan §7; research 01-13; brief `docs/briefs/m12-deliberator-viewers.md`; [ADR-0039](decisions/0039-a-model-deliberator-and-viewers.md)):** Decided by Claude under standing owner authority (2026-10-30), including plan §8's open question 2. *The backend:* local first (an OpenAI-compatible endpoint, a llama.cpp server on this machine, any model the owner loads); a remote endpoint only where the owner names one, its key from the environment; cost limits of one request in flight, a 10 s deadline and 60 requests a real hour, past which rules decide. *Reason:* 01-13 §4.2 and the Executive recommendation (an external local process, very few requests, an always-available fallback) and the owner's rules (no credentials in the repository, approval for outward actions). *Viewers:* local only unless the owner opens the socket to the network at launch, with a token. *Reason:* the socket's localhost default (ADR-0001) is a security boundary. **Close-up fidelity, and all of M2's Unreal client,** need Unreal on the owner's Windows PC and cannot be built in cloud sessions; they remain the owner's (plan §9, "M3 goes ahead of M2's Unreal work").
+- **Stacked PRs merged (2026-10-30, ctadros1/The-Civilization-Engine #23, #22, #21):** Decided by Claude under standing owner authority (2026-10-30). #23 into `codex/m11-design`, then #22 into `codex/m10-gate-bench`, then #21 into `claude/claude-verification`, each by a merge commit (no squash, rebase or force-push; no branch deleted). *Reason:* homelab chain 41 passed on 56e01b0 (#23's head), every merged tree has that commit's code (the rest is M10's demo record and the plan), and their decisions are recorded (M10's bench clause, ADR-0036). `claude/claude-verification` is not `main`; nothing was merged into `main`, which is the owner's. Work continues on `codex/m11e-construction-waste`.
+- **ADR-0037 narrowed as built (2026-10-30, M11e's second part):** Decided by Claude under standing owner authority (2026-10-30). Frame version 4 is the steel skeleton alone, at most four storeys; the concrete frame, mass infill and taller frames are deferred. *Reason:* the time box: a taller frame needs a new `Level` and wire change, and nobody builds tall while nobody lets a storey (ADR-0037 §7); the skeleton is the primitive the others build on. The designer never chooses it with the core content; recorded, not nudged.
 - **M11's modern architecture and waste designed (2026-10-30, plan §7; research 11-14 and 12-10, written for it; brief `docs/briefs/m11-building-waste.md`; [ADR-0037](decisions/0037-frames-of-steel-and-concrete.md), [ADR-0038](decisions/0038-refuse-tips-and-residues.md)):** Decided by Claude under standing owner authority (2026-10-30). The owner asked for the research, ADRs and build to be done without asking. **Construction:** cement, steel and rolling as recipes on M10's chain; frame version 4 beside frozen 1–3 (12 storeys at most) with a steel skeleton and a reinforced-concrete frame, each storey's enclosure carried by the frame; steel's and concrete's own checks, concrete's strength by its age; bare steel weakening in a full burn. *Reason:* a frozen new version reuses v3's assembly and checks, as v3 was added beside v1 and v2; the report's separate `tower` grammar would duplicate them. **Deferred:** lifts, wind and letting storeys (the reason anyone builds tall; a residence change needing its own design), glass. Most lived worlds will build no frame; that is a correct outcome, not a reason to nudge. **Waste:** the heap gains an inert ash share fed by fuel's `ash_share`; recipes keep their residues (tar, liquor, slag) as goods so mass closes; tips as site records on the contamination links; `refuse_to_tip`; a firm's refuse round paid per call on a `Refuse` channel; a destructor as an engine burning refuse. *Reason:* mass conservation (12-02 §5.2) and refuse following fuel (12-10 §1.1) are the reports' central findings; sewers wait for a sewer design. The research reports were written from web sources, several read only as search summaries; each marks those figures, and none is load-bearing here without a design prior's label.
 - **M11 design (2026-10-28, plan §7, proposed):** from two briefs (`docs/briefs/m11-power.md`, `m11-movement.md`), which read 07-13 and 12-09 against the code, [ADR-0036](decisions/0036-electricity-and-the-telegraph.md), Proposed. Electricity stands on M10's machinery (power at a site, engines, mains with connections, the meter, light): radial, direct current at one voltage, dispatched by the served hour, service records and no bonus for a connection; far techniques (AC, turbines, nuclear, photovoltaics) left to the observer. Engines are components, motor vehicles are timed by power over pull, transit reuses runs, and a telegraph's messages enter the existing hearing paths. Modern architecture and waste wait for research. Accepted only when the owner merges it.
 - **2026-10-28 — Autonomous development on a VM (owner request):** an agent on a dedicated servernode3 VM (official Agent SDK, API credits, a fixed total budget; two Rust workers) continues the plan in order without a prompt per slice. It has repository-scoped GitHub access (2026-10-28: "continue autonomously ... until the $100 budget is spent", a lifetime ceiling); it pushes only `codex/*` branches and opens pull requests on this repository; main is merged by the owner alone. It never force-pushes, deletes branches, releases, or changes access, secrets, billing or runners. Benchmarks compare revisions on one machine and allocation (`tools/ci/bench-compare.sh`).
@@ -8570,6 +10114,28 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Middens and manuring (2026-10-07, slice V's last step):** each household keeps a midden beside its home, settled on the first of each month and whenever it is drawn on: each member adds 0.5 kg a day of ash, food waste, sweepings and dung holding 1 kg of nitrogen a year, and the heap loses half of itself and its nitrogen to the air and the rain in a year (tuning values; research 12-02 §2.3: a person's faeces hold 0.42 kg a year and their urine 3.56, most of which soaks away; 12-02 §3: early farming middens mixed domestic waste, ash and fecal material). A test holds the content to a share below the 4 to 5 kg of nitrogen in a year of the grain a person eats, so a midden returns part of what harvests took and never makes nitrogen (03-04 §5.5). Founders bring `core:technique/manuring` (07-04 §4.4: documented in Neolithic Europe by the sixth millennium BCE), which gates `core:activity/manure_field` and the new field task `manure`. A household carries dung, in 25 kg loads there and back with 2 hours a tonne to dig out and spread it (research 08-12: a porter carries 15-30 kg; tuning), to a field it means to crop that lies broken or dug and has given less than new ground of its kind, the one where an hour brings most first, so near fields are dunged before far ones (03-04 §2.3: intensive manuring is concentrated near settlements). People value it by what dung is known to bring the next harvest, never by the soil: its nitrogen, the tenth the year's crop draws on, taken up at 0.6 and over the crop's 0.035 kg a kilogram of grain, up to the field's shortfall from new ground's. The dung enters the pools, 0.3 of it the fast one (content API 29: `[soil] manure_fast_share`), so a tenth of its nitrogen reaches the year's crop wherever in the year it is spread (03-04 §2.3: 5-15 %) and the rest feeds later years. In the first build households took up dung as soon as the heap held a load, while a session runs an hour at least: about 0.1 hours an adult a day went to carrying, ten times what the heaps held. Manuring now waits until the heap holds an hour's carrying. Saves schema 27 (a household's midden; older saves begin it empty on loading); content API 29 (`[midden]`, `manure_fast_share`, the technique and the activity). The observer tells each field's last harvest and whether its soil held it back ("fallow; last gave 512 kg/ha in year 7, held back by its soil"), and `civ-host run` what the middens hold. **Ten-year smoke** (17.8 minutes, beside the dashboard): all ten worlds pass and all ten bands keep ten people (coast 1: 54, 2: 27, 3: 54, 4: 50, 5: 17; river valley 1: 54, 2: 58, 3: 48, 4: 41, 5: 57; 460 people); one building gave way, killing nobody; stocks and asks green in all ten, inequality amber in all ten, workshops green in nine and grey in one. In ten years of river valley 5 (768 cells) its middens held 0.3 to 0.8 t at each year's end against the 11 to 12 t they would hold if none were carried out: households carry out nearly all their dung, about 8 t a year, which at about 2 kg of nitrogen a hectare a year over the 25 ha they crop leaves the soil's drawdown as it was (its supply at 77 % of native ground's by year 10). At hand scale and village size a midden matters on the fields it is carried to, not across the village's ground, as research 03-04 §2.3 leads one to expect. With this step slice V is complete.
 - **The dashboard with soils (2026-10-07, after slice V's second step, `269edf3`):** the fifty-year dashboard lived its five river-valley worlds (1024 cells, the regimes in turn) in 75.8 minutes on four cores, beside other work, and FAILED one row. **Population green**, for the first time: all five worlds keep ten or more after fifty years, with 82 to 87 people from 40 founders (50 to 59 at year 10, 75 to 88 at year 40), the most growth 2.3 times the founders (world 2, year 44), within the bound; the baseline (§9, slice T) had two worlds of five keep ten, and `main`'s nightly dashboards of 2026-10-05 to -07, before soils, kept 0, 2 and 1. Food prices green in every world (grain asked 3 to 7 log points more before the harvest than after, stocks rising after every harvest). The Gini of goods amber: 0.27 to 0.40, two worlds within the band of 0.3 to 0.75 and three just below it, as hoe farmers with land to spare may be (research 08-14 §3.1: horticultural populations 0.27 ± 0.03). Firm sizes green (155 to 273 workshops a world). **Structural failures RED:** 11 failures of lived-in buildings in 4,635 building-years, 2.37 per 1,000, against at most 2 (the baseline: 2.17), and none of empty buildings besides. A world now takes 33 to 76 minutes, the village worlds the longest, as villages hold more people and fields than the baseline's. Slice W's time-boxed tuning answers to the failures; the middens' step came after this run.
 - **Accelerated mode's approximations, as built (2026-10-07, slice W, ADR-0011 §4 amended):** measured on a river-valley world lived twenty years (seed 1, 1024 cells; 65 people, 121 fields, 16 roofed huts), 90 to 120 days from its save with `bench_village`. A profile of 30 days at Max with leisure blocks put 24 % of the time in rebuilding a settlement's walking times (a Dijkstra over the whole map, as hunting walks two hours), 12 % in planning routes, 8.5 % in each day's expected yields, 8 % in finding the best purchase and 5 % in finding the best place to gather. About 14.5 decisions are made a person-day. **Exact:** a settlement's walking times are rebuilt when the paths are surveyed or the hearth moves; the monthly refresh on the same survey now finds only the ground that could be broken again. Detailed went from 60.7 to 56.8 ms a day, every section's digest unchanged in both modes. **The household view** keeps what a household's members weigh whoever decides: the purchase, whom to ask, paid work, the best place for each gathering, digging and field activity. It is kept from the household's first decision after midnight until midnight or its own consequential step: a deposit, work on a field or a building, making, trying, or a choice that lays claim to something. Every household's view is refreshed after a gift, a trade or paid work. Alone it made a day 20 % faster (45.6 against 57.2 ms a day over 120 days), with time use unchanged within 0.01 h a person-day. **Leisure blocks** alone made a day 15 % faster (48.7 ms a day); both together 23 % (44.2 ms a day), about 16 s a simulated year. `max_minutes` of rest, play and the hearth (180, tuning values; Detailed mode never uses them) caps a block. Both approximations are set aside at midnight, so Gate A's save at an Accelerated midnight still lives on exactly; with both switched off (`Sim::set_approximations`), ten days at Max still end in the bytes of ten by the minute.
+- **Gate B's runs doubled, its tolerances kept (2026-11-01, homelab long run 41312396929 on 0501a3c):** Decided by Claude under standing owner authority (2026-11-01). Gate B failed on the coast's Gini of goods alone: Detailed 0.110 ± 0.005 against Accelerated 0.101 ± 0.004 over five runs each, −8.3 % against 8 %. Diagnosed locally (exactly reproduced): with all three approximations off the modes are equal (+0.0 %, Gate A's exactness); with any one of leisure blocks or the household view on, alone or with others, Accelerated lies at 0.100-0.102 (views by party alone changes nothing); eight Detailed calibration runs give 0.108 ± 0.004, the three beyond the gate's five about 0.105. So the five Detailed runs sat high, and five runs could not tell that from a few percent of bias. **Gate B now lives ten runs in each mode (`RUNS`), its tolerances unchanged:** it then passed (40 runs, 9.3 minutes on four threads locally, every run passing its checks): the coast's Gini 0.106 ± 0.007 against 0.103 ± 0.007 (−2.9 %), walking −4.1 % and −4.3 %, everything else within 1 %. *Reason:* more runs make the gate more precise both ways, as the notables gate's doubling did (2026-10-31); the tolerances are not widened. **Recorded, not acted on:** at ten runs the coast Gini's spread (± 0.007, up from ± 0.004 when the tolerances were set) makes its calibrated value 8.9 %, above its 8 % tolerance: the gate's power on that aggregate is thin, and a widening would need its own entry.
+- **Roofed timber shows its rot at a tenth lost, not three tenths (2026-11-01, homelab long run 41320868076 on fc702ef):** Decided by Claude under standing owner authority (2026-11-01). The 50-year dashboard's structural failures were 40 in 6,056 lived building-years (6.6 per 1,000 against 2), every one a hut's rafters, 25 of them rotted (loss of a quarter or more), 9 more poorly made in a storm. Measured on the core hut: rafters drawn at quality 0.5 to 0.65 break at a loss of 0.25 to 0.35 under the thatch and a storm of 250 to 500 Pa (the landscape's median and twice it), and rot showed only at 0.3, so a household often had nothing to mend until the roof fell in. **`under_leak`'s threshold is now 0.1 in all seven programs** (its rate unchanged): the timber under a leak shows (staining, softness) while it still carries a storm told as one, as the new upkeep test checks. *Reason:* the content contradicted itself (a part showing only after it was too weak for its load); the threshold was already marked tuning, and timber under a roof is seen from inside it. Not a nudge: it names no outcome, and a household still mends only what it chooses to; the dashboard is re-run to see what it does.
+- **One 50-year dashboard is one sample, even on one machine (2026-11-02, homelab long runs 41320868076, 41359466673 and 41385926610 on fc702ef; 41359474650 on 246e103):** Decided by Claude under standing owner authority (2026-11-02). The same commit lived the dashboard's five worlds differently on node1 (run 49), on node3 (run 53) and on node1 again (run 56): other settlements, other names, other figures. Determinism is not a goal (§9, 2026-09-27) and the worlds run in parallel threads, so a dashboard row is a sample of what the model does, not a replayable record. Run 49's one red Neighbours pair (ten buildings after an Elmbrook building at Willowstead with no contact) did not recur in two more samples of the same code (amber both times, no building crossing without contact, as a diagnostic printing every such crossing showed); structural failures were 6.6, 3.3 and 5.1 per 1,000 building-years; price convergence was amber, gray and red. **So a red in one dashboard is investigated only when it recurs or a diagnostic finds its cause; one-off reds are recorded, not chased.** *Reason:* replaying a single sampled history is impossible here, and fixing a cause never seen would be guessing. On 246e103 (with the rot fix) the long run's gates passed (Gate B at ten runs: the coast's Gini −2.9 % against 8 %) but its dashboard ran out of its twelve hours: four worlds finished in 2.7-2.9 hours each and world 4 had not finished seven hours later, so it is being lived alone on node1 with its size and time told each year (codex/world4-diag).
+- **ADR-0044 accepted, and backlog C's first slice built as discards (2026-11-01; brief `docs/briefs/backlog-c-salvage-sewage.md`):** Decided by Claude under standing owner authority (2026-11-01). Heaps and tips keep discards as one list by good (saves 220, unreleased, so no migration beyond "none"), not a field for each good; a tool's scrap goes on its holding household's heap, since the kernel holds every tool in a household's stores (a works' own store waits for works that hold tools apart); scrap is half the bar a tool took and welding takes 1.1 kg and 4 kg of charcoal a kilogram of bar in 2 hours (design priors). *Reason:* the ADR's own choices, which name no outcome: where nobody forges, scrap lies on the heap and nothing else changes; the list keeps each later salvage good a content change, not a save change.
+- **Backlog C's second slice: where sorting's rate lives, what a keeper keeps and how it values it, and which way a material is made (2026-11-02; ADR-0044 §2–§3):** Decided by Claude under standing owner authority (2026-11-02). `sort_kg_h` (100 kg an hour, a design prior) lives in the people profile's `[midden]`, beside the heap's other handling rates (`load_kg`, `spread_h_per_t`), and serves a heap and a tip alike. Picking's cost of a kilogram adds the walk there and back over a load (the least of a carry and what lies there of the good); for own costs the walk is a straight line on level ground from home, and the decision walks the settlement's travel field as gathering does. One `pick` activity for each good picked (`picks`, like `digs`), since a person carries one good home at a time; a session sorts only as long as what is wanted of the good calls for. A household weighs picking only while its wants (a tool's materials, what it builds) ask for the good, and not where a neighbour's posted terms give a kilogram for fewer of its hours; buyers buy salvage only toward a tool they lack. A posted round's keeper keeps, of the ash and discards a run brings to the tip, what households of its settlement (its own included) keep more of than they hold, the most worth first, each kilogram worth that household's own cost of it at what an hour of that household's work brings in food; it sorts as much of the load as finding the most sought share takes, and only where the worth repays its sorting hours at its own `hour_kcal`; the planned fee reads the homes' heaps as they stand. What it keeps goes to its stores and is recorded on the run; a negative fee is now accepted on load; no section version bumps, as saves 220 are unreleased (ADR-0044 §3 foresaw a bump of the rounds section). A way to a material that takes salvage replaces the first workable way only where it costs fewer of the household's hours, its inputs at own costs and a dug good at its digging hours at the best deposit the settlement knows; the order of the other ways is left as it was. *Reason:* each follows the ADR's rule that worth comes from hours and wants, never an authored price, and keeps worlds without salvage as they were: the first workable way still decides wherever no salvage competes, and nothing is picked where nothing is wanted.
+- **Backlog C's third slice: where a farm can be, which field and household take the flow, and its limit's units (2026-11-02; ADR-0044 §4):** Decided by Claude under standing owner authority (2026-11-02). `farm_people_ha` lives in the sewer template's `[sewer]` table beside its other terms, optional (absent or 0, no farm; 0–10,000), and its limit in kilograms is `farm_people_ha` × the field's hectares × the people profile's `[midden]` `kg_per_person_day`, so the people's figure is the one heaps already use. "Below its lowest connection" is read as strictly below the last route cell any connected home lies beside (the eight neighbours, the measure a home connects by), as the homes now stand; with nobody connected there is no farm. "After a harvest the soil held back" is the field's last harvest on record held back by its soil and reaped this calendar year or the last, its household having people; a later harvest the season held back stops it, and an older one does not start it. One farm a sewer (the record saves one field): the field taking the flow keeps it while it qualifies, or else the first field the flow passes along the route, the lowest id first. What the farm takes enters the soil each day as dung at `n_per_kg` with no loss on the way (the day's share is fresh), the first-year share at once as manuring's is; its share of each disease is its share of the kilograms leaving the tank, its node keyed by the field's id (a field gone lets its load go, as a heap's does), placed at the field's centre, and counted with the field's household's settlement for an outbreak's end. No section version bumps, as saves 220 are unreleased. *Reason:* each makes the ADR's rule concrete with the kernel's existing measures (a connection's neighbourhood, the harvest record, manuring's nitrogen, a tip's links) and authors no outcome: the farm follows only where flow and a soil-held harvest meet, and worlds without a sewer, or with one and no such field, live as before.
+- **Backlog C's fourth slice: how a sewer silts, wears, breaks and is mended (2026-11-02; ADR-0044 §5):** Decided by Claude under standing owner authority (2026-11-02). `deposit_share`, `block_kg_m` and `clear_h_t` live in the sewer template's `[sewer]` table, optional (absent or 0, nothing deposits), and a `deposit_share` above 0 needs the other two above 0. The deposit is taken from what enters before the settling tank, which settles its share of the rest, and the farm's share of loads is now its share of the kilograms leaving the tank; the day's deposited kilograms are saved with the day's other figures. "Served in the order connected while capacity lasts" (ADR-0041 §2) is read as a prefix: once one connection is turned away, every one connected after it is too, so the last connected back up first, as M1 says; the first turned away decides the cause for those after it (`Overloaded` where even the full capacity would not take it, else `Blocked`). A home's drain enters at the route cell nearest the outfall it lies beside (the eight neighbours, the measure a home connects by), and it backs up where that cell is at or above the break. Every cell of a whole sewer's route wears, the outfall's included, by the wells' own `wetness_at` and month's-rain clamp (shared, not copied); a sewer still being laid does not wear. The break is the collapsed cell nearest the outfall, saved as `broken_cell` (its index plus one), and the old `broken` flag, which nothing set, is deprecated in the schema rather than reused; no new home connects while a sewer is broken. A cell's metres are half the run to it and half the run from it, so they sum to the length. Days unserved are kept for the calendar year of a connection's last day and start afresh in a new one, saved as a vector beside the connections (a FlatBuffers struct cannot grow). The polity learns of a blockage from a connection whose last day was `Blocked`, and of a collapse at once; it weighs faults at its review cadence, after its review and whatever its agenda, only under the `lay_sewer` law in force, counting the homes whose last day the fault backed up, each at what laying reckoned (`carry_h_year` and deaths believed avoided), over the life left: `life_years` × (1 − the most worn sound cell's loss). Relining is weighed for all collapsed cells at once with laying's material costing; clearing for the whole deposit as it stands, which is then the amount asked. Each is asked once until done, and its hours are added to the law's `WaySite` labour, so each household's equal share grows and the hours it gives to the work count toward it, paid through `work_given` as laying's are. A household's hours go first to relining (the broken cell, a metre each `lay_h_m` hours from its own walls and binder, its progress saved as metres relined; a collapse nearer the outfall restarts that count), then to clearing; the sludge goes to the tank keeper's store (the polity's where none) and carries no disease, as the deposit holds mass only. With the law ended, work on the sewer mends nothing and the review asks nothing; what was asked before lies. A collapse is told in the services words, not the chronicle (that needs a chronicle kind). (Backlog D's fifth item, 2026-11-02, added that kind.) No section version bumps, as saves 220 are unreleased. *Reason:* each makes M1–M5 concrete with measures the kernel already has (a connection's neighbourhood, the wells' wetness, laying's weighing and its common work) and names no outcome: no condition, decay rate or reliability figure is authored, a sewer wears only as its ground and weather are wet, and where no law stands or the homes would not be spared, nothing is mended and the homes heap as before.
+- **ADR-0037's checks completed: where the casing's weight rides, and how infill is shaken (2026-11-02, backlog D's first item; ADR-0037's amendment of 2026-11-02):** Decided by Claude under standing owner authority (2026-11-02). The casing's weight rides in the loads (`Loads::casing_kg_m3`, beside `infill_n`), set from the spec's `ENCASEMENT` and the program's `encasement_kg_per_m3` (`structure::casing_kg_m3`), not a new constant, since the expansion the checks read does not say whether a skeleton is cased; it is added to the own weight of the `FRAME` slot's members only, over the envelope their groups draw, as concrete's 6,150 kg is: for the core workshop 1,917 kg in the checks against the 2,561 its frame stage reckons, which also counts the posts' feet in the ground. The casing adds no strength or stiffness (it is cover, as before). One reckoning (`loads_on`, now given the program) sets the infill's and the casing's weight for the daily check and a shaking alike, so both shake with the frame as more mass on its posts. A frame's infill wall is now shaken as it is weighed, held at each floor and bearing only itself, where before the shaking took it for an untied wall bearing the infill above (the daily check's model since the infill was built). The wind check is unchanged: it already read a cast post at its age (the ADR's sentence that it read the cured strength was wrong for the wind), and neither infill nor casing changes the gust's face (the outline's broadest side) or its load; stiffness stays full in the sway, as in `at_age`. *Reason:* each is the existing check's own physics applied to primitives already built, naming no outcome; carrying the figure in the loads keeps the checks pure functions of the expansion and what presses on it, with no content, save or wire change.
+- **A polity's well kept, and a closing ended: who weighs, what share is asked, and how an end is opened (2026-11-02, backlog D's second item; ADR-0021 §7):** Decided by Claude under standing owner authority (2026-11-02). The polity weighs keeping its wells at its review cadence, after its review and whatever its agenda (as its sewers), only while a `dig_well` law in force names the well's cell, and only a well owed no work. Relining is the household's own rule summed over the polity's households: each household's walking a year saved is its trip to the water it would draw at without the well (`other_source`, the reckoning the household's own relining uses) less the walk to the well and its lift, a household knowing no other water counting nothing; the new lining's life is at the households' average skill, as digging it was weighed. A lid and curb is asked once anyone of its households suspects the well, as a household covers a well its people suspect; no forecast is weighed, as none is for a household. The hours are not added to the law's site (as a sewer's are to its `WaySite`): that would change the dug well's words ("each household doing its share of 41 hours"); instead, once the well is open, each household's equal share is of all the work the well has asked, the hours given to it (`Well::work_h`) and those owed, so a household that gave above its share of the digging may owe nothing more, and while it is dug the share is the site's as before. Each hour of relining is worth what the review reckoned it saves the average household a year (`Well::worth`), since reckoning each household's other water anew at every decision would route a walk for every person each time they weigh their day; a cover's hours carry what the well's worth already was (nothing for a well never relined), as a household's do, so only the gathering's word moves them. Work on a polity's well being relined or covered does nothing once its law ended; what was asked lies, as a sewer's does. The end of a closing goes through the existing `repeal` (M4c slice AI): a new issue `closing_unsuspected` (code 43, appended within saves 220, unreleased) opens it, so content says which template answers it (the core's `repeal` now answers `founding` and `closing_unsuspected`, content API 224), rather than a new policy kind. "Nobody of the polity" is anyone of the polity's households holding a suspicion of the source (children included, though only adults tally). The closing is weighed as the move it was, turned about, as founding's repeals are, so the forecast of drawing there again comes from `closure_forecasts`, which now reckons such sources too. The elders of households that walk further for the closing are among those the review reaches, as households whose carts wait are. A closing that is still suspected, by anyone, opens nothing. *Reason:* each reuses a rule the kernel already has (the household's relining and covering, digging's shares and pay, the founding repeal's weighing turned about) and names no outcome: a well is kept only where its people's walks repay it and a law still stands, and a closing ends only where its people, weighing their own walks against what they still believe, pass its end.
+- **What passes when a household is no more: its loads in transit wherever its people go, its boats and carts only within its settlement, and a cart to the new door (2026-11-02, backlog D's third item; M8b slices CO, CP):** Decided by Claude under standing owner authority (2026-11-02). They pass in the one place every joining goes through (`merge_household`, after its plots, buildings, wells and workshops), so death taken in by kin, marriage and a household moving in whole all pass them alike; a household that moves away to another settlement leaves its boats and carts where they stand, as it leaves its plots and buildings. A load in transit passes always, since it is part of what the household holds, as its store does wherever its people go. A boat or cart passes only where the household its people join lives in the same settlement: a household weighs a boat by the walk to it and makes none while it has one, so an heir far off given a boat it cannot reach would never make its own; a cart is only used and made at its household's door, so one standing at the old door is wheeled to the new one, the same jump its store makes, while one out on the ways is left for whoever brings it back. A wagon does not pass: it is used only on a line its household keeps whole, and the ways a household keeps do not pass yet. *Reason:* the household's things go where its people go, in the shape each is used in, without a rule that names any outcome; what nobody can reach stays where it is, as it did.
+- **What passes when a household is no more, second part: the works it kept on the land, finished, within its settlement, and its platforms with its plots (2026-11-02, backlog D's fourth item):** Decided by Claude under standing owner authority (2026-11-02). They pass in `merge_household` after the boats and carts and under the same condition (the household joined lives in the same settlement), since a footbridge, a way, a pit, an engine or a wheel is used and tended from home, and an heir far off holding them would weigh its own works as if it had them. The platforms are the exception: they level the plots, which pass wherever the people go, so they go with them in `hand_over_land`. Only finished works pass: a footbridge standing or fallen, a stretch of way built to its corridor, a ditch or bank dug, a wheel whose headrace is dug (the race passing with it as a dug ditch), and pits and heaps, which anyone digging at the deposit works, and engines, which have no state of being made; work still under way stays the gone household's, because the hours left were weighed by its own reckoning (its wades, the hours its carts lost on the ways, what its fields lacked), which does not pass, and a household that took such work would begin no other of its kind until it was done; a footbridge being built already has its taker (whoever's wades repay it). A way serving rails stays with its wagons, which stay with it (ADR-0034's line runs to its household's own home). The ways' revision is bumped; the crossings' is not, since route fields are keyed on it and an owner changes no route. *Reason:* each finished work goes where the household's people go, in the shape it is used in, and the heir uses it by the rules it already has; what is still being worked waits for whoever weighs it anew, so no rule names an outcome and no household is held to work it did not weigh.
+- **A sewer's collapse and its mending in the chronicle: one kind, when each is told, and what it names (2026-11-02, backlog D's fifth item; ADR-0044 §5):** Decided by Claude under standing owner authority (2026-11-02). A new `ChronicleKind::Sewer` (code 69, appended) with its own `SewerStep` (`Collapsed` 0, `Mended` 1), rather than a step of the wells' or crossings' kinds, since a sewer is neither. A collapse is told at the monthly wear, once a sewer a month however many of its cells fell in, at the lowest of them, as only a cell whose loss reached 1 from below that month counts (one set to 1 by hand, or already fallen, is not told again); its words give the metres along the route from that cell to the outfall and, where it became the break, the connected homes whose drains enter at or above it (the measure `sewers_day` backs them up by), counting only households that still exist; above a break already standing it says so and counts nobody, since those homes backed up before. It names no person, as a well falling in does. Mending is told only when relining leaves no collapsed cell, at the cell rebuilt last, naming the elder (`elder_of`) of the household whose hours finished it, since sewer work is reckoned by household, not person; rebuilding a lower cell while another stays fallen in tells nothing, as the homes above stay backed up. Clearing silt is not told. The kind is not a skip stop mark and links to no incident (a well's falling in is neither). *Reason:* the collapse and the mending are the two moments the services words already show and the chronicle lacked (the fourth slice said a chronicle kind was wanting); one entry a sewer a month keeps a wet month from filling the chronicle, and every figure told is one the kernel already reckons, so nothing is authored but the words.
+- **A passing place cleared by law in the chronicle: its kind, when it is told, and whose (2026-11-02, backlog D's sixth item; ADR-0029 §6):** Decided by Claude under standing owner authority (2026-11-02). A new `ChronicleKind::Way` (code 70, appended) with its own `WayStep` (`PassingPlaceCleared` 0), rather than a step of the crossings' or flood banks' kinds, since a way is neither and further steps for ways (a household's long approach, a widening, a way given up) can be appended to it. It is told in `way_work` at the hour that takes a polity-kept, non-track segment from below its corridor to the corridor, and only where that way is a passing place a law of the polity laid (`ways`' site naming it), so the words "their gathering agreed to" are true; a passing place's built width never shrinks, so it is told once. It names the elder (`elder_of`) of the household whose hours finished it, since way work is reckoned by household, as a sewer's mending does, and gives the metres from the polity's seat's hearth to the cell's centre, since a one-cell place on a trail has no other name. A household's own passing place or approach is not told: the third part's "Not yet" asked for the gathering's work, and a household's every passing place would crowd the chronicle with small private works. *Reason:* the polity's other works asked by law (a flood bank, a palisade, a line laid together) are told when finished and the passing place alone was not; every figure in the words is one the kernel already has, so nothing is authored but the words.
+- **Word of a default: a claim told as news, an act of its own, and who keeps it quiet (2026-11-02, backlog D's seventh item; research 08-07 §5.3):** Decided by Claude under standing owner authority (2026-11-02). A failed loan (refused, or unpaid when grace ran out) and wages a workshop left unpaid now make a word claim of an appended kind, `ClaimKind::Defaulted` (code 13), rather than a belief record like takings (`Order.beliefs`), because the word book already carries news by contact with its own chances, lifetimes, whispers and saves, and a default, unlike a taking, needs no inference about who did it: the credit book says so. Its subject is the elder of the household that owed (the one the creditor's people already note `defaulted` of), its event the claim in the credit book (a load checks it names one), its settlement the debtor's (else the creditor's). The creditor's members hold it at first hand; it is news (`held_news`) for `news_days` from the day it failed, told at home by `share_home` and at the hearth by `share_routine`, as a raid is. **Learning:** whoever hears it for the first time, told or whispered (and by telegraph), notes a new tie act, `DefaultedOthers` (code 24, appended; content name `defaulted_others`), of that elder: bad evidence 1 in `word`, half of `defaulted`'s 2 (as `took_from_others` is a third of `took_from_us`; a design prior). A separate act, not `defaulted` at a smaller unit, so a tie's reason reads true ("did not repay what another household lent, as they heard") and content can weigh hearsay apart. **Kin shield their own:** nobody notes it of their own household's elder, and nobody tells it at the hearth of their own household's default (research 12-04 §1.2: word of misconduct travels along ties, and kin shield their own, as with takings); the debtor's household may still hear it. A store's loan failed names no first holder (its creditor is no household) and is not told. *Reason:* lenders already weigh a borrower by their own regard (`default_chance`), so a default teaching only the creditor's household left every other lender as trusting as before; 08-07 §5.3 asks that repayment observed spread through meetings and reputation, never as a visible score, which the word book does. Whether anyone then lends less, and to whom, is the lenders' own weighing.
+- **A hearer held for a term, or drawn by lot (2026-11-02, backlog D's eighth item; M7b slice BR's "Not yet"; research 09-07 §1.3):** Decided by Claude under standing owner authority (2026-11-02). A forum's one holder may hold for a term and be drawn by lot by the existing office tenure (`[tenure]`, M7a slice BN), not a tenure of the forum's own, because a hearer is an office named by a law as a keeper is and the term, its end, the lot, the chronicle and the Government panel's words were already generic over a law with a holder; only the content check and the decision's list of offices whose term is filled, and the proposer's pick, needed the forum. A panel and the elders take none: a panel is already drawn for each case, and the elders are nobody's to name. **The lot's pool** is those who stood for the law at the gathering, less the last holder of a template that does not renew and anyone keeping the watch, as for the store kept by turns (a design prior: wanting cases heard taken as willingness to hear them). **Forecast:** a household weighs a forum by lot by its cases heard again at even odds, since who the lot draws is not known when it weighs (the rule the forecast already applied to a named hearer who did not sit), rather than at the average of those who might stand. **Nothing opens an issue at a term's end:** cases go to the gathering again, and a gathering is asked for a forum afresh only when *cases waiting* stands as before, since the gathering is the default forum and an unkept store has no such default. **Two core templates**, both a year (09-14 §2.2's three to twelve months; 09-02 §4.1: Athens filled its magistracies annually): by lot and not renewable, after Athens' courts by lot (09-07 §1.3); and named and renewable, as the store kept for a year. *Reason:* M7b slice BR left a hearer's tenure or lot unbuilt; research 09-07 §1.3 treats rotation and lottery as selection primitives of their own, and a hearer named for life gave a polity no way to rotate who judges. Whether anyone proposes either, and whether the gathering agrees, is people's.
+- **An heir in another settlement takes the boats and carts it could bring, and fetches them (2026-11-02, backlog D's ninth item; the third item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-02). A made boat or cart of a household that is no more passes to an heir of another settlement where it stands, only when it stands within the walk of the existing *Fetch* activity of the heir's home and a way by water or for its wheels would bring it there today; otherwise it stays as before, since an heir holding one it cannot bring would make none of its own (the third item's reason). Bringing it is an option of the *Fetch* activity, not a new activity or a move at the moment of passing: the walk there and the paddle or haul back are the steps errands already take, and the option is generic over any boat or cart of a household standing away from home. Its worth is the walking it saves over its remaining life at its household's reckoning, never less than making another, in the terms and points the making of a boat already uses (*the carrying a boat (a cart) would save*), against the trip's walking; no new reason, content, save or wire change. *Reason:* the vehicle goes where its new people are only by someone taking it there, which the engine's walking, paddling and pulling already do, and what nobody can bring stays where it is, as it did.
+- **Word of a debt kept: two claim kinds, one act, and whose it is to tell (2026-11-02, backlog D's tenth item; the seventh item's "Not yet"; research 08-07 §5.3):** Decided by Claude under standing owner authority (2026-11-02). A loan repaid in full, wages a workshop paid when due and what a debtor repays its guarantor make a word claim of an appended kind, `ClaimKind::Repaid` (code 14), and a guarantor called on that pays makes one of another, `ClaimKind::GuarantorPaid` (code 15), rather than one kind for both, since a guarantor's payment and the debtor's later repayment of it would name the same claim in the credit book and only the kind tells them apart in words. Both go through the default's own path (`debt_word`): first held by the creditor's members, news for `news_days`, told at the hearth by `share_routine` (the chance a default has: a design prior, no new key), whisperable, checked on load to name a claim in the credit book. Hearing either for the first time notes a new act, `RepaidOthers` (code 25, appended; content name `repaid_others`), of the elder named: good 0.5 in `word`, half of `repaid`'s 1, as `defaulted_others` is half of `defaulted`. One act for a repayment and a guarantor's payment, since both are a household keeping its word in a debt, and the tie's reason reads true of both ("paid another household what they owed it, as they heard"). **Nobody tells of their own household's debt, kept or failed:** the seventh item kept kin from telling a default; a repayment is kept from the debtor's own household too, since word of it is evidence because the creditor saw it, and a household's word of itself is a boast nobody weighs as seen. A pledged field taken is not told: it teaches nobody anything the default did not, and would be news only. *Reason:* the seventh item let a lender's bad experience reach other lenders while a good one stayed with the lender's elder, so hearsay could only lower a borrower's standing; 08-07 §5.3 asks that observed repayment, not only default, spread by meeting. Whether anyone then lends more, and to whom, is the lenders' own weighing.
+- **Structural failures, a recurring red: a roof burnt away weighs nothing, and charred rafters are renewed before the thatch goes back on (2026-11-02, homelab long runs 41320868076, 41359466673, 41385926610, 41359474650 and 41438698219; research 11-06 §1.3, §2.4; ADR-0022 §5):** Decided by Claude under standing owner authority (2026-11-02). The row has been red in every sample: 6.6 per 1,000 lived building-years (run 49), 3.3 (run 53), 5.1 (run 56), and **4.34 in run 57** (homelab long run 41438698219, `codex/world4-diag` on 246e103, world 4 lived alone on node1: 50 years in 13,943 s, 3.9 hours, growing from 82 to 161 people and 17 to 49 households, three settlements from year 29; its slow stretches were years 10-13, about 600 s a year against 60-200, and years 37-42, about 500 s a year; not a runaway, since run 54's seven hours and more was world 4 sharing node1 with four other worlds; structural failures still red, 7 in 1,612 building-years). The rot fix (`under_leak` showing at 0.1) did not clearly bring it down, so this is a recurring red and was investigated. **Four hypotheses were tested in scenes** (a household of a lone first-month world in a core hut with its rafters rotting under leaking thatch): a repair begun is scored first (`upkeep_plan`), so a household mends one thing at a time across its buildings; a repair short of its materials stalls (`mend_work`); a repair begun stays chosen after another group got worse (`repair_of`); and upkeep may rarely win against other work. The first and third hold as the code reads, but none caused a failure: with no thatch the household fetched it and had the roof mended in two months; with a daub repair begun and no timber it fetched timber, finished the walls in five weeks and then mended the thatch; a building under way comes before upkeep, as designed, and was roofed within two months. **A diagnostic dashboard found the cause** (a patch printing each failure of a lived building with its group's loss, quality and the day its wear first showed, the building's repair, whether the household held its materials, what else it was building and its members; five worlds lived 30 years on 1385af3): of 8 lived failures, **4 were huts whose rafters had been charred by a fire to 0.41-0.43 lost** (ADR-0022 §5: char is loss of section), within about six weeks of the fire; three gave way on a calm day or under a 134 Pa storm while the thatch was gone, and one under a 223 Pa storm after its thatch was laid again, its rafters' renewal just begun and short of timber. The chronicle tells them as rot ("they had rotted": a loss of a quarter or more, whatever the cause), so run 49's 25 rotted rafters were likely mostly charred. The other 4: three huts' rafters, sound but drawn at quality 0.15 to 0.51 (two built by couples under 21), in storms of 1,039 and 1,421 Pa (four and six times the median), and one longhouse's posts at 0.236 lost, under the 0.3 at which their rot shows, in a 986 Pa storm. No failure had another repair or a building under way holding its upkeep up: in all 8 the household's upkeep was aimed at the building that fell. **Two contradictions at the source, fixed:** (1) a covering that is gone (failed: burnt away, torn off, worn through, told "the thatch is gone"; ADR-0022 §5: "the roof opens") still weighed on its rafters as if whole, and caught the storm; now **a failed covering weighs nothing and catches no storm** (`loads_on`: the covering's weight is that of the share of its slopes still covered); (2) upkeep renewed the worst group first, so a roof burnt away (1.0) was thatched again before its charred rafters (about 0.35 beyond showing), which then broke under the new thatch; now **a covering that is gone is laid again only on roof timber that shows nothing**: while rafters, trusses or purlins show their wear or char, the worst of them is renewed first, and the building is still ranked among the household's by its roof that is gone (`condition::worst`). A repair begun on a covering that has since gone yields to that timber, and **a repair begun on a group that has since failed renews all of it** (its share had stayed what it was when begun; `condition::repair_of`). *Reason:* a household attends to what threatens to fall first (11-06 §1.3), and thatch is laid on rafters, never under them. Nothing tuned, no threshold or pass mark touched, not a nudge: it names no outcome, and a household still chooses when to mend. **Recorded, not chased:** novice-made rafters in a storm of four to six times the median are the vocabulary at work; posts giving way at 0.236 lost under their 0.3 showing is one sample (the rafters' like contradiction was 01a672b's), to be looked at if it recurs; the chronicle's "rotted" for charred timber. The dashboard is re-run to see what the rate does.
+- **A boat or cart nobody is left to take: it weathers, and a household that would make one takes it up (2026-11-03, backlog D's eleventh item; the third item's "Not yet"; research 08-09 §1.2):** Decided by Claude under standing owner authority (2026-11-03). Of the options (one being made rots as made things do; one taken up by another household as ownerless goods, perhaps after a time unclaimed and if custom allows; or salvage, as backlog C's), the first two are built and salvage is not. **Weathering:** a boat or cart being made ages as a made one does once its household is no more; one still being made by its own people does not, as before (no existing result moves). **Taking up:** not a transfer at the moment a household ends, nor a new activity or review, but a step in the existing beginning of a boat or cart: a household that has already weighed making one (its errands' saving over the vehicle's life against its labour) takes up one of that vehicle nobody holds, standing where it could use it, when the walking it saves over its remaining life, less its work left, is no less than a new one's; so who takes it, and whether, is the household's own weighing, and one nobody wants weathers away. No waiting time: nobody can claim it (an heir that could bring it took it at the passing), and a household reaches the step only at its own market review. No regime gate: both content regimes govern fields, and movable things a household made pass to its heirs under both; what nobody holds is taken up by first use, as the frontier rule takes up ground (08-09 §1.2); a custom giving it to the settlement is left to a later item. *Reason:* what households would do with a hull or cart left by a household that is gone, by machinery they already use, with nothing scripted and no outcome named.
+- **A conveyance laid whole in the chronicle: one kind with a subtype, when it is told, and whose (2026-11-03, backlog D's twelfth item; the fifth item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-03). A new `ChronicleKind::ConveyanceLaid` (code 71, appended) whose `number` is a `Conveyance` (`Sewer` 0, `GasMain` 1, `LineOfCurrent` 2, append only), rather than three appended kinds or a `SewerStep::Laid`: the moment is one (a run of drain, pipe or wire laid end to end, so that it carries) and the words share one shape, so a later conveyance (a telegraph wire, a water main) appends a subtype, not a kind; and the sewer's kind stays for what befalls a sewer once laid, whose test counts its entries from a sewer already whole. "Laid whole" is the whole run, never a length or a segment: it is told at the work that brings the run's laid metres to its length, once, since laid metres never fall; a line begun of no length is not told. Whose it is follows who the kernel already says laid it: a sewer, and a line of current strung under a law, are the polity's, carrying its seat and naming the elder (`elder_of`) of the household whose work laid the last length, since that work is reckoned by household, as a sewer's mending and a passing place are; a gasworks' main and a station's own line are that household's, carrying its settlement and naming its elder, as a household's line of track is told. A household's conveyance is told, unlike a household's own passing place, because it is laid for other homes, each begun only where they would repay it, and few are laid. *Reason:* the other works laid whole (a line of track, a passing place, a flood bank) are told and these were not; every figure in the words is one the kernel already has, so nothing is authored but the words.
+- **A hearer's term ending while a case waits, a hearer removed before their term, and a watch kept by turns (2026-11-03, backlog D's thirteenth item; the eighth item's "Not yet"; research 09-02 §3.6, §8.6; 09-14 §1.2, §1.5, §2.2; 09-07 §4.2-§4.3; 12-04 §1.3, §2.1):** Decided by Claude under standing owner authority (2026-11-03). **A waiting case** goes, at the term's end, to the forum in force (a successor holding one by that day) or else to the gathering, as when a forum's law ends, and is not heard by the hearer whose term ended: a term's expiry is its own procedure (09-02 §3.6), and here it is the eighth item's lapse, after which the one who held it has no office to hear by; a case is never part-heard (a hearing is one evening), so there is nothing for them to finish; a successor drawn or named the same day takes it because cases go to whatever forum is in force; and no successor is drawn automatically, since a term's end lapses the law, as for keepers, and the gathering is the default forum. This was already so; it is now tested. **Removal** is a petition, not a new kind of law: a faction against a forum of one holder asks for another hearer in place of the one in it, as one against a keeper does (09-14 §1.2: citizens removing their sheriffs; 09-02 §4.9's constructive replacement: removal with a successor agreed), and those who blame the forum weigh it against the hearer as a grievance against an office weighs against its holder, which until now read only grievances against an office, never against a forum. A plain recall ending the forum (cases to the gathering again) is left for later. **The watch by turns** is a season of 90 days by lot, not renewable: the short end of 09-14 §2.2's three to twelve months, since a rotating household watch takes its keeper's nights from work and rest (12-04 §1.3) and Winchester's was a season's (§2.1). *Reason:* each was the eighth item's "Not yet"; all three use machinery already built (a term's lapse, petitions, a watch's tenure), and nothing names an outcome.
+- **A passing place kept by law: what wears it, who clears it again, how it is asked, and when a household's way is told (2026-11-03, backlog D's fourteenth item; the sixth item's "Not yet"; ADR-0029 §1, §6; research 10-07 §1.1, §1.3, §1.8):** Decided by Claude under standing owner authority (2026-11-03). **What wears it** is the wild cover coming back: a cleared passing place never degraded, so before it could be kept something had to wear it, and the kernel already has a measure of wild cover regrowing on bared ground, the soil's `regrown_years`. The cleared margin beside a trail's tread grows over after that many whole years unkept, reckoned at the turn of the year as fields are, and only its usable width falls (to the tread, which walking keeps open) while its built width stands, as 10-07 §1.3's three widths have it. A step after whole years, not a fade at the wear's half-life (120 days), which would close a passing place within weeks and belie the ten years (`passing_life_years`) households reckon it lasts; use does not keep the margin open. **Clearing again** goes from the usable width at the first clearing's rate, since no lighter rate for trimming is authored, and a household's own grown-over passing place is its way in work again, weighed by the waits it holds there as making it was. **By law**, the `build_way` law in force that cleared it keeps it, looked over at the polity's review cadence as its sewers and wells are, rather than a new `keep_way` kind as banks have: no new policy kind, issue, template or content key, and the content API stays 227. One grown over is asked again where its households' reckoned yearly saving over `passing_life_years` exceeds the clearing; the law's work is then set to what has been given plus what is still wanted, so it is asked once until done with no new saved state, each household's share growing with it as a sewer's does (the law's words with it). **A household's long way** is told when its ground is all cleared and it is at least `BY_SETTLEMENT_M` (400 m) long, the kernel's own reach of a village from hearth to edge (163 hours of clearing at the core's rates). *Reason:* a work that cannot wear cannot be kept; the decay reuses a measure the land already has, the keeping reuses the law that cleared it and the asking that sewers use, and nothing names an outcome: a passing place is kept only where its people still reckon it worth clearing, and grows over where they do not.
 - **Gate B's tolerances (2026-10-07, set before Accelerated mode was evaluated, ADR-0011 §5):** `civ-host consistency --calibrate` lived each fixture (river valley seed 1 and ria coast seed 2, 768 cells, fixed identities, lived by the minute to 1 January of year 3) eight times in Detailed mode for a year, each with its own tie-break stream, in 1.8 minutes on four threads; every run passed the long runs' checks. The river valley barely varies when only the order of an instant's events is redrawn: 44 people in every run, work 2.625 ± 0.005 h a person-day. The coast varies more: 41.6 ± 0.5 people, work 3.00 ± 0.15 h, materials ± 7 %. Each aggregate's tolerance bounds the difference of the two modes' means as a share of the Detailed mean. It is the larger fixture's three standard errors of a difference of means of five runs each, at the Detailed spread, rounded up to a whole percent and at least 3 %. The roofed share's floor is 10 %, one household in about ten. **The tolerances:** people 3 %, work 10 %, leisure 3 %, sleep 3 %, walking 9 %, food 4 %, harvest 4 %, materials 14 %, roofed 10 %, Gini of goods 8 % (tuning: the floors are judgement, as the redrawn tie-break stream is the only spread the gate sees). Widening one needs its own entry here.
 - **Gate B's first evaluation (2026-10-07):** FAILED. Walking fell 12.0 % in the valley and 11.5 % on the coast, against a 9 % tolerance; every other aggregate was within its tolerance, and every run passed its checks. Run with one approximation at a time (`--without-leisure-blocks`, `--without-household-view`), the household view alone passed every aggregate (walking +0.0 % and +2.8 %), and the leisure blocks alone did not (−11.0 % and −9.1 %). In the twenty-year valley over 120 days, the blocks moved time from the hearth to rest at home: the hearth 4.20 to 3.86 h a person-day, rest 3.53 to 3.97, walking 0.524 to 0.479. Detailed mode decides again after each session, and its softmax choice may then go to the hearth. A block lasting until the next boundary, followed by a choice that may pick the same leisure again, lengthens every run of the leisure first chosen. The blocks were redrawn (ADR-0011 §4 amended): a block lasts the geometric number of sessions Detailed mode would live before choosing something else, drawn from the chance with which the leisure was chosen; one that ends so makes the next decision pass that leisure over; one cut at a boundary or at its longest is followed by a decision made afresh. Time use came within 4 %: the hearth 4.35 h, rest 3.45, walking 0.507. **Gate B then passed** (20 runs, 1.2 minutes on four threads, every run passing its checks). The largest differences were walking −4.4 % in the valley and the Gini of goods −5.0 % on the coast; people, sleep, food, harvest and the roofed share were within 0.5 %. No tolerance was widened. With the first blocks and the view together, one 120-day run showed trading 24 times as long as in Detailed mode (0.048 h a person-day against 0.002); with the redrawn blocks it was 0.001, and Gate B has no aggregate for trade alone.
 - **The dashboard with Accelerated mode's approximations (2026-10-07, slice W, `cd6bfeb`):** the fifty-year dashboard lived its five worlds in 50.0 minutes on four cores, beside other work (75.8 minutes at `269edf3`), and **passed** for the first time: four rows green and one amber. Worlds 1, 2 and 3 took 24 to 25 minutes, world 5 16, and world 4, a village under village fields, 50. **Population green:** all five keep ten or more after fifty years (93 to 104 people in four, 10 in world 4), the most growth 2.7 times the founders (world 1, year 49). Food prices green (grain asked 3 to 8 log points more before the harvest than after; stocks rose after every harvest), firm sizes green (108 to 204 workshops a world), the Gini of goods amber (0.23 to 0.45; four of five below 0.3, as hoe farmers with land to spare may be). **Structural failures green:** 5 failures of lived-in buildings in 4,548 building-years, 1.10 per 1,000, against at most 2. All five were hut roofs whose rafters broke in storms, three of them poorly made, and none killed anyone; 6 empty buildings gave way besides. At `269edf3` the count was 11 in 4,635 building-years (2.37). Counts of 11 and 5 are within chance of one rate of about 1.7, and the slice's time-boxed tuning found nothing in the row to tune: it was spent reading the failures (the dashboard's JSON report now keeps their words). World 4 grew to 95 people and fell to 6 in year 43 (*NUDGE* below).
@@ -8713,8 +10279,8 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Diseases, infections and the plague tool, as built (2026-10-10, M6a slice AZ, step one, ADR-0021 §5 and §8):** no new ADR. **Diseases are content** (content API 72, `kind = "disease"`): their routes (water, household), their own clocks as lognormals of a mean and standard deviation (research 05-03 §7.3: infection to symptoms, how long before symptoms shedding starts, how long it is shed and how long after illness, how long the ill are ill), the share of infections with symptoms, the share of the ill severely so by age, the chance a day of dying while severely ill (05-03 §7.6: a hazard by stage, never a fate drawn at infection), how long an infection protects, and the hazard a day a shedding member puts on each other member of a household. The core's cholera takes 05-03 §2.1's clocks (symptoms in 12 hours to 5 days, shed 1-10 days including by the silent, protection 3-10 years) and bacillary dysentery its own (symptoms in 1-2 days, ill about a week, shed up to two weeks after; protection half a year to two, since 05-03 §2.1 warns against lifelong immunity to the genus); the share with symptoms (0.25 and 0.7), the severe share (0.4 and 0.2, flat by age: 05-03 §3.3 finds no defensible age matrix), the death hazards (0.2 a day, killing about half of cholera's severely ill untreated, 05-03 §3.2's "can reach approximately 50%" taken for the severe; 0.03 a day, about 4 % of those ill with dysentery, under the 15 % benchmark among hospitalized *S. dysenteriae* type 1 patients) are design priors, and the household hazards tuning values. **An infection is an episode** (`civ_agents::sickness`, saved, schema 75): who, which disease, the day it came and how (its acquisition record: the observer's influence, or a household as the source, never one member, 05-03 §7.4), its course drawn when it comes (when shed, when ill, whether severe, when it stops protecting), and how it ended (recovered, died, or gone: died of something else or left the world while it ran). **Each day's turn**, after the life table's deaths: the severely ill die of it or not, each by a draw of their own (a blessing or a curse moves it, ADR-0016 §5); a course that has run ends; then everyone exposed by any route sums their hazard and draws once (05-03 §7.2), nobody infected today shedding before tomorrow. Step one has the household route only. **The ill keep to their beds** (`Facts::ill`, `Reason::Ill`): they sleep, eat and rest at home, and do nothing else (05-03 §1.1: illness and work capacity apart from infection). **Deaths** are `Cause::Disease`, excess over the Siler baseline (05-01 §1.3; ADR-0021 §5); the chronicle names the disease ("died of cholera, 34") and so does the inspector. **The plague tool** (`Sim::plague`): the observer brings a disease to one person, as if they took it elsewhere, an `Influence` of a new kind whose subject is the disease; the infection names the record; refused while it runs in them or protects them. No world has a disease until then. **Tested:** a lognormal keeps its mean and spread; a course runs in an order the body allows (nothing before the next day, shedding through the illness, the shares drawn as authored); protection while it runs and until its day after; no introduction, no case in twenty days; the observer's infection, its record, the refusal, its course run and its protection after; the ill asleep, eating or resting every half hour of their second day ill; a household all taking it on the first day a member sheds, and nobody outside it; a severe case dying on its first day ill, the record and the chronicle naming cholera; saves exact with infections running, and three days after alike. **Measured** (30 introductions each into one lived village of 99, household route only): cholera reached 9 of 96 household contacts and made 7 ill in all, one of whom died, each outbreak gone within about a week; dysentery at a household hazard of 0.06 reached 81 of 96 (84 %, the whole home almost every time, shed some 13 days), so it was lowered to 0.02, at which it reached 44 of 96 (46 %), 54 ill and 4 dead, running 18 days on average. Neither left its household: the water route is step two. **Nothing changes without an introduction:** forty days of the village of 1,000 lived on from the same schema-71 save by step four's build and by this one are the same in every section but the content (two diseases), the influences (which now keep the diseases' ids) and the new, empty sickness section, at 861 ms a day against 851. **Not yet:** loads in middens, the ground, wells, reaches and stored water, and the water route (step two); tending and fluid replacement; illness incidents, outbreak episodes and the chronicle of outbreaks (step three); the observer's view and the plague tool in the observer (step four).
 - **What people shed, moved through the ground and water, as built (2026-10-10, M6a slice AZ, step two, ADR-0021 §4):** no new ADR. **Loads** (`civ_agents::contagion`, saved, schema 76) are kept per disease in each household's heap (beside its home), each well, each river reach (what passes it today) and each household's stored water by where it was drawn, with loads soaking through the ground on their way to a well or river until the day they arrive. They are counted in doses, an amount that, drunk, is a hazard of one (research 12-02 §5.4's exponential, its rate taken into the dose), so a disease authors what one shedding person adds to their heap a day, ill and silent, and the share that dies a day outside a person (content API 73: `shed_ill_per_day`, `shed_silent_per_day`, `decay_per_day`). Nothing makes a load but someone shedding (12-02 §1.1); a disease that does not pass by water sheds nothing into the heap. **Each day's turn**, after deaths and recoveries and before anyone is exposed: what passed the rivers yesterday has gone downstream; every load decays; what soaked in arrives; whoever sheds adds the day's shedding to their household's heap; the day's surplus (what the soil could not hold) washes `wash_per_mm` a mm of each heap, at most `wash_max`, to the open wellheads and banks within `runoff_radius_m` whose ground lies no higher, split by nearness (none there, it soaks away), and a river carries what reaches it to every reach below it that day; `seep_per_day` soaks in, of which `capture_share` reaches the wells and rivers within `link_radius_m` and no higher, split by nearness, after 03-02 §1.6's travel time d·n/(K·i) through the unit of ground under the heap (its conductivity and specific yield as the world drew them; the water table taken to follow the ground over so short a way, at a slope of at least `min_gradient`), less what dies on the way (12-02 §5.3: sparse links, each with a travel time and a capture share before a separate decay, never the whole load sent to each). **Drawing:** a load drawn at a well takes the share of its load the draw takes of its water, and one at a bank what its litres hold of the reach's day's flow (its mean discharge times today's flow); either goes into the household's store by where it was drawn. **Drinking:** each person drinks `drink_l_per_day` of their household's water, a dose of the store's load over its litres, and the share the household uses in a day goes with the water. The dose is summed with the household route and drawn once; an infection by water names the well or reach most of the store's load came from (05-03 §7.4: a mixture, not one person). **The record:** each day's moves along one way (shed, washed off, soaked in, arrived, drawn) are one record, kept 400 days; a load or move under a thousandth of a dose is let go. All of `[contamination]`'s numbers (0.01 a mm, at most 0.5, 30 m, 0.02, 30 m, 0.1, 0.005, 3 L) and the diseases' shedding (cholera 2,000 doses a day ill and 20 silent, half-life about five days; dysentery 2,000 and 200, half-life about two) are design priors and tuning values, each marked in its file. **Tested:** loads add, take and decay, and a store keeps its sources; a day's moves along one way are one record; a wet day of 20 mm washes a fifth of a heap to the well below it and whatever else lies within reach, all of it delivered and recorded, and what a river takes passes every reach below it; the well's household carries its load home draw by draw with nothing lost or made in the day, and nobody holds any of it who did not draw it; what soaks in arrives on its day, whole, sooner and less decayed through ground ten times faster (by e^(−kΔτ) exactly), and through the slower ground nothing has arrived by then; a household whose water holds a heavy load from a well all take it at midnight, each record naming the well; a world where nobody sheds has no load anywhere; saves exact with loads, stores, loads underway and moves, and four days after alike. **Measured** (a village of 106 lived two years, 24 wells open, 90 days after each introduction): twenty cholera introductions infected 153 (94 by a well, 39 at home, none by the river, since no heap lay within 30 m of it), 42 ill and 12 dead. Six outbreaks reached 14 to 43 people, each when the person it was brought to fell ill and shed thousands of doses a day into a heap above a well others drew from (up to 908 doses in one well); the other fourteen went no further than a home or two. Twelve dysentery introductions infected 286 (216 by wells, 58 at home), 186 ill and 6 dead: four outbreaks reached 41 to 69 people, since it is shed for weeks after the illness; recorded, not tuned (a small infectious dose makes high attack rates plausible where a village shares unprotected wells). The largest outbreak kept 1,643 moves, 93 KB saved. **At the map's 8 m grain one step of ground decides** whether a heap reaches a well: in the test village the household's own well lay 5 cm above its home, so its own heap never reached it, while two neighbours' heaps 16 and 21 m away and about a metre higher did; the tests use the nearest heap above the well. **Nothing changes without an introduction:** forty days of the village of 1,000 lived on from the same schema-71 save by step one's build and by this one are the same in every section but the content and the new, empty pathogen section, at 873 ms a day against 861. **Not yet:** shedding where people work rather than at home (ADR-0021 §4); less runoff into a covered, curbed well; lakes as receptors and sources; hands, food and vessels; tending and fluid replacement, illness incidents and outbreak episodes (step three); the observer's view (step four).
 - **Tending, fluid replacement and outbreaks, as built (2026-10-11, M6a slice AZ, step three, ADR-0021 §5 amended):** **Tending is chosen work** (behaviour `tend`, `core:activity/work_tending_the_sick`, its id sorting after every older activity's): an adult or child of ten or more whose household has members ill at home still owed a day's care sits with them for a session, worth `w_tend` 6 points for each severely ill member owed a whole day's care and half for one ill but not severely, in proportion to what is still owed (research 05-05 §1.1: care is someone else's labour); its hours are shared among those ill there. Each episode records its care: the first day someone came and who (an incident's "help came"), the hours given on the last day tended, the least relative risk a treatment that carer knew brings, and the hours over the illness. **What care does:** the day's death draw of the severely ill is now made at the midnight after the day, for the day just lived, so that day's care counts; its hazard is multiplied by 1 − (1 − rr) × the share of a day's care given (a disease's `care_h_per_day`, 2 h, 05-05 §2.2's 1-4 caregiver-hours a patient-day), rr being the disease's `care_rr` (0.95, 05-05 §2.2's prior for supportive care) or a treatment's that a carer knew, whichever is less: an effect only of care actually given. The first build gave care all or nothing at 2 h, and a probe found deaths on days of 1 h of care in households where five others were ill; proportional care replaced it. **Fluid replacement** (`core:technique/fluid_replacement`) is a far technique: nobody brings it, tending counts 1 % of its hours toward finding it at 100,000 hours for half, it is learnt in 20 hours of tending while a member of the household knows it, and children learn it at home from ten, the youngest age of tending (the work a treatment is practised in, as building is a program's); cholera names it as a `[[treatment]]` at 0.05, so about 4 % of the severely ill die with a day's care (05-05 §2.1: 3.6 % among 3,703 refugee patients in 1971, 1 % in a demonstration unit). Dysentery names none (05-03 §1.4). A technique named only as a treatment now satisfies the check that a technique gates something (E3005), and the knowledge checks no longer run when a technique failed to compile: in that error path the indices recipes resolved against no longer matched the catalog's, so a fixture with two land profiles reported hearth baking as gating nothing once fluid replacement was inserted before it. **Outbreaks** (ADR-0021 §5 as amended; ADR-0015 §8 leaves the rule there): the cases of one disease among the people of one settlement; a case taken while one is open there is `part_of` it, one taken while none is begins one and its acquisition record is the cause; it ends at the first midnight when none of its cases has run for the disease's incubation mean and three spreads (cholera five days, dysentery three). The chronicle tells each when it begins ("Cholera came to Ashford: Ada took it.") and when it ends with its counts ("Cholera has left Ashford: 14 took it over 21 days; 5 fell ill and one died."). Saves schema 77 (care on each episode, its outbreak, the outbreaks; 76 still loads, with none). **Tested:** care lowers the day's risk by the share of a day's care given and a treatment a carer knew; a severe case lives through its first day and dies at its end without care that counts; with care that takes away all the risk the household tends them and they outlive the illness, the record naming the first day and a member of the household, saved exactly; where a day's care asks a thousand hours they die; whoever of the household tends knowing fluid replacement brings the risk to nothing, and nobody knowing it does not; one who tends beside a household that knows it learns it in exactly 20 hours; an outbreak begins with its first case, gathers the household's cases, saves exactly, ends five days after its last case ended with a sentence giving its counts, and a later case begins another. **Measured** (the village of 106 lived two years, twenty cholera introductions, 90 days each): every one of the 23 severely ill was tended, 340 hours of care in all; 9 of the 41 ill died (22 %) against 12 of 42 before tending, within noise of RR 0.95. With fluid replacement given to everyone first, 2 of 41 died (4.9 %), with 167 infected against 166: care changes deaths, not cases (the M6 health brief's validation target). Some runs had two outbreaks, a late case by water after the first had ended. **Nothing changes without an introduction:** forty days of the village of 1,000 from the same schema-71 save lived by step two's build and by this one give the same time use (to the thousandth of an hour), ties, standing, fields and buildings; the sections that differ are the content, the knowledge, people, receipts and firm sections, which encode the catalog's activity and technique tables (one more of each), and the sickness section's new empty outbreaks; 851 ms a day against 873. **Not yet:** tending by kin or neighbours from other households, and the carer's own exposure by care (step one's household route stands for the household's); remedies other than fluid replacement; the observer's view (step four); a dashboard row for outbreaks.
-- **A well dug together by law, as built (2026-10-11, M6a slice BA, step four, second part, ADR-0021 §7):** no new ADR. **A household's walk to water, as walked:** each household now keeps the minutes of the one-way walk to the water its people last brought home (`Household.water_walk_min`), set where its use of water already followed the walk. **The issue `water_far` (appended):** a household of the settlement walks far for water, so far that its people use less water for the walk (from the first point of the people profile's `water_use_by_walk`, 15 minutes: research 12-01 §2.1, up to 20 L at 5-30 minutes of collection and often under 5 L beyond), and a well dug together beside the hearth would save the settlement's households more walking over its lining's life than its work, as fords make a crossing an issue. *Found on the way:* without the first condition a 1.4 m well beside the hearth repaid its 41 hours for households walking 25 seconds to the river (six hours of walking a year saved over a 17-year lining), so every ordinary village proposed one in its first week and six tests of gatherings changed; walks that short are not "far", and the rule as households weigh their own wells still decides whether one repays its work. **The policy `dig_well` (appended; `core:policy/works_well`, answering `water_far`, bearing autonomy −0.5 as a crossing built together does):** the well is weighed as a household weighs its own: beside the hearth (sunk within 8 m of a 4 m square at it, a design prior: the gathering place), a metre below where its people expect water (the settlement's wells, else the water they draw from now), of the system its people know whose walking saved over its lining's life most exceeds its work; each household would save, for every load its people use a year, its last walk there and back, as walked, less the walk to the well and back and its lift. Recorded with the law when proposed (`Polity.wells`), begun once passed, the polity's (`Well.polity`; a polity's well holds the polity's id as its household), one at a time. **Each household's stance** is its own forecast, as for a crossing: the food a year the walking it would save could bring, less what its share of the work, spread over the lining's life, could, each hour at what an hour of its work brings (research 11-07 §2.3). **The work** is offered to the polity's people who know the law, as a crossing's is: each session weighs the walking a year the well would save their household for each hour of the work, and, while their household has not given the equal share asked, what keeping to the gathering's word is worth to them (the custom that a gathering binds, their stance and their regard for its sponsor); what each household gives is kept (`Wells.shares`; research 09-06: labour asked and labour given apart), and nothing follows a share not given. When it meets water the chronicle says so ("Hazelstead's people finished the timber-lined well their gathering agreed to dig beside the hearth, Ada digging the last of it: 3.2 m deep, it met water"). **Drawing by right:** the polity's people draw at its well as at their own household's (ADR-0021 §1, rights v0), and count it among the wells they know in weighing their own; its words, a suspicion of it and the water frames name it as the settlement's ("Hazelstead's well"). Nobody relines or covers a polity's well yet: it rots and falls in. Saves 83 (a household's walk, a well's polity, the shares given, a polity's well sites; issue code 12), content API 79. **Tested:** having walked under a minute, no well dug together; walking a quarter of an hour each way, a well beside the hearth that repays its work, every household gaining by it; the review proposing it with the issue `water_far` and its words ("a well 1.4 m deep beside the hearth, each household doing its share of 41 hours of work"); begun once passed, the settlement's in the well's words; one household's hours kept as its share and the well dug deeper; another's finishing it where water stands above its floor, told in the chronicle; someone of the settlement drawing at it by right; all of it saving and loading exactly. **Measured (a probe, not kept):** three villages of 100 (river-valley seeds 1-3) for a year as they live: no polity proposes a well (no household walks far), households dig 18-24 wells of their own, 48-52 ms a day. The same villages with every household's last walk held at 15 minutes each morning (a what-if; their water stays where it is): each polity proposed a well on day 136-143 and passed it, 22-46 for and 0-5 against of 53-65 present; it met water 70-90 days later at 1.9-3.2 m (one, dug dry at 1.3 m, a metre deeper), its 56-97 hours given by 9-16 of 22-27 households; households still dug 18-26 wells of their own, 50-53 ms a day. In ordinary worlds this step changes nothing: founders settle within about 90 m of water. **Step four is complete.** **Not yet:** relining and covering a polity's well; ending a closing once nobody suspects its source; the drought tool and the observer's view of suspicion (step five).
-- **The drought tool and the observer's view of suspicion, as built (2026-10-11, M6a slice BA, step five, ADR-0021 §8):** no new ADR. **The drought** holds the weather's slow anomaly (the monthly AR(1) that carries wet and dry spells, ADR-0012 §1) at a dry value of 0 to 3 standard deviations for 3 to 24 months (`Weather.hold`, the first day it no longer holds kept with it). The anomaly's monthly draw is still made and still consumes its deviate, and the hold then overrides it, so every other draw of the weather is the one the world would have drawn: wet-day persistence, the gamma amounts and the temperature anomaly are untouched, and the dry value acts only through the anomaly's existing terms (fewer wet days, lighter ones, warmer summers by `slow_warmth_c`). When it lets go, the anomaly drifts back from the held value at the next month's draw as from any dry spell. In the temperate valley 1.5 sd brings about three-quarters of the usual rain and 3 sd about half. The rivers, the water table, springs, wells, fields' water and wild plants feel it only through the rain, as research 03-07 §1.3 asks (natural events and god tools share consequences). **Its origin is kept** (03-07 §1.3, ADR-0021 §8): each month it touched is marked `held` in the weather's record, so statistics can leave it out, and its use is an `Influence` of an appended kind (`Drought`, code 7) whose target is the first settlement, with its months as its subject; using it again while it holds refreshes the same record. The chronicle says "One recorded influence: the observer held back the rain: for 12 months the weather runs dry, until 1 March of year 3." **The observer** holds it back from the map's tools (months and depth chosen from menus); the host answers in words, the weather panel tells it while it holds ("The observer holds back the rain, 2.0 standard deviations dry, until …") and marks each month held, and asks for the weather again at once rather than waiting for the next day. **The inspector's view of suspicion** lists the sources a person holds sicken, with when they came to hold it and the counts of their latest tally ("Holds since 3 May of year 2 that the water at Bo's household's well sickens: of 5 households they know that draw there, 3 had sickness lately, against 0 of 6 that draw elsewhere"): what they believe, which may be wrong. Saves 84 (the hold and the months marked), wire 1.63 (the `Drought` command, `WeatherMonthInfo.held`, `WeatherReport.drought`, `PersonInfo.suspicions`), content API unchanged at 79. **Tested:** the hold in the weather alone (the anomaly held each day, about two-thirds of the rain against the same draws unheld, the months marked, letting go on its day and differing afterwards only by the held value's memory); the tool in a world (refusals out of bounds, the record and chronicle, a repeat refreshing the record, the months held exactly those it touched, drier than the same world's weather unheld, the water table lower, saving and loading exactly mid-drought); the host's command, its refusals and the weather report; the inspector's words for a suspicion; the observer end to end. **Measured (a probe, not kept):** three villages of about 105 people (river-valley seeds 1-3) lived 15 months, with and without a 12-month drought at 2 sd from early spring of the first year: 713-785 mm of rain fell against 873-1,450 mm unheld (1,056 usual); the first year's harvest came to 3%, 13% and 26% less grain, every field limited by its season; at the end the stores held 71, 42 and 37 days of food against 95, 73 and 115; the water table stood 0.4-0.6 m lower on average and households dug a well fewer or none; nobody went short, moved or left, and deaths were no higher, within the window (the next harvest after the drought falls beyond it). Research 03-07 reports national cereal losses of about 9-10% in drought disasters and warns that local fields can do far worse; these villages lost what a single dry year with full granaries would. **Slice BA is complete.** **Not yet:** a drought over one settlement only (the weather is the world's, so it falls on every settlement of the map); relining and covering a polity's well; ending a closing once nobody suspects its source.
+- **A well dug together by law, as built (2026-10-11, M6a slice BA, step four, second part, ADR-0021 §7):** no new ADR. **A household's walk to water, as walked:** each household now keeps the minutes of the one-way walk to the water its people last brought home (`Household.water_walk_min`), set where its use of water already followed the walk. **The issue `water_far` (appended):** a household of the settlement walks far for water, so far that its people use less water for the walk (from the first point of the people profile's `water_use_by_walk`, 15 minutes: research 12-01 §2.1, up to 20 L at 5-30 minutes of collection and often under 5 L beyond), and a well dug together beside the hearth would save the settlement's households more walking over its lining's life than its work, as fords make a crossing an issue. *Found on the way:* without the first condition a 1.4 m well beside the hearth repaid its 41 hours for households walking 25 seconds to the river (six hours of walking a year saved over a 17-year lining), so every ordinary village proposed one in its first week and six tests of gatherings changed; walks that short are not "far", and the rule as households weigh their own wells still decides whether one repays its work. **The policy `dig_well` (appended; `core:policy/works_well`, answering `water_far`, bearing autonomy −0.5 as a crossing built together does):** the well is weighed as a household weighs its own: beside the hearth (sunk within 8 m of a 4 m square at it, a design prior: the gathering place), a metre below where its people expect water (the settlement's wells, else the water they draw from now), of the system its people know whose walking saved over its lining's life most exceeds its work; each household would save, for every load its people use a year, its last walk there and back, as walked, less the walk to the well and back and its lift. Recorded with the law when proposed (`Polity.wells`), begun once passed, the polity's (`Well.polity`; a polity's well holds the polity's id as its household), one at a time. **Each household's stance** is its own forecast, as for a crossing: the food a year the walking it would save could bring, less what its share of the work, spread over the lining's life, could, each hour at what an hour of its work brings (research 11-07 §2.3). **The work** is offered to the polity's people who know the law, as a crossing's is: each session weighs the walking a year the well would save their household for each hour of the work, and, while their household has not given the equal share asked, what keeping to the gathering's word is worth to them (the custom that a gathering binds, their stance and their regard for its sponsor); what each household gives is kept (`Wells.shares`; research 09-06: labour asked and labour given apart), and nothing follows a share not given. When it meets water the chronicle says so ("Hazelstead's people finished the timber-lined well their gathering agreed to dig beside the hearth, Ada digging the last of it: 3.2 m deep, it met water"). **Drawing by right:** the polity's people draw at its well as at their own household's (ADR-0021 §1, rights v0), and count it among the wells they know in weighing their own; its words, a suspicion of it and the water frames name it as the settlement's ("Hazelstead's well"). Nobody relines or covers a polity's well yet: it rots and falls in. Saves 83 (a household's walk, a well's polity, the shares given, a polity's well sites; issue code 12), content API 79. **Tested:** having walked under a minute, no well dug together; walking a quarter of an hour each way, a well beside the hearth that repays its work, every household gaining by it; the review proposing it with the issue `water_far` and its words ("a well 1.4 m deep beside the hearth, each household doing its share of 41 hours of work"); begun once passed, the settlement's in the well's words; one household's hours kept as its share and the well dug deeper; another's finishing it where water stands above its floor, told in the chronicle; someone of the settlement drawing at it by right; all of it saving and loading exactly. **Measured (a probe, not kept):** three villages of 100 (river-valley seeds 1-3) for a year as they live: no polity proposes a well (no household walks far), households dig 18-24 wells of their own, 48-52 ms a day. The same villages with every household's last walk held at 15 minutes each morning (a what-if; their water stays where it is): each polity proposed a well on day 136-143 and passed it, 22-46 for and 0-5 against of 53-65 present; it met water 70-90 days later at 1.9-3.2 m (one, dug dry at 1.3 m, a metre deeper), its 56-97 hours given by 9-16 of 22-27 households; households still dug 18-26 wells of their own, 50-53 ms a day. In ordinary worlds this step changes nothing: founders settle within about 90 m of water. **Step four is complete.** **Not yet:** relining and covering a polity's well (done 2026-11-02, see backlog D); ending a closing once nobody suspects its source (done 2026-11-02, see backlog D); the drought tool and the observer's view of suspicion (step five).
+- **The drought tool and the observer's view of suspicion, as built (2026-10-11, M6a slice BA, step five, ADR-0021 §8):** no new ADR. **The drought** holds the weather's slow anomaly (the monthly AR(1) that carries wet and dry spells, ADR-0012 §1) at a dry value of 0 to 3 standard deviations for 3 to 24 months (`Weather.hold`, the first day it no longer holds kept with it). The anomaly's monthly draw is still made and still consumes its deviate, and the hold then overrides it, so every other draw of the weather is the one the world would have drawn: wet-day persistence, the gamma amounts and the temperature anomaly are untouched, and the dry value acts only through the anomaly's existing terms (fewer wet days, lighter ones, warmer summers by `slow_warmth_c`). When it lets go, the anomaly drifts back from the held value at the next month's draw as from any dry spell. In the temperate valley 1.5 sd brings about three-quarters of the usual rain and 3 sd about half. The rivers, the water table, springs, wells, fields' water and wild plants feel it only through the rain, as research 03-07 §1.3 asks (natural events and god tools share consequences). **Its origin is kept** (03-07 §1.3, ADR-0021 §8): each month it touched is marked `held` in the weather's record, so statistics can leave it out, and its use is an `Influence` of an appended kind (`Drought`, code 7) whose target is the first settlement, with its months as its subject; using it again while it holds refreshes the same record. The chronicle says "One recorded influence: the observer held back the rain: for 12 months the weather runs dry, until 1 March of year 3." **The observer** holds it back from the map's tools (months and depth chosen from menus); the host answers in words, the weather panel tells it while it holds ("The observer holds back the rain, 2.0 standard deviations dry, until …") and marks each month held, and asks for the weather again at once rather than waiting for the next day. **The inspector's view of suspicion** lists the sources a person holds sicken, with when they came to hold it and the counts of their latest tally ("Holds since 3 May of year 2 that the water at Bo's household's well sickens: of 5 households they know that draw there, 3 had sickness lately, against 0 of 6 that draw elsewhere"): what they believe, which may be wrong. Saves 84 (the hold and the months marked), wire 1.63 (the `Drought` command, `WeatherMonthInfo.held`, `WeatherReport.drought`, `PersonInfo.suspicions`), content API unchanged at 79. **Tested:** the hold in the weather alone (the anomaly held each day, about two-thirds of the rain against the same draws unheld, the months marked, letting go on its day and differing afterwards only by the held value's memory); the tool in a world (refusals out of bounds, the record and chronicle, a repeat refreshing the record, the months held exactly those it touched, drier than the same world's weather unheld, the water table lower, saving and loading exactly mid-drought); the host's command, its refusals and the weather report; the inspector's words for a suspicion; the observer end to end. **Measured (a probe, not kept):** three villages of about 105 people (river-valley seeds 1-3) lived 15 months, with and without a 12-month drought at 2 sd from early spring of the first year: 713-785 mm of rain fell against 873-1,450 mm unheld (1,056 usual); the first year's harvest came to 3%, 13% and 26% less grain, every field limited by its season; at the end the stores held 71, 42 and 37 days of food against 95, 73 and 115; the water table stood 0.4-0.6 m lower on average and households dug a well fewer or none; nobody went short, moved or left, and deaths were no higher, within the window (the next harvest after the drought falls beyond it). Research 03-07 reports national cereal losses of about 9-10% in drought disasters and warns that local fields can do far worse; these villages lost what a single dry year with full granaries would. **Slice BA is complete.** **Not yet:** a drought over one settlement only (the weather is the world's, so it falls on every settlement of the map); relining and covering a polity's well (done 2026-11-02, see backlog D); ending a closing once nobody suspects its source (done 2026-11-02, see backlog D).
 - **One Incidents panel, as built (2026-10-11, M6a slice BB, step one, ADR-0015 §8):** no new ADR. **One query, every kind in one shape** (wire 1.64, `GetIncidents`): takings (ADR-0015 §1) and cases of illness (each infection, ADR-0021 §5) are rows of one shape, keyed by when each began (a taking to the minute, an infection to its day), its kind and its number, newest first, a page at a time (50 by default, at most 200) from a cursor the page before gives; each kind keeps its own store and the query only reads them. **Each row keeps the three layers apart, in the kernel's words**: what happened, after the name of whoever it begins with ("took cholera on 3 May of year 2 in water drawn at Bo's household's well; ill 4 days, severely; died of it on 7 May of year 2"; "took 12 kg of grain from the household of Rilla on 4 May of year 3; seen by Bram"); what people know ("Known to 12 people as sickness in Bo's household, from 1 first-hand account", from the sickness claim its household made while they were abed; "Nobody knows of it: they were never ill"; for a taking, those who believe they know who took and from how many accounts, and what the household taken from chose); and what the polity knows and did (a taking's case; for a case of illness, the law that would close the source its water came from, or "No law names Bo's household's well"). A layer with nothing in it says so and is never filled from the truth. **Totals by kind** count first, over all time in the scope asked: all of them, those someone in the world knows of, those before a polity, and the observer's share (a case of an outbreak whose first case the observer brought counts as the observer's: 03-07 §1.3, 15-05 §6). **Outbreaks** are listed with their counts ("Cholera at Hazelford, from 3 May of year 2: 14 took it, 9 fell ill, 2 died; it runs"). **An incident's page** (`GetIncident`) has its stamped steps (12-07 §1.1; for a case: took it, shed it, fell ill, seen abed by their household, tended, ended; for a taking: went to take, seen, loss noticed, told, answered, before the gathering, decided), a step not reached saying so in words and a step known only to its day never given an hour (15-02 §1.9); its typed links, recorded when they happened (15-02 §1.1): `caused_by` the observer's influence, the household it was caught from or the source its water came from, and `part_of` its outbreak; and its three layers in lines. **An outbreak's page** (`GetOutbreak`) has its counts, how it began (its first case's own link, "Began with Ada, brought by the observer, as if they took it elsewhere (one recorded influence)"), its cases by the day they took it and the day they fell ill (an SVG curve, outlined against filled), how its cases took it ("9 in water drawn at Bo's household's well; 4 at home, from those who shed it; 1 brought by the observer"), and every source its cases drank from or its settlement's people suspect, each with the truth (of the households that drew there since it began, as their own records of their draws say, how many had a case and how many cases, against the rest; and what fouled it, from the moves the kernel keeps for 400 days: "Fouled from 1 May of year 2: 120 doses washed from the heap of Bo's household; 30 seeped through the ground from …") beside what people hold ("3 people suspect it, the first since 9 May of year 2") and what the polity did (each law to close it with how it was decided). This is the brief's "cholera outbreak traced to a well" as the kernel recorded it, with whether anyone in the world made the same link shown apart. **The snapshot** carries `incidents_rev` (id 21), which moves when an incident or outbreak opens, moves on or ends, or what people know or a polity did changes, and with each day while a case runs. **Saves 85:** each infection keeps the household it began in (an older save's falls back to where its bearer lives now), so a case of someone since dead still has its home and its household's word. **The observer** replaces the Takings panel with the Incidents panel: a choice of kind (every kind, takings, illness), the totals, the takings' sentence and encounters as before, the outbreaks, and rows with their layers labelled ("What happened", "What people know", "What the polity knows and did"), "(the observer's)" where it started one, "More" for the next page, and "Open" for an incident's or outbreak's page with a way back. **Tested:** the kernel lists every case of an outbreak the observer began that then spread through a fouled well, newest first, all the observer's, paged one at a time to the same list, and none in another settlement's list; a case's page has its six steps in order with the right ones reached and its links; the outbreak's page traces the cases to the well with the moves that fouled it, says nobody suspects it, then that 1 person does once someone comes to; every page reads the same after a save and load; the revision moves on while a case runs; a taking brought before the gathering lists among the takings and its page has seven steps through the decision; the host decodes the three queries and answers them, `NotFound` for what is not there; the web decodes the rows, pages and curves, builds the queries, and words the totals and steps; end to end, the panel shows the case the observer brought with its layers, opens its page and its outbreak's, and the takings and M4b demo views read the new panel. **Found on the way:** the knowledge end-to-end test still expected the 11 founding techniques of before wells, and the founders bring 12 since slice AY (well digging); it now expects 12. The smoke worlds fail now and then: in 14 runs, twice the world `ria_coast` seed 5 ended its month with "1 households have no water", every other world and run passing; the same world lived alone, with and without the save first, showed no dry household in 60 tries, so it turns on something the smoke harness does differently (the world's drawn identity, the full save-load-save before the month, or worlds lived in parallel). It predates this step, whose changes nothing in the world reads. Two candidate causes: a household emptied when its people moved into a new couple's household (the check counts households with nobody in them), or a new household whose share of water ran out before anyone fetched. **Logged for investigation; not yet fixed.** **Not yet:** links from the chronicle to an incident or outbreak (step two), the Water lens (step three), the epidemics row (step four).
 - **Chronicle links and the epidemics row, as built (2026-10-11, M6a slice BB, steps two and four, ADR-0015 §8, plan §4.7):** no new ADR. **The chronicle names its incident** (wire 1.65: `ChronicleEntry.incident_kind`, `incident` and `at`): an entry telling a taking names that taking, found by its minute and the person who took; an outbreak's beginning names the outbreak that began that day with that person's case first, and its end the one of that settlement that ended that day; a death of disease names the case that ended in it that day; and the observer's bringing a disease names the case it began. These are the same event recorded twice, the entry and the incident, matched by stamp and person; nothing is linked because it came soon after something else (15-02 §1.1), and an entry with no record behind it (an older entry, or one whose record is gone) names none. The entry carries where it happened when its event has a place. The observer's chronicle offers "Open" on such an entry, which opens the incident's or outbreak's page in the Incidents panel, and "Locate", which centres the map there. **The epidemics row** (`civ-host dashboard`): each outbreak is judged in the month after it ends, while the moves it reads are kept (400 days), or at the run's end if it still runs. Its households are its settlement's households with people at the time and every household one of its cases began in (so a household it emptied counts); the source is the one most of its water cases took it at; those that drew the disease there from the day it began to its end, by the drawing moves the kernel recorded, are set against the rest, each side as households, those with a case and cases. By households, as Snow's water-company comparison was (research 12-02 §4: about 315 against 37 deaths per 10,000 houses, eight- to ninefold; 05-04 §3.2: a validation of source-linked outbreak geography, not a universal multiplier). An outbreak with 5 cases by water or more and households on both sides is judged; it clusters when the drawers' share with a case is at least twice the rest's (any share, against a rest with none). Green when every judged outbreak clusters, amber when some do, red when none; grey, with its counts, when none can be judged, and grey saying why when nothing brought a disease, which is every dashboard world until imports from off the map exist (ADR-0021 §8; plan §9's M6 design). 5 and 2 are tuning values, the 2 a lenient line under Snow's contrast. The row's text lists each judged outbreak ("Cholera at Ashford, from … to …: 6 of 8 households that drew it at Bo's household's well had a case (75%), 1 of 20 of the rest (5%)"); the JSON report keeps each world's infections, those brought by the observer, ill, dead and taken by water, and every outbreak's split. **Found on the way:** step one's outbreak page counted the households "that drew there since it began" from each household's record of the places it uses, but that record is reckoned forward to today every day (its fading kept current), so every household whose record still held the source counted, up to about two years after its last draw (half-life 180 days, let go below 0.05 days). The page and the row now read the drawing moves instead: "Of 12 households that drew cholera in its water since it began, 7 had a case (9 cases); of 30 that did not, 2 had a case (2 cases)", "No household drew cholera in its water since it began; …" for a source nobody drew the disease from (a spring, or a suspected well that was clean), and "from 3 May of year 2, the earliest still recorded" when it began before the moves kept. A draw too slight to record (under a thousandth of a dose) is not counted as drawing it. **Tested:** the outbreak test draws the disease from the well into one household's store and finds that household with every case but the first against the rest with only the observer's, in the page's words and in the row's split, and no split for an outbreak that is not there; the chronicle links the observer's bringing it to the case and the outbreak's beginning to its page, and every taking's entry to its incident with its place; the row is grey without a disease and with too few water cases or households on one side only, green, amber and red as judged, and words each outbreak; a world lived 75 days at Max after the observer brought cholera counts it and judges its outbreak as the dashboard does; the web decodes the links and places, and end to end the chronicle's entry of the disease brought opens its case's page.
 - **Fix: a watcher named after telling of a taking chose about it again (2026-10-11, M4b slice AC, M4c slice AI):** the full suite failed once (`a_watcher_chooses_once_what_to_do_with_a_taking_they_saw`, then 10 of 10 reruns passing): a watcher was found to have looked away from a taking that someone had learnt of from them. Every day the telling pass goes over every taking anyone saw; someone who saw one before the village named them to the watch (a further watcher, M4c slice AI) told those taken from as anyone would, and on the next pass after they were named made the watcher's choice about that same taking, looking away from what they had already told. Now someone who has already told those taken from (a member of that household holds it from them) saw it as anyone would and chooses nothing; a choice already made stands. **Tested:** a witness who told the household taken from, then named to the watch, makes no choice about it in the two days after (it made one before the fix); the crime, faction, regimes and polity tests pass.
@@ -8728,7 +10294,7 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Noticing a fire and the shout, as built (2026-10-11, M6b slice BD, step two; ADR-0022 §3, §6, §7):** no new ADR. **An escape grows before the roof** (12-03 §1.2: an ignition is locally controlled or growing before the building is involved). Step one caught the covering in the minute a banked hearth escaped. Now an escape with nobody awake near grows inside for `grow_minutes` (2 to 15, drawn evenly from a key of building and minute; a design prior, as no source gives the time for an early house). It is stepped a minute at a time with the fires: anyone awake who comes within `beside_m` (3 m) of the building puts it out, as does the first of those asleep inside to wake to it, each waking after their own draw in `wake_minutes` (5 to 30, 12-03 §2.5's figures for the sleeping, keyed by person and escape). Left alone for its minutes it reaches the covering, which catches if it can; the fire begins then. **Noticing:** each minute anything burns, anyone awake within `sight_m` (150 m) of a burning building's outline comes to know of it: inside it if they are within it and not walking, otherwise seeing it. The watch needs nothing of its own: a watcher on rounds is awake and out, and sees what their round passes within sight. Those still asleep inside when it is fully involved are woken by it, and `CAUGHT_ASLEEP_DIES` stays the design prior for how many of them do not get out. **The shout:** whoever comes to know of a fire, or of a conflagration they did not know of, shouts once: those who see it in the minute they see it, those who hear the minute after. Everyone within `earshot_m` (60 m) of a shout who did not know of that conflagration hears, wakes if asleep, and stops what they are doing to decide again, so the alarm travels a hop a minute through a village. Someone carrying a load goes on to set it down where it was going (nothing holds goods on the ground). The observer's hand is noticed in the minute it sets a roof alight, as an escape reaching the roof is. **Knowledge is people's** (§7): each is a record of a person (the fire, when, how: inside, woken, saw, heard; and whether they have shouted), kept per fire for those who were in or saw it, and per conflagration for hearing. Hearing a shout names no building, so someone keeps from home (`Reason::HomeAfire`) only once they were in, woke to or saw their household's building burning; until then they may walk home, and see it on the way. **Records and saves:** an escape keeps the minutes it grows and when it ended (put out, caught or gone out); saves 90 keep these and every record of who knew, a save 89 loading every escape as ended when it happened and nobody's knowledge. Content API 83 adds `grow_minutes`, `wake_minutes`, `sight_m` and `earshot_m`. **The fire's page** now fills its knowledge layer from those records alone: "Seen burning by 11; 14 heard the alarm", who knew first and how ("First to know: Kellan, who saw it burning at 12:00"), who saw its roof catch or that nobody saw it start ("to those who know of it, it was found burning"; its cause is in the truth layer only), and how far the alarm went by when. No wire change. **Measured** (eight worlds with a hut at every home, 120 days, every rate a thousand times and scaled back): 7.1 to 13.9 escapes per 1,000 household-years (mean 9.9); of them 7.6 put out at once, 1.0 put out while they grew and 1.0 catching, in the mean. Of 233 escapes, 158 came from lit hearths, 56 banked and 19 from fires worked at home. The 26 fires were known to 35 people each on average, and 29 people died in them, all of them asleep inside when their hut was fully involved: at night, with nobody awake to see a roof catch, the share `CAUGHT_ASLEEP_DIES` decides most of a hut fire's toll. That figure is high, and 12-03 §4 warns that deaths follow warning and getting out rather than what burns; it is left for the calibration sweep once people can lead their households out. **Tested:** a hut set alight at noon is seen by exactly those awake within sight and heard by exactly those within earshot of them, each stopped and awake, its household kept from home only by those who saw it, the alarm's next hop heard from within earshot, and its page's knowledge; at night, those of a household who woke to their burning hut were the only ones woken by it, and their shout woke neighbours; escapes grow their minutes before catching, some are put out while they grow, the same at any speed with the same records; and a world saved with escapes pending lives on exactly. **Not yet:** choices at a fire (leading out, water, stripping a roof, carrying goods out, pulling down, keeping away), fire seen and told at the hearth and fire caution, the dashboard's fire row and lens, and the calibration sweep.
 - **Water carried to a fire, as built (2026-10-11, M6b slice BD, step three; ADR-0022 §6):** no new ADR. **The choice:** a new behaviour, `douse` (content: "Carry water to a fire", PAR 4.5, ages 10 to 70, not daylight-only, exempt from a curfew as the watch is). It is offered only to someone who knows of a fire burning now: a record of theirs of any fire of a conflagration (or lone fire) still burning. Its targets are the roofs the heat of a fire burning now reaches (the exposure stores), up to three, each worth `w_save` (20 points, above a day's hunger) times whose it is (their household's 1, a close kin's household's `kin_share` 0.5, anyone else's `neighbour_share` 0.25; ADR-0022 §6: kin and their own property weigh) times how near its exposure stands to what its covering needs to catch (capped at 1), less the walk at the decision weights' `w_walk_hour`; the best is the option weighed against everything else, so carrying water competes with sleep, food and work as any choice does. **The water** (§6: drawn first on household stores, then the nearest source): their household's store when it holds a load (`carry_water_l`, 15 L), else the source they would fetch from (`water_source`, passing over a source they suspect or a closed one): a well, as much of a load as its column holds, or a load at a spring or bank, counted as a draw there as fetching is. The activity walks to the water, draws (a minute and any lift), walks to the roof and throws it (a minute), then they decide again; its target (`Target::Douse`, saved) names the roof and the source. **On the roof:** `water_stays` (0.5; 12-03 §1.7's η) of each load stays; the rest runs off or misses. Each minute the heat on a wet roof boils its water off first, at 2,257 kJ a litre over the roof's plan area (a wet covering cannot pass the boiling point until it is dry), and only the heat its water could not take reaches its exposure store; water also runs off at `wet_drains_per_minute` (0.03), and roofs are dry again once nothing burns. A roof of 30 m² under 10 kW/m² boils about 8 L a minute, so a carrier's load holds it a minute; it takes several carriers to keep a roof wet. **Not built: dousing a burning roof.** ADR-0022 §6 has water above an authored rate put out a burning covering, but a covering is fully involved within the minute it catches (`involve_minutes` 1, from 12-03 §2.2), before a load can arrive; water thrown on a burning roof is spent. **Records:** each load thrown keeps the fire it was thrown against (the first of its conflagration), the roof, who, when, the litres and where it was drawn; saves 91 keep these, the water standing on roofs and the new target kind; content API 84 adds the activity and `water_stays`, `wet_drains_per_minute`, `w_save`, `kin_share` and `neighbour_share`. **The observer:** a fire's page (or its conflagration's) adds to each roof that held the litres thrown on it, and "Water was carried against it: 16 loads, 240 L, by 9 people, 6 of the loads from their households' stores"; the inspector names the roof someone carries water to. No wire change. **Measured** (unpaired worlds, five seeds each): in a village as founded, homes 6 to 18 m apart, a lone hut fire at noon in wind spread to one neighbour of 40 huts with or without water, and few loads were carried (14 in fifteen fires); in a block of six huts 3 m apart beside the village in a 5.5 m/s wind, all 30 of 30 burned with nobody carrying water, and 20 of 30 with it (122 loads, 1,830 L); 3.5 m apart, 10 of 30 either way; 2.5 m apart in 3 m/s, all 30 either way. Spread can outrun a bucket line (12-03 §4): where roofs crowd, water carried keeps some; where a fire outruns the carriers it keeps none. A first block placed across a river from the village showed carriers walking 300 m around to a ford: water comes where people can walk. **Tested:** a roof holding water catches well after a dry one, or not at all; people carry water to the roofs of a burning block, each load at most a carrier's, against the fire burning then, and fewer huts burn than when nobody cares to (seeds 4 to 6, paired from one save); the conflagration's page tells the water; the same carrying at any speed and across a save. **Found in passing:** two worlds made from one seed diverge within hours because the scheduler's tie-break stream is seeded from the world's random identity (so equal claims are not won by scheduling order); this is by design, and probes that compare worlds now pair them from one save. **Not yet:** stripping a threatened roof, carrying goods out, pulling a building down, fire seen and told and fire caution, the dashboard's fire row and lens, and the calibration sweep.
 - **Stripping roofs and carrying goods out, as built (2026-10-11, M6b slice BD, step four; ADR-0022 §5, §6):** no new ADR. **Two new behaviours** (content: "Strip a threatened roof", PAR 5, ages 14 to 65, a five-minute session; "Carry goods out of a fire's way", PAR 4.5, ages 10 to 70), offered from the same facts as carrying water: the roofs the heat of a fire burning now reaches, to someone who knows of one. Both are exempt from a curfew. **Stripping:** allowed on their household's own roof, or another's with leave of one of its people awake within `reach_m` of it (ADR-0022 §6's rule for pulling down, applied to stripping). It is worth `w_save` times whose it is times how far the roof's nearness to catching stands above `strip_cost` (0.5: the covering is lost either way, the rest of the building is not), so only a roof more than half-way to catching is worth stripping. Each minute of work tears `strip_m2_per_minute` (1 m²) of covering from it, as loss on its covering groups; once all is gone the covering has failed and the roof has nothing to catch. Nothing is restored: the household rethatches it as any lost covering. **Carrying goods out** (§5: goods carried out survive): allowed from a threatened roof of their own household's, worth `w_save` times `salvage_share` (0.5) times nearness times how much of a load (`carry_kg`, 20 kg) of goods that burn lies under it. They walk there, take up a load (the goods that burn, most first, less what was already carried out), walk 15 m out of the fire's way and set it down. The goods stay the household's stores; when that roof's fire is fully involved, what was carried out against its conflagration is not under it to burn. **Records:** each stretch stripped (fire, roof, who, when, m²) and each load carried out (fire, building, who, when, good, kg), saved in schema 92; content API 85 adds the activities, `strip_m2_per_minute`, `strip_cost` and `salvage_share`. The fire's page adds "Covering was torn from 2 roofs to save them: 14 m²" and "Goods were carried out of its way: 40 kg, by 2 people". **Measured** (a block of six huts 3 m apart beside the village in a 5.5 m/s wind, five worlds, paired from one save with stripping costing all and goods worth nothing): with water at hand people chose to carry water almost every time, since water costs the household nothing and a strip costs its roof. No roof was stripped, and two loads of goods (40 kg) were carried out; the goods burned were the same either way, the roofs they came from having held. Stripping and salvage are offered and weighed; what makes them chosen (no water near, a roof already doomed) is for the calibration sweep to find. **Tested:** in the paired worlds, nothing is stripped or carried out where they are worth nothing; where they are, any roof stripped is of the block, stripped against the fire burning then, and its covering the poorer; goods carried out are the household's own, a load at most; and between them something was done. The same at any speed and across a save (the carrying test compares every fire record). **Not yet:** pulling a building down, which needs a crew and leave; fire seen and told, fire caution, the dashboard's fire row, the lens and the calibration sweep.
-- **Closing a suspected source by law, as built (2026-10-11, M6a slice BA, step four, first part, ADR-0021 §7):** no new ADR. **Issues (appended):** `sickness`, when someone of a household of the settlement lay sick at home lately, as its members saw (a member holds the news of their own household's sickness), which brings that household's elder to the review; and `source_suspected`, when someone holds, from their own tally, that a source the polity does not close sickens, which brings them to the review and opens moves to them alone, as `overruled` does. Neither weighs toward anything. **A policy (appended):** `close_source` (`core:policy/works_source_closed`, answering `source_suspected`, bearing security +0.5 and autonomy −0.5, an authoring judgement): one move for each source its sponsor suspects and none in force closes, the source recorded with the law when it is proposed (`Polity.closed`). **Each household's stance is its own forecast in today's units:** a household whose people would draw there, their suspicions aside, and that knows somewhere else to draw, would walk to that other source for every load (its members' litres over a load, at the trip's walk and lift there and back) over the days sickness stays news (30), each hour worth the food an hour of its work brings (research 11-07 §2.3, as for a crossing); against that, its people's own tally of the source, how much likelier a household drawing there was to have sickness lately than one drawing elsewhere (the largest among its members), times what a case costs it: `case_days` (8) and its believed share of a death (`case_death_share`, 0.2) at `w_death` days of work (1,000), each day of work the farm's working hours at that worth. Design priors (content API 78): research 05-03 §3.2 has untreated clinical cholera killing up to about half and prompt rehydration fewer than one in a hundred, neither the share of everyone who takes it. A household that suspects nothing believes nothing avoided, so one that draws there and suspects nothing loses by it, and one that draws elsewhere neither gains nor loses; what people hold dear weighs on top. **Kept by each person's choice, as a curfew is** (research 09-06 §1.5): someone who knows of a closing in force passes the source over while they know another when the custom that a gathering binds, where they stood on it and their regard for its sponsor weigh above nothing; with nowhere else they know, they draw there still. Drawing at a closed source breaks it, knowing of it or not (the law's `broken` and `broken_unaware`, as a curfew's). **The law in words:** "the closing of Odessa's household's well: nobody may draw there, because they hold that the water there sickens", naming the source as its people know it, in the chronicle and the government panel. **Found while measuring, and changed:** a home knew one edge of the water, the nearest; with it suspected or closed, a household knew no other stretch of the river and fell back on its own well or the closed edge. In the probe below, closings of two wells and of the settlement's edge of the water all passed, and the households of both wells kept drawing at them out of need: 875-1,215 knowing breaches each in 90 days. A home now also knows up to three further stretches of the water's edge in reach, each at least 100 m from the nearer ones (both engineering choices), nearest first, and goes to the nearest not passed over; with nothing passed over it draws exactly where it did. Saves 82 (the closed sources; issue codes 10 and 11), content API 78. **Tested:** someone of another household suspecting a well, its own household (which draws there) losing by its closing and the suspecting household neither gaining nor losing; one of the well's own household suspecting it, their household gaining, and the review putting its closing to the gathering in their name with the issue and the words above, told in the chronicle; the closing saved and loaded exactly; passed and the suspicion let go, the sponsor passing the well over and someone of their household who had not heard of it drawing there; a draw there counted as broken by one who knew and by one who did not; a household passing over its suspected sources in turn uses more than one stretch of the water's edge. **Measured (a probe, not kept):** the ten cholera introductions of step two into the same village (106 people, 27 households, 23 wells): the same two spread (37 and 38 infected, 10-11 ill in at least five households; 11 took it at Odessa's household's well). In each, three closings were proposed and passed, 29-35 for and 3-8 against of 48-55 present: Tova's household's well (suspected wrongly, as in step two), Odessa's household's well (where they took it) and the settlement's edge of the water (where nobody took it). With further stretches of the water known, nobody broke any of them. They came late: the introduction was on day 789 and 16 infections on day 800; the closings passed on days 810, 824 and 831, and 14 infections followed between days 826 and 845. 61-66 ms a day for the village. **Not yet:** a closing stands until a founding body repeals it, and nothing proposes ending one once nobody suspects its source; `water_far` and digging a well together (step four, second part).
+- **Closing a suspected source by law, as built (2026-10-11, M6a slice BA, step four, first part, ADR-0021 §7):** no new ADR. **Issues (appended):** `sickness`, when someone of a household of the settlement lay sick at home lately, as its members saw (a member holds the news of their own household's sickness), which brings that household's elder to the review; and `source_suspected`, when someone holds, from their own tally, that a source the polity does not close sickens, which brings them to the review and opens moves to them alone, as `overruled` does. Neither weighs toward anything. **A policy (appended):** `close_source` (`core:policy/works_source_closed`, answering `source_suspected`, bearing security +0.5 and autonomy −0.5, an authoring judgement): one move for each source its sponsor suspects and none in force closes, the source recorded with the law when it is proposed (`Polity.closed`). **Each household's stance is its own forecast in today's units:** a household whose people would draw there, their suspicions aside, and that knows somewhere else to draw, would walk to that other source for every load (its members' litres over a load, at the trip's walk and lift there and back) over the days sickness stays news (30), each hour worth the food an hour of its work brings (research 11-07 §2.3, as for a crossing); against that, its people's own tally of the source, how much likelier a household drawing there was to have sickness lately than one drawing elsewhere (the largest among its members), times what a case costs it: `case_days` (8) and its believed share of a death (`case_death_share`, 0.2) at `w_death` days of work (1,000), each day of work the farm's working hours at that worth. Design priors (content API 78): research 05-03 §3.2 has untreated clinical cholera killing up to about half and prompt rehydration fewer than one in a hundred, neither the share of everyone who takes it. A household that suspects nothing believes nothing avoided, so one that draws there and suspects nothing loses by it, and one that draws elsewhere neither gains nor loses; what people hold dear weighs on top. **Kept by each person's choice, as a curfew is** (research 09-06 §1.5): someone who knows of a closing in force passes the source over while they know another when the custom that a gathering binds, where they stood on it and their regard for its sponsor weigh above nothing; with nowhere else they know, they draw there still. Drawing at a closed source breaks it, knowing of it or not (the law's `broken` and `broken_unaware`, as a curfew's). **The law in words:** "the closing of Odessa's household's well: nobody may draw there, because they hold that the water there sickens", naming the source as its people know it, in the chronicle and the government panel. **Found while measuring, and changed:** a home knew one edge of the water, the nearest; with it suspected or closed, a household knew no other stretch of the river and fell back on its own well or the closed edge. In the probe below, closings of two wells and of the settlement's edge of the water all passed, and the households of both wells kept drawing at them out of need: 875-1,215 knowing breaches each in 90 days. A home now also knows up to three further stretches of the water's edge in reach, each at least 100 m from the nearer ones (both engineering choices), nearest first, and goes to the nearest not passed over; with nothing passed over it draws exactly where it did. Saves 82 (the closed sources; issue codes 10 and 11), content API 78. **Tested:** someone of another household suspecting a well, its own household (which draws there) losing by its closing and the suspecting household neither gaining nor losing; one of the well's own household suspecting it, their household gaining, and the review putting its closing to the gathering in their name with the issue and the words above, told in the chronicle; the closing saved and loaded exactly; passed and the suspicion let go, the sponsor passing the well over and someone of their household who had not heard of it drawing there; a draw there counted as broken by one who knew and by one who did not; a household passing over its suspected sources in turn uses more than one stretch of the water's edge. **Measured (a probe, not kept):** the ten cholera introductions of step two into the same village (106 people, 27 households, 23 wells): the same two spread (37 and 38 infected, 10-11 ill in at least five households; 11 took it at Odessa's household's well). In each, three closings were proposed and passed, 29-35 for and 3-8 against of 48-55 present: Tova's household's well (suspected wrongly, as in step two), Odessa's household's well (where they took it) and the settlement's edge of the water (where nobody took it). With further stretches of the water known, nobody broke any of them. They came late: the introduction was on day 789 and 16 infections on day 800; the closings passed on days 810, 824 and 831, and 14 infections followed between days 826 and 845. 61-66 ms a day for the village. **Not yet:** a closing stands until a founding body repeals it, and nothing proposes ending one once nobody suspects its source (done 2026-11-02, see backlog D); `water_far` and digging a well together (step four, second part).
 - **A lid for a suspected well, and moving away from sickness, as built (2026-10-11, M6a slice BA, step three, second part, ADR-0021 §4, §7):** no new ADR. **A lid and curb:** at the day's turn a household whose people suspect its own open well, and which owes no relining, owes `cover_h` hours (8: a plank lid over the 1.5 m mouth and a raised ring of earth, a design prior), worked as relining is, by the same chosen work; when done the well is covered and the chronicle says so ("Ada's household made their timber-lined well a lid and curb"). **Runoff:** a covered mouth takes `covered_runoff` (0.1, a design prior; research 03-02 §1.4 lists cover, apron and drainage under a well's construction and §4 that mending a wellhead changes what its users drink while the ground is unchanged; neither gives a share) of the runoff an open one would; every other place below takes the same as before, and what the lid turns away soaks away. Seepage through the ground is unchanged. The well's words say it is being made a lid and curb, or has one. **Reconsidering where to live:** the move weighing (ADR-0018 §5) gains `w_sickness` (3, set as `w_grievance`; research 05-06 §5.1 counts safety among what moves people) for the share of the settlement's households whose sickness its members hold as news, its own among them; it knows of none elsewhere. A death of sickness at home, and the first of a household to suspect the water it draws, put the household to that weighing at once (`review_due`). Saves 81 (a well's lid and the hours owed for it), content API 77. **Tested:** a household suspecting its own well owes the lid, works it and has it, told in the chronicle and the well's words, and is not owed it again; a covered mouth takes exactly the content's share of the runoff the open one took while every other place takes the same; three households' sickness heard of at home raises the worth of every place a household knows by `w_sickness` times their share. **Step three is complete.**
 - **Passing over a suspected source, as built (2026-10-11, M6a slice BA, step three, first part, ADR-0021 §7):** no new ADR. **Where a household fetches water** (its nearest spring that flows, else the water's edge, or a well it may draw at if nearer with its lift) now leaves out any source one of its people suspects while it knows another: a suspected spring or well is skipped, and a suspected edge of the water leaves any well it may draw at in its place, however far. When every source it knows is suspect, it draws where it would have. With no suspicion it chooses exactly as before. **The chronicle** tells it when the first of a household comes to suspect a source the household draws at ("Ada came to suspect the water their household draws at Wren's household's well: of 9 households they know that draw there, 6 had sickness lately, against 1 of 11 that draw elsewhere"), `ChronicleKind::Suspicion` (appended; saves 80, no new state). **Tested:** a household's own well suspected and passed over for the water's edge, each source it then goes to passed over in turn once suspected, never for one already suspected, and back to the well once every source it knows is suspect; the chronicle's sentence with its counts.
 - **Who draws where, and suspicion, as built (2026-10-11, M6a slice BA, step two, ADR-0021 §6):** no new ADR. **Who draws where:** each household's record of a source of water (a well, a spring, a cell at the water's edge, as draws were already logged) also holds the other households it saw drawing there the same day, fading at the places' half-life (180 days) and let go when faded or gone. **The tally** (`civ_agents::suspicion`, a pure function): the households someone knows to draw at each source are their own household where it has drawn for `draws_min_days` (2, faded), those it saw drawing there as often, and the household of each person they know at least `known_min` well (a tie's familiarity, 0.3) at that household's usual source; who had sickness lately is the households whose sickness they hold as news. A source is suspect when at least `min_households` (3) draw there, at least `min_sick` (2) of them had sickness, and their share is at least `ratio` (3) times the share of the rest they know, counted with half a sick household in one more so that a source everyone draws at is never suspect (research 12-02 §4: Snow counted houses; his 8.5-fold contrast orients the ratio and is not a target). All design priors (content API 76, `[suspicion]`). **Who tallies:** an adult holding news of a household's sickness or a suspicion, on first hearing of sickness and every `review_days` (7) on their household's day; nobody tallies in a world without sickness, so such a world lives as before. **A suspicion** is held per person with the counts of its latest tally and let go when a tally no longer finds it; the first time it is held its holder says so as a claim (`ClaimKind::Suspicion`, appended) with the source and the counts, told at home and at the hearth as sickness is, for 30 days. Nothing acts on it yet: households' responses are step three's. A source is the place as logged, so cells at the water's edge are told apart and rarely reach the minimum count. Saves 79 (suspicions, a claim's source and counts, the households seen drawing water). **Tested:** the tally (a contrast found; too few, nothing to compare and a household at two sources); the fold of households seen at a source; someone whose known households at a well fell sick suspecting it with the exact counts, saying so at first hand, word of it going round, the suspicion let go when the news is gone, and all of it saving and loading exactly; a world without sickness holding none while its households know who draws beside them. **Measured (a probe, not kept):** ten cholera introductions into the step-two base village (106 people, 27 households, 23 open wells, nearly one a household): eight stayed small (1-7 infected, none ill); two spread to 20-23 infected, 7-8 ill in at least four households, through four wells. In each, one person came to suspect a source: both times Tova's household's well (2 sick of the 3 households they knew to draw there, against 0-1 of 21 elsewhere), where nobody took it; the well 8 took it from was not suspected. With a well for nearly every household, and kin drawing at each other's wells, few households share a source and a shared kin well confounds the contrast: the brief's "nothing to trace" risk, measured and not tuned (any nudge is the demo's, time-boxed). 64-69 ms a day for the village.

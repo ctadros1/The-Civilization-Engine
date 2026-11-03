@@ -2,8 +2,8 @@
 //! gathers, stores or eats is decided by people at run time.
 
 use civ_agents::params::{
-    Eaten, GoodDef, GoodFire, GoodFuel, GoodHolder, GoodLight, GoodPower, GoodTelegraph, GoodUse,
-    MoneyDef, PowerSource, StoreDef, ToolDef,
+    Eaten, GoodDef, GoodFire, GoodFuel, GoodHolder, GoodLift, GoodLight, GoodPower, GoodTelegraph,
+    GoodUse, MoneyDef, PowerSource, StoreDef, ToolDef,
 };
 use civ_agents::structure::Timber;
 use serde::Deserialize;
@@ -57,6 +57,33 @@ pub(crate) struct GoodFile {
     /// Content API 206 (M11c): what it sends as a telegraph instrument; only a fixed tool.
     #[serde(default)]
     pub telegraph: Option<TelegraphFile>,
+    /// Content API 215 (ADR-0042 §2): what it does as a passenger lift; only a fixed tool.
+    #[serde(default)]
+    pub lift: Option<LiftFile>,
+    /// Content API 220 (ADR-0044 §1): what a whole one leaves as it wears away; only a tool.
+    #[serde(default)]
+    pub scrap: Option<ScrapFile>,
+}
+
+/// What a tool leaves as it wears away (ADR-0044 §1): its holder throws it on its heap.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ScrapFile {
+    /// The good it leaves, by content id: one that is not a tool.
+    pub good: String,
+    /// Kilograms a whole tool leaves, above 0 and at most 1,000.
+    pub kg: f64,
+}
+
+/// What a passenger lift does (ADR-0042 §2). See [`civ_agents::params::GoodLift`].
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct LiftFile {
+    pub rated_kg: f64,
+    pub speed_ms: f64,
+    pub drive_kw: f64,
+    pub stop_s: f64,
+    pub shaft_m2: f64,
 }
 
 /// What a telegraph instrument sends (M11c, ADR-0036 §8).
@@ -120,6 +147,10 @@ pub(crate) struct FuelFile {
     /// hearth; none, the default, for a fuel anyone burns.
     #[serde(default)]
     pub technique: Option<String>,
+    /// Content API 209 (M11f, ADR-0038 §2): kilograms of ash a kilogram burned leaves; 0, the
+    /// default, for none.
+    #[serde(default)]
+    pub ash_share: f64,
 }
 
 /// How a good burns (M6b slice BC; ADR-0022 §4, §5).
@@ -152,6 +183,22 @@ pub(crate) struct TimberFile {
     pub stiffness_gpa: f64,
     pub creep: f64,
     pub sustained: f64,
+    /// Content API 208 (M11e, third part): the share of its strength a bare member keeps once
+    /// its building has burnt out (ADR-0037 §5); absent, it chars as timber (ADR-0022 §5).
+    #[serde(default)]
+    pub burnt_keeps: Option<f64>,
+    /// Content API 217 (frame version 5): a cast member's days in its forms, and its strength
+    /// curve's days and share a day (`civ_agents::structure::Cast`); all three or none.
+    #[serde(default)]
+    pub strip_days: Option<f64>,
+    #[serde(default)]
+    pub age_a_days: Option<f64>,
+    #[serde(default)]
+    pub age_b: Option<f64>,
+    /// Content API 218: minutes of a fully involved fire a member keeps its strength through,
+    /// protected by its own cover (ADR-0037 §5); absent, none.
+    #[serde(default)]
+    pub protection_min: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -222,6 +269,7 @@ impl GoodFile {
                 fixed: t.fixed,
                 serves: None,
                 crew: t.crew.clamp(1, 20) as u8,
+                scrap: None,
             }),
             timber: self.timber.as_ref().map(|t| Timber {
                 bending_pa: t.bending_mpa * 1e6,
@@ -231,6 +279,18 @@ impl GoodFile {
                 sustained: t.sustained,
                 // Timber's weight is the frame's (research 11-08 §2.1); only masonry reads it.
                 density_kg_m3: 760.0,
+                burnt_keeps: t.burnt_keeps,
+                cast: match (t.strip_days, t.age_a_days, t.age_b) {
+                    (Some(strip_days), Some(a_days), Some(b)) => {
+                        Some(civ_agents::structure::Cast {
+                            strip_days,
+                            a_days,
+                            b,
+                        })
+                    }
+                    _ => None,
+                },
+                protection_min: t.protection_min.unwrap_or(0.0),
             }),
             store: self.store.as_ref().map(|t| StoreDef {
                 keeps_kg: t.keeps_kg,
@@ -255,6 +315,7 @@ impl GoodFile {
                 smoke: f.smoke,
                 // Resolved once the techniques are known (`civ_content::compile`).
                 technique: None,
+                ash_share: f.ash_share,
             }),
             power: self.power.as_ref().map(|w| GoodPower {
                 source: match w.source.as_str() {
@@ -280,6 +341,13 @@ impl GoodFile {
             }),
             telegraph: self.telegraph.as_ref().map(|t| GoodTelegraph {
                 messages_h: t.messages_h,
+            }),
+            lift: self.lift.as_ref().map(|l| GoodLift {
+                rated_kg: l.rated_kg,
+                speed_ms: l.speed_ms,
+                drive_kw: l.drive_kw,
+                stop_s: l.stop_s,
+                shaft_m2: l.shaft_m2,
             }),
         })
     }
@@ -318,6 +386,12 @@ impl GoodFile {
                 p.push(format!(
                     "`fuel.smoke` must be between 0 and 10 (got {})",
                     f.smoke
+                ));
+            }
+            if !(f.ash_share.is_finite() && (0.0..=0.5).contains(&f.ash_share)) {
+                p.push(format!(
+                    "`fuel.ash_share` must be between 0 and 0.5 (got {})",
+                    f.ash_share
                 ));
             }
         }
@@ -361,6 +435,17 @@ impl GoodFile {
                 p.push("only a tool gives light: `[light]` needs a `[tool]` table".to_owned());
             }
         }
+        if let Some(x) = &self.scrap {
+            if !(x.kg.is_finite() && x.kg > 0.0 && x.kg <= 1_000.0) {
+                p.push(format!(
+                    "`scrap.kg` must be above 0 and at most 1000 (got {})",
+                    x.kg
+                ));
+            }
+            if self.tool.is_none() {
+                p.push("only a tool wears away: `[scrap]` needs a `[tool]` table".to_owned());
+            }
+        }
         if let Some(h) = &self.holder {
             if !(h.kg.is_finite() && h.kg > 0.0 && h.kg <= 100_000.0) {
                 p.push(format!(
@@ -371,6 +456,25 @@ impl GoodFile {
             if !self.tool.as_ref().is_some_and(|t| t.fixed) {
                 p.push(
                     "only a fixed tool holds apart: `[holder]` needs `[tool] fixed = true`"
+                        .to_owned(),
+                );
+            }
+        }
+        if let Some(l) = &self.lift {
+            for (name, v, lo, hi) in [
+                ("lift.rated_kg", l.rated_kg, 1.0, 100_000.0),
+                ("lift.speed_ms", l.speed_ms, 0.01, 20.0),
+                ("lift.drive_kw", l.drive_kw, 0.01, 10_000.0),
+                ("lift.stop_s", l.stop_s, 0.0, 600.0),
+                ("lift.shaft_m2", l.shaft_m2, 0.0, 100.0),
+            ] {
+                if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                    p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+                }
+            }
+            if !self.tool.as_ref().is_some_and(|t| t.fixed) {
+                p.push(
+                    "only a fixed tool stands in a building: `[lift]` needs `[tool] fixed = true`"
                         .to_owned(),
                 );
             }
@@ -513,6 +617,44 @@ impl GoodFile {
                     "`timber.sustained` must be above 0 and at most 1 (got {})",
                     t.sustained
                 ));
+            }
+            if let Some(k) = t.burnt_keeps
+                && !(k.is_finite() && (0.0..=1.0).contains(&k))
+            {
+                p.push(format!(
+                    "`timber.burnt_keeps` must be between 0 and 1 (got {k})"
+                ));
+            }
+            if let Some(m) = t.protection_min
+                && !(m.is_finite() && (0.0..=600.0).contains(&m))
+            {
+                p.push(format!(
+                    "`timber.protection_min` must be between 0 and 600 (got {m})"
+                ));
+            }
+            match (t.strip_days, t.age_a_days, t.age_b) {
+                (None, None, None) => {}
+                (Some(s), Some(a), Some(b)) => {
+                    if !(s.is_finite() && (0.0..=90.0).contains(&s)) {
+                        p.push(format!(
+                            "`timber.strip_days` must be between 0 and 90 (got {s})"
+                        ));
+                    }
+                    if !(a.is_finite() && (0.0..=100.0).contains(&a)) {
+                        p.push(format!(
+                            "`timber.age_a_days` must be between 0 and 100 (got {a})"
+                        ));
+                    }
+                    if !(b.is_finite() && b > 0.0 && b <= 2.0) {
+                        p.push(format!(
+                            "`timber.age_b` must be above 0 and at most 2 (got {b})"
+                        ));
+                    }
+                }
+                _ => p.push(
+                    "`timber.strip_days`, `timber.age_a_days` and `timber.age_b` come together"
+                        .to_owned(),
+                ),
             }
         }
         match purpose {

@@ -700,14 +700,14 @@ impl Population {
         else {
             return;
         };
-        let Some(x) = self.household_mut(household) else {
+        let Some(x) = self.household(household) else {
             return;
         };
         if x.stores.get(fuel).copied().unwrap_or(0.0) < kg {
             return;
         }
-        x.stores[fuel] -= kg;
-        x.flows.add(Flow::Used, fuel, kg);
+        // Its fuel leaves its ash with the engine's keeper (ADR-0038 §5).
+        self.burn_engine_fuel(&ctx.catalog.goods, household, fuel, kg);
         let sections = trains::sections(ctx.land.runs.loops_of(line.way), line.cells.len());
         let run = Run {
             id: ctx.ids.allocate(),

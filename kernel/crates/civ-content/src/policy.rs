@@ -137,6 +137,17 @@ pub(crate) struct PolicyFile {
     /// its terms.
     #[serde(default)]
     pub middens: Option<MiddensFile>,
+    /// For refuse carried to a tip (`refuse_to_tip`, content API 210, M11f, second part;
+    /// ADR-0038 §3): its terms.
+    #[serde(default)]
+    pub tip: Option<TipFile>,
+    /// For refuse collected by law (`collect_refuse`, content API 211, M11f, third part;
+    /// ADR-0038 §4): its round's terms.
+    #[serde(default)]
+    pub round: Option<RoundFile>,
+    /// For a sewer laid together (`lay_sewer`, content API 213; ADR-0041 §1-§4): its terms.
+    #[serde(default)]
+    pub sewer: Option<SewerFile>,
     /// For notes issued (`issue_notes`, content API 196, M10d slice EJ): their terms.
     #[serde(default)]
     pub notes: Option<NotesFile>,
@@ -272,6 +283,87 @@ pub struct MiddensFile {
     /// The share of a household's deaths of disease within the year it believes cleaner water
     /// would have spared, 0-1.
     pub avoided_share: f32,
+}
+
+/// The terms of carrying refuse to a tip in a policy file (content API 210, M11f, second part;
+/// ADR-0038 §3).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct TipFile {
+    /// How far the tip stands from every open well, spring, stream and home, metres.
+    pub from_m: f32,
+    /// The fewest days between a household's carryings.
+    pub every_days: u16,
+    /// The hours a carrying takes, as a household weighs it.
+    pub carry_h: f32,
+    /// The share of a household's deaths of disease within the year it believes a cleaner place
+    /// would have spared, 0-1.
+    pub avoided_share: f32,
+    /// Kilograms of a heap, decaying share and ash, past which it raises `heaps_near`.
+    pub heap_kg: f32,
+    /// How near another household's home such a heap raises it, metres.
+    pub heap_near_m: f32,
+}
+
+/// The terms of a refuse round run by law in a policy file (content API 211, M11f, third part;
+/// ADR-0038 §4).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct RoundFile {
+    /// Days between the round's runs.
+    pub every_days: u16,
+    /// The hours a run takes, as a household weighs the law.
+    pub round_h: f32,
+}
+
+/// The terms of a sewer laid together in a policy file (content API 213; ADR-0041 §1-§4), design
+/// priors all.
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct SewerFile {
+    /// The goods its walls may be built of, any one (ids).
+    pub walls: Vec<String>,
+    /// Kilograms of them a metre takes.
+    pub walls_kg_m: f32,
+    /// The goods that bind its walls, any one (ids): lime or cement.
+    pub binders: Vec<String>,
+    /// Kilograms of them a metre takes.
+    pub binder_kg_m: f32,
+    /// Hours of a capable adult's work to dig, wall and fill in a metre.
+    pub lay_h_m: f32,
+    /// The least fall it keeps, a share of its length (1 in 500 is 0.002).
+    pub fall: f32,
+    /// What it carries a day, kilograms of heaps' decaying share.
+    pub capacity_kg_day: f32,
+    /// The years it serves, over which a household weighs it.
+    pub life_years: f32,
+    /// The hours a home's connection takes once (0: free).
+    pub connect_h: f32,
+    /// The share of a household's deaths of disease within the year it believes a sewer would
+    /// have spared, 0-1.
+    pub avoided_share: f32,
+    /// The share of a day's load, mass and each disease, a settling tank settles as sludge, 0-1.
+    pub settle_share: f32,
+    /// The fixed tool that settles at the outfall (an id), if any.
+    #[serde(default)]
+    pub tank: Option<String>,
+    /// The good what settles becomes (an id), if any.
+    #[serde(default)]
+    pub sludge: Option<String>,
+    /// The people whose discharge a hectare of a sewage farm takes a day (content API 222;
+    /// ADR-0044 §4); absent or 0, no farm.
+    #[serde(default)]
+    pub farm_people_ha: f32,
+    /// The share of what enters a day that stays in it as deposit, mass only (content API 223;
+    /// ADR-0044 §5); absent or 0, nothing deposits.
+    #[serde(default)]
+    pub deposit_share: f32,
+    /// The deposit a metre of it holds before it is blocked, kilograms (content API 223).
+    #[serde(default)]
+    pub block_kg_m: f32,
+    /// The hours of a capable adult's work clearing a tonne of its deposit takes (content API 223).
+    #[serde(default)]
+    pub clear_h_t: f32,
 }
 
 /// The terms of a polity's notes in a policy file (content API 196, M10d slice EJ).
@@ -484,6 +576,10 @@ pub(crate) struct RuleFile {
     /// one of `walls` may rise.
     #[serde(default)]
     pub storeys: u8,
+    /// For `protected_frame` (content API 219; ADR-0037 §5): the minutes of a fully involved
+    /// fire a new steel skeleton must be cased against.
+    #[serde(default)]
+    pub minutes: u16,
     /// The technique a sponsor must know to put it forward (research 11-09 §1.4).
     #[serde(default)]
     pub needs: Option<String>,
@@ -514,6 +610,9 @@ impl RuleFile {
                 kinds: self.wall_kinds(),
             }),
             "tied_walls" => Some(RuleTemplate::TiedWalls),
+            "protected_frame" => Some(RuleTemplate::ProtectedFrame {
+                minutes: self.minutes,
+            }),
             "least_gap" => Some(RuleTemplate::LeastGap {
                 gap_m: self.gap_m as f32,
             }),
@@ -612,6 +711,34 @@ impl PolicyFile {
             redeem,
             fee: n.fee as f32,
             dues_per_kg: n.dues_per_kg as f32,
+        })
+    }
+
+    /// A sewer's terms, its goods found by `good_index` (ADR-0041 §1-§4); goods not found are
+    /// left out (the validator reports them).
+    pub fn sewer_def(
+        &self,
+        good_index: &dyn Fn(&str) -> Option<usize>,
+    ) -> Option<civ_agents::polity::SewerDef> {
+        let s = self.sewer.as_ref()?;
+        Some(civ_agents::polity::SewerDef {
+            walls: s.walls.iter().filter_map(|g| good_index(g)).collect(),
+            walls_kg_m: s.walls_kg_m,
+            binders: s.binders.iter().filter_map(|g| good_index(g)).collect(),
+            binder_kg_m: s.binder_kg_m,
+            lay_h_m: s.lay_h_m,
+            fall: s.fall,
+            capacity_kg_day: s.capacity_kg_day,
+            life_years: s.life_years,
+            connect_h: s.connect_h,
+            avoided_share: s.avoided_share,
+            settle_share: s.settle_share,
+            tank: s.tank.as_deref().and_then(good_index),
+            sludge: s.sludge.as_deref().and_then(good_index),
+            farm_people_ha: s.farm_people_ha,
+            deposit_share: s.deposit_share,
+            block_kg_m: s.block_kg_m,
+            clear_h_t: s.clear_h_t,
         })
     }
 
@@ -752,6 +879,20 @@ impl PolicyFile {
                     carry_h: m.carry_h,
                     avoided_share: m.avoided_share,
                 }),
+            tip: self.tip.as_ref().map(|t| civ_agents::polity::TipDef {
+                from_m: t.from_m,
+                every_days: t.every_days,
+                carry_h: t.carry_h,
+                avoided_share: t.avoided_share,
+                heap_kg: t.heap_kg,
+                heap_near_m: t.heap_near_m,
+            }),
+            round: self.round.as_ref().map(|r| civ_agents::polity::RoundDef {
+                every_days: r.every_days,
+                round_h: r.round_h,
+            }),
+            // Resolved apart, with the goods ([`PolicyFile::sewer_def`]).
+            sewer: None,
             // Resolved apart, with the good ([`PolicyFile::notes_def`]).
             notes: None,
             plan: self.plan.as_ref().map(|g| civ_agents::polity::PlanDef {
@@ -1249,6 +1390,100 @@ impl PolicyFile {
                 p.push("`middens` is for `does = \"clear_middens\"`".to_owned());
             }
         }
+        // A tip's terms (M11f, second part; ADR-0038 §3): only for `refuse_to_tip`, which must
+        // have them.
+        match (&self.tip, PolicyKind::from_name(&self.does)) {
+            (None, Some(PolicyKind::RefuseToTip)) => {
+                p.push("a `refuse_to_tip` template needs a `tip` table".to_owned());
+            }
+            (Some(t), Some(PolicyKind::RefuseToTip)) => {
+                for (name, v, lo, hi) in [
+                    ("from_m", t.from_m, 1.0, 1000.0),
+                    ("carry_h", t.carry_h, 0.0, 24.0),
+                    ("avoided_share", t.avoided_share, 0.0, 1.0),
+                    ("heap_kg", t.heap_kg, 1.0, 100_000.0),
+                    ("heap_near_m", t.heap_near_m, 1.0, 1000.0),
+                ] {
+                    if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                        p.push(format!(
+                            "`tip.{name}` must be between {lo} and {hi} (got {v})"
+                        ));
+                    }
+                }
+                if !(1..=365).contains(&t.every_days) {
+                    p.push(format!(
+                        "`tip.every_days` must be between 1 and 365 (got {})",
+                        t.every_days
+                    ));
+                }
+            }
+            (None, _) => {}
+            (Some(_), _) => p.push("`tip` is for `does = \"refuse_to_tip\"`".to_owned()),
+        }
+        // A refuse round's terms (M11f, third part; ADR-0038 §4): only for `collect_refuse`,
+        // which must have them.
+        match (&self.round, PolicyKind::from_name(&self.does)) {
+            (None, Some(PolicyKind::CollectRefuse)) => {
+                p.push("a `collect_refuse` template needs a `round` table".to_owned());
+            }
+            (Some(r), Some(PolicyKind::CollectRefuse)) => {
+                if !(1..=365).contains(&r.every_days) {
+                    p.push(format!(
+                        "`round.every_days` must be between 1 and 365 (got {})",
+                        r.every_days
+                    ));
+                }
+                if !(r.round_h.is_finite() && (0.0..=24.0).contains(&r.round_h)) {
+                    p.push(format!(
+                        "`round.round_h` must be between 0 and 24 (got {})",
+                        r.round_h
+                    ));
+                }
+            }
+            (None, _) => {}
+            (Some(_), _) => p.push("`round` is for `does = \"collect_refuse\"`".to_owned()),
+        }
+        // A sewer's terms (ADR-0041 §1-§4): only for `lay_sewer`, which must have them.
+        match (&self.sewer, PolicyKind::from_name(&self.does)) {
+            (None, Some(PolicyKind::LaySewer)) => {
+                p.push("a `lay_sewer` template needs a `sewer` table".to_owned());
+            }
+            (Some(s), Some(PolicyKind::LaySewer)) => {
+                for (name, v, lo, hi) in [
+                    ("walls_kg_m", s.walls_kg_m, 0.0, 100_000.0),
+                    ("binder_kg_m", s.binder_kg_m, 0.0, 10_000.0),
+                    ("lay_h_m", s.lay_h_m, 0.01, 1000.0),
+                    ("fall", s.fall, 0.0001, 0.5),
+                    ("capacity_kg_day", s.capacity_kg_day, 1.0, 10_000_000.0),
+                    ("life_years", s.life_years, 1.0, 500.0),
+                    ("connect_h", s.connect_h, 0.0, 1000.0),
+                    ("avoided_share", s.avoided_share, 0.0, 1.0),
+                    ("settle_share", s.settle_share, 0.0, 1.0),
+                    ("farm_people_ha", s.farm_people_ha, 0.0, 10_000.0),
+                    ("deposit_share", s.deposit_share, 0.0, 1.0),
+                    ("block_kg_m", s.block_kg_m, 0.0, 100_000.0),
+                    ("clear_h_t", s.clear_h_t, 0.0, 1000.0),
+                ] {
+                    if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                        p.push(format!(
+                            "`sewer.{name}` must be between {lo} and {hi} (got {v})"
+                        ));
+                    }
+                }
+                // A sewer that silts can block and be cleared (ADR-0044 §5).
+                if s.deposit_share > 0.0 && !(s.block_kg_m > 0.0 && s.clear_h_t > 0.0) {
+                    p.push(
+                        "`sewer.deposit_share` above 0 needs `block_kg_m` and `clear_h_t` above 0"
+                            .to_owned(),
+                    );
+                }
+                if s.walls.is_empty() || s.binders.is_empty() {
+                    p.push("`sewer.walls` and `sewer.binders` each name a good".to_owned());
+                }
+            }
+            (None, _) => {}
+            (Some(_), _) => p.push("`sewer` is for `does = \"lay_sewer\"`".to_owned()),
+        }
         // A polity's notes' terms (M10d slice EJ): only for `issue_notes`, which must have them.
         match (&self.notes, PolicyKind::from_name(&self.does)) {
             (None, Some(PolicyKind::IssueNotes)) => {
@@ -1451,12 +1686,21 @@ impl PolicyFile {
             (None, _) => {}
         }
         if let Some(t) = &self.tenure {
-            if !matches!(
-                PolicyKind::from_name(&self.does),
-                Some(PolicyKind::KeepStore | PolicyKind::KeepWatch)
-            ) {
+            // A forum's one holder is an office too (content API 226, backlog D; research 09-07
+            // §1.3: rotation and lottery are selection primitives of their own). A panel is
+            // drawn afresh for each case and the elders are nobody's to name, so neither holds a
+            // term.
+            let hearer = PolicyKind::from_name(&self.does) == Some(PolicyKind::HearCases)
+                && self.forum.as_ref().is_some_and(|f| f.seat == "holder");
+            if !hearer
+                && !matches!(
+                    PolicyKind::from_name(&self.does),
+                    Some(PolicyKind::KeepStore | PolicyKind::KeepWatch)
+                )
+            {
                 p.push(
-                    "`tenure` is for an office: `does` must be `keep_store` or `keep_watch`"
+                    "`tenure` is for an office: `does` must be `keep_store` or `keep_watch`, or \
+                     `hear_cases` with `forum.seat = \"holder\"`"
                         .to_owned(),
                 );
             }
@@ -1551,6 +1795,9 @@ impl PolicyFile {
                 | PolicyKind::KeepApart
                 | PolicyKind::KeepRegister
                 | PolicyKind::ClearMiddens
+                | PolicyKind::RefuseToTip
+                | PolicyKind::CollectRefuse
+                | PolicyKind::LaySewer
                 | PolicyKind::BearerHeard
                 | PolicyKind::IssueNotes
                 | PolicyKind::LegalTender
@@ -1630,6 +1877,9 @@ impl PolicyFile {
                 | PolicyKind::KeepApart
                 | PolicyKind::KeepRegister
                 | PolicyKind::ClearMiddens
+                | PolicyKind::RefuseToTip
+                | PolicyKind::CollectRefuse
+                | PolicyKind::LaySewer
                 | PolicyKind::BearerHeard
                 | PolicyKind::IssueNotes
                 | PolicyKind::LegalTender
@@ -1825,8 +2075,8 @@ impl PolicyFile {
             (Some(PolicyKind::BuildingRule), Some(r)) => match r.template() {
                 None => p.push(format!(
                     "`rule.template` is `{}`; templates are `roofs_unburnt`, `walls_of_kinds`, \
-                     `least_gap`, `fire_from_homes`, `midden_from_wells`, `most_storeys` and \
-                     `tied_walls`",
+                     `least_gap`, `fire_from_homes`, `midden_from_wells`, `most_storeys`, \
+                     `tied_walls` and `protected_frame`",
                     r.template
                 )),
                 // Research 12-03 §2.2: radiation from a burning dwelling falls from about 36
@@ -1847,6 +2097,13 @@ impl PolicyFile {
                     p.extend(walls_named(&r.walls));
                 }
                 Some(RuleTemplate::TiedWalls) => {}
+                // Research 11-14 §2.5: 30-120 minutes by a casing's thickness; a rule asks within
+                // a long fire's span.
+                Some(RuleTemplate::ProtectedFrame { minutes }) => {
+                    if !(1..=600).contains(&minutes) {
+                        p.push(format!("`rule.minutes` must be 1 to 600 (got {minutes})"));
+                    }
+                }
                 Some(RuleTemplate::WallsOfKinds { .. }) => {
                     p.extend(walls_named(&r.walls));
                 }
@@ -1939,6 +2196,9 @@ mod tests {
             holder_needs: None,
             register: None,
             middens: None,
+            tip: None,
+            round: None,
+            sewer: None,
             notes: None,
         }
     }
@@ -2195,6 +2455,7 @@ mod tests {
             gap_m: 0.0,
             from_m: 0.0,
             storeys: 0,
+            minutes: 0,
             needs: Some("core:technique/firing".to_owned()),
         };
         let roofs_with = |r: Option<RuleFile>| PolicyFile {
@@ -2271,6 +2532,7 @@ mod tests {
                 gap_m,
                 from_m: gap_m,
                 storeys: 0,
+                minutes: 0,
                 needs: None,
             }))
         };
@@ -2317,6 +2579,7 @@ mod tests {
                 gap_m: 0.0,
                 from_m: 0.0,
                 storeys,
+                minutes: 0,
                 needs: None,
             }))
         };

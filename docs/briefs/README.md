@@ -34,6 +34,7 @@ plan wins. Check a brief's citations against the reports before relying on one.
 | [m11-power.md](m11-power.md) | M11 | Electricity on what M10 built: a dynamo on a wheel or engine, a wire laid like a gas main, a radial tree dispatched by the hour, light and power by wire, who builds and pays |
 | [m11-movement.md](m11-movement.md) | M11 | The combustion engine as a component, motor vehicles on the ways, transit as posted runs, the telegraph as messages between offices |
 | [m11-building-waste.md](m11-building-waste.md) | M11 | Frames of steel and concrete and their materials, fire on metal; the heap's ash, residues as goods, tips, the refuse round, the destructor |
+| [m12-deliberator-viewers.md](m12-deliberator-viewers.md) | M12 | An optional model deliberator choosing among the kernel's moves, providers and the backend, saved answers; viewers beyond this machine with roles |
 
 The M4 briefs were written on 2026-10-07 for the M4 design (plan §9, "M4a design"); the M5
 briefs on 2026-10-09 for the M5 design (plan §9, "M5 design"); the M6 briefs on 2026-10-10 for

@@ -1,0 +1,21 @@
+# Picking ash out of the household's heap or its polity's open tip (ADR-0044 §2; research 12-10
+# §1.6: brickmakers bought the fine ash of London's dust heaps): sorting what lies there by hand at
+# the people profile's `sort_kg_h`, sifting out the ash and carrying it home. Only while the
+# household wants it, toward what it fires its bricks of, and only where no neighbour sells it for
+# fewer of its hours. Light work, bent over (a design prior).
+kind = "activity"
+id = "core:activity/pick_ash"
+name = "Pick ash"
+doing = "sifting refuse for ash"
+behavior = "pick"
+picks = "core:good/ash"
+par = 2.5
+min_age_years = 8.0
+max_age_years = 75.0
+min_minutes = 15
+max_minutes = 240
+daylight_only = true
+max_walk_minutes = 60
+technique = ""
+tools = []
+rate = 1.0

@@ -80,7 +80,7 @@ use civ_agents::knowledge::{KnowledgeEvent, KnowledgeEventKind};
 use civ_agents::ledger::{Channel, Trade};
 use civ_agents::market::{Market, MoneyBelief, MonthOfTrade, Offer};
 use civ_agents::person::{Know, KnowSource};
-use civ_agents::population::DepositKnown;
+use civ_agents::population::{DepositKnown, GroundLooked};
 use civ_agents::seats::Seats;
 use civ_agents::wealth::{Spread, WealthYear};
 use civ_agents::{
@@ -175,7 +175,8 @@ pub const SECTION_DEPOSITS: SectionTag = SectionTag::new("deposits");
 pub const SECTION_EARTH: SectionTag = SectionTag::new("earth");
 /// Section "ties" (schema 28): what each person remembers of others (ADR-0014).
 pub const SECTION_TIES: SectionTag = SectionTag::new("ties");
-/// Section: each settlement's polity, its laws and its store (schema 29, ADR-0013).
+/// Section: each settlement's polity, its laws and its store (schema 29, ADR-0013); with the
+/// model's answers to notables' deliberations (schema 220, ADR-0039 §4).
 pub const SECTION_POLITY: SectionTag = SectionTag::new("polity");
 /// Section: takings, what people believe of them, and what households owe (schema 31, ADR-0015).
 pub const SECTION_ORDER: SectionTag = SectionTag::new("order");
@@ -1055,7 +1056,8 @@ pub(super) fn decode<R: Read + Seek>(
     // Deposits (schema 19); an older save places them from the seed once it is loaded.
     if schema >= Schema::V19 {
         let bytes = single_chunk(reader, SECTION_DEPOSITS)?;
-        (land.deposits, people.deposits_known) = decode_deposits(&bytes, rules)?;
+        (land.deposits, people.deposits_known, people.ground_looked) =
+            decode_deposits(&bytes, rules)?;
     }
     // Earthworks (schema 20); before them nobody had changed the ground.
     if schema >= Schema::V20 {
@@ -1074,6 +1076,7 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V29 {
         let bytes = single_chunk(reader, SECTION_POLITY)?;
         people.polities = decode_polities(&bytes, rules)?;
+        people.deliberation.answers = decode_answers(&bytes)?;
         // Explicit migration: schemas through 103 had asked no bank mending.
         if schema < Schema::V104
             && people.polities.iter().any(|p| {
@@ -1217,6 +1220,7 @@ pub(super) fn decode<R: Read + Seek>(
         people.consignments = decode_consignments(&bytes, rules)?;
         people.kept = decode_kept(&bytes, rules)?;
         people.notes = decode_notes(&bytes, rules)?;
+        people.letting = decode_letting(&bytes, rules)?;
     }
     // Ways (schema 140); before, none.
     if schema >= Schema::V140 {
@@ -1373,7 +1377,7 @@ pub(super) fn decode<R: Read + Seek>(
             ));
         }
         // A raid names a recorded encounter, a band seen a recorded band (schema 111), a finding
-        // a recorded case (schema 126, M7b slice BS).
+        // a recorded case (schema 126, M7b slice BS), a debt kept or failed a loan or wages owed.
         let named = match c.kind {
             civ_agents::word::ClaimKind::Raid => Some((
                 c.event
@@ -1390,6 +1394,13 @@ pub(super) fn decode<R: Read + Seek>(
                     .is_some_and(|id| people.order.cases.iter().any(|x| x.id == id)),
                 Schema::V126,
             )),
+            // A default, a repayment or a guarantor's payment names a claim in the credit book
+            // (schema 220, backlog D).
+            k if k.of_a_debt() => Some((
+                c.event
+                    .is_some_and(|id| people.order.credit.claims.iter().any(|x| x.id == id)),
+                Schema::V220,
+            )),
             _ => None,
         };
         match named {
@@ -1397,7 +1408,7 @@ pub(super) fn decode<R: Read + Seek>(
             None if c.event.is_none() => {}
             _ => {
                 return Err(LoadError::Malformed(format!(
-                    "claim {} names no recorded encounter, band or case",
+                    "claim {} names no recorded encounter, band, case or loan",
                     c.id
                 )));
             }
@@ -2201,6 +2212,172 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 .collect();
             let raises = (!raises.is_empty()).then(|| fbb.create_vector(&raises));
             let raise_given = bank_share_rows(&mut fbb, &p.raise_given);
+            // Its tips (schema 220, M11f, second part; ADR-0038 §3).
+            let tips: Vec<_> = p
+                .tips
+                .iter()
+                .map(|t| {
+                    let households: Vec<u64> = t.households.iter().map(|h| h.get()).collect();
+                    let households = fbb.create_vector(&households);
+                    // What was tipped whole (ADR-0044 §1), absent while nothing was.
+                    let (discard_goods, discard_kg) = if t.discards.is_empty() {
+                        (None, None)
+                    } else {
+                        let g: Vec<u32> = t.discards.iter().map(|&(g, _)| u32::from(g)).collect();
+                        let kg: Vec<f64> = t.discards.iter().map(|&(_, kg)| kg).collect();
+                        (Some(fbb.create_vector(&g)), Some(fbb.create_vector(&kg)))
+                    };
+                    save::TipSave::create(
+                        &mut fbb,
+                        &save::TipSaveArgs {
+                            id: t.id.get(),
+                            law: t.law.get(),
+                            opened: t.opened,
+                            x: t.place.0,
+                            y: t.place.1,
+                            kg: t.kg,
+                            ash_kg: t.ash_kg,
+                            households: Some(households),
+                            discard_goods,
+                            discard_kg,
+                        },
+                    )
+                })
+                .collect();
+            let tips = (!tips.is_empty()).then(|| fbb.create_vector(&tips));
+            // Its refuse rounds (schema 220, M11f, third part; ADR-0038 §4).
+            let rounds: Vec<_> = p
+                .rounds
+                .iter()
+                .map(|r| {
+                    let homes: Vec<u64> = r.homes.iter().map(|h| h.get()).collect();
+                    let homes = fbb.create_vector(&homes);
+                    let runs: Vec<_> = r
+                        .runs
+                        .iter()
+                        .map(|x| {
+                            let households: Vec<u64> =
+                                x.calls.iter().map(|c| c.household.get()).collect();
+                            let kg: Vec<f64> = x.calls.iter().map(|c| c.kg).collect();
+                            let ash_kg: Vec<f64> = x.calls.iter().map(|c| c.ash_kg).collect();
+                            let discard_kg: Vec<f64> =
+                                x.calls.iter().map(|c| c.discard_kg).collect();
+                            let households = fbb.create_vector(&households);
+                            let kg = fbb.create_vector(&kg);
+                            let ash_kg = fbb.create_vector(&ash_kg);
+                            let discard_kg = fbb.create_vector(&discard_kg);
+                            // What its keeper kept of the load (ADR-0044 §3), absent while
+                            // nothing.
+                            let (kept_goods, kept_kg) = if x.kept.is_empty() {
+                                (None, None)
+                            } else {
+                                let g: Vec<u32> =
+                                    x.kept.iter().map(|&(g, _)| u32::from(g)).collect();
+                                let kg: Vec<f64> = x.kept.iter().map(|&(_, kg)| kg).collect();
+                                (Some(fbb.create_vector(&g)), Some(fbb.create_vector(&kg)))
+                            };
+                            save::RoundRunSave::create(
+                                &mut fbb,
+                                &save::RoundRunSaveArgs {
+                                    day: x.day,
+                                    hours: x.hours,
+                                    households: Some(households),
+                                    kg: Some(kg),
+                                    ash_kg: Some(ash_kg),
+                                    discard_kg: Some(discard_kg),
+                                    kept_goods,
+                                    kept_kg,
+                                },
+                            )
+                        })
+                        .collect();
+                    let runs = fbb.create_vector(&runs);
+                    save::RefuseRoundSave::create(
+                        &mut fbb,
+                        &save::RefuseRoundSaveArgs {
+                            id: r.id.get(),
+                            operator: r.operator.get(),
+                            cart: r.cart.get(),
+                            tip: r.tip.get(),
+                            law: r.law.map_or(0, PermanentId::get),
+                            homes: Some(homes),
+                            every_days: r.every_days,
+                            fee_kcal: r.fee_kcal,
+                            since: r.since,
+                            last_run: r.last_run,
+                            next: r.next,
+                            runs: Some(runs),
+                        },
+                    )
+                })
+                .collect();
+            let rounds = (!rounds.is_empty()).then(|| fbb.create_vector(&rounds));
+            // Its sewers (schema 220; ADR-0041 §1-§4).
+            let sewers: Vec<_> = p
+                .sewers
+                .iter()
+                .map(|w| {
+                    let cells = fbb.create_vector(&w.cells);
+                    let connections: Vec<save::SewerConnectionSave> = w
+                        .connections
+                        .iter()
+                        .map(|c| {
+                            save::SewerConnectionSave::new(
+                                c.household.get(),
+                                c.building.get(),
+                                c.since,
+                                c.day,
+                                c.kg,
+                                c.cause.code(),
+                            )
+                        })
+                        .collect();
+                    let connections = fbb.create_vector(&connections);
+                    // Its wear and mending (ADR-0044 §5).
+                    let unserved: Vec<save::SewerUnservedSave> = w
+                        .connections
+                        .iter()
+                        .map(|c| {
+                            save::SewerUnservedSave::new(
+                                c.unserved[0],
+                                c.unserved[1],
+                                c.unserved[2],
+                            )
+                        })
+                        .collect();
+                    let unserved = (!unserved.is_empty()).then(|| fbb.create_vector(&unserved));
+                    let loss = (!w.loss.is_empty()).then(|| fbb.create_vector(&w.loss));
+                    save::SewerSave::create(
+                        &mut fbb,
+                        &save::SewerSaveArgs {
+                            id: w.id.get(),
+                            law: w.law.get(),
+                            begun: w.begun,
+                            cells: Some(cells),
+                            reach: w.reach,
+                            length_m: w.length_m,
+                            laid_m: w.laid_m,
+                            capacity_kg_day: w.capacity_kg_day,
+                            keeper: w.keeper.map_or(0, PermanentId::get),
+                            connections: Some(connections),
+                            day: w.day,
+                            entered_kg: w.entered_kg,
+                            settled_kg: w.settled_kg,
+                            farm: w.farm.map_or(0, PermanentId::get),
+                            farm_kg: w.farm_kg,
+                            deposited_kg: w.deposited_kg,
+                            deposit_kg: w.deposit_kg,
+                            loss,
+                            broken_cell: w.broken.map_or(0, |b| b + 1),
+                            clear_kg: w.clear_kg,
+                            reline: w.reline,
+                            relined_m: w.relined_m,
+                            unserved,
+                        },
+                    )
+                })
+                .collect();
+            let sewers = (!sewers.is_empty()).then(|| fbb.create_vector(&sewers));
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -2275,17 +2452,59 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     tower: p.tower.map_or(0, PermanentId::get),
                     sickhouse: p.sickhouse.map_or(0, PermanentId::get),
                     measured_losses,
+                    tips,
+                    rounds,
+                    sewers,
                 },
             )
         })
         .collect();
     let list = fbb.create_vector(&list);
+    // The model's answers (schema 220, M12a; ADR-0039 §4).
+    let saved = &pop.deliberation.answers;
+    let answer_providers = (!saved.providers.is_empty()).then(|| {
+        let list: Vec<_> = saved
+            .providers
+            .iter()
+            .map(|p| {
+                let kind = fbb.create_string(&p.kind);
+                let model = fbb.create_string(&p.model);
+                save::ProviderSave::create(
+                    &mut fbb,
+                    &save::ProviderSaveArgs {
+                        kind: Some(kind),
+                        model: Some(model),
+                    },
+                )
+            })
+            .collect();
+        fbb.create_vector(&list)
+    });
+    let answers = (!saved.answers.is_empty()).then(|| {
+        let list: Vec<save::AnswerSave> = saved
+            .answers
+            .iter()
+            .map(|a| {
+                save::AnswerSave::new(
+                    a.notable.get(),
+                    a.day,
+                    a.digest,
+                    a.chosen.map_or(-1, i32::from),
+                    a.by.code(),
+                    a.provider,
+                )
+            })
+            .collect();
+        fbb.create_vector(&list)
+    });
     let root = save::Polities::create(
         &mut fbb,
         &save::PolitiesArgs {
             polities: Some(list),
             goods: Some(good_dictionary),
             policies: Some(policy_dictionary),
+            answer_providers,
+            answers,
         },
     );
     finish(fbb, root)
@@ -2394,6 +2613,8 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::StoreNotesRefused => 39,
         IssueKind::FalseNotesFound => 40,
         IssueKind::HomesUnlit => 41,
+        IssueKind::HeapsNear => 42,
+        IssueKind::ClosingUnsuspected => 43,
     }
 }
 
@@ -2404,6 +2625,58 @@ fn outcome_code(o: civ_agents::polity::Outcome) -> u8 {
 /// The polities of a save. A law naming a policy template the loaded content lacks, or any code
 /// this build does not know, refuses the save: a constitution is never rewritten to fit
 /// (ADR-0013 §2).
+/// The model's answers kept beside the polities (ADR-0039 §4, appended within saves 220): none,
+/// in older saves.
+fn decode_answers(bytes: &[u8]) -> Result<civ_agents::deliberation::Answers, LoadError> {
+    use civ_agents::deliberation::{Answers, ChosenBy, ProviderFingerprint, SavedAnswer};
+    let root = section_root::<save::Polities>(bytes).map_err(|e| unreadable(SECTION_POLITY, &e))?;
+    let providers: Vec<ProviderFingerprint> = root
+        .answer_providers()
+        .iter()
+        .flatten()
+        .map(|p| ProviderFingerprint {
+            kind: p.kind().unwrap_or_default().to_owned(),
+            model: p.model().unwrap_or_default().to_owned(),
+        })
+        .collect();
+    let mut answers = Vec::new();
+    let mut last_day = i64::MIN;
+    for a in root.answers().iter().flatten() {
+        let notable = required(a.notable(), "a notable's saved answer")?;
+        let by = ChosenBy::from_code(a.by());
+        let chosen = match a.chosen() {
+            -1 => Some(None),
+            c => u16::try_from(c).ok().map(Some),
+        };
+        let (Some(by), Some(chosen)) = (by, chosen) else {
+            return Err(LoadError::Malformed(format!(
+                "{notable}'s saved answer on day {} is malformed",
+                a.day()
+            )));
+        };
+        // Kept by day, and a move rules made is kept only where it made one.
+        if a.day() < last_day
+            || usize::from(a.provider()) >= providers.len()
+            || (by == ChosenBy::RuleFallback && chosen.is_none())
+        {
+            return Err(LoadError::Malformed(format!(
+                "{notable}'s saved answer on day {} is out of order or names no provider",
+                a.day()
+            )));
+        }
+        last_day = a.day();
+        answers.push(SavedAnswer {
+            notable,
+            day: a.day(),
+            digest: a.digest(),
+            chosen,
+            by,
+            provider: a.provider(),
+        });
+    }
+    Ok(Answers { providers, answers })
+}
+
 fn decode_polities(
     bytes: &[u8],
     rules: &Rules,
@@ -2542,6 +2815,8 @@ fn decode_polities(
                 39 => IssueKind::StoreNotesRefused,
                 40 => IssueKind::FalseNotesFound,
                 41 => IssueKind::HomesUnlit,
+                42 => IssueKind::HeapsNear,
+                43 => IssueKind::ClosingUnsuspected,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -3260,6 +3535,243 @@ fn decode_polities(
         let hall = PermanentId::from_raw(p.hall());
         let tower = PermanentId::from_raw(p.tower());
         let sickhouse = PermanentId::from_raw(p.sickhouse());
+        // Its tips (ADR-0038 §3, appended within saves 220): none, in older saves.
+        let mut tips = Vec::new();
+        for t in p.tips().iter().flatten() {
+            let tip = required(t.id(), "a tip")?;
+            let (kg, ash_kg, place) = (t.kg(), t.ash_kg(), (t.x(), t.y()));
+            if !(kg.is_finite() && kg >= 0.0 && ash_kg.is_finite() && ash_kg >= 0.0)
+                || !(place.0.is_finite() && place.1.is_finite())
+            {
+                return Err(bad(format!("polity {id}'s tip {tip} is malformed")));
+            }
+            let households = t
+                .households()
+                .iter()
+                .flatten()
+                .map(|raw| required(raw, "a household that tipped"))
+                .collect::<Result<Vec<_>, _>>()?;
+            if !households.windows(2).all(|w| w[0] < w[1]) {
+                return Err(bad(format!(
+                    "polity {id}'s tip {tip} lists households out of order"
+                )));
+            }
+            // What was tipped whole (ADR-0044 §1, appended within saves 220): nothing, in older
+            // saves; goods the content no longer has are dropped.
+            let gs: Vec<u32> = t.discard_goods().iter().flatten().collect();
+            let kgs: Vec<f64> = t.discard_kg().iter().flatten().collect();
+            if gs.len() != kgs.len() || !kgs.iter().all(|v| v.is_finite() && *v > 0.0) {
+                return Err(bad(format!(
+                    "polity {id}'s tip {tip} has malformed discards"
+                )));
+            }
+            let mut discards = Vec::with_capacity(gs.len());
+            for (g, kg) in gs.into_iter().zip(kgs) {
+                if let Some(g) = saved_good(&goods, g, || format!("polity {id}'s tip {tip}"))? {
+                    civ_agents::person::add_discard(&mut discards, usize::from(g), kg);
+                }
+            }
+            tips.push(civ_agents::polity::Tip {
+                id: tip,
+                law: required(t.law(), "a tip's law")?,
+                opened: t.opened(),
+                place,
+                kg,
+                ash_kg,
+                households,
+                discards,
+            });
+        }
+        // Its refuse rounds (ADR-0038 §4, appended within saves 220): none, in older saves.
+        let mut rounds = Vec::new();
+        for r in p.rounds().iter().flatten() {
+            let round = required(r.id(), "a refuse round")?;
+            // A fee may be below zero (ADR-0044 §3): the keeper pays the homes.
+            let fee_kcal = r.fee_kcal();
+            if !fee_kcal.is_finite() || r.every_days() == 0 {
+                return Err(bad(format!(
+                    "polity {id}'s refuse round {round} is malformed"
+                )));
+            }
+            let homes = r
+                .homes()
+                .iter()
+                .flatten()
+                .map(|raw| required(raw, "a home on a refuse round"))
+                .collect::<Result<Vec<_>, _>>()?;
+            let mut runs = Vec::new();
+            for x in r.runs().iter().flatten() {
+                let households: Vec<u64> = x.households().iter().flatten().collect();
+                let kg: Vec<f64> = x.kg().iter().flatten().collect();
+                let ash_kg: Vec<f64> = x.ash_kg().iter().flatten().collect();
+                // Each call's discards (ADR-0044 §1, appended within saves 220): none, in older
+                // saves.
+                let mut discard_kg: Vec<f64> = x.discard_kg().iter().flatten().collect();
+                if discard_kg.is_empty() {
+                    discard_kg = vec![0.0; households.len()];
+                }
+                if kg.len() != households.len()
+                    || ash_kg.len() != households.len()
+                    || discard_kg.len() != households.len()
+                    || !kg
+                        .iter()
+                        .chain(&ash_kg)
+                        .chain(&discard_kg)
+                        .all(|v| v.is_finite() && *v >= 0.0)
+                {
+                    return Err(bad(format!(
+                        "polity {id}'s refuse round {round} has a malformed run"
+                    )));
+                }
+                let mut calls = Vec::with_capacity(households.len());
+                for (((raw, kg), ash_kg), discard_kg) in
+                    households.into_iter().zip(kg).zip(ash_kg).zip(discard_kg)
+                {
+                    calls.push(civ_agents::polity::RoundCall {
+                        household: required(raw, "a home called at")?,
+                        kg,
+                        ash_kg,
+                        discard_kg,
+                    });
+                }
+                // What its keeper kept of the load (ADR-0044 §3, appended within saves 220):
+                // nothing, in older saves; goods the content no longer has are dropped.
+                let gs: Vec<u32> = x.kept_goods().iter().flatten().collect();
+                let kgs: Vec<f64> = x.kept_kg().iter().flatten().collect();
+                if gs.len() != kgs.len() || !kgs.iter().all(|v| v.is_finite() && *v > 0.0) {
+                    return Err(bad(format!(
+                        "polity {id}'s refuse round {round} kept a load malformed"
+                    )));
+                }
+                let mut kept = Vec::with_capacity(gs.len());
+                for (g, kg) in gs.into_iter().zip(kgs) {
+                    if let Some(g) =
+                        saved_good(&goods, g, || format!("polity {id}'s refuse round {round}"))?
+                    {
+                        civ_agents::person::add_discard(&mut kept, usize::from(g), kg);
+                    }
+                }
+                runs.push(civ_agents::polity::RoundRun {
+                    day: x.day(),
+                    hours: x.hours(),
+                    calls,
+                    kept,
+                });
+            }
+            rounds.push(civ_agents::polity::RefuseRound {
+                id: round,
+                operator: required(r.operator(), "a refuse round's keeper")?,
+                cart: required(r.cart(), "a refuse round's cart")?,
+                tip: required(r.tip(), "a refuse round's tip")?,
+                law: PermanentId::from_raw(r.law()),
+                homes,
+                every_days: r.every_days(),
+                fee_kcal,
+                since: r.since(),
+                last_run: r.last_run(),
+                next: r.next(),
+                runs,
+            });
+        }
+        // Its sewers (ADR-0041 §1-§4, appended within saves 220): none, in older saves.
+        let mut sewers = Vec::new();
+        for w in p.sewers().iter().flatten() {
+            let sewer = required(w.id(), "a sewer")?;
+            let (entered_kg, settled_kg, farm_kg) = (w.entered_kg(), w.settled_kg(), w.farm_kg());
+            let (deposited_kg, deposit_kg, clear_kg) =
+                (w.deposited_kg(), w.deposit_kg(), w.clear_kg());
+            if !([
+                entered_kg,
+                settled_kg,
+                farm_kg,
+                deposited_kg,
+                deposit_kg,
+                clear_kg,
+            ]
+            .iter()
+            .all(|v| v.is_finite() && *v >= 0.0)
+                && w.relined_m().is_finite()
+                && w.relined_m() >= 0.0
+                && w.length_m().is_finite()
+                && w.laid_m().is_finite()
+                && w.capacity_kg_day().is_finite())
+            {
+                return Err(bad(format!("polity {id}'s sewer {sewer} is malformed")));
+            }
+            // Its wear (ADR-0044 §5, appended within saves 220): all new, in older saves; where it
+            // is broken must be a collapsed cell.
+            let cells: Vec<u32> = w.cells().map(|v| v.iter().collect()).unwrap_or_default();
+            let loss: Vec<f32> = match w.loss() {
+                Some(v) => v.iter().collect(),
+                None => vec![0.0; cells.len()],
+            };
+            let broken = w.broken_cell().checked_sub(1);
+            if loss.len() != cells.len()
+                || !loss
+                    .iter()
+                    .all(|l| l.is_finite() && (0.0..=1.0).contains(l))
+                || broken.is_some_and(|b| loss.get(b as usize).is_none_or(|&l| l < 1.0))
+            {
+                return Err(bad(format!(
+                    "polity {id}'s sewer {sewer} has a malformed wear"
+                )));
+            }
+            let unserved: Vec<[u16; 3]> = w
+                .unserved()
+                .map(|v| {
+                    v.iter()
+                        .map(|u| [u.overloaded(), u.broken(), u.blocked()])
+                        .collect()
+                })
+                .unwrap_or_default();
+            if !unserved.is_empty() && unserved.len() != w.connections().map_or(0, |v| v.len()) {
+                return Err(bad(format!(
+                    "polity {id}'s sewer {sewer} has a malformed outage count"
+                )));
+            }
+            let mut connections = Vec::new();
+            for (ci, c) in w.connections().iter().flatten().enumerate() {
+                if !(c.kg().is_finite() && c.kg() >= 0.0) {
+                    return Err(bad(format!(
+                        "polity {id}'s sewer {sewer} has a malformed connection"
+                    )));
+                }
+                connections.push(civ_agents::polity::SewerConnection {
+                    household: required(c.household(), "a sewer's connection")?,
+                    building: required(c.building(), "a sewer connection's building")?,
+                    since: c.since(),
+                    day: c.day(),
+                    kg: c.kg(),
+                    cause: civ_agents::polity::SewerCause::from_code(c.cause()),
+                    unserved: unserved.get(ci).copied().unwrap_or([0; 3]),
+                });
+            }
+            sewers.push(civ_agents::polity::Sewer {
+                id: sewer,
+                law: required(w.law(), "a sewer's law")?,
+                begun: w.begun(),
+                cells,
+                reach: w.reach(),
+                length_m: w.length_m(),
+                laid_m: w.laid_m(),
+                capacity_kg_day: w.capacity_kg_day(),
+                broken,
+                keeper: PermanentId::from_raw(w.keeper()),
+                connections,
+                day: w.day(),
+                entered_kg,
+                settled_kg,
+                // Its farm (ADR-0044 §4, appended within saves 220): none, in older saves.
+                farm: PermanentId::from_raw(w.farm()),
+                farm_kg,
+                deposited_kg,
+                deposit_kg,
+                loss,
+                clear_kg,
+                reline: w.reline(),
+                relined_m: w.relined_m(),
+            });
+        }
         // Patron gifts (schema 131, M7c slice BY).
         let mut patron_gifts = Vec::new();
         for g in p.patron_gifts().iter().flatten() {
@@ -3436,6 +3948,9 @@ fn decode_polities(
             hall,
             tower,
             sickhouse,
+            tips,
+            rounds,
+            sewers,
         });
     }
     Ok(out)
@@ -4085,23 +4600,30 @@ fn encode_deposits(land: &Land, pop: &Population, goods: &[&str]) -> Vec<u8> {
         })
         .collect();
     let known = fbb.create_vector(&known);
+    let looked: Vec<save::GroundLookedEntry> = pop
+        .ground_looked
+        .entries()
+        .map(|(key, block, day)| save::GroundLookedEntry::new(key.get(), day, block))
+        .collect();
+    let looked = fbb.create_vector(&looked);
     let root = save::Deposits::create(
         &mut fbb,
         &save::DepositsArgs {
             goods: Some(dictionary),
             bodies: Some(bodies),
             known: Some(known),
+            looked: Some(looked),
         },
     );
     finish(fbb, root)
 }
 
-/// The bodies and what each settlement knows of them. Knowledge of a body that was dropped goes
-/// with it.
+/// The bodies, what each settlement knows of them, and the ground its prospectors have looked over
+/// (none in a save without it). Knowledge of a body that was dropped goes with it.
 fn decode_deposits(
     bytes: &[u8],
     rules: &Rules,
-) -> Result<(Vec<Deposit>, Vec<DepositKnown>), LoadError> {
+) -> Result<(Vec<Deposit>, Vec<DepositKnown>, GroundLooked), LoadError> {
     let root =
         section_root::<save::Deposits>(bytes).map_err(|e| unreadable(SECTION_DEPOSITS, &e))?;
     let goods: Vec<Option<usize>> = read_strings(root.goods())
@@ -4149,7 +4671,11 @@ fn decode_deposits(
             at: time(k.at()),
         });
     }
-    Ok((out, known))
+    let mut looked = GroundLooked::default();
+    for g in root.looked().iter().flatten() {
+        looked.mark(required(g.key(), "ground looked over")?, g.block(), g.day());
+    }
+    Ok((out, known, looked))
 }
 
 // ---- Helpers -----------------------------------------------------------------------------------
@@ -5600,6 +6126,19 @@ fn encode_households(
                     },
                 )
             });
+            // What was thrown on its midden whole (ADR-0044 §1), absent while nothing was.
+            let (discard_goods, discard_kg) = if h.midden.discards.is_empty() {
+                (None, None)
+            } else {
+                let g: Vec<u32> = h
+                    .midden
+                    .discards
+                    .iter()
+                    .map(|&(g, _)| u32::from(g))
+                    .collect();
+                let kg: Vec<f64> = h.midden.discards.iter().map(|&(_, kg)| kg).collect();
+                (Some(fbb.create_vector(&g)), Some(fbb.create_vector(&kg)))
+            };
             save::Household::create(
                 &mut fbb,
                 &save::HouseholdArgs {
@@ -5622,6 +6161,10 @@ fn encode_households(
                     midden_carried: h.midden.carried,
                     midden_x: h.midden.site.0,
                     midden_y: h.midden.site.1,
+                    midden_ash_kg: h.midden.ash_kg,
+                    midden_tipped: h.midden.tipped,
+                    midden_discard_goods: discard_goods,
+                    midden_discard_kg: discard_kg,
                     water_use_l: h.water_use_l,
                     water_walk_min: h.water_walk_min,
                     flood_home_cm: h.flood_memory.home_depth_cm,
@@ -5977,12 +6520,43 @@ fn decode_households(
                         "household {hh_id} has a midden of {kg} kg"
                     )));
                 }
+                // Its ash (ADR-0038 §2, appended within saves 220): none, in older saves.
+                let ash_kg = h.midden_ash_kg();
+                if !(ash_kg.is_finite() && ash_kg >= 0.0) {
+                    return Err(LoadError::Malformed(format!(
+                        "household {hh_id} has {ash_kg} kg of ash in its midden"
+                    )));
+                }
                 // Where it was carried from the water (schema 205): never, in older saves.
                 civ_agents::person::Midden {
                     kg,
+                    ash_kg,
                     at: time(h.midden_at()),
                     carried: h.midden_carried(),
                     site: (h.midden_x(), h.midden_y()),
+                    // Carried to a tip (ADR-0038 §3, appended within saves 220): never, in older
+                    // saves.
+                    tipped: h.midden_tipped(),
+                    // Its discards (ADR-0044 §1, appended within saves 220): none, in older
+                    // saves; goods the content no longer has are dropped.
+                    discards: {
+                        let gs: Vec<u32> = h.midden_discard_goods().iter().flatten().collect();
+                        let kgs: Vec<f64> = h.midden_discard_kg().iter().flatten().collect();
+                        if gs.len() != kgs.len() || !kgs.iter().all(|v| v.is_finite() && *v > 0.0) {
+                            return Err(LoadError::Malformed(format!(
+                                "household {hh_id} has malformed discards on its midden"
+                            )));
+                        }
+                        let mut out = Vec::with_capacity(gs.len());
+                        for (g, kg) in gs.into_iter().zip(kgs) {
+                            if let Some(g) =
+                                saved_good(&goods, g, || format!("household {hh_id}'s midden"))?
+                            {
+                                civ_agents::person::add_discard(&mut out, usize::from(g), kg);
+                            }
+                        }
+                        out
+                    },
                 }
             },
             flood_memory: if schema >= Schema::V93 {
@@ -6075,7 +6649,7 @@ fn decode_households(
                     let ok = l.hours().is_finite()
                         && l.hours() >= 0.0
                         && l.wall_kind() <= 3
-                        && (1..=civ_grammar::frame::MAX_STOREYS).contains(&l.storeys())
+                        && (1..=civ_grammar::frame::MAX_STOREYS_V4).contains(&l.storeys())
                         && building.is_some()
                         && out.last().is_none_or(|p| p.day <= l.day());
                     let (Some(building), true) = (building, ok) else {
@@ -7139,6 +7713,9 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::StationsOpened => 66,
         ChronicleKind::RecordWritten => 67,
         ChronicleKind::RecordLost => 68,
+        ChronicleKind::Sewer => 69,
+        ChronicleKind::Way => 70,
+        ChronicleKind::ConveyanceLaid => 71,
     }
 }
 
@@ -7212,6 +7789,9 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         66 => Some(ChronicleKind::StationsOpened),
         67 => Some(ChronicleKind::RecordWritten),
         68 => Some(ChronicleKind::RecordLost),
+        69 => Some(ChronicleKind::Sewer),
+        70 => Some(ChronicleKind::Way),
+        71 => Some(ChronicleKind::ConveyanceLaid),
         _ => None,
     }
 }
@@ -12701,6 +13281,62 @@ fn encode_consignments(people: &Population, rules: &Rules) -> Vec<u8> {
         })
         .collect();
     let note_found = fbb.create_vector(&found);
+    // Rooms let, asking rents moved and lets begun lately (schema 220, ADR-0040).
+    let letting = &people.letting;
+    let lets: Vec<_> = letting
+        .lets
+        .iter()
+        .map(|l| {
+            let good = goods.get(l.good).map(|g| fbb.create_string(&g.id));
+            let own_home = save::Point::new(l.own_home.0, l.own_home.1);
+            save::LetSave::create(
+                &mut fbb,
+                &save::LetSaveArgs {
+                    landlord: l.landlord.get(),
+                    lodger: l.lodger.get(),
+                    building: l.building.get(),
+                    floor_m2: l.floor_m2,
+                    good,
+                    rent_kg: l.rent_kg,
+                    begun: l.begun,
+                    due: l.due,
+                    next_review: l.next_review,
+                    unpaid: l.unpaid,
+                    own_home: Some(&own_home),
+                },
+            )
+        })
+        .collect();
+    let lets = (!lets.is_empty()).then(|| fbb.create_vector(&lets));
+    let asking: Vec<_> = letting
+        .asking
+        .iter()
+        .map(|(h, &food_days)| {
+            save::AskingRentSave::create(
+                &mut fbb,
+                &save::AskingRentSaveArgs {
+                    household: h.get(),
+                    food_days,
+                },
+            )
+        })
+        .collect();
+    let asking = (!asking.is_empty()).then(|| fbb.create_vector(&asking));
+    let begun: Vec<_> = letting
+        .begun
+        .iter()
+        .map(|b| {
+            save::LetBegunSave::create(
+                &mut fbb,
+                &save::LetBegunSaveArgs {
+                    day: b.day,
+                    settlement: b.settlement.get(),
+                    kcal_per_m2_month: b.kcal_per_m2_month,
+                },
+            )
+        })
+        .collect();
+    let lets_begun = (!begun.is_empty()).then(|| fbb.create_vector(&begun));
     let root = save::ConsignmentsSave::create(
         &mut fbb,
         &save::ConsignmentsSaveArgs {
@@ -12711,9 +13347,66 @@ fn encode_consignments(people: &Population, rules: &Rules) -> Vec<u8> {
             note_dishonoured: Some(note_dishonoured),
             note_forgeries: Some(note_forgeries),
             note_found: Some(note_found),
+            lets,
+            asking,
+            lets_begun,
         },
     );
     finish(fbb, root)
+}
+
+/// The rooms let saved in `bytes` (schema 220, ADR-0040): none before. A let reckoned in a good
+/// the loaded content no longer has is let go.
+fn decode_letting(bytes: &[u8], rules: &Rules) -> Result<civ_agents::letting::Letting, LoadError> {
+    use civ_agents::letting::{Let, LetBegun, Letting};
+    let goods = &rules.catalog.goods;
+    let root = section_root::<save::ConsignmentsSave>(bytes)
+        .map_err(|e| unreadable(SECTION_CONSIGNMENTS, &e))?;
+    let mut out = Letting::default();
+    let fine = |v: f64| v.is_finite() && v >= 0.0;
+    for l in root.lets().iter().flatten() {
+        let name = l.good().unwrap_or("");
+        let Some(good) = goods.iter().position(|d| d.id == name) else {
+            continue;
+        };
+        if !(fine(l.floor_m2()) && fine(l.rent_kg())) {
+            return Err(LoadError::Malformed("a room let".to_owned()));
+        }
+        let own_home = l.own_home().map_or((0.0, 0.0), |p| (p.x(), p.y()));
+        out.lets.push(Let {
+            landlord: required(l.landlord(), "a let's landlord")?,
+            lodger: required(l.lodger(), "a let's lodger")?,
+            building: required(l.building(), "a let's building")?,
+            floor_m2: l.floor_m2(),
+            good,
+            rent_kg: l.rent_kg(),
+            begun: l.begun(),
+            due: l.due(),
+            next_review: l.next_review(),
+            unpaid: l.unpaid(),
+            own_home,
+        });
+    }
+    for a in root.asking().iter().flatten() {
+        if !fine(a.food_days()) {
+            return Err(LoadError::Malformed("an asking rent".to_owned()));
+        }
+        out.asking.insert(
+            required(a.household(), "an asking rent's household")?,
+            a.food_days(),
+        );
+    }
+    for b in root.lets_begun().iter().flatten() {
+        if !fine(b.kcal_per_m2_month()) {
+            return Err(LoadError::Malformed("a let begun".to_owned()));
+        }
+        out.begun.push(LetBegun {
+            day: b.day(),
+            settlement: required(b.settlement(), "a let's settlement")?,
+            kcal_per_m2_month: b.kcal_per_m2_month(),
+        });
+    }
+    Ok(out)
 }
 
 /// The goods kept for others saved in `bytes` (schema 209, M10d slice EG; their receipts schema

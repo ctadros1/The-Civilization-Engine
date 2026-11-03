@@ -1478,9 +1478,36 @@ fn node_words(sim: &Sim, node: Node) -> String {
     match node {
         Node::Midden(h) => format!("the heap of {}", super::people::household_name(sim, h)),
         Node::Person(p) => sim.people.name_of(p),
+        // A tip (M11f, second part; ADR-0038 §3), by where it lies.
+        Node::Tip(t) => sim
+            .people
+            .polities
+            .iter()
+            .find_map(|p| Some((p, p.tips.iter().find(|x| x.id == t)?)))
+            .map_or_else(
+                || "a tip".to_owned(),
+                |(p, x)| super::government::tip_words(sim, p, x),
+            ),
         Node::Store(h) => format!(
             "the stored water of {}",
             super::people::household_name(sim, h)
+        ),
+        // Refuse drawn to be burned (M11f, fourth part; ADR-0038 §5).
+        Node::Refuse(h) => format!(
+            "the refuse held by {}",
+            super::people::household_name(sim, h)
+        ),
+        // A sewer's settling tank (ADR-0041 §4).
+        Node::Sewer(_) => "a sewer's settling tank".to_owned(),
+        // A sewage farm (ADR-0044 §4), by whose field it is.
+        Node::Field(f) => sim.land.fields.iter().find(|x| x.id == f).map_or_else(
+            || "a field a sewer was led onto".to_owned(),
+            |x| {
+                format!(
+                    "the field of {} a sewer is led onto",
+                    super::people::household_name(sim, x.household)
+                )
+            },
         ),
         other => source_words(sim, other),
     }
@@ -1513,7 +1540,7 @@ fn fouled_lines(sim: &Sim, o: &Outbreak, key: SourceKey) -> Vec<String> {
     for m in sim.people.contagion.moves.iter().filter(|m| {
         m.disease == o.disease
             && into(m.to)
-            && (m.how == How::Runoff || m.how == How::Arrived)
+            && (m.how == How::Runoff || m.how == How::Arrived || m.how == How::Carried)
             && m.day >= since
             && m.day <= until
     }) {
@@ -1536,6 +1563,9 @@ fn fouled_lines(sim: &Sim, o: &Outbreak, key: SourceKey) -> Vec<String> {
         .map(|(&(from, how), &(_, doses))| {
             let way = if how == How::Runoff.code() {
                 "washed from"
+            } else if how == How::Carried.code() {
+                // Into a river only a sewer carries (ADR-0041 §2).
+                "carried by a sewer from"
             } else {
                 "seeped through the ground from"
             };

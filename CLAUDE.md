@@ -19,6 +19,8 @@
 - Plausible, not proven: no research campaigns; time-box emergence and log `NUDGE:` entries.
 - ADRs only for expensive-to-reverse decisions (about three per milestone at most).
 - Never claim something works without running it.
+- In autonomous mode only the owner stops the loop; the backlog never runs dry (`AGENTS.md`,
+  "Autonomous mode").
 
 ## Everyday commands
 

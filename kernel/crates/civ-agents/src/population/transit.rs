@@ -93,7 +93,7 @@ impl Population {
     /// The kcal of food household `operator` puts on the fuel of a run of `minutes` by its cart's
     /// vehicle `vehicle`, at its own cost of the fuel and of food; `None` where it puts no figure
     /// on either.
-    fn run_cost_kcal(
+    pub(super) fn run_cost_kcal(
         &self,
         ctx: &Ctx,
         operator: PermanentId,
@@ -350,12 +350,9 @@ impl Population {
             }
             self.pay_food_by(ctx, household, ride.operator, ride.fare_kg, Channel::Fare);
         }
-        if let Some((fuel, kg)) = burn
-            && let Some(x) = self.household_mut(ride.operator)
-        {
-            let held = x.stores.get(fuel).copied().unwrap_or(0.0);
-            x.stores[fuel] = (held - kg).max(0.0);
-            x.flows.add(Flow::Used, fuel, kg);
+        if let Some((fuel, kg)) = burn {
+            // Its ash stays with the operator (ADR-0038 §5).
+            self.burn_engine_fuel(goods, ride.operator, fuel, kg);
         }
         let l = &mut ctx.land.runs.roads[i];
         l.last_run = at;

@@ -393,7 +393,10 @@ pub fn bed_height(map: &WorldMap, (x, y): (f64, f64)) -> f64 {
     }
     let fx = (x / cell - 0.5).clamp(0.0, (w - 1) as f64);
     let fy = (y / cell - 0.5).clamp(0.0, (h - 1) as f64);
-    let (x0, y0) = (fx.floor() as usize, fy.floor() as usize);
+    // Both are clamped to at least 0, where truncating is flooring (and a NaN casts to 0 either
+    // way): a cast, not `floor`, which is a call into libm on the baseline target and was a
+    // seventh of a 100,000-person day's instructions.
+    let (x0, y0) = (fx as usize, fy as usize);
     let (x1, y1) = ((x0 + 1).min(w - 1), (y0 + 1).min(h - 1));
     let (tx, ty) = (fx - x0 as f64, fy - y0 as f64);
     let z = |cx: usize, cy: usize| f64::from(map.elevation[cy * w + cx]);

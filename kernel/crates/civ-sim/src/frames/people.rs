@@ -1465,6 +1465,34 @@ pub fn family_notes(sim: &Sim, p: &Person) -> Vec<String> {
     if let Some(child) = p.nursing.and_then(|c| pop.person(c)) {
         out.push(format!("Nursing {}.", child.given));
     }
+    // Where their household lodges, or whom it lets to (ADR-0040 §6).
+    for w in lodging_words(sim, p.household) {
+        out.push(format!("Household {w}."));
+    }
+    out
+}
+
+/// Household `household`'s lets in words (ADR-0040 §6): "lodges with Ada's household, 9 m², 4 kg
+/// of food a month", or for each household it lets to, "lets 9 m² to Bo's household".
+pub fn lodging_words(sim: &Sim, household: PermanentId) -> Vec<String> {
+    let letting = &sim.people.letting;
+    let mut out = Vec::new();
+    if let Some(l) = letting.lodging(household) {
+        out.push(format!(
+            "lodges with {}, {:.0} m², {:.0} kg of food a month{}",
+            household_name(sim, l.landlord),
+            l.floor_m2,
+            l.rent_kg,
+            if l.unpaid > 0 { ", a month behind" } else { "" }
+        ));
+    }
+    for l in letting.letting(household) {
+        out.push(format!(
+            "lets {:.0} m² to {}",
+            l.floor_m2,
+            household_name(sim, l.lodger)
+        ));
+    }
     out
 }
 

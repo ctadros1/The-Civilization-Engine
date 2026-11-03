@@ -1900,8 +1900,13 @@ describe("decoders", () => {
     const text = e.createString("Saved");
     const event = W.Event.createEvent(e, 7n, 85_320n, 1n, W.EventKind.Saved, text);
     const list = W.Events.createEventsVector(e, [event]);
-    const events = M.decodeEvents(finish(e, W.Events.createEvents(e, list)));
+    // Wire 1.110 gave Events a table field, so flatc no longer writes Events.createEvents.
+    W.Events.startEvents(e);
+    W.Events.addEvents(e, list);
+    const payload = finish(e, W.Events.endEvents(e));
+    const events = M.decodeEvents(payload);
     expect(events).toEqual([{ id: 7, simMinute: 85_320, unixMs: 1, kind: "saved", text: "Saved" }]);
+    expect(M.decodeEventsViewers(payload)).toBeNull();
   });
 });
 

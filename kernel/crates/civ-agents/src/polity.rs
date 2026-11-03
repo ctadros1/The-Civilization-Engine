@@ -220,11 +220,24 @@ pub enum PolicyKind {
     /// line from a station of the settlement to homes that would be lit by it, each household
     /// asked an equal share of the stringing, as a line of track is laid together.
     LayCurrent,
+    /// Refuse carried to a tip (M11f, second part; ADR-0038 §3): passing it opens a tip the
+    /// polity names, clear of every source and home, and each household is asked to carry its
+    /// heap there; kept by choice, as clearing middens is, which it supersedes for a household.
+    RefuseToTip,
+    /// Refuse collected by law (M11f, third part; ADR-0038 §4): where a tip is open, the polity
+    /// runs a refuse round to it worked by a household with a cart, its hours paid from the store
+    /// as common work rather than by fees; kept by choice, as the others.
+    CollectRefuse,
+    /// A sewer laid together (ADR-0041 §1-§3): the polity lays a sewer along its ways from a head
+    /// among its homes to an outfall on a river, falling all the way, each household asked an
+    /// equal share of the work, as a line of current is strung together; homes along it connect
+    /// their privies.
+    LaySewer,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 45] = [
+    pub const ALL: [PolicyKind; 48] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -270,6 +283,9 @@ impl PolicyKind {
         PolicyKind::SuspendRedemption,
         PolicyKind::AgainstCounterfeiting,
         PolicyKind::LayCurrent,
+        PolicyKind::RefuseToTip,
+        PolicyKind::CollectRefuse,
+        PolicyKind::LaySewer,
     ];
 
     /// The authored name.
@@ -320,6 +336,9 @@ impl PolicyKind {
             PolicyKind::SuspendRedemption => "suspend_redemption",
             PolicyKind::AgainstCounterfeiting => "against_counterfeiting",
             PolicyKind::LayCurrent => "lay_current",
+            PolicyKind::RefuseToTip => "refuse_to_tip",
+            PolicyKind::CollectRefuse => "collect_refuse",
+            PolicyKind::LaySewer => "lay_sewer",
         }
     }
 
@@ -474,11 +493,19 @@ pub enum IssueKind {
     /// with current to spare, where a line strung together would spare them more than its
     /// stringing (M11a, eighth part): what `lay_current` answers.
     HomesUnlit,
+    /// A household's heap of the settlement, its decaying share and its ash, grew past the
+    /// content's size within the content's distance of another household's home (M11f, second
+    /// part; ADR-0038 §3): what `refuse_to_tip` answers.
+    HeapsNear,
+    /// A closing of a source of water is in force and nobody of the polity's households holds any
+    /// longer, from their own tally, that the water there sickens (backlog D; ADR-0021 §7): what
+    /// a `repeal` naming it answers.
+    ClosingUnsuspected,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 42] = [
+    pub const ALL: [IssueKind; 44] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -521,6 +548,8 @@ impl IssueKind {
         IssueKind::StoreNotesRefused,
         IssueKind::FalseNotesFound,
         IssueKind::HomesUnlit,
+        IssueKind::HeapsNear,
+        IssueKind::ClosingUnsuspected,
     ];
 
     /// The authored name.
@@ -568,6 +597,8 @@ impl IssueKind {
             IssueKind::StoreNotesRefused => "store_notes_refused",
             IssueKind::FalseNotesFound => "false_notes_found",
             IssueKind::HomesUnlit => "homes_unlit",
+            IssueKind::HeapsNear => "heaps_near",
+            IssueKind::ClosingUnsuspected => "closing_unsuspected",
         }
     }
 
@@ -652,6 +683,8 @@ impl IssueKind {
             IssueKind::HomesUnlit => {
                 "their homes lay dark beyond the wire of a station with current to spare"
             }
+            IssueKind::HeapsNear => "households' heaps grew large beside others' homes",
+            IssueKind::ClosingUnsuspected => "nobody holds any longer that the water there sickens",
         }
     }
 }
@@ -798,6 +831,12 @@ pub struct PolicyDef {
     pub register: Option<RegisterDef>,
     /// For clearing middens from the water: its terms (M10c slice EE, third part).
     pub middens: Option<MiddensDef>,
+    /// For refuse carried to a tip: its terms (M11f, second part; ADR-0038 §3).
+    pub tip: Option<TipDef>,
+    /// For refuse collected by law: its round's terms (M11f, third part; ADR-0038 §4).
+    pub round: Option<RoundDef>,
+    /// For a sewer laid together: its terms (ADR-0041 §1-§4).
+    pub sewer: Option<SewerDef>,
     /// For notes issued: their terms (M10d slice EJ).
     pub notes: Option<NotesDef>,
 }
@@ -826,6 +865,288 @@ pub struct MiddensDef {
     pub keep_days: u16,
     pub carry_h: f32,
     pub avoided_share: f32,
+}
+
+/// The terms of a law carrying refuse to a tip (M11f, second part; ADR-0038 §3): how far the tip
+/// stands from every open well, spring, stream and home, metres; how many days at least between a
+/// household's carryings; the hours a carrying takes and the share of its deaths of disease within
+/// the year a household believes a cleaner place would have spared (design priors it weighs); and
+/// the heap, kilograms, and the distance from another's home, metres, past which a heap raises
+/// the issue `heaps_near`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TipDef {
+    pub from_m: f32,
+    pub every_days: u16,
+    pub carry_h: f32,
+    pub avoided_share: f32,
+    pub heap_kg: f32,
+    pub heap_near_m: f32,
+}
+
+/// The terms of a law collecting refuse (M11f, third part; ADR-0038 §4): the days between its
+/// round's runs, and the hours a run takes as a household weighs the law (a design prior).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RoundDef {
+    pub every_days: u16,
+    pub round_h: f32,
+}
+
+/// The terms of a law laying a sewer (ADR-0041 §1-§4; research 12-02 §1.5, 12-10 §1.7, §5.8),
+/// design priors all: the goods its walls may be built of (any one) and the kilograms of them a
+/// metre takes; the goods that bind them (lime or cement, any one) and the kilograms a metre
+/// takes; the hours a metre's digging, building and filling in takes; the least fall it keeps, a
+/// share of its length; what it carries a day, kilograms of heaps' decaying share; the years it
+/// serves; the hours a home's connection takes once (0: free); the share of its deaths of disease
+/// within the year a household believes a sewer would have spared; at a settling tank (the good
+/// `tank`, held whole by its keeper), the share of the day's load, mass and each disease, that
+/// settles as the good `sludge`; the people whose discharge a hectare of a sewage farm takes
+/// (ADR-0044 §4; 0: no farm); and its wear and silt (ADR-0044 §5): the share of what enters a day
+/// that stays in it as deposit (0: none), the deposit a metre holds before it is blocked,
+/// kilograms, and the hours clearing a tonne of it takes.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SewerDef {
+    pub walls: Vec<usize>,
+    pub walls_kg_m: f32,
+    pub binders: Vec<usize>,
+    pub binder_kg_m: f32,
+    pub lay_h_m: f32,
+    pub fall: f32,
+    pub capacity_kg_day: f32,
+    pub life_years: f32,
+    pub connect_h: f32,
+    pub avoided_share: f32,
+    pub settle_share: f32,
+    pub tank: Option<usize>,
+    pub sludge: Option<usize>,
+    pub farm_people_ha: f32,
+    pub deposit_share: f32,
+    pub block_kg_m: f32,
+    pub clear_h_t: f32,
+}
+
+/// Why a connection's share did or did not go into its sewer on a day (ADR-0041 §2).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SewerCause {
+    /// It went in.
+    #[default]
+    Served,
+    /// The sewer carried as much as it could for those connected before it.
+    Overloaded,
+    /// The sewer is broken at or below where it enters (ADR-0044 §5).
+    Broken,
+    /// The sewer's deposit took the room it once had for it (ADR-0044 §5).
+    Blocked,
+}
+
+impl SewerCause {
+    /// As saved.
+    pub fn code(self) -> u8 {
+        match self {
+            SewerCause::Served => 0,
+            SewerCause::Overloaded => 1,
+            SewerCause::Broken => 2,
+            SewerCause::Blocked => 3,
+        }
+    }
+
+    /// From its saved code; an unknown one reads as served.
+    pub fn from_code(code: u8) -> SewerCause {
+        match code {
+            1 => SewerCause::Overloaded,
+            2 => SewerCause::Broken,
+            3 => SewerCause::Blocked,
+            _ => SewerCause::Served,
+        }
+    }
+}
+
+/// A home's privy connected to a sewer (ADR-0041 §2): its household and building, the day it
+/// connected, and its last day: the day (-1 never), the kilograms of its heap's decaying share
+/// that went in, and why it did or did not; and the days of the calendar year of its last day it
+/// went unserved, by cause (ADR-0044 §5): the sewer full, broken, blocked.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SewerConnection {
+    pub household: PermanentId,
+    pub building: PermanentId,
+    pub since: i64,
+    pub day: i64,
+    pub kg: f64,
+    pub cause: SewerCause,
+    pub unserved: [u16; 3],
+}
+
+impl SewerConnection {
+    /// The days of the calendar year of its last day it went unserved for `cause` (0 for
+    /// `Served`).
+    pub fn days_unserved(&self, cause: SewerCause) -> u16 {
+        match cause {
+            SewerCause::Served => 0,
+            c => self.unserved[usize::from(c.code() - 1)],
+        }
+    }
+}
+
+/// A sewer a polity lays by law (ADR-0041 §1-§4): the cells it runs along from its head to its
+/// outfall (the last, a river cell, on reach `reach`), its length and how much of it is laid,
+/// metres, what it carries a day, kilograms, where it is broken (ADR-0044 §5: the index in
+/// `cells` of the collapsed cell nearest the outfall; `None`: whole), the household that keeps
+/// its settling tank (`None`: the polity's store), its connections in the order made, and its last
+/// day: the day (-1 never), the kilograms that went in, the kilograms of them that stayed as
+/// deposit (ADR-0044 §5) and that settled as sludge; the field its flow is led onto as a sewage
+/// farm (ADR-0044 §4; `None`: none) and the kilograms of the day's that farm took; the rest went
+/// to the river. What settled holds its share of each disease at
+/// [`crate::contagion::Node::Sewer`], and what the farm took at [`crate::contagion::Node::Field`].
+///
+/// Its wear and mending (ADR-0044 §5): the deposit it holds, kilograms (mass only); each route
+/// cell's loss, 0 new to 1 collapsed; and the mending its polity asked: the deposit still to clear,
+/// kilograms, whether its collapsed cells are to be relined, and the metres of the broken cell
+/// relined so far. Saved.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Sewer {
+    pub id: PermanentId,
+    pub law: PermanentId,
+    pub begun: i64,
+    pub cells: Vec<u32>,
+    pub reach: u32,
+    pub length_m: f32,
+    pub laid_m: f32,
+    pub capacity_kg_day: f32,
+    pub broken: Option<u32>,
+    pub keeper: Option<PermanentId>,
+    pub connections: Vec<SewerConnection>,
+    pub day: i64,
+    pub entered_kg: f64,
+    pub deposited_kg: f64,
+    pub settled_kg: f64,
+    pub farm: Option<PermanentId>,
+    pub farm_kg: f64,
+    pub deposit_kg: f64,
+    pub loss: Vec<f32>,
+    pub clear_kg: f64,
+    pub reline: bool,
+    pub relined_m: f32,
+}
+
+impl Sewer {
+    /// Whether its whole length is laid, so that it carries.
+    pub fn whole(&self) -> bool {
+        self.laid_m + 1e-3 >= self.length_m
+    }
+
+    /// Whether route cell `i` has collapsed (ADR-0044 §5).
+    pub fn collapsed(&self, i: usize) -> bool {
+        self.loss.get(i).is_some_and(|&l| l >= 1.0)
+    }
+
+    /// The collapsed cell nearest the outfall, by index in `cells`: where it is broken.
+    pub fn lowest_collapse(&self) -> Option<u32> {
+        (0..self.loss.len())
+            .rev()
+            .find(|&i| self.collapsed(i))
+            .and_then(|i| u32::try_from(i).ok())
+    }
+
+    /// Its most worn cell that has not collapsed, by index in `cells`, and its loss.
+    pub fn worst(&self) -> Option<(usize, f32)> {
+        self.loss
+            .iter()
+            .enumerate()
+            .filter(|&(_, &l)| l < 1.0)
+            .max_by(|a, b| a.1.total_cmp(b.1).then(b.0.cmp(&a.0)))
+            .map(|(i, &l)| (i, l))
+    }
+}
+
+/// One home's heap loaded on a refuse round's run (ADR-0038 §4): the household, and the kilograms
+/// of its decaying share, of its ash and of its discards (ADR-0044 §1) that went into the cart and
+/// on to the tip.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RoundCall {
+    pub household: PermanentId,
+    pub kg: f64,
+    pub ash_kg: f64,
+    pub discard_kg: f64,
+}
+
+/// A refuse round's run (ADR-0038 §4): the day, its keeper's hours on it (sorting included), and
+/// the homes called at in order with what each gave; and what its keeper sorted out of the load
+/// and kept before tipping it (ADR-0044 §3), kilograms by good index, sorted by good, none at zero.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RoundRun {
+    pub day: i64,
+    pub hours: f32,
+    pub calls: Vec<RoundCall>,
+    pub kept: Vec<(u16, f64)>,
+}
+
+/// A refuse round (M11f, third part; ADR-0038 §4): a household keeping a cart calls at the homes on
+/// it every so many days, empties their heaps into the cart up to its payload and tips the load at
+/// the tip it names. Posted by the household for a fee per call in food (the `Refuse` channel), or
+/// run under a law collecting refuse, its hours paid from the store. Kept by the polity whose tip
+/// it carries to. Saved.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RefuseRound {
+    pub id: PermanentId,
+    /// The household that works it, and its cart.
+    pub operator: PermanentId,
+    pub cart: PermanentId,
+    /// The tip it carries to.
+    pub tip: PermanentId,
+    /// The law collecting refuse it runs under, if any: then the store pays its hours and homes
+    /// pay no fee.
+    pub law: Option<PermanentId>,
+    /// The homes it calls at, by household, in calling order.
+    pub homes: Vec<PermanentId>,
+    /// Days between runs.
+    pub every_days: u16,
+    /// A call's fee, kcal of food (0 under a law). Below zero, the keeper pays each home called
+    /// at the difference (ADR-0044 §3): what it keeps of the load is worth more than its hours.
+    pub fee_kcal: f32,
+    /// The day it was posted, and the day of its last run (-1 never).
+    pub since: i64,
+    pub last_run: i64,
+    /// The index in `homes` its next run calls at first: homes a run could not carry wait.
+    pub next: u32,
+    /// Its runs within the last year, oldest first.
+    pub runs: Vec<RoundRun>,
+}
+
+impl RefuseRound {
+    /// Kilograms it carried, decaying share, ash and discards, on runs since day `since`.
+    pub fn carried_since(&self, since: i64) -> f64 {
+        self.runs
+            .iter()
+            .filter(|r| r.day >= since)
+            .flat_map(|r| &r.calls)
+            .map(|c| c.kg + c.ash_kg + c.discard_kg)
+            .sum()
+    }
+}
+
+/// A tip a polity opened under a law carrying refuse to one (M11f, second part; ADR-0038 §3): a
+/// place, and what was tipped there, kilograms of the heaps' decaying share and of their ash. What
+/// a heap carried held of a disease lies at the contagion node [`crate::contagion::Node::Tip`].
+/// Saved.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Tip {
+    /// Permanent id: its contagion node's.
+    pub id: PermanentId,
+    /// The law that opened it.
+    pub law: PermanentId,
+    /// The day it was opened.
+    pub opened: i64,
+    /// Where it lies, metres.
+    pub place: (f32, f32),
+    /// Kilograms tipped of the heaps' decaying share, as they were tipped (it does not decay
+    /// here: ADR-0038 §6 defers what becomes of a tip).
+    pub kg: f64,
+    /// Kilograms of ash tipped.
+    pub ash_kg: f64,
+    /// The households that tipped here, by id, sorted.
+    pub households: Vec<PermanentId>,
+    /// What was tipped here whole (ADR-0044 §1): kilograms by good index, sorted by good, none at
+    /// zero.
+    pub discards: Vec<(u16, f64)>,
 }
 
 /// What a household believes a register of the sick spares it (M10c slice EE, second part): the
@@ -1085,6 +1406,9 @@ pub enum RuleTemplate {
     /// Mass walls of more than a storey must be tied at each floor (M8d slice DB, ADR-0031 §5: a
     /// technique rule).
     TiedWalls,
+    /// A steel skeleton must be cased against fire for at least `minutes` minutes (ADR-0037 §5:
+    /// a technique rule).
+    ProtectedFrame { minutes: u16 },
 }
 
 /// The names of the wall kinds, by kind code (ADR-0022 §10).
@@ -1101,6 +1425,7 @@ impl RuleTemplate {
             RuleTemplate::MiddenFromWells { .. } => "midden_from_wells",
             RuleTemplate::MostStoreys { .. } => "most_storeys",
             RuleTemplate::TiedWalls => "tied_walls",
+            RuleTemplate::ProtectedFrame { .. } => "protected_frame",
         }
     }
 
@@ -1130,6 +1455,9 @@ impl RuleTemplate {
             RuleTemplate::TiedWalls => {
                 "new walls of stone or brick above a storey must be tied at each floor".to_owned()
             }
+            RuleTemplate::ProtectedFrame { minutes } => format!(
+                "a new steel frame must be cased against fire for at least {minutes} minutes"
+            ),
         }
     }
 }
@@ -1993,6 +2321,12 @@ pub fn law_words(
                 household doing its share of the work"
             .to_owned();
     }
+    // Without the site at hand (see [`Polity::words_of`]), only what it is (ADR-0041 §3).
+    if def.is_some_and(|d| d.kind == PolicyKind::LaySewer) {
+        return "a sewer laid together from the homes to the river, each household doing its share \
+                of the work"
+            .to_owned();
+    }
     // Without the site at hand (see [`Polity::words_of`]), only what it is (M8d slice DC).
     if let Some(d) = def.filter(|d| d.kind == PolicyKind::RaiseBuilding) {
         return format!(
@@ -2100,6 +2434,28 @@ pub fn law_words(
             m.distance_m
         );
     }
+    // Refuse collected by law (M11f, third part; ADR-0038 §4).
+    if let Some(r) = def
+        .filter(|d| d.kind == PolicyKind::CollectRefuse)
+        .and_then(|d| d.round)
+    {
+        return format!(
+            "that a refuse round empties the households' heaps into a cart every {} days and \
+             carries them to the tip, its hours paid from the store",
+            r.every_days
+        );
+    }
+    // Refuse carried to a tip (M11f, second part; ADR-0038 §3).
+    if let Some(t) = def
+        .filter(|d| d.kind == PolicyKind::RefuseToTip)
+        .and_then(|d| d.tip)
+    {
+        return format!(
+            "that each household carries its heap to a tip at least {:.0} m from every source and \
+             home, at most every {} days",
+            t.from_m, t.every_days
+        );
+    }
     if def.is_some_and(|d| d.kind == PolicyKind::KeepRegister) {
         return match law.holder {
             Some(h) => format!("{} to keep a register of the sick{instead}", name_of(h)),
@@ -2184,6 +2540,9 @@ pub fn ending_words(
         Some(PolicyKind::KeepSchool) => who("keeping of the school"),
         Some(PolicyKind::KeepRegister) => who("keeping of the register of the sick"),
         Some(PolicyKind::ClearMiddens) => "the clearing of middens from the water".to_owned(),
+        Some(PolicyKind::RefuseToTip) => "the carrying of refuse to the tip".to_owned(),
+        Some(PolicyKind::CollectRefuse) => "the collecting of refuse".to_owned(),
+        Some(PolicyKind::LaySewer) => "the laying of the sewer".to_owned(),
         Some(PolicyKind::BearerHeard) => "the hearing of refused notes".to_owned(),
         Some(PolicyKind::IssueNotes) => "the store's notes".to_owned(),
         Some(PolicyKind::LegalTender) => "the store's notes as legal tender".to_owned(),
@@ -2538,6 +2897,13 @@ pub struct Polity {
     /// What its settlements measured of the losses a public building would answer, a year each,
     /// the latest [`MEASURED_YEARS`] (M8d slice DC, ADR-0031 §6).
     pub measured: Vec<Measured>,
+    /// The tips its laws opened, in the order opened (M11f, second part; ADR-0038 §3).
+    pub tips: Vec<Tip>,
+    /// The refuse rounds that carry to its tips, in the order posted (M11f, third part;
+    /// ADR-0038 §4).
+    pub rounds: Vec<RefuseRound>,
+    /// The sewers its laws lay, in the order begun (ADR-0041 §1).
+    pub sewers: Vec<Sewer>,
 }
 
 /// Years of [`Measured`] a polity keeps.
@@ -2924,6 +3290,14 @@ pub struct CustomVersion {
 }
 
 impl Polity {
+    /// Seats the present custom no longer has lapse at once: a council made smaller keeps its
+    /// first seats, and a body that is no longer a council keeps none (ADR-0024 §1: a council
+    /// counts its seats, so none beyond them may sit).
+    pub fn lapse_seats_beyond_custom(&mut self) {
+        let n = self.body.seats.map_or(0, |s| s.n);
+        self.seated.retain(|s| s.seat < n);
+    }
+
     /// The body that decided what it decided at `t`: the version of the custom in force before
     /// then (one that began at `t` was made by what was decided then, under the one before).
     pub fn body_at(&self, t: SimTime) -> &Body {
@@ -2989,6 +3363,9 @@ impl Polity {
             elections: Vec::new(),
             patron_gifts: Vec::new(),
             measured: Vec::new(),
+            tips: Vec::new(),
+            rounds: Vec::new(),
+            sewers: Vec::new(),
         }
     }
 
@@ -3137,6 +3514,16 @@ impl Polity {
         self.way_saves
             .binary_search_by_key(&(law, household), |s| (s.0, s.1))
             .map_or(0.0, |i| self.way_saves[i].2)
+    }
+
+    /// The hours all households have given to law `law`'s passing place (backlog D, fourteenth
+    /// item).
+    pub fn way_given_all(&self, law: PermanentId) -> f64 {
+        self.way_given
+            .iter()
+            .filter(|g| g.0 == law)
+            .map(|g| f64::from(g.2))
+            .sum()
     }
 
     /// The hours household `household` has given to law `law`'s passing place.
@@ -3472,6 +3859,16 @@ impl Polity {
                 site.labour_h
             );
         }
+        // A sewer laid together says the work it asks (ADR-0041 §3).
+        if kind == Some(PolicyKind::LaySewer)
+            && let Some(site) = self.way_site_of(law.id)
+        {
+            return format!(
+                "a sewer laid together from the homes to the river, each household doing its share \
+                 of {:.0} hours of work",
+                site.labour_h
+            );
+        }
         // A line of current strung together says the work it asks (M11a, eighth part).
         if kind == Some(PolicyKind::LayCurrent)
             && let Some(site) = self.way_site_of(law.id)
@@ -3754,13 +4151,16 @@ pub struct MoveOption {
 pub struct Choice {
     /// The move made, by index in the options; `None` for making none.
     pub chosen: Option<usize>,
-    /// Each option's score, points, in order; then the outside option's.
+    /// Each option's score, points, in order; then the outside option's. The rule deliberator's
+    /// scores, whoever chose (ADR-0039 §4).
     pub scores: Vec<f64>,
+    /// Who chose (ADR-0039 §4).
+    pub by: crate::deliberation::ChosenBy,
 }
 
 /// How a person who may make institutional moves chooses among them (ADR-0013 §5): from a copy
-/// of the facts and the moves available, a choice and its receipt. A rule-based one now; another
-/// (an LLM's, plan §8) can stand in its place.
+/// of the facts and the moves available, a choice and its receipt. The rule-based one; a model may
+/// choose in its place through [`crate::deliberation`] (ADR-0039 §2).
 pub trait Deliberator {
     /// Chooses among `moves` or none, with `u` a keyed draw in 0-1.
     fn choose(&self, moves: &[MoveOption], u: f64) -> Choice;
@@ -3794,6 +4194,7 @@ impl Deliberator for RuleDeliberator<'_> {
         Choice {
             chosen: picked.filter(|&i| i < moves.len()),
             scores,
+            by: crate::deliberation::ChosenBy::Rule,
         }
     }
 }
@@ -3808,6 +4209,41 @@ pub(crate) mod tests {
 
     fn pid(n: u64) -> PermanentId {
         PermanentId::from_raw(n).expect("non-zero")
+    }
+
+    /// Homelab run 15's ten-year smoke (ria_coast seed 3): a council amended to fewer seats kept
+    /// its extra holders until the next election, so six sat where five seats were counted.
+    #[test]
+    fn seats_a_smaller_council_no_longer_has_lapse_at_once() {
+        use crate::seats::{Seat, SeatMethod, Seats};
+        let t = |day: i64| SimTime::from_minutes(day * 24 * 60);
+        let mut polity = Polity::found(pid(1), pid(2), t(0), &params());
+        let seats = |n: u8| Seats {
+            n,
+            electorate: Membership::Adults,
+            method: SeatMethod::Election,
+            term_days: 365,
+            by_settlement: false,
+        };
+        polity.body.seats = Some(seats(7));
+        polity.seated = (0..7u8)
+            .map(|i| Seat {
+                seat: i,
+                holder: pid(100 + u64::from(i)),
+                since: 0,
+                until: 400,
+                election: 1,
+            })
+            .collect();
+        polity.body.seats = Some(seats(5));
+        polity.lapse_seats_beyond_custom();
+        assert_eq!(polity.seated.len(), 5);
+        assert!(polity.seated.iter().all(|s| s.seat < 5));
+        assert!(polity.seated.len() as u32 <= polity.body.eligible(0));
+        // A body that is no longer a council keeps no seats.
+        polity.body.seats = None;
+        polity.lapse_seats_beyond_custom();
+        assert!(polity.seated.is_empty());
     }
 
     #[test]
@@ -3993,6 +4429,9 @@ pub(crate) mod tests {
             holder_needs: None,
             register: None,
             middens: None,
+            tip: None,
+            round: None,
+            sewer: None,
             notes: None,
         };
         let policies = [
@@ -4119,6 +4558,9 @@ pub(crate) mod tests {
             holder_needs: None,
             register: None,
             middens: None,
+            tip: None,
+            round: None,
+            sewer: None,
             notes: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
@@ -4353,6 +4795,9 @@ pub(crate) mod tests {
             holder_needs: None,
             register: None,
             middens: None,
+            tip: None,
+            round: None,
+            sewer: None,
             notes: None,
         }];
         assert!(

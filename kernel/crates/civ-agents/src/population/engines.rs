@@ -349,6 +349,8 @@ impl Population {
             }
             let burn = (kwh * per_kwh).min(o.stores[g].max(0.0));
             o.stores[g] -= burn;
+            // Its ash stays in the owner's store (ADR-0038 §5), counted made below.
+            make::leave_ash(goods, &mut o.stores, g, burn);
             done += burn / per_kwh;
             kwh -= burn / per_kwh;
         }
@@ -356,7 +358,9 @@ impl Population {
             return;
         }
         let hours = done / e.rated_kw.max(1e-9);
-        make::wear(&mut o.stores, goods, &[engine], hours);
+        for (g, kg) in make::wear(&mut o.stores, goods, &[engine], hours) {
+            o.midden.discard(g, kg);
+        }
         o.flows
             .add_changes(&before, &o.stores, Flow::Made, Flow::Used);
         let left = state.water_m3 * (1.0 - (done / need_kwh.max(1e-12)).min(1.0));

@@ -14,6 +14,7 @@ use civ_land::ways::Keeper;
 
 use super::{AgentEvent, Ctx, Flow, Household, Population, cell_centre, cell_of, fuel_per_day};
 use crate::decide::WayFacts;
+use crate::history::Conveyance;
 use crate::ledger::{Channel, Leg};
 use crate::params::{Catalog, GoodUse};
 use crate::{decide, make};
@@ -627,10 +628,22 @@ impl Population {
         if m.length_m - m.laid_m < 1e-3 {
             m.laid_m = m.length_m;
         }
+        // Laid whole by this work (backlog D, twelfth item): its route and length, to tell.
+        let laid = m.whole().then(|| (m.cells.clone(), f64::from(m.length_m)));
         let pipe = (metres * params.good_kg_m).min(held);
         if pipe > 0.0 {
             x.stores[params.good] = held - pipe;
             x.flows.add(Flow::Used, params.good, pipe);
+        }
+        if let Some((cells, length_m)) = laid {
+            self.tell_conveyance_laid(
+                ctx,
+                Conveyance::GasMain,
+                household,
+                (None, None),
+                &cells,
+                length_m,
+            );
         }
     }
 

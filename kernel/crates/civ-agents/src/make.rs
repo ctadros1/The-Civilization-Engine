@@ -75,7 +75,12 @@ pub fn tool_ages(catalog: &crate::params::Catalog, known: &dyn Fn(usize) -> bool
     };
     for a in &catalog.activities {
         // Work that needs no tool is not asked about: most do, and asking reads every member.
-        if catalog.tools_of(a).next().is_none() {
+        // (Its own list and its recipe's both empty: what `tools_of` would yield nothing for.)
+        let recipe_tools = a
+            .recipe
+            .and_then(|r| catalog.recipes.get(r))
+            .map_or(&[][..], |r| r.tools.as_slice());
+        if a.tools.is_empty() && recipe_tools.is_empty() {
             continue;
         }
         let usable = catalog.technique_of(a).is_none_or(&mut knows);
@@ -165,7 +170,8 @@ pub fn way_to_tool(
 ) -> Option<usize> {
     let makes = |r: &RecipeDef, g: usize| r.outputs.iter().any(|&(o, _)| o == g);
     let own = catalog.recipes.iter().position(|r| makes(r, t));
-    let others: Vec<(usize, usize)> = serving(&catalog.goods, t)
+    // Walked as they are weighed, not gathered first: most tools have no other.
+    let mut others = serving(&catalog.goods, t)
         .skip(1)
         .filter_map(|g| {
             catalog
@@ -174,8 +180,8 @@ pub fn way_to_tool(
                 .position(|r| makes(r, g) && can_work(r))
                 .map(|r| (g, r))
         })
-        .collect();
-    if others.is_empty() {
+        .peekable();
+    if others.peek().is_none() {
         return own;
     }
     let costs = costs();
@@ -426,11 +432,83 @@ pub fn start(
     units
 }
 
+/// The content id of the good a works' fuel leaves its ash as (ADR-0038 §2). A catalogue
+/// without it keeps no ash from making.
+pub const ASH: &str = "core:good/ash";
+
+/// Whether good `g` is what a heap or a tip holds whole and a member may pick out of it (ADR-0044
+/// §2): the ash good, or the scrap a tool names.
+pub fn is_salvage(goods: &[GoodDef], g: usize) -> bool {
+    goods.get(g).is_some_and(|d| d.id == ASH)
+        || goods.iter().any(|d| {
+            d.tool
+                .as_ref()
+                .and_then(|t| t.scrap)
+                .is_some_and(|(s, _)| s == g)
+        })
+}
+
+/// Kilograms of ash a session making `units` of `recipe` leaves (ADR-0038 §2): each fuel it takes,
+/// by unit and by session, times its `ash_share`, less the ash the fuels it gives keep (coke keeps
+/// its coal's ash, charcoal its wood's), never below none.
+pub fn ash_left(recipe: &RecipeDef, goods: &[GoodDef], units: f64) -> f64 {
+    let share = |g: usize| {
+        goods
+            .get(g)
+            .and_then(|d| d.fuel)
+            .map_or(0.0, |f| f.ash_share.max(0.0))
+    };
+    let burned: f64 = recipe
+        .session_inputs
+        .iter()
+        .map(|&(g, a)| a * share(g))
+        .chain(recipe.inputs.iter().map(|&(g, a)| a * units * share(g)))
+        .sum();
+    let kept: f64 = recipe
+        .outputs
+        .iter()
+        .map(|&(g, a)| a * units * share(g))
+        .sum();
+    (burned - kept).max(0.0)
+}
+
+/// Leaves in `stores`, as `ash`, the ash of `kg` of fuel good `fuel` burned in an engine
+/// (ADR-0038 §5): `kg` times its `ash_share`. Returns the ash good's index and the kilograms left;
+/// `None` where it leaves none or the catalogue has no ash.
+pub fn leave_ash(
+    goods: &[GoodDef],
+    stores: &mut [f64],
+    fuel: usize,
+    kg: f64,
+) -> Option<(usize, f64)> {
+    let share = goods
+        .get(fuel)
+        .and_then(|d| d.fuel)
+        .map_or(0.0, |f| f.ash_share.max(0.0));
+    let ash = kg.max(0.0) * share;
+    if !(ash > 0.0 && ash.is_finite()) {
+        return None;
+    }
+    let a = goods.iter().position(|d| d.id == ASH)?;
+    *stores.get_mut(a)? += ash;
+    Some((a, ash))
+}
+
 /// Gives the outputs of `units` of `recipe` to `stores`, tools made worth `quality` standard
-/// tools each: the end of a session, or the opening of a batch (M10a slice DP).
+/// tools each, and the ash its fuel leaves ([`ash_left`], ADR-0038 §2): the end of a session, or
+/// the opening of a batch (M10a slice DP).
 pub fn give(recipe: &RecipeDef, stores: &mut [f64], goods: &[GoodDef], units: f64, quality: f64) {
     if !(units > 0.0 && units.is_finite()) {
         return;
+    }
+    let ash = ash_left(recipe, goods, units);
+    if ash > 0.0
+        && let Some(s) = goods
+            .iter()
+            .position(|d| d.id == ASH)
+            .and_then(|a| stores.get_mut(a))
+    {
+        *s += ash;
     }
     for &(g, amount) in &recipe.outputs {
         let q = if goods.get(g).is_some_and(|d| d.tool.is_some()) {
@@ -488,7 +566,16 @@ pub fn keep_to_holders(goods: &[GoodDef], stores: &mut [f64]) -> Vec<(usize, f64
     lost
 }
 
-pub fn wear(stores: &mut [f64], goods: &[GoodDef], tools: &[usize], hours: f64) {
+/// Wears `tools` by `hours` of work in `stores`: each by the longest-lived of the tools at hand
+/// that do its work, `hours / life_h` of a unit, and a tool worn out is gone. Returns what the
+/// share worn leaves, by good and kilograms (ADR-0044 §1): its holder throws it on the heap.
+pub fn wear(
+    stores: &mut [f64],
+    goods: &[GoodDef],
+    tools: &[usize],
+    hours: f64,
+) -> Vec<(usize, f64)> {
+    let mut scrap: Vec<(usize, f64)> = Vec::new();
     for &t in tools {
         // The work is done with the longest-lived of the tools at hand that do it (M7d slice CE).
         let t = serving(goods, t)
@@ -504,9 +591,18 @@ pub fn wear(stores: &mut [f64], goods: &[GoodDef], tools: &[usize], hours: f64) 
             stores.get_mut(t),
         ) && def.life_h > 0.0
         {
+            let before = *s;
             *s = (*s - hours.max(0.0) / def.life_h).max(0.0);
+            // What a worn share leaves (ADR-0044 §1).
+            if let Some((g, kg)) = def.scrap {
+                let left = (before - *s) * kg;
+                if left > 0.0 {
+                    scrap.push((g, left));
+                }
+            }
         }
     }
+    scrap
 }
 
 #[cfg(test)]
@@ -558,6 +654,7 @@ mod tests {
             light: None,
             holder: None,
             telegraph: None,
+            lift: None,
             money: None,
             id: id.into(),
             name: id.into(),
@@ -586,6 +683,7 @@ mod tests {
             fixed: false,
             serves: None,
             crew: 1,
+            scrap: None,
         });
         let mut oven = good("oven", GoodUse::Tool, 0.0, Eaten::Never);
         oven.tool = Some(ToolDef {
@@ -594,6 +692,7 @@ mod tests {
             fixed: true,
             serves: None,
             crew: 1,
+            scrap: None,
         });
         vec![
             good("grain", GoodUse::Food, 3340.0, Eaten::Never),
@@ -615,6 +714,7 @@ mod tests {
             fixed: true,
             serves: None,
             crew: 1,
+            scrap: None,
         });
         holder.holder = Some(crate::params::GoodHolder {
             good: Some(0),
@@ -703,6 +803,7 @@ mod tests {
             light: None,
             holder: None,
             telegraph: None,
+            lift: None,
             half_life_days: 3.0,
             ..good("meat", GoodUse::Food, 1500.0, Eaten::Cooked)
         });
@@ -713,6 +814,7 @@ mod tests {
             light: None,
             holder: None,
             telegraph: None,
+            lift: None,
             half_life_days: 180.0,
             ..good("dried", GoodUse::Food, 3750.0, Eaten::Raw)
         });
@@ -859,6 +961,7 @@ mod tests {
             fixed: false,
             serves: None,
             crew: 1,
+            scrap: None,
         });
         let mut copper = good("copper_axe", GoodUse::Tool, 0.0, Eaten::Never);
         copper.tool = Some(ToolDef {
@@ -867,6 +970,7 @@ mod tests {
             fixed: false,
             serves: Some(1),
             crew: 1,
+            scrap: None,
         });
         crate::params::Catalog {
             goods: vec![stone, axe, copper],

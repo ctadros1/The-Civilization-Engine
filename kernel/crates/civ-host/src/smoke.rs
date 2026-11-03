@@ -71,6 +71,12 @@ pub struct SmokeOptions {
     pub seeds: u64,
     /// Years each world lives on after its first month (0: the first month only).
     pub years: u32,
+    /// Only this world, by the index of its preset in the content and its seed: to live a
+    /// failing world again.
+    pub only: Option<(usize, u64)>,
+    /// The identity the worlds are made with, rather than a fresh one each: with `only`, a
+    /// failing world's printed identity lives it again exactly.
+    pub identity: Option<[u8; 16]>,
 }
 
 /// One world's result.
@@ -644,10 +650,20 @@ fn polity_problems(sim: &Sim) -> Vec<String> {
             });
             match l.outcome {
                 Some(o) => {
-                    if o != body_then.decide(l.eligible, present, support, oppose)
-                        || present > l.eligible
-                    {
-                        out.push(format!("law {} was not decided by its body's rule", l.id));
+                    let by_rule = body_then.decide(l.eligible, present, support, oppose);
+                    if o != by_rule || present > l.eligible {
+                        out.push(format!(
+                            "law {} was not decided by its body's rule ({:?} on day {}: {o:?}, \
+                             the rule gives {by_rule:?} of {} eligible, {present} present, \
+                             {support} for, {oppose} against; {} versions of the custom, the \
+                             last from day {})",
+                            l.id,
+                            l.kind,
+                            l.decided.map_or(-1, |t| t.day_index()),
+                            l.eligible,
+                            p.versions.len(),
+                            p.versions.last().map_or(-1, |v| v.since.day_index()),
+                        ));
                     }
                     let passed = o == Outcome::Passed;
                     let held = matches!(
@@ -1637,7 +1653,10 @@ pub fn run(
     let jobs: Vec<(String, u64)> = content
         .presets
         .iter()
-        .flat_map(|p| (1..=options.seeds).map(move |seed| (p.id.clone(), seed)))
+        .enumerate()
+        .flat_map(|(i, p)| (1..=options.seeds).map(move |seed| (i, p.id.clone(), seed)))
+        .filter(|&(i, _, seed)| options.only.is_none_or(|o| o == (i, seed)))
+        .map(|(_, p, seed)| (p, seed))
         .collect();
     let next = AtomicUsize::new(0);
     let results = Mutex::new(Vec::new());
@@ -1685,21 +1704,20 @@ fn run_one(
             || (String::new(), String::new()),
             |r| (r.id.clone(), r.name.clone()),
         );
-    let created = Sim::create(
-        &NewWorld {
-            name: format!("Smoke {seed}"),
-            seed,
-            preset_id: preset.to_owned(),
-            size_cells: options.size,
-            band_size: 0,
-            neighbours: Vec::new(),
-            neighbours_known: false,
-            regime_id: regime.0,
-        },
-        content,
-        &mut |_| {},
-        &AtomicBool::new(false),
-    );
+    let request = NewWorld {
+        name: format!("Smoke {seed}"),
+        seed,
+        preset_id: preset.to_owned(),
+        size_cells: options.size,
+        band_size: 0,
+        neighbours: Vec::new(),
+        neighbours_known: false,
+        regime_id: regime.0,
+    };
+    let created = match options.identity {
+        Some(id) => Sim::create_for_tests(&request, content, id),
+        None => Sim::create(&request, content, &mut |_| {}, &AtomicBool::new(false)),
+    };
     let mut result = SmokeResult {
         preset: preset.to_owned(),
         seed,

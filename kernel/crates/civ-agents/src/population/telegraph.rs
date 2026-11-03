@@ -729,7 +729,7 @@ impl Population {
                     continue;
                 }
                 for &m in &members {
-                    self.hear_told(m, claim, day, teller, None);
+                    self.hear_told(ctx, m, claim, day, teller, None);
                 }
             }
         }

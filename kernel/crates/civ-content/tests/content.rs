@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 206
+kernel_content_api = 227
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -279,6 +279,22 @@ fn the_repository_content_is_clean() {
     assert_eq!(rotary.requires[0].len(), 2);
 }
 
+/// Every recipe of the core pack is made by some work (M11d, fourth part: the telegraph
+/// instrument's and the gas engine's had none, so neither was ever built, however wanted).
+#[test]
+fn every_core_recipe_is_worked_by_an_activity() {
+    let reg = registry(load(&repo_content()));
+    let catalog = &reg.catalog;
+    let unworked: Vec<&str> = catalog
+        .recipes
+        .iter()
+        .enumerate()
+        .filter(|&(r, _)| !catalog.activities.iter().any(|a| a.recipe == Some(r)))
+        .map(|(_, d)| d.id.as_str())
+        .collect();
+    assert!(unworked.is_empty(), "no work makes {unworked:?}");
+}
+
 #[test]
 fn unknown_fields_are_errors_with_a_line() {
     let body = real_preset().replace("[uplift]", "[uplift]\nuplfit_mm_per_yr = 1.0");
@@ -372,8 +388,13 @@ fn wells_check_their_numbers_and_need_their_lining_inside_their_shaft() {
 
 #[test]
 fn a_fuel_says_what_it_gives_burned() {
-    // M10a slice DP (content API 158): a fuel carries its heat and smoke, in range.
+    // M10a slice DP (content API 158): a fuel carries its heat and smoke, in range, and (content
+    // API 209, ADR-0038 §2) an ash share in range.
     let real_wood = real("good/firewood.toml");
+    // The whole `[fuel]` table, which ends the file.
+    let without_fuel = real_wood
+        .find("[fuel]")
+        .map_or(real_wood.clone(), |at| real_wood[..at].to_owned());
     for (body, needle) in [
         (
             real_wood.replace("mj_per_kg = 15.6", "mj_per_kg = 0.2"),
@@ -384,9 +405,10 @@ fn a_fuel_says_what_it_gives_burned() {
             "fuel.smoke",
         ),
         (
-            real_wood.replace("[fuel]\nmj_per_kg = 15.6\nsmoke = 1.0\n", ""),
-            "a `[fuel]` table",
+            real_wood.replace("ash_share = 0.005", "ash_share = 0.9"),
+            "fuel.ash_share",
         ),
+        (without_fuel, "a `[fuel]` table"),
     ] {
         assert_ne!(body, real_wood, "{needle}: the fixture changed nothing");
         let report = load_fixture(&[
@@ -970,19 +992,51 @@ fn buildings_check_their_numbers_and_materials() {
     );
     // Frame programs: a longhouse, a raised granary and a workshop, their rules from `[frame]`.
     let c = &reg.catalog;
-    for (id, use_, raised) in [
+    for (id, use_, raised, skeleton) in [
         (
             "core:building/longhouse",
             civ_land::PlotUse::Dwelling,
             false,
+            false,
         ),
-        ("core:building/granary", civ_land::PlotUse::Store, true),
-        ("core:building/workshop", civ_land::PlotUse::Work, false),
+        (
+            "core:building/granary",
+            civ_land::PlotUse::Store,
+            true,
+            false,
+        ),
+        (
+            "core:building/workshop",
+            civ_land::PlotUse::Work,
+            false,
+            true,
+        ),
     ] {
         let b = &c.buildings[c.building_index(id).expect(id)];
         assert_eq!(b.grammar(), civ_grammar::Grammar::Frame, "{id}");
         assert_eq!(b.use_, use_, "{id}");
-        assert_eq!(b.materials.len(), civ_grammar::frame_materials::COUNT);
+        // A workshop names a fifth material, its steel skeleton's (ADR-0037 §3), and a sixth and
+        // seventh, its concrete frame's concrete and bar (frame version 5).
+        let slots = if skeleton {
+            civ_grammar::frame_materials::COUNT_V5
+        } else {
+            civ_grammar::frame_materials::COUNT
+        };
+        assert_eq!(b.materials.len(), slots, "{id}");
+        if skeleton {
+            assert_eq!(
+                c.goods[b.materials[usize::from(civ_grammar::frame_materials::FRAME)]].id,
+                "core:good/steel_section"
+            );
+            let good = |slot: u8| c.goods[b.materials[usize::from(slot)]].id.as_str();
+            assert_eq!(
+                [
+                    good(civ_grammar::frame_materials::CONCRETE),
+                    good(civ_grammar::frame_materials::BAR)
+                ],
+                ["core:good/concrete", "core:good/reinforcing_bar"]
+            );
+        }
         assert_eq!(
             b.technique.map(|t| c.techniques[t].id.as_str()),
             Some("core:technique/jointed_frame")
@@ -999,6 +1053,8 @@ fn buildings_check_their_numbers_and_materials() {
                 Some("core:technique/trussed_roof"),
                 Some("core:technique/storeyed_frame"),
                 Some("core:technique/tied_masonry"),
+                skeleton.then_some("core:technique/skeleton_frame"),
+                skeleton.then_some("core:technique/reinforced_concrete"),
             ],
             "{id}"
         );
@@ -1018,9 +1074,15 @@ fn buildings_check_their_numbers_and_materials() {
         params[fp::JOIST_CM] = if raised { r.joist_cm.0 } else { 0 };
         params[fp::POST_CM] = r.post_cm.0;
         params[fp::WALL_CM] = r.wall_cm.0;
+        // Under the version its materials are named for: a skeleton's five from version 4.
+        let version = if skeleton {
+            civ_grammar::FRAME_VERSION
+        } else {
+            civ_grammar::FRAME_DESIGN_VERSION
+        };
         let spec = civ_grammar::BuildingSpec {
             program: id.to_owned(),
-            version: civ_grammar::FRAME_VERSION,
+            version,
             footprint: civ_grammar::Footprint::Rect {
                 x: 100_000,
                 y: 100_000,
@@ -1035,6 +1097,17 @@ fn buildings_check_their_numbers_and_materials() {
         };
         let e = civ_grammar::expand(&spec, &b.rules).unwrap_or_else(|e| panic!("{id}: {e}"));
         assert!(e.total_labour_h() > 0.0, "{id}");
+        // A workshop's least building as a steel skeleton expands too, its frame of sections.
+        if skeleton {
+            let mut steel = spec.clone();
+            steel.params[fp::POST_SYSTEM] = 2;
+            let e = civ_grammar::expand(&steel, &b.rules).unwrap_or_else(|e| panic!("{id}: {e}"));
+            let frame = &e.stages[civ_grammar::Stage::Frame.index()].materials_kg;
+            assert!(
+                frame[usize::from(civ_grammar::frame_materials::FRAME)] > 0.0,
+                "{id}"
+            );
+        }
     }
     // Framing and the systems it opens are found by building huts (M8d slice CZ); none is known
     // to founders.
@@ -1053,6 +1126,23 @@ fn buildings_check_their_numbers_and_materials() {
         assert!(c.techniques[t].tried_in.contains(&building_huts), "{id}");
         assert!(c.techniques[t].e50_h < 100_000.0, "{id} can be found");
     }
+    // A steel skeleton is tried toward there too, far off, and stands on rolling and framing
+    // (ADR-0037 §3).
+    let skeleton = c
+        .techniques
+        .iter()
+        .find(|t| t.id == "core:technique/skeleton_frame")
+        .expect("a steel skeleton");
+    assert!(skeleton.tried_in.contains(&building_huts));
+    assert!(skeleton.e50_h >= 100_000.0);
+    let named = |id: &str| c.techniques.iter().position(|t| t.id == id).expect(id);
+    assert_eq!(
+        skeleton.requires,
+        [vec![
+            named("core:technique/rolling"),
+            named("core:technique/jointed_frame")
+        ]]
+    );
     assert_eq!(hut.use_, civ_land::PlotUse::Dwelling);
     let real_longhouse = real("building/longhouse.toml");
     for (from, to, needle) in [
@@ -1076,6 +1166,17 @@ fn buildings_check_their_numbers_and_materials() {
             "needs `[rules]`",
         ),
         ("decking_cm = 4 ", "decking_cm = 0 ", "`frame.decking_cm`"),
+        // A steel skeleton needs its members' good and weight (ADR-0037 §3).
+        (
+            "wall_ties = \"core:technique/tied_masonry\"",
+            "wall_ties = \"core:technique/tied_masonry\"\nskeleton = \"core:technique/tied_masonry\"",
+            "`systems.skeleton` needs `materials.frame`",
+        ),
+        (
+            "timber_kg_per_m3 = 760.0",
+            "timber_kg_per_m3 = 760.0\nframe_kg_per_m3 = -1.0",
+            "`frame.frame_kg_per_m3`",
+        ),
     ] {
         let body = real_longhouse.replace(from, to);
         assert_ne!(body, real_longhouse, "{needle}: the edit applies");
@@ -1158,6 +1259,12 @@ fn buildings_check_their_numbers_and_materials() {
             "good/timber.toml",
             timber.replace("sustained = 0.6", "sustained = 1.5"),
             "`timber.sustained`",
+        ),
+        // What bare steel keeps of its strength after a full burn is a share (ADR-0037 §5).
+        (
+            "good/steel_section.toml",
+            real("good/steel_section.toml").replace("burnt_keeps = 0.4", "burnt_keeps = 1.2"),
+            "`timber.burnt_keeps`",
         ),
         (
             "good/grain.toml",
@@ -2757,6 +2864,13 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
         "core:policy/zealously_yoke_the_homes_to_the_wire",
+        "core:policy/zealously_zone_a_refuse_tip",
+        "core:policy/zealously_zone_a_round_for_refuse",
+        "core:policy/zealously_zone_a_sewer_to_the_river",
+        "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
     ];
     assert!(
         reg.catalog
@@ -2796,6 +2910,13 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
         "core:policy/zealously_yoke_the_homes_to_the_wire",
+        "core:policy/zealously_zone_a_refuse_tip",
+        "core:policy/zealously_zone_a_round_for_refuse",
+        "core:policy/zealously_zone_a_sewer_to_the_river",
+        "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
     ];
     assert!(
         reg.catalog
@@ -2876,6 +2997,13 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
         "core:policy/zealously_yoke_the_homes_to_the_wire",
+        "core:policy/zealously_zone_a_refuse_tip",
+        "core:policy/zealously_zone_a_round_for_refuse",
+        "core:policy/zealously_zone_a_sewer_to_the_river",
+        "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
     ];
     assert!(
         reg.catalog
@@ -2914,6 +3042,13 @@ fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
         "core:policy/zealously_yoke_the_homes_to_the_wire",
+        "core:policy/zealously_zone_a_refuse_tip",
+        "core:policy/zealously_zone_a_round_for_refuse",
+        "core:policy/zealously_zone_a_sewer_to_the_river",
+        "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
     ];
     assert!(
         reg.catalog
@@ -2963,6 +3098,13 @@ fn the_core_lets_a_polity_name_a_health_officer_who_can_write() {
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
         "core:policy/zealously_yoke_the_homes_to_the_wire",
+        "core:policy/zealously_zone_a_refuse_tip",
+        "core:policy/zealously_zone_a_round_for_refuse",
+        "core:policy/zealously_zone_a_sewer_to_the_river",
+        "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
     ];
     assert!(
         reg.catalog
@@ -3006,6 +3148,13 @@ fn the_core_lets_a_polity_clear_middens_from_the_water() {
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
         "core:policy/zealously_yoke_the_homes_to_the_wire",
+        "core:policy/zealously_zone_a_refuse_tip",
+        "core:policy/zealously_zone_a_round_for_refuse",
+        "core:policy/zealously_zone_a_sewer_to_the_river",
+        "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
     ];
     assert!(
         reg.catalog
@@ -3043,6 +3192,13 @@ fn the_core_lets_a_polity_raise_a_sickhouse_where_the_sick_lay_untended() {
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
         "core:policy/zealously_yoke_the_homes_to_the_wire",
+        "core:policy/zealously_zone_a_refuse_tip",
+        "core:policy/zealously_zone_a_round_for_refuse",
+        "core:policy/zealously_zone_a_sewer_to_the_river",
+        "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
     ];
     assert!(
         reg.catalog
@@ -3222,11 +3378,172 @@ fn policy_templates_keep_their_places() {
         "core:policy/zealously_withhold_redemption",
         "core:policy/zealously_write_against_forgery",
         "core:policy/zealously_yoke_the_homes_to_the_wire",
+        "core:policy/zealously_zone_a_refuse_tip",
+        "core:policy/zealously_zone_a_round_for_refuse",
+        "core:policy/zealously_zone_a_sewer_to_the_river",
     ];
     assert!(
         ids.starts_with(&kept),
         "a template's id sorts before an older one's: {ids:?}"
     );
+}
+
+#[test]
+fn the_core_lets_a_polity_carry_refuse_to_a_tip() {
+    // M11f, second part (content API 210; ADR-0038 §3): the template answers a suspected source
+    // and heaps grown large beside others' homes, and names a tip 30 m from every source and home
+    // that households carry their heaps to at most every 30 days.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/zealously_zone_a_refuse_tip")
+        .expect("the tip template");
+    assert_eq!(def.kind, PolicyKind::RefuseToTip);
+    assert_eq!(
+        def.answers,
+        vec![IssueKind::SourceSuspected, IssueKind::HeapsNear]
+    );
+    assert!(def.middens.is_none());
+    let t = def.tip.expect("its terms");
+    assert_eq!((t.from_m, t.every_days), (30.0, 30));
+    assert_eq!((t.heap_kg, t.heap_near_m), (500.0, 30.0));
+    assert!(t.carry_h > 0.0 && t.avoided_share > 0.0);
+    // Its id sorts after every older template's (the refuse round's, M11f third part, is newer).
+    let newer = [
+        "core:policy/zealously_zone_a_round_for_refuse",
+        "core:policy/zealously_zone_a_sewer_to_the_river",
+        "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
+    ];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
+}
+
+#[test]
+fn a_tip_template_needs_its_terms_and_only_it_has_them() {
+    // ADR-0038 §3: `tip` only for `refuse_to_tip`, which must have it, within its bounds.
+    let base = |does: &str, tip: &str| {
+        format!(
+            "kind = \"policy\"\nid = \"core:policy/t\"\nname = \"T\"\ndescription = \"T.\"\n\
+             does = \"{does}\"\nanswers = [\"heaps_near\"]\n{tip}"
+        )
+    };
+    let terms = "[tip]\nfrom_m = 30.0\nevery_days = 30\ncarry_h = 1.0\navoided_share = 0.2\n\
+                 heap_kg = 500.0\nheap_near_m = 30.0\n";
+    let preset = real_preset();
+    let ok = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("policy/t.toml", &base("refuse_to_tip", terms)),
+    ]);
+    assert!(ok.diagnostics.is_empty(), "{:?}", ok.diagnostics);
+    for (does, tip) in [
+        ("refuse_to_tip", String::new()),
+        ("clear_middens", terms.to_owned()),
+        (
+            "refuse_to_tip",
+            terms.replace("every_days = 30", "every_days = 0"),
+        ),
+        (
+            "refuse_to_tip",
+            terms.replace("from_m = 30.0", "from_m = 0.0"),
+        ),
+    ] {
+        let bad = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("policy/t.toml", &base(does, &tip)),
+        ]);
+        assert!(
+            bad.diagnostics.iter().any(|d| d.message.contains("tip")),
+            "{does} with {tip:?}: {:?}",
+            bad.diagnostics
+        );
+    }
+}
+
+#[test]
+fn the_core_lets_a_polity_run_a_refuse_round_by_law() {
+    // M11f, third part (content API 211; ADR-0038 §4): the template answers a suspected source
+    // and heaps grown large beside others' homes, and runs a round every 7 days.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/zealously_zone_a_round_for_refuse")
+        .expect("the round template");
+    assert_eq!(def.kind, PolicyKind::CollectRefuse);
+    assert_eq!(
+        def.answers,
+        vec![IssueKind::SourceSuspected, IssueKind::HeapsNear]
+    );
+    assert!(def.tip.is_none());
+    let r = def.round.expect("its terms");
+    assert_eq!(r.every_days, 7);
+    assert!(r.round_h > 0.0);
+    // Its id sorts after every older template's (the sewer's, ADR-0041, is newer).
+    let newer = [
+        "core:policy/zealously_zone_a_sewer_to_the_river",
+        "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
+    ];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
+}
+
+#[test]
+fn a_round_template_needs_its_terms_and_only_it_has_them() {
+    // ADR-0038 §4: `round` only for `collect_refuse`, which must have it, within its bounds.
+    let base = |does: &str, round: &str| {
+        format!(
+            "kind = \"policy\"\nid = \"core:policy/t\"\nname = \"T\"\ndescription = \"T.\"\n\
+             does = \"{does}\"\nanswers = [\"heaps_near\"]\n{round}"
+        )
+    };
+    let terms = "[round]\nevery_days = 7\nround_h = 4.0\n";
+    let preset = real_preset();
+    let ok = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("policy/t.toml", &base("collect_refuse", terms)),
+    ]);
+    assert!(ok.diagnostics.is_empty(), "{:?}", ok.diagnostics);
+    for (does, round) in [
+        ("collect_refuse", String::new()),
+        ("clear_middens", terms.to_owned()),
+        (
+            "collect_refuse",
+            terms.replace("every_days = 7", "every_days = 0"),
+        ),
+        (
+            "collect_refuse",
+            terms.replace("round_h = 4.0", "round_h = 25.0"),
+        ),
+    ] {
+        let bad = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("policy/t.toml", &base(does, &round)),
+        ]);
+        assert!(
+            bad.diagnostics.iter().any(|d| d.message.contains("round")),
+            "{does} with {round:?}: {:?}",
+            bad.diagnostics
+        );
+    }
 }
 
 #[test]
@@ -3397,5 +3714,635 @@ fn a_cart_may_carry_an_engine_and_the_core_road_engine_burns_coal() {
             .any(|d| d.message.contains("not a boat's")),
         "{:?}",
         report.diagnostics
+    );
+}
+
+#[test]
+fn the_core_lets_a_polity_lay_a_sewer_to_the_river() {
+    // ADR-0041 §1-§4 (content API 213): the template answers a suspected source and heaps near
+    // homes, with its terms and goods resolved.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/zealously_zone_a_sewer_to_the_river")
+        .expect("the sewer template");
+    assert_eq!(def.kind, PolicyKind::LaySewer);
+    assert_eq!(
+        def.answers,
+        vec![IssueKind::SourceSuspected, IssueKind::HeapsNear]
+    );
+    let s = def.sewer.as_ref().expect("its terms");
+    let good = |id: &str| reg.catalog.goods.iter().position(|g| g.id == id);
+    assert_eq!(
+        s.walls,
+        vec![
+            good("core:good/brick").expect("brick"),
+            good("core:good/stone").expect("stone")
+        ]
+    );
+    assert_eq!(s.binders.len(), 2);
+    assert_eq!((s.fall, s.settle_share, s.connect_h), (0.002, 0.5, 0.0));
+    // Its farm takes 100 people's discharge a hectare (ADR-0044 §4; content API 222).
+    assert_eq!(s.farm_people_ha, 100.0);
+    // It silts a fiftieth of what enters, a metre blocks at 20 kg, and clearing a tonne takes 10
+    // hours (ADR-0044 §5; content API 223), design priors.
+    assert_eq!(
+        (s.deposit_share, s.block_kg_m, s.clear_h_t),
+        (0.02, 20.0, 10.0)
+    );
+    assert_eq!(s.tank, good("core:good/settling_tank"));
+    assert_eq!(s.sludge, good("core:good/sludge"));
+    // Its id sorts after every older template's (the protection rule's, ADR-0037 §5, is newer).
+    let newer = [
+        "core:policy/zealously_zone_cased_steel",
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
+    ];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
+}
+
+#[test]
+fn a_sewer_template_needs_its_terms_and_only_it_has_them() {
+    // ADR-0041 §1: `sewer` only for `lay_sewer`, which must have it, within its bounds.
+    let base = |does: &str, sewer: &str| {
+        format!(
+            "kind = \"policy\"\nid = \"core:policy/t\"\nname = \"T\"\ndescription = \"T.\"\n\
+             does = \"{does}\"\nanswers = [\"heaps_near\"]\n{sewer}"
+        )
+    };
+    let terms = "[sewer]\nwalls = [\"core:good/x\"]\nwalls_kg_m = 1000.0\nbinders = \
+                 [\"core:good/y\"]\nbinder_kg_m = 50.0\nlay_h_m = 10.0\nfall = 0.002\n\
+                 capacity_kg_day = 1000.0\nlife_years = 50.0\nconnect_h = 0.0\n\
+                 avoided_share = 0.2\nsettle_share = 0.5\n";
+    let preset = real_preset();
+    for (does, sewer, says) in [
+        ("lay_sewer", String::new(), "needs a `sewer` table"),
+        ("clear_middens", terms.to_owned(), "`sewer` is for"),
+        (
+            "lay_sewer",
+            terms.replace("fall = 0.002", "fall = 0.0"),
+            "`sewer.fall` must be between",
+        ),
+        (
+            "lay_sewer",
+            terms.replace("settle_share = 0.5", "settle_share = 2.0"),
+            "`sewer.settle_share` must be between",
+        ),
+        (
+            "lay_sewer",
+            format!("{terms}farm_people_ha = -1.0\n"),
+            "`sewer.farm_people_ha` must be between",
+        ),
+        (
+            "lay_sewer",
+            format!("{terms}deposit_share = 1.5\nblock_kg_m = 20.0\nclear_h_t = 10.0\n"),
+            "`sewer.deposit_share` must be between",
+        ),
+        (
+            "lay_sewer",
+            format!("{terms}deposit_share = 0.02\nclear_h_t = 10.0\n"),
+            "needs `block_kg_m` and `clear_h_t` above 0",
+        ),
+        (
+            "lay_sewer",
+            format!("{terms}deposit_share = 0.02\nblock_kg_m = 20.0\nclear_h_t = 5000.0\n"),
+            "`sewer.clear_h_t` must be between",
+        ),
+    ] {
+        let bad = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("policy/t.toml", &base(does, &sewer)),
+        ]);
+        assert!(
+            bad.diagnostics.iter().any(|d| d.message.contains(says)),
+            "{does} with {sewer:?}: {:?}",
+            bad.diagnostics
+        );
+    }
+    // Goods it names must exist.
+    let bad = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("policy/t.toml", &base("lay_sewer", terms)),
+    ]);
+    assert!(
+        bad.diagnostics
+            .iter()
+            .any(|d| d.message.contains("core:good/x")),
+        "{:?}",
+        bad.diagnostics
+    );
+}
+
+#[test]
+fn a_program_offering_a_steel_skeleton_may_rise_to_twelve_storeys() {
+    // ADR-0042 §3: a skeleton of frame version 4 rises to twelve storeys; a program that offers
+    // one may allow them, and no program more, nor one without a skeleton more than four.
+    let preset = real_preset();
+    let storeys_said = |file: &str, from: &str, to: &str| {
+        let real = real(file);
+        let body = real.replace(from, to);
+        assert_ne!(body, real, "the edit applies");
+        let report = load_fixture(&[("worldgen/river_valley.toml", &preset), (file, &body)]);
+        report
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains("`frame.storeys`"))
+    };
+    assert!(!storeys_said(
+        "building/workshop.toml",
+        "storeys = [1, 1]",
+        "storeys = [1, 12]"
+    ));
+    assert!(storeys_said(
+        "building/workshop.toml",
+        "storeys = [1, 1]",
+        "storeys = [1, 13]"
+    ));
+    assert!(storeys_said(
+        "building/longhouse.toml",
+        "storeys = [1, 2]",
+        "storeys = [1, 5]"
+    ));
+}
+
+#[test]
+fn a_passenger_lift_is_a_fixed_tool_of_a_far_technique_on_the_skeleton_and_an_engine() {
+    // ADR-0042 §2 (content API 215): a lift's figures, its technique and its recipe and activity.
+    let root = civ_content::find_content_root(std::path::Path::new(env!("CARGO_MANIFEST_DIR")))
+        .expect("content root");
+    let catalog = civ_content::load(&root).registry.expect("loads").catalog;
+    let g = catalog
+        .goods
+        .iter()
+        .find(|g| g.id == "core:good/lift")
+        .expect("the lift");
+    let lift = g.lift.expect("a lift's figures");
+    assert_eq!(
+        (
+            lift.rated_kg,
+            lift.speed_ms,
+            lift.drive_kw,
+            lift.stop_s,
+            lift.shaft_m2
+        ),
+        (630.0, 1.0, 7.5, 10.0, 7.0)
+    );
+    // A fixed tool no work needs and nobody wants: only a household given or making one holds it.
+    assert!(
+        g.tool
+            .as_ref()
+            .is_some_and(|t| t.fixed && t.per_worker == 0.0)
+    );
+    let t = &catalog.techniques[catalog
+        .technique_index("core:technique/passenger_lift")
+        .expect("the technique")];
+    let named = |id: &str| {
+        catalog
+            .techniques
+            .iter()
+            .position(|t| t.id == id)
+            .expect(id)
+    };
+    let skeleton = named("core:technique/skeleton_frame");
+    assert_eq!(t.requires.len(), 3);
+    assert!(
+        t.requires
+            .iter()
+            .all(|r| r.contains(&skeleton) && r.len() == 2)
+    );
+    assert!(
+        t.requires
+            .iter()
+            .any(|r| r.contains(&named("core:technique/dynamo")))
+    );
+    assert!(t.e50_h >= 100_000.0, "a far technique");
+    let recipe = catalog
+        .recipes
+        .iter()
+        .position(|r| r.id == "core:recipe/build_lift")
+        .expect("its recipe");
+    assert!(catalog.activities.iter().any(|a| a.recipe == Some(recipe)));
+    // Figures out of range, or a lift that is not a fixed tool, are refused.
+    let real_lift = real("good/lift.toml");
+    for (from, to, needle) in [
+        ("speed_ms = 1.0", "speed_ms = 0.0", "`lift.speed_ms`"),
+        ("shaft_m2 = 7.0", "shaft_m2 = -7.0", "`lift.shaft_m2`"),
+        (
+            "fixed = true",
+            "fixed = false",
+            "`[lift]` needs `[tool] fixed = true`",
+        ),
+    ] {
+        let body = real_lift.replace(from, to);
+        assert_ne!(body, real_lift, "{needle}: the edit applies");
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &real_preset()),
+            ("good/lift.toml", &body),
+        ]);
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|d| d.message.contains(needle)),
+            "{needle}: {:?}",
+            report.diagnostics
+        );
+    }
+}
+
+/// The core's protection rule (ADR-0037 §5): a new steel frame cased against fire for an hour,
+/// answering fires remembered, put forward by one who knows the steel skeleton.
+#[test]
+fn the_core_lets_a_polity_ask_new_steel_frames_be_cased_against_fire() {
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/zealously_zone_cased_steel")
+        .expect("the protection template");
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    assert_eq!(def.kind, PolicyKind::BuildingRule);
+    assert_eq!(def.answers, vec![IssueKind::Burned]);
+    let rule = def.rule.as_ref().expect("its rule");
+    assert_eq!(
+        rule.template,
+        civ_agents::polity::RuleTemplate::ProtectedFrame { minutes: 60 }
+    );
+    assert_eq!(
+        rule.needs.map(|t| reg.catalog.techniques[t].id.as_str()),
+        Some("core:technique/skeleton_frame")
+    );
+    // Its id sorts after every older template's (the hearers' for a term, backlog D, are newer).
+    let newer = [
+        "core:policy/zestfully_draw_a_hearer_by_lot",
+        "core:policy/zestfully_name_a_hearer_for_a_year",
+        "core:policy/zestfully_take_the_watch_by_turns",
+    ];
+    assert!(
+        reg.catalog
+            .policies
+            .iter()
+            .all(|p| p.id <= def.id || newer.contains(&p.id.as_str()))
+    );
+}
+
+#[test]
+fn a_worn_tool_names_the_scrap_it_leaves() {
+    // ADR-0044 §1 (content API 220): a tool may carry a `[scrap]` table naming a good that is not
+    // a tool and the kilograms a whole one leaves; the core's iron tools leave half the bar they
+    // took as scrap iron, which a smith welds back into bar.
+    let axe = real("good/iron_axe.toml");
+    let fine = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        ("good/iron_axe.toml", &axe),
+    ]);
+    assert!(fine.diagnostics.is_empty(), "{:?}", fine.diagnostics);
+    let catalog = &fine.registry.as_ref().expect("content").catalog;
+    let index = |id: &str| catalog.goods.iter().position(|g| g.id == id);
+    let scrap = index("core:good/scrap_iron").expect("scrap iron");
+    for (tool, kg) in [
+        ("core:good/iron_axe", 0.6),
+        ("core:good/iron_hoe", 0.4),
+        ("core:good/iron_sickle", 0.2),
+    ] {
+        let left = catalog.goods[index(tool).expect("the tool")]
+            .tool
+            .as_ref()
+            .and_then(|t| t.scrap)
+            .expect("it leaves scrap");
+        assert_eq!(left.0, scrap, "{tool}");
+        assert!((left.1 - kg).abs() < 1e-12, "{tool}");
+    }
+    let weld = catalog
+        .recipes
+        .iter()
+        .find(|r| r.id == "core:recipe/forge_scrap")
+        .expect("welding scrap");
+    assert_eq!(weld.inputs[0].0, scrap);
+    assert_eq!(
+        weld.outputs,
+        vec![(index("core:good/iron").expect("bar"), 1.0)]
+    );
+    for (body, needle) in [
+        (axe.replace("kg = 0.6", "kg = 0.0"), "scrap.kg"),
+        (axe.replace("kg = 0.6", "kg = 2000.0"), "scrap.kg"),
+        (
+            axe.replace(
+                "good = \"core:good/scrap_iron\"",
+                "good = \"core:good/iron_hoe\"",
+            ),
+            "not a tool",
+        ),
+    ] {
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &real_preset()),
+            ("good/iron_axe.toml", &body),
+        ]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(report.diagnostics[0].message.contains(needle), "{needle}");
+    }
+    // Scrap from a good that is not a tool.
+    let bar = format!(
+        "{}\n[scrap]\ngood = \"core:good/scrap_iron\"\nkg = 0.5\n",
+        real("good/iron.toml")
+    );
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        ("good/iron.toml", &bar),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("only a tool wears away")
+    );
+}
+
+#[test]
+fn a_pick_activity_names_what_a_heap_or_a_tip_holds_whole() {
+    // ADR-0044 §2 (content API 221): a `pick` activity names the good it `picks`, the ash good or
+    // a tool's scrap; the people profile sorts `sort_kg_h` of a heap or a tip an hour; and the
+    // core fires bricks with a quarter of their clay replaced by ash.
+    let pick = real("activity/pick_scrap_iron.toml");
+    let fine = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        ("activity/pick_scrap_iron.toml", &pick),
+    ]);
+    assert!(fine.diagnostics.is_empty(), "{:?}", fine.diagnostics);
+    let reg = fine.registry.as_ref().expect("content");
+    let catalog = &reg.catalog;
+    let index = |id: &str| catalog.goods.iter().position(|g| g.id == id);
+    assert!((reg.people.params.midden.sort_kg_h - 100.0).abs() < 1e-12);
+    for (activity, good) in [
+        ("core:activity/pick_scrap_iron", "core:good/scrap_iron"),
+        ("core:activity/pick_ash", "core:good/ash"),
+    ] {
+        let a = catalog
+            .activities
+            .iter()
+            .find(|a| a.id == activity)
+            .expect("the activity");
+        assert_eq!(a.behavior, civ_agents::params::Behavior::Pick);
+        assert_eq!(a.picks, index(good), "{activity}");
+    }
+    let bricks = catalog
+        .recipes
+        .iter()
+        .find(|r| r.id == "core:recipe/fire_bricks_with_ash")
+        .expect("ash bricks");
+    let plain = catalog
+        .recipes
+        .iter()
+        .find(|r| r.id == "core:recipe/fire_bricks")
+        .expect("bricks");
+    let (clay, ash) = (
+        index("core:good/clay").expect("clay"),
+        index("core:good/ash").expect("ash"),
+    );
+    assert_eq!(bricks.inputs, vec![(clay, 3.0), (ash, 1.0)]);
+    assert_eq!(plain.inputs, vec![(clay, 4.0)]);
+    assert_eq!(
+        (bricks.outputs.clone(), bricks.tools.clone(), bricks.unit_h),
+        (plain.outputs.clone(), plain.tools.clone(), plain.unit_h)
+    );
+    // A pick activity that names nothing a heap or a tip holds, or names nothing at all, and
+    // `picks` on another behaviour.
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        (
+            "activity/pick_scrap_iron.toml",
+            &pick.replace("core:good/scrap_iron", "core:good/clay"),
+        ),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("no heap or tip holds")
+    );
+    for (body, needle) in [
+        (
+            pick.replace("picks = \"core:good/scrap_iron\"\n", ""),
+            "names the good it `picks`",
+        ),
+        (
+            pick.replace("behavior = \"pick\"", "behavior = \"rest\""),
+            "only `pick` activities take `picks`",
+        ),
+    ] {
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &real_preset()),
+            ("activity/pick_scrap_iron.toml", &body),
+        ]);
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|d| d.message.contains(needle)),
+            "{needle}: {:?}",
+            report.diagnostics
+        );
+    }
+}
+
+#[test]
+fn the_core_lets_a_polity_end_a_closing_nobody_suspects_any_longer() {
+    // Backlog D (content API 224; ADR-0021 §7): the repeal answers founding, as before, and a
+    // closing of a source in force that nobody of the polity suspects any longer.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/repeal")
+        .expect("the repeal");
+    assert_eq!(def.kind, PolicyKind::Repeal);
+    assert_eq!(
+        def.answers,
+        vec![IssueKind::Founding, IssueKind::ClosingUnsuspected]
+    );
+    assert_eq!(
+        IssueKind::from_name("closing_unsuspected"),
+        Some(IssueKind::ClosingUnsuspected)
+    );
+}
+
+#[test]
+fn the_core_weighs_a_default_heard_of_at_half_one_suffered() {
+    // Backlog D (content API 225): word of a default breaks the debtor's word with those who hear
+    // it, half as heavily as with the household it failed.
+    use civ_agents::ties::{Act, Domain};
+    let reg = registry(load(&repo_content()));
+    let acts = &reg.people.params.ties.acts;
+    let heard = acts[Act::DefaultedOthers as usize];
+    let suffered = acts[Act::Defaulted as usize];
+    assert_eq!(heard.domain, Some(Domain::Word));
+    assert_eq!((heard.good, heard.bad), (0.0, 1.0));
+    assert_eq!(heard.bad * 2.0, suffered.bad);
+    assert_eq!(
+        heard,
+        civ_agents::ties::TieParams::core().acts[Act::DefaultedOthers as usize]
+    );
+}
+
+#[test]
+fn a_hearer_may_hold_for_a_term_or_be_drawn_by_lot() {
+    // Backlog D (content API 226): a forum of one holder may carry a tenure, as an office keeping
+    // the store or the watch does; a panel or the elders may not. The core offers a hearer drawn by
+    // lot for a year, not renewable, and one named for a year, who may be named again.
+    use civ_agents::forum::ForumSeat;
+    use civ_agents::polity::{IssueKind, PolicyKind, Tenure};
+    let reg = registry(load(&repo_content()));
+    let find = |id: &str| {
+        reg.catalog
+            .policies
+            .iter()
+            .find(|p| p.id == id)
+            .unwrap_or_else(|| panic!("{id} in core"))
+    };
+    for (id, tenure) in [
+        (
+            "core:policy/zestfully_draw_a_hearer_by_lot",
+            Tenure {
+                term_days: 360,
+                renewable: false,
+                by_lot: true,
+            },
+        ),
+        (
+            "core:policy/zestfully_name_a_hearer_for_a_year",
+            Tenure {
+                term_days: 360,
+                renewable: true,
+                by_lot: false,
+            },
+        ),
+    ] {
+        let def = find(id);
+        assert_eq!(def.kind, PolicyKind::HearCases, "{id}");
+        assert_eq!(def.answers, vec![IssueKind::CasesWaiting], "{id}");
+        assert_eq!(def.tenure, Some(tenure), "{id}");
+        let forum = def.forum.as_ref().expect("its forum");
+        assert_eq!(forum.seat, ForumSeat::Holder, "{id}");
+        assert_eq!(
+            forum.hears,
+            find("core:policy/name_a_hearer")
+                .forum
+                .as_ref()
+                .expect("a forum")
+                .hears
+        );
+    }
+    // The older forums hold for no term.
+    for id in [
+        "core:policy/name_a_hearer",
+        "core:policy/hearer_by_precedent",
+        "core:policy/hear_by_panel",
+        "core:policy/hear_by_elders",
+    ] {
+        assert_eq!(find(id).tenure, None, "{id}");
+    }
+    let base = |seat: &str, tenure: &str| {
+        let panel = if seat == "panel" { "panel = 5\n" } else { "" };
+        format!(
+            "kind = \"policy\"\nid = \"core:policy/t\"\nname = \"T\"\ndescription = \"T.\"\n\
+             does = \"hear_cases\"\nanswers = [\"cases_waiting\"]\n\
+             [forum]\nseat = \"{seat}\"\n{panel}hears = [\"against_taking\"]\n{tenure}"
+        )
+    };
+    let lot = "[tenure]\nterm_days = 90\nrenewable = false\nfill = \"lot\"\n";
+    let preset = real_preset();
+    for (seat, tenure) in [("holder", lot), ("holder", "[tenure]\nterm_days = 360\n")] {
+        let ok = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("policy/t.toml", &base(seat, tenure)),
+        ]);
+        assert!(ok.diagnostics.is_empty(), "{seat}: {:?}", ok.diagnostics);
+    }
+    // Without a tenure each loads.
+    for seat in ["panel", "elders"] {
+        let ok = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("policy/t.toml", &base(seat, "")),
+        ]);
+        assert!(ok.diagnostics.is_empty(), "{seat}: {:?}", ok.diagnostics);
+    }
+    for seat in ["panel", "elders"] {
+        let bad = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("policy/t.toml", &base(seat, lot)),
+        ]);
+        assert!(
+            bad.diagnostics.iter().any(|d| d.message.contains("tenure")),
+            "{seat}: {:?}",
+            bad.diagnostics
+        );
+    }
+}
+
+#[test]
+fn the_core_offers_a_watch_kept_by_turns_drawn_by_lot() {
+    // Backlog D: a watch template may carry a tenure (content API 105); the core now offers one,
+    // a season's watch drawn by lot, not renewable, answering what the plain watch answers.
+    use civ_agents::polity::{PolicyKind, Tenure};
+    let reg = registry(load(&repo_content()));
+    let find = |id: &str| {
+        reg.catalog
+            .policies
+            .iter()
+            .find(|p| p.id == id)
+            .unwrap_or_else(|| panic!("{id} in core"))
+    };
+    let turns = find("core:policy/zestfully_take_the_watch_by_turns");
+    let plain = find("core:policy/keep_watch");
+    assert_eq!(turns.kind, PolicyKind::KeepWatch);
+    assert_eq!(turns.answers, plain.answers);
+    assert_eq!(
+        turns.tenure,
+        Some(Tenure {
+            term_days: 90,
+            renewable: false,
+            by_lot: true,
+        })
+    );
+    assert_eq!(plain.tenure, None, "the plain watch holds for no term");
+    // Its id sorts after every other template's.
+    let last = reg
+        .catalog
+        .policies
+        .iter()
+        .map(|p| p.id.as_str())
+        .max()
+        .expect("templates");
+    assert_eq!(last, turns.id);
+}
+
+#[test]
+fn the_core_weighs_a_debt_kept_heard_of_at_half_one_repaid() {
+    // Backlog D (content API 227): word of a debt kept keeps the debtor's word with those who
+    // hear it, half as well as with the household it repaid.
+    use civ_agents::ties::{Act, Domain};
+    let reg = registry(load(&repo_content()));
+    let acts = &reg.people.params.ties.acts;
+    let heard = acts[Act::RepaidOthers as usize];
+    let repaid = acts[Act::Repaid as usize];
+    assert_eq!(heard.domain, Some(Domain::Word));
+    assert_eq!((heard.good, heard.bad), (0.5, 0.0));
+    assert_eq!((heard.familiarity, heard.warmth), (0.0, 0.0));
+    assert_eq!(heard.good * 2.0, repaid.good);
+    assert_eq!(
+        heard,
+        civ_agents::ties::TieParams::core().acts[Act::RepaidOthers as usize]
     );
 }

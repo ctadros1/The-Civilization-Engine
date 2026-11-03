@@ -135,7 +135,20 @@ fn a_line_is_begun_along_ways_with_leave_and_strung_by_work_and_copper() {
         .iter()
         .map(|(_, h)| (h.id, cell(h.home)))
         .collect();
-    let (station, from) = homes[0];
+    // A station with no other home on or beside its home's cell: the homes that pay by the meter
+    // are those along the line it strings, not a neighbour beside its own line of no length.
+    // (Which home was begun first moves with the world's first days; in M11d's thirteenth part
+    // the first stood a cell from another.)
+    let w = i64::from(map.width);
+    let beside = |c: u32, d: u32| {
+        (i64::from(c) % w - i64::from(d) % w).abs() <= 1
+            && (i64::from(c) / w - i64::from(d) / w).abs() <= 1
+    };
+    let (station, from) = homes
+        .iter()
+        .copied()
+        .find(|&(h, c)| homes.iter().all(|&(o, d)| o == h || !beside(c, d)))
+        .expect("a home with none beside it");
     let (far, to) = homes
         .iter()
         .copied()
@@ -258,6 +271,140 @@ fn a_line_is_begun_along_ways_with_leave_and_strung_by_work_and_copper() {
     sim.land_mut_for_tests().wires.hookups[0].cut_off = true;
     sim.with_ctx_for_tests(|pop, ctx| pop.wire_evening_for_tests(ctx));
     assert_eq!(sim.land().wires.hookups[0].cause, Cause::CutOff);
+}
+
+/// The chronicle's entries telling a conveyance laid whole, oldest first.
+fn laid_entries(sim: &Sim) -> Vec<civ_agents::ChronicleEvent> {
+    sim.people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == civ_agents::ChronicleKind::ConveyanceLaid)
+        .cloned()
+        .collect()
+}
+
+/// Saves `sim` and loads it: every section of the loaded world is the same.
+fn saves_alike(sim: &mut Sim) -> Sim {
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(sim, &saves, commons_persist::SaveKind::Manual, "wires").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    let (a, b) = (
+        persist::encode_sections(sim),
+        persist::encode_sections(&loaded),
+    );
+    assert_eq!(a.len(), b.len());
+    for (x, y) in a.iter().zip(&b) {
+        assert!(x.bytes == y.bytes, "section `{}` differs", x.tag);
+    }
+    loaded
+}
+
+#[test]
+fn a_line_a_station_strings_whole_is_told_once_in_the_chronicle() {
+    use civ_agents::Conveyance;
+    use civ_land::ways::{Keeper, Rank, Segment, Surface, WALK, Way};
+    let mut sim = world();
+    let map = sim.map().clone();
+    let cell = |at: (f32, f32)| civ_agents::population::cell_of(&map, at) as u32;
+    let homes: Vec<(PermanentId, u32)> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| (h.id, cell(h.home)))
+        .collect();
+    let (station, from) = homes[0];
+    let to = homes
+        .iter()
+        .find_map(|&(h, c)| {
+            let w = i64::from(map.width);
+            let d = (i64::from(c) % w - i64::from(from) % w)
+                .abs()
+                .max((i64::from(c) / w - i64::from(from) / w).abs());
+            (h != station && d >= 3).then_some(c)
+        })
+        .expect("a home some cells off");
+    let cells = straight(map.width, from, to);
+    let way = sim.allocate_id_for_tests();
+    let today = sim.now().day_index();
+    sim.land_mut_for_tests().ways.add(Way {
+        id: way,
+        begun: today,
+        segments: vec![Segment {
+            cells: cells[1..cells.len() - 1].to_vec(),
+            corridor_m: 4.0,
+            built_m: 4.0,
+            usable_m: 4.0,
+            surface: Surface::Cleared,
+            keeper: Keeper::Nobody,
+            kept: today,
+        }],
+        modes: WALK,
+        trips: 0.0,
+        trips_day: today,
+        rank: Rank::Lane,
+        track: None,
+    });
+    let line = sim
+        .with_ctx_for_tests(|pop, ctx| pop.begin_line(ctx, station, from, to, None))
+        .expect("a route along the way");
+    let params = sim.rules().land.wire.expect("the core lays lines");
+    let l = sim
+        .land()
+        .wires
+        .lines
+        .iter()
+        .find(|l| l.id == line)
+        .cloned()
+        .expect("the line");
+    // Marked out, and ten metres of it strung, it is told nowhere.
+    assert!(laid_entries(&sim).is_empty());
+    set(&mut sim, station, params.good, 10.0 * params.good_kg_m);
+    sim.with_ctx_for_tests(|pop, ctx| pop.line_work_for_tests(ctx, station, line, 100.0));
+    assert!(laid_entries(&sim).is_empty());
+    // The rest strung, it is told once: the station's elder, its length from the station, and
+    // that homes along it can be lit by wire, at its far end.
+    set(&mut sim, station, params.good, 1e6);
+    sim.with_ctx_for_tests(|pop, ctx| pop.line_work_for_tests(ctx, station, line, 1e6));
+    let strung = |sim: &Sim| {
+        sim.land()
+            .wires
+            .lines
+            .iter()
+            .find(|l| l.id == line)
+            .is_some_and(civ_land::wire::Line::whole)
+    };
+    assert!(strung(&sim));
+    let told = laid_entries(&sim);
+    assert_eq!(told.len(), 1, "{told:?}");
+    let e = &told[0];
+    assert_eq!(e.number, f64::from(Conveyance::LineOfCurrent as u8));
+    let x = sim.people().household(station).expect("the station");
+    assert_eq!(e.settlement, x.settlement);
+    assert_eq!(e.people.len(), 1);
+    assert!(x.members.contains(&e.people[0]));
+    assert_eq!(
+        e.place,
+        Some(civ_agents::population::cell_centre(&map, to as usize))
+    );
+    let elder = sim.people().name_of(e.people[0]);
+    let words = sim.chronicle_words(e);
+    eprintln!("{words}");
+    assert_eq!(
+        words,
+        format!(
+            "{elder}'s household finished stringing its line of current: it runs {:.0} m from \
+             its station, and homes along it can be lit by wire.",
+            l.length_m
+        )
+    );
+    // More work on it, whole, tells nothing more; it saves and loads exactly, the entry with it.
+    sim.with_ctx_for_tests(|pop, ctx| pop.line_work_for_tests(ctx, station, line, 1e6));
+    assert_eq!(laid_entries(&sim).len(), 1);
+    let loaded = saves_alike(&mut sim);
+    assert_eq!(laid_entries(&loaded), told);
 }
 
 #[test]
@@ -434,8 +581,20 @@ fn a_station_that_knows_the_dynamo_strings_a_line_to_homes_that_pay_by_the_meter
             Some((h.id, cell(h.home)))
         })
         .collect();
-    let (station, from) = homes[0];
+    // A station with no other home on or beside its home's cell: the homes that pay by the meter
+    // are those along the line it strings, not a neighbour beside its own line of no length.
+    // (Which home was begun first moves with the world's first days; in M11d's thirteenth part
+    // the first stood a cell from another.)
     let w = i64::from(map.width);
+    let beside = |c: u32, d: u32| {
+        (i64::from(c) % w - i64::from(d) % w).abs() <= 1
+            && (i64::from(c) / w - i64::from(d) / w).abs() <= 1
+    };
+    let (station, from) = homes
+        .iter()
+        .copied()
+        .find(|&(h, c)| homes.iter().all(|&(o, d)| o == h || !beside(c, d)))
+        .expect("a home with none beside it");
     let (far, to) = homes
         .iter()
         .copied()
@@ -683,7 +842,20 @@ fn a_polity_strings_a_line_of_current_together_to_homes_beyond_a_stations_lines(
             Some((h.id, cell(h.home)))
         })
         .collect();
-    let (station, from) = homes[0];
+    // A station with no other home on or beside its home's cell: the homes that pay by the meter
+    // are those along the line it strings, not a neighbour beside its own line of no length.
+    // (Which home was begun first moves with the world's first days; in M11d's thirteenth part
+    // the first stood a cell from another.)
+    let w = i64::from(map.width);
+    let beside = |c: u32, d: u32| {
+        (i64::from(c) % w - i64::from(d) % w).abs() <= 1
+            && (i64::from(c) / w - i64::from(d) / w).abs() <= 1
+    };
+    let (station, from) = homes
+        .iter()
+        .copied()
+        .find(|&(h, c)| homes.iter().all(|&(o, d)| o == h || !beside(c, d)))
+        .expect("a home with none beside it");
     let settlement = sim
         .people()
         .household(station)
@@ -895,6 +1067,55 @@ fn a_polity_strings_a_line_of_current_together_to_homes_beyond_a_stations_lines(
         .cloned()
         .expect("the line");
     assert!(strung.whole(), "{strung:?}");
+    // Strung whole, it is told once in the chronicle (backlog D, twelfth item): the people of
+    // the village laid it under their law, the household whose share finished it named, from the
+    // station's household, at its far end.
+    let told = laid_entries(&sim);
+    assert_eq!(told.len(), 1, "{told:?}");
+    let e = &told[0];
+    assert_eq!(
+        e.number,
+        f64::from(civ_agents::Conveyance::LineOfCurrent as u8)
+    );
+    assert_eq!(e.settlement, Some(settlement));
+    assert_eq!(
+        e.place,
+        Some(civ_agents::population::cell_centre(&map, end as usize))
+    );
+    let x = sim
+        .people()
+        .household(beside)
+        .expect("the last to string it");
+    assert_eq!(e.people.len(), 1);
+    assert!(x.members.contains(&e.people[0]));
+    let elder = sim.people().name_of(e.people[0]);
+    let village = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|t| t.id == settlement)
+        .expect("the village")
+        .name
+        .clone();
+    let words = sim.chronicle_words(e);
+    eprintln!("{words}");
+    // The station's household is named by its elder, one of its members.
+    let keepers = &sim
+        .people()
+        .household(station)
+        .expect("the station")
+        .members;
+    assert!(
+        keepers.iter().any(|&k| words
+            == format!(
+                "{village}'s people finished stringing the line of current their gathering \
+                 agreed to, {elder}'s household stringing its last length: it runs {:.0} m from \
+                 the station of {}'s household, and homes along it can be lit by wire.",
+                l.length_m,
+                sim.people().name_of(k)
+            )),
+        "{words}"
+    );
     for h in [far, beside] {
         assert!(sim.people().polities[pi].way_given_by(id, h) > 0.0);
         let copper = sim.people().household(h).expect("home").stores[params.good];

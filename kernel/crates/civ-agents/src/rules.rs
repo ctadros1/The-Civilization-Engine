@@ -77,12 +77,34 @@ pub fn techniques_used(
         .enumerate()
     {
         if spec.params.get(param).is_some_and(|&v| v != 0) {
-            out.extend(def.systems[i]);
+            // Post system 2 is a steel skeleton, opened by its own technique (ADR-0037 §3), and
+            // post system 3 a concrete frame, by its own (frame version 5).
+            let system = match (param == fp::POST_SYSTEM, spec.params[param]) {
+                (true, 2) => 3,
+                (true, 3) => 4,
+                _ => i,
+            };
+            out.extend(def.systems[system]);
         }
     }
     out.sort_unstable();
     out.dedup();
     out
+}
+
+/// Whether a protection rule of `minutes` binds a building of `spec` under `rules`, and whether
+/// it keeps it (ADR-0037 §5): it binds a steel skeleton, kept when its members are cased for at
+/// least that long.
+pub fn cased_for(
+    spec: &civ_grammar::BuildingSpec,
+    rules: &civ_grammar::ProgramRules,
+    minutes: f64,
+) -> (bool, bool) {
+    use civ_grammar::frame::frame_params as fp;
+    let skeleton = spec.params.get(fp::POST_SYSTEM) == Some(&2);
+    let cased = spec.params.get(fp::ENCASEMENT) == Some(&1)
+        && matches!(rules, civ_grammar::ProgramRules::Frame(r) if r.encasement_min >= minutes);
+    (skeleton, cased)
 }
 
 /// Whether a building's mass walls are tied at each floor (ADR-0031 §1: version 3's wall ties).

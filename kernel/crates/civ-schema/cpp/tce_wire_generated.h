@@ -86,6 +86,12 @@ struct SnapshotBuilder;
 struct Event;
 struct EventBuilder;
 
+struct ViewerInfo;
+struct ViewerInfoBuilder;
+
+struct Viewers;
+struct ViewersBuilder;
+
 struct Events;
 struct EventsBuilder;
 
@@ -142,6 +148,9 @@ struct DroughtBuilder;
 
 struct ForceClimate;
 struct ForceClimateBuilder;
+
+struct HandOver;
+struct HandOverBuilder;
 
 struct SetFire;
 struct SetFireBuilder;
@@ -766,11 +775,12 @@ enum class ErrorCode : uint16_t {
   NotFound = 4,
   Incompatible = 5,
   Internal = 6,
+  NotDriver = 7,
   MIN = Unknown,
-  MAX = Internal
+  MAX = NotDriver
 };
 
-inline const ErrorCode (&EnumValuesErrorCode())[7] {
+inline const ErrorCode (&EnumValuesErrorCode())[8] {
   static const ErrorCode values[] = {
     ErrorCode::Unknown,
     ErrorCode::BadRequest,
@@ -778,13 +788,14 @@ inline const ErrorCode (&EnumValuesErrorCode())[7] {
     ErrorCode::NoWorld,
     ErrorCode::NotFound,
     ErrorCode::Incompatible,
-    ErrorCode::Internal
+    ErrorCode::Internal,
+    ErrorCode::NotDriver
   };
   return values;
 }
 
 inline const char * const *EnumNamesErrorCode() {
-  static const char * const names[8] = {
+  static const char * const names[9] = {
     "Unknown",
     "BadRequest",
     "Busy",
@@ -792,15 +803,46 @@ inline const char * const *EnumNamesErrorCode() {
     "NotFound",
     "Incompatible",
     "Internal",
+    "NotDriver",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameErrorCode(ErrorCode e) {
-  if (::flatbuffers::IsOutRange(e, ErrorCode::Unknown, ErrorCode::Internal)) return "";
+  if (::flatbuffers::IsOutRange(e, ErrorCode::Unknown, ErrorCode::NotDriver)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesErrorCode()[index];
+}
+
+enum class ViewerRole : uint8_t {
+  Spectator = 0,
+  Driver = 1,
+  MIN = Spectator,
+  MAX = Driver
+};
+
+inline const ViewerRole (&EnumValuesViewerRole())[2] {
+  static const ViewerRole values[] = {
+    ViewerRole::Spectator,
+    ViewerRole::Driver
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesViewerRole() {
+  static const char * const names[3] = {
+    "Spectator",
+    "Driver",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameViewerRole(ViewerRole e) {
+  if (::flatbuffers::IsOutRange(e, ViewerRole::Spectator, ViewerRole::Driver)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesViewerRole()[index];
 }
 
 enum class Sex : uint8_t {
@@ -924,11 +966,12 @@ enum class CommandBody : uint8_t {
   Shake = 21,
   SetResolution = 22,
   ForceClimate = 23,
+  HandOver = 24,
   MIN = NONE,
-  MAX = ForceClimate
+  MAX = HandOver
 };
 
-inline const CommandBody (&EnumValuesCommandBody())[24] {
+inline const CommandBody (&EnumValuesCommandBody())[25] {
   static const CommandBody values[] = {
     CommandBody::NONE,
     CommandBody::NewWorld,
@@ -953,13 +996,14 @@ inline const CommandBody (&EnumValuesCommandBody())[24] {
     CommandBody::SendStorm,
     CommandBody::Shake,
     CommandBody::SetResolution,
-    CommandBody::ForceClimate
+    CommandBody::ForceClimate,
+    CommandBody::HandOver
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandBody() {
-  static const char * const names[25] = {
+  static const char * const names[26] = {
     "NONE",
     "NewWorld",
     "SaveWorld",
@@ -984,13 +1028,14 @@ inline const char * const *EnumNamesCommandBody() {
     "Shake",
     "SetResolution",
     "ForceClimate",
+    "HandOver",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandBody(CommandBody e) {
-  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::ForceClimate)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::HandOver)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandBody()[index];
 }
@@ -1089,6 +1134,10 @@ template<> struct CommandBodyTraits<tce::wire::SetResolution> {
 
 template<> struct CommandBodyTraits<tce::wire::ForceClimate> {
   static const CommandBody enum_value = CommandBody::ForceClimate;
+};
+
+template<> struct CommandBodyTraits<tce::wire::HandOver> {
+  static const CommandBody enum_value = CommandBody::HandOver;
 };
 
 template <bool B = false>
@@ -5629,14 +5678,207 @@ inline ::flatbuffers::Offset<Event> CreateEventDirect(
       text__);
 }
 
+struct ViewerInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef ViewerInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_NAME = 6,
+    VT_LOCAL = 8,
+    VT_ROLE = 10
+  };
+  uint64_t id() const {
+    return GetField<uint64_t>(VT_ID, 0);
+  }
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  bool local() const {
+    return GetField<uint8_t>(VT_LOCAL, 0) != 0;
+  }
+  tce::wire::ViewerRole role() const {
+    return static_cast<tce::wire::ViewerRole>(GetField<uint8_t>(VT_ROLE, 0));
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_ID, 8) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyField<uint8_t>(verifier, VT_LOCAL, 1) &&
+           VerifyField<uint8_t>(verifier, VT_ROLE, 1) &&
+           verifier.EndTable();
+  }
+};
+
+struct ViewerInfoBuilder {
+  typedef ViewerInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint64_t id) {
+    fbb_.AddElement<uint64_t>(ViewerInfo::VT_ID, id, 0);
+  }
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(ViewerInfo::VT_NAME, name);
+  }
+  void add_local(bool local) {
+    fbb_.AddElement<uint8_t>(ViewerInfo::VT_LOCAL, static_cast<uint8_t>(local), 0);
+  }
+  void add_role(tce::wire::ViewerRole role) {
+    fbb_.AddElement<uint8_t>(ViewerInfo::VT_ROLE, static_cast<uint8_t>(role), 0);
+  }
+  explicit ViewerInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<ViewerInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<ViewerInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<ViewerInfo> CreateViewerInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0,
+    bool local = false,
+    tce::wire::ViewerRole role = tce::wire::ViewerRole::Spectator) {
+  ViewerInfoBuilder builder_(_fbb);
+  builder_.add_id(id);
+  builder_.add_name(name);
+  builder_.add_role(role);
+  builder_.add_local(local);
+  return builder_.Finish();
+}
+
+struct ViewerInfo::Traits {
+  using type = ViewerInfo;
+  static auto constexpr Create = CreateViewerInfo;
+};
+
+inline ::flatbuffers::Offset<ViewerInfo> CreateViewerInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    const char *name = nullptr,
+    bool local = false,
+    tce::wire::ViewerRole role = tce::wire::ViewerRole::Spectator) {
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  return tce::wire::CreateViewerInfo(
+      _fbb,
+      id,
+      name__,
+      local,
+      role);
+}
+
+struct Viewers FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef ViewersBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_YOU = 4,
+    VT_ROLE = 6,
+    VT_DRIVER = 8,
+    VT_VIEWERS = 10
+  };
+  uint64_t you() const {
+    return GetField<uint64_t>(VT_YOU, 0);
+  }
+  tce::wire::ViewerRole role() const {
+    return static_cast<tce::wire::ViewerRole>(GetField<uint8_t>(VT_ROLE, 0));
+  }
+  uint64_t driver() const {
+    return GetField<uint64_t>(VT_DRIVER, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::ViewerInfo>> *viewers() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::ViewerInfo>> *>(VT_VIEWERS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_YOU, 8) &&
+           VerifyField<uint8_t>(verifier, VT_ROLE, 1) &&
+           VerifyField<uint64_t>(verifier, VT_DRIVER, 8) &&
+           VerifyOffset(verifier, VT_VIEWERS) &&
+           verifier.VerifyVector(viewers()) &&
+           verifier.VerifyVectorOfTables(viewers()) &&
+           verifier.EndTable();
+  }
+};
+
+struct ViewersBuilder {
+  typedef Viewers Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_you(uint64_t you) {
+    fbb_.AddElement<uint64_t>(Viewers::VT_YOU, you, 0);
+  }
+  void add_role(tce::wire::ViewerRole role) {
+    fbb_.AddElement<uint8_t>(Viewers::VT_ROLE, static_cast<uint8_t>(role), 0);
+  }
+  void add_driver(uint64_t driver) {
+    fbb_.AddElement<uint64_t>(Viewers::VT_DRIVER, driver, 0);
+  }
+  void add_viewers(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::ViewerInfo>>> viewers) {
+    fbb_.AddOffset(Viewers::VT_VIEWERS, viewers);
+  }
+  explicit ViewersBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<Viewers> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<Viewers>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<Viewers> CreateViewers(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t you = 0,
+    tce::wire::ViewerRole role = tce::wire::ViewerRole::Spectator,
+    uint64_t driver = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::ViewerInfo>>> viewers = 0) {
+  ViewersBuilder builder_(_fbb);
+  builder_.add_driver(driver);
+  builder_.add_you(you);
+  builder_.add_viewers(viewers);
+  builder_.add_role(role);
+  return builder_.Finish();
+}
+
+struct Viewers::Traits {
+  using type = Viewers;
+  static auto constexpr Create = CreateViewers;
+};
+
+inline ::flatbuffers::Offset<Viewers> CreateViewersDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t you = 0,
+    tce::wire::ViewerRole role = tce::wire::ViewerRole::Spectator,
+    uint64_t driver = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::ViewerInfo>> *viewers = nullptr) {
+  auto viewers__ = viewers ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::ViewerInfo>>(*viewers) : 0;
+  return tce::wire::CreateViewers(
+      _fbb,
+      you,
+      role,
+      driver,
+      viewers__);
+}
+
 struct Events FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef EventsBuilder Builder;
   struct Traits;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_EVENTS = 4
+    VT_EVENTS = 4,
+    VT_VIEWERS = 6
   };
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::Event>> *events() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::Event>> *>(VT_EVENTS);
+  }
+  const tce::wire::Viewers *viewers() const {
+    return GetPointer<const tce::wire::Viewers *>(VT_VIEWERS);
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -5644,6 +5886,8 @@ struct Events FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_EVENTS) &&
            verifier.VerifyVector(events()) &&
            verifier.VerifyVectorOfTables(events()) &&
+           VerifyOffset(verifier, VT_VIEWERS) &&
+           verifier.VerifyTable(viewers()) &&
            verifier.EndTable();
   }
 };
@@ -5654,6 +5898,9 @@ struct EventsBuilder {
   ::flatbuffers::uoffset_t start_;
   void add_events(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::Event>>> events) {
     fbb_.AddOffset(Events::VT_EVENTS, events);
+  }
+  void add_viewers(::flatbuffers::Offset<tce::wire::Viewers> viewers) {
+    fbb_.AddOffset(Events::VT_VIEWERS, viewers);
   }
   explicit EventsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -5668,8 +5915,10 @@ struct EventsBuilder {
 
 inline ::flatbuffers::Offset<Events> CreateEvents(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::Event>>> events = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::Event>>> events = 0,
+    ::flatbuffers::Offset<tce::wire::Viewers> viewers = 0) {
   EventsBuilder builder_(_fbb);
+  builder_.add_viewers(viewers);
   builder_.add_events(events);
   return builder_.Finish();
 }
@@ -5681,11 +5930,13 @@ struct Events::Traits {
 
 inline ::flatbuffers::Offset<Events> CreateEventsDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<::flatbuffers::Offset<tce::wire::Event>> *events = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::Event>> *events = nullptr,
+    ::flatbuffers::Offset<tce::wire::Viewers> viewers = 0) {
   auto events__ = events ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::Event>>(*events) : 0;
   return tce::wire::CreateEvents(
       _fbb,
-      events__);
+      events__,
+      viewers);
 }
 
 struct NewWorld FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -6896,6 +7147,54 @@ struct ForceClimate::Traits {
   static auto constexpr Create = CreateForceClimate;
 };
 
+struct HandOver FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef HandOverBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_TO = 4
+  };
+  uint64_t to() const {
+    return GetField<uint64_t>(VT_TO, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_TO, 8) &&
+           verifier.EndTable();
+  }
+};
+
+struct HandOverBuilder {
+  typedef HandOver Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_to(uint64_t to) {
+    fbb_.AddElement<uint64_t>(HandOver::VT_TO, to, 0);
+  }
+  explicit HandOverBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<HandOver> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<HandOver>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<HandOver> CreateHandOver(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t to = 0) {
+  HandOverBuilder builder_(_fbb);
+  builder_.add_to(to);
+  return builder_.Finish();
+}
+
+struct HandOver::Traits {
+  using type = HandOver;
+  static auto constexpr Create = CreateHandOver;
+};
+
 struct SetFire FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef SetFireBuilder Builder;
   struct Traits;
@@ -7305,6 +7604,9 @@ struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const tce::wire::ForceClimate *body_as_ForceClimate() const {
     return body_type() == tce::wire::CommandBody::ForceClimate ? static_cast<const tce::wire::ForceClimate *>(body()) : nullptr;
   }
+  const tce::wire::HandOver *body_as_HandOver() const {
+    return body_type() == tce::wire::CommandBody::HandOver ? static_cast<const tce::wire::HandOver *>(body()) : nullptr;
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -7405,6 +7707,10 @@ template<> inline const tce::wire::SetResolution *Command::body_as<tce::wire::Se
 
 template<> inline const tce::wire::ForceClimate *Command::body_as<tce::wire::ForceClimate>() const {
   return body_as_ForceClimate();
+}
+
+template<> inline const tce::wire::HandOver *Command::body_as<tce::wire::HandOver>() const {
+  return body_as_HandOver();
 }
 
 struct CommandBuilder {
@@ -27443,6 +27749,10 @@ inline bool VerifyCommandBody(::flatbuffers::VerifierTemplate<B> &verifier, cons
     }
     case CommandBody::ForceClimate: {
       auto ptr = reinterpret_cast<const tce::wire::ForceClimate *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case CommandBody::HandOver: {
+      auto ptr = reinterpret_cast<const tce::wire::HandOver *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

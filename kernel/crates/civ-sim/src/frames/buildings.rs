@@ -56,6 +56,19 @@ pub fn buildings_rev(sim: &Sim) -> u64 {
             .wrapping_add(u64::from(l.riders) << 16)
             .wrapping_add(u64::from(l.fare_kcal.to_bits()))
     });
+    // A refuse round's homes, fee and last run (M11f, third part; ADR-0038 §4).
+    let gas = sim
+        .people
+        .polities
+        .iter()
+        .flat_map(|p| &p.rounds)
+        .fold(gas, |rev, r| {
+            rev.wrapping_mul(31)
+                .wrapping_add(r.id.get())
+                .wrapping_add((r.homes.len() as u64) << 8)
+                .wrapping_add((r.last_run.max(0) as u64) << 16)
+                .wrapping_add(u64::from(r.fee_kcal.to_bits()))
+        });
     sim.land.buildings.iter().fold(gas, |rev, b| {
         let condition = b.condition.iter().fold(0u64, |sum, c| {
             sum.wrapping_add((f64::from(c.loss) * 1e4).round().max(0.0) as u64)
@@ -255,6 +268,12 @@ fn rules_kept_by(sim: &Sim, b: &Building, def: &BuildingDef) -> Vec<String> {
                         && b.spec.storeys > 1
                         && civ_agents::rules::tied(&b.spec),
                 ),
+                // A steel skeleton cased against fire (ADR-0037 §5).
+                RuleTemplate::ProtectedFrame { minutes } => (
+                    "its steel is cased against fire, keeping",
+                    civ_agents::rules::cased_for(&b.spec, &def.rules, f64::from(minutes))
+                        == (true, true),
+                ),
             };
             kept.then(|| {
                 format!(
@@ -290,7 +309,29 @@ pub fn status(sim: &Sim, b: &Building) -> String {
         .and_then(|d| build::stage_needs(&b.spec, d))
         .map(|stages| HomeWork::of(b, stages));
     let Some(stage) = b.stage() else {
-        return if b.standing() { "finished" } else { "a ruin" }.to_owned();
+        if !b.standing() {
+            return "a ruin".to_owned();
+        }
+        // Floor let in it (ADR-0040 §6): "finished; lets 9 m² to Bo's household".
+        let lets: Vec<String> = sim
+            .people
+            .letting
+            .lets
+            .iter()
+            .filter(|l| l.building == b.id)
+            .map(|l| {
+                format!(
+                    "lets {:.0} m² to {}",
+                    l.floor_m2,
+                    super::people::household_name(sim, l.lodger)
+                )
+            })
+            .collect();
+        return if lets.is_empty() {
+            "finished".to_owned()
+        } else {
+            format!("finished; {}", lets.join("; "))
+        };
     };
     let (Some(def), Some(work)) = (def, work) else {
         return format!("unfinished: the {}", stage.name());
@@ -800,7 +841,9 @@ pub(crate) fn gas_words(sim: &Sim, b: &Building) -> String {
 /// installation; feeds 2 lines, 3 homes hooked up"); empty for neither.
 /// The road line building `b`'s household keeps, in words (wire 1.109, M11b, third part), on its
 /// first building: "Motor cart runs to Elmhollow: 1 a day, leaving at 06:00, back at 07:12; fare
-/// 210 kcal; 4 rides since day 120". Empty where it keeps none.
+/// 210 kcal; 4 rides since day 120". Empty where it keeps none. And the refuse rounds it works
+/// (M11f, third part; ADR-0038 §4), as the polity's page tells them: "Ada's refuse round calls at
+/// 12 homes every 7 days and carries to the tip north of the hearth; 3.1 t carried this year".
 pub(crate) fn road_words(sim: &Sim, b: &Building) -> String {
     let first = sim
         .land
@@ -808,6 +851,24 @@ pub(crate) fn road_words(sim: &Sim, b: &Building) -> String {
         .iter()
         .find(|o| o.household == b.household)
         .is_some_and(|o| o.id == b.id);
+    let rounds: Vec<String> = sim
+        .people
+        .polities
+        .iter()
+        .flat_map(|p| p.rounds.iter().map(move |r| (p, r)))
+        .filter(|(_, r)| first && r.operator == b.household)
+        .map(|(p, r)| super::government::round_words(sim, p, r))
+        .collect();
+    let road = line_words(sim, b, first);
+    std::iter::once(road)
+        .chain(rounds)
+        .filter(|w| !w.is_empty())
+        .collect::<Vec<_>>()
+        .join(". ")
+}
+
+/// The road line building `b`'s household keeps, in words, where `b` is its first building.
+fn line_words(sim: &Sim, b: &Building, first: bool) -> String {
     let Some(l) = sim
         .land
         .runs
@@ -960,12 +1021,27 @@ pub(crate) fn wire_words(sim: &Sim, b: &Building) -> String {
             }) && x.stores.get(*g).copied().unwrap_or(0.0) >= 1.0 - 1e-9
         });
         if dynamos > 0 && (owns || engine.is_some()) {
+            // The engine, its rating and what it burns at it over an evening (ADR-0038 §5): "its
+            // refuse destructor, 6 kW, burning up to 447 kg of refuse an evening".
+            let engine = engine.map(|(g, e)| {
+                let n = x.stores[g].floor() as u32;
+                let name = e.name.to_lowercase();
+                let rated = e.power.map_or(0.0, |p| p.rated_kw) * f64::from(n);
+                let burns = civ_agents::population::engine_evening_kg(&catalog.goods, g)
+                    .map(|(f, kg)| {
+                        format!(
+                            ", burning up to {:.0} kg of {} an evening",
+                            kg * f64::from(n),
+                            catalog.goods[f].name.to_lowercase()
+                        )
+                    })
+                    .unwrap_or_default();
+                let which = if n == 1 { name } else { format!("{n} {name}s") };
+                format!("{which}, {rated:.0} kW{burns}")
+            });
             let beside = match (owns, engine) {
-                (true, Some((_, e))) => format!(
-                    "its own water installation and its {}",
-                    e.name.to_lowercase()
-                ),
-                (false, Some((_, e))) => format!("its {}", e.name.to_lowercase()),
+                (true, Some(e)) => format!("its own water installation and its {e}"),
+                (false, Some(e)) => format!("its {e}"),
                 _ => "its own water installation".to_owned(),
             };
             let mut out = if dynamos == 1 {

@@ -1,0 +1,28 @@
+# Steel cased against fire (ADR-0037 §5; research 11-14 §1.6: unprotected iron and steel lose
+# strength in fire, and protection is a property of the group). When fire has taken buildings a
+# household knew (the issue `burned`), someone who knows the steel skeleton may propose that a new
+# steel frame be cased in concrete against a fully involved fire for an hour: 60 minutes, within
+# research 11-14 §2.5's 30-120 by a casing's thickness. It binds only buildings begun once it is in
+# force, so frames already standing bare stay as they are. A household weighs it by the loss it
+# believes averted, from the bare steel frames it heard gave way or saw burn, against the hours
+# casing its own next home would take, if that is a steel frame; one that builds none pays
+# nothing. Keeping it is each builder's choice, with no sanction. Its id sorts after every older
+# template's: hearth talk about a question is keyed by a template's place in id order.
+kind = "policy"
+id = "core:policy/zealously_zone_cased_steel"
+name = "Steel cased against fire"
+description = "A new steel frame must be cased in concrete against fire for an hour."
+does = "building_rule"
+answers = ["burned"]
+question = "whether new steel frames must be cased against fire"
+
+[rule]
+template = "protected_frame"
+minutes = 60
+needs = "core:technique/skeleton_frame"
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement: it guards against fire and binds how people build.
+[bears]
+"core:value/security" = 0.5
+"core:value/autonomy" = -0.5

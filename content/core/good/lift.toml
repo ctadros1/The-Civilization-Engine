@@ -1,0 +1,32 @@
+# A passenger lift (ADR-0042 §2; research 11-14 §1.5, §2.4, §2.5): a car on guides in a shaft,
+# hoisted by a drive that needs power, a fixed tool of the building it stands in. While its
+# building's keeper has power that day (an installation's or an engine's shaft, or current on the
+# wire), a person going out and back from a storey above the ground waits for the car to come
+# half the building and rides it down, and again on the way back, where that is quicker than the
+# stair; without power, the stair it is. Its shaft takes floor on every storey it serves. 630 kg
+# (eight people), 1 m/s, a 7.5 kW drive and 10 s at each stop are design priors for an early
+# electric car (Demarest Building, 1889); at ten storeys of 3.5 m a car calling at every floor runs
+# its round in about 130 s, inside 11-14 §2.5's 90-180 s; 7 m² of shaft and landing a storey, within
+# its 5-10.
+kind = "good"
+id = "core:good/lift"
+name = "Passenger lift"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 60000.0
+per_worker = 0.0                 # nobody wants one for work: only a household given or making one holds it
+fixed = true
+
+[lift]
+rated_kg = 630.0
+speed_ms = 1.0
+drive_kw = 7.5
+stop_s = 10.0
+shaft_m2 = 7.0

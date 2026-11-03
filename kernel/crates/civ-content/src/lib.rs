@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 206;
+pub const KERNEL_CONTENT_API: u32 = 227;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -803,7 +803,7 @@ fn resolve(
         };
         let technique = gate(c, parsed, &technique_index, &d.rel, &d.file.technique);
         // The techniques that open its version 3 systems (ADR-0031 §2).
-        let mut systems = [None; 3];
+        let mut systems = [None; 5];
         if let Some(named) = &d.file.systems {
             for (slot, id) in named.ids().into_iter().enumerate() {
                 match gate(c, parsed, &technique_index, &d.rel, id) {
@@ -1008,6 +1008,40 @@ fn resolve(
                 }
             },
         };
+        // What a `pick` activity sorts out of a heap or a tip (ADR-0044 §2): only what lies there
+        // whole, the ash of what burned or the scrap a tool names.
+        let picks = match &d.file.picks {
+            None => None,
+            Some(g) => match good_index(g) {
+                // A tool's scrap is resolved with the tools below, so it is read as authored here.
+                Some(i)
+                    if goods[i].id == civ_agents::make::ASH
+                        || parsed
+                            .goods
+                            .iter()
+                            .any(|d| d.file.scrap.as_ref().is_some_and(|x| x.good == *g)) =>
+                {
+                    Some(i)
+                }
+                Some(_) => {
+                    c.push(
+                        "E3001",
+                        &d.rel,
+                        None,
+                        format!(
+                            "`picks` names `{g}`, which no heap or tip holds: it is neither `{}` \
+                             nor a tool's `[scrap]`",
+                            civ_agents::make::ASH
+                        ),
+                    );
+                    continue;
+                }
+                None => {
+                    missing(c, parsed, &d.rel, "picks", g);
+                    continue;
+                }
+            },
+        };
         let mut tools = Vec::new();
         let mut ok = true;
         for t in &d.file.tools {
@@ -1030,7 +1064,7 @@ fn resolve(
         }
         let technique = gate(c, parsed, &technique_index, &d.rel, &d.file.technique);
         if let (true, Ok(technique)) = (ok, technique) {
-            activities.extend(d.file.def(resource, recipe, digs, tools, technique));
+            activities.extend(d.file.def(resource, recipe, digs, picks, tools, technique));
         }
     }
     activities.sort_by(|a, b| a.id.cmp(&b.id));
@@ -1151,6 +1185,23 @@ fn resolve(
                 Some(_) => {}
             }
         }
+        // A sewer's goods are content (ADR-0041 §1, §4).
+        if let Some(s) = &d.file.sewer {
+            for (field, ids) in [("sewer.walls", &s.walls), ("sewer.binders", &s.binders)] {
+                for g in ids {
+                    if good_index(g).is_none() {
+                        missing(c, parsed, &d.rel, field, g);
+                    }
+                }
+            }
+            for (field, g) in [("sewer.tank", &s.tank), ("sewer.sludge", &s.sludge)] {
+                if let Some(g) = g
+                    && good_index(g).is_none()
+                {
+                    missing(c, parsed, &d.rel, field, g);
+                }
+            }
+        }
         // A polity's notes are redeemed in a good that is not itself a money (M10d slice EJ).
         if let Some(r) = d.file.notes.as_ref().and_then(|n| n.redeem.as_ref()) {
             match good_index(r) {
@@ -1229,6 +1280,7 @@ fn resolve(
             def.pay = d.file.pay_def(&good_index);
             def.medium = d.file.medium_def(&good_index);
             def.notes = d.file.notes_def(&good_index);
+            def.sewer = d.file.sewer_def(&good_index);
             def.licence = d.file.licence.as_ref().and_then(|l| {
                 Some(civ_agents::polity::LicenceDef {
                     technique: technique_index(&l.technique)?,
@@ -1520,6 +1572,35 @@ fn resolve(
             holders.push((g, held));
         }
     }
+    // What a tool leaves as it wears away (ADR-0044 §1): a good that is not a tool.
+    let mut scraps: Vec<(usize, usize, f64)> = Vec::new();
+    for d in &parsed.goods {
+        let Some(x) = d.file.scrap.as_ref() else {
+            continue;
+        };
+        match good_index(&x.good) {
+            None => missing(c, parsed, &d.rel, "scrap.good", &x.good),
+            Some(left) if goods[left].tool.is_some() => c.push(
+                "E3001",
+                &d.rel,
+                None,
+                format!(
+                    "`scrap.good` must name a good that is not a tool; `{}` is one",
+                    x.good
+                ),
+            ),
+            Some(left) => {
+                if let Some(g) = good_index(&d.file.id) {
+                    scraps.push((g, left, x.kg));
+                }
+            }
+        }
+    }
+    for (g, left, kg) in scraps {
+        if let Some(t) = goods[g].tool.as_mut() {
+            t.scrap = Some((left, kg));
+        }
+    }
     for (g, metal, assay) in resolved {
         if let Some(m) = goods[g].money.as_mut() {
             m.metal = metal;
@@ -1764,6 +1845,31 @@ fn knowledge_problems(
                         changed = true;
                     }
                 }
+            }
+        }
+        // The ash of a fuel the world provides, left on a heap or in a works' store as it burns
+        // (ADR-0038 §2), which a heap or a tip gives up to picking (ADR-0044 §2).
+        if let Some(a) = catalog
+            .goods
+            .iter()
+            .position(|d| d.id == civ_agents::make::ASH)
+            && !renewed.get(a).copied().unwrap_or(true)
+            && catalog.goods.iter().enumerate().any(|(g, d)| {
+                d.fuel.is_some_and(|f| f.ash_share > 0.0)
+                    && renewed.get(g).copied().unwrap_or(false)
+            })
+        {
+            mark(a, &mut renewed);
+            changed = true;
+        }
+        // What a tool the world provides leaves as it wears away (ADR-0044 §1).
+        for (g, def) in catalog.goods.iter().enumerate() {
+            if let Some((left, _)) = def.tool.as_ref().and_then(|t| t.scrap)
+                && renewed.get(g).copied().unwrap_or(false)
+                && !renewed.get(left).copied().unwrap_or(true)
+            {
+                mark(left, &mut renewed);
+                changed = true;
             }
         }
         if !changed {

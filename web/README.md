@@ -131,6 +131,18 @@ says what a building shows of its wear ("the thatch leaks; rot at the posts' foo
 being mended ("mending the covering, 40% done"), the kernel's words (M3b slice P); a roof darkens
 as it leaks, and a ruin is drawn as its bare posts and the trace of its walls.
 
+## More than one viewer
+
+Each page connected to a host drives or watches (ADR-0039 §6, wire 1.110). The first page on the
+host's own machine drives: it commands the world and its time. Every other page watches: it sees
+what the driver does and may open any panel, and its command controls are disabled, with the
+reason as their tooltip. The status area says which ("You drive", "You are watching; Ada drives";
+`?name=Ada` in a page's address names it to the others). The driver may hand over to another page
+from the list beside it; when the driver leaves, the oldest page left on the host's machine drives.
+`civ-host serve --viewers lan` opens the host to the local network, with a token it prints once in
+its address (or `--token`); pages elsewhere on the network open the host's address with that same
+`?token=` and watch.
+
 ## The panels alone
 
 `?view=panels` shows the panels without the map, for a host that draws the world itself: Unreal's

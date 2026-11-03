@@ -329,20 +329,31 @@ pub fn settle_state(b: &mut Building) {
     };
 }
 
-/// The group upkeep would mend first on building `b`, and how far it has gone ([`beyond`]; 1 for
-/// a failed group): of those its wear shows on or that have failed, the one gone furthest (ties:
-/// the lower group id). `None` when nothing does, or for a ruin, which is not mended.
-pub fn worst(b: &Building, upkeep: &Upkeep) -> Option<(u32, f64)> {
-    if b.state == BuildingState::Ruin {
-        return None;
-    }
+/// Whether a group of kind `kind` is roof timber, on which a covering is laid.
+fn bears_covering(kind: GroupKind) -> bool {
+    matches!(
+        kind,
+        GroupKind::RoofFrame | GroupKind::Trusses | GroupKind::Purlins
+    )
+}
+
+/// Of building `b`'s groups that `among` admits, the one whose wear shows or that has failed and
+/// has gone furthest ([`beyond`]; 1 for a failed group), and how far (ties: the lower group id).
+fn worst_among(
+    b: &Building,
+    upkeep: &Upkeep,
+    among: impl Fn(GroupKind) -> bool,
+) -> Option<(u32, f64)> {
     let mut best: Option<(f64, u32)> = None;
     for c in &b.condition {
         // What its load alone shows (a sag, a lean) is not mended: only what is worn or broken.
         if wear_state(c, upkeep) == GroupState::Sound {
             continue;
         }
-        let Some(w) = GroupKind::of_group(c.group).and_then(|k| wear_of(k, upkeep)) else {
+        let Some(kind) = GroupKind::of_group(c.group).filter(|&k| among(k)) else {
+            continue;
+        };
+        let Some(w) = wear_of(kind, upkeep) else {
             continue;
         };
         let over = if c.state == GroupState::Failed {
@@ -359,15 +370,53 @@ pub fn worst(b: &Building, upkeep: &Upkeep) -> Option<(u32, f64)> {
     best.map(|(over, id)| (id, over))
 }
 
+/// Whether a covering of building `b` is gone (failed: burnt away, torn off or worn through)
+/// while roof timber it would be laid on shows its wear (rot, or char) or has failed.
+fn bare_on_weak_timber(b: &Building, upkeep: &Upkeep) -> bool {
+    let gone = b.condition.iter().any(|c| {
+        c.state == GroupState::Failed && GroupKind::of_group(c.group) == Some(GroupKind::Covering)
+    });
+    gone && worst_among(b, upkeep, bears_covering).is_some()
+}
+
+/// The group upkeep would mend first on building `b`, and how far the worst of it has gone
+/// ([`beyond`]; 1 for a failed group): of those its wear shows on or that have failed, the one
+/// gone furthest (ties: the lower group id). A covering that is gone is laid again only on
+/// roof timber that shows nothing, so while any shows, the worst of that timber is mended first
+/// (research 11-06 §1.3: what threatens to fall comes first). `None` when nothing does, or for a
+/// ruin, which is not mended.
+pub fn worst(b: &Building, upkeep: &Upkeep) -> Option<(u32, f64)> {
+    if b.state == BuildingState::Ruin {
+        return None;
+    }
+    let (group, over) = worst_among(b, upkeep, |_| true)?;
+    if bare_on_weak_timber(b, upkeep) {
+        let (timber, _) = worst_among(b, upkeep, bears_covering)?;
+        return Some((timber, over));
+    }
+    Some((group, over))
+}
+
 /// The repair building `b` would have under way: the one begun, or else renewing all that is
-/// lost of the worst group showing ([`worst`]), or all of it once it has failed. `None` when
-/// nothing shows, or for a ruin.
+/// lost of the worst group showing ([`worst`]), or all of it once it has failed. A repair begun
+/// renews all of its group once the group has failed since; and one begun on a covering that
+/// has since gone while the roof timber under it shows gives way to that timber's ([`worst`]).
+/// `None` when nothing shows, or for a ruin.
 pub fn repair_of(b: &Building, upkeep: &Upkeep) -> Option<Repair> {
     if !b.standing() {
         return None;
     }
     if let Some(r) = b.repair {
-        return Some(r);
+        let failed = b
+            .group(r.group)
+            .is_some_and(|c| c.state == GroupState::Failed);
+        let covering = GroupKind::of_group(r.group) == Some(GroupKind::Covering);
+        if !(covering && failed && bare_on_weak_timber(b, upkeep)) {
+            return Some(Repair {
+                share: if failed { 1.0 } else { r.share },
+                ..r
+            });
+        }
     }
     let (group, _) = worst(b, upkeep)?;
     let c = b.group(group)?;
@@ -521,7 +570,8 @@ pub fn symptoms(b: &Building, upkeep: &Upkeep) -> String {
     // A building of three storeys or more says which storey a wall, its posts or a floor is on.
     let tall = b.condition.iter().any(|c| {
         Level::from_code((c.group >> 24) as u8)
-            .is_some_and(|l| matches!(l, Level::Third | Level::Fourth))
+            .and_then(Level::storey_index)
+            .is_some_and(|t| t >= 2)
     });
     let mut shown: Vec<(f64, String)> = Vec::new();
     for c in &b.condition {
@@ -884,6 +934,47 @@ mod tests {
         let month = base / 12.0;
         assert!((loss(&deluge, covering) - WET_WEAR.1 * month).abs() < 1e-5);
         assert!((loss(&drought, covering) - WET_WEAR.0 * month).abs() < 1e-5);
+    }
+
+    #[test]
+    fn a_covering_gone_is_laid_again_only_on_roof_timber_that_shows_nothing() {
+        let (mut b, e) = hut();
+        let u = upkeep();
+        let covering = group_of(&e, GroupKind::Covering);
+        let rafters = group_of(&e, GroupKind::RoofFrame);
+        let set = |b: &mut Building, group: u32, loss: f32, state: GroupState| {
+            let c = b
+                .condition
+                .iter_mut()
+                .find(|c| c.group == group)
+                .expect("in place");
+            c.loss = loss;
+            c.state = state;
+        };
+        // A third of the thatch is being renewed when a fire burns it away and chars the rafters.
+        set(&mut b, covering, 0.3, GroupState::Symptom);
+        b.repair = Some(Repair {
+            group: covering,
+            share: 0.3,
+            work_h: 5.0,
+        });
+        set(&mut b, covering, 1.0, GroupState::Failed);
+        set(&mut b, rafters, 0.42, GroupState::Symptom);
+        settle_state(&mut b);
+        // The charred rafters come first, the building ranked by its roof that is gone.
+        assert_eq!(worst(&b, &u), Some((rafters, 1.0)));
+        let r = repair_of(&b, &u).expect("a repair");
+        assert_eq!((r.group, r.share, r.work_h), (rafters, 0.42, 0.0));
+        // Once they show nothing the thatching begun goes on, renewing all of the thatch now.
+        set(&mut b, rafters, 0.0, GroupState::Sound);
+        let r = repair_of(&b, &u).expect("a repair");
+        assert_eq!((r.group, r.share, r.work_h), (covering, 1.0, 5.0));
+        assert_eq!(worst(&b, &u), Some((covering, 1.0)));
+        // Thatch only worn is mended before rafters less far gone, as before.
+        b.repair = None;
+        set(&mut b, covering, 0.6, GroupState::Symptom);
+        set(&mut b, rafters, 0.35, GroupState::Symptom);
+        assert_eq!(worst(&b, &u).map(|(g, _)| g), Some(covering));
     }
 
     #[test]

@@ -5,6 +5,7 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { Event } from '../../tce/wire/event.js';
+import { Viewers } from '../../tce/wire/viewers.js';
 
 
 export class Events {
@@ -35,8 +36,13 @@ eventsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+viewers(obj?:Viewers):Viewers|null {
+  const offset = this.bb!.__offset(this.bb_pos, 6);
+  return offset ? (obj || new Viewers()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
+}
+
 static startEvents(builder:flatbuffers.Builder) {
-  builder.startObject(1);
+  builder.startObject(2);
 }
 
 static addEvents(builder:flatbuffers.Builder, eventsOffset:flatbuffers.Offset) {
@@ -55,14 +61,13 @@ static startEventsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addViewers(builder:flatbuffers.Builder, viewersOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(1, viewersOffset, 0);
+}
+
 static endEvents(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createEvents(builder:flatbuffers.Builder, eventsOffset:flatbuffers.Offset):flatbuffers.Offset {
-  Events.startEvents(builder);
-  Events.addEvents(builder, eventsOffset);
-  return Events.endEvents(builder);
-}
 }

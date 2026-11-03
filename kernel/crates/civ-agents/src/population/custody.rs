@@ -140,6 +140,8 @@ impl Population {
                             back.push((k.id, k.depositor, take));
                         } else if day - k.fee_day >= FEE_DAYS
                             && self.kin_households(d).binary_search(&keeper.id).is_err()
+                            // No fee while it lodges: its rent is all it pays (ADR-0040 §4).
+                            && !self.lodges(d.id)
                         {
                             let fee: Vec<f64> =
                                 k.stores.iter().map(|x| x * mp.custody_fee_share).collect();
@@ -692,7 +694,8 @@ impl Population {
         let kin_of = self.kin_households(x);
         let (keeper, kin, metres) = self
             .households_in(settlement)
-            .filter(|k| k.id != h && !k.members.is_empty() && k.sheltered)
+            // A lodger keeps nothing for others (ADR-0040 §4).
+            .filter(|k| k.id != h && !k.members.is_empty() && k.sheltered && !self.lodges(k.id))
             .filter(|k| {
                 let ks = stores_now(k, now, params, goods);
                 self.custody_room(ctx, k, &ks) >= total

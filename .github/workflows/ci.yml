@@ -12,8 +12,11 @@
 # rust-toolchain.toml; Node by the version below.
 name: CI
 
+# Pushes to main and pull requests only: the working branches are verified on the homelab chain,
+# and scratch branches for diagnosis start no runs of their own.
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
@@ -31,7 +34,9 @@ jobs:
   kernel:
     name: Kernel (Windows)
     runs-on: windows-latest
-    timeout-minutes: 45
+    # The checked optimized tests alone took about 40 minutes by M11, and 45 cut every run off in
+    # its smoke seeds.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -120,7 +125,7 @@ jobs:
 
   web:
     name: Web observer
-    runs-on: ${{ github.event_name == 'push' && github.actor == 'ctadros1' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/ci/') || startsWith(github.ref, 'refs/heads/codex/') || startsWith(github.ref, 'refs/heads/claude/')) && fromJSON('["self-hosted","Linux","X64","tce-ci"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ github.event_name == 'push' && github.actor == 'ctadros1' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/ci/') || startsWith(github.ref, 'refs/heads/codex/') || startsWith(github.ref, 'refs/heads/claude/')) && fromJSON('["self-hosted","Linux","X64","tce-ci","tce-auto"]') || 'ubuntu-24.04' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -184,7 +189,7 @@ jobs:
 
   schema:
     name: Generated schema code
-    runs-on: ${{ github.event_name == 'push' && github.actor == 'ctadros1' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/ci/') || startsWith(github.ref, 'refs/heads/codex/') || startsWith(github.ref, 'refs/heads/claude/')) && fromJSON('["self-hosted","Linux","X64","tce-ci"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ github.event_name == 'push' && github.actor == 'ctadros1' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/ci/') || startsWith(github.ref, 'refs/heads/codex/') || startsWith(github.ref, 'refs/heads/claude/')) && fromJSON('["self-hosted","Linux","X64","tce-ci","tce-auto"]') || 'ubuntu-24.04' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

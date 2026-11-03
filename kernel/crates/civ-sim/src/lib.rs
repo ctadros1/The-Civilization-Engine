@@ -1216,6 +1216,24 @@ impl Sim {
         self.people.every_adult_deliberates = !on;
     }
 
+    /// Sets how notables choose their moves (ADR-0039 §3): rules alone, answers read back from
+    /// saved ones, or a provider the host owns. A session setting, never saved: a loaded world
+    /// is rule-only until set.
+    pub fn set_deliberation(&mut self, mode: civ_agents::deliberation::DeliberationMode) {
+        self.people.deliberation.mode = mode;
+    }
+
+    /// How notables choose their moves now (ADR-0039 §3).
+    pub fn deliberation(&self) -> &civ_agents::deliberation::DeliberationMode {
+        &self.people.deliberation.mode
+    }
+
+    /// The model's answers saved so far (ADR-0039 §4), for replay with
+    /// [`civ_agents::deliberation::DeliberationMode::Recorded`].
+    pub fn saved_answers(&self) -> &civ_agents::deliberation::Answers {
+        &self.people.deliberation.answers
+    }
+
     /// Redraws the scheduler's tie-break stream from `seed` (with the world's seed), so that the
     /// events of an instant from now on fall in another order: a test's hook for several lives of
     /// one world from one save (ADR-0011 §5, Gate B). A world never does it.
@@ -1746,16 +1764,19 @@ impl Sim {
                         // The day that just ended is complete.
                         land.advance_to_day(&rules.land, map, at.day_index() - 1);
                         // Boats, carts and wagons age a day; those past use are gone (M8b slices
-                        // CO and CP, M10b slice DV).
+                        // CO and CP, M10b slice DV). A boat or cart being made ages too once its
+                        // household is no more (backlog D, eleventh item); a wagon stays with
+                        // its line.
                         let vehicles = &rules.catalog.vehicles;
                         let life = |v: u16| {
                             vehicles
                                 .get(usize::from(v))
                                 .map_or(1.0, civ_agents::params::VehicleDef::life_days)
                         };
-                        land.boats.age(life);
-                        land.carts.age(life);
-                        land.wagons.age(life);
+                        let nobodys = |owner| people.household(owner).is_none();
+                        land.boats.age(life, nobodys);
+                        land.carts.age(life, nobodys);
+                        land.wagons.age(life, |_| false);
                         refresh_nav(nav, map, rules, land);
                         let mut ctx = Ctx {
                             now: at,

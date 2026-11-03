@@ -566,14 +566,17 @@ impl Person {
 }
 
 /// What a household has seen of a place where a resource is gathered: the return of the hours
-/// worked there, weighted by how recent they were (see [`KnownPatch::belief`]).
+/// worked there, weighted by how recent they were (see [`KnownPatch::belief`]); for a stock that
+/// only falls, scaled to what the place gave as it was last left ([`KnownPatch::saw_left`];
+/// ADR-0043 §1).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct KnownPatch {
     /// The land resource, by index in the land parameters.
     pub resource: u16,
     /// The place: the centre patch of the block a trip works.
     pub patch: u32,
-    /// Mean return of the remembered hours, units of the resource per person-hour.
+    /// Mean return of the remembered hours, units of the resource per person-hour; for a stock
+    /// that only falls, scaled to what the place would give as it was last left.
     pub rate: f32,
     /// Hours of work behind `rate`, as of `seen_day`.
     pub hours: f32,
@@ -598,6 +601,22 @@ impl KnownPatch {
         let w = self.weight(day, renewal_days);
         let prior_hours = 1.0 / prior.max(1e-6);
         (1.0 + f64::from(self.rate) * w) / (prior_hours + w)
+    }
+
+    /// For a stock that only falls (ADR-0043 §1): `units` were gathered in `hours` on `day`, and as
+    /// many hours more there would have given `left_units`. The visit is added to what was seen,
+    /// and the whole is then scaled down by how much less the place now gives than it gave this
+    /// visit, since every earlier sight was of a place since emptied by as much as was taken; a
+    /// place worked out is believed worked out, while one barely touched is believed as before
+    /// (research 03-08 §1.2: a patch is judged by what it gives as it is left, not by its mean).
+    pub fn saw_left(&mut self, units: f64, left_units: f64, hours: f64, day: i64) {
+        self.observe(units, hours, day, f64::INFINITY);
+        let left = if units > 0.0 {
+            (left_units.max(0.0) / units).min(1.0)
+        } else {
+            0.0
+        };
+        self.rate = (f64::from(self.rate) * left) as f32;
     }
 
     /// Adds `units` gathered in `hours` on `day` to what was seen.
@@ -990,11 +1009,17 @@ impl FloodMemory {
 
 /// A household's midden beside its home: the heap of ash, food waste, sweepings and dung (research
 /// 12-02 §3: early farming middens mixed domestic waste, ash and fecal material), kilograms as it
-/// stood at `at` ([`crate::params::MiddenParams::after`] brings it up to date).
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+/// stood at `at` ([`crate::params::MiddenParams::after`] brings it up to date), and the ash of what
+/// its hearth burned (ADR-0038 §2), and what was thrown on it whole: the discards, by good
+/// (ADR-0044 §1).
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Midden {
-    /// Kilograms in the heap.
+    /// Kilograms in the heap's decaying share: what dungs a field and what wastes at its
+    /// half-life.
     pub kg: f64,
+    /// Kilograms of ash from the hearth's fuel (ADR-0038 §2): inert, it never decays, is not dung
+    /// and carries nothing to the water. It lies wherever the heap lies.
+    pub ash_kg: f64,
     /// When it was last brought up to date.
     pub at: SimTime,
     /// The day it was last carried away from the water under a law clearing middens, -1 never
@@ -1002,6 +1027,13 @@ pub struct Midden {
     pub carried: i64,
     /// Where it was carried, metres.
     pub site: (f32, f32),
+    /// The day it was last carried to a tip under a law carrying refuse to one, -1 never (M11f,
+    /// second part; ADR-0038 §3): what was in it then went to the tip.
+    pub tipped: i64,
+    /// What was thrown on it whole (ADR-0044 §1): kilograms by good index, sorted by good, none
+    /// at zero. Inert like the ash: it never decays, is not dung and carries nothing to the water,
+    /// and it lies wherever the heap lies.
+    pub discards: Vec<(u16, f64)>,
 }
 
 impl Midden {
@@ -1009,10 +1041,23 @@ impl Midden {
     pub fn begun(t: SimTime) -> Midden {
         Midden {
             kg: 0.0,
+            ash_kg: 0.0,
             at: t,
             carried: -1,
             site: (0.0, 0.0),
+            tipped: -1,
+            discards: Vec::new(),
         }
+    }
+
+    /// Throws `kg` of good `good` on the heap whole (ADR-0044 §1).
+    pub fn discard(&mut self, good: usize, kg: f64) {
+        add_discard(&mut self.discards, good, kg);
+    }
+
+    /// Kilograms of the heap that never decay: its ash and its discards.
+    pub fn inert_kg(&self) -> f64 {
+        self.ash_kg + discards_kg(&self.discards)
     }
 
     /// The heap at `t` for `members` people.
@@ -1028,6 +1073,69 @@ impl Midden {
             self.at = t;
         }
     }
+}
+
+/// Adds `kg` of good `good` to a list of discards kept by good, sorted, none at zero (ADR-0044
+/// §1): a heap's or a tip's.
+pub fn add_discard(list: &mut Vec<(u16, f64)>, good: usize, kg: f64) {
+    let Ok(g) = u16::try_from(good) else {
+        return;
+    };
+    if !(kg.is_finite() && kg > 0.0) {
+        return;
+    }
+    match list.binary_search_by_key(&g, |&(x, _)| x) {
+        Ok(i) => list[i].1 += kg,
+        Err(i) => list.insert(i, (g, kg)),
+    }
+}
+
+/// Takes up to `kg` of good `good` out of a list of discards (ADR-0044 §2: what is picked out of a
+/// heap or a tip), none left at zero: the kilograms taken.
+pub fn take_discard(list: &mut Vec<(u16, f64)>, good: usize, kg: f64) -> f64 {
+    let Ok(g) = u16::try_from(good) else {
+        return 0.0;
+    };
+    let Ok(i) = list.binary_search_by_key(&g, |&(x, _)| x) else {
+        return 0.0;
+    };
+    let taken = kg.max(0.0).min(list[i].1);
+    list[i].1 -= taken;
+    if list[i].1 <= 0.0 {
+        list.remove(i);
+    }
+    taken
+}
+
+/// Kilograms of good `good` in a list of discards.
+pub fn discard_of(list: &[(u16, f64)], good: usize) -> f64 {
+    u16::try_from(good).map_or(0.0, |g| {
+        list.binary_search_by_key(&g, |&(x, _)| x)
+            .map_or(0.0, |i| list[i].1)
+    })
+}
+
+/// Kilograms of a list of discards, all goods together.
+pub fn discards_kg(list: &[(u16, f64)]) -> f64 {
+    list.iter().map(|&(_, kg)| kg).sum()
+}
+
+/// Takes share `share` (0-1) of a list of discards out of it, good by good, and returns what was
+/// taken: all of each at a share of 1 (ADR-0044 §1).
+pub fn take_discards(list: &mut Vec<(u16, f64)>, share: f64) -> Vec<(u16, f64)> {
+    let share = share.clamp(0.0, 1.0);
+    if share >= 1.0 {
+        return std::mem::take(list);
+    }
+    let mut taken: Vec<(u16, f64)> = Vec::with_capacity(list.len());
+    for x in list.iter_mut() {
+        let t = x.1 * share;
+        x.1 -= t;
+        taken.push((x.0, t));
+    }
+    list.retain(|&(_, kg)| kg > 0.0);
+    taken.retain(|&(_, kg)| kg > 0.0);
+    taken
 }
 
 /// Room for a household's goods under its roofs (ADR-0009 §5), from its roofed buildings: on
@@ -1195,10 +1303,22 @@ impl Household {
         goods: &[GoodDef],
         fuel_kg_per_day: &dyn Fn(i64) -> f64,
     ) -> Vec<f64> {
+        self.stores_and_ash_at_time(t, goods, fuel_kg_per_day).0
+    }
+
+    /// The stores at `t` as [`Household::stores_at_time`] gives them, and the kilograms of ash
+    /// the fuel burned by then leaves (each fuel burned times its `ash_share`, ADR-0038 §2).
+    fn stores_and_ash_at_time(
+        &self,
+        t: SimTime,
+        goods: &[GoodDef],
+        fuel_kg_per_day: &dyn Fn(i64) -> f64,
+    ) -> (Vec<f64>, f64) {
         let (t0, t1) = (self.stores_at.minutes(), t.minutes());
         let mut out = self.stores.clone();
+        let mut ash = 0.0;
         if t1 <= t0 {
-            return out;
+            return (out, ash);
         }
         let days = (t1 - t0) as f64 / MINUTES_PER_DAY as f64;
         let mut burned = burned_kg(t0, t1, fuel_kg_per_day);
@@ -1239,15 +1359,16 @@ impl Household {
                 let take = (burned / per_kg).min(*kg);
                 *kg -= take;
                 burned -= take * per_kg;
+                ash += take * g.fuel.map_or(0.0, |f| f.ash_share.max(0.0));
             }
         }
         // Gas beyond its holders' room is lost to the air (M10b slice DY).
         crate::make::keep_to_holders(goods, &mut out);
-        out
+        (out, ash)
     }
 
     /// Brings the stores up to `t` (see [`Household::stores_at_time`]), counting what spoiled and
-    /// what burned.
+    /// what burned; the ash of what burned goes on the heap (ADR-0038 §2).
     pub fn settle_stores(
         &mut self,
         t: SimTime,
@@ -1255,7 +1376,8 @@ impl Household {
         fuel_kg_per_day: &dyn Fn(i64) -> f64,
     ) {
         if t > self.stores_at {
-            let after = self.stores_at_time(t, goods, fuel_kg_per_day);
+            let (after, ash) = self.stores_and_ash_at_time(t, goods, fuel_kg_per_day);
+            self.midden.ash_kg += ash;
             for (g, (b, a)) in self.stores.iter().zip(&after).enumerate() {
                 let lost = b - a;
                 if lost > 0.0 {
@@ -1404,6 +1526,7 @@ mod tests {
             light: None,
             holder: None,
             telegraph: None,
+            lift: None,
             money: None,
             id: id.into(),
             name: id.into(),
@@ -1541,6 +1664,34 @@ mod tests {
     }
 
     #[test]
+    fn a_stock_that_only_falls_is_judged_by_what_was_left_as_it_was_last_left() {
+        // Ore expected at 4 units an hour, worked for 27 hours at 3.9 on average.
+        let mut k = KnownPatch {
+            resource: 0,
+            patch: 0,
+            rate: 0.0,
+            hours: 0.0,
+            seen_day: 100,
+        };
+        k.observe(105.0, 27.0, 100, f64::INFINITY);
+        assert!(k.belief(4.0, 100, f64::INFINITY) > 3.8);
+        // The last visit took 3 units in three hours, and three hours more would give 0.3.
+        k.saw_left(3.0, 0.3, 3.0, 140);
+        assert_eq!((k.hours, k.seen_day), (30.0, 140));
+        assert!(
+            (f64::from(k.rate) - 108.0 / 30.0 * 0.1).abs() < 1e-6,
+            "{}",
+            k.rate
+        );
+        // Believed worked out, and still so a generation on: a stock laid down once never
+        // renews, so the sight never fades back to what land of its kind would give.
+        let now = k.belief(4.0, 140, f64::INFINITY);
+        assert!(now < 0.5, "{now}");
+        assert_eq!(k.belief(4.0, 140 + 30 * 365, f64::INFINITY), now);
+        assert!(k.weight(140 + 30 * 365, f64::INFINITY) >= 0.05 * f64::from(k.hours));
+    }
+
+    #[test]
     fn stores_spoil_by_half_life_and_burn_firewood_exactly() {
         let goods = goods();
         let per_day = |day: i64| if day < 2 { 10.0 } else { 4.0 };
@@ -1585,6 +1736,7 @@ mod tests {
             mj_per_kg: 15.6,
             smoke: 1.0,
             technique: None,
+            ash_share: 0.0,
         });
         let mut dense = goods[2].clone();
         dense.id = "dense".into();
@@ -1592,6 +1744,7 @@ mod tests {
             mj_per_kg: 31.2,
             smoke: 0.2,
             technique: None,
+            ash_share: 0.0,
         });
         goods.push(dense);
         let per_day = |_: i64| 10.0;

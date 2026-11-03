@@ -969,6 +969,105 @@ fn a_household_out_of_food_goes_where_its_kin_are_and_its_kin_follow() {
 }
 
 #[test]
+fn a_household_giving_up_goes_where_those_it_knows_go_the_same_night_whoever_chose_first() {
+    // Two households of the first settlement give up the same night. The second (by id) has kin
+    // in the second settlement; the first has no kin anywhere and knows nobody but the second's
+    // people. It goes where they go, though it made up its mind first: chain migration does not
+    // turn on which household is counted first (research 05-06 §1.2; ADR-0018 §3). Before, it
+    // was drawn nowhere at the moment it chose and went beyond the map, its acquaintances
+    // following their kin a moment later.
+    let mut sim = world_knowing(10, 50, &[50], true).expect("generates");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let mut homes: Vec<(civ_core::PermanentId, Vec<civ_core::PermanentId>)> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(a) && x.members.len() >= 3)
+        .map(|(_, x)| (x.id, x.members.clone()))
+        .collect();
+    homes.sort();
+    let (first, first_members) = homes[0].clone();
+    let (second, second_members) = homes.last().expect("households").clone();
+    assert!(first < second);
+    kin_in(&mut sim, second_members[0], b, 5);
+    {
+        let pop = sim.people_mut_for_tests();
+        for m in &first_members {
+            let r = pop.records.get(m).expect("on record");
+            assert!(
+                r.mother.is_none_or(|q| first_members.contains(&q))
+                    && r.father.is_none_or(|q| first_members.contains(&q)),
+                "no kin outside the household"
+            );
+        }
+    }
+    let to_midnight = 24 * 60 - sim.now().minutes().rem_euclid(24 * 60) - 10;
+    sim.advance_minutes(to_midnight).expect("lives");
+    let now = sim.now();
+    let day = now.day_index();
+    sim.rules_mut_for_tests()
+        .expect("the rules are held once")
+        .people
+        .household
+        .leave_per_day = 1.0;
+    let ties = sim.rules().people.ties.clone();
+    {
+        let pop = sim.people_mut_for_tests();
+        // The first's people know the second's, and nobody else.
+        for &m in &first_members {
+            pop.ties.forget_holder(m);
+            let known: Vec<civ_agents::ties::Tie> = second_members
+                .iter()
+                .map(|&q| civ_agents::ties::Tie {
+                    familiarity: 0.3,
+                    warmth: 0.03,
+                    ..civ_agents::ties::Tie::new(q, day, &ties)
+                })
+                .collect();
+            pop.ties.restore(m, known);
+        }
+        let mut starving = Vec::new();
+        for (_, x) in pop.households.iter_mut() {
+            if x.id == first || x.id == second {
+                x.stores.iter_mut().for_each(|kg| *kg = 0.0);
+                x.stores_at = now;
+                starving.extend(x.members.iter().copied());
+            }
+        }
+        for (_, p) in pop.people.iter_mut() {
+            if starving.contains(&p.id) {
+                p.energy_kcal = -1.0e7;
+                p.burn_kcal_min = 0.0;
+                p.needs_at = now;
+            }
+        }
+    }
+    sim.advance_minutes(20).expect("lives");
+
+    let pop = sim.people();
+    let settled = |m: civ_core::PermanentId| {
+        pop.person(m)
+            .and_then(|p| pop.household(p.household))
+            .and_then(|x| x.settlement)
+    };
+    assert_eq!(
+        settled(second_members[0]),
+        Some(b),
+        "the second went to its kin"
+    );
+    let left = first_members
+        .iter()
+        .filter(|m| pop.records[*m].left.is_some())
+        .count();
+    assert_eq!(left, 0, "nobody of the first went beyond the map");
+    assert_eq!(
+        settled(first_members[0]),
+        Some(b),
+        "the first went where those it knows went"
+    );
+}
+
+#[test]
 fn an_exile_goes_where_kin_live_and_one_drawn_nowhere_leaves_the_map() {
     // Two settlements that know where each other camped. One adult of the first has kin in the
     // second; another has none there. Exiled, the first lives on near their kin; the second goes

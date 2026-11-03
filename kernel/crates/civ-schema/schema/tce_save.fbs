@@ -507,6 +507,16 @@ table Household {
   midden_carried: long = -1 (id: 27);
   midden_x: float (id: 28);
   midden_y: float (id: 29);
+  // Schema 220 (M11f, ADR-0038 §2; appended within the unreleased saves 220): kilograms of ash in
+  // its midden, which never decays; absent, none.
+  midden_ash_kg: double (id: 30);
+  // Schema 220 (M11f, second part; ADR-0038 §3; appended within the unreleased saves 220): the day
+  // its midden was last carried to a tip (-1 never); absent, never.
+  midden_tipped: long = -1 (id: 31);
+  // Schema 220 (ADR-0044 §1; appended within the unreleased saves 220): what was thrown on its
+  // midden whole, kilograms by good, the goods indexing Households.goods; absent, nothing.
+  midden_discard_goods: [uint] (id: 32);
+  midden_discard_kg: [double] (id: 33);
 }
 
 // A household's count at a mill review (schema 174): the day and the kilograms it had made in
@@ -1245,10 +1255,20 @@ struct DepositKnownEntry {
   finder: ulong;
 }
 
+// Schema 220 (ADR-0043 §2): the ground each settlement's prospectors have walked over, by key (a
+// settlement, or a household of none) and block (squares of twice the 50 m a walker sees, in the
+// map's cells, row by row from its corner), with the day each was first looked over.
+struct GroundLookedEntry {
+  key: ulong;
+  day: int;
+  block: uint;
+}
+
 table Deposits {
   goods: [string] (id: 0);
   bodies: [DepositBody] (id: 1);
   known: [DepositKnownEntry] (id: 2);
+  looked: [GroundLookedEntry] (id: 3);
 }
 
 // Section "earth" (schema 20): earthworks and what they have done to the ground (ADR-0010 §2-3).
@@ -1681,6 +1701,134 @@ table PolitySave {
   // Schema 207 (M10c slice EE, fourth part): the sickhouse it raised that stands finished (0 when
   // none).
   sickhouse: ulong (id: 49);
+  // Schema 220 (M11f, second part; ADR-0038 §3; appended within the unreleased saves 220): the
+  // tips its laws opened, in the order opened; absent, none.
+  tips: [TipSave] (id: 50);
+  // Schema 220 (M11f, third part; ADR-0038 §4; appended within the unreleased saves 220): the
+  // refuse rounds that carry to its tips, in the order posted; absent, none.
+  rounds: [RefuseRoundSave] (id: 51);
+  // Schema 220 (ADR-0041 §1-§4; appended within the unreleased saves 220): the sewers its laws
+  // lay, in the order begun; absent, none.
+  sewers: [SewerSave] (id: 52);
+}
+
+// A sewer a polity's law lays (schema 220, ADR-0041 §1-§4): its id (its settling tank's contagion
+// node's), the law, the day begun, its cells from head to outfall, the outfall's reach, its length
+// and how much is laid, metres, what it carries a day, kg, a deprecated flag, the household
+// keeping its tank (0: the polity's store), its connections in the order made, and its last day:
+// the day (-1 never), the kilograms that went in and that settled as sludge.
+table SewerSave {
+  id: ulong (id: 0);
+  law: ulong (id: 1);
+  begun: long (id: 2);
+  cells: [uint] (id: 3);
+  reach: uint (id: 4);
+  length_m: float (id: 5);
+  laid_m: float (id: 6);
+  capacity_kg_day: float (id: 7);
+  // Deprecated (ADR-0044 §5): nothing set it; where it is broken is `broken_cell`.
+  broken: bool (id: 8, deprecated);
+  keeper: ulong (id: 9);
+  connections: [SewerConnectionSave] (id: 10);
+  day: long = -1 (id: 11);
+  entered_kg: double (id: 12);
+  settled_kg: double (id: 13);
+  // ADR-0044 §4 (appended within the unreleased saves 220): the field its flow is led onto as a
+  // sewage farm (0 none; its id is the farm's contagion node's) and the kilograms of its last day
+  // that farm took; absent, none.
+  farm: ulong (id: 14);
+  farm_kg: double (id: 15);
+  // ADR-0044 §5 (appended within the unreleased saves 220): the kilograms of its last day that
+  // stayed as deposit; the deposit it holds, kg (mass only); each route cell's loss, 0 new to 1
+  // collapsed, in `cells`' order (absent: all new); where it is broken, the index in `cells` of
+  // the collapsed cell nearest the outfall plus one (0 whole); the mending its polity asked: the
+  // deposit still to clear, kg, whether its collapsed cells are to be relined, and the metres of
+  // the broken cell relined so far; and each connection's days unserved, by cause, in the
+  // calendar year of its last day, in `connections`' order (absent: none).
+  deposited_kg: double (id: 16);
+  deposit_kg: double (id: 17);
+  loss: [float] (id: 18);
+  broken_cell: uint (id: 19);
+  clear_kg: double (id: 20);
+  reline: bool (id: 21);
+  relined_m: float (id: 22);
+  unserved: [SewerUnservedSave] (id: 23);
+}
+
+// The days of a calendar year a sewer's connection went unserved, by cause (schema 220, appended:
+// ADR-0044 §5): the sewer full, broken at or below where it enters, blocked by its deposit.
+struct SewerUnservedSave {
+  overloaded: ushort;
+  broken: ushort;
+  blocked: ushort;
+}
+
+// A home's privy connected to a sewer (schema 220, ADR-0041 §2): its household and building, the
+// day it connected, and its last day: the day (-1 never), the kilograms that went in, and why (0
+// served, 1 the sewer full, 2 broken; 3 blocked by its deposit, ADR-0044 §5).
+struct SewerConnectionSave {
+  household: ulong;
+  building: ulong;
+  since: long;
+  day: long;
+  kg: double;
+  cause: ubyte;
+}
+
+// A refuse round (schema 220, M11f, third part; ADR-0038 §4): its id, the household that works it
+// and its cart, the tip it carries to, the law collecting refuse it runs under (0 none: then its
+// homes pay `fee_kcal` a call; below zero, ADR-0044 §3, the keeper pays each home the difference),
+// the homes it calls at in calling order, the days between runs, the day posted and the day of its
+// last run (-1 never), the index of the home its next run calls at first, and its runs within the
+// last year, oldest first.
+table RefuseRoundSave {
+  id: ulong (id: 0);
+  operator: ulong (id: 1);
+  cart: ulong (id: 2);
+  tip: ulong (id: 3);
+  law: ulong (id: 4);
+  homes: [ulong] (id: 5);
+  every_days: ushort (id: 6);
+  fee_kcal: float (id: 7);
+  since: long (id: 8);
+  last_run: long = -1 (id: 9);
+  next: uint (id: 10);
+  runs: [RoundRunSave] (id: 11);
+}
+
+// A refuse round's run (schema 220, ADR-0038 §4): the day, its keeper's hours, and the homes
+// called at in order with the kilograms of each heap's decaying share and of its ash loaded.
+table RoundRunSave {
+  day: long (id: 0);
+  hours: float (id: 1);
+  households: [ulong] (id: 2);
+  kg: [double] (id: 3);
+  ash_kg: [double] (id: 4);
+  // ADR-0044 §1 (appended within the unreleased saves 220): each call's kilograms of discards;
+  // absent, none.
+  discard_kg: [double] (id: 5);
+  // ADR-0044 §3 (appended within the unreleased saves 220): what the keeper sorted out of the load
+  // and kept, kilograms by good, the goods indexing Polities.goods; absent, nothing.
+  kept_goods: [uint] (id: 6);
+  kept_kg: [double] (id: 7);
+}
+
+// A tip a polity's law opened (schema 220, M11f, second part; ADR-0038 §3): its id (its contagion
+// node's), the law that opened it, the day opened, where it lies, metres, the kilograms tipped of
+// heaps' decaying share and of their ash, and the households that tipped there, sorted.
+table TipSave {
+  id: ulong (id: 0);
+  law: ulong (id: 1);
+  opened: long (id: 2);
+  x: float (id: 3);
+  y: float (id: 4);
+  kg: double (id: 5);
+  ash_kg: double (id: 6);
+  households: [ulong] (id: 7);
+  // ADR-0044 §1 (appended within the unreleased saves 220): what was tipped whole, kilograms by
+  // good, the goods indexing Polities.goods; absent, nothing.
+  discard_goods: [uint] (id: 8);
+  discard_kg: [double] (id: 9);
 }
 
 // A year's measured losses beside `MeasuredSave` (schema 166, M8d slice DC): the year, and the
@@ -2061,6 +2209,29 @@ table Polities {
   goods: [string] (id: 1);
   // Policy content ids at save time.
   policies: [string] (id: 2);
+  // Schema 220 (M12a; ADR-0039 §4; appended within the unreleased saves 220): the providers that
+  // answered notables' deliberations, and their answers in the order given; absent, none.
+  answer_providers: [ProviderSave] (id: 3);
+  answers: [AnswerSave] (id: 4);
+}
+
+// A provider that answered a deliberation (schema 220, ADR-0039 §4): the kind of endpoint and the
+// model's name. Never a key or an address.
+table ProviderSave {
+  kind: string (id: 0);
+  model: string (id: 1);
+}
+
+// A saved answer (schema 220, ADR-0039 §4): the notable, the day, the digest of the moves offered,
+// the move made by index (-1 none), who chose (0 the model, 1 rule after the model did not
+// answer) and the provider by index into `Polities.answer_providers`.
+struct AnswerSave {
+  notable: ulong;
+  day: long;
+  digest: ulong;
+  chosen: int;
+  by: ubyte;
+  provider: ushort;
 }
 
 // Section "order" (schema 31, ADR-0015): takings as they happened (the truth), what people believe
@@ -3382,7 +3553,10 @@ table ThrownSave {
 
 // A place a load lies or passes (schema 76, M6a slice AZ, step two; ADR-0021 §4): `code` 0 a
 // person shedding it (`id` theirs), 1 a household's heap (`id` the household), 2 a well (`id`
-// its), 3 a river reach (`id` its index), 4 a household's stored water (`id` the household).
+// its), 3 a river reach (`id` its index), 4 a household's stored water (`id` the household); from
+// schema 220, 5 a tip (`id` its: M11f, second part; ADR-0038 §3), 6 refuse a household holds
+// (`id` the household: ADR-0038 §5), 7 a sewer's settling tank (`id` the sewer's: ADR-0041 §4)
+// and 8 a sewage farm (`id` its field's: ADR-0044 §4).
 struct NodeSave {
   code: ubyte;
   id: ulong;
@@ -3413,7 +3587,7 @@ struct TransitSave {
 }
 
 // One move of a load on `day`: `how` 0 shed, 1 washed off, 2 soaked in, 3 arrived through the
-// ground, 4 drawn with water.
+// ground, 4 drawn with water; from schema 220, 5 carried with a heap to a tip or by a sewer.
 struct MoveSave {
   day: long;
   from: NodeSave;
@@ -4093,6 +4267,44 @@ table ConsignmentsSave {
   note_forgeries: [ForgerySave] (id: 5);
   // Schema 218 (M10d slice EK, second part): false pieces told apart, oldest first.
   note_found: [FalseFoundSave] (id: 6);
+  // Schema 220 (ADR-0040; appended within the unreleased saves 220): rooms let, in the order
+  // begun; the asking rents that moved from their profile's prior, by household ascending; and
+  // the lets begun within the last year, oldest first. Absent, none.
+  lets: [LetSave] (id: 7);
+  asking: [AskingRentSave] (id: 8);
+  lets_begun: [LetBegunSave] (id: 9);
+}
+
+// A room let (schema 220, ADR-0040 §3): the landlord and lodger households, the landlord's
+// building, the floor let (m²), the rent a month in kilograms of `good` (a content id), the day
+// begun, the day the next month's rent falls due, the day of its next review, months unpaid, and
+// where the lodger goes back to if it ends before the lodger has a roof (metres).
+table LetSave {
+  landlord: ulong (id: 0);
+  lodger: ulong (id: 1);
+  building: ulong (id: 2);
+  floor_m2: double (id: 3);
+  good: string (id: 4);
+  rent_kg: double (id: 5);
+  begun: long (id: 6);
+  due: long (id: 7);
+  next_review: long (id: 8);
+  unpaid: ubyte (id: 9);
+  own_home: Point (id: 10);
+}
+
+// A household's asking rent where it moved (schema 220, ADR-0040 §2): food-days a person a month.
+table AskingRentSave {
+  household: ulong (id: 0);
+  food_days: double (id: 1);
+}
+
+// A let begun (schema 220, ADR-0040 §5): the day, the landlord's settlement, and its rent in kcal
+// of food a square metre a month.
+table LetBegunSave {
+  day: long (id: 0);
+  settlement: ulong (id: 1);
+  kcal_per_m2_month: double (id: 2);
 }
 
 // Turn-taking at bottlenecks (schema 141, M8b slice CN; ADR-0029 §4). A facility as in

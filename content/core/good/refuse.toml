@@ -1,0 +1,21 @@
+# Refuse: the decaying share of a heap taken out of a tip as a good, to be burned (M11f, fourth
+# part; ADR-0038 §5; research 12-10 §1.5, §5.5). A destructor's keeper draws it from its polity's
+# open tip, with the disease it held, and burns it the same day; nothing else burns it. As a fuel
+# it is poor: the 1911 Britannica put domestic refuse at a tenth to a fifth of coal (12-10 §2.2),
+# so 0.15 of coal's 25.8 MJ, 3.87 MJ a kilogram. Burned, 0.3 of it is left as clinker and ash
+# (12-10 §5.5: 25-35 % of what is burned, a design prior). A material, not a hearth's fuel.
+kind = "good"
+id = "core:good/refuse"
+name = "Refuse"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[fuel]
+mj_per_kg = 3.87
+smoke = 3.0                      # tuning: a smoky, smouldering fire; the research gives no figure
+ash_share = 0.3

@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use civ_agents::params::{BuildingDef, FrameDesign};
 use civ_grammar::{
     FRAME_DESIGN_VERSION, FrameRules, Grammar, HutRules, Masonry, ProgramRules, SpaceUse,
-    frame_limits,
+    frame_limits, skeleton_limits,
 };
 use civ_land::PlotUse;
 use serde::Deserialize;
@@ -23,6 +23,12 @@ pub const GRAMMARS: [&str; 2] = ["hut", "frame"];
 pub const HUT_SLOTS: [&str; 3] = ["timber", "wattle", "thatch"];
 /// A frame's material slots, in slot order (`civ_grammar::frame_materials`).
 pub const FRAME_SLOTS: [&str; 4] = ["timber", "wattle", "covering", "boards"];
+/// A frame's optional fifth slot, a steel skeleton's members (`frame_materials::FRAME`, ADR-0037
+/// §3): content API 207.
+pub const FRAME_SKELETON_SLOT: &str = "frame";
+/// A frame's optional sixth and seventh slots, a concrete frame's concrete and bar
+/// (`frame_materials::CONCRETE` and `BAR`, frame version 5): named only beside the fifth.
+pub const FRAME_CONCRETE_SLOTS: [&str; 2] = ["concrete", "bar"];
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -75,12 +81,25 @@ pub(crate) struct SystemsFile {
     /// Mass walls tied at each storey.
     #[serde(default)]
     pub wall_ties: String,
+    /// A steel skeleton, frame version 4's post system (ADR-0037 §3; content API 207).
+    #[serde(default)]
+    pub skeleton: String,
+    /// A reinforced-concrete frame, frame version 5's post system (ADR-0037, amendment of
+    /// 2026-11-01; content API 216).
+    #[serde(default)]
+    pub concrete: String,
 }
 
 impl SystemsFile {
     /// The technique ids, in the order of [`civ_agents::params::BuildingDef::systems`].
-    pub fn ids(&self) -> [&str; 3] {
-        [&self.trussed_roof, &self.storeyed_posts, &self.wall_ties]
+    pub fn ids(&self) -> [&str; 5] {
+        [
+            &self.trussed_roof,
+            &self.storeyed_posts,
+            &self.wall_ties,
+            &self.skeleton,
+            &self.concrete,
+        ]
     }
 }
 
@@ -197,6 +216,29 @@ pub(crate) struct Frame {
     pub loft_kg_per_m2: f64,
     pub living_kg_per_m2: f64,
     pub timber_kg_per_m3: f64,
+    /// A steel skeleton's members' weight over their envelope (ADR-0037 §3; content API 207); 0,
+    /// the default, where the program has no skeleton.
+    #[serde(default)]
+    pub frame_kg_per_m3: f64,
+    /// A concrete frame's concrete, kilograms a cubic metre of its members (frame version 5;
+    /// content API 216); 0, the default, where the program has no concrete frame.
+    #[serde(default)]
+    pub concrete_kg_per_m3: f64,
+    /// A concrete frame's bar, kilograms a cubic metre of its members.
+    #[serde(default)]
+    pub bar_kg_per_m3: f64,
+    /// Person-hours to form, bar, cast and strip a cubic metre of a concrete frame's members.
+    #[serde(default)]
+    pub concrete_h_per_m3: f64,
+    /// Casing a steel skeleton against fire, by the cubic metre of its members: the program's
+    /// concrete it takes, kilograms, its hours, and the minutes it holds (content API 218); 0,
+    /// the default, where the program cases none.
+    #[serde(default)]
+    pub encasement_kg_per_m3: f64,
+    #[serde(default)]
+    pub encasement_h_per_m3: f64,
+    #[serde(default)]
+    pub encasement_min: f64,
     pub groundwork_h_per_m2: f64,
     pub posthole_h: f64,
     pub post_h: f64,
@@ -254,15 +296,20 @@ impl BuildingFile {
         Grammar::from_name(&self.grammar)
     }
 
-    /// Its material slots in slot order, with the good each names (`""` when missing).
+    /// Its material slots in slot order, with the good each names (`""` when missing): a frame's
+    /// skeleton slot after its four, only when it names one, and its concrete and bar after that,
+    /// only when it names the skeleton's and concrete.
     pub fn slots(&self) -> Vec<(&'static str, &str)> {
-        let names: &[&'static str] = match self.grammar() {
-            Some(Grammar::Frame) => &FRAME_SLOTS,
-            _ => &HUT_SLOTS,
-        };
+        let frame = self.grammar() == Some(Grammar::Frame);
+        let names: &[&'static str] = if frame { &FRAME_SLOTS } else { &HUT_SLOTS };
+        let skeleton = frame && self.materials.contains_key(FRAME_SKELETON_SLOT);
+        let concrete = skeleton && self.materials.contains_key(FRAME_CONCRETE_SLOTS[0]);
         names
             .iter()
-            .map(|&n| (n, self.materials.get(n).map_or("", String::as_str)))
+            .copied()
+            .chain(skeleton.then_some(FRAME_SKELETON_SLOT))
+            .chain(FRAME_CONCRETE_SLOTS.into_iter().filter(|_| concrete))
+            .map(|n| (n, self.materials.get(n).map_or("", String::as_str)))
             .collect()
     }
 
@@ -332,6 +379,13 @@ impl BuildingFile {
                     loft_kg_per_m2: f.loft_kg_per_m2,
                     living_kg_per_m2: f.living_kg_per_m2,
                     timber_kg_per_m3: f.timber_kg_per_m3,
+                    frame_kg_per_m3: f.frame_kg_per_m3,
+                    concrete_kg_per_m3: f.concrete_kg_per_m3,
+                    bar_kg_per_m3: f.bar_kg_per_m3,
+                    concrete_h_per_m3: f.concrete_h_per_m3,
+                    encasement_kg_per_m3: f.encasement_kg_per_m3,
+                    encasement_h_per_m3: f.encasement_h_per_m3,
+                    encasement_min: f.encasement_min,
                     groundwork_h_per_m2: f.groundwork_h_per_m2,
                     posthole_h: f.posthole_h,
                     post_h: f.post_h,
@@ -396,7 +450,7 @@ impl BuildingFile {
             shapes: Vec::new(),
             skill,
             upkeep: self.upkeep.upkeep(),
-            systems: [None; 3],
+            systems: [None; 5],
         };
         def.shapes = civ_agents::build::shapes(&def, goods);
         Some(def)
@@ -421,7 +475,17 @@ impl BuildingFile {
                 known.join(", ")
             ));
         }
-        let slots: Vec<&str> = self.slots().iter().map(|(n, _)| *n).collect();
+        let mut slots: Vec<&str> = self.slots().iter().map(|(n, _)| *n).collect();
+        if grammar == Grammar::Frame && !slots.contains(&FRAME_SKELETON_SLOT) {
+            slots.push(FRAME_SKELETON_SLOT);
+        }
+        if grammar == Grammar::Frame {
+            for slot in FRAME_CONCRETE_SLOTS {
+                if !slots.contains(&slot) {
+                    slots.push(slot);
+                }
+            }
+        }
         for (slot, _) in self.slots().iter().filter(|(_, id)| id.is_empty()) {
             p.push(format!("`materials.{slot}` is missing"));
         }
@@ -550,8 +614,17 @@ impl BuildingFile {
     fn frame_problems(&self, f: &Frame, p: &mut Vec<String>) {
         let t = "frame";
         ranged(p, t, "bays", f.bays[0], f.bays[1], 1);
-        // Held to the version builders design under (ADR-0031 §1).
-        let (most_bays, most_storeys) = frame_limits(FRAME_DESIGN_VERSION);
+        // Held to the version builders design under (ADR-0031 §1); a program offering a steel
+        // skeleton or a concrete frame, to the skeleton's (ADR-0042 §3: twelve storeys).
+        let offers_skeleton = self
+            .systems
+            .as_ref()
+            .is_some_and(|s| !s.skeleton.is_empty() || !s.concrete.is_empty());
+        let (most_bays, most_storeys) = if offers_skeleton {
+            skeleton_limits(civ_grammar::frame::FRAME_VERSION)
+        } else {
+            frame_limits(FRAME_DESIGN_VERSION)
+        };
         if f.bays[1] > most_bays {
             p.push(format!(
                 "`frame.bays` may reach at most {most_bays} (got {})",
@@ -629,8 +702,49 @@ impl BuildingFile {
             ("store_kg_per_m2", f.store_kg_per_m2),
             ("loft_kg_per_m2", f.loft_kg_per_m2),
             ("living_kg_per_m2", f.living_kg_per_m2),
+            ("frame_kg_per_m3", f.frame_kg_per_m3),
+            ("concrete_kg_per_m3", f.concrete_kg_per_m3),
+            ("bar_kg_per_m3", f.bar_kg_per_m3),
+            ("concrete_h_per_m3", f.concrete_h_per_m3),
+            ("encasement_kg_per_m3", f.encasement_kg_per_m3),
+            ("encasement_h_per_m3", f.encasement_h_per_m3),
+            ("encasement_min", f.encasement_min),
         ] {
             not_negative(p, t, name, v);
+        }
+        // A concrete frame needs its concrete's and bar's goods and figures, beside the
+        // skeleton's slot whose place they follow (frame version 5).
+        let concrete = self
+            .systems
+            .as_ref()
+            .is_some_and(|s| !s.concrete.is_empty());
+        let named = |slot: &str| self.materials.contains_key(slot);
+        if concrete
+            && (!named(FRAME_SKELETON_SLOT)
+                || !FRAME_CONCRETE_SLOTS.iter().all(|s| named(s))
+                || f.concrete_kg_per_m3 <= 0.0
+                || f.bar_kg_per_m3 <= 0.0
+                || f.concrete_h_per_m3 <= 0.0)
+        {
+            p.push(
+                "`systems.concrete` needs `materials.frame`, `materials.concrete` and \
+                 `materials.bar`, and positive `frame.concrete_kg_per_m3`, `frame.bar_kg_per_m3` \
+                 and `frame.concrete_h_per_m3`"
+                    .to_owned(),
+            );
+        }
+        // A steel skeleton needs its members' good and weight (ADR-0037 §3).
+        let skeleton = self
+            .systems
+            .as_ref()
+            .is_some_and(|s| !s.skeleton.is_empty());
+        if skeleton
+            && (!self.materials.contains_key(FRAME_SKELETON_SLOT) || f.frame_kg_per_m3 <= 0.0)
+        {
+            p.push(
+                "`systems.skeleton` needs `materials.frame` and a positive `frame.frame_kg_per_m3`"
+                    .to_owned(),
+            );
         }
         for (name, v) in [
             ("floor_m2_per_sleeper", f.floor_m2_per_sleeper),

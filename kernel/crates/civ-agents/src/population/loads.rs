@@ -1,6 +1,8 @@
 //! Buildings weighed against what they carry, each day (ADR-0009 §5; M3b slice P): the goods in
 //! their lofts and on their floors, people on floors off the ground, their roofs' covering, the
-//! month's storm on its day and the snow lying on their roofs (ADR-0012 §5). A group shows when its margin runs low or it sags, and
+//! month's storm on its day and the snow lying on their roofs (ADR-0012 §5), and on a frame of more
+//! than four storeys the storm's gust on its face (ADR-0042 §4). A group shows when its margin runs
+//! low, it sags or its frame sways past H/500, and
 //! gives way below a margin of 1: a loft or a floor drops what it holds, a broken tie beam brings
 //! its lofts down, rafters that break bring the roof in, and posts that give way leave a ruin.
 //! Those inside may die. Nothing here decides what anyone stores, builds or mends.
@@ -309,7 +311,9 @@ impl Population {
         let (x, y) = build::centre_m(&b.spec);
         let z = civ_land::height_at(ctx.map, x, y);
         let snow = snow_on_roof_pa(&ctx.land.weather, &ctx.land_params.weather, z, &e);
-        let loads = loads_on(b, &e, kept);
+        // A frame's mass infill weighs on its posts, and a cased skeleton's casing on its members
+        // (frame version 5): both in `loads_on`.
+        let loads = loads_on(b, &e, def, kept);
         let loads = Loads {
             peak_pa: if loads.covering_pa > 0.0 {
                 storm + snow
@@ -318,12 +322,16 @@ impl Population {
             },
             ..loads
         };
-        let timber = |g: &Group| {
-            g.material
-                .and_then(|slot| def.materials.get(usize::from(slot)))
-                .and_then(|&good| catalog.goods.get(good))
-                .and_then(|good| good.timber)
-        };
+        let timber = |g: &Group| structure::group_timber(&catalog.goods, def, g);
+        // A frame of more than four storeys meets the storm's gust on its face too, and sways
+        // (ADR-0042 §4): past H/500, the posts of the storey swaying most show it.
+        let wind =
+            (storm > 0.0 && structure::storeys(&e) > structure::WIND_FROM_STOREYS).then_some(storm);
+        let swaying = wind
+            .and_then(|q| structure::wind_drift(&e, q, |g| timber(g).map(|t| t.stiffness_pa)))
+            .filter(|&(drift, _)| drift > structure::DRIFT_SHOWS)
+            .map(|(_, t)| t);
+        let now = ctx.now;
         let b = &mut ctx.land.buildings[i];
         let mut fell: Vec<Fell> = Vec::new();
         let mut torn = false;
@@ -345,6 +353,9 @@ impl Population {
                     creep: 0.0,
                     sustained: 1.0,
                     density_kg_m3: density,
+                    burnt_keeps: None,
+                    cast: None,
+                    protection_min: 0.0,
                 };
                 structure::margin(g, c, &e, &loads, &masonry).state()
             } else if g.kind == GroupKind::Covering {
@@ -388,7 +399,25 @@ impl Population {
                 }
             } else {
                 timber(g).map_or(GroupState::Sound, |t| {
-                    structure::margin(g, c, &e, &loads, &t).state()
+                    // A cast member carries as its age lets it (frame version 5).
+                    let t = t.at_age(c.installed, now);
+                    let state = structure::margin(g, c, &e, &loads, &t).state();
+                    match wind {
+                        Some(q) if g.kind == GroupKind::Posts => {
+                            let sways = swaying.is_some_and(|s| {
+                                Level::from_code((g.id >> 24) as u8).and_then(Level::storey_index)
+                                    == Some(s)
+                            });
+                            let shows = if sways {
+                                GroupState::Symptom
+                            } else {
+                                GroupState::Sound
+                            };
+                            let wind = structure::wind_margin(g, c, &e, &t, q).state();
+                            condition::worse(condition::worse(state, wind), shows)
+                        }
+                        _ => state,
+                    }
                 })
             };
             c.state = condition::worse(wear, load);
@@ -706,10 +735,17 @@ pub(super) fn gravity(kind: GroupKind) -> u8 {
     }
 }
 
-/// What presses on building `b` (of expansion `e`) holding `kept` of its household's goods, the
-/// month's peak aside: its covering's weight once it is on, the goods on its lofts and floors,
-/// and people on floors off the ground.
-pub(super) fn loads_on(b: &Building, e: &Expansion, kept: &[Vec<f64>; 3]) -> Loads {
+/// What presses on building `b` (of expansion `e`, program `def`) holding `kept` of its
+/// household's goods, the month's peak aside: its covering's weight once it is on, the goods on
+/// its lofts and floors, people on floors off the ground, a frame's mass infill at its masonry's
+/// density, and a cased skeleton's casing at its program's figure (frame version 5). The daily
+/// check and a shaking read the same.
+pub(super) fn loads_on(
+    b: &Building,
+    e: &Expansion,
+    def: &crate::params::BuildingDef,
+    kept: &[Vec<f64>; 3],
+) -> Loads {
     let area = |level: Level| -> f64 {
         e.spaces
             .iter()
@@ -736,8 +772,16 @@ pub(super) fn loads_on(b: &Building, e: &Expansion, kept: &[Vec<f64>; 3]) -> Loa
                 .filter_map(|&m| s.materials_kg.get(usize::from(m)))
                 .sum()
         });
+    // A covering that is gone (burnt away, torn off or worn through: "the thatch is gone")
+    // weighs nothing and catches no wind: the roof's weight is that of the share of its slopes
+    // still covered.
+    let covered: f64 = coverings
+        .iter()
+        .filter(|g| b.group(g.id).is_some_and(|c| c.state != GroupState::Failed))
+        .map(|g| g.area_m2.max(0.0))
+        .sum();
     let covering_pa = if slope > 0.0 {
-        roof_kg * G / slope
+        roof_kg * G / slope * covered / slope
     } else {
         0.0
     };
@@ -761,5 +805,7 @@ pub(super) fn loads_on(b: &Building, e: &Expansion, kept: &[Vec<f64>; 3]) -> Loa
         },
         upper_pa: per(upper_kg, upper),
         live_pa: LIVE_PA,
+        infill_n: structure::infill_weight_n(e, &def.rules),
+        casing_kg_m3: structure::casing_kg_m3(&b.spec, &def.rules),
     }
 }

@@ -15,3 +15,6 @@ reserve_for = ""
 [fuel]
 mj_per_kg = 15.6
 smoke = 1.0
+# Ash a kilogram burned leaves (ADR-0038 §2; research 12-10 §2.1: 0.3-1.0 % for Central European
+# woods): it goes on the household's heap, or to a works' store as `good/ash`.
+ash_share = 0.005

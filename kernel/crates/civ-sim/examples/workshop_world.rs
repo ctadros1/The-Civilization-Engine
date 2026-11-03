@@ -190,7 +190,14 @@ fn make(saves: &Path) -> Result<String, String> {
             let more = 4.0 - m.unmet[sickle];
             m.record_unmet(sickle, more, 40.0 * more);
         }
-        sim.advance_minutes(24 * 60).map_err(|e| e.to_string())?;
+        // By the hour, so that the world is saved soon after the sale and its books' latest
+        // entries still show it.
+        for _ in 0..24 {
+            sim.advance_minutes(60).map_err(|e| e.to_string())?;
+            if ready(&sim) {
+                break;
+            }
+        }
         days += 1;
     }
     let dir = SaveDir::create(

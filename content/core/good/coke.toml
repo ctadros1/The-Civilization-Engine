@@ -16,3 +16,6 @@ reserve_for = ""
 [fuel]
 mj_per_kg = 28.2
 smoke = 0.3                      # tuning: little smoke once its volatiles are gone
+# Ash a kilogram burned leaves (ADR-0038 §2): a design prior, about coal's 0.11 (research 12-10
+# §2.1) kept in what carbonizing leaves; the research gives no figure for coke.
+ash_share = 0.10

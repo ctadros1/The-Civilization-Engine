@@ -1,0 +1,31 @@
+# Refuse collected by law (M11f, third part; ADR-0038 §4; brief m11-building-waste; research 12-10
+# §1.4, §5.3, §5.9: collection is a paid run with a vehicle, a round and a destination, and a
+# polity may run or contract one, paid from its store). Where someone suspects that the water at a
+# source sickens (the issue `source_suspected`), or a household's heap has grown large beside
+# another's home (the issue `heaps_near`), and the polity keeps an open tip, anyone may propose
+# that the polity run a refuse round to it. Once passed, a household of the settlement that keeps
+# a cart works the round: every 7 days (a design prior; 12-10 §1.3: a week suits garbage in
+# summer) it calls at the settlement's homes in turn, empties each heap into the cart up to what
+# the cart carries, and tips the load at the tip; homes beyond what a run carries wait for the
+# next. The homes pay nothing: the hours are common work, paid from the store where a law pays
+# common work, and with nothing to pay them the round does not go. A household weighs the law by
+# the carrying it would be spared against its share of a run of 4 hours every 7 days (design
+# priors). Its id sorts after every older template's: hearth talk about a question and a saved
+# law are keyed by a template's place in id order.
+kind = "policy"
+id = "core:policy/zealously_zone_a_round_for_refuse"
+name = "A refuse round"
+description = "The polity runs a cart round that empties the households' heaps and carries them to its tip, paid from the store."
+does = "collect_refuse"
+answers = ["source_suspected", "heaps_near"]
+question = "whether a cart paid from the store collects the households' heaps for the tip"
+
+[round]
+every_days = 7
+round_h = 4.0
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement: the homes kept cleaner, by common work.
+[bears]
+"core:value/security" = 0.5
+"core:value/reciprocity" = 0.25

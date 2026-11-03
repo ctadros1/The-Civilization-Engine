@@ -87,6 +87,81 @@ pub(crate) struct PeopleFile {
     pub elections: ElectionsFile,
     /// How households borrow and lend food (M7d slice CA; content API 119).
     pub credit: CreditFile,
+    /// How households let spare floor and seek a room (ADR-0040; content API 212).
+    pub letting: LettingFile,
+    /// How long people take to climb to the storeys they live on (ADR-0042 §1; content API 214).
+    pub climbing: ClimbingFile,
+}
+
+/// How long people take to climb a storey by a stair (ADR-0042 §1; content API 214). See
+/// [`civ_agents::climb::ClimbParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ClimbingFile {
+    pub up_s_per_storey: f64,
+    pub down_s_per_storey: f64,
+}
+
+impl ClimbingFile {
+    fn params(&self) -> civ_agents::climb::ClimbParams {
+        civ_agents::climb::ClimbParams {
+            up_s_per_storey: self.up_s_per_storey,
+            down_s_per_storey: self.down_s_per_storey,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v) in [
+            ("climbing.up_s_per_storey", self.up_s_per_storey),
+            ("climbing.down_s_per_storey", self.down_s_per_storey),
+        ] {
+            if !(v.is_finite() && (0.0..=600.0).contains(&v)) {
+                p.push(format!("`{name}` must be between 0 and 600 (got {v})"));
+            }
+        }
+    }
+}
+
+/// How households let spare floor and seek a room (ADR-0040 §2; content API 212). See
+/// [`civ_agents::letting::LettingParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct LettingFile {
+    pub asking_rent_food_days_per_person_month: f64,
+    pub step: f64,
+    pub candidates: u32,
+}
+
+impl LettingFile {
+    fn params(&self) -> civ_agents::letting::LettingParams {
+        civ_agents::letting::LettingParams {
+            asking_rent_food_days_per_person_month: self.asking_rent_food_days_per_person_month,
+            step: self.step,
+            candidates: self.candidates,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, lo, hi) in [
+            (
+                "letting.asking_rent_food_days_per_person_month",
+                self.asking_rent_food_days_per_person_month,
+                0.0,
+                365.0,
+            ),
+            ("letting.step", self.step, 0.0, 365.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        if !(1..=64).contains(&self.candidates) {
+            p.push(format!(
+                "`letting.candidates` must be between 1 and 64 (got {})",
+                self.candidates
+            ));
+        }
+    }
 }
 
 /// How households borrow and lend food (M7d slice CA, ADR-0027 §2; content API 119). See
@@ -1962,6 +2037,8 @@ pub(crate) struct MiddenFile {
     pub half_life_days: f64,
     pub load_kg: f64,
     pub spread_h_per_t: f64,
+    /// Kilograms of a heap or a tip sorted by hand in an hour (ADR-0044 §2; content API 221).
+    pub sort_kg_h: f64,
 }
 
 /// Taste in building, as authored: roof pitch in degrees, eaves and overhang in metres; and the
@@ -2730,6 +2807,7 @@ impl PeopleFile {
                 half_life_days: self.midden.half_life_days,
                 load_kg: self.midden.load_kg,
                 spread_h_per_t: self.midden.spread_h_per_t,
+                sort_kg_h: self.midden.sort_kg_h,
             },
             ties: self.ties.params(),
             standing: civ_agents::standing::StandingParams {
@@ -2787,6 +2865,8 @@ impl PeopleFile {
             enclosures: self.enclosures.params(),
             elections: self.elections.params(),
             credit: self.credit.params(),
+            letting: self.letting.params(),
+            climbing: self.climbing.params(),
             relations: civ_agents::views::RelationsParams {
                 prior: self.relations.prior,
                 half_life_days: self.relations.half_life_days,
@@ -2836,6 +2916,8 @@ impl PeopleFile {
         self.enclosures.problems(&mut p);
         self.elections.problems(&mut p);
         self.credit.problems(&mut p);
+        self.letting.problems(&mut p);
+        self.climbing.problems(&mut p);
         if !(self.places.sight_m.is_finite() && (0.0..=10_000.0).contains(&self.places.sight_m)) {
             p.push(format!(
                 "`places.sight_m` must be between 0 and 10000 (got {})",
@@ -3064,6 +3146,7 @@ impl PeopleFile {
             ("midden.half_life_days", m.half_life_days, 0.0, 36_500.0),
             ("midden.load_kg", m.load_kg, 1.0, 200.0),
             ("midden.spread_h_per_t", m.spread_h_per_t, 0.0, 100.0),
+            ("midden.sort_kg_h", m.sort_kg_h, 1.0, 10_000.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

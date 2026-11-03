@@ -2,7 +2,12 @@
 //! a dugout goes down the river valley's trunk faster than up it, only where today's stage is
 //! above its draft, by the quickest way the oracle also finds; a boat is a record that belongs to
 //! a household, stands at a bank, ages by the day, is gone once its life is spent, and saves and
-//! goes on alike.
+//! goes on alike. A household that is no more passes its boats and carts to the household its
+//! people join in the same settlement, and its loads in transit wherever that is (backlog D); and
+//! there, too, the works it keeps on the land, finished, and its platforms wherever it goes. An
+//! heir in another settlement takes its made boats and carts where they stand, and fetches them
+//! home. One nobody is left to take, being made, weathers as a made one does, and a household that
+//! would make one of its own takes it up instead, where it stands within its use and is worth it.
 
 use std::path::Path;
 use std::sync::OnceLock;
@@ -250,4 +255,845 @@ fn a_boat_belongs_to_a_household_stands_at_a_bank_ages_and_is_gone_when_spent() 
     sim.advance_minutes(2 * DAY).expect("lives");
     assert!(sim.land().boats.list.is_empty(), "past use, it is gone");
     assert_ne!(sim.land().boats.revision(), revision);
+}
+
+/// A made vehicle of catalog index `vehicle`, belonging to `owner` and standing at `at`.
+fn vehicle(
+    id: civ_core::PermanentId,
+    vehicle: usize,
+    owner: civ_core::PermanentId,
+    at: u32,
+) -> Boat {
+    Boat {
+        id,
+        vehicle: vehicle as u16,
+        owner,
+        at,
+        made: 0,
+        wear: 0.0,
+        labour_h: 0.0,
+        work_h: 0.0,
+        saves_h_year: 0.0,
+        crew: (0, 0),
+    }
+}
+
+#[test]
+fn a_household_no_more_passes_its_boats_carts_and_loads_to_the_household_its_people_join() {
+    // Two settlements, so that a household can join one in the other.
+    let mut sim = Sim::create_for_tests(
+        &NewWorld {
+            name: "Heirs".to_owned(),
+            seed: 1,
+            preset_id: PRESET.to_owned(),
+            size_cells: 768,
+            band_size: 30,
+            neighbours: vec![0],
+            neighbours_known: true,
+            regime_id: String::new(),
+        },
+        content(),
+        [11; 16],
+    )
+    .expect("generates");
+    assert_eq!(sim.land().settlements.len(), 2);
+    let (boat_v, _) = dugout(&sim);
+    let cart_v = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart");
+    let map = sim.map().clone();
+    let door = |home: (f32, f32)| civ_agents::population::cell_of(&map, home) as u32;
+    // Three households: two of one settlement and one of the other.
+    let households: Vec<(
+        civ_core::PermanentId,
+        Option<civ_core::PermanentId>,
+        (f32, f32),
+    )> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| (x.id, x.settlement, x.home))
+        .collect();
+    let (a, settlement, a_home) = households[0];
+    let (b, _, b_home) = *households
+        .iter()
+        .find(|h| h.0 != a && h.1 == settlement)
+        .expect("a second household of the settlement");
+    let (c, _, _) = *households
+        .iter()
+        .find(|h| h.1.is_some() && h.1 != settlement)
+        .expect("a household of the other settlement");
+    let graph = RiverGraph::new(&map);
+    let bank = (0..(map.width * map.height))
+        .find(|&c| !graph.boarding(&map, c).is_empty())
+        .expect("a bank");
+    let elsewhere = (door(a_home) + 1) % (map.width * map.height);
+    let ids: Vec<civ_core::PermanentId> = (0..5).map(|_| sim.allocate_id_for_tests()).collect();
+    let land = sim.land_mut_for_tests();
+    // `a` has a made boat at a bank and one being made, a cart at its door and one out on the
+    // ways; `b` has a cart of its own at its door.
+    land.boats.list.push(vehicle(ids[0], boat_v, a, bank));
+    land.boats.list.push(Boat {
+        labour_h: 100.0,
+        work_h: 40.0,
+        ..vehicle(ids[1], boat_v, a, bank)
+    });
+    land.boats.changed();
+    land.carts
+        .list
+        .push(vehicle(ids[2], cart_v, a, door(a_home)));
+    land.carts.list.push(vehicle(ids[3], cart_v, a, elsewhere));
+    land.carts
+        .list
+        .push(vehicle(ids[4], cart_v, b, door(b_home)));
+    land.carts.changed();
+    // A load `a` bought, in transit in its boat.
+    let load = sim.allocate_id_for_tests();
+    let goods = sim.rules().catalog.goods.len();
+    let now = sim.now();
+    let carrier = sim.people().household(a).expect("a").members[0];
+    let other = sim.land().settlements[1].id;
+    sim.people_mut_for_tests()
+        .consignments
+        .push(civ_agents::consignments::Consignment::new(
+            load,
+            (a, carrier, ids[0]),
+            (other, settlement.expect("a settlement")),
+            now,
+            goods,
+        ));
+    let (boats_rev, carts_rev) = (sim.land().boats.revision(), sim.land().carts.revision());
+    // `a`'s people join `b`, of the same settlement: everything passes to `b`.
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, a, b));
+    assert!(sim.people().household(a).is_none(), "`a` is no more");
+    let land = sim.land();
+    assert!(land.boats.list.iter().all(|x| x.owner == b));
+    assert_eq!(land.boats.made_of(b).count(), 1);
+    assert_eq!(land.boats.of(b).count(), 2, "and the one being made");
+    let unmade = &land.boats.list[1];
+    assert_eq!(
+        (unmade.at, unmade.work_h, unmade.labour_h),
+        (bank, 40.0, 100.0)
+    );
+    assert_eq!(
+        land.boats.list[0].at, bank,
+        "a boat stays drawn up where it is"
+    );
+    assert!(land.carts.list.iter().all(|x| x.owner == b));
+    let at: Vec<u32> = land.carts.list.iter().map(|x| x.at).collect();
+    assert_eq!(
+        at,
+        vec![door(b_home), elsewhere, door(b_home)],
+        "the cart at `a`'s door is wheeled to `b`'s; the one out stays out"
+    );
+    assert_ne!(land.boats.revision(), boats_rev);
+    assert_ne!(land.carts.revision(), carts_rev);
+    assert!(land.boats.problems().is_empty() && land.carts.problems().is_empty());
+    assert_eq!(
+        sim.people().consignments[0].owner,
+        b,
+        "the load is `b`'s now"
+    );
+    // `b`'s people join `c`, of the other settlement: the load passes, as `b`'s store does, but
+    // the boats and carts stand where they are, `b`'s still, which nobody now reaches.
+    let (boats_rev, carts_rev) = (sim.land().boats.revision(), sim.land().carts.revision());
+    let left: Vec<(civ_core::PermanentId, u32)> = sim
+        .land()
+        .boats
+        .list
+        .iter()
+        .chain(&sim.land().carts.list)
+        .map(|x| (x.owner, x.at))
+        .collect();
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, b, c));
+    let now_left: Vec<(civ_core::PermanentId, u32)> = sim
+        .land()
+        .boats
+        .list
+        .iter()
+        .chain(&sim.land().carts.list)
+        .map(|x| (x.owner, x.at))
+        .collect();
+    assert_eq!(now_left, left);
+    assert!(now_left.iter().all(|&(o, _)| o == b));
+    assert_eq!(
+        sim.land().boats.of(c).count() + sim.land().carts.of(c).count(),
+        0
+    );
+    assert_eq!(
+        (sim.land().boats.revision(), sim.land().carts.revision()),
+        (boats_rev, carts_rev)
+    );
+    assert_eq!(
+        sim.people().consignments[0].owner,
+        c,
+        "the load is `c`'s now"
+    );
+    saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+/// An earthwork of `household` of kind `kind`, `done` of the way, its id `id`.
+fn earthwork(
+    id: civ_core::PermanentId,
+    kind: civ_land::earth::EarthKind,
+    household: civ_core::PermanentId,
+    done: f32,
+) -> civ_land::earth::Earthwork {
+    civ_land::earth::Earthwork {
+        id,
+        kind,
+        rect: civ_land::RectCm {
+            x: 1_000,
+            y: 1_000,
+            w: 400,
+            h: 400,
+        },
+        level_cm: 0,
+        side_run_cm: 150,
+        plot: None,
+        deposit: None,
+        heap: None,
+        household,
+        cut_m3: 1.0,
+        done,
+        version: 0,
+        begun: civ_core::SimTime::from_minutes(0),
+    }
+}
+
+/// A one-segment way along `cells` serving `modes`, kept by `keeper`, built `built_m` of a
+/// 2 m corridor.
+fn kept_way(
+    id: civ_core::PermanentId,
+    cells: Vec<u32>,
+    modes: u8,
+    keeper: civ_land::ways::Keeper,
+    built_m: f32,
+) -> civ_land::ways::Way {
+    use civ_land::ways::{Rank, Segment, Surface, Way};
+    Way {
+        id,
+        begun: 0,
+        segments: vec![Segment {
+            cells,
+            corridor_m: 2.0,
+            built_m,
+            usable_m: built_m,
+            surface: Surface::Cleared,
+            keeper,
+            kept: 0,
+        }],
+        modes,
+        trips: 0.0,
+        trips_day: 0,
+        rank: Rank::Lane,
+        track: None,
+    }
+}
+
+#[test]
+fn a_household_no_more_passes_the_works_it_keeps_to_the_household_its_people_join_nearby() {
+    use civ_land::crossings::{Crossing, CrossingOwner, CrossingState};
+    use civ_land::earth::EarthKind;
+    use civ_land::ways::{CART, Keeper, RAIL, WALK};
+    let mut sim = Sim::create_for_tests(
+        &NewWorld {
+            name: "Heirs".to_owned(),
+            seed: 1,
+            preset_id: PRESET.to_owned(),
+            size_cells: 768,
+            band_size: 30,
+            neighbours: vec![0],
+            neighbours_known: true,
+            regime_id: String::new(),
+        },
+        content(),
+        [11; 16],
+    )
+    .expect("generates");
+    assert_eq!(sim.land().settlements.len(), 2);
+    let households: Vec<(civ_core::PermanentId, Option<civ_core::PermanentId>)> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| (x.id, x.settlement))
+        .collect();
+    let (a, settlement) = households[0];
+    let (b, _) = *households
+        .iter()
+        .find(|h| h.0 != a && h.1 == settlement)
+        .expect("a second household of the settlement");
+    let (c, _) = *households
+        .iter()
+        .find(|h| h.1.is_some() && h.1 != settlement)
+        .expect("a household of the other settlement");
+    let system = sim
+        .rules()
+        .catalog
+        .bridge_index("core:bridge/log_beam")
+        .expect("a log footbridge") as u16;
+    let ids: Vec<civ_core::PermanentId> = (0..16).map(|_| sim.allocate_id_for_tests()).collect();
+    let now = sim.now();
+    let crossing = |id, state| Crossing {
+        id,
+        system,
+        banks: [10, 12],
+        cells: vec![11],
+        span_m: 4.0,
+        members: 2,
+        diameter_cm: 30.0,
+        quality: 1.0,
+        loss: 0.0,
+        owner: CrossingOwner::Household(a),
+        labour_h: 80.0,
+        skill_h: 0.0,
+        begun: now,
+        state,
+        shares: Vec::new(),
+        crew: (0, 0),
+    };
+    let wheel = |id| civ_land::power::Installation {
+        id,
+        reach: 0,
+        at: [10.0, 10.0],
+        head_m: 2.0,
+        race_m3s: 0.5,
+        efficiency: 0.3,
+        rated_kw: 3.0,
+        owner: a,
+        building: None,
+    };
+    let land = sim.land_mut_for_tests();
+    // `a` keeps a footbridge that stands, one fallen and one being built (20 of 80 hours).
+    land.crossings
+        .list
+        .push(crossing(ids[0], CrossingState::Open { since: 0 }));
+    land.crossings.list.push(crossing(
+        ids[1],
+        CrossingState::Failed {
+            day: 0,
+            why: civ_land::crossings::Collapse::OwnWeight,
+        },
+    ));
+    land.crossings
+        .list
+        .push(crossing(ids[2], CrossingState::Building { work_h: 20.0 }));
+    // A way it laid as wide as it is to be, a passing place it is still widening, its line of
+    // track, and a way `b` keeps.
+    land.ways.add(kept_way(
+        ids[3],
+        vec![100, 101, 102],
+        WALK | CART,
+        Keeper::Household(a),
+        2.0,
+    ));
+    land.ways.add(kept_way(
+        ids[4],
+        vec![200],
+        WALK | CART,
+        Keeper::Household(a),
+        1.0,
+    ));
+    land.ways.add(kept_way(
+        ids[5],
+        vec![300, 301],
+        RAIL,
+        Keeper::Household(a),
+        2.0,
+    ));
+    land.ways.add(kept_way(
+        ids[6],
+        vec![400],
+        WALK | CART,
+        Keeper::Household(b),
+        2.0,
+    ));
+    // Its earthworks: a platform being levelled, a pit and its heap, a bank dug and one half
+    // dug; an engine at the pit; a wheel without a headrace and one whose race is half dug.
+    land.earthworks
+        .push(earthwork(ids[7], EarthKind::Platform, a, 0.5));
+    land.earthworks
+        .push(earthwork(ids[8], EarthKind::Pit, a, 0.2));
+    land.earthworks
+        .push(earthwork(ids[9], EarthKind::Spoil, a, 0.2));
+    land.earthworks
+        .push(earthwork(ids[10], EarthKind::Bank, a, 1.0));
+    land.earthworks
+        .push(earthwork(ids[11], EarthKind::Bank, a, 0.4));
+    land.engines.push(civ_land::power::Engine {
+        id: ids[12],
+        pit: ids[8],
+        owner: a,
+        rated_kw: 5.0,
+        efficiency: 0.01,
+    });
+    land.installations.push(wheel(ids[13]));
+    land.installations.push(wheel(ids[14]));
+    land.earthworks
+        .push(earthwork(ids[14], EarthKind::Ditch, a, 0.5));
+    let ways_rev = sim.land().ways.revision();
+    let crossings_rev = sim.land().crossings.revision();
+    // `a`'s people join `b`, of the same settlement: what `a` finished passes to `b`.
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, a, b));
+    assert!(sim.people().household(a).is_none(), "`a` is no more");
+    let land = sim.land();
+    let owners: Vec<CrossingOwner> = land.crossings.list.iter().map(|x| x.owner).collect();
+    assert_eq!(
+        owners,
+        vec![
+            CrossingOwner::Household(b),
+            CrossingOwner::Household(b),
+            CrossingOwner::Household(a),
+        ],
+        "the footbridge being built is left for whoever takes it over"
+    );
+    assert_eq!(
+        land.crossings.revision(),
+        crossings_rev,
+        "routes are not changed by whose a footbridge is"
+    );
+    let keepers: Vec<Keeper> = land
+        .ways
+        .list
+        .iter()
+        .map(|w| w.segments[0].keeper)
+        .collect();
+    assert_eq!(
+        keepers,
+        vec![
+            Keeper::Household(b),
+            Keeper::Household(a),
+            Keeper::Household(a),
+            Keeper::Household(b),
+        ],
+        "the way laid passes; the passing place being widened and the line do not"
+    );
+    assert_ne!(land.ways.revision(), ways_rev);
+    let held: Vec<civ_core::PermanentId> = land.earthworks.iter().map(|e| e.household).collect();
+    assert_eq!(
+        held,
+        vec![b, b, b, b, a, a],
+        "all but what is still being dug"
+    );
+    assert_eq!(land.engines[0].owner, b);
+    let wheels: Vec<civ_core::PermanentId> = land.installations.iter().map(|x| x.owner).collect();
+    assert_eq!(wheels, vec![b, a], "the wheel whose race is half dug stays");
+    // `b`'s people join `c`, of the other settlement: only the platform passes, with the plots
+    // it levels; the rest stands as it was, `b`'s still, which nobody now reaches.
+    let ways_rev = sim.land().ways.revision();
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, b, c));
+    let land = sim.land();
+    assert_eq!(land.crossings.list[0].owner, CrossingOwner::Household(b));
+    assert_eq!(land.ways.list[0].segments[0].keeper, Keeper::Household(b));
+    assert_eq!(land.ways.list[3].segments[0].keeper, Keeper::Household(b));
+    assert_eq!(land.ways.revision(), ways_rev);
+    let held: Vec<civ_core::PermanentId> = land.earthworks.iter().map(|e| e.household).collect();
+    assert_eq!(held, vec![c, b, b, b, a, a]);
+    assert_eq!(land.engines[0].owner, b);
+    assert_eq!(land.installations[0].owner, b);
+}
+
+#[test]
+fn an_heir_in_another_settlement_fetches_the_boat_and_cart_it_took_by_paddling_and_pulling_them_home()
+ {
+    // Two settlements on the water, so that a household can join one in the other.
+    let mut sim = Sim::create_for_tests(
+        &NewWorld {
+            name: "Heirs".to_owned(),
+            seed: 34,
+            preset_id: PRESET.to_owned(),
+            size_cells: 768,
+            band_size: 30,
+            neighbours: vec![0],
+            neighbours_known: true,
+            regime_id: String::new(),
+        },
+        content(),
+        [11; 16],
+    )
+    .expect("generates");
+    let (boat_v, hull) = dugout(&sim);
+    let cart_v = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart");
+    let map = sim.map().clone();
+    let door = |home: (f32, f32)| civ_agents::population::cell_of(&map, home) as u32;
+    let households: Vec<(
+        civ_core::PermanentId,
+        Option<civ_core::PermanentId>,
+        (f32, f32),
+    )> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| (x.id, x.settlement, x.home))
+        .collect();
+    // Two homes, one of each settlement, each near water that carries a dugout, and a way a
+    // cart could take between them over dry land.
+    let wheels = sim.rules().catalog.vehicles[cart_v].wheels(0.0, 1.4);
+    let cell = |at: (f32, f32)| civ_agents::population::cell_of(&map, at) as u32;
+    let lane = |x: (f32, f32), y: (f32, f32)| {
+        let land = sim.land();
+        let decks = land.cart_decks(&map);
+        let dry =
+            |c: u32| (map.water[c as usize] == civ_world::WATER_LAND).then_some(wheels.trail_c);
+        land.cart_terrain(&map, &decks)
+            .route(&wheels, &dry, &[cell(x)], &[cell(y)])
+            .map(|r| r.cells)
+    };
+    let on_water = |at: (f32, f32)| {
+        let land = sim.land();
+        let (rivers, hyd, q) = (
+            &land.rivers,
+            &land.floodplain.reaches,
+            &land.reach_discharges,
+        );
+        rivers
+            .nearest_bank(at, 1_500.0, |c| rivers.floats(&map, c, hyd, q, hull))
+            .is_some()
+    };
+    let settlement = households[0].1;
+    let (a, a_home, c, c_home, lane) = households
+        .iter()
+        .filter(|h| h.1 == settlement && on_water(h.2))
+        .flat_map(|x| {
+            households
+                .iter()
+                .filter(|h| h.1.is_some() && h.1 != settlement && on_water(h.2))
+                .map(move |y| (x.0, x.2, y.0, y.2))
+        })
+        .find_map(|(a, x, c, y)| lane(x, y).map(|l| (a, x, c, y, l)))
+        .expect("two homes on the water that a cart could go between");
+    // `a`'s boat is drawn up at the bank nearest its home where the water carries a dugout today;
+    // one more is being made there; its cart stands at its door.
+    let land = sim.land();
+    let (rivers, hyd, q) = (
+        &land.rivers,
+        &land.floodplain.reaches,
+        &land.reach_discharges,
+    );
+    let floats = |c: u32| rivers.floats(&map, c, hyd, q, hull);
+    let bank = rivers
+        .nearest_bank(a_home, 1_500.0, floats)
+        .expect("a bank near `a`'s home");
+    let near_c = rivers
+        .nearest_bank(c_home, 1_500.0, floats)
+        .expect("a bank near `c`'s home");
+    let apart = |x: (f32, f32), y: (f32, f32)| (x.0 - y.0).hypot(x.1 - y.1);
+    assert!(
+        rivers
+            .route(
+                hyd,
+                q,
+                hull,
+                &rivers.boarding(&map, bank),
+                &rivers.boarding(&map, near_c)
+            )
+            .is_some(),
+        "the water links them today"
+    );
+    let ids: Vec<civ_core::PermanentId> = (0..4).map(|_| sim.allocate_id_for_tests()).collect();
+    let (boat, unmade, cart) = (ids[0], ids[1], ids[2]);
+    let land = sim.land_mut_for_tests();
+    // A lane laid there that nobody keeps, as wide as a cart needs.
+    land.ways.add(kept_way(
+        ids[3],
+        lane,
+        civ_land::ways::WALK | civ_land::ways::CART,
+        civ_land::ways::Keeper::Nobody,
+        2.0,
+    ));
+    land.boats.list.push(Boat {
+        saves_h_year: 30.0,
+        ..vehicle(boat, boat_v, a, bank)
+    });
+    land.boats.list.push(Boat {
+        labour_h: 100.0,
+        work_h: 40.0,
+        ..vehicle(unmade, boat_v, a, bank)
+    });
+    land.boats.changed();
+    land.carts.list.push(vehicle(cart, cart_v, a, door(a_home)));
+    land.carts.changed();
+    let (boats_rev, carts_rev) = (sim.land().boats.revision(), sim.land().carts.revision());
+    // `a`'s people join `c`, of the other settlement: its made boat and cart are `c`'s now,
+    // standing where they were; the one being made stays `a`'s, where it is.
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, a, c));
+    let land = sim.land();
+    let find = |list: &[Boat], id| list.iter().find(|x| x.id == id).cloned().expect("there");
+    let (b, u, k) = (
+        find(&land.boats.list, boat),
+        find(&land.boats.list, unmade),
+        find(&land.carts.list, cart),
+    );
+    assert_eq!(
+        (b.owner, b.at),
+        (c, bank),
+        "the boat is `c`'s, where it was"
+    );
+    assert_eq!(
+        (k.owner, k.at),
+        (c, door(a_home)),
+        "the cart is `c`'s, at the old door"
+    );
+    assert_eq!(
+        (u.owner, u.at, u.work_h),
+        (a, bank, 40.0),
+        "the one being made stays"
+    );
+    assert_ne!(land.boats.revision(), boats_rev);
+    assert_ne!(land.carts.revision(), carts_rev);
+    assert!(land.boats.problems().is_empty() && land.carts.problems().is_empty());
+    // Someone of `c` walks to each and brings it home: the boat paddled to a bank near home, the
+    // cart pulled to the door, each a trip of its own.
+    let fetch = sim
+        .rules()
+        .catalog
+        .activities
+        .iter()
+        .position(|x| x.behavior == civ_agents::params::Behavior::Fetch)
+        .expect("fetching") as u16;
+    let (mut paddled, mut pulled, mut saved) = (false, false, false);
+    for _ in 0..4 * 24 * 6 {
+        sim.advance_minutes(10).expect("advances");
+        for (_, p) in sim.people().people.iter() {
+            if p.household != c || p.act.def != fetch {
+                continue;
+            }
+            let step = p.act.steps.get(usize::from(p.act.step));
+            match (p.act.target, step) {
+                (
+                    civ_agents::person::Target::Boat(x),
+                    Some(civ_agents::person::Step::Paddle { .. }),
+                ) if x == boat => {
+                    paddled |= p.trip.as_ref().is_some_and(|t| t.afloat);
+                }
+                (
+                    civ_agents::person::Target::Boat(x),
+                    Some(civ_agents::person::Step::Haul { .. }),
+                ) if x == cart => {
+                    pulled |= p.trip.as_ref().is_some_and(|t| !t.afloat);
+                }
+                _ => {}
+            }
+        }
+        // Saved and loaded with someone on the way, the world goes on alike.
+        if !saved && (paddled || pulled) {
+            saves_and_goes_on_alike(&mut sim, 60);
+            saved = true;
+        }
+        let land = sim.land();
+        let (b, k) = (find(&land.boats.list, boat), find(&land.carts.list, cart));
+        if b.at != bank && k.at != door(a_home) {
+            break;
+        }
+    }
+    let land = sim.land();
+    let (b, k) = (find(&land.boats.list, boat), find(&land.carts.list, cart));
+    assert!(paddled, "someone of `c` paddled the boat");
+    assert!(pulled, "someone of `c` pulled the cart");
+    assert_eq!(b.owner, c);
+    assert!(
+        apart(rivers_centre(&sim, b.at), c_home) <= 1_500.0,
+        "the boat is drawn up near `c`'s home"
+    );
+    assert_eq!(
+        (k.owner, k.at),
+        (c, door(c_home)),
+        "the cart stands at `c`'s door"
+    );
+    assert!(sim.land().boats.problems().is_empty() && sim.land().carts.problems().is_empty());
+    // The one being made stands where it was, `a`'s still.
+    let u = find(&sim.land().boats.list, unmade);
+    assert_eq!((u.owner, u.at), (a, bank));
+    saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+#[test]
+fn a_boat_or_cart_nobody_is_left_to_take_weathers_and_is_taken_up_by_a_household_that_would_make_one()
+ {
+    let mut sim = village(1);
+    let (boat_v, hull) = dugout(&sim);
+    let cart_v = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart");
+    let timber = sim.rules().catalog.vehicles[cart_v].good;
+    let map = sim.map().clone();
+    let door = |home: (f32, f32)| civ_agents::population::cell_of(&map, home) as u32;
+    let apart = |x: (f32, f32), y: (f32, f32)| (x.0 - y.0).hypot(x.1 - y.1);
+    let households: Vec<(civ_core::PermanentId, (f32, f32))> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| (x.id, x.home))
+        .collect();
+    assert!(households.len() >= 4, "four households");
+    // `a`, the household nearest water that carries a dugout today, and the bank nearest its home
+    // where it does; and the bank farthest from it.
+    let land = sim.land();
+    let (rivers, hyd, q) = (
+        &land.rivers,
+        &land.floodplain.reaches,
+        &land.reach_discharges,
+    );
+    let floats = |c: u32| rivers.floats(&map, c, hyd, q, hull);
+    let (a, a_home, bank) = households
+        .iter()
+        .filter_map(|&(id, home)| {
+            let bank = rivers.nearest_bank(home, 1_500.0, floats)?;
+            Some((id, home, bank, apart(home, rivers.centre(bank))))
+        })
+        .min_by(|x, y| x.3.total_cmp(&y.3))
+        .map(|(id, home, bank, _)| (id, home, bank))
+        .expect("a household near the water");
+    assert!(apart(a_home, rivers.centre(bank)) < 1_000.0);
+    let far = (0..map.width * map.height)
+        .filter(|&c| !rivers.boarding(&map, c).is_empty() && floats(c))
+        .max_by(|&x, &y| {
+            apart(a_home, rivers.centre(x)).total_cmp(&apart(a_home, rivers.centre(y)))
+        })
+        .expect("another bank");
+    assert!(
+        apart(a_home, rivers.centre(far)) > 3_000.0,
+        "a bank beyond where `a` would draw a boat up"
+    );
+    let others: Vec<(civ_core::PermanentId, (f32, f32))> =
+        households.iter().copied().filter(|h| h.0 != a).collect();
+    let (b, (d, d_home), (e, e_home)) = (others[0].0, others[1], others[2]);
+    // A household that is no more, nobody left to take what it had: its dugout being made at the
+    // bank near `a`'s home (40 of 100 hours) and another far off (90 of 100); a handcart worn
+    // nearly through standing at `d`'s door, and a sound one at `e`'s. `b` is making a dugout of
+    // its own at the same bank.
+    let gone = sim.allocate_id_for_tests();
+    let ids: Vec<civ_core::PermanentId> = (0..5).map(|_| sim.allocate_id_for_tests()).collect();
+    let (near, distant, worn, sound, b_own) = (ids[0], ids[1], ids[2], ids[3], ids[4]);
+    let land = sim.land_mut_for_tests();
+    let unmade = |id, owner, at, work_h| Boat {
+        labour_h: 100.0,
+        work_h,
+        ..vehicle(id, boat_v, owner, at)
+    };
+    land.boats.list.push(unmade(near, gone, bank, 40.0));
+    land.boats.list.push(unmade(distant, gone, far, 90.0));
+    land.boats.list.push(unmade(b_own, b, bank, 40.0));
+    land.boats.changed();
+    land.carts.list.push(Boat {
+        wear: 0.9,
+        ..vehicle(worn, cart_v, gone, door(d_home))
+    });
+    land.carts
+        .list
+        .push(vehicle(sound, cart_v, gone, door(e_home)));
+    land.carts.changed();
+    let find = |sim: &Sim, id| {
+        sim.land()
+            .boats
+            .list
+            .iter()
+            .chain(&sim.land().carts.list)
+            .find(|x| x.id == id)
+            .cloned()
+            .expect("there")
+    };
+    // A day on, the hulls nobody is left to finish have weathered a day of a dugout's twelve
+    // years, as a made one does; `b`'s, still being made, has not.
+    sim.advance_minutes(DAY).expect("lives");
+    let day = 1.0 / (12.0 * 365.25);
+    for id in [near, distant] {
+        let x = find(&sim, id);
+        assert_eq!(x.owner, gone, "nobody took it in a day");
+        assert!(
+            (f64::from(x.wear) - day).abs() < 1e-6,
+            "worn {} a day",
+            x.wear
+        );
+    }
+    assert_eq!(
+        find(&sim, b_own).wear,
+        0.0,
+        "a hull being made by its own people keeps"
+    );
+    assert!(sim.land().boats.problems().is_empty());
+    // `a` finds a dugout would save it 30 hours of walking a year, more than one takes to make
+    // over its life: it takes up the hull near home with the work done on it, not the one far
+    // off, and begins none of its own.
+    let (boats_rev, carts_rev) = (sim.land().boats.revision(), sim.land().carts.revision());
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_vehicle_for_tests(ctx, a, boat_v, bank, 30.0));
+    let taken = find(&sim, near);
+    assert_eq!(
+        (taken.owner, taken.at, taken.work_h, taken.saves_h_year),
+        (a, bank, 40.0, 30.0),
+        "`a` took up the hull near home, its work kept"
+    );
+    assert_eq!(find(&sim, distant).owner, gone, "the one far off stays");
+    assert_eq!(
+        sim.land().boats.of(a).count(),
+        1,
+        "and began none of its own"
+    );
+    assert_ne!(sim.land().boats.revision(), boats_rev);
+    // Its people finish it: 60 hours more make it.
+    sim.with_ctx_for_tests(|pop, ctx| pop.vehicle_work_for_tests(ctx, a, near, 60.0));
+    assert!(find(&sim, near).made(), "finished by `a`");
+    // `d` and `e`, each with timber enough for a handcart, find one would save them 30 hours a
+    // year: `e` takes up the sound one at its door, and keeps its timber; then `d` begins its
+    // own, the cart at its door nearly worn through being worth less than a new one.
+    let enough = sim.rules().catalog.vehicles[cart_v].material_kg * 2.0;
+    for x in [d, e] {
+        sim.people_mut_for_tests()
+            .households
+            .iter_mut()
+            .map(|(_, h)| h)
+            .find(|h| h.id == x)
+            .expect("household")
+            .stores[timber] = enough;
+    }
+    let held = |sim: &Sim, x| sim.people().household(x).expect("household").stores[timber];
+    sim.with_ctx_for_tests(|pop, ctx| {
+        pop.begin_vehicle_for_tests(ctx, e, cart_v, door(e_home), 30.0);
+        pop.begin_vehicle_for_tests(ctx, d, cart_v, door(d_home), 30.0);
+    });
+    assert_eq!(find(&sim, worn).owner, gone, "the worn cart stays");
+    let own: Vec<Boat> = sim.land().carts.of(d).cloned().collect();
+    assert_eq!(own.len(), 1);
+    assert!(!own[0].made() && own[0].id != worn, "`d` began its own");
+    assert!(
+        (held(&sim, d) - enough / 2.0).abs() < 1e-6,
+        "with its timber"
+    );
+    let taken = find(&sim, sound);
+    assert_eq!(
+        (taken.owner, taken.at),
+        (e, door(e_home)),
+        "`e` took up the sound one"
+    );
+    assert_eq!(sim.land().carts.of(e).count(), 1);
+    assert!((held(&sim, e) - enough).abs() < 1e-6, "and kept its timber");
+    assert_ne!(sim.land().carts.revision(), carts_rev);
+    assert!(sim.land().boats.problems().is_empty() && sim.land().carts.problems().is_empty());
+    // The far hull nobody takes is gone once a dugout's life is spent.
+    let i = sim
+        .land()
+        .boats
+        .list
+        .iter()
+        .position(|x| x.id == distant)
+        .expect("there");
+    sim.land_mut_for_tests().boats.list[i].wear = 1.0 - day as f32;
+    saves_and_goes_on_alike(&mut sim, 2 * DAY);
+    assert!(
+        sim.land().boats.list.iter().all(|x| x.id != distant),
+        "past use, it is gone"
+    );
+    assert!(sim.land().boats.problems().is_empty() && sim.land().carts.problems().is_empty());
+}
+
+fn rivers_centre(sim: &Sim, c: u32) -> (f32, f32) {
+    sim.land().rivers.centre(c)
 }

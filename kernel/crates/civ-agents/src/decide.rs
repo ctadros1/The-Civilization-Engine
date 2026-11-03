@@ -108,6 +108,9 @@ pub struct Facts {
     /// The cart their household is making at its door, if any (M8b slice CP, third part): as a
     /// boat's, its place the door.
     pub cart: Option<BoatFacts>,
+    /// A boat or cart of their household standing away from home that they could fetch home
+    /// today, if any (backlog D, ninth item).
+    pub fetch_vehicle: Option<VehicleFetch>,
     /// The passing place their household is making on its carts' way, if any (M8b slice CQ,
     /// second part): as a boat's, its place the stretch it widens.
     pub way: Option<WayFacts>,
@@ -278,6 +281,21 @@ pub struct BoatFacts {
     pub left_h: f64,
     pub saves_per_hour: f64,
     pub full: bool,
+}
+
+/// A made boat or cart of someone's household that stands away from home (backlog D, ninth
+/// item): one an heir in another settlement took from a household that is no more, or one left
+/// where a trip could not bring it back. Where it stands; the bank near home it would be paddled
+/// to, or none for a cart, pulled to the door (`door`, the household's home); the minutes its trip
+/// takes, on foot there and with it back; and what it is worth to the household in hours.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct VehicleFetch {
+    pub vehicle: PermanentId,
+    pub at: (f32, f32),
+    pub bank: Option<u32>,
+    pub door: (f32, f32),
+    pub trip_min: f64,
+    pub worth_h: f64,
 }
 
 /// A passing place someone's household is making, or one their polity is clearing under a law
@@ -460,7 +478,10 @@ pub struct PatchOption {
     /// For a material: kilograms of it the tools the household lacks are made of, beyond what
     /// it holds.
     pub tool_need_kg: f64,
-    /// For a material: whether work waits on the tool it is for.
+    /// For a fuel: kilograms of it the materials of the tools the household lacks are made of
+    /// (wood for their charcoal), beyond what its hearth keeps (M11d, sixth part).
+    pub fuel_tool_kg: f64,
+    /// For a material or fuel: whether work waits on the tool it is for.
     pub tool_blocked: bool,
     /// Where to stand, metres.
     pub at: (f32, f32),
@@ -470,16 +491,29 @@ pub struct PatchOption {
     /// than walking there (M10b slice DX, fourth part).
     pub by_ride: Option<RideLegs>,
     /// For digging where the settlement knows no body of the good within reach: a walk to look
-    /// for one over the kind of ground it lies in, out to `at`, across to this point and home, and
-    /// the minutes of the whole loop (M11d; ADR-0010 §1: a body is found when a route passes near
-    /// it). Nothing is dug.
-    pub prospect: Option<((f32, f32), f64)>,
+    /// for one over the kind of ground it lies in, out to `at` and on ([`ProspectWalk`]; M11d;
+    /// ADR-0010 §1: a body is found when a route passes near it). Nothing is dug.
+    pub prospect: Option<ProspectWalk>,
+    /// For picking: `at` is a heap or a tip sorted over, not a patch (ADR-0044 §2); a session
+    /// sorts only as long as what the household wants of the good calls for.
+    pub picks: bool,
+}
+
+/// A walk to look for a body (M11d): from `at` across to `across` and home, `loop_min` the
+/// minutes of the whole loop; `fresh` the share of the reachable ground of the right kind its
+/// settlement has not yet looked over, to which its hope is held (ADR-0043 §3).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ProspectWalk {
+    pub across: (f32, f32),
+    pub loop_min: f64,
+    pub fresh: f64,
 }
 
 /// What a walk over the right ground to look for a body is worth, in loads of what the household
 /// is short of (M11d): a body found gives many loads, and a day's walk finds one with well under
-/// certainty, so about one load's worth together. A tuning value, logged as a nudge (plan §9):
-/// the research gives no figure for how often prospecting found an outcrop.
+/// certainty, so about one load's worth together, while none of the ground has been looked over;
+/// it falls with the share looked over (ADR-0043 §3). A tuning value, logged as a nudge (plan
+/// §9): the research gives no figure for how often prospecting found an outcrop.
 pub const PROSPECT_HOPE: f64 = 1.0;
 
 /// A ride out on a line's train (M10b slice DX, fourth part): the station to walk to, and the
@@ -1308,17 +1342,27 @@ pub fn candidates(
                 let target = water.well.map_or(Target::Water(water.cell), Target::Well);
                 out.push(finish(id, target, terms, steps));
             }
-            // Digging is gathering at a deposit (M3b slice Q).
-            Behavior::Gather | Behavior::Dig => {
+            // Digging is gathering at a deposit (M3b slice Q), and picking gathering at a heap or a
+            // tip (ADR-0044 §2).
+            Behavior::Gather | Behavior::Dig | Behavior::Pick => {
                 let Some(patch) = best_patch(i) else {
-                    excluded.push((id, Reason::NoPlace));
+                    // Picking is weighed only where something wanted lies to be picked: no part of
+                    // anyone else's choice, not even a reason it was left out.
+                    if def.behavior != Behavior::Pick {
+                        excluded.push((id, Reason::NoPlace));
+                    }
                     continue;
                 };
                 let walk = patch.walk_min;
                 // A walk to look for a body nobody here knows of (M11d): out, across and home, in
                 // daylight, worth what a found body would bring toward the tools it is for, as
                 // far as such a walk is believed to find one.
-                if let Some((across, out_and_home)) = patch.prospect {
+                if let Some(ProspectWalk {
+                    across,
+                    loop_min: out_and_home,
+                    fresh,
+                }) = patch.prospect
+                {
                     if def.daylight_only && light < out_and_home + 20.0 {
                         excluded.push((id, Reason::NotInDark));
                         continue;
@@ -1328,7 +1372,8 @@ pub fn candidates(
                         continue;
                     }
                     let scale = patch.tool_need_kg.min(limits.carry_kg);
-                    let found = scale / (scale + scale / 2.0).max(1e-6);
+                    // As far as the ground is fresh: where they have looked they found nothing.
+                    let found = scale / (scale + scale / 2.0).max(1e-6) * fresh.clamp(0.0, 1.0);
                     term(&mut terms, Reason::Tools, w.w_tools * found * PROSPECT_HOPE);
                     if patch.tool_blocked {
                         term(
@@ -1361,15 +1406,31 @@ pub fn candidates(
                     excluded.push((id, Reason::NotInDark));
                     continue;
                 }
-                // Work until a load is full, or as long as daylight and the authored range allow.
+                // Work until a load is full, or as long as daylight and the authored range allow;
+                // picking, until what is wanted of the good is (ADR-0044 §2).
                 let pace = f.capacity * def.rate;
-                let fill = limits.carry_kg / (patch.kg_per_hour * pace).max(1e-9) * 60.0;
+                let load = if patch.picks {
+                    (patch.need_kg + patch.tool_need_kg).clamp(1e-3, limits.carry_kg)
+                } else {
+                    limits.carry_kg
+                };
+                let fill = load / (patch.kg_per_hour * pace).max(1e-9) * 60.0;
                 let minutes = room
                     .min(f64::from(def.max_minutes))
                     .min(fill.max(f64::from(def.min_minutes)))
                     .max(1.0);
                 let hours = minutes / 60.0;
-                let kg = (patch.kg_per_hour * hours * pace).min(limits.carry_kg);
+                let kg = (patch.kg_per_hour * hours * pace).min(load);
+                // A load is worth what it brings toward what is still needed: two thirds for a
+                // full one, or for one that brings all that is still missing.
+                let toward = |need: f64| {
+                    if need <= 0.0 {
+                        return 0.0;
+                    }
+                    let useful = kg.min(need);
+                    let scale = need.min(limits.carry_kg);
+                    useful / (useful + scale / 2.0).max(1e-6)
+                };
                 // A trip's worth saturates with what it brings (a response curve, research
                 // 01-09 §4.3): a haul of `trip_half_worth_days` of the household's need is worth
                 // half. Beyond any shortage, more of a good is worth less the more of that good
@@ -1418,22 +1479,21 @@ pub fn candidates(
                             // Food that needs cooking, and nothing to cook it on.
                             term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger * worth);
                         }
+                        // And toward what a tool's materials are made of beyond the hearth's
+                        // (wood for its charcoal), as a material is (M11d, sixth part).
+                        let tools = toward(patch.fuel_tool_kg);
+                        if tools > 0.0 {
+                            term(&mut terms, Reason::Tools, w.w_tools * tools);
+                            if patch.tool_blocked {
+                                term(&mut terms, Reason::Deadline, w.w_deadline * tools);
+                            }
+                        }
                     }
                     GoodUse::Material | GoodUse::Tool | GoodUse::Store => {
                         if patch.need_kg <= 0.0 && patch.tool_need_kg <= 0.0 {
                             excluded.push((id, Reason::NotNeeded));
                             continue;
                         }
-                        // A load is worth what it brings toward what is still needed: two thirds
-                        // for a full one, or for one that brings all that is still missing.
-                        let toward = |need: f64| {
-                            if need <= 0.0 {
-                                return 0.0;
-                            }
-                            let useful = kg.min(need);
-                            let scale = need.min(limits.carry_kg);
-                            useful / (useful + scale / 2.0).max(1e-6)
-                        };
                         let (build, tools) = (toward(patch.need_kg), toward(patch.tool_need_kg));
                         term(&mut terms, Reason::Shelter, w.w_shelter * build);
                         term(
@@ -1477,9 +1537,13 @@ pub fn candidates(
                         Step::Deposit,
                     ],
                 };
-                let target = patch
-                    .deposit
-                    .map_or(Target::Patch(patch.patch), Target::Deposit);
+                let target = if patch.picks {
+                    Target::None
+                } else {
+                    patch
+                        .deposit
+                        .map_or(Target::Patch(patch.patch), Target::Deposit)
+                };
                 out.push(finish(id, target, terms, steps));
             }
             Behavior::Farm => {
@@ -1715,6 +1779,38 @@ pub fn candidates(
                 // by a report, from a seller in another settlement (M5b slice AP, ADR-0019 §2):
                 // reached in daylight, home within the day.
                 let fetching = def.behavior == Behavior::Fetch;
+                // Or their own boat or cart, standing away from home (backlog D, ninth item):
+                // walked to and paddled or pulled home within the day's light, worth what it is
+                // to the household against the trip, an option beside any purchase.
+                let mut fetches = false;
+                if fetching
+                    && let Some(v) = f.fetch_vehicle
+                    && v.trip_min / 2.0 <= f64::from(def.max_walk_minutes)
+                    && f.daylight_left_min >= v.trip_min
+                {
+                    fetches = true;
+                    let mut terms = Vec::new();
+                    let reason = if v.bank.is_some() {
+                        Reason::Boat
+                    } else {
+                        Reason::Cart
+                    };
+                    term(&mut terms, reason, w.w_walk_hour * v.worth_h);
+                    term(
+                        &mut terms,
+                        Reason::Walking,
+                        -w.w_walk_hour * v.trip_min / 60.0,
+                    );
+                    let steps = match v.bank {
+                        Some(bank) => vec![
+                            Step::Walk { to: v.at },
+                            Step::Paddle { to: bank },
+                            Step::Walk { to: f.home },
+                        ],
+                        None => vec![Step::Walk { to: v.at }, Step::Haul { to: v.door }],
+                    };
+                    out.push(finish(id, Target::Boat(v.vehicle), terms, steps));
+                }
                 let found = if fetching {
                     fetch()
                 } else {
@@ -1723,16 +1819,22 @@ pub fn candidates(
                 let t = match found {
                     Ok(t) => t,
                     Err(why) => {
-                        excluded.push((id, why));
+                        if !fetches {
+                            excluded.push((id, why));
+                        }
                         continue;
                     }
                 };
                 if t.walk_min > f64::from(def.max_walk_minutes) {
-                    excluded.push((id, Reason::Unreachable));
+                    if !fetches {
+                        excluded.push((id, Reason::Unreachable));
+                    }
                     continue;
                 }
                 if fetching && f.daylight_left_min < t.walk_min {
-                    excluded.push((id, Reason::NotInDark));
+                    if !fetches {
+                        excluded.push((id, Reason::NotInDark));
+                    }
                     continue;
                 }
                 match t.worth {
@@ -2978,6 +3080,7 @@ mod tests {
             levee: None,
             boat: None,
             cart: None,
+            fetch_vehicle: None,
             way: None,
             raise: None,
             enclosure: None,
@@ -3009,6 +3112,7 @@ mod tests {
             task: (behavior == Behavior::Farm).then_some(civ_land::FieldTask::Reap),
             recipe: (behavior == Behavior::Make).then_some(0),
             digs: None,
+            picks: None,
             tools,
             rate,
             par: 3.0,
@@ -3274,11 +3378,13 @@ mod tests {
                 need_kg: 0.0,
                 urgency: 1.0,
                 tool_need_kg: 0.0,
+                fuel_tool_kg: 0.0,
                 tool_blocked: false,
                 at: (50.0, 0.0),
                 deposit: None,
                 by_ride: None,
                 prospect: None,
+                picks: false,
             })
         };
         let shop = Workshop {
@@ -3351,11 +3457,13 @@ mod tests {
                 need_kg: 200.0,
                 urgency: 1.0,
                 tool_need_kg: 0.0,
+                fuel_tool_kg: 0.0,
                 tool_blocked: false,
                 at: (50.0, 0.0),
                 deposit: None,
                 by_ride: None,
                 prospect: None,
+                picks: false,
             })
         };
         let none = |_: usize| false;

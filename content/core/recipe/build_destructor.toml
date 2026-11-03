@@ -1,0 +1,20 @@
+# Building a refuse destructor (M11f, fourth part; ADR-0038 §5; research 12-10 §1.5): a furnace
+# cell and flue of brick, lined with firebrick, a boiler, grates and a small engine of iron, and a
+# stoking floor of timber. 3,000 hours, 8,000 kg of brick, 1,200 kg of iron and 200 kg of timber
+# are design priors (the research gives a plant's cost and output, not its hours or weights).
+kind = "recipe"
+id = "core:recipe/build_destructor"
+name = "Build a refuse destructor"
+skill = "core:skill/smithing"
+technique = "core:technique/refuse_destructor"
+unit_h = 3000.0
+session_h = 0.0
+max_units = 1.0
+tools = []
+inputs = [
+  { good = "core:good/brick", amount = 8000.0 },
+  { good = "core:good/iron", amount = 1200.0 },
+  { good = "core:good/timber", amount = 200.0 },
+]
+outputs = [{ good = "core:good/destructor", amount = 1.0 }]
+session_inputs = []

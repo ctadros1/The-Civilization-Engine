@@ -1,6 +1,6 @@
 # Research topics
 
-172 deep-research topics across 16 domains, from the simulation engine to how each part of a society works. 165 are needed before v1 (M0–M8); the rest come after. Priorities: 100 High, 65 Medium, 7 Low.
+173 deep-research topics across 16 domains, from the simulation engine to how each part of a society works. 165 are needed before v1 (M0–M8); the rest come after. Priorities: 100 High, 66 Medium, 7 Low.
 
 ## Research files
 
@@ -236,7 +236,7 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 |---|---|---|---|
 | 07-12 | [Preconditions and cluster of the Industrial Revolution](07-technology/12-industrialization.md) | Technology and knowledge | Low |
 
-### M11: Modern content (4)
+### M11: Modern content (5)
 
 | ID | Topic | Domain | Priority |
 |---|---|---|---|
@@ -244,6 +244,7 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 | 12-09 | [Electric power, gas and modern utilities](12-services-infrastructure/09-modern-utilities.md) | City services and infrastructure | Low |
 | 11-14 | [Modern construction: iron and steel frames, reinforced concrete, glass, elevators and the tall building](11-architecture-construction/14-modern-construction.md) | Architecture and construction | Medium |
 | 12-10 | [Modern waste: refuse, collection, disposal, sewage treatment and industrial residues](12-services-infrastructure/10-modern-waste.md) | City services and infrastructure | Medium |
+| 03-08 | [Judging a failing source and searching for ore: depletion, giving up and prospecting](03-world/08-depletion-and-prospecting.md) | World and environment | Medium |
 
 ### M12: LLM notables, multi-viewer, close-up fidelity (1)
 
@@ -283,7 +284,7 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 | 02-06 | [Academic simulations of societies and states](02-reference-sims/06-academic-society-sims.md) | M4 | Medium | Design |
 | 02-07 | [Guided emergence: balancing authored structure and emergent behavior](02-reference-sims/07-guided-emergence.md) | M1 | Medium | Design |
 
-### 03. World and environment (7)
+### 03. World and environment (8)
 
 | ID | Topic | Needed by | Priority | Type |
 |---|---|---|---|---|
@@ -294,6 +295,7 @@ When a report changes a decision, update `PROJECT_PLAN.md` and its decisions log
 | 03-05 | [Where natural resources are and how accessible they were](03-world/05-resource-geology.md) | M3 | Medium | Simulation |
 | 03-06 | [Ecology: vegetation, forests, wildlife and foraging yields](03-world/06-ecology-foraging.md) | M1 | High | Simulation |
 | 03-07 | [Natural hazards: frequency, magnitude and impact on settlements](03-world/07-natural-hazards.md) | M6 | Medium | Simulation |
+| 03-08 | [Judging a failing source and searching for ore: depletion, giving up and prospecting](03-world/08-depletion-and-prospecting.md) | M11 | Medium | Simulation |
 
 ### 04. People: psychology, daily life and social behavior (13)
 

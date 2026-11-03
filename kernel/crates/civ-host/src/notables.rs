@@ -32,9 +32,9 @@ use crate::smoke::LongRun;
 /// The last calendar year the runs live: from the first month to its end.
 pub const LAST_YEAR: i64 = 3;
 /// Runs with the tier and without it from each fixture.
-pub const RUNS: usize = 5;
+pub const RUNS: usize = 10;
 /// Runs with the tier from each fixture when calibrating.
-pub const CALIBRATION_RUNS: usize = 8;
+pub const CALIBRATION_RUNS: usize = 12;
 /// Standard errors of the difference of two means of [`RUNS`] runs each, at the spread with the
 /// tier, that a tolerance allows when calibrated.
 pub const CALIBRATION_SIGMAS: f64 = 3.0;
@@ -54,32 +54,34 @@ pub struct Aggregate {
 }
 
 /// The aggregates ADR-0014 §4 names, in the order a run reports them. The tolerances were set from
-/// the calibration of 2026-10-08 (PROJECT_PLAN §9), at three standard errors of a difference of
-/// two means, rounded up to the next five percent.
+/// the calibration of 2026-10-31 (PROJECT_PLAN §9; homelab run 41197786000, twelve runs with the
+/// tier from each fixture), at three standard errors of a difference of two means of [`RUNS`]
+/// runs, the larger of the two fixtures', rounded up to the next five percent; those of 2026-10-08
+/// were set when the fixtures' polities proposed a few laws, and politics now spreads wider.
 pub const AGGREGATES: [Aggregate; 4] = [
     Aggregate {
         name: "proposals",
         what: "laws proposed",
         floor: 1.0,
-        tolerance: 0.55,
+        tolerance: 1.05,
     },
     Aggregate {
         name: "enacted",
         what: "laws a gathering passed",
         floor: 1.0,
-        tolerance: 0.40,
+        tolerance: 0.55,
     },
     Aggregate {
         name: "offices",
         what: "offices filled: laws passed that name a holder",
         floor: 1.0,
-        tolerance: 0.75,
+        tolerance: 0.85,
     },
     Aggregate {
         name: "moved",
         what: "the share of the food reaped that the polity levied or gave in relief",
         floor: 0.01,
-        tolerance: 0.25,
+        tolerance: 0.95,
     },
 ];
 

@@ -485,6 +485,30 @@ fn a_well_serves_its_household_its_kin_and_anyone_short_of_water() {
         .centre_m();
     let others: Vec<PermanentId> = households(&sim).into_iter().filter(|&o| o != h).collect();
     assert!(others.len() >= 2, "{others:?}");
+    // A neighbour lives beside the well: the household nearest it, its home put halfway between
+    // the well and the well's household's home. (Which household digs the first well, and where it
+    // lives, move with the village's first weeks; in M11d's thirteenth part the well's household
+    // had built its home 170 m from all the others.)
+    {
+        let own = home_of(&sim, h);
+        let beside = ((at.0 + own.0) / 2.0, (at.1 + own.1) / 2.0);
+        let nearest = others
+            .iter()
+            .copied()
+            .min_by(|&a, &b| {
+                let d = |o: PermanentId| {
+                    let p = home_of(&sim, o);
+                    (p.0 - at.0).hypot(p.1 - at.1)
+                };
+                d(a).total_cmp(&d(b))
+            })
+            .expect("a neighbour");
+        for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+            if x.id == nearest {
+                x.home = beside;
+            }
+        }
+    }
     // Nobody else's people draw there unless short of water; short, they draw at the nearer of
     // it and their own water.
     for &o in &others {
@@ -984,5 +1008,410 @@ fn a_well_dug_together_by_law_is_worked_in_shares_and_its_people_draw_at_it() {
             .is_some_and(|o| o.well == Some(well))
     });
     assert!(drawn, "nobody of the settlement would draw at its well");
+    reloaded(&mut sim);
+}
+
+/// A village of world 6 whose polity dug a well beside the hearth by a `dig_well` law in force,
+/// open with the water table two metres above its floor, as its people walked a quarter of an
+/// hour each way for water when they agreed to it: the sim, the polity's index, the law, the
+/// well and the settlement's households.
+fn a_polity_well() -> (Sim, usize, PermanentId, PermanentId, Vec<PermanentId>) {
+    use civ_agents::polity::{IssueKind, LawStatus, PolicyKind};
+    let mut sim = village(6);
+    for _ in 0..3 {
+        to_morning(&mut sim, 8 * 60);
+    }
+    let all = households(&sim);
+    let settlement = sim
+        .people()
+        .household(all[0])
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        x.water_walk_min = 15.0;
+    }
+    let (site, _, _) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.public_well_for_tests(ctx, settlement))
+        .expect("a well worth digging together");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.settlement == settlement)
+        .expect("a polity");
+    let policy = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.kind == PolicyKind::DigWell)
+        .expect("in core") as u16;
+    let sponsor = sim.people().household(all[0]).expect("a household").members[0];
+    let law = sim
+        .with_ctx_for_tests(|pop, ctx| {
+            pop.propose_for_tests(ctx, settlement, sponsor, policy, IssueKind::WaterFar)
+        })
+        .expect("proposed");
+    {
+        let p = &mut sim.people_mut_for_tests().polities[pi];
+        p.gathering = None;
+        p.wells.push((law, site));
+        p.law_mut(law).expect("the law").status = LawStatus::InForce;
+    }
+    let polity = sim.people().polities[pi].id;
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_public_well_for_tests(ctx, polity, site));
+    let well = sim
+        .land()
+        .wells
+        .list
+        .iter()
+        .find(|w| w.polity == Some(polity))
+        .expect("the polity's well")
+        .id;
+    set_water(&mut sim, well, 2.0);
+    let worker = sim.people().household(all[1]).expect("a household").members[0];
+    let hours = hours_left(&sim, well) + 0.5;
+    sim.with_ctx_for_tests(|pop, ctx| pop.well_work_by_for_tests(ctx, worker, well, hours));
+    assert!(sim.land().wells.get(well).expect("the well").is_open());
+    (sim, pi, law, well, all)
+}
+
+#[test]
+fn a_polity_relines_and_covers_its_well_while_its_law_is_in_force_and_not_after() {
+    use civ_agents::polity::LawStatus;
+    use civ_agents::word::Counts;
+    let (mut sim, pi, law, well, all) = a_polity_well();
+    let review = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.public_well_reviews_for_tests(ctx, pi))
+    };
+    // Sound while rot has taken less than half of what its lining had, as a household's.
+    {
+        let w = sim
+            .land_mut_for_tests()
+            .wells
+            .get_mut(well)
+            .expect("the well");
+        w.quality = 0.6;
+        w.loss = 0.29;
+    }
+    assert_eq!(review(&mut sim), vec![(well, WellWeighed::Sound)]);
+    assert!(!sim.land().wells.get(well).expect("the well").is_worked());
+    // Past half, the polity weighs relining it by the walking it saves its households over a new
+    // lining's life, and asks the lining's hours, metre by metre.
+    sim.land_mut_for_tests()
+        .wells
+        .get_mut(well)
+        .expect("the well")
+        .loss = 0.31;
+    let weighed = review(&mut sim);
+    let [(id, WellWeighed::Reline { saved_h, labour_h })] = weighed[..] else {
+        panic!("{weighed:?}");
+    };
+    assert_eq!(id, well);
+    assert!(saved_h > labour_h, "{saved_h} {labour_h}");
+    let w = *sim.land().wells.get(well).expect("the well");
+    let def = &sim.rules().catalog.wells[w.system];
+    let (lining, cover) = (def.lining_h_per_m, def.cover_h);
+    assert!((f64::from(w.mend_h) - f64::from(w.depth_m) * lining).abs() < 1e-3);
+    assert!((f64::from(w.mend_h) - labour_h).abs() < 1e-3);
+    assert!(
+        w.is_open() && w.is_worked(),
+        "drawn from while it is relined"
+    );
+    assert!(w.worth > 0.0);
+    // It is not asked twice.
+    assert!(review(&mut sim).is_empty());
+    reloaded(&mut sim);
+    // Someone of a third household relines it: their household's hours are kept as given.
+    let third = all[2];
+    let worker = sim.people().household(third).expect("a household").members[0];
+    let before = sim.land().wells.given(well, third);
+    let mend = f64::from(w.mend_h);
+    sim.with_ctx_for_tests(|pop, ctx| pop.well_work_by_for_tests(ctx, worker, well, mend + 0.1));
+    let w = *sim.land().wells.get(well).expect("the well");
+    assert_eq!((w.mend_h, w.loss), (0.0, 0.0));
+    assert!(w.quality > 0.0 && w.quality <= 1.0);
+    assert!((f64::from(sim.land().wells.given(well, third) - before) - mend).abs() < 1e-3);
+    // Someone of the settlement holds that its water sickens: the polity asks a lid and curb, as
+    // a household covers a well it suspects, and its people make it.
+    let member = sim.people().household(all[3]).expect("a household").members[0];
+    let today = sim.now().day_index();
+    sim.people_mut_for_tests().word.suspect(
+        member,
+        Place::Source(w.cell),
+        Counts::default(),
+        today,
+    );
+    assert_eq!(review(&mut sim), vec![(well, WellWeighed::Sound)]);
+    let w = *sim.land().wells.get(well).expect("the well");
+    assert!(
+        (f64::from(w.cover_h) - cover).abs() < 1e-3 && w.is_worked(),
+        "{w:?}"
+    );
+    sim.with_ctx_for_tests(|pop, ctx| pop.well_work_by_for_tests(ctx, member, well, cover + 0.5));
+    let w = *sim.land().wells.get(well).expect("the well");
+    assert!(w.covered && w.cover_h == 0.0 && !w.is_worked(), "{w:?}");
+    let name = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|s| s.id == sim.people().polities[pi].settlement)
+        .map(|s| s.name.clone())
+        .expect("the settlement");
+    assert!(
+        well_entries(&sim).iter().any(|(step, s)| {
+            *step == f64::from(WellStep::Covered as u8)
+                && s.starts_with(&format!(
+                    "{name}'s people made the timber-lined well beside the hearth a lid and curb"
+                ))
+        }),
+        "{:?}",
+        well_entries(&sim)
+    );
+    // Not covered again.
+    review(&mut sim);
+    assert_eq!(sim.land().wells.get(well).expect("the well").cover_h, 0.0);
+    // Worn again and the relining asked, then the law ended: the work asked mends nothing.
+    sim.land_mut_for_tests()
+        .wells
+        .get_mut(well)
+        .expect("the well")
+        .loss = 0.9 * w.quality;
+    assert!(matches!(
+        review(&mut sim)[..],
+        [(_, WellWeighed::Reline { .. })]
+    ));
+    let asked = sim.land().wells.get(well).expect("the well").mend_h;
+    assert!(asked > 0.0);
+    sim.people_mut_for_tests().polities[pi]
+        .law_mut(law)
+        .expect("the law")
+        .status = LawStatus::Superseded;
+    sim.with_ctx_for_tests(|pop, ctx| pop.well_work_by_for_tests(ctx, worker, well, 100.0));
+    let w = *sim.land().wells.get(well).expect("the well");
+    assert_eq!(w.mend_h, asked);
+    assert!(w.loss > 0.0);
+    // And with the law ended nobody weighs relining it.
+    sim.land_mut_for_tests()
+        .wells
+        .get_mut(well)
+        .expect("the well")
+        .mend_h = 0.0;
+    assert!(review(&mut sim).is_empty());
+    assert_eq!(sim.land().wells.get(well).expect("the well").mend_h, 0.0);
+    reloaded(&mut sim);
+}
+
+#[test]
+fn a_closing_nobody_suspects_any_longer_is_put_to_an_end_and_one_still_suspected_is_not() {
+    use civ_agents::polity::{IssueKind, LawStatus, Outcome, PolicyKind, Stance};
+    use civ_agents::word::Counts;
+    let (mut sim, h, well) = an_open_well();
+    let cell = sim.land().wells.get(well).expect("the well").cell;
+    let settlement = sim
+        .people()
+        .household(h)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.settlement == settlement)
+        .expect("a polity");
+    let now = sim.now();
+    let grown = sim.rules().people.family.independent_age;
+    let adults_of = |sim: &Sim, of: PermanentId| -> Vec<PermanentId> {
+        sim.people()
+            .household(of)
+            .expect("a household")
+            .members
+            .iter()
+            .copied()
+            .filter(|&m| {
+                sim.people()
+                    .person(m)
+                    .is_some_and(|p| p.age_years(now) >= grown)
+            })
+            .collect()
+    };
+    let a = adults_of(&sim, h)[0];
+    let other = households(&sim)
+        .into_iter()
+        .find(|&o| o != h)
+        .expect("another household");
+    let b = adults_of(&sim, other)[0];
+    // The well is closed by a law in force, and nothing else is before the gathering.
+    let close = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.kind == PolicyKind::CloseSource)
+        .expect("in core") as u16;
+    let closing = sim
+        .with_ctx_for_tests(|pop, ctx| {
+            pop.propose_for_tests(ctx, settlement, a, close, IssueKind::SourceSuspected)
+        })
+        .expect("proposed");
+    {
+        let pop = sim.people_mut_for_tests();
+        pop.every_adult_deliberates = true;
+        let p = &mut pop.polities[pi];
+        p.closed.push((closing, Place::Source(cell)));
+        p.law_mut(closing).expect("the law").status = LawStatus::InForce;
+    }
+    let clear = |sim: &mut Sim| {
+        let p = &mut sim.people_mut_for_tests().polities[pi];
+        p.gathering = None;
+        for l in &mut p.laws {
+            if l.status == LawStatus::Proposed {
+                l.status = LawStatus::Rejected;
+            }
+        }
+    };
+    // Reviews until one proposes an end to the closing, or nothing: what was proposed.
+    let reviews = |sim: &mut Sim| {
+        for _ in 0..12 {
+            clear(sim);
+            sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+            match sim.people().polities[pi].agenda().cloned() {
+                Some(l) if l.ends == Some(closing) => return Some(l),
+                Some(_) => continue,
+                None => return None,
+            }
+        }
+        None
+    };
+    // Someone of another household still holds that the water there sickens: nobody proposes
+    // ending it.
+    let counts = Counts {
+        sick_at: 3,
+        at: 4,
+        sick_elsewhere: 0,
+        elsewhere: 10,
+    };
+    let today = now.day_index();
+    sim.people_mut_for_tests()
+        .word
+        .suspect(b, Place::Source(cell), counts, today);
+    let unsuspected =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, _| pop.unsuspected_closings_for_tests(pi));
+    assert!(unsuspected(&mut sim).is_empty());
+    assert!(reviews(&mut sim).is_none());
+    assert_eq!(
+        sim.people().polities[pi].closed_now(),
+        vec![(Place::Source(cell), closing)]
+    );
+    // Nobody holds it any longer: the household that would draw there but for the closing gains
+    // by its end (the walking it would save, against a sickness it believes nothing of), and
+    // nobody who suspects nothing loses by it.
+    sim.people_mut_for_tests()
+        .word
+        .unsuspect(b, Place::Source(cell));
+    assert_eq!(unsuspected(&mut sim), vec![(closing, cell)]);
+    let gains = sim.with_ctx_for_tests(|pop, ctx| {
+        pop.site_gains_for_tests(ctx, settlement, PolicyKind::CloseSource, cell)
+    });
+    let kept_by_h = gains.iter().find(|g| g.0 == h).map_or(0.0, |g| g.1);
+    assert!(kept_by_h < 0.0, "{gains:?}");
+    assert!(gains.iter().all(|g| g.1 <= 0.0), "{gains:?}");
+    // At the polity's review, someone proposes ending it, the issue being that nobody suspects
+    // its source.
+    let end = reviews(&mut sim).expect("an end to the closing proposed");
+    assert_eq!(end.kind, PolicyKind::Repeal);
+    assert_eq!(end.issue, IssueKind::ClosingUnsuspected);
+    let what = civ_sim::frames::word::law_text(&sim, &sim.people().polities[pi], &end);
+    assert!(
+        what.starts_with("an end to the closing of ")
+            && what.ends_with("'s household's well: people may draw there again"),
+        "{what}"
+    );
+    let told = sim
+        .people()
+        .chronicle
+        .iter()
+        .rev()
+        .find(|c| c.kind == ChronicleKind::LawProposed)
+        .expect("told");
+    assert_eq!(
+        told.name,
+        format!("{what}, because nobody holds any longer that the water there sickens")
+    );
+    let mut again = reloaded(&mut sim);
+    // Its gathering sits, every adult of the settlement there, and decides as they stand: those
+    // who hold security dear above what they would walk may keep it. Failed, the closing stands.
+    let present: Vec<PermanentId> = households(&sim)
+        .into_iter()
+        .flat_map(|x| adults_of(&sim, x))
+        .collect();
+    let sit = |sim: &mut Sim, present: Vec<PermanentId>| {
+        let g = sim.people_mut_for_tests().polities[pi]
+            .gathering
+            .as_mut()
+            .expect("called");
+        g.day = today;
+        g.present = present;
+        sim.with_ctx_for_tests(|pop, ctx| pop.decide_gathering_for_tests(ctx, pi));
+        sim.people().polities[pi]
+            .laws
+            .iter()
+            .find(|l| l.id == end.id)
+            .expect("the end")
+            .clone()
+    };
+    let decided = sit(&mut sim, present.clone());
+    let opposed: Vec<PermanentId> = decided
+        .stances
+        .iter()
+        .filter(|r| r.stance == Stance::Oppose)
+        .map(|r| r.person)
+        .collect();
+    // The well's household, which would draw there again, stands for it.
+    assert!(
+        decided
+            .stances
+            .iter()
+            .any(|r| r.household == h && r.stance == Stance::Support),
+        "{decided:?}"
+    );
+    let ended = |sim: &Sim| {
+        sim.people().polities[pi]
+            .laws
+            .iter()
+            .find(|l| l.id == closing)
+            .map(|l| l.status)
+            .expect("the closing")
+    };
+    if decided.outcome != Some(Outcome::Passed) {
+        assert_eq!(decided.status, LawStatus::Rejected);
+        assert_eq!(ended(&sim), LawStatus::InForce);
+        assert_eq!(unsuspected(&mut sim), vec![(closing, cell)]);
+        // The same gathering without those who stood against it, in the world as it was
+        // before it sat: it passes.
+        let present: Vec<PermanentId> = present
+            .into_iter()
+            .filter(|p| !opposed.contains(p))
+            .collect();
+        let decided = sit(&mut again, present);
+        assert_eq!(decided.outcome, Some(Outcome::Passed), "{decided:?}");
+        sim = again;
+    }
+    // Passed, the end is carried, the closing is superseded and the well's household draws there
+    // again.
+    let decided = sim.people().polities[pi]
+        .laws
+        .iter()
+        .find(|l| l.id == end.id)
+        .expect("the end")
+        .clone();
+    assert_eq!(decided.status, LawStatus::Carried);
+    assert_eq!(ended(&sim), LawStatus::Superseded);
+    assert!(sim.people().polities[pi].closed_now().is_empty());
+    assert!(unsuspected(&mut sim).is_empty());
+    let source = sim
+        .with_ctx_for_tests(|pop, ctx| pop.water_source_by_for_tests(ctx, a, false))
+        .expect("a source");
+    assert_eq!(source.well, Some(well));
     reloaded(&mut sim);
 }

@@ -5614,6 +5614,165 @@ impl<'a> DepositKnownEntry {
 
 }
 
+// struct GroundLookedEntry, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct GroundLookedEntry(pub [u8; 16]);
+impl Default for GroundLookedEntry { 
+  fn default() -> Self { 
+    Self([0; 16])
+  }
+}
+impl ::core::fmt::Debug for GroundLookedEntry {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("GroundLookedEntry")
+      .field("key", &self.key())
+      .field("day", &self.day())
+      .field("block", &self.block())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for GroundLookedEntry {}
+impl<'a> ::flatbuffers::Follow<'a> for GroundLookedEntry {
+  type Inner = &'a GroundLookedEntry;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a GroundLookedEntry>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a GroundLookedEntry {
+  type Inner = &'a GroundLookedEntry;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<GroundLookedEntry>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for GroundLookedEntry {
+    type Output = GroundLookedEntry;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const GroundLookedEntry as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for GroundLookedEntry {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> GroundLookedEntry {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    key: u64,
+    day: i32,
+    block: u32,
+  ) -> Self {
+    let mut s = Self([0; 16]);
+    s.set_key(key);
+    s.set_day(day);
+    s.set_block(block);
+    s
+  }
+
+  pub fn key(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_key(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn day(&self) -> i32 {
+    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_day(&mut self, x: i32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn block(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[12..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_block(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[12..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct EarthworkRecord, aligned to 8
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -9726,6 +9885,420 @@ impl<'a> CustomVersionSave {
 
 }
 
+// struct SewerUnservedSave, aligned to 2
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct SewerUnservedSave(pub [u8; 6]);
+impl Default for SewerUnservedSave { 
+  fn default() -> Self { 
+    Self([0; 6])
+  }
+}
+impl ::core::fmt::Debug for SewerUnservedSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("SewerUnservedSave")
+      .field("overloaded", &self.overloaded())
+      .field("broken", &self.broken())
+      .field("blocked", &self.blocked())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for SewerUnservedSave {}
+impl<'a> ::flatbuffers::Follow<'a> for SewerUnservedSave {
+  type Inner = &'a SewerUnservedSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a SewerUnservedSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a SewerUnservedSave {
+  type Inner = &'a SewerUnservedSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<SewerUnservedSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for SewerUnservedSave {
+    type Output = SewerUnservedSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const SewerUnservedSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(2)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for SewerUnservedSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> SewerUnservedSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    overloaded: u16,
+    broken: u16,
+    blocked: u16,
+  ) -> Self {
+    let mut s = Self([0; 6]);
+    s.set_overloaded(overloaded);
+    s.set_broken(broken);
+    s.set_blocked(blocked);
+    s
+  }
+
+  pub fn overloaded(&self) -> u16 {
+    let mut mem = ::core::mem::MaybeUninit::<<u16 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_overloaded(&mut self, x: u16) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn broken(&self) -> u16 {
+    let mut mem = ::core::mem::MaybeUninit::<<u16 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[2..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_broken(&mut self, x: u16) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[2..].as_mut_ptr(),
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn blocked(&self) -> u16 {
+    let mut mem = ::core::mem::MaybeUninit::<<u16 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[4..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_blocked(&mut self, x: u16) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[4..].as_mut_ptr(),
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
+// struct SewerConnectionSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct SewerConnectionSave(pub [u8; 48]);
+impl Default for SewerConnectionSave { 
+  fn default() -> Self { 
+    Self([0; 48])
+  }
+}
+impl ::core::fmt::Debug for SewerConnectionSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("SewerConnectionSave")
+      .field("household", &self.household())
+      .field("building", &self.building())
+      .field("since", &self.since())
+      .field("day", &self.day())
+      .field("kg", &self.kg())
+      .field("cause", &self.cause())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for SewerConnectionSave {}
+impl<'a> ::flatbuffers::Follow<'a> for SewerConnectionSave {
+  type Inner = &'a SewerConnectionSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a SewerConnectionSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a SewerConnectionSave {
+  type Inner = &'a SewerConnectionSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<SewerConnectionSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for SewerConnectionSave {
+    type Output = SewerConnectionSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const SewerConnectionSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for SewerConnectionSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> SewerConnectionSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    household: u64,
+    building: u64,
+    since: i64,
+    day: i64,
+    kg: f64,
+    cause: u8,
+  ) -> Self {
+    let mut s = Self([0; 48]);
+    s.set_household(household);
+    s.set_building(building);
+    s.set_since(since);
+    s.set_day(day);
+    s.set_kg(kg);
+    s.set_cause(cause);
+    s
+  }
+
+  pub fn household(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_household(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn building(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_building(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn since(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_since(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn day(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[24..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_day(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[24..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn kg(&self) -> f64 {
+    let mut mem = ::core::mem::MaybeUninit::<<f64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[32..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_kg(&mut self, x: f64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[32..].as_mut_ptr(),
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn cause(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[40..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_cause(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[40..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct MeasuredSave, aligned to 8
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -13700,6 +14273,261 @@ impl<'a> PlaceClaimSave {
         &x_le as *const _ as *const u8,
         self.0[16..].as_mut_ptr(),
         ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
+// struct AnswerSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct AnswerSave(pub [u8; 32]);
+impl Default for AnswerSave { 
+  fn default() -> Self { 
+    Self([0; 32])
+  }
+}
+impl ::core::fmt::Debug for AnswerSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("AnswerSave")
+      .field("notable", &self.notable())
+      .field("day", &self.day())
+      .field("digest", &self.digest())
+      .field("chosen", &self.chosen())
+      .field("by", &self.by())
+      .field("provider", &self.provider())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for AnswerSave {}
+impl<'a> ::flatbuffers::Follow<'a> for AnswerSave {
+  type Inner = &'a AnswerSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a AnswerSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a AnswerSave {
+  type Inner = &'a AnswerSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<AnswerSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for AnswerSave {
+    type Output = AnswerSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const AnswerSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for AnswerSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> AnswerSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    notable: u64,
+    day: i64,
+    digest: u64,
+    chosen: i32,
+    by: u8,
+    provider: u16,
+  ) -> Self {
+    let mut s = Self([0; 32]);
+    s.set_notable(notable);
+    s.set_day(day);
+    s.set_digest(digest);
+    s.set_chosen(chosen);
+    s.set_by(by);
+    s.set_provider(provider);
+    s
+  }
+
+  pub fn notable(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_notable(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn day(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_day(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn digest(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_digest(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn chosen(&self) -> i32 {
+    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[24..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_chosen(&mut self, x: i32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[24..].as_mut_ptr(),
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn by(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[28..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_by(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[28..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn provider(&self) -> u16 {
+    let mut mem = ::core::mem::MaybeUninit::<<u16 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[30..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_provider(&mut self, x: u16) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[30..].as_mut_ptr(),
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
       );
     }
   }
@@ -32125,6 +32953,10 @@ impl<'a> Household<'a> {
   pub const VT_MIDDEN_CARRIED: ::flatbuffers::VOffsetT = 58;
   pub const VT_MIDDEN_X: ::flatbuffers::VOffsetT = 60;
   pub const VT_MIDDEN_Y: ::flatbuffers::VOffsetT = 62;
+  pub const VT_MIDDEN_ASH_KG: ::flatbuffers::VOffsetT = 64;
+  pub const VT_MIDDEN_TIPPED: ::flatbuffers::VOffsetT = 66;
+  pub const VT_MIDDEN_DISCARD_GOODS: ::flatbuffers::VOffsetT = 68;
+  pub const VT_MIDDEN_DISCARD_KG: ::flatbuffers::VOffsetT = 70;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -32136,6 +32968,8 @@ impl<'a> Household<'a> {
     args: &'args HouseholdArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Household<'bldr>> {
     let mut builder = HouseholdBuilder::new(_fbb);
+    builder.add_midden_tipped(args.midden_tipped);
+    builder.add_midden_ash_kg(args.midden_ash_kg);
     builder.add_midden_carried(args.midden_carried);
     builder.add_flood_day(args.flood_day);
     builder.add_water_use_l(args.water_use_l);
@@ -32148,6 +32982,8 @@ impl<'a> Household<'a> {
     builder.add_food_kcal(args.food_kcal);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.midden_discard_kg { builder.add_midden_discard_kg(x); }
+    if let Some(x) = args.midden_discard_goods { builder.add_midden_discard_goods(x); }
     builder.add_midden_y(args.midden_y);
     builder.add_midden_x(args.midden_x);
     if let Some(x) = args.mill_seen { builder.add_mill_seen(x); }
@@ -32380,6 +33216,34 @@ impl<'a> Household<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(Household::VT_MIDDEN_Y, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn midden_ash_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(Household::VT_MIDDEN_ASH_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn midden_tipped(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(Household::VT_MIDDEN_TIPPED, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn midden_discard_goods(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(Household::VT_MIDDEN_DISCARD_GOODS, None)}
+  }
+  #[inline]
+  pub fn midden_discard_kg(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(Household::VT_MIDDEN_DISCARD_KG, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Household<'_> {
@@ -32418,6 +33282,10 @@ impl ::flatbuffers::Verifiable for Household<'_> {
      .visit_field::<i64>("midden_carried", Self::VT_MIDDEN_CARRIED, false)?
      .visit_field::<f32>("midden_x", Self::VT_MIDDEN_X, false)?
      .visit_field::<f32>("midden_y", Self::VT_MIDDEN_Y, false)?
+     .visit_field::<f64>("midden_ash_kg", Self::VT_MIDDEN_ASH_KG, false)?
+     .visit_field::<i64>("midden_tipped", Self::VT_MIDDEN_TIPPED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("midden_discard_goods", Self::VT_MIDDEN_DISCARD_GOODS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("midden_discard_kg", Self::VT_MIDDEN_DISCARD_KG, false)?
      .finish();
     Ok(())
   }
@@ -32453,6 +33321,10 @@ pub struct HouseholdArgs<'a> {
     pub midden_carried: i64,
     pub midden_x: f32,
     pub midden_y: f32,
+    pub midden_ash_kg: f64,
+    pub midden_tipped: i64,
+    pub midden_discard_goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub midden_discard_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
 }
 impl<'a> Default for HouseholdArgs<'a> {
   #[inline]
@@ -32488,6 +33360,10 @@ impl<'a> Default for HouseholdArgs<'a> {
       midden_carried: -1,
       midden_x: 0.0,
       midden_y: 0.0,
+      midden_ash_kg: 0.0,
+      midden_tipped: -1,
+      midden_discard_goods: None,
+      midden_discard_kg: None,
     }
   }
 }
@@ -32618,6 +33494,22 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HouseholdBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(Household::VT_MIDDEN_Y, midden_y, 0.0);
   }
   #[inline]
+  pub fn add_midden_ash_kg(&mut self, midden_ash_kg: f64) {
+    self.fbb_.push_slot::<f64>(Household::VT_MIDDEN_ASH_KG, midden_ash_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_midden_tipped(&mut self, midden_tipped: i64) {
+    self.fbb_.push_slot::<i64>(Household::VT_MIDDEN_TIPPED, midden_tipped, -1);
+  }
+  #[inline]
+  pub fn add_midden_discard_goods(&mut self, midden_discard_goods: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_MIDDEN_DISCARD_GOODS, midden_discard_goods);
+  }
+  #[inline]
+  pub fn add_midden_discard_kg(&mut self, midden_discard_kg: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_MIDDEN_DISCARD_KG, midden_discard_kg);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HouseholdBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HouseholdBuilder {
@@ -32665,6 +33557,10 @@ impl ::core::fmt::Debug for Household<'_> {
       ds.field("midden_carried", &self.midden_carried());
       ds.field("midden_x", &self.midden_x());
       ds.field("midden_y", &self.midden_y());
+      ds.field("midden_ash_kg", &self.midden_ash_kg());
+      ds.field("midden_tipped", &self.midden_tipped());
+      ds.field("midden_discard_goods", &self.midden_discard_goods());
+      ds.field("midden_discard_kg", &self.midden_discard_kg());
       ds.finish()
   }
 }
@@ -41037,6 +41933,7 @@ impl<'a> Deposits<'a> {
   pub const VT_GOODS: ::flatbuffers::VOffsetT = 4;
   pub const VT_BODIES: ::flatbuffers::VOffsetT = 6;
   pub const VT_KNOWN: ::flatbuffers::VOffsetT = 8;
+  pub const VT_LOOKED: ::flatbuffers::VOffsetT = 10;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -41048,6 +41945,7 @@ impl<'a> Deposits<'a> {
     args: &'args DepositsArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Deposits<'bldr>> {
     let mut builder = DepositsBuilder::new(_fbb);
+    if let Some(x) = args.looked { builder.add_looked(x); }
     if let Some(x) = args.known { builder.add_known(x); }
     if let Some(x) = args.bodies { builder.add_bodies(x); }
     if let Some(x) = args.goods { builder.add_goods(x); }
@@ -41076,6 +41974,13 @@ impl<'a> Deposits<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, DepositKnownEntry>>>(Deposits::VT_KNOWN, None)}
   }
+  #[inline]
+  pub fn looked(&self) -> Option<::flatbuffers::Vector<'a, GroundLookedEntry>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, GroundLookedEntry>>>(Deposits::VT_LOOKED, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Deposits<'_> {
@@ -41087,6 +41992,7 @@ impl ::flatbuffers::Verifiable for Deposits<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("goods", Self::VT_GOODS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, DepositBody>>>("bodies", Self::VT_BODIES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, DepositKnownEntry>>>("known", Self::VT_KNOWN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, GroundLookedEntry>>>("looked", Self::VT_LOOKED, false)?
      .finish();
     Ok(())
   }
@@ -41095,6 +42001,7 @@ pub struct DepositsArgs<'a> {
     pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub bodies: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, DepositBody>>>,
     pub known: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, DepositKnownEntry>>>,
+    pub looked: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, GroundLookedEntry>>>,
 }
 impl<'a> Default for DepositsArgs<'a> {
   #[inline]
@@ -41103,6 +42010,7 @@ impl<'a> Default for DepositsArgs<'a> {
       goods: None,
       bodies: None,
       known: None,
+      looked: None,
     }
   }
 }
@@ -41125,6 +42033,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> DepositsBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Deposits::VT_KNOWN, known);
   }
   #[inline]
+  pub fn add_looked(&mut self, looked: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , GroundLookedEntry>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Deposits::VT_LOOKED, looked);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> DepositsBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     DepositsBuilder {
@@ -41145,6 +42057,7 @@ impl ::core::fmt::Debug for Deposits<'_> {
       ds.field("goods", &self.goods());
       ds.field("bodies", &self.bodies());
       ds.field("known", &self.known());
+      ds.field("looked", &self.looked());
       ds.finish()
   }
 }
@@ -43054,6 +43967,9 @@ impl<'a> PolitySave<'a> {
   pub const VT_MEASURED_LOSSES: ::flatbuffers::VOffsetT = 98;
   pub const VT_TOWER: ::flatbuffers::VOffsetT = 100;
   pub const VT_SICKHOUSE: ::flatbuffers::VOffsetT = 102;
+  pub const VT_TIPS: ::flatbuffers::VOffsetT = 104;
+  pub const VT_ROUNDS: ::flatbuffers::VOffsetT = 106;
+  pub const VT_SEWERS: ::flatbuffers::VOffsetT = 108;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -43077,6 +43993,9 @@ impl<'a> PolitySave<'a> {
     builder.add_founded(args.founded);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.sewers { builder.add_sewers(x); }
+    if let Some(x) = args.rounds { builder.add_rounds(x); }
+    if let Some(x) = args.tips { builder.add_tips(x); }
     if let Some(x) = args.measured_losses { builder.add_measured_losses(x); }
     if let Some(x) = args.raise_given { builder.add_raise_given(x); }
     if let Some(x) = args.raises { builder.add_raises(x); }
@@ -43469,6 +44388,27 @@ impl<'a> PolitySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(PolitySave::VT_SICKHOUSE, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn tips(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TipSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TipSave>>>>(PolitySave::VT_TIPS, None)}
+  }
+  #[inline]
+  pub fn rounds(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RefuseRoundSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RefuseRoundSave>>>>(PolitySave::VT_ROUNDS, None)}
+  }
+  #[inline]
+  pub fn sewers(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SewerSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SewerSave>>>>(PolitySave::VT_SEWERS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolitySave<'_> {
@@ -43527,6 +44467,9 @@ impl ::flatbuffers::Verifiable for PolitySave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MeasuredLossSave>>>>("measured_losses", Self::VT_MEASURED_LOSSES, false)?
      .visit_field::<u64>("tower", Self::VT_TOWER, false)?
      .visit_field::<u64>("sickhouse", Self::VT_SICKHOUSE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TipSave>>>>("tips", Self::VT_TIPS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RefuseRoundSave>>>>("rounds", Self::VT_ROUNDS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<SewerSave>>>>("sewers", Self::VT_SEWERS, false)?
      .finish();
     Ok(())
   }
@@ -43582,6 +44525,9 @@ pub struct PolitySaveArgs<'a> {
     pub measured_losses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MeasuredLossSave<'a>>>>>,
     pub tower: u64,
     pub sickhouse: u64,
+    pub tips: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TipSave<'a>>>>>,
+    pub rounds: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RefuseRoundSave<'a>>>>>,
+    pub sewers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SewerSave<'a>>>>>,
 }
 impl<'a> Default for PolitySaveArgs<'a> {
   #[inline]
@@ -43637,6 +44583,9 @@ impl<'a> Default for PolitySaveArgs<'a> {
       measured_losses: None,
       tower: 0,
       sickhouse: 0,
+      tips: None,
+      rounds: None,
+      sewers: None,
     }
   }
 }
@@ -43847,6 +44796,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot::<u64>(PolitySave::VT_SICKHOUSE, sickhouse, 0);
   }
   #[inline]
+  pub fn add_tips(&mut self, tips: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<TipSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_TIPS, tips);
+  }
+  #[inline]
+  pub fn add_rounds(&mut self, rounds: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<RefuseRoundSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_ROUNDS, rounds);
+  }
+  #[inline]
+  pub fn add_sewers(&mut self, sewers: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<SewerSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_SEWERS, sewers);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitySaveBuilder {
@@ -43914,6 +44875,1226 @@ impl ::core::fmt::Debug for PolitySave<'_> {
       ds.field("measured_losses", &self.measured_losses());
       ds.field("tower", &self.tower());
       ds.field("sickhouse", &self.sickhouse());
+      ds.field("tips", &self.tips());
+      ds.field("rounds", &self.rounds());
+      ds.field("sewers", &self.sewers());
+      ds.finish()
+  }
+}
+pub enum SewerSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SewerSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for SewerSave<'a> {
+  type Inner = SewerSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> SewerSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 6;
+  pub const VT_BEGUN: ::flatbuffers::VOffsetT = 8;
+  pub const VT_CELLS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_REACH: ::flatbuffers::VOffsetT = 12;
+  pub const VT_LENGTH_M: ::flatbuffers::VOffsetT = 14;
+  pub const VT_LAID_M: ::flatbuffers::VOffsetT = 16;
+  pub const VT_CAPACITY_KG_DAY: ::flatbuffers::VOffsetT = 18;
+  pub const VT_KEEPER: ::flatbuffers::VOffsetT = 22;
+  pub const VT_CONNECTIONS: ::flatbuffers::VOffsetT = 24;
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 26;
+  pub const VT_ENTERED_KG: ::flatbuffers::VOffsetT = 28;
+  pub const VT_SETTLED_KG: ::flatbuffers::VOffsetT = 30;
+  pub const VT_FARM: ::flatbuffers::VOffsetT = 32;
+  pub const VT_FARM_KG: ::flatbuffers::VOffsetT = 34;
+  pub const VT_DEPOSITED_KG: ::flatbuffers::VOffsetT = 36;
+  pub const VT_DEPOSIT_KG: ::flatbuffers::VOffsetT = 38;
+  pub const VT_LOSS: ::flatbuffers::VOffsetT = 40;
+  pub const VT_BROKEN_CELL: ::flatbuffers::VOffsetT = 42;
+  pub const VT_CLEAR_KG: ::flatbuffers::VOffsetT = 44;
+  pub const VT_RELINE: ::flatbuffers::VOffsetT = 46;
+  pub const VT_RELINED_M: ::flatbuffers::VOffsetT = 48;
+  pub const VT_UNSERVED: ::flatbuffers::VOffsetT = 50;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    SewerSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SewerSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<SewerSave<'bldr>> {
+    let mut builder = SewerSaveBuilder::new(_fbb);
+    builder.add_clear_kg(args.clear_kg);
+    builder.add_deposit_kg(args.deposit_kg);
+    builder.add_deposited_kg(args.deposited_kg);
+    builder.add_farm_kg(args.farm_kg);
+    builder.add_farm(args.farm);
+    builder.add_settled_kg(args.settled_kg);
+    builder.add_entered_kg(args.entered_kg);
+    builder.add_day(args.day);
+    builder.add_keeper(args.keeper);
+    builder.add_begun(args.begun);
+    builder.add_law(args.law);
+    builder.add_id(args.id);
+    if let Some(x) = args.unserved { builder.add_unserved(x); }
+    builder.add_relined_m(args.relined_m);
+    builder.add_broken_cell(args.broken_cell);
+    if let Some(x) = args.loss { builder.add_loss(x); }
+    if let Some(x) = args.connections { builder.add_connections(x); }
+    builder.add_capacity_kg_day(args.capacity_kg_day);
+    builder.add_laid_m(args.laid_m);
+    builder.add_length_m(args.length_m);
+    builder.add_reach(args.reach);
+    if let Some(x) = args.cells { builder.add_cells(x); }
+    builder.add_reline(args.reline);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SewerSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SewerSave::VT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn begun(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(SewerSave::VT_BEGUN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn cells(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(SewerSave::VT_CELLS, None)}
+  }
+  #[inline]
+  pub fn reach(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SewerSave::VT_REACH, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn length_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(SewerSave::VT_LENGTH_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn laid_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(SewerSave::VT_LAID_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn capacity_kg_day(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(SewerSave::VT_CAPACITY_KG_DAY, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn keeper(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SewerSave::VT_KEEPER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn connections(&self) -> Option<::flatbuffers::Vector<'a, SewerConnectionSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, SewerConnectionSave>>>(SewerSave::VT_CONNECTIONS, None)}
+  }
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(SewerSave::VT_DAY, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn entered_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(SewerSave::VT_ENTERED_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn settled_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(SewerSave::VT_SETTLED_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn farm(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SewerSave::VT_FARM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn farm_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(SewerSave::VT_FARM_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn deposited_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(SewerSave::VT_DEPOSITED_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn deposit_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(SewerSave::VT_DEPOSIT_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn loss(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(SewerSave::VT_LOSS, None)}
+  }
+  #[inline]
+  pub fn broken_cell(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SewerSave::VT_BROKEN_CELL, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn clear_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(SewerSave::VT_CLEAR_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn reline(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(SewerSave::VT_RELINE, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn relined_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(SewerSave::VT_RELINED_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn unserved(&self) -> Option<::flatbuffers::Vector<'a, SewerUnservedSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, SewerUnservedSave>>>(SewerSave::VT_UNSERVED, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for SewerSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<i64>("begun", Self::VT_BEGUN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("cells", Self::VT_CELLS, false)?
+     .visit_field::<u32>("reach", Self::VT_REACH, false)?
+     .visit_field::<f32>("length_m", Self::VT_LENGTH_M, false)?
+     .visit_field::<f32>("laid_m", Self::VT_LAID_M, false)?
+     .visit_field::<f32>("capacity_kg_day", Self::VT_CAPACITY_KG_DAY, false)?
+     .visit_field::<u64>("keeper", Self::VT_KEEPER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, SewerConnectionSave>>>("connections", Self::VT_CONNECTIONS, false)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<f64>("entered_kg", Self::VT_ENTERED_KG, false)?
+     .visit_field::<f64>("settled_kg", Self::VT_SETTLED_KG, false)?
+     .visit_field::<u64>("farm", Self::VT_FARM, false)?
+     .visit_field::<f64>("farm_kg", Self::VT_FARM_KG, false)?
+     .visit_field::<f64>("deposited_kg", Self::VT_DEPOSITED_KG, false)?
+     .visit_field::<f64>("deposit_kg", Self::VT_DEPOSIT_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("loss", Self::VT_LOSS, false)?
+     .visit_field::<u32>("broken_cell", Self::VT_BROKEN_CELL, false)?
+     .visit_field::<f64>("clear_kg", Self::VT_CLEAR_KG, false)?
+     .visit_field::<bool>("reline", Self::VT_RELINE, false)?
+     .visit_field::<f32>("relined_m", Self::VT_RELINED_M, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, SewerUnservedSave>>>("unserved", Self::VT_UNSERVED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SewerSaveArgs<'a> {
+    pub id: u64,
+    pub law: u64,
+    pub begun: i64,
+    pub cells: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub reach: u32,
+    pub length_m: f32,
+    pub laid_m: f32,
+    pub capacity_kg_day: f32,
+    pub keeper: u64,
+    pub connections: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, SewerConnectionSave>>>,
+    pub day: i64,
+    pub entered_kg: f64,
+    pub settled_kg: f64,
+    pub farm: u64,
+    pub farm_kg: f64,
+    pub deposited_kg: f64,
+    pub deposit_kg: f64,
+    pub loss: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub broken_cell: u32,
+    pub clear_kg: f64,
+    pub reline: bool,
+    pub relined_m: f32,
+    pub unserved: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, SewerUnservedSave>>>,
+}
+impl<'a> Default for SewerSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SewerSaveArgs {
+      id: 0,
+      law: 0,
+      begun: 0,
+      cells: None,
+      reach: 0,
+      length_m: 0.0,
+      laid_m: 0.0,
+      capacity_kg_day: 0.0,
+      keeper: 0,
+      connections: None,
+      day: -1,
+      entered_kg: 0.0,
+      settled_kg: 0.0,
+      farm: 0,
+      farm_kg: 0.0,
+      deposited_kg: 0.0,
+      deposit_kg: 0.0,
+      loss: None,
+      broken_cell: 0,
+      clear_kg: 0.0,
+      reline: false,
+      relined_m: 0.0,
+      unserved: None,
+    }
+  }
+}
+
+pub struct SewerSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SewerSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(SewerSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(SewerSave::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn add_begun(&mut self, begun: i64) {
+    self.fbb_.push_slot::<i64>(SewerSave::VT_BEGUN, begun, 0);
+  }
+  #[inline]
+  pub fn add_cells(&mut self, cells: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SewerSave::VT_CELLS, cells);
+  }
+  #[inline]
+  pub fn add_reach(&mut self, reach: u32) {
+    self.fbb_.push_slot::<u32>(SewerSave::VT_REACH, reach, 0);
+  }
+  #[inline]
+  pub fn add_length_m(&mut self, length_m: f32) {
+    self.fbb_.push_slot::<f32>(SewerSave::VT_LENGTH_M, length_m, 0.0);
+  }
+  #[inline]
+  pub fn add_laid_m(&mut self, laid_m: f32) {
+    self.fbb_.push_slot::<f32>(SewerSave::VT_LAID_M, laid_m, 0.0);
+  }
+  #[inline]
+  pub fn add_capacity_kg_day(&mut self, capacity_kg_day: f32) {
+    self.fbb_.push_slot::<f32>(SewerSave::VT_CAPACITY_KG_DAY, capacity_kg_day, 0.0);
+  }
+  #[inline]
+  pub fn add_keeper(&mut self, keeper: u64) {
+    self.fbb_.push_slot::<u64>(SewerSave::VT_KEEPER, keeper, 0);
+  }
+  #[inline]
+  pub fn add_connections(&mut self, connections: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , SewerConnectionSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SewerSave::VT_CONNECTIONS, connections);
+  }
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(SewerSave::VT_DAY, day, -1);
+  }
+  #[inline]
+  pub fn add_entered_kg(&mut self, entered_kg: f64) {
+    self.fbb_.push_slot::<f64>(SewerSave::VT_ENTERED_KG, entered_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_settled_kg(&mut self, settled_kg: f64) {
+    self.fbb_.push_slot::<f64>(SewerSave::VT_SETTLED_KG, settled_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_farm(&mut self, farm: u64) {
+    self.fbb_.push_slot::<u64>(SewerSave::VT_FARM, farm, 0);
+  }
+  #[inline]
+  pub fn add_farm_kg(&mut self, farm_kg: f64) {
+    self.fbb_.push_slot::<f64>(SewerSave::VT_FARM_KG, farm_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_deposited_kg(&mut self, deposited_kg: f64) {
+    self.fbb_.push_slot::<f64>(SewerSave::VT_DEPOSITED_KG, deposited_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_deposit_kg(&mut self, deposit_kg: f64) {
+    self.fbb_.push_slot::<f64>(SewerSave::VT_DEPOSIT_KG, deposit_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_loss(&mut self, loss: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SewerSave::VT_LOSS, loss);
+  }
+  #[inline]
+  pub fn add_broken_cell(&mut self, broken_cell: u32) {
+    self.fbb_.push_slot::<u32>(SewerSave::VT_BROKEN_CELL, broken_cell, 0);
+  }
+  #[inline]
+  pub fn add_clear_kg(&mut self, clear_kg: f64) {
+    self.fbb_.push_slot::<f64>(SewerSave::VT_CLEAR_KG, clear_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_reline(&mut self, reline: bool) {
+    self.fbb_.push_slot::<bool>(SewerSave::VT_RELINE, reline, false);
+  }
+  #[inline]
+  pub fn add_relined_m(&mut self, relined_m: f32) {
+    self.fbb_.push_slot::<f32>(SewerSave::VT_RELINED_M, relined_m, 0.0);
+  }
+  #[inline]
+  pub fn add_unserved(&mut self, unserved: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , SewerUnservedSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SewerSave::VT_UNSERVED, unserved);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SewerSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SewerSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<SewerSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for SewerSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("SewerSave");
+      ds.field("id", &self.id());
+      ds.field("law", &self.law());
+      ds.field("begun", &self.begun());
+      ds.field("cells", &self.cells());
+      ds.field("reach", &self.reach());
+      ds.field("length_m", &self.length_m());
+      ds.field("laid_m", &self.laid_m());
+      ds.field("capacity_kg_day", &self.capacity_kg_day());
+      ds.field("keeper", &self.keeper());
+      ds.field("connections", &self.connections());
+      ds.field("day", &self.day());
+      ds.field("entered_kg", &self.entered_kg());
+      ds.field("settled_kg", &self.settled_kg());
+      ds.field("farm", &self.farm());
+      ds.field("farm_kg", &self.farm_kg());
+      ds.field("deposited_kg", &self.deposited_kg());
+      ds.field("deposit_kg", &self.deposit_kg());
+      ds.field("loss", &self.loss());
+      ds.field("broken_cell", &self.broken_cell());
+      ds.field("clear_kg", &self.clear_kg());
+      ds.field("reline", &self.reline());
+      ds.field("relined_m", &self.relined_m());
+      ds.field("unserved", &self.unserved());
+      ds.finish()
+  }
+}
+pub enum RefuseRoundSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RefuseRoundSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for RefuseRoundSave<'a> {
+  type Inner = RefuseRoundSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> RefuseRoundSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_OPERATOR: ::flatbuffers::VOffsetT = 6;
+  pub const VT_CART: ::flatbuffers::VOffsetT = 8;
+  pub const VT_TIP: ::flatbuffers::VOffsetT = 10;
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 12;
+  pub const VT_HOMES: ::flatbuffers::VOffsetT = 14;
+  pub const VT_EVERY_DAYS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_FEE_KCAL: ::flatbuffers::VOffsetT = 18;
+  pub const VT_SINCE: ::flatbuffers::VOffsetT = 20;
+  pub const VT_LAST_RUN: ::flatbuffers::VOffsetT = 22;
+  pub const VT_NEXT: ::flatbuffers::VOffsetT = 24;
+  pub const VT_RUNS: ::flatbuffers::VOffsetT = 26;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    RefuseRoundSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args RefuseRoundSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<RefuseRoundSave<'bldr>> {
+    let mut builder = RefuseRoundSaveBuilder::new(_fbb);
+    builder.add_last_run(args.last_run);
+    builder.add_since(args.since);
+    builder.add_law(args.law);
+    builder.add_tip(args.tip);
+    builder.add_cart(args.cart);
+    builder.add_operator(args.operator);
+    builder.add_id(args.id);
+    if let Some(x) = args.runs { builder.add_runs(x); }
+    builder.add_next(args.next);
+    builder.add_fee_kcal(args.fee_kcal);
+    if let Some(x) = args.homes { builder.add_homes(x); }
+    builder.add_every_days(args.every_days);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RefuseRoundSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn operator(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RefuseRoundSave::VT_OPERATOR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn cart(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RefuseRoundSave::VT_CART, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn tip(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RefuseRoundSave::VT_TIP, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RefuseRoundSave::VT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn homes(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(RefuseRoundSave::VT_HOMES, None)}
+  }
+  #[inline]
+  pub fn every_days(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(RefuseRoundSave::VT_EVERY_DAYS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn fee_kcal(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(RefuseRoundSave::VT_FEE_KCAL, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn since(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RefuseRoundSave::VT_SINCE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn last_run(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RefuseRoundSave::VT_LAST_RUN, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn next(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RefuseRoundSave::VT_NEXT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn runs(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RoundRunSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RoundRunSave>>>>(RefuseRoundSave::VT_RUNS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for RefuseRoundSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("operator", Self::VT_OPERATOR, false)?
+     .visit_field::<u64>("cart", Self::VT_CART, false)?
+     .visit_field::<u64>("tip", Self::VT_TIP, false)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("homes", Self::VT_HOMES, false)?
+     .visit_field::<u16>("every_days", Self::VT_EVERY_DAYS, false)?
+     .visit_field::<f32>("fee_kcal", Self::VT_FEE_KCAL, false)?
+     .visit_field::<i64>("since", Self::VT_SINCE, false)?
+     .visit_field::<i64>("last_run", Self::VT_LAST_RUN, false)?
+     .visit_field::<u32>("next", Self::VT_NEXT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RoundRunSave>>>>("runs", Self::VT_RUNS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RefuseRoundSaveArgs<'a> {
+    pub id: u64,
+    pub operator: u64,
+    pub cart: u64,
+    pub tip: u64,
+    pub law: u64,
+    pub homes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub every_days: u16,
+    pub fee_kcal: f32,
+    pub since: i64,
+    pub last_run: i64,
+    pub next: u32,
+    pub runs: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RoundRunSave<'a>>>>>,
+}
+impl<'a> Default for RefuseRoundSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    RefuseRoundSaveArgs {
+      id: 0,
+      operator: 0,
+      cart: 0,
+      tip: 0,
+      law: 0,
+      homes: None,
+      every_days: 0,
+      fee_kcal: 0.0,
+      since: 0,
+      last_run: -1,
+      next: 0,
+      runs: None,
+    }
+  }
+}
+
+pub struct RefuseRoundSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RefuseRoundSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(RefuseRoundSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_operator(&mut self, operator: u64) {
+    self.fbb_.push_slot::<u64>(RefuseRoundSave::VT_OPERATOR, operator, 0);
+  }
+  #[inline]
+  pub fn add_cart(&mut self, cart: u64) {
+    self.fbb_.push_slot::<u64>(RefuseRoundSave::VT_CART, cart, 0);
+  }
+  #[inline]
+  pub fn add_tip(&mut self, tip: u64) {
+    self.fbb_.push_slot::<u64>(RefuseRoundSave::VT_TIP, tip, 0);
+  }
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(RefuseRoundSave::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn add_homes(&mut self, homes: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RefuseRoundSave::VT_HOMES, homes);
+  }
+  #[inline]
+  pub fn add_every_days(&mut self, every_days: u16) {
+    self.fbb_.push_slot::<u16>(RefuseRoundSave::VT_EVERY_DAYS, every_days, 0);
+  }
+  #[inline]
+  pub fn add_fee_kcal(&mut self, fee_kcal: f32) {
+    self.fbb_.push_slot::<f32>(RefuseRoundSave::VT_FEE_KCAL, fee_kcal, 0.0);
+  }
+  #[inline]
+  pub fn add_since(&mut self, since: i64) {
+    self.fbb_.push_slot::<i64>(RefuseRoundSave::VT_SINCE, since, 0);
+  }
+  #[inline]
+  pub fn add_last_run(&mut self, last_run: i64) {
+    self.fbb_.push_slot::<i64>(RefuseRoundSave::VT_LAST_RUN, last_run, -1);
+  }
+  #[inline]
+  pub fn add_next(&mut self, next: u32) {
+    self.fbb_.push_slot::<u32>(RefuseRoundSave::VT_NEXT, next, 0);
+  }
+  #[inline]
+  pub fn add_runs(&mut self, runs: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<RoundRunSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RefuseRoundSave::VT_RUNS, runs);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RefuseRoundSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    RefuseRoundSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<RefuseRoundSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for RefuseRoundSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("RefuseRoundSave");
+      ds.field("id", &self.id());
+      ds.field("operator", &self.operator());
+      ds.field("cart", &self.cart());
+      ds.field("tip", &self.tip());
+      ds.field("law", &self.law());
+      ds.field("homes", &self.homes());
+      ds.field("every_days", &self.every_days());
+      ds.field("fee_kcal", &self.fee_kcal());
+      ds.field("since", &self.since());
+      ds.field("last_run", &self.last_run());
+      ds.field("next", &self.next());
+      ds.field("runs", &self.runs());
+      ds.finish()
+  }
+}
+pub enum RoundRunSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RoundRunSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for RoundRunSave<'a> {
+  type Inner = RoundRunSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> RoundRunSave<'a> {
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_HOURS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_HOUSEHOLDS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_KG: ::flatbuffers::VOffsetT = 10;
+  pub const VT_ASH_KG: ::flatbuffers::VOffsetT = 12;
+  pub const VT_DISCARD_KG: ::flatbuffers::VOffsetT = 14;
+  pub const VT_KEPT_GOODS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_KEPT_KG: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    RoundRunSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args RoundRunSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<RoundRunSave<'bldr>> {
+    let mut builder = RoundRunSaveBuilder::new(_fbb);
+    builder.add_day(args.day);
+    if let Some(x) = args.kept_kg { builder.add_kept_kg(x); }
+    if let Some(x) = args.kept_goods { builder.add_kept_goods(x); }
+    if let Some(x) = args.discard_kg { builder.add_discard_kg(x); }
+    if let Some(x) = args.ash_kg { builder.add_ash_kg(x); }
+    if let Some(x) = args.kg { builder.add_kg(x); }
+    if let Some(x) = args.households { builder.add_households(x); }
+    builder.add_hours(args.hours);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RoundRunSave::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn hours(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(RoundRunSave::VT_HOURS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn households(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(RoundRunSave::VT_HOUSEHOLDS, None)}
+  }
+  #[inline]
+  pub fn kg(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(RoundRunSave::VT_KG, None)}
+  }
+  #[inline]
+  pub fn ash_kg(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(RoundRunSave::VT_ASH_KG, None)}
+  }
+  #[inline]
+  pub fn discard_kg(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(RoundRunSave::VT_DISCARD_KG, None)}
+  }
+  #[inline]
+  pub fn kept_goods(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(RoundRunSave::VT_KEPT_GOODS, None)}
+  }
+  #[inline]
+  pub fn kept_kg(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(RoundRunSave::VT_KEPT_KG, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for RoundRunSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<f32>("hours", Self::VT_HOURS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("households", Self::VT_HOUSEHOLDS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("kg", Self::VT_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("ash_kg", Self::VT_ASH_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("discard_kg", Self::VT_DISCARD_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("kept_goods", Self::VT_KEPT_GOODS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("kept_kg", Self::VT_KEPT_KG, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RoundRunSaveArgs<'a> {
+    pub day: i64,
+    pub hours: f32,
+    pub households: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+    pub ash_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+    pub discard_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+    pub kept_goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub kept_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+}
+impl<'a> Default for RoundRunSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    RoundRunSaveArgs {
+      day: 0,
+      hours: 0.0,
+      households: None,
+      kg: None,
+      ash_kg: None,
+      discard_kg: None,
+      kept_goods: None,
+      kept_kg: None,
+    }
+  }
+}
+
+pub struct RoundRunSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RoundRunSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(RoundRunSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_hours(&mut self, hours: f32) {
+    self.fbb_.push_slot::<f32>(RoundRunSave::VT_HOURS, hours, 0.0);
+  }
+  #[inline]
+  pub fn add_households(&mut self, households: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoundRunSave::VT_HOUSEHOLDS, households);
+  }
+  #[inline]
+  pub fn add_kg(&mut self, kg: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoundRunSave::VT_KG, kg);
+  }
+  #[inline]
+  pub fn add_ash_kg(&mut self, ash_kg: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoundRunSave::VT_ASH_KG, ash_kg);
+  }
+  #[inline]
+  pub fn add_discard_kg(&mut self, discard_kg: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoundRunSave::VT_DISCARD_KG, discard_kg);
+  }
+  #[inline]
+  pub fn add_kept_goods(&mut self, kept_goods: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoundRunSave::VT_KEPT_GOODS, kept_goods);
+  }
+  #[inline]
+  pub fn add_kept_kg(&mut self, kept_kg: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoundRunSave::VT_KEPT_KG, kept_kg);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RoundRunSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    RoundRunSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<RoundRunSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for RoundRunSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("RoundRunSave");
+      ds.field("day", &self.day());
+      ds.field("hours", &self.hours());
+      ds.field("households", &self.households());
+      ds.field("kg", &self.kg());
+      ds.field("ash_kg", &self.ash_kg());
+      ds.field("discard_kg", &self.discard_kg());
+      ds.field("kept_goods", &self.kept_goods());
+      ds.field("kept_kg", &self.kept_kg());
+      ds.finish()
+  }
+}
+pub enum TipSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TipSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for TipSave<'a> {
+  type Inner = TipSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> TipSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 6;
+  pub const VT_OPENED: ::flatbuffers::VOffsetT = 8;
+  pub const VT_X: ::flatbuffers::VOffsetT = 10;
+  pub const VT_Y: ::flatbuffers::VOffsetT = 12;
+  pub const VT_KG: ::flatbuffers::VOffsetT = 14;
+  pub const VT_ASH_KG: ::flatbuffers::VOffsetT = 16;
+  pub const VT_HOUSEHOLDS: ::flatbuffers::VOffsetT = 18;
+  pub const VT_DISCARD_GOODS: ::flatbuffers::VOffsetT = 20;
+  pub const VT_DISCARD_KG: ::flatbuffers::VOffsetT = 22;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    TipSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args TipSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<TipSave<'bldr>> {
+    let mut builder = TipSaveBuilder::new(_fbb);
+    builder.add_ash_kg(args.ash_kg);
+    builder.add_kg(args.kg);
+    builder.add_opened(args.opened);
+    builder.add_law(args.law);
+    builder.add_id(args.id);
+    if let Some(x) = args.discard_kg { builder.add_discard_kg(x); }
+    if let Some(x) = args.discard_goods { builder.add_discard_goods(x); }
+    if let Some(x) = args.households { builder.add_households(x); }
+    builder.add_y(args.y);
+    builder.add_x(args.x);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TipSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TipSave::VT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn opened(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(TipSave::VT_OPENED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn x(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TipSave::VT_X, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn y(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TipSave::VT_Y, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(TipSave::VT_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn ash_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(TipSave::VT_ASH_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn households(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(TipSave::VT_HOUSEHOLDS, None)}
+  }
+  #[inline]
+  pub fn discard_goods(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(TipSave::VT_DISCARD_GOODS, None)}
+  }
+  #[inline]
+  pub fn discard_kg(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(TipSave::VT_DISCARD_KG, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for TipSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<i64>("opened", Self::VT_OPENED, false)?
+     .visit_field::<f32>("x", Self::VT_X, false)?
+     .visit_field::<f32>("y", Self::VT_Y, false)?
+     .visit_field::<f64>("kg", Self::VT_KG, false)?
+     .visit_field::<f64>("ash_kg", Self::VT_ASH_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("households", Self::VT_HOUSEHOLDS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("discard_goods", Self::VT_DISCARD_GOODS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("discard_kg", Self::VT_DISCARD_KG, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TipSaveArgs<'a> {
+    pub id: u64,
+    pub law: u64,
+    pub opened: i64,
+    pub x: f32,
+    pub y: f32,
+    pub kg: f64,
+    pub ash_kg: f64,
+    pub households: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub discard_goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub discard_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+}
+impl<'a> Default for TipSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TipSaveArgs {
+      id: 0,
+      law: 0,
+      opened: 0,
+      x: 0.0,
+      y: 0.0,
+      kg: 0.0,
+      ash_kg: 0.0,
+      households: None,
+      discard_goods: None,
+      discard_kg: None,
+    }
+  }
+}
+
+pub struct TipSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TipSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(TipSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(TipSave::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn add_opened(&mut self, opened: i64) {
+    self.fbb_.push_slot::<i64>(TipSave::VT_OPENED, opened, 0);
+  }
+  #[inline]
+  pub fn add_x(&mut self, x: f32) {
+    self.fbb_.push_slot::<f32>(TipSave::VT_X, x, 0.0);
+  }
+  #[inline]
+  pub fn add_y(&mut self, y: f32) {
+    self.fbb_.push_slot::<f32>(TipSave::VT_Y, y, 0.0);
+  }
+  #[inline]
+  pub fn add_kg(&mut self, kg: f64) {
+    self.fbb_.push_slot::<f64>(TipSave::VT_KG, kg, 0.0);
+  }
+  #[inline]
+  pub fn add_ash_kg(&mut self, ash_kg: f64) {
+    self.fbb_.push_slot::<f64>(TipSave::VT_ASH_KG, ash_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_households(&mut self, households: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TipSave::VT_HOUSEHOLDS, households);
+  }
+  #[inline]
+  pub fn add_discard_goods(&mut self, discard_goods: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TipSave::VT_DISCARD_GOODS, discard_goods);
+  }
+  #[inline]
+  pub fn add_discard_kg(&mut self, discard_kg: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TipSave::VT_DISCARD_KG, discard_kg);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TipSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    TipSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<TipSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for TipSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("TipSave");
+      ds.field("id", &self.id());
+      ds.field("law", &self.law());
+      ds.field("opened", &self.opened());
+      ds.field("x", &self.x());
+      ds.field("y", &self.y());
+      ds.field("kg", &self.kg());
+      ds.field("ash_kg", &self.ash_kg());
+      ds.field("households", &self.households());
+      ds.field("discard_goods", &self.discard_goods());
+      ds.field("discard_kg", &self.discard_kg());
       ds.finish()
   }
 }
@@ -46884,6 +49065,8 @@ impl<'a> Polities<'a> {
   pub const VT_POLITIES: ::flatbuffers::VOffsetT = 4;
   pub const VT_GOODS: ::flatbuffers::VOffsetT = 6;
   pub const VT_POLICIES: ::flatbuffers::VOffsetT = 8;
+  pub const VT_ANSWER_PROVIDERS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_ANSWERS: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -46895,6 +49078,8 @@ impl<'a> Polities<'a> {
     args: &'args PolitiesArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Polities<'bldr>> {
     let mut builder = PolitiesBuilder::new(_fbb);
+    if let Some(x) = args.answers { builder.add_answers(x); }
+    if let Some(x) = args.answer_providers { builder.add_answer_providers(x); }
     if let Some(x) = args.policies { builder.add_policies(x); }
     if let Some(x) = args.goods { builder.add_goods(x); }
     if let Some(x) = args.polities { builder.add_polities(x); }
@@ -46923,6 +49108,20 @@ impl<'a> Polities<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(Polities::VT_POLICIES, None)}
   }
+  #[inline]
+  pub fn answer_providers(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ProviderSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ProviderSave>>>>(Polities::VT_ANSWER_PROVIDERS, None)}
+  }
+  #[inline]
+  pub fn answers(&self) -> Option<::flatbuffers::Vector<'a, AnswerSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, AnswerSave>>>(Polities::VT_ANSWERS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Polities<'_> {
@@ -46934,6 +49133,8 @@ impl ::flatbuffers::Verifiable for Polities<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PolitySave>>>>("polities", Self::VT_POLITIES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("goods", Self::VT_GOODS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("policies", Self::VT_POLICIES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ProviderSave>>>>("answer_providers", Self::VT_ANSWER_PROVIDERS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, AnswerSave>>>("answers", Self::VT_ANSWERS, false)?
      .finish();
     Ok(())
   }
@@ -46942,6 +49143,8 @@ pub struct PolitiesArgs<'a> {
     pub polities: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PolitySave<'a>>>>>,
     pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub policies: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub answer_providers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ProviderSave<'a>>>>>,
+    pub answers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, AnswerSave>>>,
 }
 impl<'a> Default for PolitiesArgs<'a> {
   #[inline]
@@ -46950,6 +49153,8 @@ impl<'a> Default for PolitiesArgs<'a> {
       polities: None,
       goods: None,
       policies: None,
+      answer_providers: None,
+      answers: None,
     }
   }
 }
@@ -46972,6 +49177,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitiesBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Polities::VT_POLICIES, policies);
   }
   #[inline]
+  pub fn add_answer_providers(&mut self, answer_providers: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<ProviderSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Polities::VT_ANSWER_PROVIDERS, answer_providers);
+  }
+  #[inline]
+  pub fn add_answers(&mut self, answers: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , AnswerSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Polities::VT_ANSWERS, answers);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitiesBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitiesBuilder {
@@ -46992,6 +49205,121 @@ impl ::core::fmt::Debug for Polities<'_> {
       ds.field("polities", &self.polities());
       ds.field("goods", &self.goods());
       ds.field("policies", &self.policies());
+      ds.field("answer_providers", &self.answer_providers());
+      ds.field("answers", &self.answers());
+      ds.finish()
+  }
+}
+pub enum ProviderSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ProviderSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for ProviderSave<'a> {
+  type Inner = ProviderSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> ProviderSave<'a> {
+  pub const VT_KIND: ::flatbuffers::VOffsetT = 4;
+  pub const VT_MODEL: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    ProviderSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ProviderSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<ProviderSave<'bldr>> {
+    let mut builder = ProviderSaveBuilder::new(_fbb);
+    if let Some(x) = args.model { builder.add_model(x); }
+    if let Some(x) = args.kind { builder.add_kind(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn kind(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(ProviderSave::VT_KIND, None)}
+  }
+  #[inline]
+  pub fn model(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(ProviderSave::VT_MODEL, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for ProviderSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("kind", Self::VT_KIND, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("model", Self::VT_MODEL, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ProviderSaveArgs<'a> {
+    pub kind: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub model: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for ProviderSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    ProviderSaveArgs {
+      kind: None,
+      model: None,
+    }
+  }
+}
+
+pub struct ProviderSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ProviderSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_kind(&mut self, kind: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ProviderSave::VT_KIND, kind);
+  }
+  #[inline]
+  pub fn add_model(&mut self, model: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ProviderSave::VT_MODEL, model);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ProviderSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ProviderSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<ProviderSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for ProviderSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("ProviderSave");
+      ds.field("kind", &self.kind());
+      ds.field("model", &self.model());
       ds.finish()
   }
 }
@@ -69302,6 +71630,9 @@ impl<'a> ConsignmentsSave<'a> {
   pub const VT_NOTE_DISHONOURED: ::flatbuffers::VOffsetT = 12;
   pub const VT_NOTE_FORGERIES: ::flatbuffers::VOffsetT = 14;
   pub const VT_NOTE_FOUND: ::flatbuffers::VOffsetT = 16;
+  pub const VT_LETS: ::flatbuffers::VOffsetT = 18;
+  pub const VT_ASKING: ::flatbuffers::VOffsetT = 20;
+  pub const VT_LETS_BEGUN: ::flatbuffers::VOffsetT = 22;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -69313,6 +71644,9 @@ impl<'a> ConsignmentsSave<'a> {
     args: &'args ConsignmentsSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<ConsignmentsSave<'bldr>> {
     let mut builder = ConsignmentsSaveBuilder::new(_fbb);
+    if let Some(x) = args.lets_begun { builder.add_lets_begun(x); }
+    if let Some(x) = args.asking { builder.add_asking(x); }
+    if let Some(x) = args.lets { builder.add_lets(x); }
     if let Some(x) = args.note_found { builder.add_note_found(x); }
     if let Some(x) = args.note_forgeries { builder.add_note_forgeries(x); }
     if let Some(x) = args.note_dishonoured { builder.add_note_dishonoured(x); }
@@ -69373,6 +71707,27 @@ impl<'a> ConsignmentsSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FalseFoundSave>>>>(ConsignmentsSave::VT_NOTE_FOUND, None)}
   }
+  #[inline]
+  pub fn lets(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LetSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LetSave>>>>(ConsignmentsSave::VT_LETS, None)}
+  }
+  #[inline]
+  pub fn asking(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<AskingRentSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<AskingRentSave>>>>(ConsignmentsSave::VT_ASKING, None)}
+  }
+  #[inline]
+  pub fn lets_begun(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LetBegunSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LetBegunSave>>>>(ConsignmentsSave::VT_LETS_BEGUN, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for ConsignmentsSave<'_> {
@@ -69388,6 +71743,9 @@ impl ::flatbuffers::Verifiable for ConsignmentsSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("note_dishonoured", Self::VT_NOTE_DISHONOURED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ForgerySave>>>>("note_forgeries", Self::VT_NOTE_FORGERIES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<FalseFoundSave>>>>("note_found", Self::VT_NOTE_FOUND, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<LetSave>>>>("lets", Self::VT_LETS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<AskingRentSave>>>>("asking", Self::VT_ASKING, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<LetBegunSave>>>>("lets_begun", Self::VT_LETS_BEGUN, false)?
      .finish();
     Ok(())
   }
@@ -69400,6 +71758,9 @@ pub struct ConsignmentsSaveArgs<'a> {
     pub note_dishonoured: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
     pub note_forgeries: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ForgerySave<'a>>>>>,
     pub note_found: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FalseFoundSave<'a>>>>>,
+    pub lets: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LetSave<'a>>>>>,
+    pub asking: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<AskingRentSave<'a>>>>>,
+    pub lets_begun: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<LetBegunSave<'a>>>>>,
 }
 impl<'a> Default for ConsignmentsSaveArgs<'a> {
   #[inline]
@@ -69412,6 +71773,9 @@ impl<'a> Default for ConsignmentsSaveArgs<'a> {
       note_dishonoured: None,
       note_forgeries: None,
       note_found: None,
+      lets: None,
+      asking: None,
+      lets_begun: None,
     }
   }
 }
@@ -69450,6 +71814,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ConsignmentsSaveBuilder<'a, '
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConsignmentsSave::VT_NOTE_FOUND, note_found);
   }
   #[inline]
+  pub fn add_lets(&mut self, lets: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<LetSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConsignmentsSave::VT_LETS, lets);
+  }
+  #[inline]
+  pub fn add_asking(&mut self, asking: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<AskingRentSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConsignmentsSave::VT_ASKING, asking);
+  }
+  #[inline]
+  pub fn add_lets_begun(&mut self, lets_begun: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<LetBegunSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConsignmentsSave::VT_LETS_BEGUN, lets_begun);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ConsignmentsSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ConsignmentsSaveBuilder {
@@ -69474,6 +71850,518 @@ impl ::core::fmt::Debug for ConsignmentsSave<'_> {
       ds.field("note_dishonoured", &self.note_dishonoured());
       ds.field("note_forgeries", &self.note_forgeries());
       ds.field("note_found", &self.note_found());
+      ds.field("lets", &self.lets());
+      ds.field("asking", &self.asking());
+      ds.field("lets_begun", &self.lets_begun());
+      ds.finish()
+  }
+}
+pub enum LetSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct LetSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for LetSave<'a> {
+  type Inner = LetSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> LetSave<'a> {
+  pub const VT_LANDLORD: ::flatbuffers::VOffsetT = 4;
+  pub const VT_LODGER: ::flatbuffers::VOffsetT = 6;
+  pub const VT_BUILDING: ::flatbuffers::VOffsetT = 8;
+  pub const VT_FLOOR_M2: ::flatbuffers::VOffsetT = 10;
+  pub const VT_GOOD: ::flatbuffers::VOffsetT = 12;
+  pub const VT_RENT_KG: ::flatbuffers::VOffsetT = 14;
+  pub const VT_BEGUN: ::flatbuffers::VOffsetT = 16;
+  pub const VT_DUE: ::flatbuffers::VOffsetT = 18;
+  pub const VT_NEXT_REVIEW: ::flatbuffers::VOffsetT = 20;
+  pub const VT_UNPAID: ::flatbuffers::VOffsetT = 22;
+  pub const VT_OWN_HOME: ::flatbuffers::VOffsetT = 24;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    LetSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args LetSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<LetSave<'bldr>> {
+    let mut builder = LetSaveBuilder::new(_fbb);
+    builder.add_next_review(args.next_review);
+    builder.add_due(args.due);
+    builder.add_begun(args.begun);
+    builder.add_rent_kg(args.rent_kg);
+    builder.add_floor_m2(args.floor_m2);
+    builder.add_building(args.building);
+    builder.add_lodger(args.lodger);
+    builder.add_landlord(args.landlord);
+    if let Some(x) = args.own_home { builder.add_own_home(x); }
+    if let Some(x) = args.good { builder.add_good(x); }
+    builder.add_unpaid(args.unpaid);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn landlord(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LetSave::VT_LANDLORD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn lodger(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LetSave::VT_LODGER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn building(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LetSave::VT_BUILDING, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn floor_m2(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(LetSave::VT_FLOOR_M2, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn good(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(LetSave::VT_GOOD, None)}
+  }
+  #[inline]
+  pub fn rent_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(LetSave::VT_RENT_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn begun(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(LetSave::VT_BEGUN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn due(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(LetSave::VT_DUE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn next_review(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(LetSave::VT_NEXT_REVIEW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn unpaid(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(LetSave::VT_UNPAID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn own_home(&self) -> Option<&'a Point> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Point>(LetSave::VT_OWN_HOME, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for LetSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("landlord", Self::VT_LANDLORD, false)?
+     .visit_field::<u64>("lodger", Self::VT_LODGER, false)?
+     .visit_field::<u64>("building", Self::VT_BUILDING, false)?
+     .visit_field::<f64>("floor_m2", Self::VT_FLOOR_M2, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("good", Self::VT_GOOD, false)?
+     .visit_field::<f64>("rent_kg", Self::VT_RENT_KG, false)?
+     .visit_field::<i64>("begun", Self::VT_BEGUN, false)?
+     .visit_field::<i64>("due", Self::VT_DUE, false)?
+     .visit_field::<i64>("next_review", Self::VT_NEXT_REVIEW, false)?
+     .visit_field::<u8>("unpaid", Self::VT_UNPAID, false)?
+     .visit_field::<Point>("own_home", Self::VT_OWN_HOME, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct LetSaveArgs<'a> {
+    pub landlord: u64,
+    pub lodger: u64,
+    pub building: u64,
+    pub floor_m2: f64,
+    pub good: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub rent_kg: f64,
+    pub begun: i64,
+    pub due: i64,
+    pub next_review: i64,
+    pub unpaid: u8,
+    pub own_home: Option<&'a Point>,
+}
+impl<'a> Default for LetSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    LetSaveArgs {
+      landlord: 0,
+      lodger: 0,
+      building: 0,
+      floor_m2: 0.0,
+      good: None,
+      rent_kg: 0.0,
+      begun: 0,
+      due: 0,
+      next_review: 0,
+      unpaid: 0,
+      own_home: None,
+    }
+  }
+}
+
+pub struct LetSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LetSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_landlord(&mut self, landlord: u64) {
+    self.fbb_.push_slot::<u64>(LetSave::VT_LANDLORD, landlord, 0);
+  }
+  #[inline]
+  pub fn add_lodger(&mut self, lodger: u64) {
+    self.fbb_.push_slot::<u64>(LetSave::VT_LODGER, lodger, 0);
+  }
+  #[inline]
+  pub fn add_building(&mut self, building: u64) {
+    self.fbb_.push_slot::<u64>(LetSave::VT_BUILDING, building, 0);
+  }
+  #[inline]
+  pub fn add_floor_m2(&mut self, floor_m2: f64) {
+    self.fbb_.push_slot::<f64>(LetSave::VT_FLOOR_M2, floor_m2, 0.0);
+  }
+  #[inline]
+  pub fn add_good(&mut self, good: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(LetSave::VT_GOOD, good);
+  }
+  #[inline]
+  pub fn add_rent_kg(&mut self, rent_kg: f64) {
+    self.fbb_.push_slot::<f64>(LetSave::VT_RENT_KG, rent_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_begun(&mut self, begun: i64) {
+    self.fbb_.push_slot::<i64>(LetSave::VT_BEGUN, begun, 0);
+  }
+  #[inline]
+  pub fn add_due(&mut self, due: i64) {
+    self.fbb_.push_slot::<i64>(LetSave::VT_DUE, due, 0);
+  }
+  #[inline]
+  pub fn add_next_review(&mut self, next_review: i64) {
+    self.fbb_.push_slot::<i64>(LetSave::VT_NEXT_REVIEW, next_review, 0);
+  }
+  #[inline]
+  pub fn add_unpaid(&mut self, unpaid: u8) {
+    self.fbb_.push_slot::<u8>(LetSave::VT_UNPAID, unpaid, 0);
+  }
+  #[inline]
+  pub fn add_own_home(&mut self, own_home: &Point) {
+    self.fbb_.push_slot_always::<&Point>(LetSave::VT_OWN_HOME, own_home);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LetSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    LetSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<LetSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for LetSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("LetSave");
+      ds.field("landlord", &self.landlord());
+      ds.field("lodger", &self.lodger());
+      ds.field("building", &self.building());
+      ds.field("floor_m2", &self.floor_m2());
+      ds.field("good", &self.good());
+      ds.field("rent_kg", &self.rent_kg());
+      ds.field("begun", &self.begun());
+      ds.field("due", &self.due());
+      ds.field("next_review", &self.next_review());
+      ds.field("unpaid", &self.unpaid());
+      ds.field("own_home", &self.own_home());
+      ds.finish()
+  }
+}
+pub enum AskingRentSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct AskingRentSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for AskingRentSave<'a> {
+  type Inner = AskingRentSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> AskingRentSave<'a> {
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 4;
+  pub const VT_FOOD_DAYS: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    AskingRentSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args AskingRentSaveArgs
+  ) -> ::flatbuffers::WIPOffset<AskingRentSave<'bldr>> {
+    let mut builder = AskingRentSaveBuilder::new(_fbb);
+    builder.add_food_days(args.food_days);
+    builder.add_household(args.household);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(AskingRentSave::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn food_days(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(AskingRentSave::VT_FOOD_DAYS, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for AskingRentSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<f64>("food_days", Self::VT_FOOD_DAYS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct AskingRentSaveArgs {
+    pub household: u64,
+    pub food_days: f64,
+}
+impl<'a> Default for AskingRentSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    AskingRentSaveArgs {
+      household: 0,
+      food_days: 0.0,
+    }
+  }
+}
+
+pub struct AskingRentSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> AskingRentSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(AskingRentSave::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_food_days(&mut self, food_days: f64) {
+    self.fbb_.push_slot::<f64>(AskingRentSave::VT_FOOD_DAYS, food_days, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> AskingRentSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    AskingRentSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<AskingRentSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for AskingRentSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("AskingRentSave");
+      ds.field("household", &self.household());
+      ds.field("food_days", &self.food_days());
+      ds.finish()
+  }
+}
+pub enum LetBegunSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct LetBegunSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for LetBegunSave<'a> {
+  type Inner = LetBegunSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> LetBegunSave<'a> {
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_KCAL_PER_M2_MONTH: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    LetBegunSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args LetBegunSaveArgs
+  ) -> ::flatbuffers::WIPOffset<LetBegunSave<'bldr>> {
+    let mut builder = LetBegunSaveBuilder::new(_fbb);
+    builder.add_kcal_per_m2_month(args.kcal_per_m2_month);
+    builder.add_settlement(args.settlement);
+    builder.add_day(args.day);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(LetBegunSave::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LetBegunSave::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn kcal_per_m2_month(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(LetBegunSave::VT_KCAL_PER_M2_MONTH, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for LetBegunSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<f64>("kcal_per_m2_month", Self::VT_KCAL_PER_M2_MONTH, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct LetBegunSaveArgs {
+    pub day: i64,
+    pub settlement: u64,
+    pub kcal_per_m2_month: f64,
+}
+impl<'a> Default for LetBegunSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    LetBegunSaveArgs {
+      day: 0,
+      settlement: 0,
+      kcal_per_m2_month: 0.0,
+    }
+  }
+}
+
+pub struct LetBegunSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LetBegunSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(LetBegunSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(LetBegunSave::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_kcal_per_m2_month(&mut self, kcal_per_m2_month: f64) {
+    self.fbb_.push_slot::<f64>(LetBegunSave::VT_KCAL_PER_M2_MONTH, kcal_per_m2_month, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LetBegunSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    LetBegunSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<LetBegunSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for LetBegunSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("LetBegunSave");
+      ds.field("day", &self.day());
+      ds.field("settlement", &self.settlement());
+      ds.field("kcal_per_m2_month", &self.kcal_per_m2_month());
       ds.finish()
   }
 }

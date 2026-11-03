@@ -33,6 +33,9 @@ export interface ClientHandlers {
   welcome(welcome: M.Welcome): void;
   snapshot(snapshot: M.Snapshot, epoch: number): void;
   events(events: M.EventItem[]): void;
+  /** Who watches and who drives (wire 1.110, ADR-0039 §6), sent after the welcome and whenever a
+   * role changes. */
+  viewers(viewers: M.Viewers): void;
 }
 
 interface Pending {
@@ -59,6 +62,8 @@ export class HostClient {
   constructor(
     private readonly url: string,
     private readonly on: ClientHandlers,
+    /** The name this page gives itself in its hello; other viewers see it. */
+    private readonly name = "tce-web",
   ) {}
 
   start(): void {
@@ -100,7 +105,7 @@ export class HostClient {
     }
     ws.binaryType = "arraybuffer";
     this.ws = ws;
-    ws.onopen = () => this.send(FrameKind.Hello, 0n, M.hello("tce-web"));
+    ws.onopen = () => this.send(FrameKind.Hello, 0n, M.hello(this.name));
     ws.onmessage = (event) => {
       if (!(event.data instanceof ArrayBuffer)) return;
       let frame: Frame;
@@ -154,9 +159,14 @@ export class HostClient {
         this.epoch = epoch;
         this.on.snapshot(M.decodeSnapshot(frame.payload), epoch);
         return;
-      case FrameKind.Events:
-        this.on.events(M.decodeEvents(frame.payload));
+      case FrameKind.Events: {
+        // Wire 1.110: an events frame may tell who watches and who drives instead.
+        const viewers = M.decodeEventsViewers(frame.payload);
+        if (viewers) this.on.viewers(viewers);
+        const events = M.decodeEvents(frame.payload);
+        if (events.length > 0 || !viewers) this.on.events(events);
         return;
+      }
       case FrameKind.Response: {
         const pending = this.pending.get(correlation);
         if (!pending) return;
@@ -211,6 +221,11 @@ export class HostClient {
 
   command(payload: Uint8Array): Promise<M.ResponseBody> {
     return this.request(FrameKind.Command, payload);
+  }
+
+  /** Hands the driving to the connection `to` (wire 1.110, ADR-0039 §6). */
+  async handOver(to: number): Promise<void> {
+    await this.command(M.handOver(to));
   }
 
   query(payload: Uint8Array): Promise<M.ResponseBody> {

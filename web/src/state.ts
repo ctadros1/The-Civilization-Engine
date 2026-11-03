@@ -21,6 +21,7 @@ import type {
   Snapshot,
   StandingInfo,
   WealthInfo,
+  Viewers,
   WeatherReport,
   Welcome,
 } from "./net/messages.js";
@@ -47,6 +48,9 @@ export interface FirmPage {
 export interface AppState {
   connection: ConnectionStatus;
   welcome: Welcome | null;
+  /** Who watches and who drives, as the host last said (wire 1.110, ADR-0039 §6); null until it
+   * says, and from a host that says nothing of roles. */
+  viewers: Viewers | null;
   snapshot: Snapshot | null;
   /** World epoch of the latest snapshot (ADR-0001). */
   epoch: number;
@@ -143,6 +147,7 @@ export function initialState(): AppState {
   return {
     connection: { state: "connecting", attempt: 1 },
     welcome: null,
+    viewers: null,
     snapshot: null,
     epoch: 0,
     events: [],

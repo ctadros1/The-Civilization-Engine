@@ -71,6 +71,20 @@ pub fn building_words(sim: &Sim, building: PermanentId) -> String {
         )
 }
 
+/// The share of its strength building `building`'s bare steel keeps once burnt out, if any of its
+/// members are of a material that softens rather than chars (ADR-0037 §5).
+fn softens(sim: &Sim, building: PermanentId) -> Option<f64> {
+    let catalog = &sim.rules.catalog;
+    let b = sim.land.buildings.iter().find(|b| b.id == building)?;
+    let def = catalog
+        .building_index(&b.spec.program)
+        .and_then(|d| catalog.buildings.get(d))?;
+    let e = civ_grammar::expand(&b.spec, &def.rules).ok()?;
+    e.groups
+        .iter()
+        .find_map(|g| civ_agents::structure::group_timber(&catalog.goods, def, g)?.burnt_keeps)
+}
+
 /// How fire `f` began, in words: "set alight by the observer (one recorded influence)", "caught
 /// from the hut of Bo's household 2.0 m away, downwind of it in a gentle breeze, its covering
 /// holding water 12% of its dry weight".
@@ -655,9 +669,16 @@ pub(super) fn fire_page(sim: &Sim, f: &Fire) -> Page {
         row.who_name.clone().unwrap_or_default(),
         row.happened
     )];
+    // A steel frame softens where timber chars (ADR-0037 §5).
+    let steel = softens(sim, f.building);
     if charred > 0.0 {
+        let what = if steel.is_some() {
+            "Its timber"
+        } else {
+            "Its posts and frame"
+        };
         truth.push(format!(
-            "Its posts and frame charred about {charred:.0} mm deep on each exposed face"
+            "{what} charred about {charred:.0} mm deep on each exposed face"
         ));
     }
     if f.ended.is_some() {
@@ -665,6 +686,13 @@ pub(super) fn fire_page(sim: &Sim, f: &Fire) -> Page {
             "Its covering burned away, and its walls lost {:.0}% of their infill",
             p.infill_loss * 100.0
         ));
+        if let Some(keeps) = steel {
+            truth.push(format!(
+                "Its steel softened in the fire to about {:.0}% of its strength; what stood \
+                 regained it as it cooled",
+                keeps * 100.0
+            ));
+        }
     }
     if !f.deaths.is_empty() {
         let names: Vec<String> = f.deaths.iter().map(|&d| sim.people.name_of(d)).collect();

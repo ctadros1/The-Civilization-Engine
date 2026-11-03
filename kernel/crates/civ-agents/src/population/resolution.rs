@@ -72,12 +72,13 @@ fn work_place(c: &decide::Candidate, home: (f32, f32)) -> (f32, f32) {
 
 /// Behaviours a household-resolved day shares hours among (slice DG): the rest wait for slice DH
 /// or are not taken while household-resolved (ADR-0032 §2).
-const SHARED: [Behavior; 35] = [
+const SHARED: [Behavior; 36] = [
     Behavior::Gather,
     Behavior::Farm,
     Behavior::Build,
     Behavior::Make,
     Behavior::Dig,
+    Behavior::Pick,
     Behavior::Try,
     Behavior::Rest,
     Behavior::Play,

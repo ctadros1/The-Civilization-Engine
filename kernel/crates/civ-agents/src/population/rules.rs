@@ -38,6 +38,8 @@ pub struct Kept {
     pub storeys: Option<[u8; 4]>,
     /// Its mass walls above a storey are tied at each floor (M8d slice DB).
     pub tied: bool,
+    /// A steel skeleton is cased against fire for at least this many minutes (ADR-0037 §5).
+    pub cased_min: Option<f64>,
 }
 
 impl Kept {
@@ -50,6 +52,7 @@ impl Kept {
             || self.midden_from.is_some()
             || self.storeys.is_some()
             || self.tied
+            || self.cased_min.is_some()
     }
 
     /// Whether a building of `spec`, its walls of kind `wall_kind`, breaks a height or ties rule
@@ -323,6 +326,51 @@ impl Population {
                                 },
                             )
                         }
+                        // Steel skeletons left bare (ADR-0037 §5): the bare skeletons it heard gave
+                        // way or saw burn, against casing its next home, if that is a skeleton.
+                        RuleTemplate::ProtectedFrame { minutes } => {
+                            let m = f64::from(minutes);
+                            let program = |b: &civ_land::Building| {
+                                ctx.catalog
+                                    .building_index(&b.spec.program)
+                                    .and_then(|i| ctx.catalog.buildings.get(i))
+                            };
+                            let bare = move |b: &civ_land::Building| {
+                                program(b).is_some_and(|d| {
+                                    let (bound, kept) =
+                                        crate::rules::cased_for(&b.spec, &d.rules, m);
+                                    bound && !kept
+                                })
+                            };
+                            let bare_by_id = |id: PermanentId| {
+                                ctx.land
+                                    .buildings
+                                    .iter()
+                                    .find(|b| b.id == id)
+                                    .is_some_and(bare)
+                            };
+                            (
+                                &move |b: &civ_land::Building| bare(b),
+                                x.gave_way.iter().filter(|l| bare_by_id(l.building)).count() as f64
+                                    + x.fire_losses
+                                        .iter()
+                                        .filter(|l| bare_by_id(l.building))
+                                        .count() as f64,
+                                self.redesign_hours(ctx, x, &|spec, _| {
+                                    ctx.catalog
+                                        .building_index(&spec.program)
+                                        .and_then(|i| ctx.catalog.buildings.get(i))
+                                        .is_some_and(|d| {
+                                            crate::build::case_skeleton(
+                                                spec,
+                                                d,
+                                                &ctx.catalog.goods,
+                                                m,
+                                            )
+                                        })
+                                }),
+                            )
+                        }
                     };
                     let rate = seen / (standing * rp.memory_years.max(1e-9));
                     let at_risk: f64 = ctx
@@ -412,9 +460,10 @@ impl Population {
     }
 
     /// Whether household `x` is about to build (M6b slice BH): it has no roof enough for its
-    /// people, or its home has given way in part or whole.
+    /// people (a lodger has none of its own, ADR-0040), or its home has given way in part or whole.
     fn builds_soon(&self, ctx: &Ctx, x: &Household) -> bool {
         !x.sheltered
+            || self.lodges(x.id)
             || ctx.land.buildings.iter().any(|b| {
                 b.household == x.id
                     && ctx.catalog.is_dwelling(&b.spec.program)
@@ -624,6 +673,10 @@ impl Population {
                     kept.storeys = Some(most);
                 }
                 RuleTemplate::TiedWalls => kept.tied = true,
+                RuleTemplate::ProtectedFrame { minutes } => {
+                    let m = f64::from(minutes);
+                    kept.cased_min = Some(kept.cased_min.map_or(m, |k| k.max(m)));
+                }
             }
         }
         kept
@@ -1040,6 +1093,14 @@ impl Population {
                 RuleTemplate::TiedWalls => {
                     (wall > 0 && b.spec.storeys > 1, crate::rules::tied(&b.spec))
                 }
+                // A steel skeleton, cased for as long as the rule asks (ADR-0037 §5).
+                RuleTemplate::ProtectedFrame { minutes } => ctx
+                    .catalog
+                    .building_index(&b.spec.program)
+                    .and_then(|i| ctx.catalog.buildings.get(i))
+                    .map_or((false, true), |d| {
+                        crate::rules::cased_for(&b.spec, &d.rules, f64::from(minutes))
+                    }),
             };
             if !bound {
                 continue;

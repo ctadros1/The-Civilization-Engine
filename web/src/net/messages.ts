@@ -2220,6 +2220,32 @@ export type ResponseBody =
   | { kind: "quake"; quake: QuakeInfo }
   | { kind: "coverage"; coverage: CoverageInfo };
 
+// ---- Viewers (wire 1.110, M12b, ADR-0039 §6) ------------------------------------------------
+
+/** A connection's role: the driver commands the world and its time; a spectator watches. */
+export type ViewerRole = "driver" | "spectator";
+
+/** One connection to the observer socket. */
+export interface ViewerInfo {
+  id: number;
+  /** The client's name from its hello. */
+  name: string;
+  /** Connects from the host's own machine; otherwise from the local network. */
+  local: boolean;
+  role: ViewerRole;
+}
+
+/** Who watches and who drives, as this connection sees it; the host sends it in an events frame
+ * after the welcome and whenever a role changes. */
+export interface Viewers {
+  you: number;
+  role: ViewerRole;
+  /** The connection that drives; 0 when none does. */
+  driver: number;
+  /** Every connection, oldest first. */
+  viewers: ViewerInfo[];
+}
+
 // ---- Incidents (wire 1.64, M6a slice BB, ADR-0015 §8) --------------------------------------
 
 /** 1 a taking, 2 a case of illness, 4 a building's fire (wire 1.68), 10 a wait (wire 1.85), 11 a
@@ -2426,7 +2452,9 @@ export type ErrorCode =
   | "no-world"
   | "not-found"
   | "incompatible"
-  | "internal";
+  | "internal"
+  /** Wire 1.110: a spectator's command (ADR-0039 §6). */
+  | "not-driver";
 
 export interface ErrorInfo {
   code: ErrorCode;
@@ -2606,6 +2634,12 @@ export function forceClimate(offsetC: number, wetFactor: number, rampYears: numb
   const b = new flatbuffers.Builder(32);
   const body = W.ForceClimate.createForceClimate(b, offsetC, wetFactor, rampYears);
   return command(b, W.CommandBody.ForceClimate, body);
+}
+
+/** Hands the driving to the connection `to` (wire 1.110, ADR-0039 §6); only the driver may. */
+export function handOver(to: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  return command(b, W.CommandBody.HandOver, W.HandOver.createHandOver(b, BigInt(to)));
 }
 
 export function drought(months: number, depth: number): Uint8Array {
@@ -3623,6 +3657,12 @@ const EVENT_KINDS: Record<number, EventKind> = {
   [W.EventKind.Failure]: "failure",
 };
 
+/** The viewers an events frame carries (wire 1.110), or null when it carries none. */
+export function decodeEventsViewers(payload: Uint8Array): Viewers | null {
+  const v = W.Events.getRootAsEvents(bb(payload)).viewers();
+  return v ? viewersInfo(v) : null;
+}
+
 export function decodeEvents(payload: Uint8Array): EventItem[] {
   const e = W.Events.getRootAsEvents(bb(payload));
   const out: EventItem[] = [];
@@ -3648,11 +3688,26 @@ const ERROR_CODES: Record<number, ErrorCode> = {
   [W.ErrorCode.NotFound]: "not-found",
   [W.ErrorCode.Incompatible]: "incompatible",
   [W.ErrorCode.Internal]: "internal",
+  [W.ErrorCode.NotDriver]: "not-driver",
 };
 
 export function decodeError(payload: Uint8Array): ErrorInfo {
   const e = W.ErrorInfo.getRootAsErrorInfo(bb(payload));
   return { code: ERROR_CODES[e.code()] ?? "unknown", message: e.message() ?? "" };
+}
+
+function viewerRole(role: W.ViewerRole): ViewerRole {
+  return role === W.ViewerRole.Driver ? "driver" : "spectator";
+}
+
+function viewersInfo(v: W.Viewers): Viewers {
+  const viewers: ViewerInfo[] = [];
+  for (let i = 0; i < v.viewersLength(); i++) {
+    const c = v.viewers(i);
+    if (!c) continue;
+    viewers.push({ id: Number(c.id()), name: c.name() ?? "", local: c.local(), role: viewerRole(c.role()) });
+  }
+  return { you: Number(v.you()), role: viewerRole(v.role()), driver: Number(v.driver()), viewers };
 }
 
 function rasterTile(t: W.RasterTile): RasterTile {

@@ -1,0 +1,13 @@
+# Ammoniacal liquor: the water and ammonia washed out of coal gas with the tar (ADR-0038 §2; research
+# 12-10 §1.8, §2.3, §5.7: about 24-33 gallons a ton, some 0.11-0.15 kg a kilogram of coal, a figure
+# seen only in a search excerpt). It keeps. Nobody wants it unless a recipe takes it.
+kind = "good"
+id = "core:good/ammoniacal_liquor"
+name = "Ammoniacal liquor"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

@@ -201,6 +201,13 @@ impl Segment {
         params.fade(day - self.kept) as f32
     }
 
+    /// Whether the cleared ground it was built to has grown over since (backlog D, fourteenth
+    /// item): on cleared ground, usable narrower than built. Track's usable width is its laying's,
+    /// never regrowth's.
+    pub fn grown_over(&self) -> bool {
+        self.surface == Surface::Cleared && self.usable_m + 1e-3 < self.built_m
+    }
+
     /// Its steepest grade between neighbouring cells, rise over run, from the ground's
     /// elevations (`elevation` row by row, `width` cells to a row, `cell_m` metres a cell): the
     /// grade a cart would feel until grading eases it (ADR-0029 §6).
@@ -362,6 +369,38 @@ impl Ways {
             way.trips = way.trips_on(day) + 1.0;
             way.trips_day = way.trips_day.max(day);
         }
+    }
+
+    /// At the turn of calendar year `year` (backlog D, fourteenth item; research 10-07 §1.1,
+    /// §1.3: clearance and surface are apart, and a street loses usable width to vegetation): the
+    /// cleared margin beside a worn trail's tread (`tread_m` wide) of each segment of cleared
+    /// ground left unkept `years` whole years or more has grown over with the wild cover, as
+    /// broken ground left unsown does ([`crate::fields::Field::regrow`], the same years): its
+    /// usable width falls back to the tread, which walking keeps open, and its built width
+    /// stands. Use does not keep the margin open: a cart pulled aside there now and then stops no
+    /// scrub. Track is not cleared ground. Returns whether any grew over, noting the change.
+    pub fn regrow(&mut self, years: u32, year: i32, tread_m: f32) -> bool {
+        if years == 0 || self.list.is_empty() {
+            return false;
+        }
+        let mut any = false;
+        for w in self.list.iter_mut().filter(|w| w.track.is_none()) {
+            for s in &mut w.segments {
+                if s.surface != Surface::Cleared
+                    || s.usable_m <= tread_m + 1e-3
+                    || i64::from(year) - 1 - i64::from(crate::fields::calendar_year(s.kept))
+                        < i64::from(years)
+                {
+                    continue;
+                }
+                s.usable_m = tread_m;
+                any = true;
+            }
+        }
+        if any {
+            self.changed();
+        }
+        any
     }
 
     /// What each way people walk holds its cells' wear at on `day`, ahead of the survey: its
@@ -626,6 +665,49 @@ mod tests {
             let (c, i) = k.code();
             assert_eq!(Keeper::from_code(c, i), Some(k));
         }
+    }
+
+    #[test]
+    fn a_cleared_margin_left_unkept_whole_years_grows_over_to_the_tread() {
+        // 365 days a year: kept on day 400 is year 2; with 3 whole years it grows over at the
+        // turn of year 6 (years 3, 4 and 5 unkept), not of year 5.
+        let mut ways = Ways::default();
+        let passing = |n: u64, kept: i64| Segment {
+            corridor_m: 2.0,
+            ..segment(vec![n as u32], 2.0, kept)
+        };
+        ways.add(way(5, vec![passing(5, 400)]));
+        ways.add(way(6, vec![passing(6, 800)]));
+        // An approach cleared to a trail's tread: nothing beside the tread to grow over.
+        ways.add(way(7, vec![segment(vec![7, 8], 1.2, 0)]));
+        // Track is not cleared ground.
+        let mut track = way(
+            8,
+            vec![Segment {
+                surface: Surface::Track,
+                ..segment(vec![9, 10], 2.0, 0)
+            }],
+        );
+        track.modes = RAIL;
+        ways.add(track);
+        let before = ways.clone();
+        assert!(!ways.regrow(3, 5, 1.2), "only two whole years unkept");
+        assert_eq!(ways, before, "nothing changed, not even the revision");
+        assert!(!ways.regrow(0, 50, 1.2), "0 years: nothing grows over");
+        assert!(ways.regrow(3, 6, 1.2));
+        assert_eq!(ways.revision(), before.revision() + 1);
+        let s = &ways.list[0].segments[0];
+        assert_eq!((s.usable_m, s.built_m, s.corridor_m), (1.2, 2.0, 2.0));
+        assert!(s.grown_over());
+        // Kept a year later, the other stands another year.
+        assert!(!ways.list[1].segments[0].grown_over());
+        assert_eq!(ways.list[2].segments[0].usable_m, 1.2);
+        assert!(!ways.list[3].segments[0].grown_over());
+        assert_eq!(ways.list[3].segments[0].usable_m, 2.0);
+        assert!(ways.regrow(3, 7, 1.2));
+        assert!(ways.list[1].segments[0].grown_over());
+        assert!(!ways.regrow(3, 8, 1.2), "nothing more grows over");
+        assert!(ways.problems(16).is_empty());
     }
 
     #[test]

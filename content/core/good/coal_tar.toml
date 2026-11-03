@@ -1,0 +1,13 @@
+# Coal tar: the thick black liquid condensed from coal gas as it leaves the retort (ADR-0038 §2;
+# research 12-10 §1.8, §2.3, §5.7: about 7.5-10 gallons a ton of coal, some 0.04-0.05 kg a kilogram).
+# It keeps. Nobody wants it unless a recipe takes it: no recipe distils or burns it yet.
+kind = "good"
+id = "core:good/coal_tar"
+name = "Coal tar"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

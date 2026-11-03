@@ -20,6 +20,7 @@ import { landWords } from "./land.js";
 import { wayWords } from "./ways.js";
 import { legend, lensId, type LensLayer } from "./coverage.js";
 import { seasonOf } from "./weather.js";
+import { mayCommand } from "./viewers.js";
 
 /**
  * The observer socket: this page's host, or `?host=` in its address. A `?token=` in the address
@@ -56,13 +57,16 @@ const DECISIONS_SHOWN = 8;
 /** Least real time between refreshes of the inspected person, milliseconds. */
 const PERSON_REFRESH_MS = 1000;
 
+/** The name this page gives the host, which other viewers see: `?name=` in its address. */
+const viewerName = new URLSearchParams(location.search).get("name")?.trim().slice(0, 64) || "tce-web";
+
 const client = new HostClient(socketUrl(), {
   status: (connection) => store.update({ connection }),
   welcome: (welcome) => {
     // A new connection may be to a restarted host: redraw from scratch.
     shownWorld = "";
     map.setActivities(welcome.activities);
-    store.update({ welcome, events: [], chronicle: [], selected: null });
+    store.update({ welcome, viewers: null, events: [], chronicle: [], selected: null });
     map.setSelected(null);
   },
   snapshot: (snapshot, epoch) => {
@@ -95,7 +99,8 @@ const client = new HostClient(socketUrl(), {
     void refreshPerson(false);
   },
   events: (items) => store.update({ events: mergeEvents(store.state.events, items) }),
-});
+  viewers: (viewers) => store.update({ viewers }),
+}, viewerName);
 
 /** The world the chronicle and selection belong to. */
 let historyWorld = "";
@@ -1329,6 +1334,8 @@ function syncMap(): void {
 const resolution = { focus: 0, pins: new Set<number>(), follow: 0 };
 
 function sendResolution(on: boolean): void {
+  // A spectator's commands are refused (ADR-0039 §6); choosing a settlement only looks at it.
+  if (!mayCommand(store.state.viewers)) return;
   void command(M.setResolution(on, resolution.focus, [...resolution.pins], resolution.follow));
 }
 
@@ -1429,6 +1436,7 @@ bindUi(store, {
   load: (file) => command(M.loadWorld(file)),
   setClock: (paused, speed) => command(M.setClock(paused, speed)),
   cancelTask: () => command(M.cancelTask()),
+  handOver: (to) => client.handOver(to),
   recover: (accept) => command(M.recoverWorld(accept)),
   retryMap: () => {
     shownWorld = "";
@@ -1642,6 +1650,8 @@ const hooks = {
     return {
       connection: s.connection.state,
       welcomed: !!s.welcome,
+      /** Who watches and who drives (wire 1.110). */
+      viewers: s.viewers,
       epoch: s.epoch,
       world: world ? { ...world, seed: world.seed.toString() } : null,
       clock: s.snapshot?.clock ?? null,

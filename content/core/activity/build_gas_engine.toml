@@ -1,0 +1,19 @@
+# Building a gas engine at home (M11d, fourth part): the work its recipe describes, open only to a
+# household that knows the gas engine, with the dynamo's build's figures. Until this file the recipe
+# had no work that made it, so an engine wanted was never built.
+kind = "activity"
+id = "core:activity/build_gas_engine"
+name = "Build a gas engine"
+doing = "building a gas engine"
+behavior = "make"
+recipe = "core:recipe/build_gas_engine"
+par = 4.0
+min_age_years = 14.0
+max_age_years = 70.0
+min_minutes = 60
+max_minutes = 480
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

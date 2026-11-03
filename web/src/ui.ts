@@ -83,6 +83,7 @@ import {
 } from "./wealth.js";
 import { monthRows, yearRows as weatherYearRows } from "./weather.js";
 import { HostError } from "./net/client.js";
+import { COMMAND_CONTROLS, handOverChoices, lockControls, mayCommand, roleWords } from "./viewers.js";
 import type {
   ChronicleEntry,
   Decision,
@@ -123,6 +124,8 @@ export interface Actions {
   load(file: string): Promise<void>;
   setClock(paused: boolean, speed: number): Promise<void>;
   cancelTask(): Promise<void>;
+  /** Hands the driving to the connection `to` (wire 1.110, ADR-0039 §6). */
+  handOver(to: number): Promise<void>;
   recover(accept: boolean): Promise<void>;
   retryMap(): void;
   /** Inspect a person (null closes the inspector). */
@@ -565,6 +568,7 @@ export function bindUi(store: Store, actions: Actions): void {
   $("state-load").addEventListener("click", openLoad);
   $("state-retry").addEventListener("click", () => actions.retryMap());
   const toggleRun = () => {
+    if (!mayCommand(store.state.viewers)) return;
     const clock = store.state.snapshot?.clock;
     if (clock) void attempt(() => actions.setClock(!clock.paused, clock.speed));
   };
@@ -650,6 +654,13 @@ export function bindUi(store: Store, actions: Actions): void {
       dismissedError: store.state.snapshot?.lastError ?? null,
     });
   });
+  // The hand-over (wire 1.110, ADR-0039 §6): the driver hands the driving to another viewer.
+  const handOver = $<HTMLSelectElement>("hand-over");
+  handOver.addEventListener("change", () => {
+    const to = Number(handOver.value);
+    handOver.value = "";
+    if (to > 0) void attempt(() => actions.handOver(to));
+  });
   const cancel = $<HTMLButtonElement>("task-cancel");
   cancel.addEventListener("click", () => {
     cancel.disabled = true;
@@ -704,6 +715,8 @@ export function bindUi(store: Store, actions: Actions): void {
     const node = $("connection");
     const c = state.connection;
     node.dataset.state = c.state;
+    const role = c.state === "open" ? roleWords(state.viewers) : "";
+    node.dataset.role = role ? (mayCommand(state.viewers) ? "driver" : "spectator") : "";
     switch (c.state) {
       case "connecting":
         setText(node, "Connecting…");
@@ -711,7 +724,8 @@ export function bindUi(store: Store, actions: Actions): void {
       case "open":
         setText(
           node,
-          state.welcome ? `Connected · ${state.welcome.host} ${state.welcome.version}` : "Connected",
+          (state.welcome ? `Connected · ${state.welcome.host} ${state.welcome.version}` : "Connected") +
+            (role ? ` · ${role}` : ""),
         );
         break;
       case "waiting":
@@ -724,6 +738,25 @@ export function bindUi(store: Store, actions: Actions): void {
         setText(node, "Incompatible host");
         break;
     }
+  };
+
+  /** The driver's hand-over list: every other viewer (wire 1.110). */
+  const renderHandOver = (state: AppState) => {
+    const choices = state.connection.state === "open" ? handOverChoices(state.viewers) : [];
+    const key = JSON.stringify(choices);
+    handOver.hidden = choices.length === 0;
+    if (handOver.dataset.key === key) return;
+    handOver.dataset.key = key;
+    const first = el("option", { text: "Hand over…" });
+    first.value = "";
+    handOver.replaceChildren(
+      first,
+      ...choices.map((c) => {
+        const option = el("option", { text: `to ${c.label}` });
+        option.value = String(c.id);
+        return option;
+      }),
+    );
   };
 
   const renderBanner = (state: AppState) => {
@@ -3307,7 +3340,8 @@ export function bindUi(store: Store, actions: Actions): void {
   };
 
   const renderRecovery = (state: AppState) => {
-    const offer = state.snapshot?.recovery ?? null;
+    // Only the driver answers the offer; a spectator could only be refused (ADR-0039 §6).
+    const offer = mayCommand(state.viewers) ? (state.snapshot?.recovery ?? null) : null;
     if (!offer) {
       recoveryShownFor = "";
       if (recoveryDialog.open) recoveryDialog.close();
@@ -3324,7 +3358,13 @@ export function bindUi(store: Store, actions: Actions): void {
     recoveryDialog.showModal();
   };
 
+  const commandControls = () =>
+    document.querySelectorAll<HTMLButtonElement | HTMLSelectElement | HTMLInputElement>(COMMAND_CONTROLS);
   const render = (state: AppState) => {
+    // A spectator's command controls are locked after everything else has rendered; a driver's
+    // are unlocked first, so the render below decides them as usual (ADR-0039 §6).
+    const spectating = state.connection.state === "open" && !mayCommand(state.viewers);
+    if (!spectating) lockControls(commandControls(), false);
     const open = state.connection.state === "open";
     const world = state.snapshot?.world ?? null;
     const clock = state.snapshot?.clock ?? null;
@@ -3447,6 +3487,8 @@ export function bindUi(store: Store, actions: Actions): void {
     renderEvents(state);
     renderTask(state);
     renderRecovery(state);
+    renderHandOver(state);
+    if (spectating) lockControls(commandControls(), true);
   };
 
   store.subscribe(render);

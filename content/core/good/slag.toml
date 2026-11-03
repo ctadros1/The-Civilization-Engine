@@ -1,0 +1,13 @@
+# Slag: the ore's earth and the iron a furnace or hearth did not keep, run off as a glassy cinder
+# (ADR-0038 §2; research 12-10 §1.8, §5.7; 07-05 §1.1: unrecovered metal goes to slag, it does not
+# vanish). Inert, it keeps. Nobody wants it unless a recipe takes it (later, as fill or way metal).
+kind = "good"
+id = "core:good/slag"
+name = "Slag"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

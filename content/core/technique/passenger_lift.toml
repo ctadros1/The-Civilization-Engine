@@ -1,0 +1,23 @@
+# The passenger lift (ADR-0042 §2; research 11-14 §1.5: Otis's safety brake, a steam-driven
+# passenger car in 1857, the first electric one in 1889). It stands in a steel skeleton and is
+# driven by an engine or, through the dynamo, by current. Found by those who build dynamos and
+# engines, holding steel sections; half of them would need 500,000 qualified hours (a far
+# technique). Learnt in 300 hours beside a knower. Founders do not bring it.
+kind = "technique"
+id = "core:technique/passenger_lift"
+name = "The passenger lift"
+can = "hang a car in a shaft and hoist people up a building by an engine or current"
+domain = "core:skill/smithing"
+requires = [
+  ["core:technique/skeleton_frame", "core:technique/atmospheric_engine"],
+  ["core:technique/skeleton_frame", "core:technique/gas_engine"],
+  ["core:technique/skeleton_frame", "core:technique/dynamo"],
+]
+tried_in = ["core:activity/build_dynamo", "core:activity/build_gas_engine"]
+needs = ["core:good/steel_section"]
+e50_h = 500000.0
+learn_h = 300.0
+upbringing = true
+
+[answers]
+spoilage = []

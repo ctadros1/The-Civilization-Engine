@@ -1555,6 +1555,63 @@ fn a_lighter_mint_strikes_more_pieces_from_the_same_metal() {
 }
 
 #[test]
+fn a_mint_of_other_terms_takes_the_place_of_the_mint_in_force_and_nothing_else_does() {
+    // M7d slice CE4b: a mint template of other terms passed while a mint is in force takes that
+    // mint's place. Before this was mended a proposal to keep the store named the mint in force
+    // as the law it would end, and a lighter mint named none.
+    use civ_agents::polity::PolicyKind;
+    let (mut sim, hh, minter) = mint_scene(3);
+    let polity = mint_in_force(&mut sim, hh, minter);
+    let index = |id: &str| {
+        u16::try_from(
+            sim.rules()
+                .catalog
+                .policies
+                .iter()
+                .position(|d| d.id == id)
+                .expect("the core content has the template"),
+        )
+        .expect("few templates")
+    };
+    let (mint, light) = (index("core:policy/mint"), index("core:policy/mint_light"));
+    let store = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.kind == PolicyKind::KeepStore)
+        .map(|i| u16::try_from(i).expect("few templates"))
+        .expect("the core content keeps a store");
+    let pop = sim.people();
+    let pi = pop
+        .polities
+        .iter()
+        .position(|p| p.id == polity)
+        .expect("the polity");
+    let in_force = pop.polities[pi]
+        .laws
+        .iter()
+        .find(|l| l.kind == PolicyKind::Mint)
+        .map(|l| l.id)
+        .expect("the mint in force");
+    assert_eq!(
+        pop.replaced_by_for_tests(pi, PolicyKind::Mint, light),
+        Some(in_force),
+        "a lighter mint takes the place of the mint in force"
+    );
+    assert_eq!(
+        pop.replaced_by_for_tests(pi, PolicyKind::Mint, mint),
+        None,
+        "the same terms replace nothing"
+    );
+    assert_eq!(
+        pop.replaced_by_for_tests(pi, PolicyKind::KeepStore, store),
+        None,
+        "keeping the store ends no mint"
+    );
+}
+
+#[test]
 fn foreign_coin_goes_first_and_is_taken_by_weight_at_a_discount() {
     let (mut sim, hh, minter) = mint_scene(3);
     let [coin, copper, grain] =

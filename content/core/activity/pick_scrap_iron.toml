@@ -1,0 +1,20 @@
+# Picking scrap iron out of the household's heap or its polity's open tip (ADR-0044 §2): sorting
+# what lies there by hand at the people profile's `sort_kg_h`, taking out the worn iron, and carrying
+# it home. Only while the household wants it, toward a tool it lacks, and only where no neighbour
+# sells it for fewer of its hours. Light work, bent over (a design prior).
+kind = "activity"
+id = "core:activity/pick_scrap_iron"
+name = "Pick scrap iron"
+doing = "picking over refuse for scrap iron"
+behavior = "pick"
+picks = "core:good/scrap_iron"
+par = 2.5
+min_age_years = 8.0
+max_age_years = 75.0
+min_minutes = 15
+max_minutes = 240
+daylight_only = true
+max_walk_minutes = 60
+technique = ""
+tools = []
+rate = 1.0

@@ -1,0 +1,31 @@
+# Keeping the watch by turns, drawn by lot (backlog D; research 12-04 §1.3: a rotating household
+# watch costs those who keep it time taken from work and rest, and §2.1: the Statute of
+# Winchester prescribed a night watch for the summer season, from Ascension to Michaelmas; 09-14
+# §1.7: offices can be unpaid and rotating, and §2.2: a rotating office's term is three to twelve
+# months; 09-07 §1.3: rotation and lottery are selection primitives of their own). Passed, a lot
+# draws the watcher from those who stood for it at the gathering (taking wanting the stores
+# watched as willingness to watch them, a design prior, as for the store kept by turns), less
+# anyone keeping a watch already, and the office lapses at the season's end, when the stores lie
+# unwatched again until a gathering decides afresh; the one who watched may not be drawn for the
+# next turn. With nobody to draw, the law lapses at once. Whether anyone proposes a watch by
+# turns, and whether the gathering agrees, is people's choice. Its id sorts after every older
+# template's: hearth talk about a question is keyed by a template's place in id order.
+kind = "policy"
+id = "core:policy/zestfully_take_the_watch_by_turns"
+name = "Watch by turns"
+description = "A lot draws one of those who want the stores watched to keep watch over them at night, walking rounds of the homes, for a season; the one who watched may not be drawn for the next turn."
+does = "keep_watch"
+answers = ["takings", "raided"]
+question = "whether the watch should be kept by turns, drawn by lot"
+
+[tenure]
+term_days = 90
+renewable = false
+fill = "lot"
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement.
+[bears]
+"core:value/security" = 1.0
+"core:value/reciprocity" = 0.5    # each takes a turn
+"core:value/autonomy" = -0.5      # someone walks the village at night

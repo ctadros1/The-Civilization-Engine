@@ -146,6 +146,30 @@ it is on the default branch (`main`).
 - **Git:** small commits with descriptive messages. Never commit `saves/`, `target/`,
   `node_modules/`, `web/dist/` or test output.
 
+## Autonomous mode
+
+When the owner has given standing authority to develop autonomously (plan §9 records when), these
+rules hold until the owner, in their own words, says stop:
+
+1. **Only the owner stops the loop.** An agent never writes a stop condition of its own into a
+   check-in, loop or schedule, and never disables, deletes or lets lapse the scheduled check-in.
+   "Everything I can build is done" is not a stop condition.
+2. **The backlog never runs dry.** When the named work is done, take the next item, in order, from:
+   the "Not yet" lines of plan §7's entries; the "Deferred", "Alternatives" and "Revisit when"
+   sections of the ADRs; plan §8's open questions; the open questions a demo's record leaves. When
+   those are exhausted, run improvement passes: speed against the plan's budgets, test coverage,
+   gaps in the research index, the observer's empty and error states. Design each item briefly
+   against its research, build it in slices, keep it green on the homelab chain, record it.
+3. **Blocked is skipped, not stopped.** Work that needs the owner's hardware, or a decision the
+   standing authority does not cover (Unreal on the owner's PC, credentials, spending money,
+   anything outward-facing or destructive), is logged once in plan §9 as the owner's and passed
+   over; the next item is taken.
+4. **"I think I'm done" is a report, not an ending.** Send the owner a short status and keep the
+   loop running.
+5. **Narrowing is not finishing.** Scope narrowed or deferred under the standing authority goes
+   on the backlog; a milestone is not called complete while its own deferrals are unbuilt without
+   saying so.
+
 ## Before you commit
 
 1. The kernel and commons pass fmt, clippy and tests, and the smoke seeds pass if you touched

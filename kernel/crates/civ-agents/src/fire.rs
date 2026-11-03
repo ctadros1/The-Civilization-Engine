@@ -20,6 +20,9 @@
 //!   face, `char_mm_first_hour` in the first hour on a curve that slows as the char deepens. Char
 //!   is loss of section (11-08 §2.5: about 0.6 mm/min over the first hour; a 200 mm member exposed
 //!   on four faces keeps a 128 mm core).
+//! - **Bare steel softens** (M11e, third part; ADR-0037 §5). A member whose material has a
+//!   `burnt_keeps` does not char; once its building has burnt out it keeps that share of its
+//!   strength (11-14 §2.1: about 0.4 of yield at 600 °C), a share of its quality.
 //!
 //! - **Fires start where fire is used** (slice BD; ADR-0022 §3). A household's hearth, lit while
 //!   any of its people is awake at home and banked otherwise, and a fire worked at home (baking,

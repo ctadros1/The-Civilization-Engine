@@ -627,3 +627,314 @@ fn a_keeper_drawn_by_lot_keeps_for_a_term_and_cannot_be_drawn_again_at_once() {
     assert_eq!((l.status, l.holder), (LawStatus::Lapsed, None));
     saves_and_goes_on_alike(&mut sim, content(), DAY);
 }
+
+/// A stub model (ADR-0039 §3): answers each request with `pick` of its moves, and counts them.
+struct Stub {
+    pick: fn(usize) -> civ_agents::deliberation::ModelAnswer,
+    asked: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+}
+
+impl civ_agents::deliberation::ModelProvider for Stub {
+    fn fingerprint(&self) -> civ_agents::deliberation::ProviderFingerprint {
+        civ_agents::deliberation::ProviderFingerprint {
+            kind: "stub".into(),
+            model: "test".into(),
+        }
+    }
+    fn answer(
+        &mut self,
+        request: &civ_agents::deliberation::DeliberationRequest,
+    ) -> civ_agents::deliberation::ModelAnswer {
+        self.asked
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        (self.pick)(request.moves.len())
+    }
+}
+
+/// Every law proposed: polity, sponsor, day, template.
+fn proposals(sim: &Sim) -> Vec<(usize, u64, i64, u16)> {
+    sim.people()
+        .polities
+        .iter()
+        .enumerate()
+        .flat_map(|(i, p)| {
+            p.laws
+                .iter()
+                .map(move |l| (i, l.sponsor.get(), l.proposed.day_index(), l.policy))
+        })
+        .collect()
+}
+
+/// Each law's "because" in the government panel's words.
+fn issues(sim: &Sim) -> Vec<String> {
+    let payload = civ_sim::frames::government::government_response(sim);
+    let info = civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&payload)
+        .expect("a response")
+        .body_as_government()
+        .expect("the government");
+    info.polities()
+        .expect("polities")
+        .iter()
+        .flat_map(|p| p.laws().expect("laws").iter())
+        .map(|l| l.issue().unwrap_or_default().to_owned())
+        .collect()
+}
+
+fn sections(sim: &Sim) -> Vec<(String, Vec<u8>)> {
+    persist::encode_sections(sim)
+        .into_iter()
+        .map(|s| (s.tag.to_string(), s.bytes))
+        .collect()
+}
+
+#[test]
+fn a_model_chooses_among_the_moves_and_a_recorded_world_relives_its_choices() {
+    use civ_agents::deliberation::{ChosenBy, DeliberationMode, ModelAnswer};
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    // A lean village about to weigh moves, saved.
+    let mut sure = content().clone();
+    sure.people.params.polity.temperature = 0.05;
+    let mut sim = world_with(&sure, 3);
+    sim.advance_minutes(95 * DAY).expect("advances");
+    empty_food(&mut sim);
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let start = persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "lean")
+        .expect("saves")
+        .path;
+    let days = 21;
+    let live = |mode: Option<DeliberationMode>| {
+        let mut s = persist::load(&start, &sure).expect("loads");
+        assert!(
+            matches!(s.deliberation(), DeliberationMode::Rule),
+            "a loaded world is rule-only"
+        );
+        if let Some(m) = mode {
+            s.set_deliberation(m);
+        }
+        s.advance_minutes(days * DAY).expect("advances");
+        s
+    };
+    let stub = |pick: fn(usize) -> ModelAnswer| {
+        let asked = Arc::new(AtomicUsize::new(0));
+        let mode = DeliberationMode::Model(Box::new(Stub {
+            pick,
+            asked: Arc::clone(&asked),
+        }));
+        (mode, asked)
+    };
+    // Rules alone.
+    let rule = live(None);
+    assert!(
+        !proposals(&rule).is_empty(),
+        "a lean village proposes within three weeks"
+    );
+    assert!(rule.saved_answers().answers.is_empty());
+    assert!(issues(&rule).iter().all(|w| !w.contains("chose by")));
+
+    // A model that never answers, or names no listed move: rules choose on the same draws, and
+    // every section but the kept moves rules made is the rule-only world's.
+    for pick in [
+        (|_| ModelAnswer::Unanswered) as fn(usize) -> ModelAnswer,
+        |n| ModelAnswer::Move(n),
+        |_| ModelAnswer::Refused,
+    ] {
+        let (mode, asked) = stub(pick);
+        let mut fallen = live(Some(mode));
+        assert!(asked.load(Ordering::Relaxed) > 0, "the model was asked");
+        assert_eq!(proposals(&fallen), proposals(&rule));
+        let saved = fallen.saved_answers().clone();
+        assert!(!saved.answers.is_empty(), "the moves rules made are kept");
+        for (_, sponsor, day, _) in proposals(&fallen) {
+            let by = saved.chosen_by(civ_core::PermanentId::from_raw(sponsor).expect("id"), day);
+            assert_eq!(by, Some(ChosenBy::RuleFallback));
+        }
+        let said = issues(&fallen);
+        assert!(
+            said.iter()
+                .all(|w| w.ends_with("; chose by rule (the model did not answer)")),
+            "{said:?}"
+        );
+        fallen.people_mut_for_tests().deliberation.answers = Default::default();
+        assert!(sections(&fallen) == sections(&rule), "{:?}", pick(1));
+    }
+
+    // A model that makes the last move offered: it makes it, and the receipt says so.
+    let (mode, asked) = stub(|n| ModelAnswer::Move(n - 1));
+    let mut chosen = live(Some(mode));
+    assert!(asked.load(Ordering::Relaxed) > 0);
+    let saved = chosen.saved_answers().clone();
+    assert!(
+        saved
+            .answers
+            .iter()
+            .all(|a| a.by == ChosenBy::Model && a.chosen.is_some()),
+        "every answer accepted"
+    );
+    let made = proposals(&chosen);
+    assert!(!made.is_empty());
+    for (_, sponsor, day, _) in &made {
+        let by = saved.chosen_by(civ_core::PermanentId::from_raw(*sponsor).expect("id"), *day);
+        assert_eq!(by, Some(ChosenBy::Model));
+    }
+    let said = issues(&chosen);
+    assert!(
+        said.iter().all(|w| w.ends_with("; chose by the model")),
+        "{said:?}"
+    );
+    assert_eq!(saved.providers.len(), 1);
+    assert_eq!(saved.providers[0].kind, "stub");
+
+    // Saved and loaded, the answers are kept exactly; and the start, loaded and replaying them
+    // without the model, lives the same weeks to the same bytes.
+    let end = persist::save(
+        &mut chosen,
+        &saves,
+        commons_persist::SaveKind::Manual,
+        "model",
+    )
+    .expect("saves")
+    .path;
+    let loaded = persist::load(&end, &sure).expect("loads");
+    assert_eq!(loaded.saved_answers(), &saved);
+    assert!(sections(&loaded) == sections(&chosen), "saved exactly");
+    let replayed = live(Some(DeliberationMode::Recorded(saved.clone())));
+    assert_eq!(proposals(&replayed), made);
+    assert!(
+        sections(&replayed) == sections(&chosen),
+        "replay relives it"
+    );
+
+    // A model that makes none: nothing is proposed by those it answered.
+    let (mode, _) = stub(|_| ModelAnswer::None);
+    let none = live(Some(mode));
+    assert!(
+        none.saved_answers()
+            .answers
+            .iter()
+            .all(|a| a.chosen.is_none())
+    );
+    assert!(proposals(&none).is_empty(), "nobody proposes");
+}
+
+/// A watch kept by turns, drawn by lot (backlog D; research 12-04 §1.3: a rotating household
+/// watch; 09-14 §2.2: a rotating office's term is three to twelve months): passed, a lot draws the
+/// watcher from those who stood for it, less anyone keeping a watch already, for a season; it
+/// lapses at the season's end, told as their term ending. All of it saves and loads.
+#[test]
+fn a_watch_kept_by_turns_is_drawn_by_lot_for_a_season() {
+    use civ_agents::polity::{IssueKind, StanceRecord};
+    let mut sim = world_with(content(), 3);
+    sim.advance_minutes(DAY).expect("advances");
+    let now = sim.now();
+    let policies = sim.rules().catalog.policies.clone();
+    let at = |id: &str| policies.iter().position(|p| p.id == id).expect("in core") as u16;
+    let (turns, plain) = (
+        at("core:policy/zestfully_take_the_watch_by_turns"),
+        at("core:policy/keep_watch"),
+    );
+    let tenure = policies[usize::from(turns)].tenure.expect("held by turns");
+    let adult = sim.rules().people.family.independent_age;
+    let pop = sim.people();
+    let mut adults: Vec<(civ_core::PermanentId, civ_core::PermanentId)> = pop
+        .people
+        .iter()
+        .map(|(_, p)| p)
+        .filter(|p| p.age_years(now) >= adult)
+        .map(|p| (p.id, p.household))
+        .collect();
+    adults.sort_unstable();
+    assert!(adults.len() >= 4);
+    let next = sim.ids().peek_next();
+    let law = |id: u64, policy: u16, holder, stances: Vec<StanceRecord>| Law {
+        id: civ_core::PermanentId::from_raw(next + 1_000_000 + id).expect("non-zero"),
+        policy,
+        kind: PolicyKind::KeepWatch,
+        levy_share: 0.0,
+        holder,
+        relief_days: 0.0,
+        sanction: Default::default(),
+        hours: (0, 0),
+        status: LawStatus::InForce,
+        sponsor: adults[0].0,
+        proposed: now,
+        issue: IssueKind::Takings,
+        meets_day: now.day_index(),
+        decided: Some(now),
+        outcome: Some(Outcome::Passed),
+        eligible: adults.len() as u32,
+        stances,
+        known: Vec::new(),
+        compliance: Default::default(),
+        watch: Default::default(),
+        body: None,
+        ends: None,
+        agreement: None,
+        target: None,
+    };
+    // The first adult keeps the plain watch already; three stood for the watch by turns, they
+    // among them: whatever the key, the lot draws one of the other two.
+    let stances: Vec<StanceRecord> = adults[..3]
+        .iter()
+        .map(|&(person, household)| StanceRecord {
+            person,
+            household,
+            stance: Stance::Support,
+            gain: 0.0,
+            regard: 0.0,
+            opinion: 0.0,
+            values: 0.0,
+            view: 0.0,
+            owed: 0.0,
+        })
+        .collect();
+    let first = law(0, turns, None, stances);
+    let first_id = first.id;
+    {
+        let p = &mut sim.people_mut_for_tests().polities[0];
+        p.laws.push(law(1, plain, Some(adults[0].0), Vec::new()));
+        p.laws.push(first);
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.fill_term_for_tests(ctx, 0, first_id));
+    let p = &sim.people().polities[0];
+    let watcher = p
+        .laws
+        .iter()
+        .find(|l| l.id == first_id)
+        .and_then(|l| l.holder)
+        .expect("the lot drew a watcher");
+    assert!(
+        adults[1..3].iter().any(|a| a.0 == watcher),
+        "drawn from those who stood for it, not one keeping a watch already"
+    );
+    let term = p.term_of(first_id).expect("held for a term");
+    assert_eq!((term.pool, tenure.term_days), (2, 90));
+    assert_eq!(term.until, now.day_index() + 90);
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|e| e.kind == ChronicleKind::LotDrawn
+                && e.people == vec![watcher]
+                && e.name.contains("for the office of watch by turns")),
+        "the chronicle tells the lot"
+    );
+    saves_and_goes_on_alike(&mut sim, content(), DAY);
+    // Past its season, the office lapses: their term ended.
+    sim.advance_minutes(91 * DAY).expect("advances");
+    let p = &sim.people().polities[0];
+    let ended = p.laws.iter().find(|l| l.id == first_id).expect("kept");
+    assert_eq!(ended.status, LawStatus::Lapsed);
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|e| e.kind == ChronicleKind::LawLapsed
+                && e.people == vec![watcher]
+                && e.name.contains("no longer keeps watch")
+                && e.name.ends_with("their term ended.")),
+        "the chronicle tells the term's end"
+    );
+}

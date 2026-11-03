@@ -906,7 +906,8 @@ impl Population {
                     .get(&household)
                     .and_then(|&hd| self.households.get_mut(hd))
                 {
-                    (x.sheltered, x.keeping) = shelter_of(ctx.land, catalog, params, household);
+                    (x.sheltered, x.keeping) =
+                        shelter_with(&self.letting.lets, ctx.land, catalog, params, household);
                 }
                 self.polities[pi].encroachments[ei].order = Some(PlanOrder::Removed { day });
                 self.grieve_taken_down(ctx, pi, law, household, work_days);

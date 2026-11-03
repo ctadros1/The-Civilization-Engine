@@ -1,0 +1,14 @@
+# Ash: what a works' fuel leaves burned (ADR-0038 §2; research 12-10 §1.1, §2.1: coal leaves about
+# 11 % ash, wood well under 1 %). Inert, it does not rot and keeps. Nobody wants it unless a recipe
+# takes it; it lies in the store of whoever burned the fuel. A household's hearth puts its ash on
+# its heap instead.
+kind = "good"
+id = "core:good/ash"
+name = "Ash"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

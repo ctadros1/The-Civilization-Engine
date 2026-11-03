@@ -172,7 +172,8 @@ pub struct GroupCondition {
     /// The group's semantic id in its building's expansion (`civ_grammar::Group::id`).
     pub group: u32,
     /// Its quality: how well its members were fitted, as a share of what sound members of its
-    /// sizes carry, drawn once from its builders' skill (ADR-0009 §6).
+    /// sizes carry, drawn once from its builders' skill (ADR-0009 §6). Bare steel keeps only a
+    /// share of it once its building has burnt out (ADR-0037 §5).
     pub quality: f32,
     /// Its loss: the share of its members' effective section lost, or of a covering worn.
     pub loss: f32,

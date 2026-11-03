@@ -1,0 +1,20 @@
+# A reinforced-concrete frame: columns, beams and floors cast storey by storey in forms, with bar
+# where they are in tension, so the frame carries the floors and the walls are only infill between
+# its columns (research 11-14 §1.1-1.2; ADR-0037's amendment of 2026-11-01). Found by those who
+# frame buildings, make cement and know how bar is rolled, with concrete and bar at home: a far
+# technique (a design prior). Learnt in 200 hours beside a knower, and at home by children who
+# build (a design prior). Founders do not bring it.
+kind = "technique"
+id = "core:technique/reinforced_concrete"
+name = "A reinforced-concrete frame"
+can = "cast a building's columns, beams and floors of concrete with bar, its walls infill between them"
+domain = "core:skill/building"
+requires = [["core:technique/portland_cement", "core:technique/rolling", "core:technique/jointed_frame"]]
+tried_in = ["core:activity/build_hut"]
+needs = ["core:good/concrete", "core:good/reinforcing_bar"]
+e50_h = 400000.0
+learn_h = 200.0
+upbringing = true
+
+[answers]
+spoilage = []

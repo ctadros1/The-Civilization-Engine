@@ -1,0 +1,25 @@
+# A hearer named for a year (backlog D; research 09-02 §5.1: tenure is a term, or life subject to
+# removal; 09-14 §2.2: a rotating office's term is three to twelve months). As `name_a_hearer`,
+# but the office lapses at the year's end, when cases go to the gathering again until a gathering
+# names a hearer afresh, who may be the same one. Whether anyone proposes a hearer for a year,
+# whom, and whether the gathering agrees, is people's. Its id sorts after every older template's.
+kind = "policy"
+id = "core:policy/zestfully_name_a_hearer_for_a_year"
+name = "Hearer for a year"
+description = "The one the gathering names hears the cases brought under the laws against taking and raiding, alone, for a year, and may be named again."
+does = "hear_cases"
+answers = ["cases_waiting"]
+question = "whether one named should hear the cases brought, a year at a time"
+
+[forum]
+seat = "holder"
+hears = ["against_taking", "against_raiding"]
+authority = "informative"
+
+[tenure]
+term_days = 360
+
+# An authoring judgement, not a measurement.
+[bears]
+"core:value/security" = 0.5
+"core:value/autonomy" = -0.5

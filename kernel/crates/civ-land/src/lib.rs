@@ -37,6 +37,7 @@ pub mod pits;
 pub mod plans;
 pub mod power;
 pub mod rail;
+pub mod sewers;
 pub mod soil;
 pub mod trains;
 pub mod water;
@@ -216,6 +217,23 @@ impl ResourceParams {
             days.clamp(1.0, 10.0 * DAYS_PER_YEAR as f64)
         } else {
             10.0 * DAYS_PER_YEAR as f64
+        }
+    }
+
+    /// Whether what is taken of the resource grows back: not for a stock laid down once (stone,
+    /// ore), which only falls.
+    pub fn renews(&self) -> bool {
+        !matches!(self.growth, Growth::Deposit { .. })
+    }
+
+    /// Days over which what gatherers saw of a place fades back to what they would expect of
+    /// land of its kind: the renewal time for a stock that renews, and never for one that only
+    /// falls, whose last sight stands until it is seen again (ADR-0043 §1).
+    pub fn memory_days(&self) -> f64 {
+        if self.renews() {
+            self.renewal_days()
+        } else {
+            f64::INFINITY
         }
     }
 }
@@ -1526,39 +1544,72 @@ impl Land {
 
     /// What `hours` of a capable adult's work around each patch would gather of resource `r` if
     /// the land were at its equilibrium on `day`, units, by patch: what people expect of land they
-    /// have not worked. The stock of the block a trip ranges over is pooled and drawn down as the
-    /// work goes on, so a block with little of the resource promises little however rich it is
-    /// per hectare (a few cells of river hold few fish).
+    /// have not worked. It is what the harvest would take there ([`Land::gather_around`]): the
+    /// richest patch of the block a trip ranges over at each step, at that patch's own density,
+    /// drawn down as the work goes on. A block with little of the resource promises little however
+    /// rich it is per hectare (a few cells of river hold few fish), and one rich patch among bare
+    /// ones promises what working it gives (M11d, thirteenth part: the block's stock pooled over
+    /// all its ground, bare patches too, promised a third of that for bog ore in a single wet
+    /// patch).
     pub fn typical_yields(&self, params: &LandParams, r: usize, hours: f64, day: i64) -> Vec<f32> {
-        const STEPS: u32 = 12;
+        let mut kept = KeptYields::default();
+        self.typical_yields_kept(params, r, hours, day, &mut kept);
+        kept.yields
+    }
+
+    /// [`Land::typical_yields`], kept in `kept`: where the stocks and densities every patch is
+    /// expected at are, bit for bit, those it was last worked out from for the same resource and
+    /// hours, what it gave then (the harvest is a function of them alone). A stock that does not
+    /// grow with the seasons (game, fish, stone, ore) is expected at the same level every day.
+    pub fn typical_yields_kept<'a>(
+        &self,
+        params: &LandParams,
+        r: usize,
+        hours: f64,
+        day: i64,
+        kept: &'a mut KeptYields,
+    ) -> &'a [f32] {
         let res = &params.resources[r];
         let n = self.patches.len();
         let standing = self.standing(params, r, day);
         let stock: Vec<f64> = (0..n)
             .map(|p| self.equilibrium_at(params, r, p, standing))
             .collect();
-        let area: Vec<f64> = (0..n).map(|p| self.patches.resource_ha(res, p)).collect();
-        let dt = hours.max(0.0) / f64::from(STEPS);
-        (0..n)
+        let half: Vec<f64> = (0..n)
+            .map(|p| res.half_rate_stock_per_ha * self.patches.resource_ha(res, p))
+            .collect();
+        let key = (
+            r,
+            hours.to_bits(),
+            res.max_rate_per_hour.to_bits(),
+            res.range_patches,
+            (self.patches.cols, self.patches.rows),
+        );
+        let same = |a: &[f64], b: &[f64]| {
+            a.len() == b.len() && a.iter().zip(b).all(|(x, y)| x.to_bits() == y.to_bits())
+        };
+        if kept.key == Some(key) && same(&kept.stock, &stock) && same(&kept.half, &half) {
+            return &kept.yields;
+        }
+        let mut block: Vec<(f64, f64)> = Vec::new();
+        let yields = (0..n)
             .map(|p| {
-                let (mut s, mut a) = (0.0, 0.0);
-                for q in self.block(p, res.range_patches) {
-                    s += stock[q];
-                    a += area[q];
-                }
-                let half = res.half_rate_stock_per_ha * a;
-                if s <= 0.0 || half <= 0.0 {
-                    return 0.0;
-                }
-                let mut total = 0.0;
-                for _ in 0..STEPS {
-                    let take = (res.max_rate_per_hour * s / (s + half) * dt).min(s);
-                    s -= take;
-                    total += take;
-                }
-                total as f32
+                block.clear();
+                block.extend(
+                    self.block(p, res.range_patches)
+                        .map(|q| (stock[q], half[q]))
+                        .filter(|&(s, _)| s > 0.0),
+                );
+                harvest_steps(&mut block, res.max_rate_per_hour, 1.0, hours) as f32
             })
-            .collect()
+            .collect();
+        *kept = KeptYields {
+            key: Some(key),
+            stock,
+            half,
+            yields,
+        };
+        &kept.yields
     }
 
     /// Lives every day up to and including `day`: each day's weather (snow, the soil under the
@@ -1613,6 +1664,13 @@ impl Land {
                     f.soil.turn(&params.soil, f64::from(f.ground), year);
                     f.regrow(params.soil.regrown_years, year);
                 }
+                // A way's cleared margin left unkept grows over with the same wild cover (backlog
+                // D, fourteenth item).
+                self.ways.regrow(
+                    params.soil.regrown_years,
+                    year,
+                    carting::TRAIL_TREAD_M as f32,
+                );
             }
             let month_start = MONTH_STARTS[..12].contains(&day_of_year(d));
             for (r, res) in params.resources.iter().enumerate() {
@@ -1915,6 +1973,30 @@ impl Land {
         total
     }
 
+    /// What `hours` more of one person's gathering of resource `r` around patch `p` at
+    /// `efficiency` would take now, as [`Land::gather_around`] would take it, without taking
+    /// anything: what a gatherer sees is left of a place as they leave it (ADR-0043 §1).
+    pub fn yield_around(
+        &self,
+        params: &LandParams,
+        r: usize,
+        p: usize,
+        hours: f64,
+        efficiency: f64,
+    ) -> f64 {
+        let res = &params.resources[r];
+        let mut block: Vec<(f64, f64)> = self
+            .block(p, res.range_patches)
+            .map(|q| {
+                (
+                    f64::from(self.stocks[r][q]).max(0.0),
+                    res.half_rate_stock_per_ha * self.patches.resource_ha(res, q),
+                )
+            })
+            .collect();
+        harvest_steps(&mut block, res.max_rate_per_hour, efficiency, hours)
+    }
+
     /// Takes `hours` of one person's gathering of resource `r` from patch `p`, scaled by
     /// `efficiency` (skill and capacity, 1 = a capable adult). Returns what was gathered. The
     /// rate falls as the stock falls, integrated in small steps.
@@ -1937,6 +2019,44 @@ impl Land {
         }
         total
     }
+}
+
+/// What `hours` of one person's gathering at `efficiency` would take from a block whose patches
+/// hold `block` (stock, units; the stock at which the rate is half `max_rate`, units), as
+/// [`Land::gather_around`] takes it: at each of a dozen small steps the richest patch, at the rate
+/// its own stock gives. The stocks are drawn down as it goes.
+fn harvest_steps(block: &mut [(f64, f64)], max_rate: f64, efficiency: f64, hours: f64) -> f64 {
+    const STEPS: u32 = 12;
+    let dt = hours.max(0.0) / f64::from(STEPS);
+    let mut total = 0.0;
+    for _ in 0..STEPS {
+        let Some(best) = block.iter_mut().max_by(|a, b| a.0.total_cmp(&b.0)) else {
+            break;
+        };
+        let (s, half) = *best;
+        if s <= 0.0 || half <= 0.0 {
+            break;
+        }
+        let take = (max_rate * s / (s + half) * efficiency * dt).min(s);
+        best.0 -= take;
+        total += take;
+    }
+    total
+}
+
+/// What kept expected yields are keyed on: the resource, the hours' bits, its rate's bits, its
+/// range and the patch grid.
+type YieldKey = (usize, u64, u64, u32, (u32, u32));
+
+/// What [`Land::typical_yields_kept`] last worked out for one resource and length of work, with
+/// the stocks and densities by patch it was worked out from. Derived, never saved.
+#[derive(Clone, Debug, Default)]
+pub struct KeptYields {
+    /// The resource, the hours' bits, its rate's bits, its range and the patch grid.
+    key: Option<YieldKey>,
+    stock: Vec<f64>,
+    half: Vec<f64>,
+    yields: Vec<f32>,
 }
 
 /// A physical storm evaluation, kept apart from historical damage records.
@@ -2253,6 +2373,156 @@ mod tests {
         let rate = p.resources[2].max_rate_per_hour * stock / (stock + half);
         let short = land.typical_yields(&p, 2, 0.01, 400);
         assert!((f64::from(short[0]) - rate * 0.01).abs() < 1e-3 * rate * 0.01);
+    }
+
+    /// M11d, thirteenth part: a block whose ore lies in one patch is expected to give what working
+    /// that patch gives, as the harvest works the richest patch at its own density. Pooling the ore
+    /// over the block's bare ground too promised a third of it in the M11 demo, so a rich patch 45
+    /// minutes out lost to a block 75 minutes out holding more ore, spread thinner.
+    #[test]
+    fn expected_yields_are_what_the_harvest_takes_from_one_rich_patch_among_bare_ones() {
+        let mut p = params();
+        p.resources.push(ResourceParams {
+            id: "ore".into(),
+            name: "Ore".into(),
+            good: 3,
+            unit_kg: 1.0,
+            discrete: false,
+            in_water: false,
+            range_patches: 1,
+            // Only on the flat north-east patch.
+            growth: Growth::Deposit {
+                stock_per_ha: vec![0.0, 3000.0, 0.0],
+            },
+            max_rate_per_hour: 6.0,
+            half_rate_stock_per_ha: 3000.0,
+        });
+        let r = p.resources.len() - 1;
+        let mut land = create(&p, 1, 400);
+        let stock: Vec<f64> = (0..4).map(|q| land.equilibrium(&p, r, q, 400)).collect();
+        assert_eq!(stock.iter().filter(|&&s| s > 0.0).count(), 1, "{stock:?}");
+        for (q, s) in stock.iter().enumerate() {
+            land.stocks[r][q] = *s as f32;
+        }
+        let hours = 3.0;
+        let expected = land.typical_yields(&p, r, hours, 400);
+        let taken = land.gather_around(&p, r, 0, hours, 1.0);
+        assert!(taken > 0.0);
+        for y in &expected {
+            assert!(
+                (f64::from(*y) - taken).abs() < 1e-3 * taken,
+                "expected {y} against {taken} taken"
+            );
+        }
+        // The block's ore over the block's land, as before: well under what is taken.
+        let (s, a): (f64, f64) = (
+            stock.iter().sum(),
+            (0..4)
+                .map(|q| land.patches.resource_ha(&p.resources[r], q))
+                .sum(),
+        );
+        let pooled = 6.0 * s / (s + 3000.0 * a) * hours;
+        assert!(taken > 1.5 * pooled, "{taken} against {pooled} pooled");
+    }
+
+    /// M11d, thirteenth part: on every patch, for every resource, what is expected of land not yet
+    /// worked is what the harvest would take there at equilibrium, its stocks uneven or not.
+    #[test]
+    fn expected_yields_are_what_the_harvest_takes_on_every_patch() {
+        // Plants grow ten times as fast on the flat patches as on the slope: an uneven block.
+        let p = params();
+        let mut land = create(&p, 1, 400);
+        for r in 0..p.resources.len() {
+            for q in 0..land.patches.len() {
+                land.stocks[r][q] = land.equilibrium(&p, r, q, 400) as f32;
+            }
+        }
+        for r in 0..p.resources.len() {
+            for hours in [0.5, 3.0, 40.0] {
+                let expected = land.typical_yields(&p, r, hours, 400);
+                for (q, y) in expected.iter().enumerate() {
+                    let taken = land.clone().gather_around(&p, r, q, hours, 1.0);
+                    assert!(
+                        (f64::from(*y) - taken).abs() <= 1e-4 * taken.max(1.0),
+                        "resource {r}, patch {q}, {hours} h: expected {y} against {taken} taken"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Kept expected yields are those worked out afresh, bit for bit, day after day and resource
+    /// after resource: kept where nothing they are worked out from has changed, worked out again
+    /// where it has (poorer patches).
+    #[test]
+    fn kept_expected_yields_are_those_worked_out_afresh() {
+        let p = params();
+        let mut land = create(&p, 1, 400);
+        let mut kept = KeptYields::default();
+        for day in [400, 400, 401, 450, 600] {
+            for r in 0..p.resources.len() {
+                for hours in [0.5, 3.0] {
+                    let afresh = land.typical_yields(&p, r, hours, day);
+                    let again = land.typical_yields_kept(&p, r, hours, day, &mut kept);
+                    assert_eq!(again, &afresh[..], "resource {r}, day {day}, {hours} h");
+                }
+            }
+        }
+        let r = 0;
+        let before = land
+            .typical_yields_kept(&p, r, 3.0, 600, &mut kept)
+            .to_vec();
+        for rich in &mut land.patches.richness {
+            *rich *= 0.001;
+        }
+        let afresh = land.typical_yields(&p, r, 3.0, 600);
+        assert_ne!(afresh, before);
+        assert_eq!(
+            land.typical_yields_kept(&p, r, 3.0, 600, &mut kept),
+            &afresh[..]
+        );
+    }
+
+    /// ADR-0043 §1: what is left of a place is seen without taking it, as the harvest would then
+    /// take it, and a stock laid down once never renews, so what was seen of it never fades.
+    #[test]
+    fn what_is_left_is_seen_without_taking_it() {
+        let mut p = params();
+        p.resources.push(ResourceParams {
+            id: "ore".into(),
+            name: "Ore".into(),
+            good: 3,
+            unit_kg: 1.0,
+            discrete: false,
+            in_water: false,
+            range_patches: 1,
+            // Only on the flat north-east patch.
+            growth: Growth::Deposit {
+                stock_per_ha: vec![0.0, 3000.0, 0.0],
+            },
+            max_rate_per_hour: 6.0,
+            half_rate_stock_per_ha: 3000.0,
+        });
+        let r = p.resources.len() - 1;
+        let mut land = create(&p, 1, 400);
+        for q in 0..4 {
+            land.stocks[r][q] = land.equilibrium(&p, r, q, 400) as f32;
+        }
+        let hours = 3.0;
+        let taken = land.gather_around(&p, r, 0, hours, 1.0);
+        assert!(taken > 0.0);
+        let stocks = land.stocks[r].clone();
+        let left = land.yield_around(&p, r, 0, hours, 0.5);
+        assert_eq!(land.stocks[r], stocks, "nothing taken");
+        let again = land.gather_around(&p, r, 0, hours, 0.5);
+        assert!(left > 0.0 && left < taken, "{left} left after {taken}");
+        assert!(
+            (left - again).abs() < 1e-3 * again,
+            "{left} against {again}"
+        );
+        assert!(!p.resources[r].renews() && p.resources[0].renews());
+        assert_eq!(p.resources[r].memory_days(), f64::INFINITY);
+        assert_eq!(p.resources[0].memory_days(), p.resources[0].renewal_days());
     }
 
     #[test]

@@ -38,6 +38,9 @@ gate='--people 10000 --groups 10 --size 2048 --known --max --household 10 --days
   echo "rounds: $rounds; gate workload: ${BENCH_GATE:-0}"
 } > "$out/environment.txt"
 
+# A runner keeps its checkout between jobs while the temporary directory is emptied, so worktrees
+# an earlier bench registered may be missing; forget them before adding these.
+git -C "$repo" worktree prune
 for side in base new; do
   rev=$([[ $side == base ]] && echo "$1" || echo "$2")
   sha=$(git -C "$repo" rev-parse --verify "$rev^{commit}")

@@ -1587,9 +1587,11 @@ fn a_household_that_believes_smallpox_near_calls_a_variolator_and_its_people_are
     // the variolator too.
     let mut callers = std::collections::BTreeSet::new();
     // Within the fortnight a call stands, the variolator answering others who called first as
-    // their days allow.
-    for _ in 0..14 * 4 {
-        sim.advance_minutes(DAY / 4).expect("lives");
+    // their days allow. Looked at every ten minutes: a call made and answered within a
+    // quarter-day was missed when this looked four times a day (M11d, ninth part: once fields
+    // kept off outcrops, a household's call came and was answered between two looks).
+    for _ in 0..14 * 24 * 6 {
+        sim.advance_minutes(10).expect("lives");
         callers.extend(
             sim.people()
                 .sickness

@@ -1,0 +1,20 @@
+# Settling sewage (ADR-0041 §4; research 12-10 §1.7, §5.8): letting a sewer's flow stand in tanks
+# at its outfall so that the solids sink as sludge before the effluent goes on to the river
+# (primary settling removes at least half the suspended solids, Directive 91/271/EEC). It needs a
+# builder of brick tanks laid in lime: burning lime or firing brick. A far technique of its age: no
+# work tries toward it yet, so only the observer brings it; whether a sewer's keeper holds a tank is
+# its own affair.
+kind = "technique"
+id = "core:technique/settling"
+name = "Settling sewage"
+can = "settle a sewer's solids as sludge in tanks before its water goes to the river"
+domain = "core:skill/pottery"
+requires = [["core:technique/lime_burning"], ["core:technique/firing"]]
+tried_in = []
+needs = []
+e50_h = 600000.0                 # unused while no work tries toward it
+learn_h = 300.0
+upbringing = true
+
+[answers]
+spoilage = []

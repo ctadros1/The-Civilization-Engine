@@ -84,7 +84,15 @@ fn law_line<'a>(
         .and_then(|k| sim.rules.catalog.ideologies.get(usize::from(k)))
         .map(|d| format!(", as one who holds to {}", d.name))
         .unwrap_or_default();
-    let issue = fbb.create_string(&format!("{}{creed}", law.issue.words()));
+    // Who chose to propose it, where a model was asked (ADR-0039 §4).
+    let by = pop
+        .deliberation
+        .answers
+        .chosen_by(law.sponsor, law.proposed.day_index())
+        .and_then(|b| b.words())
+        .map(|w| format!("; {w}"))
+        .unwrap_or_default();
+    let issue = fbb.create_string(&format!("{}{creed}{by}", law.issue.words()));
     // Under the body that decided it, which an amendment since may have changed.
     let body = law.decided.map_or(&polity.body, |t| polity.body_at(t));
     let decision = decision_words(law, body).map(|w| fbb.create_string(&w));
@@ -1650,7 +1658,9 @@ fn protected_price_words(
 /// A polity's services, in words (M10c slice EE, fourth part), for its offices: "Register of the
 /// sick: 3 households entered sick within the spell, 1 death of disease within the year, 6 homes
 /// seen on rounds"; "Sickhouse: 2 of 12 beds taken; 1 tended there today"; and for the sick kept
-/// apart and the middens cleared, how often their laws were broken.
+/// apart, the middens cleared and refuse carried to a tip, how often their laws were broken; and
+/// its tips, where each lies and what it holds (ADR-0038 §3): "The tip 50 m north of the hearth
+/// holds 3.2 t, 0.4 t of it ash, from 14 households"; and its sewers ([`sewer_words`]).
 pub fn services_words(sim: &Sim, polity: &civ_agents::polity::Polity) -> Vec<String> {
     use civ_agents::polity::{LawStatus, PolicyKind};
     let pop = sim.people();
@@ -1725,6 +1735,7 @@ pub fn services_words(sim: &Sim, polity: &civ_agents::polity::Polity) -> Vec<Str
         let what = match l.kind {
             PolicyKind::KeepApart => "Keeping the sick apart",
             PolicyKind::ClearMiddens => "Middens from the water",
+            PolicyKind::RefuseToTip => "Refuse to the tip",
             _ => continue,
         };
         out.push(format!(
@@ -1732,5 +1743,326 @@ pub fn services_words(sim: &Sim, polity: &civ_agents::polity::Polity) -> Vec<Str
             l.compliance.broken, l.compliance.broken_unaware
         ));
     }
+    // Its tips and what lies in them (M11f, second part; ADR-0038 §3).
+    for t in &polity.tips {
+        let n = t.households.len();
+        let tonnes = |kg: f64| {
+            if kg < 1000.0 {
+                format!("{kg:.0} kg")
+            } else {
+                format!("{:.1} t", kg / 1000.0)
+            }
+        };
+        // What was thrown away whole, by good (ADR-0044 §1): "and 3 kg of scrap iron".
+        let goods = &sim.rules().catalog.goods;
+        let whole: Vec<String> = t
+            .discards
+            .iter()
+            .map(|&(g, kg)| {
+                let name = goods
+                    .get(usize::from(g))
+                    .map_or_else(|| "something".to_owned(), |d| d.name.to_lowercase());
+                format!("{} of {name}", tonnes(kg))
+            })
+            .collect();
+        let whole = if whole.is_empty() {
+            String::new()
+        } else {
+            format!(" and {}", whole.join(", "))
+        };
+        let discarded: f64 = t.discards.iter().map(|&(_, kg)| kg).sum();
+        out.push(format!(
+            "{} holds {}, {} of it ash{whole}, from {} household{}",
+            super::markets::capitalized(&tip_words(sim, polity, t)),
+            tonnes(t.kg + t.ash_kg + discarded),
+            tonnes(t.ash_kg),
+            n,
+            if n == 1 { "" } else { "s" }
+        ));
+    }
+    // Its refuse rounds (M11f, third part; ADR-0038 §4).
+    for r in &polity.rounds {
+        out.push(round_words(sim, polity, r));
+    }
+    // The destructors that draw from its tip (M11f, fourth part; ADR-0038 §5).
+    out.extend(destructor_words(sim, polity));
+    // Its sewers (ADR-0041 §5).
+    for w in &polity.sewers {
+        out.push(sewer_words(sim, polity, w));
+    }
     out
+}
+
+/// A sewer in words (ADR-0041 §5): "A sewer of 420 m from 60 m north of the hearth to the river
+/// 300 m south of the hearth; 18 homes joined; 140 kg a day to the river", with what its tank
+/// settles, what its farm takes onto whose field (ADR-0044 §4: "25 kg spread on a field of Bo's
+/// household as a farm"), how many it could not take, and while it is laid, how much of it is.
+/// Its wear and mending (ADR-0044 §5): where it is broken and how many homes back up above the
+/// break, how many back up for its silt, the silt it holds, its most worn stretch, the days this
+/// year its homes went unserved by cause, and the mending its polity asked.
+pub fn sewer_words(
+    sim: &Sim,
+    polity: &civ_agents::polity::Polity,
+    sewer: &civ_agents::polity::Sewer,
+) -> String {
+    use civ_agents::polity::SewerCause;
+    let map = &sim.map;
+    let size = map.cell_size_m;
+    let centre = |cell: u32| {
+        let w = map.width.max(1);
+        (
+            ((cell % w) as f32 + 0.5) * size,
+            ((cell / w) as f32 + 0.5) * size,
+        )
+    };
+    let hearth = sim
+        .land
+        .settlements
+        .iter()
+        .find(|s| s.id == polity.settlement)
+        .map(|s| s.hearth_m);
+    let place = |cell: Option<&u32>| match (hearth, cell) {
+        (Some(h), Some(&c)) => match super::people::bearing(h, centre(c)).as_str() {
+            "here" => "by the hearth".to_owned(),
+            b => format!("{b} of the hearth"),
+        },
+        _ => "somewhere".to_owned(),
+    };
+    let head = place(sewer.cells.first());
+    let outfall = place(sewer.cells.last());
+    let mut words = format!(
+        "A sewer of {:.0} m from {head} to the river {outfall}",
+        sewer.length_m
+    );
+    if !sewer.whole() {
+        words.push_str(&format!("; {:.0} m of it laid", sewer.laid_m));
+        return words;
+    }
+    let today_backed = |cause: SewerCause| {
+        sewer
+            .connections
+            .iter()
+            .filter(|c| c.day == sewer.day && c.cause == cause)
+            .count()
+    };
+    if let Some(b) = sewer.broken {
+        words.push_str(&format!(
+            "; broken {}",
+            place(sewer.cells.get(b as usize)).replace("by the hearth", "at the hearth")
+        ));
+        let above = today_backed(SewerCause::Broken);
+        if above > 0 {
+            words.push_str(&format!(
+                ", {above} home{} above it backing up",
+                if above == 1 { "" } else { "s" }
+            ));
+        }
+    }
+    let n = sewer.connections.len();
+    words.push_str(&format!(
+        "; {n} home{} joined",
+        if n == 1 { "" } else { "s" }
+    ));
+    let today = |c: &&civ_agents::polity::SewerConnection| c.day == sewer.day;
+    let full = sewer
+        .connections
+        .iter()
+        .filter(today)
+        .filter(|c| c.cause == SewerCause::Overloaded)
+        .count();
+    if full > 0 {
+        words.push_str(&format!(", {full} it could not take"));
+    }
+    let silted = today_backed(SewerCause::Blocked);
+    if silted > 0 {
+        words.push_str(&format!(", {silted} backing up for its silt"));
+    }
+    if sewer.deposit_kg >= 0.5 {
+        words.push_str(&format!("; {} of silt in it", tonnes(sewer.deposit_kg)));
+    }
+    if let Some((i, loss)) = sewer.worst().filter(|w| w.1 > 0.0) {
+        let pct = f64::from(loss) * 100.0;
+        words.push_str(&format!(
+            "; its most worn stretch, {}, {} worn through",
+            place(sewer.cells.get(i)),
+            if pct < 1.0 {
+                "less than 1 %".to_owned()
+            } else {
+                format!("{pct:.0} %")
+            }
+        ));
+    }
+    // Days unserved this year, home by home, by cause.
+    let year = sewer.day.div_euclid(civ_core::time::DAYS_PER_YEAR);
+    let mut days = [0u32; 3];
+    for c in sewer
+        .connections
+        .iter()
+        .filter(|c| c.day >= 0 && c.day.div_euclid(civ_core::time::DAYS_PER_YEAR) == year)
+    {
+        for (d, &u) in days.iter_mut().zip(&c.unserved) {
+            *d += u32::from(u);
+        }
+    }
+    let unserved: Vec<String> = [
+        (days[0], "for want of room"),
+        (days[1], "for its break"),
+        (days[2], "for its silt"),
+    ]
+    .iter()
+    .filter(|(d, _)| *d > 0)
+    .map(|(d, why)| format!("{d} day{} {why}", if *d == 1 { "" } else { "s" }))
+    .collect();
+    if !unserved.is_empty() {
+        words.push_str(&format!(
+            "; this year its homes went unserved {}",
+            unserved.join(", ")
+        ));
+    }
+    if sewer.reline {
+        words.push_str("; the polity asks its break relined");
+    }
+    if sewer.clear_kg > 0.0 {
+        words.push_str(&format!(
+            "; the polity asks {} of its silt cleared",
+            tonnes(sewer.clear_kg)
+        ));
+    }
+    if sewer.day >= 0 {
+        words.push_str(&format!(
+            "; {} a day to the river",
+            tonnes(
+                (sewer.entered_kg - sewer.deposited_kg - sewer.settled_kg - sewer.farm_kg).max(0.0)
+            )
+        ));
+        if sewer.settled_kg > 0.0 {
+            words.push_str(&format!(", {} settled as sludge", tonnes(sewer.settled_kg)));
+        }
+        // Its farm (ADR-0044 §4), by whose field it is.
+        if let Some(field) = sewer.farm {
+            let whose = sim.land.fields.iter().find(|f| f.id == field).map_or_else(
+                || "a field".to_owned(),
+                |f| {
+                    format!(
+                        "a field of {}",
+                        super::people::household_name(sim, f.household)
+                    )
+                },
+            );
+            words.push_str(&format!(
+                ", {} spread on {whose} as a farm",
+                tonnes(sewer.farm_kg)
+            ));
+        }
+    }
+    words
+}
+
+/// The destructors drawing refuse from polity `polity`'s open tip, in words (ADR-0038 §5): "Wren's
+/// household's refuse destructor, 6 kW, burns refuse drawn from the tip north of the hearth, up
+/// to 447 kg an evening".
+fn destructor_words(sim: &Sim, polity: &civ_agents::polity::Polity) -> Vec<String> {
+    let goods = &sim.rules.catalog.goods;
+    let Some(refuse) = goods
+        .iter()
+        .position(|d| d.id == civ_agents::population::REFUSE)
+    else {
+        return Vec::new();
+    };
+    let engines: Vec<(usize, f64)> = (0..goods.len())
+        .filter_map(|g| {
+            let (f, kg) = civ_agents::population::engine_evening_kg(goods, g)?;
+            (f == refuse).then_some((g, kg))
+        })
+        .collect();
+    let mut out = Vec::new();
+    for (_, x) in sim.people.households.iter() {
+        let Some((pi, ti)) = sim.people.refuse_tip_of(x.id) else {
+            continue;
+        };
+        let Some(p) = sim.people.polities.get(pi).filter(|p| p.id == polity.id) else {
+            continue;
+        };
+        for &(g, kg) in &engines {
+            let n = x.stores.get(g).copied().unwrap_or(0.0).floor().max(0.0);
+            if n < 1.0 {
+                continue;
+            }
+            let rated = goods[g].power.map_or(0.0, |w| w.rated_kw) * n;
+            let name = goods[g].name.to_lowercase();
+            out.push(format!(
+                "{}'s {}, {rated:.0} kW, burns refuse drawn from {}, up to {:.0} kg an evening",
+                super::markets::capitalized(&super::people::household_name(sim, x.id)),
+                if n > 1.0 {
+                    format!("{n:.0} {name}s")
+                } else {
+                    name
+                },
+                tip_words(sim, p, &p.tips[ti]),
+                kg * n,
+            ));
+        }
+    }
+    out
+}
+
+/// Kilograms in words: "40 kg" below a tonne, "3.1 t" from one.
+fn tonnes(kg: f64) -> String {
+    if kg < 1000.0 {
+        format!("{kg:.0} kg")
+    } else {
+        format!("{:.1} t", kg / 1000.0)
+    }
+}
+
+/// A refuse round in words (M11f, third part; ADR-0038 §4): "Ada's refuse round calls at 12 homes
+/// every 7 days and carries to the tip north of the hearth; 3.1 t carried this year; 40 kcal a
+/// call", or under a law, "The polity's refuse round, worked by Ada's household, ...; paid from
+/// the store".
+pub fn round_words(
+    sim: &Sim,
+    polity: &civ_agents::polity::Polity,
+    round: &civ_agents::polity::RefuseRound,
+) -> String {
+    let keeper = super::people::household_name(sim, round.operator);
+    let tip = polity.tips.iter().find(|t| t.id == round.tip).map_or_else(
+        || "a tip no longer kept".to_owned(),
+        |t| tip_words(sim, polity, t),
+    );
+    let who = match round.law {
+        Some(_) => format!("The polity's refuse round, worked by {keeper},"),
+        None => format!("{}'s refuse round", keeper.trim_end_matches("'s household")),
+    };
+    let n = round.homes.len();
+    let year = sim.now().day_index() - civ_core::time::DAYS_PER_YEAR;
+    let pay = match round.law {
+        Some(_) => "paid from the store".to_owned(),
+        None => format!("{:.0} kcal a call", round.fee_kcal),
+    };
+    format!(
+        "{who} calls at {n} home{} every {} days and carries to {tip}; {} carried this year; {pay}",
+        if n == 1 { "" } else { "s" },
+        round.every_days,
+        tonnes(round.carried_since(year + 1)),
+    )
+}
+
+/// Where a polity's tip lies, in words (M11f, second part; ADR-0038 §3): "the tip 150 m east of
+/// the hearth".
+pub fn tip_words(
+    sim: &Sim,
+    polity: &civ_agents::polity::Polity,
+    tip: &civ_agents::polity::Tip,
+) -> String {
+    sim.land
+        .settlements
+        .iter()
+        .find(|s| s.id == polity.settlement)
+        .map_or_else(
+            || "the tip".to_owned(),
+            |s| match super::people::bearing(s.hearth_m, tip.place).as_str() {
+                "here" => "the tip by the hearth".to_owned(),
+                b => format!("the tip {b} of the hearth"),
+            },
+        )
 }

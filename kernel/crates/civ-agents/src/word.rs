@@ -51,11 +51,27 @@ pub enum ClaimKind {
     /// `event` is the case. Those who heard it hold it at first hand; others hear it as news; it
     /// is remembered as long as takings are.
     Finding = 12,
+    /// A household did not repay, or refused to repay, a loan another household made it, or a
+    /// workshop did not pay the wages it owed, on a day (backlog D; research 08-07 §5.3: word of
+    /// repayment spreads by meeting, never everywhere at once): `subject` is the elder of the
+    /// household that owed, `event` the claim in the credit book. Its creditor's people hold it at
+    /// first hand, and it is told as news for `news_days`, never by the debtor's own household.
+    Defaulted = 13,
+    /// A household repaid in full a loan another household made it, or a workshop paid the wages
+    /// it owed when they fell due, on a day (backlog D; research 08-07 §5.3): `subject` is the
+    /// elder of the household that owed, `event` the claim in the credit book. Told as a default
+    /// is: its creditor's people hold it at first hand, and it is news for `news_days`, never told
+    /// by the debtor's own household.
+    Repaid = 14,
+    /// A household that stood guarantor for a loan another household failed paid the lender what
+    /// it could when called on, on a day (backlog D): `subject` is the elder of the guarantor's
+    /// household, `event` the loan it stood for in the credit book. Told as a repayment is.
+    GuarantorPaid = 15,
 }
 
 impl ClaimKind {
     /// Every kind, in code order.
-    pub const ALL: [ClaimKind; 13] = [
+    pub const ALL: [ClaimKind; 16] = [
         ClaimKind::Gathering,
         ClaimKind::Grievance,
         ClaimKind::Petition,
@@ -69,6 +85,9 @@ impl ClaimKind {
         ClaimKind::Election,
         ClaimKind::Candidacy,
         ClaimKind::Finding,
+        ClaimKind::Defaulted,
+        ClaimKind::Repaid,
+        ClaimKind::GuarantorPaid,
     ];
 
     /// Whether claims of this kind are news while they are held (a household's sickness, a
@@ -81,6 +100,18 @@ impl ClaimKind {
                 | ClaimKind::Fire
                 | ClaimKind::Raid
                 | ClaimKind::BandSeen
+                | ClaimKind::Defaulted
+                | ClaimKind::Repaid
+                | ClaimKind::GuarantorPaid
+        )
+    }
+
+    /// Whether claims of this kind are word of a debt kept or failed (backlog D): its `subject`
+    /// is the elder of the household whose word it was, `event` a claim in the credit book.
+    pub fn of_a_debt(self) -> bool {
+        matches!(
+            self,
+            ClaimKind::Defaulted | ClaimKind::Repaid | ClaimKind::GuarantorPaid
         )
     }
 
@@ -130,7 +161,8 @@ pub struct Claim {
     pub day: i64,
     /// For a gathering called on a law, the law; for a grievance, the one who holds it; for a
     /// petition, the petition; for a refusal or a revolt, it (its `day` the last it stands); for
-    /// sickness, the household; for a suspicion, its holder.
+    /// sickness, the household; for a suspicion, its holder; for a default or a repayment, the
+    /// elder of the household that owed; for a guarantor's payment, the guarantor's elder.
     pub subject: Option<PermanentId>,
     /// For a grievance: the party blamed and the issue.
     pub grievance: Option<(Blamed, Grieved)>,
@@ -138,7 +170,8 @@ pub struct Claim {
     pub suspected: Option<(Place, Counts)>,
     /// The recorded fire a found-burning account names; never its cause.
     pub fire: Option<u32>,
-    /// The recorded encounter a raid names, or the band a sighting names (M6c slice BJ).
+    /// The recorded encounter a raid names, or the band a sighting names (M6c slice BJ); the claim
+    /// in the credit book a default, a repayment or a guarantor's payment names.
     pub event: Option<u32>,
 }
 
@@ -429,7 +462,12 @@ impl Word {
             | ClaimKind::Election
             | ClaimKind::Candidacy => c.day < today,
             ClaimKind::Grievance => last + news_days < today,
-            ClaimKind::Fire | ClaimKind::Raid | ClaimKind::BandSeen => c.day + news_days < today,
+            ClaimKind::Fire
+            | ClaimKind::Raid
+            | ClaimKind::BandSeen
+            | ClaimKind::Defaulted
+            | ClaimKind::Repaid
+            | ClaimKind::GuarantorPaid => c.day + news_days < today,
             ClaimKind::Sickness | ClaimKind::Suspicion => c.day + sickness_days < today,
             ClaimKind::Finding => c.day + finding_days < today,
         };

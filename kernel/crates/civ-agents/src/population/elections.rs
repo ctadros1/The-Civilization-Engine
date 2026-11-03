@@ -144,11 +144,13 @@ impl Population {
             e.ended = Some(day);
         }
         // A seat whose holder died or no longer lives where the polity holds stays empty until
-        // the next election; so does one whose term has run out.
+        // the next election; so does one whose term has run out. Seats the custom no longer has
+        // lapse.
         let members = self.members_of_polity(pi, ctx.now, ctx.params);
         self.polities[pi]
             .seated
             .retain(|s| s.until > day && members.binary_search_by_key(&s.holder, |m| m.0).is_ok());
+        self.polities[pi].lapse_seats_beyond_custom();
         if !self.polities[pi].elections.iter().any(|e| e.stage.open()) {
             self.call_election(ctx, pi, seats);
         }

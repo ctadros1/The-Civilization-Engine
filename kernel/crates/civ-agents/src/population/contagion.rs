@@ -150,7 +150,7 @@ impl Population {
 
     /// Puts move `m`'s load at its end now and records it; a load too small to record dies on
     /// the way.
-    fn deliver(&mut self, ctx: &Ctx, m: Move) {
+    pub(super) fn deliver(&mut self, ctx: &Ctx, m: Move) {
         if m.amount <= NEGLIGIBLE {
             return;
         }
@@ -220,31 +220,44 @@ impl Population {
                 amount,
             });
         }
-        for m in shed {
+        for &m in &shed {
             self.deliver(ctx, m);
         }
+        // What homes served by a sewer today shed goes with their share to its outfall
+        // (ADR-0041 §2).
+        self.sewer_loads(ctx, day, &shed);
         // The day's surplus washes heaps off, and a share of each soaks in.
         let params = &ctx.land_params.contamination;
         let wash =
             (params.wash_per_mm * ctx.land.water.last_surplus_mm).clamp(0.0, params.wash_max);
-        let heaps: Vec<(PermanentId, u16)> = self
+        // Tips wash and seep as heaps do, from their own place (M11f, second part; ADR-0038 §3),
+        // and sewage farms from their field's (ADR-0044 §4).
+        let heaps: Vec<(Node, u16)> = self
             .contagion
             .loads
             .keys()
-            .filter_map(|&(node, d)| match node {
-                Node::Midden(h) => Some((h, d)),
-                _ => None,
-            })
+            .filter(|&&(node, _)| matches!(node, Node::Midden(_) | Node::Tip(_) | Node::Field(_)))
+            .copied()
             .collect();
-        for (household, disease) in heaps {
-            let from = Node::Midden(household);
+        for (from, disease) in heaps {
             // Where it lies: carried from the water under a law clearing middens, or at home
-            // (M10c slice EE, third part).
-            let Some(home) = self
-                .household(household)
-                .map(|x| self.midden_place(ctx, x, day))
-            else {
-                // A heap whose household is no more is let go with it.
+            // (M10c slice EE, third part); or the tip's place; or the farm field's centre.
+            let place = match from {
+                Node::Midden(household) => self
+                    .household(household)
+                    .map(|x| self.midden_place(ctx, x, day)),
+                Node::Tip(tip) => self.tip_place(tip),
+                Node::Field(field) => ctx
+                    .land
+                    .fields
+                    .iter()
+                    .find(|f| f.id == field)
+                    .map(|f| f.rect.centre_m()),
+                _ => None,
+            };
+            let Some(home) = place else {
+                // A heap whose household is no more, a tip nobody keeps, or a field gone, is let
+                // go with it.
                 self.contagion.take(from, disease, 1.0);
                 continue;
             };

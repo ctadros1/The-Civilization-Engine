@@ -854,3 +854,79 @@ fn rafters_show_their_rot_while_they_still_carry_a_storm() {
     // Left to rot well past it, they do give way.
     assert!(failed_at(0.5), "rafters half rotted carried a storm");
 }
+
+#[test]
+fn a_burnt_roof_stands_open_and_its_charred_rafters_are_renewed_before_it_is_thatched_again() {
+    // A fire burns a hut's thatch away and chars its rafters (ADR-0022 §5). In 30-year
+    // dashboard worlds most lived-in failures were such huts: rafters charred to about four
+    // tenths lost broke under a burnt thatch still weighed as if on the roof, or under the new
+    // thatch laid on them before they were renewed. A covering that is gone weighs nothing, and
+    // it is laid again only on roof timber that shows nothing.
+    let (mut sim, household, hut) = housed(3);
+    let b = building(&sim, hut).clone();
+    let (covering, rafters) = (
+        group_of(&b, GroupKind::Covering),
+        group_of(&b, GroupKind::RoofFrame),
+    );
+    {
+        let b = building_mut(&mut sim, hut);
+        for c in &mut b.condition {
+            if c.group == covering {
+                c.loss = 1.0;
+                c.state = GroupState::Failed;
+            } else if c.group == rafters {
+                // Well made, and charred as the dashboard's were.
+                c.quality = 0.8;
+                c.loss = 0.42;
+                c.state = GroupState::Symptom;
+            }
+        }
+        condition::settle_state(b);
+    }
+    shelter_again(&mut sim, household);
+    let failures = |sim: &Sim| {
+        sim.people()
+            .chronicle
+            .iter()
+            .filter(|e| e.kind == ChronicleKind::BuildingFailed)
+            .map(|e| e.name.clone())
+            .collect::<Vec<_>>()
+    };
+    // Open to the sky, the charred rafters carry only themselves, even on a storm's day.
+    let storm = sim.rules().land.weather.storm_median_pa;
+    sim.with_ctx_for_tests(|pop, ctx| pop.storm_for_tests(ctx, household, storm, 0));
+    assert_eq!(
+        failures(&sim),
+        Vec::<String>::new(),
+        "under a roof burnt away"
+    );
+    // With thatch and timber at hand, the rafters are renewed first, then the roof thatched.
+    for (_, h) in sim.people_mut_for_tests().households.iter_mut() {
+        if h.id == household {
+            h.stores[good("core:good/thatch")] += 2_500.0;
+            h.stores[good("core:good/timber")] += 1_000.0;
+        }
+    }
+    let mut order: Vec<GroupKind> = Vec::new();
+    for _ in 0..150 {
+        sim.advance_minutes(24 * 60).expect("advances");
+        if let Some(kind) = building(&sim, hut)
+            .repair
+            .and_then(|r| GroupKind::of_group(r.group))
+            && order.last() != Some(&kind)
+        {
+            order.push(kind);
+        }
+        if loss(&sim, hut, covering) < 0.05 {
+            break;
+        }
+    }
+    assert_eq!(
+        order.first(),
+        Some(&GroupKind::RoofFrame),
+        "the rafters first: {order:?}"
+    );
+    assert!(loss(&sim, hut, covering) < 0.05, "thatched again");
+    assert!(loss(&sim, hut, rafters) < 0.1, "renewed");
+    assert_eq!(failures(&sim), Vec::<String>::new());
+}

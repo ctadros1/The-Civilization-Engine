@@ -772,8 +772,16 @@ pub(super) fn loads_on(
                 .filter_map(|&m| s.materials_kg.get(usize::from(m)))
                 .sum()
         });
+    // A covering that is gone (burnt away, torn off or worn through: "the thatch is gone")
+    // weighs nothing and catches no wind: the roof's weight is that of the share of its slopes
+    // still covered.
+    let covered: f64 = coverings
+        .iter()
+        .filter(|g| b.group(g.id).is_some_and(|c| c.state != GroupState::Failed))
+        .map(|g| g.area_m2.max(0.0))
+        .sum();
     let covering_pa = if slope > 0.0 {
-        roof_kg * G / slope
+        roof_kg * G / slope * covered / slope
     } else {
         0.0
     };

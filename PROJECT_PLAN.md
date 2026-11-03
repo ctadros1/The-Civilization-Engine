@@ -10,8 +10,8 @@ teaching, letters and records, inoculation, and the health office and sickhouse)
 is underway:** slices EF–EK implement household valuation, custody, redeemable and polity-issued
 notes, lending, redemption runs, suspension, the *bearer heard* rule and counterfeiting. The full
 M10 demo remains. M2's portable kernel library and C interface are
-implemented; the first Windows Unreal integration now runs, with M2's visual and performance gates
-still in progress (see `unreal/README.md`). Modern civilization remains future scope. See
+implemented; **M2's Windows Unreal client, visual demo and terrain/performance gates are now
+complete** (see `unreal/README.md`). Modern civilization remains future scope. See
 §7 for milestone scope and §9 for implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
@@ -1001,7 +1001,8 @@ M1.**
     - PCG and foliage work on it.
 
     Player-scale reshaping is not a criterion.
-  - `EngineBridge` plugin in commons: DLL load, sim threads, triple buffer,
+  - `EngineBridge` plugin in commons: DLL load, Rust-owned sim threads, latest-value copied
+    snapshots (ADR-0005 replaces the original literal triple buffer),
     trip interpolation.
   - `BuildingAssembler` with the first vernacular kit.
   - **Visible construction:** pieces appear stage by stage as labor is spent;
@@ -1038,10 +1039,31 @@ M1.**
   panels are present. This is a runnable integration; it does not close S1 or certify 60 fps.
   See `unreal/README.md` for remaining acceptance gates and current visual limitations.
 
-  Original remaining scope, being closed on the Windows PC: spike S1, the `EngineBridge` plugin (loading,
-  frame reading, trip interpolation), the `BuildingAssembler` and its first kit, visible
-  construction, crowds, day and night, the UMG HUD, hosting the panels in the WebBrowser widget,
-  and a packaged Win64 build.
+  **Completed on Windows (2026-11-03):** S1 selects tiled procedural meshes with CPU LOD,
+  local asynchronous collision, a native PCG surface sampler and cosmetic grass. The packaged
+  16.78 km² diagnostic replays twenty kernel-produced local cut/fill responses, verifies
+  collision and foliage through the edits, and restores the surface. Measured p99 frame time
+  **6.970 ms** and patch-reader p99 **3.752 ms**, within 16.667 ms. The running 32-person night
+  village measures mean **6.834 ms**, p99 **8.785 ms** at 2560×1440 after warmup. These establish
+  the M1 village gate, not city-scale performance.
+
+  `EngineBridge` negotiates versions, loads the DLL, copies replaceable snapshots, retains
+  ordered frames and uses shared timed-path interpolation. `BuildingAssembler` consumes exact
+  grammar parts through wire 1.107. The offline Blender 5.2.3 kit has nine reusable modules,
+  imported with Nanite enabled. Labor reveals pieces, partial thatch and working platforms;
+  citizens have animated limbs and actual carried-load bundles. Night hearth light requires
+  household fuel. Water, ground-following fields, UMG controls, embedded inspectors, person
+  picking, locate events and following are present. Native and automated save/load/quit checks
+  pass. The standalone Win64 package launches from the desktop shortcut without the editor.
+  See the [client guide](unreal/README.md), [kit pipeline](art/vernacular/README.md) and
+  [newest capture and acceptance record](demos/m2/README.md).
+
+  Validation: kernel fmt, strict clippy and 1,391 simcheck tests (three intentional ignores);
+  commons fmt/clippy/tests; all ten smoke worlds and content validation; schema freshness;
+  web build, 213 unit tests and 30 browser checks (15 opt-in demos skipped). Terrain shadows
+  are disabled to avoid non-Nanite VSM overflow; the kit retains Nanite/Lumen/VSM. Larger
+  worlds use downsampled terrain overviews. This closes M2's first kit/crowd scope, not later
+  styles, skeletal close-ups, weather visuals or fake interiors.
 
 **M3: Village economy**, split (2026-10-04, §9) into three milestones, each meeting the usable
 bar with its own demo. M3's original contents were:
@@ -7778,6 +7800,24 @@ and M6a gives rivers a daily flow.
 ---
 
 ## 9. Decisions log
+
+- **M2 full Windows milestone (2026-11-03, owner confirmation):** complete the full M2
+  scope, including terrain, foliage, the kit, construction and night demo, beyond the initial
+  PC setup. S1 selects separate 64-cell procedural-mesh tiles with CPU detail levels and
+  camera-local collision. A disposable PCG surface reads the same kernel elevations; only
+  cosmetic grass is scattered, never resource stocks. Local cut/fill is tested by replaying
+  real kernel-produced raster responses in an isolated diagnostic, not by scripting a lived
+  earthwork. Research 14-01/02/03/04/07/08/09/10/11/12/14, 11-01/04 and 10-06 informed the
+  renderer and kit. No paid terrain extension or editor-only Landscape API is needed.
+  The first material uses procedural shading rather than RVT; disable terrain shadow casting
+  after observing non-Nanite VSM page overflow. Keep shadows on the Nanite building kit.
+  Blender 5.2.3 runs offline, with an FBX/manifest contract and validated FbxFactory imports;
+  no Blender process is required by the game. Cook assets to local files with Zen Store and
+  IoStore disabled, avoiding an observed local cache-service staging failure. These are
+  presentation/build choices, with no change to authoritative state or saves. The native
+  JPEG capture path records actual game frames independently of the 1440p performance gate;
+  recorded frame timestamps preserve wall-clock pacing in the demo. Acceptance results are
+  recorded in `demos/m2/README.md`. Keep later styles and crowd scale outside this M2 claim.
 
 - **M2 exact render parts (2026-11-03):** wire 1.107 appends the existing grammar expansion's
   integer-centimetre parts to `BuildingInfo`, including stable kind, stage, angle, tilt and

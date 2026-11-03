@@ -8,6 +8,9 @@
   "Plugins": [
     {"Name": "EngineBridge", "Enabled": true},
     {"Name": "ProceduralMeshComponent", "Enabled": true},
+    {"Name": "PCG", "Enabled": true},
+    {"Name": "UdpMessaging", "Enabled": false},
+    {"Name": "TcpMessaging", "Enabled": false},
     {"Name": "WebBrowserWidget", "Enabled": true},
     {"Name": "AndroidFileServer", "Enabled": false},
     {"Name": "PythonScriptPlugin", "Enabled": true, "TargetAllowList": ["Editor"]},

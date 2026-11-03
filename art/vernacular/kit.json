@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "blender": "5.2.3 LTS",
+  "nominal_unit_metres": 1,
+  "origin": "module centre; roof wedges rotate around full-cone centre",
+  "modules": [
+    {
+      "name": "TimberPost",
+      "file": "export/TimberPost.fbx",
+      "vertices": 60,
+      "polygons": 62
+    },
+    {
+      "name": "TimberBeam",
+      "file": "export/TimberBeam.fbx",
+      "vertices": 60,
+      "polygons": 62
+    },
+    {
+      "name": "WattlePanel",
+      "file": "export/WattlePanel.fbx",
+      "vertices": 648,
+      "polygons": 684
+    },
+    {
+      "name": "DaubPanel",
+      "file": "export/DaubPanel.fbx",
+      "vertices": 24,
+      "polygons": 26
+    },
+    {
+      "name": "ThatchCone",
+      "file": "export/ThatchCone.fbx",
+      "vertices": 2328,
+      "polygons": 1152
+    },
+    {
+      "name": "ThatchWedge",
+      "file": "export/ThatchWedge.fbx",
+      "vertices": 216,
+      "polygons": 96
+    },
+    {
+      "name": "EarthFloor",
+      "file": "export/EarthFloor.fbx",
+      "vertices": 192,
+      "polygons": 146
+    },
+    {
+      "name": "HearthBowl",
+      "file": "export/HearthBowl.fbx",
+      "vertices": 48,
+      "polygons": 38
+    },
+    {
+      "name": "Plank",
+      "file": "export/Plank.fbx",
+      "vertices": 24,
+      "polygons": 26
+    }
+  ]
+}

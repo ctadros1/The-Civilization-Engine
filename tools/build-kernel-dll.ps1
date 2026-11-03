@@ -7,7 +7,8 @@
 # It first checks that the committed header matches the library's exports. Needs Rust with the
 # MSVC toolchain (rustup reads rust-toolchain.toml).
 param(
-    [string]$Dest = ""
+    [string]$Dest = "",
+    [string]$TargetDir = ""
 )
 $ErrorActionPreference = "Stop"
 
@@ -18,16 +19,23 @@ if (-not $Dest) {
     $Dest = Join-Path $root "dist\tce_kernel\$target"
 }
 $header = "crates\civ-ffi\include\tce_kernel.h"
+$targetArgs = @()
+if ($TargetDir) {
+    $TargetDir = [IO.Path]::GetFullPath($TargetDir)
+    $targetArgs = @('--target-dir', $TargetDir)
+} else {
+    $TargetDir = Join-Path (Get-Location) 'target'
+}
 
 Write-Host "Checking the C header matches the exports..."
-cargo test --locked --profile dll -p civ-ffi --test header --quiet
+cargo test --locked --profile dll -p civ-ffi --test header --quiet @targetArgs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Host "Building tce_kernel.dll for $target (profile dll)..."
-cargo build --locked --profile dll -p civ-ffi
+cargo build --locked --profile dll -p civ-ffi @targetArgs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
-Copy-Item "target\dll\tce_kernel.dll", "target\dll\tce_kernel.pdb", $header -Destination $Dest
+Copy-Item (Join-Path $TargetDir 'dll\tce_kernel.dll'), (Join-Path $TargetDir 'dll\tce_kernel.pdb'), $header -Destination $Dest
 
 $text = Get-Content $header -Raw
 $abiMajor = [regex]::Match($text, '#define TCE_ABI_MAJOR (\d+)').Groups[1].Value

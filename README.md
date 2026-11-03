@@ -22,7 +22,7 @@
 
 The Civilization Engine (TCE) is a long-running simulation of people, households and settlements. It provides resources, skills, institutions and physical systems; people make choices within them, so the engine does not prescribe a civilization's story or destination.
 
-The current web observer presents an early farming world. M10 adds industrial systems and services; its money systems are underway. A [first runnable Unreal integration](unreal/README.md) now loads the kernel and renders runtime terrain and citizens; M2's full visual and performance gates remain in progress. Modern civilization remains future work.
+The current web observer presents an early farming world. M10 adds industrial systems and services; its money systems are underway. The [Windows Unreal observer](unreal/README.md) completes M2: runtime terrain, the first vernacular kit, visible construction, citizens, night lighting and embedded inspectors, in a standalone application. Modern civilization remains future work.
 
 ## Project status
 
@@ -31,7 +31,7 @@ The current web observer presents an early farming world. M10 adds industrial sy
 | <img src="assets/icons/status-complete.svg" width="18" alt=""> **Complete** | M0–M9 kernel/web | Settlement life, institutions, cities and many-settlement simulation. |
 | <img src="assets/icons/status-complete.svg" width="18" alt=""> **Complete** | M10a–M10c | Industry, transport, services and public health. |
 | <img src="assets/icons/status-in-progress.svg" width="18" alt=""> **In progress** | M10d | Money and counterfeiting are implemented; the M10 observer demo remains in progress. |
-| <img src="assets/icons/status-in-progress.svg" width="18" alt=""> **In progress** | M2 Unreal client | Windows setup, shared DLL bridge, runtime terrain, simple instanced buildings/citizens, embedded panels, and a packaged executable; visual and performance gates remain. |
+| <img src="assets/icons/status-complete.svg" width="18" alt=""> **Complete** | M2 Unreal client | Shared DLL bridge, editable tiled terrain with collision and PCG, Nanite vernacular kit, construction stages/scaffolds, crowd v0, day/night, inspectors and packaged Win64 build. The 16.78 km² terrain and running night village pass the 1440p60 gate. |
 | <img src="assets/icons/status-planned.svg" width="18" alt=""> **Planned** | Future scope | Modern-era systems. |
 
 Non-benchmark homelab simulations can now publish their actual world to the private runner
@@ -41,16 +41,21 @@ protocols unchanged. See [live world observations](docs/operations/live-world-ob
 
 See the [project plan](PROJECT_PLAN.md) and [development journal](docs/development-journal/README.md) for milestone details and implementation evidence.
 
-The new [Windows Unreal night capture](demos/m2/README.md) records the first M2 client integration;
-it is an early terrain/construction-frame view, not the completed M2 visual demo.
+The [M2 capture and acceptance record](demos/m2/README.md) distinguish the lived village,
+the diagnostic terrain-edit replay, and the earlier integration image.
 
-## Latest live demo: M9, many settlements
+## Latest live demo: M2, first light in Unreal
 
-The newest committed observer video is M9. It shows one settlement in detail while households resolve daily work across other settlements, with a followed resident and a climate change. M10 now has a [runnable multi-settlement example](kernel/crates/civ-sim/examples/m10_world.rs) and a long-run report workflow, but no M10 observer video has been captured; the complete demo remains in progress. The gallery distinguishes recorded captures from run reports and planned demos.
+The newest capture returns to the Unreal track: 32 founders live for 90 days, build their
+homes from the kernel's grammar, and gather by fuel-lit hearths. The standalone client follows
+a resident and shows their existing inspector. This is the first kit and crowd v0; later city
+styles and close-up characters remain future rendering work. The earlier M9 video shows the
+more advanced many-settlement simulation. M10 has a runnable example and report workflow,
+while its complete observer demo remains in progress.
 
-<p align="center"><a href="demos/m9/m9-overview.mp4"><img src="demos/m9/m9-overview-poster.png" alt="M9 live demo: many settlements at household resolution" width="900"></a></p>
+<p align="center"><a href="demos/m2/m2-first-light.mp4"><img src="demos/m2/first-light.png" alt="M2 live Unreal demo: the first village at night" width="900"></a></p>
 
-[Watch the titled M9 demo](demos/m9/m9-overview.mp4) · [Ten-year M9 run report](demos/m9/m9-demo.txt) · [Video-capture run report](demos/m9/m9-capture-run.txt) · [All demo versions](demos/README.md)
+[Watch the M2 demo](demos/m2/m2-first-light.mp4) · [M2 measurements and reproduction](demos/m2/README.md) · [Earlier M9 demo](demos/m9/m9-overview.mp4) · [All demo versions](demos/README.md)
 
 These generated previews show the project's longer-term historical and modern scope. They are concept art, not screenshots of implemented features.
 

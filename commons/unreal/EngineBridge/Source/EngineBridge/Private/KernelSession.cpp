@@ -2,6 +2,8 @@
 #include "HAL/PlatformProcess.h"
 #include "Misc/Paths.h"
 #include "Modules/ModuleManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 IMPLEMENT_MODULE(FDefaultModuleImpl, EngineBridge)
 
 FKernelSession::~FKernelSession() { Stop(); }
@@ -25,12 +27,17 @@ bool FKernelSession::Start() {
         Error = TEXT("Incompatible kernel ABI."); return false;
     }
     Versions.struct_size = sizeof(Versions);
-    if (!Check(Api.versions(&Versions)) || Versions.wire_major != 1) return false;
+    if (!Check(Api.versions(&Versions))) return false;
+    if (Versions.wire_major != 1 || Versions.wire_minor < 107) {
+        Error = TEXT("This client needs kernel wire 1.107 or later."); return false;
+    }
     FString Data = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ProjectDir(), TEXT("Data")));
     if (!FPaths::DirectoryExists(FPaths::Combine(Data, TEXT("content"))))
         Data = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ProjectDir(), TEXT("..")));
     FTCHARToUTF8 Content(*FPaths::Combine(Data, TEXT("content")));
-    FTCHARToUTF8 Saves(*FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Worlds"))));
+    FString SaveFolder=FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ProjectSavedDir(),TEXT("Worlds")));
+    FParse::Value(FCommandLine::Get(),TEXT("TCESaves="),SaveFolder);
+    FTCHARToUTF8 Saves(*SaveFolder);
     TceConfig Config{}; Config.struct_size = sizeof(Config);
     Config.content_dir = {reinterpret_cast<const uint8*>(Content.Get()), static_cast<size_t>(Content.Length())};
     Config.saves_dir = {reinterpret_cast<const uint8*>(Saves.Get()), static_cast<size_t>(Saves.Length())};

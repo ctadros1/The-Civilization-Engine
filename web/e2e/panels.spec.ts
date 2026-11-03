@@ -46,6 +46,8 @@ test("the panels alone work beside a world drawn elsewhere", async ({ page }) =>
     await page.evaluate((id) => window.__TCE__.select(id), someone.id);
     await page.waitForFunction(() => window.__TCE__.state().selected?.name != null);
     await expect(page.locator(".person-head h3")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(400);
+    await expect(page.locator(".legend.activities")).toBeHidden();
   } finally {
     await host.stop();
   }

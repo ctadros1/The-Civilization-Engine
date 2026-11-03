@@ -33,11 +33,10 @@ it does not present those screens as simulation behavior.
 ## Current development: M10d, money and notes
 
 M10a (power and the works), M10b (rail and gas light) and M10c (services and letters) are
-implemented. M10d has completed household money valuation, custody and receipts, redeemable notes,
-lending, redemption runs and suspension, and debt hearings under the *bearer heard* rule (slices
-EF–EI). Polity-issued notes, counterfeiting and the complete M10 demonstration remain planned. No
-M10 milestone video is committed; M9 remains the newest available live observer video, not the
-newest implemented milestone. See the [industry and power guide](../docs/development-journal/industry-and-power.md),
+implemented. M10d now includes household valuation, custody, redeemable notes, lending, runs,
+suspension, polity-issued notes, legal tender and counterfeiting (slices EF–EK). The complete M10
+demo remains in progress. No M10 milestone video is committed; M9 remains the newest available live
+observer video, not the newest implemented milestone. See the [industry and power guide](../docs/development-journal/industry-and-power.md),
 [mobility and light](../docs/development-journal/mobility-and-light.md), [services and care](../docs/development-journal/services-and-care.md),
 [money and notes](../docs/development-journal/money-and-notes.md), and [current plan](../PROJECT_PLAN.md#7-milestones).
 
@@ -84,7 +83,7 @@ and run log together.
 | M10a · Power and the works | Implemented: powered recipes, mills, fuel, iron, coal extraction, engines and works; no standalone milestone video | [Technical guide](../docs/development-journal/industry-and-power.md) · [current plan](../PROJECT_PLAN.md#7-milestones) |
 | M10b · Rail and gas light | Implemented: lamps, wagonways, trains, stations, freight, gas mains and street lighting; no standalone milestone video | [Technical guide](../docs/development-journal/mobility-and-light.md) · [current plan](../PROJECT_PLAN.md#7-milestones) |
 | M10c · Services and letters | Implemented: care, birth care, teaching, literacy and records, inoculation, public health reporting and a shared sickhouse; no milestone video | [Technical guide](../docs/development-journal/services-and-care.md) · [current plan](../PROJECT_PLAN.md#7-milestones) |
-| M10d · Money and full M10 demo | In progress: household valuation, custody, redeemable notes, lending, runs, suspension and bearer-heard claims; polity-issued notes, counterfeiting and the complete demo remain planned | [Technical guide](../docs/development-journal/money-and-notes.md) · [current plan](../PROJECT_PLAN.md#7-milestones) |
+| M10d · Money and full M10 demo | In progress: household and polity-issued notes, lending, legal tender, suspension and counterfeiting implemented; complete demo remains in progress | [Technical guide](../docs/development-journal/money-and-notes.md) · [current plan](../PROJECT_PLAN.md#7-milestones) |
 
 Some milestone demo scripts intentionally explore emergent outcomes and can take a long time. They
 run only when requested with `TCE_DEMO=1`; they may try more than one world and report what

@@ -1,15 +1,15 @@
 # The Civilization Engine: Project Plan
 
 Status: plan of record, written 2026-09-27 from the planning interview.
-Implementation status (2026-10-27): **M0–M9 are implemented**, from early settlements and their
+Implementation status (2026-11-03): **M0–M9 are implemented**, from early settlements and their
 institutions through large cities, transport, planning, land and household resolution across many
 settlements. M9's 100,000-person performance target was not met; see §7 and §9 for the measured
 result and amended gate. **M10a, power and the works, M10b, rail and gas light, and M10c,
 services and letters, are implemented** (slices DO–EE: care beyond the household, birth care,
 teaching, letters and records, inoculation, and the health office and sickhouse). **M10d, money,
-is underway:** slices EF–EI implement household valuation, custody, redeemable notes, lending,
-redemption runs, suspension and the *bearer heard* rule. Polity-issued notes, counterfeiting and
-the complete M10 demo remain. M2's portable kernel library and C interface are
+is underway:** slices EF–EK implement household valuation, custody, redeemable and polity-issued
+notes, lending, redemption runs, suspension, the *bearer heard* rule and counterfeiting. The full
+M10 demo remains. M2's portable kernel library and C interface are
 implemented; the Unreal client remains future work. Modern civilization remains future scope. See
 §7 for milestone scope and §9 for implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
@@ -7763,6 +7763,7 @@ and M6a gives rivers a daily flow.
 
 ## 9. Decisions log
 
+- **2026-11-03 — M10d money status:** the finalized Claude development branch completes slices EJ–EK: polity-issued notes, legal tender, suspension and counterfeiting. The code has successful Windows kernel, kernel-library, schema, web and full-chain checks on its branch head. The M10 demo runner exists, but the complete observer demo is not captured. Current boundaries: wire 1.106, save schema 219, content API 200.
 - **2026-10-31 — Capacity-aware Actions routing (owner request):** prefer idle node4, then node3 and node1 via management-owned moving policy labels; use permanent machines for jobs that may exceed six hours, enforce a separate six-hour node4 admission/runtime ceiling, and retain node3 timing baselines. Dispatch the main workflow with a target `ref` so older development branches do not retain obsolete routing.
 
 - **2026-10-27 — M10 implementation status:** merged M10c slices EB–EE and M10d slices EF–EI. M10c is complete; M10d money includes household valuation, custody, redeemable notes, bounded lending, runs, suspension and the *bearer heard* rule. Wire 1.106, save schema 214, content API 195. M9 remains the latest committed observer video; no M10 capture was available. The remaining M10d scope is recorded in §7.

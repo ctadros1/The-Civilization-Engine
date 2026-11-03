@@ -30,15 +30,14 @@ The current observer presents an early farming world. M10 adds industrial system
 | --- | --- | --- |
 | <img src="assets/icons/status-complete.svg" width="18" alt=""> **Complete** | M0–M9 | Settlement life, institutions, cities and many-settlement simulation. |
 | <img src="assets/icons/status-complete.svg" width="18" alt=""> **Complete** | M10a–M10c | Industry, transport, services and public health. |
-| <img src="assets/icons/status-in-progress.svg" width="18" alt=""> **In progress** | M10d | Household money and redeemable notes. |
-| <img src="assets/icons/status-planned.svg" width="18" alt=""> **Planned** | M10d | Polity-issued notes, counterfeiting and the complete M10 demo. |
+| <img src="assets/icons/status-in-progress.svg" width="18" alt=""> **In progress** | M10d | Household and polity-issued money, redeemable notes and counterfeiting are implemented; the complete M10 demo remains. |
 | <img src="assets/icons/status-planned.svg" width="18" alt=""> **Planned** | Future scope | Modern-era systems and the Unreal client. |
 
 See the [project plan](PROJECT_PLAN.md) and [development journal](docs/development-journal/README.md) for milestone details and implementation evidence.
 
 ## Latest live demo: M9, many settlements
 
-The newest committed observer video is M9. It shows one settlement in detail while households resolve daily work across other settlements, with a followed resident and a climate change. The M10d code has advanced, but no M10 observer video has been captured; the complete demo remains planned. The gallery distinguishes recorded captures from run reports and planned demos.
+The newest committed observer video is M9. It shows one settlement in detail while households resolve daily work across other settlements, with a followed resident and a climate change. M10d now includes polity-issued notes and counterfeiting, but no M10 observer video has been captured; the complete demo remains in progress. The gallery distinguishes recorded captures from run reports and planned demos.
 
 <p align="center"><a href="demos/m9/m9-overview.mp4"><img src="demos/m9/m9-overview-poster.png" alt="M9 live demo: many settlements at household resolution" width="900"></a></p>
 
@@ -57,7 +56,7 @@ These generated previews show the project's longer-term historical and modern sc
 - **Emergent simulation:** event-scheduled people and household economies, authored building grammars, institutions, weather, water, disease, conflict and transport.
 - **Many-settlement scale:** each person remains individually represented; settlements away from the observer's focus can resolve household work once per day.
 - **Industrial systems:** river-powered installations drive recipes; households can build mills, mines and works, lay rail, operate trains, and produce and distribute gas light.
-- **Persistence:** checksummed versioned snapshots with explicit migrations. Current boundaries: wire 1.106, save schema 214 and content API 195.
+- **Persistence:** checksummed versioned snapshots with explicit migrations. Current boundaries: wire 1.106, save schema 219 and content API 200.
 
 ## Run it
 

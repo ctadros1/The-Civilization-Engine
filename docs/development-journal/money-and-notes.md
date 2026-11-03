@@ -1,6 +1,6 @@
 # Money, Custody and Notes
 
-This guide describes the M10d money work implemented through slices EF–EI. The exact scope and
+This guide describes the M10d money work implemented through slices EF–EK. The exact scope and
 remaining work are tracked in [the project plan](../../PROJECT_PLAN.md#7-milestones). Money is not a
 world-level currency switch: households decide what to hold and accept from what they have bought,
 what sellers accept, and what they expect a payment to buy.
@@ -62,15 +62,30 @@ the existing debt process. Without the rule, the holder keeps the refused notes 
 heard through that process. Market summaries expose notes written as loans and the suspension end
 date.
 
+## Polity-issued notes and counterfeiting
+
+A polity may authorize its common store to issue its own notes to pay for public work, up to a
+stated ceiling. The store redeems each piece for a kilogram of grain less a fee, accepts its own
+notes for dues, and uses returned pieces before issuing more. A polity may make those notes legal
+tender for loans or suspend redemption. The observer derives the label *fiat* while redemption is
+suspended; fiat is not a separate engine state.
+
+A literate household can make false notes and may weigh passing them as it weighs taking goods.
+People who can identify false notes reject them in payment; the issuer keeps false pieces presented
+for redemption. Finds affect belief in note acceptance. A polity may enact a law against
+counterfeiting; under it, a finder can bring the passer before the gathering and a finding may owe
+compensation. The model records the issue, find and hearing without scripting that a counterfeit
+will be made or discovered.
+
 ## Persistence and scope
 
-M10d advances the schema boundary to wire 1.106, save schema 214 and content API 195. The notes,
+M10d advances the schema boundary to wire 1.106, save schema 219 and content API 200. The notes,
 custody, issue backing, refused claims and suspension state are saved so a loaded world continues
 with the same obligations. Generated schema code is not hand-edited; schema changes follow the
 append-only rules in [AGENTS.md](../../AGENTS.md) and the persistence decisions.
 
 Implemented here: household-level value and acceptance, custody receipts, goods-backed notes,
-bounded lending, redemption runs, suspension and debt hearings under *bearer heard*. The project
-plan lists the remaining questions and planned work, including polity-issued notes, cross-polity
-acceptance, counterfeiting and the complete M10 demonstration. These mechanisms demonstrate modeled
+bounded lending, redemption runs, suspension, *bearer heard*, polity-issued notes, legal tender,
+and counterfeiting. The project plan lists the remaining questions and planned work, including
+cross-polity acceptance and the complete M10 demonstration. These mechanisms demonstrate modeled
 behavior and engineering invariants; they do not establish historical realism.

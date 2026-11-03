@@ -3314,3 +3314,17 @@ are in [the M10 entries in the plan](../../PROJECT_PLAN.md#7-milestones).
 content API 195. Polity-issued notes, counterfeiting and the complete M10 demonstration remain
 planned. M9 is still the newest committed observer video; this merge added no M10 recording. This
 journal summarizes the merged implementation; no new test run is claimed here.
+
+## 2026-11-03 — M10d through counterfeiting; finalized development merged
+
+**Built:** slice EJ adds common-store notes issued under a polity's law, dues paid in those notes,
+legal tender for loans, suspended redemption and the derived fiat label. Slice EK adds false notes,
+their recognition at payment and redemption, recorded finds, and a law that can bring a passer
+before the gathering. The complete observer demo remains unfinished; the M9 video is still the
+newest committed observer recording. See the [plan's M10d record](../../PROJECT_PLAN.md#7-milestones)
+and [money and notes guide](money-and-notes.md).
+
+**Merge evidence:** the finalized `claude/claude-development` head had successful GitHub checks for
+the Windows kernel, kernel library, generated schema, web observer and full homelab chain before it
+was merged. The experimental `claude/claude-verification` branch remains separate from `main`.
+Boundary versions are wire 1.106, save schema 219 and content API 200.

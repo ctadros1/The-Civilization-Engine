@@ -22,16 +22,17 @@
 
 The Civilization Engine (TCE) is a long-running simulation of people, households and settlements. It provides resources, skills, institutions and physical systems; people make choices within them, so the engine does not prescribe a civilization's story or destination.
 
-The current observer presents an early farming world. M10 adds industrial systems and services; its money systems are underway. Modern civilization and the Unreal client remain future work.
+The current web observer presents an early farming world. M10 adds industrial systems and services; its money systems are underway. A [first runnable Unreal integration](unreal/README.md) now loads the kernel and renders runtime terrain and citizens; M2's full visual and performance gates remain in progress. Modern civilization remains future work.
 
 ## Project status
 
 | Status | Milestone | Overview |
 | --- | --- | --- |
-| <img src="assets/icons/status-complete.svg" width="18" alt=""> **Complete** | M0–M9 | Settlement life, institutions, cities and many-settlement simulation. |
+| <img src="assets/icons/status-complete.svg" width="18" alt=""> **Complete** | M0–M9 kernel/web | Settlement life, institutions, cities and many-settlement simulation. |
 | <img src="assets/icons/status-complete.svg" width="18" alt=""> **Complete** | M10a–M10c | Industry, transport, services and public health. |
 | <img src="assets/icons/status-in-progress.svg" width="18" alt=""> **In progress** | M10d | Money and counterfeiting are implemented; the M10 observer demo remains in progress. |
-| <img src="assets/icons/status-planned.svg" width="18" alt=""> **Planned** | Future scope | Modern-era systems and the Unreal client. |
+| <img src="assets/icons/status-in-progress.svg" width="18" alt=""> **In progress** | M2 Unreal client | Windows setup, shared DLL bridge, runtime terrain, simple instanced buildings/citizens, embedded panels, and a packaged executable; visual and performance gates remain. |
+| <img src="assets/icons/status-planned.svg" width="18" alt=""> **Planned** | Future scope | Modern-era systems. |
 
 Non-benchmark homelab simulations can now publish their actual world to the private runner
 observatory: sampled terrain/water, settlements, buildings and people, with separate streams
@@ -39,6 +40,9 @@ for parallel worlds. This read-only export is opt-in and leaves the engine's sav
 protocols unchanged. See [live world observations](docs/operations/live-world-observations.md).
 
 See the [project plan](PROJECT_PLAN.md) and [development journal](docs/development-journal/README.md) for milestone details and implementation evidence.
+
+The new [Windows Unreal night capture](demos/m2/README.md) records the first M2 client integration;
+it is an early terrain/construction-frame view, not the completed M2 visual demo.
 
 ## Latest live demo: M9, many settlements
 

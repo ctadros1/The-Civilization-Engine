@@ -10,7 +10,8 @@ teaching, letters and records, inoculation, and the health office and sickhouse)
 is underway:** slices EF–EK implement household valuation, custody, redeemable and polity-issued
 notes, lending, redemption runs, suspension, the *bearer heard* rule and counterfeiting. The full
 M10 demo remains. M2's portable kernel library and C interface are
-implemented; the Unreal client remains future work. Modern civilization remains future scope. See
+implemented; the first Windows Unreal integration now runs, with M2's visual and performance gates
+still in progress (see `unreal/README.md`). Modern civilization remains future scope. See
 §7 for milestone scope and §9 for implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
@@ -1029,7 +1030,15 @@ M1.**
     a C++ host test that loads the library, reads its frames, builds a command and sees the world
     it asked for.
 
-  Remaining, all on the Windows PC with Unreal: spike S1, the `EngineBridge` plugin (loading,
+  *Windows integration (2026-11-03):* pinned UE 5.8.3, MSVC 14.44.35229 and Windows SDK
+  10.0.22621.0. Added `unreal/TCE.uproject`, the shared `commons/unreal/EngineBridge` plugin,
+  build/launch scripts and a generated Nanite primitive kit. Editor and packaged smoke checks
+  created 32 people and a 512×512 terrain in 64 runtime tiles through the in-process kernel.
+  The kernel-interface suite and web build/213 unit tests pass. Native controls and embedded
+  panels are present. This is a runnable integration; it does not close S1 or certify 60 fps.
+  See `unreal/README.md` for remaining acceptance gates and current visual limitations.
+
+  Original remaining scope, being closed on the Windows PC: spike S1, the `EngineBridge` plugin (loading,
   frame reading, trip interpolation), the `BuildingAssembler` and its first kit, visible
   construction, crowds, day and night, the UMG HUD, hosting the panels in the WebBrowser widget,
   and a packaged Win64 build.
@@ -7774,6 +7783,13 @@ and M6a gives rivers a daily flow.
 
 - **2026-11-03 — Read-only homelab world observations (owner request):** opt-in five-second JSON snapshots from actual kernel state, atomically published per world instance, with bounded terrain/entity samples and explicit totals. Only non-benchmark host/demo steps opt in; benchmarks retain their existing advance path and no export. Parallel smoke/dashboard/gate worlds have separate streams. Existing processes are not modified or restarted. No save or boundary-schema change; the observation is neither a save nor a command API. See `docs/operations/live-world-observations.md` for operation and validation.
 
+- **Windows M2 integration (2026-11-03):** the owner authorized local installation and
+  computer control to resume the Unreal track. The empty Windows workspace was cloned from
+  `ctadros1/The-Civilization-Engine` at `bcb57285`. Pin the installed UE **5.8.3**, MSVC
+  **14.44.35229**, and SDK **10.0.22621.0** for this milestone. `C:\TCE` is a junction to
+  the checkout to keep build paths short. Use the existing C ABI and generated boundary
+  without changing saves or kernel behavior. The first runtime-terrain/instanced-mesh client
+  is a runnable integration, not evidence that all S1 and M2 visual/performance gates pass.
 
 - **2026-11-03 — M10d money status:** the finalized Claude development branch completes slices EJ–EK: polity-issued notes, legal tender, suspension and counterfeiting. The code has successful Windows kernel, kernel-library, schema, web and full-chain checks on its branch head. The M10 demo runner exists, but the complete observer demo is not captured. Current boundaries: wire 1.106, save schema 219, content API 200.
 - **2026-11-03 — M10 lived example:** slice EL adds a multi-settlement `m10_world` example and an owner-dispatched homelab run that retains its text record. A logged observer intervention introduces the M10 vocabulary to one resident in alternating settlements; others receive no direct introduction. The example does not script industrial adoption. This is not an observer recording. M9 remains the newest committed video; see the [demo gallery](demos/README.md) and [M10 guide](docs/development-journal/money-and-notes.md#multi-settlement-m10-example).

@@ -29,6 +29,10 @@ unreal/DerivedDataCache/
 unreal/.vs/
 unreal/Plugins/*/Binaries/
 unreal/Plugins/*/Intermediate/
+commons/unreal/*/Binaries/
+commons/unreal/*/Intermediate/
+unreal/Data/
+unreal/Build/Windows/FileOpenOrder/
 *.sln
 *.VC.db
 *.suo

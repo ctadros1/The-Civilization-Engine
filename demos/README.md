@@ -4,6 +4,13 @@ This is the guide to the project's demonstrations across milestones. The watchab
 opening titles and on-screen explanations; their source captures are kept for production history.
 A screenshot or demo run shows one build and one world, not an outcome every world will produce.
 
+## New Windows capture: M2 Unreal integration
+
+The [first Unreal night capture](m2/README.md) shows the new in-process client, runtime terrain,
+construction frames and embedded panels on the Windows PC. It is an early integration capture,
+not the completed M2 visual demo. The M9 video below remains the latest recorded demonstration
+of the more advanced simulation systems.
+
 ## Newest available recorded observer demo: M9, many settlements
 
 M9 keeps each person as an individual record while settlements away from the observer's focus are

@@ -74,8 +74,7 @@ impl Population {
         hearth: Option<(f32, f32)>,
         pit: Option<(f32, f32)>,
     ) -> Option<(bool, u32)> {
-        way.track.as_ref()?;
-        if way.modes & RAIL == 0 || way.segments.iter().any(|s| s.built_m + 1e-3 < s.corridor_m) {
+        if !Self::laid_whole(way) {
             return None;
         }
         let home = if way
@@ -93,16 +92,41 @@ impl Population {
         } else {
             return None;
         };
-        let near = |cell: u32, at: (f32, f32)| {
-            let c = cell_centre(ctx.map, cell as usize);
-            f64::from((c.0 - at.0).hypot(c.1 - at.1)) <= DOOR_LEG_M
-        };
-        let at_pit = |cell: u32| pit.is_none_or(|p| near(cell, p));
+        Self::ends_by(ctx, way, home, pit)
+    }
+
+    /// Whether way `way` is a line laid whole: serving wagons, with its track, and every stretch
+    /// laid as wide as it is to be.
+    pub(super) fn laid_whole(way: &civ_land::ways::Way) -> bool {
+        way.track.is_some()
+            && way.modes & RAIL != 0
+            && way
+                .segments
+                .iter()
+                .all(|s| s.built_m + 1e-3 >= s.corridor_m)
+    }
+
+    /// Whether cell `cell`'s centre lies within [`DOOR_LEG_M`] of `at`.
+    fn by(ctx: &Ctx, cell: u32, at: (f32, f32)) -> bool {
+        let c = cell_centre(ctx.map, cell as usize);
+        f64::from((c.0 - at.0).hypot(c.1 - at.1)) <= DOOR_LEG_M
+    }
+
+    /// Whether way `way` runs from beside a pit at `pit` (any pit, where `None`) to beside
+    /// `home`, each end within [`DOOR_LEG_M`]: whether homeward runs from its last cell to its
+    /// first, and its cell beside home.
+    fn ends_by(
+        ctx: &Ctx,
+        way: &civ_land::ways::Way,
+        home: (f32, f32),
+        pit: Option<(f32, f32)>,
+    ) -> Option<(bool, u32)> {
+        let at_pit = |cell: u32| pit.is_none_or(|p| Self::by(ctx, cell, p));
         let (first, last) = way.ends()?;
         // Homeward is first to last when the first end lies by the pit.
-        if at_pit(first) && near(last, home) {
+        if at_pit(first) && Self::by(ctx, last, home) {
             Some((false, last))
-        } else if at_pit(last) && near(first, home) {
+        } else if at_pit(last) && Self::by(ctx, first, home) {
             Some((true, first))
         } else {
             None
@@ -251,14 +275,22 @@ impl Population {
         {
             return;
         }
+        // A line of its own is one it keeps alone that ends beside its home (backlog D,
+        // eighteenth item): one it took from a household that is no more, running to that
+        // household's home, is no line home, and leaves it to weigh one of its own.
+        let home = x.home;
         let mine = |w: &civ_land::ways::Way| {
             w.modes & RAIL != 0
                 && w.segments
                     .iter()
                     .all(|s| s.keeper == Keeper::Household(household))
+                && w.ends()
+                    .is_some_and(|(a, b)| Self::by(ctx, a, home) || Self::by(ctx, b, home))
         };
         if let Some(line) = ctx.land.ways.list.iter().find(|w| mine(w)) {
-            let home_end = line.ends().map(|e| e.1);
+            let home_end = line
+                .ends()
+                .map(|(a, b)| if Self::by(ctx, b, home) { b } else { a });
             if let Some(home_end) = home_end
                 && ctx.land.wagons.of(household).next().is_none()
             {
@@ -289,6 +321,16 @@ impl Population {
             // a line of its own.
             self.review_locomotive(ctx, household);
             self.review_timetable(ctx, household);
+            return;
+        }
+        // A line nobody holds any more from the pit it digs most to beside its home (backlog D,
+        // eighteenth item): taken up, with what stands on it, rather than another laid beside
+        // it, and a wagon begun on it where none stands there.
+        if let Some((way, home_end, saves_h_year)) = self.nobodys_line(ctx, household, vehicle) {
+            self.take_up_line(ctx, household, way);
+            if ctx.land.wagons.of(household).next().is_none() {
+                self.begin_wagon(ctx, household, vehicle, home_end, saves_h_year);
+            }
             return;
         }
         let Some(r) = self.line_reckoning(ctx, household, vehicle) else {
@@ -736,6 +778,206 @@ impl Population {
             kg_h,
             walk_h,
         })
+    }
+
+    /// Whether the rail vehicle `w` is of the gauge `gauge_m` and a wagon (not an engine).
+    fn wagon_of_gauge(ctx: &Ctx, w: &civ_land::boats::Boat, gauge_m: f32) -> bool {
+        ctx.catalog
+            .vehicles
+            .get(usize::from(w.vehicle))
+            .is_some_and(|d| d.is_wagon() && (d.gauge_m - f64::from(gauge_m)).abs() < 1e-3)
+    }
+
+    /// The line nobody holds any more that household `household` would take up for a wagon of
+    /// vehicle `vehicle`, if any (backlog D, eighteenth item; research 08-09 §1.2: what nobody
+    /// holds any more is taken up): a line laid whole of the wagon's gauge whose every stretch
+    /// a household that is no more kept, running from beside the pit it digs most to beside its
+    /// home. It is weighed as a wagon on its polity's line is ([`Population::public_wagon`]): the
+    /// hours a year a wagon there would spare it over the wagon's life against the wagon's labour
+    /// and timber at its own cost, or nothing where a made wagon nobody holds stands at an end of
+    /// it. The first such line, in the order lines were begun: its id, its cell beside home and
+    /// the hours a year it would spare.
+    fn nobodys_line(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        vehicle: usize,
+    ) -> Option<(PermanentId, u32, f64)> {
+        let x = self.household(household)?;
+        let def = ctx.catalog.vehicles.get(vehicle)?;
+        let params = ctx.land_params.track?;
+        let p = self.dig_profile(ctx, household)?;
+        let carry = ctx.params.household.carry_kg;
+        let gone = |k: Keeper| matches!(k, Keeper::Household(g) if self.household(g).is_none());
+        for way in &ctx.land.ways.list {
+            let Some(track) = &way.track else {
+                continue;
+            };
+            let keeper = way.segments.first().map(|s| s.keeper);
+            if !Self::laid_whole(way)
+                || !keeper.is_some_and(gone)
+                || way.segments.iter().any(|s| Some(s.keeper) != keeper)
+                || (def.gauge_m - f64::from(track.gauge_m)).abs() >= 1e-3
+            {
+                continue;
+            }
+            let Some((back, home_end)) = Self::ends_by(ctx, way, x.home, Some(p.pit)) else {
+                continue;
+            };
+            let Some((first, last)) = way.ends() else {
+                continue;
+            };
+            let cells: Vec<u32> = way
+                .segments
+                .iter()
+                .flat_map(|s| s.cells.iter().copied())
+                .collect();
+            let runs = rail::runs(&cells, ctx.map.width, f64::from(ctx.map.cell_size_m));
+            let load = rail::most_load(
+                &track.bed,
+                &runs,
+                back,
+                def.tare_kg,
+                def.payload_kg,
+                def.rail_resistance,
+                def.pull_n,
+            );
+            let by_wagon = load.min(p.kg_h * p.session_h);
+            if by_wagon <= carry {
+                continue;
+            }
+            let saves_h_year =
+                p.days_year * (p.session_h + 2.0 * p.walk_h) * (1.0 - carry / by_wagon);
+            let standing = ctx.land.wagons.list.iter().any(|w| {
+                w.made()
+                    && self.household(w.owner).is_none()
+                    && (w.at == first || w.at == last)
+                    && Self::wagon_of_gauge(ctx, w, track.gauge_m)
+            });
+            let cost_h = if standing {
+                0.0
+            } else {
+                let Some(timber_h) = self
+                    .own_costs_of(ctx, x)
+                    .get(params.good)
+                    .copied()
+                    .flatten()
+                else {
+                    continue;
+                };
+                def.labour_h + def.material_kg * timber_h
+            };
+            if saves_h_year * def.life_years > cost_h {
+                return Some((way.id, home_end, saves_h_year));
+            }
+        }
+        None
+    }
+
+    /// Household `household` takes up line `way`, which nobody holds any more (backlog D,
+    /// eighteenth item): it keeps every stretch, and the wagons and engines standing at its ends
+    /// whose household is no more, made or being made, are its own, with any run of theirs.
+    fn take_up_line(&mut self, ctx: &mut Ctx, household: PermanentId, way: PermanentId) {
+        let land = &mut *ctx.land;
+        let Some(w) = land.ways.list.iter_mut().find(|w| w.id == way) else {
+            return;
+        };
+        for s in &mut w.segments {
+            s.keeper = Keeper::Household(household);
+        }
+        let ends = w.ends();
+        land.ways.changed();
+        let Some((first, last)) = ends else {
+            return;
+        };
+        let taken: Vec<PermanentId> = land
+            .wagons
+            .list
+            .iter()
+            .filter(|v| (v.at == first || v.at == last) && self.household(v.owner).is_none())
+            .map(|v| v.id)
+            .collect();
+        Self::rail_vehicles_to(land, &taken, household);
+    }
+
+    /// Rail vehicles `ids` are household `to`'s, with the runs their engines are on.
+    fn rail_vehicles_to(land: &mut civ_land::Land, ids: &[PermanentId], to: PermanentId) {
+        if ids.is_empty() {
+            return;
+        }
+        for v in land.wagons.list.iter_mut().filter(|v| ids.contains(&v.id)) {
+            v.owner = to;
+        }
+        land.wagons.changed();
+        let mut runs = false;
+        for r in land
+            .runs
+            .list
+            .iter_mut()
+            .filter(|r| ids.contains(&r.engine))
+        {
+            r.owner = to;
+            runs = true;
+        }
+        if runs {
+            land.runs.changed();
+        }
+    }
+
+    /// Household `from` is no more and its people joined household `to` (backlog D, eighteenth
+    /// item): where `to` lives in the settlement `from` lived in (`near`), every line `from` kept
+    /// alone and laid whole passes to `to`, as the ways it keeps do ([`Population::works_pass`]),
+    /// and so do `from`'s wagons and engines standing at an end of one, made or being made, with
+    /// the runs they are on; a line still being laid stays `from`'s, as a way being widened does,
+    /// with what stands on it. Its wagons and engines on a line `to` may run its own on (its
+    /// polity's, ending by the hearth) pass too, as its carts do; to a household of another
+    /// settlement, only those made and standing at an end of such a line, since a line is fixed
+    /// and a rail vehicle goes nowhere off it. The goods aboard went with its loads in transit.
+    pub(super) fn lines_pass(
+        &mut self,
+        ctx: &mut Ctx,
+        (from, to): (PermanentId, PermanentId),
+        near: bool,
+    ) {
+        let Some((home, hearth)) = self
+            .household(to)
+            .map(|x| (x.home, Self::hearth_of(ctx, x)))
+        else {
+            return;
+        };
+        let mut passed: Vec<PermanentId> = Vec::new();
+        if near {
+            for w in ctx.land.ways.list.iter_mut().filter(|w| {
+                Self::laid_whole(w)
+                    && w.segments
+                        .iter()
+                        .all(|s| s.keeper == Keeper::Household(from))
+            }) {
+                for s in &mut w.segments {
+                    s.keeper = Keeper::Household(to);
+                }
+                passed.push(w.id);
+            }
+            if !passed.is_empty() {
+                ctx.land.ways.changed();
+            }
+        }
+        let on_line = |v: &civ_land::boats::Boat| {
+            ctx.land.ways.list.iter().any(|w| {
+                w.ends().is_some_and(|(a, b)| v.at == a || v.at == b)
+                    && (passed.contains(&w.id)
+                        || Self::line_home(ctx, w, to, home, hearth, None).is_some())
+            })
+        };
+        let ids: Vec<PermanentId> = ctx
+            .land
+            .wagons
+            .list
+            .iter()
+            .filter(|v| v.owner == from && (near || v.made()) && on_line(v))
+            .map(|v| v.id)
+            .collect();
+        Self::rail_vehicles_to(ctx.land, &ids, to);
     }
 
     /// Household `household` begins a wagon of vehicle `vehicle` at cell `at`, the home end of its

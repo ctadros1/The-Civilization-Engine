@@ -1056,9 +1056,9 @@ impl Population {
     /// Household `from` joins household `to`: its members, stores, water, what it knows of the
     /// land, and its plots and buildings, and with `fields` its fields too (when its people move
     /// with them; the fields of a household that is no more go by the regime's succession rule
-    /// instead), what it has in transit, and its boats and carts and the works it keeps where its
-    /// people can reach them ([`Population::vehicles_pass`], [`Population::works_pass`]). `from`
-    /// is no more.
+    /// instead), what it has in transit, and its boats and carts, its lines with their wagons and
+    /// the works it keeps where its people can reach them ([`Population::vehicles_pass`],
+    /// [`Population::lines_pass`], [`Population::works_pass`]). `from` is no more.
     fn merge_household(
         &mut self,
         ctx: &mut Ctx,
@@ -1163,6 +1163,7 @@ impl Population {
         self.sort_members(to);
         self.hand_over_land(ctx, from, Some(to), fields);
         self.vehicles_pass(ctx, (from, to), near, door);
+        self.lines_pass(ctx, (from, to), near);
         if near {
             self.works_pass(ctx, (from, to));
         }
@@ -1249,8 +1250,8 @@ impl Population {
     /// footbridge being built is taken over by a household whose wades repay it, the heir among
     /// them, and a way, ditch, bank or headrace not yet finished stays its own, as it did, since
     /// the work left was weighed by `from`'s own reckoning (what its trips lost, what its fields
-    /// lacked). A line of track stays with its wagons, which do not pass. Nothing passes to a
-    /// household of another settlement.
+    /// lacked). A line of track passes with its wagons ([`Population::lines_pass`]). Nothing
+    /// passes to a household of another settlement.
     fn works_pass(&mut self, ctx: &mut Ctx, (from, to): (PermanentId, PermanentId)) {
         use civ_land::crossings::{CrossingOwner, CrossingState};
         use civ_land::earth::EarthKind;

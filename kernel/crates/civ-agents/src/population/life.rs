@@ -1112,6 +1112,21 @@ impl Population {
         let settlement = self.household(to).and_then(|x| x.settlement);
         // Its boats and carts pass where its people can reach them (backlog D, third item).
         let near = settlement.is_some() && gone.settlement == settlement;
+        // Its people taken in by a household of another settlement come to live there, as a
+        // household moving does: contact that carries what they know (M5b slice AR). One
+        // marrying in is counted as a marriage.
+        if why != ResidenceWhy::Married
+            && !gone.members.is_empty()
+            && let (Some(left), Some(to_s)) = (gone.settlement, settlement)
+            && left != to_s
+        {
+            let year = ctx
+                .now
+                .day_index()
+                .div_euclid(civ_core::time::DAYS_PER_YEAR);
+            self.contacts
+                .moved(year, left, to_s, gone.members.len() as u32);
+        }
         let door = cell_of(ctx.map, gone.home) as u32;
         for m in &gone.members {
             if let Some(p) = self.person_mut(*m) {

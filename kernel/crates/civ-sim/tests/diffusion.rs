@@ -960,3 +960,33 @@ fn a_building_stands_where_it_was_begun_when_a_household_elsewhere_comes_to_own_
     assert_eq!(loaded.land().buildings, sim.land().buildings);
     assert_eq!(of(loaded.land(), x).settlement, Some(a));
 }
+
+#[test]
+fn people_taken_in_by_a_household_of_another_settlement_are_contact_that_carries() {
+    // The neighbours row's contact (the M5 diffusion brief §3.1, test 1): children left alone,
+    // taken in by kin in another settlement, come to live there with what they know, as a
+    // household moving does, and are counted so.
+    let mut sim = world(3, 30, &[30]);
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let (from, to) = (households_of(&sim, a)[0], households_of(&sim, b)[0]);
+    let people = members(&sim, from).len() as u32;
+    assert!(people > 0);
+    let moved = |sim: &Sim, x: PermanentId, y: PermanentId| -> u32 {
+        sim.people()
+            .contacts
+            .years
+            .iter()
+            .filter(|((_, f, t), _)| (*f, *t) == (x, y))
+            .map(|(_, c)| c.moved)
+            .sum()
+    };
+    assert_eq!(moved(&sim, a, b), 0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, from, to));
+    assert_eq!(moved(&sim, a, b), people, "they came to live there");
+    assert_eq!(moved(&sim, b, a), 0);
+    // Taken in by a household of their own settlement, nobody crossed.
+    let (x, y) = (households_of(&sim, a)[0], households_of(&sim, a)[1]);
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, x, y));
+    assert_eq!(moved(&sim, a, b), people);
+    assert_eq!(moved(&sim, a, a), 0);
+}

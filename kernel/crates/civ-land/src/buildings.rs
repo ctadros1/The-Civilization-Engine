@@ -242,6 +242,9 @@ pub struct Building {
     /// The polity that raised and owns it, if any (M8d slice DC, ADR-0031 §6): its work is the
     /// polity's households', given by choice, and `household` is only the one that keeps it.
     pub polity: Option<PermanentId>,
+    /// The settlement it was begun in: its household's then. It stands there whoever comes to
+    /// own it, an heir in another settlement included. `None` for one begun before it was kept.
+    pub settlement: Option<PermanentId>,
 }
 
 /// Physical work on a threatened building, separate from its eventual historical record.
@@ -293,6 +296,7 @@ impl Building {
             days_wet: 0,
             demolition: None,
             polity: None,
+            settlement: None,
         }
     }
 

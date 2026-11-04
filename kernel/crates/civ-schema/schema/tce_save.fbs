@@ -899,6 +899,10 @@ table Building {
   demolition: DemolitionSave (id: 16);
   // Schema 165 (M8d slice DC): the polity that raised and owns it, 0 for none.
   polity: ulong (id: 17);
+  // Schema 220 (M5b slice AR's neighbours row; appended within the unreleased saves 220): the
+  // settlement it was begun in, its household's then, which it stands in whoever comes to own
+  // it; 0 for none (a save made before it was kept).
+  settlement: ulong (id: 18);
 }
 
 // Schema 98: physical demolition work, not inferred from historical interventions.

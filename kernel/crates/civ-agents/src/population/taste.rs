@@ -64,11 +64,13 @@ impl Population {
         }
     }
 
-    /// The settlement building `b` stands in: its household's, or once that household is gone,
-    /// the one whose hearth is nearest (M5b slice AR).
+    /// The settlement building `b` stands in (M5b slice AR): the one it was begun in, whoever
+    /// owns it now (an heir in another settlement does not carry it there); for one begun before
+    /// that was kept, its household's, or once that household is gone, the one whose hearth is
+    /// nearest.
     pub fn building_settlement(&self, land: &Land, b: &Building) -> Option<PermanentId> {
-        self.household(b.household)
-            .and_then(|h| h.settlement)
+        b.settlement
+            .or_else(|| self.household(b.household).and_then(|h| h.settlement))
             .or_else(|| {
                 let c = crate::build::centre_m(&b.spec);
                 land.settlements
@@ -182,7 +184,8 @@ impl Population {
                 b.finished()
                     && b.state == civ_land::BuildingState::Standing
                     && b.stage_since.minutes() >= since
-                    && self.household(b.household).and_then(|h| h.settlement) == Some(settlement)
+                    && self.household(b.household).is_some()
+                    && self.building_settlement(ctx.land, b) == Some(settlement)
             })
             .filter(|b| {
                 let c = crate::build::centre_m(&b.spec);
@@ -275,7 +278,11 @@ impl Population {
             else {
                 continue;
             };
-            let Some(settlement) = self.household(b.household).and_then(|h| h.settlement) else {
+            // Met where it stands, by a household that still keeps it (M5b slice AR).
+            let Some(settlement) = self
+                .household(b.household)
+                .and_then(|_| self.building_settlement(land, b))
+            else {
                 continue;
             };
             let built = if b.condition.is_empty() {

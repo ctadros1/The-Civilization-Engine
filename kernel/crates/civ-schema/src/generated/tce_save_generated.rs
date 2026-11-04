@@ -38067,6 +38067,7 @@ impl<'a> Building<'a> {
   pub const VT_DAYS_WET: ::flatbuffers::VOffsetT = 34;
   pub const VT_DEMOLITION: ::flatbuffers::VOffsetT = 36;
   pub const VT_POLITY: ::flatbuffers::VOffsetT = 38;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 40;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -38078,6 +38079,7 @@ impl<'a> Building<'a> {
     args: &'args BuildingArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Building<'bldr>> {
     let mut builder = BuildingBuilder::new(_fbb);
+    builder.add_settlement(args.settlement);
     builder.add_polity(args.polity);
     builder.add_style_from(args.style_from);
     builder.add_firm(args.firm);
@@ -38226,6 +38228,13 @@ impl<'a> Building<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(Building::VT_POLITY, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Building::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Building<'_> {
@@ -38252,6 +38261,7 @@ impl ::flatbuffers::Verifiable for Building<'_> {
      .visit_field::<u16>("days_wet", Self::VT_DAYS_WET, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<DemolitionSave>>("demolition", Self::VT_DEMOLITION, false)?
      .visit_field::<u64>("polity", Self::VT_POLITY, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
      .finish();
     Ok(())
   }
@@ -38275,6 +38285,7 @@ pub struct BuildingArgs<'a> {
     pub days_wet: u16,
     pub demolition: Option<::flatbuffers::WIPOffset<DemolitionSave<'a>>>,
     pub polity: u64,
+    pub settlement: u64,
 }
 impl<'a> Default for BuildingArgs<'a> {
   #[inline]
@@ -38298,6 +38309,7 @@ impl<'a> Default for BuildingArgs<'a> {
       days_wet: 0,
       demolition: None,
       polity: 0,
+      settlement: 0,
     }
   }
 }
@@ -38380,6 +38392,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(Building::VT_POLITY, polity, 0);
   }
   #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(Building::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BuildingBuilder {
@@ -38415,6 +38431,7 @@ impl ::core::fmt::Debug for Building<'_> {
       ds.field("days_wet", &self.days_wet());
       ds.field("demolition", &self.demolition());
       ds.field("polity", &self.polity());
+      ds.field("settlement", &self.settlement());
       ds.finish()
   }
 }

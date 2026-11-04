@@ -334,8 +334,10 @@ impl Population {
             receipt: None,
             allotted: None,
         });
+        let settlement = self.household(keeper).and_then(|h| h.settlement);
         ctx.land.buildings.push(Building {
             polity: Some(self.polities[pi].id),
+            settlement,
             ..Building::new(id, keeper, plot, spec, ctx.now)
         });
         if let Some(s) = self.polities[pi].raises.iter_mut().find(|s| s.0 == law) {

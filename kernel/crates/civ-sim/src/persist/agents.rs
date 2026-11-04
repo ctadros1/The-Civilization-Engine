@@ -8654,6 +8654,7 @@ fn encode_buildings(buildings: &[Building]) -> Vec<u8> {
                     days_wet: b.days_wet,
                     demolition,
                     polity: b.polity.map_or(0, |p| p.get()),
+                    settlement: b.settlement.map_or(0, |s| s.get()),
                 },
             )
         })
@@ -8829,6 +8830,8 @@ fn decode_buildings(bytes: &[u8], schema: Schema) -> Result<Vec<Building>, LoadE
             },
             // Before schema 165 no polity owned a building.
             polity: PermanentId::from_raw(b.polity()),
+            // A save made before it was kept says nothing of where a building was begun.
+            settlement: PermanentId::from_raw(b.settlement()),
         });
     }
     Ok(out)

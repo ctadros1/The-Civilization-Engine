@@ -881,3 +881,82 @@ fn a_tower_over_the_roofs_about_it_is_seen_from_farther_than_a_hut() {
     assert!(seen.contains(&id), "{seen:?}");
     assert!(!seen.contains(&hut), "{seen:?}");
 }
+
+#[test]
+fn a_building_stands_where_it_was_begun_when_a_household_elsewhere_comes_to_own_it() {
+    // The neighbours row's isolation (the M5 diffusion brief §3.1, test 1): a household's homes
+    // pass to the household of another settlement its people join, as children taken in by kin
+    // there, or as an heir there takes a household no one is left in. The homes stay where they
+    // stand: nothing of the way they were built has crossed, and nobody there has seen them.
+    let mut sim = world(3, 30, &[30]);
+    until_housed(&mut sim);
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let (in_a, in_b) = (households_of(&sim, a), households_of(&sim, b));
+    assert!(in_a.len() >= 3 && in_b.len() >= 2);
+    let home = |sim: &Sim, h: PermanentId| {
+        sim.land()
+            .buildings
+            .iter()
+            .find(|x| x.household == h && x.finished())
+            .map(|x| x.id)
+            .expect("a home")
+    };
+    let (x, y) = (home(&sim, in_a[0]), home(&sim, in_a[1]));
+    // One home of the first settlement followed another there, the only one new this year.
+    let long_ago = SimTime::from_minutes(sim.now().minutes() - 400 * DAY);
+    let month_ago = SimTime::from_minutes(sim.now().minutes() - 30 * DAY);
+    for b in sim.land_mut_for_tests().buildings.iter_mut() {
+        b.stage_since = if b.id == y { month_ago } else { long_ago };
+        if b.id == x {
+            b.style_from = Some(y);
+        }
+    }
+    let land = sim.land().clone();
+    let of = |land: &civ_land::Land, id: PermanentId| {
+        land.buildings
+            .iter()
+            .find(|b| b.id == id)
+            .expect("it")
+            .clone()
+    };
+    for id in [x, y] {
+        assert_eq!(of(&land, id).settlement, Some(a), "begun in the first");
+    }
+    assert_eq!(sim.people().crossing_of(&land, &of(&land, x)), None);
+    // Both households join households of the second settlement, with all they have.
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, in_a[0], in_b[0]));
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, in_a[1], in_b[1]));
+    let land = sim.land().clone();
+    let (hx, hy) = (of(&land, x), of(&land, y));
+    assert_eq!((hx.household, hy.household), (in_b[0], in_b[1]));
+    let pop = sim.people();
+    assert_eq!(pop.building_settlement(&land, &hx), Some(a));
+    assert_eq!(pop.building_settlement(&land, &hy), Some(a));
+    assert_eq!(
+        pop.crossing_of(&land, &hx),
+        None,
+        "its chain never left the first"
+    );
+    // The year's review: the new home is met where it stands, by those who live about it, and
+    // by nobody of the settlement whose household now owns it.
+    for (_, h) in sim.people_mut_for_tests().households.iter_mut() {
+        h.admired = None;
+    }
+    review(&mut sim);
+    let admiring = |s: PermanentId| {
+        households_of(&sim, s)
+            .into_iter()
+            .filter(|&h| sim.people().household(h).and_then(|x| x.admired) == Some(y))
+            .count()
+    };
+    assert!(admiring(a) > 0, "met where it stands");
+    assert_eq!(admiring(b), 0, "never seen there");
+    // A save keeps where each building was begun.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        SaveDir::create(dir.path().join("saves"), civ_schema::SAVE_EXTENSION).expect("save dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "taken").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.land().buildings, sim.land().buildings);
+    assert_eq!(of(loaded.land(), x).settlement, Some(a));
+}

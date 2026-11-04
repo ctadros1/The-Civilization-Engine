@@ -3837,9 +3837,12 @@ impl Population {
         }
         // Its builders' taste followed the building that moved it most (M3b slice R).
         let style_from = self.household(household).and_then(|h| h.admired);
+        // It stands in its household's settlement, whoever comes to own it (M5b slice AR).
+        let settlement = self.household(household).and_then(|h| h.settlement);
         ctx.land.buildings.push(Building {
             firm: site.firm,
             style_from,
+            settlement,
             ..Building::new(id, household, plot, site.spec.clone(), ctx.now)
         });
         // Ground that drops too far across the plot is levelled first (ADR-0010 §2).

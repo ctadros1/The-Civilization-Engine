@@ -1454,6 +1454,7 @@ impl Sim {
         }
         let mut b = civ_land::Building {
             stage,
+            settlement: self.people.household(household).and_then(|h| h.settlement),
             ..civ_land::Building::new(id, household, plot, spec, now)
         };
         if let Ok(e) = civ_grammar::expand(&b.spec, &def.rules) {

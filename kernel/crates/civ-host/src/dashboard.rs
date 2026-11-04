@@ -2898,6 +2898,67 @@ mod tests {
     }
 
     #[test]
+    fn every_month_lived_counts_its_buildings_once_the_last_of_a_call_too() {
+        // The failures row's years (research 11-06 §2.4): a year lived from a month's first day
+        // stands twelve months, and a call ending on a month's first day counts the month that
+        // began there, as the next call does not.
+        let root = civ_content::find_content_root(Path::new(env!("CARGO_MANIFEST_DIR")))
+            .expect("content/ is above the crate");
+        let content = civ_content::load(&root).registry.expect("content loads");
+        let mut sim = Sim::create_for_tests(
+            &NewWorld {
+                name: "Building-years".into(),
+                seed: 2,
+                preset_id: PRESET.to_owned(),
+                size_cells: 512,
+                band_size: 30,
+                neighbours: Vec::new(),
+                neighbours_known: false,
+                regime_id: String::new(),
+            },
+            &content,
+            [5; 16],
+        )
+        .expect("world");
+        sim.set_speed(SPEED_MAX).expect("Max");
+        sim.advance_to_midnight().expect("midnight");
+        let mut run = LongRun::begin(&sim);
+        let first_of = |sim: &Sim, months: i64| {
+            let d = sim.now().date();
+            let m = i64::from(d.month) - 1 + months;
+            civ_core::SimTime::from_date(
+                d.year + m.div_euclid(12),
+                (m.rem_euclid(12) + 1) as u8,
+                1,
+                0,
+                0,
+            )
+            .expect("a date")
+            .minutes()
+        };
+        // Lived until huts stand, to a month's first day.
+        let mut months = 0;
+        while smoke::lived_buildings(&sim) == 0 && months < 14 {
+            let to = first_of(&sim, 1);
+            run.live_to(&mut sim, to).expect("lives");
+            months += 1;
+        }
+        assert!(
+            smoke::lived_buildings(&sim) > 0,
+            "huts stand within {months} months"
+        );
+        // One month, ending on the next month's first day: its buildings are counted.
+        let before = run.lived_building_months;
+        let to = first_of(&sim, 1);
+        run.live_to(&mut sim, to).expect("lives");
+        assert_eq!(
+            run.lived_building_months - before,
+            smoke::lived_buildings(&sim),
+            "the month that began as the call ended is counted"
+        );
+    }
+
+    #[test]
     fn a_lived_run_counts_what_the_observer_brought_and_judges_its_outbreak() {
         let root = civ_content::find_content_root(Path::new(env!("CARGO_MANIFEST_DIR")))
             .expect("content/ is above the crate");

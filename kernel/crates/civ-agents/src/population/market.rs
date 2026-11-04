@@ -1725,6 +1725,11 @@ impl Population {
                 note(s, &f.offers);
             }
         }
+        // The least of them too: where a buyer who sought the cheapest would go.
+        let least: BTreeMap<(PermanentId, u16), f64> = asks
+            .iter()
+            .map(|(&k, v)| (k, v.iter().copied().fold(f64::INFINITY, f64::min)))
+            .collect();
         let median: BTreeMap<(PermanentId, u16), f64> = asks
             .into_iter()
             .map(|(k, mut v)| (k, crate::convergence::median(&mut v)))
@@ -1751,6 +1756,7 @@ impl Population {
                             good: g,
                             ask_h: [ask_a as f32, ask_b as f32],
                             paid_h: [paid(a, g), paid(b, g)],
+                            least_h: [least[&(a, g)] as f32, least[&(b, g)] as f32],
                         })
                     })
                     .filter(|g| g.ask_h.iter().all(|x| x.is_finite() && *x > 0.0))

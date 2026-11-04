@@ -10,7 +10,9 @@
 //! and red only for an inconsistency: a good flowing on net from the dearer settlement to the
 //! cheaper over a year in which the gap exceeded the band. A month in which one of the two did not
 //! offer the good has no gap, and what was carried in it is neither way: a buyer who fetches what
-//! home has none of is not buying dearer than at home. Monthly gaps overlap and repeat, so
+//! home has none of is not buying dearer than at home. Which way is dearer is judged by what each
+//! settlement's cheapest seller asks, where the record keeps it: a buyer goes to the cheapest it
+//! can pay, and a median is nobody's price. Monthly gaps overlap and repeat, so
 //! they are summarised, never treated as independent observations (16-01 §4.1, §4.5), and a
 //! correlation of the two settlements' prices is never graded (08-12 §4).
 
@@ -55,7 +57,8 @@ pub struct GoodSeen {
     /// Units carried between the pair, both ways, all months on record.
     pub carried: f64,
     /// Years in which it flowed on net from the dearer settlement to the cheaper while their
-    /// mean gap exceeded the band, counting what was carried in the months both offered it.
+    /// mean gap exceeded the band, counting what was carried in the months both offered it, each
+    /// settlement's price that of its cheapest seller (its median in a record without it).
     pub wrong_way: u32,
     /// Of `carried`, the units carried in months one of the pair did not offer it: shown, and no
     /// year's direction is judged by them.
@@ -193,6 +196,9 @@ pub fn pairs(conv: &Convergence, contacts: &Contacts) -> Vec<PairSeen> {
         // Each good's asks, by month: (month, ask in `a`, ask in `b`), and what it fetched in each
         // in the months it sold in both.
         let mut asks: BTreeMap<u16, Vec<(u32, f64, f64)>> = BTreeMap::new();
+        // And what the cheapest of its sellers asked in each, where the record keeps it: the
+        // price a buyer seeking the cheapest is asked, by which a flow's direction is judged.
+        let mut least: BTreeMap<(u16, u32), (f64, f64)> = BTreeMap::new();
         let mut paid: BTreeMap<u16, Vec<(u32, f64, f64)>> = BTreeMap::new();
         for (&(month, x, y), list) in &conv.gaps {
             if (x, y) != (a, b) {
@@ -204,6 +210,12 @@ pub fn pairs(conv: &Convergence, contacts: &Contacts) -> Vec<PairSeen> {
                     f64::from(g.ask_h[0]),
                     f64::from(g.ask_h[1]),
                 ));
+                if g.least_h.iter().all(|&l| l > 0.0) {
+                    least.insert(
+                        (g.good, month),
+                        (f64::from(g.least_h[0]), f64::from(g.least_h[1])),
+                    );
+                }
                 if g.paid_h.iter().all(|&p| p > 0.0) {
                     paid.entry(g.good).or_default().push((
                         month,
@@ -246,12 +258,16 @@ pub fn pairs(conv: &Convergence, contacts: &Contacts) -> Vec<PairSeen> {
             });
             // Years in which it flowed on net from the dearer to the cheaper, the gap wider than
             // the band: by year, (sum of asks in `a`, in `b`, net flow from `a` to `b`, months).
-            // Only what was carried in a month both offered it is flow between their prices.
+            // Only what was carried in a month both offered it is flow between their prices, and
+            // its direction is judged by what the cheapest seller in each asked: a buyer goes to
+            // the cheapest it can pay, never to a median (08-05 §1.7: the prices a shipment is
+            // bought and sold at). A record without the least asks falls back on the medians.
             let mut years: BTreeMap<u32, (f64, f64, f64, u32)> = BTreeMap::new();
             for m in &months {
+                let (ask_a, ask_b) = least.get(&(good, m.0)).copied().unwrap_or((m.1, m.2));
                 let y = years.entry(m.0 / 12).or_default();
-                y.0 += m.1;
-                y.1 += m.2;
+                y.0 += ask_a;
+                y.1 += ask_b;
                 y.3 += 1;
             }
             let asked: std::collections::BTreeSet<u32> = months.iter().map(|m| m.0).collect();
@@ -346,6 +362,7 @@ mod tests {
                     good: 3,
                     ask_h: [ask_a(m), 1.0],
                     paid_h: [-1.0, -1.0],
+                    least_h: [ask_a(m), 1.0],
                 }],
             );
             if m >= from && units > 0.0 {
@@ -446,6 +463,34 @@ mod tests {
         assert_eq!(p.grade().0, Grade::Red);
         assert_eq!(grade(std::slice::from_ref(p)), Grade::Red);
         assert_eq!(p.goods[0].carried_unasked, 0.0);
+    }
+
+    #[test]
+    fn which_way_is_dearer_is_judged_by_the_cheapest_seller_in_each() {
+        // The first's sellers ask 2 hours at the median, the second's 1, and people of the second
+        // buy in the first: by the medians, from the dearer to the cheaper. But the first's
+        // cheapest seller asks 0.8 against the second's 1: bought where it was cheapest.
+        let (mut conv, contacts) = record(36, |_| 2.0, 0, 10.0, 0.1, 40);
+        for list in conv.gaps.values_mut() {
+            list[0].least_h = [0.8, 1.0];
+        }
+        let p = pairs(&conv, &contacts).remove(0);
+        assert_eq!(p.goods[0].wrong_way, 0, "{p:?}");
+        assert_ne!(p.grade().0, Grade::Red, "{p:?}");
+        // Its gap is still the medians': 69 points.
+        assert!((p.goods[0].gap - 100.0 * 2.0f64.ln()).abs() < 1e-6);
+        // The first's cheapest asking 1.6, dearer than the second's beyond the band: red.
+        for list in conv.gaps.values_mut() {
+            list[0].least_h = [1.6, 1.0];
+        }
+        let p = pairs(&conv, &contacts).remove(0);
+        assert_eq!(p.goods[0].wrong_way, 3, "{p:?}");
+        assert_eq!(p.grade().0, Grade::Red);
+        // A record made before the least asks were kept is judged by its medians.
+        for list in conv.gaps.values_mut() {
+            list[0].least_h = [0.0, 0.0];
+        }
+        assert_eq!(pairs(&conv, &contacts)[0].goods[0].wrong_way, 3);
     }
 
     #[test]

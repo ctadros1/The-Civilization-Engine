@@ -3810,6 +3810,10 @@ table GapSave {
   // What a unit fetched in each that month, hours (-1: none sold).
   paid_a: float = -1 (id: 6);
   paid_b: float = -1 (id: 7);
+  // Schema 220 (the price convergence row; appended within the unreleased saves 220): the least
+  // of its sellers' asks in each, hours a unit (0: a save made before it was kept).
+  least_a: float (id: 8);
+  least_b: float (id: 9);
 }
 
 // What people of one settlement carried home from another's market in a month (schema 57).

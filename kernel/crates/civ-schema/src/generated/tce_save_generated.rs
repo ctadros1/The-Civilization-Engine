@@ -64802,6 +64802,8 @@ impl<'a> GapSave<'a> {
   pub const VT_ASK_B: ::flatbuffers::VOffsetT = 14;
   pub const VT_PAID_A: ::flatbuffers::VOffsetT = 16;
   pub const VT_PAID_B: ::flatbuffers::VOffsetT = 18;
+  pub const VT_LEAST_A: ::flatbuffers::VOffsetT = 20;
+  pub const VT_LEAST_B: ::flatbuffers::VOffsetT = 22;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -64815,6 +64817,8 @@ impl<'a> GapSave<'a> {
     let mut builder = GapSaveBuilder::new(_fbb);
     builder.add_b(args.b);
     builder.add_a(args.a);
+    builder.add_least_b(args.least_b);
+    builder.add_least_a(args.least_a);
     builder.add_paid_b(args.paid_b);
     builder.add_paid_a(args.paid_a);
     builder.add_ask_b(args.ask_b);
@@ -64881,6 +64885,20 @@ impl<'a> GapSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(GapSave::VT_PAID_B, Some(-1.0)).unwrap()}
   }
+  #[inline]
+  pub fn least_a(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(GapSave::VT_LEAST_A, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn least_b(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(GapSave::VT_LEAST_B, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for GapSave<'_> {
@@ -64897,6 +64915,8 @@ impl ::flatbuffers::Verifiable for GapSave<'_> {
      .visit_field::<f32>("ask_b", Self::VT_ASK_B, false)?
      .visit_field::<f32>("paid_a", Self::VT_PAID_A, false)?
      .visit_field::<f32>("paid_b", Self::VT_PAID_B, false)?
+     .visit_field::<f32>("least_a", Self::VT_LEAST_A, false)?
+     .visit_field::<f32>("least_b", Self::VT_LEAST_B, false)?
      .finish();
     Ok(())
   }
@@ -64910,6 +64930,8 @@ pub struct GapSaveArgs {
     pub ask_b: f32,
     pub paid_a: f32,
     pub paid_b: f32,
+    pub least_a: f32,
+    pub least_b: f32,
 }
 impl<'a> Default for GapSaveArgs {
   #[inline]
@@ -64923,6 +64945,8 @@ impl<'a> Default for GapSaveArgs {
       ask_b: 0.0,
       paid_a: -1.0,
       paid_b: -1.0,
+      least_a: 0.0,
+      least_b: 0.0,
     }
   }
 }
@@ -64965,6 +64989,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GapSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(GapSave::VT_PAID_B, paid_b, -1.0);
   }
   #[inline]
+  pub fn add_least_a(&mut self, least_a: f32) {
+    self.fbb_.push_slot::<f32>(GapSave::VT_LEAST_A, least_a, 0.0);
+  }
+  #[inline]
+  pub fn add_least_b(&mut self, least_b: f32) {
+    self.fbb_.push_slot::<f32>(GapSave::VT_LEAST_B, least_b, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GapSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     GapSaveBuilder {
@@ -64990,6 +65022,8 @@ impl ::core::fmt::Debug for GapSave<'_> {
       ds.field("ask_b", &self.ask_b());
       ds.field("paid_a", &self.paid_a());
       ds.field("paid_b", &self.paid_b());
+      ds.field("least_a", &self.least_a());
+      ds.field("least_b", &self.least_b());
       ds.finish()
   }
 }

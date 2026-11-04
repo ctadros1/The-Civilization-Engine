@@ -922,6 +922,14 @@ fn a_month_of_trade_between_settlements_is_kept_on_record() {
     for g in &gaps {
         assert!(g.ask_h.iter().all(|&x| x > 0.0), "{g:?}");
         assert!(g.paid_h.iter().all(|&x| x == -1.0 || x > 0.0), "{g:?}");
+        // And the cheapest seller's ask in each, no more than the median.
+        assert!(
+            g.least_h
+                .iter()
+                .zip(g.ask_h)
+                .all(|(&l, a)| l > 0.0 && l <= a),
+            "{g:?}"
+        );
     }
     assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
     // The market panel says so (wire 1.55): in the first settlement's market, the asks there and

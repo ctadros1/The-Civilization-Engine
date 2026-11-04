@@ -17,6 +17,10 @@ pub struct GoodGap {
     pub ask_h: [f32; 2],
     /// What a unit fetched in each that month, hours of its sellers' work, or -1 where none sold.
     pub paid_h: [f32; 2],
+    /// The least of its sellers' asks in each, hours of the seller's own work a unit: what a
+    /// buyer who went to the cheapest of them would be asked (0 in a record made before it was
+    /// kept).
+    pub least_h: [f32; 2],
 }
 
 /// What people of one settlement carried home from another's market in a month.
@@ -72,6 +76,16 @@ impl Convergence {
                 .any(|g| g.ask_h.iter().any(|x| !(x.is_finite() && *x > 0.0)))
             {
                 out.push(format!("month {month}: {a} and {b} with an ask of nothing"));
+            }
+            if gaps.iter().any(|g| {
+                g.least_h
+                    .iter()
+                    .zip(g.ask_h)
+                    .any(|(&l, a)| !(l.is_finite() && l >= 0.0 && l <= a))
+            }) {
+                out.push(format!(
+                    "month {month}: {a} and {b} with a least ask beyond its median"
+                ));
             }
         }
         for (&(month, from, to), c) in &self.carried {

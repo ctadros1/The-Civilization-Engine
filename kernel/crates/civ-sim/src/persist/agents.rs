@@ -11270,6 +11270,8 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
                     ask_b: g.ask_h[1],
                     paid_a: g.paid_h[0],
                     paid_b: g.paid_h[1],
+                    least_a: g.least_h[0],
+                    least_b: g.least_h[1],
                 },
             )
         })
@@ -11810,6 +11812,7 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
                 good,
                 ask_h: [g.ask_a(), g.ask_b()],
                 paid_h: [g.paid_a(), g.paid_b()],
+                least_h: [g.least_a(), g.least_b()],
             });
     }
     for list in convergence.gaps.values_mut() {

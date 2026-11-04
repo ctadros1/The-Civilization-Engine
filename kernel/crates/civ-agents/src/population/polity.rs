@@ -367,11 +367,50 @@ impl TradeForecast {
 struct ForumCase {
     /// Heard at the gathering (else by a forum).
     gathered: bool,
+    /// The forum law that heard it, if one did.
+    by: Option<PermanentId>,
+    /// Heard by one hearer alone, whose stance is no sample of how a panel or the elders would
+    /// stand.
+    alone: bool,
     accuser: PermanentId,
     accused: PermanentId,
     kcal: f64,
     found: bool,
     stances: Vec<(PermanentId, PermanentId, Stance)>,
+}
+
+impl ForumCase {
+    /// Which side of it household `h` stood on: 1 if it brought it, -1 if it was accused.
+    fn side(&self, h: PermanentId) -> Option<f64> {
+        if self.accuser == h {
+            Some(1.0)
+        } else if self.accused == h {
+            Some(-1.0)
+        } else {
+            None
+        }
+    }
+
+    /// The chance forum `def` would find it (backlog D): a holder `nominee` as they stood when
+    /// it was heard, or at even odds if they did not sit or a lot is yet to draw them; a panel
+    /// or the elders as those who sat stood, or at even odds where one hearer heard it alone or
+    /// nobody took a side.
+    fn chance(&self, def: &crate::forum::ForumDef, nominee: Option<PermanentId>) -> f64 {
+        let n = |s: Stance| self.stances.iter().filter(|r| r.2 == s).count() as f64;
+        let (support, oppose) = (n(Stance::Support), n(Stance::Oppose));
+        match def.seat {
+            crate::forum::ForumSeat::Holder => {
+                match nominee.and_then(|p| self.stances.iter().find(|r| r.0 == p)) {
+                    Some((_, _, Stance::Support)) => 1.0,
+                    Some((_, _, Stance::Oppose)) => 0.0,
+                    _ => 0.5,
+                }
+            }
+            _ if self.alone => 0.5,
+            _ if support + oppose > 0.0 => support / (support + oppose),
+            _ => 0.5,
+        }
+    }
 }
 
 /// What closing a source would bring a household (M6a slice BA, step four): the household, the
@@ -767,35 +806,14 @@ impl Forecasts {
                     if c.gathered {
                         evenings += c.stances.iter().filter(|r| r.1 == h).count();
                     }
-                    let side = if c.accuser == h {
-                        1.0
-                    } else if c.accused == h {
-                        -1.0
-                    } else {
+                    let Some(side) = c.side(h) else {
                         continue;
                     };
-                    let n = |s: Stance| c.stances.iter().filter(|r| r.2 == s).count() as f64;
-                    let (support, oppose) = (n(Stance::Support), n(Stance::Oppose));
-                    let chance = match def.seat {
-                        crate::forum::ForumSeat::Holder => {
-                            match m.nominee.and_then(|p| c.stances.iter().find(|r| r.0 == p)) {
-                                Some((_, _, Stance::Support)) => 1.0,
-                                Some((_, _, Stance::Oppose)) => 0.0,
-                                _ => 0.5,
-                            }
-                        }
-                        _ if support + oppose > 0.0 => support / (support + oppose),
-                        _ => 0.5,
-                    };
+                    let chance = c.chance(def, m.nominee);
                     net += side * (chance - f64::from(u8::from(c.found))) * c.kcal;
                 }
-                net *= 365.0 / f64::from(params.crime.remember_days.max(1));
                 let kept = evenings as f64 * params.elections.w_evening / pp.w_gain.max(1e-9);
-                kept + if net >= 0.0 {
-                    crate::polity::kept_gain(o, net, pp)
-                } else {
-                    -crate::polity::levy_cost(o, -net, pp)
-                }
+                kept + Self::forum_net(o, net, params)
             }
             // A duty or an embargo (M7c slice BV): what it brings back less what it costs, a year.
             Some(PolicyKind::Duty) => {
@@ -944,6 +962,62 @@ impl Forecasts {
             Some(PolicyKind::AmendBody | PolicyKind::Repeal) => 0.0,
             _ => crate::polity::store_gain(o, &self.belief, m.levy_share, pp),
         }
+    }
+
+    /// What a forum's difference in what a household got back (or paid) over the cases of its
+    /// within memory, kcal, is worth a year, gain units.
+    fn forum_net(o: &Outlook, net: f64, params: &PeopleParams) -> f64 {
+        let pp = &params.polity;
+        let net = net * 365.0 / f64::from(params.crime.remember_days.max(1));
+        if net >= 0.0 {
+            crate::polity::kept_gain(o, net, pp)
+        } else {
+            -crate::polity::levy_cost(o, -net, pp)
+        }
+    }
+
+    /// What putting move `m` in place of law `old` in force, of the same kind and another
+    /// template, would bring household `h`, gain units (research 09-05 §1.5: an alternative is
+    /// weighed against the policy that inaction leaves; 09-02 §3.7: institutional change for an
+    /// expected benefit): what `m` would bring less what `old` brings, `old` forecast as the move
+    /// `kept` it would be were it proposed now (as a petition weighs another holder, M4c slice
+    /// AH). A forum is weighed case by case: each of the household's cases within memory heard as
+    /// `m` would hear it, against what `old` did with it if it heard it (found it, or did not,
+    /// or left it unheard) or would have; the evenings either spares are the same.
+    pub(super) fn replacing(
+        &self,
+        m: &MoveOption,
+        kept: &MoveOption,
+        old: PermanentId,
+        h: PermanentId,
+        policies: &[crate::polity::PolicyDef],
+        params: &PeopleParams,
+    ) -> f64 {
+        let forum = |x: &MoveOption| {
+            policies
+                .get(usize::from(x.policy))
+                .filter(|d| d.kind == PolicyKind::HearCases)
+                .and_then(|d| d.forum.as_ref())
+        };
+        let (Some(new), Some(was)) = (forum(m), forum(kept)) else {
+            return self.gain(m, h, policies, params) - self.gain(kept, h, policies, params);
+        };
+        let Ok(i) = self.outlooks.binary_search_by_key(&h, |o| o.0) else {
+            return 0.0;
+        };
+        let mut net = 0.0;
+        for c in &self.forum_cases {
+            let Some(side) = c.side(h) else {
+                continue;
+            };
+            let before = if c.by == Some(old) {
+                f64::from(u8::from(c.found))
+            } else {
+                c.chance(was, kept.nominee)
+            };
+            net += side * (c.chance(new, m.nominee) - before) * c.kcal;
+        }
+        Self::forum_net(&self.outlooks[i].1, net, params)
     }
 }
 
@@ -2206,6 +2280,16 @@ impl Population {
             })
             .map(|c| ForumCase {
                 gathered: c.forum.is_none(),
+                by: c.forum,
+                alone: c.forum.is_some_and(|f| {
+                    polity
+                        .laws
+                        .iter()
+                        .find(|l| l.id == f)
+                        .and_then(|l| ctx.catalog.policies.get(usize::from(l.policy)))
+                        .and_then(|d| d.forum.as_ref())
+                        .is_some_and(|d| d.seat == crate::forum::ForumSeat::Holder)
+                }),
                 accuser: c.accuser,
                 accused: c.accused_household,
                 kcal: f64::from(c.kcal),
@@ -3644,6 +3728,47 @@ impl Population {
         // Those who keep the watch now (M4c slice AI).
         let watching: Vec<PermanentId> = self.polities[pi].watchers().map(|w| w.0).collect();
         let held = |m: &MoveOption, h: PermanentId| ended(m).map_or(0.0, |k| gain_of(&k.1, h));
+        // The laws in force, each as the move it would be were it proposed now: what a law of the
+        // same kind and another template put in its place is weighed against (another forum,
+        // debts heard, a mint; before, such a replacement was forecast at nothing, and chosen by
+        // the draw alone where its issue was open).
+        let standing: Vec<(PermanentId, PolicyKind, MoveOption)> = self.polities[pi]
+            .laws
+            .iter()
+            .filter(|l| l.status == LawStatus::InForce)
+            .map(|l| {
+                (
+                    l.id,
+                    l.kind,
+                    MoveOption {
+                        policy: l.policy,
+                        levy_share: f64::from(l.levy_share),
+                        issue: l.issue,
+                        nominee: l.holder,
+                        sanction: l.sanction,
+                        hours: l.hours,
+                        body: None,
+                        ends: None,
+                        site: None,
+                        target: l.target,
+                        own_gain: 0.0,
+                        followers_gain: 0.0,
+                        support: 0.5,
+                    },
+                )
+            })
+            .collect();
+        let replaced = |m: &MoveOption| {
+            let e = m.ends?;
+            let kind = policies.get(usize::from(m.policy))?.kind;
+            standing
+                .iter()
+                .find(|s| s.0 == e && s.1 == kind && s.2.policy != m.policy)
+                .map(|s| (s.0, &s.2))
+        };
+        let replacing = |m: &MoveOption, h: PermanentId| {
+            replaced(m).map(|(old, kept)| fc.replacing(m, kept, old, h, policies, params))
+        };
         // What each limit a template offers, not in force, would bring each household (M7b slice
         // BT, ADR-0025 §3): half what ending the laws in force it forbids would, for the chance a
         // challenge of each would be found (nothing for a law it is better off under).
@@ -4507,7 +4632,7 @@ impl Population {
             }
             let gain_for = |m: &MoveOption, h: PermanentId| match (m.body, m.ends) {
                 (Some(b), _) => amend_gain(&b, sitters_of(&b), h, &seen_d),
-                (None, Some(_)) => -held(m, h),
+                (None, Some(_)) => replacing(m, h).unwrap_or_else(|| -held(m, h)),
                 (None, None) => limit_gain(m, h).unwrap_or_else(|| gain_of(m, h)),
             };
             for m in &mut moves {
@@ -4543,10 +4668,18 @@ impl Population {
                 // households' lots alone.
                 // And the ideology they hold that proposes it, if one does (M4c slice AG). An
                 // end to a law weighs what that law does to them, turned about (M4c slice AI).
-                let (policy, sign) = ended(m).map_or((m.policy, 1.0), |k| (k.1.policy, -1.0));
-                let creed = self.creed_for(ctx, d, policy).map_or(0.0, |c| c.1);
-                m.own_gain = gain_for(m, own)
-                    + sign * (self.value_points(ctx, d, policy) + creed) / pp.w_gain.max(1e-9);
+                // A law put in place of another of its kind weighs what it does to them over what
+                // that one does.
+                let dear = |policy: u16| {
+                    self.value_points(ctx, d, policy)
+                        + self.creed_for(ctx, d, policy).map_or(0.0, |c| c.1)
+                };
+                let points = match (replaced(m), ended(m)) {
+                    (Some((_, kept)), _) => dear(m.policy) - dear(kept.policy),
+                    (None, Some(k)) => -dear(k.1.policy),
+                    (None, None) => dear(m.policy),
+                };
+                m.own_gain = gain_for(m, own) + points / pp.w_gain.max(1e-9);
                 m.followers_gain = if weight > 0.0 { weighed / weight } else { 0.0 };
                 m.support = if support + oppose > 0 {
                     f64::from(support) / f64::from(support + oppose)
@@ -4661,7 +4794,7 @@ impl Population {
                             (Some(b), _) => {
                                 amend_gain(&b, sitters_of(&b), *h, &seen_by(&|_, hh| hh == *h))
                             }
-                            (None, Some(_)) => -held(&m, *h),
+                            (None, Some(_)) => replacing(&m, *h).unwrap_or_else(|| -held(&m, *h)),
                             (None, None) => limit_gain(&m, *h).unwrap_or_else(|| gain_of(&m, *h)),
                         };
                         (*h, (pp.w_gain * gain) as f32)
@@ -5088,6 +5221,13 @@ impl Population {
             })
             .and_then(|e| self.polities[pi].laws.iter().find(|l| l.id == e))
             .map_or((policy, 1.0), |l| (l.policy, -1.0));
+        // A law put in place of one in force of its kind and another template weighs what it does
+        // to what they hold dear over what that one does.
+        let replaces = law
+            .ends
+            .and_then(|e| self.polities[pi].laws.iter().find(|l| l.id == e))
+            .filter(|l| l.status == LawStatus::InForce && l.kind == kind && l.policy != policy)
+            .map(|l| l.policy);
         let w_position = params.opinion.w_position;
         // Those who came weigh their regard for the one the law names, or else for its sponsor;
         // for one named in place of an office's holder, less their regard for that holder, which
@@ -5133,7 +5273,8 @@ impl Population {
                 // slice AG).
                 let talk = sign * self.opinion_points(p, policy, w_position);
                 // And what it does to what they hold dear (M4c slice AG).
-                let values = sign * self.value_points(ctx, p, policy);
+                let values = sign * self.value_points(ctx, p, policy)
+                    - replaces.map_or(0.0, |o| self.value_points(ctx, p, o));
                 let view = other.map_or(0.0, |o| {
                     let rp = &params.relations;
                     let warmth = self

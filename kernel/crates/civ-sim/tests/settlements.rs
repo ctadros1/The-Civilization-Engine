@@ -1127,6 +1127,186 @@ fn households_fleeing_hunger_do_not_flee_back_to_the_hungry_place_they_left() {
     );
 }
 
+/// World 10 just before a midnight: every household of the first settlement out of food, its
+/// people a third into their bodies' reserve, each with a field sown whose crop, about a year and
+/// a fifth of its food, ripens `ripe_in` days on, and every adult of the second, which keeps its
+/// food, a child of the first member of one of them. The first settlement and its people.
+fn hungry_before_a_harvest(
+    ripe_in: i64,
+) -> (Sim, civ_core::PermanentId, Vec<civ_core::PermanentId>) {
+    use civ_land::{Field, FieldSoil, FieldStage, Party, RectCm};
+    let mut sim = world_knowing(10, 50, &[50], true).expect("generates");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let mut homes: Vec<_> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(a))
+        .map(|(_, x)| (x.id, x.members.clone()))
+        .collect();
+    homes.sort();
+    let kids: Vec<_> = adults_of(&sim, b).into_iter().map(|x| x.0).collect();
+    {
+        let pop = sim.people_mut_for_tests();
+        for (i, c) in kids.iter().enumerate() {
+            let parent = homes[i % homes.len()].1[0];
+            let female = pop
+                .person(parent)
+                .is_some_and(|p| p.sex == civ_agents::Sex::Female);
+            let r = pop.records.get_mut(c).expect("on record");
+            if female {
+                r.mother = Some(parent);
+            } else {
+                r.father = Some(parent);
+            }
+        }
+    }
+    let to_midnight = 24 * 60 - sim.now().minutes().rem_euclid(24 * 60) - 10;
+    sim.advance_minutes(to_midnight).expect("lives");
+    let start = sim.now();
+    let day = start.day_index();
+    let params = sim.rules().people.clone();
+    let crop = sim.rules().catalog.crops[0].clone();
+    let kcal_kg = sim.rules().catalog.goods[crop.good].kcal_per_kg;
+    let hearth = sim.land().settlements[0].hearth_m;
+    let mut members = Vec::new();
+    for (i, (h, m)) in homes.iter().enumerate() {
+        let year = m.len() as f64 * params.household.daily_kcal_per_person * 365.0;
+        let ha = 1.2 * year / ((crop.yield_kg_per_ha - crop.seed_kg_per_ha) * kcal_kg);
+        let side = (ha * 1.0e4).sqrt();
+        let at =
+            |o: f32, k: usize| ((f64::from(o) + 40.0 + k as f64 * (side + 5.0)) * 100.0) as i32;
+        let id = sim.allocate_id_for_tests();
+        sim.land_mut_for_tests().fields.push(Field {
+            id,
+            household: *h,
+            holder: Party::Household(*h),
+            lease: None,
+            rect: RectCm {
+                x: at(hearth.0, i % 4),
+                y: at(hearth.1, i / 4),
+                w: (side * 100.0) as i32,
+                h: (side * 100.0) as i32,
+            },
+            crop: 0,
+            stage: FieldStage::Sown,
+            stage_since: start,
+            work_h: 0.0,
+            tended_h: 1.0e6,
+            ground: 1.0,
+            clear_h_per_ha: 0.0,
+            broken: true,
+            sown_day: day + ripe_in - i64::from(crop.grow_days),
+            sheaves_kg: 0.0,
+            harvests: 0,
+            water_mm: 100.0,
+            need_mm: 0.0,
+            got_mm: 0.0,
+            soil: FieldSoil {
+                fast_n: 50.0,
+                slow_n: 1000.0,
+                supply_n: 100.0,
+                record: Vec::new(),
+            },
+            last_flood_depth_cm: 0,
+            submerged_days: 0,
+            reserved: None,
+        });
+        members.extend(m.iter().copied());
+    }
+    let pop = sim.people_mut_for_tests();
+    for (_, x) in pop.households.iter_mut() {
+        if x.settlement == Some(a) {
+            x.stores.iter_mut().for_each(|kg| *kg = 0.0);
+            x.stores_at = start;
+        }
+    }
+    for (_, p) in pop.people.iter_mut() {
+        if members.contains(&p.id) {
+            let reserve = civ_agents::population::reserve_kcal(p, start, &params);
+            p.energy_kcal = (-0.35 * reserve) as f32;
+            p.burn_kcal_min = 0.0;
+            p.needs_at = start;
+        }
+    }
+    (sim, a, members)
+}
+
+#[test]
+fn a_household_that_cannot_reach_its_harvest_goes_to_fed_kin_and_one_whose_harvest_is_near_stays() {
+    // Recurring red follow-up (plan §9, 2026-11-04): households gave up a full year's harvest
+    // 38-43 days off. Here every household of the first settlement is out of food, a third into
+    // its bodies' reserve (about 25 days of their need), with nothing its neighbours could spare
+    // and no common store, and a crop of about a year and a fifth of its food standing. With the
+    // crop 10 days off, within the month the content holds a household for, nobody gives up.
+    // With it 40 days off (46 to the first grain in), households weigh leaving at 0.073 a day
+    // for the 10 days before that month begins, as they would were it 90 or 180 days off: no
+    // means they have bridges the wait. Research 05-06 §1.4 has famine migration follow expected
+    // access to food and households seek relatives, and those that go to their fed kin in the
+    // second settlement live and are soon fed. Decided on this scene: in 48 days, 7 of the 30
+    // who stayed died of hunger and none of the 20 who went; had every household stayed, 16 of
+    // the 50 would have died, 11 of them children.
+    let (mut sim, a, members) = hungry_before_a_harvest(10);
+    let start = sim.now();
+    sim.advance_minutes(10 * 24 * 60).expect("lives");
+    let gone = |sim: &Sim| {
+        members
+            .iter()
+            .filter(|m| {
+                let r = &sim.people().records[*m];
+                r.left.is_some()
+                    || r.residence
+                        .iter()
+                        .any(|s| s.since > start && s.why == ResidenceWhy::Moved)
+            })
+            .count()
+    };
+    assert_eq!(gone(&sim), 0, "nobody gives up a harvest ten days off");
+
+    let (mut sim, _, members) = hungry_before_a_harvest(40);
+    let start = sim.now();
+    sim.advance_minutes(20 * 24 * 60).expect("lives");
+    let pop = sim.people();
+    let params = &sim.rules().people;
+    let mut moved = 0;
+    let mut worn = 0.0;
+    for m in &members {
+        let r = &pop.records[m];
+        let went = r
+            .residence
+            .iter()
+            .any(|s| s.since > start && s.why == ResidenceWhy::Moved);
+        if !went {
+            continue;
+        }
+        moved += 1;
+        assert!(
+            r.died.is_none(),
+            "{} died after going to their kin",
+            r.given
+        );
+        let p = pop.person(*m).expect("lives");
+        assert_ne!(
+            pop.household(p.household).and_then(|x| x.settlement),
+            Some(a),
+            "{} went to their kin",
+            r.given
+        );
+        worn += civ_agents::population::depleted(p, sim.now(), params);
+    }
+    assert!(moved > 0, "households that cannot reach their harvest go");
+    assert!(
+        worn / f64::from(moved) < 0.1,
+        "their kin feed them: {:.3} of their reserve drawn",
+        worn / f64::from(moved)
+    );
+    assert!(
+        pop.residence_problems().is_empty(),
+        "{:?}",
+        pop.residence_problems()
+    );
+}
+
 #[test]
 fn an_exile_goes_where_kin_live_and_one_drawn_nowhere_leaves_the_map() {
     // Two settlements that know where each other camped. One adult of the first has kin in the

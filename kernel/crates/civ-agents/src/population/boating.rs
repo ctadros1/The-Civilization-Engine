@@ -1100,7 +1100,7 @@ impl Population {
     /// as they stand within the walk a fetch allows of `to`'s home and a way would bring them
     /// there today ([`Population::way_home`]): an heir does not make its own while it holds one,
     /// so one it could not bring, one being made and a motor cart stay where they stand,
-    /// `from`'s, as before. A wagon stays with the line it runs on, which does not pass.
+    /// `from`'s, as before. A wagon passes with the line it runs on ([`Population::lines_pass`]).
     pub(super) fn vehicles_pass(
         &mut self,
         ctx: &mut Ctx,

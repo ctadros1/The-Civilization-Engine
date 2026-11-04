@@ -1312,7 +1312,11 @@ impl Land {
             ]
             .iter()
             .all(|v| v.is_finite() && *v >= 0.0);
-            if !ids.insert(f.id) || f.id.get() >= next_id || f.household.get() >= next_id {
+            if !ids.insert(f.id)
+                || f.id.get() >= next_id
+                || f.household.get() >= next_id
+                || f.left_by.is_some_and(|h| h.get() >= next_id)
+            {
                 out.push(format!("field {} has a duplicate or unallocated id", f.id));
             }
             if !inside || !finite {

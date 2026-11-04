@@ -1439,6 +1439,7 @@ fn a_plan_takes_the_fields_under_it_or_pays_their_holders_who_may_refuse() {
             last_flood_depth_cm: 0,
             submerged_days: 0,
             reserved: None,
+            left_by: None,
         });
         id
     };

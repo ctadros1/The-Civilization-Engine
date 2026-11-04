@@ -6,7 +6,8 @@
 //! gives up (`departures`) goes to a known settlement that draws it, or else beyond the map, as
 //! before. Moving is a household's: its people go together, take what they hold, and make camp
 //! beside the other settlement's hearth as a sent family does; the ground, home and workshop they
-//! leave stand as a household's that left (ADR-0007 §2 decides who works the ground next).
+//! leave stand as a household's that left (ADR-0007 §2 decides who works the ground next), but a
+//! crop they sowed there and have not brought in is still theirs to come back and reap.
 
 use super::*;
 use crate::ResidenceWhy;
@@ -369,7 +370,8 @@ impl Population {
 
     /// Household `from` moves to settlement `to` (ADR-0018 §5): its people form a household there
     /// with what it holds, camped beside the hearth as a sent family, and the household they leave
-    /// is no more: its ground, home and workshop stand as a household's that left.
+    /// is no more: its ground, home and workshop stand as a household's that left, and a crop it
+    /// sowed and has not brought in is still its people's to reap ([`Population::crops_go_with`]).
     /// A household that moves so gives up on its home for want of food (research 05-06 §1.4:
     /// famine migration follows expected access to food): what it last saw of the food there is
     /// that none of it was its to eat.
@@ -496,6 +498,10 @@ impl Population {
         // §5), with what they last saw of its food, as one they visited is.
         self.known_places.saw_on_leaving(id, left, fed_left as f32);
         self.leanings.remove(&from);
+        // The crops they sowed and have not brought in are still theirs to reap (research 05-06
+        // §1.4, §5.3: return, with surviving property rights), as a crop stays at a review with
+        // the household that put the work into it.
+        self.crops_go_with(ctx, from, id);
         // The household they leave: its workshops close and its ground and home stand empty.
         if let Some(gone) = self.take_household(from) {
             self.homes_moved += 1;

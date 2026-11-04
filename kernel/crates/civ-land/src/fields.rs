@@ -309,6 +309,12 @@ pub struct Field {
     /// no crop is begun on it again, and once it lies idle it no longer keeps ground from being
     /// built on.
     pub reserved: Option<PermanentId>,
+    /// The household that sowed its standing crop and then moved to another settlement, when its
+    /// people's household there works the field for that crop alone (ADR-0018 §5; research
+    /// 05-06 §1.4, §5.3: return to reap, with surviving property rights): the crop and the work
+    /// put into it stay with those who did it, as at a review; once it is in, or lost, the field
+    /// is left as that household's, as the ground of a household that left always was.
+    pub left_by: Option<PermanentId>,
 }
 
 /// What a field's season and soil allow its harvest (ADR-0012 §2-3).
@@ -723,6 +729,7 @@ pub(crate) mod tests {
             last_flood_depth_cm: 0,
             submerged_days: 0,
             reserved: None,
+            left_by: None,
         }
     }
 

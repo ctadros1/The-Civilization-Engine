@@ -770,6 +770,10 @@ table Field {
   submerged_days: ushort (id: 31);
   // Schema 159 (M8c slice CU, fifth part): the plan law that reserved its ground (0 = none).
   reserved: ulong (id: 32);
+  // Schema 220 (appended within the unreleased saves 220): the household that sowed its
+  // standing crop and moved to another settlement, whose people's household there works the
+  // field for that crop alone (0 = none). Absent in older saves: none.
+  left_by: ulong (id: 33);
 }
 
 table Fields {

@@ -1127,6 +1127,18 @@ fn households_fleeing_hunger_do_not_flee_back_to_the_hungry_place_they_left() {
     );
 }
 
+/// Sowing late costs `sim`'s crops nothing (for scenes whose crops are sown out of season).
+fn crop_sown_in_time(sim: &mut Sim) {
+    for c in &mut sim
+        .rules_mut_for_tests()
+        .expect("the rules are held once")
+        .catalog
+        .crops
+    {
+        c.late_sowing_loss_per_day = 0.0;
+    }
+}
+
 /// World 10 just before a midnight: every household of the first settlement out of food, its
 /// people a third into their bodies' reserve, each with a field sown whose crop, about a year and
 /// a fifth of its food, ripens `ripe_in` days on, and every adult of the second, which keeps its
@@ -1163,6 +1175,10 @@ fn hungry_before_a_harvest(
     }
     let to_midnight = 24 * 60 - sim.now().minutes().rem_euclid(24 * 60) - 10;
     sim.advance_minutes(to_midnight).expect("lives");
+    // The crop ripens `ripe_in` days after 1 March, so it was sown in the winter before, far past
+    // the content's spring sowing window: lateness would take all of it. The scene is of a crop
+    // that brings what it promises, so sowing late costs nothing here.
+    crop_sown_in_time(&mut sim);
     let start = sim.now();
     let day = start.day_index();
     let params = sim.rules().people.clone();
@@ -1211,6 +1227,7 @@ fn hungry_before_a_harvest(
             last_flood_depth_cm: 0,
             submerged_days: 0,
             reserved: None,
+            left_by: None,
         });
         members.extend(m.iter().copied());
     }
@@ -2097,4 +2114,166 @@ fn households_that_come_to_a_hearth_together_spread_about_it_and_build_beyond_a_
         );
     }
     assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+}
+
+#[test]
+fn a_household_gone_to_fed_kin_walks_back_to_reap_the_crop_it_sowed() {
+    // Recurring red follow-up (plan §9, 2026-11-04, second part): households that gave up a crop
+    // 40 days off and went to their fed kin left it standing with the household that was no
+    // more, and nobody reaped it. Research 05-06 §1.4 and §5.3 have migrants return, with
+    // surviving property rights, and §5.1 lists sending a worker: now the crop is still theirs.
+    // Their fields go with them for that crop alone; once it is ripe their people walk the hour
+    // back from their kin's settlement, reap it and thresh it, as any field work is weighed (the
+    // walk counted), the grain reaches them, and the fields are left as they would have been.
+    // Before, in this scene, the four households that went brought in nothing and their crops
+    // were lost standing.
+    let (mut sim, a, members) = hungry_before_a_harvest(40);
+    let start = sim.now();
+    let crop = sim.rules().catalog.crops[0].clone();
+    let sown: Vec<civ_land::Field> = sim
+        .land()
+        .fields
+        .iter()
+        .filter(|f| f.stage == civ_land::FieldStage::Sown && f.stage_since == start)
+        .cloned()
+        .collect();
+    let went = |sim: &Sim, m: civ_core::PermanentId| {
+        sim.people().records[&m]
+            .residence
+            .iter()
+            .any(|s| s.since > start && s.why == ResidenceWhy::Moved)
+    };
+    let field = |sim: &Sim, id: civ_core::PermanentId| {
+        sim.land()
+            .fields
+            .iter()
+            .find(|f| f.id == id)
+            .cloned()
+            .expect("the field stands")
+    };
+    let problems = |sim: &Sim| {
+        let mut p = sim
+            .people()
+            .claims_problems(sim.land(), sim.regime(), sim.ids().peek_next());
+        p.extend(sim.land().problems(
+            sim.map(),
+            sim.rules().land.habitats.len(),
+            sim.ids().peek_next(),
+        ));
+        p
+    };
+    sim.advance_minutes(20 * 24 * 60).expect("lives");
+
+    // The households that went: the fields they sowed are worked by the household their people
+    // formed with their kin's settlement, for their crop, and left by the one they were.
+    let mut theirs = Vec::new();
+    for f in &sown {
+        let now = field(&sim, f.id);
+        let pop = sim.people();
+        let Some(left) = now.left_by else {
+            assert_eq!(now.household, f.household, "a field nobody went from stays");
+            continue;
+        };
+        assert_eq!(left, f.household, "left by the household that sowed it");
+        assert!(pop.household(left).is_none(), "which is no more");
+        let x = pop.household(now.household).expect("worked by a household");
+        assert_ne!(x.settlement, Some(a), "of the settlement they went to");
+        assert!(
+            x.members.iter().all(|&m| went(&sim, m)),
+            "whose people went from the first"
+        );
+        assert_eq!(now.holder, f.holder, "who holds the ground does not change");
+        assert_eq!(now.stage, civ_land::FieldStage::Sown);
+        theirs.push((f.id, now.household));
+    }
+    assert!(
+        !theirs.is_empty(),
+        "the crops of households that went go with them"
+    );
+    assert!(problems(&sim).is_empty(), "{:?}", problems(&sim));
+
+    // Once the crop is ripe they come back to reap it.
+    sim.advance_minutes(25 * 24 * 60).expect("lives");
+    for &(id, _) in &theirs {
+        let f = field(&sim, id);
+        assert!(
+            f.work_h > 0.0 || f.stage != civ_land::FieldStage::Sown,
+            "field {id} is being reaped"
+        );
+    }
+    // It saves and loads exactly, a field half reaped for a household gone with it, and goes on
+    // alike.
+    {
+        use civ_sim::persist;
+        assert!(
+            theirs
+                .iter()
+                .any(|&(id, _)| field(&sim, id).left_by.is_some()),
+            "a field is still worked for a crop come back for"
+        );
+        let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+        let saves =
+            commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+        let saved = persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "reap")
+            .expect("saves");
+        let mut loaded = persist::load(&saved.path, content()).expect("loads");
+        crop_sown_in_time(&mut loaded);
+        let same = |x: &Sim, y: &Sim| {
+            let (x, y) = (persist::encode_sections(x), persist::encode_sections(y));
+            assert_eq!(x.len(), y.len());
+            for (p, q) in x.iter().zip(&y) {
+                assert!(p.bytes == q.bytes, "section `{}` differs", p.tag);
+            }
+        };
+        same(&sim, &loaded);
+        sim.advance_minutes(2 * 24 * 60).expect("lives");
+        loaded.advance_minutes(2 * 24 * 60).expect("lives");
+        same(&sim, &loaded);
+    }
+
+    // By 70 days the crops are in: threshed, the grain in their stores, and the fields left as
+    // the households' that were.
+    sim.advance_minutes(23 * 24 * 60).expect("lives");
+    let pop = sim.people();
+    let mut grain = 0.0;
+    let mut households: Vec<civ_core::PermanentId> = Vec::new();
+    for &(id, worked_by) in &theirs {
+        let f = field(&sim, id);
+        assert_eq!(f.left_by, None, "field {id}'s crop is in");
+        assert!(pop.household(f.household).is_none(), "left as before");
+        assert_eq!(f.harvests, 1, "field {id} was reaped");
+        if !households.contains(&worked_by) {
+            households.push(worked_by);
+            grain += pop
+                .household(worked_by)
+                .map_or(0.0, |x| x.stores[crop.good] + x.stores[crop.seed_good]);
+        }
+    }
+    let ripe: f64 = sown
+        .iter()
+        .filter(|f| theirs.iter().any(|t| t.0 == f.id))
+        .map(|f| f.yield_kg(&crop, f.ripe_day(&crop), 1.0))
+        .sum();
+    eprintln!(
+        "{} fields of {} households that went; {grain:.0} kg of grain and seed with them, of \
+         {ripe:.0} kg the crops would give reaped ripe",
+        theirs.len(),
+        households.len()
+    );
+    assert!(
+        grain > 0.5 * ripe,
+        "the harvest reaches them: {grain:.0} kg of {ripe:.0}"
+    );
+    let pop = sim.people();
+    for m in &members {
+        if went(&sim, *m) {
+            assert!(pop.records[m].died.is_none(), "nobody who went died");
+        }
+    }
+    assert!(problems(&sim).is_empty(), "{:?}", problems(&sim));
+    assert!(
+        pop.residence_problems().is_empty(),
+        "{:?}",
+        pop.residence_problems()
+    );
 }

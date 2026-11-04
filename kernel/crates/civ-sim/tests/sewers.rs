@@ -887,6 +887,7 @@ fn a_field(
         last_flood_depth_cm: 0,
         submerged_days: 0,
         reserved: None,
+        left_by: None,
     });
     id
 }

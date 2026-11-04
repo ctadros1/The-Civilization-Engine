@@ -8302,6 +8302,7 @@ fn encode_fields(fields: &[Field], rules: &Rules) -> Vec<u8> {
                     last_flood_depth_cm: f.last_flood_depth_cm,
                     submerged_days: f.submerged_days,
                     reserved: f.reserved.map_or(0, |l| l.get()),
+                    left_by: f.left_by.map_or(0, |h| h.get()),
                 },
             )
         })
@@ -8447,6 +8448,8 @@ fn decode_fields(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<Vec<Fiel
             },
             // Schema 159 (M8c slice CU, fifth part); none before.
             reserved: id_of(f.reserved()),
+            // Schema 220, appended; none before.
+            left_by: id_of(f.left_by()),
         });
     }
     Ok(out)

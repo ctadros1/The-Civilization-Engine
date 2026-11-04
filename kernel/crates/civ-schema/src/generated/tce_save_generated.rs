@@ -36288,6 +36288,7 @@ impl<'a> Field<'a> {
   pub const VT_LAST_FLOOD_DEPTH_CM: ::flatbuffers::VOffsetT = 64;
   pub const VT_SUBMERGED_DAYS: ::flatbuffers::VOffsetT = 66;
   pub const VT_RESERVED: ::flatbuffers::VOffsetT = 68;
+  pub const VT_LEFT_BY: ::flatbuffers::VOffsetT = 70;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -36299,6 +36300,7 @@ impl<'a> Field<'a> {
     args: &'args FieldArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Field<'bldr>> {
     let mut builder = FieldBuilder::new(_fbb);
+    builder.add_left_by(args.left_by);
     builder.add_reserved(args.reserved);
     builder.add_lease_until(args.lease_until);
     builder.add_lease_since(args.lease_since);
@@ -36567,6 +36569,13 @@ impl<'a> Field<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(Field::VT_RESERVED, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn left_by(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Field::VT_LEFT_BY, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Field<'_> {
@@ -36608,6 +36617,7 @@ impl ::flatbuffers::Verifiable for Field<'_> {
      .visit_field::<u16>("last_flood_depth_cm", Self::VT_LAST_FLOOD_DEPTH_CM, false)?
      .visit_field::<u16>("submerged_days", Self::VT_SUBMERGED_DAYS, false)?
      .visit_field::<u64>("reserved", Self::VT_RESERVED, false)?
+     .visit_field::<u64>("left_by", Self::VT_LEFT_BY, false)?
      .finish();
     Ok(())
   }
@@ -36646,6 +36656,7 @@ pub struct FieldArgs<'a> {
     pub last_flood_depth_cm: u16,
     pub submerged_days: u16,
     pub reserved: u64,
+    pub left_by: u64,
 }
 impl<'a> Default for FieldArgs<'a> {
   #[inline]
@@ -36684,6 +36695,7 @@ impl<'a> Default for FieldArgs<'a> {
       last_flood_depth_cm: 0,
       submerged_days: 0,
       reserved: 0,
+      left_by: 0,
     }
   }
 }
@@ -36826,6 +36838,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FieldBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(Field::VT_RESERVED, reserved, 0);
   }
   #[inline]
+  pub fn add_left_by(&mut self, left_by: u64) {
+    self.fbb_.push_slot::<u64>(Field::VT_LEFT_BY, left_by, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FieldBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FieldBuilder {
@@ -36876,6 +36892,7 @@ impl ::core::fmt::Debug for Field<'_> {
       ds.field("last_flood_depth_cm", &self.last_flood_depth_cm());
       ds.field("submerged_days", &self.submerged_days());
       ds.field("reserved", &self.reserved());
+      ds.field("left_by", &self.left_by());
       ds.finish()
   }
 }

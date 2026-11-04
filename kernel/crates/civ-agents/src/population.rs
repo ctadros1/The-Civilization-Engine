@@ -5847,6 +5847,7 @@ impl Population {
                         last_flood_depth_cm: 0,
                         submerged_days: 0,
                         reserved: None,
+                        left_by: None,
                         // Native ground's soil (ADR-0012 §3), of the ground the field keeps.
                         soil: FieldSoil::native(
                             &ctx.land_params.soil,
@@ -7714,6 +7715,8 @@ impl Population {
             .land
             .allowance(ctx.land_params, &ctx.land.fields[fi], crop);
         let done = ctx.land.fields[fi].work(crop, task, hours, now.day_index(), allow, seed, now);
+        // A crop come back for from another settlement is in: the field is left as before.
+        let brought_in = done.finished && land::crop_brought_in(&mut ctx.land.fields[fi]);
         if let Some(s) = x.stores.get_mut(crop.seed_good) {
             *s = (seed - done.seed_kg).max(0.0);
             x.flows
@@ -7741,6 +7744,9 @@ impl Population {
             }
         }
         let settlement = x.settlement;
+        if brought_in {
+            self.fields_moved();
+        }
         // A let field's holder takes its share of the grain threshed from it, through the ledger
         // (ADR-0007 §3): in grain, and in seed grain for what the grain does not cover.
         if done.grain_kg > 0.0
@@ -8395,6 +8401,7 @@ impl Population {
         // it was sown with and the work put into it.
         let day = now.day_index();
         let mut drowned: Vec<(PermanentId, crate::person::FloodLoss)> = Vec::new();
+        let mut released = false;
         for f in &mut ctx.land.fields {
             if let Some(crop) = ctx.catalog.crops.get(usize::from(f.crop)) {
                 let under = f.stage == FieldStage::Sown && f.submerged_days >= 5;
@@ -8415,6 +8422,13 @@ impl Population {
                     drowned.push((f.household, loss));
                 }
             }
+            // A crop come back for from another settlement, lost standing: the field is left.
+            if land::crop_brought_in(f) {
+                released = true;
+            }
+        }
+        if released {
+            self.fields_moved();
         }
         for (h, loss) in drowned {
             if let Some(&hd) = self.hh_index.get(&h)

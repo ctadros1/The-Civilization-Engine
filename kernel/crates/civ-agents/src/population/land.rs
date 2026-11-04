@@ -59,7 +59,45 @@ fn divide(areas: &[f64], heirs: usize) -> Vec<usize> {
     out
 }
 
+/// Whether a field worked only for the standing crop of a household that moved away is done
+/// with: its crop is in, or lost, and the field lies between crops. It is then left as that
+/// household's (`left_by`), as it would have been had the household left it bare: who works it
+/// next is the regime's, at the settlement's next review (ADR-0007 §2). Returns whether it was.
+pub(super) fn crop_brought_in(f: &mut Field) -> bool {
+    match f.left_by {
+        Some(left) if between_crops(f) => {
+            f.household = left;
+            f.left_by = None;
+            true
+        }
+        _ => false,
+    }
+}
+
 impl Population {
+    /// Household `from` moves to another settlement as household `to` (ADR-0018 §5): the fields
+    /// it works with a crop standing or sheaves waiting go with it for that crop alone (research
+    /// 05-06 §1.4, §5.3: migrants return to reap, with surviving property rights; 08-09 §1.1:
+    /// the right to take a crop is distinct from holding the ground). A crop and the work put
+    /// into it stay with those who did it, as they do at a review (`between_crops`); whether
+    /// they walk back to reap it is weighed as any field work is, the walk counted. Who holds
+    /// the ground does not change, and once the crop is in the field is left as `from`'s.
+    pub(super) fn crops_go_with(&mut self, ctx: &mut Ctx, from: PermanentId, to: PermanentId) {
+        let mut moved = false;
+        for f in ctx.land.fields.iter_mut().filter(|f| {
+            f.household == from
+                && (f.stage == FieldStage::Sown
+                    || (f.stage == FieldStage::Reaped && f.sheaves_kg > 0.0))
+        }) {
+            f.left_by = f.left_by.or(Some(from));
+            f.household = to;
+            moved = true;
+        }
+        if moved {
+            self.fields_moved();
+        }
+    }
+
     /// What is wrong with who holds and works the land of `land` under `regime` (nothing, in a
     /// sound world; ADR-0007 §2, §3): every holder is a settlement of the world or a household
     /// that was once in it (`next_id` is the next id to be allocated), of the kind the regime
@@ -101,6 +139,20 @@ impl Population {
                             f.id, regime.name
                         ));
                     }
+                }
+            }
+            // A field worked for a crop come back for is left once the crop is in.
+            if let Some(left) = f.left_by {
+                if left == f.household {
+                    out.push(format!(
+                        "field {} was left by the household working it",
+                        f.id
+                    ));
+                } else if between_crops(f) {
+                    out.push(format!(
+                        "field {} is still worked for household {left}'s crop, which is in",
+                        f.id
+                    ));
                 }
             }
             if let Some(lease) = f.lease {

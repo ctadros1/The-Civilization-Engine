@@ -1803,11 +1803,19 @@ fn convergence(worlds: &[WorldRun]) -> Row {
                 .judged()
                 .map(|x| {
                     format!(
-                        "gap {:.0} against a band of {:.0}{}",
+                        "gap {:.0} against a band of {:.0}{}{}",
                         x.gap,
                         x.band,
                         x.paid_gap
-                            .map_or_else(String::new, |p| format!(" (realised {p:.0})"))
+                            .map_or_else(String::new, |p| format!(" (realised {p:.0})")),
+                        if x.carried_unasked > 0.0 {
+                            format!(
+                                ", {:.1} of {:.1} units carried while one offered none",
+                                x.carried_unasked, x.carried
+                            )
+                        } else {
+                            String::new()
+                        }
                     )
                 })
                 .collect();
@@ -2603,6 +2611,7 @@ mod tests {
                 band,
                 carried: 12.0,
                 wrong_way,
+                carried_unasked: 0.0,
             }],
         };
         let named = |p| ("Oakholt".to_owned(), "Elmhollow".to_owned(), p);

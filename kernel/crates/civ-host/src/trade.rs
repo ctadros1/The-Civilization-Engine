@@ -8,7 +8,9 @@
 //! within its band over the last ten years, or narrower than in the year before their first
 //! trade; amber when not, or when no traded good has [`MIN_MONTHS`] months of asks on both sides;
 //! and red only for an inconsistency: a good flowing on net from the dearer settlement to the
-//! cheaper over a year in which the gap exceeded the band. Monthly gaps overlap and repeat, so
+//! cheaper over a year in which the gap exceeded the band. A month in which one of the two did not
+//! offer the good has no gap, and what was carried in it is neither way: a buyer who fetches what
+//! home has none of is not buying dearer than at home. Monthly gaps overlap and repeat, so
 //! they are summarised, never treated as independent observations (16-01 §4.1, §4.5), and a
 //! correlation of the two settlements' prices is never graded (08-12 §4).
 
@@ -53,8 +55,11 @@ pub struct GoodSeen {
     /// Units carried between the pair, both ways, all months on record.
     pub carried: f64,
     /// Years in which it flowed on net from the dearer settlement to the cheaper while their
-    /// mean gap exceeded the band.
+    /// mean gap exceeded the band, counting what was carried in the months both offered it.
     pub wrong_way: u32,
+    /// Of `carried`, the units carried in months one of the pair did not offer it: shown, and no
+    /// year's direction is judged by them.
+    pub carried_unasked: f64,
 }
 
 /// One pair of settlements, `a` before `b`, as judged.
@@ -163,6 +168,8 @@ pub fn pairs(conv: &Convergence, contacts: &Contacts) -> Vec<PairSeen> {
         // buying there) less the flow the other way.
         let (mut trips, mut walk_h, mut units) = (0u32, 0.0f64, 0.0f64);
         let mut flow: BTreeMap<(u32, u16), f64> = BTreeMap::new();
+        // And the units carried by month and good, both ways.
+        let mut units_in: BTreeMap<(u32, u16), f64> = BTreeMap::new();
         let mut carried: BTreeMap<u16, f64> = BTreeMap::new();
         for (&(month, from, to), c) in &conv.carried {
             let sign = if (from, to) == (b, a) {
@@ -178,6 +185,7 @@ pub fn pairs(conv: &Convergence, contacts: &Contacts) -> Vec<PairSeen> {
                 let u = f64::from(u);
                 units += u;
                 *flow.entry((month, g)).or_default() += sign * u;
+                *units_in.entry((month, g)).or_default() += u;
                 *carried.entry(g).or_default() += u;
             }
         }
@@ -238,6 +246,7 @@ pub fn pairs(conv: &Convergence, contacts: &Contacts) -> Vec<PairSeen> {
             });
             // Years in which it flowed on net from the dearer to the cheaper, the gap wider than
             // the band: by year, (sum of asks in `a`, in `b`, net flow from `a` to `b`, months).
+            // Only what was carried in a month both offered it is flow between their prices.
             let mut years: BTreeMap<u32, (f64, f64, f64, u32)> = BTreeMap::new();
             for m in &months {
                 let y = years.entry(m.0 / 12).or_default();
@@ -245,10 +254,15 @@ pub fn pairs(conv: &Convergence, contacts: &Contacts) -> Vec<PairSeen> {
                 y.1 += m.2;
                 y.3 += 1;
             }
+            let asked: std::collections::BTreeSet<u32> = months.iter().map(|m| m.0).collect();
+            let mut carried_unasked = 0.0;
             for ((month, g), u) in &flow {
-                if *g == good
-                    && let Some(y) = years.get_mut(&(month / 12))
-                {
+                if *g != good {
+                    continue;
+                }
+                if !asked.contains(month) {
+                    carried_unasked += units_in.get(&(*month, good)).copied().unwrap_or(0.0);
+                } else if let Some(y) = years.get_mut(&(month / 12)) {
                     y.2 += u;
                 }
             }
@@ -278,6 +292,7 @@ pub fn pairs(conv: &Convergence, contacts: &Contacts) -> Vec<PairSeen> {
                 band,
                 carried: carried.get(&good).copied().unwrap_or(0.0),
                 wrong_way,
+                carried_unasked,
             });
         }
         out.push(PairSeen {
@@ -430,5 +445,38 @@ mod tests {
         assert_eq!(p.goods[0].wrong_way, 3);
         assert_eq!(p.grade().0, Grade::Red);
         assert_eq!(grade(std::slice::from_ref(p)), Grade::Red);
+        assert_eq!(p.goods[0].carried_unasked, 0.0);
+    }
+
+    #[test]
+    fn what_is_carried_in_a_month_one_of_the_pair_offers_none_flows_neither_way() {
+        // The first asks 2 hours and the second 1, but the second offers it only every other
+        // month, and its people fetch it from the first only in the months it offers none: no
+        // gap stands in those months, so nothing flowed from the dearer to the cheaper.
+        let (mut conv, contacts) = record(48, |_| 2.0, 0, 10.0, 0.1, 40);
+        for m in (1..48).step_by(2) {
+            conv.gaps.remove(&(m, id(1), id(2)));
+        }
+        for m in (0..48).step_by(2) {
+            conv.carried.remove(&(m, id(2), id(1)));
+        }
+        let p = pairs(&conv, &contacts).remove(0);
+        let g = &p.goods[0];
+        assert_eq!((g.months, g.wrong_way), (24, 0), "{g:?}");
+        assert!((g.carried - 240.0).abs() < 1e-6 && (g.carried_unasked - 240.0).abs() < 1e-6);
+        assert_ne!(p.grade().0, Grade::Red, "{p:?}");
+        // Fetched once in a month the second offered it too: from the dearer, and red.
+        conv.carried.insert(
+            (10, id(2), id(1)),
+            Carried {
+                trips: 1,
+                walk_h: 0.1,
+                goods: vec![(3, 1.0)],
+            },
+        );
+        let p = pairs(&conv, &contacts).remove(0);
+        assert_eq!(p.goods[0].wrong_way, 1, "{p:?}");
+        assert!((p.goods[0].carried_unasked - 240.0).abs() < 1e-6);
+        assert_eq!(p.grade().0, Grade::Red);
     }
 }

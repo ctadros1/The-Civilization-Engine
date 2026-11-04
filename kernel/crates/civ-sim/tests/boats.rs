@@ -7,7 +7,8 @@
 //! there, too, the works it keeps on the land, finished, and its platforms wherever it goes. An
 //! heir in another settlement takes its made boats and carts where they stand, and fetches them
 //! home. One nobody is left to take, being made, weathers as a made one does, and a household that
-//! would make one of its own takes it up instead, where it stands within its use and is worth it.
+//! would make one of its own takes it up instead, where it stands within its use and is worth it;
+//! the chronicle tells it once, as it is taken up.
 
 use std::path::Path;
 use std::sync::OnceLock;
@@ -1096,4 +1097,165 @@ fn a_boat_or_cart_nobody_is_left_to_take_weathers_and_is_taken_up_by_a_household
 
 fn rivers_centre(sim: &Sim, c: u32) -> (f32, f32) {
     sim.land().rivers.centre(c)
+}
+
+/// The chronicle's entries telling a boat or cart taken up, oldest first.
+fn taken_up_entries(sim: &Sim) -> Vec<civ_agents::ChronicleEvent> {
+    sim.people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == civ_agents::ChronicleKind::VehicleTakenUp)
+        .cloned()
+        .collect()
+}
+
+#[test]
+fn a_boat_or_cart_nobody_was_left_to_take_is_told_once_when_a_household_takes_it_up() {
+    use civ_agents::TakenUp;
+    let mut sim = village(1);
+    let (boat_v, hull) = dugout(&sim);
+    let cart_v = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart");
+    let map = sim.map().clone();
+    let door = |home: (f32, f32)| civ_agents::population::cell_of(&map, home) as u32;
+    let apart = |x: (f32, f32), y: (f32, f32)| (x.0 - y.0).hypot(x.1 - y.1);
+    let households: Vec<(
+        civ_core::PermanentId,
+        (f32, f32),
+        Option<civ_core::PermanentId>,
+    )> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| (x.id, x.home, x.settlement))
+        .collect();
+    // `a`, the household nearest water that carries a dugout today, and the bank nearest it.
+    let land = sim.land();
+    let (rivers, hyd, q) = (
+        &land.rivers,
+        &land.floodplain.reaches,
+        &land.reach_discharges,
+    );
+    let floats = |c: u32| rivers.floats(&map, c, hyd, q, hull);
+    let (a, a_home, a_at, bank) = households
+        .iter()
+        .filter_map(|&(id, home, at)| {
+            let bank = rivers.nearest_bank(home, 1_500.0, floats)?;
+            Some((id, home, at, bank, apart(home, rivers.centre(bank))))
+        })
+        .min_by(|x, y| x.4.total_cmp(&y.4))
+        .map(|(id, home, at, bank, _)| (id, home, at, bank))
+        .expect("a household near the water");
+    let (e, e_home, e_at) = households
+        .iter()
+        .copied()
+        .find(|h| h.0 != a)
+        .expect("another household");
+    // A household that is no more left a dugout half made at that bank (40 of 100 hours) and a
+    // handcart, made, at `e`'s door.
+    let gone = sim.allocate_id_for_tests();
+    let (hull_id, cart_id) = (sim.allocate_id_for_tests(), sim.allocate_id_for_tests());
+    let land = sim.land_mut_for_tests();
+    land.boats.list.push(Boat {
+        labour_h: 100.0,
+        work_h: 40.0,
+        ..vehicle(hull_id, boat_v, gone, bank)
+    });
+    land.boats.changed();
+    land.carts
+        .list
+        .push(vehicle(cart_id, cart_v, gone, door(e_home)));
+    land.carts.changed();
+    assert!(taken_up_entries(&sim).is_empty());
+    // `a` takes up the hull: told once, naming its elder, the dugout half made with the work done
+    // on it, and the bank it stands on, metres from home, placed there.
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_vehicle_for_tests(ctx, a, boat_v, bank, 30.0));
+    let told = taken_up_entries(&sim);
+    assert_eq!(told.len(), 1, "{told:?}");
+    let t = &told[0];
+    assert_eq!(t.number, f64::from(TakenUp::BoatHalfMade as u8));
+    assert_eq!(t.settlement, a_at);
+    let at = sim.land().rivers.centre(bank);
+    assert_eq!(t.place, Some(at));
+    assert_eq!(t.people.len(), 1);
+    assert!(
+        sim.people()
+            .household(a)
+            .expect("`a`")
+            .members
+            .contains(&t.people[0])
+    );
+    let elder = sim.people().name_of(t.people[0]);
+    assert_eq!(
+        sim.chronicle_words(t),
+        format!(
+            "{elder}'s household took up a dugout nobody was left to take, half made on the bank \
+             {:.0} m from its home: 40 of its 100 hours' work were done.",
+            apart(a_home, at)
+        )
+    );
+    // Asked again, holding it, it takes up nothing more and nothing more is told; finishing it
+    // is told as its making, not as another taking up.
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_vehicle_for_tests(ctx, a, boat_v, bank, 30.0));
+    sim.with_ctx_for_tests(|pop, ctx| pop.vehicle_work_for_tests(ctx, a, hull_id, 60.0));
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|x| x.kind == civ_agents::ChronicleKind::BoatMade)
+    );
+    assert_eq!(taken_up_entries(&sim).len(), 1);
+    // `e`, with timber enough, takes up the made cart at its door: told so.
+    let timber = sim.rules().catalog.vehicles[cart_v].good;
+    let enough = sim.rules().catalog.vehicles[cart_v].material_kg * 2.0;
+    sim.people_mut_for_tests()
+        .households
+        .iter_mut()
+        .map(|(_, h)| h)
+        .find(|h| h.id == e)
+        .expect("household")
+        .stores[timber] = enough;
+    sim.with_ctx_for_tests(|pop, ctx| {
+        pop.begin_vehicle_for_tests(ctx, e, cart_v, door(e_home), 30.0);
+        pop.begin_vehicle_for_tests(ctx, e, cart_v, door(e_home), 30.0);
+    });
+    let told = taken_up_entries(&sim);
+    assert_eq!(told.len(), 2, "{told:?}");
+    let c = &told[1];
+    assert_eq!(c.number, f64::from(TakenUp::Cart as u8));
+    assert_eq!(c.settlement, e_at);
+    assert_eq!(
+        c.place,
+        Some(civ_agents::population::cell_centre(
+            &map,
+            door(e_home) as usize
+        ))
+    );
+    let elder = sim.people().name_of(c.people[0]);
+    assert_eq!(
+        sim.chronicle_words(c),
+        format!(
+            "{elder}'s household took up a handcart nobody was left to take, made and standing at \
+             its door."
+        )
+    );
+    // It saves and loads exactly, the entries with it.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "boats").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(taken_up_entries(&loaded), told);
+    let (x, y) = (
+        persist::encode_sections(&sim),
+        persist::encode_sections(&loaded),
+    );
+    assert_eq!(x.len(), y.len());
+    for (p, q) in x.iter().zip(&y) {
+        assert!(p.bytes == q.bytes, "section `{}` differs", p.tag);
+    }
 }

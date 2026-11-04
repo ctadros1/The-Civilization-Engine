@@ -960,6 +960,11 @@ pub enum ChronicleKind {
     /// polity's seat or that household's settlement, `place` the far end of its route, `number`
     /// which conveyance ([`Conveyance`]), and `name` the sentence.
     ConveyanceLaid,
+    /// A household took up a boat or cart nobody was left to take, made or half made, rather than
+    /// make one of its own (backlog D, seventeenth item; the eleventh item's "Not yet"): `people`
+    /// is the household's elder, `settlement` the household's, `place` where it stands, `number`
+    /// what it took up ([`TakenUp`]), and `name` the sentence.
+    VehicleTakenUp,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1063,6 +1068,20 @@ pub enum Conveyance {
     /// A telegraph wire, strung by an office's household to another office (backlog D, fifteenth
     /// item): the two offices can send messages along it.
     Telegraph = 3,
+}
+
+/// What a household took up, in a [`ChronicleKind::VehicleTakenUp`] entry. Numeric in saves:
+/// append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TakenUp {
+    /// A boat, made, drawn up on a bank.
+    Boat = 0,
+    /// A boat half made, on the bank where it was being worked.
+    BoatHalfMade = 1,
+    /// A cart, made.
+    Cart = 2,
+    /// A cart half made, where it was being worked.
+    CartHalfMade = 3,
 }
 
 /// What happened to a crossing, in a [`ChronicleKind::Crossing`] entry. Numeric in saves:
@@ -1684,7 +1703,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::RecordLost
         | ChronicleKind::Sewer
         | ChronicleKind::Way
-        | ChronicleKind::ConveyanceLaid => {
+        | ChronicleKind::ConveyanceLaid
+        | ChronicleKind::VehicleTakenUp => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

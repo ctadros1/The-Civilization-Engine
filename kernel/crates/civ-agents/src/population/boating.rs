@@ -12,6 +12,7 @@
 
 use super::*;
 use crate::decide::BoatFacts;
+use crate::history::TakenUp;
 use crate::traffic;
 use civ_land::boats::Boat;
 
@@ -803,11 +804,15 @@ impl Population {
                 } else {
                     &mut ctx.land.boats
                 };
-                if let Some(b) = list.list.iter_mut().find(|b| b.id == v) {
+                let taken = list.list.iter_mut().find(|b| b.id == v).map(|b| {
                     b.owner = household;
                     b.saves_h_year = saves_h_year;
-                }
+                    b.clone()
+                });
                 list.changed();
+                if let Some(b) = taken {
+                    self.tell_taken_up(ctx, household, &b, cart);
+                }
                 continue;
             }
             // A cart's timber comes out of the household's store as it is begun (M8b slice CP,
@@ -844,6 +849,68 @@ impl Population {
             });
             list.changed();
         }
+    }
+
+    /// The chronicle tells that household `household` took up `b`, a boat or (`cart`) a cart
+    /// nobody was left to take (backlog D, seventeenth item): its elder, what it took up, made or
+    /// half made with the work done on it, and where it stands, metres from its home (a boat) or
+    /// its door (a cart), placed there. Told once, at the taking up: a household holding one
+    /// takes up no other.
+    fn tell_taken_up(&mut self, ctx: &Ctx, household: PermanentId, b: &Boat, cart: bool) {
+        let Some(def) = ctx.catalog.vehicles.get(usize::from(b.vehicle)) else {
+            return;
+        };
+        let Some(home) = self.household(household).map(|x| x.home) else {
+            return;
+        };
+        let settlement = self.household(household).and_then(|x| x.settlement);
+        let elder = self.elder_of(household, ctx.now, ctx.params);
+        let at = if cart {
+            cell_centre(ctx.map, b.at as usize)
+        } else {
+            ctx.land.rivers.centre(b.at)
+        };
+        let made = b.made();
+        let off_m = (at.0 - home.0).hypot(at.1 - home.1);
+        let place = if cart {
+            if b.at == cell_of(ctx.map, home) as u32 {
+                "at its door".to_owned()
+            } else {
+                format!("{off_m:.0} m from its door")
+            }
+        } else {
+            format!("on the bank {off_m:.0} m from its home")
+        };
+        let state = match (made, cart) {
+            (true, false) => format!("made and drawn up {place}"),
+            (true, true) => format!("made and standing {place}"),
+            (false, _) => format!(
+                "half made {place}: {:.0} of its {:.0} hours' work were done",
+                b.work_h, b.labour_h
+            ),
+        };
+        let what = match (cart, made) {
+            (false, true) => TakenUp::Boat,
+            (false, false) => TakenUp::BoatHalfMade,
+            (true, true) => TakenUp::Cart,
+            (true, false) => TakenUp::CartHalfMade,
+        };
+        let who = elder.map_or_else(
+            || "A household".to_owned(),
+            |e| format!("{}'s household", self.name_of(e)),
+        );
+        self.chronicle_push(
+            ctx.now,
+            ChronicleKind::VehicleTakenUp,
+            elder.into_iter().collect(),
+            settlement,
+            Some(at),
+            f64::from(what as u8),
+            format!(
+                "{who} took up a {} nobody was left to take, {state}.",
+                def.name.to_lowercase()
+            ),
+        );
     }
 
     /// The boat household `x` is making, if its bank is within reach of home (`field_key`'s

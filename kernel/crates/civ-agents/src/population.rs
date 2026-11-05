@@ -74,6 +74,7 @@ mod licences;
 mod life;
 mod loads;
 mod market;
+mod mending;
 mod middens;
 mod mills;
 mod mint;
@@ -697,6 +698,9 @@ pub struct Population {
     /// Per household with nothing under way, the building it would begin and where (a home, or a
     /// store or a workshop beside it), as found on a day.
     home_sites: FastMap<PermanentId, (i64, Option<NewHome>)>,
+    /// The day's asks for help with mending: for each household asked, the households that
+    /// asked it (research 11-04 §1.6). Derived each day, not saved.
+    mend_asks: (Option<i64>, FastMap<PermanentId, Vec<PermanentId>>),
     /// Per building, what each of its stages needs (its design never changes). Derived.
     stage_needs: FastMap<PermanentId, Vec<StageNeeds>>,
     /// Per building, its expansion (its design never changes). Derived.
@@ -2773,13 +2777,18 @@ impl Population {
     /// nothing of its shows.
     fn upkeep_plan(&mut self, ctx: &Ctx, hh: &Household) -> Option<HomePlan> {
         let catalog = ctx.catalog;
+        // The households that asked it to mend for them, whose people may not (research 11-04
+        // §1.6): their buildings are weighed beside its own.
+        let asking = self.asking_to_mend(ctx, hh.id);
         // How far gone, the building's index and its program's.
         let mut best: Option<(f64, usize, usize)> = None;
         for (i, b) in ctx.land.buildings.iter().enumerate() {
-            if b.household != hh.id
+            if (b.household != hh.id && !asking.contains(&b.household))
                 || !b.finished()
                 || !b.standing()
                 || !self.can_build(catalog, &hh.members, b)
+                // Nobody of it may do the work: it asks for help instead.
+                || !self.someone_may_mend(ctx, &hh.members, b)
             {
                 continue;
             }
@@ -7856,7 +7865,11 @@ impl Population {
         let skill = def
             .skill
             .and_then(|k| catalog.skills.get(k).map(|s| (k, s)));
-        let toward = self.hearth_toward(ctx.land, household);
+        // A building mended for the household that asked has its daub dug at its owner's hearth
+        // and shelters its owner; the mender's household brings the materials (research 11-04
+        // §1.6).
+        let owner = ctx.land.buildings[bi].household;
+        let toward = self.hearth_toward(ctx.land, owner);
         let Some(&hd) = self.hh_index.get(&household) else {
             return;
         };
@@ -7866,6 +7879,7 @@ impl Population {
         let members = x.members.len().max(1);
         x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
         x.stores.resize(goods.len(), 0.0);
+        let labour_h = needs.labour_h;
         let work = HomeWork::mend(needs, f64::from(repair.work_h));
         let Some(stage) = work.needs() else {
             return;
@@ -7895,8 +7909,10 @@ impl Population {
             });
             condition::mend(b, repair.group, repair.share, &def.upkeep, now, rebuilt);
             let plot = b.plot;
-            (x.sheltered, x.keeping) =
-                shelter_with(&self.letting.lets, ctx.land, catalog, params, household);
+            let shelter = shelter_with(&self.letting.lets, ctx.land, catalog, params, owner);
+            if let Some(o) = self.household_mut(owner) {
+                (o.sheltered, o.keeping) = shelter;
+            }
             // Daub renewed is dug beside the building (ADR-0010 §2).
             let mended = e
                 .groups
@@ -7905,6 +7921,10 @@ impl Population {
                 .map_or(0.0, |g| g.daub_m3() * f64::from(repair.share));
             if let Some(toward) = toward {
                 digging::dig_daub(ctx, plot, toward, e.daub_m3(None), mended);
+            }
+            // Mended for the household that asked: it owes the mender's the work.
+            if owner != household {
+                self.mended_for(ctx, owner, household, labour_h);
             }
         }
         if let (Some((k, s)), Some(p)) = (skill, self.people.get_mut(h)) {
@@ -7929,14 +7949,16 @@ impl Population {
     ) {
         let (now, params, catalog) = (ctx.now, ctx.params, ctx.catalog);
         let goods = &catalog.goods;
-        let Some(bi) = ctx
-            .land
-            .buildings
-            .iter()
-            .position(|b| b.id == building && b.household == household)
-        else {
+        let Some(bi) = ctx.land.buildings.iter().position(|b| b.id == building) else {
             return;
         };
+        // Its own, or one it was asked to mend (research 11-04 §1.6).
+        let owner = ctx.land.buildings[bi].household;
+        if owner != household
+            && !(ctx.land.buildings[bi].finished() && self.mends_for(ctx, household, owner))
+        {
+            return;
+        }
         let Some(def) = catalog
             .building_index(&ctx.land.buildings[bi].spec.program)
             .and_then(|i| catalog.buildings.get(i))

@@ -630,6 +630,13 @@ acts = [
   # the hearer's household (08-07 §5.3; a design prior, kept apart so content can weigh it apart).
   { act = "defaulted_store", familiarity = 0.0, warmth = 0.0, domain = "word", good = 0.0, bad = 1.0 },
   { act = "repaid_store", familiarity = 0.0, warmth = 0.0, domain = "word", good = 0.5, bad = 0.0 },
+  # Content API 229: a household whose people may not mend its building (too old for the build
+  # work, or not knowing its technique) asks kin or a tied neighbour, whose people mend it; the
+  # asker sees the help as it sees food given (research 11-04 §1.6: relatives or neighbours are
+  # recruited, and the help makes an obligation), the helper as it sees a gift given. Design
+  # priors, unestimated.
+  { act = "helped_mend", familiarity = 0.2, warmth = 0.1, domain = "provision", good = 1.0, bad = 0.0 },
+  { act = "gave_mend", familiarity = 0.1, warmth = 0.02, domain = "none", good = 0.0, bad = 0.0 },
 ]
 
 [standing]                       # standing and notables (ADR-0014 §3-4); tuning values

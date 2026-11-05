@@ -131,6 +131,13 @@ pub enum Act {
     /// The holder saw, as the keeper of the common store, or heard that the other's household
     /// repaid in full what the common store lent it (backlog D).
     RepaidStore,
+    /// Someone of the other's household mended a building of the holder's household, whose own
+    /// people could not, in answer to its ask (research 11-04 §1.6: relatives or neighbours are
+    /// recruited, and the help makes an obligation, not free labour).
+    HelpedMend,
+    /// The holder's household mended a building of the other's, whose own people could not, in
+    /// answer to its ask.
+    GaveMend,
 }
 
 impl Act {
@@ -164,6 +171,8 @@ impl Act {
         Act::RepaidOthers,
         Act::DefaultedStore,
         Act::RepaidStore,
+        Act::HelpedMend,
+        Act::GaveMend,
     ];
 
     /// Its number in saves.
@@ -207,6 +216,8 @@ impl Act {
             Act::RepaidOthers => "repaid_others",
             Act::DefaultedStore => "defaulted_store",
             Act::RepaidStore => "repaid_store",
+            Act::HelpedMend => "helped_mend",
+            Act::GaveMend => "gave_mend",
         }
     }
 
@@ -217,7 +228,7 @@ impl Act {
 }
 
 /// Number of acts.
-pub const ACTS: usize = 28;
+pub const ACTS: usize = 30;
 
 /// What one act writes into its holder's tie, for each unit of it (an act, or an hour for
 /// [`Act::LearnedFrom`] and [`Act::Hearth`]). Authored in content as tuning values.
@@ -336,6 +347,8 @@ impl TieParams {
             w(0.0, 0.0, Some(Domain::Word), 0.5),
             bad(Domain::Word, 1.0),
             w(0.0, 0.0, Some(Domain::Word), 0.5),
+            w(0.2, 0.1, Some(Domain::Provision), 1.0),
+            w(0.1, 0.02, None, 0.0),
         ];
         p
     }
@@ -385,6 +398,8 @@ impl Reason {
             Act::RepaidOthers => "paid another household what they owed it, as they heard",
             Act::DefaultedStore => "did not repay what the common store lent",
             Act::RepaidStore => "repaid what the common store lent",
+            Act::HelpedMend => "mended a building of their household",
+            Act::GaveMend => "had a building mended by their household",
         };
         let date = civ_core::time::SimTime::from_minutes(self.day * 1440).date();
         let month = civ_land::weather::MONTH_NAMES[usize::from(date.month.clamp(1, 12)) - 1];

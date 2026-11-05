@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 228
+kernel_content_api = 229
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -4371,4 +4371,21 @@ fn the_core_weighs_a_debt_to_the_common_store_as_one_to_another_household() {
         ),
         (1.0, 0.5)
     );
+}
+
+#[test]
+fn the_core_weighs_a_mend_given_at_an_ask_as_food_given() {
+    // Content API 229: a building mended for a household whose people may not, at its ask, is
+    // seen by the asker as food given is, and by the helper as a gift given.
+    use civ_agents::ties::Act;
+    let reg = registry(load(&repo_content()));
+    let acts = &reg.people.params.ties.acts;
+    let core = civ_agents::ties::TieParams::core().acts;
+    for (mend, gift) in [
+        (Act::HelpedMend, Act::GiftReceived),
+        (Act::GaveMend, Act::GiftGiven),
+    ] {
+        assert_eq!(acts[mend as usize], acts[gift as usize], "{}", mend.name());
+        assert_eq!(acts[mend as usize], core[mend as usize], "{}", mend.name());
+    }
 }

@@ -2179,3 +2179,14 @@ the store's keeper of the day holds it at first hand (a store nobody keeps has n
 and it is not told); each who comes to know it for the first time, the keeper among them, notes
 the act, and nobody notes it of their own household's elder. The core writes them as
 `defaulted_others` and `repaid_others` are: bad evidence of 1 and good evidence of 0.5 in `word`.
+
+Content API 229 adds the `[ties]` acts `helped_mend` and `gave_mend`: what a household whose
+people may not mend its building (none of an age a `build` activity admits, or none who knows the
+building's technique) and the household that mends it for it, at its ask, see of each other.
+Such a household asks its people's close kin of its settlement, the nearest first, then a
+household of its settlement whose elder its people hold a tie with, the best regarded first; the
+one asked must have someone who may do the work, and refuses as it refuses food (research 11-04
+§1.6: relatives or neighbours are recruited, and the help makes an obligation, not free labour).
+Its people mend the building as their own, with their own household's materials; once it is
+mended the asker's elder writes `helped_mend` toward the helper's, owing it the mend's hours, and
+the helper's writes `gave_mend`. The core weighs them as `gift_received` and `gift_given`.

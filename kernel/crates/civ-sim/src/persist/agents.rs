@@ -2240,6 +2240,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             households: Some(households),
                             discard_goods,
                             discard_kg,
+                            covered_kg: t.covered_kg,
                         },
                     )
                 })
@@ -3571,6 +3572,14 @@ fn decode_polities(
                     civ_agents::person::add_discard(&mut discards, usize::from(g), kg);
                 }
             }
+            // What lies under earth (ADR-0038 §6's covering, appended within saves 220): none, in
+            // older saves.
+            let covered_kg = t.covered_kg();
+            if !(covered_kg.is_finite() && covered_kg >= 0.0) {
+                return Err(bad(format!(
+                    "polity {id}'s tip {tip} has a malformed cover"
+                )));
+            }
             tips.push(civ_agents::polity::Tip {
                 id: tip,
                 law: required(t.law(), "a tip's law")?,
@@ -3580,6 +3589,7 @@ fn decode_polities(
                 ash_kg,
                 households,
                 discards,
+                covered_kg,
             });
         }
         // Its refuse rounds (ADR-0038 §4, appended within saves 220): none, in older saves.

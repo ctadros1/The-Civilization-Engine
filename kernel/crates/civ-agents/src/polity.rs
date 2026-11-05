@@ -233,11 +233,16 @@ pub enum PolicyKind {
     /// equal share of the work, as a line of current is strung together; homes along it connect
     /// their privies.
     LaySewer,
+    /// A covered tip (ADR-0038 §6's covering; research 12-10 §1.5, §2.4, §5.4): where the polity
+    /// keeps an open tip, the refuse lying uncovered on it is spread and covered with earth, each
+    /// household asked an equal share of the work as refuse comes; refuse under cover washes off
+    /// in no rain, though it still seeps. Kept by choice, as the others.
+    CoverTip,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 48] = [
+    pub const ALL: [PolicyKind; 49] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -286,6 +291,7 @@ impl PolicyKind {
         PolicyKind::RefuseToTip,
         PolicyKind::CollectRefuse,
         PolicyKind::LaySewer,
+        PolicyKind::CoverTip,
     ];
 
     /// The authored name.
@@ -339,6 +345,7 @@ impl PolicyKind {
             PolicyKind::RefuseToTip => "refuse_to_tip",
             PolicyKind::CollectRefuse => "collect_refuse",
             PolicyKind::LaySewer => "lay_sewer",
+            PolicyKind::CoverTip => "cover_tip",
         }
     }
 
@@ -837,6 +844,8 @@ pub struct PolicyDef {
     pub round: Option<RoundDef>,
     /// For a sewer laid together: its terms (ADR-0041 §1-§4).
     pub sewer: Option<SewerDef>,
+    /// For a covered tip: its terms (ADR-0038 §6's covering).
+    pub cover: Option<CoverDef>,
     /// For notes issued: their terms (M10d slice EJ).
     pub notes: Option<NotesDef>,
 }
@@ -881,6 +890,26 @@ pub struct TipDef {
     pub avoided_share: f32,
     pub heap_kg: f32,
     pub heap_near_m: f32,
+}
+
+/// The terms of a law covering a tip (ADR-0038 §6's covering; research 12-10 §2.4, §5.4): the
+/// kilograms a cubic metre of refuse holds loose as it is tipped, and the cubic metres of earth
+/// that cover a cubic metre of it (12-10 §5.4's 157-290 kg and §2.4's 15 %, priors), the earth dug,
+/// carried and spread at the people's digging hours a cubic metre; and the share of its deaths of
+/// disease within the year a household believes covering would have spared (a design prior it
+/// weighs).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CoverDef {
+    pub loose_kg_m3: f32,
+    pub cover_share: f32,
+    pub avoided_share: f32,
+}
+
+impl CoverDef {
+    /// Hours covering a kilogram of refuse takes, at `dig_h_m3` hours a cubic metre of earth.
+    pub fn h_per_kg(&self, dig_h_m3: f64) -> f64 {
+        f64::from(self.cover_share) / f64::from(self.loose_kg_m3).max(1e-6) * dig_h_m3.max(0.0)
+    }
 }
 
 /// The terms of a law collecting refuse (M11f, third part; ADR-0038 §4): the days between its
@@ -1147,7 +1176,32 @@ pub struct Tip {
     /// What was tipped here whole (ADR-0044 §1): kilograms by good index, sorted by good, none at
     /// zero.
     pub discards: Vec<(u16, f64)>,
+    /// Kilograms of what was tipped here that lie under earth (ADR-0038 §6's covering): the rest
+    /// lies open.
+    pub covered_kg: f64,
 }
+
+impl Tip {
+    /// Kilograms tipped here, its decaying share, its ash and its discards.
+    pub fn tipped_kg(&self) -> f64 {
+        self.kg + self.ash_kg + self.discards.iter().map(|&(_, kg)| kg).sum::<f64>()
+    }
+
+    /// Kilograms of what was tipped here that lie open, not yet covered.
+    pub fn open_kg(&self) -> f64 {
+        (self.tipped_kg() - self.covered_kg).max(0.0)
+    }
+
+    /// Whether all that was tipped here lies under earth, so that no rain washes it off (research
+    /// 12-10 §5.4: a covered stream stops being reachable by runoff): never while something tipped
+    /// lies open.
+    pub fn covered(&self) -> bool {
+        self.covered_kg > 0.0 && self.open_kg() <= COVERED_KG
+    }
+}
+
+/// Kilograms of a tip lying open below which it counts as covered.
+pub const COVERED_KG: f64 = 1e-6;
 
 /// What a household believes a register of the sick spares it (M10c slice EE, second part): the
 /// share of its deaths of disease within the year it believes a register would have avoided (a
@@ -2445,6 +2499,18 @@ pub fn law_words(
             r.every_days
         );
     }
+    // A covered tip (ADR-0038 §6's covering).
+    if let Some(c) = def
+        .filter(|d| d.kind == PolicyKind::CoverTip)
+        .and_then(|d| d.cover)
+    {
+        return format!(
+            "that the refuse at the tip is spread and covered with earth as it comes, {:.0} m³ of \
+             earth to {:.0} m³ of refuse, each household asked an equal share of the work",
+            f64::from(c.cover_share) * 100.0,
+            100.0
+        );
+    }
     // Refuse carried to a tip (M11f, second part; ADR-0038 §3).
     if let Some(t) = def
         .filter(|d| d.kind == PolicyKind::RefuseToTip)
@@ -2543,6 +2609,7 @@ pub fn ending_words(
         Some(PolicyKind::RefuseToTip) => "the carrying of refuse to the tip".to_owned(),
         Some(PolicyKind::CollectRefuse) => "the collecting of refuse".to_owned(),
         Some(PolicyKind::LaySewer) => "the laying of the sewer".to_owned(),
+        Some(PolicyKind::CoverTip) => "the covering of the tip".to_owned(),
         Some(PolicyKind::BearerHeard) => "the hearing of refused notes".to_owned(),
         Some(PolicyKind::IssueNotes) => "the store's notes".to_owned(),
         Some(PolicyKind::LegalTender) => "the store's notes as legal tender".to_owned(),
@@ -4432,6 +4499,7 @@ pub(crate) mod tests {
             tip: None,
             round: None,
             sewer: None,
+            cover: None,
             notes: None,
         };
         let policies = [
@@ -4561,6 +4629,7 @@ pub(crate) mod tests {
             tip: None,
             round: None,
             sewer: None,
+            cover: None,
             notes: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
@@ -4798,6 +4867,7 @@ pub(crate) mod tests {
             tip: None,
             round: None,
             sewer: None,
+            cover: None,
             notes: None,
         }];
         assert!(

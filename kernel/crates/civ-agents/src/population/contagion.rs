@@ -268,7 +268,10 @@ impl Population {
             let z = f64::from(ctx.map.elevation[cell]);
             // Runoff: to the wellheads and banks within reach and no higher, nearer ones taking
             // more; with none there, what washes off soaks away.
-            if wash > 0.0 {
+            // A tip all under earth washes off in no rain (ADR-0038 §6's covering; research 12-10
+            // §5.4): it still seeps.
+            let covered = matches!(from, Node::Tip(tip) if self.tip_covered(tip));
+            if wash > 0.0 && !covered {
                 let washed = self.contagion.take(from, disease, wash);
                 let near = self.receptors(ctx, home, z, params.runoff_radius_m);
                 let total: f64 = near.iter().map(|r| 1.0 / r.distance_m).sum();

@@ -198,7 +198,7 @@ impl Population {
     }
 
     /// Deaths of disease within the year of each of `households`, by id.
-    fn deaths_of_disease(
+    pub(super) fn deaths_of_disease(
         &self,
         ctx: &Ctx,
         households: &[PermanentId],

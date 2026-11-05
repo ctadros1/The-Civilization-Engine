@@ -1837,6 +1837,9 @@ table TipSave {
   // good, the goods indexing Polities.goods; absent, nothing.
   discard_goods: [uint] (id: 8);
   discard_kg: [double] (id: 9);
+  // ADR-0038 §6's covering (appended within the unreleased saves 220): kilograms of what was
+  // tipped that lie under earth; absent, none.
+  covered_kg: double (id: 10);
 }
 
 // A year's measured losses beside `MeasuredSave` (schema 166, M8d slice DC): the year, and the

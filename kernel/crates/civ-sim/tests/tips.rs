@@ -549,6 +549,7 @@ fn a_tip_at(sim: &mut Sim, place: (f32, f32), disease: u16, doses: f64) -> Perma
         ash_kg: 10.0,
         households: Vec::new(),
         discards: Vec::new(),
+        covered_kg: 0.0,
     });
     pop.contagion.add(Node::Tip(id), disease, doses);
     id
@@ -676,4 +677,212 @@ fn a_tip_washes_and_seeps_to_the_well_below_it_as_a_heap_would_and_nowhere_else(
         "nothing reaches the well from beyond reach"
     );
     saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+/// A tip all under earth (ADR-0038 §6's covering; research 12-10 §5.4: a covered stream stops being
+/// reachable by runoff): on a wet day an open tip beside a well above it washes into the well,
+/// and the same tip covered, at the same place and holding as much, washes nothing and keeps its
+/// load but what seeps, which soaks toward the same wells as the open one's. Covered all but a
+/// kilogram, it washes as an open one does.
+#[test]
+fn a_tip_under_earth_washes_off_in_no_rain_but_still_seeps() {
+    let (mut sim, well) = an_open_well();
+    let d = cholera(&sim);
+    let params = sim.rules().land.contamination.clone();
+    let reach = params.runoff_radius_m.min(params.link_radius_m);
+    let w = *sim.land().wells.get(well).expect("the well");
+    let (wx, wy) = w.rect.centre_m();
+    let ground = f64::from(w.ground_m);
+    // A home within reach of the well and no lower: the tips lie there.
+    let home = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .filter(|x| !x.members.is_empty())
+        .filter_map(|x| {
+            let dist = f64::from(wx - x.home.0)
+                .hypot(f64::from(wy - x.home.1))
+                .max(1.0);
+            let drop = f64::from(sim.map().elevation[cell_of(sim.map(), x.home)]) - ground;
+            (dist <= reach && drop >= 0.0).then_some((x.home, dist))
+        })
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+        .expect("a home within reach above the well")
+        .0;
+    let open = a_tip_at(&mut sim, home, d, 1000.0);
+    let covered = a_tip_at(&mut sim, home, d, 1000.0);
+    let almost = a_tip_at(&mut sim, home, d, 1000.0);
+    for t in &mut sim.people_mut_for_tests().polities[0].tips {
+        if t.id == covered {
+            t.covered_kg = t.tipped_kg();
+        } else if t.id == almost {
+            t.covered_kg = t.tipped_kg() - 1.0;
+        }
+    }
+    let tips = &sim.people().polities[0].tips;
+    let of = |id: PermanentId| tips.iter().find(|t| t.id == id).expect("the tip");
+    assert!(!of(open).covered() && of(covered).covered() && !of(almost).covered());
+    assert_eq!(of(almost).open_kg(), 1.0);
+    sim.land_mut_for_tests().water.last_surplus_mm = 20.0;
+    let day = sim.now().day_index();
+    sim.with_ctx_for_tests(|pop, ctx| pop.contagion_day_for_tests(ctx));
+    let c = &sim.people().contagion;
+    let washed = |n: Node| -> f64 {
+        c.moves
+            .iter()
+            .filter(|m| m.day == day && m.from == n && m.how == How::Runoff)
+            .map(|m| m.amount)
+            .sum()
+    };
+    let into_well = |n: Node| {
+        c.moves.iter().any(|m| {
+            m.day == day && m.from == n && m.to == Node::Well(well) && m.how == How::Runoff
+        })
+    };
+    assert!(
+        into_well(Node::Tip(open)),
+        "the open tip washes into the well"
+    );
+    assert!(washed(Node::Tip(open)) > 0.0);
+    assert_eq!(
+        washed(Node::Tip(covered)),
+        0.0,
+        "nothing washes from under earth"
+    );
+    assert!(
+        (washed(Node::Tip(almost)) - washed(Node::Tip(open))).abs() < 1e-9,
+        "a kilogram lying open leaves the tip open"
+    );
+    // The covered tip lost only what seeped: the open one, what washed off too.
+    let wash = (params.wash_per_mm * 20.0).clamp(0.0, params.wash_max);
+    let (kept, left) = (c.load(Node::Tip(covered), d), c.load(Node::Tip(open), d));
+    assert!(wash > 0.0 && kept > left);
+    assert!(
+        (kept * (1.0 - wash) - left).abs() < 1e-6,
+        "{kept} held under earth, {left} open"
+    );
+    // It still seeps: a decayed day's load less the day's seepage is what it keeps.
+    let decay = sim.rules().catalog.diseases[usize::from(d)].decay_per_day;
+    let decayed = 1000.0 * (1.0 - decay.clamp(0.0, 1.0));
+    assert!(
+        (kept - decayed * (1.0 - params.seep_per_day)).abs() < 1e-6,
+        "{kept} of {decayed}"
+    );
+    let seeps = |n: Node| {
+        let mut v: Vec<Node> = c
+            .moves
+            .iter()
+            .filter(|m| m.day == day && m.from == n && m.how == How::Seep)
+            .map(|m| m.to)
+            .collect();
+        v.sort();
+        v
+    };
+    assert_eq!(seeps(Node::Tip(covered)), seeps(Node::Tip(open)));
+    saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+/// A law covering the tip (ADR-0038 §6's covering): without it a heap tipped asks no covering and
+/// lies open; passed, what lies open is asked covered at once, a cubic metre of loose refuse
+/// (220 kg) taking 0.15 m³ of earth at the people's digging hours a cubic metre, and each heap
+/// tipped after is asked as it comes; a household's people may work the covering at the tip, its
+/// hours left what lies open; an hour's work covers its kilograms, given to the law, and once all
+/// is covered the tip is covered and nothing is left to work, until the next heap comes. The
+/// forecast charges each household its share of a year's covering at the rate refuse came. It
+/// saves and loads exactly.
+#[test]
+fn under_a_law_covering_the_tip_what_comes_is_asked_covered_and_worked_under_earth() {
+    let mut sim = world_with(5);
+    sim.advance_minutes(2 * DAY).expect("advances");
+    let (_, tip) = the_law_passed(&mut sim);
+    let tip = tip.expect("a place qualifies in this valley");
+    let households = our_households(&sim);
+    let carry = |sim: &mut Sim, h: PermanentId| -> f64 {
+        let carrier = {
+            let pop = sim.people_mut_for_tests();
+            let (_, x) = pop
+                .households
+                .iter_mut()
+                .find(|(_, x)| x.id == h)
+                .expect("the household");
+            x.midden.ash_kg += 5.0;
+            x.members[0]
+        };
+        let before = sim.people().polities[0].tips[0].tipped_kg();
+        sim.with_ctx_for_tests(|pop, ctx| pop.carry_midden_for_tests(ctx, carrier, tip.place));
+        sim.people().polities[0].tips[0].tipped_kg() - before
+    };
+    // Without the law: what comes lies open, and nothing is asked.
+    let first = carry(&mut sim, households[0]);
+    assert!(first >= 5.0);
+    let t = sim.people().polities[0].tips[0].clone();
+    assert_eq!((t.covered_kg, t.open_kg()), (0.0, first));
+    assert!(sim.people().polities[0].ways.is_empty());
+    // Passed: what lies open is asked.
+    let law = a_law(&mut sim, PolicyKind::CoverTip);
+    sim.with_ctx_for_tests(|pop, ctx| pop.cover_passed_for_tests(ctx, 0, law));
+    let def = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .find_map(|d| d.cover)
+        .expect("the core covers tips");
+    let per_kg = def.h_per_kg(sim.rules().people.digging.h_per_m3);
+    assert!((per_kg - 0.15 / 220.0 * 8.0).abs() < 1e-8, "{per_kg}");
+    let site = sim.people().polities[0]
+        .way_site_of(law)
+        .expect("its work's site");
+    assert_eq!(site.work, Some(t.id));
+    assert_eq!(site.cell, cell_of(sim.map(), tip.place) as u32);
+    assert!((site.labour_h - first * per_kg).abs() < 1e-9);
+    // A heap tipped after is asked as it comes.
+    let second = carry(&mut sim, households[1]);
+    let site = sim.people().polities[0].way_site_of(law).expect("site");
+    assert!((site.labour_h - (first + second) * per_kg).abs() < 1e-9);
+    // Someone who knows the law may work it at the tip: what lies open is left.
+    let (h, person) = {
+        let x = sim.people().household(households[2]).expect("there");
+        (x.id, x.members[0])
+    };
+    let facts = sim
+        .with_ctx_for_tests(|pop, ctx| pop.cover_facts_for_tests(ctx, h, person))
+        .expect("the covering is open to them");
+    assert_eq!((facts.way, facts.at), (t.id, tip.place));
+    assert!((facts.left_h - (first + second) * per_kg).abs() < 1e-9);
+    // Half the hours cover half of it; the rest covers it all.
+    let all = (first + second) * per_kg;
+    sim.with_ctx_for_tests(|pop, ctx| pop.way_work_for_tests(ctx, h, t.id, all / 2.0));
+    let t2 = sim.people().polities[0].tips[0].clone();
+    assert!((t2.covered_kg - (first + second) / 2.0).abs() < 1e-6);
+    assert!(!t2.covered());
+    assert!((f64::from(sim.people().polities[0].way_given_by(law, h)) - all / 2.0).abs() < 1e-4);
+    sim.with_ctx_for_tests(|pop, ctx| pop.way_work_for_tests(ctx, h, t.id, all));
+    let t3 = sim.people().polities[0].tips[0].clone();
+    assert!(t3.covered(), "all of it under earth");
+    assert!((f64::from(sim.people().polities[0].way_given_by(law, h)) - all).abs() < 1e-4);
+    assert!(
+        sim.with_ctx_for_tests(|pop, ctx| pop.cover_facts_for_tests(ctx, h, person))
+            .is_none(),
+        "nothing is left to cover"
+    );
+    // The forecast: a share of a year's covering at the rate refuse came, nothing of deaths
+    // where nobody died.
+    let days = (sim.now().day_index() - t.opened).max(30) as f64;
+    let year_h = t3.tipped_kg() / days * 365.0 * per_kg;
+    let fc = sim.with_ctx_for_tests(|pop, ctx| pop.cover_forecasts_for_tests(ctx, 0, &households));
+    assert_eq!(fc.len(), households.len());
+    for (hh, gain, cost) in fc {
+        let kcal = sim.with_ctx_for_tests(|pop, ctx| pop.hour_kcal_for_tests(ctx, hh));
+        assert_eq!(gain, 0.0);
+        assert!(
+            (cost - year_h / households.len() as f64 * kcal).abs() < 1e-6 * cost.max(1.0),
+            "{cost}"
+        );
+    }
+    saves_and_goes_on_alike(&mut sim, DAY);
+    // The next heap leaves it open again.
+    carry(&mut sim, households[0]);
+    assert!(!sim.people().polities[0].tips[0].covered());
 }

@@ -45909,6 +45909,7 @@ impl<'a> TipSave<'a> {
   pub const VT_HOUSEHOLDS: ::flatbuffers::VOffsetT = 18;
   pub const VT_DISCARD_GOODS: ::flatbuffers::VOffsetT = 20;
   pub const VT_DISCARD_KG: ::flatbuffers::VOffsetT = 22;
+  pub const VT_COVERED_KG: ::flatbuffers::VOffsetT = 24;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -45920,6 +45921,7 @@ impl<'a> TipSave<'a> {
     args: &'args TipSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<TipSave<'bldr>> {
     let mut builder = TipSaveBuilder::new(_fbb);
+    builder.add_covered_kg(args.covered_kg);
     builder.add_ash_kg(args.ash_kg);
     builder.add_kg(args.kg);
     builder.add_opened(args.opened);
@@ -46004,6 +46006,13 @@ impl<'a> TipSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(TipSave::VT_DISCARD_KG, None)}
   }
+  #[inline]
+  pub fn covered_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(TipSave::VT_COVERED_KG, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for TipSave<'_> {
@@ -46022,6 +46031,7 @@ impl ::flatbuffers::Verifiable for TipSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("households", Self::VT_HOUSEHOLDS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("discard_goods", Self::VT_DISCARD_GOODS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("discard_kg", Self::VT_DISCARD_KG, false)?
+     .visit_field::<f64>("covered_kg", Self::VT_COVERED_KG, false)?
      .finish();
     Ok(())
   }
@@ -46037,6 +46047,7 @@ pub struct TipSaveArgs<'a> {
     pub households: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
     pub discard_goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
     pub discard_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+    pub covered_kg: f64,
 }
 impl<'a> Default for TipSaveArgs<'a> {
   #[inline]
@@ -46052,6 +46063,7 @@ impl<'a> Default for TipSaveArgs<'a> {
       households: None,
       discard_goods: None,
       discard_kg: None,
+      covered_kg: 0.0,
     }
   }
 }
@@ -46102,6 +46114,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TipSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TipSave::VT_DISCARD_KG, discard_kg);
   }
   #[inline]
+  pub fn add_covered_kg(&mut self, covered_kg: f64) {
+    self.fbb_.push_slot::<f64>(TipSave::VT_COVERED_KG, covered_kg, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TipSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TipSaveBuilder {
@@ -46129,6 +46145,7 @@ impl ::core::fmt::Debug for TipSave<'_> {
       ds.field("households", &self.households());
       ds.field("discard_goods", &self.discard_goods());
       ds.field("discard_kg", &self.discard_kg());
+      ds.field("covered_kg", &self.covered_kg());
       ds.finish()
   }
 }

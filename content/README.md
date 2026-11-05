@@ -2190,3 +2190,20 @@ one asked must have someone who may do the work, and refuses as it refuses food 
 Its people mend the building as their own, with their own household's materials; once it is
 mended the asker's elder writes `helped_mend` toward the helper's, owing it the mend's hours, and
 the helper's writes `gave_mend`. The core weighs them as `gift_received` and `gift_given`.
+
+Content API 230 (ADR-0038 §6's covering; research 12-10 §1.5, §2.4, §5.4) adds the policy kind
+`cover_tip`. A `cover_tip` template needs a `[cover]` table, which no other kind may have:
+`loose_kg_m3` (10–2,000; kilograms a cubic metre of refuse holds loose as it is tipped),
+`cover_share` (0–1; cubic metres of earth that cover a cubic metre of it) and `avoided_share` (0–1;
+the share of a household's deaths of disease within the year it believes covering would have
+spared). It is proposed only where the polity keeps an open tip (one a law carrying refuse to a tip
+opened, still in force) and the proposer suspects a source of water. Passed, the refuse lying open
+on that tip is asked covered at once, and each heap or cart load tipped there after as it comes:
+`cover_share` ÷ `loose_kg_m3` × the people's `digging.h_per_m3` hours a kilogram, joining the law's
+work at the tip, an equal share of each household, given as they choose, as a passing place's is,
+and paid where a law pays for common work. While all that was tipped lies under earth no rain
+washes any of it toward a well or a bank; it still seeps as before. A household weighs the law by
+`avoided_share` of its deaths of disease within the year against its share of a year's covering at
+the rate refuse has come to the tip. The core's `policy/zestfully_zone_a_covered_tip` answers
+`source_suspected` with 220 kg, 0.15 (12-10 §5.4's 157–290 kg and §2.4's daily cover, priors) and a
+tenth (a design prior).

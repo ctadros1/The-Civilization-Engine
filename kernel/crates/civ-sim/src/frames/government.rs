@@ -1771,8 +1771,21 @@ pub fn services_words(sim: &Sim, polity: &civ_agents::polity::Polity) -> Vec<Str
             format!(" and {}", whole.join(", "))
         };
         let discarded: f64 = t.discards.iter().map(|&(_, kg)| kg).sum();
+        // What lies under earth (ADR-0038 §6's covering): "; all of it covered with earth", or
+        // "; 40 kg covered, 12 kg lying open".
+        let cover = if t.covered() {
+            "; all of it covered with earth".to_owned()
+        } else if t.covered_kg > 0.0 {
+            format!(
+                "; {} covered, {} lying open",
+                tonnes(t.covered_kg),
+                tonnes(t.open_kg())
+            )
+        } else {
+            String::new()
+        };
         out.push(format!(
-            "{} holds {}, {} of it ash{whole}, from {} household{}",
+            "{} holds {}, {} of it ash{whole}, from {} household{}{cover}",
             super::markets::capitalized(&tip_words(sim, polity, t)),
             tonnes(t.kg + t.ash_kg + discarded),
             tonnes(t.ash_kg),

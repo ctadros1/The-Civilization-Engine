@@ -2230,3 +2230,106 @@ fn a_line_nobody_holds_is_taken_up_by_a_household_that_digs_at_its_pit_and_lives
         (1, 2)
     );
 }
+
+/// The chronicle's entries telling a line taken up, oldest first.
+fn line_taken_up_entries(sim: &Sim) -> Vec<civ_agents::ChronicleEvent> {
+    sim.people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == civ_agents::ChronicleKind::LineTakenUp)
+        .cloned()
+        .collect()
+}
+
+/// A line nobody holds, taken up, is told once (backlog D, nineteenth item; the eighteenth item's
+/// "Not yet"): nothing while the household weighs it and takes nothing; once it takes the line
+/// up, with a wagon half made and an engine standing at its pit end, one entry naming its elder,
+/// in its settlement, placed at the line's end beside its home, counting the two rail vehicles,
+/// in words giving the line's length and what stood on it; weighed again, nothing more is told;
+/// and it saves and loads with the entry.
+#[test]
+fn a_line_nobody_holds_taken_up_is_told_once_with_what_stood_on_it() {
+    use civ_land::ways::Keeper;
+    let mut sim = village(3);
+    let household = first_household(&sim);
+    let home = sim.people().household(household).expect("household").home;
+    let seam = contour_seam(&mut sim, home);
+    let (line, pit_cell, _) = laid_line(&mut sim, household, home, seam);
+    let gone = sim.allocate_id_for_tests();
+    for w in &mut sim.land_mut_for_tests().ways.list {
+        for s in &mut w.segments {
+            s.keeper = Keeper::Household(gone);
+        }
+    }
+    let add = |sim: &mut Sim, v: usize| {
+        sim.with_ctx_for_tests(|_, ctx| {
+            civ_agents::population::Population::add_wagon_for_tests(ctx, gone, v, pit_cell)
+        })
+    };
+    let (wagon_v, engine_v) = (wagon_vehicle(&sim), engine_vehicle(&sim));
+    let wagon = add(&mut sim, wagon_v);
+    add(&mut sim, engine_v);
+    // The wagon is half made: 40 of its 120 hours' work done.
+    for v in &mut sim.land_mut_for_tests().wagons.list {
+        if v.id == wagon {
+            (v.labour_h, v.work_h) = (120.0, 40.0);
+        }
+    }
+    teach(&mut sim, household, "core:technique/wooden_railway");
+    set_timber(&mut sim, household, 1_000.0);
+    set_dig_days(&mut sim, household, seam, 0.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_line_for_tests(ctx, household));
+    assert_eq!(keepers(&sim, line), vec![Keeper::Household(gone)]);
+    assert!(
+        line_taken_up_entries(&sim).is_empty(),
+        "nothing taken, nothing told"
+    );
+    set_dig_days(&mut sim, household, seam, 52.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_line_for_tests(ctx, household));
+    assert_eq!(keepers(&sim, line), vec![Keeper::Household(household)]);
+    let told = line_taken_up_entries(&sim);
+    assert_eq!(told.len(), 1, "{told:?}");
+    let t = &told[0];
+    assert_eq!(t.people.len(), 1);
+    assert!(
+        sim.people()
+            .household(household)
+            .expect("there")
+            .members
+            .contains(&t.people[0])
+    );
+    let settlement = sim.people().household(household).and_then(|x| x.settlement);
+    assert_eq!(t.settlement, settlement);
+    assert_eq!(t.number, 2.0, "a wagon and an engine");
+    let w = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|w| w.id == line)
+        .expect("the line");
+    let (first, last) = w.ends().expect("ends");
+    let cells: usize = w.segments.iter().map(|s| s.cells.len()).sum();
+    let length_m = f64::from(sim.map().cell_size_m) * cells as f64;
+    let centre = |c: u32| civ_agents::population::cell_centre(sim.map(), c as usize);
+    let d = |c: u32| {
+        let at = centre(c);
+        (at.0 - home.0).hypot(at.1 - home.1)
+    };
+    let home_end = if d(first) <= d(last) { first } else { last };
+    assert_eq!(t.place, Some(centre(home_end)));
+    let elder = sim.people().name_of(t.people[0]);
+    assert_eq!(
+        t.name,
+        format!(
+            "{elder}'s household took up a line of track nobody was left to keep, {length_m:.0} m \
+             from a pit to its home, with a wagon and an engine, one half made, standing at its \
+             ends."
+        )
+    );
+    // Weighed again, nothing more is taken or told.
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_line_for_tests(ctx, household));
+    assert_eq!(line_taken_up_entries(&sim).len(), 1);
+    saves_alike(&mut sim);
+    assert_eq!(line_taken_up_entries(&sim).len(), 1);
+}

@@ -965,6 +965,12 @@ pub enum ChronicleKind {
     /// is the household's elder, `settlement` the household's, `place` where it stands, `number`
     /// what it took up ([`TakenUp`]), and `name` the sentence.
     VehicleTakenUp,
+    /// A household took up a line of track nobody was left to keep, with the wagons and engines
+    /// nobody held standing at its ends, rather than lay one of its own (backlog D, nineteenth
+    /// item; the eighteenth item's "Not yet"): `people` is the household's elder, `settlement`
+    /// the household's, `place` the line's end beside its home, `number` how many wagons and
+    /// engines it took up with the line, and `name` the sentence.
+    LineTakenUp,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1704,7 +1710,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::Sewer
         | ChronicleKind::Way
         | ChronicleKind::ConveyanceLaid
-        | ChronicleKind::VehicleTakenUp => {
+        | ChronicleKind::VehicleTakenUp
+        | ChronicleKind::LineTakenUp => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

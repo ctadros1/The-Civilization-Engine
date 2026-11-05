@@ -327,7 +327,7 @@ impl Population {
         // eighteenth item): taken up, with what stands on it, rather than another laid beside
         // it, and a wagon begun on it where none stands there.
         if let Some((way, home_end, saves_h_year)) = self.nobodys_line(ctx, household, vehicle) {
-            self.take_up_line(ctx, household, way);
+            self.take_up_line(ctx, household, way, home_end);
             if ctx.land.wagons.of(household).next().is_none() {
                 self.begin_wagon(ctx, household, vehicle, home_end, saves_h_year);
             }
@@ -876,8 +876,16 @@ impl Population {
 
     /// Household `household` takes up line `way`, which nobody holds any more (backlog D,
     /// eighteenth item): it keeps every stretch, and the wagons and engines standing at its ends
-    /// whose household is no more, made or being made, are its own, with any run of theirs.
-    fn take_up_line(&mut self, ctx: &mut Ctx, household: PermanentId, way: PermanentId) {
+    /// whose household is no more, made or being made, are its own, with any run of theirs. It is
+    /// told in the chronicle, placed at `home_end`, its end beside the household's home.
+    fn take_up_line(
+        &mut self,
+        ctx: &mut Ctx,
+        household: PermanentId,
+        way: PermanentId,
+        home_end: u32,
+    ) {
+        let cell_m = f64::from(ctx.map.cell_size_m);
         let land = &mut *ctx.land;
         let Some(w) = land.ways.list.iter_mut().find(|w| w.id == way) else {
             return;
@@ -886,18 +894,96 @@ impl Population {
             s.keeper = Keeper::Household(household);
         }
         let ends = w.ends();
+        let length_m = cell_m * w.segments.iter().map(|s| s.cells.len()).sum::<usize>() as f64;
         land.ways.changed();
-        let Some((first, last)) = ends else {
-            return;
+        let taken: Vec<PermanentId> = match ends {
+            Some((first, last)) => land
+                .wagons
+                .list
+                .iter()
+                .filter(|v| (v.at == first || v.at == last) && self.household(v.owner).is_none())
+                .map(|v| v.id)
+                .collect(),
+            None => Vec::new(),
         };
-        let taken: Vec<PermanentId> = land
+        Self::rail_vehicles_to(land, &taken, household);
+        self.tell_line_taken_up(ctx, household, &taken, length_m, home_end);
+    }
+
+    /// The chronicle's word that household `household` took up a line of track of `length_m`
+    /// nobody was left to keep, with rail vehicles `taken` (backlog D, nineteenth item): its
+    /// elder, the line's length, and what stood at its ends, wagons and engines, made or half
+    /// made ("Runa's household took up a line of track nobody was left to keep, 140 m from a pit
+    /// to its home, with a wagon and an engine, one half made, standing at its ends."); placed at
+    /// `home_end`, the line's end beside its home.
+    fn tell_line_taken_up(
+        &mut self,
+        ctx: &Ctx,
+        household: PermanentId,
+        taken: &[PermanentId],
+        length_m: f64,
+        home_end: u32,
+    ) {
+        let (mut wagons, mut engines, mut half) = (0usize, 0usize, 0usize);
+        for v in ctx
+            .land
             .wagons
             .list
             .iter()
-            .filter(|v| (v.at == first || v.at == last) && self.household(v.owner).is_none())
-            .map(|v| v.id)
+            .filter(|v| taken.contains(&v.id))
+        {
+            match ctx.catalog.vehicles.get(usize::from(v.vehicle)) {
+                Some(d) if d.is_wagon() => wagons += 1,
+                _ => engines += 1,
+            }
+            if !v.made() {
+                half += 1;
+            }
+        }
+        let count = |n: usize, what: &str| match n {
+            0 => None,
+            1 => Some(format!(
+                "{} {what}",
+                if what == "engine" { "an" } else { "a" }
+            )),
+            n => Some(format!("{n} {what}s")),
+        };
+        let stock: Vec<String> = [count(wagons, "wagon"), count(engines, "engine")]
+            .into_iter()
+            .flatten()
             .collect();
-        Self::rail_vehicles_to(land, &taken, household);
+        let total = wagons + engines;
+        let stood = if total == 0 {
+            "with nothing standing on it".to_owned()
+        } else {
+            let half = match (half, total) {
+                (0, _) => String::new(),
+                (1, 1) => ", half made".to_owned(),
+                (h, t) if h == t => ", all half made".to_owned(),
+                (1, _) => ", one half made".to_owned(),
+                (h, _) => format!(", {h} half made"),
+            };
+            format!("with {}{half}, standing at its ends", stock.join(" and "))
+        };
+        let elder = self.elder_of(household, ctx.now, ctx.params);
+        let who = elder.map_or_else(
+            || "A household".to_owned(),
+            |e| format!("{}'s household", self.name_of(e)),
+        );
+        let settlement = self.household(household).and_then(|x| x.settlement);
+        let at = cell_centre(ctx.map, home_end as usize);
+        self.chronicle_push(
+            ctx.now,
+            ChronicleKind::LineTakenUp,
+            elder.into_iter().collect(),
+            settlement,
+            Some(at),
+            total as f64,
+            format!(
+                "{who} took up a line of track nobody was left to keep, {length_m:.0} m from a \
+                 pit to its home, {stood}."
+            ),
+        );
     }
 
     /// Rail vehicles `ids` are household `to`'s, with the runs their engines are on.

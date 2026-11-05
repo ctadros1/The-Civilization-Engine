@@ -318,3 +318,263 @@ fn a_motor_carts_keeper_posts_runs_to_a_market_and_riders_pay_their_fare_in_food
     review(&mut sim);
     assert!(sim.land().runs.roads.is_empty());
 }
+
+/// A world with a keeper whose door has dry land straight to the other settlement's hearth, and a
+/// neighbour of its settlement whose door has dry land straight to the keeper's: the world, the
+/// keeper, the neighbour, their settlement, the other settlement, the cells from the keeper's door
+/// to that hearth, and those from the neighbour's door to the keeper's. A way serving carts runs
+/// along each.
+#[allow(clippy::type_complexity)]
+fn two_doors_and_a_hearth() -> (
+    Sim,
+    PermanentId,
+    PermanentId,
+    PermanentId,
+    PermanentId,
+    Vec<u32>,
+    Vec<u32>,
+) {
+    use civ_land::ways::{CART, Keeper, Rank, Segment, Surface, WALK, Way};
+    let (mut sim, keeper, heir, home, market, cells, short) = (1..60u64)
+        .find_map(|seed| {
+            let sim = world(seed);
+            let map = sim.map().clone();
+            let cell = |at: (f32, f32)| civ_agents::population::cell_of(&map, at) as u32;
+            let dry = |cells: &[u32]| cells.iter().all(|&c| map.water[c as usize] == WATER_LAND);
+            let settlements: Vec<(PermanentId, (f32, f32))> = sim
+                .land()
+                .settlements
+                .iter()
+                .map(|s| (s.id, s.hearth_m))
+                .collect();
+            let homes: Vec<(PermanentId, PermanentId, (f32, f32))> = sim
+                .people()
+                .households
+                .iter()
+                .map(|(_, h)| h)
+                .filter(|h| !h.members.is_empty())
+                .filter_map(|h| Some((h.id, h.settlement?, h.home)))
+                .collect();
+            homes
+                .iter()
+                .find_map(|&(k, s, door)| {
+                    let &(far, hearth) = settlements.iter().find(|x| x.0 != s)?;
+                    let cells = straight(map.width, cell(door), cell(hearth));
+                    if !dry(&cells) {
+                        return None;
+                    }
+                    homes.iter().find_map(|&(n, ns, at)| {
+                        let short = straight(map.width, cell(at), cell(door));
+                        (n != k && ns == s && short.len() >= 2 && dry(&short))
+                            .then(|| (k, n, s, far, cells.clone(), short))
+                    })
+                })
+                .map(|(k, n, s, far, c, sh)| (sim, k, n, s, far, c, sh))
+        })
+        .expect("a world with two doors and dry land to the other hearth");
+    let today = sim.now().day_index();
+    for c in [cells.clone(), short.clone()] {
+        let way = sim.allocate_id_for_tests();
+        let land = sim.land_mut_for_tests();
+        land.ways.add(Way {
+            id: way,
+            begun: today,
+            segments: vec![Segment {
+                cells: c,
+                corridor_m: 4.0,
+                built_m: 4.0,
+                usable_m: 4.0,
+                surface: Surface::Cleared,
+                keeper: Keeper::Nobody,
+                kept: today,
+            }],
+            modes: WALK | CART,
+            trips: 0.0,
+            trips_day: today,
+            rank: Rank::Lane,
+            track: None,
+        });
+        land.ways.changed();
+    }
+    (sim, keeper, heir, home, market, cells, short)
+}
+
+/// A motor cart's keeper with a road line posted, its cart at its door and coal for it: the
+/// cart.
+fn posted(
+    sim: &mut Sim,
+    keeper: PermanentId,
+    home: PermanentId,
+    market: PermanentId,
+    door: u32,
+) -> PermanentId {
+    let today = sim.now().day_index();
+    let engine = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/road_engine")
+        .expect("a road engine");
+    let cart = sim.allocate_id_for_tests();
+    let land = sim.land_mut_for_tests();
+    land.carts.list.push(civ_land::boats::Boat {
+        id: cart,
+        vehicle: engine as u16,
+        owner: keeper,
+        at: door,
+        made: today,
+        wear: 0.0,
+        labour_h: 0.0,
+        work_h: 0.0,
+        saves_h_year: 0.0,
+        crew: (0, 0),
+    });
+    land.carts.changed();
+    let coal = sim
+        .rules()
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/coal")
+        .expect("coal");
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == keeper {
+            x.stores[coal] = 5000.0;
+        }
+    }
+    let year = today.div_euclid(civ_core::time::DAYS_PER_YEAR);
+    sim.people_mut_for_tests()
+        .contacts
+        .years
+        .entry((year, home, market))
+        .or_default()
+        .bought = 730;
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_road_line_for_tests(ctx, keeper));
+    assert_eq!(sim.land().runs.roads.len(), 1, "a road line posted");
+    cart
+}
+
+/// A road line passes with its motor cart (backlog D, twentieth item; the eighteenth item's "Not
+/// yet"): its keeper's people joining a household of its settlement that keeps no line, the cart
+/// goes to that household's door and the line with it, its runs now leaving from there along the
+/// cart's way to the same hearth, its timetable and riders kept and its fare scaled to the run's
+/// minutes; that household's people joining one of the other settlement, where a motor cart does
+/// not go, the line runs no more; a keeper whose people all die leaves its line with whoever its
+/// cart goes to, if anyone; and a line whose keeper is no more runs no more by the next midnight. Each saves and loads exactly.
+#[test]
+fn a_road_line_passes_with_its_motor_cart_and_runs_no_more_where_it_cannot() {
+    let (mut sim, keeper, heir, home, market, cells, short) = two_doors_and_a_hearth();
+    let cart = posted(&mut sim, keeper, home, market, cells[0]);
+    {
+        let l = &mut sim.land_mut_for_tests().runs.roads[0];
+        (l.runs_a_day, l.riders) = (2, 17);
+    }
+    let before = sim.land().runs.roads[0].clone();
+    let rev = sim.land().runs.revision();
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, keeper, heir));
+    let cart_now = sim
+        .land()
+        .carts
+        .list
+        .iter()
+        .find(|c| c.id == cart)
+        .cloned()
+        .expect("the cart");
+    assert_eq!(
+        (cart_now.owner, cart_now.at),
+        (heir, short[0]),
+        "wheeled to its door"
+    );
+    let roads = &sim.land().runs.roads;
+    assert_eq!(roads.len(), 1);
+    let l = &roads[0];
+    assert_eq!(
+        (
+            l.id,
+            l.operator,
+            l.cart,
+            l.market,
+            l.runs_a_day,
+            l.riders,
+            l.since
+        ),
+        (before.id, heir, cart, market, 2, 17, before.since)
+    );
+    assert_eq!(l.cells[0], short[0], "its runs leave from the heir's door");
+    assert_eq!(l.cells.last(), before.cells.last(), "to the same hearth");
+    // Timed afresh along the way from its door (here a little nearer the hearth).
+    assert_eq!(l.minutes.len(), l.cells.len());
+    assert!((l.run_min() - before.run_min()).abs() > 1e-3);
+    assert!(
+        (f64::from(l.fare_kcal)
+            - f64::from(before.fare_kcal) * f64::from(l.run_min()) / f64::from(before.run_min()))
+        .abs()
+            < 1e-3,
+        "{} against {}",
+        l.fare_kcal,
+        before.fare_kcal
+    );
+    assert_ne!(sim.land().runs.revision(), rev);
+    let saved = |sim: &mut Sim| {
+        let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+        let saves =
+            commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+        let saved = persist::save(sim, &saves, commons_persist::SaveKind::Manual, "transit")
+            .expect("saves");
+        let loaded = persist::load(&saved.path, content()).expect("loads");
+        assert_eq!(loaded.land().runs, sim.land().runs);
+    };
+    saved(&mut sim);
+    // Its people joining a household of the other settlement: the motor cart stays, and the line
+    // runs no more.
+    let away = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .find(|h| h.settlement == Some(market) && !h.members.is_empty())
+        .map(|h| h.id)
+        .expect("a household of the other settlement");
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, heir, away));
+    assert!(sim.land().runs.roads.is_empty(), "nobody posts its runs");
+    saved(&mut sim);
+    // A keeper whose people all die: its household goes to its heir, and the line with the cart
+    // where the heir may run it, or runs no more.
+    let (mut sim, keeper, _, home, market, cells, _) = two_doors_and_a_hearth();
+    let cart = posted(&mut sim, keeper, home, market, cells[0]);
+    let posted_line = sim.land().runs.roads[0].clone();
+    let members = sim
+        .people()
+        .household(keeper)
+        .expect("keeper")
+        .members
+        .clone();
+    for m in members {
+        sim.with_ctx_for_tests(|pop, ctx| pop.die_for_tests(ctx, m));
+    }
+    assert!(sim.people().household(keeper).is_none());
+    for l in &sim.land().runs.roads {
+        assert_ne!(l.operator, keeper);
+        let owner = sim
+            .land()
+            .carts
+            .list
+            .iter()
+            .find(|c| c.id == cart)
+            .map(|c| c.owner);
+        assert_eq!(owner, Some(l.operator), "the line goes with its cart");
+        assert!(sim.people().household(l.operator).is_some());
+    }
+    // A line whose keeper is no more, passed to nobody: by the next midnight it runs no more.
+    let gone = sim.allocate_id_for_tests();
+    if sim.land().runs.roads.is_empty() {
+        let land = sim.land_mut_for_tests();
+        land.runs.roads.push(posted_line);
+        land.runs.changed();
+    }
+    sim.land_mut_for_tests().runs.roads[0].operator = gone;
+    assert_eq!(sim.land().runs.roads.len(), 1, "until the midnight");
+    let day = sim.now().day_index();
+    sim.with_ctx_for_tests(|pop, ctx| pop.transit_reviews_for_tests(ctx, day));
+    assert!(sim.land().runs.roads.is_empty());
+    saved(&mut sim);
+}

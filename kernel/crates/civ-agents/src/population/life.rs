@@ -1164,6 +1164,7 @@ impl Population {
         self.hand_over_land(ctx, from, Some(to), fields);
         self.vehicles_pass(ctx, (from, to), near, door);
         self.lines_pass(ctx, (from, to), near);
+        self.road_lines_pass(ctx, (from, to));
         if near {
             self.works_pass(ctx, (from, to));
         }

@@ -74,11 +74,16 @@ pub enum ClaimKind {
     /// that pledged it, `event` the loan in the credit book. Told as a default is; it teaches
     /// nothing more of the debtor's word, the default it follows having been told already.
     PledgeTaken = 16,
+    /// A household that stood guarantor for a loan another household failed was called on and
+    /// had nothing of the good to pay, on a day (backlog D's "Not yet": a guarantor who could pay
+    /// nothing told): `subject` is the elder of the guarantor's household, `event` the loan. Told as
+    /// a default is, as news only: whether being unable to pay breaks one's word is not taught.
+    GuarantorEmpty = 17,
 }
 
 impl ClaimKind {
     /// Every kind, in code order.
-    pub const ALL: [ClaimKind; 17] = [
+    pub const ALL: [ClaimKind; 18] = [
         ClaimKind::Gathering,
         ClaimKind::Grievance,
         ClaimKind::Petition,
@@ -96,6 +101,7 @@ impl ClaimKind {
         ClaimKind::Repaid,
         ClaimKind::GuarantorPaid,
         ClaimKind::PledgeTaken,
+        ClaimKind::GuarantorEmpty,
     ];
 
     /// Whether claims of this kind are news while they are held (a household's sickness, a
@@ -112,6 +118,7 @@ impl ClaimKind {
                 | ClaimKind::Repaid
                 | ClaimKind::GuarantorPaid
                 | ClaimKind::PledgeTaken
+                | ClaimKind::GuarantorEmpty
         )
     }
 
@@ -124,6 +131,7 @@ impl ClaimKind {
                 | ClaimKind::Repaid
                 | ClaimKind::GuarantorPaid
                 | ClaimKind::PledgeTaken
+                | ClaimKind::GuarantorEmpty
         )
     }
 
@@ -480,7 +488,8 @@ impl Word {
             | ClaimKind::Defaulted
             | ClaimKind::Repaid
             | ClaimKind::GuarantorPaid
-            | ClaimKind::PledgeTaken => c.day + news_days < today,
+            | ClaimKind::PledgeTaken
+            | ClaimKind::GuarantorEmpty => c.day + news_days < today,
             ClaimKind::Sickness | ClaimKind::Suspicion => c.day + sickness_days < today,
             ClaimKind::Finding => c.day + finding_days < today,
         };

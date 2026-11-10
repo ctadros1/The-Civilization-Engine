@@ -30,7 +30,8 @@ fn claim_key(c: &Claim) -> u64 {
         | ClaimKind::Defaulted
         | ClaimKind::Repaid
         | ClaimKind::GuarantorPaid
-        | ClaimKind::PledgeTaken => c.subject.map_or(0, PermanentId::get),
+        | ClaimKind::PledgeTaken
+        | ClaimKind::GuarantorEmpty => c.subject.map_or(0, PermanentId::get),
         _ => c.settlement.get(),
     };
     let event = c.event.map_or(0, |e| u64::from(e).rotate_left(8));

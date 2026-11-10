@@ -934,6 +934,12 @@ impl Population {
         let pay = c.left().min(self.can_give(ctx, g, good));
         self.order.credit.claims[i].taken = Some(day);
         if !self.pay_loan(ctx, g, c.creditor, good, pay) {
+            // Called on with nothing to pay: word of it goes about, as news only (backlog D).
+            if pay <= 1e-9
+                && let Some(b) = self.elder_of(g, now, params)
+            {
+                self.debt_word(ctx, ClaimKind::GuarantorEmpty, c.id, b, day);
+            }
             return;
         }
         let claim = &mut self.order.credit.claims[i];

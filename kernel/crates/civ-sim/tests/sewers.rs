@@ -676,6 +676,56 @@ fn a_sewer_serves_its_connections_in_order_while_its_capacity_lasts() {
 }
 
 #[test]
+fn while_broken_only_homes_below_the_break_connect() {
+    // Backlog C's "new connections below a break while it is broken" (ADR-0044 §5: those below a
+    // break still flow, so they may join).
+    let (mut sim, _, homes, sewer) = a_sewer_marked_out(3);
+    lay_whole(&mut sim, homes[0], sewer);
+    let entries: Vec<(PermanentId, usize)> = sim.with_ctx_for_tests(|pop, ctx| {
+        homes
+            .iter()
+            .filter_map(|&h| pop.sewer_entry_for_tests(ctx, 0, 0, h).map(|e| (h, e)))
+            .collect()
+    });
+    assert!(entries.len() >= 2, "homes beside the route: {entries:?}");
+    let lowest = entries.iter().map(|&(_, e)| e).min().expect("an entry");
+    let highest = entries.iter().map(|&(_, e)| e).max().expect("an entry");
+    assert!(
+        lowest < highest,
+        "the homes enter at different cells: {entries:?}"
+    );
+    // Broken at the lowest entry, before anyone connects: only those entering below connect.
+    {
+        let s = &mut sim.people_mut_for_tests().polities[0].sewers[0];
+        s.connections.clear();
+        s.loss[lowest] = 1.0;
+        s.broken = Some(lowest as u32);
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_day_for_tests(ctx, &[]));
+    let s = sim.people().polities[0].sewers[0].clone();
+    let connected: Vec<PermanentId> = s.connections.iter().map(|c| c.household).collect();
+    for &(h, e) in &entries {
+        assert_eq!(connected.contains(&h), e > lowest, "{h:?} entering at {e}");
+    }
+    // Those connected below the break are served.
+    assert!(
+        s.connections.iter().all(|c| c.cause != SewerCause::Broken),
+        "{:?}",
+        s.connections
+    );
+    // Broken at the outfall, nobody new connects.
+    {
+        let s = &mut sim.people_mut_for_tests().polities[0].sewers[0];
+        s.connections.clear();
+        let last = s.cells.len() - 1;
+        s.loss[last] = 1.0;
+        s.broken = Some(last as u32);
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_day_for_tests(ctx, &[]));
+    assert!(sim.people().polities[0].sewers[0].connections.is_empty());
+}
+
+#[test]
 fn a_settling_tank_keeps_its_share_as_sludge_with_that_share_of_each_disease() {
     let (mut sim, _, homes, sewer) = a_sewer_marked_out(2);
     let def = sewer_def(&sim);

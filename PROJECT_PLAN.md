@@ -10013,6 +10013,7 @@ and M6a gives rivers a daily flow.
 
 ## 9. Decisions log
 
+- **A home below a sewer's break may connect while it is broken (2026-11-10, backlog C's "Not yet": new connections below a break; ADR-0044 §5):** Decided by the VM agent under the owner's November 10 authority, for review. A broken sewer refused every new connection, though the homes already connected below its break still flow. Now a home whose drain would enter below the break (its entry cell nearer the outfall than the break) connects as any home beside a whole sewer would; one entering at or above it waits until the sewer is relined. No tuning value, no save, wire or content change. **Tested:** sewers (18, one new: broken at the lowest entry, only homes entering below it connect and are served; broken at the outfall, nobody connects); fmt and clippy clean. **Not run:** the long gates (sewers are rare in the dashboard's worlds; the chain covers the suite).
 - **ADR-0036 accepted (2026-10-30, PR #22): Decided by Claude under standing owner authority
   (2026-10-30).** Status Proposed to Accepted, with an "as built" amendment: dispatch by the evening,
   not the hour; power by wire to recipes not built; an office is a household holding an instrument;

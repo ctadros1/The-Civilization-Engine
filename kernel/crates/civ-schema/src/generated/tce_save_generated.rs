@@ -37744,6 +37744,7 @@ impl<'a> GroupCondition<'a> {
   pub const VT_INSTALLED: ::flatbuffers::VOffsetT = 10;
   pub const VT_REPAIRED: ::flatbuffers::VOffsetT = 12;
   pub const VT_STATE: ::flatbuffers::VOffsetT = 14;
+  pub const VT_CHARRED: ::flatbuffers::VOffsetT = 16;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -37757,6 +37758,7 @@ impl<'a> GroupCondition<'a> {
     let mut builder = GroupConditionBuilder::new(_fbb);
     builder.add_repaired(args.repaired);
     builder.add_installed(args.installed);
+    builder.add_charred(args.charred);
     builder.add_loss(args.loss);
     builder.add_quality(args.quality);
     builder.add_group(args.group);
@@ -37807,6 +37809,13 @@ impl<'a> GroupCondition<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<GroupState>(GroupCondition::VT_STATE, Some(GroupState::Sound)).unwrap()}
   }
+  #[inline]
+  pub fn charred(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(GroupCondition::VT_CHARRED, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for GroupCondition<'_> {
@@ -37821,6 +37830,7 @@ impl ::flatbuffers::Verifiable for GroupCondition<'_> {
      .visit_field::<i64>("installed", Self::VT_INSTALLED, false)?
      .visit_field::<i64>("repaired", Self::VT_REPAIRED, false)?
      .visit_field::<GroupState>("state", Self::VT_STATE, false)?
+     .visit_field::<f32>("charred", Self::VT_CHARRED, false)?
      .finish();
     Ok(())
   }
@@ -37832,6 +37842,7 @@ pub struct GroupConditionArgs {
     pub installed: i64,
     pub repaired: i64,
     pub state: GroupState,
+    pub charred: f32,
 }
 impl<'a> Default for GroupConditionArgs {
   #[inline]
@@ -37843,6 +37854,7 @@ impl<'a> Default for GroupConditionArgs {
       installed: 0,
       repaired: 0,
       state: GroupState::Sound,
+      charred: 0.0,
     }
   }
 }
@@ -37877,6 +37889,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GroupConditionBuilder<'a, 'b,
     self.fbb_.push_slot::<GroupState>(GroupCondition::VT_STATE, state, GroupState::Sound);
   }
   #[inline]
+  pub fn add_charred(&mut self, charred: f32) {
+    self.fbb_.push_slot::<f32>(GroupCondition::VT_CHARRED, charred, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GroupConditionBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     GroupConditionBuilder {
@@ -37900,6 +37916,7 @@ impl ::core::fmt::Debug for GroupCondition<'_> {
       ds.field("installed", &self.installed());
       ds.field("repaired", &self.repaired());
       ds.field("state", &self.state());
+      ds.field("charred", &self.charred());
       ds.finish()
   }
 }

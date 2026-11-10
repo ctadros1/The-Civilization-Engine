@@ -177,6 +177,9 @@ pub struct GroupCondition {
     pub quality: f32,
     /// Its loss: the share of its members' effective section lost, or of a covering worn.
     pub loss: f32,
+    /// The part of `loss` that fire charred away, so that a failure can be told as charred
+    /// rather than rotted (schema 221; before, 0).
+    pub charred: f32,
     /// When it was put in place.
     pub installed: SimTime,
     /// When it was last repaired (when it was put in place, until then).

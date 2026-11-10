@@ -133,7 +133,7 @@ use super::{
     SCHEMA_V195, SCHEMA_V196, SCHEMA_V197, SCHEMA_V198, SCHEMA_V199, SCHEMA_V200, SCHEMA_V201,
     SCHEMA_V202, SCHEMA_V203, SCHEMA_V204, SCHEMA_V205, SCHEMA_V206, SCHEMA_V207, SCHEMA_V208,
     SCHEMA_V209, SCHEMA_V210, SCHEMA_V211, SCHEMA_V212, SCHEMA_V213, SCHEMA_V214, SCHEMA_V215,
-    SCHEMA_V216, SCHEMA_V217, SCHEMA_V218, SCHEMA_V219, finish, section, section_root,
+    SCHEMA_V216, SCHEMA_V217, SCHEMA_V218, SCHEMA_V219, SCHEMA_V220, finish, section, section_root,
     single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
@@ -926,7 +926,7 @@ pub(super) fn decode<R: Read + Seek>(
         | SCHEMA_V204 | SCHEMA_V205 | SCHEMA_V206 | SCHEMA_V207 | SCHEMA_V208 | SCHEMA_V209
         | SCHEMA_V210 | SCHEMA_V211 | SCHEMA_V212 | SCHEMA_V213 | SCHEMA_V214 | SCHEMA_V215
         | SCHEMA_V216 | SCHEMA_V217 | SCHEMA_V218 | SCHEMA_V219 => Schema::V186,
-        SAVE_SCHEMA_VERSION => Schema::V220,
+        SCHEMA_V220 | SAVE_SCHEMA_VERSION => Schema::V220,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -8597,6 +8597,7 @@ fn encode_buildings(buildings: &[Building]) -> Vec<u8> {
                         group: c.group,
                         quality: c.quality,
                         loss: c.loss,
+                        charred: c.charred,
                         installed: c.installed.minutes(),
                         repaired: c.repaired.minutes(),
                         state: match c.state {
@@ -8697,6 +8698,7 @@ fn decode_condition(
             group: c.group(),
             quality: finite(c.quality(), "a group's quality")?.clamp(0.0, 1.0),
             loss: finite(c.loss(), "a group's loss")?.clamp(0.0, 1.0),
+            charred: finite(c.charred(), "a group's charred loss")?.clamp(0.0, 1.0),
             installed: time(c.installed()),
             repaired: time(c.repaired()),
             state: match c.state() {

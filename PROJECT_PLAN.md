@@ -10013,6 +10013,7 @@ and M6a gives rivers a daily flow.
 
 ## 9. Decisions log
 
+- **A pledged field taken is told as word of a debt (2026-11-10, backlog D's "Not yet": a pledged field taken told; research 08-07 §5.3):** Decided by the VM agent under the owner's November 10 authority, for review. When a failed loan's pledged field passes to its creditor, word of it goes about as of the default it follows (`ClaimKind::PledgeTaken`, code 16, appended): held at first hand by the creditor's people, news for `news_days`, never told by the debtor's own household. Hearing it teaches nothing more of the debtor's word (the default was told already), so no tie or standing moves twice. The observer words it: "<creditor> took the field <debtor> pledged for a loan it did not repay". **Tested:** credit (23; the pledged-field test checks one word held, for that loan), roundtrip 110, civ-agents 306; clippy clean.
 - **ADR-0036 accepted (2026-10-30, PR #22): Decided by Claude under standing owner authority
   (2026-10-30).** Status Proposed to Accepted, with an "as built" amendment: dispatch by the evening,
   not the hour; power by wire to recipes not built; an office is a household holding an instrument;

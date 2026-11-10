@@ -934,6 +934,12 @@ impl Population {
         let pay = c.left().min(self.can_give(ctx, g, good));
         self.order.credit.claims[i].taken = Some(day);
         if !self.pay_loan(ctx, g, c.creditor, good, pay) {
+            // Called on with nothing to pay: word of it goes about, as news only (backlog D).
+            if pay <= 1e-9
+                && let Some(b) = self.elder_of(g, now, params)
+            {
+                self.debt_word(ctx, ClaimKind::GuarantorEmpty, c.id, b, day);
+            }
             return;
         }
         let claim = &mut self.order.credit.claims[i];
@@ -1016,6 +1022,11 @@ impl Population {
                     });
                     self.fields_moved();
                     self.order.credit.claims[i].taken = Some(day);
+                    // Word of it goes about, as of the default it follows (backlog D).
+                    let loan = self.order.credit.claims[i].id;
+                    if let Some(elder) = self.elder_of(debtor, now, ctx.params) {
+                        self.debt_word(ctx, ClaimKind::PledgeTaken, loan, elder, day);
+                    }
                 }
                 Some(_) if (left <= 1e-3 || !creditor_here) && f.household == creditor => {
                     let f = &mut ctx.land.fields[fi];

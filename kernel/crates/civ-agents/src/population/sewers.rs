@@ -765,21 +765,29 @@ impl Population {
         (held >= 1.0 - 1e-9).then_some(f64::from(def.settle_share).clamp(0.0, 1.0))
     }
 
-    /// Homes beside sewer `si` of polity `pi`, whole and not broken, connect (ADR-0041 §3): each
-    /// with people and a building, not connected to a sewer, where a connection is free and no law
-    /// asks it to carry its heap, or where what laws ask of it to carry its heap a year exceeds a
-    /// connection's work. Connections are made in the order of their households' ids.
+    /// Homes beside whole sewer `si` of polity `pi` connect (ADR-0041 §3): each with people and a
+    /// building, not connected to a sewer, where a connection is free and no law asks it to carry
+    /// its heap, or where what laws ask of it to carry its heap a year exceeds a connection's work.
+    /// While it is broken, only homes whose drains would enter below the break connect, as those
+    /// already connected below it still flow (ADR-0044 §5). Connections are made in the order of
+    /// their households' ids.
     fn sewer_connect(&mut self, ctx: &Ctx, def: &SewerDef, pi: usize, si: usize, day: i64) {
         let s = &self.polities[pi].sewers[si];
-        if !s.whole() || s.broken.is_some() {
+        if !s.whole() {
             return;
         }
+        let broken = s.broken.map(|b| b as usize);
         let mut along: Vec<(PermanentId, PermanentId)> = self
             .households
             .iter()
             .map(|(_, x)| x)
             .filter(|x| !x.members.is_empty() && self.polities[pi].holds(x.settlement))
-            .filter(|x| Self::beside(ctx.map, &s.cells, cell_of(ctx.map, x.home) as u32))
+            .filter(|x| {
+                let home = cell_of(ctx.map, x.home) as u32;
+                Self::beside(ctx.map, &s.cells, home)
+                    && broken
+                        .is_none_or(|b| Self::entry(ctx.map, &s.cells, home).is_some_and(|a| a > b))
+            })
             .filter(|x| !self.sewered(x.id))
             .filter(|x| {
                 let carry = self.carry_h_year(ctx, x);
@@ -1336,6 +1344,24 @@ impl Population {
                 )),
             }
         }
+    }
+
+    /// Where household `h`'s drain would enter sewer `si` of polity `pi`, as a route index: for
+    /// tests.
+    #[doc(hidden)]
+    pub fn sewer_entry_for_tests(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        si: usize,
+        h: PermanentId,
+    ) -> Option<usize> {
+        let x = self.household(h)?;
+        Self::entry(
+            ctx.map,
+            &self.polities[pi].sewers[si].cells,
+            cell_of(ctx.map, x.home) as u32,
+        )
     }
 
     /// Polity `pi`'s review of its sewers' faults now: for tests.

@@ -10013,6 +10013,7 @@ and M6a gives rivers a daily flow.
 
 ## 9. Decisions log
 
+- **Charred timber told as charred rather than rotted (2026-11-10, backlog D's "Not yet"; ADR-0022, ADR-0009 §5):** Decided by the VM agent under the owner's November 10 authority, for review. A group's loss now keeps apart the part fire charred away (`GroupCondition::charred`, saved: schema 221, a save before reads 0); fire adds to it as it chars, and renewal takes its share with the loss it renews. A failure whose loss is mostly charred (at least a quarter, and more than the rest) is told "the fire had charred them" instead of "they had rotted". No tuning value; nothing but the words changes. **Tested:** upkeep (13, one new: posts lost 0.9, 0.7 of it charred, told as charred and not rotted), fire 34, steel 18, roundtrip 110, civ-agents 306; schema check, fmt and clippy clean.
 - **ADR-0036 accepted (2026-10-30, PR #22): Decided by Claude under standing owner authority
   (2026-10-30).** Status Proposed to Accepted, with an "as built" amendment: dispatch by the evening,
   not the hour; power by wire to recipes not built; an office is a household holding an instrument;

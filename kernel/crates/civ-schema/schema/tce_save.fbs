@@ -857,6 +857,8 @@ table GroupCondition {
   installed: long (id: 3);
   repaired: long (id: 4);
   state: GroupState (id: 5);
+  // Schema 221: the part of its loss fire charred away; before, 0.
+  charred: float (id: 6);
 }
 
 // Schema 17: how a building stands as a whole.

@@ -10180,6 +10180,7 @@ and M6a gives rivers a daily flow.
 
 ## 9. Decisions log
 
+- **2026-11-10 — Autonomous resumption and the split of long run 71 (owner request):** the owner resumed the VM agent with a new $100 allowance (Agent SDK, Opus 5.5 High; codex/* branches and PRs only; claude/claude-development 48cd61b4 and claude/claude-verification e20bbac0 unchanged). Long run 71 (41961945454, checkout e20bbac0 after a stale-workspace reset to 7c9bdc4) was cut at 720 minutes with dashboard world 3 unfinished; run 67 (41796365489, 48cd61b) took about 12 hours. To tell the roof-mending and measurement changes apart from the two deliberation changes, two candidates are built: `codex/split-roof` (e20bbac0 with d5fb651e and e0fe643f reverted in code and tests) and `codex/split-deliberation` (48cd61b4 with only d5fb651e and e0fe643f). Each runs the long gates at the existing 1440-minute budget; no threshold or tuning changed. On this branch the §7 and §9 text describing d5fb651e and e0fe643f remains but their code is reverted.
 - **ADR-0036 accepted (2026-10-30, PR #22): Decided by Claude under standing owner authority
   (2026-10-30).** Status Proposed to Accepted, with an "as built" amendment: dispatch by the evening,
   not the hour; power by wire to recipes not built; an office is a household holding an instrument;

@@ -1035,6 +1035,12 @@ pub enum SewerStep {
     Collapsed = 0,
     /// The last of its stretches that had fallen in was relined: nothing of it is broken now.
     Mended = 1,
+    /// Its polity's review asked its households to reline what fell in, or to clear what silts it
+    /// (backlog C's "Not yet": mending a polity asks told when asked).
+    MendingAsked = 2,
+    /// Silt took so much of its room that homes connected to it backed up, where the day before
+    /// none had for that cause (backlog D fifth item's "Not yet": a blockage told).
+    Blocked = 3,
 }
 
 /// What happened to a way, in a [`ChronicleKind::Way`] entry. Numeric in saves: append only.

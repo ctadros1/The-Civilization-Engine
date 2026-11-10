@@ -485,8 +485,12 @@ impl Population {
         person: PermanentId,
         dark: bool,
     ) -> Option<WayFacts> {
-        if dark || ctx.land.ways.list.is_empty() {
+        if dark {
             return None;
+        }
+        // Covering a tip asks no way (ADR-0038 §6's covering).
+        if ctx.land.ways.list.is_empty() {
+            return self.cover_facts(ctx, x, person);
         }
         let works = ctx.land_params.way_works;
         let pace = ctx.params.nav.tobler_ms(0.0).max(1e-6);
@@ -578,7 +582,7 @@ impl Population {
         }
         let pi = self.polity_of(x.settlement?)?;
         let polity = &self.polities[pi];
-        let (law, site, way, left_h) = polity.ways.iter().find_map(|(l, site)| {
+        let found = polity.ways.iter().find_map(|(l, site)| {
             let law = polity.laws.iter().find(|k| {
                 k.id == *l
                     && k.status == LawStatus::InForce
@@ -634,7 +638,11 @@ impl Population {
                 None => left_of(s),
             };
             Some((law, *site, w.id, left))
-        })?;
+        });
+        // Else the covering of its polity's tip (ADR-0038 §6's covering).
+        let Some((law, site, way, left_h)) = found else {
+            return self.cover_facts(ctx, x, person);
+        };
         let households = self
             .households
             .iter()
@@ -719,6 +727,11 @@ impl Population {
         // And a telegraph wire by its office's (M11c).
         if ctx.land.wires.telegraphs.iter().any(|t| t.id == way) {
             self.telegraph_work(ctx, household, way, hours);
+            return;
+        }
+        // And a tip's covering by its polity's households (ADR-0038 §6's covering).
+        if self.is_tip(way) {
+            self.cover_work(ctx, household, way, hours);
             return;
         }
         let works = ctx.land_params.way_works;

@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 228
+kernel_content_api = 230
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -2871,6 +2871,7 @@ fn the_core_lets_a_polity_light_its_streets_by_a_lamplighter_against_dark_taking
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
+        "core:policy/zestfully_zone_a_covered_tip",
     ];
     assert!(
         reg.catalog
@@ -2917,6 +2918,7 @@ fn the_core_lets_a_polity_keep_a_school_for_households_untaught() {
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
+        "core:policy/zestfully_zone_a_covered_tip",
     ];
     assert!(
         reg.catalog
@@ -3004,6 +3006,7 @@ fn the_core_lets_a_polity_licence_paid_carers_who_know_fluid_replacement() {
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
+        "core:policy/zestfully_zone_a_covered_tip",
     ];
     assert!(
         reg.catalog
@@ -3049,6 +3052,7 @@ fn the_core_lets_a_polity_keep_the_sick_apart_after_a_death_of_contagion() {
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
+        "core:policy/zestfully_zone_a_covered_tip",
     ];
     assert!(
         reg.catalog
@@ -3105,6 +3109,7 @@ fn the_core_lets_a_polity_name_a_health_officer_who_can_write() {
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
+        "core:policy/zestfully_zone_a_covered_tip",
     ];
     assert!(
         reg.catalog
@@ -3155,6 +3160,7 @@ fn the_core_lets_a_polity_clear_middens_from_the_water() {
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
+        "core:policy/zestfully_zone_a_covered_tip",
     ];
     assert!(
         reg.catalog
@@ -3199,6 +3205,7 @@ fn the_core_lets_a_polity_raise_a_sickhouse_where_the_sick_lay_untended() {
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
+        "core:policy/zestfully_zone_a_covered_tip",
     ];
     assert!(
         reg.catalog
@@ -3419,6 +3426,7 @@ fn the_core_lets_a_polity_carry_refuse_to_a_tip() {
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
+        "core:policy/zestfully_zone_a_covered_tip",
     ];
     assert!(
         reg.catalog
@@ -3497,6 +3505,7 @@ fn the_core_lets_a_polity_run_a_refuse_round_by_law() {
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
+        "core:policy/zestfully_zone_a_covered_tip",
     ];
     assert!(
         reg.catalog
@@ -3761,6 +3770,7 @@ fn the_core_lets_a_polity_lay_a_sewer_to_the_river() {
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
+        "core:policy/zestfully_zone_a_covered_tip",
     ];
     assert!(
         reg.catalog
@@ -3987,6 +3997,7 @@ fn the_core_lets_a_polity_ask_new_steel_frames_be_cased_against_fire() {
         "core:policy/zestfully_draw_a_hearer_by_lot",
         "core:policy/zestfully_name_a_hearer_for_a_year",
         "core:policy/zestfully_take_the_watch_by_turns",
+        "core:policy/zestfully_zone_a_covered_tip",
     ];
     assert!(
         reg.catalog
@@ -4317,7 +4328,41 @@ fn the_core_offers_a_watch_kept_by_turns_drawn_by_lot() {
         })
     );
     assert_eq!(plain.tenure, None, "the plain watch holds for no term");
-    // Its id sorts after every other template's.
+    // Its id sorts after every older template's (the covered tip's, ADR-0038 §6, is newer).
+    let last = reg
+        .catalog
+        .policies
+        .iter()
+        .map(|p| p.id.as_str())
+        .filter(|&id| id != "core:policy/zestfully_zone_a_covered_tip")
+        .max()
+        .expect("templates");
+    assert_eq!(last, turns.id);
+}
+
+#[test]
+fn the_core_lets_a_polity_cover_its_tip() {
+    // ADR-0038 §6's covering (content API 230; research 12-10 §2.4, §5.4): the template answers a
+    // suspected source; loose refuse 220 kg a cubic metre, 0.15 m³ of earth to a cubic metre of
+    // it, a tenth of deaths believed spared; and its id sorts after every other template's.
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let reg = registry(load(&repo_content()));
+    let def = reg
+        .catalog
+        .policies
+        .iter()
+        .find(|p| p.id == "core:policy/zestfully_zone_a_covered_tip")
+        .expect("the covered tip");
+    assert_eq!(def.kind, PolicyKind::CoverTip);
+    assert_eq!(def.answers, vec![IssueKind::SourceSuspected]);
+    assert!(def.tip.is_none() && def.round.is_none());
+    let c = def.cover.expect("its terms");
+    assert_eq!(
+        (c.loose_kg_m3, c.cover_share, c.avoided_share),
+        (220.0, 0.15, 0.1)
+    );
+    // At 8 hours a cubic metre of earth, a tonne of refuse takes 0.15 × 1000 / 220 × 8 hours.
+    assert!((c.h_per_kg(8.0) * 1000.0 - 0.15 * 1000.0 / 220.0 * 8.0).abs() < 1e-5);
     let last = reg
         .catalog
         .policies
@@ -4325,7 +4370,51 @@ fn the_core_offers_a_watch_kept_by_turns_drawn_by_lot() {
         .map(|p| p.id.as_str())
         .max()
         .expect("templates");
-    assert_eq!(last, turns.id);
+    assert_eq!(last, def.id);
+}
+
+#[test]
+fn a_cover_template_needs_its_terms_and_only_it_has_them() {
+    // ADR-0038 §6's covering: `cover` only for `cover_tip`, which must have it, within its bounds.
+    let base = |does: &str, cover: &str| {
+        format!(
+            "kind = \"policy\"\nid = \"core:policy/t\"\nname = \"T\"\ndescription = \"T.\"\n\
+             does = \"{does}\"\nanswers = [\"source_suspected\"]\n{cover}"
+        )
+    };
+    let terms = "[cover]\nloose_kg_m3 = 220.0\ncover_share = 0.15\navoided_share = 0.1\n";
+    let preset = real_preset();
+    let ok = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("policy/t.toml", &base("cover_tip", terms)),
+    ]);
+    assert!(ok.diagnostics.is_empty(), "{:?}", ok.diagnostics);
+    for (does, cover) in [
+        ("cover_tip", String::new()),
+        ("clear_middens", terms.to_owned()),
+        (
+            "cover_tip",
+            terms.replace("loose_kg_m3 = 220.0", "loose_kg_m3 = 0.0"),
+        ),
+        (
+            "cover_tip",
+            terms.replace("cover_share = 0.15", "cover_share = 1.5"),
+        ),
+        (
+            "cover_tip",
+            terms.replace("avoided_share = 0.1", "avoided_share = -0.1"),
+        ),
+    ] {
+        let bad = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            ("policy/t.toml", &base(does, &cover)),
+        ]);
+        assert!(
+            bad.diagnostics.iter().any(|d| d.message.contains("cover")),
+            "{does} with {cover:?}: {:?}",
+            bad.diagnostics
+        );
+    }
 }
 
 #[test]
@@ -4371,4 +4460,21 @@ fn the_core_weighs_a_debt_to_the_common_store_as_one_to_another_household() {
         ),
         (1.0, 0.5)
     );
+}
+
+#[test]
+fn the_core_weighs_a_mend_given_at_an_ask_as_food_given() {
+    // Content API 229: a building mended for a household whose people may not, at its ask, is
+    // seen by the asker as food given is, and by the helper as a gift given.
+    use civ_agents::ties::Act;
+    let reg = registry(load(&repo_content()));
+    let acts = &reg.people.params.ties.acts;
+    let core = civ_agents::ties::TieParams::core().acts;
+    for (mend, gift) in [
+        (Act::HelpedMend, Act::GiftReceived),
+        (Act::GaveMend, Act::GiftGiven),
+    ] {
+        assert_eq!(acts[mend as usize], acts[gift as usize], "{}", mend.name());
+        assert_eq!(acts[mend as usize], core[mend as usize], "{}", mend.name());
+    }
 }

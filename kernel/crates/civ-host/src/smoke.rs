@@ -371,8 +371,8 @@ pub struct LongRun {
     books: (Vec<f64>, civ_agents::person::Flows),
     /// What the run has seen of the economy, sampled as each month begins.
     pub economy: Economy,
-    /// Months lived-in buildings have stood, counted as each month begins: their standing
-    /// buildings, finished, of households with someone living.
+    /// Months lived-in buildings have stood, counted as each month begins ([`lived_buildings`]),
+    /// every month once, the one that begins as a call to [`LongRun::live_to`] ends included.
     pub lived_building_months: u64,
     /// When the year being lived began: each settlement's accounts are checked from here.
     year_from: civ_core::SimTime,
@@ -406,6 +406,22 @@ pub struct Moves {
     pub departures: u32,
     /// Of those, off the map.
     pub off_map: u32,
+}
+
+/// Buildings lived in now: standing, finished, of households with someone living.
+pub fn lived_buildings(sim: &Sim) -> u64 {
+    let people = sim.people();
+    sim.land()
+        .buildings
+        .iter()
+        .filter(|b| {
+            b.finished()
+                && b.standing()
+                && people
+                    .household(b.household)
+                    .is_some_and(|h| !h.members.is_empty())
+        })
+        .count() as u64
 }
 
 impl LongRun {
@@ -484,6 +500,11 @@ impl LongRun {
                 sim.advance_minutes(to - sim.now().minutes())
                     .map_err(|e| e.to_string())?;
             }
+            // Every month that begins is counted, the one beginning at `end` too: a run of years
+            // from a month's first day stands each of its twelve months, not eleven.
+            if to == next {
+                self.lived_building_months += lived_buildings(sim);
+            }
             if to == end {
                 return Ok(());
             }
@@ -493,19 +514,6 @@ impl LongRun {
             if self.ids_by_month.len() > 12 {
                 self.ids_by_month.pop_front();
             }
-            let people = sim.people();
-            self.lived_building_months += sim
-                .land()
-                .buildings
-                .iter()
-                .filter(|b| {
-                    b.finished()
-                        && b.standing()
-                        && people
-                            .household(b.household)
-                            .is_some_and(|h| !h.members.is_empty())
-                })
-                .count() as u64;
         }
     }
 

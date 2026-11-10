@@ -10013,6 +10013,7 @@ and M6a gives rivers a daily flow.
 
 ## 9. Decisions log
 
+- **Mending a polity asks of a sewer told when asked (2026-11-10, backlog C's "Not yet"; ADR-0044 §5):** Decided by the VM agent under the owner's November 10 authority, for review. When a polity's review asks its households to reline a sewer's fallen stretch or clear its silt, the chronicle tells it once, as a passing place grown over is told when its clearing is asked: "Thornbank's gathering asked its households to reline the 12 m of it that fell in (36 hours)." `SewerStep::MendingAsked` (2) is appended; no save, wire or content version moves (the step is a number in an existing field). **Tested:** sewers (17; the mending test now checks one entry for relining asked, and a second only when clearing is asked later); fmt and clippy clean.
 - **ADR-0036 accepted (2026-10-30, PR #22): Decided by Claude under standing owner authority
   (2026-10-30).** Status Proposed to Accepted, with an "as built" amendment: dispatch by the evening,
   not the hour; power by wire to recipes not built; an office is a household holding an instrument;

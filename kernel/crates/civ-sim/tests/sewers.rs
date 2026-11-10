@@ -1764,6 +1764,20 @@ fn mending_is_asked_under_the_law_that_laid_the_sewer_and_not_after_it_ended() {
         (site(&sim).labour_h - labour0 - metres * f64::from(def.lay_h_m)).abs() < 1e-3,
         "laying's hours a metre of the collapse, an equal share of each household"
     );
+    // The asking is told in the chronicle (backlog C's "Not yet").
+    let asked = |sim: &Sim| -> Vec<String> {
+        sewer_entries(sim)
+            .into_iter()
+            .filter(|e| e.number == f64::from(civ_agents::history::SewerStep::MendingAsked as u8))
+            .map(|e| e.name)
+            .collect()
+    };
+    let told = asked(&sim);
+    assert_eq!(told.len(), 1, "{told:?}");
+    assert!(
+        told[0].contains("asked its households to reline the") && told[0].contains("hours"),
+        "{told:?}"
+    );
     // Asked once: weighed again, nothing more is asked.
     let labour1 = site(&sim).labour_h;
     fee_round(&mut sim);
@@ -1794,6 +1808,9 @@ fn mending_is_asked_under_the_law_that_laid_the_sewer_and_not_after_it_ended() {
     assert!(
         (site(&sim).labour_h - labour1 - full / 1000.0 * f64::from(def.clear_h_t)).abs() < 1e-6
     );
+    let told = asked(&sim);
+    assert_eq!(told.len(), 2, "asked again only for the clearing: {told:?}");
+    assert!(told[1].contains("t of silt from it"), "{told:?}");
     let words = civ_sim::frames::government::services_words(&sim, &sim.people().polities[0]);
     assert!(
         words.iter().any(|w| w.contains("of its silt cleared")),

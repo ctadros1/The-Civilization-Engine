@@ -1155,6 +1155,50 @@ impl Population {
         );
     }
 
+    /// The chronicle's word that polity `pi`'s review asked mending of its sewer `si`: relining
+    /// the metres of it that fell in, clearing the silt that backs homes up, or both, and the
+    /// hours asked of its households (backlog C's "Not yet"; as a passing place grown over is told
+    /// when its clearing is asked).
+    fn tell_sewer_mending_asked(
+        &mut self,
+        ctx: &Ctx,
+        (pi, si): (usize, usize),
+        reline: bool,
+        clear_kg: f64,
+        hours: f64,
+    ) {
+        let map = ctx.map;
+        let settlement = self.polities[pi].settlement;
+        let s = &self.polities[pi].sewers[si];
+        let village = self.village_name(ctx, Some(settlement));
+        let fallen = (Self::collapsed_metres(map, s) - f64::from(s.relined_m)).max(0.0);
+        let mut what = Vec::new();
+        if reline {
+            what.push(format!("reline the {fallen:.0} m of it that fell in"));
+        }
+        if clear_kg > 0.0 {
+            what.push(format!("clear {:.1} t of silt from it", clear_kg / 1000.0));
+        }
+        let sentence = format!(
+            "{village}'s gathering asked its households to {} ({hours:.0} hours).",
+            what.join(" and ")
+        );
+        let place = s
+            .broken
+            .and_then(|b| s.cells.get(b as usize))
+            .or_else(|| s.cells.first())
+            .map(|&c| crate::population::cell_centre(map, c as usize));
+        self.chronicle_push(
+            ctx.now,
+            ChronicleKind::Sewer,
+            Vec::new(),
+            Some(settlement),
+            place,
+            f64::from(SewerStep::MendingAsked as u8),
+            sentence,
+        );
+    }
+
     /// A month of wear on every whole sewer (ADR-0044 §5): each cell of its route loses a twelfth
     /// of `1 / life_years` times its ground's wetness and the month's rain against its usual, as a
     /// well's lining does (ADR-0012 §5's factors); a cell whose loss reaches 1 collapses, and the
@@ -1313,6 +1357,9 @@ impl Population {
             if reline || clear > 0.0 {
                 asks.push((si, reline, clear, hours));
             }
+        }
+        for &(si, reline, clear, hours) in &asks {
+            self.tell_sewer_mending_asked(ctx, (pi, si), reline, clear, hours);
         }
         for (si, reline, clear, hours) in asks {
             let p = &mut self.polities[pi];

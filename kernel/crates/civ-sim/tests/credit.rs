@@ -1638,6 +1638,53 @@ fn word_of_wages_a_workshop_paid_when_due_goes_about_too() {
 }
 
 #[test]
+fn a_guarantor_called_on_with_nothing_to_pay_is_told_as_news() {
+    // Backlog D: a guarantor called on that holds none of the good pays nothing; that is word
+    // too, naming its elder, and no word of a guarantor paying goes about.
+    use civ_agents::word::ClaimKind;
+    let mut sc = village();
+    let cp = credit(&mut sc.sim);
+    cp.p_max = 0.05;
+    cp.field_recovery = 0.0;
+    cp.guarantor_regard = -1.0;
+    cp.pay_base = 50.0;
+    cp.max_extensions = 0;
+    let guarantor = sc
+        .sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .filter(|h| !h.members.is_empty() && h.id != sc.borrower && h.id != sc.lender)
+        .map(|h| h.id)
+        .min()
+        .expect("a third household");
+    feed(&mut sc.sim, guarantor, 3000.0);
+    weigh(&mut sc.sim);
+    let (i, c) = loan_of(&sc.sim, sc.borrower);
+    let Some(Pledge::Guarantor(g)) = c.pledge else {
+        panic!("lent with a guarantor: {c:?}");
+    };
+    // By the day it fails, neither the debtor nor the guarantor holds any of the good.
+    feed(&mut sc.sim, sc.borrower, 0.0);
+    feed(&mut sc.sim, g, 0.0);
+    let grace = i64::from(sc.sim.rules().people.credit.grace_days);
+    let failed_on = c.due + grace + 1;
+    repay(&mut sc.sim, failed_on);
+    assert_eq!(loans(&sc.sim)[i].by_guarantor, 0.0);
+    assert_eq!(claims_of(&sc.sim, ClaimKind::Defaulted).len(), 1);
+    assert!(claims_of(&sc.sim, ClaimKind::GuarantorPaid).is_empty());
+    let said = claims_of(&sc.sim, ClaimKind::GuarantorEmpty);
+    assert_eq!(said.len(), 1, "{said:?}");
+    let claim = said[0];
+    assert_eq!((claim.event, claim.day), (Some(c.id), failed_on));
+    let elder = claim.subject.expect("names the guarantor's elder");
+    assert!(members_of(&sc.sim, g).contains(&elder));
+    let words = civ_sim::frames::word::claim_words(&sc.sim, &claim);
+    assert!(!words.is_empty(), "{words}");
+}
+
+#[test]
 fn word_of_a_guarantor_called_on_goes_about_and_so_does_the_debtor_repaying_it() {
     // Backlog D: a guarantor called on that pays is word as a loan repaid is, naming its elder,
     // held first by the lender's people; one who hears it thinks the better of that elder. What

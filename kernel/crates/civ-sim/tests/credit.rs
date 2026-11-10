@@ -445,6 +445,17 @@ fn a_field_pledged_on_a_failed_loan_is_worked_by_the_creditor_until_the_debt_is_
     }
     assert_eq!(worked_by(&sc.sim), (sc.lender, true), "after {days} days");
     assert!(loans(&sc.sim)[i].taken.is_some());
+    // Word of the field taken goes about (backlog D's "Not yet": a pledged field taken told).
+    let word: Vec<_> = sc
+        .sim
+        .people()
+        .word
+        .claims
+        .iter()
+        .filter(|c| c.kind == civ_agents::word::ClaimKind::PledgeTaken)
+        .collect();
+    assert_eq!(word.len(), 1, "told once");
+    assert_eq!(word[0].event, Some(c.id));
     // Once its crop has paid the debt, it goes back.
     {
         let pop = sc.sim.people_mut_for_tests();

@@ -489,6 +489,22 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
                 }
             }
         }
+        // A pledged field taken (backlog D): whose field passed to whom, for what loan.
+        ClaimKind::PledgeTaken => {
+            let on = day_words(SimTime::from_minutes(c.day * DAY));
+            let loan = c
+                .event
+                .and_then(|id| pop.order.credit.claims.iter().find(|x| x.id == id));
+            let Some(loan) = loan else {
+                let who = c.subject.map_or_else(|| "someone".to_owned(), name_of);
+                return format!("{who}'s household lost the field it pledged, on {on}");
+            };
+            let debtor = super::people::household_name(sim, loan.debtor);
+            let creditor = creditor_name(sim, loan.creditor);
+            format!(
+                "{creditor} took the field {debtor} pledged for a loan it did not repay, on {on}"
+            )
+        }
         // A guarantor called on paid (backlog D): who, for whom, and how much.
         ClaimKind::GuarantorPaid => {
             let on = day_words(SimTime::from_minutes(c.day * DAY));
@@ -978,7 +994,10 @@ pub fn news_lines<'a>(
             ClaimKind::Suspicion => c.subject != Some(p.id),
             ClaimKind::Fire | ClaimKind::Raid | ClaimKind::BandSeen => true,
             // Another household's debt kept or failed (backlog D).
-            ClaimKind::Defaulted | ClaimKind::Repaid | ClaimKind::GuarantorPaid => c
+            ClaimKind::Defaulted
+            | ClaimKind::Repaid
+            | ClaimKind::GuarantorPaid
+            | ClaimKind::PledgeTaken => c
                 .subject
                 .and_then(|e| pop.person(e))
                 .is_none_or(|e| e.household != p.household),
@@ -1125,7 +1144,8 @@ fn whisper_words(sim: &Sim, i: &Influence, p: PermanentId) -> String {
         | ClaimKind::BandSeen
         | ClaimKind::Defaulted
         | ClaimKind::Repaid
-        | ClaimKind::GuarantorPaid => None,
+        | ClaimKind::GuarantorPaid
+        | ClaimKind::PledgeTaken => None,
         ClaimKind::Grievance => {
             let against = c.grievance.map(|g| g.0);
             let m = pop.factions.membership(p).copied();

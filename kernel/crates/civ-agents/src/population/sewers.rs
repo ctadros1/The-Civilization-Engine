@@ -932,6 +932,10 @@ impl Population {
                         (c.household, at)
                     })
                     .collect();
+                let was_blocked = s
+                    .connections
+                    .iter()
+                    .any(|c| c.day >= 0 && c.cause == SewerCause::Blocked);
                 let year = day.div_euclid(DAYS_PER_YEAR);
                 let mut entered = 0.0f64;
                 let mut turned: Option<SewerCause> = None;
@@ -977,6 +981,15 @@ impl Population {
                         c.unserved[k] = c.unserved[k].saturating_add(1);
                     }
                     (c.day, c.kg, c.cause) = (day, kg, cause);
+                }
+                // A blockage begun today is told once (backlog D fifth item's "Not yet").
+                let blocked = self.polities[pi].sewers[si]
+                    .connections
+                    .iter()
+                    .filter(|c| c.day == day && c.cause == SewerCause::Blocked)
+                    .count();
+                if blocked > 0 && !was_blocked {
+                    self.tell_sewer_blocked(ctx, (pi, si), blocked);
                 }
                 // A share stays as deposit, mass only (ADR-0044 §5).
                 let deposited = entered * f64::from(def.deposit_share).clamp(0.0, 1.0);
@@ -1195,6 +1208,33 @@ impl Population {
             Some(settlement),
             place,
             f64::from(SewerStep::MendingAsked as u8),
+            sentence,
+        );
+    }
+
+    /// The chronicle's word that sewer `si` of polity `pi` began to back up today: silt has taken
+    /// so much of its room that `homes` connected to it backed up, none having for that cause the
+    /// day before (backlog D fifth item's "Not yet": a blockage told).
+    fn tell_sewer_blocked(&mut self, ctx: &Ctx, (pi, si): (usize, usize), homes: usize) {
+        let settlement = self.polities[pi].settlement;
+        let s = &self.polities[pi].sewers[si];
+        let village = self.village_name(ctx, Some(settlement));
+        let sentence = format!(
+            "{village}'s sewer is silting up: {homes} home{} connected to it backed up for want of \
+             room.",
+            if homes == 1 { "" } else { "s" }
+        );
+        let place = s
+            .cells
+            .first()
+            .map(|&c| crate::population::cell_centre(ctx.map, c as usize));
+        self.chronicle_push(
+            ctx.now,
+            ChronicleKind::Sewer,
+            Vec::new(),
+            Some(settlement),
+            place,
+            f64::from(SewerStep::Blocked as u8),
             sentence,
         );
     }

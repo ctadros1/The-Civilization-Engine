@@ -68,6 +68,16 @@ impl Population {
     /// Each midnight, households keeping a motor cart whose day of the year it is weigh their
     /// runs (M11b, third part). Nothing where nobody keeps one.
     pub(super) fn transit_reviews(&mut self, ctx: &mut Ctx, day: i64) {
+        // A road line whose keeper is no more, and passed to nobody, runs no more (backlog D,
+        // twentieth item): nobody posts its runs.
+        let before = ctx.land.runs.roads.len();
+        ctx.land
+            .runs
+            .roads
+            .retain(|l| self.household(l.operator).is_some());
+        if ctx.land.runs.roads.len() != before {
+            ctx.land.runs.changed();
+        }
         if ctx.land.carts.list.is_empty() {
             return;
         }
@@ -219,6 +229,67 @@ impl Population {
             last_run: -1,
         });
         ctx.land.runs.changed();
+    }
+
+    /// Household `from` is no more and its people joined household `to` (backlog D, twentieth
+    /// item; the eighteenth item's "Not yet"): a road line `from` kept passes to `to` with its
+    /// motor cart, where the cart passed to `to` ([`Population::vehicles_pass`]: within the
+    /// settlement), `to` keeps no road line of its own, and its cart's way runs from `to`'s door
+    /// to the line's far hearth. Its runs then leave from `to`'s door along that way, its
+    /// timetable, riders and fare kept, the fare scaled to the run's new minutes, as the fuel a
+    /// run burns is (its keeper sets it again by its own cost at its review). Otherwise the line
+    /// runs no more: nobody posts its runs.
+    pub(super) fn road_lines_pass(
+        &mut self,
+        ctx: &mut Ctx,
+        (from, to): (PermanentId, PermanentId),
+    ) {
+        let Some(i) = ctx.land.runs.roads.iter().position(|l| l.operator == from) else {
+            return;
+        };
+        let l = &ctx.land.runs.roads[i];
+        let route = (|| {
+            let x = self.household(to)?;
+            if ctx.land.runs.roads.iter().any(|r| r.operator == to) {
+                return None;
+            }
+            let (_, vehicle) = Self::motor_cart(ctx, to).filter(|c| c.0 == l.cart)?;
+            let v = ctx.catalog.vehicles.get(vehicle)?;
+            let hearth = ctx
+                .land
+                .settlements
+                .iter()
+                .find(|s| s.id == l.market)?
+                .hearth_m;
+            let walk = ctx.params.nav.tobler_ms(0.0);
+            let (route, _) =
+                ctx.land
+                    .cart_way(ctx.map, &v.wheels(RIDER_KG, walk), x.home, hearth)?;
+            (route.cells.len() >= 2).then_some(route)
+        })();
+        match route {
+            Some(route) => {
+                let minutes: Vec<f32> = route.at_s.iter().map(|s| (s / 60.0) as f32).collect();
+                let l = &mut ctx.land.runs.roads[i];
+                let (was, now) = (l.run_min(), minutes.last().copied().unwrap_or(0.0));
+                if was > 0.0 {
+                    l.fare_kcal *= now / was;
+                }
+                l.operator = to;
+                l.cells = route.cells;
+                l.minutes = minutes;
+            }
+            None => {
+                ctx.land.runs.roads.remove(i);
+            }
+        }
+        ctx.land.runs.changed();
+    }
+
+    /// The midnight's weighing of runs for day `day`: for tests.
+    #[doc(hidden)]
+    pub fn transit_reviews_for_tests(&mut self, ctx: &mut Ctx, day: i64) {
+        self.transit_reviews(ctx, day);
     }
 
     /// Household `operator` weighs its runs now, whatever its day of the year: for tests.

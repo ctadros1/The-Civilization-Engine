@@ -10710,6 +10710,29 @@ and M6a gives rivers a daily flow.
       people; until then a workshop's owners who draw its bread are dosed as any buyer is); the
       common store and relief (they move loads already by `transfer`, untested); the observer's
       calibration against 05-07 §2's 5.8 % luncheon attack rate.
+    - *ADR-0045, slice 2 (2026-11-18): a household's own prepared food.* **Built:** food made by
+      a holder's own people is "made here" (`Node::MadeFood { holder, good }`, code 11): made at
+      home by a carrier (`make_work` now calls `food_made` while its maker sheds by water), or for
+      a workshop by one of its owners' household. Its load goes with the food: within the
+      household and its own workshop (an owner drawing its bread) it stays made here; to anyone
+      else (a sale, a gift, a wage) it becomes food got from elsewhere. Eating takes both loads by
+      the share eaten, but only food got from elsewhere doses the eater: what their own household
+      made leaves with what they ate, the household hazard standing for it (ADR-0045 §B). A
+      workshop's bread made by a hired baker of another household doses its owners as any buyer.
+      Saves 220: a node code appended; no new vector. **A world with no disease is
+      byte-identical:** against the build before the slice, every save section's digest matched
+      in `bench_village` (300 people, 30 days; two groups of 600, 40 days at Max) but `meta`,
+      whose only difference is the wall-clock time a world was made (`created_unix_ms`), which
+      differs between any two runs; slice 1's `meta` and `content` differences were that time and
+      its new content key. **Tested:** contagion (17, one new: an hour's baking at home puts the
+      load on the home's own bread, none on food got; one of its own who eats takes no dose and the
+      load falls by what they ate; given to a neighbour, half goes as food got and doses who eats
+      it there; a workshop's bread drawn by its owners doses them only when a hired baker of
+      another household made it; each state saves and loads exactly; it fails when made-here
+      food doses its own), slice 1's test now reading the bakery's own bread as made here;
+      sickness, firms, fetch, sewers, wells, roundtrip and determinism, civ-agents unit and
+      civ-host lib; the ten smoke seeds pass; fmt, clippy and `gen-schema --check` clean. No
+      existing assertion moved.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

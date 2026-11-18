@@ -303,6 +303,12 @@ impl Population {
                 Some((e.disease, rate(day), rate(day + 1)))
             })
             .collect();
+        // Made by the holder's own people (its household, or the workshop of its household), the
+        // load is "made here": it goes with the food, undosed to them (slice 2).
+        let own = self
+            .person(who)
+            .map(|p| p.household)
+            .is_some_and(|hh| hh == holder || self.firm(holder).is_some_and(|f| f.owner == hh));
         for (disease, today, tomorrow) in episodes {
             let owed = self
                 .contagion
@@ -315,9 +321,11 @@ impl Population {
                 continue;
             }
             for &(g, kg) in &food {
-                let node = Node::Food {
-                    holder,
-                    good: g as u16,
+                let good = g as u16;
+                let node = if own {
+                    Node::MadeFood { holder, good }
+                } else {
+                    Node::Food { holder, good }
                 };
                 let on = amount * kg / total;
                 let stock = self.holder_kg(holder, g);
@@ -348,32 +356,50 @@ impl Population {
         moved: f64,
         (from_kg, to_kg): (f64, f64),
     ) {
-        let good = good as u16;
-        let (src, dst) = (
-            Node::Food { holder: from, good },
-            Node::Food { holder: to, good },
-        );
-        if !self.contagion.food_kg.contains_key(&src) || moved <= 0.0 || from_kg <= 0.0 {
+        if moved <= 0.0 || from_kg <= 0.0 {
             return;
         }
-        self.contagion.food_reconcile(src, from_kg);
-        self.contagion.food_reconcile(dst, to_kg);
+        let good = good as u16;
+        // What the holder's own people made stays theirs within the household and its own
+        // workshop; anywhere else it is food got from elsewhere (slice 2).
+        let family = from == to
+            || self.firm(to).is_some_and(|f| f.owner == from)
+            || self.firm(from).is_some_and(|f| f.owner == to);
+        let made_to = if family {
+            Node::MadeFood { holder: to, good }
+        } else {
+            Node::Food { holder: to, good }
+        };
+        let pairs = [
+            (
+                Node::Food { holder: from, good },
+                Node::Food { holder: to, good },
+            ),
+            (Node::MadeFood { holder: from, good }, made_to),
+        ];
         let share = (moved / from_kg).clamp(0.0, 1.0);
-        for (disease, load) in self.contagion.food_loads(src) {
-            let amount = self.contagion.take_amount(src, disease, load * share);
-            self.contagion.food_add(dst, disease, amount, to_kg + moved);
-            if amount > NEGLIGIBLE {
-                self.contagion.record(Move {
-                    day,
-                    disease,
-                    how: How::Handled,
-                    from: src,
-                    to: dst,
-                    amount,
-                });
+        for (src, dst) in pairs {
+            if !self.contagion.food_kg.contains_key(&src) {
+                continue;
             }
+            self.contagion.food_reconcile(src, from_kg);
+            self.contagion.food_reconcile(dst, to_kg);
+            for (disease, load) in self.contagion.food_loads(src) {
+                let amount = self.contagion.take_amount(src, disease, load * share);
+                self.contagion.food_add(dst, disease, amount, to_kg + moved);
+                if amount > NEGLIGIBLE {
+                    self.contagion.record(Move {
+                        day,
+                        disease,
+                        how: How::Handled,
+                        from: src,
+                        to: dst,
+                        amount,
+                    });
+                }
+            }
+            self.contagion.food_settled(src, from_kg - moved);
         }
-        self.contagion.food_settled(src, from_kg - moved);
     }
 
     /// Someone, `who`, of household `household` ate `eaten` (good, kilograms, its stock before),
@@ -388,27 +414,34 @@ impl Population {
         eaten: &[(usize, f64, f64)],
     ) {
         for &(g, kg, stock) in eaten {
-            let node = Node::Food {
-                holder: household,
-                good: g as u16,
-            };
-            if kg <= 0.0 || stock <= 0.0 || !self.contagion.food_kg.contains_key(&node) {
+            if kg <= 0.0 || stock <= 0.0 {
                 continue;
             }
-            self.contagion.food_reconcile(node, stock);
-            let share = (kg / stock).clamp(0.0, 1.0);
-            for (disease, _) in self.contagion.food_loads(node) {
-                let dose = self.contagion.take(node, disease, share);
-                if dose > 0.0 {
-                    self.contagion.eaten.push((who, disease, dose, node));
+            let (holder, good) = (household, g as u16);
+            // Food got from elsewhere doses them; what their own household made leaves with what
+            // they ate, undosed (slice 2: the household hazard stands for it).
+            for (node, doses) in [
+                (Node::Food { holder, good }, true),
+                (Node::MadeFood { holder, good }, false),
+            ] {
+                if !self.contagion.food_kg.contains_key(&node) {
+                    continue;
                 }
+                self.contagion.food_reconcile(node, stock);
+                let share = (kg / stock).clamp(0.0, 1.0);
+                for (disease, _) in self.contagion.food_loads(node) {
+                    let dose = self.contagion.take(node, disease, share);
+                    if doses && dose > 0.0 {
+                        self.contagion.eaten.push((who, disease, dose, node));
+                    }
+                }
+                self.contagion.food_settled(node, stock - kg);
             }
-            self.contagion.food_settled(node, stock - kg);
         }
     }
 
     /// Whether `who` sheds a disease that passes by water today.
-    fn sheds_by_water(&self, ctx: &Ctx, who: PermanentId) -> bool {
+    pub(super) fn sheds_by_water(&self, ctx: &Ctx, who: PermanentId) -> bool {
         let day = ctx.now.day_index();
         self.sickness.running().iter().any(|&i| {
             self.sickness.get(i).is_some_and(|e| {

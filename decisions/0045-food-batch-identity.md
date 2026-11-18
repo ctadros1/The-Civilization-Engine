@@ -229,3 +229,14 @@ Anyone who eats that day from a store that a maker's work went into takes a haza
   Only the content and the meta that names it differ.
 - **Left for slice 2:** the "made here" node. A workshop's owners who draw its loaded bread are
   dosed as any buyer is.
+
+## Slice 2 as built (2026-11-18)
+
+- **The node:** `Node::MadeFood { holder, good }`, code 11, holds what a holder's own people made.
+  That is a household's own baking (`make_work`), or its workshop's when one of its people made
+  it.
+- **Moving:** within the household and its own workshop the load stays made here. To any other
+  holder it becomes `Food`, food got from elsewhere.
+- **Eating:** both loads fall by the share eaten. Only `Food` doses the eater.
+- **A world with no disease:** every save section's digest matches the build before, but `meta`,
+  which holds the wall-clock time the world was made.

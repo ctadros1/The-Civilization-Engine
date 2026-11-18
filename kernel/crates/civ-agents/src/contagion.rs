@@ -41,6 +41,10 @@ pub enum Node {
     /// A holder's stock of a food good (ADR-0045): what a shedder who made it passed to it, mixed
     /// through the stock as stored water's load is through its litres.
     Food { holder: PermanentId, good: u16 },
+    /// What the holder's own people passed to its stock of a food good as they made it (ADR-0045
+    /// slice 2: "made here"): it goes with the food, but those whose household made it take no
+    /// dose of it, the household hazard standing for that.
+    MadeFood { holder: PermanentId, good: u16 },
 }
 
 /// The bits of a food node's number that hold its holder's id; the good is above them (ADR-0045).
@@ -63,6 +67,9 @@ impl Node {
             Node::Food { holder, good } => {
                 (10, holder.get() | (u64::from(good) << FOOD_HOLDER_BITS))
             }
+            Node::MadeFood { holder, good } => {
+                (11, holder.get() | (u64::from(good) << FOOD_HOLDER_BITS))
+            }
         }
     }
 
@@ -80,6 +87,10 @@ impl Node {
             8 => Node::Field(PermanentId::from_raw(n)?),
             9 => Node::Ground(u32::try_from(n).ok()?),
             10 => Node::Food {
+                holder: PermanentId::from_raw(n & ((1u64 << FOOD_HOLDER_BITS) - 1))?,
+                good: u16::try_from(n >> FOOD_HOLDER_BITS).ok()?,
+            },
+            11 => Node::MadeFood {
                 holder: PermanentId::from_raw(n & ((1u64 << FOOD_HOLDER_BITS) - 1))?,
                 good: u16::try_from(n >> FOOD_HOLDER_BITS).ok()?,
             },

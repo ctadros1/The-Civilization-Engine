@@ -7300,6 +7300,12 @@ impl Population {
             return;
         }
         let mut lit = None;
+        // Food made by someone shedding carries what they passed to it (ADR-0045 slice 2): what
+        // was made, kept only while they shed.
+        let who = self.people.get(h).map(|p| p.id);
+        let sheds = ctx.land_params.contamination.food_share > 0.0
+            && who.is_some_and(|w| self.sheds_by_water(ctx, w));
+        let mut made: Vec<(usize, f64)> = Vec::new();
         if let Some(x) = self
             .hh_index
             .get(&household)
@@ -7357,6 +7363,15 @@ impl Population {
             }
             x.flows
                 .add_changes(&before, &x.stores, Flow::Made, Flow::Used);
+            if sheds {
+                made = before
+                    .iter()
+                    .zip(&x.stores)
+                    .enumerate()
+                    .filter(|(_, (b, a))| *a > *b)
+                    .map(|(g, (b, a))| (g, a - b))
+                    .collect();
+            }
             let before = x.stores.clone();
             for (g, kg) in make::wear(&mut x.stores, goods, &recipe.tools, hours) {
                 x.midden.discard(g, kg);
@@ -7400,6 +7415,9 @@ impl Population {
         // sight where no lamp's light falls (ADR-0034 §9).
         if self.order.lamp_first_lit.is_none() {
             self.order.lamp_first_lit = lit;
+        }
+        if let (true, Some(who)) = (!made.is_empty(), who) {
+            self.food_made(ctx, who, household, &made, hours);
         }
         if let (Some((k, s)), Some(p)) = (skill, self.people.get_mut(h)) {
             let next = s.practised(p.skill(k), hours);

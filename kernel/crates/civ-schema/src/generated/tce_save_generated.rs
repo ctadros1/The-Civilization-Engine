@@ -25264,6 +25264,449 @@ impl<'a> MoveSave {
 
 }
 
+// struct FoodKgSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct FoodKgSave(pub [u8; 24]);
+impl Default for FoodKgSave {
+  fn default() -> Self {
+    Self([0; 24])
+  }
+}
+impl ::core::fmt::Debug for FoodKgSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("FoodKgSave")
+      .field("at", &self.at())
+      .field("kg", &self.kg())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for FoodKgSave {}
+impl<'a> ::flatbuffers::Follow<'a> for FoodKgSave {
+  type Inner = &'a FoodKgSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a FoodKgSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a FoodKgSave {
+  type Inner = &'a FoodKgSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<FoodKgSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for FoodKgSave {
+    type Output = FoodKgSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const FoodKgSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for FoodKgSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> FoodKgSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    at: &NodeSave,
+    kg: f64,
+  ) -> Self {
+    let mut s = Self([0; 24]);
+    s.set_at(at);
+    s.set_kg(kg);
+    s
+  }
+
+  pub fn at(&self) -> &NodeSave {
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid struct in this slot
+    unsafe { &*(self.0[0..].as_ptr() as *const NodeSave) }
+  }
+
+  #[allow(clippy::identity_op)]
+  pub fn set_at(&mut self, x: &NodeSave) {
+    self.0[0..0 + 16].copy_from_slice(&x.0)
+  }
+
+  pub fn kg(&self) -> f64 {
+    let mut mem = ::core::mem::MaybeUninit::<<f64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_kg(&mut self, x: f64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
+// struct OwedSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct OwedSave(pub [u8; 24]);
+impl Default for OwedSave {
+  fn default() -> Self {
+    Self([0; 24])
+  }
+}
+impl ::core::fmt::Debug for OwedSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("OwedSave")
+      .field("person", &self.person())
+      .field("disease", &self.disease())
+      .field("amount", &self.amount())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for OwedSave {}
+impl<'a> ::flatbuffers::Follow<'a> for OwedSave {
+  type Inner = &'a OwedSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a OwedSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a OwedSave {
+  type Inner = &'a OwedSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<OwedSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for OwedSave {
+    type Output = OwedSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const OwedSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for OwedSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> OwedSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    person: u64,
+    disease: u16,
+    amount: f64,
+  ) -> Self {
+    let mut s = Self([0; 24]);
+    s.set_person(person);
+    s.set_disease(disease);
+    s.set_amount(amount);
+    s
+  }
+
+  pub fn person(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_person(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn disease(&self) -> u16 {
+    let mut mem = ::core::mem::MaybeUninit::<<u16 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_disease(&mut self, x: u16) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn amount(&self) -> f64 {
+    let mut mem = ::core::mem::MaybeUninit::<<f64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_amount(&mut self, x: f64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
+// struct EatenSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct EatenSave(pub [u8; 40]);
+impl Default for EatenSave {
+  fn default() -> Self {
+    Self([0; 40])
+  }
+}
+impl ::core::fmt::Debug for EatenSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("EatenSave")
+      .field("person", &self.person())
+      .field("source", &self.source())
+      .field("disease", &self.disease())
+      .field("dose", &self.dose())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for EatenSave {}
+impl<'a> ::flatbuffers::Follow<'a> for EatenSave {
+  type Inner = &'a EatenSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a EatenSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a EatenSave {
+  type Inner = &'a EatenSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<EatenSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for EatenSave {
+    type Output = EatenSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const EatenSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for EatenSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> EatenSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    person: u64,
+    source: &NodeSave,
+    disease: u16,
+    dose: f64,
+  ) -> Self {
+    let mut s = Self([0; 40]);
+    s.set_person(person);
+    s.set_source(source);
+    s.set_disease(disease);
+    s.set_dose(dose);
+    s
+  }
+
+  pub fn person(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_person(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn source(&self) -> &NodeSave {
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid struct in this slot
+    unsafe { &*(self.0[8..].as_ptr() as *const NodeSave) }
+  }
+
+  #[allow(clippy::identity_op)]
+  pub fn set_source(&mut self, x: &NodeSave) {
+    self.0[8..8 + 16].copy_from_slice(&x.0)
+  }
+
+  pub fn disease(&self) -> u16 {
+    let mut mem = ::core::mem::MaybeUninit::<<u16 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[24..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_disease(&mut self, x: u16) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[24..].as_mut_ptr(),
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn dose(&self) -> f64 {
+    let mut mem = ::core::mem::MaybeUninit::<<f64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[32..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_dose(&mut self, x: f64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[32..].as_mut_ptr(),
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct OutsidersSave, aligned to 8
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -63199,6 +63642,9 @@ impl<'a> ContagionSave<'a> {
   pub const VT_STORES: ::flatbuffers::VOffsetT = 8;
   pub const VT_TRANSIT: ::flatbuffers::VOffsetT = 10;
   pub const VT_MOVES: ::flatbuffers::VOffsetT = 12;
+  pub const VT_FOOD_KG: ::flatbuffers::VOffsetT = 14;
+  pub const VT_OWED: ::flatbuffers::VOffsetT = 16;
+  pub const VT_EATEN: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -63210,6 +63656,9 @@ impl<'a> ContagionSave<'a> {
     args: &'args ContagionSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<ContagionSave<'bldr>> {
     let mut builder = ContagionSaveBuilder::new(_fbb);
+    if let Some(x) = args.eaten { builder.add_eaten(x); }
+    if let Some(x) = args.owed { builder.add_owed(x); }
+    if let Some(x) = args.food_kg { builder.add_food_kg(x); }
     if let Some(x) = args.moves { builder.add_moves(x); }
     if let Some(x) = args.transit { builder.add_transit(x); }
     if let Some(x) = args.stores { builder.add_stores(x); }
@@ -63254,6 +63703,27 @@ impl<'a> ContagionSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, MoveSave>>>(ContagionSave::VT_MOVES, None)}
   }
+  #[inline]
+  pub fn food_kg(&self) -> Option<::flatbuffers::Vector<'a, FoodKgSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, FoodKgSave>>>(ContagionSave::VT_FOOD_KG, None)}
+  }
+  #[inline]
+  pub fn owed(&self) -> Option<::flatbuffers::Vector<'a, OwedSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, OwedSave>>>(ContagionSave::VT_OWED, None)}
+  }
+  #[inline]
+  pub fn eaten(&self) -> Option<::flatbuffers::Vector<'a, EatenSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, EatenSave>>>(ContagionSave::VT_EATEN, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for ContagionSave<'_> {
@@ -63267,6 +63737,9 @@ impl ::flatbuffers::Verifiable for ContagionSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, StoredSave>>>("stores", Self::VT_STORES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TransitSave>>>("transit", Self::VT_TRANSIT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, MoveSave>>>("moves", Self::VT_MOVES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, FoodKgSave>>>("food_kg", Self::VT_FOOD_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, OwedSave>>>("owed", Self::VT_OWED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, EatenSave>>>("eaten", Self::VT_EATEN, false)?
      .finish();
     Ok(())
   }
@@ -63277,6 +63750,9 @@ pub struct ContagionSaveArgs<'a> {
     pub stores: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, StoredSave>>>,
     pub transit: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TransitSave>>>,
     pub moves: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, MoveSave>>>,
+    pub food_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, FoodKgSave>>>,
+    pub owed: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, OwedSave>>>,
+    pub eaten: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, EatenSave>>>,
 }
 impl<'a> Default for ContagionSaveArgs<'a> {
   #[inline]
@@ -63287,6 +63763,9 @@ impl<'a> Default for ContagionSaveArgs<'a> {
       stores: None,
       transit: None,
       moves: None,
+      food_kg: None,
+      owed: None,
+      eaten: None,
     }
   }
 }
@@ -63317,6 +63796,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ContagionSaveBuilder<'a, 'b, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ContagionSave::VT_MOVES, moves);
   }
   #[inline]
+  pub fn add_food_kg(&mut self, food_kg: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , FoodKgSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ContagionSave::VT_FOOD_KG, food_kg);
+  }
+  #[inline]
+  pub fn add_owed(&mut self, owed: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , OwedSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ContagionSave::VT_OWED, owed);
+  }
+  #[inline]
+  pub fn add_eaten(&mut self, eaten: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , EatenSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ContagionSave::VT_EATEN, eaten);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ContagionSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ContagionSaveBuilder {
@@ -63339,6 +63830,9 @@ impl ::core::fmt::Debug for ContagionSave<'_> {
       ds.field("stores", &self.stores());
       ds.field("transit", &self.transit());
       ds.field("moves", &self.moves());
+      ds.field("food_kg", &self.food_kg());
+      ds.field("owed", &self.owed());
+      ds.field("eaten", &self.eaten());
       ds.finish()
   }
 }

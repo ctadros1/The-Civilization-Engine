@@ -8289,6 +8289,18 @@ impl Population {
         }
     }
 
+    /// Person `who` eats now, as at a meal: for tests.
+    #[doc(hidden)]
+    pub fn eat_for_tests(&mut self, ctx: &mut Ctx, who: PermanentId) {
+        let Some(&h) = self.index.get(&who) else {
+            return;
+        };
+        let Some(household) = self.people.get(h).map(|p| p.household) else {
+            return;
+        };
+        self.eat(ctx, h, household);
+    }
+
     fn eat(&mut self, ctx: &mut Ctx, h: Handle<Person>, household: PermanentId) {
         let now = ctx.now;
         let params = ctx.params;
@@ -8321,8 +8333,27 @@ impl Population {
         let take = eat_from(&mut hh.stores, goods, want, reserve_ok);
         hh.flows
             .add_changes(&before, &hh.stores, Flow::Eaten, Flow::Eaten);
+        // What of each good was eaten, and its stock before (ADR-0045), while any food is loaded.
+        let eaten: Vec<(usize, f64, f64)> = if self.contagion.food_loaded() {
+            let aside = |g: usize| set_aside.filter(|s| s.0 == g).map_or(0.0, |s| s.1);
+            before
+                .iter()
+                .zip(&hh.stores)
+                .enumerate()
+                .filter(|(_, (b, a))| *b > *a)
+                .map(|(g, (b, a))| (g, b - a, b + aside(g)))
+                .collect()
+        } else {
+            Vec::new()
+        };
         if let Some((g, kg)) = set_aside {
             hh.stores[g] += kg;
+        }
+        if !eaten.is_empty() {
+            let who = self.people.get(h).map(|p| p.id);
+            if let Some(who) = who {
+                self.food_eaten(who, household, &eaten);
+            }
         }
         let Some(p) = self.people.get_mut(h) else {
             return;

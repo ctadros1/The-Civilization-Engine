@@ -38,7 +38,13 @@ pub enum Node {
     /// deposit, a gathering block or a way under work, washing and soaking in from the cell's
     /// middle as a heap does.
     Ground(u32),
+    /// A holder's stock of a food good (ADR-0045): what a shedder who made it passed to it, mixed
+    /// through the stock as stored water's load is through its litres.
+    Food { holder: PermanentId, good: u16 },
 }
+
+/// The bits of a food node's number that hold its holder's id; the good is above them (ADR-0045).
+const FOOD_HOLDER_BITS: u32 = 48;
 
 impl Node {
     /// Its code and number in saves.
@@ -54,6 +60,9 @@ impl Node {
             Node::Sewer(s) => (7, s.get()),
             Node::Field(f) => (8, f.get()),
             Node::Ground(c) => (9, u64::from(c)),
+            Node::Food { holder, good } => {
+                (10, holder.get() | (u64::from(good) << FOOD_HOLDER_BITS))
+            }
         }
     }
 
@@ -70,6 +79,10 @@ impl Node {
             7 => Node::Sewer(PermanentId::from_raw(n)?),
             8 => Node::Field(PermanentId::from_raw(n)?),
             9 => Node::Ground(u32::try_from(n).ok()?),
+            10 => Node::Food {
+                holder: PermanentId::from_raw(n & ((1u64 << FOOD_HOLDER_BITS) - 1))?,
+                good: u16::try_from(n >> FOOD_HOLDER_BITS).ok()?,
+            },
             _ => return None,
         })
     }
@@ -91,6 +104,9 @@ pub enum How {
     /// Carried with a heap to a tip (M11f, second part; ADR-0038 §3), or by a sewer to its
     /// outfall (ADR-0041 §2) and on to its farm (ADR-0044 §4).
     Carried = 5,
+    /// Passed by someone shedding to food they made, or moved with that food from one holder to
+    /// another (ADR-0045).
+    Handled = 6,
 }
 
 impl How {
@@ -106,6 +122,7 @@ impl How {
             How::Arrived,
             How::Drawn,
             How::Carried,
+            How::Handled,
         ]
         .get(usize::from(code))
         .copied()
@@ -155,12 +172,84 @@ pub struct Contagion {
     pub transit: Vec<Transit>,
     /// Moves of the last [`MOVES_KEPT_DAYS`] days, in the order made.
     pub moves: Vec<Move>,
+    /// Each food node's kilograms as last reconciled with its holder's stock (ADR-0045): a stock
+    /// found lower lost its load in proportion, one found higher was diluted by clean food.
+    pub food_kg: BTreeMap<Node, f64>,
+    /// What each person shedding passed to food today ahead of their shedding, by disease, doses:
+    /// taken from the next midnight's shedding, so nothing is shed twice (ADR-0045).
+    pub owed: BTreeMap<(PermanentId, u16), f64>,
+    /// Today's doses eaten with food, by person and disease, and the food they came from: drawn
+    /// at midnight with the day's other exposures (ADR-0045).
+    pub eaten: Vec<(PermanentId, u16, f64, Node)>,
 }
 
 impl Contagion {
     /// Whether nothing lies anywhere or is on its way.
     pub fn is_empty(&self) -> bool {
-        self.loads.is_empty() && self.stores.is_empty() && self.transit.is_empty()
+        self.loads.is_empty()
+            && self.stores.is_empty()
+            && self.transit.is_empty()
+            && self.owed.is_empty()
+            && self.eaten.is_empty()
+    }
+
+    /// Whether any food carries a load (ADR-0045): while none does, nothing about food is done.
+    pub fn food_loaded(&self) -> bool {
+        !self.food_kg.is_empty()
+    }
+
+    /// Reconciles food node `node` with its holder's stock of `kg` now (ADR-0045): a stock lower
+    /// than last seen took its load away with what left it, by its share; a higher one was
+    /// diluted by clean food, its load unchanged. Nothing is ever made.
+    pub fn food_reconcile(&mut self, node: Node, kg: f64) {
+        let Some(&was) = self.food_kg.get(&node) else {
+            return;
+        };
+        let kg = kg.max(0.0);
+        if kg + 1e-12 < was {
+            let keep = if was > 0.0 { kg / was } else { 0.0 };
+            for ((n, _), l) in self.loads.iter_mut() {
+                if *n == node {
+                    *l *= keep;
+                }
+            }
+            self.loads.retain(|(n, _), l| *n != node || *l > NEGLIGIBLE);
+        }
+        if self.loads.keys().any(|(n, _)| *n == node) {
+            self.food_kg.insert(node, kg);
+        } else {
+            self.food_kg.remove(&node);
+        }
+    }
+
+    /// The diseases food node `node` carries, with their loads.
+    pub fn food_loads(&self, node: Node) -> Vec<(u16, f64)> {
+        self.loads
+            .iter()
+            .filter(|((n, _), _)| *n == node)
+            .map(|(&(_, d), &l)| (d, l))
+            .collect()
+    }
+
+    /// Food node `node`'s stock is `kg` now after a hooked change that has already moved its
+    /// load: kept as seen, or let go with its load.
+    pub fn food_settled(&mut self, node: Node, kg: f64) {
+        if self.loads.keys().any(|(n, _)| *n == node) && kg > 0.0 {
+            self.food_kg.insert(node, kg);
+        } else {
+            self.loads.retain(|(n, _), _| *n != node);
+            self.food_kg.remove(&node);
+        }
+    }
+
+    /// Puts `amount` of `disease` on food node `node`, its holder's stock `kg` now.
+    pub fn food_add(&mut self, node: Node, disease: u16, amount: f64, kg: f64) {
+        if amount <= 0.0 || kg <= 0.0 {
+            return;
+        }
+        self.food_reconcile(node, kg);
+        self.add(node, disease, amount);
+        self.food_kg.insert(node, kg);
     }
 
     /// The load of `disease` at `node`.
@@ -255,6 +344,10 @@ impl Contagion {
         }
         self.loads.retain(|_, l| *l > NEGLIGIBLE);
         self.stores.retain(|_, s| !s.is_empty());
+        // A food node whose load has all died keeps no kilograms.
+        let loads = &self.loads;
+        self.food_kg
+            .retain(|n, _| loads.keys().any(|(m, _)| m == n));
     }
 
     /// Records a move, adding it to one already recorded that day along the same way.

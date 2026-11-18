@@ -1629,3 +1629,205 @@ fn work_in_another_settlement_sheds_there_and_counts_with_its_hearth() {
         "{ours0} -> {ours1}, heap {at_home}"
     );
 }
+
+/// Household `h`'s stores set to hold only `kg` of each of `held` (good id, kg) of food, every
+/// other food at none.
+fn food_only(sim: &mut Sim, h: PermanentId, held: &[(usize, f64)]) {
+    let goods = sim.rules().catalog.goods.clone();
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == h {
+            x.stores.resize(goods.len(), 0.0);
+            for (g, d) in goods.iter().enumerate() {
+                if d.edible() {
+                    x.stores[g] = 0.0;
+                }
+            }
+            for &(g, kg) in held {
+                x.stores[g] = kg;
+            }
+        }
+    }
+}
+
+/// The load of `d` on every food node, doses.
+fn food_load(sim: &Sim, d: u16) -> f64 {
+    sim.people()
+        .contagion
+        .loads
+        .iter()
+        .filter(|((n, dd), _)| *dd == d && matches!(n, Node::Food { .. }))
+        .map(|(_, &l)| l)
+        .sum()
+}
+
+/// Food that carries what its maker shed, slice 1 (ADR-0045): a silent carrier baking for a
+/// workshop puts `food_share` of their hours' shedding onto its bread, taken ahead from the next
+/// midnight's shedding; selling half the bread to another household moves half the load with it;
+/// a member who eats there takes the share of the load they ate, a dose drawn at midnight, and
+/// with enough of a dose takes the disease by food, named as that household's bread. A stock
+/// lowered by a path the route does not handle loses its load in proportion; one raised is
+/// diluted; nothing is ever made. Every state saves and loads exactly.
+#[test]
+fn a_carrier_s_bread_carries_its_load_to_those_who_buy_and_eat_it() {
+    let mut sim = village(6);
+    let d = cholera(&sim);
+    let daily = sim.rules().catalog.diseases[usize::from(d)].shed_silent_per_day;
+    let share = sim.rules().land.contamination.food_share;
+    assert!(share > 0.0, "the core's food share");
+    let rules = sim.rules().clone();
+    let good = |id: &str| {
+        rules
+            .catalog
+            .goods
+            .iter()
+            .position(|g| g.id == id)
+            .expect(id)
+    };
+    let (bread, flour, firewood) = (
+        good("core:good/bread"),
+        good("core:good/flour"),
+        good("core:good/firewood"),
+    );
+    let bake = rules
+        .catalog
+        .activities
+        .iter()
+        .position(|a| a.id == "core:activity/bake_bread")
+        .expect("baking");
+    let hh = households(&sim);
+    let (owner, buyer) = (hh[0], hh[1]);
+    let baker = a_silent_carrier(&mut sim, owner);
+    let firm = sim
+        .with_ctx_for_tests(|pop, ctx| pop.found_firm_for_tests(ctx, owner, baker, bread))
+        .expect("a bakery");
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == owner {
+            x.stores.resize(rules.catalog.goods.len(), 0.0);
+            x.stores[flour] = 20.0;
+            x.stores[firewood] = 20.0;
+        }
+    }
+    assert!(food_load(&sim, d) == 0.0 && !sim.people().contagion.food_loaded());
+    // An hour's baking: a tenth of an hour's shedding goes onto the bakery's bread.
+    sim.with_ctx_for_tests(|pop, ctx| pop.firm_make_for_tests(ctx, baker, bake, 60, firm));
+    let firm_bread = sim.people().firm(firm).expect("open").stores[bread];
+    assert!(firm_bread > 0.0, "bread made");
+    let made = daily / 24.0 * share;
+    let on_firm = sim.people().contagion.load(
+        Node::Food {
+            holder: firm,
+            good: bread as u16,
+        },
+        d,
+    );
+    assert!(
+        (on_firm - made).abs() < 1e-12,
+        "{on_firm} on the bread of {made}"
+    );
+    assert_eq!(
+        sim.people().contagion.owed.get(&(baker, d)).copied(),
+        Some(made),
+        "taken ahead from the next midnight's shedding"
+    );
+    // Half the bread sold to the buyer moves half the load.
+    let sold = firm_bread / 2.0;
+    food_only(&mut sim, buyer, &[]);
+    assert!(
+        sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, firm, buyer, bread, sold))
+    );
+    let theirs = Node::Food {
+        holder: buyer,
+        good: bread as u16,
+    };
+    let at_buyer = sim.people().contagion.load(theirs, d);
+    assert!((at_buyer - made / 2.0).abs() < 1e-12, "{at_buyer}");
+    assert!((food_load(&sim, d) - made).abs() < 1e-12, "conserved");
+    let loaded = reloaded(&mut sim);
+    assert_eq!(loaded.people().contagion, sim.people().contagion);
+    // A member eats a quarter of the buyer's bread: a quarter of its load is their dose.
+    let eater = household(&sim, buyer).1[0];
+    let stock = sim.people().household(buyer).expect("buyer").stores[bread];
+    sim.with_ctx_for_tests(|pop, ctx| pop.eat_for_tests(ctx, eater));
+    let left = sim.people().household(buyer).expect("buyer").stores[bread];
+    let ate = stock - left;
+    assert!(ate > 0.0, "ate bread");
+    let eaten: Vec<_> = sim.people().contagion.eaten.clone();
+    assert_eq!(eaten.len(), 1);
+    let (who, dd, dose, source) = eaten[0];
+    assert_eq!((who, dd, source), (eater, d, theirs));
+    assert!((dose - at_buyer * ate / stock).abs() < 1e-12, "{dose}");
+    assert!(
+        (food_load(&sim, d) + dose - made).abs() < 1e-12,
+        "what is on food and what was eaten is what was made"
+    );
+    let loaded = reloaded(&mut sim);
+    assert_eq!(loaded.people().contagion, sim.people().contagion);
+    // A stock lowered by a path the route does not handle loses its load in proportion; one
+    // raised is diluted; neither makes any.
+    let before = food_load(&sim, d);
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == buyer {
+            x.stores[bread] /= 2.0;
+        }
+    }
+    let other = household(&sim, buyer).1.get(1).copied().unwrap_or(eater);
+    sim.with_ctx_for_tests(|pop, ctx| pop.eat_for_tests(ctx, other));
+    assert!(
+        food_load(&sim, d) < before,
+        "lost with the food, never made"
+    );
+    let at_buyer = sim.people().contagion.load(theirs, d);
+    let stock = sim.people().household(buyer).expect("buyer").stores[bread];
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == buyer {
+            x.stores[bread] = stock * 4.0;
+        }
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.eat_for_tests(ctx, eater));
+    assert!(
+        sim.people().contagion.load(theirs, d) <= at_buyer,
+        "diluted, not made"
+    );
+    // The baker's next midnight: the day's shedding less what went onto the bread ahead.
+    let today = sim.now().day_index();
+    sim.land_mut_for_tests().water.last_surplus_mm = 0.0;
+    sim.people_mut_for_tests().contagion.eaten.clear();
+    sim.with_ctx_for_tests(|pop, ctx| pop.contagion_day_for_tests(ctx));
+    let shed: f64 = sim
+        .people()
+        .contagion
+        .moves
+        .iter()
+        .filter(|m| m.day == today && m.how == How::Shed && m.from == Node::Person(baker))
+        .map(|m| m.amount)
+        .sum();
+    assert!(
+        (shed - (daily - made)).abs() < 1e-9,
+        "{shed} shed of {daily}"
+    );
+    assert!(sim.people().contagion.owed.is_empty());
+    // With a heavy load on the buyer's bread, the one who eats it takes the disease by food.
+    let stock = sim.people().household(buyer).expect("buyer").stores[bread];
+    sim.people_mut_for_tests()
+        .contagion
+        .food_add(theirs, d, 1.0e6, stock);
+    let victim = household(&sim, buyer).1.last().copied().expect("someone");
+    sim.with_ctx_for_tests(|pop, ctx| pop.eat_for_tests(ctx, victim));
+    assert!(sim.people().contagion.eaten.iter().any(|e| e.0 == victim));
+    let reloaded_now = reloaded(&mut sim);
+    assert_eq!(reloaded_now.people().contagion, sim.people().contagion);
+    to_morning(&mut sim, 60);
+    let took = sim
+        .people()
+        .sickness
+        .episodes()
+        .iter()
+        .find(|e| e.person == victim)
+        .map(|e| e.acquired);
+    assert_eq!(
+        took,
+        Some(civ_agents::sickness::Acquired::Food { source: theirs }),
+        "taken by food"
+    );
+    assert!(sim.people().contagion.eaten.is_empty(), "drawn at midnight");
+}

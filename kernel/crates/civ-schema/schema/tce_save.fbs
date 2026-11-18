@@ -3658,6 +3658,28 @@ struct MoveSave {
 // What people shed, where it lies and where it went (schema 76): loads by place, stored water's
 // loads by where they were drawn, loads on their way through the ground in the order sent, and
 // the moves of the last 400 days in the order made.
+// Saves 220 (ADR-0045): a food node's kilograms as last reconciled with its holder's stock.
+struct FoodKgSave {
+  at: NodeSave;
+  kg: double;
+}
+
+// Saves 220 (ADR-0045): what someone shedding passed to food ahead of the next midnight's
+// shedding, doses.
+struct OwedSave {
+  person: ulong;
+  disease: ushort;
+  amount: double;
+}
+
+// Saves 220 (ADR-0045): a dose eaten with food today, drawn at midnight.
+struct EatenSave {
+  person: ulong;
+  source: NodeSave;
+  disease: ushort;
+  dose: double;
+}
+
 table ContagionSave {
   // Disease content ids at save time.
   diseases: [string] (id: 0);
@@ -3665,6 +3687,10 @@ table ContagionSave {
   stores: [StoredSave] (id: 2);
   transit: [TransitSave] (id: 3);
   moves: [MoveSave] (id: 4);
+  // Saves 220 (ADR-0045): food that carries a load; each absent while empty.
+  food_kg: [FoodKgSave] (id: 5);
+  owed: [OwedSave] (id: 6);
+  eaten: [EatenSave] (id: 7);
 }
 
 table RelationsSave {

@@ -148,6 +148,10 @@ pub(crate) struct ContaminationFile {
     pub capture_share: f64,
     pub min_gradient: f64,
     pub drink_l_per_day: f64,
+    /// What of an hour's shedding goes onto food its maker makes (content API 233; ADR-0045);
+    /// absent, none.
+    #[serde(default)]
+    pub food_share: f64,
 }
 
 impl ContaminationFile {
@@ -161,6 +165,7 @@ impl ContaminationFile {
             capture_share: self.capture_share,
             min_gradient: self.min_gradient,
             drink_l_per_day: self.drink_l_per_day,
+            food_share: self.food_share,
         }
     }
 
@@ -174,6 +179,7 @@ impl ContaminationFile {
             ("capture_share", self.capture_share, 0.0, 1.0),
             ("min_gradient", self.min_gradient, 0.0, 1.0),
             ("drink_l_per_day", self.drink_l_per_day, 0.0, 30.0),
+            ("food_share", self.food_share, 0.0, 1.0),
         ] {
             if !(v.is_finite() && (least..=most).contains(&v)) {
                 p.push(format!(

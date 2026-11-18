@@ -2140,6 +2140,12 @@ water table, its worn walls take groundwater in rather than letting sewage out, 
 there that day. The core's sewer lies 2.8 m down, an estimate (the Chesapeake Bay Program's mean
 invert depth of 9.2 ft, a professional judgement).
 
+Content API 233 (ADR-0045) adds `food_share` (0–1; absent or 0, none) to a land profile's
+`[contamination]` table: the share of what someone shedding a disease that passes by water sheds
+over a session of making food for a workshop that goes onto the food made, taken ahead from their
+next day's shedding. The food carries it when it is sold or given, and whoever eats from it takes
+the share of its load they ate as a dose. The core's land puts 0.1, a design prior.
+
 Content API 224 (backlog D; ADR-0021 §7) adds the issue `closing_unsuspected`: a closing of a
 source of water (`close_source`) is in force, and nobody of the polity's households holds any
 longer, from their own tally, that the water there sickens. A `repeal` template may answer it as

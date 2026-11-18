@@ -442,6 +442,9 @@ fn illness_happened(sim: &Sim, e: &Episode) -> String {
                 sim.people().name_of(person)
             )
         }
+        Acquired::Food { source } => {
+            format!(" eating {}", super::sickness::food_words(sim, source))
+        }
     };
     let c = &e.course;
     let course = if !e.symptomatic() {
@@ -1197,6 +1200,12 @@ fn caught_link(sim: &Sim, e: &Episode) -> Link {
             },
             format!("caught in water drawn at {}", source_words(sim, source)),
         ),
+        Acquired::Food { source } => Link(
+            CAUSED_BY,
+            TO_SOURCE,
+            0,
+            format!("caught eating {}", super::sickness::food_words(sim, source)),
+        ),
     }
 }
 
@@ -1829,6 +1838,10 @@ pub fn outbreak_response(sim: &Sim, id: u32, limit: usize) -> Option<Vec<u8>> {
             Acquired::Water { source } => (
                 2,
                 format!("in water drawn at {}", source_words(sim, source)),
+            ),
+            Acquired::Food { source } => (
+                6,
+                format!("eating {}", super::sickness::food_words(sim, source)),
             ),
         };
         *ways.entry(way).or_default() += 1;

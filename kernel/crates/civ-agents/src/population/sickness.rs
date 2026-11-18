@@ -215,6 +215,13 @@ impl Population {
                 .or_default()
                 .push((dose, Acquired::Water { source }));
         }
+        // And a dose eaten with food someone shedding made is a hazard of one too (ADR-0045).
+        for (m, disease, dose, source) in std::mem::take(&mut self.contagion.eaten) {
+            exposed
+                .entry((m, disease))
+                .or_default()
+                .push((dose, Acquired::Food { source }));
+        }
         let mut taken = Vec::new();
         for ((m, disease), hazards) in exposed {
             if self.sickness.protected(m, disease, day) {

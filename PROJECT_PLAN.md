@@ -10678,6 +10678,38 @@ and M6a gives rivers a daily flow.
       **What would be grounded is a food route** (a shedder who prepares food others eat), which
       waits on food batches carrying identity (ADR-0021's "Revisit when"). Shedding where people
       work is complete but for that route.
+    - *ADR-0045, slice 1 (2026-11-18): a workshop's prepared food carries what its maker shed.*
+      **Built:** a silent or ill carrier of a water-route disease who makes food for a workshop
+      (bread, dried fish or meat, flour, groats, provisions) puts `food_share` (0.1, content API
+      233, a design prior) of what they shed over the session's hours onto the workshop's stock
+      of it, taken ahead from the next midnight's shedding (`Contagion::owed`), never more than
+      that day's; any transfer of a loaded stock (a sale, a gift, a wage, an owner's draw) moves
+      its load by the kilograms moved, to whatever holder; a person who eats from a loaded stock
+      takes its load by the share of it they ate, a dose drawn at midnight with the day's other
+      exposures (`Acquired::Food`, naming the stock); a stock found lower than last seen lost its
+      load in proportion and one found higher was diluted, so no path makes a dose. A new node,
+      `Node::Food { holder, good }` (code 10), a move kind `Handled` (6) and an acquisition code
+      (35); saves 220, three vectors appended to the contagion section, each absent while empty.
+      The incidents panel and a case's words name the food ("bread from the workshop of Ada's
+      household"). **A world with no disease is byte-identical:** every save section's digest
+      matched the build before the slice in `bench_village` runs (300 people, 30 days; and two
+      groups of 600, 40 days at Max), only `content` and `meta` (which names the content)
+      differing, as the new content key requires; timed alternately, the two builds lived those
+      days within each other's run-to-run spread (the new 199-235 ms a day against 218-244 ms,
+      300 people). **Tested:** contagion (16, one new: an hour's baking for a workshop puts a
+      tenth of an hour's shedding on its bread and owes it; half the bread sold moves half the
+      load, the total conserved; a member who eats a quarter of the buyer's bread takes a quarter
+      of its load as a dose, food load and doses together what was made; a stock lowered by an
+      unhandled path loses load, one raised only dilutes; the baker's next midnight sheds the
+      day less what was owed; with a heavy load, the one who eats takes the disease by food,
+      named as that household's bread; every state saves and loads exactly; it fails without the
+      making hook), sickness, sewers, wells, tips, fire, firms, roundtrip and determinism, content,
+      civ-agents unit, civ-host lib and civ-schema; the ten smoke seeds pass; fmt, clippy, content
+      validate and `gen-schema --check` clean. No existing assertion moved. **Not yet** (ADR-0045's
+      slices): a household's own prepared food leaving it ("made here", undosed to its own
+      people; until then a workshop's owners who draw its bread are dosed as any buyer is); the
+      common store and relief (they move loads already by `transfer`, untested); the observer's
+      calibration against 05-07 §2's 5.8 % luncheon attack rate.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads
@@ -10844,9 +10876,8 @@ and M6a gives rivers a daily flow.
     descriptions on paths with corrections from the start, not as a retrofit.
 13. **Food as a route for enteric disease (2026-11-18):** whether food carries what a shedder who
     prepared it shed, and how (per-batch provenance, a load on a holder's stock of prepared food,
-    or a per-meal event). Drafted as [ADR-0045](decisions/0045-food-batch-identity.md), status
-    Proposed, recommending the load on a holder's stock in slices; the owner decides (research
-    05-07).
+    or a per-meal event). Resolved 2026-11-18: [ADR-0045](decisions/0045-food-batch-identity.md),
+    accepted, a load on a holder's stock of prepared food, built in slices (§9).
 
 ---
 
@@ -12572,3 +12603,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Shedding where people work, slice 3: the rest of the outdoor work, and workshops and buildings to the ground of the place (2026-11-18, backlog E; ADR-0021 §4; research 05-03 §1):** Decided by Claude under standing owner authority (2026-11-18). **Outdoor work:** fire, well, bank, palisade, ditch and crossing work keep a shedder's hours by cell, as slice 2's do. **Workshops and other buildings:** shedding there goes to the ground of the place (its yard or privy), by the same ground node, not to a building's floor and not home. *Reason:* ADR-0021 §4 sends shedding to the ground where people work when away from home; a floor's, tool's or food's contamination is 05-03 §1's contact route by objects and hands, which reaches only those who handle them and has no figure, so it is left with co-worker exposure; what is shed itself goes out to the ground there as anywhere. Rejected: keeping a load on a building's floor (no route takes it on, and it would be a store nobody drinks from), and shedding at home (it would send a day's work's shedding to a heap the worker was nowhere near). **At home:** on one's own home's cell a worker is at home, so nothing is kept and the heap takes it (ADR-0021 §4: "at or near home"). Personal and physical behaviour only. No save, schema, wire, web or content change.
 - **Shedding where people work, slice 4: another's home to its heap, another settlement by its hearth, tending unchanged (2026-11-18, backlog E; ADR-0021 §4):** Decided by Claude under standing owner authority (2026-11-18). **At another household's home, its heap:** *Reason:* the heap beside a home is the node the kernel keeps for that home's ground, where its own people's shedding goes "when at or near home" (ADR-0021 §4); a visitor's goes there too, down its sewer if it is sewered; a ground node on the same cell would be a second yard for one home. **Another settlement:** no change of rule; its ground counts with the settlement whose hearth lies nearest (slice 2), now tested. **Tending:** unchanged and keeping no hours; the carer's exposure is its own route (M10c slice DZ). Personal and physical behaviour only. Saves 220 (one vector appended to the sickness section, absent while empty); no content, wire or web change.
 - **No co-worker or co-visitor exposure for enteric disease; a food route instead, later (2026-11-18, backlog E; research 05-07):** Decided by Claude under standing owner authority (2026-11-18). **Not built:** a contact hazard between those who share a workplace or a home's company. *Reason:* 05-07 found no measured or estimated rate for it among adults; workplace outbreaks of these diseases are common-source (food and water), and the household rate the kernel's `household_hazard` stands for is, by the best estimate found, mostly shared food and water, so a contact hazard scaled from it would count those twice; 05-03 §1 warns against an outdoor radius standing for a household. **Recorded for later:** a food route (a shedder preparing food others eat passes a load to it), when goods carry batch identity (ADR-0021's "Revisit when"). The research note only; no code, content, save, wire or web change.
+- **ADR-0045 accepted: food that carries what its maker shed, as a load on a holder's stock (2026-11-18; research 05-07):** Decided by Claude under standing owner authority (2026-11-18). **Option B** of the ADR: a load on a holder's stock of a prepared food, mixed through it as stored water's load is, with no batches. *Reason:* it is the smallest design that covers what 05-07 grounds (common-source food from a carrier), costs nothing where nobody sheds, and only appends codes to saves 220, where full per-batch provenance (option A) would rewrite every store path and grow every save for provenance nothing yet needs, and a per-meal event (option C) fits neither food that keeps and is sold nor the household rate it would count twice. **Slice 1, as built:** a workshop's prepared food (§7). **Its design priors:** `food_share` 0.1 of a session's shedding onto the food made (to be calibrated in slice 4 against 05-07 §2's luncheon); taken ahead from the next day's shedding so the total shed is unchanged; doses for any eater in slice 1, the "made here" exception waiting for slice 2. Content API 233; saves 220 appended; no wire or web change.

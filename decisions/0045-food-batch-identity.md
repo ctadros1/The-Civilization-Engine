@@ -1,10 +1,13 @@
 # ADR-0045: Food that carries what its maker shed
 
-Status: Proposed (2026-11-18, drafted by Claude for the owner's decision; not accepted)
+Status: Accepted (2026-11-18). Decided by Claude under standing owner authority (2026-11-18):
+option B, as the smallest design that covers what research 05-07 grounds, costs nothing where
+nobody sheds, and only appends codes to saves 220, where option A would rewrite every store path
+and grow every save for provenance nothing yet needs.
 Date: 2026-11-18
 Milestone: M6a's deferral (ADR-0021's "Revisit when": "Goods carry batch identity, making food a
 route")
-Amends (if accepted): ADR-0021 §4 (a fifth way loads move: with food), ADR-0006 (a good's stock
+Amends: ADR-0021 §4 (a fifth way loads move: with food), ADR-0006 (a good's stock
 may carry a load)
 
 ## Context
@@ -137,9 +140,9 @@ Anyone who eats that day from a store that a maker's work went into takes a haza
   got the maker's work". That is option B without its conservation. Inside the household it
   double counts with `household_hazard`.
 
-## Decision (proposed)
+## Decision
 
-**Option B**, built in slices, the smallest grounded first. Not accepted: the owner decides.
+**Option B**, built in slices, the smallest grounded first (accepted 2026-11-18).
 
 ## Slices (if accepted)
 
@@ -202,3 +205,27 @@ Anyone who eats that day from a store that a maker's work went into takes a haza
 - Meals become shared events with a cook (then the "made here" node may dose a household's own
   people, and `household_hazard` is re-fitted).
 - A disease that passes by food but not by water is authored.
+
+## Slice 1 as built (2026-11-18)
+
+- **Making:** `firm_make` calls `Population::food_made` once a session's output is in the
+  workshop's stock. For each water-route disease its maker sheds today and will tomorrow,
+  `food_share` × the day's rate × the session's hours ÷ 24 goes onto the edible outputs by their
+  kilograms. The core's `[contamination] food_share` is 0.1, content API 233, a design prior to be
+  calibrated in slice 4. The amount is taken ahead from the next midnight's shedding (`owed`),
+  never more than that day's, and recorded as `How::Handled` (code 6).
+- **Moving:** `transfer`, through which trades, gifts, wages and draws from a workshop all pass,
+  moves a loaded stock's load by the kilograms moved, for any holder.
+- **Eating:** `eat` doses the eater by the share of each loaded stock they ate. The dose goes to
+  `Contagion::eaten`, which the midnight's exposures draw as `Acquired::Food` (code 35).
+- **Reconciling:** each node keeps its last reconciled kilograms (`food_kg`). A stock found lower
+  loses its load in proportion; a stock found higher is diluted. No dose is made.
+- **The node:** `Node::Food { holder, good }`, code 10, its number the holder's id with the good
+  above bit 48.
+- **Saves:** `food_kg`, `owed` and `eaten` are appended to the contagion section, each absent while
+  empty.
+- **A world with no disease:** every save section's digest is the same as before the slice, in
+  `bench_village` runs of 300 people for 30 days, and of two groups of 600 for 40 days at Max.
+  Only the content and the meta that names it differ.
+- **Left for slice 2:** the "made here" node. A workshop's owners who draw its loaded bread are
+  dosed as any buyer is.

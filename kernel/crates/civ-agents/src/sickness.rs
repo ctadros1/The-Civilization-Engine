@@ -66,6 +66,8 @@ pub enum Acquired {
     /// Taken lying in a sickhouse, or tending there, from someone lying there who shed it (M10c
     /// slice EE, fourth part): that person.
     Sickhouse { person: PermanentId },
+    /// From food eaten that someone shedding made (ADR-0045): the stock it was eaten from.
+    Food { source: crate::contagion::Node },
 }
 
 impl Acquired {
@@ -77,6 +79,8 @@ impl Acquired {
             Acquired::Company { person } => (32, person.get()),
             Acquired::Inoculated { by } => (33, by.get()),
             Acquired::Sickhouse { person } => (34, person.get()),
+            // A food node's number: its holder and good (ADR-0045).
+            Acquired::Food { source } => (35, source.code().1),
             Acquired::Water { source } => match source {
                 crate::contagion::Node::Well(w) => (2, w.get()),
                 crate::contagion::Node::Reach(r) => (3, u64::from(r)),
@@ -108,6 +112,9 @@ impl Acquired {
             }),
             34 => Some(Acquired::Sickhouse {
                 person: PermanentId::from_raw(n)?,
+            }),
+            35 => Some(Acquired::Food {
+                source: crate::contagion::Node::from_code(10, n)?,
             }),
             c @ 4.. => Some(Acquired::Water {
                 source: crate::contagion::Node::from_code(c - 4, n)?,

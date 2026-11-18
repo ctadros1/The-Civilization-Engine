@@ -58,6 +58,33 @@ fn when(today: i64, day: i64) -> String {
 }
 
 /// Where water was drawn, in words: "Bo's household's well", "the river".
+/// Food someone shedding made, in words (ADR-0045): "bread held by Ada's household", or "bread
+/// from the workshop of Ada's household".
+pub(crate) fn food_words(sim: &Sim, source: Node) -> String {
+    let Node::Food { holder, good } = source else {
+        return "food".to_owned();
+    };
+    let what = sim
+        .rules
+        .catalog
+        .goods
+        .get(usize::from(good))
+        .map_or_else(|| "food".to_owned(), |g| g.name.to_lowercase());
+    if let Some(f) = sim.people.firm(holder) {
+        return format!(
+            "{what} from the workshop of {}",
+            super::people::household_name(sim, f.owner)
+        );
+    }
+    if sim.people.household(holder).is_some() {
+        return format!(
+            "{what} held by {}",
+            super::people::household_name(sim, holder)
+        );
+    }
+    what
+}
+
 pub(crate) fn source_words(sim: &Sim, source: Node) -> String {
     match source {
         Node::Well(w) => match sim.land.wells.get(w) {
@@ -205,6 +232,7 @@ pub(crate) fn episode_words(sim: &Sim, e: &Episode) -> String {
         Acquired::Water { source } => {
             format!("took it in water drawn at {}", source_words(sim, source))
         }
+        Acquired::Food { source } => format!("took it eating {}", food_words(sim, source)),
     });
     if let Some((first, by)) = e.care.first {
         let mut care = format!(

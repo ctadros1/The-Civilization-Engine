@@ -34,6 +34,21 @@ enum Holder {
 }
 
 impl Population {
+    /// The stock of `good` holder `id` holds now, kilograms; 0 for none or no such holder.
+    pub(super) fn holder_kg(&self, id: PermanentId, good: usize) -> f64 {
+        let stores = match self.holder(id) {
+            Some(Holder::Household(hd)) => self.households.get(hd).map(|x| &x.stores),
+            Some(Holder::Firm(i)) => self.firms.get(i).map(|f| &f.stores),
+            Some(Holder::Polity(i)) => self.polities.get(i).map(|p| &p.stores),
+            Some(Holder::Faction(i)) => self.factions.list.get(i).map(|f| &f.stores),
+            Some(Holder::Due(i)) => self.agreements.dues.get(i).map(|d| &d.stores),
+            Some(Holder::Consignment(i)) => self.consignments.get(i).map(|c| &c.stores),
+            Some(Holder::Kept(i)) => self.kept.get(i).map(|k| &k.stores),
+            None => None,
+        };
+        stores.and_then(|s| s.get(good)).copied().unwrap_or(0.0)
+    }
+
     fn holder(&self, id: PermanentId) -> Option<Holder> {
         if let Some(&hd) = self.hh_index.get(&id) {
             return Some(Holder::Household(hd));
@@ -504,14 +519,27 @@ impl Population {
         }
         for l in legs {
             let mut moved = 0.0;
+            let (mut from_kg, mut to_kg) = (0.0, 0.0);
             if let Some((stores, flows)) = holder_of(l.from).and_then(|h| self.holder_goods(h)) {
+                from_kg = stores[l.good];
                 moved = l.amount.min(stores[l.good].max(0.0));
                 stores[l.good] -= moved;
                 flows.add(Flow::Given, l.good, moved);
             }
             if let Some((stores, flows)) = holder_of(l.to).and_then(|h| self.holder_goods(h)) {
+                to_kg = stores[l.good];
                 stores[l.good] += moved;
                 flows.add(Flow::Received, l.good, moved);
+            }
+            // Food carries what its maker passed to it (ADR-0045).
+            if self.contagion.food_loaded() && goods[l.good].edible() {
+                self.food_moved(
+                    now.day_index(),
+                    (l.from, l.to),
+                    l.good,
+                    moved,
+                    (from_kg, to_kg),
+                );
             }
             self.transfers.add(channel, l.good, moved);
             // Coin moves issue by issue, the payer giving the oldest first (M7d slice CE).

@@ -253,6 +253,160 @@ impl Population {
         self.note_worked_ground(ctx, who, at, hours);
     }
 
+    /// Someone, `who`, worked `hours` making `made` (good, kilograms) into holder `holder`'s
+    /// stock (ADR-0045): if they shed a disease that passes by water today and will tomorrow,
+    /// `food_share` of what they shed over those hours goes onto the food made, by its share of
+    /// the kilograms, taken ahead from tomorrow's shedding and never more than it.
+    #[cold]
+    #[inline(never)]
+    pub(super) fn food_made(
+        &mut self,
+        ctx: &Ctx,
+        who: PermanentId,
+        holder: PermanentId,
+        made: &[(usize, f64)],
+        hours: f64,
+    ) {
+        let share = ctx.land_params.contamination.food_share;
+        if share <= 0.0 || hours <= 0.0 {
+            return;
+        }
+        let goods = &ctx.catalog.goods;
+        let food: Vec<(usize, f64)> = made
+            .iter()
+            .copied()
+            .filter(|&(g, kg)| kg > 0.0 && goods.get(g).is_some_and(|d| d.edible()))
+            .collect();
+        let total: f64 = food.iter().map(|f| f.1).sum();
+        if total <= 0.0 {
+            return;
+        }
+        let day = ctx.now.day_index();
+        let episodes: Vec<(u16, f64, f64)> = self
+            .sickness
+            .running()
+            .iter()
+            .filter_map(|&i| self.sickness.get(i))
+            .filter(|e| e.person == who && e.shedding(day) && e.shedding(day + 1))
+            .filter_map(|e| {
+                let def = ctx.catalog.diseases.get(usize::from(e.disease))?;
+                if !def.passes_by(crate::params::DiseaseRoute::Water) {
+                    return None;
+                }
+                let rate = |d: i64| {
+                    if e.ill_on(d) {
+                        def.shed_ill_per_day
+                    } else {
+                        def.shed_silent_per_day
+                    }
+                };
+                Some((e.disease, rate(day), rate(day + 1)))
+            })
+            .collect();
+        for (disease, today, tomorrow) in episodes {
+            let owed = self
+                .contagion
+                .owed
+                .get(&(who, disease))
+                .copied()
+                .unwrap_or(0.0);
+            let amount = (today * hours / 24.0 * share).min((tomorrow - owed).max(0.0));
+            if amount <= 0.0 {
+                continue;
+            }
+            for &(g, kg) in &food {
+                let node = Node::Food {
+                    holder,
+                    good: g as u16,
+                };
+                let on = amount * kg / total;
+                let stock = self.holder_kg(holder, g);
+                self.contagion.food_add(node, disease, on, stock);
+                self.contagion.record(Move {
+                    day,
+                    disease,
+                    how: How::Handled,
+                    from: Node::Person(who),
+                    to: node,
+                    amount: on,
+                });
+            }
+            *self.contagion.owed.entry((who, disease)).or_default() += amount;
+        }
+    }
+
+    /// `moved` kilograms of food good `good` went from holder `from` to holder `to`, which held
+    /// `from_kg` and `to_kg` before (ADR-0045): the load on what `from` held goes with them by
+    /// their share of its stock.
+    #[cold]
+    #[inline(never)]
+    pub(super) fn food_moved(
+        &mut self,
+        day: i64,
+        (from, to): (PermanentId, PermanentId),
+        good: usize,
+        moved: f64,
+        (from_kg, to_kg): (f64, f64),
+    ) {
+        let good = good as u16;
+        let (src, dst) = (
+            Node::Food { holder: from, good },
+            Node::Food { holder: to, good },
+        );
+        if !self.contagion.food_kg.contains_key(&src) || moved <= 0.0 || from_kg <= 0.0 {
+            return;
+        }
+        self.contagion.food_reconcile(src, from_kg);
+        self.contagion.food_reconcile(dst, to_kg);
+        let share = (moved / from_kg).clamp(0.0, 1.0);
+        for (disease, load) in self.contagion.food_loads(src) {
+            let amount = self.contagion.take_amount(src, disease, load * share);
+            self.contagion.food_add(dst, disease, amount, to_kg + moved);
+            if amount > NEGLIGIBLE {
+                self.contagion.record(Move {
+                    day,
+                    disease,
+                    how: How::Handled,
+                    from: src,
+                    to: dst,
+                    amount,
+                });
+            }
+        }
+        self.contagion.food_settled(src, from_kg - moved);
+    }
+
+    /// Someone, `who`, of household `household` ate `eaten` (good, kilograms, its stock before),
+    /// (ADR-0045): from each loaded stock they take its load by the share of it they ate, a dose
+    /// drawn at midnight with the day's other exposures.
+    #[cold]
+    #[inline(never)]
+    pub(super) fn food_eaten(
+        &mut self,
+        who: PermanentId,
+        household: PermanentId,
+        eaten: &[(usize, f64, f64)],
+    ) {
+        for &(g, kg, stock) in eaten {
+            let node = Node::Food {
+                holder: household,
+                good: g as u16,
+            };
+            if kg <= 0.0 || stock <= 0.0 || !self.contagion.food_kg.contains_key(&node) {
+                continue;
+            }
+            self.contagion.food_reconcile(node, stock);
+            let share = (kg / stock).clamp(0.0, 1.0);
+            for (disease, _) in self.contagion.food_loads(node) {
+                let dose = self.contagion.take(node, disease, share);
+                if dose > 0.0 {
+                    self.contagion.eaten.push((who, disease, dose, node));
+                }
+            }
+            self.contagion.food_settled(node, stock - kg);
+        }
+    }
+
     /// Whether `who` sheds a disease that passes by water today.
     fn sheds_by_water(&self, ctx: &Ctx, who: PermanentId) -> bool {
         let day = ctx.now.day_index();
@@ -319,7 +473,9 @@ impl Population {
                 self.deliver(ctx, m);
             }
         }
-        // Whoever sheds adds the day's shedding to their household's heap.
+        // Whoever sheds adds the day's shedding to their household's heap, less what they passed
+        // to food yesterday ahead of it (ADR-0045).
+        let owed = std::mem::take(&mut self.contagion.owed);
         let mut shed = Vec::new();
         for &i in self.sickness.running() {
             let Some(e) = self.sickness.get(i) else {
@@ -338,6 +494,10 @@ impl Population {
             } else {
                 def.shed_silent_per_day
             };
+            // What they passed to food yesterday ahead of today's shedding is not shed again
+            // (ADR-0045).
+            let owed = owed.get(&(e.person, e.disease)).copied().unwrap_or(0.0);
+            let amount = (amount - owed).max(0.0);
             // Its share of the day spent working a field yesterday goes to the ground there, the
             // rest to the household's heap (ADR-0021 §4; a design prior: shedding spread evenly
             // over the day's 24 hours).

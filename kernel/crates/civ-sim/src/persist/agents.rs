@@ -15757,6 +15757,32 @@ fn encode_contagion(people: &Population, rules: &Rules) -> Vec<u8> {
         })
         .collect();
     let moves = fbb.create_vector(&moves);
+    // Food that carries a load (ADR-0045), each absent while empty, so a world where nobody
+    // sheds saves as before.
+    let food_kg = (!c.food_kg.is_empty()).then(|| {
+        let list: Vec<_> = c
+            .food_kg
+            .iter()
+            .map(|(&node, &kg)| save::FoodKgSave::new(&node_save(node), kg))
+            .collect();
+        fbb.create_vector(&list)
+    });
+    let owed = (!c.owed.is_empty()).then(|| {
+        let list: Vec<_> = c
+            .owed
+            .iter()
+            .map(|(&(p, d), &amount)| save::OwedSave::new(p.get(), d, amount))
+            .collect();
+        fbb.create_vector(&list)
+    });
+    let eaten = (!c.eaten.is_empty()).then(|| {
+        let list: Vec<_> = c
+            .eaten
+            .iter()
+            .map(|&(p, d, dose, source)| save::EatenSave::new(p.get(), &node_save(source), d, dose))
+            .collect();
+        fbb.create_vector(&list)
+    });
     let root = save::ContagionSave::create(
         &mut fbb,
         &save::ContagionSaveArgs {
@@ -15765,6 +15791,9 @@ fn encode_contagion(people: &Population, rules: &Rules) -> Vec<u8> {
             stores: Some(stores),
             transit: Some(transit),
             moves: Some(moves),
+            food_kg,
+            owed,
+            eaten,
         },
     );
     finish(fbb, root)
@@ -15824,6 +15853,21 @@ fn decode_contagion(
                 to: node_load(m.to())?,
                 amount: m.amount(),
             });
+        }
+    }
+    for f in root.food_kg().iter().flatten() {
+        c.food_kg.insert(node_load(f.at())?, f.kg());
+    }
+    for o in root.owed().iter().flatten() {
+        if let Some(d) = disease(o.disease()) {
+            let person = required(o.person(), "food owed's person")?;
+            c.owed.insert((person, d), o.amount());
+        }
+    }
+    for e in root.eaten().iter().flatten() {
+        if let Some(d) = disease(e.disease()) {
+            let person = required(e.person(), "a dose eaten's person")?;
+            c.eaten.push((person, d, e.dose(), node_load(e.source())?));
         }
     }
     Ok(c)

@@ -497,6 +497,7 @@ impl Population {
             return;
         };
         let hired = p.household != owner;
+        let who = p.id;
         // Who works for it at once, this person among them (still at the work).
         let at_once = self.working_for(ctx, id);
         let skill = recipe
@@ -667,6 +668,10 @@ impl Population {
             }
             f.books.worked(now, hours, hired);
             f.saw_at_once(u8::try_from(at_once).unwrap_or(u8::MAX), now.day_index());
+        }
+        // Food made by someone shedding carries what they passed to it (ADR-0045).
+        if put_in && !made.is_empty() {
+            self.food_made(ctx, who, id, &made, hours);
         }
         // Its stations do the work they can and wear on its books; the owners' tools do the rest.
         let goods = &ctx.catalog.goods;

@@ -77,6 +77,9 @@ pub struct ContaminationParams {
     pub min_gradient: f64,
     /// Litres of their household's water each person drinks a day: what carries a dose of it.
     pub drink_l_per_day: f64,
+    /// The share of what someone shedding sheds over an hour of making food that goes onto the
+    /// food they make (ADR-0045); 0, none.
+    pub food_share: f64,
 }
 
 impl Default for ContaminationParams {
@@ -90,6 +93,7 @@ impl Default for ContaminationParams {
             capture_share: 0.1,
             min_gradient: 0.005,
             drink_l_per_day: 3.0,
+            food_share: 0.0,
         }
     }
 }

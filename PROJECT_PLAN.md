@@ -10052,8 +10052,9 @@ and M6a gives rivers a daily flow.
       beyond the household (read aloud at a sitting, copied, kept by the forum or the polity);
       a gathering's findings and challenges written; the hours of writing one; a written finding
       in the review or a sponsor's "seen"; burning with the building it is kept in; passing and
-      leaving with a household, built as records' are but not yet tested; the dashboard's justice
-      row counting findings written and still kept.
+      leaving with a household, built as records' are (tested 2026-11-18: forum,
+      `a_written_finding_passes_with_its_household_and_is_left_with_it`, each half failing without
+      its line); the dashboard's justice row counting findings written and still kept.
     - *Backlog D, eighteenth item (2026-11-04): a household's line, wagons and trains pass on,
       and a line nobody holds is taken up* (the third and fourth items' "Not yet": a household's
       line, wagons and trains passing on; ADR-0034 §2, §3, §6; research 08-09 §1.2 and the

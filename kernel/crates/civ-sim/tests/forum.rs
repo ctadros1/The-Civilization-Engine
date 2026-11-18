@@ -1974,3 +1974,67 @@ fn a_hearer_who_writes_keeps_a_finding_past_the_word_of_it() {
         .unwrap_or_else(|| panic!("the hearer sat: {c:?}"));
     assert_ne!(stance.precedent, 0.0, "{c:?}");
 }
+
+/// A written finding goes with the household that keeps it (ADR-0025's "Writing arrives"; M10c
+/// slice EC: a record passes with its household): when the household joins another, the finding
+/// passes to it; when a household is no more with nobody to take its things, the finding is left
+/// behind with them.
+#[test]
+fn a_written_finding_passes_with_its_household_and_is_left_with_it() {
+    use civ_agents::crime::WrittenFinding;
+    let mut sim = world(3);
+    let hh = households(&sim);
+    assert!(hh.len() >= 4, "four households: {hh:?}");
+    let today = sim.now().day_index();
+    let keep = |sim: &mut Sim, case: u32, holder: PermanentId, writer: PermanentId| {
+        sim.people_mut_for_tests()
+            .order
+            .written
+            .push(WrittenFinding {
+                case,
+                holder,
+                writer,
+                made: today,
+            });
+    };
+    keep(&mut sim, 1, hh[2].0, hh[2].1[0]);
+    keep(&mut sim, 2, hh[3].0, hh[3].1[0]);
+    // Household 2 joins household 0: its finding passes; household 3's stays its own.
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, hh[2].0, hh[0].0));
+    let held: Vec<(u32, PermanentId)> = sim
+        .people()
+        .order
+        .written
+        .iter()
+        .map(|w| (w.case, w.holder))
+        .collect();
+    assert_eq!(held, vec![(1, hh[0].0), (2, hh[3].0)]);
+    // Household 3's people die with no kin to take what it held: its finding is left behind.
+    let gone = hh[3].0;
+    let members = sim
+        .people()
+        .household(gone)
+        .expect("the household")
+        .members
+        .clone();
+    {
+        let pop = sim.people_mut_for_tests();
+        for r in pop.records.values_mut() {
+            if members.contains(&r.id) {
+                (r.mother, r.father) = (None, None);
+            }
+            if r.mother.is_some_and(|m| members.contains(&m)) {
+                r.mother = None;
+            }
+            if r.father.is_some_and(|f| members.contains(&f)) {
+                r.father = None;
+            }
+        }
+    }
+    for m in members {
+        sim.with_ctx_for_tests(|pop, ctx| pop.die_for_tests(ctx, m));
+    }
+    assert!(sim.people().household(gone).is_none(), "no more");
+    let held: Vec<u32> = sim.people().order.written.iter().map(|w| w.case).collect();
+    assert_eq!(held, vec![1]);
+}

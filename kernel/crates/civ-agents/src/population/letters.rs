@@ -225,12 +225,71 @@ impl Population {
         for r in self.writings.iter_mut().filter(|r| r.holder == from) {
             r.holder = to;
         }
+        // And the findings it kept written (ADR-0025's "Writing arrives").
+        for w in self.order.written.iter_mut().filter(|w| w.holder == from) {
+            w.holder = to;
+        }
     }
 
     /// Household `household` is no more, with nobody to take its things (M10c slice EC, second
     /// part): its records are left behind with them.
     pub(super) fn records_left(&mut self, household: PermanentId) {
         self.writings.retain(|r| r.holder != household);
+        self.order.written.retain(|w| w.holder != household);
+    }
+
+    /// Case `case`'s finding, heard by `heard_by` (in id order), written down on `day` by the
+    /// first of them who knows writing, and kept by their household (ADR-0025's "Writing
+    /// arrives"; research 09-07 §6.4: oral memory keeps a selective few, writing expands
+    /// persistence and reach): a design prior, as 09-07 gives no figure, that the hearing's own
+    /// record takes no hours beyond the sitting. Nobody writes it where none of them can.
+    pub(super) fn write_finding(
+        &mut self,
+        ctx: &Ctx,
+        case: u32,
+        heard_by: &[PermanentId],
+        day: i64,
+    ) {
+        let Some(writing) = Self::letter_technique(ctx.catalog, Behavior::Write) else {
+            return;
+        };
+        let Some((writer, holder)) = heard_by.iter().find_map(|&w| {
+            let p = self.person(w).filter(|p| p.knows(writing))?;
+            Some((w, p.household))
+        }) else {
+            return;
+        };
+        if self.order.written.iter().any(|x| x.case == case) {
+            return;
+        }
+        self.order.written.push(crate::crime::WrittenFinding {
+            case,
+            holder,
+            writer,
+            made: day,
+        });
+    }
+
+    /// The cases whose findings `p` can read in their household's keeping (ADR-0025's "Writing
+    /// arrives"; M10c slice EC: one who can read reads what their household holds): written
+    /// findings outlast the word of them, which is let go after `remember_days`. None unless
+    /// they know reading.
+    pub(super) fn findings_read(&self, ctx: &Ctx, p: PermanentId) -> Vec<u32> {
+        if self.order.written.is_empty() {
+            return Vec::new();
+        }
+        let Some(reading) = Self::letter_technique(ctx.catalog, Behavior::Read) else {
+            return Vec::new();
+        };
+        let Some(person) = self.person(p).filter(|q| q.knows(reading)) else {
+            return Vec::new();
+        };
+        self.order
+            .written
+            .iter()
+            .filter(|w| w.holder == person.household)
+            .map(|w| w.case)
+            .collect()
     }
 
     /// The technique person `who` would read of (M10c slice EC): the first record their household

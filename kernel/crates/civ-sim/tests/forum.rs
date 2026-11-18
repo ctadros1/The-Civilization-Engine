@@ -1893,3 +1893,84 @@ fn a_petition_against_a_hearer_whose_term_is_out_spares_their_household_nothing(
     assert!(stake(hh[2].0) < 0.0, "{m:?} {stakes:?}");
     assert_eq!(stake(hh[3].0), 0.0, "{stakes:?}");
 }
+
+/// Writing arrives (ADR-0025's "Revisit when"; research 09-07 §1.5's written coverage, §6.4: oral
+/// transmission keeps a selective few remembered decisions, writing expands persistence): a
+/// hearer who knows writing writes down the finding they sat on, and their household keeps it;
+/// once the word of it is let go (after `remember_days`), they still recall it from the page at
+/// a later hearing, if they can read, and it weighs as precedent where the forum's findings bind.
+/// The written finding saves and loads exactly.
+#[test]
+fn a_hearer_who_writes_keeps_a_finding_past_the_word_of_it() {
+    use civ_agents::person::KnowSource;
+    let mut sim = world(3);
+    let hh = households(&sim);
+    assert!(hh.len() >= 3, "three households: {hh:?}");
+    let hearer = hh[2].1[0];
+    law(&mut sim, "core:policy/hearer_by_precedent", Some(hearer));
+    let (reading, writing) = {
+        let catalog = &sim.rules().catalog;
+        (
+            catalog
+                .technique_index("core:technique/reading")
+                .expect("reading"),
+            catalog
+                .technique_index("core:technique/writing")
+                .expect("writing"),
+        )
+    };
+    let now = sim.now();
+    {
+        let pop = sim.people_mut_for_tests();
+        let p = pop
+            .people
+            .iter_mut()
+            .find(|(_, p)| p.id == hearer)
+            .expect("the hearer")
+            .1;
+        for t in [reading, writing] {
+            p.come_to_know(t, KnowSource::Observer, now);
+        }
+    }
+    let to_midnight = |sim: &Sim| DAY - sim.now().minutes().rem_euclid(DAY);
+    // To the evening's end the day after it is brought, the hearer among those who came (they
+    // may stay away; here they come), then the midnight it is heard.
+    let sit = |sim: &mut Sim| {
+        let m = to_midnight(sim) + DAY - 30;
+        sim.advance_minutes(m).expect("advances");
+        let t = sim.people_mut_for_tests().polities[0]
+            .sitting
+            .as_mut()
+            .expect("it sits");
+        if let Err(at) = t.present.binary_search(&hearer) {
+            t.present.insert(at, hearer);
+        }
+        sim.advance_minutes(30).expect("advances");
+    };
+    // A case brought today sits tomorrow evening, and is heard the midnight after.
+    let first = case(&mut sim, &hh[0], &hh[1]);
+    sit(&mut sim);
+    let c = find(&sim, first);
+    assert!(
+        matches!(c.stage, CaseStage::Found | CaseStage::NotFound),
+        "{c:?}"
+    );
+    let written = sim.people().order.written.clone();
+    assert_eq!(written.len(), 1, "{written:?}");
+    assert_eq!((written[0].case, written[0].writer), (first, hearer));
+    assert_eq!(written[0].holder, hh[2].0);
+    let mut sim = reloaded(&mut sim);
+    // The word of it goes, as it does after `remember_days`.
+    let today = sim.now().day_index();
+    sim.people_mut_for_tests().word.prune(today, 60, 60, -1);
+    // Another case of the same facts: the hearer recalls the first from the page.
+    let second = case(&mut sim, &hh[0], &hh[1]);
+    sit(&mut sim);
+    let c = find(&sim, second);
+    let stance = c
+        .stances
+        .iter()
+        .find(|r| r.person == hearer)
+        .unwrap_or_else(|| panic!("the hearer sat: {c:?}"));
+    assert_ne!(stance.precedent, 0.0, "{c:?}");
+}

@@ -18073,6 +18073,197 @@ impl<'a> StruckSave {
 
 }
 
+// struct WrittenFindingSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct WrittenFindingSave(pub [u8; 32]);
+impl Default for WrittenFindingSave {
+  fn default() -> Self {
+    Self([0; 32])
+  }
+}
+impl ::core::fmt::Debug for WrittenFindingSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("WrittenFindingSave")
+      .field("case_number", &self.case_number())
+      .field("holder", &self.holder())
+      .field("writer", &self.writer())
+      .field("made", &self.made())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for WrittenFindingSave {}
+impl<'a> ::flatbuffers::Follow<'a> for WrittenFindingSave {
+  type Inner = &'a WrittenFindingSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a WrittenFindingSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a WrittenFindingSave {
+  type Inner = &'a WrittenFindingSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<WrittenFindingSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for WrittenFindingSave {
+    type Output = WrittenFindingSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const WrittenFindingSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for WrittenFindingSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> WrittenFindingSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    case_number: u32,
+    holder: u64,
+    writer: u64,
+    made: i64,
+  ) -> Self {
+    let mut s = Self([0; 32]);
+    s.set_case_number(case_number);
+    s.set_holder(holder);
+    s.set_writer(writer);
+    s.set_made(made);
+    s
+  }
+
+  pub fn case_number(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_case_number(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn holder(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_holder(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn writer(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_writer(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn made(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[24..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_made(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[24..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct CoinIssueSave, aligned to 8
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -52562,6 +52753,7 @@ impl<'a> Order<'a> {
   pub const VT_PURSES: ::flatbuffers::VOffsetT = 42;
   pub const VT_BROUGHT: ::flatbuffers::VOffsetT = 44;
   pub const VT_LAMP_FIRST_LIT: ::flatbuffers::VOffsetT = 46;
+  pub const VT_WRITTEN: ::flatbuffers::VOffsetT = 48;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -52576,6 +52768,7 @@ impl<'a> Order<'a> {
     builder.add_lamp_first_lit(args.lamp_first_lit);
     builder.add_loans_refused(args.loans_refused);
     builder.add_loans_asked(args.loans_asked);
+    if let Some(x) = args.written { builder.add_written(x); }
     if let Some(x) = args.brought { builder.add_brought(x); }
     if let Some(x) = args.purses { builder.add_purses(x); }
     if let Some(x) = args.coin_issues { builder.add_coin_issues(x); }
@@ -52753,6 +52946,13 @@ impl<'a> Order<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(Order::VT_LAMP_FIRST_LIT, Some(-1)).unwrap()}
   }
+  #[inline]
+  pub fn written(&self) -> Option<::flatbuffers::Vector<'a, WrittenFindingSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, WrittenFindingSave>>>(Order::VT_WRITTEN, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Order<'_> {
@@ -52783,6 +52983,7 @@ impl ::flatbuffers::Verifiable for Order<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, PurseSave>>>("purses", Self::VT_PURSES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, BroughtSave>>>("brought", Self::VT_BROUGHT, false)?
      .visit_field::<i64>("lamp_first_lit", Self::VT_LAMP_FIRST_LIT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, WrittenFindingSave>>>("written", Self::VT_WRITTEN, false)?
      .finish();
     Ok(())
   }
@@ -52810,6 +53011,7 @@ pub struct OrderArgs<'a> {
     pub purses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, PurseSave>>>,
     pub brought: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, BroughtSave>>>,
     pub lamp_first_lit: i64,
+    pub written: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, WrittenFindingSave>>>,
 }
 impl<'a> Default for OrderArgs<'a> {
   #[inline]
@@ -52837,6 +53039,7 @@ impl<'a> Default for OrderArgs<'a> {
       purses: None,
       brought: None,
       lamp_first_lit: -1,
+      written: None,
     }
   }
 }
@@ -52935,6 +53138,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> OrderBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<i64>(Order::VT_LAMP_FIRST_LIT, lamp_first_lit, -1);
   }
   #[inline]
+  pub fn add_written(&mut self, written: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , WrittenFindingSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Order::VT_WRITTEN, written);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> OrderBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     OrderBuilder {
@@ -52974,6 +53181,7 @@ impl ::core::fmt::Debug for Order<'_> {
       ds.field("purses", &self.purses());
       ds.field("brought", &self.brought());
       ds.field("lamp_first_lit", &self.lamp_first_lit());
+      ds.field("written", &self.written());
       ds.finish()
   }
 }

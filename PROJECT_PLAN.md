@@ -10033,6 +10033,27 @@ and M6a gives rivers a daily flow.
       notables' gate**, locally: gate-neutral (all 40 runs identical to the last fix's; fixture
       1's proposals +51.9 % and fixture 2's +52.7 % against 105 %). **Not yet:** a council's
       seats' term in the amendment forecast; a renewable hearer's chance of being named again.
+    - *ADR-0025's "Writing arrives", slice 1 (2026-11-18): a forum's finding written down, kept
+      past the word of it* (§9, "Written findings, slice 1"; §8 16, fourth). Findings lived only
+      as word (`ClaimKind::Finding`), let go after `remember_days` (730), so precedent reached no
+      further back than spoken memory. **Built:** a forum's finding (found or not) is written
+      down, at the sitting, by the first of those who sat on it who knows writing, and kept by
+      their household (`Order::written`, saved, appended within saves 220), as a record of a
+      technique is kept (M10c slice EC): it passes when the household joins another and is left
+      behind when it is no more. At a later hearing, one who knows reading recalls the findings
+      their household keeps written as they recall those whose word they hold, so a written
+      finding weighs as precedent past the word of it, where the forum's findings bind or
+      persuade. **Tested:** forum (22, one new: a hearer who can read and write keeps a finding
+      past the word of it, and it saves and loads exactly; it fails without the reading), and the
+      faction, polity, review, council, custom, opinion, values, credit, crime, holdings,
+      knowledge, roundtrip and determinism targets; the civ-agents unit tests (309); smoke; fmt,
+      clippy and the schema check clean. **The notables' gate**, locally: gate-neutral (all 40
+      runs identical; nobody in the three-year fixtures knows writing). **Not yet:** reach
+      beyond the household (read aloud at a sitting, copied, kept by the forum or the polity);
+      a gathering's findings and challenges written; the hours of writing one; a written finding
+      in the review or a sponsor's "seen"; burning with the building it is kept in; passing and
+      leaving with a household, built as records' are but not yet tested; the dashboard's justice
+      row counting findings written and still kept.
     - *Backlog D, eighteenth item (2026-11-04): a household's line, wagons and trains pass on,
       and a line nobody holds is taken up* (the third and fourth items' "Not yet": a household's
       line, wagons and trains passing on; ADR-0034 §2, §3, §6; research 08-09 §1.2 and the
@@ -11104,7 +11125,8 @@ and M6a gives rivers a daily flow.
        ADR-0046's merging only hides; deliberation. **Landed** 2026-11-18 (§9, "A hearer for a term is
        forecast to serve its term, then lapse").
     4. *ADR-0025's "Writing arrives"*: written findings reaching further and lasting longer
-       (09-07); writing exists; larger, touching precedent memory and saves.
+       (09-07); writing exists; larger, touching precedent memory and saves. Slice 1 **landed**
+       2026-11-18 (§9, "Written findings, slice 1"): kept past the word by a hearer's household.
     5. *Gleaning a crop a household that went left standing* (the 2026-11-04 recurring-red
        follow-ups; 05-06 §1.4, §5.3): changes people's days, helps the dying-worlds red; not
        deliberation, smoke risk.
@@ -12850,3 +12872,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **An evening at the hearth is given once, whatever sits there (2026-11-18; the forum entry's "Left" and the entry below, "not landed", now landed; ADR-0025 §1):** Decided by Claude under standing owner authority (2026-11-18). A gathering and a forum's sitting are both an evening at the hearth and one evening serves both, so a forum's forecast now counts evenings rather than cases, from the record alone: a sitting is the evening after a case was brought; a gathering's evening is the one before the midnight that decided it; a law's stances are those who came. A sitter is charged an evening once however many cases they would sit on, and not at all on one they came to decide a law; a gathering's hearing of cases is credited an evening once, and not at all where they came to decide a law there too, since the gathering would have met for it whatever heard the cases. No weight or tolerance changes. First built before the council fix and not landed (fixture 1's proposals +117.9 % through a hollow council, the entries below); after it, gate-neutral. Recorded, not chased: a council's evenings are still counted a decision at a time.
 - **A sitting that could not decide is no support seen (2026-11-18; the fixture 1 diagnosis's F3; research 09-05 §1.2):** Decided by Claude under standing owner authority (2026-11-18). A sponsor's expected support for a proposal they saw decided is capped at what it got there (M4c). For a sitting short of its quorum the cap was the share for of those who came, so a lone supporter read full support. 09-05 §1.2 has a sponsor weigh expected success and counts a nondecision as an outcome: a sitting that could not decide brought the proposal no nearer to passing, whoever stood for it there, so it now caps the expected support at none. A sitting decided with nobody taking a side still sets no cap, as before.
 - **A hearer for a term is forecast to serve its term, then lapse (2026-11-18; the fixture 1 diagnosis's F4; ADR-0025 §1, M7a slice BN; research 09-02 §3.6):** Decided by Claude under standing owner authority (2026-11-18). The forecast has no horizon beyond the cases within memory, which it replays as a forum would hear them and states by the year; a term cannot be seen in a yearly rate, but it can in that replay: a forum held for `term_days` would have heard only that share of the days the cases span, and the gathering the rest after its law lapsed (a term's end is its own procedure, 09-02 §3.6; it lapses, M7a slice BN). So a forum with a term is weighed at `term_days / remember_days` (at most all) of what it would bring, and one in place of another over each one's share, the one in force by what is left of its term: while both would serve, one against the other, then whichever serves longer against the gathering. No weight is added; the share comes from the content's term and the people profile's memory. A renewable term is not forecast to be renewed (a new law is needed), as in the world.
+- **Written findings, slice 1 (2026-11-18; ADR-0025's "Revisit when": "Writing arrives (record reach and persistence change, not authority)"; research 09-07 §1.5, §6.4; M10c slice EC):** Decided by Claude under standing owner authority (2026-11-18). 09-07 §1.5 makes written coverage and record reach their own dimensions, apart from precedent's authority, and §6.4 says oral transmission keeps a small, selective set of remembered decisions while writing expands persistence and reach; it gives no figure for either. **What a written finding is:** a record of a forum's finding, of the case, kept by a household, with who wrote it and the day. **Who writes it:** the first of those who sat on it (in id order) who knows writing, at the sitting; design prior: the hearing's own record takes no hours beyond the sitting (09-07 gives none). **How long it lasts:** as a technique's record does (M10c slice EC): held by the household, passing when it joins another, left when it is no more; not let go after `remember_days`, which bounds the word alone. **How far it reaches:** in slice 1, to its household's readers only: one who knows reading recalls what their household keeps, beside the word they hold. **What reads it:** precedent recall at a hearing, which ADR-0025's authority (informative, persuasive, binding) still weighs; authority is unchanged, as the ADR's revisit line asks. A gathering's findings are not written in slice 1 (a gathering has no one office to write them), nor challenges; the review and a sponsor's "seen" do not read them yet.

@@ -726,6 +726,24 @@ pub struct Order {
     /// When a lamp was first lit for work in the world (M10b slice DU; ADR-0034 §9): from then
     /// on the dark shortens sight where no lamp's light falls.
     pub lamp_first_lit: Option<SimTime>,
+    /// Findings written down, in the order written (ADR-0025's "Writing arrives"; research 09-07
+    /// §1.5, §6.4: oral memory keeps a selective few, writing expands persistence and reach).
+    pub written: Vec<WrittenFinding>,
+}
+
+/// A finding written down by one of those who heard the case, kept by their household as a
+/// record of a technique is (M10c slice EC): it outlasts the word of it, passes when the household
+/// joins another, and is left behind when the household is no more. Saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WrittenFinding {
+    /// The case found or not.
+    pub case: u32,
+    /// The household that keeps it.
+    pub holder: PermanentId,
+    /// Who wrote it.
+    pub writer: PermanentId,
+    /// The day written.
+    pub made: i64,
 }
 
 /// How someone at a household met one of the watch come to take what a gathering's finding owed

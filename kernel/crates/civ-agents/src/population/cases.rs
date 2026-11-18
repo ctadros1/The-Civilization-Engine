@@ -521,9 +521,17 @@ impl Population {
 
     /// The findings `p` remembers that they recall at a hearing of case `own` tagged `tags` (M7b
     /// slice BS, ADR-0025 §2): up to `k`, those whose tags match most, newest first; each (case,
-    /// direction: 1 found, -1 not, share of tags matched).
-    fn recall(&self, p: PermanentId, own: u32, tags: u8, k: usize) -> Vec<(u32, f64, f64)> {
-        let mut out: Vec<(u32, f64, f64)> = self
+    /// direction: 1 found, -1 not, share of tags matched). Besides those whose word they still
+    /// hold, a reader recalls those their household keeps written ([`Self::findings_read`]).
+    fn recall(
+        &self,
+        ctx: &Ctx,
+        p: PermanentId,
+        own: u32,
+        tags: u8,
+        k: usize,
+    ) -> Vec<(u32, f64, f64)> {
+        let mut ids: Vec<u32> = self
             .word
             .heard_by(p)
             .iter()
@@ -531,6 +539,12 @@ impl Population {
                 let claim = self.word.claim(h.claim)?;
                 (claim.kind == crate::word::ClaimKind::Finding).then_some(claim.event?)
             })
+            .chain(self.findings_read(ctx, p))
+            .collect();
+        ids.sort_unstable();
+        ids.dedup();
+        let mut out: Vec<(u32, f64, f64)> = ids
+            .into_iter()
             .filter(|&id| id != own)
             .filter_map(|id| {
                 let c = self.order.case(id)?;
@@ -816,7 +830,7 @@ impl Population {
                 let stake = -pp.w_gain * fc.gain(&m, household, policies, params);
                 let read = cp.w_reading * reading;
                 let regard_points = pp.w_regard * (regard(p, c.by) - regard(p, c.accused));
-                let recalled = self.recall(p, c.id, tags, cp.recall_k as usize);
+                let recalled = self.recall(ctx, p, c.id, tags, cp.recall_k as usize);
                 let precedent = crate::forum::precedent_points(
                     def.authority,
                     &recalled.iter().map(|r| (r.1, r.2)).collect::<Vec<_>>(),
@@ -1312,7 +1326,7 @@ impl Population {
                         .is_some_and(|b| b.taker == Some(c.accused));
                 let belief = belief_points(believes, c.leads.len(), cp);
                 let regard_points = pp.w_regard * (regard(p, c.by) - regard(p, c.accused));
-                let recalled = self.recall(p, c.id, tags, cp.recall_k as usize);
+                let recalled = self.recall(ctx, p, c.id, tags, cp.recall_k as usize);
                 let precedent = crate::forum::precedent_points(
                     authority,
                     &recalled.iter().map(|r| (r.1, r.2)).collect::<Vec<_>>(),
@@ -1543,6 +1557,13 @@ impl Population {
                 if self.person(h).is_some() {
                     self.word.hear(h, claim, day, None, None);
                 }
+            }
+            // A forum's finding is written down by the first of those who sat on it who knows
+            // writing, and kept by their household (ADR-0025's "Writing arrives"; research 09-07
+            // §6.4: writing expands persistence and reach; M10c slice EC: a record is kept as a
+            // household's).
+            if forum.is_some() {
+                self.write_finding(ctx, c.id, heard_by, day);
             }
         }
         // What the decision leaves people holding against the gathering (M4c slice AE).

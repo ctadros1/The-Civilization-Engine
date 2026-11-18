@@ -2586,6 +2586,18 @@ table Order {
   brought: [BroughtSave] (id: 20);
   // Schema 179 (M10b slice DU): the minute the world's first lamp was lit for work, -1 before.
   lamp_first_lit: long = -1 (id: 21);
+  // Schema 220 (ADR-0025's "Writing arrives"; appended within the unreleased saves 220): the
+  // findings written down, in the order written; absent, none.
+  written: [WrittenFindingSave] (id: 22);
+}
+
+// A finding written down (schema 220, ADR-0025's "Writing arrives"): the case's number, the
+// household that keeps it, who wrote it and the day.
+struct WrittenFindingSave {
+  case_number: uint;
+  holder: ulong;
+  writer: ulong;
+  made: long;
 }
 
 // An issue of coin (schema 136): its number, the polity whose mint struck it, the day, grams a

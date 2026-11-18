@@ -7230,6 +7230,13 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
         .map(|b| save::BroughtSave::new(b.polity.get(), b.household.get(), b.metal_kg))
         .collect();
     let brought = (!brought.is_empty()).then(|| fbb.create_vector(&brought));
+    // Findings written down (schema 220, ADR-0025's "Writing arrives").
+    let written: Vec<save::WrittenFindingSave> = order
+        .written
+        .iter()
+        .map(|w| save::WrittenFindingSave::new(w.case, w.holder.get(), w.writer.get(), w.made))
+        .collect();
+    let written = (!written.is_empty()).then(|| fbb.create_vector(&written));
     let root = save::Order::create(
         &mut fbb,
         &save::OrderArgs {
@@ -7255,6 +7262,7 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
             purses,
             brought,
             lamp_first_lit: order.lamp_first_lit.map_or(-1, |t| t.minutes()),
+            written,
         },
     );
     finish(fbb, root)
@@ -7630,6 +7638,15 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
     order.lamp_first_lit = Some(root.lamp_first_lit())
         .filter(|&m| m >= 0)
         .map(civ_core::time::SimTime::from_minutes);
+    // Findings written down (schema 220); none before.
+    for w in root.written().iter().flatten() {
+        order.written.push(civ_agents::crime::WrittenFinding {
+            case: w.case_number(),
+            holder: required(w.holder(), "a written finding's holder")?,
+            writer: required(w.writer(), "a written finding's writer")?,
+            made: w.made(),
+        });
+    }
     // Coin issues and purses (schema 136); none before.
     for c in root.coin_issues().iter().flatten() {
         order.coinage.cohorts.push(civ_agents::coin::Cohort {

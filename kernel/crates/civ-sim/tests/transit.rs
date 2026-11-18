@@ -767,3 +767,142 @@ fn posted_like(
         last_run: -1,
     }
 }
+
+/// Whose a boat, cart or line taken up had been (backlog D, twenty-third item): a household that
+/// moves to the other settlement leaves its handcart, standing at a neighbour's door, in the old
+/// household's name, and the history keeps whose household that was (its elder, who went with
+/// it); the neighbour taking it up is told so ("took up a handcart that had been Bo's
+/// household's, which nobody was left to take, …"); the record saves and loads exactly, and once
+/// nothing is left in the old household's name a month forgets it. A household that moves with
+/// nothing left in its name leaves no record.
+#[test]
+fn a_cart_left_by_a_household_that_moved_is_told_as_whose_it_had_been() {
+    let (mut sim, keeper, neighbour, _, market, _, short) = two_doors_and_a_hearth();
+    let today = sim.now().day_index();
+    let cart_v = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart");
+    let cart = sim.allocate_id_for_tests();
+    let land = sim.land_mut_for_tests();
+    land.carts.list.push(civ_land::boats::Boat {
+        id: cart,
+        vehicle: cart_v as u16,
+        owner: keeper,
+        at: short[0],
+        made: today,
+        wear: 0.0,
+        labour_h: 0.0,
+        work_h: 0.0,
+        saves_h_year: 0.0,
+        crew: (0, 0),
+    });
+    land.carts.changed();
+    // A household that moves with nothing in its name leaves no record.
+    let other = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .find(|h| {
+            h.id != keeper
+                && h.id != neighbour
+                && h.settlement != Some(market)
+                && !h.members.is_empty()
+                && !sim.land().carts.list.iter().any(|c| c.owner == h.id)
+                && !sim.land().boats.list.iter().any(|c| c.owner == h.id)
+        })
+        .map(|h| h.id);
+    if let Some(other) = other {
+        sim.with_ctx_for_tests(|pop, ctx| pop.relocate_for_tests(ctx, other, market));
+        assert!(
+            sim.people().gone_households.is_empty(),
+            "nothing left, nothing kept"
+        );
+    }
+    // The keeper's household moves: its elder, who goes with it, is kept.
+    let members = sim
+        .people()
+        .household(keeper)
+        .expect("keeper")
+        .members
+        .clone();
+    sim.with_ctx_for_tests(|pop, ctx| pop.relocate_for_tests(ctx, keeper, market));
+    assert!(
+        sim.people().household(keeper).is_none(),
+        "a new household now"
+    );
+    let gone = sim.people().gone_households.clone();
+    assert_eq!(gone.len(), 1, "{gone:?}");
+    assert_eq!(gone[0].0, keeper);
+    assert!(members.contains(&gone[0].1));
+    let owner = |sim: &Sim| {
+        sim.land()
+            .carts
+            .list
+            .iter()
+            .find(|c| c.id == cart)
+            .map(|c| c.owner)
+    };
+    assert_eq!(
+        owner(&sim),
+        Some(keeper),
+        "the cart stays in the old household's name"
+    );
+    let saves_alike = |sim: &mut Sim| {
+        let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+        let saves =
+            commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+        let saved = persist::save(sim, &saves, commons_persist::SaveKind::Manual, "transit")
+            .expect("saves");
+        let loaded = persist::load(&saved.path, content()).expect("loads");
+        assert_eq!(
+            loaded.people().gone_households,
+            sim.people().gone_households
+        );
+        let (x, y) = (
+            persist::encode_sections(sim),
+            persist::encode_sections(&loaded),
+        );
+        for (p, q) in x.iter().zip(&y) {
+            assert!(p.bytes == q.bytes, "section `{}` differs", p.tag);
+        }
+    };
+    saves_alike(&mut sim);
+    // The neighbour takes it up, and is told whose it had been.
+    let timber = sim.rules().catalog.vehicles[cart_v].good;
+    let enough = sim.rules().catalog.vehicles[cart_v].material_kg * 2.0;
+    sim.people_mut_for_tests()
+        .households
+        .iter_mut()
+        .map(|(_, h)| h)
+        .find(|h| h.id == neighbour)
+        .expect("neighbour")
+        .stores[timber] = enough;
+    sim.with_ctx_for_tests(|pop, ctx| {
+        pop.begin_vehicle_for_tests(ctx, neighbour, cart_v, short[0], 30.0)
+    });
+    assert_eq!(owner(&sim), Some(neighbour), "taken up");
+    let told: Vec<_> = sim
+        .people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == civ_agents::ChronicleKind::VehicleTakenUp)
+        .cloned()
+        .collect();
+    assert_eq!(told.len(), 1);
+    let elder = sim.people().name_of(told[0].people[0]);
+    let was = sim.people().name_of(gone[0].1);
+    assert_eq!(
+        told[0].name,
+        format!(
+            "{elder}'s household took up a handcart that had been {was}'s household's, which \
+             nobody was left to take, made and standing at its door."
+        )
+    );
+    // Nothing left in its name: a month forgets it.
+    sim.with_ctx_for_tests(|pop, ctx| pop.gone_households_month_for_tests(ctx));
+    assert!(sim.people().gone_households.is_empty());
+    saves_alike(&mut sim);
+}

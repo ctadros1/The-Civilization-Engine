@@ -35506,6 +35506,8 @@ impl<'a> History<'a> {
   pub const VT_RECORDS: ::flatbuffers::VOffsetT = 4;
   pub const VT_CHRONICLE: ::flatbuffers::VOffsetT = 6;
   pub const VT_UNIONS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_GONE_HOUSEHOLDS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_GONE_WHOSE: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -35517,6 +35519,8 @@ impl<'a> History<'a> {
     args: &'args HistoryArgs<'args>
   ) -> ::flatbuffers::WIPOffset<History<'bldr>> {
     let mut builder = HistoryBuilder::new(_fbb);
+    if let Some(x) = args.gone_whose { builder.add_gone_whose(x); }
+    if let Some(x) = args.gone_households { builder.add_gone_households(x); }
     if let Some(x) = args.unions { builder.add_unions(x); }
     if let Some(x) = args.chronicle { builder.add_chronicle(x); }
     if let Some(x) = args.records { builder.add_records(x); }
@@ -35545,6 +35549,20 @@ impl<'a> History<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Union>>>>(History::VT_UNIONS, None)}
   }
+  #[inline]
+  pub fn gone_households(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(History::VT_GONE_HOUSEHOLDS, None)}
+  }
+  #[inline]
+  pub fn gone_whose(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(History::VT_GONE_WHOSE, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for History<'_> {
@@ -35556,6 +35574,8 @@ impl ::flatbuffers::Verifiable for History<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PersonRecord>>>>("records", Self::VT_RECORDS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ChronicleEntry>>>>("chronicle", Self::VT_CHRONICLE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Union>>>>("unions", Self::VT_UNIONS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("gone_households", Self::VT_GONE_HOUSEHOLDS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("gone_whose", Self::VT_GONE_WHOSE, false)?
      .finish();
     Ok(())
   }
@@ -35564,6 +35584,8 @@ pub struct HistoryArgs<'a> {
     pub records: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PersonRecord<'a>>>>>,
     pub chronicle: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ChronicleEntry<'a>>>>>,
     pub unions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Union<'a>>>>>,
+    pub gone_households: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub gone_whose: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
 }
 impl<'a> Default for HistoryArgs<'a> {
   #[inline]
@@ -35572,6 +35594,8 @@ impl<'a> Default for HistoryArgs<'a> {
       records: None,
       chronicle: None,
       unions: None,
+      gone_households: None,
+      gone_whose: None,
     }
   }
 }
@@ -35594,6 +35618,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HistoryBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(History::VT_UNIONS, unions);
   }
   #[inline]
+  pub fn add_gone_households(&mut self, gone_households: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(History::VT_GONE_HOUSEHOLDS, gone_households);
+  }
+  #[inline]
+  pub fn add_gone_whose(&mut self, gone_whose: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(History::VT_GONE_WHOSE, gone_whose);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HistoryBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HistoryBuilder {
@@ -35614,6 +35646,8 @@ impl ::core::fmt::Debug for History<'_> {
       ds.field("records", &self.records());
       ds.field("chronicle", &self.chronicle());
       ds.field("unions", &self.unions());
+      ds.field("gone_households", &self.gone_households());
+      ds.field("gone_whose", &self.gone_whose());
       ds.finish()
   }
 }

@@ -890,6 +890,10 @@ impl Population {
         let Some(w) = land.ways.list.iter_mut().find(|w| w.id == way) else {
             return;
         };
+        let was = w.segments.first().and_then(|s| match s.keeper {
+            Keeper::Household(g) => Some(g),
+            _ => None,
+        });
         for s in &mut w.segments {
             s.keeper = Keeper::Household(household);
         }
@@ -907,7 +911,7 @@ impl Population {
             None => Vec::new(),
         };
         Self::rail_vehicles_to(land, &taken, household);
-        self.tell_line_taken_up(ctx, household, &taken, length_m, home_end);
+        self.tell_line_taken_up(ctx, household, &taken, length_m, home_end, was);
     }
 
     /// The chronicle's word that household `household` took up a line of track of `length_m`
@@ -915,7 +919,8 @@ impl Population {
     /// elder, the line's length, and what stood at its ends, wagons and engines, made or half
     /// made ("Runa's household took up a line of track nobody was left to keep, 140 m from a pit
     /// to its home, with a wagon and an engine, one half made, standing at its ends."); placed at
-    /// `home_end`, the line's end beside its home.
+    /// `home_end`, the line's end beside its home. Whose it had been (`was`, the household no
+    /// more) is said where it is kept (backlog D, twenty-third item).
     fn tell_line_taken_up(
         &mut self,
         ctx: &Ctx,
@@ -923,6 +928,7 @@ impl Population {
         taken: &[PermanentId],
         length_m: f64,
         home_end: u32,
+        was: Option<PermanentId>,
     ) {
         let (mut wagons, mut engines, mut half) = (0usize, 0usize, 0usize);
         for v in ctx
@@ -979,10 +985,16 @@ impl Population {
             settlement,
             Some(at),
             total as f64,
-            format!(
-                "{who} took up a line of track nobody was left to keep, {length_m:.0} m from a \
-                 pit to its home, {stood}."
-            ),
+            match was.map(|g| self.had_been(g)).unwrap_or_default() {
+                had if had.is_empty() => format!(
+                    "{who} took up a line of track nobody was left to keep, {length_m:.0} m from \
+                     a pit to its home, {stood}."
+                ),
+                had => format!(
+                    "{who} took up a line of track{had}, which nobody was left to keep, \
+                     {length_m:.0} m from a pit to its home, {stood}."
+                ),
+            },
         );
     }
 

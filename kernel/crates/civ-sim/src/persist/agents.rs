@@ -964,10 +964,11 @@ pub(super) fn decode<R: Read + Seek>(
     // each gets a founder's, by a draw keyed to them (ADR-0015 §2).
     people.give_crime_state(&rules.people.crime, seed);
     let bytes = single_chunk(reader, SECTION_HISTORY)?;
-    let (records, chronicle, unions) = decode_history(&bytes)?;
+    let (records, chronicle, unions, gone) = decode_history(&bytes)?;
     people.records = records;
     people.chronicle = chronicle;
     people.unions = unions;
+    people.gone_households = gone;
     // Before schema 50 nobody's residence was kept: it is inferred from where they live, the
     // chronicle and how they came (ADR-0018 §2).
     if schema < Schema::V50 {
@@ -7918,12 +7919,22 @@ fn encode_history(pop: &Population) -> Vec<u8> {
         })
         .collect();
     let unions = fbb.create_vector(&unions);
+    // Households no more, and whose each was (backlog D, twenty-third item), absent while none.
+    let (gone_households, gone_whose) = if pop.gone_households.is_empty() {
+        (None, None)
+    } else {
+        let h: Vec<u64> = pop.gone_households.iter().map(|g| g.0.get()).collect();
+        let w: Vec<u64> = pop.gone_households.iter().map(|g| g.1.get()).collect();
+        (Some(fbb.create_vector(&h)), Some(fbb.create_vector(&w)))
+    };
     let root = save::History::create(
         &mut fbb,
         &save::HistoryArgs {
             records: Some(records),
             chronicle: Some(chronicle),
             unions: Some(unions),
+            gone_households,
+            gone_whose,
         },
     );
     finish(fbb, root)
@@ -7933,6 +7944,7 @@ type DecodedHistory = (
     BTreeMap<PermanentId, PersonRecord>,
     Vec<ChronicleEvent>,
     Vec<Union>,
+    Vec<(PermanentId, PermanentId)>,
 );
 
 fn decode_history(bytes: &[u8]) -> Result<DecodedHistory, LoadError> {
@@ -8030,7 +8042,28 @@ fn decode_history(bytes: &[u8]) -> Result<DecodedHistory, LoadError> {
             ended: u.ended().then(|| time(u.ended_at())),
         });
     }
-    Ok((records, chronicle, unions))
+    // Households no more, and whose each was (backlog D, twenty-third item, appended within
+    // saves 220): none, in older saves.
+    let hs: Vec<u64> = root.gone_households().iter().flatten().collect();
+    let ws: Vec<u64> = root.gone_whose().iter().flatten().collect();
+    if hs.len() != ws.len() {
+        return Err(LoadError::Malformed(
+            "the history's households no more and whose they were differ in length".to_owned(),
+        ));
+    }
+    let mut gone = Vec::with_capacity(hs.len());
+    for (h, w) in hs.into_iter().zip(ws) {
+        gone.push((
+            required(h, "a household no more")?,
+            required(w, "whose a household no more was")?,
+        ));
+    }
+    if !gone.windows(2).all(|g| g[0].0 < g[1].0) {
+        return Err(LoadError::Malformed(
+            "the history's households no more are out of order".to_owned(),
+        ));
+    }
+    Ok((records, chronicle, unions, gone))
 }
 
 // ---- receipts ----------------------------------------------------------------------------------

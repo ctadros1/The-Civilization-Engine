@@ -2333,3 +2333,60 @@ fn a_line_nobody_holds_taken_up_is_told_once_with_what_stood_on_it() {
     saves_alike(&mut sim);
     assert_eq!(line_taken_up_entries(&sim).len(), 1);
 }
+
+/// A line taken up says whose it had been where the history keeps it (backlog D, twenty-third
+/// item): the household no more that kept it kept as someone's, the words name them.
+#[test]
+fn a_line_taken_up_says_whose_it_had_been() {
+    use civ_land::ways::Keeper;
+    let mut sim = village(3);
+    let household = first_household(&sim);
+    let home = sim.people().household(household).expect("household").home;
+    let seam = contour_seam(&mut sim, home);
+    let (line, pit_cell, _) = laid_line(&mut sim, household, home, seam);
+    let gone = sim.allocate_id_for_tests();
+    for w in &mut sim.land_mut_for_tests().ways.list {
+        for s in &mut w.segments {
+            s.keeper = Keeper::Household(gone);
+        }
+    }
+    let engine_v = engine_vehicle(&sim);
+    sim.with_ctx_for_tests(|_, ctx| {
+        civ_agents::population::Population::add_wagon_for_tests(ctx, gone, engine_v, pit_cell)
+    });
+    // Whose it had been: someone of another household.
+    let whose = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .find(|h| h.id != household && !h.members.is_empty())
+        .map(|h| h.members[0])
+        .expect("someone");
+    sim.with_ctx_for_tests(|pop, ctx| pop.note_gone_for_tests(ctx, gone, whose));
+    assert_eq!(sim.people().gone_households, vec![(gone, whose)]);
+    teach(&mut sim, household, "core:technique/wooden_railway");
+    set_timber(&mut sim, household, 1_000.0);
+    set_dig_days(&mut sim, household, seam, 52.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_line_for_tests(ctx, household));
+    assert_eq!(keepers(&sim, line), vec![Keeper::Household(household)]);
+    let told = line_taken_up_entries(&sim);
+    assert_eq!(told.len(), 1);
+    let was = sim.people().name_of(whose);
+    assert!(
+        told[0].name.contains(&format!(
+            "took up a line of track that had been {was}'s household's, which nobody was left to \
+             keep, "
+        )),
+        "{}",
+        told[0].name
+    );
+    assert!(
+        told[0]
+            .name
+            .ends_with("with an engine, standing at its ends.")
+    );
+    // Nothing left in its name: a month forgets it.
+    sim.with_ctx_for_tests(|pop, ctx| pop.gone_households_month_for_tests(ctx));
+    assert!(sim.people().gone_households.is_empty());
+}

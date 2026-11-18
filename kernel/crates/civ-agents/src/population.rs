@@ -667,6 +667,11 @@ pub struct Population {
     pub chronicle: Vec<ChronicleEvent>,
     /// Every couple there has been, oldest first (research 04-08 §5.1).
     pub unions: Vec<Union>,
+    /// Households that are no more and left a boat, cart, wagon or line in their name (backlog
+    /// D, twenty-third item), each with the person whose household it was: its elder when it went,
+    /// or the last of it. Sorted by household, kept while something stands in its name. Saved
+    /// with the history.
+    pub gone_households: Vec<(PermanentId, PermanentId)>,
     /// The last trip id handed out.
     pub next_trip: u64,
     index: FastMap<PermanentId, Handle<Person>>,
@@ -8657,6 +8662,7 @@ impl Population {
         // were (ADR-0044 §5).
         if now.date().day == 1 {
             self.sewers_month(ctx);
+            self.gone_households_month(ctx);
         }
         // And the ditches (M6b slice BG): the households whose day it is weigh one, and every
         // ditch's intake is opened or shut for the day.

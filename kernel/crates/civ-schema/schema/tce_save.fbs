@@ -656,6 +656,11 @@ table History {
   chronicle: [ChronicleEntry] (id: 1);
   // Schema 6: every couple there has been, oldest first.
   unions: [Union] (id: 2);
+  // Backlog D, twenty-third item (appended within the unreleased saves 220): households no more
+  // with something left in their name, sorted, and the person whose household each was, in step;
+  // absent, none.
+  gone_households: [ulong] (id: 3);
+  gone_whose: [ulong] (id: 4);
 }
 
 // Section "receipts": why people chose what they did, a bounded ring per person.

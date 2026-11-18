@@ -805,13 +805,14 @@ impl Population {
                     &mut ctx.land.boats
                 };
                 let taken = list.list.iter_mut().find(|b| b.id == v).map(|b| {
+                    let was = b.owner;
                     b.owner = household;
                     b.saves_h_year = saves_h_year;
-                    b.clone()
+                    (b.clone(), was)
                 });
                 list.changed();
-                if let Some(b) = taken {
-                    self.tell_taken_up(ctx, household, &b, cart);
+                if let Some((b, was)) = taken {
+                    self.tell_taken_up(ctx, household, &b, cart, was);
                 }
                 continue;
             }
@@ -855,8 +856,16 @@ impl Population {
     /// nobody was left to take (backlog D, seventeenth item): its elder, what it took up, made or
     /// half made with the work done on it, and where it stands, metres from its home (a boat) or
     /// its door (a cart), placed there. Told once, at the taking up: a household holding one
-    /// takes up no other.
-    fn tell_taken_up(&mut self, ctx: &Ctx, household: PermanentId, b: &Boat, cart: bool) {
+    /// takes up no other. Whose it had been (`was`, the household no more) is said where it is kept
+    /// (backlog D, twenty-third item).
+    fn tell_taken_up(
+        &mut self,
+        ctx: &Ctx,
+        household: PermanentId,
+        b: &Boat,
+        cart: bool,
+        was: PermanentId,
+    ) {
         let Some(def) = ctx.catalog.vehicles.get(usize::from(b.vehicle)) else {
             return;
         };
@@ -906,10 +915,16 @@ impl Population {
             settlement,
             Some(at),
             f64::from(what as u8),
-            format!(
-                "{who} took up a {} nobody was left to take, {state}.",
-                def.name.to_lowercase()
-            ),
+            match self.had_been(was) {
+                had if had.is_empty() => format!(
+                    "{who} took up a {} nobody was left to take, {state}.",
+                    def.name.to_lowercase()
+                ),
+                had => format!(
+                    "{who} took up a {}{had}, which nobody was left to take, {state}.",
+                    def.name.to_lowercase()
+                ),
+            },
         );
     }
 
@@ -1192,5 +1207,83 @@ impl Population {
             return;
         };
         self.boat_work(ctx, (h, who), household, boat, hours);
+    }
+}
+
+impl Population {
+    /// Whether anything stands in household `household`'s name: a boat, cart, wagon or engine,
+    /// or a stretch of a way it keeps.
+    fn holds_anything(ctx: &Ctx, household: PermanentId) -> bool {
+        let land = &*ctx.land;
+        land.boats.list.iter().any(|b| b.owner == household)
+            || land.carts.list.iter().any(|b| b.owner == household)
+            || land.wagons.list.iter().any(|b| b.owner == household)
+            || land.ways.list.iter().any(|w| {
+                w.segments
+                    .iter()
+                    .any(|s| s.keeper == civ_land::ways::Keeper::Household(household))
+            })
+    }
+
+    /// Household `household` is no more (backlog D, twenty-third item): where anything stands
+    /// in its name, `who` is kept as the person whose household it was, so that the chronicle can
+    /// say whose a boat, cart or line taken up had been. Nothing without `who`, or with nothing in
+    /// its name; the first record is kept.
+    pub(super) fn note_gone(
+        &mut self,
+        ctx: &Ctx,
+        household: PermanentId,
+        who: Option<PermanentId>,
+    ) {
+        let Some(who) = who else {
+            return;
+        };
+        if self.household(household).is_some() || !Self::holds_anything(ctx, household) {
+            return;
+        }
+        if let Err(i) = self
+            .gone_households
+            .binary_search_by_key(&household, |g| g.0)
+        {
+            self.gone_households.insert(i, (household, who));
+        }
+    }
+
+    /// The person whose household household `household`, no more, had been, if kept.
+    pub(super) fn whose_household(&self, household: PermanentId) -> Option<PermanentId> {
+        self.gone_households
+            .binary_search_by_key(&household, |g| g.0)
+            .ok()
+            .map(|i| self.gone_households[i].1)
+    }
+
+    /// Words for whose household `household` had been: " that had been Bo's household's", or
+    /// nothing where nobody is kept.
+    pub(super) fn had_been(&self, household: PermanentId) -> String {
+        self.whose_household(household)
+            .map(|p| format!(" that had been {}'s household's", self.name_of(p)))
+            .unwrap_or_default()
+    }
+
+    /// Each month, a household no more with nothing left in its name is forgotten (backlog D,
+    /// twenty-third item).
+    pub(super) fn gone_households_month(&mut self, ctx: &Ctx) {
+        if self.gone_households.is_empty() {
+            return;
+        }
+        self.gone_households
+            .retain(|&(h, _)| Self::holds_anything(ctx, h));
+    }
+
+    /// A household no more, `household`, is kept as `who`'s: for tests.
+    #[doc(hidden)]
+    pub fn note_gone_for_tests(&mut self, ctx: &mut Ctx, household: PermanentId, who: PermanentId) {
+        self.note_gone(ctx, household, Some(who));
+    }
+
+    /// The month's forgetting of households no more with nothing in their name: for tests.
+    #[doc(hidden)]
+    pub fn gone_households_month_for_tests(&mut self, ctx: &mut Ctx) {
+        self.gone_households_month(ctx);
     }
 }

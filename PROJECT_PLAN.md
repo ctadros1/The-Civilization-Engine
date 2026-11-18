@@ -11046,6 +11046,22 @@ and M6a gives rivers a daily flow.
     council's quorum is counted against those seated"). Left open: whether a council of as many
     seats as its electorate should be offered at all, and whether one that cannot sit should
     fall back to the gathering; research 09-02 warns against repairing dysfunction automatically.
+16. **What is open next, ranked (2026-11-18 survey of §7's "Not yet", the ADRs' deferrals and
+    this list; Unreal work and ADR-0046 left out):** by grounding, self-containment, value and
+    risk to the gates.
+    1. *An evening at the hearth given once* (§9, "not landed"): built and scene-tested, stopped
+       only by the notables' gate, which the council fix (§9, "A council's quorum is counted
+       against those seated") has since widened; re-gate and land if it holds.
+    2. *A sitting that could not decide read as support* (§9's diagnosis, F3): a sponsor's "seen"
+       reads a `NoQuorum` sitting by its stances; research 09-05 §1.2; a few lines, deliberation.
+    3. *A forum's forecast blind to its hearer's term* (F4): a hearer for a year forecasts as one
+       for good; ADR-0025's tenure and 09-02 §3.6; removes the twin tie at its root, which
+       ADR-0046's merging only hides; deliberation.
+    4. *ADR-0025's "Writing arrives"*: written findings reaching further and lasting longer
+       (09-07); writing exists; larger, touching precedent memory and saves.
+    5. *Gleaning a crop a household that went left standing* (the 2026-11-04 recurring-red
+       follow-ups; 05-06 §1.4, §5.3): changes people's days, helps the dying-worlds red; not
+       deliberation, smoke risk.
 
 ---
 

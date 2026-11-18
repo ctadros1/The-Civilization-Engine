@@ -10842,6 +10842,11 @@ and M6a gives rivers a daily flow.
 12. **Movement streaming (M1–M2):** research 01-07 warns that trip start and end events alone
     are not enough once congestion, interruptions or acceleration change a trip. Plan movement
     descriptions on paths with corrections from the start, not as a retrofit.
+13. **Food as a route for enteric disease (2026-11-18):** whether food carries what a shedder who
+    prepared it shed, and how (per-batch provenance, a load on a holder's stock of prepared food,
+    or a per-meal event). Drafted as [ADR-0045](decisions/0045-food-batch-identity.md), status
+    Proposed, recommending the load on a holder's stock in slices; the owner decides (research
+    05-07).
 
 ---
 

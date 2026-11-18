@@ -129,6 +129,33 @@ pub struct Landmarks {
     seconds: Vec<f32>,
 }
 
+/// The seconds of the steps out of each cell of a box ([`NavGrid::step_costs`]).
+struct StepCosts {
+    map_width: usize,
+    x0: usize,
+    y0: usize,
+    w: usize,
+    h: usize,
+    /// By the cell's place in the box, row by row, then the step's direction in [`D8`].
+    seconds: Vec<f32>,
+    /// By the cell's place in the box: a bit for each direction that can be walked.
+    walkable: Vec<u8>,
+}
+
+impl StepCosts {
+    /// The seconds of the step out of `cell` in direction `k` of [`D8`], `None` within if it
+    /// cannot be walked; `None` for a cell outside the box.
+    #[inline]
+    fn get(&self, cell: usize, k: usize) -> Option<Option<f32>> {
+        let (x, y) = (cell % self.map_width, cell / self.map_width);
+        let (lx, ly) = (x.wrapping_sub(self.x0), y.wrapping_sub(self.y0));
+        (lx < self.w && ly < self.h).then(|| {
+            let l = ly * self.w + lx;
+            (self.walkable[l] & (1 << k) != 0).then(|| self.seconds[l * 8 + k])
+        })
+    }
+}
+
 impl std::fmt::Debug for Landmarks {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -1152,11 +1179,15 @@ impl NavGrid {
                 }
             }
             let speeds: &[f64] = speeds;
-            let next = std::sync::atomic::AtomicUsize::new(0);
             let threads = std::thread::available_parallelism()
                 .map_or(1, |t| t.get())
                 .clamp(1, LANDMARK_THREADS)
                 .min(jobs.len());
+            // Every step the searches can take, worked out once for all of them.
+            let reach = self.landmark_reach(((x0, y0), (x1, y1)));
+            let costs = self.step_costs(speeds, elevation, trail, reach, threads);
+            let costs = &costs;
+            let next = std::sync::atomic::AtomicUsize::new(0);
             let done: Vec<(usize, Vec<f32>)> = std::thread::scope(|scope| {
                 let workers: Vec<_> = (0..threads)
                     .map(|_| {
@@ -1170,7 +1201,15 @@ impl NavGrid {
                                 };
                                 let mut times = vec![f32::INFINITY; w * h];
                                 let into = (&mut times[..], &mut scores);
-                                self.fill_area(elevation, job, trail, area, cap, into, speeds);
+                                self.fill_area(
+                                    elevation,
+                                    job,
+                                    trail,
+                                    area,
+                                    cap,
+                                    into,
+                                    (speeds, costs),
+                                );
                                 out.push((j, times));
                             }
                         })
@@ -1301,11 +1340,72 @@ impl NavGrid {
         out
     }
 
+    /// The seconds of every step out of each cell of the box `reach` (its north-west and
+    /// south-east corner cells), as [`NavGrid::seconds_at`] gives them on `trail`: worked out
+    /// once, on up to `threads` threads, for the landmarks' searches, which would otherwise
+    /// each work out the same steps again.
+    fn step_costs(
+        &self,
+        speeds: &[f64],
+        elevation: &[f32],
+        trail: &(impl Fn(usize) -> f32 + Sync + ?Sized),
+        ((x0, y0), (x1, y1)): ((usize, usize), (usize, usize)),
+        threads: usize,
+    ) -> StepCosts {
+        let (w, h) = (x1 - x0 + 1, y1 - y0 + 1);
+        let mut costs = StepCosts {
+            map_width: self.width,
+            x0,
+            y0,
+            w,
+            h,
+            seconds: vec![0.0; w * h * 8],
+            walkable: vec![0; w * h],
+        };
+        let rows = h.div_ceil(threads.max(1)).max(1);
+        std::thread::scope(|scope| {
+            for (band, (seconds, walkable)) in costs
+                .seconds
+                .chunks_mut(rows * w * 8)
+                .zip(costs.walkable.chunks_mut(rows * w))
+                .enumerate()
+            {
+                scope.spawn(move || {
+                    for (l, ways) in walkable.iter_mut().enumerate() {
+                        let (lx, ly) = (l % w, band * rows + l / w);
+                        let (x, y) = ((x0 + lx) as i64, (y0 + ly) as i64);
+                        let a = y as usize * self.width + x as usize;
+                        for (k, (&(dx, dy), dist)) in D8.iter().zip(D8_DIST).enumerate() {
+                            let (nx, ny) = (x + i64::from(dx), y + i64::from(dy));
+                            if nx < 0
+                                || ny < 0
+                                || nx >= self.width as i64
+                                || ny >= self.height as i64
+                            {
+                                continue;
+                            }
+                            let b = ny as usize * self.width + nx as usize;
+                            if let Some(tobler) =
+                                self.shared_speed(speeds, elevation, (a, k, b), dist)
+                            {
+                                seconds[l * 8 + k] =
+                                    self.seconds_at(tobler, (a, b), dist, trail(b));
+                                *ways |= 1 << k;
+                            }
+                        }
+                    }
+                });
+            }
+        });
+        costs
+    }
+
     /// Fastest times from `source` to each cell of `area` (its corner and size), or with
     /// `reverse` from each to `source`, into `out` row by row; Dijkstra over the grid, until
     /// every walkable cell of the area has its time or the times reach `cap`. A time not
     /// worked out is written as the negative of what it is at least; one with no way, infinite.
-    /// `scores` is scratch for the search.
+    /// `scores` is scratch for the search; `costs` holds steps worked out beforehand, and those
+    /// outside its box are worked out as they are taken, with `speeds`.
     #[allow(clippy::too_many_arguments)]
     fn fill_area(
         &self,
@@ -1315,7 +1415,7 @@ impl NavGrid {
         (x0, y0, aw, ah): (usize, usize, usize, usize),
         cap: f32,
         (out, scores): (&mut [f32], &mut DenseScores),
-        speeds: &[f64],
+        (speeds, costs): (&[f64], &StepCosts),
     ) {
         let (w, h) = (self.width as i64, self.height as i64);
         let inside = |c: usize| {
@@ -1374,10 +1474,16 @@ impl NavGrid {
                 } else {
                     (i, k, j)
                 };
-                let Some(tobler) = self.shared_speed(speeds, elevation, (a, d, b), dist) else {
+                let step = match costs.get(a, d) {
+                    Some(step) => step,
+                    None => self
+                        .shared_speed(speeds, elevation, (a, d, b), dist)
+                        .map(|tobler| self.seconds_at(tobler, (a, b), dist, trail(b))),
+                };
+                let Some(step) = step else {
                     continue;
                 };
-                let ng = g + self.seconds_at(tobler, (a, b), dist, trail(b));
+                let ng = g + step;
                 if scores.get(j as u32).is_none_or(|(bg, _)| ng < bg) {
                     scores.set(j as u32, ng, 0);
                     open.push(key(ng, j as u32));

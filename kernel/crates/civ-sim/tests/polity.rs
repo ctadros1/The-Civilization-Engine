@@ -1148,12 +1148,12 @@ fn an_office_named_for_a_term_holds_until_the_midnight_its_term_ends() {
 
 /// A lot's pool (M7a slice BN): only those who stood for it who are still in the world are
 /// counted in and drawn; one who stood and is no longer anyone is neither. The bar on a holder
-/// whose template does not renew holds only once their term has ended: while it runs, a lot under
-/// the same template (a second law, as a petition's would be) may draw the one holding it again.
-/// And where the office asks for a technique, only those who know it are counted in and drawn,
-/// and with none who do, the law lapses.
+/// whose template does not renew holds while their term runs as well as once it has ended: a lot
+/// under the same template (a second law, as a petition's would be) never draws the one holding
+/// it again. And where the office asks for a technique, only those who know it are counted in and
+/// drawn, and with none who do, the law lapses.
 #[test]
-fn a_lot_draws_only_the_living_who_stood_and_a_term_still_running_bars_no_one() {
+fn a_lot_draws_only_the_living_who_stood_and_never_the_holder_whose_term_does_not_renew() {
     let mut o = Offices::new();
     let turns = o.at("core:policy/your_turn_keeping_the_store");
     let tenure = o.sim.rules().catalog.policies[usize::from(turns)]
@@ -1191,14 +1191,15 @@ fn a_lot_draws_only_the_living_who_stood_and_a_term_still_running_bars_no_one() 
             })
             .collect::<Vec<_>>()
     };
+    // While their term runs, a second lot never draws them: 0 of 8.
     let running = draws(&mut o);
-    assert!(running.iter().all(|&h| h == a.0 || h == b.0));
     let again = running.iter().filter(|&&h| h == a.0).count();
     assert_eq!(
-        again, 3,
-        "while the term runs, the one holding it is drawn again: {running:?}"
+        again, 0,
+        "while the term runs, the one holding it is not drawn again: {running:?}"
     );
-    // Once their term has ended, never.
+    assert!(running.iter().all(|&h| h == b.0));
+    // Once their term has ended, never either: 0 of 8.
     o.sim.people_mut_for_tests().polities[0].set_term(
         first,
         civ_agents::polity::Term {

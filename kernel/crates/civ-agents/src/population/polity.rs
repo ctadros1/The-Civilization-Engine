@@ -1290,24 +1290,29 @@ impl Population {
         self.replaced_by(pi, kind, policy)
     }
 
+    /// Who may not hold office under template `policy` of polity `pi` next, where `def` does not
+    /// renew (M7a slice BN): the holder of its latest law held for a term, while that term runs
+    /// as well as once it has ended, so that a second law under the same template (a petition's
+    /// for another holder, say) cannot draw or name the one holding it again and run their
+    /// tenure on past a term.
     fn term_barred(
         &self,
         pi: usize,
         policy: u16,
-        day: i64,
         def: &crate::polity::PolicyDef,
     ) -> Option<PermanentId> {
         if def.tenure.is_none_or(|t| t.renewable) {
             return None;
         }
         let p = &self.polities[pi];
-        let (term, holder) = p
-            .laws
+        p.laws
             .iter()
             .rev()
             .filter(|l| l.policy == policy)
-            .find_map(|l| Some((p.term_of(l.id)?, l.holder?)))?;
-        (term.until <= day).then_some(holder)
+            .find_map(|l| {
+                p.term_of(l.id)?;
+                l.holder
+            })
     }
 
     /// Office law `law_id` of polity `pi` passed, and its template holds it for a term (M7a slice
@@ -1327,7 +1332,7 @@ impl Population {
         };
         let mut pool = 0;
         if tenure.by_lot {
-            let barred = self.term_barred(pi, law.policy, day, def);
+            let barred = self.term_barred(pi, law.policy, def);
             let watching: Vec<PermanentId> = self.polities[pi].watchers().map(|w| w.0).collect();
             let names: Vec<PermanentId> = law
                 .stances
@@ -1428,7 +1433,7 @@ impl Population {
             return Some(None);
         }
         let (day, tp) = (ctx.now.day_index(), &ctx.params.ties);
-        let barred = self.term_barred(pi, policy, day, def);
+        let barred = self.term_barred(pi, policy, def);
         adults
             .iter()
             .map(|&(c, _)| c)
@@ -4214,7 +4219,7 @@ impl Population {
                             .mint
                             .and_then(|m| ctx.catalog.recipes.get(m.recipe))
                             .and_then(|r| r.technique);
-                        let barred = self.term_barred(pi, k, day, def);
+                        let barred = self.term_barred(pi, k, def);
                         let pick = adults
                             .iter()
                             .map(|&(c, _)| c)
@@ -4241,7 +4246,7 @@ impl Population {
                         }
                     }
                     PolicyKind::KeepStore => {
-                        let barred = self.term_barred(pi, k, day, def);
+                        let barred = self.term_barred(pi, k, def);
                         let pick = roofed
                             .iter()
                             .filter(|&&c| Some(c) != barred)
@@ -4490,7 +4495,7 @@ impl Population {
                     // A watch: the adult they regard most, themselves at full regard (M4b slice
                     // AC), of those who do not keep it already (M4c slice AI).
                     PolicyKind::KeepWatch => {
-                        let barred = self.term_barred(pi, k, day, def);
+                        let barred = self.term_barred(pi, k, def);
                         let pick = adults
                             .iter()
                             .filter(|&&(c, _)| !watching.contains(&c) && Some(c) != barred)
@@ -4513,7 +4518,7 @@ impl Population {
                     // A lamplighter (M10b slice DY, fourth part, third step), named as a watch
                     // is: the adult they regard most, themselves at full regard.
                     PolicyKind::LightStreets => {
-                        let barred = self.term_barred(pi, k, day, def);
+                        let barred = self.term_barred(pi, k, def);
                         let pick = adults
                             .iter()
                             .filter(|&&(c, _)| Some(c) != barred)
@@ -4623,7 +4628,7 @@ impl Population {
                     // A registrar (M10c slice EE, second part): of the adults who know what the
                     // office asks, the one they regard most, themselves at full regard.
                     PolicyKind::KeepRegister => {
-                        let barred = self.term_barred(pi, k, day, def);
+                        let barred = self.term_barred(pi, k, def);
                         let pick = adults
                             .iter()
                             .filter(|&&(c, _)| Some(c) != barred)
@@ -4650,7 +4655,7 @@ impl Population {
                     // A schoolteacher (M10c slice EB, third part): of the adults who know the
                     // technique most wanted, the one they regard most, themselves at full regard.
                     PolicyKind::KeepSchool => {
-                        let barred = self.term_barred(pi, k, day, def);
+                        let barred = self.term_barred(pi, k, def);
                         let wanted = self.school_technique(ctx, &households, &adults);
                         let pick = adults
                             .iter()

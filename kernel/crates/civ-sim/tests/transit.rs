@@ -661,7 +661,9 @@ fn a_road_line_is_told_when_posted_passed_and_ended() {
             elder_of(&sim, t)
         )
     );
-    // Its people join a household of the other settlement: ended, nobody named.
+    // Its people join a household of the other settlement: ended, nobody named as stopping it,
+    // the history saying whose it had been (backlog D, twenty-fourth item).
+    let heir_elder = elder_of(&sim, t);
     let away = sim
         .people()
         .households
@@ -680,7 +682,10 @@ fn a_road_line_is_told_when_posted_passed_and_ended() {
     assert!(t.settlement.is_some());
     assert_eq!(
         t.name,
-        format!("The motor cart's runs to {name} stopped: nobody was left who could run them.")
+        format!(
+            "The motor cart's runs to {name}, which had been {heir_elder}'s household's, \
+             stopped: nobody was left who could run them."
+        )
     );
     // A keeper whose line nobody rode in a year stops it, and says so; posted again, it stops
     // it once its cart is gone; a line whose keeper is no more ends at midnight.
@@ -730,6 +735,11 @@ fn a_road_line_is_told_when_posted_passed_and_ended() {
     let t = ended(&sim);
     assert!(t.people.is_empty());
     assert_eq!(t.settlement, Some(home), "the hearth nearest its door");
+    assert_eq!(
+        t.name,
+        format!("The motor cart's runs to {name} stopped: nobody was left who could run them."),
+        "with no record, whose it was is not said"
+    );
     assert_eq!(road_entries(&sim).len(), 5);
     let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
     let saves =
@@ -905,4 +915,41 @@ fn a_cart_left_by_a_household_that_moved_is_told_as_whose_it_had_been() {
     sim.with_ctx_for_tests(|pop, ctx| pop.gone_households_month_for_tests(ctx));
     assert!(sim.people().gone_households.is_empty());
     saves_alike(&mut sim);
+}
+
+/// A road line whose keeper moved away ends at midnight saying whose it had been (backlog D,
+/// twenty-fourth item): the keeper's household moves to the other settlement, its motor cart and
+/// line left in the old household's name; the history keeps its elder; at the next midnight the
+/// line is taken off and told as "The motor cart's runs to …, which had been Bo's household's,
+/// stopped: nobody was left who could run them."
+#[test]
+fn a_road_line_left_by_a_keeper_that_moved_ends_saying_whose_it_had_been() {
+    let (mut sim, keeper, _, home, market, cells, _) = two_doors_and_a_hearth();
+    posted(&mut sim, keeper, home, market, cells[0]);
+    let name = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|s| s.id == market)
+        .expect("the market")
+        .name
+        .clone();
+    sim.with_ctx_for_tests(|pop, ctx| pop.relocate_for_tests(ctx, keeper, market));
+    let gone = sim.people().gone_households.clone();
+    assert_eq!(gone.len(), 1, "{gone:?}");
+    assert_eq!(gone[0].0, keeper);
+    let was = sim.people().name_of(gone[0].1);
+    assert_eq!(sim.land().runs.roads.len(), 1, "until the midnight");
+    let day = sim.now().day_index();
+    sim.with_ctx_for_tests(|pop, ctx| pop.transit_reviews_for_tests(ctx, day));
+    assert!(sim.land().runs.roads.is_empty());
+    let t = road_entries(&sim).last().cloned().expect("told");
+    assert!(t.people.is_empty());
+    assert_eq!(
+        t.name,
+        format!(
+            "The motor cart's runs to {name}, which had been {was}'s household's, stopped: \
+             nobody was left who could run them."
+        )
+    );
 }

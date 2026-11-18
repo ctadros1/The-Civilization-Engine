@@ -298,9 +298,18 @@ impl Population {
             (RoadStep::Ended, Some(_)) => {
                 format!("{household} stopped running its motor cart to {market}: {why}.")
             }
-            (RoadStep::Ended, None) => format!(
-                "The motor cart's runs to {market} stopped: nobody was left who could run them."
-            ),
+            (RoadStep::Ended, None) => match self.whose_household(l.operator) {
+                // Whose they had been, where the history keeps it (backlog D, twenty-fourth item).
+                Some(p) => format!(
+                    "The motor cart's runs to {market}, which had been {}'s household's, stopped: \
+                     nobody was left who could run them.",
+                    self.name_of(p)
+                ),
+                None => format!(
+                    "The motor cart's runs to {market} stopped: nobody was left who could run \
+                     them."
+                ),
+            },
         };
         self.chronicle_push(
             ctx.now,

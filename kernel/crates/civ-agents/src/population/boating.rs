@@ -1241,11 +1241,24 @@ impl Population {
         if self.household(household).is_some() || !Self::holds_anything(ctx, household) {
             return;
         }
+        self.keep_whose(household, who);
+    }
+
+    /// Keeps `who` as the person whose household `household` was, unless one is kept already.
+    pub(super) fn keep_whose(&mut self, household: PermanentId, who: PermanentId) {
         if let Err(i) = self
             .gone_households
             .binary_search_by_key(&household, |g| g.0)
         {
             self.gone_households.insert(i, (household, who));
+        }
+    }
+
+    /// Forgets whose household `household` was where nothing is left in its name, or it is a
+    /// household still.
+    pub(super) fn forget_unheld(&mut self, ctx: &Ctx, household: PermanentId) {
+        if self.household(household).is_some() || !Self::holds_anything(ctx, household) {
+            self.gone_households.retain(|g| g.0 != household);
         }
     }
 

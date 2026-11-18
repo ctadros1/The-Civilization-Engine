@@ -1165,12 +1165,13 @@ impl Population {
         self.hand_over_land(ctx, from, Some(to), fields);
         self.vehicles_pass(ctx, (from, to), near, door);
         self.lines_pass(ctx, (from, to), near);
-        self.road_lines_pass(ctx, (from, to));
-        // Whose what did not pass had been: its elder when its people went.
-        self.note_gone(ctx, from, elder);
         if near {
             self.works_pass(ctx, (from, to));
         }
+        // Whose what did not pass had been: its elder when its people went. Kept before its road
+        // line passes or ends, so that an ending can say whose it was.
+        self.note_gone(ctx, from, elder);
+        self.road_lines_pass(ctx, (from, to));
     }
 
     /// The land of household `from` passes to `to`, or, with no one to take it, stays as it is
@@ -1327,9 +1328,11 @@ impl Population {
         self.succeed(ctx, household, heirs);
         match heir {
             Some(to) => {
+                // Whose what does not pass had been: the last of it, kept before the merge so that
+                // its road line's ending can say so, and forgotten if nothing is left in its name.
+                self.keep_whose(household, last);
                 self.merge_household(ctx, household, to, false, ResidenceWhy::TakenIn);
-                // Whose what did not pass had been: the last of it.
-                self.note_gone(ctx, household, Some(last));
+                self.forget_unheld(ctx, household);
             }
             None => {
                 self.settle_household(ctx, household);

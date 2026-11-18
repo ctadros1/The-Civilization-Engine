@@ -1345,7 +1345,7 @@ impl Population {
             })
             .collect();
         let body = self.polities[pi].body;
-        // A council counts its seats, filled or empty (M7a slice BO); a forum, those who sit.
+        // A council counts those seated (research 09-05 §1.4, §2.1); a forum, those who sit.
         let eligible = match forum {
             Some(_) => heard_by.len() as u32,
             None => body.eligible(members.len()),

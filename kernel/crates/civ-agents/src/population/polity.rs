@@ -5665,7 +5665,7 @@ impl Population {
         };
         law.stances = stances;
         let (present, support, oppose) = law.counts();
-        // A council counts its seats, filled or empty (M7a slice BO, ADR-0024 §1).
+        // A council counts those seated, not its empty seats (research 09-05 §1.4, §2.1).
         let eligible = body.eligible(members.len());
         let outcome = body.decide(eligible, present, support, oppose);
         law.eligible = eligible;

@@ -191,8 +191,9 @@ impl Population {
             .rev()
             .find(|e| e.called >= since && e.seats == seats);
         let lead = i64::from(ep.stand_days) + 2;
-        // Too few seated for its quorum: the seats are called again, `stand_days` after the last
-        // election closed, and those seated give theirs up to the winners as at a term's end.
+        // Too few seated for a quorum of all its seats: the seats are called again, `stand_days`
+        // after the last election closed, and those seated give theirs up to the winners as at a
+        // term's end (ADR-0024 §1: an empty seat stays empty until its election).
         let too_few = (polity.seated.len() as u32) < polity.body.quorum(u32::from(seats.n));
         let why = match last {
             None => ElectionWhy::Amendment,
@@ -1443,8 +1444,8 @@ mod tests {
         assert_eq!(lot.changes_from(&body), 1);
         assert_eq!(
             body.eligible(2),
-            5,
-            "a council counts its seats, filled or not"
+            2,
+            "a council counts the seats filled, not those left empty"
         );
         assert_eq!(gathering.eligible(40), 40);
     }

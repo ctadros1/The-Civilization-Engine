@@ -1811,11 +1811,13 @@ impl Body {
         }
     }
 
-    /// How many make up the body for its quorum, `members` of it there now: for a council, its
-    /// seats, filled or empty (ADR-0024 §1: a body short of quorum fails, recorded); else its
-    /// members.
+    /// How many make up the body for its quorum, `members` of it now: its members, which for a
+    /// council are those seated, not the seats left empty (research 09-05 §1.4: a quorum's
+    /// denominator is a rule's own choice, and §2.1's "senators chosen and sworn" counts no
+    /// vacancy; ADR-0024 §1: an empty seat stays empty until its election, and a body short of
+    /// quorum fails, recorded). With no seat filled, nobody is there to decide.
     pub fn eligible(&self, members: usize) -> u32 {
-        self.seats.map_or(members as u32, |s| u32::from(s.n))
+        members as u32
     }
 
     /// How many changes body `self` is from `current` (research 09-05 §3.9: reform changes a
@@ -4347,7 +4349,7 @@ pub(crate) mod tests {
         polity.lapse_seats_beyond_custom();
         assert_eq!(polity.seated.len(), 5);
         assert!(polity.seated.iter().all(|s| s.seat < 5));
-        assert!(polity.seated.len() as u32 <= polity.body.eligible(0));
+        assert!(polity.seated.len() as u32 <= polity.body.eligible(polity.seated.len()));
         // A body that is no longer a council keeps no seats.
         polity.body.seats = None;
         polity.lapse_seats_beyond_custom();

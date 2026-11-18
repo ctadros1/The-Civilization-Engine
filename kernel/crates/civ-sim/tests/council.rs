@@ -1082,3 +1082,98 @@ fn a_council_is_forecast_to_cost_its_sitters_their_evenings_against_the_custom_i
         "{spared} spared, {charged} charged"
     );
 }
+
+/// A council of nine with three seats filled (homelab diagnosis of the notables' fixture 1: nine
+/// seats for nine elders, one to three ever standing, and every sitting short of a quorum of
+/// nine): its quorum is counted against those seated (research 09-05 §1.4, §2.1), so the three
+/// who sit decide; with no seat filled, nobody is there to decide, and it fails for want of
+/// a quorum, recorded.
+#[test]
+fn a_council_with_seats_left_empty_sits_on_a_quorum_of_those_seated() {
+    let mut sim = world_with(content(), 3);
+    sim.advance_minutes(DAY).expect("advances");
+    let seats = Seats {
+        n: 9,
+        electorate: Membership::Elders,
+        method: SeatMethod::Election,
+        term_days: 360,
+        by_settlement: false,
+    };
+    let body = Body {
+        members: Membership::Seats,
+        quorum_share: 0.5,
+        pass: PassRule::MoreForThanAgainst,
+        seats: Some(seats),
+    };
+    let now = sim.now();
+    let (pi, settlement) = (0, sim.people().polities[0].settlement);
+    let mut adults: Vec<PermanentId> = sim
+        .people()
+        .people
+        .iter()
+        .filter(|(_, p)| p.age_years(now) >= 18.0)
+        .map(|(_, p)| p.id)
+        .collect();
+    adults.sort_unstable();
+    let three: Vec<PermanentId> = adults.iter().copied().take(3).collect();
+    assert_eq!(three.len(), 3);
+    let seat = |pop: &mut civ_agents::Population, holders: &[PermanentId]| {
+        pop.polities[pi].seated = holders
+            .iter()
+            .enumerate()
+            .map(|(k, &holder)| civ_agents::seats::Seat {
+                seat: k as u8,
+                holder,
+                since: now.day_index(),
+                until: now.day_index() + 360,
+                election: 1,
+            })
+            .collect();
+    };
+    {
+        let pop = sim.people_mut_for_tests();
+        let polity = &mut pop.polities[pi];
+        polity.body = body;
+        polity.versions.push(CustomVersion {
+            body,
+            since: now,
+            law: None,
+            seized_by: Some(three[0]),
+        });
+        seat(pop, &three);
+    }
+    let policies = sim.rules().catalog.policies.clone();
+    let store = policies
+        .iter()
+        .position(|d| d.id == "core:policy/common_store")
+        .expect("in core") as u16;
+    let sit = |sim: &mut Sim, present: Vec<PermanentId>| {
+        let id = sim
+            .with_ctx_for_tests(|pop, ctx| {
+                pop.propose_for_tests(ctx, settlement, three[0], store, IssueKind::FoodShort)
+            })
+            .expect("proposed");
+        let today = sim.now().day_index();
+        let g = sim.people_mut_for_tests().polities[pi]
+            .gathering
+            .as_mut()
+            .expect("called");
+        g.day = today;
+        g.present = present;
+        sim.with_ctx_for_tests(|pop, ctx| pop.decide_gathering_for_tests(ctx, pi));
+        sim.people().polities[pi]
+            .laws
+            .iter()
+            .find(|l| l.id == id)
+            .expect("the law")
+            .clone()
+    };
+    // The three seated come: they are all its members, and decide.
+    let decided = sit(&mut sim, three.clone());
+    assert_eq!(decided.eligible, 3, "{decided:?}");
+    assert_ne!(decided.outcome, Some(Outcome::NoQuorum), "{decided:?}");
+    // With every seat empty, nobody sits to decide.
+    seat(sim.people_mut_for_tests(), &[]);
+    let decided = sit(&mut sim, Vec::new());
+    assert_eq!(decided.outcome, Some(Outcome::NoQuorum), "{decided:?}");
+}

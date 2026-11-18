@@ -10400,6 +10400,25 @@ and M6a gives rivers a daily flow.
       built for the owner to decide. **Tested:** the civ-host lib tests (with the deliberator's
       seven), polity, forum, council and faction, the civ-agents unit tests; the ten smoke seeds
       pass; fmt and clippy clean. No existing assertion moved.
+    - *Backlog E, coverage, eighth pass (2026-11-18): how an office held for a term ends
+      otherwise.* Tests only; no code changed, and no fault found. The seventh pass's three
+      untested paths, now pinned (polity, three new): a holder who goes before their term ends
+      is told how they went, never that their term ended, even when they go the day before its
+      end so that both fall at the same midnight: "they died", "they left the valley" (exiled
+      beyond the map) and "they no longer live there" (their household gone from the
+      settlement), one lapse told each time, and a holder who dies with 360 days to run is told
+      the same; a plan's keeper whose term ends lets go of it as one who died or left does, the
+      plan staying in force with nobody to give its parcels, nothing told then or the day after,
+      its term still recorded (the content gives no plan a tenure, since `tenure` is for an
+      office keeping the store or the watch or hearing cases, so a term reaches a plan only as a
+      test sets one: the path is unreachable from content as built); and a store whose keeper's
+      term ends is brought up to date at that midnight, its food having spoiled at the keeper's
+      roof's rate until then (of grain set at the term's eve, what the roofed half-life gives to
+      within 1e-9 kg, above what the open one would), and at the open rate after. The last fails
+      with the settling taken out (checked by hand and put back: the store is then left last
+      brought up to date two days before). **Tested:** polity (13), the civ-agents unit tests,
+      the civ-host lib tests; the ten smoke seeds pass; fmt and clippy clean. No existing
+      assertion moved.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

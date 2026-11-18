@@ -949,8 +949,13 @@ struct Offices {
 
 impl Offices {
     fn new() -> Offices {
+        Offices::after(1)
+    }
+
+    /// As [`Offices::new`], `days` on rather than one.
+    fn after(days: i64) -> Offices {
         let mut sim = world_with(content(), 3);
-        sim.advance_minutes(DAY).expect("advances");
+        sim.advance_minutes(days * DAY).expect("advances");
         let now = sim.now();
         let adult = sim.rules().people.family.independent_age;
         let mut adults: Vec<(civ_core::PermanentId, civ_core::PermanentId)> = sim
@@ -1254,4 +1259,197 @@ fn a_lot_draws_only_the_living_who_stood_and_a_term_still_running_bars_no_one() 
     let l = o.fill(id);
     assert_eq!((l.status, l.holder), (LawStatus::Lapsed, None));
     assert_eq!(o.sim.people().polities[0].term_of(id), None);
+}
+
+/// How an office held for a term lapses when its holder goes before it ends (M7a slice BN; ADR-0013
+/// §2): the chronicle tells how they went, not that their term ended, even where they go on the day
+/// before its end, so that both fall at the same midnight: they died, they left the valley (exiled
+/// beyond the map), or they no longer live there (their household gone from the settlement). A
+/// holder who dies with most of their term to run is told the same.
+#[test]
+fn a_holder_gone_before_their_term_ends_is_told_how_they_went() {
+    let cases: [(&str, i64); 4] = [("died", 1), ("died", 360), ("exiled", 1), ("moved", 1)];
+    for (how, left) in cases {
+        let mut o = Offices::new();
+        let year = o.at("core:policy/your_year_keeping_the_store");
+        let keeper = o.adults[1].0;
+        let id = o.push(1, year, Some(keeper), &[]);
+        o.fill(id);
+        let today = o.sim.now().day_index();
+        o.sim.people_mut_for_tests().polities[0].set_term(
+            id,
+            civ_agents::polity::Term {
+                until: today + left,
+                pool: 0,
+            },
+        );
+        match how {
+            "died" => o
+                .sim
+                .with_ctx_for_tests(|pop, ctx| pop.die_for_tests(ctx, keeper)),
+            "exiled" => o
+                .sim
+                .with_ctx_for_tests(|pop, ctx| pop.exile_for_tests(ctx, keeper)),
+            _ => {
+                let pop = o.sim.people_mut_for_tests();
+                let home = pop.person(keeper).expect("alive").household;
+                for (_, x) in pop.households.iter_mut() {
+                    if x.id == home {
+                        x.settlement = None;
+                    }
+                }
+            }
+        }
+        assert_eq!(
+            o.law(id).status,
+            LawStatus::InForce,
+            "{how}: until midnight"
+        );
+        let lapses = o.told(ChronicleKind::LawLapsed);
+        o.sim.advance_minutes(DAY).expect("advances");
+        assert_eq!(o.sim.now().day_index(), today + 1);
+        assert_eq!(o.law(id).status, LawStatus::Lapsed, "{how}, {left}");
+        let pop = o.sim.people();
+        let told: Vec<_> = pop
+            .chronicle
+            .iter()
+            .filter(|e| e.kind == ChronicleKind::LawLapsed && e.people == vec![keeper])
+            .collect();
+        assert_eq!(told.len(), 1, "{how}, {left}: {told:?}");
+        assert_eq!(o.told(ChronicleKind::LawLapsed), lapses + 1);
+        let words = match how {
+            "died" => ": they died.",
+            "exiled" => ": they left the valley.",
+            _ => ": they no longer live there.",
+        };
+        assert!(
+            told[0]
+                .name
+                .contains(" no longer keeps the common store at ")
+                && told[0].name.ends_with(words)
+                && !told[0].name.contains("their term ended"),
+            "{how}, {left}: {}",
+            told[0].name
+        );
+        match how {
+            "died" => assert!(pop.person(keeper).is_none()),
+            "exiled" => assert!(pop.person(keeper).is_none(), "beyond the map"),
+            _ => {}
+        }
+    }
+}
+
+/// A plan's keeper whose term ends (M8c slice CU; M7a slice BN): the content gives no plan a
+/// tenure (`tenure` is for an office that keeps the store, the watch or hears cases), so a term
+/// reaches a plan only as set here. At its end the keeper lets go of it as one who died or left
+/// does: the plan stays in force with nobody to give its parcels, and nothing is told, then or
+/// after; its term stays recorded.
+#[test]
+fn a_plan_s_keeper_whose_term_ends_leaves_the_plan_in_force_with_no_keeper() {
+    let mut o = Offices::new();
+    let plan = o.at("core:policy/yours_to_plan_the_ground");
+    let def = &o.sim.rules().catalog.policies[usize::from(plan)];
+    assert_eq!(def.kind, PolicyKind::Plan);
+    assert!(def.tenure.is_none(), "the content gives a plan no tenure");
+    assert!(
+        o.sim.people().polities[0]
+            .laws
+            .iter()
+            .all(|l| l.kind != PolicyKind::Plan),
+        "no plan of the world's own"
+    );
+    let keeper = o.adults[1].0;
+    let id = o.push(1, plan, Some(keeper), &[]);
+    let today = o.sim.now().day_index();
+    o.sim.people_mut_for_tests().polities[0].set_term(
+        id,
+        civ_agents::polity::Term {
+            until: today + 1,
+            pool: 0,
+        },
+    );
+    let told = o.sim.people().chronicle.len();
+    o.sim.advance_minutes(DAY).expect("advances");
+    assert_eq!(o.sim.now().day_index(), today + 1);
+    let l = o.law(id);
+    assert_eq!((l.status, l.holder), (LawStatus::InForce, None));
+    assert!(o.sim.people().person(keeper).is_some(), "they live on");
+    let since: Vec<_> = o.sim.people().chronicle[told..]
+        .iter()
+        .filter(|e| e.people.contains(&keeper) || e.kind == ChronicleKind::LawLapsed)
+        .collect();
+    assert!(since.is_empty(), "nothing is told: {since:?}");
+    o.sim.advance_minutes(DAY).expect("advances");
+    let l = o.law(id);
+    assert_eq!((l.status, l.holder), (LawStatus::InForce, None));
+    assert_eq!(
+        o.sim.people().polities[0].term_of(id).map(|t| t.until),
+        Some(today + 1)
+    );
+}
+
+/// A store kept for a term is brought up to date at the midnight the term ends (M7a slice BN;
+/// M4a slice Z's keeper): its food spoils at the keeper's roof's rate until that midnight and at
+/// the open rate from then, rather than the whole time since it was last brought up to date at
+/// the open rate.
+#[test]
+fn a_store_whose_keeper_s_term_ends_is_settled_under_their_roof_at_that_midnight() {
+    // Early November: the households are under their roofs.
+    let mut o = Offices::after(250);
+    let now = o.sim.now();
+    let pop = o.sim.people();
+    let keeper = o
+        .adults
+        .iter()
+        .find(|a| pop.household(a.1).is_some_and(|x| x.sheltered))
+        .map(|a| a.0)
+        .expect("someone lives under a roof");
+    assert!(pop.polities[0].storehouse.is_none(), "no storehouse's roof");
+    let grain = o.sim.rules().catalog.crops[0].good;
+    let g = o.sim.rules().catalog.goods[grain].clone();
+    assert!(g.sheltered_half_life_days > 0.0 && g.sheltered_half_life_days > g.half_life_days);
+    let store = o.at("core:policy/common_store");
+    let year = o.at("core:policy/your_year_keeping_the_store");
+    for l in &mut o.sim.people_mut_for_tests().polities[0].laws {
+        if l.status == LawStatus::InForce && l.kind == PolicyKind::CommonStore {
+            l.status = LawStatus::Lapsed;
+        }
+    }
+    o.push(0, store, None, &[]);
+    let id = o.push(1, year, Some(keeper), &[]);
+    let today = now.day_index();
+    {
+        let p = &mut o.sim.people_mut_for_tests().polities[0];
+        p.set_term(
+            id,
+            civ_agents::polity::Term {
+                until: today + 2,
+                pool: 0,
+            },
+        );
+        p.stores.resize(grain + 1, 0.0);
+        p.stores[grain] = 1000.0;
+        p.stores_at = now;
+    }
+    o.sim.advance_minutes(DAY).expect("advances");
+    assert_eq!(o.law(id).status, LawStatus::InForce);
+    let p = &o.sim.people().polities[0];
+    let (kg, at) = (p.stores[grain], p.stores_at);
+    o.sim.advance_minutes(DAY).expect("advances");
+    assert_eq!(o.law(id).status, LawStatus::Lapsed);
+    let p = &o.sim.people().polities[0];
+    let midnight = civ_core::SimTime::from_minutes((today + 2) * civ_core::time::MINUTES_PER_DAY);
+    assert_eq!(
+        p.stores_at, midnight,
+        "brought up to date as the term ended"
+    );
+    let days = (midnight.minutes() - at.minutes()) as f64 / 1440.0;
+    let roofed = kg * 0.5f64.powf(days / g.sheltered_half_life_days);
+    let open = kg * 0.5f64.powf(days / g.half_life_days);
+    assert!(
+        (p.stores[grain] - roofed).abs() < 1e-9,
+        "{} kg held, {roofed} kg roofed, {open} kg open, over {days} days from {kg} kg",
+        p.stores[grain]
+    );
+    assert!(roofed > open);
 }

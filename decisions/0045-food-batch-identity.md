@@ -240,3 +240,9 @@ Anyone who eats that day from a store that a maker's work went into takes a haza
 - **Eating:** both loads fall by the share eaten. Only `Food` doses the eater.
 - **A world with no disease:** every save section's digest matches the build before, but `meta`,
   which holds the wall-clock time the world was made.
+
+## Slice 3 as built (2026-11-18)
+
+A test only. Food paid into a polity's store and handed out as relief moves by the same
+`transfer` hook, so a carrier's bread reaches those relieved and doses them. The levy takes
+threshed grain, which carries no load (only recipe outputs do).

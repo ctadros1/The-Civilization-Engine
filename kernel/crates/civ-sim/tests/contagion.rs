@@ -1989,3 +1989,159 @@ fn a_household_s_own_bread_doses_its_neighbours_and_not_its_own() {
         food_only(&mut sim, home, &[]);
     }
 }
+
+/// Food that carries what its maker shed, slice 3 (ADR-0045): the common store and relief, end
+/// to end through the ledger. A carrier's household bakes; its bread paid into the polity's store
+/// (as a duty in kind is, by the same `transfer`) carries the load there as food got from
+/// elsewhere, its own household's "made here" mark gone with it; the store's relief to a
+/// household short of food hands the load on with the bread, less what spoiled in the store; and
+/// one of the relieved household who eats it is dosed. Every state saves and loads exactly.
+#[test]
+fn bread_a_carrier_baked_reaches_the_relieved_through_the_common_store() {
+    use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome, PolicyKind};
+    let mut sim = village(6);
+    // Once the band has settled and keeps a polity.
+    for _ in 0..30 {
+        if !sim.people().polities.is_empty() {
+            break;
+        }
+        sim.advance_minutes(DAY).expect("lives");
+    }
+    assert!(!sim.people().polities.is_empty(), "a polity");
+    let d = cholera(&sim);
+    let rules = sim.rules().clone();
+    let good = |id: &str| {
+        rules
+            .catalog
+            .goods
+            .iter()
+            .position(|g| g.id == id)
+            .expect(id)
+    };
+    let (bread, flour, firewood) = (
+        good("core:good/bread"),
+        good("core:good/flour"),
+        good("core:good/firewood"),
+    );
+    let bake = rules
+        .catalog
+        .activities
+        .iter()
+        .position(|a| a.id == "core:activity/bake_bread")
+        .expect("baking");
+    let store_law = rules
+        .catalog
+        .policies
+        .iter()
+        .position(|p| p.kind == PolicyKind::CommonStore)
+        .expect("a common store") as u16;
+    let hh = households(&sim);
+    let (home, needy) = (hh[0], hh[1]);
+    let baker = a_silent_carrier(&mut sim, home);
+    // The polity keeps a common store by law, holding nothing yet.
+    let now = sim.now();
+    let id = sim.allocate_id_for_tests();
+    let polity = {
+        let pop = sim.people_mut_for_tests();
+        let p = &mut pop.polities[0];
+        for l in &mut p.laws {
+            if l.status == LawStatus::InForce && l.kind == PolicyKind::CommonStore {
+                l.status = LawStatus::Lapsed;
+            }
+        }
+        p.laws.push(Law {
+            id,
+            policy: store_law,
+            kind: PolicyKind::CommonStore,
+            levy_share: 0.1,
+            holder: None,
+            relief_days: 5.0,
+            sanction: Default::default(),
+            hours: (0, 0),
+            status: LawStatus::InForce,
+            sponsor: baker,
+            proposed: now,
+            issue: IssueKind::FoodShort,
+            meets_day: now.day_index(),
+            decided: Some(now),
+            outcome: Some(Outcome::Passed),
+            eligible: 0,
+            stances: Vec::new(),
+            known: Vec::new(),
+            compliance: Default::default(),
+            watch: Default::default(),
+            body: None,
+            ends: None,
+            agreement: None,
+            target: None,
+        });
+        p.stores = vec![0.0; rules.catalog.goods.len()];
+        p.stores_at = now;
+        p.id
+    };
+    // A carrier's hour of baking at home.
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == home {
+            x.stores.resize(rules.catalog.goods.len(), 0.0);
+            x.stores[flour] = 20.0;
+            x.stores[firewood] = 20.0;
+        }
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.make_work_for_tests(ctx, baker, bake, 60));
+    let kg = sim.people().household(home).expect("home").stores[bread];
+    let made = food_load(&sim, d);
+    assert!(kg > 0.0 && made > 0.0, "loaded bread at home");
+    // All of it paid into the store: there it is food got from elsewhere.
+    assert!(
+        sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, home, polity, bread, kg))
+    );
+    let in_store = Node::Food {
+        holder: polity,
+        good: bread as u16,
+    };
+    assert!((sim.people().contagion.load(in_store, d) - made).abs() < 1e-12);
+    assert_eq!(
+        sim.people().contagion.load(
+            Node::MadeFood {
+                holder: polity,
+                good: bread as u16
+            },
+            d
+        ),
+        0.0
+    );
+    let loaded = reloaded(&mut sim);
+    assert_eq!(loaded.people().contagion, sim.people().contagion);
+    // A household with no food asks for relief: the store hands out bread, and the load with it.
+    food_only(&mut sim, needy, &[]);
+    sim.advance_minutes(60).expect("lives");
+    sim.with_ctx_for_tests(|pop, ctx| pop.give_relief_for_tests(ctx, polity, needy));
+    let given = sim.people().household(needy).expect("needy").stores[bread];
+    assert!(given > 0.0, "relieved with bread");
+    let theirs = Node::Food {
+        holder: needy,
+        good: bread as u16,
+    };
+    let at_needy = sim.people().contagion.load(theirs, d);
+    assert!(at_needy > 0.0, "the load came with it");
+    assert!(
+        food_load(&sim, d) <= made + 1e-12,
+        "never more than was made: {} of {made}",
+        food_load(&sim, d)
+    );
+    let loaded = reloaded(&mut sim);
+    assert_eq!(loaded.people().contagion, sim.people().contagion);
+    // One of the relieved household eats it, and is dosed.
+    let eater = household(&sim, needy).1[0];
+    sim.with_ctx_for_tests(|pop, ctx| pop.eat_for_tests(ctx, eater));
+    assert!(
+        sim.people()
+            .contagion
+            .eaten
+            .iter()
+            .any(|e| e.0 == eater && e.1 == d && e.3 == theirs && e.2 > 0.0),
+        "dosed with the store's bread"
+    );
+    let loaded = reloaded(&mut sim);
+    assert_eq!(loaded.people().contagion, sim.people().contagion);
+}

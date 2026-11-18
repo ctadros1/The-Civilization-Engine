@@ -10733,6 +10733,22 @@ and M6a gives rivers a daily flow.
       sickness, firms, fetch, sewers, wells, roundtrip and determinism, civ-agents unit and
       civ-host lib; the ten smoke seeds pass; fmt, clippy and `gen-schema --check` clean. No
       existing assertion moved.
+    - *ADR-0045, slice 3 (2026-11-18): the common store and relief.* A test only; no code changed.
+      Food paid into a polity's store (a duty in kind, a gift) and handed out as relief moves by
+      the same `transfer` slices 1 and 2 hooked, so the store carries a load as food got from
+      elsewhere (a household's "made here" mark does not survive leaving it), relief hands it on
+      with the bread, less what spoiled in the store meanwhile (reconciled, never made), and one
+      relieved who eats it is dosed. The levy takes threshed grain only, which no maker's hands
+      load (only recipe outputs carry a load), so it carries none; a duty paid in a bought good
+      can carry one. **Tested:** contagion (18, one new: a carrier's hour of home baking, all of it
+      paid into the store, is there whole as food got and none as made here; a household with no
+      food is relieved with bread and the load comes with it, never more than was made; one of it
+      who eats is dosed with the store's bread; each state saves and loads exactly; it fails
+      without the transfer hook); sickness, polity, credit, roundtrip and determinism, civ-agents
+      unit and civ-host lib; the ten smoke seeds pass; fmt and clippy clean. **Not yet:** slice 4, the
+      calibration of `food_share` against 05-07 §2's luncheon and the observer's view; a food
+      load counted toward an outbreak's disease left (`disease_left` reads heaps, wells, stores
+      and ground, not food).
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

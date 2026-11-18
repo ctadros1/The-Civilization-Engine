@@ -381,6 +381,11 @@ pub struct SewerFile {
     /// The hours of a capable adult's work clearing a tonne of its deposit takes (content API 223).
     #[serde(default)]
     pub clear_h_t: f32,
+    /// The share of what passes a kilometre of wall worn through that leaks into the ground there,
+    /// in proportion to each metre's wear (content API 231; research 12-11 §4); absent or 0,
+    /// nothing leaks.
+    #[serde(default)]
+    pub leak_per_km: f32,
 }
 
 /// The terms of a polity's notes in a policy file (content API 196, M10d slice EJ).
@@ -756,6 +761,7 @@ impl PolicyFile {
             deposit_share: s.deposit_share,
             block_kg_m: s.block_kg_m,
             clear_h_t: s.clear_h_t,
+            leak_per_km: s.leak_per_km,
         })
     }
 
@@ -1507,6 +1513,7 @@ impl PolicyFile {
                     ("deposit_share", s.deposit_share, 0.0, 1.0),
                     ("block_kg_m", s.block_kg_m, 0.0, 100_000.0),
                     ("clear_h_t", s.clear_h_t, 0.0, 1000.0),
+                    ("leak_per_km", s.leak_per_km, 0.0, 1.0),
                 ] {
                     if !(v.is_finite() && (lo..=hi).contains(&v)) {
                         p.push(format!(

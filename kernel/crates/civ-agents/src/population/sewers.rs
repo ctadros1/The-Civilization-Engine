@@ -1063,6 +1063,18 @@ impl Population {
             if amount <= 0.0 {
                 continue;
             }
+            // On its way down from the home's drain, worn walls let a share out into the ground
+            // (research 12-11 §4), which seeps toward the wells and rivers below as a heap's does.
+            let decay = ctx
+                .catalog
+                .diseases
+                .get(usize::from(m.disease))
+                .map_or(1.0, |d| d.decay_per_day);
+            let (amount, leaks) = self.sewer_leaks(ctx, &def, (pi, si), h, amount);
+            for (cell, leaked) in leaks {
+                let at = cell_centre(ctx.map, cell as usize);
+                self.seep_toward(ctx, day, (Node::Sewer(id), m.disease), at, leaked, decay);
+            }
             let settled = amount * self.settles(&def, pi, si).unwrap_or(0.0);
             if settled > 0.0 {
                 let to = Node::Sewer(id);
@@ -1106,6 +1118,52 @@ impl Population {
                 },
             );
         }
+    }
+
+    /// What of `amount` doses entering sewer `si` of polity `pi` at household `h`'s drain reaches
+    /// its outfall, and what leaks out on the way, by route cell (research 12-11 §4): at each cell
+    /// from where the drain enters down to the outfall, what is left loses the share
+    /// `leak_per_km` × the cell's wall loss × its metres ÷ 1,000 into the ground there. A new
+    /// sewer, or a template with no `leak_per_km`, leaks nothing.
+    fn sewer_leaks(
+        &self,
+        ctx: &Ctx,
+        def: &SewerDef,
+        (pi, si): (usize, usize),
+        h: PermanentId,
+        amount: f64,
+    ) -> (f64, Vec<(u32, f64)>) {
+        let mut leaks = Vec::new();
+        if def.leak_per_km <= 0.0 {
+            return (amount, leaks);
+        }
+        let s = &self.polities[pi].sewers[si];
+        let Some(home) = self.household(h).map(|x| cell_of(ctx.map, x.home) as u32) else {
+            return (amount, leaks);
+        };
+        let Some(entry) = Self::entry(ctx.map, &s.cells, home) else {
+            return (amount, leaks);
+        };
+        let per_m = f64::from(def.leak_per_km) / 1000.0;
+        // A cell's metres, as `cell_metres` measures them: half the run to it and half from it.
+        let runs = civ_land::rail::runs(&s.cells, ctx.map.width, f64::from(ctx.map.cell_size_m));
+        let metres = |i: usize| {
+            (runs.get(i).copied().unwrap_or(0.0) + runs.get(i + 1).copied().unwrap_or(0.0)) / 2.0
+        };
+        let mut left = amount;
+        for i in entry..s.cells.len() {
+            let loss = f64::from(s.loss.get(i).copied().unwrap_or(0.0)).clamp(0.0, 1.0);
+            if loss <= 0.0 {
+                continue;
+            }
+            let share = (per_m * loss * metres(i)).min(1.0);
+            let leaked = left * share;
+            if leaked > 0.0 {
+                leaks.push((s.cells[i], leaked));
+                left -= leaked;
+            }
+        }
+        (left, leaks)
     }
 
     /// The metres along sewer `s`'s route from its cell `i` down to its outfall.

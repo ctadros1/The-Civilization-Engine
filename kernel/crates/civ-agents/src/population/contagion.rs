@@ -308,45 +308,66 @@ impl Population {
             if seeped <= 0.0 {
                 continue;
             }
-            let aq = &ctx.land.water.aquifer;
-            let unit = aq
-                .unit
-                .get(ctx.land.patches.of_cell(cell, ctx.map.width))
-                .map_or(0, |&u| usize::from(u));
-            let k = aq.unit_k_m_day.get(unit).copied().unwrap_or(0.0);
-            let n = aq.unit_sy.get(unit).copied().unwrap_or(0.1).max(1e-3);
-            let links = self.receptors(ctx, home, z, params.link_radius_m);
-            let total: f64 = links.iter().map(|r| 1.0 / r.distance_m).sum();
-            for r in links {
-                // 03-02 §1.6: water moves at K·i/n, so it takes d·n/(K·i).
-                let i = (r.drop_m / r.distance_m).max(params.min_gradient);
-                let tau = r.distance_m * n / (k * i).max(1e-12);
-                if !tau.is_finite() || tau > LONGEST_TRAVEL_DAYS {
-                    continue;
-                }
-                let amount = seeped * params.capture_share / r.distance_m / total
-                    * (-def.decay_per_day * tau).exp();
-                if amount <= NEGLIGIBLE {
-                    continue;
-                }
-                self.contagion.transit.push(Transit {
-                    arrives: day + (tau.ceil() as i64).max(1),
-                    disease,
-                    from,
-                    to: r.node,
-                    amount,
-                });
-                self.contagion.record(Move {
-                    day,
-                    disease,
-                    how: How::Seep,
-                    from,
-                    to: r.node,
-                    amount,
-                });
-            }
+            self.seep_toward(ctx, day, (from, disease), home, seeped, def.decay_per_day);
         }
         self.contagion.prune_moves(day);
+    }
+
+    /// `seeped` doses of disease `disease` from node `from` soak into the ground at `place` on
+    /// `day`: `capture_share` of them toward the wells and rivers within `link_radius_m` and no
+    /// higher, split by nearness, each arriving after 03-02 §1.6's travel time through the unit
+    /// of ground there, less what dies on the way at `decay_per_day` (M6a slice AZ); the rest
+    /// soaks away. A heap's seepage goes this way, and so does what leaks from a sewer's worn
+    /// walls (research 12-11 §4).
+    pub(super) fn seep_toward(
+        &mut self,
+        ctx: &Ctx,
+        day: i64,
+        (from, disease): (Node, u16),
+        place: (f32, f32),
+        seeped: f64,
+        decay_per_day: f64,
+    ) {
+        let params = &ctx.land_params.contamination;
+        let cell = cell_of(ctx.map, place);
+        let z = f64::from(ctx.map.elevation[cell]);
+        let aq = &ctx.land.water.aquifer;
+        let unit = aq
+            .unit
+            .get(ctx.land.patches.of_cell(cell, ctx.map.width))
+            .map_or(0, |&u| usize::from(u));
+        let k = aq.unit_k_m_day.get(unit).copied().unwrap_or(0.0);
+        let n = aq.unit_sy.get(unit).copied().unwrap_or(0.1).max(1e-3);
+        let links = self.receptors(ctx, place, z, params.link_radius_m);
+        let total: f64 = links.iter().map(|r| 1.0 / r.distance_m).sum();
+        for r in links {
+            // 03-02 §1.6: water moves at K·i/n, so it takes d·n/(K·i).
+            let i = (r.drop_m / r.distance_m).max(params.min_gradient);
+            let tau = r.distance_m * n / (k * i).max(1e-12);
+            if !tau.is_finite() || tau > LONGEST_TRAVEL_DAYS {
+                continue;
+            }
+            let amount =
+                seeped * params.capture_share / r.distance_m / total * (-decay_per_day * tau).exp();
+            if amount <= NEGLIGIBLE {
+                continue;
+            }
+            self.contagion.transit.push(Transit {
+                arrives: day + (tau.ceil() as i64).max(1),
+                disease,
+                from,
+                to: r.node,
+                amount,
+            });
+            self.contagion.record(Move {
+                day,
+                disease,
+                how: How::Seep,
+                from,
+                to: r.node,
+                amount,
+            });
+        }
     }
 
     /// The day's turn for loads now, whatever else the day does: for tests.

@@ -931,7 +931,9 @@ pub struct RoundDef {
 /// settles as the good `sludge`; the people whose discharge a hectare of a sewage farm takes
 /// (ADR-0044 §4; 0: no farm); and its wear and silt (ADR-0044 §5): the share of what enters a day
 /// that stays in it as deposit (0: none), the deposit a metre holds before it is blocked,
-/// kilograms, and the hours clearing a tonne of it takes.
+/// kilograms, and the hours clearing a tonne of it takes; and its leakage (research 12-11 §4):
+/// the share of what passes a kilometre of wall worn through that leaks out into the ground
+/// there (0: none), in proportion to each metre's wear.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SewerDef {
     pub walls: Vec<usize>,
@@ -951,6 +953,7 @@ pub struct SewerDef {
     pub deposit_share: f32,
     pub block_kg_m: f32,
     pub clear_h_t: f32,
+    pub leak_per_km: f32,
 }
 
 /// Why a connection's share did or did not go into its sewer on a day (ADR-0041 §2).

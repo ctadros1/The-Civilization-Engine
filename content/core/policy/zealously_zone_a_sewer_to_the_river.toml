@@ -55,6 +55,13 @@ farm_people_ha = 100.0
 deposit_share = 0.02
 block_kg_m = 20.0
 clear_h_t = 10.0
+# Leakage through worn walls (content API 231; research 12-11): what passes a metre of its route
+# leaks a tenth a kilometre times that metre's wall loss into the ground there, which seeps toward
+# the wells and rivers below it as a heap's seepage does. An estimate anchored to measurements: a
+# 2 km reach of unknown condition leaked 9.9 % of its flow by tracer (12-11 §1.1), so a 2 km sewer
+# at half wear leaks about a tenth; a village's 300 m at half wear about 1.5 %, within the 1-5 % of
+# dry-weather flow the reviews give; a new sewer nothing.
+leak_per_km = 0.1
 
 # An authoring judgement, not a measurement, as for a line laid together: a share of every
 # household's hours is asked, for cleaner homes.

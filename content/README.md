@@ -2123,6 +2123,16 @@ blocks at 20 kg a metre and clears at 10 hours a tonne: design priors (research 
 12-08 found no deposition or clearing rate; ADR-0010 §2's 8 hours a cubic metre of digging is
 near), so a sewer of 500 m at its 1,000 kg a day blocks in about 500 days unless cleared.
 
+Content API 231 (research 12-11) adds `leak_per_km` (0–1; absent or 0, nothing leaks) to a
+`lay_sewer` template's `[sewer]` table: the share of what passes a kilometre of wall worn through
+that leaks into the ground there. A load entering at a home's drain loses, at each route cell from
+there down to the outfall, `leak_per_km` × the cell's wall loss × its metres ÷ 1,000 of what is left
+of it; what leaks soaks in at that cell and goes toward the wells and rivers within reach and no
+higher by the paths a heap's seepage takes, named as the sewer's. The core's sewer leaks 0.1 a
+kilometre, an estimate anchored to a 2 km reach of unknown condition that leaked 9.9 % of its flow
+by tracer: a 2 km sewer at half wear leaks about a tenth, a village's 300 m about 1.5 %, a new one
+nothing.
+
 Content API 224 (backlog D; ADR-0021 §7) adds the issue `closing_unsuspected`: a closing of a
 source of water (`close_source`) is in force, and nobody of the polity's households holds any
 longer, from their own tally, that the water there sickens. A `repeal` template may answer it as

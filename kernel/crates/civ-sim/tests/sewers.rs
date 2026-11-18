@@ -1915,3 +1915,141 @@ fn a_connections_days_unserved_count_each_day_once_and_afresh_each_year() {
     assert_eq!(broken(&sim), vec![1, 1, 1], "counted afresh");
     saves_and_goes_on_alike(&mut sim, DAY);
 }
+
+/// Leakage through worn walls (research 12-11 §4; content API 231): a load entering at a home's
+/// drain loses, at each route cell from there down to the outfall, `leak_per_km` × the cell's wall
+/// loss × its metres ÷ 1,000 of what is left of it, into the ground at that cell; the rest reaches
+/// the outfall's reach. What leaks seeps toward a well within reach and no higher by the paths a
+/// heap's seepage takes, named as the sewer's, and arrives there in time. A sewer as new leaks
+/// nothing. It saves and loads exactly.
+#[test]
+fn worn_walls_let_a_share_of_what_passes_into_the_ground_toward_a_well() {
+    let (mut sim, homes, sewer, _) = three_homes_sewered();
+    let def = sewer_def(&sim);
+    assert!((def.leak_per_km - 0.1).abs() < 1e-6, "the core's estimate");
+    let d = cholera(&sim);
+    let s = sim.people().polities[0].sewers[0].clone();
+    let h = homes[0];
+    let at = entry(&sim, h).expect("its drain enters");
+    let shed = 10_000.0;
+    // As new: all of it reaches the river.
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_day_for_tests(ctx, &[(h, d, shed)]));
+    let reach = sim.people().contagion.load(Node::Reach(s.reach), d);
+    assert!((reach - shed).abs() < 1e-6, "{reach} of {shed}");
+    // Worn to half along its length.
+    sim.people_mut_for_tests().polities[0].sewers[0].loss = vec![0.5; s.cells.len()];
+    // An open well where the drain enters, its mouth 2 m lower, and another as low 12 m away:
+    // through this ground (a clay's 6 mm a day) what soaks in reaches the near one in days, and
+    // dies on the way to the far one (12-11 §3: a narrow zone).
+    let cell = s.cells[at];
+    let (x, y) = corner_cm(&sim, cell);
+    let ground = sim.map().elevation[cell as usize] - 2.0;
+    let now = sim.now();
+    let far = sim.allocate_id_for_tests();
+    let id = sim.allocate_id_for_tests();
+    for (well, dx, dy) in [(far, 1200, 0), (id, 300, 300)] {
+        sim.land_mut_for_tests().wells.list.push(Well {
+            id: well,
+            system: 0,
+            cell,
+            rect: RectCm {
+                x: x + dx,
+                y: y + dy,
+                w: 200,
+                h: 200,
+            },
+            household: homes[1],
+            polity: None,
+            ground_m: ground,
+            depth_m: 6.0,
+            target_m: 6.0,
+            work_h: 100.0,
+            skill_h: 0.0,
+            quality: 0.8,
+            loss: 0.0,
+            mend_h: 0.0,
+            cover_h: 0.0,
+            covered: false,
+            worth: 0.0,
+            level_m: f64::from(ground) - 3.0,
+            level_at: now,
+            drawn_l: 0.0,
+            begun: now,
+            state: WellState::Open { since: now },
+            crew: (0, 0),
+        });
+    }
+    // The share each cell lets out, from the drain down.
+    let per_m = f64::from(def.leak_per_km) / 1000.0;
+    let mut left = shed;
+    for i in at..s.cells.len() {
+        left -= left * (per_m * 0.5 * cell_metres(&sim, i)).min(1.0);
+    }
+    let leaked = shed - left;
+    let length: f64 = (at..s.cells.len()).map(|i| cell_metres(&sim, i)).sum();
+    eprintln!(
+        "{length:.0} m from the drain down at half wear: {leaked:.0} of {shed:.0} doses leak ({:.2} %)",
+        100.0 * leaked / shed
+    );
+    assert!(leaked > 0.0);
+    sim.people_mut_for_tests()
+        .contagion
+        .take(Node::Reach(s.reach), d, 1.0);
+    let day = sim.now().day_index();
+    sim.with_ctx_for_tests(|pop, ctx| pop.sewer_day_for_tests(ctx, &[(h, d, shed)]));
+    let c = &sim.people().contagion;
+    let reach = c.load(Node::Reach(s.reach), d);
+    assert!(
+        (reach - left).abs() < 1e-6,
+        "{reach} reached the river, {left} expected"
+    );
+    // What leaked seeps toward the well, named as the sewer's, and is on its way.
+    let seeped: f64 = c
+        .moves
+        .iter()
+        .filter(|m| {
+            m.day == day
+                && m.how == How::Seep
+                && m.from == Node::Sewer(sewer)
+                && m.to == Node::Well(id)
+        })
+        .map(|m| m.amount)
+        .sum();
+    assert!(seeped > 0.0, "it seeps toward the well");
+    assert!(
+        !c.moves.iter().any(|m| m.to == Node::Well(far)),
+        "nothing reaches the well 12 m off alive"
+    );
+    let underway: f64 = c
+        .transit
+        .iter()
+        .filter(|t| t.from == Node::Sewer(sewer) && t.to == Node::Well(id))
+        .map(|t| t.amount)
+        .sum();
+    assert!((underway - seeped).abs() < 1e-9, "{underway} {seeped}");
+    let capture = sim.rules().land.contamination.capture_share;
+    assert!(
+        seeped <= leaked * capture + 1e-9,
+        "at most its capture share"
+    );
+    let arrives = c
+        .transit
+        .iter()
+        .filter(|t| t.to == Node::Well(id))
+        .map(|t| t.arrives)
+        .min()
+        .expect("arriving");
+    saves_and_goes_on_alike(&mut sim, DAY);
+    // It arrives at the well on its day.
+    sim.advance_minutes((arrives - day + 1) * DAY)
+        .expect("lives");
+    let arrived: f64 = sim
+        .people()
+        .contagion
+        .moves
+        .iter()
+        .filter(|m| m.how == How::Arrived && m.from == Node::Sewer(sewer) && m.to == Node::Well(id))
+        .map(|m| m.amount)
+        .sum();
+    assert!(arrived > 0.0, "it reached the well");
+}

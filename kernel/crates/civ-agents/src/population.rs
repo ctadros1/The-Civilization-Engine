@@ -851,6 +851,9 @@ pub struct Population {
     /// disease that passes by water (ADR-0021 §4: shedding goes to the ground where they work):
     /// at midnight their day's shedding is shared between those fields and their heap.
     pub worked: Vec<(PermanentId, PermanentId, f32)>,
+    /// Likewise the hours they worked on other ground today, by map cell: at a pit or a deposit,
+    /// a gathering block, or a way under work (ADR-0021 §4).
+    pub worked_ground: Vec<(PermanentId, u32, f32)>,
     /// What each money is worth to each household from its use as money, by household and money
     /// (M10d slice EF, first part; ADR-0035 §12): built at midnight.
     pub money: Vec<crate::market::MoneyBelief>,
@@ -6577,6 +6580,8 @@ impl Population {
             p.act.step_started,
             p.household,
         );
+        // Where they stand: at a work step, the place they walked to.
+        let at = p.pos;
         // The technique the work needs, found before the work changes what it is aimed at.
         let technique = match (step, def.as_ref()) {
             (Some(Step::Work { .. }), Some(d)) => self.technique_for(ctx, d, act_target, household),
@@ -6651,6 +6656,8 @@ impl Population {
                             .get(res.good)
                             .map_or(0.0, |g| kcal * g.kcal_per_kg);
                         self.log_work(crate::uses::Place::Patch(patch), hh_id, who, now, kcal);
+                        // Where they shed while they gather (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, hours);
                     }
                 }
                 // Digging at a deposit's pit (M3b slice Q, ADR-0010 §2).
@@ -6693,6 +6700,8 @@ impl Population {
                         }
                         let place = crate::uses::Place::Deposit(deposit);
                         self.log_work(place, household, who, now, 0.0);
+                        // Where they shed while they dig (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 // Picking over a heap or a tip (ADR-0044 §2).
@@ -6886,6 +6895,8 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let household = p.household;
                         self.way_work(ctx, household, way, hours);
+                        // Where they shed while they work on it (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 Some(Behavior::Boat | Behavior::Cart) => {

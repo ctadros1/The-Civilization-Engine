@@ -172,8 +172,61 @@ impl Population {
         field: PermanentId,
         hours: f64,
     ) {
+        if hours <= 0.0 || !self.sheds_by_water(ctx, who) {
+            return;
+        }
+        match self.worked.iter_mut().find(|w| w.0 == who && w.1 == field) {
+            Some(w) => w.2 += hours as f32,
+            None => self.worked.push((who, field, hours as f32)),
+        }
+    }
+
+    /// Someone, `who`, worked on the ground at `at` for `hours` today, at a pit or a deposit, a
+    /// gathering block or a way under work: kept by its land cell for midnight if they shed a
+    /// disease that passes by water today, as [`Population::note_worked`] keeps a field (ADR-0021
+    /// §4). Off the land (fishing from a bank, say), nothing is kept and they shed at home.
+    pub(super) fn note_worked_ground(
+        &mut self,
+        ctx: &Ctx,
+        who: PermanentId,
+        at: (f32, f32),
+        hours: f64,
+    ) {
+        if hours <= 0.0 || !self.sheds_by_water(ctx, who) {
+            return;
+        }
+        let cell = cell_of(ctx.map, at);
+        if ctx.map.water.get(cell) != Some(&civ_world::WATER_LAND) {
+            return;
+        }
+        let cell = cell as u32;
+        match self
+            .worked_ground
+            .iter_mut()
+            .find(|w| w.0 == who && w.1 == cell)
+        {
+            Some(w) => w.2 += hours as f32,
+            None => self.worked_ground.push((who, cell, hours as f32)),
+        }
+    }
+
+    /// Someone, `who`, worked on the ground at `at` for `hours` today, as
+    /// [`Population::note_worked_ground`] keeps it: for tests.
+    #[doc(hidden)]
+    pub fn note_worked_ground_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        who: PermanentId,
+        at: (f32, f32),
+        hours: f64,
+    ) {
+        self.note_worked_ground(ctx, who, at, hours);
+    }
+
+    /// Whether `who` sheds a disease that passes by water today.
+    fn sheds_by_water(&self, ctx: &Ctx, who: PermanentId) -> bool {
         let day = ctx.now.day_index();
-        let sheds = self.sickness.running().iter().any(|&i| {
+        self.sickness.running().iter().any(|&i| {
             self.sickness.get(i).is_some_and(|e| {
                 e.person == who
                     && e.shedding(day)
@@ -183,14 +236,7 @@ impl Population {
                         .get(usize::from(e.disease))
                         .is_some_and(|d| d.passes_by(crate::params::DiseaseRoute::Water))
             })
-        });
-        if !sheds || hours <= 0.0 {
-            return;
-        }
-        match self.worked.iter_mut().find(|w| w.0 == who && w.1 == field) {
-            Some(w) => w.2 += hours as f32,
-            None => self.worked.push((who, field, hours as f32)),
-        }
+        })
     }
 
     /// Someone, `who`, worked field `field` for `hours` today, as [`Population::note_worked`]
@@ -211,6 +257,7 @@ impl Population {
         ctx: &Ctx,
         day: i64,
         worked: &[(PermanentId, PermanentId, f32)],
+        worked_ground: &[(PermanentId, u32, f32)],
     ) {
         let diseases = &ctx.catalog.diseases;
         // What passed the rivers yesterday has gone downstream.
@@ -282,6 +329,22 @@ impl Population {
                     amount: there,
                 });
             }
+            // And on other ground they worked: a pit or a deposit, a gathering block, a way.
+            for &(_, cell, hours) in worked_ground.iter().filter(|w| w.0 == e.person) {
+                let there = (amount * f64::from(hours) / 24.0).min(home);
+                if there <= 0.0 {
+                    continue;
+                }
+                home -= there;
+                shed.push(Move {
+                    day,
+                    disease: e.disease,
+                    how: How::Shed,
+                    from: Node::Person(e.person),
+                    to: Node::Ground(cell),
+                    amount: there,
+                });
+            }
             shed.push(Move {
                 day,
                 disease: e.disease,
@@ -307,7 +370,12 @@ impl Population {
             .contagion
             .loads
             .keys()
-            .filter(|&&(node, _)| matches!(node, Node::Midden(_) | Node::Tip(_) | Node::Field(_)))
+            .filter(|&&(node, _)| {
+                matches!(
+                    node,
+                    Node::Midden(_) | Node::Tip(_) | Node::Field(_) | Node::Ground(_)
+                )
+            })
             .copied()
             .collect();
         for (from, disease) in heaps {
@@ -324,6 +392,8 @@ impl Population {
                     .iter()
                     .find(|f| f.id == field)
                     .map(|f| f.rect.centre_m()),
+                // Ground someone shedding worked, from its cell's middle (ADR-0021 §4).
+                Node::Ground(cell) => Some(cell_centre(ctx.map, cell as usize)),
                 _ => None,
             };
             let Some(home) = place else {
@@ -445,7 +515,8 @@ impl Population {
     #[doc(hidden)]
     pub fn contagion_day_for_tests(&mut self, ctx: &Ctx) {
         let worked = std::mem::take(&mut self.worked);
-        self.contagion_day(ctx, ctx.now.day_index(), &worked);
+        let ground = std::mem::take(&mut self.worked_ground);
+        self.contagion_day(ctx, ctx.now.day_index(), &worked, &ground);
     }
 
     /// Someone of `household` drew `share` of the water standing in well `well` on `day`: the

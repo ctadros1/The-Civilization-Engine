@@ -34,6 +34,10 @@ pub enum Node {
     /// A field a sewer's flow is led onto as a farm, by the field's id (ADR-0044 §4): what the
     /// farm took, washing and soaking in from the field's place as a tip's does.
     Field(PermanentId),
+    /// The ground at a map cell where someone shedding worked (ADR-0021 §4): at a pit or a
+    /// deposit, a gathering block or a way under work, washing and soaking in from the cell's
+    /// middle as a heap does.
+    Ground(u32),
 }
 
 impl Node {
@@ -49,6 +53,7 @@ impl Node {
             Node::Refuse(h) => (6, h.get()),
             Node::Sewer(s) => (7, s.get()),
             Node::Field(f) => (8, f.get()),
+            Node::Ground(c) => (9, u64::from(c)),
         }
     }
 
@@ -64,6 +69,7 @@ impl Node {
             6 => Node::Refuse(PermanentId::from_raw(n)?),
             7 => Node::Sewer(PermanentId::from_raw(n)?),
             8 => Node::Field(PermanentId::from_raw(n)?),
+            9 => Node::Ground(u32::try_from(n).ok()?),
             _ => return None,
         })
     }

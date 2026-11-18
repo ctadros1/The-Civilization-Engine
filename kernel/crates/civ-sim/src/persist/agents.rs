@@ -1240,6 +1240,7 @@ pub(super) fn decode<R: Read + Seek>(
         people.met = decode_met(&bytes)?;
         people.staffed = decode_staffed(&bytes)?;
         people.worked = decode_worked(&bytes)?;
+        people.worked_ground = decode_worked_ground(&bytes)?;
     }
     // What people shed (schema 76); before, nothing lies anywhere.
     if schema >= Schema::V76 {
@@ -14485,6 +14486,14 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
             .collect();
         fbb.create_vector(&worked)
     });
+    let worked_ground = (!people.worked_ground.is_empty()).then(|| {
+        let worked: Vec<_> = people
+            .worked_ground
+            .iter()
+            .map(|&(p, c, h)| save::GroundHoursSave::new(p.get(), c, h))
+            .collect();
+        fbb.create_vector(&worked)
+    });
     // Today's company kept (schema 198, M10c slice ED).
     let met: Vec<_> = people
         .met
@@ -14506,6 +14515,7 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
             admitted: Some(admitted),
             staffed: Some(staffed),
             worked,
+            worked_ground,
             inoculation_calls: Some(inoculation_calls),
             vaccinated: Some(vaccinated),
             register: Some(register),
@@ -15416,6 +15426,17 @@ fn decode_worked(bytes: &[u8]) -> Result<Vec<(PermanentId, PermanentId, f32)>, L
                 w.hours(),
             ))
         })
+        .collect())
+}
+
+fn decode_worked_ground(bytes: &[u8]) -> Result<Vec<(PermanentId, u32, f32)>, LoadError> {
+    let root =
+        section_root::<save::SicknessSave>(bytes).map_err(|e| unreadable(SECTION_SICKNESS, &e))?;
+    Ok(root
+        .worked_ground()
+        .into_iter()
+        .flatten()
+        .filter_map(|w| Some((PermanentId::from_raw(w.person())?, w.cell(), w.hours())))
         .collect())
 }
 

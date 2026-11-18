@@ -1261,3 +1261,102 @@ fn someone_shedding_who_worked_a_field_sheds_that_share_of_the_day_there() {
     let (_, worked_field, hours) = kept.expect("a day's field work kept");
     assert!(hours > 0.0 && sim.land().fields.iter().any(|f| f.id == worked_field));
 }
+
+/// Shedding where people work, on other ground (ADR-0021 §4, slice 2): someone shedding by water
+/// who worked at a pit, a gathering block or a way sheds that share of the day into the ground of
+/// the cell they worked on, by its hours over 24, the rest to their heap; that ground then washes
+/// and seeps as a heap does, from the cell's middle. Hours worked off the land are not kept. The
+/// hours kept save and load exactly, and a lived day's work keeps them.
+#[test]
+fn someone_shedding_who_worked_other_ground_sheds_that_share_of_the_day_there() {
+    let mut sim = village(6);
+    let d = cholera(&sim);
+    let daily = sim.rules().catalog.diseases[usize::from(d)].shed_silent_per_day;
+    let h = households(&sim)[0];
+    let (home, members) = household(&sim, h);
+    let who = members[0];
+    let day = sim.now().day_index();
+    sim.people_mut_for_tests().sickness.add(
+        who,
+        Some(h),
+        d,
+        day,
+        Acquired::Observer { influence: 0 },
+        civ_agents::sickness::Course {
+            shed_from: day,
+            shed_until: day + 60,
+            ill_from: day,
+            ill_until: day,
+            severe: false,
+            immune_until: day + 365,
+        },
+    );
+    // A land cell 40 m from home, and the nearest cell off the land, if any.
+    let map = sim.map();
+    let land_at = (0..16)
+        .map(|k| f32::from(k as u8) * std::f32::consts::PI / 8.0)
+        .map(|a| (home.0 + 40.0 * a.cos(), home.1 + 40.0 * a.sin()))
+        .find(|&at| map.water[cell_of(map, at)] == civ_world::WATER_LAND)
+        .expect("land near home");
+    let water_at = (0..map.water.len())
+        .find(|&c| map.water[c] != civ_world::WATER_LAND)
+        .map(|c| civ_agents::population::cell_centre(map, c));
+    let cell = cell_of(map, land_at) as u32;
+    let note = |sim: &mut Sim, at: (f32, f32), hours: f64| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.note_worked_ground_for_tests(ctx, who, at, hours));
+    };
+    note(&mut sim, land_at, 4.0);
+    note(&mut sim, land_at, 2.0);
+    if let Some(w) = water_at {
+        note(&mut sim, w, 5.0);
+    }
+    assert_eq!(
+        sim.people().worked_ground,
+        vec![(who, cell, 6.0)],
+        "land only, summed"
+    );
+    let loaded = reloaded(&mut sim);
+    assert_eq!(loaded.people().worked_ground, sim.people().worked_ground);
+    sim.land_mut_for_tests().water.last_surplus_mm = 0.0;
+    let today = sim.now().day_index();
+    sim.with_ctx_for_tests(|pop, ctx| pop.contagion_day_for_tests(ctx));
+    let c = &sim.people().contagion;
+    let shed = |to: Node| -> f64 {
+        c.moves
+            .iter()
+            .filter(|m| m.day == today && m.how == How::Shed && m.to == to)
+            .map(|m| m.amount)
+            .sum()
+    };
+    let (there, at_home) = (shed(Node::Ground(cell)), shed(Node::Midden(h)));
+    assert!(
+        (there - daily * 6.0 / 24.0).abs() < 1e-9,
+        "{there} on the ground of {daily}"
+    );
+    assert!(
+        (there + at_home - daily).abs() < 1e-9,
+        "the day's shedding whole"
+    );
+    let seep = sim.rules().land.contamination.seep_per_day;
+    let held = c.load(Node::Ground(cell), d);
+    assert!(
+        (held - there * (1.0 - seep)).abs() < 1e-9,
+        "{held} held of {there}"
+    );
+    assert!(sim.people().worked_ground.is_empty(), "drawn at midnight");
+    // It saves and loads with the ground's load.
+    let loaded = reloaded(&mut sim);
+    assert_eq!(loaded.people().contagion, sim.people().contagion);
+    // Lived on, a day's gathering, digging or work on a way keeps their hours by the evening.
+    let mut kept = None;
+    for _ in 0..30 {
+        to_morning(&mut sim, 20 * 60);
+        if let Some(w) = sim.people().worked_ground.iter().find(|w| w.0 == who) {
+            kept = Some(*w);
+            break;
+        }
+    }
+    let (_, worked_cell, hours) = kept.expect("a day's work on the ground kept");
+    assert!(hours > 0.0);
+    assert_eq!(sim.map().water[worked_cell as usize], civ_world::WATER_LAND);
+}

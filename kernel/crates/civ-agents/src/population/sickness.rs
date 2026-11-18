@@ -52,6 +52,7 @@ impl Population {
         let staffed = std::mem::take(&mut self.staffed);
         // And yesterday's hours at fields of those who shed by water (ADR-0021 §4).
         let worked = std::mem::take(&mut self.worked);
+        let worked_ground = std::mem::take(&mut self.worked_ground);
         if self.sickness.quiet() && self.contagion.is_empty() && !self.sickness.outbreak_open() {
             return;
         }
@@ -124,7 +125,7 @@ impl Population {
         // The sickhouses' admissions and discharges (M10c slice EE, fourth part).
         self.admit_day(ctx, day);
         // What people shed moves through the ground and water (step two).
-        self.contagion_day(ctx, day, &worked);
+        self.contagion_day(ctx, day, &worked, &worked_ground);
         // Who is exposed today, by every route, before anyone takes it: nobody infected today
         // sheds before tomorrow, so no chain runs within a day.
         let mut shedding: BTreeMap<(PermanentId, u16), u32> = BTreeMap::new();
@@ -309,7 +310,8 @@ impl Population {
 
     /// What is left of `disease` with settlement `settlement`'s households (anyone's for `None`),
     /// doses: in their heaps and stored water, in their wells and their polity's and its tips, on
-    /// their sewage farms, and on its way through the ground to any of those. What reaches a river is carried off by the next day.
+    /// their sewage farms and the fields they work, in the ground nearer their hearth than any
+    /// other where someone shedding worked, and on its way through the ground to any of those. What reaches a river is carried off by the next day.
     fn disease_left(&self, ctx: &Ctx, disease: u16, settlement: Option<PermanentId>) -> f64 {
         let ours = |h: PermanentId| {
             settlement.is_none_or(|s| self.household(h).is_some_and(|x| x.settlement == Some(s)))
@@ -331,6 +333,21 @@ impl Population {
                 .iter()
                 .find(|x| x.id == f)
                 .is_some_and(|x| ours(x.household)),
+            // Ground someone shedding worked (ADR-0021 §4), by the settlement whose hearth lies
+            // nearest it.
+            Node::Ground(c) => settlement.is_none_or(|s| {
+                let at = cell_centre(ctx.map, c as usize);
+                ctx.land
+                    .settlements
+                    .iter()
+                    .min_by(|a, b| {
+                        let d = |x: &civ_land::Settlement| {
+                            f64::from((x.hearth_m.0 - at.0).hypot(x.hearth_m.1 - at.1))
+                        };
+                        d(a).total_cmp(&d(b))
+                    })
+                    .is_some_and(|x| x.id == s)
+            }),
             Node::Well(w) => ctx.land.wells.get(w).is_some_and(|w| {
                 ours(w.household)
                     || w.polity.is_some_and(|p| {

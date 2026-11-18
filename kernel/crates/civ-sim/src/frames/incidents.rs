@@ -1526,6 +1526,8 @@ fn node_words(sim: &Sim, node: Node) -> String {
                 },
             )
         }
+        // Ground someone shedding worked (ADR-0021 §4).
+        Node::Ground(_) => "ground where someone worked".to_owned(),
         other => source_words(sim, other),
     }
 }

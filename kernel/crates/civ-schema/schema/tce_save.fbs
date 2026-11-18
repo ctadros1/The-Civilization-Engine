@@ -1600,6 +1600,21 @@ table LawSave {
   yearly_days: float (id: 60);
 }
 
+// A forum's sitting (ADR-0025 §1; appended within the unreleased saves 220): the evening its
+// cases sit at the seat's hearth, each case with those drawn to hear it, and those who came.
+table SittingCaseSave {
+  case_number: uint (id: 0);
+  sitters: [ulong] (id: 1);
+}
+
+table SittingSave {
+  day: long (id: 0);
+  cases: [SittingCaseSave] (id: 1);
+  present: [ulong] (id: 2);
+  // The forum law that sits.
+  law: ulong (id: 3);
+}
+
 // `law` 0: called on cases only (M4b slice AB).
 table GatheringSave {
   law: ulong (id: 0);
@@ -1735,6 +1750,9 @@ table PolitySave {
   // Schema 220 (ADR-0041 §1-§4; appended within the unreleased saves 220): the sewers its laws
   // lay, in the order begun; absent, none.
   sewers: [SewerSave] (id: 52);
+  // Schema 220 (ADR-0025 §1; appended within the unreleased saves 220): its forum's sitting
+  // tonight, or the last one; absent, none.
+  sitting: SittingSave (id: 53);
 }
 
 // A sewer a polity's law lays (schema 220, ADR-0041 §1-§4): its id (its settling tank's contagion

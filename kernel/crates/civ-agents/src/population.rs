@@ -4287,7 +4287,18 @@ impl Population {
             at_home: (pos.0 - hh.home.0).abs() < 1.0 && (pos.1 - hh.home.1).abs() < 1.0,
             home: supply_at,
             hearth: hh.settlement.zip(hearth),
-            gathering: self.gathering_facts(ctx, p.id, age, &hh, minute, evening_start),
+            // A gathering, or a forum's sitting, at the hearth tonight: one evening there serves
+            // both (ADR-0025 §1).
+            gathering: match (
+                self.gathering_facts(ctx, p.id, age, &hh, minute, evening_start),
+                self.sitting_facts(ctx, p.id, &hh, minute, evening_start),
+            ) {
+                (Some(g), Some(t)) => Some(decide::GatheringFacts {
+                    points: g.points.max(t.points),
+                    minutes: g.minutes.max(t.minutes),
+                }),
+                (g, t) => g.or(t),
+            },
             petition: self.petition_facts(ctx, p.id, age, &hh, minute, evening_start),
             poll: self.poll_facts(ctx, p.id, age, &hh, minute, evening_start),
             campaign: self.campaign_points(ctx, p.id),

@@ -2383,6 +2383,36 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let sewers = (!sewers.is_empty()).then(|| fbb.create_vector(&sewers));
+            // Its forum's sitting (ADR-0025 §1, appended within saves 220).
+            let sitting = p.sitting.as_ref().map(|t| {
+                let cases: Vec<_> = t
+                    .cases
+                    .iter()
+                    .map(|(case, sitters)| {
+                        let sitters: Vec<u64> = sitters.iter().map(|q| q.get()).collect();
+                        let sitters = fbb.create_vector(&sitters);
+                        save::SittingCaseSave::create(
+                            &mut fbb,
+                            &save::SittingCaseSaveArgs {
+                                case_number: *case,
+                                sitters: Some(sitters),
+                            },
+                        )
+                    })
+                    .collect();
+                let cases = fbb.create_vector(&cases);
+                let present: Vec<u64> = t.present.iter().map(|q| q.get()).collect();
+                let present = fbb.create_vector(&present);
+                save::SittingSave::create(
+                    &mut fbb,
+                    &save::SittingSaveArgs {
+                        law: t.law.get(),
+                        day: t.day,
+                        cases: Some(cases),
+                        present: Some(present),
+                    },
+                )
+            });
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -2460,6 +2490,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     tips,
                     rounds,
                     sewers,
+                    sitting,
                 },
             )
         })
@@ -2982,6 +3013,38 @@ fn decode_polities(
                     stakes,
                     present,
                     cases,
+                })
+            }
+        };
+        // Its forum's sitting (ADR-0025 §1, appended within saves 220): none, in older saves.
+        let sitting = match p.sitting() {
+            None => None,
+            Some(t) => {
+                let mut cases = Vec::new();
+                for c in t.cases().iter().flatten() {
+                    let mut sitters = Vec::new();
+                    for raw in c.sitters().iter().flatten() {
+                        sitters.push(required(raw, "someone sitting in a forum")?);
+                    }
+                    if !sitters.windows(2).all(|w| w[0] < w[1]) {
+                        return Err(bad(format!("polity {id}'s forum sitting is out of order")));
+                    }
+                    cases.push((c.case_number(), sitters));
+                }
+                let mut present = Vec::new();
+                for raw in t.present().iter().flatten() {
+                    present.push(required(raw, "someone at a forum's sitting")?);
+                }
+                if !cases.windows(2).all(|w| w[0].0 < w[1].0)
+                    || !present.windows(2).all(|w| w[0] < w[1])
+                {
+                    return Err(bad(format!("polity {id}'s forum sitting is out of order")));
+                }
+                Some(civ_agents::polity::Sitting {
+                    law: required(t.law(), "a forum's sitting's law")?,
+                    day: t.day(),
+                    cases,
+                    present,
                 })
             }
         };
@@ -3965,6 +4028,7 @@ fn decode_polities(
             tips,
             rounds,
             sewers,
+            sitting,
         });
     }
     Ok(out)

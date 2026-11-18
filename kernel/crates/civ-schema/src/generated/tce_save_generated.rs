@@ -44906,6 +44906,266 @@ impl ::core::fmt::Debug for LawSave<'_> {
       ds.finish()
   }
 }
+pub enum SittingCaseSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SittingCaseSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for SittingCaseSave<'a> {
+  type Inner = SittingCaseSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> SittingCaseSave<'a> {
+  pub const VT_CASE_NUMBER: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SITTERS: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    SittingCaseSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SittingCaseSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<SittingCaseSave<'bldr>> {
+    let mut builder = SittingCaseSaveBuilder::new(_fbb);
+    if let Some(x) = args.sitters { builder.add_sitters(x); }
+    builder.add_case_number(args.case_number);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn case_number(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SittingCaseSave::VT_CASE_NUMBER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn sitters(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(SittingCaseSave::VT_SITTERS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for SittingCaseSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("case_number", Self::VT_CASE_NUMBER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("sitters", Self::VT_SITTERS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SittingCaseSaveArgs<'a> {
+    pub case_number: u32,
+    pub sitters: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+}
+impl<'a> Default for SittingCaseSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SittingCaseSaveArgs {
+      case_number: 0,
+      sitters: None,
+    }
+  }
+}
+
+pub struct SittingCaseSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SittingCaseSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_case_number(&mut self, case_number: u32) {
+    self.fbb_.push_slot::<u32>(SittingCaseSave::VT_CASE_NUMBER, case_number, 0);
+  }
+  #[inline]
+  pub fn add_sitters(&mut self, sitters: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SittingCaseSave::VT_SITTERS, sitters);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SittingCaseSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SittingCaseSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<SittingCaseSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for SittingCaseSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("SittingCaseSave");
+      ds.field("case_number", &self.case_number());
+      ds.field("sitters", &self.sitters());
+      ds.finish()
+  }
+}
+pub enum SittingSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SittingSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for SittingSave<'a> {
+  type Inner = SittingSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> SittingSave<'a> {
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_CASES: ::flatbuffers::VOffsetT = 6;
+  pub const VT_PRESENT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    SittingSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SittingSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<SittingSave<'bldr>> {
+    let mut builder = SittingSaveBuilder::new(_fbb);
+    builder.add_law(args.law);
+    builder.add_day(args.day);
+    if let Some(x) = args.present { builder.add_present(x); }
+    if let Some(x) = args.cases { builder.add_cases(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(SittingSave::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn cases(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SittingCaseSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SittingCaseSave>>>>(SittingSave::VT_CASES, None)}
+  }
+  #[inline]
+  pub fn present(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(SittingSave::VT_PRESENT, None)}
+  }
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SittingSave::VT_LAW, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for SittingSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<SittingCaseSave>>>>("cases", Self::VT_CASES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("present", Self::VT_PRESENT, false)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SittingSaveArgs<'a> {
+    pub day: i64,
+    pub cases: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SittingCaseSave<'a>>>>>,
+    pub present: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub law: u64,
+}
+impl<'a> Default for SittingSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SittingSaveArgs {
+      day: 0,
+      cases: None,
+      present: None,
+      law: 0,
+    }
+  }
+}
+
+pub struct SittingSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SittingSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(SittingSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_cases(&mut self, cases: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<SittingCaseSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SittingSave::VT_CASES, cases);
+  }
+  #[inline]
+  pub fn add_present(&mut self, present: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SittingSave::VT_PRESENT, present);
+  }
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(SittingSave::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SittingSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SittingSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<SittingSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for SittingSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("SittingSave");
+      ds.field("day", &self.day());
+      ds.field("cases", &self.cases());
+      ds.field("present", &self.present());
+      ds.field("law", &self.law());
+      ds.finish()
+  }
+}
 pub enum GatheringSaveOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -45139,6 +45399,7 @@ impl<'a> PolitySave<'a> {
   pub const VT_TIPS: ::flatbuffers::VOffsetT = 104;
   pub const VT_ROUNDS: ::flatbuffers::VOffsetT = 106;
   pub const VT_SEWERS: ::flatbuffers::VOffsetT = 108;
+  pub const VT_SITTING: ::flatbuffers::VOffsetT = 110;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -45162,6 +45423,7 @@ impl<'a> PolitySave<'a> {
     builder.add_founded(args.founded);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.sitting { builder.add_sitting(x); }
     if let Some(x) = args.sewers { builder.add_sewers(x); }
     if let Some(x) = args.rounds { builder.add_rounds(x); }
     if let Some(x) = args.tips { builder.add_tips(x); }
@@ -45578,6 +45840,13 @@ impl<'a> PolitySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SewerSave>>>>(PolitySave::VT_SEWERS, None)}
   }
+  #[inline]
+  pub fn sitting(&self) -> Option<SittingSave<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<SittingSave>>(PolitySave::VT_SITTING, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolitySave<'_> {
@@ -45639,6 +45908,7 @@ impl ::flatbuffers::Verifiable for PolitySave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TipSave>>>>("tips", Self::VT_TIPS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RefuseRoundSave>>>>("rounds", Self::VT_ROUNDS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<SewerSave>>>>("sewers", Self::VT_SEWERS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<SittingSave>>("sitting", Self::VT_SITTING, false)?
      .finish();
     Ok(())
   }
@@ -45697,6 +45967,7 @@ pub struct PolitySaveArgs<'a> {
     pub tips: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TipSave<'a>>>>>,
     pub rounds: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RefuseRoundSave<'a>>>>>,
     pub sewers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SewerSave<'a>>>>>,
+    pub sitting: Option<::flatbuffers::WIPOffset<SittingSave<'a>>>,
 }
 impl<'a> Default for PolitySaveArgs<'a> {
   #[inline]
@@ -45755,6 +46026,7 @@ impl<'a> Default for PolitySaveArgs<'a> {
       tips: None,
       rounds: None,
       sewers: None,
+      sitting: None,
     }
   }
 }
@@ -45977,6 +46249,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_SEWERS, sewers);
   }
   #[inline]
+  pub fn add_sitting(&mut self, sitting: ::flatbuffers::WIPOffset<SittingSave<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<SittingSave>>(PolitySave::VT_SITTING, sitting);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitySaveBuilder {
@@ -46047,6 +46323,7 @@ impl ::core::fmt::Debug for PolitySave<'_> {
       ds.field("tips", &self.tips());
       ds.field("rounds", &self.rounds());
       ds.field("sewers", &self.sewers());
+      ds.field("sitting", &self.sitting());
       ds.finish()
   }
 }

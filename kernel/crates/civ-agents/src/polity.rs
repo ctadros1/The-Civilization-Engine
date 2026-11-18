@@ -2976,6 +2976,41 @@ pub struct Polity {
     pub rounds: Vec<RefuseRound>,
     /// The sewers its laws lay, in the order begun (ADR-0041 §1).
     pub sewers: Vec<Sewer>,
+    /// Its forum's sitting tonight, or the last one (ADR-0025 §1).
+    pub sitting: Option<Sitting>,
+}
+
+/// A forum's sitting (ADR-0025 §1): it sits the evening after a case is brought to it, at the
+/// seat's hearth, and those drawn to hear each case before it come, or do not. At the midnight
+/// after, each case is heard by those of its sitters who came.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Sitting {
+    /// The forum law that sits.
+    pub law: PermanentId,
+    /// The day of the evening it sits.
+    pub day: i64,
+    /// Each case before the forum that evening, in number order, with those drawn to hear it, in
+    /// id order.
+    pub cases: Vec<(u32, Vec<PermanentId>)>,
+    /// Those who came, in id order.
+    pub present: Vec<PermanentId>,
+}
+
+impl Sitting {
+    /// Whether `person` sits to hear any case at it.
+    pub fn sits(&self, person: PermanentId) -> bool {
+        self.cases
+            .iter()
+            .any(|c| c.1.binary_search(&person).is_ok())
+    }
+
+    /// Those drawn to hear case `case` at it, if it sat on it.
+    pub fn sitters(&self, case: u32) -> Option<&[PermanentId]> {
+        self.cases
+            .binary_search_by_key(&case, |c| c.0)
+            .ok()
+            .map(|i| self.cases[i].1.as_slice())
+    }
 }
 
 /// Years of [`Measured`] a polity keeps.
@@ -3438,6 +3473,7 @@ impl Polity {
             tips: Vec::new(),
             rounds: Vec::new(),
             sewers: Vec::new(),
+            sitting: None,
         }
     }
 

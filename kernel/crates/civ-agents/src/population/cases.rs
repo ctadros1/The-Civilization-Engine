@@ -725,11 +725,13 @@ impl Population {
     /// reading, -1 clearly none to 1 clearly a breach), what their household gains if the law no
     /// longer binds, their regard for the one who brought it against the law's sponsor, and the
     /// findings on challenges they recall. A finding strikes the law down: it binds no more.
+    #[allow(clippy::too_many_arguments)]
     fn hear_challenge(
         &mut self,
         ctx: &mut Ctx,
         pi: usize,
         heard_by: &[PermanentId],
+        drawn: usize,
         def: &ForumDef,
         holder: Option<PermanentId>,
         id: u32,
@@ -842,7 +844,7 @@ impl Population {
             .collect();
         let pairs: Vec<(PermanentId, Stance)> =
             stances.iter().map(|r| (r.person, r.stance)).collect();
-        let decided = crate::forum::forum_decides(def, heard_by, &pairs);
+        let decided = crate::forum::forum_decides(def, drawn, heard_by, &pairs);
         let who = format!(
             "{} at {name}",
             crate::forum::hearers_words(def, holder.map(|h| self.name_of(h)).as_deref())
@@ -888,9 +890,14 @@ impl Population {
                      It binds no more."
                 )
             }
-            Decided::NoQuorum => {
+            Decided::NoQuorum if heard_by.is_empty() => {
                 format!("Nobody sat to hear the challenge of {law_words} at {name}.")
             }
+            Decided::NoQuorum => format!(
+                "Too few sat to hear the challenge of {law_words} at {name}: {} of the {drawn} \
+                 drawn came.",
+                heard_by.len()
+            ),
             _ => format!(
                 "{who} did not find that {law_words} breaks the limit that {limit_words}: \
                  {tally}. It stands."
@@ -967,12 +974,74 @@ impl Population {
                 }
                 continue;
             };
-            let sitters = self.forum_sitters(ctx, pi, &def, holder, id);
+            // Those of the sitters drawn for it last evening who came (ADR-0025 §1); a case that
+            // sat before no sitting of this forum (one put before it today, or from a save made
+            // before forums sat) is heard by all its sitters, as before.
+            let sat = self.polities[pi]
+                .sitting
+                .as_ref()
+                .filter(|t| t.day == day - 1 && t.law == law)
+                .and_then(|t| {
+                    let drawn = t.sitters(id)?;
+                    let came: Vec<PermanentId> = drawn
+                        .iter()
+                        .copied()
+                        .filter(|p| t.present.binary_search(p).is_ok())
+                        .collect();
+                    Some((drawn.len(), came))
+                });
+            let (drawn, sitters) = match sat {
+                Some(s) => s,
+                None => {
+                    let all = self.forum_sitters(ctx, pi, &def, holder, id);
+                    (all.len(), all)
+                }
+            };
             if challenge {
-                self.hear_challenge(ctx, pi, &sitters, &def, holder, id);
+                self.hear_challenge(ctx, pi, &sitters, drawn, &def, holder, id);
             } else {
-                self.hear_case(ctx, pi, &sitters, Some((&def, holder)), id);
+                self.hear_case(ctx, pi, &sitters, Some((&def, holder, drawn)), id);
             }
+        }
+    }
+
+    /// Each polity's forum sits this evening (ADR-0025 §1: the evening after a case is brought
+    /// to it, at the seat's hearth): every case before its forum in force, each with those drawn
+    /// to hear it, who may come; with none before it, it does not sit. Run last at midnight, once
+    /// every case put before a forum today is before it.
+    pub(super) fn sit_forums(&mut self, ctx: &Ctx) {
+        let day = ctx.now.day_index();
+        for pi in 0..self.polities.len() {
+            let forum = self.polities[pi]
+                .forum(&ctx.catalog.policies)
+                .map(|(l, f)| (l.id, l.holder, f.clone()));
+            let tonight = forum.and_then(|(law, holder, def)| {
+                let ids: Vec<u32> = self
+                    .order
+                    .cases
+                    .iter()
+                    .filter(|c| {
+                        c.forum == Some(law)
+                            && c.stage == CaseStage::Open
+                            && (c.challenge.is_none() || def.review)
+                    })
+                    .map(|c| c.id)
+                    .collect();
+                if ids.is_empty() {
+                    return None;
+                }
+                let cases = ids
+                    .into_iter()
+                    .map(|id| (id, self.forum_sitters(ctx, pi, &def, holder, id)))
+                    .collect();
+                Some(crate::polity::Sitting {
+                    law,
+                    day,
+                    cases,
+                    present: Vec::new(),
+                })
+            });
+            self.polities[pi].sitting = tonight;
         }
     }
 
@@ -1053,7 +1122,7 @@ impl Population {
         ctx: &mut Ctx,
         pi: usize,
         heard_by: &[PermanentId],
-        forum: Option<(&ForumDef, Option<PermanentId>)>,
+        forum: Option<(&ForumDef, Option<PermanentId>, usize)>,
         id: u32,
     ) {
         let (now, params) = (ctx.now, ctx.params);
@@ -1212,7 +1281,9 @@ impl Population {
         // Its fact tags, and how far those hearing it follow the findings they remember (M7b
         // slice BS, ADR-0025 §2): the gathering's are informative.
         let tags = self.case_tags(ctx, pi, &c, outsider);
-        let authority = forum.map_or(crate::forum::Authority::Informative, |(d, _)| d.authority);
+        let authority = forum.map_or(crate::forum::Authority::Informative, |(d, _, _)| {
+            d.authority
+        });
         // Every finding recalled, (case, direction, share of tags matched).
         let mut recalled_all: Vec<(u32, f64, f64)> = Vec::new();
         let stances: Vec<CaseStance> = heard_by
@@ -1281,7 +1352,7 @@ impl Population {
         };
         // Who heard it, to begin a sentence (M7b slice BR).
         let who = match forum {
-            Some((def, holder)) => {
+            Some((def, holder, _)) => {
                 let holder = holder.map(|h| self.name_of(h));
                 format!(
                     "{} at {name}",
@@ -1298,7 +1369,7 @@ impl Population {
         case.heard = Some(now);
         let (came, support, oppose) = case.counts();
         let decided = match forum {
-            Some((def, _)) => crate::forum::forum_decides(def, heard_by, &pairs),
+            Some((def, _, drawn)) => crate::forum::forum_decides(def, drawn, heard_by, &pairs),
             None => body.decide(eligible, came, support, oppose),
         };
         let present = came;
@@ -1327,7 +1398,7 @@ impl Population {
             _ => String::new(),
         };
         let tally = match forum {
-            Some((def, _)) if def.seat == ForumSeat::Holder => "heard alone".to_owned(),
+            Some((def, _, _)) if def.seat == ForumSeat::Holder => "heard alone".to_owned(),
             Some(_) => format!("{support} for, {oppose} against, of {eligible} who sat"),
             None => format!("{support} for, {oppose} against; {present} of {eligible} adults came"),
         };
@@ -1418,9 +1489,15 @@ impl Population {
                 "{who} was evenly split on whether {accused_name} took food from \
                  {accuser_words}, so it found nothing: {tally}."
             ),
-            Decided::NoQuorum if forum.is_some() => format!(
+            Decided::NoQuorum if forum.is_some() && heard_by.is_empty() => format!(
                 "Nobody sat to hear the case {accuser_words} brought against {accused_name} at \
                  {name}."
+            ),
+            Decided::NoQuorum if forum.is_some() => format!(
+                "Too few sat to hear the case {accuser_words} brought against {accused_name} at \
+                 {name}: {} of the {} drawn came.",
+                heard_by.len(),
+                forum.map_or(0, |f| f.2)
             ),
             Decided::NoQuorum => format!(
                 "Too few came to the gathering at {name} to hear the case {accuser_words} \

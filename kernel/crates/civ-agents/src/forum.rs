@@ -259,11 +259,14 @@ pub fn heard_words(def: &ForumDef) -> String {
     }
 }
 
-/// How forum `def`, sat by `sitters` (all who sit come: a forum is called for the case), would
-/// decide on stances `stances` (person, stance): one holder alone finds only by standing for a
-/// finding; a panel or the elders by their rule, counting those who sit.
+/// How forum `def`, `drawn` of whom were to sit and `sitters` of whom came (ADR-0025 §1: it sits
+/// the evening after a case is brought, at the seat's hearth), would decide on stances `stances`
+/// (person, stance): nobody come, it hears nothing; one holder alone finds only by standing for a
+/// finding; a panel or the elders by their rule, those who came of those drawn against its
+/// quorum.
 pub fn forum_decides(
     def: &ForumDef,
+    drawn: usize,
     sitters: &[PermanentId],
     stances: &[(PermanentId, Stance)],
 ) -> Outcome {
@@ -290,7 +293,10 @@ pub fn forum_decides(
                 Outcome::Failed
             }
         }
-        ForumSeat::Panel | ForumSeat::Elders => def.rule.decide(n, n, support, oppose),
+        // Those who came of those drawn, against its rule's quorum (ADR-0025 §1: it sits).
+        ForumSeat::Panel | ForumSeat::Elders => {
+            def.rule.decide((drawn as u32).max(n), n, support, oppose)
+        }
     }
 }
 
@@ -326,17 +332,17 @@ mod tests {
         assert!(!holder.hears(PolicyKind::Curfew));
         let one = [id(1)];
         assert_eq!(
-            forum_decides(&holder, &one, &[(id(1), Stance::Support)]),
+            forum_decides(&holder, one.len(), &one, &[(id(1), Stance::Support)]),
             Outcome::Passed
         );
         assert_eq!(
-            forum_decides(&holder, &one, &[(id(1), Stance::Abstain)]),
+            forum_decides(&holder, one.len(), &one, &[(id(1), Stance::Abstain)]),
             Outcome::Failed,
             "a holder who will not stand for it finds nothing"
         );
         // Another's stance is not the holder's.
         assert_eq!(
-            forum_decides(&holder, &one, &[(id(2), Stance::Support)]),
+            forum_decides(&holder, one.len(), &one, &[(id(2), Stance::Support)]),
             Outcome::Failed
         );
         let panel = def(ForumSeat::Panel, PassRule::TwoThirds);
@@ -348,10 +354,22 @@ mod tests {
             (id(4), Stance::Oppose),
             (id(5), Stance::Oppose),
         ];
-        assert_eq!(forum_decides(&panel, &five, &three_two), Outcome::Failed);
+        assert_eq!(
+            forum_decides(&panel, five.len(), &five, &three_two),
+            Outcome::Failed
+        );
         let more = def(ForumSeat::Panel, PassRule::MoreForThanAgainst);
-        assert_eq!(forum_decides(&more, &five, &three_two), Outcome::Passed);
-        assert_eq!(forum_decides(&more, &[], &three_two), Outcome::NoQuorum);
+        assert_eq!(
+            forum_decides(&more, five.len(), &five, &three_two),
+            Outcome::Passed
+        );
+        assert_eq!(forum_decides(&more, 0, &[], &three_two), Outcome::NoQuorum);
+        // It sits (ADR-0025 §1): two who came of five drawn are short of a quorum of half; three
+        // are not.
+        let two = [id(1), id(2)];
+        assert_eq!(forum_decides(&more, 5, &two, &three_two), Outcome::NoQuorum);
+        let three = [id(1), id(2), id(4)];
+        assert_eq!(forum_decides(&more, 5, &three, &three_two), Outcome::Passed);
         assert_eq!(ForumSeat::from_name("elders"), Some(ForumSeat::Elders));
         assert_eq!(more.words(), "a panel of 5 drawn by lot for each sitting");
         assert_eq!(hearers_words(&holder, Some("Ada")), "The hearer Ada");

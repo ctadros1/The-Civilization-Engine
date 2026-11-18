@@ -1224,6 +1224,13 @@ fn a_forum_in_place_of_one_in_force_is_weighed_against_what_that_one_did() {
     use civ_agents::crime::CaseStance;
     let mut sim = world(3);
     sim.set_notable_tier(false);
+    // What the cases' findings bring alone: the evenings a forum's sitters give are weighed
+    // elsewhere (`a_forum_is_forecast_to_cost_its_sitters_their_evenings`).
+    sim.rules_mut_for_tests()
+        .expect("rules not yet shared")
+        .people
+        .elections
+        .w_evening = 0.0;
     let hh = households(&sim);
     assert!(hh.len() >= 4, "four households: {hh:?}");
     let settlement = sim.people().polities[0].settlement;
@@ -1420,6 +1427,173 @@ fn a_petition_for_another_hearer_weighs_the_one_in_force_by_what_they_found() {
     };
     assert!(stake(hh[0].0) > 0.0, "{m:?} {stakes:?}");
     assert!(stake(hh[1].0) < 0.0, "{m:?} {stakes:?}");
-    assert_eq!(stake(hh[2].0), 0.0, "{stakes:?}");
-    assert_eq!(stake(hh[3].0), 0.0, "{stakes:?}");
+    // The one named would give the evening the hearer in force gave (ADR-0025 §1): their
+    // household stands to lose it, the hearer's to be spared it, and nobody else sits.
+    assert!(stake(hh[2].0) < 0.0, "{stakes:?}");
+    assert_eq!(stake(hh[3].0), -stake(hh[2].0), "{stakes:?}");
+    for h in &hh[4..] {
+        assert_eq!(stake(h.0), 0.0, "{stakes:?}");
+    }
+}
+
+/// The seventh coverage pass's last deliberation item, examined (ADR-0025 §1: a forum "sits the
+/// evening after a case is brought to it, at the seat's hearth"): the midnight a case is put
+/// before a forum, the forum's sitting is set for that evening, the hearer drawn to hear it; the
+/// hearer comes to the hearth and spends the evening there; and at the midnight after, the case
+/// is heard by those who came. A case whose hearer stayed away that evening is heard by nobody:
+/// nobody sat, it goes unheard, and the chronicle says so. All of it saves and loads exactly.
+#[test]
+fn a_forum_sits_the_evening_after_a_case_is_brought_and_hears_it_by_those_who_came() {
+    let mut sim = world(3);
+    let hh = households(&sim);
+    assert!(hh.len() >= 3, "three households: {hh:?}");
+    let hearer = hh[2].1[0];
+    let forum = law(&mut sim, "core:policy/name_a_hearer", Some(hearer));
+    // Brought before the evening of the day it is brought: the midnight after, it is put before
+    // the forum, which sits on it that evening.
+    // Minutes to the next midnight, less `before`.
+    let to_midnight = |sim: &Sim, before: i64| DAY - sim.now().minutes().rem_euclid(DAY) - before;
+    let first = case(&mut sim, &hh[0], &hh[1]);
+    let m = to_midnight(&sim, 0);
+    sim.advance_minutes(m).expect("advances");
+    let today = sim.now().day_index();
+    let sitting = sim.people().polities[0]
+        .sitting
+        .clone()
+        .expect("the forum sits tonight");
+    assert_eq!(sitting.law, forum);
+    assert_eq!(sitting.day, today);
+    assert_eq!(sitting.cases, vec![(first, vec![hearer])]);
+    assert!(sitting.present.is_empty());
+    // By the evening's end the hearer has come to the hearth.
+    let m = to_midnight(&sim, 30);
+    sim.advance_minutes(m).expect("advances");
+    let mut sim = reloaded(&mut sim);
+    let sitting = sim.people().polities[0].sitting.clone().expect("kept");
+    assert_eq!(sitting.present, vec![hearer], "{sitting:?}");
+    sim.advance_minutes(30).expect("advances");
+    let c = find(&sim, first);
+    assert_ne!(c.stage, CaseStage::Open, "{c:?}");
+    assert_eq!(
+        c.stances.iter().map(|r| r.person).collect::<Vec<_>>(),
+        vec![hearer]
+    );
+    // Another case; this evening the hearer stays away (nobody came by the evening's end).
+    let second = case(&mut sim, &hh[0], &hh[1]);
+    let m = to_midnight(&sim, 0) + DAY - 30;
+    sim.advance_minutes(m).expect("advances");
+    let pop = sim.people_mut_for_tests();
+    let t = pop.polities[0].sitting.as_mut().expect("it sits");
+    assert_eq!(t.cases, vec![(second, vec![hearer])]);
+    t.present.clear();
+    sim.advance_minutes(30).expect("advances");
+    let c = find(&sim, second);
+    assert_eq!(c.stage, CaseStage::Unheard, "{c:?}");
+    assert!(c.stances.is_empty(), "{c:?}");
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|e| e.name.starts_with("Nobody sat to hear the case")),
+        "the chronicle says nobody sat"
+    );
+}
+
+/// What a forum's sitting asks, forecast (ADR-0025 §1; the forum sits the evening after a case is
+/// brought, and its sitters come): a forum's forecast charges each household the evenings its
+/// people would give sitting on the cases within memory, as it credits those they gave at the
+/// gathering. A hearer named from a household not party to the two cases costs it two evenings
+/// that a hearer from another household does not, and nothing to the two parties; the elders cost
+/// each household its elders' evenings.
+#[test]
+fn a_forum_is_forecast_to_cost_its_sitters_their_evenings() {
+    let mut sim = world(3);
+    sim.set_notable_tier(false);
+    let hh = households(&sim);
+    assert!(hh.len() >= 4, "four households: {hh:?}");
+    let settlement = sim.people().polities[0].settlement;
+    // Two cases between households 0 and 1, heard at the gathering today with nobody who came.
+    for _ in 0..2 {
+        let id = case(&mut sim, &hh[0], &hh[1]);
+        let now = sim.now();
+        let c = sim
+            .people_mut_for_tests()
+            .order
+            .cases
+            .iter_mut()
+            .find(|c| c.id == id)
+            .expect("the case");
+        (c.stage, c.heard) = (CaseStage::NotFound, Some(now));
+    }
+    let policies = sim.rules().catalog.policies.clone();
+    let index = |id: &str| policies.iter().position(|d| d.id == id).expect("template") as u16;
+    let gains = |sim: &mut Sim, policy: u16, nominee: Option<PermanentId>| {
+        let g = sim.with_ctx_for_tests(|pop, ctx| {
+            pop.forum_gains_for_tests(ctx, settlement, policy, nominee)
+        });
+        move |h: PermanentId| g.iter().find(|x| x.0 == h).expect("a household").1
+    };
+    let params = &sim.rules().people;
+    let evening = params.elections.w_evening / params.polity.w_gain;
+    assert!(evening > 0.0);
+    let named = index("core:policy/name_a_hearer");
+    let ours = gains(&mut sim, named, Some(hh[2].1[0]));
+    let theirs = gains(&mut sim, named, Some(hh[3].1[0]));
+    let near = |a: f64, b: f64| (a - b).abs() < 1e-9 * (1.0 + a.abs() + b.abs());
+    assert!(
+        near(ours(hh[2].0), theirs(hh[2].0) - 2.0 * evening),
+        "{} {} {evening}",
+        ours(hh[2].0),
+        theirs(hh[2].0)
+    );
+    assert!(near(ours(hh[3].0) - 2.0 * evening, theirs(hh[3].0)));
+    for h in [hh[0].0, hh[1].0] {
+        assert!(near(ours(h), theirs(h)), "a party sits on neither");
+    }
+    // The elders: each household not party gives its elders' evenings, two each.
+    let (_, elders) = sim.with_ctx_for_tests(|pop, ctx| pop.sit_pools_for_tests(ctx, settlement));
+    assert!(!elders.is_empty(), "the polity has elders");
+    let by_elders = gains(&mut sim, index("core:policy/hear_by_elders"), None);
+    let of = |h: PermanentId| elders.iter().filter(|e| e.1 == h).count() as f64;
+    let h = hh[2].0;
+    assert!(of(h) > 0.0, "{elders:?}");
+    // Against a hearer from another household, who asks it nothing.
+    assert!(
+        near(by_elders(h), theirs(h) - 2.0 * evening * of(h)),
+        "{} {} {}",
+        by_elders(h),
+        theirs(h),
+        of(h)
+    );
+}
+
+/// A panel short of its quorum (ADR-0025 §1: it sits, and those drawn may stay away): one of the
+/// five drawn came, short of half; the case goes unheard, and the chronicle says how few came.
+#[test]
+fn a_panel_too_few_of_whom_came_hears_nothing_and_says_so() {
+    let mut sim = world(4);
+    let hh = households(&sim);
+    let forum = law(&mut sim, "core:policy/hear_by_panel", None);
+    let id = case(&mut sim, &hh[0], &hh[1]);
+    let m = DAY - sim.now().minutes().rem_euclid(DAY) + DAY - 30;
+    sim.advance_minutes(m).expect("advances");
+    let t = sim.people_mut_for_tests().polities[0]
+        .sitting
+        .as_mut()
+        .expect("it sits");
+    assert_eq!(t.law, forum);
+    let drawn = t.sitters(id).expect("the case sits").to_vec();
+    assert!(drawn.len() >= 3, "{drawn:?}");
+    t.present = vec![drawn[0]];
+    sim.advance_minutes(30).expect("advances");
+    let c = find(&sim, id);
+    assert_eq!(c.stage, CaseStage::Unheard, "{c:?}");
+    let told = format!("1 of the {} drawn came.", drawn.len());
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|e| e.name.starts_with("Too few sat to hear the case") && e.name.ends_with(&told)),
+        "the chronicle says how few came"
+    );
 }

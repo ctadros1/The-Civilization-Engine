@@ -161,6 +161,9 @@ pub(super) struct Forecasts {
     /// The cases the gathering or a forum heard within memory (M7b slices BR, BS): what one
     /// weighing a forum judges it by.
     forum_cases: Vec<ForumCase>,
+    /// Those a forum would draw its sitters from (ADR-0025 §1), each with their household, in id
+    /// order: the body's members, from whom a panel is drawn, and the polity's elders.
+    sit_pools: (Sitters, Sitters),
     /// What a duty or an embargo would bring each household (M7c slice BV).
     trade: TradeForecast,
     /// What each household is owed on loans refused or left unpaid and not yet heard, and what
@@ -433,6 +436,9 @@ impl TradeForecast {
     }
 }
 
+/// Adults a forum may draw to sit, each with their household, in id order (ADR-0025 §1).
+pub type Sitters = Vec<(PermanentId, PermanentId)>;
+
 /// A case the gathering heard within memory, as one weighing a forum sees it (M7b slice BR,
 /// ADR-0025 §1): the household that brought it and the accused's, what it said it lost, kcal,
 /// whether it was found, and each stance taken (person, household, stance).
@@ -449,6 +455,8 @@ struct ForumCase {
     kcal: f64,
     found: bool,
     stances: Vec<(PermanentId, PermanentId, Stance)>,
+    /// The kind of law it was brought under, if that law is still known.
+    kind: Option<PolicyKind>,
 }
 
 impl ForumCase {
@@ -876,7 +884,8 @@ impl Forecasts {
             // at even odds if they did not come or a lot is yet to draw them, backlog D; a panel
             // or the elders as those who came stood),
             // the difference in what it got back or paid, a year; and the evenings its people
-            // spent hearing cases, which they would keep.
+            // spent hearing cases, which they would keep, less those they would give sitting in
+            // the forum on the cases within memory (ADR-0025 §1).
             Some(PolicyKind::HearCases) => {
                 let Some(def) = policies
                     .get(usize::from(m.policy))
@@ -884,18 +893,20 @@ impl Forecasts {
                 else {
                     return 0.0;
                 };
-                let (mut net, mut evenings) = (0.0, 0usize);
+                let (mut net, mut evenings, mut asked) = (0.0, 0usize, 0.0);
                 for c in &self.forum_cases {
                     if c.gathered {
                         evenings += c.stances.iter().filter(|r| r.1 == h).count();
                     }
+                    asked += self.asks(c, def, m.nominee, h);
                     let Some(side) = c.side(h) else {
                         continue;
                     };
                     let chance = c.chance(def, m.nominee);
                     net += side * (chance - f64::from(u8::from(c.found))) * c.kcal;
                 }
-                let kept = evenings as f64 * params.elections.w_evening / pp.w_gain.max(1e-9);
+                let kept =
+                    (evenings as f64 - asked) * params.elections.w_evening / pp.w_gain.max(1e-9);
                 kept + Self::forum_net(o, net, params)
             }
             // A duty or an embargo (M7c slice BV): what it brings back less what it costs, a year.
@@ -1047,6 +1058,48 @@ impl Forecasts {
         }
     }
 
+    /// The evenings household `h`'s people would give sitting in forum `def`, its holder
+    /// `nominee`, to hear case `c` (ADR-0025 §1: it sits the evening after a case is brought, at
+    /// the seat's hearth, and its sitters come): none where the household is party to it, whose
+    /// people never sit on it, or where the forum does not hear its kind; else its holder, one
+    /// evening (by lot, the seat's share of an evening for each of its adults, as a council's lot
+    /// is forecast); a panel, its seats' share of the draw for each of its members not of the two
+    /// households; the elders, each of its elders.
+    fn asks(
+        &self,
+        c: &ForumCase,
+        def: &crate::forum::ForumDef,
+        nominee: Option<PermanentId>,
+        h: PermanentId,
+    ) -> f64 {
+        if c.side(h).is_some() || !c.kind.is_some_and(|k| def.hears(k)) {
+            return 0.0;
+        }
+        let of = |list: &[(PermanentId, PermanentId)]| list.iter().filter(|a| a.1 == h).count();
+        match def.seat {
+            crate::forum::ForumSeat::Holder => match nominee {
+                Some(n) => self
+                    .adults
+                    .binary_search_by_key(&n, |a| a.0)
+                    .ok()
+                    .filter(|&i| self.adults[i].1 == h)
+                    .map_or(0.0, |_| 1.0),
+                None => of(&self.adults) as f64 / self.adults.len().max(1) as f64,
+            },
+            crate::forum::ForumSeat::Panel => {
+                let pool = self
+                    .sit_pools
+                    .0
+                    .iter()
+                    .filter(|a| a.1 != c.accuser && a.1 != c.accused)
+                    .count();
+                let share = (f64::from(def.panel) / pool.max(1) as f64).min(1.0);
+                of(&self.sit_pools.0) as f64 * share
+            }
+            crate::forum::ForumSeat::Elders => of(&self.sit_pools.1) as f64,
+        }
+    }
+
     /// What a forum's difference in what a household got back (or paid) over the cases of its
     /// within memory, kcal, is worth a year, gain units.
     fn forum_net(o: &Outlook, net: f64, params: &PeopleParams) -> f64 {
@@ -1067,7 +1120,8 @@ impl Forecasts {
     /// `kept` it would be were it proposed now (as a petition weighs another holder, M4c slice
     /// AH). A forum is weighed case by case: each of the household's cases within memory heard as
     /// `m` would hear it, against what `old` did with it if it heard it (found it, or did not,
-    /// or left it unheard) or would have; the evenings either spares are the same.
+    /// or left it unheard) or would have; and the household is spared the evenings its people
+    /// give sitting in `old` less those they would give sitting in `m` (ADR-0025 §1).
     pub(super) fn replacing(
         &self,
         m: &MoveOption,
@@ -1089,8 +1143,11 @@ impl Forecasts {
         let Ok(i) = self.outlooks.binary_search_by_key(&h, |o| o.0) else {
             return 0.0;
         };
-        let mut net = 0.0;
+        let (mut net, mut spared) = (0.0, 0.0);
         for c in &self.forum_cases {
+            // The evenings the one in force asks of the household's people to sit, less those
+            // the new one would (ADR-0025 §1).
+            spared += self.asks(c, was, kept.nominee, h) - self.asks(c, new, m.nominee, h);
             let Some(side) = c.side(h) else {
                 continue;
             };
@@ -1101,7 +1158,8 @@ impl Forecasts {
             };
             net += side * (c.chance(new, m.nominee) - before) * c.kcal;
         }
-        Self::forum_net(&self.outlooks[i].1, net, params)
+        let w = params.elections.w_evening / params.polity.w_gain.max(1e-9);
+        spared * w + Self::forum_net(&self.outlooks[i].1, net, params)
     }
 }
 
@@ -1258,6 +1316,8 @@ impl Population {
                 self.seek_terms(ctx, pi);
             }
         }
+        // Forums sit this evening on the cases now before them (ADR-0025 §1).
+        self.sit_forums(ctx);
     }
 
     /// Who may not be named or drawn for office template `policy` of polity `pi` on `day` (M7a
@@ -2311,6 +2371,25 @@ impl Population {
                 kcal / (households.len() + theirs).max(1) as f64
             }),
             forum_cases: self.forum_cases(ctx, pi),
+            sit_pools: if ctx
+                .catalog
+                .policies
+                .iter()
+                .any(|d| d.kind == PolicyKind::HearCases)
+            {
+                let members = self.body_members(&ctx.land.fields, pi, ctx.now, ctx.params);
+                let all = self.members_of_polity(pi, ctx.now, ctx.params);
+                let elders = self.admitted(
+                    crate::polity::Membership::Elders,
+                    &all,
+                    &ctx.land.fields,
+                    ctx.now,
+                    ctx.params,
+                );
+                (members, elders)
+            } else {
+                (Vec::new(), Vec::new())
+            },
             trade: self.trade_forecast(ctx, pi, households),
             debts: self.debt_stakes(ctx, households, false),
             bearers: self.debt_stakes(ctx, households, true),
@@ -2389,6 +2468,7 @@ impl Population {
                     .iter()
                     .map(|r| (r.person, r.household, r.stance))
                     .collect(),
+                kind: polity.laws.iter().find(|l| l.id == c.law).map(|l| l.kind),
             })
             .collect()
     }
@@ -2733,6 +2813,69 @@ impl Population {
                     pp.w_gain * fc.gain(&m, h, &ctx.catalog.policies, ctx.params),
                 )
             })
+            .collect()
+    }
+
+    /// Those a forum of settlement `settlement` would draw its sitters from, as its forecast reckons
+    /// them (ADR-0025 §1): the body's members and the elders, each with their household: for tests.
+    #[doc(hidden)]
+    pub fn sit_pools_for_tests(&self, ctx: &Ctx, settlement: PermanentId) -> (Sitters, Sitters) {
+        let Some(pi) = self.polity_of(settlement) else {
+            return Default::default();
+        };
+        let mut households: Vec<PermanentId> = self
+            .households
+            .iter()
+            .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
+            .map(|(_, x)| x.id)
+            .collect();
+        households.sort_unstable();
+        let adults = self.members_of_polity(pi, ctx.now, ctx.params);
+        self.forecasts(ctx, pi, &households, &adults).sit_pools
+    }
+
+    /// What a forum of catalog index `policy`, its holder `nominee`, would bring each household of
+    /// settlement `settlement`, gain units, as its review would forecast it (M7b slice BR): for
+    /// tests.
+    #[doc(hidden)]
+    pub fn forum_gains_for_tests(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+        policy: u16,
+        nominee: Option<PermanentId>,
+    ) -> Vec<(PermanentId, f64)> {
+        let Some(pi) = self.polity_of(settlement) else {
+            return Vec::new();
+        };
+        let mut households: Vec<PermanentId> = self
+            .households
+            .iter()
+            .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
+            .map(|(_, x)| x.id)
+            .collect();
+        households.sort_unstable();
+        let adults = self.members_of_polity(pi, ctx.now, ctx.params);
+        let fc = self.forecasts(ctx, pi, &households, &adults);
+        let m = MoveOption {
+            policy,
+            levy_share: 0.0,
+            issue: IssueKind::CasesWaiting,
+            nominee,
+            sanction: Default::default(),
+            hours: (0, 0),
+            body: None,
+            ends: None,
+            site: None,
+            target: None,
+            own_gain: 0.0,
+            followers_gain: 0.0,
+            support: 0.5,
+        };
+        let policies = &ctx.catalog.policies;
+        households
+            .iter()
+            .map(|&h| (h, fc.gain(&m, h, policies, ctx.params)))
             .collect()
     }
 
@@ -5823,6 +5966,59 @@ impl Population {
         })
     }
 
+    /// What sitting in the forum of the settlement of household `hh` this evening is worth to
+    /// `person` (ADR-0025 §1: it sits the evening after a case is brought, at the seat's
+    /// hearth, and its hearers are unpaid), at `minute` of the day, with the evening from
+    /// `evening_start`: as coming to a gathering that hears those cases is to a member, the
+    /// custom's own pull and their regard for whichever party to a case they sit on they regard
+    /// more, less what rain takes from a sitting in the open. `None` when it does not sit tonight,
+    /// they do not sit in it, or they are there.
+    pub(crate) fn sitting_facts(
+        &self,
+        ctx: &Ctx,
+        person: PermanentId,
+        hh: &Household,
+        minute: i64,
+        evening_start: i64,
+    ) -> Option<GatheringFacts> {
+        let params = ctx.params;
+        let pp = &params.polity;
+        let pi = self.polity_of(hh.settlement?)?;
+        let polity = &self.polities[pi];
+        let t = polity.sitting.as_ref()?;
+        let day = ctx.now.day_index();
+        let end = evening_start + i64::from(pp.gathering_minutes);
+        if t.day != day
+            || minute < evening_start
+            || minute + LEAST_SITTING_MIN > end
+            || t.present.binary_search(&person).is_ok()
+            || !t.sits(person)
+        {
+            return None;
+        }
+        let regard_for = |q: PermanentId| {
+            self.ties
+                .regard(person, q, day, &params.ties)
+                .clamp(0.0, 1.0)
+        };
+        let stake = t
+            .cases
+            .iter()
+            .filter(|c| c.1.binary_search(&person).is_ok())
+            .filter_map(|c| self.order.case(c.0))
+            .map(|c| pp.w_regard * regard_for(c.by).max(regard_for(c.accused)))
+            .fold(0.0, f64::max);
+        let rained = if ctx.land.weather.today.wet && polity.hall.is_none() {
+            pp.wet_attend
+        } else {
+            0.0
+        };
+        Some(GatheringFacts {
+            points: pp.attend_base + pp.w_attend * stake - rained,
+            minutes: (end - minute) as f64,
+        })
+    }
+
     /// The points attending polity `pi`'s gathering is worth to `person` of household `hh`: what
     /// their household made of the law and their regard for its sponsor, over the custom's own
     /// pull, less what rain takes from a gathering in the open (M8d slice DC). 0 when none is
@@ -5970,6 +6166,27 @@ impl Population {
             return;
         };
         let day = ctx.now.day_index();
+        // One come to sit in the forum takes their place there (ADR-0025 §1); and at the
+        // gathering, if one sits tonight, only as a member who heard it was called.
+        let sitter = self.polities[pi]
+            .sitting
+            .as_ref()
+            .is_some_and(|t| t.day == day && t.sits(person));
+        if sitter {
+            if let Some(t) = self.polities[pi].sitting.as_mut()
+                && let Err(at) = t.present.binary_search(&person)
+            {
+                t.present.insert(at, person);
+            }
+            let hh = self.person(person).map(|p| p.household);
+            let member = hh.is_some_and(|hh| {
+                self.heard_of_gathering(person, settlement, day)
+                    && self.admits(&ctx.land.fields, pi, person, hh, ctx.now, ctx.params)
+            });
+            if !member {
+                return;
+            }
+        }
         if let Some(g) = self.polities[pi]
             .gathering
             .as_mut()

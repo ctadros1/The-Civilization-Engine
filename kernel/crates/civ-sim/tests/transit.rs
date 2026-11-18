@@ -918,14 +918,27 @@ fn a_cart_left_by_a_household_that_moved_is_told_as_whose_it_had_been() {
 }
 
 /// A road line whose keeper moved away ends at midnight saying whose it had been (backlog D,
-/// twenty-fourth item): the keeper's household moves to the other settlement, its motor cart and
-/// line left in the old household's name; the history keeps its elder; at the next midnight the
-/// line is taken off and told as "The motor cart's runs to …, which had been Bo's household's,
-/// stopped: nobody was left who could run them."
+/// twenty-fourth item): the keeper's household, holding no coal for its motor cart's trip (so
+/// the cart cannot go with it, the twenty-fifth item), moves to the other settlement, its motor
+/// cart and line left in the old household's name; the history keeps its elder; at the next
+/// midnight the line is taken off and told as "The motor cart's runs to …, which had been Bo's
+/// household's, stopped: nobody was left who could run them."
 #[test]
 fn a_road_line_left_by_a_keeper_that_moved_ends_saying_whose_it_had_been() {
     let (mut sim, keeper, _, home, market, cells, _) = two_doors_and_a_hearth();
     posted(&mut sim, keeper, home, market, cells[0]);
+    let coal = sim
+        .rules()
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/coal")
+        .expect("coal");
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == keeper {
+            x.stores[coal] = 0.0;
+        }
+    }
     let name = sim
         .land()
         .settlements
@@ -951,5 +964,170 @@ fn a_road_line_left_by_a_keeper_that_moved_ends_saying_whose_it_had_been() {
             "The motor cart's runs to {name}, which had been {was}'s household's, stopped: \
              nobody was left who could run them."
         )
+    );
+}
+
+/// A household that moves whole takes its carts along a way to its new home (backlog D,
+/// twenty-fifth item): with its motor cart and a handcart made and standing at its old door and
+/// one being made beside them, the motor cart (in this content able to climb any grade) stays
+/// while its household holds too little coal for the trip, and with coal is driven to its new
+/// door, burning coal; the handcart goes only where a fetch would bring it home (its new owner
+/// and its new door together, or neither); the one being made stays in the old household's
+/// name. It saves and loads exactly.
+#[test]
+fn a_household_that_moves_takes_its_carts_along_a_way_to_its_new_home() {
+    let (mut sim, keeper, _, _, market, cells, _) = two_doors_and_a_hearth();
+    let members = sim
+        .people()
+        .household(keeper)
+        .expect("keeper")
+        .members
+        .clone();
+    sim.with_ctx_for_tests(|pop, ctx| pop.relocate_for_tests(ctx, keeper, market));
+    let (to, new_home) = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .find(|h| h.members.contains(&members[0]))
+        .map(|h| (h.id, h.home))
+        .expect("moved");
+    let map = sim.map().clone();
+    let door = civ_agents::population::cell_of(&map, new_home) as u32;
+    let catalog = &sim.rules().catalog;
+    let hand_v = catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart");
+    let motor_v = catalog
+        .vehicle_index("core:vehicle/road_engine")
+        .expect("a road engine");
+    let coal = catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/coal")
+        .expect("coal");
+    let today = sim.now().day_index();
+    let cart = |sim: &mut Sim, v: usize, labour: f32| {
+        let id = sim.allocate_id_for_tests();
+        let land = sim.land_mut_for_tests();
+        land.carts.list.push(civ_land::boats::Boat {
+            id,
+            vehicle: v as u16,
+            owner: keeper,
+            at: cells[0],
+            made: today,
+            wear: 0.0,
+            labour_h: labour,
+            work_h: 0.0,
+            saves_h_year: 0.0,
+            crew: (0, 0),
+        });
+        land.carts.changed();
+        id
+    };
+    let (motor, hand, half) = (
+        cart(&mut sim, motor_v, 0.0),
+        cart(&mut sim, hand_v, 0.0),
+        cart(&mut sim, hand_v, 40.0),
+    );
+    let at = |sim: &Sim, id: PermanentId| {
+        sim.land()
+            .carts
+            .list
+            .iter()
+            .find(|c| c.id == id)
+            .map(|c| (c.owner, c.at))
+            .expect("the cart")
+    };
+    let set_coal = |sim: &mut Sim, kg: f64| {
+        for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+            if x.id == to {
+                x.stores[coal] = kg;
+            }
+        }
+    };
+    let moves = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.vehicles_move_for_tests(ctx, keeper, to))
+    };
+    // Too little coal for the trip: the motor cart stays.
+    set_coal(&mut sim, 0.001);
+    let first = moves(&mut sim);
+    assert_eq!(at(&sim, motor), (keeper, cells[0]), "no coal for the trip");
+    let (owner, place) = at(&sim, hand);
+    assert_eq!(
+        owner == to,
+        place == door,
+        "the handcart goes whole or not at all"
+    );
+    assert_eq!(first, usize::from(owner == to));
+    // With coal, it is driven there, burning coal.
+    set_coal(&mut sim, 5000.0);
+    let went = moves(&mut sim);
+    assert_eq!(went, 1, "the motor cart, and nothing twice");
+    assert_eq!(at(&sim, motor), (to, door));
+    let left = sim.people().household(to).expect("moved").stores[coal];
+    assert!(left < 5000.0, "{left} kg of coal left");
+    // The one being made stays.
+    assert_eq!(at(&sim, half), (keeper, cells[0]));
+    assert_eq!(moves(&mut sim), 0, "nothing more goes");
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(
+        &mut sim,
+        &saves,
+        commons_persist::SaveKind::Manual,
+        "transit",
+    )
+    .expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    let (x, y) = (
+        persist::encode_sections(&sim),
+        persist::encode_sections(&loaded),
+    );
+    for (p, q) in x.iter().zip(&y) {
+        assert!(p.bytes == q.bytes, "section `{}` differs", p.tag);
+    }
+    // Moving itself takes it: a keeper with a motor cart at its door and coal moves, and its
+    // cart is at its new door, its new household's.
+    let (mut sim, keeper, home, market, cells) = {
+        let (s, k, _, h, m, c, _) = two_doors_and_a_hearth();
+        (s, k, h, m, c)
+    };
+    let motor = posted(&mut sim, keeper, home, market, cells[0]);
+    let members = sim
+        .people()
+        .household(keeper)
+        .expect("keeper")
+        .members
+        .clone();
+    sim.with_ctx_for_tests(|pop, ctx| pop.relocate_for_tests(ctx, keeper, market));
+    let (to, new_home) = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .find(|h| h.members.contains(&members[0]))
+        .map(|h| (h.id, h.home))
+        .expect("moved");
+    let c = sim
+        .land()
+        .carts
+        .list
+        .iter()
+        .find(|c| c.id == motor)
+        .cloned()
+        .expect("the cart");
+    assert_eq!(
+        (c.owner, c.at),
+        (
+            to,
+            civ_agents::population::cell_of(sim.map(), new_home) as u32
+        ),
+        "it went with its household"
+    );
+    assert!(
+        sim.people().gone_households.is_empty(),
+        "nothing left in the old household's name"
     );
 }

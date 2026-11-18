@@ -1300,3 +1300,138 @@ impl Population {
         self.gone_households_month(ctx);
     }
 }
+
+/// A boat or cart going with a household that moves (backlog D, twenty-fifth item): which list,
+/// its index there, the cell it goes to, and a motor cart's fuel to burn, by good and kilograms.
+struct Going {
+    cart: bool,
+    index: usize,
+    to: u32,
+    fuel: Option<(usize, f64)>,
+}
+
+impl Population {
+    /// Household `from` moved whole to another settlement and is household `to` now, at its new
+    /// home (backlog D, twenty-fifth item): its made boats and carts that a way would bring there
+    /// today go with it, as an heir's are brought home ([`Population::way_home`]): a boat paddled
+    /// to the bank nearest its new home where the water carries it, a cart pulled empty to its new
+    /// door; and a motor cart driven to its new door along the quickest way for its wheels where
+    /// the household holds the fuel the trip burns, which it burns there (M11b, second part: a
+    /// household without a trip's fuel cannot take it). One being made, one no way would bring
+    /// and a wagon on its rails stay where they stand, in the old household's name. Returns how
+    /// many went.
+    pub(super) fn vehicles_move(
+        &mut self,
+        ctx: &mut Ctx,
+        from: PermanentId,
+        to: PermanentId,
+    ) -> usize {
+        let Some(home) = self.household(to).map(|x| x.home) else {
+            return 0;
+        };
+        let (map, catalog) = (ctx.map, ctx.catalog);
+        let door = cell_of(map, home) as u32;
+        let walk = ctx.params.nav.tobler_ms(0.0).max(1e-6);
+        let mut going: Vec<Going> = Vec::new();
+        for (i, b) in ctx.land.boats.list.iter().enumerate() {
+            if b.owner != from || !b.made() {
+                continue;
+            }
+            if let Some((Some(bank), _)) = Self::way_home(ctx, home, b) {
+                going.push(Going {
+                    cart: false,
+                    index: i,
+                    to: bank,
+                    fuel: None,
+                });
+            }
+        }
+        let held = |g: usize| {
+            self.household(to)
+                .map_or(0.0, |x| x.stores.get(g).copied().unwrap_or(0.0))
+        };
+        let mut fuel_left: Vec<(usize, f64)> = Vec::new();
+        for (i, c) in ctx.land.carts.list.iter().enumerate() {
+            if c.owner != from || !c.made() {
+                continue;
+            }
+            let Some(def) = catalog.vehicles.get(usize::from(c.vehicle)) else {
+                continue;
+            };
+            if def.engine.is_none() {
+                if Self::way_home(ctx, home, c).is_some() {
+                    going.push(Going {
+                        cart: true,
+                        index: i,
+                        to: door,
+                        fuel: None,
+                    });
+                }
+                continue;
+            }
+            let at = cell_centre(map, c.at as usize);
+            let Some((route, legs_s)) = ctx.land.cart_way(map, &def.wheels(0.0, walk), at, home)
+            else {
+                continue;
+            };
+            let minutes = (route.seconds + legs_s) / 60.0;
+            let Some((fuel, kg)) = def.trip_fuel(&catalog.goods, minutes) else {
+                continue;
+            };
+            let spent = fuel_left.iter().find(|f| f.0 == fuel).map_or(0.0, |f| f.1);
+            if held(fuel) - spent + 1e-9 < kg {
+                continue;
+            }
+            match fuel_left.iter_mut().find(|f| f.0 == fuel) {
+                Some(f) => f.1 += kg,
+                None => fuel_left.push((fuel, kg)),
+            }
+            going.push(Going {
+                cart: true,
+                index: i,
+                to: door,
+                fuel: Some((fuel, kg)),
+            });
+        }
+        if going.is_empty() {
+            return 0;
+        }
+        let (mut boats, mut carts) = (false, false);
+        for g in &going {
+            let v = if g.cart {
+                carts = true;
+                &mut ctx.land.carts.list[g.index]
+            } else {
+                boats = true;
+                &mut ctx.land.boats.list[g.index]
+            };
+            v.owner = to;
+            v.at = g.to;
+        }
+        if boats {
+            ctx.land.boats.changed();
+        }
+        if carts {
+            ctx.land.carts.changed();
+        }
+        for g in &going {
+            if let Some((f, kg)) = g.fuel {
+                self.burn_engine_fuel(&catalog.goods, to, f, kg);
+            }
+        }
+        self.changed(to);
+        going.len()
+    }
+
+    /// Household `from`, moved whole, is household `to` now: its vehicles that can go there go
+    /// with it, as moving does: for tests. How many went.
+    #[doc(hidden)]
+    pub fn vehicles_move_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        from: PermanentId,
+        to: PermanentId,
+    ) -> usize {
+        self.vehicles_move(ctx, from, to)
+    }
+}

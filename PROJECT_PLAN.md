@@ -10138,6 +10138,32 @@ and M6a gives rivers a daily flow.
       carts, rail, fetch, settlements, people, regimes, roundtrip and determinism, the civ-agents
       and civ-sim unit tests, the civ-host lib tests; the ten smoke seeds pass; fmt and clippy
       clean.
+    - *Backlog D, twenty-fifth item (2026-11-18): a household that moves takes its boats and
+      carts* (the twentieth item's "Not yet", as corrected: a keeper that moves away leaves its
+      motor cart behind). No new ADR. **Before:** a household moving whole to another settlement
+      (giving up, fleeing, founding: a new household) left every boat and cart in the old
+      household's name where it stood, for anyone to take up. **Now** (`Population::vehicles_move`,
+      in `relocate_seeing` after its crops go with it): its made boats and carts that a way would
+      bring to its new home today go with it, as an heir's are brought home
+      ([`Population::way_home`], the ninth item): a boat paddled to the bank nearest its new home
+      where the water carries it, a cart pulled empty to its new door, and a motor cart driven
+      there along the quickest way for its wheels where the household holds the fuel the trip
+      burns, which it burns (M11b: a household without a trip's fuel cannot take it). One being
+      made, one no way would bring and a wagon on its rails stay, in the old household's name, as
+      before. No weighing changes: whether to move is weighed as before, and what goes is decided
+      by the ways alone. No content, schema, wire or web change; saves stay 220. **Tested:**
+      transit (6, one new: with a motor cart (in the test's content able to climb any grade), a
+      handcart and one being made at the old door, the motor cart stays while the household holds
+      too little coal for the trip and with coal is driven to its new door, burning coal; the
+      handcart goes whole or not at all; the one being made stays; nothing goes twice; it saves
+      and loads exactly; and moving itself takes a keeper's motor cart to its new door, nothing
+      left in the old name; it fails without the change), the twenty-fourth item's test now
+      holding no coal before its keeper moves so that the cart stays as that test means (a setup
+      line added, no assertion moved), boats, carts, rail, fetch, settlements, people, regimes,
+      roundtrip and determinism, the civ-agents and civ-sim unit tests, the civ-host lib tests;
+      the ten smoke seeds pass; fmt and clippy clean. **Not yet:** a moved household's road line
+      reposted from its new door (its keeper weighs posting at its review, as any keeper does);
+      the hours of bringing them, which moving does not count for its goods either.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads
@@ -12013,3 +12039,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Home walking fields over the same ground are not kept as spares (2026-11-18; the speed pass above):** Decided by Claude under standing owner authority (2026-11-18). Built and proved exact (0e77a4e, not landed): up to eight dropped home walking fields kept with the digests of the tiles they read and taken up again when those come back. 18 of 18 taken up matched a fresh field bit for bit, a 60-month run from world 4's year-20 save wrote byte-identical sections, and determinism, roundtrip, the civ-agents, civ-world and civ-host lib tests and the smoke passed. But over those 60 months only 25 of 287 fields came from the spares, and the run took 1,106.5 s against 1,110.7 s (−0.4 %, inside the noise of a shared machine), while the spares can hold up to about 128 MB a world in a wet spell (about 320 MB with the landmark spares, 1.6 GB over the dashboard's five worlds). *Reason:* code and memory for no measurable gain; what still costs time is rebuilding landmarks and fields on every change of flood depth, which only a change of routes would cut (the options are recorded in the entry above, unbuilt).
 - **Whose a boat, cart or line taken up had been (2026-11-18, backlog D's twenty-third item; the seventeenth and nineteenth items' "Not yet"):** Decided by Claude under standing owner authority (2026-11-18). **New saved state, in the history:** a household no more, with the person whose household it was, kept only while something stands in its name. *Reason:* the seventeenth item left whose it had been out because naming it "would mean keeping who it was beside each vehicle"; one record a gone household, not one a vehicle, says it for every boat, cart, wagon and line it left, and the history is where the record of people who are no more is kept. **The person named:** the last of it where nobody was left, else its elder when its people went. *Reason:* the household is named in the chronicle as its elder's ("Bo's household"), and the last of it is the one `care_for_households` already passes its things on from. **Dropped monthly once nothing is left in its name.** *Reason:* it is kept to tell what it left, not as a register of every household that ended. Chosen of the coordinator's candidates as the most self-contained: a line still being laid nobody is left to finish needs its remaining work weighed beside the line review's reckoning, and gas and current hookups passing need the heir's own hookups and payments weighed. No content, wire or web change; saves stay 220 (fields appended).
 - **A road line ended for want of a keeper says whose it had been (2026-11-18, backlog D's twenty-fourth item; the twenty-third item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-18). **Said in the ending's words, still naming nobody as stopping it.** *Reason:* the history now keeps whose a household no more was, and the ending is the one moment the line's record tells of the household that ran it. **The record is kept before the road line is weighed at a merge, and before a household with nobody left goes to its heir, then forgotten if nothing is left in its name.** *Reason:* otherwise the ending is told before anything is kept; keeping it first changes nothing else, since the record is read only by the chronicle's words. In a merge its ways now pass before its road line is weighed (they passed after it before), which changes nothing the road line reads. Chosen as the coordinator's first and most self-contained candidate. No content, schema, wire or web change; saves stay 220.
+- **A household that moves takes its boats and carts (2026-11-18, backlog D's twenty-fifth item; the twentieth item's corrected "Not yet"):** Decided by Claude under standing owner authority (2026-11-18). **What goes:** a made boat or cart a way would bring to the new home today, by the rule an heir's are brought home by (`way_home`), and a motor cart where the household holds its trip's fuel, which it burns. *Reason:* a household that moves takes its store with it, so leaving behind what it could take along a way was the odd case, not a rule; the ninth item's "a way would bring it" and M11b's "a household without a trip's fuel cannot take it" already say which can go. **No hours counted for bringing them.** *Reason:* moving counts none for carrying its goods either; the move is one step. **Wagons stay.** *Reason:* a rail vehicle goes nowhere off its rails (the eighteenth item). No weighing changes. No content, schema, wire or web change; saves stay 220.

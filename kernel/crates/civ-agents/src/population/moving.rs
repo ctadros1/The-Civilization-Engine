@@ -502,6 +502,9 @@ impl Population {
         // §1.4, §5.3: return, with surviving property rights), as a crop stays at a review with
         // the household that put the work into it.
         self.crops_go_with(ctx, from, id);
+        // Its boats and carts that a way would bring to the new home go with it (backlog D,
+        // twenty-fifth item).
+        self.vehicles_move(ctx, from, id);
         // The household they leave: its workshops close and its ground and home stand empty.
         if let Some(gone) = self.take_household(from) {
             self.homes_moved += 1;

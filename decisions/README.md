@@ -52,6 +52,7 @@ the milestone is too big and gets split.
 | [0043](0043-what-is-left-and-where-people-have-looked.md) | What is left of a source, and where people have looked | Accepted | M11 (M11d's demo) |
 | [0044](0044-salvage-sewage-farms-and-sewer-mending.md) | Salvage, sewage farms and mending sewers | Accepted | M11 (deferrals) |
 | [0045](0045-food-batch-identity.md) | Food that carries what its maker shed | Accepted | M6a (deferral) |
+| [0046](0046-whether-to-propose-and-what.md) | Whether to propose, and what | Proposed | M4c (deliberation) |
 
 ## Template
 

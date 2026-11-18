@@ -1120,3 +1120,53 @@ fn a_mill_grinds_what_its_wheel_turns_more_when_the_river_runs_and_none_when_it_
     // Its wheel wore on its own books.
     assert!(sim.people().firm(firm).expect("firm").stores[wheel] < 1.0);
 }
+
+/// Coverage (backlog E; ADR-0006 §5): a workshop passes with its owners' household: their people
+/// joining another household, the workshop stays open, its stores and stations with it, and is
+/// the other household's from that day.
+#[test]
+fn a_workshop_passes_to_the_household_its_owners_people_join() {
+    let mut sim = new_world(3);
+    sim.advance_minutes(24 * 60).expect("advances");
+    let rules = sim.rules().clone();
+    let goods = &rules.catalog.goods;
+    let good = |id: &str| goods.iter().position(|d| d.id == id).expect(id);
+    let (kiln, brick) = (good("core:good/kiln"), good("core:good/brick"));
+    let now = sim.now();
+    let grown_of = |sim: &Sim, h: &civ_agents::person::Household| {
+        h.members.iter().copied().find(|&m| {
+            sim.people()
+                .person(m)
+                .is_some_and(|p| p.age_years(now) >= 20.0)
+        })
+    };
+    let mut pairs = sim
+        .people()
+        .households
+        .iter()
+        .filter_map(|(_, h)| Some((h.id, grown_of(&sim, h)?)));
+    let (maker, who) = pairs.next().expect("a household with a grown member");
+    let (heir, _) = pairs.next().expect("another");
+    drop(pairs);
+    set(
+        &mut sim,
+        maker,
+        &[
+            ("core:good/kiln", 1.0),
+            ("core:good/clay", 400.0),
+            ("core:good/firewood", 400.0),
+        ],
+    );
+    let firm = sim
+        .with_ctx_for_tests(|pop, ctx| pop.found_firm_for_tests(ctx, maker, who, brick))
+        .expect("a workshop");
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.put_in_station(ctx, firm, kiln, 1.0)));
+    sim.advance_minutes(60).expect("advances");
+    let joined = sim.now();
+    sim.with_ctx_for_tests(|pop, ctx| pop.merge_household_for_tests(ctx, maker, heir));
+    assert!(sim.people().household(maker).is_none());
+    let f = sim.people().firm(firm).expect("the workshop");
+    assert!(f.is_open(), "it stays open");
+    assert_eq!((f.owner, f.owner_since), (heir, joined));
+    assert_eq!(f.stores[kiln], 1.0, "its station with it");
+}

@@ -10251,6 +10251,24 @@ and M6a gives rivers a daily flow.
       set by its freight at one and four, and its fare, were already pinned. **Tested:** gas (9),
       telegraph (16), transit (9), wires (8), rail (16), civ-land's unit tests, the civ-agents and
       civ-sim unit tests, the civ-host lib tests; the ten smoke seeds pass; fmt and clippy clean.
+    - *Backlog E, coverage, fourth pass (2026-11-18): the water mill and the workshop.* Tests
+      only; no code changed and no fault found. **A mill weighed on a year read between counts**
+      (M10a slice DR, third part): a count fewer than 180 days back is only taken anew (its day
+      and kilograms made now) and sets no mill; one a year back with nothing ground since sets
+      none; one a year back with 600 kg ground sets one where a site serves; owning one, it sets
+      no second however much it grinds (mills,
+      `a_mill_is_weighed_on_a_year_read_between_counts_and_one_household_sets_one`). **A
+      neighbour's mill to grind at** (slice DR, fourth part): seen only while its owner holds a
+      wheel for it (none with the wheel gone, again once it is back), and only by a household
+      with grain to grind (mills, `a_neighbours_mill_is_seen_only_with_its_wheel_and_by_one_with_grain`).
+      **A workshop passing with its owners' household** (`pass_firms`, which no test reached): its
+      owners' people joining another household, it stays open with its stores and its kiln
+      station, the other household's from that day (firms,
+      `a_workshop_passes_to_the_household_its_owners_people_join`). The quern's ways (hand
+      grinding, the rotary quern) were already pinned: `make.rs`'s unit tests grind by a quern,
+      and the deposits, knowledge, diffusion and people tests want, learn and use one. **Tested:** mills
+      (4), firms (7), the civ-agents and civ-sim unit tests, the civ-host lib tests; the ten smoke
+      seeds pass; fmt and clippy clean.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

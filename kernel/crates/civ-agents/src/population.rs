@@ -100,6 +100,7 @@ pub use destructor::{REFUSE, engine_evening_kg};
 pub use fire::softening;
 pub use payments::Burden;
 pub use picking::PickPlace;
+pub use polity::{SitPools, Sitters};
 pub use resolution::{DayBlock, NOT_TAKEN, SwitchInvariants};
 pub use rounds::{MAX_ROUND_HOMES, ROUND_EVERY_DAYS};
 pub use sickhouse::sickhouse_bed_m2;

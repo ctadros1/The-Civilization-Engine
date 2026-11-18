@@ -161,9 +161,8 @@ pub(super) struct Forecasts {
     /// The cases the gathering or a forum heard within memory (M7b slices BR, BS): what one
     /// weighing a forum judges it by.
     forum_cases: Vec<ForumCase>,
-    /// Those a forum would draw its sitters from (ADR-0025 §1), each with their household, in id
-    /// order: the body's members, from whom a panel is drawn, and the polity's elders.
-    sit_pools: (Sitters, Sitters),
+    /// Those a forum would draw its sitters from (ADR-0025 §1).
+    sit_pools: SitPools,
     /// What a duty or an embargo would bring each household (M7c slice BV).
     trade: TradeForecast,
     /// What each household is owed on loans refused or left unpaid and not yet heard, and what
@@ -438,6 +437,16 @@ impl TradeForecast {
 
 /// Adults a forum may draw to sit, each with their household, in id order (ADR-0025 §1).
 pub type Sitters = Vec<(PermanentId, PermanentId)>;
+
+/// Those a polity's forum would draw its sitters from (ADR-0025 §1), from every settlement it
+/// holds: the body's members, from whom a panel is drawn; the elders; and every adult, from whom
+/// a holder is named or drawn.
+#[derive(Clone, Debug, Default)]
+pub struct SitPools {
+    pub members: Sitters,
+    pub elders: Sitters,
+    pub adults: Sitters,
+}
 
 /// A case the gathering heard within memory, as one weighing a forum sees it (M7b slice BR,
 /// ADR-0025 §1): the household that brought it and the accused's, what it said it lost, kcal,
@@ -1076,27 +1085,29 @@ impl Forecasts {
             return 0.0;
         }
         let of = |list: &[(PermanentId, PermanentId)]| list.iter().filter(|a| a.1 == h).count();
+        // Of every settlement the polity holds, whatever the settlement weighing it (ADR-0023 §9:
+        // their residents are its members).
+        let pools = &self.sit_pools;
         match def.seat {
             crate::forum::ForumSeat::Holder => match nominee {
-                Some(n) => self
+                Some(n) => pools
                     .adults
                     .binary_search_by_key(&n, |a| a.0)
                     .ok()
-                    .filter(|&i| self.adults[i].1 == h)
+                    .filter(|&i| pools.adults[i].1 == h)
                     .map_or(0.0, |_| 1.0),
-                None => of(&self.adults) as f64 / self.adults.len().max(1) as f64,
+                None => of(&pools.adults) as f64 / pools.adults.len().max(1) as f64,
             },
             crate::forum::ForumSeat::Panel => {
-                let pool = self
-                    .sit_pools
-                    .0
+                let pool = pools
+                    .members
                     .iter()
                     .filter(|a| a.1 != c.accuser && a.1 != c.accused)
                     .count();
                 let share = (f64::from(def.panel) / pool.max(1) as f64).min(1.0);
-                of(&self.sit_pools.0) as f64 * share
+                of(&pools.members) as f64 * share
             }
-            crate::forum::ForumSeat::Elders => of(&self.sit_pools.1) as f64,
+            crate::forum::ForumSeat::Elders => of(&pools.elders) as f64,
         }
     }
 
@@ -2378,17 +2389,21 @@ impl Population {
                 .any(|d| d.kind == PolicyKind::HearCases)
             {
                 let members = self.body_members(&ctx.land.fields, pi, ctx.now, ctx.params);
-                let all = self.members_of_polity(pi, ctx.now, ctx.params);
+                let adults = self.members_of_polity(pi, ctx.now, ctx.params);
                 let elders = self.admitted(
                     crate::polity::Membership::Elders,
-                    &all,
+                    &adults,
                     &ctx.land.fields,
                     ctx.now,
                     ctx.params,
                 );
-                (members, elders)
+                SitPools {
+                    members,
+                    elders,
+                    adults,
+                }
             } else {
-                (Vec::new(), Vec::new())
+                SitPools::default()
             },
             trade: self.trade_forecast(ctx, pi, households),
             debts: self.debt_stakes(ctx, households, false),
@@ -2817,9 +2832,9 @@ impl Population {
     }
 
     /// Those a forum of settlement `settlement` would draw its sitters from, as its forecast reckons
-    /// them (ADR-0025 §1): the body's members and the elders, each with their household: for tests.
+    /// them (ADR-0025 §1): for tests.
     #[doc(hidden)]
-    pub fn sit_pools_for_tests(&self, ctx: &Ctx, settlement: PermanentId) -> (Sitters, Sitters) {
+    pub fn sit_pools_for_tests(&self, ctx: &Ctx, settlement: PermanentId) -> SitPools {
         let Some(pi) = self.polity_of(settlement) else {
             return Default::default();
         };
@@ -2835,8 +2850,8 @@ impl Population {
     }
 
     /// What a forum of catalog index `policy`, its holder `nominee`, would bring each household of
-    /// settlement `settlement`, gain units, as its review would forecast it (M7b slice BR): for
-    /// tests.
+    /// the polity of settlement `settlement`, gain units, as its review would forecast it (M7b
+    /// slice BR): for tests.
     #[doc(hidden)]
     pub fn forum_gains_for_tests(
         &self,
@@ -2855,7 +2870,8 @@ impl Population {
             .map(|(_, x)| x.id)
             .collect();
         households.sort_unstable();
-        let adults = self.members_of_polity(pi, ctx.now, ctx.params);
+        // The settlement's adults, as the review passes them.
+        let adults = self.members_of(settlement, ctx.now, ctx.params);
         let fc = self.forecasts(ctx, pi, &households, &adults);
         let m = MoveOption {
             policy,

@@ -1551,7 +1551,9 @@ fn a_forum_is_forecast_to_cost_its_sitters_their_evenings() {
         assert!(near(ours(h), theirs(h)), "a party sits on neither");
     }
     // The elders: each household not party gives its elders' evenings, two each.
-    let (_, elders) = sim.with_ctx_for_tests(|pop, ctx| pop.sit_pools_for_tests(ctx, settlement));
+    let elders = sim
+        .with_ctx_for_tests(|pop, ctx| pop.sit_pools_for_tests(ctx, settlement))
+        .elders;
     assert!(!elders.is_empty(), "the polity has elders");
     let by_elders = gains(&mut sim, index("core:policy/hear_by_elders"), None);
     let of = |h: PermanentId| elders.iter().filter(|e| e.1 == h).count() as f64;
@@ -1595,5 +1597,70 @@ fn a_panel_too_few_of_whom_came_hears_nothing_and_says_so() {
             .iter()
             .any(|e| e.name.starts_with("Too few sat to hear the case") && e.name.ends_with(&told)),
         "the chronicle says how few came"
+    );
+}
+
+/// A hearer from another settlement the polity holds (ADR-0023 §9: their residents are its
+/// members; ADR-0025 §1: its sitters come): the seat's review counts the evenings they would
+/// give sitting to their own household, as it does a hearer of the seat's.
+#[test]
+fn a_hearer_of_a_settlement_taken_in_costs_their_own_household_its_evenings() {
+    use civ_agents::polity::{HeldHow, HeldSettlement};
+    let mut sim = world(3);
+    sim.set_notable_tier(false);
+    let hh = households(&sim);
+    assert!(hh.len() >= 4, "four households: {hh:?}");
+    let settlement = sim.people().polities[0].settlement;
+    // Household 2 lives in a settlement the polity took in.
+    let taken = sim.allocate_id_for_tests();
+    let day = sim.now().day_index();
+    let pop = sim.people_mut_for_tests();
+    let from = pop.polities[0].id;
+    pop.polities[0].held.push(HeldSettlement {
+        settlement: taken,
+        since: day,
+        how: HeldHow::Merged,
+        from,
+    });
+    let x = pop
+        .households
+        .iter_mut()
+        .find(|(_, x)| x.id == hh[2].0)
+        .expect("the household")
+        .1;
+    x.settlement = Some(taken);
+    for _ in 0..2 {
+        let id = case(&mut sim, &hh[0], &hh[1]);
+        let now = sim.now();
+        let c = sim
+            .people_mut_for_tests()
+            .order
+            .cases
+            .iter_mut()
+            .find(|c| c.id == id)
+            .expect("the case");
+        (c.stage, c.heard) = (CaseStage::NotFound, Some(now));
+    }
+    let policies = sim.rules().catalog.policies.clone();
+    let named = policies
+        .iter()
+        .position(|d| d.id == "core:policy/name_a_hearer")
+        .expect("template") as u16;
+    let gains = |sim: &mut Sim, nominee: PermanentId| {
+        let g = sim.with_ctx_for_tests(|pop, ctx| {
+            pop.forum_gains_for_tests(ctx, settlement, named, Some(nominee))
+        });
+        move |h: PermanentId| g.iter().find(|x| x.0 == h).expect("a household").1
+    };
+    let params = &sim.rules().people;
+    let evening = params.elections.w_evening / params.polity.w_gain;
+    let ours = gains(&mut sim, hh[2].1[0]);
+    let theirs = gains(&mut sim, hh[3].1[0]);
+    let near = |a: f64, b: f64| (a - b).abs() < 1e-9 * (1.0 + a.abs() + b.abs());
+    assert!(
+        near(ours(hh[2].0), theirs(hh[2].0) - 2.0 * evening),
+        "{} {} {evening}",
+        ours(hh[2].0),
+        theirs(hh[2].0)
     );
 }

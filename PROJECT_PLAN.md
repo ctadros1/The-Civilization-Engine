@@ -8940,7 +8940,8 @@ and M6a gives rivers a daily flow.
       show), a sewer rate paid by connected homes (it would need a channel), a polity choosing to
       abandon a sewer rather than mend it while its law stands, a chronicle entry for a collapse
       (done 2026-11-02, see backlog D, fifth item),
-      wear while a sewer is still being laid, new connections below a break while it is broken,
+      wear while a sewer is still being laid, new connections below a break while it is broken
+      (done 2026-11-18, see backlog D, twenty-first item),
       backlogs of mending a store cannot pay (12-08 §5.4), and the deferrals of the first three
       slices (rags, paper, glass and bones; picking others' heaps; the law's round sorting; a tip's
       access as a law's term; farm produce and workers' exposure; metals in farm soils; selling
@@ -9950,8 +9951,9 @@ and M6a gives rivers a daily flow.
       for burners or current in a home nobody lives in, or hold two, so they stay in the gone
       household's name and are cut off once unpaid, as before); a road line's motor cart passing
       without its road line (the cart passes within the settlement, the posted runs stay the gone
-      operator's, and run from its door); a line still being laid, and the wagons on it, nobody
-      is left to finish; a line taken up told in the chronicle; and a lived world where a line
+      operator's, and run from its door; done 2026-11-17, see backlog D, twentieth item); a line
+      still being laid, and the wagons on it, nobody is left to finish; a line taken up told in
+      the chronicle (done 2026-11-05, nineteenth item); and a lived world where a line
       passes or is taken up.
     - *Backlog C, ADR-0038 §6's covering (2026-11-05): a covered tip* (§9, "A covered tip";
       research 12-10 §1.5, §2.4, §2.5, §5.4). No new ADR. A new policy kind `cover_tip` (content
@@ -10043,6 +10045,20 @@ and M6a gives rivers a daily flow.
       assertion moved. **Not yet:** a keeper that moves to another settlement whole keeps its
       line from its old door (a move is not a merge); a road line told in the chronicle when it
       passes or ends; and a lived world where a keeper's household ends.
+    - *Backlog D, twenty-first item (2026-11-18): homes below a break connect while a sewer is
+      broken* (backlog C's fourth slice's "Not yet": new connections below a break while it is
+      broken; ADR-0044 §5). No new ADR. **Before:** a broken sewer took no new connection at all,
+      though the homes whose drains enter below the break still flow (the fourth slice: those
+      at or above it back up, those below are served). **Now** (`sewer_connect`): while it is
+      broken, a home beside it connects, by the same terms as before, only where its drain would
+      enter (the route cell nearest the outfall it lies beside) below the break, nearer the
+      outfall; those above wait for the mending, as before. No content, schema, wire or web
+      change; saves stay 220. **Tested:** sewers (18, one new: three homes on a whole sewer,
+      broken where the second's drain enters; the homes above and below the break not yet
+      connected: the one below connects and is served that day, the one above does not; it saves
+      and loads exactly; mended, the one above connects too; it fails with the old rule), tips,
+      contagion, roundtrip and determinism, the civ-agents and civ-sim unit tests, the civ-host lib
+      tests; the ten smoke seeds pass; fmt and clippy clean. No existing assertion moved.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads
@@ -11912,3 +11928,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A line taken up in the chronicle: its kind, when, and its words (2026-11-05, backlog D's nineteenth item; the eighteenth item's "Not yet"):** Decided by Claude under standing owner authority (2026-11-05). **Chosen** as the coordinator's named candidate, still open, self-contained and touching no deliberation (the notables' gate is being re-read on homelab long run 70). **Told:** yes, as the seventeenth item told boats and carts taken up. *Reason:* the chronicle tells every line a household lays (`LineLaid`), and taking one up is the other way a household comes to hold one; nothing else tells what became of a gone household's line. **The kind:** a new `ChronicleKind::LineTakenUp` (code 73, appended), not a `TakenUp` subtype of `VehicleTakenUp`. *Reason:* a line is a way, not a vehicle, and `LineLaid` already keeps lines apart from `BoatMade` and `CartMade`. **Its number:** the wagons and engines taken up with it. *Reason:* the one figure the words give that a reader of the entries might count; no subtype is needed. **When:** at the taking up, once. *Reason:* a line taken up is the household's and never nobody's again. **Words:** the elder, the length (cells at the cell's size, as `LineLaid` measures), and the wagons and engines standing at its ends with how many half made; placed at the end beside its home. The household that left it is not named, as for boats and carts. No content, schema, wire or web change; saves stay 220 (unreleased).
 - **Verification is promoted only on a measured long run; the changes since 48cd61b are measured in two halves (2026-11-17; homelab long run 71):** The owner, 2026-11-17: "Don't accept the unmeasured long run risk." Long run 71 on e20bbac (everything since 48cd61b) hit its 720-minute limit with world 3 of the sanity dashboard still running, so the dashboard graded nothing, structural failures included. What it did show: the notables' gate passed at +103.9 % against 105 % on fixture 2's proposals (run 67, without the two deliberation changes, +61.9 %), and of the four worlds that finished, world 2 fell to 0 in year 42 and world 5 to 2 in year 43 (run 67: world 2 to 7 in year 50, world 5 kept 104). So e20bbac is not promoted, and claude/claude-development stays at 48cd61b. Decided by Claude under standing owner authority (2026-11-17): the changes are measured in two halves, each with `max_minutes` 1440 so the dashboard can finish. (A) 7d6f09b: the two deliberation changes (d5fb651, e0fe643) and a household's line passing on. (B) The scratch branch `claude/split-no-deliberation` (11be209): 48cd61b with the line passing on, the failures row's twelve months, help with mending and the chronicle's line taken up, but neither deliberation change nor covering a tip. Its code differs from e20bbac only in the files those three touch, and fmt, clippy, mending (3) and rail (15) pass on it. *Reason:* one run of everything cannot say which change, if any, moved the margin or the two worlds' end; two halves can, and whichever half is acceptable is promoted on its own measurement.
 - **A road line passes with its motor cart (2026-11-17, backlog D's twentieth item; the eighteenth item's "Not yet"; ADR-0036 §7; research 08-09 §1.2):** Decided by Claude under standing owner authority (2026-11-17). **Chosen** of the two candidates the coordinator named (a line still being laid nobody is left to finish; a road line's motor cart passing without its road line) as the more self-contained: the other needs a weighing of a half-laid line's remaining work and timber, close to the line review's reckoning, and the deliberation changes' long run is being measured. **The line passes with the cart.** *Reason:* a road line is a motor cart's runs (ADR-0036 §7: its keeper's cart, posted), so the household that holds the cart is the only one that could run it, as a rail line's wagons go with its line (the eighteenth item); its riders' habit and timetable are a going concern (08-09's succession row: what is held passes to heirs). **Only where the heir keeps no line of its own and the cart's way reaches the same hearth from its door.** *Reason:* one road line a keeper (`review_road_line` weighs the first), and runs leave from the keeper's door, where its cart stands. **The fare scaled to the new run's minutes, not recomputed.** *Reason:* the fuel a run burns is in proportion to its minutes; the heir's own cost of fuel is weighed at its review, as every keeper's is. **Otherwise it runs no more, and a line whose keeper is no more is taken off at the next midnight.** *Reason:* nobody posts its runs, and before this a dead line stood in the record for ever. No content, schema, wire or web change; saves stay 220.
+- **Homes below a break connect while a sewer is broken (2026-11-18, backlog D's twenty-first item; backlog C's fourth slice's "Not yet"; ADR-0044 §5):** Decided by Claude under standing owner authority (2026-11-18). A broken sewer takes a new connection only from a home whose drain would enter below the break. *Reason:* a sewer broken at a cell still carries everything that enters below it to the outfall (ADR-0044 §5, as built), so refusing those homes was a simplification, not a property of a break; homes above it would only back up, so they still wait for the mending. No household's weighing of a connection, and no polity's review, changes. Chosen as a self-contained item that touches no deliberation while its long run is measured. No content, schema, wire or web change; saves stay 220.

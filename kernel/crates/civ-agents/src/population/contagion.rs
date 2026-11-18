@@ -181,10 +181,13 @@ impl Population {
         }
     }
 
-    /// Someone, `who`, worked on the ground at `at` for `hours` today, at a pit or a deposit, a
-    /// gathering block or a way under work: kept by its land cell for midnight if they shed a
+    /// Someone, `who`, worked on the ground at `at` for `hours` today, away from home: at a pit or
+    /// a deposit, a gathering block or a way under work, at a fire, a well, a bank, a ditch, a
+    /// palisade or a crossing, or at a building being built or a workshop, mill or firm, whose
+    /// yard or privy is the ground there: kept by its land cell for midnight if they shed a
     /// disease that passes by water today, as [`Population::note_worked`] keeps a field (ADR-0021
-    /// §4). Off the land (fishing from a bank, say), nothing is kept and they shed at home.
+    /// §4). On their home's own cell they are at home, and off the land (fishing from a bank,
+    /// say) nothing is kept: either way they shed at home.
     pub(super) fn note_worked_ground(
         &mut self,
         ctx: &Ctx,
@@ -197,6 +200,13 @@ impl Population {
         }
         let cell = cell_of(ctx.map, at);
         if ctx.map.water.get(cell) != Some(&civ_world::WATER_LAND) {
+            return;
+        }
+        let home = self
+            .person(who)
+            .and_then(|p| self.household(p.household))
+            .map(|x| cell_of(ctx.map, x.home));
+        if home == Some(cell) {
             return;
         }
         let cell = cell as u32;

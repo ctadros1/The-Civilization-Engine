@@ -1360,3 +1360,84 @@ fn someone_shedding_who_worked_other_ground_sheds_that_share_of_the_day_there() 
     assert!(hours > 0.0);
     assert_eq!(sim.map().water[worked_cell as usize], civ_world::WATER_LAND);
 }
+
+/// Shedding where people work, slice 3 (ADR-0021 §4): the outdoor work that kept no hours now
+/// keeps them, through the same call: here, a household digging its well, all its people shedding
+/// silently, keeps hours on the well's ground by the evening of a day's digging. And on the cell of
+/// their own home they are at home: nothing is kept there, so they shed into their heap.
+#[test]
+fn shedders_digging_a_well_keep_their_hours_there_and_none_at_home() {
+    let mut sim = village(6);
+    let (h, well) = a_well_begun(&mut sim);
+    let d = cholera(&sim);
+    let (home, members) = household(&sim, h);
+    let day = sim.now().day_index();
+    for &m in &members {
+        sim.people_mut_for_tests().sickness.add(
+            m,
+            Some(h),
+            d,
+            day,
+            Acquired::Observer { influence: 0 },
+            civ_agents::sickness::Course {
+                shed_from: day,
+                shed_until: day + 60,
+                ill_from: day,
+                ill_until: day,
+                severe: false,
+                immune_until: day + 365,
+            },
+        );
+    }
+    // At home: nothing kept.
+    sim.with_ctx_for_tests(|pop, ctx| pop.note_worked_ground_for_tests(ctx, members[0], home, 3.0));
+    assert!(
+        sim.people().worked_ground.is_empty(),
+        "at home, nothing kept"
+    );
+    // The well begun beside the home lies on the home's own cell, where digging is at home; set
+    // it on the land 24 m off, and a day's digging there keeps the diggers' hours on its ground.
+    let home_cell = cell_of(sim.map(), home) as u32;
+    let w = *sim.land().wells.get(well).expect("the well");
+    let moved = (1..8i32)
+        .map(|k| (k * 800, 0))
+        .chain((1..8i32).map(|k| (0, k * 800)))
+        .map(|(dx, dy)| {
+            let mut r = w.rect;
+            r.x += dx;
+            r.y += dy;
+            r
+        })
+        .find(|r| {
+            let c = cell_of(sim.map(), r.centre_m());
+            c as u32 != home_cell
+                && sim.map().water[c] == civ_world::WATER_LAND
+                && (r.centre_m().0 - home.0).hypot(r.centre_m().1 - home.1) <= 30.0
+        })
+        .expect("land beside the home");
+    let at = cell_of(sim.map(), moved.centre_m()) as u32;
+    for x in &mut sim.land_mut_for_tests().wells.list {
+        if x.id == well {
+            x.rect = moved;
+            x.cell = at;
+        }
+    }
+    let mut kept = None;
+    for _ in 0..30 {
+        to_morning(&mut sim, 20 * 60);
+        if let Some(k) = sim
+            .people()
+            .worked_ground
+            .iter()
+            .find(|k| members.contains(&k.0) && k.1 == at)
+        {
+            kept = Some(*k);
+            break;
+        }
+        if sim.land().wells.get(well).is_some_and(|w| w.is_open()) {
+            break;
+        }
+    }
+    let (who, _, hours) = kept.expect("hours kept at the well");
+    assert!(members.contains(&who) && hours > 0.0);
+}

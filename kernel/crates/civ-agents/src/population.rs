@@ -6737,6 +6737,8 @@ impl Population {
                         (target, step)
                     {
                         self.pull_down(ctx, who, building, minutes);
+                        // Where they shed while they fight a fire (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 Some(Behavior::Strip) => {
@@ -6746,6 +6748,8 @@ impl Population {
                         (target, step)
                     {
                         self.strip_roof(ctx, who, building, minutes);
+                        // Where they shed while they fight a fire (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 Some(Behavior::Salvage) => {
@@ -6756,6 +6760,8 @@ impl Population {
                         && step_at <= 1
                     {
                         self.salvage(ctx, who, household, building);
+                        // Where they shed while they fight a fire (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 Some(Behavior::Douse) => {
@@ -6768,6 +6774,8 @@ impl Population {
                         } else {
                             self.throw_water(ctx, h, who, building);
                         }
+                        // Where they shed while they fight a fire (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 Some(Behavior::Farm) => {
@@ -6868,6 +6876,8 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.build_work(ctx, (h, who), household, building, hours);
+                        // Where they shed while they build (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 Some(Behavior::Bridge) => {
@@ -6877,6 +6887,8 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.crossing_work(ctx, (h, who), household, crossing, hours);
+                        // Where they shed while they build a crossing (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 Some(Behavior::Raise) => {
@@ -6886,6 +6898,8 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let household = p.household;
                         self.raise_work(ctx, household, building, hours);
+                        // Where they shed while they raise a building (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 Some(Behavior::Way) => {
@@ -6906,6 +6920,8 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.boat_work(ctx, (h, who), household, boat, hours);
+                        // Where they shed while they make a boat or cart (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 Some(Behavior::Well) => {
@@ -6915,6 +6931,8 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.well_work(ctx, (h, who), household, well, hours);
+                        // Where they shed while they dig a well (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 Some(Behavior::Levee) => {
@@ -6924,6 +6942,8 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.levee_work(ctx, (h, who), household, bank, hours);
+                        // Where they shed while they raise a bank (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 Some(Behavior::Palisade) => {
@@ -6933,6 +6953,8 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.enclosure_work(ctx, who, household, enclosure, hours);
+                        // Where they shed while they raise a palisade (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 Some(Behavior::Ditch) => {
@@ -6942,16 +6964,22 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.ditch_work(ctx, who, household, ditch, hours);
+                        // Where they shed while they dig a ditch (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 Some(Behavior::Mill) => {
                     if let Target::Mill(mill) = p.act.target {
                         self.mill_grind(ctx, h, mill, minutes);
+                        // Where they shed while they grind at a mill (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 Some(Behavior::Hire) => {
                     if let Target::Firm(firm) = p.act.target {
                         self.hired_work(ctx, h, firm, minutes);
+                        // Where they shed while they work for a firm (ADR-0021 §4).
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 Some(Behavior::Tend) => {
@@ -6973,6 +7001,8 @@ impl Population {
                             Target::Firm(firm) => self.firm_make(ctx, h, d, minutes, firm),
                             _ => self.make_work(ctx, h, d, minutes),
                         }
+                        // Where they shed while they make (ADR-0021 §4): nothing kept at home.
+                        self.note_worked_ground(ctx, who, at, f64::from(minutes) / 60.0);
                     }
                 }
                 _ => {}

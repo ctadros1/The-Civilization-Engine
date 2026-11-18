@@ -1130,3 +1130,68 @@ fn a_home_is_sited_off_a_tip_s_ground() {
         "sited at {then:?}, on the tip's ground about {first:?}"
     );
 }
+
+/// The observer sees a tip's ground (wire 1.113): the water frame lists each tip that took
+/// ground, its rectangle in metres, what was tipped and lies open, whether it is all under earth,
+/// and its words; the frame's revision moves when a heap is tipped there.
+#[test]
+fn the_observer_sees_a_tip_s_ground_what_lies_on_it_and_whether_it_is_covered() {
+    let mut sim = world_with(5);
+    sim.advance_minutes(2 * DAY).expect("advances");
+    let (_, tip) = the_law_passed(&mut sim);
+    let tip = tip.expect("a place qualifies in this valley");
+    let g = sim.land().tips.list[0];
+    let seen = |sim: &Sim| {
+        let bytes = civ_sim::frames::water::water_response(sim);
+        let response =
+            civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&bytes).expect("wire");
+        let water = response.body_as_water().expect("water");
+        let tips = water.tips().expect("tips");
+        assert_eq!(tips.len(), 1);
+        let t = tips.get(0);
+        (
+            water.rev(),
+            t.id(),
+            (t.x(), t.y(), t.w_m(), t.h_m()),
+            (t.covered(), t.tipped_kg(), t.open_kg()),
+            t.words().unwrap_or_default().to_owned(),
+        )
+    };
+    let (rev, id, rect, state, words) = seen(&sim);
+    assert_ne!(rev, 0);
+    assert_eq!(id, tip.id.get());
+    let (w, h) = (g.rect.w as f32 / 100.0, g.rect.h as f32 / 100.0);
+    assert!((rect.0 - tip.place.0).abs() < 0.02 && (rect.1 - tip.place.1).abs() < 0.02);
+    assert!((rect.2 - w).abs() < 1e-3 && (rect.3 - h).abs() < 1e-3);
+    assert_eq!(state, (false, 0.0, 0.0));
+    assert!(
+        words.starts_with("The tip ") && words.ends_with(&format!("; on {:.0} m²", w * h)),
+        "{words}"
+    );
+    // A heap tipped there: the revision moves, and what lies open is shown.
+    let h0 = our_households(&sim)[0];
+    let carrier = {
+        let pop = sim.people_mut_for_tests();
+        let (_, x) = pop
+            .households
+            .iter_mut()
+            .find(|(_, x)| x.id == h0)
+            .expect("the household");
+        x.midden.ash_kg += 5.0;
+        x.members[0]
+    };
+    sim.with_ctx_for_tests(|pop, ctx| pop.carry_midden_for_tests(ctx, carrier, tip.place));
+    let (rev2, _, _, state2, _) = seen(&sim);
+    assert_ne!(rev2, rev, "tipped on, the frame changed");
+    assert!(
+        state2.1 >= 5.0 && (state2.2 - state2.1).abs() < 1e-3,
+        "{state2:?}"
+    );
+    // All of it under earth: shown covered.
+    for t in &mut sim.people_mut_for_tests().polities[0].tips {
+        t.covered_kg = t.tipped_kg();
+    }
+    let (_, _, _, state3, words3) = seen(&sim);
+    assert!(state3.0 && state3.2 == 0.0, "{state3:?}");
+    assert!(words3.contains("all of it covered with earth"), "{words3}");
+}

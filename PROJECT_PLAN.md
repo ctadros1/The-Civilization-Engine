@@ -10339,7 +10339,29 @@ and M6a gives rivers a daily flow.
       ground; in longer lives, homes, fields and pits that would have stood where a tip opens
       now stand off it, and a tip opens where its whole footprint is clear, an expected change.
       **Not yet:** capacity (a tip's ground filling, and what a full tip does); burning tips; the
-      observer drawing a tip's ground.
+      observer drawing a tip's ground (done 2026-11-18, the next entry).
+    - *The observer draws a tip's ground (2026-11-18; wire 1.113).* **Kernel:** the water frame
+      (`GetWater`) lists each tip that took ground (`TipInfo`, appended to `Water` as field 7):
+      its rectangle's centre and size in metres, whether all that was tipped there lies under
+      earth, the kilograms tipped and lying open, and its words, the services' tip line with its
+      ground ("The tip north of the hearth holds 1.2 t, 300 kg of it ash, from 6 households; on
+      200 m²", `tip_line`, now one function both share); its revision moves when a tip opens, is
+      tipped on or covered. A tip opened before tips took ground has none and is not listed.
+      **Web:** the water layer draws each tip's ground under its wells, springs and mills as a
+      faint square with a pixel's edge, earth-brown, stronger while refuse lies open on it than
+      once it is covered (`tipLook`); the pointer on it shows its words in the readout, as a
+      mill's are (`tipAt`, the smallest of two that overlap). Wire 1.113: `WIRE_SCHEMA_MINOR`,
+      its test string and the web's envelope minor; the Unreal client's BuildingAssembler names
+      1.112 as the least wire for building parts, which stays true, so it is not changed. No save,
+      content or law change. **Tested:** tips (11, one new: the water frame lists the opened tip's
+      ground, its centre and size, nothing tipped and not covered, its words ending "; on N m²";
+      a heap tipped there moves the revision and shows what lies open; all of it under earth,
+      shown covered, "all of it covered with earth"), mills, wells, roundtrip and determinism,
+      civ-schema's tests, the civ-agents, civ-land and civ-sim unit tests, the civ-host lib tests;
+      the ten smoke seeds pass; fmt, clippy and gen-schema --check clean. Web: `npm run build`,
+      `npm test` (223, two new: a tip found anywhere on its rectangle and the smaller of two, and
+      drawn stronger open than covered; the water decode test now with a tip). `npm run test:e2e`
+      not run: no Playwright browsers in this container.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads
@@ -12218,3 +12240,4 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **A household that moves takes its boats and carts (2026-11-18, backlog D's twenty-fifth item; the twentieth item's corrected "Not yet"):** Decided by Claude under standing owner authority (2026-11-18). **What goes:** a made boat or cart a way would bring to the new home today, by the rule an heir's are brought home by (`way_home`), and a motor cart where the household holds its trip's fuel, which it burns. *Reason:* a household that moves takes its store with it, so leaving behind what it could take along a way was the odd case, not a rule; the ninth item's "a way would bring it" and M11b's "a household without a trip's fuel cannot take it" already say which can go. **No hours counted for bringing them.** *Reason:* moving counts none for carrying its goods either; the move is one step. **Wagons stay.** *Reason:* a rail vehicle goes nowhere off its rails (the eighteenth item). No weighing changes. No content, schema, wire or web change; saves stay 220.
 - **A keeper that moves reposts its runs through its own review, as any keeper does (2026-11-18, backlog D's twenty-sixth item):** Decided by Claude under standing owner authority (2026-11-18). Recorded with a test rather than built: the yearly review already posts runs for any household keeping a motor cart and no line where its settlement's people run a dozen errands a year to another, so a moved keeper whose cart came with it posts from its new door once its new settlement's people run there. *Reason:* the coordinator's instruction, and the plan's rule that a household's weighing is unchanged. No code, content, schema, wire or web change.
 - **A tip takes ground (2026-11-18, backlog C: ADR-0038 §6's deferrals, the first half of a tip's capacity; ADR-0038's amendment of 2026-11-18):** Decided by Claude under standing owner authority (2026-11-18), the coordinator having chosen this half of the option. **The ground is the land's,** a record beside the wells' (`Land::tips`), not the polity's tip record. *Reason:* everything that places buildings, fields, plots, pits and ditches reads the land, as it reads wells' ground; a polity's record would need every placement to read the polities too. **Its footprint is 2 m² for each person of the settlement opening it.** *Reason:* 12-10 §2.5's worked example is the research's one figure, a hectare raised two metres for a town of 5,000 for about five years loose, and scaling it by the people served keeps that ground-to-people ratio; the smallest footprint the research gives is that one. **The tip is sited only where its footprint is clear.** *Reason:* a tip opening over a home or field would contradict the ground it keeps. **A tip opened before keeps no ground, and nothing already where it lies moves.** *Reason:* saves are refused, never repaired; giving an old tip ground on load would either cover what stands there or move the tip, and saves 220 are unreleased, so no released world carries such a tip. **No capacity, filling or `tip_full` issue,** and no law or forecast change. *Reason:* the coordinator's scope; a full tip's answer is a polity trigger. No content, wire or web change; saves stay 220 (a field appended to the land table).
+- **Wire 1.113: a tip's ground in the water frame (2026-11-18):** Decided by Claude under standing owner authority (2026-11-18). A `TipInfo` table appended to `Water` (field 7), the minor bumped to 113. *Reason:* the water frame is where the observer reads what lies on the land and fouls the water (wells, springs, mills), and a tip washes and seeps toward those wells; appending a field with a new id is ADR-0001's rule, and a new field the older web cannot read is a minor bump. The Unreal BuildingAssembler's "needs kernel wire 1.112 or later for building parts" is a least version for a feature, not the current one, so it stays. Drawn under the other water features, faint, as the plans and fields are, so it neither hides the wells beside it nor reads as water.

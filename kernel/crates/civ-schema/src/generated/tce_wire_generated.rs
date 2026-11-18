@@ -31308,6 +31308,238 @@ impl ::core::fmt::Debug for MillInfo<'_> {
       ds.finish()
   }
 }
+pub enum TipInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TipInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for TipInfo<'a> {
+  type Inner = TipInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> TipInfo<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_X: ::flatbuffers::VOffsetT = 6;
+  pub const VT_Y: ::flatbuffers::VOffsetT = 8;
+  pub const VT_W_M: ::flatbuffers::VOffsetT = 10;
+  pub const VT_H_M: ::flatbuffers::VOffsetT = 12;
+  pub const VT_COVERED: ::flatbuffers::VOffsetT = 14;
+  pub const VT_TIPPED_KG: ::flatbuffers::VOffsetT = 16;
+  pub const VT_OPEN_KG: ::flatbuffers::VOffsetT = 18;
+  pub const VT_WORDS: ::flatbuffers::VOffsetT = 20;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    TipInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args TipInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<TipInfo<'bldr>> {
+    let mut builder = TipInfoBuilder::new(_fbb);
+    builder.add_id(args.id);
+    if let Some(x) = args.words { builder.add_words(x); }
+    builder.add_open_kg(args.open_kg);
+    builder.add_tipped_kg(args.tipped_kg);
+    builder.add_h_m(args.h_m);
+    builder.add_w_m(args.w_m);
+    builder.add_y(args.y);
+    builder.add_x(args.x);
+    builder.add_covered(args.covered);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TipInfo::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn x(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TipInfo::VT_X, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn y(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TipInfo::VT_Y, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn w_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TipInfo::VT_W_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn h_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TipInfo::VT_H_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn covered(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(TipInfo::VT_COVERED, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn tipped_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TipInfo::VT_TIPPED_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn open_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TipInfo::VT_OPEN_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn words(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(TipInfo::VT_WORDS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for TipInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<f32>("x", Self::VT_X, false)?
+     .visit_field::<f32>("y", Self::VT_Y, false)?
+     .visit_field::<f32>("w_m", Self::VT_W_M, false)?
+     .visit_field::<f32>("h_m", Self::VT_H_M, false)?
+     .visit_field::<bool>("covered", Self::VT_COVERED, false)?
+     .visit_field::<f32>("tipped_kg", Self::VT_TIPPED_KG, false)?
+     .visit_field::<f32>("open_kg", Self::VT_OPEN_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TipInfoArgs<'a> {
+    pub id: u64,
+    pub x: f32,
+    pub y: f32,
+    pub w_m: f32,
+    pub h_m: f32,
+    pub covered: bool,
+    pub tipped_kg: f32,
+    pub open_kg: f32,
+    pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for TipInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TipInfoArgs {
+      id: 0,
+      x: 0.0,
+      y: 0.0,
+      w_m: 0.0,
+      h_m: 0.0,
+      covered: false,
+      tipped_kg: 0.0,
+      open_kg: 0.0,
+      words: None,
+    }
+  }
+}
+
+pub struct TipInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TipInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(TipInfo::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_x(&mut self, x: f32) {
+    self.fbb_.push_slot::<f32>(TipInfo::VT_X, x, 0.0);
+  }
+  #[inline]
+  pub fn add_y(&mut self, y: f32) {
+    self.fbb_.push_slot::<f32>(TipInfo::VT_Y, y, 0.0);
+  }
+  #[inline]
+  pub fn add_w_m(&mut self, w_m: f32) {
+    self.fbb_.push_slot::<f32>(TipInfo::VT_W_M, w_m, 0.0);
+  }
+  #[inline]
+  pub fn add_h_m(&mut self, h_m: f32) {
+    self.fbb_.push_slot::<f32>(TipInfo::VT_H_M, h_m, 0.0);
+  }
+  #[inline]
+  pub fn add_covered(&mut self, covered: bool) {
+    self.fbb_.push_slot::<bool>(TipInfo::VT_COVERED, covered, false);
+  }
+  #[inline]
+  pub fn add_tipped_kg(&mut self, tipped_kg: f32) {
+    self.fbb_.push_slot::<f32>(TipInfo::VT_TIPPED_KG, tipped_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_open_kg(&mut self, open_kg: f32) {
+    self.fbb_.push_slot::<f32>(TipInfo::VT_OPEN_KG, open_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_words(&mut self, words: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TipInfo::VT_WORDS, words);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TipInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    TipInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<TipInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for TipInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("TipInfo");
+      ds.field("id", &self.id());
+      ds.field("x", &self.x());
+      ds.field("y", &self.y());
+      ds.field("w_m", &self.w_m());
+      ds.field("h_m", &self.h_m());
+      ds.field("covered", &self.covered());
+      ds.field("tipped_kg", &self.tipped_kg());
+      ds.field("open_kg", &self.open_kg());
+      ds.field("words", &self.words());
+      ds.finish()
+  }
+}
 pub enum WaterOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -31331,6 +31563,7 @@ impl<'a> Water<'a> {
   pub const VT_BANKS: ::flatbuffers::VOffsetT = 12;
   pub const VT_FLOODED: ::flatbuffers::VOffsetT = 14;
   pub const VT_MILLS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_TIPS: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -31343,6 +31576,7 @@ impl<'a> Water<'a> {
   ) -> ::flatbuffers::WIPOffset<Water<'bldr>> {
     let mut builder = WaterBuilder::new(_fbb);
     builder.add_rev(args.rev);
+    if let Some(x) = args.tips { builder.add_tips(x); }
     if let Some(x) = args.mills { builder.add_mills(x); }
     if let Some(x) = args.flooded { builder.add_flooded(x); }
     if let Some(x) = args.banks { builder.add_banks(x); }
@@ -31402,6 +31636,13 @@ impl<'a> Water<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MillInfo>>>>(Water::VT_MILLS, None)}
   }
+  #[inline]
+  pub fn tips(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TipInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TipInfo>>>>(Water::VT_TIPS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Water<'_> {
@@ -31417,6 +31658,7 @@ impl ::flatbuffers::Verifiable for Water<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, BankDraw>>>("banks", Self::VT_BANKS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, FloodCell>>>("flooded", Self::VT_FLOODED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MillInfo>>>>("mills", Self::VT_MILLS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TipInfo>>>>("tips", Self::VT_TIPS, false)?
      .finish();
     Ok(())
   }
@@ -31429,6 +31671,7 @@ pub struct WaterArgs<'a> {
     pub banks: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, BankDraw>>>,
     pub flooded: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, FloodCell>>>,
     pub mills: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MillInfo<'a>>>>>,
+    pub tips: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TipInfo<'a>>>>>,
 }
 impl<'a> Default for WaterArgs<'a> {
   #[inline]
@@ -31441,6 +31684,7 @@ impl<'a> Default for WaterArgs<'a> {
       banks: None,
       flooded: None,
       mills: None,
+      tips: None,
     }
   }
 }
@@ -31479,6 +31723,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WaterBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Water::VT_MILLS, mills);
   }
   #[inline]
+  pub fn add_tips(&mut self, tips: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<TipInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Water::VT_TIPS, tips);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WaterBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WaterBuilder {
@@ -31503,6 +31751,7 @@ impl ::core::fmt::Debug for Water<'_> {
       ds.field("banks", &self.banks());
       ds.field("flooded", &self.flooded());
       ds.field("mills", &self.mills());
+      ds.field("tips", &self.tips());
       ds.finish()
   }
 }

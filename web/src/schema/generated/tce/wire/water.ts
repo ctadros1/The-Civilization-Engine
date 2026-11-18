@@ -8,6 +8,7 @@ import { BankDraw } from '../../tce/wire/bank-draw.js';
 import { FloodCell } from '../../tce/wire/flood-cell.js';
 import { MillInfo } from '../../tce/wire/mill-info.js';
 import { SpringInfo } from '../../tce/wire/spring-info.js';
+import { TipInfo } from '../../tce/wire/tip-info.js';
 import { WellInfo } from '../../tce/wire/well-info.js';
 
 
@@ -89,8 +90,18 @@ millsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+tips(index: number, obj?:TipInfo):TipInfo|null {
+  const offset = this.bb!.__offset(this.bb_pos, 18);
+  return offset ? (obj || new TipInfo()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+tipsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 18);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startWater(builder:flatbuffers.Builder) {
-  builder.startObject(7);
+  builder.startObject(8);
 }
 
 static addRev(builder:flatbuffers.Builder, rev:bigint) {
@@ -157,12 +168,28 @@ static startMillsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addTips(builder:flatbuffers.Builder, tipsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(7, tipsOffset, 0);
+}
+
+static createTipsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startTipsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endWater(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createWater(builder:flatbuffers.Builder, rev:bigint, wellsOffset:flatbuffers.Offset, springsOffset:flatbuffers.Offset, flow:number, banksOffset:flatbuffers.Offset, floodedOffset:flatbuffers.Offset, millsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createWater(builder:flatbuffers.Builder, rev:bigint, wellsOffset:flatbuffers.Offset, springsOffset:flatbuffers.Offset, flow:number, banksOffset:flatbuffers.Offset, floodedOffset:flatbuffers.Offset, millsOffset:flatbuffers.Offset, tipsOffset:flatbuffers.Offset):flatbuffers.Offset {
   Water.startWater(builder);
   Water.addRev(builder, rev);
   Water.addWells(builder, wellsOffset);
@@ -171,6 +198,7 @@ static createWater(builder:flatbuffers.Builder, rev:bigint, wellsOffset:flatbuff
   Water.addBanks(builder, banksOffset);
   Water.addFlooded(builder, floodedOffset);
   Water.addMills(builder, millsOffset);
+  Water.addTips(builder, tipsOffset);
   return Water.endWater(builder);
 }
 }

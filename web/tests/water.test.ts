@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import type { SpringInfo, WellInfo } from "../src/net/messages.js";
+import type { SpringInfo, TipInfo, WellInfo } from "../src/net/messages.js";
 import {
   DIGGING_COLOUR,
   DRY_COLOUR,
   FALLEN_COLOUR,
+  TIP_COVERED_COLOUR,
+  TIP_OPEN_COLOUR,
   WELL_WATER_COLOUR,
   bankAt,
   bankWords,
   flowWords,
   springAt,
   springWords,
+  tipAt,
+  tipLook,
   wellAt,
   wellLook,
 } from "../src/water.js";
@@ -76,5 +80,38 @@ describe("water", () => {
     expect(flowWords(1.02)).toBe("flowing at its mean today");
     expect(flowWords(0.4)).toBe("flowing at 40% of its mean today");
     expect(flowWords(2.24)).toBe("flowing at 2.2 times its mean today");
+  });
+});
+
+describe("a tip's ground", () => {
+  const tip = (over: Partial<TipInfo> = {}): TipInfo => ({
+    id: 1,
+    x: 100,
+    y: 100,
+    wM: 14,
+    hM: 10,
+    covered: false,
+    tippedKg: 50,
+    openKg: 50,
+    words: "The tip by the hearth",
+    ...over,
+  });
+
+  it("is found under the pointer anywhere on its rectangle, the smallest of two", () => {
+    expect(tipAt([tip()], 106.9, 104.9)?.id).toBe(1);
+    expect(tipAt([tip()], 107.1, 100)).toBeNull();
+    expect(tipAt([tip()], 100, 105.1)).toBeNull();
+    const small = tip({ id: 2, wM: 4, hM: 4 });
+    expect(tipAt([tip(), small], 101, 101)?.id).toBe(2);
+    expect(tipAt([], 100, 100)).toBeNull();
+  });
+
+  it("is drawn stronger while refuse lies open on it than once it is covered", () => {
+    const open = tipLook(tip());
+    const covered = tipLook(tip({ covered: true, openKg: 0 }));
+    expect(open.colour).toBe(TIP_OPEN_COLOUR);
+    expect(covered.colour).toBe(TIP_COVERED_COLOUR);
+    expect(open.fill).toBeGreaterThan(covered.fill);
+    expect(tipLook(tip({ tippedKg: 0, openKg: 0 })).colour).toBe(TIP_COVERED_COLOUR);
   });
 });

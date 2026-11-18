@@ -55,7 +55,18 @@ import { DITCH_COLOUR, PALISADE_COLOUR, changedTiles, detailTilesOver, earthwork
 import { fieldAt, fieldLook } from "../fields.js";
 import type { HostClient } from "../net/client.js";
 import { TRAIL_COLOUR, pathAt, smoothed, trailLook, wornPixels } from "../paths.js";
-import { BANK_COLOUR, MILL_COLOUR, SPRING_COLOUR, bankAt, millAt, springAt, wellAt, wellLook } from "../water.js";
+import {
+  BANK_COLOUR,
+  MILL_COLOUR,
+  SPRING_COLOUR,
+  bankAt,
+  millAt,
+  springAt,
+  tipAt,
+  tipLook,
+  wellAt,
+  wellLook,
+} from "../water.js";
 import {
   RasterLayer,
   type ActivityInfo,
@@ -80,6 +91,7 @@ import {
   type LandInfo,
   type LandPlot,
   type MillInfo,
+  type TipInfo,
   type DepositInfo,
   type EarthworkInfo,
   type EarthworksInfo,
@@ -164,6 +176,8 @@ export interface PointerInfo {
   flow: number | null;
   /** The water mill under the pointer, if any (M10a slice DR). */
   mill: MillInfo | null;
+  /** The tip whose ground is under the pointer, if any (wire 1.113). */
+  tip: TipInfo | null;
   /** The home under the pointer while a lens is shown, with what the lens reads of it (M6a slice
    * BB, step three). */
   home: CoverageHome | null;
@@ -802,6 +816,14 @@ export class MapView {
     const water = this.water;
     if (!water) return;
     const pxM = 1 / Math.max(this.scale, 1e-6);
+    // A tip's ground (wire 1.113): a faint square under everything else drawn here, stronger
+    // while refuse lies open on it, with its edge a pixel wide.
+    for (const t of water.tips) {
+      const look = tipLook(t);
+      g.rect(t.x - t.wM / 2, t.y - t.hM / 2, t.wM, t.hM);
+      g.fill({ color: look.colour, alpha: look.fill });
+      g.rect(t.x - t.wM / 2, t.y - t.hM / 2, t.wM, t.hM).stroke({ width: pxM, color: look.colour, alpha: look.edge });
+    }
     for (const b of water.banks) {
       g.circle(b.x, b.y, (1.2 + Math.min(2, Math.sqrt(b.trips) / 4)) * pxM);
       g.fill({ color: BANK_COLOUR, alpha: 0.7 });
@@ -1349,6 +1371,7 @@ export class MapView {
       bank: bankAt(this.water?.banks ?? [], xM, yM, 4 / this.scale),
       flow: this.water?.flow ?? null,
       mill: millAt(this.water?.mills ?? [], xM, yM, 5 / this.scale),
+      tip: tipAt(this.water?.tips ?? [], xM, yM),
       home: homeAt(this.lens, xM, yM, 5 / this.scale),
       place: placeAt(this.lens, xM, yM, 5 / this.scale),
       path: pathAt(this.paths, cellX, cellY),
@@ -1646,6 +1669,8 @@ export class MapView {
       springs: this.water?.springs.length ?? 0,
       // M10a slice DR: water mills, where each wheel stands and what it gives today.
       mills: (this.water?.mills ?? []).map((m) => ({ x: m.x, y: m.y, kw: m.kw, dug: m.dug, words: m.words })),
+      // Wire 1.113: each tip's ground, whether it is covered, and its words.
+      tips: (this.water?.tips ?? []).map((t) => ({ x: t.x, y: t.y, wM: t.wM, hM: t.hM, covered: t.covered, words: t.words })),
       banks: this.water?.banks.length ?? 0,
       flow: this.water?.flow ?? null,
       groundTiles: this.groundSeen.size,

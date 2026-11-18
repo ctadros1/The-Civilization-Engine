@@ -27,6 +27,7 @@ pub fn water_rev(sim: &Sim) -> u64 {
     let mills = &sim.land.installations;
     if wells.is_empty()
         && mills.is_empty()
+        && sim.land.tips.list.is_empty()
         && !sim.land.water.aquifer.seep.iter().any(Option::is_some)
         && !has_flood
     {
@@ -55,6 +56,21 @@ pub fn water_rev(sim: &Sim) -> u64 {
     // Water mills (wire 1.97): set, dug, given to another; their power moves with the day.
     for (i, m) in mills.iter().enumerate() {
         (m.id.get(), m.owner.get(), sim.land.installation_ready(i)).hash(&mut hasher);
+    }
+    // Tips' ground (wire 1.113): opened, tipped on, covered.
+    for g in &sim.land.tips.list {
+        let tip = sim
+            .people
+            .polities
+            .iter()
+            .flat_map(|p| p.tips.iter())
+            .find(|t| t.id == g.id);
+        (
+            g.id.get(),
+            g.rect,
+            tip.map(|t| (t.tipped_kg().to_bits(), t.covered_kg.to_bits())),
+        )
+            .hash(&mut hasher);
     }
     hasher.finish() | 1
 }
@@ -295,6 +311,39 @@ pub fn water_response(sim: &Sim) -> Vec<u8> {
         ));
     }
     let mills = fbb.create_vector(&mills);
+    // Every tip's ground, with its tip's words (wire 1.113).
+    let mut tips = Vec::with_capacity(sim.land.tips.list.len());
+    for g in &sim.land.tips.list {
+        let Some((polity, t)) = sim
+            .people
+            .polities
+            .iter()
+            .find_map(|p| p.tips.iter().find(|t| t.id == g.id).map(|t| (p, t)))
+        else {
+            continue;
+        };
+        let (w_m, h_m) = (g.rect.w as f32 / 100.0, g.rect.h as f32 / 100.0);
+        let words = fbb.create_string(&format!(
+            "{}; on {:.0} m²",
+            super::government::tip_line(sim, polity, t),
+            w_m * h_m
+        ));
+        tips.push(wire::TipInfo::create(
+            &mut fbb,
+            &wire::TipInfoArgs {
+                id: g.id.get(),
+                x: g.rect.x as f32 / 100.0 + w_m / 2.0,
+                y: g.rect.y as f32 / 100.0 + h_m / 2.0,
+                w_m,
+                h_m,
+                covered: t.covered(),
+                tipped_kg: t.tipped_kg() as f32,
+                open_kg: t.open_kg() as f32,
+                words: Some(words),
+            },
+        ));
+    }
+    let tips = fbb.create_vector(&tips);
     let body = wire::Water::create(
         &mut fbb,
         &wire::WaterArgs {
@@ -305,6 +354,7 @@ pub fn water_response(sim: &Sim) -> Vec<u8> {
             banks: Some(banks),
             flooded: Some(flooded),
             mills: Some(mills),
+            tips: Some(tips),
         },
     );
     response(fbb, wire::ResponseBody::Water, body)

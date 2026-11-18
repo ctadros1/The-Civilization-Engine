@@ -350,4 +350,33 @@ mod tests {
         assert_eq!(m.unmet[2], 0.0);
         assert_eq!(m.unmet_worth(2), None);
     }
+
+    /// Coverage (backlog E; ADR-0006 §4): a good's price is what a unit fetched in the latest
+    /// month it sold, in its sellers' hours; a good never sold has none; demand of nothing, or
+    /// at no finite worth, is not recorded; and of two payment goods settling equal shares, the
+    /// one first in the catalogue is the money.
+    #[test]
+    fn a_price_is_the_latest_months_and_ties_go_to_the_first_good() {
+        let mut m = Market::new(id(9), 3, 0);
+        let at = |year: i64, month: u8| SimTime::from_date(year, month, 3, 12, 0).expect("a date");
+        assert_eq!(m.price_h(2), None, "never sold");
+        let mut sickle = trade(2, 2.0, 0, 4.0);
+        sickle.at = at(1, 2);
+        m.record_trade(sickle, 6.0, 4);
+        assert_eq!(m.price_h(2), Some(3.0));
+        sickle.at = at(1, 5);
+        sickle.units = 1.0;
+        m.record_trade(sickle, 5.0, 4);
+        m.record_trade(sickle, 3.0, 4);
+        assert_eq!(m.price_h(2), Some(4.0), "the latest month's: 8 hours for 2");
+        m.record_unmet(1, 0.0, 5.0);
+        m.record_unmet(1, 2.0, f64::NAN);
+        assert_eq!((m.unmet[1], m.unmet_worth(1)), (0.0, None));
+        // Equal shares paid in grain (0) and stone (1): grain is the money.
+        let mut t = Market::new(id(9), 3, 0);
+        t.record_trade(trade(2, 1.0, 0, 1.0), 2.0, 4);
+        t.record_trade(trade(2, 1.0, 1, 1.0), 2.0, 4);
+        assert_eq!(t.acceptance(), vec![0.5, 0.5, 0.0]);
+        assert_eq!(t.money(0.5, 2.0), Some(0));
+    }
 }

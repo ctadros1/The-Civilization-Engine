@@ -869,4 +869,33 @@ mod tests {
             assert!(SHARED.contains(&b), "{b:?} is once a day but not shared");
         }
     }
+
+    /// Coverage (backlog E; ADR-0032 §2): a household-resolved night runs from two hours after
+    /// sunset to sunrise, within the content's sleep range: a winter's long night is cut to the
+    /// longest sleep, a summer's short one raised to the shortest, a spring night kept whole; a
+    /// sunset so late that turning in passes midnight turns in at midnight.
+    #[test]
+    fn a_household_resolved_night_runs_from_two_hours_after_sunset_to_sunrise_in_range() {
+        let sleep = crate::params::SleepParams {
+            tau_awake_h: 18.0,
+            tau_asleep_h: 4.0,
+            wake_pressure: 0.1,
+            min_hours: 6.0,
+            max_hours: 10.0,
+            nap_min_minutes: 10.0,
+            nap_max_minutes: 60.0,
+            day_factor: 0.3,
+            bedtime_after_sunset_hours: 3.3,
+        };
+        // Spring: sunrise 06:00, sunset 18:00: in at 20:00, up at 06:00, ten hours.
+        assert_eq!(night_minutes(&sleep, (360, 1080)), 600.0);
+        // Winter: sunrise 08:00, sunset 16:00: in at 18:00, fourteen hours, cut to ten.
+        assert_eq!(night_minutes(&sleep, (480, 960)), 600.0);
+        // Summer: sunrise 04:00, sunset 21:00: in at 23:00, five hours, raised to six.
+        assert_eq!(night_minutes(&sleep, (240, 1260)), 360.0);
+        // A sunset at 23:30: in at midnight, not later, up at 04:00, raised to six.
+        assert_eq!(night_minutes(&sleep, (240, 1410)), 360.0);
+        // Late spring: sunrise 05:00, sunset 19:30: in at 21:30, seven and a half hours, kept.
+        assert_eq!(night_minutes(&sleep, (300, 1170)), 450.0);
+    }
 }

@@ -10269,6 +10269,31 @@ and M6a gives rivers a daily flow.
       and the deposits, knowledge, diffusion and people tests want, learn and use one. **Tested:** mills
       (4), firms (7), the civ-agents and civ-sim unit tests, the civ-host lib tests; the ten smoke
       seeds pass; fmt and clippy clean.
+    - *Backlog E, coverage, fifth pass (2026-11-18): a workshop with no heir, the market's
+      prices, a household-resolved night.* Tests only; no code changed and no fault found. **A
+      workshop whose owners end with no heir** (`pass_firms` with nobody to take it, left noted by
+      the fourth pass): reached without a hook in a world where a founders' household has no
+      living kin elsewhere (their parents and children, a few steps out, all within it); its
+      people die, the youngest first so none is fostered, the household is no more and the
+      workshop is closed as its owner gone (firms,
+      `a_workshop_whose_owners_end_with_no_heir_closes_as_its_owner_gone`). **The market's
+      prices and money** (`Market`, ADR-0006 §4): a good's price is what a unit fetched in the
+      latest month it sold, in its sellers' hours, none before it sold; demand of nothing or at no
+      finite worth is not recorded; of two payments settling equal shares, the one first in the
+      catalogue is the money (civ-agents' market unit tests,
+      `a_price_is_the_latest_months_and_ties_go_to_the_first_good`). The terms a seller posts
+      (`post_terms`: what it takes in payment, in what order, how much a unit) are reached only
+      through a household's review, with no hook to call them alone; they stay pinned as the
+      firms and market scenes pin them, and their own order is left for a pass that can set one
+      up. **A household-resolved night** (M9a, ADR-0032 §2): from two hours after sunset to
+      sunrise, cut to the content's longest sleep in winter, raised to its shortest in summer,
+      kept whole between, and turning in at midnight when sunset is late enough that two hours
+      on would pass it (civ-agents' resolution unit tests,
+      `a_household_resolved_night_runs_from_two_hours_after_sunset_to_sunrise_in_range`). The
+      rest of the household-resolved day (parking, its shares, its learning, its focus and skip)
+      was already pinned by the resolution tests. **Tested:** firms (8), the civ-agents unit tests
+      (308), the civ-sim unit tests, the civ-host lib tests; the ten smoke seeds pass; fmt and
+      clippy clean.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

@@ -10164,6 +10164,21 @@ and M6a gives rivers a daily flow.
       the ten smoke seeds pass; fmt and clippy clean. **Not yet:** a moved household's road line
       reposted from its new door (its keeper weighs posting at its review, as any keeper does);
       the hours of bringing them, which moving does not count for its goods either.
+    - *Covered tip, end to end (2026-11-18; backlog C's covering, its "Not yet": a review
+      proposing it and a gathering passing it untested).* A test only; no code changed. In a
+      village whose polity keeps an open tip under the law carrying refuse there, cholera brought
+      in killed one of its people within 90 days; its people were given a suspicion of the water
+      at a source (none came of the one death in that time by itself). A review with every adult
+      deliberating then put **clearing middens** first, on the same suspicion; once that was taken
+      as in force, the next review put the **covered tip** before the gathering, on
+      `source_suspected`; and the gathering, sitting as people came to it over the next days,
+      **passed** it (5 eligible, 4 present, 3 for, 1 against). Passing named the open tip as the
+      covering's site and asked exactly the hours of all refuse tipped there (`cover_passed`);
+      the world saves and loads exactly. **Found:** the law can be proposed and passed as built;
+      no fault. Recorded, not changed: a covered tip comes after clearing middens wherever both
+      are open (the review's forecasts rank them so), and in this scene one death did not raise a
+      suspicion by itself. **Tested:** tips (8, one new); the ten smoke seeds pass; fmt and clippy
+      clean.
 - **M12, Optional LLM `Deliberator`, multi-viewer, close-up fidelity**
   (MetaHuman-grade notables).
   - *Design (2026-10-30, §9 "M12 design"):* brief `docs/briefs/m12-deliberator-viewers.md` (reads

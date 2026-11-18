@@ -886,3 +886,143 @@ fn under_a_law_covering_the_tip_what_comes_is_asked_covered_and_worked_under_ear
     carry(&mut sim, households[0]);
     assert!(!sim.people().polities[0].tips[0].covered());
 }
+
+/// End to end (ADR-0038 §6's covering): in a village whose polity keeps an open tip under the
+/// law carrying refuse there, cholera brought in kills one of its people and its people suspect
+/// the water at a source; a review puts a covered tip before the gathering on that suspicion
+/// (once clearing middens, which the same review would put first, is taken as in force), and the
+/// gathering, sitting as people come to it, passes it; passing names the open tip as the
+/// covering's site and asks its work. It saves and loads exactly.
+#[test]
+fn a_review_puts_a_covered_tip_before_the_gathering_where_an_open_tip_is_kept() {
+    let mut sim = village(1);
+    to_morning(&mut sim, 8 * 60);
+    let (_, tip) = the_law_passed(&mut sim);
+    assert!(tip.is_some(), "a tip opens in this valley");
+    let d = cholera(&sim);
+    let someone = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h)
+        .find(|h| h.members.len() >= 3)
+        .map(|h| h.members[0])
+        .expect("a family");
+    sim.plague(someone, CHOLERA).expect("brought");
+    let died = |sim: &Sim| {
+        sim.people()
+            .sickness
+            .episodes()
+            .iter()
+            .filter(|e| {
+                e.disease == d && matches!(e.ended, Some((_, civ_agents::sickness::Outcome::Died)))
+            })
+            .count()
+    };
+    for _ in 0..90 {
+        sim.advance_minutes(DAY).expect("lives");
+        if died(&sim) > 0 && !sim.people().word.suspicions.is_empty() {
+            break;
+        }
+    }
+    eprintln!(
+        "died of cholera: {}; suspicions held: {}",
+        died(&sim),
+        sim.people().word.suspicions.len()
+    );
+    let settlement = sim.people().polities[0].settlement;
+    // Its people suspect the water at a source, as tallying the sick would have them do.
+    let river = (0..sim.map().water.len())
+        .find(|&c| sim.map().water[c] == WATER_RIVER)
+        .expect("a river") as u32;
+    let today = sim.now().day_index();
+    let adults: Vec<PermanentId> = our_households(&sim)
+        .into_iter()
+        .filter_map(|h| sim.people().household(h).map(|x| x.members.clone()))
+        .flatten()
+        .collect();
+    for &a in &adults {
+        sim.people_mut_for_tests().word.suspect(
+            a,
+            civ_agents::uses::Place::Source(river),
+            Default::default(),
+            today,
+        );
+    }
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    let mut proposed = None;
+    for _ in 0..48 {
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[0].gathering = None;
+            // Another law proposed is taken as in force, so that the review weighs what is
+            // left beside it rather than proposing it again.
+            for l in &mut pop.polities[0].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::InForce;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        match sim.people().polities[0].agenda().cloned() {
+            Some(l) if l.kind == PolicyKind::CoverTip => {
+                proposed = Some(l);
+                break;
+            }
+            Some(l) => eprintln!("proposed first: {:?} on {:?}", l.kind, l.issue),
+            None => eprintln!("nothing proposed"),
+        }
+    }
+    let law = proposed.expect("a covered tip proposed");
+    assert_eq!(law.issue, IssueKind::SourceSuspected);
+    // The gathering sits as people come to it, and passes it; passing names the open tip as the
+    // covering's site and asks what lies open there covered.
+    sim.people_mut_for_tests().every_adult_deliberates = false;
+    let mut decided = None;
+    for _ in 0..30 {
+        sim.advance_minutes(DAY).expect("lives");
+        let l = sim.people().polities[0]
+            .laws
+            .iter()
+            .find(|l| l.id == law.id)
+            .cloned()
+            .expect("the law");
+        if l.outcome.is_some() {
+            decided = Some(l);
+            break;
+        }
+    }
+    let l = decided.expect("the gathering decided it");
+    eprintln!(
+        "decided {:?}: eligible {}, (present, for, against) {:?}",
+        l.outcome,
+        l.eligible,
+        l.counts()
+    );
+    assert_eq!(l.outcome, Some(Decided::Passed));
+    assert_eq!(l.status, LawStatus::InForce);
+    let p = &sim.people().polities[0];
+    let site = p.way_site_of(law.id).expect("the covering's site");
+    let t = p
+        .tips
+        .iter()
+        .find(|t| Some(t.id) == site.work)
+        .expect("the open tip");
+    let def = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .find_map(|d| d.cover)
+        .expect("the core covers tips");
+    let per_kg = def.h_per_kg(sim.rules().people.digging.h_per_m3);
+    // Asked: what lay open when it passed and every load since, which is all ever tipped there.
+    assert!(t.tipped_kg() > 0.0, "refuse was carried there");
+    assert!(
+        (site.labour_h - t.tipped_kg() * per_kg).abs() < 1e-6,
+        "asked {} h for {} kg tipped",
+        site.labour_h,
+        t.tipped_kg()
+    );
+    saves_and_goes_on_alike(&mut sim, DAY);
+}

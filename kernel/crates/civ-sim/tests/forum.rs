@@ -1513,7 +1513,7 @@ fn a_forum_is_forecast_to_cost_its_sitters_their_evenings() {
     assert!(hh.len() >= 4, "four households: {hh:?}");
     let settlement = sim.people().polities[0].settlement;
     // Two cases between households 0 and 1, heard at the gathering today with nobody who came.
-    for _ in 0..2 {
+    for k in 0..2 {
         let id = case(&mut sim, &hh[0], &hh[1]);
         let now = sim.now();
         let c = sim
@@ -1523,7 +1523,8 @@ fn a_forum_is_forecast_to_cost_its_sitters_their_evenings() {
             .iter_mut()
             .find(|c| c.id == id)
             .expect("the case");
-        (c.stage, c.heard) = (CaseStage::NotFound, Some(now));
+        // Brought on different days: each sits an evening of its own.
+        (c.stage, c.heard, c.opened) = (CaseStage::NotFound, Some(now), c.opened - k);
     }
     let policies = sim.rules().catalog.policies.clone();
     let index = |id: &str| policies.iter().position(|d| d.id == id).expect("template") as u16;
@@ -1629,7 +1630,7 @@ fn a_hearer_of_a_settlement_taken_in_costs_their_own_household_its_evenings() {
         .expect("the household")
         .1;
     x.settlement = Some(taken);
-    for _ in 0..2 {
+    for k in 0..2 {
         let id = case(&mut sim, &hh[0], &hh[1]);
         let now = sim.now();
         let c = sim
@@ -1639,7 +1640,8 @@ fn a_hearer_of_a_settlement_taken_in_costs_their_own_household_its_evenings() {
             .iter_mut()
             .find(|c| c.id == id)
             .expect("the case");
-        (c.stage, c.heard) = (CaseStage::NotFound, Some(now));
+        // Brought on different days: each sits an evening of its own.
+        (c.stage, c.heard, c.opened) = (CaseStage::NotFound, Some(now), c.opened - k);
     }
     let policies = sim.rules().catalog.policies.clone();
     let named = policies
@@ -1663,4 +1665,101 @@ fn a_hearer_of_a_settlement_taken_in_costs_their_own_household_its_evenings() {
         ours(hh[2].0),
         theirs(hh[2].0)
     );
+}
+
+/// An evening at the hearth serves a gathering and a sitting alike (ADR-0025 §1; the forum's
+/// sitting draws its sitters there as a gathering's members are): a forum's forecast charges a
+/// household's people one evening for each evening they would sit, however many cases they sit
+/// on, and none they came to the gathering anyway to decide a law; and it credits one for each
+/// evening they came to the gathering to hear cases, and none they came there for a law too.
+#[test]
+fn an_evening_at_the_hearth_is_given_once_whatever_sits_there() {
+    use civ_agents::crime::CaseStance;
+    use civ_agents::polity::StanceRecord;
+    let mut sim = world(3);
+    sim.set_notable_tier(false);
+    let hh = households(&sim);
+    assert!(hh.len() >= 5, "five households: {hh:?}");
+    let settlement = sim.people().polities[0].settlement;
+    let (sitter, listener) = (hh[2].1[0], hh[3].1[0]);
+    // Two cases brought the same day, heard at the gathering the evening after, which the
+    // listener from household 3 came to.
+    let mut laws = Vec::new();
+    for _ in 0..2 {
+        let id = case(&mut sim, &hh[0], &hh[1]);
+        let now = sim.now();
+        let day = now.day_index();
+        let c = sim
+            .people_mut_for_tests()
+            .order
+            .cases
+            .iter_mut()
+            .find(|c| c.id == id)
+            .expect("the case");
+        (c.stage, c.heard, c.opened) = (CaseStage::NotFound, Some(now), day - 2);
+        c.stances = vec![CaseStance {
+            person: listener,
+            household: hh[3].0,
+            stance: Stance::Abstain,
+            stake: 0.0,
+            belief: 0.0,
+            regard: 0.0,
+            precedent: 0.0,
+        }];
+        laws.push(c.law);
+    }
+    let policies = sim.rules().catalog.policies.clone();
+    let named = policies
+        .iter()
+        .position(|d| d.id == "core:policy/name_a_hearer")
+        .expect("template") as u16;
+    let gains = |sim: &mut Sim, nominee: PermanentId| {
+        let g = sim.with_ctx_for_tests(|pop, ctx| {
+            pop.forum_gains_for_tests(ctx, settlement, named, Some(nominee))
+        });
+        move |h: PermanentId| g.iter().find(|x| x.0 == h).expect("a household").1
+    };
+    let params = &sim.rules().people;
+    let evening = params.elections.w_evening / params.polity.w_gain;
+    let near = |a: f64, b: f64| (a - b).abs() < 1e-9 * (1.0 + a.abs() + b.abs());
+    let ours = gains(&mut sim, sitter);
+    let theirs = gains(&mut sim, hh[4].1[0]);
+    // One evening for the hearer, for both cases; one spared the listener, for both.
+    assert!(
+        near(ours(hh[2].0), theirs(hh[2].0) - evening),
+        "{} {} {evening}",
+        ours(hh[2].0),
+        theirs(hh[2].0)
+    );
+    assert!(near(theirs(hh[3].0), evening), "{}", theirs(hh[3].0));
+    // Both came to decide a law at the gathering that evening: they were there anyway.
+    let pop = sim.people_mut_for_tests();
+    let l = pop.polities[0]
+        .laws
+        .iter_mut()
+        .find(|l| l.id == laws[0])
+        .expect("the law");
+    for (person, household) in [(sitter, hh[2].0), (listener, hh[3].0)] {
+        l.stances.push(StanceRecord {
+            person,
+            household,
+            stance: Stance::Support,
+            gain: 0.0,
+            regard: 0.0,
+            opinion: 0.0,
+            values: 0.0,
+            view: 0.0,
+            owed: 0.0,
+        });
+    }
+    l.stances.sort_unstable_by_key(|r| r.person);
+    let ours = gains(&mut sim, sitter);
+    let theirs = gains(&mut sim, hh[4].1[0]);
+    assert!(
+        near(ours(hh[2].0), theirs(hh[2].0)),
+        "{} {}",
+        ours(hh[2].0),
+        theirs(hh[2].0)
+    );
+    assert!(near(theirs(hh[3].0), 0.0), "{}", theirs(hh[3].0));
 }

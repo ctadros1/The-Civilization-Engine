@@ -446,6 +446,16 @@ pub struct SitPools {
     pub members: Sitters,
     pub elders: Sitters,
     pub adults: Sitters,
+    /// Who came to a gathering that decided a law within memory, and on which evening (its
+    /// stances are those who came), in order: there that evening anyway, whatever hears cases.
+    pub at_gatherings: Vec<(PermanentId, i64)>,
+}
+
+impl SitPools {
+    /// Whether `person` came to a gathering that decided a law on evening `night`.
+    fn at_gathering(&self, person: PermanentId, night: i64) -> bool {
+        self.at_gatherings.binary_search(&(person, night)).is_ok()
+    }
 }
 
 /// A case the gathering heard within memory, as one weighing a forum sees it (M7b slice BR,
@@ -466,6 +476,10 @@ struct ForumCase {
     stances: Vec<(PermanentId, PermanentId, Stance)>,
     /// The kind of law it was brought under, if that law is still known.
     kind: Option<PolicyKind>,
+    /// The evening a forum would sit on it: the one after it was brought (ADR-0025 §1).
+    night: i64,
+    /// The evening it was heard: a gathering's, or a forum's sitting.
+    heard_night: i64,
 }
 
 impl ForumCase {
@@ -902,20 +916,16 @@ impl Forecasts {
                 else {
                     return 0.0;
                 };
-                let (mut net, mut evenings, mut asked) = (0.0, 0usize, 0.0);
+                let mut net = 0.0;
                 for c in &self.forum_cases {
-                    if c.gathered {
-                        evenings += c.stances.iter().filter(|r| r.1 == h).count();
-                    }
-                    asked += self.asks(c, def, m.nominee, h);
                     let Some(side) = c.side(h) else {
                         continue;
                     };
                     let chance = c.chance(def, m.nominee);
                     net += side * (chance - f64::from(u8::from(c.found))) * c.kcal;
                 }
-                let kept =
-                    (evenings as f64 - asked) * params.elections.w_evening / pp.w_gain.max(1e-9);
+                let evenings = self.gathered_evenings(h) - self.sitting_evenings(def, m.nominee, h);
+                let kept = evenings * params.elections.w_evening / pp.w_gain.max(1e-9);
                 kept + Self::forum_net(o, net, params)
             }
             // A duty or an embargo (M7c slice BV): what it brings back less what it costs, a year.
@@ -1067,27 +1077,85 @@ impl Forecasts {
         }
     }
 
+    /// The evenings household `h`'s people gave at the gathering hearing the cases within memory
+    /// that a forum would spare them (ADR-0025 §1): each evening one of them came to hear one,
+    /// once however many it heard, unless they came to decide a law there too.
+    fn gathered_evenings(&self, h: PermanentId) -> f64 {
+        let mut came: Vec<(PermanentId, i64)> = self
+            .forum_cases
+            .iter()
+            .filter(|c| c.gathered)
+            .flat_map(|c| {
+                c.stances
+                    .iter()
+                    .filter(|r| r.1 == h)
+                    .map(move |r| (r.0, c.heard_night))
+            })
+            .filter(|&(p, n)| !self.sit_pools.at_gathering(p, n))
+            .collect();
+        came.sort_unstable();
+        came.dedup();
+        came.len() as f64
+    }
+
     /// The evenings household `h`'s people would give sitting in forum `def`, its holder
-    /// `nominee`, to hear case `c` (ADR-0025 §1: it sits the evening after a case is brought, at
-    /// the seat's hearth, and its sitters come): none where the household is party to it, whose
-    /// people never sit on it, or where the forum does not hear its kind; else its holder, one
-    /// evening (by lot, the seat's share of an evening for each of its adults, as a council's lot
-    /// is forecast); a panel, its seats' share of the draw for each of its members not of the two
-    /// households; the elders, each of its elders.
-    fn asks(
+    /// `nominee`, on the cases within memory (ADR-0025 §1: it sits the evening after a case is
+    /// brought, at the seat's hearth, and its sitters come): each evening one of them would sit,
+    /// once however many cases it sits on, and none they came to the gathering to decide a law,
+    /// which one evening at the hearth serves.
+    fn sitting_evenings(
+        &self,
+        def: &crate::forum::ForumDef,
+        nominee: Option<PermanentId>,
+        h: PermanentId,
+    ) -> f64 {
+        let mut sits: Vec<((PermanentId, i64), f64)> = self
+            .forum_cases
+            .iter()
+            .flat_map(|c| {
+                self.sitters_of(c, def, nominee, h)
+                    .into_iter()
+                    .map(move |(p, w)| ((p, c.night), w))
+            })
+            .collect();
+        sits.sort_unstable_by_key(|a| a.0);
+        let mut total = 0.0;
+        for group in sits.chunk_by(|a, b| a.0 == b.0) {
+            let (p, night) = group[0].0;
+            if self.sit_pools.at_gathering(p, night) {
+                continue;
+            }
+            // A panel is drawn for each case; a holder or an elder sits on every one.
+            total += if def.seat == crate::forum::ForumSeat::Panel {
+                1.0 - group.iter().map(|x| 1.0 - x.1).product::<f64>()
+            } else {
+                group.iter().map(|x| x.1).fold(0.0, f64::max)
+            };
+        }
+        total
+    }
+
+    /// Household `h`'s people who would sit in forum `def`, its holder `nominee`, to hear case
+    /// `c`, each with the chance they would (ADR-0025 §1): none where the household is party to
+    /// it, whose people never sit on it, or where the forum does not hear its kind; else its
+    /// holder (by lot, each adult at their share of the polity's); a panel's members, each at its
+    /// seats' share of those not of the two households; the elders.
+    fn sitters_of(
         &self,
         c: &ForumCase,
         def: &crate::forum::ForumDef,
         nominee: Option<PermanentId>,
         h: PermanentId,
-    ) -> f64 {
+    ) -> Vec<(PermanentId, f64)> {
         if c.side(h).is_some() || !c.kind.is_some_and(|k| def.hears(k)) {
-            return 0.0;
+            return Vec::new();
         }
-        let of = |list: &[(PermanentId, PermanentId)]| list.iter().filter(|a| a.1 == h).count();
         // Of every settlement the polity holds, whatever the settlement weighing it (ADR-0023 §9:
         // their residents are its members).
         let pools = &self.sit_pools;
+        let of = |list: &[(PermanentId, PermanentId)], w: f64| -> Vec<(PermanentId, f64)> {
+            list.iter().filter(|a| a.1 == h).map(|a| (a.0, w)).collect()
+        };
         match def.seat {
             crate::forum::ForumSeat::Holder => match nominee {
                 Some(n) => pools
@@ -1095,8 +1163,8 @@ impl Forecasts {
                     .binary_search_by_key(&n, |a| a.0)
                     .ok()
                     .filter(|&i| pools.adults[i].1 == h)
-                    .map_or(0.0, |_| 1.0),
-                None => of(&pools.adults) as f64 / pools.adults.len().max(1) as f64,
+                    .map_or_else(Vec::new, |_| vec![(n, 1.0)]),
+                None => of(&pools.adults, 1.0 / pools.adults.len().max(1) as f64),
             },
             crate::forum::ForumSeat::Panel => {
                 let pool = pools
@@ -1104,10 +1172,12 @@ impl Forecasts {
                     .iter()
                     .filter(|a| a.1 != c.accuser && a.1 != c.accused)
                     .count();
-                let share = (f64::from(def.panel) / pool.max(1) as f64).min(1.0);
-                of(&pools.members) as f64 * share
+                of(
+                    &pools.members,
+                    (f64::from(def.panel) / pool.max(1) as f64).min(1.0),
+                )
             }
-            crate::forum::ForumSeat::Elders => of(&pools.elders) as f64,
+            crate::forum::ForumSeat::Elders => of(&pools.elders, 1.0),
         }
     }
 
@@ -1154,11 +1224,12 @@ impl Forecasts {
         let Ok(i) = self.outlooks.binary_search_by_key(&h, |o| o.0) else {
             return 0.0;
         };
-        let (mut net, mut spared) = (0.0, 0.0);
+        // The evenings the one in force asks of the household's people to sit, less those the
+        // new one would (ADR-0025 §1).
+        let spared =
+            self.sitting_evenings(was, kept.nominee, h) - self.sitting_evenings(new, m.nominee, h);
+        let mut net = 0.0;
         for c in &self.forum_cases {
-            // The evenings the one in force asks of the household's people to sit, less those
-            // the new one would (ADR-0025 §1).
-            spared += self.asks(c, was, kept.nominee, h) - self.asks(c, new, m.nominee, h);
             let Some(side) = c.side(h) else {
                 continue;
             };
@@ -2397,10 +2468,22 @@ impl Population {
                     ctx.now,
                     ctx.params,
                 );
+                // Decided at the midnight after the evening it met.
+                let since = ctx.now.day_index() - i64::from(ctx.params.crime.remember_days) - 1;
+                let mut at_gatherings: Vec<(PermanentId, i64)> = self.polities[pi]
+                    .laws
+                    .iter()
+                    .filter_map(|l| Some((l, l.decided?.day_index() - 1)))
+                    .filter(|&(_, n)| n >= since)
+                    .flat_map(|(l, n)| l.stances.iter().map(move |r| (r.person, n)))
+                    .collect();
+                at_gatherings.sort_unstable();
+                at_gatherings.dedup();
                 SitPools {
                     members,
                     elders,
                     adults,
+                    at_gatherings,
                 }
             } else {
                 SitPools::default()
@@ -2484,6 +2567,9 @@ impl Population {
                     .map(|r| (r.person, r.household, r.stance))
                     .collect(),
                 kind: polity.laws.iter().find(|l| l.id == c.law).map(|l| l.kind),
+                night: c.opened + 1,
+                // Heard at the midnight after the evening it sat.
+                heard_night: c.heard.map_or(c.opened, |t| t.day_index() - 1),
             })
             .collect()
     }

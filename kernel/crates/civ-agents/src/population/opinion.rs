@@ -8,7 +8,7 @@
 
 use super::*;
 use crate::opinion::{Position, anchor_of, pulled, taken_in};
-use crate::polity::{IssueKind, LawStatus, MoveOption, PolicyDef};
+use crate::polity::{IssueKind, LawStatus, MoveOption, PolicyDef, PolicyKind};
 
 /// Purpose tag for a companion saying where they stand on a question.
 pub const PURPOSE_OPINION: u64 = 0x6f70_696e_696f_6e31; // "opinion1"
@@ -54,7 +54,54 @@ fn level_of(def: &PolicyDef, k: u16, polity: &crate::polity::Polity) -> MoveOpti
     }
 }
 
+/// The law in force that a law of template `k` would be put in place of, as the review offers it:
+/// another forum, debts-heard or bearer rule, issue of notes or mint, of the same kind and another
+/// template (M7b slice BS, M7d slices CB and CE4b, M10d slices EI and EJ). With it, its template
+/// and the move it would be were it proposed now, as the review weighs it.
+fn in_place_of(
+    def: &PolicyDef,
+    k: u16,
+    polity: &crate::polity::Polity,
+) -> Option<(PermanentId, u16, MoveOption)> {
+    if !matches!(
+        def.kind,
+        PolicyKind::HearCases
+            | PolicyKind::DebtsHeard
+            | PolicyKind::BearerHeard
+            | PolicyKind::IssueNotes
+            | PolicyKind::Mint
+    ) {
+        return None;
+    }
+    let l = polity
+        .laws
+        .iter()
+        .find(|l| l.kind == def.kind && l.status == LawStatus::InForce && l.policy != k)?;
+    let m = MoveOption {
+        policy: l.policy,
+        levy_share: f64::from(l.levy_share),
+        issue: l.issue,
+        nominee: l.holder,
+        sanction: l.sanction,
+        hours: l.hours,
+        body: None,
+        ends: None,
+        site: None,
+        target: l.target,
+        own_gain: 0.0,
+        followers_gain: 0.0,
+        support: 0.5,
+    };
+    Some((l.id, l.policy, m))
+}
+
 impl Population {
+    /// [`Population::opinion_month`]: for tests.
+    #[doc(hidden)]
+    pub fn opinion_month_for_tests(&mut self, ctx: &Ctx) {
+        self.opinion_month(ctx);
+    }
+
     /// The first of the month (ADR-0016 §4): each adult's anchor on each question content names
     /// is what their household's lot makes of it now, and their position is pulled toward it
     /// for the time since; someone new holds their household's lot. Positions of those no longer
@@ -96,6 +143,10 @@ impl Population {
                 let polity = &self.polities[pi];
                 let def = &policies[usize::from(k)];
                 let m = level_of(def, k, polity);
+                // A law of a kind one of which stands at a time, another of it in force, would come
+                // in place of that one: its lot is what it would bring over that law, and what it
+                // does to what they hold dear over what that one does, as the review weighs it.
+                let instead = in_place_of(def, k, polity);
                 let live = polity.laws.iter().any(|l| {
                     l.policy == k && matches!(l.status, LawStatus::InForce | LawStatus::Proposed)
                 });
@@ -106,8 +157,17 @@ impl Population {
                 };
                 for &(a, h) in &adults {
                     // Their household's lot, and what it does to what they hold dear.
-                    let points =
-                        pp.w_gain * fc.gain(&m, h, policies, params) + self.value_points(ctx, a, k);
+                    let points = match &instead {
+                        Some((old, was, kept)) => {
+                            pp.w_gain * fc.replacing(&m, kept, *old, h, policies, params)
+                                + self.value_points(ctx, a, k)
+                                - self.value_points(ctx, a, *was)
+                        }
+                        None => {
+                            pp.w_gain * fc.gain(&m, h, policies, params)
+                                + self.value_points(ctx, a, k)
+                        }
+                    };
                     let z = anchor_of(points, op);
                     anchors.push((a, k, z, salience));
                 }

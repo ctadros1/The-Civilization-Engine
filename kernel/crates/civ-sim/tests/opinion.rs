@@ -318,3 +318,89 @@ fn how_far_talk_moved_someone_weighs_in_their_stance_and_the_record_says_so() {
     assert_eq!(law.outcome, Some(Outcome::Passed));
     saves_and_goes_on_alike(&mut sim, content(), DAY);
 }
+
+/// The seventh coverage pass's deliberation entries, "recorded, not chased" (ADR-0016 §4; research
+/// 09-05 §1.5): a household's lot on the question of a forum, another forum in force, is what
+/// that forum would bring in place of the one in force, as the review weighs it, and what it does
+/// to what they hold dear over what that one does. A hearer named for a year bears what a hearer
+/// named does; with one in force, no case within memory and safety held at 0.8, everyone's anchor
+/// on the question of a hearer for a year is even, and on that of a hearer bound by findings
+/// (which bears safety at 0.75, not 0.5) what the 0.2 points more make of it. Before, each was
+/// anchored as if no forum were in force: on what the template does to what they hold dear in
+/// full.
+#[test]
+fn a_question_of_a_forum_with_another_in_force_is_anchored_against_it() {
+    let mut sim = world_with(content(), 3);
+    sim.advance_minutes(40 * DAY).expect("advances");
+    let catalog = sim.rules().catalog.clone();
+    let template = |id: &str| {
+        catalog
+            .policies
+            .iter()
+            .position(|p| p.id == id)
+            .expect("in core") as u16
+    };
+    let (named, for_a_year, bound) = (
+        template("core:policy/name_a_hearer"),
+        template("core:policy/zestfully_name_a_hearer_for_a_year"),
+        template("core:policy/hearer_by_precedent"),
+    );
+    let security = catalog
+        .values
+        .iter()
+        .position(|v| v.id == "core:value/security")
+        .expect("in core") as u16;
+    let adults = adults(&sim);
+    let now = sim.now();
+    let id = PermanentId::from_raw(sim.ids().peek_next() + 1_000_000).expect("non-zero");
+    let pop = sim.people_mut_for_tests();
+    for h in &mut pop.values.held {
+        h.v = if h.value == security { 0.8 } else { 0.0 };
+    }
+    // Nobody holds an ideology, and no case was brought: only what they hold dear tilts them.
+    pop.ideologies.held.clear();
+    pop.order.cases.clear();
+    pop.polities[0].laws.push(Law {
+        id,
+        policy: named,
+        kind: PolicyKind::HearCases,
+        levy_share: 0.0,
+        holder: Some(adults[0]),
+        relief_days: 0.0,
+        sanction: Default::default(),
+        hours: (0, 0),
+        status: LawStatus::InForce,
+        sponsor: adults[0],
+        proposed: now,
+        issue: IssueKind::CasesWaiting,
+        meets_day: now.day_index(),
+        decided: Some(now),
+        outcome: Some(Outcome::Passed),
+        eligible: 0,
+        stances: Vec::new(),
+        known: Vec::new(),
+        compliance: Default::default(),
+        watch: Default::default(),
+        ends: None,
+        agreement: None,
+        target: None,
+        body: None,
+    });
+    sim.with_ctx_for_tests(|pop, ctx| pop.opinion_month_for_tests(ctx));
+    let op = &sim.rules().people.opinion;
+    let anchor = |a: PermanentId, k: u16| {
+        f64::from(
+            sim.people()
+                .opinion
+                .position(a, k)
+                .expect("a position")
+                .anchor,
+        )
+    };
+    let even = civ_agents::opinion::anchor_of(0.0, op);
+    let more = civ_agents::opinion::anchor_of(0.75 * 0.8 - 0.5 * 0.8, op);
+    for &a in &adults {
+        assert!((anchor(a, for_a_year) - even).abs() < 1e-6, "{a:?}");
+        assert!((anchor(a, bound) - more).abs() < 1e-6, "{a:?}");
+    }
+}
